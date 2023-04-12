@@ -62,34 +62,40 @@ export default function Home() {
         <p>Loading data...</p>
       ) : (
         <>
-        <div className="container mx-auto p-8">
-          <div className="flex flex-wrap">
-            {columns.map(column => (
-                <div key={column} className="bg-gray-200 p-2 m-1">{column}</div>
-            ))}
-          </div>
-          <input
-              type="text"
-              placeholder="Search using query language..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className='mb-4 w-full'
-            />
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {filteredData.map((row, index) => (
-                  <Image
-                    src={`/cardimages/${row.imagefile}.jpg`}
-                    width={165}
-                    height={229}
-                    placeholder='blur'
-                    blurDataURL='/cardimages/cardback.jpg'
-                    alt={row.name}
-                    key={index}
-                    className='w-full h-auto'
-                  />
-              ))}
+          <div className="container mx-auto p-8">
+            <input
+                type="text"
+                placeholder="Search query, e.g. name:Odo type:personnel"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className='mb-4 w-full'
+              />
+            <div className='mb-4'>
+              <input
+                type="checkbox"
+                className="peer"
+                  />&nbsp;show field names
+              <div className="flex flex-wrap max-h-0 overflow-hidden peer-checked:max-h-40">
+                {columns.map(column => (
+                    <div key={column} className="bg-gray-200 p-2 m-1">{column}</div>
+                ))}
+              </div>
             </div>
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {filteredData.map((row, index) => (
+                    <Image
+                      src={`/cardimages/${row.imagefile}.jpg`}
+                      width={165}
+                      height={229}
+                      placeholder='blur'
+                      blurDataURL='/cardimages/cardback.jpg'
+                      alt={row.name}
+                      key={index}
+                      className='w-full h-auto'
+                    />
+                ))}
+              </div>
+            </div>
         </>
       )}
     </div>
