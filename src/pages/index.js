@@ -93,11 +93,22 @@ export default function Home() {
               <input
                 type="checkbox"
                 className="peer"
-                  />&nbsp;show field names
-              <div className="flex flex-wrap max-h-0 overflow-hidden peer-checked:max-h-40">
-                {columns.map(column => (
-                    <div key={column} className="bg-gray-200 p-2 m-1">{column}</div>
-                ))}
+                  />&nbsp;show help
+              <div className="flex flex-wrap max-h-0 overflow-hidden peer-checked:max-h-80">
+                <div className="w-full">
+                  <p>Search text with the following fields, e.g. <i>name:Odo</i></p>
+                  <div className="flex flex-wrap">
+                    {textColumns.map(column => (
+                        <div key={column} className="bg-gray-200 p-2 m-1">{column}</div>
+                    ))}
+                  </div>
+                  <p>Search numbers with the following fields, e.g. <i>cost:1-4</i></p>
+                  <div className="flex flex-wrap">
+                    {rangeColumns.map(column => (
+                        <div key={column} className="bg-gray-200 p-2 m-1">{column}</div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
