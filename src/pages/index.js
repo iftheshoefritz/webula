@@ -33,8 +33,19 @@ export default function Home() {
     fetchData();
   }, []);
 
+  const textColumns = [
+    'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission/dilemmatype',
+    'quadrant', 'affiliation', 'icons', 'staff', 'keywords', 'class', 'species', 'skills',
+    'text'
+  ];
+
+  const rangeColumns = [
+    'cost', 'span', 'points', 'integrity/range', 'cunning/weapons', 'strength/shields'
+  ]
+
   const parsedQuery = searchQueryParser.parse(searchQuery, {
-    keywords: columns,
+    keywords: textColumns,
+    ranges: rangeColumns,
     offsets: false,
   });
 
@@ -46,9 +57,17 @@ export default function Home() {
     } else {
       return columns.every((column) => {
         if (parsedQuery[column]) {
-          return row[column]
-            .toLowerCase()
-            .includes(parsedQuery[column].toLowerCase());
+          if (textColumns.includes(column)) {
+            return row[column]
+              .toLowerCase()
+              .includes(parsedQuery[column].toLowerCase());
+          } else if (rangeColumns.includes(column)) {
+            const range = parsedQuery[column];
+            const rowValue = parseFloat(row[column]);
+            const fromValue = range.from !== '' ? parseFloat(range.from) : -Infinity;
+            const toValue = range.to !== '' ? parseFloat(range.to) : Infinity;
+            return rowValue >= fromValue && rowValue <= toValue;
+          }
         }
         return true;
       });
