@@ -1,79 +1,95 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { debounce } from 'lodash';
 import * as d3 from 'd3';
 import searchQueryParser from 'search-query-parser';
 import Image from 'next/image';
+
+const textColumns = [
+  'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission/dilemmatype',
+  'quadrant', 'affiliation', 'icons', 'staff', 'keywords', 'class', 'species', 'skills',
+  'text'
+];
+
+const rangeColumns = [
+  'cost', 'span', 'points', 'integrity/range', 'cunning/weapons', 'strength/shields'
+]
 
 export default function Home() {
   const [data, setData] = useState([]);
   const [columns, setColumns] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const debouncedFilterData = useRef(null);
+
+  useEffect(() => {
+    debouncedFilterData.current = debounce(
+      (query) => {
+        const parsedQuery = searchQueryParser.parse(query, {
+          keywords: textColumns,
+          ranges: rangeColumns,
+          offsets: false,
+        });
+
+        const filtered = data.filter((row) => {
+          if (typeof parsedQuery === 'string') {
+            return columns.some((column) =>
+              row[column].toLowerCase().includes(parsedQuery.toLowerCase())
+            );
+          } else {
+            return columns.every((column) => {
+              if (parsedQuery[column]) {
+                if (textColumns.includes(column)) {
+                  return row[column]
+                    .toLowerCase()
+                    .includes(parsedQuery[column].toLowerCase());
+                } else if (rangeColumns.includes(column)) {
+                  const range = parsedQuery[column];
+                  const rowValue = parseFloat(row[column]);
+                  const fromValue = range.from !== '' ? parseFloat(range.from) : -Infinity;
+                  const toValue = range.to !== '' ? parseFloat(range.to) : Infinity;
+                  return rowValue >= fromValue && rowValue <= toValue;
+                }
+              }
+              return true;
+            });
+          }
+        });
+
+        setFilteredData(filtered);
+      }, 500
+    );
+  }, [data, columns]);
 
   useEffect(() => {
     const fetchData = async () => {
       const response = await fetch('/cards.txt');
       const text = await response.text();
       const parsedData = d3.tsvParse(text);
-      setData(
-        parsedData.map((row) =>
-          Object.fromEntries(
-            Object.entries(row).map(([key, value]) => [
-              key.toLowerCase(),
-              value,
-            ])
-          )
+      const formattedData = parsedData.map((row) =>
+        Object.fromEntries(
+          Object.entries(row).map(([key, value]) => [
+            key.toLowerCase(),
+            value,
+          ])
         )
       );
+      setData(formattedData);
+      setFilteredData(formattedData);
 
       // Extract column names
       if (parsedData.length > 0) {
-        setColumns(Object.keys(parsedData[0]).map((key) => key.toLowerCase()));      }
+        setColumns(Object.keys(parsedData[0]).map((key) => key.toLowerCase()));
+      }
       setLoading(false);
     };
     fetchData();
   }, []);
 
-  const textColumns = [
-    'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission/dilemmatype',
-    'quadrant', 'affiliation', 'icons', 'staff', 'keywords', 'class', 'species', 'skills',
-    'text'
-  ];
-
-  const rangeColumns = [
-    'cost', 'span', 'points', 'integrity/range', 'cunning/weapons', 'strength/shields'
-  ]
-
-  const parsedQuery = searchQueryParser.parse(searchQuery, {
-    keywords: textColumns,
-    ranges: rangeColumns,
-    offsets: false,
-  });
-
-  const filterRow = (row) => {
-    if (typeof parsedQuery === 'string') {
-      return columns.some((column) =>
-        row[column].toLowerCase().includes(parsedQuery.toLowerCase())
-      );
-    } else {
-      return columns.every((column) => {
-        if (parsedQuery[column]) {
-          if (textColumns.includes(column)) {
-            return row[column]
-              .toLowerCase()
-              .includes(parsedQuery[column].toLowerCase());
-          } else if (rangeColumns.includes(column)) {
-            const range = parsedQuery[column];
-            const rowValue = parseFloat(row[column]);
-            const fromValue = range.from !== '' ? parseFloat(range.from) : -Infinity;
-            const toValue = range.to !== '' ? parseFloat(range.to) : Infinity;
-            return rowValue >= fromValue && rowValue <= toValue;
-          }
-        }
-        return true;
-      });
-    }
-  };
-  const filteredData = data.filter(filterRow);
+  const filterData = useCallback((query) => {
+    debouncedFilterData.current(query);
+  }, []);
 
   return (
     <div>
@@ -86,7 +102,10 @@ export default function Home() {
                 type="text"
                 placeholder="Search query, e.g. name:Odo type:personnel"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  filterData(e.target.value);
+                }}
                 className='mb-4 w-full'
               />
             <div className='mb-4'>
