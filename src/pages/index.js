@@ -14,6 +14,10 @@ const rangeColumns = [
   'cost', 'span', 'points', 'integrity/range', 'cunning/weapons', 'strength/shields'
 ]
 
+const nonFilterColumns = [
+  'imagefile'
+]
+
 function toArray(item) {
   if (Array.isArray(item)) {
     return item;
@@ -77,10 +81,11 @@ export default function Home() {
       const parsedData = d3.tsvParse(text);
       const formattedData = parsedData.map((row) =>
         Object.fromEntries(
-          Object.entries(row).map(([key, value]) => [
-            key.toLowerCase(),
-            value.toLowerCase(),
-          ])
+          Object.entries(row)
+            .map(([key, value]) => nonFilterColumns.includes(key) ? [key.toLowerCase, value] : [
+              key.toLowerCase(),
+              value.toLowerCase(),
+            ])
         )
       );
       setData(formattedData);
