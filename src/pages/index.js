@@ -7,7 +7,7 @@ import Image from 'next/image';
 const textColumns = [
   'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission/dilemmatype',
   'quadrant', 'affiliation', 'icons', 'staff', 'keywords', 'class', 'species', 'skills',
-  'text'
+  'gametext'
 ];
 
 const rangeColumns = [
