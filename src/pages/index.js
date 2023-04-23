@@ -14,6 +14,14 @@ const rangeColumns = [
   'cost', 'span', 'points', 'integrity/range', 'cunning/weapons', 'strength/shields'
 ]
 
+function toArray(item) {
+  if (Array.isArray(item)) {
+    return item;
+  } else {
+    return [item];
+  }
+}
+
 export default function Home() {
   const [data, setData] = useState([]);
   const [columns, setColumns] = useState([]);
@@ -31,30 +39,30 @@ export default function Home() {
           ranges: rangeColumns,
           offsets: false,
         });
+        // make every term into an array of lower case strings
+        columns.forEach((column) => {
+          if (parsedQuery[column]) {
+            parsedQuery[column] = toArray(parsedQuery[column]).map((term) => term.toLowerCase());
+          }
+        });
 
         const filtered = data.filter((row) => {
-          if (typeof parsedQuery === 'string') {
-            return columns.some((column) =>
-              row[column].toLowerCase().includes(parsedQuery.toLowerCase())
-            );
-          } else {
-            return columns.every((column) => {
-              if (parsedQuery[column]) {
-                if (textColumns.includes(column)) {
-                  return row[column]
-                    .toLowerCase()
-                    .includes(parsedQuery[column].toLowerCase());
-                } else if (rangeColumns.includes(column)) {
-                  const range = parsedQuery[column];
-                  const rowValue = parseFloat(row[column]);
-                  const fromValue = range.from !== '' ? parseFloat(range.from) : -Infinity;
-                  const toValue = range.to !== '' ? parseFloat(range.to) : Infinity;
-                  return rowValue >= fromValue && rowValue <= toValue;
-                }
+          return columns.every((column) => {
+            if (parsedQuery[column]) {
+              if (textColumns.includes(column)) {
+                return parsedQuery[column].every((match) =>
+                  row[column].includes(match)
+                )
+              } else if (rangeColumns.includes(column)) {
+                const range = parsedQuery[column];
+                const rowValue = parseFloat(row[column]);
+                const fromValue = range.from !== '' ? parseFloat(range.from) : -Infinity;
+                const toValue = range.to !== '' ? parseFloat(range.to) : Infinity;
+                return rowValue >= fromValue && rowValue <= toValue;
               }
-              return true;
-            });
-          }
+            }
+            return true;
+          });
         });
 
         setFilteredData(filtered);
@@ -71,7 +79,7 @@ export default function Home() {
         Object.fromEntries(
           Object.entries(row).map(([key, value]) => [
             key.toLowerCase(),
-            value,
+            value.toLowerCase(),
           ])
         )
       );
