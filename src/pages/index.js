@@ -5,13 +5,13 @@ import searchQueryParser from 'search-query-parser';
 import Image from 'next/image';
 
 const textColumns = [
-  'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission/dilemmatype',
+  'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission', 'dilemmatype',
   'quadrant', 'affiliation', 'icons', 'staff', 'keywords', 'class', 'species', 'skills',
   'gametext'
 ];
 
 const rangeColumns = [
-  'cost', 'span', 'points', 'integrity/range', 'cunning/weapons', 'strength/shields'
+  'cost', 'span', 'points', 'integrity', 'range', 'cunning', 'weapons', 'strength', 'shields'
 ]
 
 const nonFilterColumns = [
@@ -76,7 +76,7 @@ export default function Home() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const response = await fetch('/cards.txt');
+      const response = await fetch('/cards_with_processed_columns.txt');
       const text = await response.text();
       const parsedData = d3.tsvParse(text);
       const formattedData = parsedData.map((row) =>
