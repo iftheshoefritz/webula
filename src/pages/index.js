@@ -60,8 +60,8 @@ export default function Home() {
               } else if (rangeColumns.includes(column)) {
                 const range = parsedQuery[column];
                 const rowValue = parseFloat(row[column]);
-                const fromValue = range.from !== '' ? parseFloat(range.from) : -Infinity;
-                const toValue = range.to !== '' ? parseFloat(range.to) : Infinity;
+                const fromValue = range.from !== '' && range.from !== undefined ? parseFloat(range.from) : -Infinity;
+                const toValue = range.to !== '' && range.to !== undefined ? parseFloat(range.to) : Infinity;
                 return rowValue >= fromValue && rowValue <= toValue;
               }
             }
