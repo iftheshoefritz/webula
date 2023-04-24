@@ -15,7 +15,7 @@ const rangeColumns = [
 ]
 
 const nonFilterColumns = [
-  'imagefile'
+  'ImageFile'
 ]
 
 function toArray(item) {
@@ -82,7 +82,7 @@ export default function Home() {
       const formattedData = parsedData.map((row) =>
         Object.fromEntries(
           Object.entries(row)
-            .map(([key, value]) => nonFilterColumns.includes(key) ? [key.toLowerCase, value] : [
+            .map(([key, value]) => nonFilterColumns.includes(key) ? [key.toLowerCase(), value] : [
               key.toLowerCase(),
               value.toLowerCase(),
             ])
