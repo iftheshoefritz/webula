@@ -43,8 +43,8 @@ export default function Home() {
           ranges: rangeColumns,
           offsets: false,
         });
-        // make every term into an array of lower case strings
-        columns.forEach((column) => {
+        // make every text term into an array of lower case strings
+        textColumns.forEach((column) => {
           if (parsedQuery[column]) {
             parsedQuery[column] = toArray(parsedQuery[column]).map((term) => term.toLowerCase());
           }
