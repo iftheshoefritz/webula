@@ -45,7 +45,7 @@ export default function Home() {
           if (parsedQuery[column]) {
             parsedQuery[column] = toArray(parsedQuery[column])
               .map((term) => term.toLowerCase()) // make every text term into an array of lower case strings
-              .map((term) => term.replace(/[‘’“”«»]/g, '"')); // eliminate smart quotes
+              .map((term) => term.replace(/[‘’“”«»\u201C\u201D‘’“”«»\u2018\u2019\u201C\u201D]/g, '"')); // eliminate smart quotes
           }
         });
 
