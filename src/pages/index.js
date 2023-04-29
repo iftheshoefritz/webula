@@ -41,10 +41,11 @@ export default function Home() {
           ranges: rangeColumns,
           offsets: false,
         });
-        // make every text term into an array of lower case strings
         textColumns.forEach((column) => {
           if (parsedQuery[column]) {
-            parsedQuery[column] = toArray(parsedQuery[column]).map((term) => term.toLowerCase());
+            parsedQuery[column] = toArray(parsedQuery[column])
+              .map((term) => term.toLowerCase()) // make every text term into an array of lower case strings
+              .map((term) => term.replace(/[‘’“”«»]/g, '"')); // eliminate smart quotes
           }
         });
 
