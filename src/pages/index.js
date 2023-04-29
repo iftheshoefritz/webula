@@ -19,6 +19,8 @@ const nonFilterColumns = [
   'ImageFile'
 ]
 
+const QUOTE_CHARS_REGEX = /[‘’“”«»\u2018\u2019\u201C\u201D]/g;
+
 function toArray(item) {
   if (Array.isArray(item)) {
     return item;
@@ -36,7 +38,7 @@ export default function Home() {
   useEffect(() => {
     debouncedFilterData.current = debounce(
       (query) => {
-        const parsedQuery = searchQueryParser.parse(query, {
+        const parsedQuery = searchQueryParser.parse(query.replace(QUOTE_CHARS_REGEX, '"'), {
           keywords: textColumns,
           ranges: rangeColumns,
           offsets: false,
@@ -45,7 +47,6 @@ export default function Home() {
           if (parsedQuery[column]) {
             parsedQuery[column] = toArray(parsedQuery[column])
               .map((term) => term.toLowerCase()) // make every text term into an array of lower case strings
-              .map((term) => term.replace(/[‘’“”«»\u201C\u201D‘’“”«»\u2018\u2019\u201C\u201D]/g, '"')); // eliminate smart quotes
           }
         });
 
