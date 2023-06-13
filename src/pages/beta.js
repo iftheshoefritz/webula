@@ -4,6 +4,9 @@ import * as d3 from 'd3';
 import searchQueryParser from 'search-query-parser';
 import Image from 'next/image';
 import useDataFetching from '../hooks/useDataFetching';
+import DeckUploader from '../components/DeckUploader';
+import DeckListItem from '../components/DeckListItem';
+import DeckListPile from '../components/DeckListPile';
 
 function useLocalStorage(key, defaultValue) {
   const [value, setValue] = useState(() => {
@@ -51,16 +54,102 @@ export default function Home() {
   const { data, filteredData, setFilteredData, columns, loading } = useDataFetching();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [scratchCards, setScratchCards] = useLocalStorage('scratchCards', {});
+  const [currentDeck, setCurrentDeck] = useLocalStorage('currentDeck', {});
 
-  const handleSelect = (collectorsinfo, count) => {
+  const numericCount = (withPotentialCount) => {
+    if (withPotentialCount) {
+      return withPotentialCount.count || 0; // this check may be unnecessary, do we ever pass in an object without count property?
+    } else {
+      return 0;
+    }
+  }
+
+  const incrementSelect = (collectorsinfo) => {
+    console.log('incrementSelect: ');
     console.log(collectorsinfo);
-    console.log(count)
-    setScratchCards(prevState => ({
-      ...prevState,
-      [collectorsinfo]: count,
-    }));
+    if (numericCount(currentDeck[collectorsinfo]) < 3) {
+      setCurrentDeck(prevState => ({
+        ...prevState,
+        [collectorsinfo]: {
+          count: numericCount(prevState[collectorsinfo]) + 1,
+          row: data.find((row) => row.collectorsinfo === collectorsinfo)
+        }
+      }));
+    }
+    console.log(currentDeck);
+    console.log(Object.values(currentDeck));
   };
+
+  const incrementIncluded = (row) => {
+    console.log('incrementSelect: ');
+    console.log(row.collectorsinfo);
+    if (numericCount(currentDeck[row.collectorsinfo]) < 3) {
+      const newRow = row;
+      newRow.count += 1;
+      setCurrentDeck(prevState => ({
+        ...prevState,
+        [row.collectorsinfo]: {
+          count: newRow.count,
+          row: newRow
+        }
+      }));
+    }
+    console.log(currentDeck);
+    console.log(Object.values(currentDeck));
+  }
+
+  const decrementIncluded = (event, row) => {
+    console.log('decrementSelect: ' + row.collectorsinfo);
+    event.preventDefault();
+    if (numericCount(row) > 0) {
+      console.log('function thinks it is possible to decrement from ' + numericCount(row));
+      const newRow = row;
+      newRow.count -= 1;
+      setCurrentDeck(prevState => ({
+        ...prevState,
+        [row.collectorsinfo]: {
+          count: newRow.count,
+          row: newRow
+        }
+      }));
+    } else {
+      console.log('function thinks it is NOT possible to decrement:');
+      console.log(row.count);
+    }
+  }
+
+  const handleFileLoad = (contents) => {
+    console.log("scratch before file load:");
+    console.log(currentDeck)
+    console.log("10 rows of overall data");
+    const lines = contents.trim().split('\n');
+
+    const deck = {};
+    for (const line of lines) {
+      const key = line.split('\t')[0].toLowerCase();
+      console.log("setting up data structure for: " + key);
+      const card = data.find((row) => row.collectorsinfo === key);
+      switch(card.type) {
+        case "mission":
+          card.pile = "mission";
+          break;
+        case "dilemma":
+          card.pile = "dilemma";
+          break;
+        default:
+          card.pile = "draw";
+      }
+      card.count = (card.count || 0) + 1
+      console.log("setting card.pile = " + card.pile);
+      deck[key] = {
+        count: (deck[key] || {count: 0}).count + 1,
+        row: card
+      }
+    }
+    console.log(deck);
+    console.log(currentDeck);
+    setCurrentDeck(deck);
+  }
 
   const debouncedFilterData = useRef(null);
 
@@ -112,73 +201,47 @@ export default function Home() {
     debouncedFilterData.current(query);
   }, []);
 
+  const currentDeckRows = Object.keys(currentDeck).map((collectorsinfo) => currentDeck[collectorsinfo].row).filter((row) => row.count > 0);
+
   return (
     <div>
       {loading ? (
         <p>Loading data...</p>
       ) : (
         <>
-          <div className="container mx-auto p-8">
-            <input
-                type="text"
-                placeholder="Search query, e.g. name:Odo type:personnel"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  filterData(e.target.value);
-                }}
-                className='mb-4 w-full'
+          <div className="flex h-screen overflow-hidden">
+            <div className="w-128 p-8 overflow-y-scroll">
+              <DeckUploader onFileLoad={handleFileLoad}/>
+              <DeckListPile
+                pileName="Missions"
+                cardsForPile={
+                  currentDeckRows.filter((row) => row.pile === "mission")
+                }
+                incrementIncluded={incrementIncluded}
+                decrementIncluded={decrementIncluded}
               />
-            <div className='mb-4'>
-              <input
-                type="checkbox"
-                className="peer"
-                  />&nbsp;show help
-              <div className="flex flex-wrap max-h-0 overflow-hidden peer-checked:max-h-80">
-                <div className="w-full">
-                  <p>Search text with the following fields, e.g. <i>name:Odo</i></p>
-                  <div className="flex flex-wrap">
-                    {textColumns.map(column => (
-                        <div key={column} className="bg-gray-200 p-2 m-1">{column}</div>
-                    ))}
-                  </div>
-                  <p>Search numbers with the following fields, e.g. <i>cost:1-4</i></p>
-                  <div className="flex flex-wrap">
-                    {rangeColumns.map(column => (
-                        <div key={column} className="bg-gray-200 p-2 m-1">{column}</div>
-                    ))}
-                  </div>
-                </div>
+              <DeckListPile
+                pileName="Dilemmas"
+                cardsForPile={
+                  currentDeckRows.filter((row) => row.pile === "dilemma")
+                }
+                decrementIncluded={decrementIncluded}
+                incrementIncluded={incrementIncluded}
+              />
+              <DeckListPile
+                pileName="Draw"
+                cardsForPile={
+                  currentDeckRows.filter((row) => row.pile === "draw")
+                }
+                incrementIncluded={incrementIncluded}
+                decrementIncluded={decrementIncluded}
+              />
+            </div>
+            <div className="flex-grow overflow-y-scroll">
+              <div className="container mx-auto p-8">
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {filteredData.map((row, index) => (
-                  <div key={index} className='gridItem'>
-                    <Image
-                      src={`/cardimages/${row.imagefile}.jpg`}
-                      width={165}
-                      height={229}
-                      placeholder='blur'
-                      blurDataURL='/cardimages/cardback.jpg'
-                      alt={row.name}
-                      key={index}
-                      className='w-full h-auto'
-                    />
-                    <select
-                      value={scratchCards[row.collectorsinfo] || 0}
-                      onChange={(e) =>
-                        handleSelect(row.collectorsinfo, parseInt(e.target.value, 10))
-                      }
-                    >
-                      <option value={0}>0</option>
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                      <option value={3}>3</option>
-                    </select>
-                  </div>
-                ))}
-              </div>
-            </div>
+          </div>
         </>
       )}
     </div>
