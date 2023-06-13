@@ -23,7 +23,12 @@ const useDataFetching = () => {
           ),
         ),
       );
-      setData(formattedData);
+      const dataWithStrippedCollectorsInfo = formattedData.map((row) => {
+        const paddedCollectorsInfo = row.collectorsinfo;
+        row.collectorsinfo = paddedCollectorsInfo.replace(/(^|[^0-9])0+(\d+)/g, '$1$2');
+        return row
+      });
+      setData(dataWithStrippedCollectorsInfo);
       setFilteredData(formattedData);
 
       // Extract column names
