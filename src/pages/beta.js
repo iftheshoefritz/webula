@@ -64,22 +64,6 @@ export default function Home() {
     }
   }
 
-  const incrementSelect = (collectorsinfo) => {
-    console.log('incrementSelect: ');
-    console.log(collectorsinfo);
-    if (numericCount(currentDeck[collectorsinfo]) < 3) {
-      setCurrentDeck(prevState => ({
-        ...prevState,
-        [collectorsinfo]: {
-          count: numericCount(prevState[collectorsinfo]) + 1,
-          row: data.find((row) => row.collectorsinfo === collectorsinfo)
-        }
-      }));
-    }
-    console.log(currentDeck);
-    console.log(Object.values(currentDeck));
-  };
-
   const incrementIncluded = (row) => {
     console.log('incrementSelect: ');
     console.log(row.collectorsinfo);
