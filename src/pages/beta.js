@@ -7,6 +7,7 @@ import useDataFetching from '../hooks/useDataFetching';
 import DeckUploader from '../components/DeckUploader';
 import DeckListItem from '../components/DeckListItem';
 import DeckListPile from '../components/DeckListPile';
+import {missionRequirements} from '../lib/missionRequirements';
 
 function useLocalStorage(key, defaultValue) {
   const [value, setValue] = useState(() => {
@@ -38,6 +39,32 @@ const rangeColumns = [
 
 const nonFilterColumns = [
   'ImageFile'
+]
+
+const skillList = [
+  'acquisition',
+  'anthropology',
+  'archaeology',
+  'astrometrics',
+  'biology',
+  'diplomacy',
+  'engineer',
+  'exobiology',
+  'geology',
+  'honor',
+  'intelligence',
+  'law',
+  'leadership',
+  'medical',
+  'navigation',
+  'officer',
+  'physics',
+  'programming',
+  'science',
+  'security',
+  'telepathy',
+  'transporters',
+  'treachery',
 ]
 
 const QUOTE_CHARS_REGEX = /[‘’“”«»\u2018\u2019\u201C\u201D]/g;
@@ -116,6 +143,7 @@ export default function Home() {
       switch(card.type) {
         case "mission":
           card.pile = "mission";
+          //missionRequirements(card);
           break;
         case "dilemma":
           card.pile = "dilemma";
@@ -223,6 +251,78 @@ export default function Home() {
             </div>
             <div className="flex-grow overflow-y-scroll">
               <div className="container mx-auto p-8">
+                <span>Mission requirements</span>
+                <div className="flex space-x-4">
+                  {
+
+                    currentDeckRows
+                      .filter((row) => row.pile === "mission" && row.mission !== "h")
+                      .map((row) => {
+                          return <Image
+                            src={`/cardimages/${row.imagefile}.jpg`}
+                            width={165}
+                            height={229}
+                            placeholder='blur'
+                            blurDataURL='/cardimages/cardback.jpg'
+                            alt={row.name}
+                            key={row.collectorsinfo}
+                            className='w-36 h-auto'
+                          />
+                      })
+                  }
+                </div>
+              </div>
+              <div className="container mx-auto p-8">
+                <span>Personnel skills</span>
+                <div>
+                  {
+                    (() => {
+                      let skillCounts = {};
+                      currentDeckRows
+                        .filter((row) => row.pile === "draw" && row.type === "personnel")
+                        .forEach((row) => {
+                          console.log('splitting skills: ' + row.skills);
+                          row.skills.match(/(?:\d+ \w+|\w+)/g).forEach((item) => {
+                            console.log('token is ' + item);
+                            let [, levelStr, skill] = item.trim().match(/(\d*)\s*(\w+)/) || [null, null, null];
+                            console.log('count = ' + levelStr + ' skill = ' + skill);
+                            let count = levelStr ? Number(levelStr) : 1;
+
+                            if (skillList.includes(skill)) {
+                              if (skillCounts[skill] === undefined) {
+                                skillCounts[skill] = {};
+                              }
+                              skillCounts[skill][String(count)] = (skillCounts[skill][String(count)] || 0) + row.count;
+                            }
+                          })
+                        });
+
+                      Object.entries(skillCounts).forEach(([skill, count]) => {
+                        if (count > 0) {
+                          console.log(`${skill}: ${count}`);
+                        }
+                      });
+
+                      const sortedSkillCounts = Object.entries(skillCounts).sort((a, b) => a[0].localeCompare(b[0]));
+                      return (
+                        <div className="flex flex-wrap">
+                        {
+                          sortedSkillCounts.map(([skill, skillLevels]) =>
+                            <div key={skill} className="m-2 p-2 border rounded">
+                              <div className="font-bold">{skill}</div>
+                              <div>
+                                { skillLevels['1'] && <span className="px-1">{skillLevels['1']}x1</span>}
+                                { skillLevels['2'] && <span className="px-1">{skillLevels['2']}x2</span>}
+                                { skillLevels['3'] && <span className="px-1">{skillLevels['3']}x3</span>}
+                              </div>
+                            </div>
+                          )
+                        }
+                        </div>
+                      );
+                    })()
+                  }
+                </div>
               </div>
             </div>
           </div>
