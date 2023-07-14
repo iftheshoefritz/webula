@@ -7,6 +7,7 @@ import useDataFetching from '../hooks/useDataFetching';
 import DeckUploader from '../components/DeckUploader';
 import DeckListItem from '../components/DeckListItem';
 import DeckListPile from '../components/DeckListPile';
+import PileAggregate from '../components/PileAggregate';
 import {missionRequirements} from '../lib/missionRequirements';
 
 function useLocalStorage(key, defaultValue) {
@@ -273,55 +274,80 @@ export default function Home() {
                 </div>
               </div>
               <div className="container mx-auto p-8">
-                <span>Personnel skills</span>
+                <span>Personnel skills new</span>
                 <div>
-                  {
-                    (() => {
-                      let skillCounts = {};
-                      currentDeckRows
-                        .filter((row) => row.pile === "draw" && row.type === "personnel")
-                        .forEach((row) => {
-                          console.log('splitting skills: ' + row.skills);
-                          row.skills.match(/(?:\d+ \w+|\w+)/g).forEach((item) => {
-                            console.log('token is ' + item);
-                            let [, levelStr, skill] = item.trim().match(/(\d*)\s*(\w+)/) || [null, null, null];
-                            console.log('count = ' + levelStr + ' skill = ' + skill);
-                            let count = levelStr ? Number(levelStr) : 1;
+                  <PileAggregate
+                    currentDeckRows={currentDeckRows}
+                    characteristicName="skills"
+                    filterFunction={(row) => row.pile === "draw" && row.type === "personnel"}
+                    splitFunction={(skills) => skills.match(/(?:\d+ \w+|\w+)/g)}
+                    assembleCounts={(counts, skillItem, rowcount) => {
+                      let [, levelStr, skill] = skillItem.trim().match(/(\d*)\s*(\w+)/) || [null, null, null];
+                      let count = levelStr ? Number(levelStr) : 1;
 
-                            if (skillList.includes(skill)) {
-                              if (skillCounts[skill] === undefined) {
-                                skillCounts[skill] = {};
-                              }
-                              skillCounts[skill][String(count)] = (skillCounts[skill][String(count)] || 0) + row.count;
-                            }
-                          })
-                        });
-
-                      Object.entries(skillCounts).forEach(([skill, count]) => {
-                        if (count > 0) {
-                          console.log(`${skill}: ${count}`);
+                      if (skillList.includes(skill)) {
+                        if (counts[skill] === undefined) {
+                          counts[skill] = {};
                         }
-                      });
+                        counts[skill][String(count)] = (counts[skill][String(count)] || 0) + rowcount;
+                      }
 
-                      const sortedSkillCounts = Object.entries(skillCounts).sort((a, b) => a[0].localeCompare(b[0]));
-                      return (
-                        <div className="flex flex-wrap">
-                        {
-                          sortedSkillCounts.map(([skill, skillLevels]) =>
-                            <div key={skill} className="m-2 p-2 border rounded">
-                              <div className="font-bold">{skill}</div>
-                              <div>
-                                { skillLevels['1'] && <span className="px-1">{skillLevels['1']}x1</span>}
-                                { skillLevels['2'] && <span className="px-1">{skillLevels['2']}x2</span>}
-                                { skillLevels['3'] && <span className="px-1">{skillLevels['3']}x3</span>}
-                              </div>
-                            </div>
-                          )
-                        }
+                      return counts;
+                    }}
+                  >
+                    {([skill, skillLevels]) =>
+                      <div key={skill} className="m-2 p-2 border rounded">
+                        <div className="font-bold">{skill}</div>
+                        <div>
+                          { skillLevels['1'] && <span className="px-1">{skillLevels['1']}x1</span>}
+                          { skillLevels['2'] && <span className="px-1">{skillLevels['2']}x2</span>}
+                          { skillLevels['3'] && <span className="px-1">{skillLevels['3']}x3</span>}
                         </div>
-                      );
-                    })()
-                  }
+                      </div>
+                    }
+                  </PileAggregate>
+                </div>
+              </div>
+              <div className="container mx-auto p-8">
+                <span>Keywords</span>
+                <div>
+                  <PileAggregate
+                    currentDeckRows={currentDeckRows}
+                    characteristicName="keywords"
+                    filterFunction={(row) => row.pile === "draw" && row.type === "personnel"}
+                    splitFunction={(keywords) => keywords.split('.').map((k) => k.trim()).filter((k) => k.length > 0)}
+                    assembleCounts={(counts, keyword, count) => {
+                      counts[keyword] = (counts[keyword] || 0) + count;
+                      return counts;
+                    }}
+                  >
+                    {([keyword, count]) =>
+                        <div key={keyword} className="m-2 p-2 border rounded">
+                        <span className="px-1">{count}x <b>{keyword}</b></span>
+                        </div>
+                    }
+                  </PileAggregate>
+                </div>
+              </div>
+              <div className="container mx-auto p-8">
+                <span>Icons</span>
+                <div>
+                  <PileAggregate
+                    currentDeckRows={currentDeckRows}
+                    characteristicName="icons"
+                    filterFunction={(row) => row.pile === "draw" && row.type === "personnel"}
+                    splitFunction={(keywords) => keywords.split(/[\[\]]/).map((k) => k.trim()).filter((k) => k.length > 0)}
+                    assembleCounts={(counts, icon, count) => {
+                      counts[icon] = (counts[icon] || 0) + count;
+                      return counts;
+                    }}
+                  >
+                    {([icon, count]) =>
+                        <div key={icon} className="m-2 p-2 border rounded">
+                        <span className="px-1">{count}x <b>[{icon}]</b></span>
+                        </div>
+                    }
+                  </PileAggregate>
                 </div>
               </div>
             </div>
