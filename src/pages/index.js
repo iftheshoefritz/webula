@@ -4,6 +4,7 @@ import * as d3 from 'd3';
 import searchQueryParser from 'search-query-parser';
 import SearchBar from '../components/SearchBar';
 import SearchResults from '../components/SearchResults';
+import Help from '../components/Help';
 import useDataFetching from '../hooks/useDataFetching';
 import { textColumns, rangeColumns } from '../lib/constants';
 
@@ -75,6 +76,7 @@ export default function Home() {
         <>
         <div className="container mx-auto p-8">
           <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery}/>
+          <Help/>
           <SearchResults filteredData={filteredData}/>
         </div>
         </>
