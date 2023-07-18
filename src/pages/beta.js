@@ -9,6 +9,7 @@ import DeckListItem from '../components/DeckListItem';
 import DeckListPile from '../components/DeckListPile';
 import PileAggregate from '../components/PileAggregate';
 import {missionRequirements} from '../lib/missionRequirements';
+import { textColumns, rangeColumns } from '../lib/constants';
 
 function useLocalStorage(key, defaultValue) {
   const [value, setValue] = useState(() => {
@@ -27,16 +28,6 @@ function useLocalStorage(key, defaultValue) {
 
   return [value, setValue];
 }
-
-const textColumns = [
-  'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission', 'dilemmatype',
-  'quadrant', 'affiliation', 'icons', 'staff', 'keywords', 'class', 'species', 'skills',
-  'gametext'
-];
-
-const rangeColumns = [
-  'cost', 'span', 'points', 'integrity', 'range', 'cunning', 'weapons', 'strength', 'shields'
-]
 
 const nonFilterColumns = [
   'ImageFile'
@@ -164,55 +155,35 @@ export default function Home() {
     setCurrentDeck(deck);
   }
 
-  const debouncedFilterData = useRef(null);
+  const exportDeckToFile = () => {
+    let tsvArray = [];
 
-  useEffect(() => {
-    debouncedFilterData.current = debounce(
-      (query) => {
-        const parsedQuery = searchQueryParser.parse(query.replace(QUOTE_CHARS_REGEX, '"'), {
-          keywords: textColumns,
-          ranges: rangeColumns,
-          offsets: false,
-        });
-        console.log(query);
-        console.log(parsedQuery);
-        textColumns.forEach((column) => {
-          if (parsedQuery[column]) {
-            parsedQuery[column] = toArray(parsedQuery[column])
-              .map((term) => term.toLowerCase()) // make every text term into an array of lower case strings
-          }
-        });
-        console.log(parsedQuery);
+    for (const collectorsinfo in currentDeck) {
+      const card = currentDeck[collectorsinfo];
+      for (let i = 0; i < card.count; i++) {
+        tsvArray.push(`${collectorsinfo.toUpperCase()}\t${card.row.name}`);
+      }
+    }
 
+    const tsvString = tsvArray.join('\n');
 
-        const filtered = data.filter((row) => {
-          return columns.every((column) => {
-            if (parsedQuery[column]) {
-              if (textColumns.includes(column)) {
-                return parsedQuery[column].every((match) =>
-                  row[column].includes(match)
-                )
-              } else if (rangeColumns.includes(column)) {
-                const range = parsedQuery[column];
-                const rowValue = parseFloat(row[column]);
-                const fromValue = range.from !== '' && range.from !== undefined ? parseFloat(range.from) : -Infinity;
-                const toValue = range.to !== '' && range.to !== undefined ? parseFloat(range.to) : Infinity;
-                return rowValue >= fromValue && rowValue <= toValue;
-              }
-            }
-            return true;
-          });
-        });
+    // Create a Blob from the TSV string
+    const blob = new Blob([tsvString], { type: 'text/tab-separated-values' });
 
-        setFilteredData(filtered);
-      }, 500
-    );
-  }, [data, columns]);
+    // Create a URL for the Blob
+    const url = URL.createObjectURL(blob);
 
+    // Create a temporary anchor element and start a download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'deck.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
-  const filterData = useCallback((query) => {
-    debouncedFilterData.current(query);
-  }, []);
+    // Release the Blob URL
+    URL.revokeObjectURL(url);
+  }
 
   const currentDeckRows = Object.keys(currentDeck).map((collectorsinfo) => currentDeck[collectorsinfo].row).filter((row) => row.count > 0);
 
@@ -225,6 +196,7 @@ export default function Home() {
           <div className="flex h-screen overflow-hidden">
             <div className="w-128 p-8 overflow-y-scroll">
               <DeckUploader onFileLoad={handleFileLoad}/>
+              <button onClick={exportDeckToFile}>Export</button>
               <DeckListPile
                 pileName="Missions"
                 cardsForPile={
