@@ -2,18 +2,10 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { debounce } from 'lodash';
 import * as d3 from 'd3';
 import searchQueryParser from 'search-query-parser';
-import Image from 'next/image';
+import SearchBar from '../components/SearchBar';
+import SearchResults from '../components/SearchResults';
 import useDataFetching from '../hooks/useDataFetching';
-
-const textColumns = [
-  'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission', 'dilemmatype',
-  'quadrant', 'affiliation', 'icons', 'staff', 'keywords', 'class', 'species', 'skills',
-  'gametext'
-];
-
-const rangeColumns = [
-  'cost', 'span', 'points', 'integrity', 'range', 'cunning', 'weapons', 'strength', 'shields'
-]
+import { textColumns, rangeColumns } from '../lib/constants';
 
 const nonFilterColumns = [
   'ImageFile'
@@ -29,8 +21,8 @@ function toArray(item) {
   }
 }
 
-export default function Home() {
-  const { data, filteredData, setFilteredData, columns, loading } = useDataFetching();
+function useFilterData(data, columns) {
+  const [filteredData, setFilteredData] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   const debouncedFilterData = useRef(null);
@@ -46,7 +38,7 @@ export default function Home() {
         textColumns.forEach((column) => {
           if (parsedQuery[column]) {
             parsedQuery[column] = toArray(parsedQuery[column])
-              .map((term) => term.toLowerCase()) // make every text term into an array of lower case strings
+              .map((term) => term.toLowerCase())
           }
         });
 
@@ -74,10 +66,22 @@ export default function Home() {
     );
   }, [data, columns]);
 
+  useEffect(() => {
+    debouncedFilterData.current(searchQuery);
+  }, [searchQuery]);
 
   const filterData = useCallback((query) => {
-    debouncedFilterData.current(query);
+    setSearchQuery(query);
   }, []);
+
+
+  return {filteredData, filterData};
+}
+
+export default function Home() {
+  const { data, columns, loading } = useDataFetching();
+  const {filteredData, filterData} = useFilterData(data, columns);
+  const [searchQuery, setSearchQuery] = useState('');
 
   return (
     <div>
@@ -85,54 +89,10 @@ export default function Home() {
         <p>Loading data...</p>
       ) : (
         <>
-          <div className="container mx-auto p-8">
-            <input
-                type="text"
-                placeholder="Search query, e.g. name:Odo type:personnel"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  filterData(e.target.value);
-                }}
-                className='mb-4 w-full'
-              />
-            <div className='mb-4'>
-              <input
-                type="checkbox"
-                className="peer"
-                  />&nbsp;show help
-              <div className="flex flex-wrap max-h-0 overflow-hidden peer-checked:max-h-80">
-                <div className="w-full">
-                  <p>Search text with the following fields, e.g. <i>name:Odo</i></p>
-                  <div className="flex flex-wrap">
-                    {textColumns.map(column => (
-                        <div key={column} className="bg-gray-200 p-2 m-1">{column}</div>
-                    ))}
-                  </div>
-                  <p>Search numbers with the following fields, e.g. <i>cost:1-4</i></p>
-                  <div className="flex flex-wrap">
-                    {rangeColumns.map(column => (
-                        <div key={column} className="bg-gray-200 p-2 m-1">{column}</div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {filteredData.map((row, index) => (
-                    <Image
-                      src={`/cardimages/${row.imagefile}.jpg`}
-                      width={165}
-                      height={229}
-                      placeholder='blur'
-                      blurDataURL='/cardimages/cardback.jpg'
-                      alt={row.name}
-                      key={index}
-                      className='w-full h-auto'
-                    />
-                ))}
-              </div>
-            </div>
+        <div className="container mx-auto p-8">
+          <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} filterData={filterData}/>
+          <SearchResults filteredData={filteredData}/>
+        </div>
         </>
       )}
     </div>
