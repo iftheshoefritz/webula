@@ -21,67 +21,51 @@ function toArray(item) {
   }
 }
 
-function useFilterData(data, columns) {
+function useFilterData(data, columns, searchQuery) {
   const [filteredData, setFilteredData] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const debouncedFilterData = useRef(null);
 
   useEffect(() => {
-    debouncedFilterData.current = debounce(
-      (query) => {
-        const parsedQuery = searchQueryParser.parse(query.replace(QUOTE_CHARS_REGEX, '"'), {
-          keywords: textColumns,
-          ranges: rangeColumns,
-          offsets: false,
-        });
-        textColumns.forEach((column) => {
-          if (parsedQuery[column]) {
-            parsedQuery[column] = toArray(parsedQuery[column])
-              .map((term) => term.toLowerCase())
+    const parsedQuery = searchQueryParser.parse(searchQuery.replace(QUOTE_CHARS_REGEX, '"'), {
+      keywords: textColumns,
+      ranges: rangeColumns,
+      offsets: false,
+    });
+    textColumns.forEach((column) => {
+      if (parsedQuery[column]) {
+        parsedQuery[column] = toArray(parsedQuery[column])
+          .map((term) => term.toLowerCase())
+      }
+    });
+
+    const filtered = data.filter((row) => {
+      return columns.every((column) => {
+        if (parsedQuery[column]) {
+          if (textColumns.includes(column)) {
+            return parsedQuery[column].every((match) =>
+              row[column].includes(match)
+            )
+          } else if (rangeColumns.includes(column)) {
+            const range = parsedQuery[column];
+            const rowValue = parseFloat(row[column]);
+            const fromValue = range.from !== '' && range.from !== undefined ? parseFloat(range.from) : -Infinity;
+            const toValue = range.to !== '' && range.to !== undefined ? parseFloat(range.to) : Infinity;
+            return rowValue >= fromValue && rowValue <= toValue;
           }
-        });
+        }
+        return true;
+      });
+    });
 
-        const filtered = data.filter((row) => {
-          return columns.every((column) => {
-            if (parsedQuery[column]) {
-              if (textColumns.includes(column)) {
-                return parsedQuery[column].every((match) =>
-                  row[column].includes(match)
-                )
-              } else if (rangeColumns.includes(column)) {
-                const range = parsedQuery[column];
-                const rowValue = parseFloat(row[column]);
-                const fromValue = range.from !== '' && range.from !== undefined ? parseFloat(range.from) : -Infinity;
-                const toValue = range.to !== '' && range.to !== undefined ? parseFloat(range.to) : Infinity;
-                return rowValue >= fromValue && rowValue <= toValue;
-              }
-            }
-            return true;
-          });
-        });
-
-        setFilteredData(filtered);
-      }, 500
-    );
-  }, [data, columns]);
-
-  useEffect(() => {
-    debouncedFilterData.current(searchQuery);
+    setFilteredData(filtered);
   }, [searchQuery]);
 
-  const filterData = useCallback((query) => {
-    setSearchQuery(query);
-  }, []);
-
-
-  return {filteredData, filterData};
+  return filteredData;
 }
 
 export default function Home() {
   const { data, columns, loading } = useDataFetching();
-  const {filteredData, filterData} = useFilterData(data, columns);
   const [searchQuery, setSearchQuery] = useState('');
+  const filteredData = useFilterData(data, columns, searchQuery);
 
   return (
     <div>
@@ -90,7 +74,7 @@ export default function Home() {
       ) : (
         <>
         <div className="container mx-auto p-8">
-          <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} filterData={filterData}/>
+          <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery}/>
           <SearchResults filteredData={filteredData}/>
         </div>
         </>

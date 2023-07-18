@@ -1,15 +1,26 @@
+import { useEffect, useState } from 'react';
 import { textColumns, rangeColumns } from '../lib/constants';
+import { debounce } from 'lodash';
 
-export default function SearchBar({ searchQuery, setSearchQuery, filterData }) {
+export default function SearchBar({ searchQuery, setSearchQuery }) {
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+
+  const debouncedSetSearchQuery = debounce((query) => {
+    setSearchQuery(query);
+  }, 300);
+
+  useEffect(() => {
+    debouncedSetSearchQuery(localSearchQuery);
+  }, [localSearchQuery]);
+
   return (
-    <div className="container mx-auto p-8">
+    <>
       <input
         type="text"
         placeholder="Search query, e.g. name:Odo type:personnel"
-        value={searchQuery}
+        value={localSearchQuery}
         onChange={(e) => {
-          setSearchQuery(e.target.value);
-          filterData(e.target.value);
+          setLocalSearchQuery(e.target.value);
         }}
         className='mb-4 w-full'
       />
@@ -32,6 +43,6 @@ export default function SearchBar({ searchQuery, setSearchQuery, filterData }) {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
