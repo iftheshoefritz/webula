@@ -75,7 +75,7 @@ export default function Home() {
       ) : (
         <>
         <div className="container mx-auto p-8">
-          <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery}/>
+          <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} klass="mb-4 w-full"/>
           <Help/>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <SearchResults filteredData={filteredData}/>
