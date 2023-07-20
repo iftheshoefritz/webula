@@ -257,8 +257,12 @@ export default function Home() {
               {
                 isSearching ? (
                   <>
+
                     <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} />
+
+                    <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-2 gap-4">
+                      <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} />
+                    </div>
                     <button onClick={() => setIsSearching(false)}>Close Search</button>
 
                   </>) : (
