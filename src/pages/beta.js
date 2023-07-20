@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { debounce } from 'lodash';
 import * as d3 from 'd3';
 import searchQueryParser from 'search-query-parser';
@@ -10,6 +10,8 @@ import DeckListPile from '../components/DeckListPile';
 import PileAggregate from '../components/PileAggregate';
 import {missionRequirements} from '../lib/missionRequirements';
 import { textColumns, rangeColumns } from '../lib/constants';
+import SearchBar from '../components/SearchBar';
+import SearchResults from '../components/SearchResults';
 
 function useLocalStorage(key, defaultValue) {
   const [value, setValue] = useState(() => {
@@ -69,9 +71,51 @@ function toArray(item) {
   }
 }
 
+function useFilterData(data, columns, searchQuery) {
+  const [filteredData, setFilteredData] = useState([]);
+
+  useEffect(() => {
+    const parsedQuery = searchQueryParser.parse(searchQuery.replace(QUOTE_CHARS_REGEX, '"'), {
+      keywords: textColumns,
+      ranges: rangeColumns,
+      offsets: false,
+    });
+    textColumns.forEach((column) => {
+      if (parsedQuery[column]) {
+        parsedQuery[column] = toArray(parsedQuery[column])
+          .map((term) => term.toLowerCase())
+      }
+    });
+
+    const filtered = data.filter((row) => {
+      return columns.every((column) => {
+        if (parsedQuery[column]) {
+          if (textColumns.includes(column)) {
+            return parsedQuery[column].every((match) =>
+              row[column].includes(match)
+            )
+          } else if (rangeColumns.includes(column)) {
+            const range = parsedQuery[column];
+            const rowValue = parseFloat(row[column]);
+            const fromValue = range.from !== '' && range.from !== undefined ? parseFloat(range.from) : -Infinity;
+            const toValue = range.to !== '' && range.to !== undefined ? parseFloat(range.to) : Infinity;
+            return rowValue >= fromValue && rowValue <= toValue;
+          }
+        }
+        return true;
+      });
+    });
+
+    setFilteredData(filtered);
+  }, [searchQuery]);
+
+  return filteredData;
+}
+
 export default function Home() {
-  const { data, filteredData, setFilteredData, columns, loading } = useDataFetching();
+  const { data, columns, loading } = useDataFetching();
   const [searchQuery, setSearchQuery] = useState('');
+  const filteredData = useFilterData(data, columns, searchQuery);
 
   const [currentDeck, setCurrentDeck] = useLocalStorage('currentDeck', {});
 
@@ -83,12 +127,22 @@ export default function Home() {
     }
   }
 
-  const incrementIncluded = (row) => {
-    console.log('incrementSelect: ');
+  useEffect(() => {
+    console.log('currentDeck modified!');
+    console.log(currentDeck);
+  }, [currentDeck]);
+
+  const incrementIncluded = useCallback((row) => {
+    console.log('incrementIncluded: ');
     console.log(row.collectorsinfo);
+    console.log('incrementIncluded wants to increment: ' + numericCount(currentDeck[row.collectorsinfo]))
     if (numericCount(currentDeck[row.collectorsinfo]) < 3) {
-      const newRow = row;
-      newRow.count += 1;
+      // First, get the current row from the deck or use the given row if it doesn't exist in the deck yet
+      const currentRow = currentDeck[row.collectorsinfo]?.row ?? row;
+      console.log('found currentRow with count: ' + numericCount(currentRow));
+
+      // Then, create a new row based on the current row and increment its count
+      const newRow = { ...currentRow, count: numericCount(currentRow) + 1, pile: cardPileFor(currentRow) };
       setCurrentDeck(prevState => ({
         ...prevState,
         [row.collectorsinfo]: {
@@ -97,11 +151,9 @@ export default function Home() {
         }
       }));
     }
-    console.log(currentDeck);
-    console.log(Object.values(currentDeck));
-  }
+  }, [currentDeck]);
 
-  const decrementIncluded = (event, row) => {
+  const decrementIncluded = useCallback((event, row) => {
     console.log('decrementSelect: ' + row.collectorsinfo);
     event.preventDefault();
     if (numericCount(row) > 0) {
@@ -119,6 +171,14 @@ export default function Home() {
       console.log('function thinks it is NOT possible to decrement:');
       console.log(row.count);
     }
+  }, [currentDeck]);
+
+  const cardPileFor = (card) => {
+    switch(card.type) {
+      case "mission": return "mission";
+      case "dilemma": return "dilemma";
+      default: return "draw";
+    }
   }
 
   const handleFileLoad = (contents) => {
@@ -132,19 +192,9 @@ export default function Home() {
       const key = line.split('\t')[0].toLowerCase();
       console.log("setting up data structure for: " + key);
       const card = data.find((row) => row.collectorsinfo === key);
-      switch(card.type) {
-        case "mission":
-          card.pile = "mission";
-          //missionRequirements(card);
-          break;
-        case "dilemma":
-          card.pile = "dilemma";
-          break;
-        default:
-          card.pile = "draw";
-      }
-      card.count = (card.count || 0) + 1
-      console.log("setting card.pile = " + card.pile);
+      card.count = (card.count || 0) + 1;
+      card.pile = cardPileFor(card);
+      console.log('setting card.pile = ' + card.pile);
       deck[key] = {
         count: (deck[key] || {count: 0}).count + 1,
         row: card
@@ -185,7 +235,16 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }
 
-  const currentDeckRows = Object.keys(currentDeck).map((collectorsinfo) => currentDeck[collectorsinfo].row).filter((row) => row.count > 0);
+  const currentDeckRows = useMemo(() => {
+    console.log('modifying currentDeckRows dependent on currentDeck!');
+    console.log('6p40 is now: ' + currentDeck['6p40']?.count);
+    return Object.keys(currentDeck)
+      .map((collectorsinfo) => currentDeck[collectorsinfo].row)
+      .filter((row) => row.count > 0);
+  }, [currentDeck]);
+
+  const [isSearching, setIsSearching] = useState(false);
+
 
   return (
     <div>
@@ -195,32 +254,45 @@ export default function Home() {
         <>
           <div className="flex h-screen overflow-hidden">
             <div className="w-128 p-8 overflow-y-scroll">
-              <DeckUploader onFileLoad={handleFileLoad}/>
-              <button onClick={exportDeckToFile}>Export</button>
-              <DeckListPile
-                pileName="Missions"
-                cardsForPile={
-                  currentDeckRows.filter((row) => row.pile === "mission")
-                }
-                incrementIncluded={incrementIncluded}
-                decrementIncluded={decrementIncluded}
-              />
-              <DeckListPile
-                pileName="Dilemmas"
-                cardsForPile={
-                  currentDeckRows.filter((row) => row.pile === "dilemma")
-                }
-                decrementIncluded={decrementIncluded}
-                incrementIncluded={incrementIncluded}
-              />
-              <DeckListPile
-                pileName="Draw"
-                cardsForPile={
-                  currentDeckRows.filter((row) => row.pile === "draw")
-                }
-                incrementIncluded={incrementIncluded}
-                decrementIncluded={decrementIncluded}
-              />
+              {
+                isSearching ? (
+                  <>
+                    <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} />
+                    <button onClick={() => setIsSearching(false)}>Close Search</button>
+
+                  </>) : (
+                  <>
+                    <DeckUploader onFileLoad={handleFileLoad}/>
+                    <button onClick={() => setIsSearching(true)}>Search</button>&nbsp;
+                    <button onClick={exportDeckToFile}>Export</button>
+                    <DeckListPile
+                      pileName="Missions"
+                      cardsForPile={
+                        currentDeckRows.filter((row) => row.pile === "mission")
+                      }
+                      incrementIncluded={incrementIncluded}
+                      decrementIncluded={decrementIncluded}
+                    />
+                    <DeckListPile
+                      pileName="Dilemmas"
+                      cardsForPile={
+                        currentDeckRows.filter((row) => row.pile === "dilemma")
+                      }
+                      decrementIncluded={decrementIncluded}
+                      incrementIncluded={incrementIncluded}
+                    />
+                    <DeckListPile
+                      pileName="Draw"
+                      cardsForPile={
+                        currentDeckRows.filter((row) => row.pile === "draw")
+                      }
+                      incrementIncluded={incrementIncluded}
+                      decrementIncluded={decrementIncluded}
+                    />
+                  </>
+              )
+            }
             </div>
             <div className="flex-grow overflow-y-scroll">
               <div className="container mx-auto p-8">
