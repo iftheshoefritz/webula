@@ -301,7 +301,7 @@ export default function Home() {
                   {
 
                     currentDeckRows
-                      .filter((row) => row.pile === "mission" && row.mission !== "h")
+                      .filter((row) => row.pile === "mission")
                       .map((row) => {
                           return <Image
                             src={`/cardimages/${row.imagefile}.jpg`}
