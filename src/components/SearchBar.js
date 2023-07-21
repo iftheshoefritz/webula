@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { textColumns, rangeColumns } from '../lib/constants';
 import { debounce } from 'lodash';
 
-export default function SearchBar({ searchQuery, setSearchQuery }) {
+export default function SearchBar({ searchQuery, setSearchQuery, klass }) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
 
   const debouncedSetSearchQuery = debounce((query) => {
@@ -22,7 +22,7 @@ export default function SearchBar({ searchQuery, setSearchQuery }) {
         onChange={(e) => {
           setLocalSearchQuery(e.target.value);
         }}
-        className='mb-4 w-full'
+        className={klass}
       />
     </>
   );
