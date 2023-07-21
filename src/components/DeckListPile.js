@@ -18,6 +18,7 @@ class DeckListPile extends Component {
                 incrementIncluded={(e) => incrementIncluded(row)}
                 count={row.count}
                 name={row.name}
+                imagefile={row.imagefile}
               />
             })
           }
