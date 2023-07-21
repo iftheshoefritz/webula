@@ -324,7 +324,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="container mx-auto p-8">
-                <span>Personnel skills new</span>
+                <span>Personnel skills</span>
                 <div>
                   <PileAggregate
                     currentDeckRows={currentDeckRows}
