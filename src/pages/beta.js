@@ -264,7 +264,7 @@ export default function Home() {
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-2 gap-4">
-                      <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} />
+                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} currentDeck={currentDeck}/>
                     </div>
 
                   </>) : (
