@@ -181,6 +181,8 @@ export default function Home() {
     }
   }
 
+  const clearDeck = (() => setCurrentDeck(prevState => ({})));
+
   const handleFileLoad = (contents) => {
     console.log("scratch before file load:");
     console.log(currentDeck)
@@ -270,6 +272,7 @@ export default function Home() {
                   </>) : (
                   <>
                     <DeckUploader onFileLoad={handleFileLoad}/>
+                    <button onClick={clearDeck}>Clear deck</button>&nbsp;
                     <button onClick={() => setIsSearching(true)}>Search</button>&nbsp;
                     <button onClick={exportDeckToFile}>Export</button>
                     <DeckListPile
