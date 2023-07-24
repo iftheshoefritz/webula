@@ -11,6 +11,10 @@ const rl = readline.createInterface({
 
 let headers = [];
 
+const rewriteHeaders = {
+  text: "gametext";
+}
+
 // Create a writable stream to write the output to a file
 const outputStream = fs.createWriteStream(outputFilename, { flags: 'a' });
 
@@ -18,6 +22,7 @@ rl.on('line', (line) => {
   const values = line.split('\t');
   if (headers.length === 0) {
     // First line contains the headers
+    // split up headers with / in them
     headers = values.map((header) => {
       if (header.includes('/')) {
         // Split headers with slash
@@ -26,6 +31,8 @@ rl.on('line', (line) => {
       }
       return header;
     });
+    // rewrite any of the header names that we want to be called something different
+    headers = headers.map((header) => (rewriteHeaders[header] || header))
     outputStream.write(Object.values(headers.flat()).join('\t') + '\n');
   } else {
     // Process data rows
