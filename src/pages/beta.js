@@ -313,7 +313,7 @@ export default function Home() {
             </div>
             <div className="flex-grow overflow-y-scroll">
               <div className="container mx-auto p-8">
-                <span>Mission requirements</span>
+                <span className="text-2xl font-bold mt-4 mb-2 block">Mission requirements</span>
                 <div className="flex space-x-4">
                   {
 
@@ -335,7 +335,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="container mx-auto p-8">
-                <span>Personnel skills</span>
+                <span className="text-2xl font-bold mt-4 mb-2 block">Personnel skills</span>
                 <div>
                   <PileAggregate
                     currentDeckRows={currentDeckRows}
@@ -370,7 +370,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="container mx-auto p-8">
-                <span>Keywords</span>
+                <span className="text-2xl font-bold mt-4 mb-2 block">Keywords</span>
                 <div>
                   <PileAggregate
                     currentDeckRows={currentDeckRows}
@@ -391,7 +391,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="container mx-auto p-8">
-                <span>Icons</span>
+                <span className="text-2xl font-bold mt-4 mb-2 block">Icons</span>
                 <div>
                   <PileAggregate
                     currentDeckRows={currentDeckRows}

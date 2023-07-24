@@ -19,7 +19,13 @@ class DeckUploader extends Component {
   render() {
     return (
       <div>
-        <input type="file" onChange={this.handleFileUpload} />
+        <div>
+          <label for="fileInput" class="bg-black hover:bg-gray-600 text-white font-bold inline-block py-2 px-4 rounded cursor-pointer">
+
+            <input id="fileInput" type="file" onChange={this.handleFileUpload} className="hidden" />
+            Upload deck
+          </label>
+        </div>
       </div>
     );
   }
