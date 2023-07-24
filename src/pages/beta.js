@@ -271,34 +271,42 @@ export default function Home() {
 
                   </>) : (
                   <>
-                    <DeckUploader onFileLoad={handleFileLoad}/>
-                    <button onClick={clearDeck}>Clear deck</button>&nbsp;
-                    <button onClick={() => setIsSearching(true)}>Search</button>&nbsp;
-                    <button onClick={exportDeckToFile}>Export</button>
-                    <DeckListPile
-                      pileName="Missions"
-                      cardsForPile={
-                        currentDeckRows.filter((row) => row.pile === "mission")
-                      }
-                      incrementIncluded={incrementIncluded}
-                      decrementIncluded={decrementIncluded}
-                    />
-                    <DeckListPile
-                      pileName="Dilemmas"
-                      cardsForPile={
-                        currentDeckRows.filter((row) => row.pile === "dilemma")
-                      }
-                      decrementIncluded={decrementIncluded}
-                      incrementIncluded={incrementIncluded}
-                    />
-                    <DeckListPile
-                      pileName="Draw"
-                      cardsForPile={
-                        currentDeckRows.filter((row) => row.pile === "draw")
-                      }
-                      incrementIncluded={incrementIncluded}
-                      decrementIncluded={decrementIncluded}
-                    />
+                    <div>
+                      <div className="flex flex-col space-y-2">
+                        <div class="flex justify-start items-center space-x-2">
+                          <DeckUploader onFileLoad={handleFileLoad}/>
+                          <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={clearDeck}>Clear deck</button>&nbsp;
+                        </div>
+                        <div class="flex justify-start space-x-2">
+                          <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => setIsSearching(true)}>Search</button>
+                          <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportDeckToFile}>Export</button>
+                        </div>
+                      </div>
+                      <DeckListPile
+                        pileName="Missions"
+                        cardsForPile={
+                          currentDeckRows.filter((row) => row.pile === "mission")
+                        }
+                        incrementIncluded={incrementIncluded}
+                        decrementIncluded={decrementIncluded}
+                      />
+                      <DeckListPile
+                        pileName="Dilemmas"
+                        cardsForPile={
+                          currentDeckRows.filter((row) => row.pile === "dilemma")
+                        }
+                        decrementIncluded={decrementIncluded}
+                        incrementIncluded={incrementIncluded}
+                      />
+                      <DeckListPile
+                        pileName="Draw"
+                        cardsForPile={
+                          currentDeckRows.filter((row) => row.pile === "draw")
+                        }
+                        incrementIncluded={incrementIncluded}
+                        decrementIncluded={decrementIncluded}
+                      />
+                    </div>
                   </>
               )
             }
