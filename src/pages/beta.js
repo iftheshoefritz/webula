@@ -265,8 +265,8 @@ export default function Home() {
                       <button className="ml-2 mb-4 align-middle" onClick={() => setIsSearching(false)}><span className="font-bold">X</span></button>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-2 gap-4">
-                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} currentDeck={currentDeck}/>
+                    <div className="grid grid-cols-1 gap-4">
+                      <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} currentDeck={currentDeck}/>
                     </div>
 
                   </>) : (
