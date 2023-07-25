@@ -107,7 +107,7 @@ function useFilterData(data, columns, searchQuery) {
     });
 
     setFilteredData(filtered);
-  }, [searchQuery]);
+  }, [searchQuery, columns, data]);
 
   return filteredData;
 }
@@ -151,7 +151,7 @@ export default function Home() {
         }
       }));
     }
-  }, [currentDeck]);
+  }, [currentDeck, setCurrentDeck]);
 
   const decrementIncluded = useCallback((event, row) => {
     console.log('decrementSelect: ' + row.collectorsinfo);
@@ -171,7 +171,7 @@ export default function Home() {
       console.log('function thinks it is NOT possible to decrement:');
       console.log(row.count);
     }
-  }, [currentDeck]);
+  }, [currentDeck, setCurrentDeck]);
 
   const cardPileFor = (card) => {
     switch(card.type) {
@@ -271,11 +271,11 @@ export default function Home() {
                   <>
                     <div>
                       <div className="flex flex-col space-y-2">
-                        <div class="flex justify-start items-center space-x-2">
+                        <div className="flex justify-start items-center space-x-2">
                           <DeckUploader onFileLoad={handleFileLoad}/>
                           <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={clearDeck}>Clear deck</button>&nbsp;
                         </div>
-                        <div class="flex justify-start space-x-2">
+                        <div className="flex justify-start space-x-2">
                           <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => setIsSearching(true)}>Search</button>
                           <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportDeckToFile}>Export</button>
                         </div>

@@ -7,7 +7,7 @@ const useDataFetching = () => {
   const [filteredData, setFilteredData] = useState([]);
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
-  const nonFilterColumns = ['ImageFile']; // Replace with your actual column names
+  const nonFilterColumns = ['ImageFile'];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -38,7 +38,7 @@ const useDataFetching = () => {
       setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [nonFilterColumns]);
 
   return { data, filteredData, setFilteredData, columns, loading };
 };
