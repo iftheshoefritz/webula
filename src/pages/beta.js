@@ -238,8 +238,6 @@ export default function Home() {
   }
 
   const currentDeckRows = useMemo(() => {
-    console.log('modifying currentDeckRows dependent on currentDeck!');
-    console.log('6p40 is now: ' + currentDeck['6p40']?.count);
     return Object.keys(currentDeck)
       .map((collectorsinfo) => currentDeck[collectorsinfo].row)
       .filter((row) => row.count > 0);
