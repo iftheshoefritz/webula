@@ -258,10 +258,8 @@ export default function Home() {
                 isSearching ? (
                   <>
 
-                    <div className="flex items-center">
-                      <SearchBar klass="align-middle mb-4 w-full" searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-                      <button className="ml-2 mb-4 align-middle" onClick={() => setIsSearching(false)}><span className="font-bold">X</span></button>
-                    </div>
+                    <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 my-2 rounded" onClick={() => setIsSearching(false)}>Exit search</button>&nbsp;
 
                     <div className="grid grid-cols-1 gap-4">
                       <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} currentDeck={currentDeck}/>

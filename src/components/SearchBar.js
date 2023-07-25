@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { textColumns, rangeColumns } from '../lib/constants';
 import { debounce } from 'lodash';
 
-export default function SearchBar({ searchQuery, setSearchQuery, klass }) {
+export default function SearchBar({ searchQuery, setSearchQuery }) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
 
   const debouncedSetSearchQuery = debounce((query) => {
@@ -15,15 +15,18 @@ export default function SearchBar({ searchQuery, setSearchQuery, klass }) {
 
   return (
     <>
-      <input
-        type="text"
-        placeholder="Search query, e.g. name:Odo type:personnel"
-        value={localSearchQuery}
-        onChange={(e) => {
-          setLocalSearchQuery(e.target.value);
-        }}
-        className={klass}
-      />
+      <div className="flex items-center">
+        <input
+          type="text"
+          placeholder="Search query, e.g. name:Odo type:personnel"
+          value={localSearchQuery}
+          onChange={(e) => {
+            setLocalSearchQuery(e.target.value);
+          }}
+          className="align-middle w-full mb-2 focus:outline-none"
+        />
+        <button className="ml-2 align-middle mb-2 focus:outline-none" onClick={() => setLocalSearchQuery('')}><span className="font-bold">X</span></button>
+      </div>
     </>
   );
 }
