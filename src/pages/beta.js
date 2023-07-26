@@ -154,7 +154,7 @@ export default function Home() {
   }, [currentDeck, setCurrentDeck]);
 
   const decrementIncluded = useCallback((event, row) => {
-    console.log('decrementSelect: ' + row.collectorsinfo);
+    console.log('decrementIncluded: ' + row.collectorsinfo);
     event.preventDefault();
     if (numericCount(row) > 0) {
       console.log('function thinks it is possible to decrement from ' + numericCount(row));
