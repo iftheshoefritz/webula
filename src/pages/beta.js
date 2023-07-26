@@ -261,8 +261,8 @@ export default function Home() {
                     <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
                     <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 my-2 rounded" onClick={() => setIsSearching(false)}>Exit search</button>&nbsp;
 
-                    <div className="grid grid-cols-1 gap-4">
-                      <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} currentDeck={currentDeck}/>
+                    <div className="grid grid-cols-2 gap-4">
+                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} currentDeck={currentDeck} withHover={true}/>
                     </div>
 
                   </>) : (
