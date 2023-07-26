@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 
-export default function SearchResults({ filteredData, onCardSelected, currentDeck, withHover }) {
+export default function SearchResults({ filteredData, onCardSelected, onCardDeselected, currentDeck, withHover }) {
   
   const [hoveredItem, setHoveredItem] = useState(null);
   const [imageStyle, setImageStyle] = useState({});
@@ -43,7 +43,7 @@ export default function SearchResults({ filteredData, onCardSelected, currentDec
     hoverTimeout = setTimeout(() => {
       setHoveredItem(null);
       setImageStyle({display: 'none'});
-    }, 200);
+    }, 100);
   }
 
   const handleLargeHover = () => {
@@ -54,7 +54,7 @@ export default function SearchResults({ filteredData, onCardSelected, currentDec
     hoverTimeout = setTimeout(() => {
       setHoveredItem(null);
       setImageStyle({display: 'none'});
-    }, 200);
+    }, 100);
   }
 
   return (
@@ -70,6 +70,7 @@ export default function SearchResults({ filteredData, onCardSelected, currentDec
               alt={row.name}
               className='w-full h-auto'
               onClick={() => (onCardSelected(row))}
+              onContextMenu={() => (onCardDeselected(row))}
               onMouseEnter={(event) => handleHover(row.collectorsinfo, event)}
               onMouseLeave={handleUnhover}
             />
@@ -92,7 +93,14 @@ export default function SearchResults({ filteredData, onCardSelected, currentDec
                   alt={name}
                   onMouseEnter={handleLargeHover}
                   onMouseLeave={handleLargeUnhover}
+                  onClick={() => (onCardSelected(row))}
+                  onContextMenu={(event) => (onCardDeselected(event, row))}
                 />
+                { currentDeck &&
+                  <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white rounded-full px-2 py-1">
+                  { currentDeck[row.collectorsinfo]?.row?.count || 0}
+                  </div>
+                }
               </div>
             )}
         </div>

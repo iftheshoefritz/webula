@@ -156,9 +156,9 @@ export default function Home() {
   const decrementIncluded = useCallback((event, row) => {
     console.log('decrementIncluded: ' + row.collectorsinfo);
     event.preventDefault();
-    if (numericCount(row) > 0) {
-      console.log('function thinks it is possible to decrement from ' + numericCount(row));
-      const newRow = row;
+    if (numericCount(currentDeck[row.collectorsinfo]) > 0) {
+      console.log('function thinks it is possible to decrement from ' + numericCount(currentDeck[row.collectorsinfo]));
+      const newRow = currentDeck[row.collectorsinfo].row;
       newRow.count -= 1;
       setCurrentDeck(prevState => ({
         ...prevState,
@@ -169,7 +169,7 @@ export default function Home() {
       }));
     } else {
       console.log('function thinks it is NOT possible to decrement:');
-      console.log(row.count);
+      console.log(numericCount(currentDeck[row.collectorsinfo].count));
     }
   }, [currentDeck, setCurrentDeck]);
 
@@ -262,7 +262,7 @@ export default function Home() {
                     <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 my-2 rounded" onClick={() => setIsSearching(false)}>Exit search</button>&nbsp;
 
                     <div className="grid grid-cols-2 gap-4">
-                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} currentDeck={currentDeck} withHover={true}/>
+                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true}/>
                     </div>
 
                   </>) : (
