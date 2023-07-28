@@ -244,6 +244,28 @@ export default function Home() {
   }, [currentDeck]);
 
   const [isSearching, setIsSearching] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(
+    //typeof window !== 'undefined' ? window.innerWidth > 1024 : false
+    false
+  );
+
+  useEffect(() => {
+    // Function to update state based on window width
+    const handleResize = () => {
+      setIsDrawerOpen(window.innerWidth > 1024);
+    };
+
+    // Add event listener
+    window.addEventListener('resize', handleResize);
+
+    // Call handler right away so state gets updated with initial window size
+    handleResize();
+
+    // Remove event listener on cleanup
+    return () => window.removeEventListener('resize', handleResize);
+  }, []); // Empty array ensures that effect is only run on mount and unmount
+
+  const toggleDrawer = () => setIsDrawerOpen(!isDrawerOpen);
 
 
   return (
@@ -252,8 +274,14 @@ export default function Home() {
         <p>Loading data...</p>
       ) : (
         <>
-          <div className="flex h-screen overflow-hidden">
-            <div className="w-128 p-8 overflow-y-scroll">
+          <div className="flex flex-col lg:flex-row h-screen overflow-scroll">
+            <div className={`fixed left-0 top-0 h-screen lg:relative lg:flex lg:flex-col bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 overflow-scroll`}>
+              <button
+                className="lg:hidden px-4 py-2"
+                onClick={() => setIsDrawerOpen(false)}
+              >
+                Close List
+              </button>
               {
                 isSearching ? (
                   <>
@@ -307,8 +335,15 @@ export default function Home() {
               )
             }
             </div>
-            <div className="flex-grow overflow-y-scroll">
+            <div className="flex-grow lg:w-3/4 overflow-y-scroll">
               <div className="container mx-auto p-8">
+                <button
+                  className="lg:hidden px-4 py-2"
+                  onClick={() => setIsDrawerOpen(true)}
+                >
+                  Open List
+                </button>
+
                 <span className="text-2xl font-bold mt-4 mb-2 block">Mission requirements</span>
                 <div className="flex space-x-4">
                   {
