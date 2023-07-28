@@ -43,6 +43,8 @@ class DeckListItem extends Component {
         <div
           onMouseEnter={this.handleHover}
           onMouseLeave={this.handleUnhover}
+          onTouchStart={this.handleHover}
+          onTouchEnd={this.handleUnhover}
         >{name}</div>
         <div>{collectorsinfo}</div>
         <div
