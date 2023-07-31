@@ -19,6 +19,7 @@ class DeckListPile extends Component {
                 count={row.count}
                 name={row.name}
                 imagefile={row.imagefile}
+                unique={row.unique == 'y'}
               />
             })
           }

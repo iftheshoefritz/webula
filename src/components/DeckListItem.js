@@ -33,7 +33,7 @@ class DeckListItem extends Component {
   }
 
   render() {
-    const { incrementIncluded, decrementIncluded, collectorsinfo, count, name, imagefile} = this.props;
+    const { incrementIncluded, decrementIncluded, collectorsinfo, count, name, imagefile, unique} = this.props;
     return (
       <li
         className="flex gap-x-2 relative"
@@ -45,7 +45,10 @@ class DeckListItem extends Component {
           onMouseLeave={this.handleUnhover}
           onTouchStart={this.handleHover}
           onTouchEnd={this.handleUnhover}
-        >{name}</div>
+        >
+          {unique && <span>· </span>}
+          {name}
+        </div>
         <div>{collectorsinfo}</div>
         <div
           className="font-semibold"
