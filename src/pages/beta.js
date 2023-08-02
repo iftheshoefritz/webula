@@ -345,7 +345,7 @@ export default function Home() {
                   Open List
                 </button>
 
-                <span className="text-2xl font-bold mt-4 mb-2 block">Mission requirements</span>
+                <span className="text-2xl font-bold mt-4 mb-2 block">Missions</span>
                 <div className="flex space-x-4">
                   {
 
