@@ -8,6 +8,7 @@ import DeckUploader from '../components/DeckUploader';
 import DeckListItem from '../components/DeckListItem';
 import DeckListPile from '../components/DeckListPile';
 import PileAggregate from '../components/PileAggregate';
+import PileAggregateCostChart from '../components/PileAggregateCostChart';
 import {missionRequirements} from '../lib/missionRequirements';
 import { textColumns, rangeColumns } from '../lib/constants';
 import SearchBar from '../components/SearchBar';
@@ -440,6 +441,40 @@ export default function Home() {
                         </div>
                     }
                   </PileAggregate>
+                </div>
+              </div>
+              <div className="container mx-auto p-8">
+                <span className="text-2xl font-bold mt-4 mb-2 block">Draw Deck Costs</span>
+                <div>
+                  <PileAggregate
+                    currentDeckRows={currentDeckRows}
+                    characteristicName="cost"
+                    filterFunction={(row) => row.pile === "draw"}
+                    splitFunction={(cost) => [parseInt(cost)] }
+                    assembleCounts={(counts, cost, count) => {
+                      counts[cost] = (counts[cost] || 0) + count;
+                      return counts;
+                    }}
+                  >
+                    {([cost, count]) =>
+                      <div key={cost} className="m-2 p-2 border rounded">
+                        <span className="px-1">{count}x <b>{cost}</b></span>
+                      </div>
+                    }
+                  </PileAggregate>
+                  <PileAggregateCostChart
+                    currentDeckRows={currentDeckRows}
+                    filterFunction={ (row) => row.pile === "draw" }
+                  />
+                </div>
+              </div>
+              <div className="container mx-auto p-8">
+                <span className="text-2xl font-bold mt-4 mb-2 block">Dilemma Pile Costs</span>
+                <div>
+                  <PileAggregateCostChart
+                    currentDeckRows={currentDeckRows}
+                    filterFunction={ (row) => row.pile === "dilemma" }
+                  />
                 </div>
               </div>
             </div>
