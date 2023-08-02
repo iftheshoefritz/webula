@@ -337,7 +337,7 @@ export default function Home() {
             }
             </div>
             <div className="flex-grow lg:w-3/4 overflow-y-scroll">
-              <div className="container mx-auto p-8">
+              <div className="container mx-auto p-4">
                 <button
                   className="lg:hidden px-4 py-2"
                   onClick={() => setIsDrawerOpen(true)}
@@ -366,7 +366,7 @@ export default function Home() {
                   }
                 </div>
               </div>
-              <div className="container mx-auto p-8">
+              <div className="container mx-auto p-4">
                 <span className="text-2xl font-bold mt-4 mb-2 block">Personnel skills</span>
                 <div>
                   <PileAggregate
@@ -401,7 +401,7 @@ export default function Home() {
                   </PileAggregate>
                 </div>
               </div>
-              <div className="container mx-auto p-8">
+              <div className="container mx-auto p-4">
                 <span className="text-2xl font-bold mt-4 mb-2 block">Keywords</span>
                 <div>
                   <PileAggregate
@@ -422,7 +422,7 @@ export default function Home() {
                   </PileAggregate>
                 </div>
               </div>
-              <div className="container mx-auto p-8">
+              <div className="container mx-auto p-4">
                 <span className="text-2xl font-bold mt-4 mb-2 block">Icons</span>
                 <div>
                   <PileAggregate
@@ -443,7 +443,7 @@ export default function Home() {
                   </PileAggregate>
                 </div>
               </div>
-              <div className="container mx-auto p-8">
+              <div className="container mx-auto p-4">
                 <div className="flex flex-col lg:flex-row">
                   <div className="w-full lg:w-1/2 lg:flex-row">
                     <span className="text-2xl font-bold mt-4 mb-2 block">Draw Deck Costs</span>
