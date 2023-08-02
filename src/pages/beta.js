@@ -296,7 +296,7 @@ export default function Home() {
 
                   </>) : (
                   <>
-                    <div>
+                    <div className="flex flex-col overflow-y-scroll">
                       <div className="flex flex-col space-y-2">
                         <div className="flex justify-start items-center space-x-2">
                           <DeckUploader onFileLoad={handleFileLoad}/>
