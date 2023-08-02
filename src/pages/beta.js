@@ -346,7 +346,7 @@ export default function Home() {
                 </button>
 
                 <span className="text-2xl font-bold mt-4 mb-2 block">Missions</span>
-                <div className="flex space-x-4">
+                <div className="flex space-x-4 overflow-x-scroll">
                   {
 
                     currentDeckRows
