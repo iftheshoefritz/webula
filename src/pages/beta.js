@@ -268,6 +268,9 @@ export default function Home() {
 
   const toggleDrawer = () => setIsDrawerOpen(!isDrawerOpen);
 
+  const compare = (a, b) => {
+    return a.localeCompare(b, 'en', { ignorePunctuation: true });
+  }
 
   return (
     <div>
@@ -314,6 +317,7 @@ export default function Home() {
                         }
                         incrementIncluded={incrementIncluded}
                         decrementIncluded={decrementIncluded}
+                        sortBy={(r1,r2) => compare(r1.mission, r2.mission)}
                       />
                       <DeckListPile
                         pileName="Dilemmas"
@@ -322,12 +326,14 @@ export default function Home() {
                         }
                         decrementIncluded={decrementIncluded}
                         incrementIncluded={incrementIncluded}
+                        sortBy={(r1, r2) => r1.dilemmatype === r2.dilemmatype ? compare(r1.name, r2.name) : compare(r1.dilemmatype, r2.dilemmatype)}
                       />
                       <DeckListPile
                         pileName="Draw"
                         cardsForPile={
                           currentDeckRows.filter((row) => row.pile === "draw")
                         }
+                        sortBy={(r1, r2) => r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)}
                         incrementIncluded={incrementIncluded}
                         decrementIncluded={decrementIncluded}
                       />
@@ -360,7 +366,7 @@ export default function Home() {
                             blurDataURL='/cardimages/cardback.jpg'
                             alt={row.name}
                             key={row.collectorsinfo}
-                            className='w-36 h-auto'
+                            className='w-56 h-auto'
                           />
                       })
                   }
