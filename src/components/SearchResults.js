@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 
-export default function SearchResults({ filteredData, onCardSelected, onCardDeselected, currentDeck, withHover }) {
+export default function SearchResults({ filteredData, onCardSelected, onCardDeselected, currentDeck, withHover, containerDimensions }) {
   
   const [hoveredItem, setHoveredItem] = useState(null);
   const [imageStyle, setImageStyle] = useState({});
@@ -11,32 +11,41 @@ export default function SearchResults({ filteredData, onCardSelected, onCardDese
   const handleHover = (collectorsinfo, event) => {
     console.log('hover');
     clearTimeout(hoverTimeout);
-    const imageHeight = 230;
-    const imageWidth = 458;
+    console.log('containerDimensions:');
+    console.log(containerDimensions);
+    console.log('target that we want scrollInfo for:');
+    console.log(event.currentTarget);
+    const imageHeight = 320;
+    const imageWidth = 230;
     const viewportHeight = window.innerHeight;
-    const viewportWidth = window.innerWidth;
+    const containerWidth = containerDimensions.width;
     const targetRect = event.currentTarget.getBoundingClientRect();
     const scrollTop = window.scrollY || window.pageYOffset;
-    const scrollLeft = window.scrollX || window.pageXOffset;
+    const cursorY = event.pageY;
 
     setHoveredItem(collectorsinfo);
     const topPosition = targetRect.top + scrollTop + 5;
-    let leftPosition = targetRect.left + scrollLeft + 5;
+    let leftPosition = targetRect.left;
 
     // Check if the image would appear off the right edge of the screen
     // If so, adjust the left position so it appears to the left of the cursor instead
-    if (leftPosition + imageWidth > viewportWidth) {
-        leftPosition = targetRect.left + scrollLeft - imageWidth - 5;
+    if (leftPosition + imageWidth > containerWidth) {
+        leftPosition = containerWidth - imageWidth - 5;
     }
+    console.log(`width: ${containerWidth} leftPosition: ${leftPosition} imageWidth ${imageWidth} scrollTop ${scrollTop} pageYOffset ${window.pageYOffset} target.offsetTop: ${event.currentTarget.offsetTop}`);
+    console.log(`rekt top: ${targetRect.top} bottom ${targetRect.bottom} left ${targetRect.left} right ${targetRect.right}`);
+    console.log(`cursorY ${cursorY} viewportHeight ${viewportHeight}`);
 
     // Check if the image would appear off the bottom edge of the screen
     // If so, adjust the top position so it appears above the cursor instead
     let finalTopPosition = topPosition;
-    if (topPosition + imageHeight > viewportHeight + scrollTop) {
-        finalTopPosition = targetRect.top + scrollTop - imageHeight - 5;
+    if ((cursorY + imageHeight) > ( viewportHeight )) {
+        finalTopPosition = viewportHeight - imageHeight - 5;
     }
+    console.log(`finalTopPosition= ${finalTopPosition}`);
 
-    setImageStyle({ position: 'fixed', top: finalTopPosition, left: leftPosition });  }
+    setImageStyle({ position: 'fixed', top: finalTopPosition, left: leftPosition, maxWidth: 'none' });
+  }
 
   const handleUnhover = () => {
     console.log('unhover');

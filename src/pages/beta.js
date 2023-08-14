@@ -4,6 +4,7 @@ import * as d3 from 'd3';
 import searchQueryParser from 'search-query-parser';
 import Image from 'next/image';
 import useDataFetching from '../hooks/useDataFetching';
+import useContainerDimensions from '../hooks/useContainerDimensions';
 import DeckUploader from '../components/DeckUploader';
 import DeckListItem from '../components/DeckListItem';
 import DeckListPile from '../components/DeckListPile';
@@ -134,6 +135,9 @@ export default function Home() {
   }, [currentDeck]);
 
   const incrementIncluded = useCallback((row) => {
+    // TODO: nice formatting of collectors info vs name, and justification
+    // TODO: popup on mission list
+    // TODO: custom button component to DRY up all the styles?
     console.log('incrementIncluded: ');
     console.log(row.collectorsinfo);
     console.log('incrementIncluded wants to increment: ' + numericCount(currentDeck[row.collectorsinfo]))
@@ -267,6 +271,7 @@ export default function Home() {
   }, []); // Empty array ensures that effect is only run on mount and unmount
 
   const toggleDrawer = () => setIsDrawerOpen(!isDrawerOpen);
+  const [containerRef, containerDimensions] = useContainerDimensions();
 
   const compare = (a, b) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
@@ -293,8 +298,8 @@ export default function Home() {
                     <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
                     <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 my-2 rounded" onClick={() => setIsSearching(false)}>Exit search</button>&nbsp;
 
-                    <div className="grid grid-cols-2 gap-4">
-                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true}/>
+                    <div className="grid grid-cols-2 gap-4" ref={containerRef}>
+                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true} containerDimensions={containerDimensions}/>
                     </div>
 
                   </>) : (
