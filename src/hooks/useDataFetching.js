@@ -28,7 +28,14 @@ const useDataFetching = () => {
         row.collectorsinfo = paddedCollectorsInfo.replace(/(^|[^0-9])0+(\d+)/g, '$1$2');
         return row
       });
-      setData(dataWithStrippedCollectorsInfo);
+      const dataWithDotlessCommanderKeywords = dataWithStrippedCollectorsInfo.map((row) => {
+        const dottedCommanderKeywords = row.keywords;
+        row.keywords = dottedCommanderKeywords
+          .replace(/U\.S\.S./i, 'uss')
+          .replace(/I\.K\.S\./i, 'iks');
+        return row
+      });
+      setData(dataWithDotlessCommanderKeywords);
       setFilteredData(formattedData);
 
       // Extract column names
