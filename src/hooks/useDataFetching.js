@@ -35,9 +35,7 @@ const useDataFetching = () => {
               : [key.toLowerCase(), value.toLowerCase()],
           ),
         )
-        //console.log(`rowname= ${row.name}`);
-        newRow.originalName = row.name
-        //console.log(`original= ${row.originalName}`);
+        newRow.originalName = row.Name
         return newRow;
       });
       const dataWithStrippedCollectorsInfo = formattedData.map((row) => {
