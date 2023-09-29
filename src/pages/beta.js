@@ -72,7 +72,8 @@ function toArray(item) {
   }
 }
 
-function useFilterData(data, columns, searchQuery) {
+function useFilterData(loading, data, columns, searchQuery) {
+  console.log('starting useFilterData');
   const [filteredData, setFilteredData] = useState([]);
 
   useEffect(() => {
@@ -107,16 +108,20 @@ function useFilterData(data, columns, searchQuery) {
       });
     });
 
-    setFilteredData(filtered);
+    if (JSON.stringify(filtered) !== JSON.stringify(filteredData)) {
+      console.log('filtered is different from filteredData, setting state');
+      setFilteredData(filtered);
+    }
   }, [searchQuery, columns, data]);
 
   return filteredData;
 }
 
 export default function Home() {
+  console.log('rendering home');
   const { data, columns, loading } = useDataFetching();
   const [searchQuery, setSearchQuery] = useState('');
-  const filteredData = useFilterData(data, columns, searchQuery);
+  const filteredData = useFilterData(loading, data, columns, searchQuery);
 
   const [currentDeck, setCurrentDeck] = useLocalStorage('currentDeck', {});
 
@@ -208,14 +213,13 @@ export default function Home() {
     setCurrentDeck(deck);
   }
 
-  const exportDeckToFile = () => {
+  const exportDeckToLackey = () => {
     let tsvArray = [];
 
     for (const collectorsinfo in currentDeck) {
       const card = currentDeck[collectorsinfo];
-      for (let i = 0; i < card.count; i++) {
-        tsvArray.push(`${collectorsinfo.toUpperCase()}\t${card.row.name}`);
-      }
+      console.log(card);
+      tsvArray.push(`${card.count}\t${card.row.originalName}`);
     }
 
     const tsvString = tsvArray.join('\n');
@@ -307,7 +311,7 @@ export default function Home() {
                         </div>
                         <div className="flex justify-start space-x-2">
                           <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => setIsSearching(true)}>Search</button>
-                          <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportDeckToFile}>Export</button>
+                          <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportDeckToLackey}>Export</button>
                         </div>
                       </div>
                       <DeckListPile
