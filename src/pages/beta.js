@@ -198,11 +198,9 @@ export default function Home() {
     const deck = {};
     for (const line of lines) {
       const key = line.split('\t')[0].toLowerCase();
-      console.log("setting up data structure for: " + key);
       const card = data.find((row) => row.collectorsinfo === key);
       card.count = (card.count || 0) + 1;
       card.pile = cardPileFor(card);
-      console.log('setting card.pile = ' + card.pile);
       deck[key] = {
         count: (deck[key] || {count: 0}).count + 1,
         row: card
@@ -214,11 +212,28 @@ export default function Home() {
   }
 
   const exportDeckToLackey = () => {
+    const lackeyPileNameFor = {
+      mission: "Missions:",
+      dilemma: "Dilemmas:",
+      draw: "Deck:"
+    }
+    const lackeyPileOrder = {
+      draw: 0,
+      dilemma: 1,
+      mission: 2,
+    }
     let tsvArray = [];
+    let currentPile = undefined;
 
-    for (const collectorsinfo in currentDeck) {
+    const sortedCollectorsInfo = Object
+          .keys(currentDeck)
+          .sort((a, b) => lackeyPileOrder[currentDeck[a].row.pile] - lackeyPileOrder[currentDeck[b].row.pile]);
+    for (const collectorsinfo of sortedCollectorsInfo) {
       const card = currentDeck[collectorsinfo];
-      console.log(card);
+      if (card.row.pile !== currentPile ) {
+        currentPile = card.row.pile
+        tsvArray.push(lackeyPileNameFor[currentPile]);
+      }
       tsvArray.push(`${card.count}\t${card.row.originalName}`);
     }
 
