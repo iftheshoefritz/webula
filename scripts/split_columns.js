@@ -12,7 +12,7 @@ const rl = readline.createInterface({
 let headers = [];
 
 const rewriteHeaders = {
-  text: "gametext";
+  text: "gametext"
 }
 
 // Create a writable stream to write the output to a file
@@ -38,14 +38,15 @@ rl.on('line', (line) => {
     // Process data rows
     const data = {};
     headers.forEach((header, i) => {
+      escapedValue = `"${values[i].replace(/"/g, '""')}"`
       if (Array.isArray(header)) {
         // Process split columns
         header.forEach((subHeader, j) => {
-          data[subHeader] = values[i];
+          data[subHeader] = escapedValue;
         });
       } else {
         // Process regular columns
-        data[header] = values[i];
+        data[header] = escapedValue;
       }
     });
     // Write the data to the output stream
