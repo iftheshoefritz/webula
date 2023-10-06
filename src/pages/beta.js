@@ -7,6 +7,7 @@ import useDataFetching from '../hooks/useDataFetching';
 import DeckUploader from '../components/DeckUploader';
 import DeckListItem from '../components/DeckListItem';
 import DeckListPile from '../components/DeckListPile';
+import Help from '../components/Help';
 import PileAggregate from '../components/PileAggregate';
 import PileAggregateCostChart from '../components/PileAggregateCostChart';
 import {missionRequirements} from '../lib/missionRequirements';
@@ -298,7 +299,7 @@ export default function Home() {
       ) : (
         <>
           <div className="flex flex-col lg:flex-row h-screen overflow-scroll">
-            <div className={`fixed left-0 top-0 h-screen lg:relative lg:flex lg:flex-col bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 overflow-scroll`}>
+          <div className={`fixed left-0 top-0 h-screen lg:relative lg:flex lg:flex-col lg:w-1/4 bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 overflow-scroll`}>
               <button
                 className="lg:hidden px-4 py-2"
                 onClick={() => setIsDrawerOpen(false)}
@@ -310,8 +311,10 @@ export default function Home() {
                   <>
 
                     <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 my-2 rounded" onClick={() => setIsSearching(false)}>Exit search</button>&nbsp;
-
+                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 my-2 rounded" onClick={() => setIsSearching(false)}>Exit search</button>
+                    <div className="mx-2">
+                      <Help/>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                     <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true}/>
                     </div>
