@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { textColumns, rangeColumns } from '../lib/constants';
 import { debounce } from 'lodash';
+import { track } from '@vercel/analytics';
 
 export default function SearchBar({ searchQuery, setSearchQuery }) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
 
   const debouncedSetSearchQuery = debounce((query) => {
+    track('SearchBar.setSearchQuery', {q: query});
     setSearchQuery(query);
-  }, 300);
+  }, 500);
 
   useEffect(() => {
     debouncedSetSearchQuery(localSearchQuery);

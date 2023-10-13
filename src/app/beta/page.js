@@ -17,6 +17,7 @@ import { textColumns, rangeColumns } from '../../lib/constants';
 import SearchBar from '../../components/SearchBar';
 import SearchResults from '../../components/SearchResults';
 import '../../styles/globals.css';
+import { track } from '@vercel/analytics';
 
 function useLocalStorage(key, defaultValue) {
   const [value, setValue] = useState(() => {
@@ -194,9 +195,7 @@ export default function Home() {
   const clearDeck = (() => setCurrentDeck(prevState => ({})));
 
   const handleFileLoad = (contents) => {
-    console.log("scratch before file load:");
-    console.log(currentDeck)
-    console.log("10 rows of overall data");
+    track('deckBuilder.handleFileLoad.start');
     const lines = contents.trim().split('\n');
 
     const deck = {};
@@ -210,12 +209,12 @@ export default function Home() {
         row: card
       }
     }
-    console.log(deck);
-    console.log(currentDeck);
     setCurrentDeck(deck);
+    track('deckBuilder.handleFileLoad.finish', {lines: lines.length});
   }
 
   const exportDeckToLackey = () => {
+    track('deckBuilder.lackeyExport.start');
     const lackeyPileNameFor = {
       mission: "Missions:",
       dilemma: "Dilemmas:",
@@ -259,6 +258,7 @@ export default function Home() {
 
     // Release the Blob URL
     URL.revokeObjectURL(url);
+    track('deckBuilder.lackeyExport.finish', {lines: tsvArray.length});
   }
 
   const currentDeckRows = useMemo(() => {

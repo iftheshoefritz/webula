@@ -1,6 +1,7 @@
 // hooks/useDataFetching.js
 import { useState, useEffect } from 'react';
 import * as d3 from 'd3';
+import { track } from '@vercel/analytics';
 
 const useDataFetching = () => {
   const [data, setData] = useState([]);
@@ -13,8 +14,10 @@ const useDataFetching = () => {
   useEffect(() => {
     console.log(`useEffect ${nonFilterColumns}`);
     const fetchData = async () => {
+      track('useDataFetch.fetchCardsStart');
       console.log('fetchData');
       const response = await fetch('/cards_with_processed_columns.txt');
+      track('useDataFetch.fetchCardsFinish');
       const text = await response.text();
       setUnparsedData(text);
       setLoading(false);
@@ -23,9 +26,8 @@ const useDataFetching = () => {
   }, [nonFilterColumns]);
 
   useEffect(() => {
-    console.log('parsing useEffect')
     if (!loading) {
-      console.log('parsing useEffect: not loading');
+      track('useDataFetch.parseDataStart');
       const parsedData = d3.tsvParse(unparsedData);
       const formattedData = parsedData.map((row) => {
         const newRow = Object.fromEntries(
@@ -60,6 +62,7 @@ const useDataFetching = () => {
     }
   }, [unparsedData])
 
+  track('useDataFetching.parseDataFinish');
   return { data, filteredData, setFilteredData, columns, loading };
 };
 
