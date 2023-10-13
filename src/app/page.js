@@ -1,3 +1,7 @@
+'use client'
+
+import '../styles/globals.css'
+
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { debounce } from 'lodash';
 import * as d3 from 'd3';

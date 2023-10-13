@@ -1,19 +1,22 @@
+'use client'
+
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { debounce } from 'lodash';
 import * as d3 from 'd3';
 import searchQueryParser from 'search-query-parser';
 import Image from 'next/image';
-import useDataFetching from '../hooks/useDataFetching';
-import DeckUploader from '../components/DeckUploader';
-import DeckListItem from '../components/DeckListItem';
-import DeckListPile from '../components/DeckListPile';
-import Help from '../components/Help';
-import PileAggregate from '../components/PileAggregate';
-import PileAggregateCostChart from '../components/PileAggregateCostChart';
-import {missionRequirements} from '../lib/missionRequirements';
-import { textColumns, rangeColumns } from '../lib/constants';
-import SearchBar from '../components/SearchBar';
-import SearchResults from '../components/SearchResults';
+import useDataFetching from '../../hooks/useDataFetching';
+import DeckUploader from '../../components/DeckUploader';
+import DeckListItem from '../../components/DeckListItem';
+import DeckListPile from '../../components/DeckListPile';
+import Help from '../../components/Help';
+import PileAggregate from '../../components/PileAggregate';
+import PileAggregateCostChart from '../../components/PileAggregateCostChart';
+import {missionRequirements} from '../../lib/missionRequirements';
+import { textColumns, rangeColumns } from '../../lib/constants';
+import SearchBar from '../../components/SearchBar';
+import SearchResults from '../../components/SearchResults';
+import '../../styles/globals.css';
 
 function useLocalStorage(key, defaultValue) {
   const [value, setValue] = useState(() => {
