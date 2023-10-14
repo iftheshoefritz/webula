@@ -1,7 +1,7 @@
 export const textColumns = [
   'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission', 'dilemmatype',
   'quadrant', 'affiliation', 'icons', 'staff', 'keywords', 'class', 'species', 'skills',
-  'gametext'
+  'gametext', 'hof'
 ];
 
 export const rangeColumns = [
