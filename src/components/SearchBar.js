@@ -7,7 +7,6 @@ export default function SearchBar({ searchQuery, setSearchQuery }) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
 
   const debouncedSetSearchQuery = debounce((query) => {
-    track('SearchBar.setSearchQuery', {q: query});
     setSearchQuery(query);
   }, 500);
 

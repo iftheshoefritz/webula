@@ -114,7 +114,7 @@ function useFilterData(loading, data, columns, searchQuery) {
     });
 
     if (JSON.stringify(filtered) !== JSON.stringify(filteredData)) {
-      console.log('filtered is different from filteredData, setting state');
+      track('deckBuilder.setFiltered', {q: searchQuery})
       setFilteredData(filtered);
     }
   }, [searchQuery, columns, data]);
