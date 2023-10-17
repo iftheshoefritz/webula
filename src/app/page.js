@@ -40,9 +40,25 @@ function useFilterData(data, columns, searchQuery) {
         parsedQuery[column] = toArray(parsedQuery[column])
           .map((term) => term.toLowerCase())
       }
+      if (parsedQuery.exclude && parsedQuery.exclude[column])
+        parsedQuery.exclude[column] = toArray(parsedQuery.exclude[column])
+          .map((term) => term.toLowerCase())
     });
 
-    const filtered = data.filter((row) => {
+    const withoutExcluded = data.filter((row) => {
+      return columns.every((column) => {
+        if ( parsedQuery.exclude && parsedQuery.exclude[column] ) {
+          if (textColumns.includes(column)) {
+            return parsedQuery.exclude[column].every((match) =>
+              !row[column].includes(match)
+            )
+          }
+        }
+        return true;
+      })
+    })
+
+    const filtered = withoutExcluded.filter((row) => {
       return columns.every((column) => {
         if (parsedQuery[column]) {
           if (textColumns.includes(column)) {
