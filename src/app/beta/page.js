@@ -253,7 +253,9 @@ export default function Home() {
         currentPile = card.row.pile
         tsvArray.push(lackeyPileNameFor[currentPile]);
       }
-      tsvArray.push(`${card.count}\t${card.row.originalName}`);
+      if (card.count > 0) {
+        tsvArray.push(`${card.count}\t${card.row.originalName}`);
+      }
     }
 
     const tsvString = tsvArray.join('\n');
