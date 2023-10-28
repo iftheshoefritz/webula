@@ -1,4 +1,4 @@
-import { textColumns, rangeColumns } from '../lib/constants';
+import { textAbbreviations, rangeAbbreviations } from '../lib/constants';
 
 export default function Help() {
   return (
@@ -17,20 +17,27 @@ export default function Help() {
               <li>keywords:legate keywords:dissident</li>
               <li>skills:&quot;2 astrometrics&quot;</li>
               <li>-skills:acquisition (personnel without acquisition)</li>
+              <li>-sk:acquisition (same as above using abbreviation for 'skills')</li>
             </ul>
           </div>
           <div>
-            <p className="font-bold">Text fields, e.g. <i>name:odo</i></p>
+      <p className="font-bold">Text fields, e.g. <i>name:odo</i> or <i>n:odo</i></p>
             <div className="flex flex-wrap max-w-full">
-            {textColumns.map(column => (
-                <div key={column} className="bg-gray-200 p-2 m-1">{column}</div>
+            {
+              Object
+                .entries( textAbbreviations )
+                .map(([col,abbr]) => (
+                <div key={col} className="bg-gray-200 p-2 m-1">{col} ({abbr})</div>
             ))}
           </div>
-          <p className="font-bold">Numeric fields, e.g. <i>cost:1-4</i></p>
+      <p className="font-bold">Numeric fields, e.g. <i>cost:1-4</i> or <i>c:1-4</i></p>
           <div className="flex flex-wrap">
-            {rangeColumns.map(column => (
-                <div key={column} className="bg-gray-200 p-2 m-1">{column}</div>
-            ))}
+          {
+            Object
+              .entries( rangeAbbreviations )
+              .map(([col,abbr]) => (
+                  <div key={col} className="bg-gray-200 p-2 m-1">{col} ({abbr})</div>))
+          }
           </div>
         </div>
       </div>
