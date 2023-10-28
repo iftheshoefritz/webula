@@ -17,7 +17,7 @@ export default function Help() {
               <li>keywords:legate keywords:dissident</li>
               <li>skills:&quot;2 astrometrics&quot;</li>
               <li>-skills:acquisition (personnel without acquisition)</li>
-              <li>-sk:acquisition (same as above using abbreviation for 'skills')</li>
+              <li>-sk:acquisition (same as above using abbreviation for skills)</li>
             </ul>
           </div>
           <div>
