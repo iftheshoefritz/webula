@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { debounce } from 'lodash';
+import { track } from '@vercel/analytics';
 import * as d3 from 'd3';
 import Image from 'next/image';
 import useDataFetching from '../../hooks/useDataFetching';
