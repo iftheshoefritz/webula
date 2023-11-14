@@ -4,8 +4,8 @@ import { CardDef } from "../types";
 
 type SearchResultsProps = {
   filteredData: any[];
-  onCardSelected?: () => void;
-  onCardDeselected?: () => void;
+  onCardSelected?: (row: CardDef) => void;
+  onCardDeselected?: (event: any, row: CardDef) => void;
   currentDeck?: any[];
   withHover?: () => void;
 };
@@ -91,8 +91,8 @@ export default function SearchResults({
             blurDataURL="/cardimages/cardback.jpg"
             alt={row.name}
             className="w-full h-auto"
-            onClick={() => onCardSelected(row)}
-            onContextMenu={() => onCardDeselected(row)}
+            onClick={() => onCardSelected && onCardSelected(row)}
+            onContextMenu={(event) => onCardDeselected && onCardDeselected(event, row)}
             onMouseEnter={(event) => handleHover(row.collectorsinfo, event)}
             onMouseLeave={handleUnhover}
           />
@@ -112,8 +112,8 @@ export default function SearchResults({
                 alt={row.name}
                 onMouseEnter={handleLargeHover}
                 onMouseLeave={handleLargeUnhover}
-                onClick={() => onCardSelected(row)}
-                onContextMenu={(event) => onCardDeselected(event, row)}
+                onClick={() => onCardSelected && onCardSelected(row)}
+                onContextMenu={(event) => onCardDeselected && onCardDeselected(event, row)}
               />
               {currentDeck && (
                 <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white rounded-full px-2 py-1">
