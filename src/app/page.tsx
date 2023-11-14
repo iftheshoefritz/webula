@@ -2,10 +2,7 @@
 
 import '../styles/globals.css'
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { debounce } from 'lodash';
-import * as d3 from 'd3';
-import searchQueryParser from 'search-query-parser';
+import { useState } from 'react';
 import SearchBar from '../components/SearchBar';
 import SearchResults from '../components/SearchResults';
 import Help from '../components/Help';
@@ -24,7 +21,7 @@ export default function Home() {
       ) : (
         <>
         <div className="container mx-auto p-8">
-          <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} klass="mb-4 w-full"/>
+          <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
           <Help/>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <SearchResults filteredData={filteredData}/>
