@@ -1,19 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import { debounce } from 'lodash';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { track } from '@vercel/analytics';
-import * as d3 from 'd3';
 import Image from 'next/image';
 import useDataFetching from '../../hooks/useDataFetching';
 import useFilterData from '../../hooks/useFilterData';
 import DeckUploader from '../../components/DeckUploader';
-import DeckListItem from '../../components/DeckListItem';
 import DeckListPile from '../../components/DeckListPile';
 import Help from '../../components/Help';
 import PileAggregate from '../../components/PileAggregate';
 import PileAggregateCostChart from '../../components/PileAggregateCostChart';
-import {missionRequirements} from '../../lib/missionRequirements';
 import SearchBar from '../../components/SearchBar';
 import SearchResults from '../../components/SearchResults';
 import '../../styles/globals.css';
@@ -35,10 +31,6 @@ function useLocalStorage(key, defaultValue) {
 
   return [value, setValue];
 }
-
-const nonFilterColumns = [
-  'ImageFile'
-]
 
 const skillList = [
   'acquisition',
@@ -234,8 +226,6 @@ export default function Home() {
     // Remove event listener on cleanup
     return () => window.removeEventListener('resize', handleResize);
   }, []); // Empty array ensures that effect is only run on mount and unmount
-
-  const toggleDrawer = () => setIsDrawerOpen(!isDrawerOpen);
 
   const compare = (a, b) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
