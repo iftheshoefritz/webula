@@ -7,7 +7,7 @@ type SearchResultsProps = {
   onCardSelected?: (row: CardDef) => void;
   onCardDeselected?: (event: any, row: CardDef) => void;
   currentDeck?: any[];
-  withHover?: () => void;
+  withHover?: boolean;
 };
 
 export default function SearchResults({

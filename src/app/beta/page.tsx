@@ -13,8 +13,9 @@ import PileAggregateCostChart from '../../components/PileAggregateCostChart';
 import SearchBar from '../../components/SearchBar';
 import SearchResults from '../../components/SearchResults';
 import '../../styles/globals.css';
+import { CardDef } from '../../types';
 
-function useLocalStorage(key, defaultValue) {
+function useLocalStorage(key: string, defaultValue: {row: any, count: 0}[] = []) {
   const [value, setValue] = useState(() => {
     if (typeof window !== 'undefined') {
       const savedValue = localStorage.getItem(key);
@@ -64,22 +65,16 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const filteredData = useFilterData(loading, data, columns, searchQuery);
 
-  const [currentDeck, setCurrentDeck] = useLocalStorage('currentDeck', {});
+  const [currentDeck, setCurrentDeck] = useLocalStorage('currentDeck');
 
-  const numericCount = (withPotentialCount) => {
-    if (withPotentialCount) {
-      return withPotentialCount.count || 0; // this check may be unnecessary, do we ever pass in an object without count property?
-    } else {
-      return 0;
-    }
-  }
+  const numericCount = (withPotentialCount?: {count?: number}) => ( withPotentialCount?.count ?? 0 )
 
   useEffect(() => {
     console.log('currentDeck modified!');
     console.log(currentDeck);
   }, [currentDeck]);
 
-  const incrementIncluded = useCallback((row) => {
+  const incrementIncluded = useCallback((row: CardDef) => {
     console.log('incrementIncluded: ');
     console.log(row.collectorsinfo);
     console.log('incrementIncluded wants to increment: ' + numericCount(currentDeck[row.collectorsinfo]))
@@ -100,7 +95,7 @@ export default function Home() {
     }
   }, [currentDeck, setCurrentDeck]);
 
-  const decrementIncluded = useCallback((event, row) => {
+  const decrementIncluded = useCallback((event: any, row: CardDef) => {
     console.log('decrementIncluded: ' + row.collectorsinfo);
     event.preventDefault();
     if (numericCount(currentDeck[row.collectorsinfo]) > 0) {
@@ -120,7 +115,7 @@ export default function Home() {
     }
   }, [currentDeck, setCurrentDeck]);
 
-  const cardPileFor = (card) => {
+  const cardPileFor = (card: CardDef) => {
     switch(card.type) {
       case "mission": return "mission";
       case "dilemma": return "dilemma";
@@ -130,23 +125,27 @@ export default function Home() {
 
   const clearDeck = (() => setCurrentDeck(prevState => ({})));
 
-  const handleFileLoad = (contents) => {
+  const handleFileLoad = (contents: string) => {
     track('deckBuilder.handleFileLoad.start');
     const lines = contents.trim().split('\n');
 
     const deck = {};
     for (const line of lines) {
-      const key = line.split('\t')[0].toLowerCase();
-      const card = data.find((row) => row.collectorsinfo === key);
-      card.count = (card.count || 0) + 1;
-      card.pile = cardPileFor(card);
-      deck[key] = {
-        count: (deck[key] || {count: 0}).count + 1,
-        row: card
+      const key = line.split('\t')[1];
+      const card = data.find((row: CardDef) => row.originalName === key);
+      if (card) {
+        card.count = numericCount(card) + 1;
+        card.pile = cardPileFor(card);
+        deck[key] = {
+          count: (deck[key] || {count: 0}).count + 1,
+          row: card
+        }
+        setCurrentDeck(deck);
+        track('deckBuilder.handleFileLoad.finish', {lines: lines.length});
+      } else {
+        console.error(`${key}: could not find card listed in file upload`)
       }
     }
-    setCurrentDeck(deck);
-    track('deckBuilder.handleFileLoad.finish', {lines: lines.length});
   }
 
   const exportDeckToLackey = () => {
@@ -161,8 +160,8 @@ export default function Home() {
       dilemma: 1,
       mission: 2,
     }
-    let tsvArray = [];
-    let currentPile = undefined;
+    const tsvArray: string[] = [];
+    let currentPile = '';
 
     const sortedCollectorsInfo = Object
           .keys(currentDeck)
@@ -227,7 +226,7 @@ export default function Home() {
     return () => window.removeEventListener('resize', handleResize);
   }, []); // Empty array ensures that effect is only run on mount and unmount
 
-  const compare = (a, b) => {
+  const compare = (a: string, b: string) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
   }
 
@@ -278,7 +277,7 @@ export default function Home() {
                         }
                         incrementIncluded={incrementIncluded}
                         decrementIncluded={decrementIncluded}
-                        sortBy={(r1,r2) => compare(r1.mission, r2.mission)}
+                        sortBy={(r1: CardDef, r2: CardDef) => compare(r1.mission, r2.mission)}
                       />
                       <DeckListPile
                         pileName="Dilemmas"
@@ -287,14 +286,14 @@ export default function Home() {
                         }
                         decrementIncluded={decrementIncluded}
                         incrementIncluded={incrementIncluded}
-                        sortBy={(r1, r2) => r1.dilemmatype === r2.dilemmatype ? compare(r1.name, r2.name) : compare(r1.dilemmatype, r2.dilemmatype)}
+                        sortBy={(r1: CardDef, r2: CardDef) => r1.dilemmatype === r2.dilemmatype ? compare(r1.name, r2.name) : compare(r1.dilemmatype, r2.dilemmatype)}
                       />
                       <DeckListPile
                         pileName="Draw"
                         cardsForPile={
                           currentDeckRows.filter((row) => row.pile === "draw")
                         }
-                        sortBy={(r1, r2) => r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)}
+                        sortBy={(r1: CardDef, r2: CardDef) => r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)}
                         incrementIncluded={incrementIncluded}
                         decrementIncluded={decrementIncluded}
                       />

@@ -2,12 +2,13 @@
 import { useState, useEffect } from 'react';
 import * as d3 from 'd3';
 import { track } from '@vercel/analytics';
+import { CardDef } from '../types';
 
 const useDataFetching = () => {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<any[]>([]);
   const [unparsedData, setUnparsedData] = useState('')
-  const [filteredData, setFilteredData] = useState([]);
-  const [columns, setColumns] = useState([]);
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [columns, setColumns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const nonFilterColumns = ['ImageFile'];
 
@@ -33,8 +34,8 @@ const useDataFetching = () => {
         const newRow = Object.fromEntries(
           Object.entries(row).map(([key, value]) =>
             nonFilterColumns.includes(key)
-              ? [key.toLowerCase(), value]
-              : [key.toLowerCase(), value.toLowerCase()],
+              ? [key.toLowerCase(), value as number]
+              : [key.toLowerCase(), (value as string).toLowerCase()],
           ),
         )
         newRow.originalName = row.Name
