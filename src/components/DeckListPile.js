@@ -19,7 +19,7 @@ class DeckListPile extends Component {
                 decrementIncluded={(e) => decrementIncluded(e, row)}
                 incrementIncluded={(e) => incrementIncluded(row)}
                 count={row.count}
-                name={row.name}
+                name={row.originalName}
                 imagefile={row.imagefile}
                 unique={row.unique == 'y'}
               />
