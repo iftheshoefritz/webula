@@ -131,21 +131,21 @@ export default function Home() {
 
     const deck = {};
     for (const line of lines) {
-      const key = line.split('\t')[1];
-      const card = data.find((row: CardDef) => row.originalName === key);
+      const [qty, uploadCardName] = line.split('\t').map((x) => x.trim());
+      const card = data.find((row: CardDef) =>  row.originalName === uploadCardName)
       if (card) {
-        card.count = numericCount(card) + 1;
+        card.count = parseInt(qty);
         card.pile = cardPileFor(card);
-        deck[key] = {
-          count: (deck[key] || {count: 0}).count + 1,
+        deck[card.collectorsinfo] = {
+          count: parseInt(qty),
           row: card
         }
-        setCurrentDeck(deck);
-        track('deckBuilder.handleFileLoad.finish', {lines: lines.length});
       } else {
-        console.error(`${key}: could not find card listed in file upload`)
+        track('deckBuilder.handleFileLoad.unknownCard', {card: uploadCardName})
       }
     }
+    setCurrentDeck(deck);
+    track('deckBuilder.handleFileLoad.finish', {lines: lines.length});
   }
 
   const exportDeckToLackey = () => {
