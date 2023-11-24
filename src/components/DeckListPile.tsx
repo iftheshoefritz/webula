@@ -16,10 +16,9 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
   cardsForPile,
   incrementIncluded,
   decrementIncluded,
-  sortBy,
-  collapsed
+  sortBy
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(collapsed === undefined ? true : collapsed); // Collapsed state
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const count = cardsForPile.reduce((sum, row) => sum + row.count, 0);
   const hoverMessage = isCollapsed ? "Click to expand" : "Click to collapse";
 

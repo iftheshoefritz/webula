@@ -278,7 +278,6 @@ export default function Home() {
                         incrementIncluded={incrementIncluded}
                         decrementIncluded={decrementIncluded}
                         sortBy={(r1: CardDef, r2: CardDef) => compare(r1.mission, r2.mission)}
-                        collapsed={false}
                       />
                       <DeckListPile
                         pileName="Dilemmas"
@@ -288,7 +287,6 @@ export default function Home() {
                         decrementIncluded={decrementIncluded}
                         incrementIncluded={incrementIncluded}
                         sortBy={(r1: CardDef, r2: CardDef) => r1.dilemmatype === r2.dilemmatype ? compare(r1.name, r2.name) : compare(r1.dilemmatype, r2.dilemmatype)}
-                        collapsed
                       />
                       <DeckListPile
                         pileName="Draw"
@@ -298,7 +296,6 @@ export default function Home() {
                         sortBy={(r1: CardDef, r2: CardDef) => r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)}
                         incrementIncluded={incrementIncluded}
                         decrementIncluded={decrementIncluded}
-                        collapsed
                       />
                     </div>
                   </>
