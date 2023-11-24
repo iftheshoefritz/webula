@@ -254,7 +254,7 @@ export default function Home() {
                       <Help/>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true}/>
+                      <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true}/>
                     </div>
 
                   </>) : (
