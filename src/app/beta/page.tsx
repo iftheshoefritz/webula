@@ -244,63 +244,58 @@ export default function Home() {
               >
                 Close List
               </button>
-              {
-                isSearching ? (
-                  <>
+              { isSearching &&
+              <div className="mx-2">
+                <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+                <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 my-2 rounded" onClick={() => setIsSearching(false)}>Exit search</button>
+                <div>
+                  <Help/>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true}/>
+                </div>
+              </div>
+              }
 
-                    <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 my-2 rounded" onClick={() => setIsSearching(false)}>Exit search</button>
-                    <div className="mx-2">
-                      <Help/>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true}/>
-                    </div>
-
-                  </>) : (
-                  <>
-                    <div className="flex flex-col overflow-y-scroll px-2 mt-4">
-                      <div className="flex flex-col space-y-2">
-                        <div className="flex justify-start items-center space-x-2">
-                          <DeckUploader onFileLoad={handleFileLoad}/>
-                          <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={clearDeck}>Clear deck</button>&nbsp;
-                        </div>
-                        <div className="flex justify-start space-x-2">
-                          <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => setIsSearching(true)}>Search</button>
-                          <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportDeckToLackey}>Export</button>
-                        </div>
-                      </div>
-                      <DeckListPile
-                        pileName="Missions"
-                        cardsForPile={
-                          currentDeckRows.filter((row) => row.pile === "mission")
-                        }
-                        incrementIncluded={incrementIncluded}
-                        decrementIncluded={decrementIncluded}
-                        sortBy={(r1: CardDef, r2: CardDef) => compare(r1.mission, r2.mission)}
-                      />
-                      <DeckListPile
-                        pileName="Dilemmas"
-                        cardsForPile={
-                          currentDeckRows.filter((row) => row.pile === "dilemma")
-                        }
-                        decrementIncluded={decrementIncluded}
-                        incrementIncluded={incrementIncluded}
-                        sortBy={(r1: CardDef, r2: CardDef) => r1.dilemmatype === r2.dilemmatype ? compare(r1.name, r2.name) : compare(r1.dilemmatype, r2.dilemmatype)}
-                      />
-                      <DeckListPile
-                        pileName="Draw"
-                        cardsForPile={
-                          currentDeckRows.filter((row) => row.pile === "draw")
-                        }
-                        sortBy={(r1: CardDef, r2: CardDef) => r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)}
-                        incrementIncluded={incrementIncluded}
-                        decrementIncluded={decrementIncluded}
-                      />
-                    </div>
-                  </>
-              )
-            }
+              <div className="{`flex flex-col overflow-y-scroll px-2 mt-4 ${isSearching ? 'invisible': 'visible}`}">
+                <div className="flex flex-col space-y-2">
+                  <div className="flex justify-start items-center space-x-2">
+                    <DeckUploader onFileLoad={handleFileLoad}/>
+                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={clearDeck}>Clear deck</button>&nbsp;
+                  </div>
+                  <div className="flex justify-start space-x-2">
+                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => setIsSearching(true)}>Search</button>
+                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportDeckToLackey}>Export</button>
+                  </div>
+                </div>
+                <DeckListPile
+                  pileName="Missions"
+                  cardsForPile={
+                    currentDeckRows.filter((row) => row.pile === "mission")
+                  }
+                  incrementIncluded={incrementIncluded}
+                  decrementIncluded={decrementIncluded}
+                  sortBy={(r1: CardDef, r2: CardDef) => compare(r1.mission, r2.mission)}
+                />
+                <DeckListPile
+                  pileName="Dilemmas"
+                  cardsForPile={
+                    currentDeckRows.filter((row) => row.pile === "dilemma")
+                  }
+                  decrementIncluded={decrementIncluded}
+                  incrementIncluded={incrementIncluded}
+                  sortBy={(r1: CardDef, r2: CardDef) => r1.dilemmatype === r2.dilemmatype ? compare(r1.name, r2.name) : compare(r1.dilemmatype, r2.dilemmatype)}
+                />
+                <DeckListPile
+                  pileName="Draw"
+                  cardsForPile={
+                    currentDeckRows.filter((row) => row.pile === "draw")
+                  }
+                  sortBy={(r1: CardDef, r2: CardDef) => r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)}
+                  incrementIncluded={incrementIncluded}
+                  decrementIncluded={decrementIncluded}
+                />
+              </div>
             </div>
             <div className="flex-grow lg:w-3/4 overflow-y-scroll">
               <div className="container mx-auto p-4">
