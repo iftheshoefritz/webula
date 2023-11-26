@@ -19,7 +19,7 @@ export default function SearchBar({ searchQuery, setSearchQuery }) {
       <div className="flex items-center">
         <input
           type="text"
-          placeholder="Search query, e.g. name:Odo type:personnel"
+          placeholder="Search cards by name e.g. 'Odo'"
           value={localSearchQuery}
           onChange={(e) => {
             setLocalSearchQuery(e.target.value);

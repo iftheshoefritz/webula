@@ -3,7 +3,7 @@ import { textAbbreviations, rangeAbbreviations } from '../lib/constants';
 export default function Help() {
   return (
     <div className='mb-4'>
-      <input type="checkbox" className="peer" />&nbsp;show me how to use this
+      <input type="checkbox" className="peer" />&nbsp;show me more search features
         <div className="flex flex-wrap max-h-0 overflow-y-scroll peer-checked:max-h-80">
           <div className="my-2">
             <p className="font-bold">Example searches:</p>

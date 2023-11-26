@@ -21,6 +21,8 @@ const useFilterData = (loading, data, columns, searchQuery) => {
   console.log('starting useFilterData');
   const [filteredData, setFilteredData] = useState([]);
 
+  let filtered;
+
   useEffect(() => {
     console.log(searchQuery);
     const parsedQuery = searchQueryParser.parse((searchQuery || '').replace(QUOTE_CHARS_REGEX, '"'), {
@@ -28,51 +30,60 @@ const useFilterData = (loading, data, columns, searchQuery) => {
       ranges: rangeColumns.concat(Object.values(rangeAbbreviations)),
       offsets: false,
     });
-    console.log(parsedQuery);
-    textColumns.forEach((column) => {
-      const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery)
-      if (parsedQuery[fullOrAbbreviatedColumn]) {
-        parsedQuery[fullOrAbbreviatedColumn] = toArray(parsedQuery[fullOrAbbreviatedColumn])
-          .map((term) => term.toLowerCase())
-      }
-      if (parsedQuery.exclude && parsedQuery.exclude[fullOrAbbreviatedColumn])
-        parsedQuery.exclude[fullOrAbbreviatedColumn] = toArray(parsedQuery.exclude[fullOrAbbreviatedColumn])
-          .map((term) => term.toLowerCase())
-    });
 
-    const withoutExcluded = data.filter((row) => {
-      return textColumns.concat(rangeColumns).every((column) => {
-        const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery)
-        if ( parsedQuery.exclude && parsedQuery.exclude[fullOrAbbreviatedColumn] ) {
-          if (textColumns.includes(column)) {
-            return parsedQuery.exclude[fullOrAbbreviatedColumn].every((match) =>
-              !row[column].includes(match)
-            )
-          }
-        }
-        return true;
+    if (typeof parsedQuery === 'string') {
+      console.log('typeof parsedQuery is string!')
+      filtered = data.filter((row) => {
+        return row.name.includes(parsedQuery.toLowerCase());
       })
-    })
-
-    const filtered = withoutExcluded.filter((row) => {
-      return textColumns.concat(rangeColumns).every((column) => {
+      setFilteredData(filtered)
+    } else {
+      console.log('typeof parsedQuery is not string!');
+      textColumns.forEach((column) => {
         const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery)
         if (parsedQuery[fullOrAbbreviatedColumn]) {
-          if (textColumns.includes(column)) {
-            return parsedQuery[fullOrAbbreviatedColumn].every((match) =>
-              row[column].includes(match)
-            )
-          } else if (rangeColumns.includes(column)) {
-            const range = parsedQuery[fullOrAbbreviatedColumn];
-            const rowValue = parseFloat(row[column]);
-            const fromValue = (range.from !== '' && range.from !== undefined) ? parseFloat(range.from) : -Infinity;
-            const toValue = range.to !== '' && range.to !== undefined ? parseFloat(range.to) : Infinity;
-            return rowValue >= fromValue && rowValue <= toValue;
-          }
+          parsedQuery[fullOrAbbreviatedColumn] = toArray(parsedQuery[fullOrAbbreviatedColumn])
+            .map((term) => term.toLowerCase())
         }
-        return true;
+        if (parsedQuery.exclude && parsedQuery.exclude[fullOrAbbreviatedColumn])
+          parsedQuery.exclude[fullOrAbbreviatedColumn] = toArray(parsedQuery.exclude[fullOrAbbreviatedColumn])
+            .map((term) => term.toLowerCase())
       });
-    });
+
+      const withoutExcluded = data.filter((row) => {
+        return textColumns.concat(rangeColumns).every((column) => {
+          const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery)
+          if ( parsedQuery.exclude && parsedQuery.exclude[fullOrAbbreviatedColumn] ) {
+            if (textColumns.includes(column)) {
+              return parsedQuery.exclude[fullOrAbbreviatedColumn].every((match) =>
+                !row[column].includes(match)
+              )
+            }
+          }
+          return true;
+        })
+      })
+
+      const filtered = withoutExcluded.filter((row) => {
+        return textColumns.concat(rangeColumns).every((column) => {
+          const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery)
+          if (parsedQuery[fullOrAbbreviatedColumn]) {
+            if (textColumns.includes(column)) {
+              return parsedQuery[fullOrAbbreviatedColumn].every((match) =>
+                row[column].includes(match)
+              )
+            } else if (rangeColumns.includes(column)) {
+              const range = parsedQuery[fullOrAbbreviatedColumn];
+              const rowValue = parseFloat(row[column]);
+              const fromValue = (range.from !== '' && range.from !== undefined) ? parseFloat(range.from) : -Infinity;
+              const toValue = range.to !== '' && range.to !== undefined ? parseFloat(range.to) : Infinity;
+              return rowValue >= fromValue && rowValue <= toValue;
+            }
+          }
+          return true;
+        });
+      });
+    }
 
     if (JSON.stringify(filtered) !== JSON.stringify(filteredData)) {
       track('deckBuilder.setFiltered', {q: searchQuery})
