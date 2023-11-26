@@ -36,7 +36,6 @@ const useFilterData = (loading, data, columns, searchQuery) => {
       filtered = data.filter((row) => {
         return row.name.includes(parsedQuery.toLowerCase());
       })
-      setFilteredData(filtered)
     } else {
       console.log('typeof parsedQuery is not string!');
       textColumns.forEach((column) => {
@@ -64,7 +63,7 @@ const useFilterData = (loading, data, columns, searchQuery) => {
         })
       })
 
-      const filtered = withoutExcluded.filter((row) => {
+      filtered = withoutExcluded.filter((row) => {
         return textColumns.concat(rangeColumns).every((column) => {
           const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery)
           if (parsedQuery[fullOrAbbreviatedColumn]) {
