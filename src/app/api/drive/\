@@ -1,0 +1,141 @@
+import { google } from 'googleapis';
+import { getToken } from "next-auth/jwt"
+import { getSession } from 'next-auth/react';
+import { Readable } from 'stream';
+
+async function tokenDecode(req) {
+  try {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (token) {
+      //console.log('Decoded JWT:', token);
+      return token.accessToken
+    } else {
+      console.log('Invalid or expired JWT');
+    }
+  } catch (error) {
+    console.error('Error verifying JWT:', error);
+  }
+}
+
+export async function POST(
+  req: Request
+) {
+
+  try {
+    const accessToken = await tokenDecode(req)
+
+    const clientId = process.env.NEXTAUTH_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_SECRET;
+
+    const auth = new google.auth.OAuth2({
+      clientId, clientSecret,
+    })
+    auth.setCredentials({ access_token: accessToken })
+
+    const drive = google.drive({
+      version: 'v3',
+      auth: auth,
+    })
+    // chatGPT version (after 2 attempts)
+    //const fileContent = JSON.stringify({a: 1, b:2});
+    //const buffer = Buffer.from(fileContent);
+
+    //const stream = new Readable();
+    //stream.push(buffer);
+    //stream.push(null); // Indicates the end of the stream
+
+    //const fileMetadata = {
+    //  name: 'test.json',
+    //  parents: ['appDataFolder'],
+    //  mimeType: 'application/json'
+    //};
+
+    //const response = await drive.files.create({
+    //  resource: fileMetadata,
+    //  media: {
+    //    mimeType: 'application/json',
+    //    body: stream
+    //  },
+    //  fields: 'id' // Specify the fields you want in the response
+    //});
+
+    //codellama version (attempt 1)
+    const fileMetadata = {
+      'name': 'myfile',
+      'mimeType': 'application/json',
+      'parents': ['appDataFolder']
+    };
+
+    const media = {
+      mimeType: 'application/json',
+      body: JSON.stringify({a: 'codellama', b: 'ollama'})
+    };
+
+    const response = await drive.files.create({ resource: fileMetadata, media }, (err, file) => {
+      if (err) {
+        // Handle error
+        console.error(err);
+      } else {
+        console.log('File created successfully', file);
+      }
+    });
+
+    return new Response(JSON.stringify(response), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+  } catch (error) {
+    console.error('Google API returned an error:', error);
+    return new Response(JSON.stringify({ error: 'Google API error' }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+  }
+}
+
+export async function GET(
+  req: Request
+) {
+  try {
+    const accessToken = await tokenDecode(req)
+
+    const clientId = process.env.NEXTAUTH_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_SECRET;
+
+    const auth = new google.auth.OAuth2({
+      clientId, clientSecret,
+    })
+    auth.setCredentials({ access_token: accessToken })
+
+    const drive = google.drive({
+      version: 'v3',
+      auth: auth,
+    })
+
+    const response = await drive.files.list({
+      spaces: 'appDataFolder',
+    })
+    console.log(response.data)
+
+    return new Response(JSON.stringify({accessToken: accessToken || 'undefined/null'}), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+  } catch (error) {
+    console.error('Google API returned an error:', error);
+    return new Response(JSON.stringify({ error: 'Google API error' }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+  }
+}
+
+
