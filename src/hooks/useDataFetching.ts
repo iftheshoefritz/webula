@@ -1,9 +1,14 @@
 // hooks/useDataFetching.js
 import { useState, useEffect } from 'react';
 import * as d3 from 'd3';
-import { track } from '@vercel/analytics';
+import { track as originalTrack } from '@vercel/analytics';
 
 const useDataFetching = () => {
+  const track = (eventName: string) => {
+    if (typeof window !== 'undefined') {
+      originalTrack(eventName);
+    }
+  };
   const [data, setData] = useState<any[]>([]);
   const [unparsedData, setUnparsedData] = useState('')
   const [filteredData, setFilteredData] = useState<any[]>([]);
