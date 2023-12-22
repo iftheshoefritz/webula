@@ -87,9 +87,6 @@ export async function GET(
       auth: auth,
     })
 
-    // still does not work
-    //const { drive } = await connectGoogleDrive(req)
-
     const response = await drive.files.list({
       spaces: 'appDataFolder',
     })
