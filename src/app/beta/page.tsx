@@ -7,6 +7,7 @@ import useDataFetching from '../../hooks/useDataFetching';
 import useFilterData from '../../hooks/useFilterData';
 import DeckUploader from '../../components/DeckUploader';
 import DeckListPile from '../../components/DeckListPile';
+import DrivePickerModal from '../../components/DrivePickerModal'
 import Help from '../../components/Help';
 import PileAggregate from '../../components/PileAggregate';
 import PileAggregateCostChart from '../../components/PileAggregateCostChart';
@@ -14,6 +15,7 @@ import SearchBar from '../../components/SearchBar';
 import SearchResults from '../../components/SearchResults';
 import '../../styles/globals.css';
 import { CardDef } from '../../types';
+import { getSession } from 'next-auth/react';
 
 function useLocalStorage(key: string, defaultValue: {row: any, count: 0}[] = []) {
   const [value, setValue] = useState(() => {
@@ -60,12 +62,25 @@ const skillList = [
 ]
 
 export default function Home() {
-  console.log('rendering home');
-  const { data, columns, loading } = useDataFetching();
-  const [searchQuery, setSearchQuery] = useState('');
-  const filteredData = useFilterData(loading, data, columns, searchQuery);
+  const { data, columns, loading } = useDataFetching()
+  const [searchQuery, setSearchQuery] = useState('')
+  const filteredData = useFilterData(loading, data, columns, searchQuery)
 
-  const [currentDeck, setCurrentDeck] = useLocalStorage('currentDeck');
+  const [currentDeck, setCurrentDeck] = useLocalStorage('currentDeck')
+  const [driveFiles, setDriveFiles] = useState([])
+  const [showDrivePicker, setShowDrivePicker] = useState(false)
+  const [loadingFromGDrive, setLoadingFromGDrive] = useState(false)
+  const [session, setSession] = useState(null)
+
+  useEffect((() => {
+    (async () => {
+      console.log('*****aysnc getSession')
+      const session = await getSession()
+      console.log('*****aysnc getSession DONE')
+      setSession(session)
+    })()
+  }), [])
+
 
   const numericCount = (withPotentialCount?: {count?: number}) => ( withPotentialCount?.count ?? 0 )
 
@@ -148,8 +163,39 @@ export default function Home() {
     track('deckBuilder.handleFileLoad.finish', {lines: lines.length});
   }
 
-  const exportDeckToLackey = () => {
-    track('deckBuilder.lackeyExport.start');
+  const fetchDriveFile = async (driveId: string) => {
+    track('deckBuilder.driveFileLoad.start')
+    console.log('id from modal', driveId)
+    setLoadingFromGDrive(true)
+    const response = await fetch(`/api/drive/${driveId}`, {method: 'GET', credentials: 'include'})
+    const json = await response.json() // data coming back is actually non-JSON string
+    console.log(`fetched ${driveId}`, json)
+
+    handleFileLoad(json)
+    setLoadingFromGDrive(false)
+    setShowDrivePicker(false)
+    track('deckBuilder.driveFileLoad.end')
+  }
+
+  const writeToDrive = async () => {
+    const response = await fetch('/api/drive', {method: 'POST', credentials: 'include', body: JSON.stringify(
+      {fileName: 'realDeck', content: createLackeyTSV()}
+    )});
+    const json = await response.json();
+    console.log('JSON FROM api/drive POST!', json)
+  }
+
+  const loadFilesFromDrive = async () => {
+    setLoadingFromGDrive(true)
+    setShowDrivePicker(true)
+    const response = await fetch('/api/drive', {method: 'GET', credentials: 'include'})
+    const json = await response.json()
+    console.log('JSON FROM api/drive GET', json)
+    setDriveFiles(json.files)
+    setLoadingFromGDrive(false)
+  }
+
+  const createLackeyTSV = (): string => {
     const lackeyPileNameFor = {
       mission: "Missions:",
       dilemma: "Dilemmas:",
@@ -164,8 +210,8 @@ export default function Home() {
     let currentPile = '';
 
     const sortedCollectorsInfo = Object
-          .keys(currentDeck)
-          .sort((a, b) => lackeyPileOrder[currentDeck[a].row.pile] - lackeyPileOrder[currentDeck[b].row.pile]);
+      .keys(currentDeck)
+      .sort((a, b) => lackeyPileOrder[currentDeck[a].row.pile] - lackeyPileOrder[currentDeck[b].row.pile]);
     for (const collectorsinfo of sortedCollectorsInfo) {
       const card = currentDeck[collectorsinfo];
       if (card.row.pile !== currentPile ) {
@@ -177,9 +223,13 @@ export default function Home() {
       }
     }
 
-    const tsvString = tsvArray.join('\n');
+    return tsvArray.join('\n');
+  }
 
-    // Create a Blob from the TSV string
+  const exportLackeyDeckToDisk = () => {
+    track('deckBuilder.lackeyExport.start');
+
+    const tsvString = createLackeyTSV()
     const blob = new Blob([tsvString], { type: 'text/tab-separated-values' });
 
     // Create a URL for the Blob
@@ -195,7 +245,7 @@ export default function Home() {
 
     // Release the Blob URL
     URL.revokeObjectURL(url);
-    track('deckBuilder.lackeyExport.finish', {lines: tsvArray.length});
+    track('deckBuilder.lackeyExport.finish', {bytes: tsvString.length});
   }
 
   const currentDeckRows = useMemo(() => {
@@ -237,7 +287,7 @@ export default function Home() {
       ) : (
         <>
           <div className="flex flex-col lg:flex-row h-screen overflow-scroll">
-          <div className={`fixed left-0 top-0 h-screen lg:relative lg:flex lg:flex-col lg:w-1/4 bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 overflow-scroll`}>
+            <div className={`fixed left-0 top-0 h-screen lg:relative lg:flex lg:flex-col lg:w-1/4 bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 overflow-scroll`}>
               <button
                 className="lg:hidden px-4 py-2"
                 onClick={() => setIsDrawerOpen(false)}
@@ -245,33 +295,39 @@ export default function Home() {
                 Close List
               </button>
               { isSearching &&
-              <div className="mx-2">
-                <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-                <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 my-2 rounded" onClick={() => setIsSearching(false)}>Exit search</button>
-                <div>
-                  <Help/>
+                <div className="mx-2">
+                  <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+                  <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 my-2 rounded" onClick={() => setIsSearching(false)}>Exit search</button>
+                  <div>
+                    <Help/>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true}/>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true}/>
-                </div>
-              </div>
               }
 
               <div className="{`flex flex-col overflow-y-scroll px-2 mt-4 ${isSearching ? 'invisible': 'visible}`}">
                 <div className="flex flex-col space-y-2">
                   <div className="flex justify-start items-center space-x-2">
-                    <DeckUploader onFileLoad={handleFileLoad}/>
+                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => setIsSearching(true)}>Search</button>
                     <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={clearDeck}>Clear deck</button>&nbsp;
                   </div>
                   <div className="flex justify-start space-x-2">
-                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => setIsSearching(true)}>Search</button>
-                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportDeckToLackey}>Export</button>
+                    <DeckUploader onFileLoad={handleFileLoad}/>
+                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportLackeyDeckToDisk}>Save to my computer</button>
                   </div>
+                  { session?.accessToken &&
+                    <div className="flex justify-start space-x-2">
+                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={loadFilesFromDrive}>Load from G Drive</button>
+                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => writeToDrive()}>Save to G Drive</button>
+                    </div>
+                  }
                 </div>
                 <DeckListPile
                   pileName="Missions"
                   cardsForPile={
-                    currentDeckRows.filter((row) => row.pile === "mission")
+                  currentDeckRows.filter((row) => row.pile === "mission")
                   }
                   incrementIncluded={incrementIncluded}
                   decrementIncluded={decrementIncluded}
@@ -280,7 +336,7 @@ export default function Home() {
                 <DeckListPile
                   pileName="Dilemmas"
                   cardsForPile={
-                    currentDeckRows.filter((row) => row.pile === "dilemma")
+                  currentDeckRows.filter((row) => row.pile === "dilemma")
                   }
                   decrementIncluded={decrementIncluded}
                   incrementIncluded={incrementIncluded}
@@ -289,7 +345,7 @@ export default function Home() {
                 <DeckListPile
                   pileName="Draw"
                   cardsForPile={
-                    currentDeckRows.filter((row) => row.pile === "draw")
+                  currentDeckRows.filter((row) => row.pile === "draw")
                   }
                   sortBy={(r1: CardDef, r2: CardDef) => r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)}
                   incrementIncluded={incrementIncluded}
@@ -302,7 +358,7 @@ export default function Home() {
                 <button
                   className="lg:hidden px-4 py-2"
                   onClick={() => setIsDrawerOpen(true)}
-                >
+                  >
                   Open List
                 </button>
 
@@ -313,16 +369,16 @@ export default function Home() {
                     currentDeckRows
                       .filter((row) => row.pile === "mission")
                       .map((row) => {
-                          return <Image
-                            src={`/cardimages/${row.imagefile}.jpg`}
-                            width={165}
-                            height={229}
-                            placeholder='blur'
-                            blurDataURL='/cardimages/cardback.jpg'
-                            alt={row.name}
-                            key={row.collectorsinfo}
-                            className='w-56 h-auto'
-                          />
+                        return <Image
+                                 src={`/cardimages/${row.imagefile}.jpg`}
+                                 width={165}
+                                 height={229}
+                                 placeholder='blur'
+                                 blurDataURL='/cardimages/cardback.jpg'
+                                 alt={row.name}
+                                 key={row.collectorsinfo}
+                                 className='w-56 h-auto'
+                               />
                       })
                   }
                 </div>
@@ -376,9 +432,9 @@ export default function Home() {
                     }}
                   >
                     {([keyword, count]) =>
-                        <div key={keyword} className="m-2 p-2 border rounded">
+                      <div key={keyword} className="m-2 p-2 border rounded">
                         <span className="px-1">{count}x <b>{keyword}</b></span>
-                        </div>
+                      </div>
                     }
                   </PileAggregate>
                 </div>
@@ -397,9 +453,9 @@ export default function Home() {
                     }}
                   >
                     {([icon, count]) =>
-                        <div key={icon} className="m-2 p-2 border rounded">
+                      <div key={icon} className="m-2 p-2 border rounded">
                         <span className="px-1">{count}x <b>[{icon}]</b></span>
-                        </div>
+                      </div>
                     }
                   </PileAggregate>
                 </div>
@@ -424,6 +480,14 @@ export default function Home() {
               </div>
             </div>
           </div>
+          {showDrivePicker &&
+           <DrivePickerModal
+             files={driveFiles}
+             loadFile={fetchDriveFile}
+             inProgress={loadingFromGDrive}
+             onClose={() => setShowDrivePicker(false) }
+           />
+          }
         </>
       )}
     </div>

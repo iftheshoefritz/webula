@@ -1,4 +1,6 @@
 import { Analytics } from '@vercel/analytics/react';
+import { Providers } from './providers'
+
 import React from 'react';
 
 type LayoutProps = {
@@ -12,7 +14,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <title>Webula</title>
       </head>
       <body>
-        {children}
+        <Providers>
+          {children}
+        </Providers>
         <Analytics />
       </body>
     </html>
