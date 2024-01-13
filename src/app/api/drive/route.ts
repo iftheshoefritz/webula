@@ -48,7 +48,7 @@ export async function POST(
       body: JSON.stringify(content)
     }
 
-    const response = await drive.files.create({ resource: fileMetadata, media, fields: 'id' });
+    const response = await drive.files.create({ requestBody: fileMetadata, media, fields: 'id' });
 
     return new Response(JSON.stringify(response), {
       status: 200,
