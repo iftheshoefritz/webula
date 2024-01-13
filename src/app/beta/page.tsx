@@ -61,6 +61,12 @@ const skillList = [
   'treachery',
 ]
 
+interface Session {
+  accessToken: string
+  session: {user: {name: string}}
+  user: {name: string}
+}
+
 export default function Home() {
   const { data, columns, loading } = useDataFetching()
   const [searchQuery, setSearchQuery] = useState('')
@@ -70,14 +76,14 @@ export default function Home() {
   const [driveFiles, setDriveFiles] = useState([])
   const [showDrivePicker, setShowDrivePicker] = useState(false)
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false)
-  const [session, setSession] = useState(null)
+  const [session, setSession] = useState<Session | null>(null)
 
   useEffect((() => {
     (async () => {
       console.log('*****aysnc getSession')
       const session = await getSession()
       console.log('*****aysnc getSession DONE')
-      setSession(session)
+      setSession(session as Session | null)
     })()
   }), [])
 
@@ -317,7 +323,7 @@ export default function Home() {
                     <DeckUploader onFileLoad={handleFileLoad}/>
                     <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportLackeyDeckToDisk}>Save to my computer</button>
                   </div>
-                  { session?.accessToken &&
+                  { session?.user &&
                     <div className="flex justify-start space-x-2">
                       <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={loadFilesFromDrive}>Load from G Drive</button>
                       <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => writeToDrive()}>Save to G Drive</button>

@@ -1,19 +1,21 @@
 import { google } from 'googleapis';
 import { getToken } from "next-auth/jwt"
 
-async function tokenDecode(req) {
+async function tokenDecode(req): Promise<string | undefined> {
   try {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET }) as {accessToken: string};
     if (token) {
       //console.log('Decoded JWT:', token);
       console.log('returning token', token.accessToken)
       return token.accessToken
     } else {
       console.log('Invalid or expired JWT');
+      return undefined
     }
 
   } catch (error) {
     console.error('Error verifying JWT:', error);
+    return undefined
   }
 }
 
