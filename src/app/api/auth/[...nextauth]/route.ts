@@ -30,17 +30,6 @@ const authOptions: NextAuthOptions = {
       }
       return token;
     },
-    async session(session, token, user) {
-      // Forward the access token to the session
-      //console.log('*****************SESSION CALLBACK!!')
-      //console.log('session', session)
-      //console.log('token', token)
-      //console.log('user', user)
-      session.accessToken = session.token.accessToken
-      session.refreshtokenToken = session.token.refreshToken;
-
-      return session;
-    },
   },
 }
 
