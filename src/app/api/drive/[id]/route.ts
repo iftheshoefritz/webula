@@ -41,7 +41,6 @@ export async function GET(
   })
 
   const lastFile = await drive.files.get({
-    spaces: 'appDataFolder',
     fileId: id,
     alt: 'media'
   })
