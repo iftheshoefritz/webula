@@ -21,43 +21,37 @@ export default function DrivePickerModal({ files, loadFile, inProgress, onClose 
               <span className="text-2xl">&times;</span>
             </button>
           </div>
-          {inProgress && <p>please wait...</p>}
-          <form id="file-picker" className="w-full max-w-md">
-            <div
-              id="file-list"
-              className="h-48 overflow-y-auto flex flex-col mt-1 space-y-1"
-            >
-              {!inProgress && files.length === 0 && <p>no files found</p>}
-              {!inProgress && files.map((file) => (
-                <div
-                  key={file.id}
-                  onClick={() => setSelectedFileId(file.id)}
-                  className={
-                  `flex justify-between items-center px-3 py-2 cursor-pointer border border-gray-300 hover:bg-gray-50 ${
-                  selectedFileId === file.id ? 'bg-blue-100 border-blue-500' : ''}`
-                  }
-                >
-                  <span>{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => {}} // Empty onClick handler
-                    className="ml-auto text-black hover:text-gray-700 font-bold py-1 px-3"
-                  >
-                    <FaTrash/>
-                  </button>
-                </div>
-              ))}
-            </div>
-            {files.length > 0 && !inProgress &&
-              <button
-                type="button"
-                onClick={handleFileSelect}
-                className="bg-black hover:bg-gray-700 text-white font-bold mt-4 py-2 px-4 rounded w-full"
-              >
-                Submit
-              </button>
-            }
-          </form>
+          <div className="max-h-96 overflow-y-auto">
+            <table className="table-auto w-full border-collapse">
+              <tbody>
+                <tr><td>{inProgress && <p>please wait...</p>}</td></tr>
+                <tr><td>{!inProgress && files.length === 0 && <p>no files found</p>}</td></tr>
+                {!inProgress && files.map((file) => (
+                  <tr className="border `${selectedFileId === file.id ? 'bg-blue-100 border-blue-500' : ''}`">
+                    <td onClick={() => setSelectedFileId(file.id)}><span>{file.name}</span></td>
+                    <td className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {}} // Empty onClick handler
+                        className="ml-auto text-black hover:text-gray-700 font-bold py-1 px-3"
+                      >
+                        <FaTrash/>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {files.length > 0 && !inProgress &&
+           <button
+             type="button"
+             onClick={handleFileSelect}
+             className="bg-black hover:bg-gray-700 text-white font-bold mt-4 py-2 px-4 rounded w-full"
+           >
+             Load
+           </button>
+          }
         </div>
       </div>
     </div>
