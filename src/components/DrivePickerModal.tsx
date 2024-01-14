@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { FaTrash } from 'react-icons/fa';
 
 export default function DrivePickerModal({ files, loadFile, inProgress, onClose }) {
   const [selectedFileId, setSelectedFileId] = useState(files[0]?.id)
@@ -36,7 +37,14 @@ export default function DrivePickerModal({ files, loadFile, inProgress, onClose 
                   selectedFileId === file.id ? 'bg-blue-100 border-blue-500' : ''}`
                   }
                 >
-                  {file.name}
+                  <span>{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {}} // Empty onClick handler
+                    className="ml-auto text-black hover:text-gray-700 font-bold py-1 px-3"
+                  >
+                    <FaTrash/>
+                  </button>
                 </div>
               ))}
             </div>
