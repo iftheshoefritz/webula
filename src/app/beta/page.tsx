@@ -367,7 +367,9 @@ export default function Home() {
                   </div>
                   <div className="flex justify-start space-x-2">
                     <DeckUploader onFileLoad={handleFileLoad}/>
-                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportLackeyDeckToDisk}>Save to my computer</button>
+                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportLackeyDeckToDisk}>
+                      <span>Save to my computer</span>
+                    </button>
                   </div>
                   { session?.user &&
                     <div className="flex justify-start space-x-2">
