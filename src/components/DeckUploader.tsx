@@ -6,18 +6,22 @@ interface DeckUploaderProps {
 
 const DeckUploader: FunctionComponent<DeckUploaderProps> = ({ onFileLoad }) => {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files) {return;}
     const file = event.target.files[0];
-    let reader = new FileReader();
+    if (file) {
+      let reader = new FileReader();
 
-    reader.onload = (e) => {
-      onFileLoad(file.name, e.target.result as string);
-    };
+      reader.onload = (e) => {
+        if (!e.target?.result) {return;}
+        onFileLoad(file.name, e.target.result as string);
+      };
 
-    reader.onerror = (e) => {
-      console.error('File reading error', e);
-    };
+      reader.onerror = (e) => {
+        console.error('File reading error', e);
+      };
 
-    reader.readAsText(file);
+      reader.readAsText(file);
+    }
   };
 
   return (

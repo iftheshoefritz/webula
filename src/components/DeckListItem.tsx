@@ -1,10 +1,10 @@
 // a typescript version of the DeckListItem component
-import React, { Component } from 'react';
+import React, { Component, SyntheticEvent } from 'react';
 import Image from 'next/image';
 
 type DeckListItemProps = {
   incrementIncluded: () => void;
-  decrementIncluded: () => void;
+  decrementIncluded: (e: React.MouseEvent) => void;
   collectorsinfo: string;
   count: number;
   name: string;
@@ -28,7 +28,7 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
     bottom: 'auto'
   });
 
-  const handleHover = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  const handleHover = (event: SyntheticEvent) => {
     const imageHeight = 403;
     const viewportHeight = window.innerHeight;
     const liRect = event.currentTarget.getBoundingClientRect();

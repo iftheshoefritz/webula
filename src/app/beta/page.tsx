@@ -79,7 +79,7 @@ export default function Home() {
   const [savingToGDrive, setSavingToGDrive] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
   const [deckTitle, setDeckTitle] = useState('')
-  const [deckFile, setDeckFile] = useState({})
+  const [deckFile, setDeckFile] = useState<{ id: string, name: string }|null>(null)
 
   useEffect((() => {
     (async () => {
@@ -150,7 +150,7 @@ export default function Home() {
   const clearDeck = () => {
     setCurrentDeck(prevState => ({}))
     setDeckTitle('')
-    setDeckFile({})
+    setDeckFile(null)
   }
 
   const handleFileLoad = (name: string, contents: string) => {
@@ -198,7 +198,7 @@ export default function Home() {
     track('deckBuilder.driveFileDelete.start')
     console.log('file', file)
     console.log('id from modal', file.id)
-    setDriveFiles(driveFiles.filter((f) => f.id !== file.id))
+    setDriveFiles(driveFiles.filter((f: {id: number}) => f.id !== file.id))
     await fetch(`/api/drive/${file.id}`, {method: 'DELETE', credentials: 'include'})
     // TODO: handle error
     track('deckBuilder.driveFileDelete.end')
@@ -209,8 +209,8 @@ export default function Home() {
       window.alert('please enter a deck name!')
     } else {
       setSavingToGDrive(true)
-      let response = null
-      if (deckFile.id && deckFile.name === deckTitle) {
+      let response: Response | null = null
+      if (deckFile?.id && deckFile?.name === deckTitle) {
         response = await fetch(`/api/drive/${deckFile.id}`, {method: 'PUT', credentials: 'include', body: JSON.stringify(
           {fileName: deckTitle, content: createLackeyTSV()}
         )});
