@@ -1,11 +1,10 @@
 import React, { useState } from 'react'
 import { FaTrash } from 'react-icons/fa';
 
-export default function DrivePickerModal({ files, loadFile, inProgress, onClose }) {
-  const [selectedFileId, setSelectedFileId] = useState(files[0]?.id)
-  const handleFileSelect = () => {
-    loadFile(selectedFileId)
-  }
+export default function DrivePickerModal({ files, loadFile, deleteFile, inProgress, onClose }) {
+  const [selectedFile, setSelectedFile] = useState({})
+  const handleFileSelect = () => loadFile(selectedFile)
+  const handleFileDelete = (file) => deleteFile(file)
   return (
     <div className="fixed inset-0 z-10 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen">
@@ -27,12 +26,12 @@ export default function DrivePickerModal({ files, loadFile, inProgress, onClose 
                 <tr><td>{inProgress && <p>please wait...</p>}</td></tr>
                 <tr><td>{!inProgress && files.length === 0 && <p>no files found</p>}</td></tr>
                 {!inProgress && files.map((file) => (
-                  <tr className="border `${selectedFileId === file.id ? 'bg-blue-100 border-blue-500' : ''}`">
-                    <td onClick={() => setSelectedFileId(file.id)}><span>{file.name}</span></td>
+                  <tr key={file.id} className="border `${selectedFile.id === file.id ? 'bg-blue-100 border-blue-500' : ''}`">
+                    <td onClick={() => setSelectedFile(file)}><span>{file.name}</span></td>
                     <td className="flex justify-end">
                       <button
                         type="button"
-                        onClick={() => {}} // Empty onClick handler
+                        onClick={() => handleFileDelete(file)}
                         className="ml-auto text-black hover:text-gray-700 font-bold py-1 px-3"
                       >
                         <FaTrash/>

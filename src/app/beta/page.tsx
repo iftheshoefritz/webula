@@ -77,6 +77,8 @@ export default function Home() {
   const [showDrivePicker, setShowDrivePicker] = useState(false)
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
+  const [deckTitle, setDeckTitle] = useState('')
+  const [deckFile, setDeckFile] = useState({})
 
   useEffect((() => {
     (async () => {
@@ -144,7 +146,11 @@ export default function Home() {
     }
   }
 
-  const clearDeck = (() => setCurrentDeck(prevState => ({})));
+  const clearDeck = () => {
+    setCurrentDeck(prevState => ({}))
+    setDeckTitle('')
+    setDeckFile({})
+  }
 
   const handleFileLoad = (contents: string) => {
     track('deckBuilder.handleFileLoad.start');
@@ -169,14 +175,16 @@ export default function Home() {
     track('deckBuilder.handleFileLoad.finish', {lines: lines.length});
   }
 
-  const fetchDriveFile = async (driveId: string) => {
+  const fetchDriveFile = async (driveFile) => {
     track('deckBuilder.driveFileLoad.start')
-    console.log('id from modal', driveId)
+    console.log('id from modal', driveFile.id)
     setLoadingFromGDrive(true)
-    const response = await fetch(`/api/drive/${driveId}`, {method: 'GET', credentials: 'include'})
+    const response = await fetch(`/api/drive/${driveFile.id}`, {method: 'GET', credentials: 'include'})
     const json = await response.json() // data coming back is actually non-JSON string
-    console.log(`fetched ${driveId}`, json)
+    console.log(`fetched ${driveFile.id} `, json)
 
+    setDeckFile(driveFile)
+    setDeckTitle(driveFile.name)
     handleFileLoad(json)
     setLoadingFromGDrive(false)
     setShowDrivePicker(false)
@@ -194,11 +202,23 @@ export default function Home() {
   }
 
   const writeToDrive = async () => {
-    const response = await fetch('/api/drive', {method: 'POST', credentials: 'include', body: JSON.stringify(
-      {fileName: 'realDeck', content: createLackeyTSV()}
-    )});
-    const json = await response.json();
-    console.log('JSON FROM api/drive POST!', json)
+    if (deckTitle.length === 0) {
+      window.alert('please enter a deck name!')
+    } else {
+      let response = null
+      if (deckFile.id) {
+        response = await fetch(`/api/drive/${deckFile.id}`, {method: 'PUT', credentials: 'include', body: JSON.stringify(
+          {fileName: deckTitle, content: createLackeyTSV()}
+        )});
+      } else {
+        response = await fetch('/api/drive', {method: 'POST', credentials: 'include', body: JSON.stringify(
+          {fileName: deckTitle, content: createLackeyTSV()}
+        )});
+      }
+      const json = await response.json()
+
+      console.log('JSON FROM api/drive POST/PUT!', json)
+    }
   }
 
   const loadFilesFromDrive = async () => {
@@ -325,6 +345,19 @@ export default function Home() {
 
               <div className="{`flex flex-col overflow-y-scroll px-2 mt-4 ${isSearching ? 'invisible': 'visible}`}">
                 <div className="flex flex-col space-y-2">
+                  <div className="flex justify-start space-x-2">
+                    <input
+                      type="text"
+                      id="deckTitle"
+                      placeholder="Set deck title here"
+                      value={deckTitle}
+                      onChange={
+                      (e) => {
+                        setDeckTitle(e.target.value);
+                      }}
+                      className="bg-white text-black font-bold py-2 px-4 rounded my-0 border border-gray-600 w-full"
+                    />
+                  </div>
                   <div className="flex justify-start items-center space-x-2">
                     <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => setIsSearching(true)}>Search</button>
                     <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={clearDeck}>Clear deck</button>&nbsp;
