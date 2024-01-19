@@ -76,6 +76,7 @@ export default function Home() {
   const [driveFiles, setDriveFiles] = useState([])
   const [showDrivePicker, setShowDrivePicker] = useState(false)
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false)
+  const [savingToGDrive, setSavingToGDrive] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
   const [deckTitle, setDeckTitle] = useState('')
   const [deckFile, setDeckFile] = useState({})
@@ -205,6 +206,7 @@ export default function Home() {
     if (deckTitle.length === 0) {
       window.alert('please enter a deck name!')
     } else {
+      setSavingToGDrive(true)
       let response = null
       if (deckFile.id && deckFile.name === deckTitle) {
         response = await fetch(`/api/drive/${deckFile.id}`, {method: 'PUT', credentials: 'include', body: JSON.stringify(
@@ -216,6 +218,7 @@ export default function Home() {
         )});
       }
       const json = await response.json()
+      setSavingToGDrive(false)
 
       console.log('JSON FROM api/drive POST/PUT!', json)
     }
@@ -368,8 +371,12 @@ export default function Home() {
                   </div>
                   { session?.user &&
                     <div className="flex justify-start space-x-2">
-                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={loadFilesFromDrive}>Load from G Drive</button>
-                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => writeToDrive()}>Save to G Drive</button>
+                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={loadFilesFromDrive}>
+                        Load from G Drive
+                      </button>
+                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => writeToDrive()}>
+                        <span>{savingToGDrive ? "Saving..." : "Save to G Drive"}</span>
+                      </button>
                     </div>
                   }
                 </div>
