@@ -40,13 +40,17 @@ export async function GET(
     auth: auth,
   })
 
-  const lastFile = await drive.files.get({
+  const fetchedFile = await drive.files.get({
     fileId: id,
     alt: 'media'
   })
-  console.log('lastFile.data', lastFile.data)
+  console.log('fetchedFile.data', fetchedFile.data)
 
-  return new Response(JSON.stringify(lastFile.data), {
+  return new Response(JSON.stringify(fetchedFile.data), {
+    status: 200,
+    headers: {'Content-Type': 'application/json'}
+  })
+}
     status: 200,
     headers: {'Content-Type': 'application/json'}
   })
