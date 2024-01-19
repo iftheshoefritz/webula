@@ -51,6 +51,40 @@ export async function GET(
     headers: {'Content-Type': 'application/json'}
   })
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id
+  console.log('file id to delete', id)
+  console.log('parms', params)
+
+  const accessToken = await tokenDecode(request)
+
+  const clientId = process.env.NEXTAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_SECRET;
+
+  const auth = new google.auth.OAuth2({
+    clientId, clientSecret,
+  })
+  auth.setCredentials({ access_token: accessToken })
+
+  const drive = google.drive({
+    version: 'v3',
+    auth: auth,
+  })
+
+  const response = await drive.files.delete({
+    fileId: id,
+  })
+  console.log('response.data', response.data)
+
+  return new Response(JSON.stringify(response.data), {
+    status: 200,
+    headers: {'Content-Type': 'application/json'}
+  })
+}
     status: 200,
     headers: {'Content-Type': 'application/json'}
   })
