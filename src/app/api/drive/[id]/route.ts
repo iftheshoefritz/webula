@@ -85,6 +85,41 @@ export async function DELETE(
     headers: {'Content-Type': 'application/json'}
   })
 }
+
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id
+
+  const accessToken = await tokenDecode(request)
+
+  const clientId = process.env.NEXTAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_SECRET;
+
+  const auth = new google.auth.OAuth2({
+    clientId, clientSecret,
+  })
+  auth.setCredentials({ access_token: accessToken })
+
+  const drive = google.drive({
+    version: 'v3',
+    auth: auth,
+  })
+
+  const { content } = await request.json()
+
+  const response = await drive.files.update({
+    fileId: id,
+    uploadType: 'media',
+    media: {
+      mimeType: 'application/json',
+      body: JSON.stringify(content)
+    }
+  })
+  console.log('response.data', response.data)
+
+  return new Response(JSON.stringify(response.data), {
     status: 200,
     headers: {'Content-Type': 'application/json'}
   })

@@ -183,6 +183,16 @@ export default function Home() {
     track('deckBuilder.driveFileLoad.end')
   }
 
+  const deleteDriveFile = async (file) => {
+    track('deckBuilder.driveFileDelete.start')
+    console.log('file', file)
+    console.log('id from modal', file.id)
+    setDriveFiles(driveFiles.filter((f) => f.id !== file.id))
+    await fetch(`/api/drive/${file.id}`, {method: 'DELETE', credentials: 'include'})
+    // TODO: handle error
+    track('deckBuilder.driveFileDelete.end')
+  }
+
   const writeToDrive = async () => {
     const response = await fetch('/api/drive', {method: 'POST', credentials: 'include', body: JSON.stringify(
       {fileName: 'realDeck', content: createLackeyTSV()}
@@ -490,6 +500,7 @@ export default function Home() {
            <DrivePickerModal
              files={driveFiles}
              loadFile={fetchDriveFile}
+             deleteFile={deleteDriveFile}
              inProgress={loadingFromGDrive}
              onClose={() => setShowDrivePicker(false) }
            />
