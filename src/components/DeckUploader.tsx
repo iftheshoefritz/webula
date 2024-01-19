@@ -1,7 +1,7 @@
 import React, { FunctionComponent } from 'react';
 
 interface DeckUploaderProps {
-  onFileLoad: (file: string) => void;
+  onFileLoad: (name: string, file: string) => void;
 }
 
 const DeckUploader: FunctionComponent<DeckUploaderProps> = ({ onFileLoad }) => {
@@ -10,7 +10,7 @@ const DeckUploader: FunctionComponent<DeckUploaderProps> = ({ onFileLoad }) => {
     let reader = new FileReader();
 
     reader.onload = (e) => {
-      onFileLoad(e.target.result as string);
+      onFileLoad(file.name, e.target.result as string);
     };
 
     reader.onerror = (e) => {

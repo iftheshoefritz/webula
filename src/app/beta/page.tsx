@@ -153,7 +153,7 @@ export default function Home() {
     setDeckFile({})
   }
 
-  const handleFileLoad = (contents: string) => {
+  const handleFileLoad = (name: string, contents: string) => {
     track('deckBuilder.handleFileLoad.start');
     const lines = contents.trim().split('\n');
 
@@ -173,6 +173,9 @@ export default function Home() {
       }
     }
     setCurrentDeck(deck);
+    if (name) {
+      setDeckTitle(name.replace('.txt', ''));
+    }
     track('deckBuilder.handleFileLoad.finish', {lines: lines.length});
   }
 
@@ -185,8 +188,7 @@ export default function Home() {
     console.log(`fetched ${driveFile.id} `, json)
 
     setDeckFile(driveFile)
-    setDeckTitle(driveFile.name)
-    handleFileLoad(json)
+    handleFileLoad(driveFile.name, json)
     setLoadingFromGDrive(false)
     setShowDrivePicker(false)
     track('deckBuilder.driveFileLoad.end')
