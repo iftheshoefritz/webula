@@ -206,7 +206,7 @@ export default function Home() {
       window.alert('please enter a deck name!')
     } else {
       let response = null
-      if (deckFile.id) {
+      if (deckFile.id && deckFile.name === deckTitle) {
         response = await fetch(`/api/drive/${deckFile.id}`, {method: 'PUT', credentials: 'include', body: JSON.stringify(
           {fileName: deckTitle, content: createLackeyTSV()}
         )});
