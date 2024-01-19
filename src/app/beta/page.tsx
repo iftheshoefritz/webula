@@ -277,7 +277,7 @@ export default function Home() {
     // Create a temporary anchor element and start a download
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'deck.txt';
+    a.download = `${deckTitle || 'deck'}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
