@@ -1,9 +1,8 @@
 import React, { useState } from 'react'
-import { FaTrash } from 'react-icons/fa';
+import { FaTrash, FaFolderOpen } from 'react-icons/fa';
 
 export default function DrivePickerModal({ files, loadFile, deleteFile, inProgress, onClose }) {
-  const [selectedFile, setSelectedFile] = useState({})
-  const handleFileSelect = () => loadFile(selectedFile)
+  const handleFileSelect = (file) => loadFile(file)
   const handleFileDelete = (file) => deleteFile(file)
   return (
     <div className="fixed inset-0 z-10 overflow-y-auto">
@@ -26,13 +25,20 @@ export default function DrivePickerModal({ files, loadFile, deleteFile, inProgre
                 <tr><td>{inProgress && <p>please wait...</p>}</td></tr>
                 <tr><td>{!inProgress && files.length === 0 && <p>no files found</p>}</td></tr>
                 {!inProgress && files.map((file) => (
-                  <tr key={file.id} className="border `${selectedFile.id === file.id ? 'bg-blue-100 border-blue-500' : ''}`">
-                    <td onClick={() => setSelectedFile(file)}><span>{file.name}</span></td>
+                  <tr key={file.id} className="border" >
+                    <td><span className="px-3">{file.name}</span></td>
                     <td className="flex justify-end">
                       <button
                         type="button"
+                        className="ml-auto text-black hover:text-gray-700 font-bold py-1"
+                        onClick={() => handleFileSelect(file)}
+                      >
+                        <FaFolderOpen/>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleFileDelete(file)}
-                        className="ml-auto text-black hover:text-gray-700 font-bold py-1 px-3"
+                        className="text-black hover:text-gray-700 font-bold py-1 px-3"
                       >
                         <FaTrash/>
                       </button>
@@ -42,15 +48,6 @@ export default function DrivePickerModal({ files, loadFile, deleteFile, inProgre
               </tbody>
             </table>
           </div>
-          {files.length > 0 && !inProgress &&
-           <button
-             type="button"
-             onClick={handleFileSelect}
-             className="bg-black hover:bg-gray-700 text-white font-bold mt-4 py-2 px-4 rounded w-full"
-           >
-             Load
-           </button>
-          }
         </div>
       </div>
     </div>
