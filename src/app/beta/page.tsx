@@ -17,7 +17,7 @@ import '../../styles/globals.css';
 import { CardDef } from '../../types';
 import { getSession } from 'next-auth/react';
 
-function useLocalStorage(key: string, defaultValue: {row: any, count: 0}[] = []) {
+function useLocalStorage<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [value, setValue] = useState(() => {
     if (typeof window !== 'undefined') {
       const savedValue = localStorage.getItem(key);
@@ -72,14 +72,14 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const filteredData = useFilterData(loading, data, columns, searchQuery)
 
-  const [currentDeck, setCurrentDeck] = useLocalStorage('currentDeck')
+  const [currentDeck, setCurrentDeck] = useLocalStorage<{row: any, count: 0}[]>('currentDeck', [])
+  const [deckTitle, setDeckTitle] = useLocalStorage<string>('deckTitle', '')
+  const [deckFile, setDeckFile] = useLocalStorage<{ id: string|null, name: string }>('deckFile', {id: null, name: 'My deck'})
   const [driveFiles, setDriveFiles] = useState([])
   const [showDrivePicker, setShowDrivePicker] = useState(false)
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false)
   const [savingToGDrive, setSavingToGDrive] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
-  const [deckTitle, setDeckTitle] = useState('')
-  const [deckFile, setDeckFile] = useState<{ id: string, name: string }|null>(null)
 
   useEffect((() => {
     (async () => {
