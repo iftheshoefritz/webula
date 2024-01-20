@@ -1,12 +1,12 @@
 import Image from "next/image";
 import React, { useState } from "react";
-import { CardDef } from "../types";
+import { CardDef, Deck } from "../types";
 
 type SearchResultsProps = {
   filteredData: any[];
   onCardSelected?: (row: CardDef) => void;
   onCardDeselected?: (event: any, row: CardDef) => void;
-  currentDeck?: any[];
+  currentDeck?: Deck;
   withHover?: boolean;
 };
 

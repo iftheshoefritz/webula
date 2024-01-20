@@ -14,7 +14,7 @@ import PileAggregateCostChart from '../../components/PileAggregateCostChart';
 import SearchBar from '../../components/SearchBar';
 import SearchResults from '../../components/SearchResults';
 import '../../styles/globals.css';
-import { CardDef } from '../../types';
+import { CardDef, Deck } from '../../types';
 import { getSession } from 'next-auth/react';
 
 function useLocalStorage<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
@@ -72,7 +72,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const filteredData = useFilterData(loading, data, columns, searchQuery)
 
-  const [currentDeck, setCurrentDeck] = useLocalStorage<{row: any, count: 0}[]>('currentDeck', [])
+  const [currentDeck, setCurrentDeck] = useLocalStorage<Deck>('currentDeck', {})
   const [deckTitle, setDeckTitle] = useLocalStorage<string>('deckTitle', '')
   const [deckFile, setDeckFile] = useLocalStorage<{ id: string|null, name: string }>('deckFile', {id: null, name: 'My deck'})
   const [driveFiles, setDriveFiles] = useState([])
@@ -135,7 +135,7 @@ export default function Home() {
       }));
     } else {
       console.log('function thinks it is NOT possible to decrement:');
-      console.log(numericCount(currentDeck[row.collectorsinfo].count));
+      console.log(numericCount(currentDeck[row.collectorsinfo]));
     }
   }, [currentDeck, setCurrentDeck]);
 
@@ -148,9 +148,9 @@ export default function Home() {
   }
 
   const clearDeck = () => {
-    setCurrentDeck(prevState => ({}))
+    setCurrentDeck({})
     setDeckTitle('')
-    setDeckFile(null)
+    setDeckFile({id: null, name: 'My deck'})
   }
 
   const handleFileLoad = (name: string, contents: string) => {
