@@ -15,7 +15,7 @@ import SearchBar from '../../components/SearchBar';
 import SearchResults from '../../components/SearchResults';
 import '../../styles/globals.css';
 import { CardDef, Deck } from '../../types';
-import { getSession } from 'next-auth/react';
+import { getSession, signIn } from 'next-auth/react';
 
 function useLocalStorage<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [value, setValue] = useState(() => {
@@ -373,6 +373,16 @@ export default function Home() {
                       <span>Save to my computer</span>
                     </button>
                   </div>
+                  { !session?.user &&
+                    <div className="flex justify-start space-x-2">
+                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => signIn() }>
+                        <img loading="lazy" height="24" width="24" id="provider-logo-dark" src="https://authjs.dev/img/providers/google.svg"/>
+                        <span>
+                          sign in
+                        </span>
+                      </button>
+                    </div>
+                  }
                   { session?.user &&
                     <div className="flex justify-start space-x-2">
                       <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={loadFilesFromDrive}>
