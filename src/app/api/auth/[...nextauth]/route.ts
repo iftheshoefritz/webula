@@ -21,9 +21,6 @@ const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET as string,
   callbacks: {
     async jwt({token, account }) {
-      //console.log('*****************JWT CALLBACK!!')
-      //console.log('token', token)
-      //console.log('account', account)
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account?.refreshToken;
