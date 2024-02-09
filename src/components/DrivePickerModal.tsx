@@ -1,9 +1,23 @@
 import React, { useState } from 'react'
 import { FaTrash, FaFolderOpen } from 'react-icons/fa';
 
-export default function DrivePickerModal({ files, loadFile, deleteFile, inProgress, onClose }) {
-  const handleFileSelect = (file) => loadFile(file)
-  const handleFileDelete = (file) => deleteFile(file)
+export default function DrivePickerModal({
+  driveFiles = [],
+  browserFiles = [],
+  loadDriveFile,
+  deleteDriveFile,
+  loadBrowserFile,
+  deleteBrowserFile,
+  inProgress,
+  onClose,
+}) {
+  const handleDriveFileSelect = (file) => loadDriveFile(file)
+  const handleDriveFileDelete = (file) => deleteDriveFile(file)
+  const handleBrowserFileDelete = (file) => deleteBrowserFile(file)
+  const handleBrowserFileSelect = (file) => {
+    console.log('file', file)
+    loadBrowserFile(file)
+  }
   return (
     <div className="fixed inset-0 z-10 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen">
@@ -21,23 +35,54 @@ export default function DrivePickerModal({ files, loadFile, deleteFile, inProgre
           </div>
           <div className="max-h-96 overflow-y-auto">
             <table className="table-auto w-full border-collapse">
+              <thead><tr>This Browser</tr></thead>
               <tbody>
                 <tr><td>{inProgress && <p>please wait...</p>}</td></tr>
-                <tr><td>{!inProgress && files.length === 0 && <p>no files found</p>}</td></tr>
-                {!inProgress && files.map((file) => (
+                <tr><td>{!inProgress && browserFiles.length === 0 && <p>no files found</p>}</td></tr>
+                {!inProgress && browserFiles.map((file) => (
+                  <tr key={file.name} className="border" >
+                    <td><span className="px-3">{file.name}</span></td>
+                    <td className="flex justify-end">
+                      <button
+                        type="button"
+                        className="ml-auto text-black hover:text-gray-700 font-bold py-1"
+                        onClick={() => handleBrowserFileSelect(file)}
+                      >
+                        <FaFolderOpen/>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBrowserFileDelete(file)}
+                        className="text-black hover:text-gray-700 font-bold py-1 px-3"
+                      >
+                        <FaTrash/>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="max-h-96 overflow-y-auto">
+            <table className="table-auto w-full border-collapse">
+              <thead>Google Drive</thead>
+              <tbody>
+                <tr><td>{inProgress && <p>please wait...</p>}</td></tr>
+                <tr><td>{!inProgress && driveFiles.length === 0 && <p>no files found</p>}</td></tr>
+                {!inProgress && driveFiles.map((file) => (
                   <tr key={file.id} className="border" >
                     <td><span className="px-3">{file.name}</span></td>
                     <td className="flex justify-end">
                       <button
                         type="button"
                         className="ml-auto text-black hover:text-gray-700 font-bold py-1"
-                        onClick={() => handleFileSelect(file)}
+                        onClick={() => handleDriveFileSelect(file)}
                       >
                         <FaFolderOpen/>
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleFileDelete(file)}
+                        onClick={() => handleDriveFileDelete(file)}
                         className="text-black hover:text-gray-700 font-bold py-1 px-3"
                       >
                         <FaTrash/>

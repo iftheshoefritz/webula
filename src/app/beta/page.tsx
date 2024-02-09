@@ -72,6 +72,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const filteredData = useFilterData(loading, data, columns, searchQuery)
 
+  const [browserDecks, setBrowserDecks] = useLocalStorage('browserDecks', [])
   const [currentDeck, setCurrentDeck] = useLocalStorage<Deck>('currentDeck', {})
   const [deckTitle, setDeckTitle] = useLocalStorage<string>('deckTitle', '')
   const [deckFile, setDeckFile] = useLocalStorage<{ id: string|null, name: string }>('deckFile', {id: null, name: 'My deck'})
@@ -204,6 +205,12 @@ export default function Home() {
     track('deckBuilder.driveFileDelete.end')
   }
 
+  const deleteBrowserFile = (file) => {
+    setBrowserDecks(
+      browserDecks.filter((deck: {name: string}) => deck.name !== file.name)
+    )
+  }
+
   const writeToDrive = async () => {
     if (deckTitle.length === 0) {
       window.alert('please enter a deck name!')
@@ -223,6 +230,15 @@ export default function Home() {
       setSavingToGDrive(false)
 
       console.log('JSON FROM api/drive POST/PUT!', json)
+    }
+  }
+
+  const writeToBrowserList = () => {
+    if (deckTitle.length === 0) {
+      window.alert('please enter a deck name!')
+    } else {
+      // add an object {name: deckTitle, deck: currentDeck} to browserDecks
+      setBrowserDecks([...browserDecks, {name: deckTitle, deck: currentDeck}])
     }
   }
 
@@ -384,14 +400,21 @@ export default function Home() {
                     </div>
                   }
                   { session?.user &&
+                    <>
                     <div className="flex justify-start space-x-2">
                       <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={loadFilesFromDrive}>
-                        Load from G Drive
+                        Load Deck
                       </button>
                       <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => writeToDrive()}>
                         <span>{savingToGDrive ? "Saving..." : "Save to G Drive"}</span>
                       </button>
                     </div>
+                    <div className="flex justify-start space-x-2">
+                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => writeToBrowserList()}>
+                        <span>Save to browser</span>
+                      </button>
+                    </div>
+                    </>
                   }
                 </div>
                 <DeckListPile
@@ -552,9 +575,15 @@ export default function Home() {
           </div>
           {showDrivePicker &&
            <DrivePickerModal
-             files={driveFiles}
-             loadFile={fetchDriveFile}
-             deleteFile={deleteDriveFile}
+             driveFiles={driveFiles}
+             browserFiles={browserDecks}
+             loadDriveFile={fetchDriveFile}
+             deleteDriveFile={deleteDriveFile}
+             loadBrowserFile={(file) => {
+               setCurrentDeck(file.deck)
+               setDeckTitle(file.name)
+             }}
+             deleteBrowserFile={deleteBrowserFile}
              inProgress={loadingFromGDrive}
              onClose={() => setShowDrivePicker(false) }
            />
