@@ -1,33 +1,48 @@
 import { google } from 'googleapis';
 import { getToken } from "next-auth/jwt"
+import { refreshAccessToken } from '../auth/[...nextauth]/route';
 
-async function tokenDecode(req): Promise<string | undefined> {
+async function tokenDecode(req): Promise<{ accessToken: string; accessTokenExpires: number; refreshToken: string } | undefined> {
   try {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET }) as {accessToken: string};
-    if (token) {
-      console.log('returning token', token.accessToken)
-      return token.accessToken
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (token && token.accessToken && token.accessTokenExpires > Date.now()) {
+      console.log('Token is valid', token.accessToken);
+      return {
+        accessToken: token.accessToken,
+        accessTokenExpires: token.accessTokenExpires,
+        refreshToken: token.refreshToken,
+      };
     } else {
-      console.log('Invalid or expired JWT');
+      console.log('Token is invalid or expired, needs refresh.');
+      return refreshAccessToken(token)
     }
   } catch (error) {
-    console.error('Error verifying JWT:', error);
+    console.error('Error decoding token:', error);
+    return undefined;
   }
 }
+
 
 export async function POST(
   req: Request
 ) {
   try {
 
-    const accessToken = await tokenDecode(req)
+    let tokenDetails = await tokenDecode(req);
+    if (!tokenDetails) {
+      // Handle the case where the token is invalid or expired and couldn't be refreshed
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     const clientId = process.env.NEXTAUTH_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_SECRET;
     const auth = new google.auth.OAuth2({
       clientId, clientSecret,
     })
-    auth.setCredentials({ access_token: accessToken })
+    auth.setCredentials({ access_token: tokenDetails.accessToken })
 
     const drive = google.drive({
       version: 'v3',
@@ -71,7 +86,14 @@ export async function GET(
   req: Request
 ) {
   try {
-    const accessToken = await tokenDecode(req)
+    let tokenDetails = await tokenDecode(req);
+    if (!tokenDetails) {
+      // Handle the case where the token is invalid or expired and couldn't be refreshed
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     const clientId = process.env.NEXTAUTH_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_SECRET;
@@ -79,7 +101,7 @@ export async function GET(
     const auth = new google.auth.OAuth2({
       clientId, clientSecret,
     })
-    auth.setCredentials({ access_token: accessToken })
+    auth.setCredentials({ access_token: tokenDetails.accessToken })
 
     const drive = google.drive({
       version: 'v3',
