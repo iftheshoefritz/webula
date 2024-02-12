@@ -35,7 +35,7 @@ export default function DrivePickerModal({
           </div>
           <div className="max-h-96 overflow-y-auto">
             <table className="table-auto w-full border-collapse">
-              <thead><tr>This Browser</tr></thead>
+              <thead><tr><td>This Browser</td></tr></thead>
               <tbody>
                 <tr><td>{inProgress && <p>please wait...</p>}</td></tr>
                 <tr><td>{!inProgress && browserFiles.length === 0 && <p>no files found</p>}</td></tr>
