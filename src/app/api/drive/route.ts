@@ -2,9 +2,10 @@ import { google } from 'googleapis';
 import { getToken } from "next-auth/jwt"
 import { refreshAccessToken } from '../auth/[...nextauth]/route';
 
-async function tokenDecode(req): Promise<{ accessToken: string; accessTokenExpires: number; refreshToken: string } | undefined> {
+async function tokenDecode(req): Promise<{ accessToken: string; accessTokenExpires: number; refreshToken: string | undefined} | undefined> {
   try {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET }) as {accessToken: string, accessTokenExpires: number, refreshToken: string | undefined}
+    console.log('route.ts<drive> getToken return=', token)
     if (token && token.accessToken && token.accessTokenExpires > Date.now()) {
       console.log('Token is valid', token.accessToken);
       return {

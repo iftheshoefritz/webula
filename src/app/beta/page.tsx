@@ -7,7 +7,7 @@ import useDataFetching from '../../hooks/useDataFetching';
 import useFilterData from '../../hooks/useFilterData';
 import DeckUploader from '../../components/DeckUploader';
 import DeckListPile from '../../components/DeckListPile';
-import DrivePickerModal from '../../components/DrivePickerModal'
+import { DrivePickerModal } from '../../components/DrivePickerModal'
 import Help from '../../components/Help';
 import PileAggregate from '../../components/PileAggregate';
 import PileAggregateCostChart from '../../components/PileAggregateCostChart';
@@ -72,7 +72,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const filteredData = useFilterData(loading, data, columns, searchQuery)
 
-  const [browserDecks, setBrowserDecks] = useLocalStorage('browserDecks', [])
+  const [browserDecks, setBrowserDecks] = useLocalStorage<Array<{name: string, deck: Deck}>>('browserDecks', [])
   const [currentDeck, setCurrentDeck] = useLocalStorage<Deck>('currentDeck', {})
   const [deckTitle, setDeckTitle] = useLocalStorage<string>('deckTitle', '')
   const [deckFile, setDeckFile] = useLocalStorage<{ id: string|null, name: string }>('deckFile', {id: null, name: 'My deck'})
@@ -237,7 +237,6 @@ export default function Home() {
     if (deckTitle.length === 0) {
       window.alert('please enter a deck name!')
     } else {
-      // add an object {name: deckTitle, deck: currentDeck} to browserDecks
       setBrowserDecks([...browserDecks, {name: deckTitle, deck: currentDeck}])
     }
   }

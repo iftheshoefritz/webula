@@ -1,16 +1,33 @@
 import React, { useState } from 'react'
 import { FaTrash, FaFolderOpen } from 'react-icons/fa';
+import { Deck } from '../types';
 
-export default function DrivePickerModal({
+interface File {
+  name: string
+  deck: Deck
+}
+
+type PickerProps = {
+  browserFiles: Array<File>
+  driveFiles: Array<any>
+  loadDriveFile: (file: any) => void
+  deleteDriveFile: (file: any) => void
+  loadBrowserFile: (file: File) => void
+  deleteBrowserFile: (file: File) => void
+  inProgress: boolean
+  onClose: () => void
+}
+
+export const DrivePickerModal: React.FC<PickerProps> = ({
   driveFiles = [],
-  browserFiles = [],
+  browserFiles,
   loadDriveFile,
   deleteDriveFile,
   loadBrowserFile,
   deleteBrowserFile,
   inProgress,
   onClose,
-}) {
+}) => {
   const handleDriveFileSelect = (file) => loadDriveFile(file)
   const handleDriveFileDelete = (file) => deleteDriveFile(file)
   const handleBrowserFileDelete = (file) => deleteBrowserFile(file)
@@ -69,7 +86,7 @@ export default function DrivePickerModal({
               <tbody>
                 <tr><td>{inProgress && <p>please wait...</p>}</td></tr>
                 <tr><td>{!inProgress && driveFiles.length === 0 && <p>no files found</p>}</td></tr>
-                {!inProgress && driveFiles.map((file) => (
+                {!inProgress && driveFiles.map((file: {id: string, name: string}) => (
                   <tr key={file.id} className="border" >
                     <td><span className="px-3">{file.name}</span></td>
                     <td className="flex justify-end">
