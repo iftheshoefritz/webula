@@ -5,6 +5,7 @@ import { track } from '@vercel/analytics';
 import Image from 'next/image';
 import useDataFetching from '../../hooks/useDataFetching';
 import useFilterData from '../../hooks/useFilterData';
+import useLocalStorage from '../../hooks/useLocalStorage';
 import DeckUploader from '../../components/DeckUploader';
 import DeckListPile from '../../components/DeckListPile';
 import { DrivePickerModal } from '../../components/DrivePickerModal'
@@ -16,24 +17,7 @@ import SearchResults from '../../components/SearchResults';
 import '../../styles/globals.css';
 import { CardDef, Deck } from '../../types';
 import { getSession, signIn } from 'next-auth/react';
-
-function useLocalStorage<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const [value, setValue] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const savedValue = localStorage.getItem(key);
-      return savedValue ? JSON.parse(savedValue) : defaultValue;
-    }
-    return defaultValue;
-  });
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(key, JSON.stringify(value));
-    }
-  }, [key, value]);
-
-  return [value, setValue];
-}
+import { aboveMinimumCount, belowMaximumCount, cardPileFor, decrementedRow, findExisting, findExistingOrUseRow, incrementedRow, numericCount, parsedDeck } from './deckBuilderUtils';
 
 const skillList = [
   'acquisition',
@@ -92,8 +76,6 @@ export default function Home() {
   }), [])
 
 
-  const numericCount = (withPotentialCount?: {count?: number}) => ( withPotentialCount?.count ?? 0 )
-
   useEffect(() => {
     console.log('currentDeck modified!');
     console.log(currentDeck);
@@ -103,13 +85,13 @@ export default function Home() {
     console.log('incrementIncluded: ');
     console.log(row.collectorsinfo);
     console.log('incrementIncluded wants to increment: ' + numericCount(currentDeck[row.collectorsinfo]))
-    if (numericCount(currentDeck[row.collectorsinfo]) < 3) {
+    if (belowMaximumCount(currentDeck[row.collectorsinfo])) {
       // First, get the current row from the deck or use the given row if it doesn't exist in the deck yet
-      const currentRow = currentDeck[row.collectorsinfo]?.row ?? row;
+      const currentRow = findExisting(currentDeck, row)
       console.log('found currentRow with count: ' + numericCount(currentRow));
 
       // Then, create a new row based on the current row and increment its count
-      const newRow = { ...currentRow, count: numericCount(currentRow) + 1, pile: cardPileFor(currentRow) };
+      const newRow = incrementedRow(currentRow);
       setCurrentDeck(prevState => ({
         ...prevState,
         [row.collectorsinfo]: {
@@ -123,10 +105,9 @@ export default function Home() {
   const decrementIncluded = useCallback((event: any, row: CardDef) => {
     console.log('decrementIncluded: ' + row.collectorsinfo);
     event.preventDefault();
-    if (numericCount(currentDeck[row.collectorsinfo]) > 0) {
-      console.log('function thinks it is possible to decrement from ' + numericCount(currentDeck[row.collectorsinfo]));
-      const newRow = currentDeck[row.collectorsinfo].row;
-      newRow.count -= 1;
+    if (aboveMinimumCount(currentDeck[row.collectorsinfo])) {
+      console.log('function thinks it is possible to decrement from ' + numericCount(currentDeck[row.collectorsinfo]))
+      const newRow = decrementedRow(currentDeck[row.collectorsinfo].row)
       setCurrentDeck(prevState => ({
         ...prevState,
         [row.collectorsinfo]: {
@@ -140,14 +121,6 @@ export default function Home() {
     }
   }, [currentDeck, setCurrentDeck]);
 
-  const cardPileFor = (card: CardDef) => {
-    switch(card.type) {
-      case "mission": return "mission";
-      case "dilemma": return "dilemma";
-      default: return "draw";
-    }
-  }
-
   const clearDeck = () => {
     setCurrentDeck({})
     setDeckTitle('')
@@ -159,21 +132,7 @@ export default function Home() {
     const lines = contents.trim().split('\n');
 
     const deck = {};
-    for (const line of lines) {
-      const [qty, uploadCardName] = line.split('\t').map((x) => x.trim());
-      const card = data.find((row: CardDef) =>  row.originalName === uploadCardName)
-      if (card) {
-        card.count = parseInt(qty);
-        card.pile = cardPileFor(card);
-        deck[card.collectorsinfo] = {
-          count: parseInt(qty),
-          row: card
-        }
-      } else {
-        track('deckBuilder.handleFileLoad.unknownCard', {card: uploadCardName})
-      }
-    }
-    setCurrentDeck(deck);
+    setCurrentDeck(parsedDeck(lines, deck))
     if (name) {
       setDeckTitle(name.replace('.txt', ''));
     }
