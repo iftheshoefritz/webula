@@ -45,3 +45,7 @@ export const parsedDeck = (lines: Array<string>, data: Array<any>) => {
   }
   return deck
 }
+
+export const deckFromTsv = (tsv: string, data: Array<any>) => (
+  parsedDeck(tsv.trim().split('\n'), data)
+)

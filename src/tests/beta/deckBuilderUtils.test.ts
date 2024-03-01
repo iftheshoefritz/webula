@@ -1,5 +1,21 @@
-import { aboveMinimumCount, belowMaximumCount, cardPileFor, decrementedRow, findExisting, findExistingOrUseRow, incrementedRow, numericCount, parsedDeck } from '../../app/beta/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, cardPileFor, deckFromTsv, decrementedRow, findExisting, findExistingOrUseRow, incrementedRow, numericCount, parsedDeck } from '../../app/beta/deckBuilderUtils';
 import { CardDef } from '../../types';
+
+describe('constructing a deck object based on TSV text and a list of all card data', () => {
+  const tsv = '1\tCard 1\n2\tCard 2\n1\tUnknown card'
+  const data = [
+    {collectorsinfo: '1R000', originalName: 'Card 1', type: 'mission'},
+    {collectorsinfo: '2C001', originalName: 'Card 2', type: 'event'},
+  ]
+  const deck = deckFromTsv(tsv, data)
+  expect(deck['1R000'].row.pile).toEqual('mission')
+  expect(deck['2C001'].row.pile).toEqual('draw')
+  expect(deck['1R000'].row.count).toEqual(1)
+  expect(deck['1R000'].count).toEqual(1)
+  expect(deck['2C001'].row.count).toEqual(2)
+  expect(deck['2C001'].count).toEqual(2)
+  expect(Object.keys(deck).length).toEqual(2)
+})
 
 describe('constructing a deck object based on TSV lines and a list of all card data', () => {
 

@@ -17,7 +17,7 @@ import SearchResults from '../../components/SearchResults';
 import '../../styles/globals.css';
 import { CardDef, Deck } from '../../types';
 import { getSession, signIn } from 'next-auth/react';
-import { aboveMinimumCount, belowMaximumCount, cardPileFor, decrementedRow, findExisting, findExistingOrUseRow, incrementedRow, numericCount, parsedDeck } from './deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, cardPileFor, deckFromTsv, decrementedRow, findExisting, findExistingOrUseRow, incrementedRow, numericCount, parsedDeck } from './deckBuilderUtils';
 
 const skillList = [
   'acquisition',
@@ -129,14 +129,12 @@ export default function Home() {
 
   const handleFileLoad = (name: string, contents: string) => {
     track('deckBuilder.handleFileLoad.start');
-    const lines = contents.trim().split('\n');
 
-    const deck = {};
-    setCurrentDeck(parsedDeck(lines, deck))
+    setCurrentDeck(deckFromTsv(contents, data))
     if (name) {
       setDeckTitle(name.replace('.txt', ''));
     }
-    track('deckBuilder.handleFileLoad.finish', {lines: lines.length});
+    track('deckBuilder.handleFileLoad.finish', {lines: Object.keys(currentDeck).length});
   }
 
   const fetchDriveFile = async (driveFile) => {
