@@ -12,7 +12,7 @@ const rl = readline.createInterface({
 let headers = [];
 
 const rewriteHeaders = {
-  text: "gametext"
+  Text: "gametext",
 }
 
 function loadNamesFromFile(filePath) {
