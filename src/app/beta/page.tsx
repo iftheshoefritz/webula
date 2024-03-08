@@ -87,7 +87,7 @@ export default function Home() {
     console.log('incrementIncluded wants to increment: ' + numericCount(currentDeck[row.collectorsinfo]))
     if (belowMaximumCount(currentDeck[row.collectorsinfo])) {
       // First, get the current row from the deck or use the given row if it doesn't exist in the deck yet
-      const currentRow = findExisting(currentDeck, row)
+      const currentRow = findExistingOrUseRow(currentDeck, row)
       console.log('found currentRow with count: ' + numericCount(currentRow));
 
       // Then, create a new row based on the current row and increment its count

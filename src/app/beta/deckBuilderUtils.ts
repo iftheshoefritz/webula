@@ -7,7 +7,7 @@ export const belowMaximumCount = (withPotentialCount?: {count?: number}, maxCoun
 
 export const aboveMinimumCount = (withPotentialCount?: {count?: number}, minCount = 0): boolean => ( numericCount(withPotentialCount) > minCount )
 
-export const findExisting = (deck, row) => (deck[row.collectorsInfo]?.row)
+export const findExisting = (deck, row) => (deck[row.collectorsinfo]?.row)
 
 export const findExistingOrUseRow = (deck, row) => (
   findExisting(deck, row) ?? row
