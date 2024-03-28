@@ -299,8 +299,8 @@ export default function Home() {
         <p>Loading data...</p>
       ) : (
         <>
-          <div className="flex flex-col lg:flex-row h-screen overflow-scroll">
-            <div className={`fixed left-0 top-0 h-screen lg:relative lg:flex lg:flex-col lg:w-1/4 bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 overflow-scroll`}>
+          <div className="flex flex-col lg:flex-row h-[100dvh] overflow-scroll">
+            <div className={`fixed left-0 top-0 h-[100dvh] lg:relative lg:flex lg:flex-col lg:w-1/4 bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 overflow-scroll`}>
               <button
                 className="lg:hidden px-4 py-2"
                 onClick={() => setIsDrawerOpen(false)}
