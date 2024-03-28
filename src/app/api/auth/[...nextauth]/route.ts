@@ -65,6 +65,9 @@ const authOptions: NextAuthOptions = {
       console.log('Access token has expired, refreshing...');
       return refreshAccessToken(token);
     },
+    async redirect({}) {
+      return "/beta"
+    }
   },
 }
 
