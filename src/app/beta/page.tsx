@@ -439,7 +439,7 @@ export default function Home() {
                     currentDeckRows={currentDeckRows}
                     characteristicName="skills"
                     filterFunction={(row) => row.pile === "draw" && row.type === "personnel"}
-                    splitFunction={(skills) => skills.match(/(?:\d+ \w+|\w+)/g)}
+                    splitFunction={(skills: string): Array<string> => (skills.match(/(?:\d+ \w+|\w+)/g) || [])}
                     assembleCounts={(counts, skillItem, rowcount) => {
                       let [, levelStr, skill] = skillItem.trim().match(/(\d*)\s*(\w+)/) || [null, null, null];
                       let count = levelStr ? Number(levelStr) : 1;
