@@ -320,7 +320,7 @@ export default function Home() {
                 </div>
               }
 
-              <div className="{`flex flex-col overflow-y-scroll px-2 mt-4 ${isSearching ? 'invisible': 'visible}`}">
+              <div className={`flex flex-col overflow-y-scroll px-2 mt-4 ${isSearching ? 'invisible': 'visible'}`}>
                 <div className="flex flex-col space-y-2">
                   <div className="flex justify-start space-x-2">
                     <input
