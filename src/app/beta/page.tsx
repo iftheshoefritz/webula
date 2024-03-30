@@ -49,6 +49,7 @@ interface Session {
   accessToken: string
   session: {user: {name: string}}
   user: {name: string}
+  expires: string
 }
 
 export default function Home() {
@@ -68,12 +69,13 @@ export default function Home() {
 
   useEffect((() => {
     (async () => {
-      console.log('*****aysnc getSession')
-      const session = await getSession()
-      console.log('*****aysnc getSession DONE')
-      setSession(session as Session | null)
-    })()
-  }), [])
+      const sessionFromNextAuth = await getSession() as Session
+      // Check if the session has expired
+      const isSessionExpired = sessionFromNextAuth && new Date() > new Date(sessionFromNextAuth.expires)
+
+      // Update the state based on the session expiration
+      setSession(isSessionExpired ? null : sessionFromNextAuth)
+    })()}), [])
 
 
   useEffect(() => {
@@ -345,7 +347,7 @@ export default function Home() {
                       <span>Export</span>
                     </button>
                   </div>
-                  { !session?.user &&
+                  { !session &&
                     <div className="flex justify-start space-x-2">
                       <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => signIn() }>
                         <img loading="lazy" height="24" width="24" id="provider-logo-dark" src="https://authjs.dev/img/providers/google.svg"/>
@@ -355,7 +357,7 @@ export default function Home() {
                       </button>
                     </div>
                   }
-                  { session?.user &&
+                  { session &&
                     <>
                     <div className="flex justify-start space-x-2">
                       <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={loadFilesFromDrive}>
