@@ -57,7 +57,12 @@ const useDataFetching = () => {
           .replace(/I\.K\.S\./i, 'iks');
         return row
       });
-      setData(dataWithDotlessCommanderKeywords);
+      const dataWithSingleImageFile = dataWithDotlessCommanderKeywords.map((row) => {
+        const imageFile = row.imagefile;
+        row.imagefile = imageFile.split(',')[0];
+        return row
+      })
+      setData(dataWithSingleImageFile);
       setFilteredData(formattedData);
 
       // Extract column names
