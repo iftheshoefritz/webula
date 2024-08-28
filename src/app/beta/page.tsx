@@ -18,7 +18,7 @@ import '../../styles/globals.css';
 import { CardDef, Deck } from '../../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, numericCount } from './deckBuilderUtils';
-import { FaSave, FaCloudUploadAlt, FaDownload, FaSearch, FaTrash, FaFileExport, FaSignInAlt } from 'react-icons/fa';
+import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 
 const skillList = [
@@ -387,7 +387,7 @@ export default function Home() {
                         data-tooltip-id="button-tooltip"
                         data-tooltip-content="Load a deck from Google Drive"
                       >
-                        <FaDownload/>
+                        <FaFolderOpen/>
                       </button>
                       <button
                         className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
