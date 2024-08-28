@@ -25,7 +25,7 @@ const useFilterData = (loading, data, columns, searchQuery) => {
 
   useEffect(() => {
     console.log(searchQuery);
-    const parsedQuery = searchQueryParser.parse((searchQuery || '').replace(QUOTE_CHARS_REGEX, '"'), {
+    const parsedQuery = searchQueryParser.parse((searchQuery.toLowerCase() || '').replace(QUOTE_CHARS_REGEX, '"'), {
       keywords: textColumns.concat(Object.values(textAbbreviations)),
       ranges: rangeColumns.concat(Object.values(rangeAbbreviations)),
       offsets: false,
