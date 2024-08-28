@@ -304,7 +304,7 @@ export default function Home() {
       ) : (
         <>
           <div className="flex flex-col lg:flex-row h-[100dvh] overflow-hidden">
-            <div className={`fixed left-0 top-0 h-[100dvh] lg:relative lg:flex lg:flex-col lg:w-1/4 bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 overflow-y-auto`}>
+            <div className={`fixed left-0 top-0 h-[100dvh] lg:relative lg:flex lg:flex-col lg:w-1/4 w-full bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 overflow-y-auto`}>
               <button
                 className="lg:hidden px-4 py-2"
                 onClick={() => setIsDrawerOpen(false)}
