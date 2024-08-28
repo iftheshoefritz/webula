@@ -18,6 +18,8 @@ import '../../styles/globals.css';
 import { CardDef, Deck } from '../../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, cardPileFor, deckFromTsv, decrementedRow, findExisting, findExistingOrUseRow, incrementedRow, numericCount, parsedDeck } from './deckBuilderUtils';
+import { FaSave, FaCloudUploadAlt, FaDownload, FaSearch, FaTrash, FaFileExport, FaSignInAlt } from 'react-icons/fa';
+import { Tooltip } from 'react-tooltip';
 
 const skillList = [
   'acquisition',
@@ -337,42 +339,73 @@ export default function Home() {
                       className="bg-white text-black font-bold py-2 px-4 rounded my-0 border border-gray-600 w-full"
                     />
                   </div>
+                  <Tooltip id="button-tooltip" />
                   <div className="flex justify-start items-center space-x-2">
-                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => setIsSearching(true)}>Search</button>
-                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={clearDeck}>Clear deck</button>&nbsp;
-                  </div>
-                  <div className="flex justify-start space-x-2">
+                    <button
+                      className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+                      onClick={() => setIsSearching(true)}
+                      data-tooltip-id="button-tooltip"
+                      data-tooltip-content="Search for cards to add to your deck"
+                    >
+                      <FaSearch/>
+                    </button>
+                    <button
+                      className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+                      onClick={clearDeck}
+                      data-tooltip-id="button-tooltip"
+                      data-tooltip-content="Clear the current deck"
+                    >
+                      <FaTrash/>
+                    </button>&nbsp;
                     <DeckUploader onFileLoad={handleFileLoad}/>
-                    <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={exportLackeyDeckToDisk}>
-                      <span>Export</span>
+                    <button
+                      className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+                      onClick={exportLackeyDeckToDisk}
+                      data-tooltip-id="button-tooltip"
+                      data-tooltip-content="Export the current deck to a LackeyCCG file"
+                    >
+                      <FaFileExport/>
                     </button>
                   </div>
                   { !session &&
                     <div className="flex justify-start space-x-2">
-                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => signIn() }>
-                        <img loading="lazy" height="24" width="24" id="provider-logo-dark" src="https://authjs.dev/img/providers/google.svg"/>
-                        <span>
-                          sign in
-                        </span>
+                      <button
+                        className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+                        onClick={() => signIn() }
+                        data-tooltip-id="button-tooltip"
+                        data-tooltip-content="Sign in to load and save your decks with Google Drive"
+                      >
+                        <FaSignInAlt/>
                       </button>
                     </div>
                   }
                   { session &&
-                    <>
-                    <div className="flex justify-start space-x-2">
-                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={loadFilesFromDrive}>
-                        Load Deck
+                    <div className="flex justify-start items-center space-x-2">
+                      <button
+                        className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+                        onClick={loadFilesFromDrive}
+                        data-tooltip-id="button-tooltip"
+                        data-tooltip-content="Load a deck from Google Drive"
+                      >
+                        <FaDownload/>
                       </button>
-                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => writeToDrive()}>
-                        <span>{savingToGDrive ? "Saving..." : "Save to G Drive"}</span>
+                      <button
+                        className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+                        onClick={() => writeToDrive()}
+                        data-tooltip-id="button-tooltip"
+                        data-tooltip-content={savingToGDrive ? "Saving..." : "Save to G Drive"}
+                      >
+                        <FaCloudUploadAlt/>
+                      </button>
+                      <button
+                        className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+                        onClick={() => writeToBrowserList()}
+                        data-tooltip-id="button-tooltip"
+                        data-tooltip-content="Save to this browser"
+                      >
+                        <FaSave/>
                       </button>
                     </div>
-                    <div className="flex justify-start space-x-2">
-                      <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => writeToBrowserList()}>
-                        <span>Save to browser</span>
-                      </button>
-                    </div>
-                    </>
                   }
                 </div>
                 <DeckListPile
@@ -409,7 +442,7 @@ export default function Home() {
                 <button
                   className="lg:hidden px-4 py-2"
                   onClick={() => setIsDrawerOpen(true)}
-                  >
+                >
                   Open List
                 </button>
 
