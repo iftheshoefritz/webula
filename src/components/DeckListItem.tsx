@@ -1,6 +1,7 @@
 // a typescript version of the DeckListItem component
 import React, { Component, SyntheticEvent } from 'react';
 import Image from 'next/image';
+import { FaChevronUp, FaChevronDown } from 'react-icons/fa';
 
 type DeckListItemProps = {
   incrementIncluded: () => void;
@@ -52,31 +53,40 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
 
   return (
     <li
-      className="flex gap-x-2 relative"
+      className="flex relative justify-between h-14 px-1"
       key={collectorsinfo}
     >
-      <div>{count}x</div>
-      <div
-        onMouseEnter={handleHover}
-        onMouseLeave={handleUnhover}
-        onTouchStart={handleHover}
-        onTouchEnd={handleUnhover}
-      >
-        {unique && <span>· </span>}
-        {name}
+      <div className="flex gap-x-2 items-center mt-2">
+        <div className="flex flex-col items-center justify-center">
+          <div
+            onClick={incrementIncluded}
+          >
+            <FaChevronUp className="cursor-pointer hover:text-gray-500" />
+          </div>
+          <div >{count}x</div>
+          <div
+            onClick={decrementIncluded}
+          >
+            <FaChevronDown className="cursor-pointer hover:text-gray-500" />
+          </div>
+        </div>
+        <div
+          onMouseEnter={handleHover}
+          onMouseLeave={handleUnhover}
+          onTouchStart={handleHover}
+          onTouchEnd={handleUnhover}
+          className="text-lg"
+        >
+          {unique && <span>·</span>}
+          {name}
+        </div>
       </div>
-      <div>{collectorsinfo}</div>
-      <div
-        className="font-semibold"
-        onClick={incrementIncluded}
-      >+</div>
-      <div
-        className="font-semibold"
-        onClick={decrementIncluded}
-      >-</div>
+      <div className="flex gap-x-2 items-center">
+        <div>{collectorsinfo}</div>
+      </div>
       {isHovering && (
         <div
-          className="absolute left-0 z-10"
+          className="absolute left-0 z-50"
           style={imageStyle}
         >
           <Image
@@ -86,6 +96,7 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
             height={400}
             placeholder='blur'
             blurDataURL='/cardimages/cardback.jpg'
+            className="z-50"
           />
         </div>
       )}

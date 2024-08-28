@@ -24,18 +24,20 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
 
   return (
     <div>
-      <span
-        className="font-semibold cursor-pointer"
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        title={hoverMessage}
-      >
-        {pileName} ({count})
-        <span className="font-bold">&nbsp;{ isCollapsed ? '>' : 'v'}</span>
-    </span>
-    {!isCollapsed && (
-      <ul>
-      {cardsForPile
-        .sort(sortBy)
+      <div className="flex items-center justify-between py-2">
+        <span
+          className="font-semibold cursor-pointer text-xl"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          title={hoverMessage}
+        >
+          {pileName} ({count})
+          <span className="font-bold">&nbsp;{ isCollapsed ? '>' : 'v'}</span>
+        </span>
+      </div>
+      {!isCollapsed && (
+        <ul className="divide-y divide-solid divide-gray-300 space-y-2">
+          {cardsForPile
+            .sort(sortBy)
             .map((row: CardDef) => (
               <DeckListItem
                 key={row.collectorsinfo}
