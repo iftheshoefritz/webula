@@ -312,12 +312,12 @@ export default function Home() {
                 Close List
               </button>
               { isSearching &&
-                <div className="mx-2">
+                <div className="mx-2 mt-4">
                   <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-                  <button className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 my-2 rounded" onClick={() => setIsSearching(false)}>Exit search</button>
-                  <div>
-                    <Help/>
-                  </div>
+                  <button className="py-2" onClick={() => setIsSearching(false)}>
+                &lt;&lt; Back to list
+                  </button>
+                  <Help/>
                   <div className="grid grid-cols-2 gap-4">
                     <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true}/>
                   </div>

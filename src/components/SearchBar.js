@@ -24,9 +24,8 @@ export default function SearchBar({ searchQuery, setSearchQuery }) {
           onChange={(e) => {
             setLocalSearchQuery(e.target.value);
           }}
-          className="align-middle w-full mb-2 focus:outline-none"
+          className="bg-white text-black font-bold py-2 px-4 rounded my-0 border border-gray-600 w-full"
         />
-        <button className="ml-2 align-middle mb-2 focus:outline-none" onClick={() => setLocalSearchQuery('')}><span className="font-bold">X</span></button>
       </div>
     </>
   );
