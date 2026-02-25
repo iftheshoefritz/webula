@@ -15,5 +15,5 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-find $source -type f -newermt "$since" -exec cp -t public/cardimages {} +
+find "$source" -type f -newermt "$since" -exec cp -t public/cardimages {} +
 
