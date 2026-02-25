@@ -1,6 +1,5 @@
 // a typescript version of the DeckListItem component
-import React, { Component, SyntheticEvent } from 'react';
-import Image from 'next/image';
+import React, { SyntheticEvent } from 'react';
 import { FaChevronUp, FaChevronDown } from 'react-icons/fa';
 
 type DeckListItemProps = {
@@ -89,13 +88,12 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
           className="absolute left-0 z-50"
           style={imageStyle}
         >
-          <Image
+          <img
             src={`/cardimages/${imagefile}.jpg`}
             alt={name}
             width={288}
             height={400}
-            placeholder='blur'
-            blurDataURL='/cardimages/cardback.jpg'
+            loading="lazy"
             className="z-50"
           />
         </div>

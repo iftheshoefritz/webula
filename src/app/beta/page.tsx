@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { track } from '@vercel/analytics';
-import Image from 'next/image';
 import useDataFetching from '../../hooks/useDataFetching';
 import useFilterData from '../../hooks/useFilterData';
 import useLocalStorage from '../../hooks/useLocalStorage';
@@ -453,12 +452,11 @@ export default function Home() {
                     currentDeckRows
                       .filter((row) => row.pile === "mission")
                       .map((row) => {
-                        return <Image
+                        return <img
                                  src={`/cardimages/${row.imagefile}.jpg`}
                                  width={165}
                                  height={229}
-                                 placeholder='blur'
-                                 blurDataURL='/cardimages/cardback.jpg'
+                                 loading="lazy"
                                  alt={row.name}
                                  key={row.collectorsinfo}
                                  className='w-56 h-auto'

@@ -1,4 +1,3 @@
-import Image from "next/image";
 import React, { useState } from "react";
 import { CardDef, Deck } from "../types";
 
@@ -83,12 +82,11 @@ export default function SearchResults({
     <>
       {filteredData.map((row: CardDef, index: number) => (
         <div className="relative" key={index}>
-          <Image
+          <img
             src={`/cardimages/${row.imagefile}.jpg`}
             width={165}
             height={229}
-            placeholder="blur"
-            blurDataURL="/cardimages/cardback.jpg"
+            loading="lazy"
             alt={row.name}
             className="w-full h-auto"
             onClick={() => onCardSelected && onCardSelected(row)}
@@ -103,12 +101,11 @@ export default function SearchResults({
           )}
           {withHover && hoveredItem == row.collectorsinfo && (
             <div className="absolute left-0 z-10" style={imageStyle}>
-              <Image
+              <img
                 src={`/cardimages/${row.imagefile}.jpg`}
                 width={230}
                 height={458}
-                placeholder="blur"
-                blurDataURL="/cardimages/cardback.jpg"
+                loading="lazy"
                 alt={row.name}
                 onMouseEnter={handleLargeHover}
                 onMouseLeave={handleLargeUnhover}
