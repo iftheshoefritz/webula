@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { getToken } from "next-auth/jwt"
-import { refreshAccessToken } from '../../auth/[...nextauth]/route';
+import { refreshAccessToken } from '../../auth/refreshToken';
 
 async function tokenDecode(req): Promise<{ accessToken: string; accessTokenExpires: number; refreshToken: string | undefined } | undefined> {
   try {
