@@ -2,19 +2,21 @@ import { aboveMinimumCount, belowMaximumCount, cardPileFor, deckFromTsv, decreme
 import { CardDef } from '../../types';
 
 describe('constructing a deck object based on TSV text and a list of all card data', () => {
-  const tsv = '1\tCard 1\n2\tCard 2\n1\tUnknown card'
-  const data = [
-    {collectorsinfo: '1R000', originalName: 'Card 1', type: 'mission'},
-    {collectorsinfo: '2C001', originalName: 'Card 2', type: 'event'},
-  ]
-  const deck = deckFromTsv(tsv, data)
-  expect(deck['1R000'].row.pile).toEqual('mission')
-  expect(deck['2C001'].row.pile).toEqual('draw')
-  expect(deck['1R000'].row.count).toEqual(1)
-  expect(deck['1R000'].count).toEqual(1)
-  expect(deck['2C001'].row.count).toEqual(2)
-  expect(deck['2C001'].count).toEqual(2)
-  expect(Object.keys(deck).length).toEqual(2)
+  it('creates a deck from TSV with correct piles and counts', () => {
+    const tsv = '1\tCard 1\n2\tCard 2\n1\tUnknown card'
+    const data = [
+      {collectorsinfo: '1R000', originalName: 'Card 1', type: 'mission'},
+      {collectorsinfo: '2C001', originalName: 'Card 2', type: 'event'},
+    ]
+    const deck = deckFromTsv(tsv, data)
+    expect(deck['1R000'].row.pile).toEqual('mission')
+    expect(deck['2C001'].row.pile).toEqual('draw')
+    expect(deck['1R000'].row.count).toEqual(1)
+    expect(deck['1R000'].count).toEqual(1)
+    expect(deck['2C001'].row.count).toEqual(2)
+    expect(deck['2C001'].count).toEqual(2)
+    expect(Object.keys(deck).length).toEqual(2)
+  })
 })
 
 describe('constructing a deck object based on TSV lines and a list of all card data', () => {
@@ -187,25 +189,25 @@ describe('aboveMinimumCount', () => {
 
 describe('findExisting', () => {
   it('returns the existing row if it exists', () => {
-    const deck = {'1R000': {row: {collectorsInfo: '1R000'}}}
-    const row = {collectorsInfo: '1R000'}
+    const deck = {'1R000': {row: {collectorsinfo: '1R000'}}}
+    const row = {collectorsinfo: '1R000'}
     expect(findExisting(deck, row)).toEqual(deck['1R000'].row)
   })
 
   it('returns undefined if the existing row does not exist', () => {
-    expect(findExisting({}, {collectorsInfo: '1R000'})).toBeUndefined()
+    expect(findExisting({}, {collectorsinfo: '1R000'})).toBeUndefined()
   })
 })
 
 describe('findExistingOrUseRow', () => {
   it('returns the existing row if it exists', () => {
-    const deck = {'1R000': {row: {collectorsInfo: '1R000'}}}
-    const row = {collectorsInfo: '1R000'}
+    const deck = {'1R000': {row: {collectorsinfo: '1R000'}}}
+    const row = {collectorsinfo: '1R000'}
     expect(findExistingOrUseRow(deck, row)).toEqual(deck['1R000'].row)
   })
 
   it('returns the input row if the existing row does not exist', () => {
-    const row = {collectorsInfo: '1R000'}
+    const row = {collectorsinfo: '1R000'}
     expect(findExistingOrUseRow({}, row)).toEqual(row)
   })
 })
