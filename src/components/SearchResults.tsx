@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { CardDef, Deck } from "../types";
 
 type SearchResultsProps = {
@@ -18,6 +19,12 @@ export default function SearchResults({
 }: SearchResultsProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [imageStyle, setImageStyle] = useState({});
+  const [mounted, setMounted] = useState(false);
+
+  // SSR guard: document.body doesn't exist during server-side rendering
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   let hoverTimeout: NodeJS.Timeout;
 
@@ -32,30 +39,38 @@ export default function SearchResults({
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
     const targetRect = event.currentTarget.getBoundingClientRect();
-    const scrollTop = window.scrollY || window.pageYOffset;
-    const scrollLeft = window.scrollX || window.pageXOffset;
 
     setHoveredItem(collectorsinfo);
-    const topPosition = targetRect.top + scrollTop + 5;
-    let leftPosition = targetRect.left + scrollLeft + 5;
+    
+    // Start by positioning to the right of the card
+    let topPosition = targetRect.top + 5;
+    let leftPosition = targetRect.right + 10;
 
-    // Check if the image would appear off the right edge of the screen
-    // If so, adjust the left position so it appears to the left of the cursor instead
+    // If image extends past right edge, position to the left instead
     if (leftPosition + imageWidth > viewportWidth) {
-      leftPosition = targetRect.left + scrollLeft - imageWidth - 5;
+      leftPosition = targetRect.left - imageWidth - 10;
     }
 
-    // Check if the image would appear off the bottom edge of the screen
-    // If so, adjust the top position so it appears above the cursor instead
-    let finalTopPosition = topPosition;
-    if (topPosition + imageHeight > viewportHeight + scrollTop) {
-      finalTopPosition = targetRect.top + scrollTop - imageHeight - 5;
+    // If image extends past bottom edge, position above instead
+    if (topPosition + imageHeight > viewportHeight) {
+      topPosition = targetRect.top - imageHeight - 10;
+    }
+
+    // If image now extends past top edge, position below instead
+    if (topPosition < 0) {
+      topPosition = targetRect.bottom + 10;
+    }
+
+    // Final safety check: if still extends past bottom, clamp to bottom
+    if (topPosition + imageHeight > viewportHeight) {
+      topPosition = Math.max(0, viewportHeight - imageHeight - 10);
     }
 
     setImageStyle({
       position: "fixed",
-      top: finalTopPosition,
+      top: topPosition,
       left: leftPosition,
+      zIndex: 50,
     });
   };
 
@@ -99,8 +114,8 @@ export default function SearchResults({
               {currentDeck[row.collectorsinfo]?.row?.count || 0}
             </div>
           )}
-          {withHover && hoveredItem == row.collectorsinfo && (
-            <div className="absolute left-0 z-10" style={imageStyle}>
+          {withHover && hoveredItem == row.collectorsinfo && mounted && createPortal(
+            <div style={imageStyle}>
               <img
                 src={`/cardimages/${row.imagefile}.jpg`}
                 width={230}
@@ -117,7 +132,8 @@ export default function SearchResults({
                   {currentDeck[row.collectorsinfo]?.row?.count || 0}
                 </div>
               )}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       ))}
