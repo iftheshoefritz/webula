@@ -317,9 +317,15 @@ export default function Home() {
                 &lt;&lt; Back to list
                   </button>
                   <Help/>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <SearchResults filteredData={filteredData} onCardSelected={incrementIncluded} onCardDeselected={decrementIncluded} currentDeck={currentDeck} withHover={true}/>
-                  </div>
+                  <SearchResults
+                    filteredData={filteredData}
+                    onCardSelected={incrementIncluded}
+                    onCardDeselected={decrementIncluded}
+                    currentDeck={currentDeck}
+                    withHover={true}
+                    useWindowScroll={false}
+                    gridClassName="grid grid-cols-1 lg:grid-cols-2 gap-4"
+                  />
                 </div>
               }
 

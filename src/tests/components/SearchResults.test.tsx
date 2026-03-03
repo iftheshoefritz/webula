@@ -3,6 +3,21 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import SearchResults from '../../components/SearchResults';
 import { CardDef, Deck } from '../../types';
 
+// Mock react-virtuoso's VirtuosoGrid to render items directly in jsdom
+jest.mock('react-virtuoso', () => ({
+  VirtuosoGrid: ({ totalCount, itemContent, listClassName, components, ...rest }: any) => {
+    const ListComp = components?.List || 'div';
+    const ItemComp = components?.Item || 'div';
+    return (
+      <ListComp className={listClassName} data-testid="virtuoso-grid">
+        {Array.from({ length: totalCount }, (_, i) => (
+          <ItemComp key={i}>{itemContent(i)}</ItemComp>
+        ))}
+      </ListComp>
+    );
+  },
+}));
+
 const cardFixture = (overrides = {}): CardDef => ({
   collectorsinfo: '1R000',
   dilemmatype: 'planet',
@@ -23,6 +38,41 @@ describe('SearchResults', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  describe('virtualization', () => {
+    it('renders items via VirtuosoGrid', () => {
+      const cards = [
+        cardFixture({ collectorsinfo: '1R100', name: 'Alpha', imagefile: 'alpha' }),
+        cardFixture({ collectorsinfo: '1R101', name: 'Beta', imagefile: 'beta' }),
+      ];
+
+      render(<SearchResults filteredData={cards} />);
+
+      expect(screen.getByTestId('virtuoso-grid')).toBeInTheDocument();
+      expect(screen.getByAltText('Alpha')).toBeInTheDocument();
+      expect(screen.getByAltText('Beta')).toBeInTheDocument();
+    });
+
+    it('applies default grid classes when gridClassName is not provided', () => {
+      render(<SearchResults filteredData={[cardFixture()]} />);
+
+      const grid = screen.getByTestId('virtuoso-grid');
+      expect(grid.className).toContain('grid-cols-1');
+      expect(grid.className).toContain('xl:grid-cols-5');
+    });
+
+    it('applies custom grid classes when gridClassName is provided', () => {
+      render(
+        <SearchResults
+          filteredData={[cardFixture()]}
+          gridClassName="grid grid-cols-1 lg:grid-cols-2 gap-4"
+        />
+      );
+
+      const grid = screen.getByTestId('virtuoso-grid');
+      expect(grid.className).toContain('lg:grid-cols-2');
+    });
   });
 
   describe('click functionality', () => {

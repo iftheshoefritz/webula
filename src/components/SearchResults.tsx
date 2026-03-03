@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { VirtuosoGrid } from "react-virtuoso";
 import { CardDef, Deck } from "../types";
+
+const DEFAULT_GRID_CLASS =
+  "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4";
 
 type SearchResultsProps = {
   filteredData: any[];
@@ -8,6 +12,8 @@ type SearchResultsProps = {
   onCardDeselected?: (event: any, row: CardDef) => void;
   currentDeck?: Deck;
   withHover?: boolean;
+  useWindowScroll?: boolean;
+  gridClassName?: string;
 };
 
 export default function SearchResults({
@@ -16,87 +22,92 @@ export default function SearchResults({
   onCardDeselected,
   currentDeck,
   withHover,
+  useWindowScroll = true,
+  gridClassName,
 }: SearchResultsProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [imageStyle, setImageStyle] = useState({});
   const [mounted, setMounted] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // SSR guard: document.body doesn't exist during server-side rendering
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  let hoverTimeout: NodeJS.Timeout;
+  const handleHover = useCallback(
+    (
+      collectorsinfo: string,
+      event: React.MouseEvent<HTMLImageElement, MouseEvent>,
+    ): void => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+      const imageHeight = 230;
+      const imageWidth = 458;
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const targetRect = event.currentTarget.getBoundingClientRect();
 
-  const handleHover = (
-    collectorsinfo: string,
-    event: React.MouseEvent<HTMLImageElement, MouseEvent>,
-  ): void => {
-    console.log("hover");
-    clearTimeout(hoverTimeout);
-    const imageHeight = 230;
-    const imageWidth = 458;
-    const viewportHeight = window.innerHeight;
-    const viewportWidth = window.innerWidth;
-    const targetRect = event.currentTarget.getBoundingClientRect();
+      setHoveredItem(collectorsinfo);
 
-    setHoveredItem(collectorsinfo);
-    
-    // Start by positioning to the right of the card
-    let topPosition = targetRect.top + 5;
-    let leftPosition = targetRect.right + 10;
+      // Start by positioning to the right of the card
+      let topPosition = targetRect.top + 5;
+      let leftPosition = targetRect.right + 10;
 
-    // If image extends past right edge, position to the left instead
-    if (leftPosition + imageWidth > viewportWidth) {
-      leftPosition = targetRect.left - imageWidth - 10;
-    }
+      // If image extends past right edge, position to the left instead
+      if (leftPosition + imageWidth > viewportWidth) {
+        leftPosition = targetRect.left - imageWidth - 10;
+      }
 
-    // If image extends past bottom edge, position above instead
-    if (topPosition + imageHeight > viewportHeight) {
-      topPosition = targetRect.top - imageHeight - 10;
-    }
+      // If image extends past bottom edge, position above instead
+      if (topPosition + imageHeight > viewportHeight) {
+        topPosition = targetRect.top - imageHeight - 10;
+      }
 
-    // If image now extends past top edge, position below instead
-    if (topPosition < 0) {
-      topPosition = targetRect.bottom + 10;
-    }
+      // If image now extends past top edge, position below instead
+      if (topPosition < 0) {
+        topPosition = targetRect.bottom + 10;
+      }
 
-    // Final safety check: if still extends past bottom, clamp to bottom
-    if (topPosition + imageHeight > viewportHeight) {
-      topPosition = Math.max(0, viewportHeight - imageHeight - 10);
-    }
+      // Final safety check: if still extends past bottom, clamp to bottom
+      if (topPosition + imageHeight > viewportHeight) {
+        topPosition = Math.max(0, viewportHeight - imageHeight - 10);
+      }
 
-    setImageStyle({
-      position: "fixed",
-      top: topPosition,
-      left: leftPosition,
-      zIndex: 50,
-    });
-  };
+      setImageStyle({
+        position: "fixed",
+        top: topPosition,
+        left: leftPosition,
+        zIndex: 50,
+      });
+    },
+    [],
+  );
 
-  const handleUnhover = (): void => {
-    console.log("unhover");
-    hoverTimeout = setTimeout(() => {
+  const handleUnhover = useCallback((): void => {
+    hoverTimeoutRef.current = setTimeout(() => {
       setHoveredItem(null);
       setImageStyle({ display: "none" });
     }, 100);
-  };
+  }, []);
 
-  const handleLargeHover = () => {
-    clearTimeout(hoverTimeout); // clear the timeout when entering the large image
-  };
+  const handleLargeHover = useCallback(() => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+  }, []);
 
-  const handleLargeUnhover = () => {
-    hoverTimeout = setTimeout(() => {
+  const handleLargeUnhover = useCallback(() => {
+    hoverTimeoutRef.current = setTimeout(() => {
       setHoveredItem(null);
       setImageStyle({ display: "none" });
     }, 100);
-  };
+  }, []);
 
-  return (
-    <>
-      {filteredData.map((row: CardDef, index: number) => (
-        <div className="relative" key={index}>
+  const listClassName = gridClassName || DEFAULT_GRID_CLASS;
+
+  const itemContent = useCallback(
+    (index: number) => {
+      const row: CardDef = filteredData[index];
+      return (
+        <div className="relative">
           <img
             src={`/cardimages/${row.imagefile}.jpg`}
             width={165}
@@ -105,7 +116,9 @@ export default function SearchResults({
             alt={row.name}
             className="w-full h-auto"
             onClick={() => onCardSelected && onCardSelected(row)}
-            onContextMenu={(event) => onCardDeselected && onCardDeselected(event, row)}
+            onContextMenu={(event) =>
+              onCardDeselected && onCardDeselected(event, row)
+            }
             onMouseEnter={(event) => handleHover(row.collectorsinfo, event)}
             onMouseLeave={handleUnhover}
           />
@@ -114,29 +127,57 @@ export default function SearchResults({
               {currentDeck[row.collectorsinfo]?.row?.count || 0}
             </div>
           )}
-          {withHover && hoveredItem == row.collectorsinfo && mounted && createPortal(
-            <div style={imageStyle}>
-              <img
-                src={`/cardimages/${row.imagefile}.jpg`}
-                width={230}
-                height={458}
-                loading="lazy"
-                alt={row.name}
-                onMouseEnter={handleLargeHover}
-                onMouseLeave={handleLargeUnhover}
-                onClick={() => onCardSelected && onCardSelected(row)}
-                onContextMenu={(event) => onCardDeselected && onCardDeselected(event, row)}
-              />
-              {currentDeck && (
-                <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white rounded-full px-2 py-1">
-                  {currentDeck[row.collectorsinfo]?.row?.count || 0}
-                </div>
-              )}
-            </div>,
-            document.body
-          )}
+          {withHover &&
+            hoveredItem == row.collectorsinfo &&
+            mounted &&
+            createPortal(
+              <div style={imageStyle}>
+                <img
+                  src={`/cardimages/${row.imagefile}.jpg`}
+                  width={230}
+                  height={458}
+                  loading="lazy"
+                  alt={row.name}
+                  onMouseEnter={handleLargeHover}
+                  onMouseLeave={handleLargeUnhover}
+                  onClick={() => onCardSelected && onCardSelected(row)}
+                  onContextMenu={(event) =>
+                    onCardDeselected && onCardDeselected(event, row)
+                  }
+                />
+                {currentDeck && (
+                  <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white rounded-full px-2 py-1">
+                    {currentDeck[row.collectorsinfo]?.row?.count || 0}
+                  </div>
+                )}
+              </div>,
+              document.body,
+            )}
         </div>
-      ))}
-    </>
+      );
+    },
+    [
+      filteredData,
+      onCardSelected,
+      onCardDeselected,
+      currentDeck,
+      withHover,
+      hoveredItem,
+      mounted,
+      imageStyle,
+      handleHover,
+      handleUnhover,
+      handleLargeHover,
+      handleLargeUnhover,
+    ],
+  );
+
+  return (
+    <VirtuosoGrid
+      totalCount={filteredData.length}
+      useWindowScroll={useWindowScroll}
+      listClassName={listClassName}
+      itemContent={itemContent}
+    />
   );
 }
