@@ -1,32 +1,13 @@
-'use client'
-
-import '../styles/globals.css'
-
-import { useState } from 'react';
-import SearchBar from '../components/SearchBar';
-import SearchResults from '../components/SearchResults';
-import Help from '../components/Help';
-import useDataFetching from '../hooks/useDataFetching';
-import useFilterData from '../hooks/useFilterData';
+import '../styles/globals.css';
+import { loadCards } from '../lib/loadCards';
+import CardSearchClient from '../components/CardSearchClient';
 
 export default function Home() {
-  const { data, columns, loading } = useDataFetching();
-  const [searchQuery, setSearchQuery] = useState('');
-  const filteredData = useFilterData(loading, data, columns, searchQuery);
+  const { data, columns } = loadCards();
 
   return (
     <div>
-      {loading ? (
-        <p>Loading data...</p>
-      ) : (
-        <>
-        <div className="container mx-auto p-8">
-          <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-          <Help/>
-          <SearchResults filteredData={filteredData}/>
-        </div>
-        </>
-      )}
+      <CardSearchClient data={data} columns={columns} />
     </div>
   );
 }

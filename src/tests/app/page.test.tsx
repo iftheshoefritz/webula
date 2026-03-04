@@ -1,16 +1,11 @@
-// Mock all dependencies before importing the component
-jest.mock('../../hooks/useDataFetching', () => ({
-  __esModule: true,
-  default: jest.fn(),
-}));
-
+// Mock useFilterData hook
 jest.mock('../../hooks/useFilterData', () => ({
   __esModule: true,
   default: jest.fn(),
 }));
 
 jest.mock('../../components/SearchResults', () => {
-  return function MockSearchResults({ filteredData }) {
+  return function MockSearchResults({ filteredData }: { filteredData: any[] }) {
     return <div data-testid="search-results">Search Results - {filteredData?.length || 0} items</div>;
   };
 });
@@ -28,45 +23,54 @@ jest.mock('../../components/SearchBar', () => {
 });
 
 import { render, screen } from '@testing-library/react';
-import Home from '../../app/page';
-import useDataFetching from '../../hooks/useDataFetching';
+import CardSearchClient from '../../components/CardSearchClient';
 import useFilterData from '../../hooks/useFilterData';
 
-describe('Home page', () => {
+const mockCardData = [
+  { collectorsinfo: '1R000', originalName: 'Test Card', type: 'mission', name: 'test card' }
+];
+
+const mockColumns = ['collectorsinfo', 'originalName', 'type', 'name'];
+
+describe('CardSearchClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('renders a loading message initially', () => {
-    (useDataFetching as jest.Mock).mockReturnValue({
-      data: [],
-      columns: [],
-      loading: true,
-    });
+  it('renders the search bar and help immediately (no loading state)', () => {
+    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
 
-    render(<Home />);
+    render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
 
-    expect(screen.getByText('Loading data...')).toBeInTheDocument();
-  });
-
-  it('renders the search bar and help after loading', () => {
-    (useDataFetching as jest.Mock).mockReturnValue({
-      data: [
-        { collectorsinfo: '1R000', originalName: 'Test Card', type: 'mission' }
-      ],
-      columns: ['collectorsinfo', 'originalName', 'type'],
-      loading: false,
-    });
-
-    (useFilterData as jest.Mock).mockReturnValue([
-      { collectorsinfo: '1R000', originalName: 'Test Card', type: 'mission' }
-    ]);
-
-    render(<Home />);
-
+    // No loading state - data is passed directly as props
     expect(screen.queryByText('Loading data...')).not.toBeInTheDocument();
-
     expect(screen.getByTestId('search-bar')).toBeInTheDocument();
     expect(screen.getByTestId('help')).toBeInTheDocument();
+  });
+
+  it('passes data to useFilterData hook', () => {
+    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+
+    render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+    // useFilterData is called with loading=false and the provided data
+    expect(useFilterData).toHaveBeenCalledWith(false, mockCardData, mockColumns, '');
+  });
+
+  it('renders SearchResults with filtered data', () => {
+    const filteredCards = [mockCardData[0]];
+    (useFilterData as jest.Mock).mockReturnValue(filteredCards);
+
+    render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+    expect(screen.getByTestId('search-results')).toHaveTextContent('1 items');
+  });
+
+  it('renders SearchResults with empty data', () => {
+    (useFilterData as jest.Mock).mockReturnValue([]);
+
+    render(<CardSearchClient data={[]} columns={mockColumns} />);
+
+    expect(screen.getByTestId('search-results')).toHaveTextContent('0 items');
   });
 });
