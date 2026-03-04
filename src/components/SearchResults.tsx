@@ -172,8 +172,13 @@ export default function SearchResults({
     ],
   );
 
+  // When not using window scroll, VirtuosoGrid needs explicit height styling
+  // to fill available space in scrollable containers
+  const containerStyle = useWindowScroll ? undefined : { height: "100%", flex: "1 1 auto" };
+
   return (
     <VirtuosoGrid
+      style={containerStyle}
       totalCount={filteredData.length}
       useWindowScroll={useWindowScroll}
       listClassName={listClassName}

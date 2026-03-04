@@ -303,33 +303,37 @@ export default function Home() {
       ) : (
         <>
           <div className="flex flex-col lg:flex-row h-[100dvh] overflow-hidden">
-            <div className={`fixed left-0 top-0 h-[100dvh] lg:relative lg:flex lg:flex-col lg:w-1/4 w-full bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 overflow-y-auto`}>
+            <div className={`fixed left-0 top-0 h-[100dvh] lg:relative flex flex-col lg:w-1/4 w-full bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 ${isSearching ? 'overflow-hidden' : 'overflow-y-auto'}`}>
               <button
-                className="lg:hidden px-4 py-2"
+                className="lg:hidden px-4 py-2 shrink-0"
                 onClick={() => setIsDrawerOpen(false)}
               >
                 Close List
               </button>
               { isSearching &&
-                <div className="mx-2 mt-4">
-                  <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-                  <button className="py-2" onClick={() => setIsSearching(false)}>
-                &lt;&lt; Back to list
-                  </button>
-                  <Help/>
-                  <SearchResults
-                    filteredData={filteredData}
-                    onCardSelected={incrementIncluded}
-                    onCardDeselected={decrementIncluded}
-                    currentDeck={currentDeck}
-                    withHover={true}
-                    useWindowScroll={false}
-                    gridClassName="grid grid-cols-1 lg:grid-cols-2 gap-4"
-                  />
+                <div className="mx-2 mt-4 flex flex-col flex-1 min-h-0 overflow-hidden">
+                  <div className="shrink-0">
+                    <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+                    <button className="py-2" onClick={() => setIsSearching(false)}>
+                  &lt;&lt; Back to list
+                    </button>
+                    <Help/>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <SearchResults
+                      filteredData={filteredData}
+                      onCardSelected={incrementIncluded}
+                      onCardDeselected={decrementIncluded}
+                      currentDeck={currentDeck}
+                      withHover={true}
+                      useWindowScroll={false}
+                      gridClassName="grid grid-cols-1 lg:grid-cols-2 gap-4"
+                    />
+                  </div>
                 </div>
               }
 
-              <div className={`flex flex-col h-full overflow-y-scroll px-2 mt-4 ${isSearching ? 'invisible': 'visible'}`}>
+              <div className={`flex flex-col flex-1 min-h-0 overflow-y-scroll px-2 mt-4 ${isSearching ? 'hidden': ''}`}>
                 <div className="flex flex-col space-y-2">
                   <div className="flex justify-start space-x-2">
                     <input

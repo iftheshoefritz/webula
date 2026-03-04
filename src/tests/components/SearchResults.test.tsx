@@ -5,11 +5,16 @@ import { CardDef, Deck } from '../../types';
 
 // Mock react-virtuoso's VirtuosoGrid to render items directly in jsdom
 jest.mock('react-virtuoso', () => ({
-  VirtuosoGrid: ({ totalCount, itemContent, listClassName, components, ...rest }: any) => {
+  VirtuosoGrid: ({ totalCount, itemContent, listClassName, components, style, useWindowScroll, ...rest }: any) => {
     const ListComp = components?.List || 'div';
     const ItemComp = components?.Item || 'div';
     return (
-      <ListComp className={listClassName} data-testid="virtuoso-grid">
+      <ListComp
+        className={listClassName}
+        style={style}
+        data-testid="virtuoso-grid"
+        data-use-window-scroll={useWindowScroll}
+      >
         {Array.from({ length: totalCount }, (_, i) => (
           <ItemComp key={i}>{itemContent(i)}</ItemComp>
         ))}
@@ -72,6 +77,30 @@ describe('SearchResults', () => {
 
       const grid = screen.getByTestId('virtuoso-grid');
       expect(grid.className).toContain('lg:grid-cols-2');
+    });
+
+    it('applies height styling when useWindowScroll is false', () => {
+      render(
+        <SearchResults
+          filteredData={[cardFixture()]}
+          useWindowScroll={false}
+        />
+      );
+
+      const grid = screen.getByTestId('virtuoso-grid');
+      expect(grid).toHaveStyle({ height: '100%', flex: '1 1 auto' });
+    });
+
+    it('does not apply height styling when useWindowScroll is true (default)', () => {
+      render(
+        <SearchResults
+          filteredData={[cardFixture()]}
+          useWindowScroll={true}
+        />
+      );
+
+      const grid = screen.getByTestId('virtuoso-grid');
+      expect(grid).not.toHaveStyle({ height: '100%' });
     });
   });
 
