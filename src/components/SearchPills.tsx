@@ -141,11 +141,12 @@ function parseFilters(searchQuery: string): ParsedFilter[] {
 
   // Handle excluded filters
   if (parsedQuery.exclude) {
+    const excluded = parsedQuery.exclude;
     allKeywords.forEach((keyword) => {
-      if (parsedQuery.exclude[keyword]) {
-        const values = Array.isArray(parsedQuery.exclude[keyword])
-          ? parsedQuery.exclude[keyword]
-          : [parsedQuery.exclude[keyword]];
+      if (excluded[keyword]) {
+        const values = Array.isArray(excluded[keyword])
+          ? excluded[keyword]
+          : [excluded[keyword]];
         const displayKey = expandKeyword(keyword);
         values.forEach((value: string) => {
           const needsQuotes = value.includes(' ');
