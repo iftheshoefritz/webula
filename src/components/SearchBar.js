@@ -1,18 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { textColumns, rangeColumns } from '../lib/constants';
 import { debounce } from 'lodash';
 import { track } from '@vercel/analytics';
 
 export default function SearchBar({ searchQuery, setSearchQuery, variant = "legacy" }) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+  const isLocalChangeRef = useRef(false);
 
-  const debouncedSetSearchQuery = debounce((query) => {
-    setSearchQuery(query);
-  }, 500);
+  const debouncedSetSearchQuery = useMemo(
+    () => debounce((query) => {
+      setSearchQuery(query);
+    }, 500),
+    [setSearchQuery]
+  );
 
   useEffect(() => {
+    isLocalChangeRef.current = true;
     debouncedSetSearchQuery(localSearchQuery);
-  }, [localSearchQuery]);
+  }, [localSearchQuery, debouncedSetSearchQuery]);
+
+  // Sync local state when parent changes searchQuery externally (e.g., from SearchPills removing a filter)
+  useEffect(() => {
+    if (isLocalChangeRef.current) {
+      // This change came from our debounced update, ignore it
+      isLocalChangeRef.current = false;
+      return;
+    }
+    if (searchQuery !== localSearchQuery) {
+      setLocalSearchQuery(searchQuery);
+    }
+  }, [searchQuery]);
 
   if (variant === "styled") {
     return (

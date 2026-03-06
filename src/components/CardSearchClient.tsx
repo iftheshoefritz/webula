@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import SearchBar from './SearchBar';
+import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
 import Help from './Help';
 import useFilterData from '../hooks/useFilterData';
@@ -32,6 +33,10 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             variant="styled"
+          />
+          <SearchPills
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
           />
           <Help variant="styled" />
         </div>
