@@ -4,9 +4,11 @@ jest.mock('../../hooks/useFilterData', () => ({
   default: jest.fn(),
 }));
 
+const mockSearchResultsProps = jest.fn();
 jest.mock('../../components/SearchResults', () => {
-  return function MockSearchResults({ filteredData }: { filteredData: any[] }) {
-    return <div data-testid="search-results">Search Results - {filteredData?.length || 0} items</div>;
+  return function MockSearchResults(props: { filteredData: any[]; useWindowScroll?: boolean; variant?: string }) {
+    mockSearchResultsProps(props);
+    return <div data-testid="search-results">Search Results - {props.filteredData?.length || 0} items</div>;
   };
 });
 
@@ -35,6 +37,7 @@ const mockColumns = ['collectorsinfo', 'originalName', 'type', 'name'];
 describe('CardSearchClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSearchResultsProps.mockClear();
   });
 
   it('renders the search bar and help immediately (no loading state)', () => {
@@ -72,5 +75,19 @@ describe('CardSearchClient', () => {
     render(<CardSearchClient data={[]} columns={mockColumns} />);
 
     expect(screen.getByTestId('search-results')).toHaveTextContent('0 items');
+  });
+
+  it('passes useWindowScroll=false to SearchResults for container-based scrolling', () => {
+    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+
+    render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+    // SearchResults must use container scroll (not window scroll) because
+    // CardSearchClient uses a scrollable container with overflow-y-auto
+    expect(mockSearchResultsProps).toHaveBeenCalledWith(
+      expect.objectContaining({
+        useWindowScroll: false,
+      })
+    );
   });
 });
