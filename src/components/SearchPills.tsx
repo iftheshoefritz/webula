@@ -4,6 +4,19 @@ import { useMemo } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
 
+// Create reverse mappings: abbreviation → full keyword
+const textAbbreviationToFull: Record<string, string> = Object.fromEntries(
+  Object.entries(textAbbreviations).map(([full, abbrev]) => [abbrev, full])
+);
+const rangeAbbreviationToFull: Record<string, string> = Object.fromEntries(
+  Object.entries(rangeAbbreviations).map(([full, abbrev]) => [abbrev, full])
+);
+
+// Expand an abbreviation to its full keyword, or return as-is if already full
+function expandKeyword(keyword: string): string {
+  return textAbbreviationToFull[keyword] || rangeAbbreviationToFull[keyword] || keyword;
+}
+
 interface SearchPillsProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -67,6 +80,7 @@ function parseFilters(searchQuery: string): ParsedFilter[] {
   allKeywords.forEach((keyword) => {
     if (parsedQuery[keyword]) {
       const values = Array.isArray(parsedQuery[keyword]) ? parsedQuery[keyword] : [parsedQuery[keyword]];
+      const displayKey = expandKeyword(keyword);
       values.forEach((value: string) => {
         const needsQuotes = value.includes(' ');
         const displayValue = needsQuotes ? `"${value}"` : value;
@@ -75,7 +89,7 @@ function parseFilters(searchQuery: string): ParsedFilter[] {
           value,
           isExclude: false,
           isRange: false,
-          rawText: `${keyword}:${displayValue}`,
+          rawText: `${displayKey}:${displayValue}`,
         });
       });
     }
@@ -86,6 +100,7 @@ function parseFilters(searchQuery: string): ParsedFilter[] {
   allRanges.forEach((range) => {
     if (parsedQuery[range]) {
       const rangeValue = parsedQuery[range];
+      const displayKey = expandKeyword(range);
       let displayValue = '';
       if (rangeValue.from !== undefined && rangeValue.to !== undefined) {
         displayValue = `${rangeValue.from}-${rangeValue.to}`;
@@ -100,7 +115,7 @@ function parseFilters(searchQuery: string): ParsedFilter[] {
           value: displayValue,
           isExclude: false,
           isRange: true,
-          rawText: `${range}:${displayValue}`,
+          rawText: `${displayKey}:${displayValue}`,
         });
       }
     }
@@ -113,6 +128,7 @@ function parseFilters(searchQuery: string): ParsedFilter[] {
         const values = Array.isArray(parsedQuery.exclude[keyword])
           ? parsedQuery.exclude[keyword]
           : [parsedQuery.exclude[keyword]];
+        const displayKey = expandKeyword(keyword);
         values.forEach((value: string) => {
           const needsQuotes = value.includes(' ');
           const displayValue = needsQuotes ? `"${value}"` : value;
@@ -121,7 +137,7 @@ function parseFilters(searchQuery: string): ParsedFilter[] {
             value,
             isExclude: true,
             isRange: false,
-            rawText: `-${keyword}:${displayValue}`,
+            rawText: `-${displayKey}:${displayValue}`,
           });
         });
       }
@@ -160,10 +176,6 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
       setSearchQuery(searchQuery + ' ');
     }
   };
-
-  if (filters.length === 0) {
-    return null;
-  }
 
   return (
     <div className="flex flex-wrap items-center gap-2 mt-3">

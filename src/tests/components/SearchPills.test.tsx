@@ -20,18 +20,22 @@ describe('SearchPills', () => {
       expect(screen.getByText('picard kirk')).toBeInTheDocument();
     });
 
-    it('returns null when query is empty', () => {
+    it('renders only add filter button when query is empty', () => {
       const setSearchQuery = jest.fn();
-      const { container } = render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+      render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
 
-      expect(container.firstChild).toBeNull();
+      expect(screen.getByRole('button', { name: /add filter/i })).toBeInTheDocument();
+      // No filter pills should be present
+      expect(screen.queryByRole('button', { name: /remove/i })).not.toBeInTheDocument();
     });
 
-    it('returns null when query is only whitespace', () => {
+    it('renders only add filter button when query is only whitespace', () => {
       const setSearchQuery = jest.fn();
-      const { container } = render(<SearchPills searchQuery="   " setSearchQuery={setSearchQuery} />);
+      render(<SearchPills searchQuery="   " setSearchQuery={setSearchQuery} />);
 
-      expect(container.firstChild).toBeNull();
+      expect(screen.getByRole('button', { name: /add filter/i })).toBeInTheDocument();
+      // No filter pills should be present
+      expect(screen.queryByRole('button', { name: /remove/i })).not.toBeInTheDocument();
     });
   });
 
@@ -44,12 +48,12 @@ describe('SearchPills', () => {
       expect(screen.getByText('name:picard')).toBeInTheDocument();
     });
 
-    it('renders a pill for abbreviated name filter (lowercase normalized)', () => {
+    it('renders a pill for abbreviated name filter with expanded keyword', () => {
       const setSearchQuery = jest.fn();
       render(<SearchPills searchQuery="n:Picard" setSearchQuery={setSearchQuery} />);
 
-      // Component normalizes to lowercase
-      expect(screen.getByText('n:picard')).toBeInTheDocument();
+      // Abbreviations are expanded to full keywords
+      expect(screen.getByText('name:picard')).toBeInTheDocument();
     });
 
     it('renders a pill for type filter', () => {
@@ -59,11 +63,12 @@ describe('SearchPills', () => {
       expect(screen.getByText('type:personnel')).toBeInTheDocument();
     });
 
-    it('renders a pill for affiliation filter with abbreviation', () => {
+    it('renders a pill for affiliation filter with expanded keyword', () => {
       const setSearchQuery = jest.fn();
       render(<SearchPills searchQuery="a:federation" setSearchQuery={setSearchQuery} />);
 
-      expect(screen.getByText('a:federation')).toBeInTheDocument();
+      // Abbreviations are expanded to full keywords
+      expect(screen.getByText('affiliation:federation')).toBeInTheDocument();
     });
 
     it('handles quoted values with spaces (lowercase normalized)', () => {
@@ -74,12 +79,13 @@ describe('SearchPills', () => {
       expect(screen.getByText('name:"jean-luc picard"')).toBeInTheDocument();
     });
 
-    it('handles multiple keyword filters', () => {
+    it('handles multiple keyword filters with expanded abbreviations', () => {
       const setSearchQuery = jest.fn();
       render(<SearchPills searchQuery="type:personnel a:federation" setSearchQuery={setSearchQuery} />);
 
       expect(screen.getByText('type:personnel')).toBeInTheDocument();
-      expect(screen.getByText('a:federation')).toBeInTheDocument();
+      // Abbreviations are expanded to full keywords
+      expect(screen.getByText('affiliation:federation')).toBeInTheDocument();
     });
   });
 
@@ -105,11 +111,12 @@ describe('SearchPills', () => {
       expect(screen.getByText('cost:-5')).toBeInTheDocument();
     });
 
-    it('handles abbreviated range filter', () => {
+    it('handles abbreviated range filter with expanded keyword', () => {
       const setSearchQuery = jest.fn();
       render(<SearchPills searchQuery="c:2-4" setSearchQuery={setSearchQuery} />);
 
-      expect(screen.getByText('c:2-4')).toBeInTheDocument();
+      // Abbreviations are expanded to full keywords
+      expect(screen.getByText('cost:2-4')).toBeInTheDocument();
     });
 
     it('handles integrity range filter', () => {
@@ -130,18 +137,19 @@ describe('SearchPills', () => {
       expect(pill).toHaveClass('text-red-400');
     });
 
-    it('handles excluded filter with abbreviation', () => {
+    it('handles excluded filter with expanded abbreviation', () => {
       const setSearchQuery = jest.fn();
       render(<SearchPills searchQuery="-a:borg" setSearchQuery={setSearchQuery} />);
 
-      const pill = screen.getByText('-a:borg');
+      // Abbreviations are expanded to full keywords
+      const pill = screen.getByText('-affiliation:borg');
       expect(pill).toBeInTheDocument();
       expect(pill).toHaveClass('text-red-400');
     });
   });
 
   describe('combined filters', () => {
-    it('renders pills for mixed filter types (lowercase normalized)', () => {
+    it('renders pills for mixed filter types with expanded abbreviations', () => {
       const setSearchQuery = jest.fn();
       render(
         <SearchPills
@@ -150,11 +158,11 @@ describe('SearchPills', () => {
         />
       );
 
-      // Component normalizes to lowercase
+      // Component normalizes to lowercase and expands abbreviations
       expect(screen.getByText('picard')).toBeInTheDocument();
       expect(screen.getByText('type:personnel')).toBeInTheDocument();
       expect(screen.getByText('cost:2-5')).toBeInTheDocument();
-      expect(screen.getByText('-a:borg')).toBeInTheDocument();
+      expect(screen.getByText('-affiliation:borg')).toBeInTheDocument();
     });
   });
 
@@ -247,6 +255,16 @@ describe('SearchPills', () => {
 
       expect(setSearchQuery).not.toHaveBeenCalled();
     });
+
+    it('does not modify query when add filter is clicked and query is empty', () => {
+      const setSearchQuery = jest.fn();
+      render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+
+      const addButton = screen.getByRole('button', { name: /add filter/i });
+      fireEvent.click(addButton);
+
+      expect(setSearchQuery).not.toHaveBeenCalled();
+    });
   });
 
   describe('accessibility', () => {
@@ -277,6 +295,93 @@ describe('SearchPills', () => {
       // The pill wrapper is the parent span with styling classes
       const pillWrapper = pillText.closest('span.inline-flex');
       expect(pillWrapper).toHaveClass('inline-flex', 'items-center', 'font-mono');
+    });
+  });
+
+  describe('abbreviation expansion', () => {
+    it('expands abbreviated name filter to full keyword', () => {
+      const setSearchQuery = jest.fn();
+      render(<SearchPills searchQuery="n:Picard" setSearchQuery={setSearchQuery} />);
+
+      // Should display full keyword, not abbreviation
+      expect(screen.getByText('name:picard')).toBeInTheDocument();
+      expect(screen.queryByText('n:picard')).not.toBeInTheDocument();
+    });
+
+    it('expands abbreviated affiliation filter to full keyword', () => {
+      const setSearchQuery = jest.fn();
+      render(<SearchPills searchQuery="a:federation" setSearchQuery={setSearchQuery} />);
+
+      expect(screen.getByText('affiliation:federation')).toBeInTheDocument();
+      expect(screen.queryByText('a:federation')).not.toBeInTheDocument();
+    });
+
+    it('expands abbreviated type filter to full keyword', () => {
+      const setSearchQuery = jest.fn();
+      render(<SearchPills searchQuery="ty:personnel" setSearchQuery={setSearchQuery} />);
+
+      expect(screen.getByText('type:personnel')).toBeInTheDocument();
+      expect(screen.queryByText('ty:personnel')).not.toBeInTheDocument();
+    });
+
+    it('expands abbreviated skills filter to full keyword', () => {
+      const setSearchQuery = jest.fn();
+      render(<SearchPills searchQuery="sk:diplomacy" setSearchQuery={setSearchQuery} />);
+
+      expect(screen.getByText('skills:diplomacy')).toBeInTheDocument();
+      expect(screen.queryByText('sk:diplomacy')).not.toBeInTheDocument();
+    });
+
+    it('expands abbreviated cost range filter to full keyword', () => {
+      const setSearchQuery = jest.fn();
+      render(<SearchPills searchQuery="c:2-4" setSearchQuery={setSearchQuery} />);
+
+      expect(screen.getByText('cost:2-4')).toBeInTheDocument();
+      expect(screen.queryByText('c:2-4')).not.toBeInTheDocument();
+    });
+
+    it('expands abbreviated integrity range filter to full keyword', () => {
+      const setSearchQuery = jest.fn();
+      render(<SearchPills searchQuery="int:5-8" setSearchQuery={setSearchQuery} />);
+
+      expect(screen.getByText('integrity:5-8')).toBeInTheDocument();
+      expect(screen.queryByText('int:5-8')).not.toBeInTheDocument();
+    });
+
+    it('expands abbreviated strength range filter to full keyword', () => {
+      const setSearchQuery = jest.fn();
+      render(<SearchPills searchQuery="str:6-" setSearchQuery={setSearchQuery} />);
+
+      expect(screen.getByText('strength:6-')).toBeInTheDocument();
+      expect(screen.queryByText('str:6-')).not.toBeInTheDocument();
+    });
+
+    it('expands excluded abbreviated filter to full keyword', () => {
+      const setSearchQuery = jest.fn();
+      render(<SearchPills searchQuery="-a:borg" setSearchQuery={setSearchQuery} />);
+
+      const pill = screen.getByText('-affiliation:borg');
+      expect(pill).toBeInTheDocument();
+      expect(pill).toHaveClass('text-red-400');
+      expect(screen.queryByText('-a:borg')).not.toBeInTheDocument();
+    });
+
+    it('keeps full keywords unchanged', () => {
+      const setSearchQuery = jest.fn();
+      render(<SearchPills searchQuery="name:picard affiliation:federation cost:3-5" setSearchQuery={setSearchQuery} />);
+
+      expect(screen.getByText('name:picard')).toBeInTheDocument();
+      expect(screen.getByText('affiliation:federation')).toBeInTheDocument();
+      expect(screen.getByText('cost:3-5')).toBeInTheDocument();
+    });
+
+    it('expands multiple abbreviated filters', () => {
+      const setSearchQuery = jest.fn();
+      render(<SearchPills searchQuery="n:picard a:federation c:2-4" setSearchQuery={setSearchQuery} />);
+
+      expect(screen.getByText('name:picard')).toBeInTheDocument();
+      expect(screen.getByText('affiliation:federation')).toBeInTheDocument();
+      expect(screen.getByText('cost:2-4')).toBeInTheDocument();
     });
   });
 });
