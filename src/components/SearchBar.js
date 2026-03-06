@@ -3,7 +3,7 @@ import { textColumns, rangeColumns } from '../lib/constants';
 import { debounce } from 'lodash';
 import { track } from '@vercel/analytics';
 
-export default function SearchBar({ searchQuery, setSearchQuery }) {
+export default function SearchBar({ searchQuery, setSearchQuery, variant = "legacy" }) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
 
   const debouncedSetSearchQuery = debounce((query) => {
@@ -13,6 +13,23 @@ export default function SearchBar({ searchQuery, setSearchQuery }) {
   useEffect(() => {
     debouncedSetSearchQuery(localSearchQuery);
   }, [localSearchQuery]);
+
+  if (variant === "styled") {
+    return (
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Search cards..."
+          value={localSearchQuery}
+          onChange={(e) => {
+            setLocalSearchQuery(e.target.value);
+          }}
+          className="input-search"
+        />
+        <span className="input-search-icon">⌕</span>
+      </div>
+    );
+  }
 
   return (
     <>

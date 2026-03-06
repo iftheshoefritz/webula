@@ -2,3 +2,117 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono&display=swap');
+
+@layer components {
+  /* ==================== */
+  /* SURFACE STYLES       */
+  /* ==================== */
+
+  .surface {
+    @apply bg-white/[0.02] border border-white/[0.06] rounded-xl;
+  }
+
+  .surface-hover {
+    @apply hover:bg-white/[0.03] transition-colors duration-150;
+  }
+
+  .surface-selected {
+    @apply bg-accent/15 border-accent/40;
+  }
+
+  .surface-elevated {
+    @apply bg-black/30;
+  }
+
+  /* ==================== */
+  /* INPUTS               */
+  /* ==================== */
+
+  .input {
+    @apply w-full
+           bg-white/[0.05] border border-white/10 rounded-lg
+           px-3.5 py-2.5
+           text-lg text-text-primary font-body
+           placeholder:text-text-disabled
+           focus:outline-none focus:border-accent/40;
+  }
+
+  .input-search {
+    @apply input font-mono pr-10;
+  }
+
+  .input-search-icon {
+    @apply absolute right-3.5 top-1/2 -translate-y-1/2
+           text-text-disabled text-base;
+  }
+
+  /* ==================== */
+  /* SYNTAX HELP PANEL    */
+  /* ==================== */
+
+  .syntax-panel {
+    @apply mt-3 p-3
+           surface-elevated rounded-xl
+           border border-white/[0.04];
+  }
+
+  .syntax-panel-title {
+    @apply text-xs text-text-muted uppercase tracking-wider mb-2.5;
+  }
+
+  .syntax-panel-list {
+    @apply flex flex-col gap-1.5 text-sm font-mono;
+  }
+
+  .syntax-panel-row {
+    @apply flex justify-between items-center;
+  }
+
+  .syntax-panel-code {
+    @apply text-accent-light bg-accent/10 px-1.5 py-0.5 rounded-sm;
+  }
+
+  .syntax-panel-desc {
+    @apply text-text-muted text-xs;
+  }
+
+  /* ==================== */
+  /* LAYOUT               */
+  /* ==================== */
+
+  .page-container {
+    @apply min-h-screen bg-gradient-page font-body text-text-primary
+           flex flex-col overflow-hidden;
+  }
+
+  .page-container-narrow {
+    @apply min-h-screen bg-gradient-page font-body text-text-primary
+           max-w-[480px] mx-auto
+           flex flex-col overflow-hidden;
+  }
+
+  .page-header {
+    @apply px-4 py-4 border-b border-white/[0.06] flex-shrink-0;
+  }
+
+  .page-scroll {
+    @apply flex-1 overflow-y-auto overflow-x-hidden;
+  }
+
+  .page-scroll-padded {
+    @apply page-scroll px-4 py-4;
+  }
+
+  /* ==================== */
+  /* UTILITY CLASSES      */
+  /* ==================== */
+
+  .border-subtle  { @apply border-white/[0.04]; }
+  .border-default { @apply border-white/[0.06]; }
+  .border-emphasis { @apply border-white/[0.08]; }
+
+  .divider {
+    @apply border-t border-white/[0.04] my-3;
+  }
+}

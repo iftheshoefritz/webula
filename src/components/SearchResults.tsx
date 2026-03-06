@@ -14,6 +14,7 @@ type SearchResultsProps = {
   withHover?: boolean;
   useWindowScroll?: boolean;
   gridClassName?: string;
+  variant?: 'legacy' | 'styled';
 };
 
 export default function SearchResults({
@@ -24,6 +25,7 @@ export default function SearchResults({
   withHover,
   useWindowScroll = true,
   gridClassName,
+  variant = 'legacy',
 }: SearchResultsProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [imageStyle, setImageStyle] = useState({});
@@ -101,13 +103,26 @@ export default function SearchResults({
     }, 100);
   }, []);
 
-  const listClassName = gridClassName || DEFAULT_GRID_CLASS;
+  const styledGridClass = "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 px-4 py-4";
+  const listClassName = variant === 'styled'
+    ? styledGridClass
+    : (gridClassName || DEFAULT_GRID_CLASS);
 
   const itemContent = useCallback(
     (index: number) => {
       const row: CardDef = filteredData[index];
+      const isStyled = variant === 'styled';
+
+      const cardWrapperClass = isStyled
+        ? "relative rounded-lg overflow-hidden transition-transform duration-150 hover:scale-[1.02] hover:shadow-lg"
+        : "relative";
+
+      const badgeClass = isStyled
+        ? "absolute top-2 right-2 bg-gradient-to-br from-[#4a6a4a] to-[#3a5a3a] text-text-primary text-sm font-mono font-medium rounded-full w-6 h-6 flex items-center justify-center"
+        : "absolute top-0 right-0 bg-black bg-opacity-50 text-white rounded-full px-2 py-1";
+
       return (
-        <div className="relative">
+        <div className={cardWrapperClass}>
           <img
             src={`/cardimages/${row.imagefile}.jpg`}
             width={165}
@@ -123,7 +138,7 @@ export default function SearchResults({
             onMouseLeave={handleUnhover}
           />
           {currentDeck && (
-            <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white rounded-full px-2 py-1">
+            <div className={badgeClass}>
               {currentDeck[row.collectorsinfo]?.row?.count || 0}
             </div>
           )}
@@ -169,6 +184,7 @@ export default function SearchResults({
       handleUnhover,
       handleLargeHover,
       handleLargeUnhover,
+      variant,
     ],
   );
 

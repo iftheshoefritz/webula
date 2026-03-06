@@ -17,10 +17,35 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
   const filteredData = useFilterData(false, data, columns, searchQuery);
 
   return (
-    <div className="container mx-auto p-8">
-      <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-      <Help />
-      <SearchResults filteredData={filteredData} />
+    <div className="page-container h-screen">
+      <div className="page-header">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="font-display text-2xl tracking-wide text-text-primary">
+            Webula
+          </h1>
+        </div>
+      </div>
+
+      <div className="px-4 py-4 flex-shrink-0">
+        <div className="max-w-7xl mx-auto">
+          <SearchBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            variant="styled"
+          />
+          <Help variant="styled" />
+        </div>
+      </div>
+
+      <div className="page-scroll">
+        <div className="max-w-7xl mx-auto h-full">
+          <SearchResults
+            filteredData={filteredData}
+            variant="styled"
+            useWindowScroll={false}
+          />
+        </div>
+      </div>
     </div>
   );
 }

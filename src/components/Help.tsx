@@ -1,6 +1,72 @@
+import { useState } from 'react';
 import { textAbbreviations, rangeAbbreviations } from '../lib/constants';
 
-const Help = (): JSX.Element => (
+type HelpProps = {
+  variant?: 'legacy' | 'styled';
+};
+
+const StyledHelp = (): JSX.Element => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="mt-3">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="text-sm text-text-muted hover:text-text-secondary transition-colors"
+      >
+        {isOpen ? '▼' : '▶'} Search syntax help
+      </button>
+
+      {isOpen && (
+        <div className="syntax-panel">
+          <div className="syntax-panel-title">Example Searches</div>
+          <div className="syntax-panel-list">
+            <div className="syntax-panel-row">
+              <code className="syntax-panel-code">name:Odo</code>
+              <span className="syntax-panel-desc">Card name contains</span>
+            </div>
+            <div className="syntax-panel-row">
+              <code className="syntax-panel-code">strength:8-10</code>
+              <span className="syntax-panel-desc">Stat range</span>
+            </div>
+            <div className="syntax-panel-row">
+              <code className="syntax-panel-code">type:personnel</code>
+              <span className="syntax-panel-desc">Card type</span>
+            </div>
+            <div className="syntax-panel-row">
+              <code className="syntax-panel-code">-skills:acquisition</code>
+              <span className="syntax-panel-desc">Exclude skill</span>
+            </div>
+          </div>
+
+          <div className="divider" />
+
+          <div className="syntax-panel-title">Text Fields</div>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(textAbbreviations).map(([col, abbr]) => (
+              <span key={col} className="text-xs px-1.5 py-0.5 bg-white/[0.05] rounded text-text-secondary">
+                {col} <span className="text-text-muted">({abbr})</span>
+              </span>
+            ))}
+          </div>
+
+          <div className="divider" />
+
+          <div className="syntax-panel-title">Numeric Fields</div>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(rangeAbbreviations).map(([col, abbr]) => (
+              <span key={col} className="text-xs px-1.5 py-0.5 bg-white/[0.05] rounded text-text-secondary">
+                {col} <span className="text-text-muted">({abbr})</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const LegacyHelp = (): JSX.Element => (
   <div className='mb-4'>
     <input type="checkbox" className="peer" />&nbsp;show me more search features
     <div className="flex flex-wrap max-h-0 overflow-y-scroll peer-checked:max-h-80">
@@ -41,6 +107,13 @@ const Help = (): JSX.Element => (
       </div>
     </div>
   </div>
-)
+);
 
-export default Help
+const Help = ({ variant = 'legacy' }: HelpProps): JSX.Element => {
+  if (variant === 'styled') {
+    return <StyledHelp />;
+  }
+  return <LegacyHelp />;
+};
+
+export default Help;
