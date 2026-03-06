@@ -235,35 +235,100 @@ describe('SearchPills', () => {
     });
   });
 
-  describe('add filter functionality', () => {
-    it('appends a space when add filter is clicked and query does not end with space', () => {
-      const setSearchQuery = jest.fn();
-      render(<SearchPills searchQuery="Picard" setSearchQuery={setSearchQuery} />);
+  describe('filter popover', () => {
+    describe('popover visibility', () => {
+      it('shows popover when add filter is clicked', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        expect(screen.getByText('Text Filters')).toBeInTheDocument();
+      });
 
-      const addButton = screen.getByRole('button', { name: /add filter/i });
-      fireEvent.click(addButton);
+      it('closes popover when pressing Escape', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(screen.queryByText('Text Filters')).not.toBeInTheDocument();
+      });
 
-      expect(setSearchQuery).toHaveBeenCalledWith('Picard ');
+      it('closes popover when clicking outside', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.mouseDown(document.body);
+        expect(screen.queryByText('Text Filters')).not.toBeInTheDocument();
+      });
     });
 
-    it('does not append space when query already ends with space', () => {
-      const setSearchQuery = jest.fn();
-      render(<SearchPills searchQuery="Picard " setSearchQuery={setSearchQuery} />);
+    describe('text filter selection', () => {
+      it('inserts text filter syntax and closes popover', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="existing" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('existing type:');
+        expect(screen.queryByText('Text Filters')).not.toBeInTheDocument();
+      });
 
-      const addButton = screen.getByRole('button', { name: /add filter/i });
-      fireEvent.click(addButton);
-
-      expect(setSearchQuery).not.toHaveBeenCalled();
+      it('handles empty query when inserting filter', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('type:');
+      });
     });
 
-    it('does not modify query when add filter is clicked and query is empty', () => {
-      const setSearchQuery = jest.fn();
-      render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+    describe('range filter selection', () => {
+      it('shows range stepper UI when range filter clicked', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^cost:$/i }));
+        expect(screen.getByText('Min')).toBeInTheDocument();
+        expect(screen.getByText('Max')).toBeInTheDocument();
+      });
 
-      const addButton = screen.getByRole('button', { name: /add filter/i });
-      fireEvent.click(addButton);
+      it('shows correct default values for cost filter', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^cost:$/i }));
+        // cost defaults to 2
+        expect(screen.getAllByText('2')).toHaveLength(2);
+      });
 
-      expect(setSearchQuery).not.toHaveBeenCalled();
+      it('shows correct default values for strength filter', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^strength:$/i }));
+        // strength defaults to 5
+        expect(screen.getAllByText('5')).toHaveLength(2);
+      });
+
+      it('increments min value when + button clicked', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^cost:$/i }));
+        const incrementButtons = screen.getAllByRole('button', { name: '+' });
+        fireEvent.click(incrementButtons[0]); // first + is for min
+        expect(screen.getByText('3')).toBeInTheDocument();
+      });
+
+      it('inserts range filter with selected values', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^cost:$/i }));
+        // Click Add button (default is 2-2)
+        fireEvent.click(screen.getByRole('button', { name: /add cost/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('cost:2-2');
+      });
+    });
+
+    describe('more filters expansion', () => {
+      it('shows more text filters when expanded', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByText(/more text filters/i));
+        expect(screen.getByRole('button', { name: /^gametext:$/i })).toBeInTheDocument();
+      });
     });
   });
 
@@ -292,9 +357,9 @@ describe('SearchPills', () => {
 
       // Component normalizes to lowercase
       const pillText = screen.getByText('picard');
-      // The pill wrapper is the parent span with styling classes
-      const pillWrapper = pillText.closest('span.inline-flex');
-      expect(pillWrapper).toHaveClass('inline-flex', 'items-center', 'font-mono');
+      // The pill wrapper is the grandparent span (inner span > outer span.filter-chip)
+      const pillWrapper = pillText.parentElement;
+      expect(pillWrapper).toHaveClass('filter-chip');
     });
   });
 

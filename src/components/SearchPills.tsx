@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
 
@@ -31,6 +31,23 @@ interface ParsedFilter {
 }
 
 const QUOTE_CHARS_REGEX = /[''""«»\u2018\u2019\u201C\u201D]/g;
+
+const QUICK_TEXT_FILTERS = ['type', 'affiliation', 'skills', 'icons', 'keywords', 'name'];
+
+// All text columns not in quick filters
+const MORE_TEXT_FILTERS = textColumns.filter((col) => !QUICK_TEXT_FILTERS.includes(col));
+
+const RANGE_DEFAULTS: Record<string, number> = {
+  cost: 2,
+  span: 3,
+  points: 35,
+  integrity: 5,
+  cunning: 5,
+  strength: 5,
+  range: 5,
+  weapons: 5,
+  shields: 5,
+};
 
 function parseFilters(searchQuery: string): ParsedFilter[] {
   if (!searchQuery.trim()) {
@@ -164,18 +181,71 @@ function removeFilter(searchQuery: string, filterToRemove: ParsedFilter): string
 export default function SearchPills({ searchQuery, setSearchQuery }: SearchPillsProps) {
   const filters = useMemo(() => parseFilters(searchQuery), [searchQuery]);
 
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [selectedRangeFilter, setSelectedRangeFilter] = useState<string | null>(null);
+  const [rangeMin, setRangeMin] = useState(5);
+  const [rangeMax, setRangeMax] = useState(5);
+
+  const popoverRef = useRef<HTMLDivElement>(null);
+
   const handleRemoveFilter = (filter: ParsedFilter) => {
     const newQuery = removeFilter(searchQuery, filter);
     setSearchQuery(newQuery);
   };
 
-  const handleAddFilter = () => {
-    // Focus the search input - we'll trigger this by appending a space
-    // This gives the user a cue to start typing
-    if (searchQuery && !searchQuery.endsWith(' ')) {
-      setSearchQuery(searchQuery + ' ');
-    }
+  const handleAddFilterClick = () => {
+    setIsPopoverOpen(true);
+    setShowMoreFilters(false);
+    setSelectedRangeFilter(null);
   };
+
+  const closePopover = () => {
+    setIsPopoverOpen(false);
+    setShowMoreFilters(false);
+    setSelectedRangeFilter(null);
+  };
+
+  const handleSelectTextFilter = (fieldName: string) => {
+    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
+    setSearchQuery(`${prefix}${fieldName}:`);
+    closePopover();
+  };
+
+  const handleSelectRangeFilter = (fieldName: string) => {
+    const defaultVal = RANGE_DEFAULTS[fieldName] ?? 5;
+    setSelectedRangeFilter(fieldName);
+    setRangeMin(defaultVal);
+    setRangeMax(defaultVal);
+  };
+
+  const handleAddRangeFilter = () => {
+    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
+    setSearchQuery(`${prefix}${selectedRangeFilter}:${rangeMin}-${rangeMax}`);
+    closePopover();
+  };
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!isPopoverOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closePopover();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isPopoverOpen]);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!isPopoverOpen) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        closePopover();
+      }
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [isPopoverOpen]);
 
   return (
     <div className="flex flex-wrap items-center gap-2 mt-3">
@@ -198,15 +268,135 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
           </button>
         </span>
       ))}
-      <button
-        onClick={handleAddFilter}
-        className="inline-flex items-center gap-1 px-2.5 py-1.5
-                   border border-dashed border-white/20 rounded-lg
-                   text-sm text-text-muted hover:text-text-secondary hover:border-white/30
-                   transition-colors"
-      >
-        + Add filter
-      </button>
+
+      <div className="relative" ref={popoverRef}>
+        <button
+          onClick={handleAddFilterClick}
+          className="filter-chip-add"
+          aria-label="Add filter"
+        >
+          + Add filter
+        </button>
+
+        {isPopoverOpen && (
+          <div className="syntax-panel absolute left-0 top-full mt-1 z-20 min-w-[240px] !bg-[#131713] border-white/[0.1]">
+            {selectedRangeFilter ? (
+              <>
+                <div className="syntax-panel-title">{selectedRangeFilter}</div>
+                <div className="flex items-center gap-4 my-2">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xs text-text-muted">Min</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setRangeMin((m) => m - 1)}
+                        className="btn-icon btn-icon-sm"
+                        aria-label="−"
+                      >
+                        −
+                      </button>
+                      <span className="font-mono text-lg min-w-[2ch] text-center">{rangeMin}</span>
+                      <button
+                        onClick={() => setRangeMin((m) => m + 1)}
+                        className="btn-icon btn-icon-sm"
+                        aria-label="+"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xs text-text-muted">Max</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setRangeMax((m) => m - 1)}
+                        className="btn-icon btn-icon-sm"
+                        aria-label="−"
+                      >
+                        −
+                      </button>
+                      <span className="font-mono text-lg min-w-[2ch] text-center">{rangeMax}</span>
+                      <button
+                        onClick={() => setRangeMax((m) => m + 1)}
+                        className="btn-icon btn-icon-sm"
+                        aria-label="+"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleAddRangeFilter}
+                  className="btn-primary mt-3 w-full"
+                  aria-label={`Add ${selectedRangeFilter}:${rangeMin}-${rangeMax}`}
+                >
+                  Add {selectedRangeFilter}:{rangeMin}-{rangeMax}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="syntax-panel-title">Text Filters</div>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {QUICK_TEXT_FILTERS.map((filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => handleSelectTextFilter(filter)}
+                      className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
+                                 rounded-md text-text-secondary hover:text-text-primary
+                                 hover:bg-white/[0.08] transition-colors font-mono"
+                      aria-label={`${filter}:`}
+                    >
+                      {filter}:
+                    </button>
+                  ))}
+                </div>
+
+                <div className="divider" />
+                <div className="syntax-panel-title">Range Filters</div>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {Object.keys(RANGE_DEFAULTS).map((filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => handleSelectRangeFilter(filter)}
+                      className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
+                                 rounded-md text-text-secondary hover:text-text-primary
+                                 hover:bg-white/[0.08] transition-colors font-mono"
+                      aria-label={`${filter}:`}
+                    >
+                      {filter}:
+                    </button>
+                  ))}
+                </div>
+
+                <div className="divider" />
+                <button
+                  onClick={() => setShowMoreFilters((prev) => !prev)}
+                  className="btn-ghost text-xs w-full text-left px-0"
+                >
+                  {showMoreFilters ? '▼ Less' : '▶ More text filters'}
+                </button>
+
+                {showMoreFilters && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {MORE_TEXT_FILTERS.map((filter) => (
+                      <button
+                        key={filter}
+                        onClick={() => handleSelectTextFilter(filter)}
+                        className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
+                                   rounded-md text-text-secondary hover:text-text-primary
+                                   hover:bg-white/[0.08] transition-colors font-mono"
+                        aria-label={`${filter}:`}
+                      >
+                        {filter}:
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
