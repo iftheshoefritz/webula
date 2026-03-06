@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
+import { SKILLS } from '../lib/missionRequirements';
 
 // Create reverse mappings: abbreviation → full keyword
 const textAbbreviationToFull: Record<string, string> = Object.fromEntries(
@@ -186,6 +187,8 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
   const [selectedRangeFilter, setSelectedRangeFilter] = useState<string | null>(null);
   const [rangeMin, setRangeMin] = useState(5);
   const [rangeMax, setRangeMax] = useState(5);
+  const [showSkillsTypeahead, setShowSkillsTypeahead] = useState(false);
+  const [skillsSearch, setSkillsSearch] = useState('');
 
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -204,11 +207,24 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
     setIsPopoverOpen(false);
     setShowMoreFilters(false);
     setSelectedRangeFilter(null);
+    setShowSkillsTypeahead(false);
+    setSkillsSearch('');
   };
 
   const handleSelectTextFilter = (fieldName: string) => {
+    if (fieldName === 'skills') {
+      setShowSkillsTypeahead(true);
+      setSkillsSearch('');
+      return;
+    }
     const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
     setSearchQuery(`${prefix}${fieldName}:`);
+    closePopover();
+  };
+
+  const handleSelectSkill = (skill: string) => {
+    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
+    setSearchQuery(`${prefix}skills:${skill}`);
     closePopover();
   };
 
@@ -252,7 +268,7 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
       {filters.map((filter, index) => (
         <span
           key={`${filter.rawText}-${index}`}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5
+          className="filter-chip inline-flex items-center gap-1.5 px-2.5 py-1.5
                      bg-accent/20 border border-accent/40 rounded-lg
                      text-sm font-mono text-text-primary"
         >
@@ -332,6 +348,43 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
                 >
                   Add {selectedRangeFilter}:{rangeMin}-{rangeMax}
                 </button>
+              </>
+            ) : showSkillsTypeahead ? (
+              <>
+                <div className="syntax-panel-title">Select a Skill</div>
+                <input
+                  type="text"
+                  value={skillsSearch}
+                  onChange={(e) => setSkillsSearch(e.target.value)}
+                  placeholder="Search skills..."
+                  className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
+                             rounded-md text-text-primary placeholder-text-muted outline-none
+                             focus:border-accent/50"
+                  autoFocus
+                />
+                {(() => {
+                  const filtered = SKILLS.filter((s) =>
+                    s.toLowerCase().includes(skillsSearch.toLowerCase())
+                  );
+                  return filtered.length > 0 ? (
+                    <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                      {filtered.map((skill) => (
+                        <li
+                          key={skill}
+                          role="option"
+                          aria-selected={false}
+                          onClick={() => handleSelectSkill(skill)}
+                          className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                                     hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                        >
+                          {skill}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-text-muted py-1">No skills match</p>
+                  );
+                })()}
               </>
             ) : (
               <>

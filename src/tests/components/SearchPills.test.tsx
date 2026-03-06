@@ -330,6 +330,69 @@ describe('SearchPills', () => {
         expect(screen.getByRole('button', { name: /^gametext:$/i })).toBeInTheDocument();
       });
     });
+
+    describe('skills typeahead', () => {
+      it('shows skills typeahead when skills filter is clicked', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        expect(screen.getByPlaceholderText(/search skills/i)).toBeInTheDocument();
+      });
+
+      it('lists all known skills in the typeahead', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        expect(screen.getByRole('option', { name: /^Diplomacy$/i })).toBeInTheDocument();
+        expect(screen.getByRole('option', { name: /^Security$/i })).toBeInTheDocument();
+        expect(screen.getByRole('option', { name: /^Medical$/i })).toBeInTheDocument();
+      });
+
+      it('filters skills list as the user types', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        const input = screen.getByPlaceholderText(/search skills/i);
+        fireEvent.change(input, { target: { value: 'eng' } });
+        expect(screen.getByRole('option', { name: /^Engineer$/i })).toBeInTheDocument();
+        expect(screen.queryByRole('option', { name: /^Diplomacy$/i })).not.toBeInTheDocument();
+      });
+
+      it('inserts skills filter when a skill option is clicked', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Diplomacy$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('skills:Diplomacy');
+      });
+
+      it('appends skills filter when existing query is present', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="type:personnel" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Security$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('type:personnel skills:Security');
+      });
+
+      it('closes the popover after selecting a skill', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Honor$/i }));
+        expect(screen.queryByPlaceholderText(/search skills/i)).not.toBeInTheDocument();
+      });
+
+      it('shows no results message when filter matches nothing', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        const input = screen.getByPlaceholderText(/search skills/i);
+        fireEvent.change(input, { target: { value: 'zzznomatch' } });
+        expect(screen.getByText(/no skills match/i)).toBeInTheDocument();
+      });
+    });
   });
 
   describe('accessibility', () => {

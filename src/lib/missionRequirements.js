@@ -1,4 +1,4 @@
-const skills = [
+export const SKILLS = [
   'Acquisition',
   'Anthropology',
   'Archaeology',
@@ -30,7 +30,7 @@ export function missionRequirements(card) {
   card.skills.split(',').forEach((token) => {
     var match = /(\d?)\s(\S+)/.exec(token);
     if (match !== null) {
-      if (skills.includes(match[2])) {
+      if (SKILLS.includes(match[2])) {
         count[match[2]] = (count[match[2]] || 0) + (match[1] || 1);
       }
     }
