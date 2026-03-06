@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
-import { SKILLS } from '../lib/missionRequirements';
+import { SKILLS, AFFILIATIONS } from '../lib/missionRequirements';
 
 // Create reverse mappings: abbreviation → full keyword
 const textAbbreviationToFull: Record<string, string> = Object.fromEntries(
@@ -189,6 +189,8 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
   const [rangeMax, setRangeMax] = useState(5);
   const [showSkillsTypeahead, setShowSkillsTypeahead] = useState(false);
   const [skillsSearch, setSkillsSearch] = useState('');
+  const [showAffiliationTypeahead, setShowAffiliationTypeahead] = useState(false);
+  const [affiliationSearch, setAffiliationSearch] = useState('');
 
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -209,12 +211,19 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
     setSelectedRangeFilter(null);
     setShowSkillsTypeahead(false);
     setSkillsSearch('');
+    setShowAffiliationTypeahead(false);
+    setAffiliationSearch('');
   };
 
   const handleSelectTextFilter = (fieldName: string) => {
     if (fieldName === 'skills') {
       setShowSkillsTypeahead(true);
       setSkillsSearch('');
+      return;
+    }
+    if (fieldName === 'affiliation') {
+      setShowAffiliationTypeahead(true);
+      setAffiliationSearch('');
       return;
     }
     const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
@@ -225,6 +234,13 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
   const handleSelectSkill = (skill: string) => {
     const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
     setSearchQuery(`${prefix}skills:${skill}`);
+    closePopover();
+  };
+
+  const handleSelectAffiliation = (value: string) => {
+    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
+    const needsQuotes = value.includes(' ');
+    setSearchQuery(`${prefix}affiliation:${needsQuotes ? `"${value}"` : value}`);
     closePopover();
   };
 
@@ -383,6 +399,43 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
                     </ul>
                   ) : (
                     <p className="text-xs text-text-muted py-1">No skills match</p>
+                  );
+                })()}
+              </>
+            ) : showAffiliationTypeahead ? (
+              <>
+                <div className="syntax-panel-title">Select an Affiliation</div>
+                <input
+                  type="text"
+                  value={affiliationSearch}
+                  onChange={(e) => setAffiliationSearch(e.target.value)}
+                  placeholder="Search affiliations..."
+                  className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
+                             rounded-md text-text-primary placeholder-text-muted outline-none
+                             focus:border-accent/50"
+                  autoFocus
+                />
+                {(() => {
+                  const filtered = AFFILIATIONS.filter((a) =>
+                    a.label.toLowerCase().includes(affiliationSearch.toLowerCase())
+                  );
+                  return filtered.length > 0 ? (
+                    <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                      {filtered.map((affiliation) => (
+                        <li
+                          key={affiliation.value}
+                          role="option"
+                          aria-selected={false}
+                          onClick={() => handleSelectAffiliation(affiliation.value)}
+                          className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                                     hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                        >
+                          {affiliation.label}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-text-muted py-1">No affiliations match</p>
                   );
                 })()}
               </>
