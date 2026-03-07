@@ -129,7 +129,7 @@ export default function SearchResults({
             height={229}
             loading="lazy"
             alt={row.name}
-            className="w-full h-auto"
+            className="w-full h-auto rounded-xl"
             onClick={() => onCardSelected && onCardSelected(row)}
             onContextMenu={(event) =>
               onCardDeselected && onCardDeselected(event, row)
@@ -153,6 +153,7 @@ export default function SearchResults({
                   height={458}
                   loading="lazy"
                   alt={row.name}
+                  className="rounded-xl"
                   onMouseEnter={handleLargeHover}
                   onMouseLeave={handleLargeUnhover}
                   onClick={() => onCardSelected && onCardSelected(row)}
