@@ -12,12 +12,6 @@ jest.mock('../../components/SearchResults', () => {
   };
 });
 
-jest.mock('../../components/Help', () => {
-  return function MockHelp() {
-    return <div data-testid="help">Help</div>;
-  };
-});
-
 jest.mock('../../components/SearchBar', () => {
   return function MockSearchBar() {
     return <div data-testid="search-bar">Search Bar</div>;
@@ -40,7 +34,7 @@ describe('CardSearchClient', () => {
     mockSearchResultsProps.mockClear();
   });
 
-  it('renders the search bar and help immediately (no loading state)', () => {
+  it('renders the search bar immediately (no loading state)', () => {
     (useFilterData as jest.Mock).mockReturnValue(mockCardData);
 
     render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
@@ -48,7 +42,6 @@ describe('CardSearchClient', () => {
     // No loading state - data is passed directly as props
     expect(screen.queryByText('Loading data...')).not.toBeInTheDocument();
     expect(screen.getByTestId('search-bar')).toBeInTheDocument();
-    expect(screen.getByTestId('help')).toBeInTheDocument();
   });
 
   it('passes data to useFilterData hook', () => {
