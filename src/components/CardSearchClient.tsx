@@ -4,7 +4,6 @@ import { useState } from 'react';
 import SearchBar from './SearchBar';
 import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
-import Help from './Help';
 import useFilterData from '../hooks/useFilterData';
 import type { CardData } from '../lib/loadCards';
 
@@ -19,14 +18,6 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
 
   return (
     <div className="page-container h-screen">
-      <div className="page-header">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="font-display text-2xl tracking-wide text-text-primary">
-            Webula
-          </h1>
-        </div>
-      </div>
-
       <div className="px-4 py-4 flex-shrink-0">
         <div className="max-w-7xl mx-auto">
           <SearchBar
@@ -38,7 +29,6 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
           />
-          <Help variant="styled" />
         </div>
       </div>
 
