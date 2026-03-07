@@ -153,6 +153,7 @@ export default function SearchResults({
                   height={458}
                   loading="lazy"
                   alt={row.name}
+                  className="block rounded-lg"
                   onMouseEnter={handleLargeHover}
                   onMouseLeave={handleLargeUnhover}
                   onClick={() => onCardSelected && onCardSelected(row)}
