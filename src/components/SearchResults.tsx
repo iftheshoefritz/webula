@@ -123,20 +123,23 @@ export default function SearchResults({
 
       return (
         <div className={cardWrapperClass}>
-          <img
-            src={`/cardimages/${row.imagefile}.jpg`}
-            width={165}
-            height={229}
-            loading="lazy"
-            alt={row.name}
-            className="w-full h-auto rounded-xl"
-            onClick={() => onCardSelected && onCardSelected(row)}
-            onContextMenu={(event) =>
-              onCardDeselected && onCardDeselected(event, row)
-            }
-            onMouseEnter={(event) => handleHover(row.collectorsinfo, event)}
-            onMouseLeave={handleUnhover}
-          />
+          <div className="relative">
+            <img
+              src={`/cardimages/${row.imagefile}.jpg`}
+              width={165}
+              height={229}
+              loading="lazy"
+              alt={row.name}
+              className="w-full h-auto rounded-xl block"
+              onClick={() => onCardSelected && onCardSelected(row)}
+              onContextMenu={(event) =>
+                onCardDeselected && onCardDeselected(event, row)
+              }
+              onMouseEnter={(event) => handleHover(row.collectorsinfo, event)}
+              onMouseLeave={handleUnhover}
+            />
+            <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
+          </div>
           {currentDeck && (
             <div className={badgeClass}>
               {currentDeck[row.collectorsinfo]?.row?.count || 0}
@@ -147,20 +150,23 @@ export default function SearchResults({
             mounted &&
             createPortal(
               <div style={imageStyle}>
-                <img
-                  src={`/cardimages/${row.imagefile}.jpg`}
-                  width={230}
-                  height={458}
-                  loading="lazy"
-                  alt={row.name}
-                  className="rounded-xl"
-                  onMouseEnter={handleLargeHover}
-                  onMouseLeave={handleLargeUnhover}
-                  onClick={() => onCardSelected && onCardSelected(row)}
-                  onContextMenu={(event) =>
-                    onCardDeselected && onCardDeselected(event, row)
-                  }
-                />
+                <div className="relative">
+                  <img
+                    src={`/cardimages/${row.imagefile}.jpg`}
+                    width={230}
+                    height={458}
+                    loading="lazy"
+                    alt={row.name}
+                    className="rounded-xl block"
+                    onMouseEnter={handleLargeHover}
+                    onMouseLeave={handleLargeUnhover}
+                    onClick={() => onCardSelected && onCardSelected(row)}
+                    onContextMenu={(event) =>
+                      onCardDeselected && onCardDeselected(event, row)
+                    }
+                  />
+                  <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
+                </div>
                 {currentDeck && (
                   <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white rounded-full px-2 py-1">
                     {currentDeck[row.collectorsinfo]?.row?.count || 0}
