@@ -114,7 +114,7 @@ export default function SearchResults({
       const isStyled = variant === 'styled';
 
       const cardWrapperClass = isStyled
-        ? "relative rounded-lg overflow-hidden transition-transform duration-150 hover:scale-[1.02] hover:shadow-lg"
+        ? "relative rounded-lg overflow-hidden bg-bg-primary transition-transform duration-150 hover:scale-[1.02] hover:shadow-lg"
         : "relative";
 
       const badgeClass = isStyled
@@ -129,7 +129,7 @@ export default function SearchResults({
             height={229}
             loading="lazy"
             alt={row.name}
-            className="w-full h-auto"
+            className="w-full h-auto block rounded-lg"
             onClick={() => onCardSelected && onCardSelected(row)}
             onContextMenu={(event) =>
               onCardDeselected && onCardDeselected(event, row)
