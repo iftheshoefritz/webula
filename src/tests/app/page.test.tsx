@@ -4,6 +4,12 @@ jest.mock('../../hooks/useFilterData', () => ({
   default: jest.fn(),
 }));
 
+// Mock useScrollVisibility hook
+jest.mock('../../hooks/useScrollVisibility', () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
+
 const mockSearchResultsProps = jest.fn();
 jest.mock('../../components/SearchResults', () => {
   return function MockSearchResults(props: { filteredData: any[]; useWindowScroll?: boolean; variant?: string }) {
@@ -21,6 +27,7 @@ jest.mock('../../components/SearchBar', () => {
 import { render, screen } from '@testing-library/react';
 import CardSearchClient from '../../components/CardSearchClient';
 import useFilterData from '../../hooks/useFilterData';
+import useScrollVisibility from '../../hooks/useScrollVisibility';
 
 const mockCardData = [
   { collectorsinfo: '1R000', originalName: 'Test Card', type: 'mission', name: 'test card' }
@@ -32,6 +39,7 @@ describe('CardSearchClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSearchResultsProps.mockClear();
+    (useScrollVisibility as jest.Mock).mockReturnValue(true);
   });
 
   it('renders the search bar immediately (no loading state)', () => {
@@ -70,17 +78,47 @@ describe('CardSearchClient', () => {
     expect(screen.getByTestId('search-results')).toHaveTextContent('0 items');
   });
 
-  it('passes useWindowScroll=false to SearchResults for container-based scrolling', () => {
+  it('passes useWindowScroll=true to SearchResults for window-based scrolling', () => {
     (useFilterData as jest.Mock).mockReturnValue(mockCardData);
 
     render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
 
-    // SearchResults must use container scroll (not window scroll) because
-    // CardSearchClient uses a scrollable container with overflow-y-auto
+    // SearchResults uses window scroll so VirtuosoGrid scroll events reach window
+    // and useScrollVisibility (which listens on window) can detect them.
     expect(mockSearchResultsProps).toHaveBeenCalledWith(
       expect.objectContaining({
-        useWindowScroll: false,
+        useWindowScroll: true,
       })
     );
+  });
+
+  it('renders the floating overlay with hidden styles when not scrolling', () => {
+    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+    (useScrollVisibility as jest.Mock).mockReturnValue(false);
+
+    render(<CardSearchClient data={mockCardData as any} columns={mockColumns} />);
+
+    const searchBar = screen.getByTestId('search-bar');
+    const overlay = searchBar.closest('[style]') as HTMLElement;
+
+    // Overlay should be hidden (opacity 0) when not scrolling
+    expect(overlay.style.opacity).toBe('0');
+    expect(overlay.style.position).toBe('fixed');
+    expect(overlay.style.zIndex).toBe('50');
+    expect(overlay.style.pointerEvents).toBe('none');
+  });
+
+  it('renders the floating overlay with visible styles when scrolling', () => {
+    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+    (useScrollVisibility as jest.Mock).mockReturnValue(true);
+
+    render(<CardSearchClient data={mockCardData as any} columns={mockColumns} />);
+
+    const searchBar = screen.getByTestId('search-bar');
+    const overlay = searchBar.closest('[style]') as HTMLElement;
+
+    // Overlay should be visible (opacity 1) during scrolling
+    expect(overlay.style.opacity).toBe('1');
+    expect(overlay.style.pointerEvents).toBe('auto');
   });
 });
