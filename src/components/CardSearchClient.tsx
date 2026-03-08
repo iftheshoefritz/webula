@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import SearchBar from './SearchBar';
 import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
 import useFilterData from '../hooks/useFilterData';
+import useScrollVisibility from '../hooks/useScrollVisibility';
 import type { CardData } from '../lib/loadCards';
 
 interface CardSearchClientProps {
@@ -15,10 +16,27 @@ interface CardSearchClientProps {
 export default function CardSearchClient({ data, columns }: CardSearchClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const filteredData = useFilterData(false, data, columns, searchQuery);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isVisible = useScrollVisibility({ target: scrollRef });
+
+  const overlayStyle = useMemo(
+    () => ({
+      position: 'fixed' as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 50,
+      opacity: isVisible ? 1 : 0,
+      transform: isVisible ? 'translateY(0)' : 'translateY(-8px)',
+      transition: 'opacity 300ms ease, transform 300ms ease',
+      pointerEvents: (isVisible ? 'auto' : 'none') as React.CSSProperties['pointerEvents'],
+    }),
+    [isVisible]
+  );
 
   return (
     <div className="page-container h-screen">
-      <div className="px-4 py-4 flex-shrink-0">
+      <div style={overlayStyle} className="px-4 py-4">
         <div className="max-w-7xl mx-auto">
           <SearchBar
             searchQuery={searchQuery}
@@ -32,8 +50,8 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
         </div>
       </div>
 
-      <div className="page-scroll">
-        <div className="max-w-7xl mx-auto h-full">
+      <div ref={scrollRef} className="page-scroll">
+        <div className="max-w-7xl mx-auto h-full pt-28">
           <SearchResults
             filteredData={filteredData}
             variant="styled"
