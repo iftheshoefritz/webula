@@ -85,3 +85,30 @@ describe('useFilterData — affiliation filter', () => {
     expect(names).toContain('Bajor');
   });
 });
+
+describe('useFilterData — affiliation exclusion clause filter', () => {
+  const borgMission = makeCard({ name: 'Borg Mission', type: 'mission', affiliation: '[bor]' });
+  const anyExceptBorgMission = makeCard({
+    name: 'Hromi Cluster',
+    type: 'mission',
+    affiliation: 'any affiliation (except [bor]) may attempt this mission.',
+  });
+  const fedMission = makeCard({ name: 'Establish Relations', type: 'mission', affiliation: '[fed]' });
+
+  const allCards = [borgMission, anyExceptBorgMission, fedMission];
+
+  it('does not return missions where borg appears only in an exclusion clause for affiliation:borg', () => {
+    const result = getFiltered(allCards, 'affiliation:borg');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Borg Mission');
+    expect(names).not.toContain('Hromi Cluster');
+  });
+
+  it('does not exclude missions where borg appears only in an exclusion clause for -affiliation:borg', () => {
+    const result = getFiltered(allCards, '-a:borg');
+    const names = result.map(c => c.name);
+    expect(names).not.toContain('Borg Mission');
+    expect(names).toContain('Hromi Cluster');
+    expect(names).toContain('Establish Relations');
+  });
+});
