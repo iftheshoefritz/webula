@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
 import { SKILLS, AFFILIATIONS, CARD_TYPES } from '../lib/missionRequirements';
@@ -197,6 +197,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   const [typeSearch, setTypeSearch] = useState('');
 
   const popoverRef = useRef<HTMLDivElement>(null);
+  const popoverContentRef = useRef<HTMLDivElement>(null);
+  const [popoverLeftOffset, setPopoverLeftOffset] = useState(0);
 
   const handleRemoveFilter = (filter: ParsedFilter) => {
     const newQuery = removeFilter(searchQuery, filter);
@@ -276,6 +278,22 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     closePopover();
   };
 
+  // Adjust popover position to keep its right edge within the viewport
+  useLayoutEffect(() => {
+    if (!isPopoverOpen || !popoverContentRef.current) {
+      setPopoverLeftOffset(0);
+      return;
+    }
+    const el = popoverContentRef.current;
+    const rect = el.getBoundingClientRect();
+    const overflow = rect.right - window.innerWidth;
+    if (overflow > 0) {
+      setPopoverLeftOffset(-overflow - 8);
+    } else {
+      setPopoverLeftOffset(0);
+    }
+  }, [isPopoverOpen]);
+
   // Close on Escape key
   useEffect(() => {
     if (!isPopoverOpen) return;
@@ -330,7 +348,11 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
         </button>
 
         {isPopoverOpen && (
-          <div className="syntax-panel absolute left-0 top-full mt-1 z-20 min-w-[240px] !bg-[#131713] border-white/[0.1]">
+          <div
+            ref={popoverContentRef}
+            className="syntax-panel absolute left-0 top-full mt-1 z-20 min-w-[240px] !bg-[#131713] border-white/[0.1]"
+            style={popoverLeftOffset !== 0 ? { left: popoverLeftOffset } : undefined}
+          >
             {selectedRangeFilter ? (
               <>
                 <div className="syntax-panel-title">{selectedRangeFilter}</div>
