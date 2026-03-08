@@ -38,7 +38,7 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
     // overflow-hidden which would prevent window-level scroll (needed for VirtuosoGrid
     // useWindowScroll=true and scroll detection in useScrollVisibility).
     <div className="min-h-screen bg-gradient-page font-body text-text-primary">
-      <div style={overlayStyle} className="px-4 py-4">
+      <div style={overlayStyle} className="bg-gradient-page px-4 py-4">
         <div className="max-w-7xl mx-auto">
           <SearchBar
             searchQuery={searchQuery}

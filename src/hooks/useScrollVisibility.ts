@@ -10,21 +10,25 @@ function useScrollVisibility({ hideDelay = 3000, target }: UseScrollVisibilityOp
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Start the hide timer immediately so the bar fades out if the user never scrolls.
-    timerRef.current = setTimeout(() => {
-      setIsVisible(false);
-    }, hideDelay);
+    // No initial hide timer — the overlay stays visible until the user first scrolls down.
 
     const handleScroll = () => {
+      const scrollPos = target?.current ? target.current.scrollTop : window.scrollY;
+
       setIsVisible(true);
 
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
+        timerRef.current = null;
       }
 
-      timerRef.current = setTimeout(() => {
-        setIsVisible(false);
-      }, hideDelay);
+      // Only schedule hiding when the page is scrolled down from the top.
+      // When scrollPos === 0 the user is back at the top so the overlay stays visible.
+      if (scrollPos > 0) {
+        timerRef.current = setTimeout(() => {
+          setIsVisible(false);
+        }, hideDelay);
+      }
     };
 
     const element = target?.current ?? window;
