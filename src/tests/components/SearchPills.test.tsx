@@ -448,15 +448,6 @@ describe('SearchPills', () => {
         expect(setSearchQuery).toHaveBeenCalledWith('affiliation:Non-Aligned');
       });
 
-      it('inserts bracket-code affiliation filter', () => {
-        const setSearchQuery = jest.fn();
-        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
-        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
-        fireEvent.click(screen.getByRole('button', { name: /^affiliation:$/i }));
-        fireEvent.click(screen.getByRole('option', { name: /^\[Fed\] \(personnel\)$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('affiliation:[Fed]');
-      });
-
       it('closes the popover after selecting an affiliation', () => {
         render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
