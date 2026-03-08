@@ -39,7 +39,7 @@ describe('CardSearchClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSearchResultsProps.mockClear();
-    (useScrollVisibility as jest.Mock).mockReturnValue(false);
+    (useScrollVisibility as jest.Mock).mockReturnValue(true);
   });
 
   it('renders the search bar immediately (no loading state)', () => {

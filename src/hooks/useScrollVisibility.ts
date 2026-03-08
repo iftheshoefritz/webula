@@ -6,10 +6,15 @@ interface UseScrollVisibilityOptions {
 }
 
 function useScrollVisibility({ hideDelay = 3000, target }: UseScrollVisibilityOptions = {}): boolean {
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Start the hide timer immediately so the bar fades out if the user never scrolls.
+    timerRef.current = setTimeout(() => {
+      setIsVisible(false);
+    }, hideDelay);
+
     const handleScroll = () => {
       setIsVisible(true);
 

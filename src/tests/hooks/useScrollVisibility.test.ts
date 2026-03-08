@@ -11,9 +11,9 @@ describe('useScrollVisibility', () => {
     jest.useRealTimers();
   });
 
-  it('starts with isVisible = false', () => {
+  it('starts with isVisible = true', () => {
     const { result } = renderHook(() => useScrollVisibility());
-    expect(result.current).toBe(false);
+    expect(result.current).toBe(true);
   });
 
   it('sets isVisible = true when a scroll event fires on window', () => {
@@ -24,6 +24,18 @@ describe('useScrollVisibility', () => {
     });
 
     expect(result.current).toBe(true);
+  });
+
+  it('sets isVisible = false after hideDelay ms with no scrolling (initial hide)', () => {
+    const { result } = renderHook(() => useScrollVisibility({ hideDelay: 1000 }));
+
+    expect(result.current).toBe(true);
+
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(result.current).toBe(false);
   });
 
   it('sets isVisible = false after hideDelay ms of inactivity', () => {
@@ -81,7 +93,7 @@ describe('useScrollVisibility', () => {
 
     const { result } = renderHook(() => useScrollVisibility({ target: ref, hideDelay: 500 }));
 
-    expect(result.current).toBe(false);
+    expect(result.current).toBe(true);
 
     act(() => {
       div.dispatchEvent(new Event('scroll'));
@@ -104,13 +116,20 @@ describe('useScrollVisibility', () => {
     const ref = createRef<HTMLElement>();
     (ref as React.MutableRefObject<HTMLElement>).current = div;
 
-    const { result } = renderHook(() => useScrollVisibility({ target: ref }));
+    const { result } = renderHook(() => useScrollVisibility({ target: ref, hideDelay: 500 }));
 
+    // Let the initial hide timer expire so isVisible becomes false.
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(result.current).toBe(false);
+
+    // A window scroll should NOT re-show the bar when a custom target is set.
     act(() => {
       window.dispatchEvent(new Event('scroll'));
     });
 
-    // Window scroll should not trigger visibility when target is provided
     expect(result.current).toBe(false);
 
     document.body.removeChild(div);
@@ -129,10 +148,7 @@ describe('useScrollVisibility', () => {
   it('defaults hideDelay to 3000ms', () => {
     const { result } = renderHook(() => useScrollVisibility());
 
-    act(() => {
-      window.dispatchEvent(new Event('scroll'));
-    });
-
+    // Starts visible; should still be visible just before the timer fires.
     act(() => {
       jest.advanceTimersByTime(2999);
     });
