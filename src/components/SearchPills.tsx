@@ -196,7 +196,12 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   const [showTypeTypeahead, setShowTypeTypeahead] = useState(false);
   const [typeSearch, setTypeSearch] = useState('');
 
-  const popoverRef = useRef<HTMLDivElement>(null);
+  // Edit state: which pill (if any) is being edited
+  const [editingFilter, setEditingFilter] = useState<ParsedFilter | null>(null);
+  const [editingFilterIndex, setEditingFilterIndex] = useState<number | null>(null);
+
+  const addFilterWrapperRef = useRef<HTMLDivElement>(null);
+  const pillRefs = useRef<(HTMLDivElement | null)[]>([]);
   const popoverContentRef = useRef<HTMLDivElement>(null);
   const [popoverLeftOffset, setPopoverLeftOffset] = useState(0);
 
@@ -205,11 +210,27 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setSearchQuery(newQuery);
   };
 
+  // Build and apply a new filter, replacing the editing filter if in edit mode
+  const applyFilter = (filterText: string) => {
+    const baseQuery = editingFilter ? removeFilter(searchQuery, editingFilter) : searchQuery;
+    const prefix = baseQuery.trim() ? `${baseQuery.trim()} ` : '';
+    setSearchQuery(`${prefix}${filterText}`);
+    closePopover();
+  };
+
   const handleAddFilterClick = () => {
+    setEditingFilter(null);
+    setEditingFilterIndex(null);
     setIsPopoverOpen(true);
     onPopoverOpenChange?.(true);
     setShowMoreFilters(false);
     setSelectedRangeFilter(null);
+    setShowSkillsTypeahead(false);
+    setSkillsSearch('');
+    setShowAffiliationTypeahead(false);
+    setAffiliationSearch('');
+    setShowTypeTypeahead(false);
+    setTypeSearch('');
   };
 
   const closePopover = () => {
@@ -223,6 +244,41 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setAffiliationSearch('');
     setShowTypeTypeahead(false);
     setTypeSearch('');
+    setEditingFilter(null);
+    setEditingFilterIndex(null);
+  };
+
+  const handleEditFilterClick = (filter: ParsedFilter, index: number) => {
+    // Reset sub-states
+    setShowMoreFilters(false);
+    setSelectedRangeFilter(null);
+    setShowSkillsTypeahead(false);
+    setSkillsSearch('');
+    setShowAffiliationTypeahead(false);
+    setAffiliationSearch('');
+    setShowTypeTypeahead(false);
+    setTypeSearch('');
+
+    setEditingFilter(filter);
+    setEditingFilterIndex(index);
+
+    const expandedKey = expandKeyword(filter.key);
+
+    if (filter.isRange) {
+      const parts = filter.value.split('-');
+      setSelectedRangeFilter(expandedKey);
+      setRangeMin(parseInt(parts[0]) || 0);
+      setRangeMax(parseInt(parts[1]) || 0);
+    } else if (expandedKey === 'skills') {
+      setShowSkillsTypeahead(true);
+    } else if (expandedKey === 'affiliation') {
+      setShowAffiliationTypeahead(true);
+    } else if (expandedKey === 'type') {
+      setShowTypeTypeahead(true);
+    }
+
+    setIsPopoverOpen(true);
+    onPopoverOpenChange?.(true);
   };
 
   const handleSelectTextFilter = (fieldName: string) => {
@@ -241,28 +297,20 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
       setTypeSearch('');
       return;
     }
-    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
-    setSearchQuery(`${prefix}${fieldName}:`);
-    closePopover();
+    applyFilter(`${fieldName}:`);
   };
 
   const handleSelectSkill = (skill: string) => {
-    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
-    setSearchQuery(`${prefix}skills:${skill}`);
-    closePopover();
+    applyFilter(`skills:${skill}`);
   };
 
   const handleSelectAffiliation = (value: string) => {
-    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
     const needsQuotes = value.includes(' ');
-    setSearchQuery(`${prefix}affiliation:${needsQuotes ? `"${value}"` : value}`);
-    closePopover();
+    applyFilter(`affiliation:${needsQuotes ? `"${value}"` : value}`);
   };
 
   const handleSelectType = (value: string) => {
-    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
-    setSearchQuery(`${prefix}type:${value}`);
-    closePopover();
+    applyFilter(`type:${value}`);
   };
 
   const handleSelectRangeFilter = (fieldName: string) => {
@@ -273,9 +321,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   };
 
   const handleAddRangeFilter = () => {
-    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
-    setSearchQuery(`${prefix}${selectedRangeFilter}:${rangeMin}-${rangeMax}`);
-    closePopover();
+    applyFilter(`${selectedRangeFilter}:${rangeMin}-${rangeMax}`);
   };
 
   // Adjust popover position to keep its right edge within the viewport
@@ -292,7 +338,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     } else {
       setPopoverLeftOffset(0);
     }
-  }, [isPopoverOpen]);
+  }, [isPopoverOpen, editingFilterIndex]);
 
   // Close on Escape key
   useEffect(() => {
@@ -308,37 +354,295 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   useEffect(() => {
     if (!isPopoverOpen) return;
     const handleMouseDown = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      const activeWrapper =
+        editingFilterIndex !== null
+          ? pillRefs.current[editingFilterIndex]
+          : addFilterWrapperRef.current;
+      if (activeWrapper && !activeWrapper.contains(e.target as Node)) {
         closePopover();
       }
     };
     document.addEventListener('mousedown', handleMouseDown);
     return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, [isPopoverOpen]);
+  }, [isPopoverOpen, editingFilterIndex]);
+
+  // The shared popover panel content (rendered inside whichever wrapper is active)
+  const popoverPanel = (
+    <div
+      ref={popoverContentRef}
+      className="syntax-panel absolute left-0 top-full mt-1 z-20 min-w-[240px] !bg-[#131713] border-white/[0.1]"
+      style={popoverLeftOffset !== 0 ? { left: popoverLeftOffset } : undefined}
+    >
+      {selectedRangeFilter ? (
+        <>
+          <div className="syntax-panel-title">{selectedRangeFilter}</div>
+          <div className="flex items-center gap-4 my-2">
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-xs text-text-muted">Min</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setRangeMin((m) => m - 1)}
+                  className="btn-icon btn-icon-sm"
+                  aria-label="−"
+                >
+                  −
+                </button>
+                <span className="font-mono text-lg min-w-[2ch] text-center">{rangeMin}</span>
+                <button
+                  onClick={() => setRangeMin((m) => m + 1)}
+                  className="btn-icon btn-icon-sm"
+                  aria-label="+"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-xs text-text-muted">Max</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setRangeMax((m) => m - 1)}
+                  className="btn-icon btn-icon-sm"
+                  aria-label="−"
+                >
+                  −
+                </button>
+                <span className="font-mono text-lg min-w-[2ch] text-center">{rangeMax}</span>
+                <button
+                  onClick={() => setRangeMax((m) => m + 1)}
+                  className="btn-icon btn-icon-sm"
+                  aria-label="+"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleAddRangeFilter}
+            className="btn-primary mt-3 w-full"
+            aria-label={`${editingFilter ? 'Update' : 'Add'} ${selectedRangeFilter}:${rangeMin}-${rangeMax}`}
+          >
+            {editingFilter ? 'Update' : 'Add'} {selectedRangeFilter}:{rangeMin}-{rangeMax}
+          </button>
+        </>
+      ) : showSkillsTypeahead ? (
+        <>
+          <div className="syntax-panel-title">Select a Skill</div>
+          <input
+            type="text"
+            value={skillsSearch}
+            onChange={(e) => setSkillsSearch(e.target.value)}
+            placeholder="Search skills..."
+            className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
+                       rounded-md text-text-primary placeholder-text-muted outline-none
+                       focus:border-accent/50"
+            autoFocus
+          />
+          {(() => {
+            const filtered = SKILLS.filter((s) =>
+              s.toLowerCase().includes(skillsSearch.toLowerCase())
+            );
+            return filtered.length > 0 ? (
+              <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                {filtered.map((skill) => (
+                  <li
+                    key={skill}
+                    role="option"
+                    aria-selected={false}
+                    onClick={() => handleSelectSkill(skill)}
+                    className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                               hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                  >
+                    {skill}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-text-muted py-1">No skills match</p>
+            );
+          })()}
+        </>
+      ) : showAffiliationTypeahead ? (
+        <>
+          <div className="syntax-panel-title">Select an Affiliation</div>
+          <input
+            type="text"
+            value={affiliationSearch}
+            onChange={(e) => setAffiliationSearch(e.target.value)}
+            placeholder="Search affiliations..."
+            className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
+                       rounded-md text-text-primary placeholder-text-muted outline-none
+                       focus:border-accent/50"
+            autoFocus
+          />
+          {(() => {
+            const filtered = AFFILIATIONS.filter((a) =>
+              a.label.toLowerCase().includes(affiliationSearch.toLowerCase())
+            );
+            return filtered.length > 0 ? (
+              <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                {filtered.map((affiliation) => (
+                  <li
+                    key={affiliation.value}
+                    role="option"
+                    aria-selected={false}
+                    onClick={() => handleSelectAffiliation(affiliation.value)}
+                    className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                               hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                  >
+                    {affiliation.label}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-text-muted py-1">No affiliations match</p>
+            );
+          })()}
+        </>
+      ) : showTypeTypeahead ? (
+        <>
+          <div className="syntax-panel-title">Select a Type</div>
+          <input
+            type="text"
+            value={typeSearch}
+            onChange={(e) => setTypeSearch(e.target.value)}
+            placeholder="Search types..."
+            className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
+                       rounded-md text-text-primary placeholder-text-muted outline-none
+                       focus:border-accent/50"
+            autoFocus
+          />
+          {(() => {
+            const filtered = CARD_TYPES.filter((t) =>
+              t.toLowerCase().includes(typeSearch.toLowerCase())
+            );
+            return filtered.length > 0 ? (
+              <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                {filtered.map((cardType) => (
+                  <li
+                    key={cardType}
+                    role="option"
+                    aria-selected={false}
+                    onClick={() => handleSelectType(cardType)}
+                    className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                               hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                  >
+                    {cardType}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-text-muted py-1">No types match</p>
+            );
+          })()}
+        </>
+      ) : (
+        <>
+          <div className="syntax-panel-title">Text Filters</div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {QUICK_TEXT_FILTERS.map((filter) => (
+              <button
+                key={filter}
+                onClick={() => handleSelectTextFilter(filter)}
+                className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
+                           rounded-md text-text-secondary hover:text-text-primary
+                           hover:bg-white/[0.08] transition-colors font-mono"
+                aria-label={`${filter}:`}
+              >
+                {filter}:
+              </button>
+            ))}
+          </div>
+
+          <div className="divider" />
+          <div className="syntax-panel-title">Range Filters</div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {Object.keys(RANGE_DEFAULTS).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => handleSelectRangeFilter(filter)}
+                className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
+                           rounded-md text-text-secondary hover:text-text-primary
+                           hover:bg-white/[0.08] transition-colors font-mono"
+                aria-label={`${filter}:`}
+              >
+                {filter}:
+              </button>
+            ))}
+          </div>
+
+          <div className="divider" />
+          <button
+            onClick={() => setShowMoreFilters((prev) => !prev)}
+            className="btn-ghost text-xs w-full text-left px-0"
+          >
+            {showMoreFilters ? '▼ Less' : '▶ More text filters'}
+          </button>
+
+          {showMoreFilters && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {MORE_TEXT_FILTERS.map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => handleSelectTextFilter(filter)}
+                  className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
+                             rounded-md text-text-secondary hover:text-text-primary
+                             hover:bg-white/[0.08] transition-colors font-mono"
+                  aria-label={`${filter}:`}
+                >
+                  {filter}:
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div className="flex flex-wrap items-center gap-2 mt-3">
       {filters.map((filter, index) => (
-        <span
+        <div
           key={`${filter.rawText}-${index}`}
-          className="filter-chip inline-flex items-center gap-1.5 px-2.5 py-1.5
-                     bg-accent/20 border border-accent/40 rounded-lg
-                     text-sm font-mono text-text-primary"
+          className="relative"
+          ref={(el) => {
+            pillRefs.current[index] = el;
+          }}
         >
-          <span className={filter.isExclude ? 'text-red-400' : ''}>
-            {filter.rawText}
-          </span>
-          <button
-            onClick={() => handleRemoveFilter(filter)}
-            className="text-text-muted hover:text-text-primary transition-colors ml-0.5"
-            aria-label={`Remove ${filter.rawText} filter`}
+          <span
+            className="filter-chip inline-flex items-center gap-1.5 px-2.5 py-1.5
+                       bg-accent/20 border border-accent/40 rounded-lg
+                       text-sm font-mono text-text-primary cursor-pointer
+                       hover:border-accent/60 hover:bg-accent/30 transition-colors"
+            onClick={() => handleEditFilterClick(filter, index)}
+            role="button"
+            tabIndex={0}
+            aria-label={`Edit ${filter.rawText} filter`}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') handleEditFilterClick(filter, index);
+            }}
           >
-            ×
-          </button>
-        </span>
+            <span className={filter.isExclude ? 'text-red-400' : ''}>
+              {filter.rawText}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemoveFilter(filter);
+              }}
+              className="text-text-muted hover:text-text-primary transition-colors ml-0.5"
+              aria-label={`Remove ${filter.rawText} filter`}
+            >
+              ×
+            </button>
+          </span>
+          {editingFilterIndex === index && isPopoverOpen && popoverPanel}
+        </div>
       ))}
 
-      <div className="relative" ref={popoverRef}>
+      <div className="relative" ref={addFilterWrapperRef}>
         <button
           onClick={handleAddFilterClick}
           className="filter-chip-add"
@@ -347,239 +651,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
           + Add filter
         </button>
 
-        {isPopoverOpen && (
-          <div
-            ref={popoverContentRef}
-            className="syntax-panel absolute left-0 top-full mt-1 z-20 min-w-[240px] !bg-[#131713] border-white/[0.1]"
-            style={popoverLeftOffset !== 0 ? { left: popoverLeftOffset } : undefined}
-          >
-            {selectedRangeFilter ? (
-              <>
-                <div className="syntax-panel-title">{selectedRangeFilter}</div>
-                <div className="flex items-center gap-4 my-2">
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-xs text-text-muted">Min</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setRangeMin((m) => m - 1)}
-                        className="btn-icon btn-icon-sm"
-                        aria-label="−"
-                      >
-                        −
-                      </button>
-                      <span className="font-mono text-lg min-w-[2ch] text-center">{rangeMin}</span>
-                      <button
-                        onClick={() => setRangeMin((m) => m + 1)}
-                        className="btn-icon btn-icon-sm"
-                        aria-label="+"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-xs text-text-muted">Max</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setRangeMax((m) => m - 1)}
-                        className="btn-icon btn-icon-sm"
-                        aria-label="−"
-                      >
-                        −
-                      </button>
-                      <span className="font-mono text-lg min-w-[2ch] text-center">{rangeMax}</span>
-                      <button
-                        onClick={() => setRangeMax((m) => m + 1)}
-                        className="btn-icon btn-icon-sm"
-                        aria-label="+"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={handleAddRangeFilter}
-                  className="btn-primary mt-3 w-full"
-                  aria-label={`Add ${selectedRangeFilter}:${rangeMin}-${rangeMax}`}
-                >
-                  Add {selectedRangeFilter}:{rangeMin}-{rangeMax}
-                </button>
-              </>
-            ) : showSkillsTypeahead ? (
-              <>
-                <div className="syntax-panel-title">Select a Skill</div>
-                <input
-                  type="text"
-                  value={skillsSearch}
-                  onChange={(e) => setSkillsSearch(e.target.value)}
-                  placeholder="Search skills..."
-                  className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
-                             rounded-md text-text-primary placeholder-text-muted outline-none
-                             focus:border-accent/50"
-                  autoFocus
-                />
-                {(() => {
-                  const filtered = SKILLS.filter((s) =>
-                    s.toLowerCase().includes(skillsSearch.toLowerCase())
-                  );
-                  return filtered.length > 0 ? (
-                    <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                      {filtered.map((skill) => (
-                        <li
-                          key={skill}
-                          role="option"
-                          aria-selected={false}
-                          onClick={() => handleSelectSkill(skill)}
-                          className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
-                                     hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
-                        >
-                          {skill}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-text-muted py-1">No skills match</p>
-                  );
-                })()}
-              </>
-            ) : showAffiliationTypeahead ? (
-              <>
-                <div className="syntax-panel-title">Select an Affiliation</div>
-                <input
-                  type="text"
-                  value={affiliationSearch}
-                  onChange={(e) => setAffiliationSearch(e.target.value)}
-                  placeholder="Search affiliations..."
-                  className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
-                             rounded-md text-text-primary placeholder-text-muted outline-none
-                             focus:border-accent/50"
-                  autoFocus
-                />
-                {(() => {
-                  const filtered = AFFILIATIONS.filter((a) =>
-                    a.label.toLowerCase().includes(affiliationSearch.toLowerCase())
-                  );
-                  return filtered.length > 0 ? (
-                    <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                      {filtered.map((affiliation) => (
-                        <li
-                          key={affiliation.value}
-                          role="option"
-                          aria-selected={false}
-                          onClick={() => handleSelectAffiliation(affiliation.value)}
-                          className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
-                                     hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
-                        >
-                          {affiliation.label}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-text-muted py-1">No affiliations match</p>
-                  );
-                })()}
-              </>
-            ) : showTypeTypeahead ? (
-              <>
-                <div className="syntax-panel-title">Select a Type</div>
-                <input
-                  type="text"
-                  value={typeSearch}
-                  onChange={(e) => setTypeSearch(e.target.value)}
-                  placeholder="Search types..."
-                  className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
-                             rounded-md text-text-primary placeholder-text-muted outline-none
-                             focus:border-accent/50"
-                  autoFocus
-                />
-                {(() => {
-                  const filtered = CARD_TYPES.filter((t) =>
-                    t.toLowerCase().includes(typeSearch.toLowerCase())
-                  );
-                  return filtered.length > 0 ? (
-                    <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                      {filtered.map((cardType) => (
-                        <li
-                          key={cardType}
-                          role="option"
-                          aria-selected={false}
-                          onClick={() => handleSelectType(cardType)}
-                          className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
-                                     hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
-                        >
-                          {cardType}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-text-muted py-1">No types match</p>
-                  );
-                })()}
-              </>
-            ) : (
-              <>
-                <div className="syntax-panel-title">Text Filters</div>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {QUICK_TEXT_FILTERS.map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => handleSelectTextFilter(filter)}
-                      className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
-                                 rounded-md text-text-secondary hover:text-text-primary
-                                 hover:bg-white/[0.08] transition-colors font-mono"
-                      aria-label={`${filter}:`}
-                    >
-                      {filter}:
-                    </button>
-                  ))}
-                </div>
-
-                <div className="divider" />
-                <div className="syntax-panel-title">Range Filters</div>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {Object.keys(RANGE_DEFAULTS).map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => handleSelectRangeFilter(filter)}
-                      className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
-                                 rounded-md text-text-secondary hover:text-text-primary
-                                 hover:bg-white/[0.08] transition-colors font-mono"
-                      aria-label={`${filter}:`}
-                    >
-                      {filter}:
-                    </button>
-                  ))}
-                </div>
-
-                <div className="divider" />
-                <button
-                  onClick={() => setShowMoreFilters((prev) => !prev)}
-                  className="btn-ghost text-xs w-full text-left px-0"
-                >
-                  {showMoreFilters ? '▼ Less' : '▶ More text filters'}
-                </button>
-
-                {showMoreFilters && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {MORE_TEXT_FILTERS.map((filter) => (
-                      <button
-                        key={filter}
-                        onClick={() => handleSelectTextFilter(filter)}
-                        className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
-                                   rounded-md text-text-secondary hover:text-text-primary
-                                   hover:bg-white/[0.08] transition-colors font-mono"
-                        aria-label={`${filter}:`}
-                      >
-                        {filter}:
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
+        {editingFilterIndex === null && isPopoverOpen && popoverPanel}
       </div>
     </div>
   );

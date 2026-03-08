@@ -647,4 +647,139 @@ describe('SearchPills', () => {
       expect(screen.getByText('cost:2-4')).toBeInTheDocument();
     });
   });
+
+  describe('filter pill editing', () => {
+    describe('opening the edit popover', () => {
+      it('opens edit popover showing filter selection for a non-typeahead pill', () => {
+        render(<SearchPills searchQuery="name:picard" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit name:picard filter/i }));
+        expect(screen.getByText('Text Filters')).toBeInTheDocument();
+      });
+
+      it('opens range stepper pre-populated when a range filter pill is clicked', () => {
+        render(<SearchPills searchQuery="cost:2-5" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit cost:2-5 filter/i }));
+        expect(screen.getByText('Min')).toBeInTheDocument();
+        expect(screen.getByText('Max')).toBeInTheDocument();
+        expect(screen.getByText('2')).toBeInTheDocument();
+        expect(screen.getByText('5')).toBeInTheDocument();
+      });
+
+      it('opens skills typeahead when a skills filter pill is clicked', () => {
+        render(<SearchPills searchQuery="skills:Diplomacy" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit skills:diplomacy filter/i }));
+        expect(screen.getByPlaceholderText(/search skills/i)).toBeInTheDocument();
+      });
+
+      it('opens affiliation typeahead when an affiliation filter pill is clicked', () => {
+        render(<SearchPills searchQuery="affiliation:Klingon" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit affiliation:klingon filter/i }));
+        expect(screen.getByPlaceholderText(/search affiliations/i)).toBeInTheDocument();
+      });
+
+      it('opens type typeahead when a type filter pill is clicked', () => {
+        render(<SearchPills searchQuery="type:personnel" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit type:personnel filter/i }));
+        expect(screen.getByPlaceholderText(/search types/i)).toBeInTheDocument();
+      });
+    });
+
+    describe('editing range filters', () => {
+      it('shows Update button instead of Add when editing a range filter', () => {
+        render(<SearchPills searchQuery="cost:2-5" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit cost:2-5 filter/i }));
+        expect(screen.getByRole('button', { name: /update cost/i })).toBeInTheDocument();
+      });
+
+      it('replaces range filter with updated values when Update is clicked', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="cost:2-5" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit cost:2-5 filter/i }));
+        // Increment min value once (2 → 3)
+        const incrementButtons = screen.getAllByRole('button', { name: '+' });
+        fireEvent.click(incrementButtons[0]);
+        fireEvent.click(screen.getByRole('button', { name: /update cost/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('cost:3-5');
+      });
+
+      it('replaces range filter and preserves other filters', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="type:personnel cost:2-5" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit cost:2-5 filter/i }));
+        // Increment min (2 → 3) so the new range differs from old
+        const incrementButtons = screen.getAllByRole('button', { name: '+' });
+        fireEvent.click(incrementButtons[0]);
+        fireEvent.click(screen.getByRole('button', { name: /update cost/i }));
+        const newQuery = setSearchQuery.mock.calls[0][0];
+        expect(newQuery).toContain('type:personnel');
+        expect(newQuery).toContain('cost:3-5');
+        expect(newQuery).not.toContain('cost:2-5');
+      });
+    });
+
+    describe('editing skills filters', () => {
+      it('replaces skills filter when a new skill is selected', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="skills:Diplomacy" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit skills:diplomacy filter/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Security$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('skills:Security');
+      });
+
+      it('replaces skills filter and preserves other filters', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="type:personnel skills:Diplomacy" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit skills:diplomacy filter/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Medical$/i }));
+        const newQuery = setSearchQuery.mock.calls[0][0];
+        expect(newQuery).toContain('type:personnel');
+        expect(newQuery).toContain('skills:Medical');
+        expect(newQuery).not.toContain('skills:Diplomacy');
+      });
+    });
+
+    describe('editing type filters', () => {
+      it('replaces type filter when a new type is selected', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="type:personnel" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit type:personnel filter/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Ship$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('type:Ship');
+      });
+    });
+
+    describe('editing affiliation filters', () => {
+      it('replaces affiliation filter when a new affiliation is selected', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="affiliation:Klingon" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit affiliation:klingon filter/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Romulan$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('affiliation:Romulan');
+      });
+    });
+
+    describe('closing the edit popover', () => {
+      it('closes edit popover when Escape is pressed', () => {
+        render(<SearchPills searchQuery="type:personnel" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit type:personnel filter/i }));
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(screen.queryByPlaceholderText(/search types/i)).not.toBeInTheDocument();
+      });
+
+      it('closes edit popover when clicking outside', () => {
+        render(<SearchPills searchQuery="type:personnel" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit type:personnel filter/i }));
+        fireEvent.mouseDown(document.body);
+        expect(screen.queryByPlaceholderText(/search types/i)).not.toBeInTheDocument();
+      });
+    });
+
+    describe('pill accessibility', () => {
+      it('pills have aria-labels for editing', () => {
+        render(<SearchPills searchQuery="type:personnel cost:2-5" setSearchQuery={jest.fn()} />);
+        expect(screen.getByRole('button', { name: /edit type:personnel filter/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /edit cost:2-5 filter/i })).toBeInTheDocument();
+      });
+    });
+  });
 });
