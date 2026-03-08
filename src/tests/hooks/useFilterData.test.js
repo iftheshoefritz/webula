@@ -112,3 +112,52 @@ describe('useFilterData — affiliation exclusion clause filter', () => {
     expect(names).toContain('Establish Relations');
   });
 });
+
+describe('useFilterData — any affiliation filter', () => {
+  const borgMission = makeCard({ name: 'Borg Mission', type: 'mission', affiliation: '[bor]' });
+  const anyExceptBorgMission = makeCard({
+    name: 'Hromi Cluster',
+    type: 'mission',
+    affiliation: 'any affiliation (except [bor]) may attempt this mission.',
+  });
+  const anyMission = makeCard({
+    name: 'Open Space',
+    type: 'mission',
+    affiliation: 'any affiliation may attempt this mission.',
+  });
+  const fedMission = makeCard({ name: 'Establish Relations', type: 'mission', affiliation: '[fed]' });
+
+  const allCards = [borgMission, anyExceptBorgMission, anyMission, fedMission];
+
+  it('returns "any affiliation" mission for affiliation:federation', () => {
+    const result = getFiltered(allCards, 'affiliation:federation');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Hromi Cluster');
+    expect(names).toContain('Open Space');
+  });
+
+  it('returns "any affiliation" mission for affiliation:borg only when borg is not excluded', () => {
+    const result = getFiltered(allCards, 'affiliation:borg');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Borg Mission');
+    expect(names).not.toContain('Hromi Cluster');
+    expect(names).toContain('Open Space');
+  });
+
+  it('excludes "any affiliation" missions from -a:federation results', () => {
+    const result = getFiltered(allCards, '-a:federation');
+    const names = result.map(c => c.name);
+    expect(names).not.toContain('Hromi Cluster');
+    expect(names).not.toContain('Open Space');
+    expect(names).not.toContain('Establish Relations');
+    expect(names).toContain('Borg Mission');
+  });
+
+  it('does not exclude "any affiliation (except borg)" missions from -a:borg results', () => {
+    const result = getFiltered(allCards, '-a:borg');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Hromi Cluster');
+    expect(names).not.toContain('Open Space');
+    expect(names).not.toContain('Borg Mission');
+  });
+});

@@ -58,7 +58,18 @@ const useFilterData = (loading, data, columns, searchQuery) => {
               return parsedQuery.exclude[fullOrAbbreviatedColumn].every((match) => {
                 if (column === 'affiliation') {
                   const abbrev = AFFILIATION_ABBREVIATIONS[match];
-                  const affiliationText = row[column].replace(/\(except[^)]*\)/g, '');
+                  const rawAffiliationText = row[column];
+                  if (/\bany affiliation\b/i.test(rawAffiliationText)) {
+                    const exceptMatch = rawAffiliationText.match(/\(except([^)]*)\)/i);
+                    if (exceptMatch) {
+                      const exceptText = exceptMatch[1].toLowerCase();
+                      if (exceptText.includes(match) || (abbrev && exceptText.includes(abbrev))) {
+                        return true;
+                      }
+                    }
+                    return false;
+                  }
+                  const affiliationText = rawAffiliationText.replace(/\(except[^)]*\)/g, '');
                   return !affiliationText.includes(match) && !(abbrev && affiliationText.includes(abbrev));
                 }
                 return !row[column].includes(match);
@@ -77,7 +88,18 @@ const useFilterData = (loading, data, columns, searchQuery) => {
               return parsedQuery[fullOrAbbreviatedColumn].every((match) => {
                 if (column === 'affiliation') {
                   const abbrev = AFFILIATION_ABBREVIATIONS[match];
-                  const affiliationText = row[column].replace(/\(except[^)]*\)/g, '');
+                  const rawAffiliationText = row[column];
+                  if (/\bany affiliation\b/i.test(rawAffiliationText)) {
+                    const exceptMatch = rawAffiliationText.match(/\(except([^)]*)\)/i);
+                    if (exceptMatch) {
+                      const exceptText = exceptMatch[1].toLowerCase();
+                      if (exceptText.includes(match) || (abbrev && exceptText.includes(abbrev))) {
+                        return false;
+                      }
+                    }
+                    return true;
+                  }
+                  const affiliationText = rawAffiliationText.replace(/\(except[^)]*\)/g, '');
                   return affiliationText.includes(match) || (abbrev && affiliationText.includes(abbrev));
                 }
                 return row[column].includes(match);
