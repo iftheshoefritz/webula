@@ -255,7 +255,7 @@ describe('SearchResults', () => {
 
       // The portal container div should have position fixed and left < targetRect.left
       const hoverImg = screen.getAllByAltText('Test Card')[1];
-      const container = hoverImg.parentElement!;
+      const container = hoverImg.parentElement!.parentElement!;
       expect(container.style.left).toBeTruthy();
       // Left position = targetRect.left - imageWidth - 10 = 50 - 458 - 10 = -418
       // This validates the "position to left" branch was taken
