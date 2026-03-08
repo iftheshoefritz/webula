@@ -15,8 +15,9 @@ interface CardSearchClientProps {
 
 export default function CardSearchClient({ data, columns }: CardSearchClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const filteredData = useFilterData(false, data, columns, searchQuery);
-  const isVisible = useScrollVisibility();
+  const isVisible = useScrollVisibility({ suspended: isPopoverOpen });
 
   const overlayStyle = useMemo(
     () => ({
@@ -48,6 +49,7 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
           <SearchPills
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
+            onPopoverOpenChange={setIsPopoverOpen}
           />
         </div>
       </div>
