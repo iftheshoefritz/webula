@@ -40,6 +40,18 @@ export const CARD_TYPES = [
   'Ship',
 ];
 
+export const QUADRANTS = ['Alpha', 'Gamma', 'Delta'];
+
+export const STAFF_OPTIONS = ['st', 'cmd'];
+
+export const HOF_OPTIONS = ['y', 'n'];
+
+export const UNIQUE_OPTIONS = ['y', 'n'];
+
+export const MISSION_OPTIONS = ['p', 's', 'h'];
+
+export const DILEMMA_TYPES = ['d', 's', 'p'];
+
 export const SKILLS = [
   'Acquisition',
   'Anthropology',
