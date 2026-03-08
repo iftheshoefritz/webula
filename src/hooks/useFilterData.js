@@ -58,7 +58,8 @@ const useFilterData = (loading, data, columns, searchQuery) => {
               return parsedQuery.exclude[fullOrAbbreviatedColumn].every((match) => {
                 if (column === 'affiliation') {
                   const abbrev = AFFILIATION_ABBREVIATIONS[match];
-                  return !row[column].includes(match) && !(abbrev && row[column].includes(abbrev));
+                  const affiliationText = row[column].replace(/\(except[^)]*\)/g, '');
+                  return !affiliationText.includes(match) && !(abbrev && affiliationText.includes(abbrev));
                 }
                 return !row[column].includes(match);
               })
@@ -76,7 +77,8 @@ const useFilterData = (loading, data, columns, searchQuery) => {
               return parsedQuery[fullOrAbbreviatedColumn].every((match) => {
                 if (column === 'affiliation') {
                   const abbrev = AFFILIATION_ABBREVIATIONS[match];
-                  return row[column].includes(match) || (abbrev && row[column].includes(abbrev));
+                  const affiliationText = row[column].replace(/\(except[^)]*\)/g, '');
+                  return affiliationText.includes(match) || (abbrev && affiliationText.includes(abbrev));
                 }
                 return row[column].includes(match);
               })
