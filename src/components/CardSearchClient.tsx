@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import SearchBar from './SearchBar';
 import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
@@ -16,8 +16,7 @@ interface CardSearchClientProps {
 export default function CardSearchClient({ data, columns }: CardSearchClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const filteredData = useFilterData(false, data, columns, searchQuery);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const isVisible = useScrollVisibility({ target: scrollRef });
+  const isVisible = useScrollVisibility();
 
   const overlayStyle = useMemo(
     () => ({
@@ -34,16 +33,11 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
     [isVisible]
   );
 
-  const scrollContentStyle = useMemo(
-    () => ({
-      paddingTop: isVisible ? '7rem' : '0',
-      transition: 'padding-top 300ms ease',
-    }),
-    [isVisible]
-  );
-
   return (
-    <div className="page-container h-screen">
+    // Use inline utilities rather than 'page-container' because that class applies
+    // overflow-hidden which would prevent window-level scroll (needed for VirtuosoGrid
+    // useWindowScroll=true and scroll detection in useScrollVisibility).
+    <div className="min-h-screen bg-gradient-page font-body text-text-primary">
       <div style={overlayStyle} className="px-4 py-4">
         <div className="max-w-7xl mx-auto">
           <SearchBar
@@ -58,14 +52,13 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
         </div>
       </div>
 
-      <div ref={scrollRef} className="page-scroll">
-        <div className="max-w-7xl mx-auto h-full" style={scrollContentStyle}>
-          <SearchResults
-            filteredData={filteredData}
-            variant="styled"
-            useWindowScroll={false}
-          />
-        </div>
+      {/* pt-28 (7rem) matches the fixed overlay height so content is never hidden beneath it */}
+      <div className="max-w-7xl mx-auto pt-28">
+        <SearchResults
+          filteredData={filteredData}
+          variant="styled"
+          useWindowScroll={true}
+        />
       </div>
     </div>
   );

@@ -78,16 +78,16 @@ describe('CardSearchClient', () => {
     expect(screen.getByTestId('search-results')).toHaveTextContent('0 items');
   });
 
-  it('passes useWindowScroll=false to SearchResults for container-based scrolling', () => {
+  it('passes useWindowScroll=true to SearchResults for window-based scrolling', () => {
     (useFilterData as jest.Mock).mockReturnValue(mockCardData);
 
     render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
 
-    // SearchResults must use container scroll (not window scroll) because
-    // CardSearchClient uses a scrollable container with overflow-y-auto
+    // SearchResults uses window scroll so VirtuosoGrid scroll events reach window
+    // and useScrollVisibility (which listens on window) can detect them.
     expect(mockSearchResultsProps).toHaveBeenCalledWith(
       expect.objectContaining({
-        useWindowScroll: false,
+        useWindowScroll: true,
       })
     );
   });
@@ -106,29 +106,6 @@ describe('CardSearchClient', () => {
     expect(overlay.style.position).toBe('fixed');
     expect(overlay.style.zIndex).toBe('50');
     expect(overlay.style.pointerEvents).toBe('none');
-  });
-
-  it('collapses scroll content padding when overlay is hidden', () => {
-    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
-    (useScrollVisibility as jest.Mock).mockReturnValue(false);
-
-    render(<CardSearchClient data={mockCardData as any} columns={mockColumns} />);
-
-    const searchResults = screen.getByTestId('search-results');
-    // The inner content div wrapping SearchResults should have paddingTop of 0 when hidden
-    const contentDiv = searchResults.closest('[style]') as HTMLElement;
-    expect(contentDiv.style.paddingTop).toBe('0px');
-  });
-
-  it('sets scroll content padding when overlay is visible', () => {
-    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
-    (useScrollVisibility as jest.Mock).mockReturnValue(true);
-
-    render(<CardSearchClient data={mockCardData as any} columns={mockColumns} />);
-
-    const searchResults = screen.getByTestId('search-results');
-    const contentDiv = searchResults.closest('[style]') as HTMLElement;
-    expect(contentDiv.style.paddingTop).toBe('7rem');
   });
 
   it('renders the floating overlay with visible styles when scrolling', () => {
