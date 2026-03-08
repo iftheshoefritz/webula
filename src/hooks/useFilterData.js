@@ -1,6 +1,7 @@
 import searchQueryParser from 'search-query-parser';
 import { useState, useEffect } from 'react';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
+import { AFFILIATION_ABBREVIATIONS } from '../lib/missionRequirements';
 import { track } from '@vercel/analytics';
 
 const QUOTE_CHARS_REGEX = /[‘’“”«»\u2018\u2019\u201C\u201D]/g;
@@ -54,9 +55,13 @@ const useFilterData = (loading, data, columns, searchQuery) => {
           const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery)
           if ( parsedQuery.exclude && parsedQuery.exclude[fullOrAbbreviatedColumn] ) {
             if (textColumns.includes(column)) {
-              return parsedQuery.exclude[fullOrAbbreviatedColumn].every((match) =>
-                !row[column].includes(match)
-              )
+              return parsedQuery.exclude[fullOrAbbreviatedColumn].every((match) => {
+                if (column === 'affiliation') {
+                  const abbrev = AFFILIATION_ABBREVIATIONS[match];
+                  return !row[column].includes(match) && !(abbrev && row[column].includes(abbrev));
+                }
+                return !row[column].includes(match);
+              })
             }
           }
           return true;
@@ -68,9 +73,13 @@ const useFilterData = (loading, data, columns, searchQuery) => {
           const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery)
           if (parsedQuery[fullOrAbbreviatedColumn]) {
             if (textColumns.includes(column)) {
-              return parsedQuery[fullOrAbbreviatedColumn].every((match) =>
-                row[column].includes(match)
-              )
+              return parsedQuery[fullOrAbbreviatedColumn].every((match) => {
+                if (column === 'affiliation') {
+                  const abbrev = AFFILIATION_ABBREVIATIONS[match];
+                  return row[column].includes(match) || (abbrev && row[column].includes(abbrev));
+                }
+                return row[column].includes(match);
+              })
             } else if (rangeColumns.includes(column)) {
               const range = parsedQuery[fullOrAbbreviatedColumn];
               const rowValue = parseFloat(row[column]);

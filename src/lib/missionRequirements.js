@@ -12,20 +12,23 @@ export const AFFILIATIONS = [
   { label: 'Romulan', value: 'Romulan' },
   { label: 'Starfleet', value: 'Starfleet' },
   { label: 'Vidiian', value: 'Vidiian' },
-  { label: '[Baj] (personnel)', value: '[Baj]' },
-  { label: '[Bor] (personnel)', value: '[Bor]' },
-  { label: '[Car] (personnel)', value: '[Car]' },
-  { label: '[Dom] (personnel)', value: '[Dom]' },
-  { label: '[Fed] (personnel)', value: '[Fed]' },
-  { label: '[Fer] (personnel)', value: '[Fer]' },
-  { label: '[Hir] (personnel)', value: '[Hir]' },
-  { label: '[Kaz] (personnel)', value: '[Kaz]' },
-  { label: '[Kli] (personnel)', value: '[Kli]' },
-  { label: '[NA] (personnel)', value: '[NA]' },
-  { label: '[Rom] (personnel)', value: '[Rom]' },
-  { label: '[SF] (personnel)', value: '[SF]' },
-  { label: '[Vid] (personnel)', value: '[Vid]' },
 ];
+
+export const AFFILIATION_ABBREVIATIONS = {
+  'bajoran':     '[baj]',
+  'borg':        '[bor]',
+  'cardassian':  '[car]',
+  'dominion':    '[dom]',
+  'federation':  '[fed]',
+  'ferengi':     '[fer]',
+  'hirogen':     '[hir]',
+  'kazon':       '[kaz]',
+  'klingon':     '[kli]',
+  'non-aligned': '[na]',
+  'romulan':     '[rom]',
+  'starfleet':   '[sf]',
+  'vidiian':     '[vid]',
+};
 
 export const SKILLS = [
   'Acquisition',
