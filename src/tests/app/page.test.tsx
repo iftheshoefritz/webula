@@ -108,6 +108,29 @@ describe('CardSearchClient', () => {
     expect(overlay.style.pointerEvents).toBe('none');
   });
 
+  it('collapses scroll content padding when overlay is hidden', () => {
+    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+    (useScrollVisibility as jest.Mock).mockReturnValue(false);
+
+    render(<CardSearchClient data={mockCardData as any} columns={mockColumns} />);
+
+    const searchResults = screen.getByTestId('search-results');
+    // The inner content div wrapping SearchResults should have paddingTop of 0 when hidden
+    const contentDiv = searchResults.closest('[style]') as HTMLElement;
+    expect(contentDiv.style.paddingTop).toBe('0px');
+  });
+
+  it('sets scroll content padding when overlay is visible', () => {
+    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+    (useScrollVisibility as jest.Mock).mockReturnValue(true);
+
+    render(<CardSearchClient data={mockCardData as any} columns={mockColumns} />);
+
+    const searchResults = screen.getByTestId('search-results');
+    const contentDiv = searchResults.closest('[style]') as HTMLElement;
+    expect(contentDiv.style.paddingTop).toBe('7rem');
+  });
+
   it('renders the floating overlay with visible styles when scrolling', () => {
     (useFilterData as jest.Mock).mockReturnValue(mockCardData);
     (useScrollVisibility as jest.Mock).mockReturnValue(true);

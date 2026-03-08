@@ -34,9 +34,17 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
     [isVisible]
   );
 
+  const scrollContentStyle = useMemo(
+    () => ({
+      paddingTop: isVisible ? '7rem' : '0',
+      transition: 'padding-top 300ms ease',
+    }),
+    [isVisible]
+  );
+
   return (
     <div className="page-container h-screen">
-      <div style={overlayStyle} className="px-4 py-4">
+      <div style={overlayStyle} className="px-4 py-4 bg-gradient-page">
         <div className="max-w-7xl mx-auto">
           <SearchBar
             searchQuery={searchQuery}
@@ -51,7 +59,7 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
       </div>
 
       <div ref={scrollRef} className="page-scroll">
-        <div className="max-w-7xl mx-auto h-full pt-28">
+        <div className="max-w-7xl mx-auto h-full" style={scrollContentStyle}>
           <SearchResults
             filteredData={filteredData}
             variant="styled"
