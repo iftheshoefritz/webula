@@ -135,6 +135,22 @@ describe('useScrollVisibility', () => {
     document.body.removeChild(div);
   });
 
+  it('resets isVisible to true when scrolling after the hide timer has fired', () => {
+    const { result } = renderHook(() => useScrollVisibility({ hideDelay: 500 }));
+
+    // Let the initial hide timer expire
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(result.current).toBe(false);
+
+    // Scrolling should bring it back
+    act(() => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+    expect(result.current).toBe(true);
+  });
+
   it('removes the event listener on unmount', () => {
     const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener');
 

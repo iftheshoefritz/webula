@@ -44,7 +44,7 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
 
   return (
     <div className="page-container h-screen">
-      <div style={overlayStyle} className="px-4 py-4 bg-gradient-page">
+      <div style={overlayStyle} className="px-4 py-4">
         <div className="max-w-7xl mx-auto">
           <SearchBar
             searchQuery={searchQuery}
