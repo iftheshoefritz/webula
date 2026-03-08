@@ -112,7 +112,7 @@ function parseFilters(searchQuery: string): ParsedFilter[] {
   }
 
   // Handle keyword filters
-  const allKeywords = [...new Set([...textColumns, ...Object.values(textAbbreviations)])];
+  const allKeywords = Array.from(new Set(textColumns.concat(Object.values(textAbbreviations))));
   allKeywords.forEach((keyword) => {
     if (parsedQuery[keyword]) {
       const values = Array.isArray(parsedQuery[keyword]) ? parsedQuery[keyword] : [parsedQuery[keyword]];
