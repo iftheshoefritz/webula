@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
 import { SKILLS, AFFILIATIONS } from '../lib/missionRequirements';
@@ -21,6 +21,7 @@ function expandKeyword(keyword: string): string {
 interface SearchPillsProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  isVisible?: boolean;
 }
 
 interface ParsedFilter {
@@ -180,7 +181,7 @@ function removeFilter(searchQuery: string, filterToRemove: ParsedFilter): string
   return newQuery.trim();
 }
 
-export default function SearchPills({ searchQuery, setSearchQuery }: SearchPillsProps) {
+export default function SearchPills({ searchQuery, setSearchQuery, isVisible }: SearchPillsProps) {
   const filters = useMemo(() => parseFilters(searchQuery), [searchQuery]);
 
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -206,7 +207,7 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
     setSelectedRangeFilter(null);
   };
 
-  const closePopover = () => {
+  const closePopover = useCallback(() => {
     setIsPopoverOpen(false);
     setShowMoreFilters(false);
     setSelectedRangeFilter(null);
@@ -214,7 +215,7 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
     setSkillsSearch('');
     setShowAffiliationTypeahead(false);
     setAffiliationSearch('');
-  };
+  }, []);
 
   const handleSelectTextFilter = (fieldName: string) => {
     if (fieldName === 'skills') {
@@ -279,6 +280,13 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
     document.addEventListener('mousedown', handleMouseDown);
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, [isPopoverOpen]);
+
+  // Close when the search overlay is hidden (e.g. scrolled out of view)
+  useEffect(() => {
+    if (isVisible === false) {
+      closePopover();
+    }
+  }, [isVisible, closePopover]);
 
   return (
     <div className="flex flex-wrap items-center gap-2 mt-3">

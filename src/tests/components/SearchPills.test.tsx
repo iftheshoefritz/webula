@@ -256,6 +256,28 @@ describe('SearchPills', () => {
         fireEvent.mouseDown(document.body);
         expect(screen.queryByText('Text Filters')).not.toBeInTheDocument();
       });
+
+      it('closes popover when the search overlay becomes hidden', () => {
+        const { rerender } = render(
+          <SearchPills searchQuery="" setSearchQuery={jest.fn()} isVisible={true} />
+        );
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        expect(screen.getByText('Text Filters')).toBeInTheDocument();
+
+        rerender(<SearchPills searchQuery="" setSearchQuery={jest.fn()} isVisible={false} />);
+        expect(screen.queryByText('Text Filters')).not.toBeInTheDocument();
+      });
+
+      it('does not close popover when the search overlay remains visible', () => {
+        const { rerender } = render(
+          <SearchPills searchQuery="" setSearchQuery={jest.fn()} isVisible={true} />
+        );
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        expect(screen.getByText('Text Filters')).toBeInTheDocument();
+
+        rerender(<SearchPills searchQuery="" setSearchQuery={jest.fn()} isVisible={true} />);
+        expect(screen.getByText('Text Filters')).toBeInTheDocument();
+      });
     });
 
     describe('text filter selection', () => {

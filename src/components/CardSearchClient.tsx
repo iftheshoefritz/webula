@@ -48,6 +48,7 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
           <SearchPills
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
+            isVisible={isVisible}
           />
         </div>
       </div>
