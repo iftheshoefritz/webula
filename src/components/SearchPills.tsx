@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
-import { SKILLS, AFFILIATIONS, CARD_TYPES } from '../lib/missionRequirements';
+import { SKILLS, AFFILIATIONS, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES } from '../lib/missionRequirements';
 
 // Create reverse mappings: abbreviation → full keyword
 const textAbbreviationToFull: Record<string, string> = Object.fromEntries(
@@ -34,7 +34,24 @@ interface ParsedFilter {
 
 const QUOTE_CHARS_REGEX = /[''""«»\u2018\u2019\u201C\u201D]/g;
 
-const QUICK_TEXT_FILTERS = ['type', 'affiliation', 'skills', 'icons', 'keywords', 'name'];
+const QUICK_TEXT_FILTERS = ['type', 'affiliation', 'skills', 'icons', 'keywords', 'name', 'quadrant', 'staff', 'hof', 'unique', 'mission', 'dilemmatype'];
+
+interface SimpleTypeaheadConfig {
+  field: string;
+  title: string;
+  options: string[];
+  placeholder: string;
+  noMatchText: string;
+}
+
+const SIMPLE_TYPEAHEAD_CONFIGS: Record<string, SimpleTypeaheadConfig> = {
+  quadrant: { field: 'quadrant', title: 'Select a Quadrant', options: QUADRANTS, placeholder: 'Search quadrants...', noMatchText: 'No quadrants match' },
+  staff: { field: 'staff', title: 'Select Staff', options: STAFF_OPTIONS, placeholder: 'Search staff...', noMatchText: 'No staff options match' },
+  hof: { field: 'hof', title: 'Select Hall of Fame', options: HOF_OPTIONS, placeholder: 'Search...', noMatchText: 'No options match' },
+  unique: { field: 'unique', title: 'Select Unique', options: UNIQUE_OPTIONS, placeholder: 'Search...', noMatchText: 'No options match' },
+  mission: { field: 'mission', title: 'Select Mission Type', options: MISSION_OPTIONS, placeholder: 'Search mission types...', noMatchText: 'No mission types match' },
+  dilemmatype: { field: 'dilemmatype', title: 'Select Dilemma Type', options: DILEMMA_TYPES, placeholder: 'Search dilemma types...', noMatchText: 'No dilemma types match' },
+};
 
 // All text columns not in quick filters
 const MORE_TEXT_FILTERS = textColumns.filter((col) => !QUICK_TEXT_FILTERS.includes(col));
@@ -195,6 +212,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   const [affiliationSearch, setAffiliationSearch] = useState('');
   const [showTypeTypeahead, setShowTypeTypeahead] = useState(false);
   const [typeSearch, setTypeSearch] = useState('');
+  const [activeSimpleTypeahead, setActiveSimpleTypeahead] = useState<SimpleTypeaheadConfig | null>(null);
+  const [simpleTypeaheadSearch, setSimpleTypeaheadSearch] = useState('');
 
   const popoverRef = useRef<HTMLDivElement>(null);
   const popoverContentRef = useRef<HTMLDivElement>(null);
@@ -223,6 +242,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setAffiliationSearch('');
     setShowTypeTypeahead(false);
     setTypeSearch('');
+    setActiveSimpleTypeahead(null);
+    setSimpleTypeaheadSearch('');
   };
 
   const handleSelectTextFilter = (fieldName: string) => {
@@ -239,6 +260,12 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     if (fieldName === 'type') {
       setShowTypeTypeahead(true);
       setTypeSearch('');
+      return;
+    }
+    const simpleConfig = SIMPLE_TYPEAHEAD_CONFIGS[fieldName];
+    if (simpleConfig) {
+      setActiveSimpleTypeahead(simpleConfig);
+      setSimpleTypeaheadSearch('');
       return;
     }
     const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
@@ -514,6 +541,47 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                     </ul>
                   ) : (
                     <p className="text-xs text-text-muted py-1">No types match</p>
+                  );
+                })()}
+              </>
+            ) : activeSimpleTypeahead ? (
+              <>
+                <div className="syntax-panel-title">{activeSimpleTypeahead.title}</div>
+                <input
+                  type="text"
+                  value={simpleTypeaheadSearch}
+                  onChange={(e) => setSimpleTypeaheadSearch(e.target.value)}
+                  placeholder={activeSimpleTypeahead.placeholder}
+                  className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
+                             rounded-md text-text-primary placeholder-text-muted outline-none
+                             focus:border-accent/50"
+                  autoFocus
+                />
+                {(() => {
+                  const filtered = activeSimpleTypeahead.options.filter((o) =>
+                    o.toLowerCase().includes(simpleTypeaheadSearch.toLowerCase())
+                  );
+                  return filtered.length > 0 ? (
+                    <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                      {filtered.map((option) => (
+                        <li
+                          key={option}
+                          role="option"
+                          aria-selected={false}
+                          onClick={() => {
+                            const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
+                            setSearchQuery(`${prefix}${activeSimpleTypeahead.field}:${option}`);
+                            closePopover();
+                          }}
+                          className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                                     hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                        >
+                          {option}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-text-muted py-1">{activeSimpleTypeahead.noMatchText}</p>
                   );
                 })()}
               </>
