@@ -112,3 +112,55 @@ describe('useFilterData — affiliation exclusion clause filter', () => {
     expect(names).toContain('Establish Relations');
   });
 });
+
+describe('useFilterData — open "any affiliation" missions', () => {
+  const borgMission = makeCard({ name: 'Borg Mission', type: 'mission', affiliation: '[bor]' });
+  const fedMission = makeCard({ name: 'Establish Relations', type: 'mission', affiliation: '[fed]' });
+  const anyExceptBorgMission = makeCard({
+    name: 'Hromi Cluster',
+    type: 'mission',
+    affiliation: 'any affiliation (except [bor]) may attempt this mission.',
+  });
+  const anyOpenMission = makeCard({
+    name: 'Open Mission',
+    type: 'mission',
+    affiliation: 'any affiliation may attempt this mission.',
+  });
+
+  const allCards = [borgMission, fedMission, anyExceptBorgMission, anyOpenMission];
+
+  it('returns "any affiliation (except borg)" mission when filtering for federation', () => {
+    const result = getFiltered(allCards, 'affiliation:federation');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Hromi Cluster');
+  });
+
+  it('returns "any affiliation (except borg)" mission when filtering for bajoran', () => {
+    const result = getFiltered(allCards, 'affiliation:bajoran');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Hromi Cluster');
+  });
+
+  it('does not return "any affiliation (except borg)" mission when filtering for borg', () => {
+    const result = getFiltered(allCards, 'affiliation:borg');
+    const names = result.map(c => c.name);
+    expect(names).not.toContain('Hromi Cluster');
+  });
+
+  it('returns fully open "any affiliation" mission for any affiliation filter', () => {
+    const result1 = getFiltered(allCards, 'affiliation:federation');
+    expect(result1.map(c => c.name)).toContain('Open Mission');
+
+    const result2 = getFiltered(allCards, 'affiliation:borg');
+    expect(result2.map(c => c.name)).toContain('Open Mission');
+
+    const result3 = getFiltered(allCards, 'affiliation:klingon');
+    expect(result3.map(c => c.name)).toContain('Open Mission');
+  });
+
+  it('does not return regular affiliation missions that do not match', () => {
+    const result = getFiltered(allCards, 'affiliation:federation');
+    const names = result.map(c => c.name);
+    expect(names).not.toContain('Borg Mission');
+  });
+});

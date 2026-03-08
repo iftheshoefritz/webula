@@ -77,7 +77,13 @@ const useFilterData = (loading, data, columns, searchQuery) => {
               return parsedQuery[fullOrAbbreviatedColumn].every((match) => {
                 if (column === 'affiliation') {
                   const abbrev = AFFILIATION_ABBREVIATIONS[match];
+                  const exceptMatch = row[column].match(/\(except([^)]*)\)/i);
                   const affiliationText = row[column].replace(/\(except[^)]*\)/g, '');
+                  if (affiliationText.includes('any affiliation')) {
+                    if (!exceptMatch) return true;
+                    const exceptText = exceptMatch[1].toLowerCase();
+                    return !exceptText.includes(match) && !(abbrev && exceptText.includes(abbrev));
+                  }
                   return affiliationText.includes(match) || (abbrev && affiliationText.includes(abbrev));
                 }
                 return row[column].includes(match);
