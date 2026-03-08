@@ -30,6 +30,16 @@ export const AFFILIATION_ABBREVIATIONS = {
   'vidiian':     '[vid]',
 };
 
+export const CARD_TYPES = [
+  'Dilemma',
+  'Equipment',
+  'Event',
+  'Interrupt',
+  'Mission',
+  'Personnel',
+  'Ship',
+];
+
 export const SKILLS = [
   'Acquisition',
   'Anthropology',

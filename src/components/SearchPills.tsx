@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
-import { SKILLS, AFFILIATIONS } from '../lib/missionRequirements';
+import { SKILLS, AFFILIATIONS, CARD_TYPES } from '../lib/missionRequirements';
 
 // Create reverse mappings: abbreviation → full keyword
 const textAbbreviationToFull: Record<string, string> = Object.fromEntries(
@@ -193,6 +193,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, isVisible }: 
   const [skillsSearch, setSkillsSearch] = useState('');
   const [showAffiliationTypeahead, setShowAffiliationTypeahead] = useState(false);
   const [affiliationSearch, setAffiliationSearch] = useState('');
+  const [showTypeTypeahead, setShowTypeTypeahead] = useState(false);
+  const [typeSearch, setTypeSearch] = useState('');
 
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -215,6 +217,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, isVisible }: 
     setSkillsSearch('');
     setShowAffiliationTypeahead(false);
     setAffiliationSearch('');
+    setShowTypeTypeahead(false);
+    setTypeSearch('');
   }, []);
 
   const handleSelectTextFilter = (fieldName: string) => {
@@ -226,6 +230,11 @@ export default function SearchPills({ searchQuery, setSearchQuery, isVisible }: 
     if (fieldName === 'affiliation') {
       setShowAffiliationTypeahead(true);
       setAffiliationSearch('');
+      return;
+    }
+    if (fieldName === 'type') {
+      setShowTypeTypeahead(true);
+      setTypeSearch('');
       return;
     }
     const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
@@ -243,6 +252,12 @@ export default function SearchPills({ searchQuery, setSearchQuery, isVisible }: 
     const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
     const needsQuotes = value.includes(' ');
     setSearchQuery(`${prefix}affiliation:${needsQuotes ? `"${value}"` : value}`);
+    closePopover();
+  };
+
+  const handleSelectType = (value: string) => {
+    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
+    setSearchQuery(`${prefix}type:${value}`);
     closePopover();
   };
 
@@ -445,6 +460,43 @@ export default function SearchPills({ searchQuery, setSearchQuery, isVisible }: 
                     </ul>
                   ) : (
                     <p className="text-xs text-text-muted py-1">No affiliations match</p>
+                  );
+                })()}
+              </>
+            ) : showTypeTypeahead ? (
+              <>
+                <div className="syntax-panel-title">Select a Type</div>
+                <input
+                  type="text"
+                  value={typeSearch}
+                  onChange={(e) => setTypeSearch(e.target.value)}
+                  placeholder="Search types..."
+                  className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
+                             rounded-md text-text-primary placeholder-text-muted outline-none
+                             focus:border-accent/50"
+                  autoFocus
+                />
+                {(() => {
+                  const filtered = CARD_TYPES.filter((t) =>
+                    t.toLowerCase().includes(typeSearch.toLowerCase())
+                  );
+                  return filtered.length > 0 ? (
+                    <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                      {filtered.map((cardType) => (
+                        <li
+                          key={cardType}
+                          role="option"
+                          aria-selected={false}
+                          onClick={() => handleSelectType(cardType)}
+                          className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                                     hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                        >
+                          {cardType}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-text-muted py-1">No types match</p>
                   );
                 })()}
               </>

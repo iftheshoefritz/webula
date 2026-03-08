@@ -285,8 +285,8 @@ describe('SearchPills', () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="existing" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
-        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('existing type:');
+        fireEvent.click(screen.getByRole('button', { name: /^name:$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('existing name:');
         expect(screen.queryByText('Text Filters')).not.toBeInTheDocument();
       });
 
@@ -294,8 +294,8 @@ describe('SearchPills', () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
-        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('type:');
+        fireEvent.click(screen.getByRole('button', { name: /^name:$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('name:');
       });
     });
 
@@ -485,6 +485,69 @@ describe('SearchPills', () => {
         const input = screen.getByPlaceholderText(/search affiliations/i);
         fireEvent.change(input, { target: { value: 'zzznomatch' } });
         expect(screen.getByText(/no affiliations match/i)).toBeInTheDocument();
+      });
+    });
+
+    describe('type typeahead', () => {
+      it('shows type typeahead when type filter is clicked', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
+        expect(screen.getByPlaceholderText(/search types/i)).toBeInTheDocument();
+      });
+
+      it('lists all known card types in the typeahead', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
+        expect(screen.getByRole('option', { name: /^Dilemma$/i })).toBeInTheDocument();
+        expect(screen.getByRole('option', { name: /^Personnel$/i })).toBeInTheDocument();
+        expect(screen.getByRole('option', { name: /^Ship$/i })).toBeInTheDocument();
+      });
+
+      it('filters type list as the user types', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
+        const input = screen.getByPlaceholderText(/search types/i);
+        fireEvent.change(input, { target: { value: 'mis' } });
+        expect(screen.getByRole('option', { name: /^Mission$/i })).toBeInTheDocument();
+        expect(screen.queryByRole('option', { name: /^Dilemma$/i })).not.toBeInTheDocument();
+      });
+
+      it('inserts type filter when an option is clicked', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Personnel$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('type:Personnel');
+      });
+
+      it('appends type filter when existing query is present', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="name:picard" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Ship$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('name:picard type:Ship');
+      });
+
+      it('closes the popover after selecting a type', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Mission$/i }));
+        expect(screen.queryByPlaceholderText(/search types/i)).not.toBeInTheDocument();
+      });
+
+      it('shows no results message when filter matches nothing', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
+        const input = screen.getByPlaceholderText(/search types/i);
+        fireEvent.change(input, { target: { value: 'zzznomatch' } });
+        expect(screen.getByText(/no types match/i)).toBeInTheDocument();
       });
     });
   });
