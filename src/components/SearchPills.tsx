@@ -21,6 +21,7 @@ function expandKeyword(keyword: string): string {
 interface SearchPillsProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  onPopoverOpenChange?: (isOpen: boolean) => void;
 }
 
 interface ParsedFilter {
@@ -180,7 +181,7 @@ function removeFilter(searchQuery: string, filterToRemove: ParsedFilter): string
   return newQuery.trim();
 }
 
-export default function SearchPills({ searchQuery, setSearchQuery }: SearchPillsProps) {
+export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpenChange }: SearchPillsProps) {
   const filters = useMemo(() => parseFilters(searchQuery), [searchQuery]);
 
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -204,12 +205,14 @@ export default function SearchPills({ searchQuery, setSearchQuery }: SearchPills
 
   const handleAddFilterClick = () => {
     setIsPopoverOpen(true);
+    onPopoverOpenChange?.(true);
     setShowMoreFilters(false);
     setSelectedRangeFilter(null);
   };
 
   const closePopover = () => {
     setIsPopoverOpen(false);
+    onPopoverOpenChange?.(false);
     setShowMoreFilters(false);
     setSelectedRangeFilter(null);
     setShowSkillsTypeahead(false);

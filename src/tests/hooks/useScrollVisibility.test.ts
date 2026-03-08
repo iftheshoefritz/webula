@@ -192,6 +192,87 @@ describe('useScrollVisibility', () => {
     expect(result.current).toBe(true);
   });
 
+  it('does not start a hide timer while suspended, even when scrolled down', () => {
+    setWindowScrollY(100);
+    const { result } = renderHook(() => useScrollVisibility({ hideDelay: 1000, suspended: true }));
+
+    act(() => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+
+    // Well past the hideDelay — overlay should still be visible because suspended=true.
+    act(() => {
+      jest.advanceTimersByTime(5000);
+    });
+
+    expect(result.current).toBe(true);
+  });
+
+  it('cancels a pending hide timer when suspended becomes true', () => {
+    setWindowScrollY(100);
+    const { result, rerender } = renderHook(
+      ({ suspended }: { suspended: boolean }) => useScrollVisibility({ hideDelay: 1000, suspended }),
+      { initialProps: { suspended: false } }
+    );
+
+    // Scroll down to start the hide timer.
+    act(() => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+
+    // Advance partway through the timer.
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    // Opening the popover should cancel the pending timer.
+    rerender({ suspended: true });
+
+    // Advance well past the original timer — overlay should remain visible.
+    act(() => {
+      jest.advanceTimersByTime(5000);
+    });
+
+    expect(result.current).toBe(true);
+  });
+
+  it('resumes the hide timer on next scroll after suspended becomes false', () => {
+    setWindowScrollY(100);
+    const { result, rerender } = renderHook(
+      ({ suspended }: { suspended: boolean }) => useScrollVisibility({ hideDelay: 1000, suspended }),
+      { initialProps: { suspended: true } }
+    );
+
+    // Scroll while suspended — no timer should be set.
+    act(() => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+    act(() => {
+      jest.advanceTimersByTime(5000);
+    });
+    expect(result.current).toBe(true);
+
+    // Close the popover — suspension lifted.
+    rerender({ suspended: false });
+
+    // Scroll again now that it's no longer suspended.
+    act(() => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+
+    // Just before timer fires — still visible.
+    act(() => {
+      jest.advanceTimersByTime(999);
+    });
+    expect(result.current).toBe(true);
+
+    // Timer fires — now hidden.
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(result.current).toBe(false);
+  });
+
   it('removes the event listener on unmount', () => {
     const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener');
 
