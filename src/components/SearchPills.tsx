@@ -202,6 +202,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   const filters = useMemo(() => parseFilters(searchQuery), [searchQuery]);
 
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [editingFilter, setEditingFilter] = useState<ParsedFilter | null>(null);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [selectedRangeFilter, setSelectedRangeFilter] = useState<string | null>(null);
   const [rangeMin, setRangeMin] = useState(5);
@@ -219,6 +220,15 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   const popoverContentRef = useRef<HTMLDivElement>(null);
   const [popoverLeftOffset, setPopoverLeftOffset] = useState(0);
 
+  // Returns the base query to build from when adding a filter.
+  // In edit mode, removes the filter being replaced first.
+  const getBaseQuery = () => {
+    if (editingFilter) {
+      return removeFilter(searchQuery, editingFilter);
+    }
+    return searchQuery;
+  };
+
   const handleRemoveFilter = (filter: ParsedFilter) => {
     const newQuery = removeFilter(searchQuery, filter);
     setSearchQuery(newQuery);
@@ -226,6 +236,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
 
   const handleAddFilterClick = () => {
     setIsPopoverOpen(true);
+    setEditingFilter(null);
     onPopoverOpenChange?.(true);
     setShowMoreFilters(false);
     setSelectedRangeFilter(null);
@@ -233,6 +244,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
 
   const closePopover = () => {
     setIsPopoverOpen(false);
+    setEditingFilter(null);
     onPopoverOpenChange?.(false);
     setShowMoreFilters(false);
     setSelectedRangeFilter(null);
@@ -244,6 +256,52 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setTypeSearch('');
     setActiveSimpleTypeahead(null);
     setSimpleTypeaheadSearch('');
+  };
+
+  const handleEditFilter = (filter: ParsedFilter) => {
+    // Reset all popover states before opening in edit mode
+    setShowMoreFilters(false);
+    setSelectedRangeFilter(null);
+    setShowSkillsTypeahead(false);
+    setSkillsSearch('');
+    setShowAffiliationTypeahead(false);
+    setAffiliationSearch('');
+    setShowTypeTypeahead(false);
+    setTypeSearch('');
+    setActiveSimpleTypeahead(null);
+    setSimpleTypeaheadSearch('');
+
+    setEditingFilter(filter);
+
+    if (filter.isRange) {
+      const expandedKey = expandKeyword(filter.key);
+      setSelectedRangeFilter(expandedKey);
+      // Parse existing range values (e.g. "2-5", "3-", "-5")
+      const dashIdx = filter.value.indexOf('-');
+      if (dashIdx >= 0) {
+        const minStr = filter.value.slice(0, dashIdx);
+        const maxStr = filter.value.slice(dashIdx + 1);
+        setRangeMin(minStr ? parseInt(minStr, 10) : (RANGE_DEFAULTS[expandedKey] ?? 5));
+        setRangeMax(maxStr ? parseInt(maxStr, 10) : (RANGE_DEFAULTS[expandedKey] ?? 5));
+      }
+    } else {
+      const fullKey = expandKeyword(filter.key);
+      if (fullKey === 'skills') {
+        setShowSkillsTypeahead(true);
+      } else if (fullKey === 'affiliation') {
+        setShowAffiliationTypeahead(true);
+      } else if (fullKey === 'type') {
+        setShowTypeTypeahead(true);
+      } else {
+        const simpleConfig = SIMPLE_TYPEAHEAD_CONFIGS[fullKey];
+        if (simpleConfig) {
+          setActiveSimpleTypeahead(simpleConfig);
+        }
+      }
+    }
+
+    setIsPopoverOpen(true);
+    onPopoverOpenChange?.(true);
   };
 
   const handleSelectTextFilter = (fieldName: string) => {
@@ -268,26 +326,30 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
       setSimpleTypeaheadSearch('');
       return;
     }
-    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
+    const base = getBaseQuery();
+    const prefix = base.trim() ? `${base.trim()} ` : '';
     setSearchQuery(`${prefix}${fieldName}:`);
     closePopover();
   };
 
   const handleSelectSkill = (skill: string) => {
-    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
+    const base = getBaseQuery();
+    const prefix = base.trim() ? `${base.trim()} ` : '';
     setSearchQuery(`${prefix}skills:${skill}`);
     closePopover();
   };
 
   const handleSelectAffiliation = (value: string) => {
-    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
+    const base = getBaseQuery();
+    const prefix = base.trim() ? `${base.trim()} ` : '';
     const needsQuotes = value.includes(' ');
     setSearchQuery(`${prefix}affiliation:${needsQuotes ? `"${value}"` : value}`);
     closePopover();
   };
 
   const handleSelectType = (value: string) => {
-    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
+    const base = getBaseQuery();
+    const prefix = base.trim() ? `${base.trim()} ` : '';
     setSearchQuery(`${prefix}type:${value}`);
     closePopover();
   };
@@ -300,7 +362,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   };
 
   const handleAddRangeFilter = () => {
-    const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
+    const base = getBaseQuery();
+    const prefix = base.trim() ? `${base.trim()} ` : '';
     setSearchQuery(`${prefix}${selectedRangeFilter}:${rangeMin}-${rangeMax}`);
     closePopover();
   };
@@ -344,7 +407,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   }, [isPopoverOpen]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 mt-3">
+    <div ref={popoverRef} className="relative flex flex-wrap items-center gap-2 mt-3">
       {filters.map((filter, index) => (
         <span
           key={`${filter.rawText}-${index}`}
@@ -352,9 +415,13 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                      bg-accent/20 border border-accent/40 rounded-lg
                      text-sm font-mono text-text-primary"
         >
-          <span className={filter.isExclude ? 'text-red-400' : ''}>
+          <button
+            onClick={() => handleEditFilter(filter)}
+            className={filter.isExclude ? 'text-red-400' : ''}
+            aria-label={`Edit ${filter.rawText} filter`}
+          >
             {filter.rawText}
-          </span>
+          </button>
           <button
             onClick={() => handleRemoveFilter(filter)}
             className="text-text-muted hover:text-text-primary transition-colors ml-0.5"
@@ -365,231 +432,272 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
         </span>
       ))}
 
-      <div className="relative" ref={popoverRef}>
-        <button
-          onClick={handleAddFilterClick}
-          className="filter-chip-add"
-          aria-label="Add filter"
-        >
-          + Add filter
-        </button>
+      <button
+        onClick={handleAddFilterClick}
+        className="filter-chip-add"
+        aria-label="Add filter"
+      >
+        + Add filter
+      </button>
 
-        {isPopoverOpen && (
-          <div
-            ref={popoverContentRef}
-            className="syntax-panel absolute left-0 top-full mt-1 z-20 min-w-[240px] !bg-[#131713] border-white/[0.1]"
-            style={popoverLeftOffset !== 0 ? { left: popoverLeftOffset } : undefined}
-          >
-            {selectedRangeFilter ? (
-              <>
-                <div className="syntax-panel-title">{selectedRangeFilter}</div>
-                <div className="flex items-center gap-4 my-2">
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-xs text-text-muted">Min</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setRangeMin((m) => m - 1)}
-                        className="btn-icon btn-icon-sm"
-                        aria-label="−"
-                      >
-                        −
-                      </button>
-                      <span className="font-mono text-lg min-w-[2ch] text-center">{rangeMin}</span>
-                      <button
-                        onClick={() => setRangeMin((m) => m + 1)}
-                        className="btn-icon btn-icon-sm"
-                        aria-label="+"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-xs text-text-muted">Max</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setRangeMax((m) => m - 1)}
-                        className="btn-icon btn-icon-sm"
-                        aria-label="−"
-                      >
-                        −
-                      </button>
-                      <span className="font-mono text-lg min-w-[2ch] text-center">{rangeMax}</span>
-                      <button
-                        onClick={() => setRangeMax((m) => m + 1)}
-                        className="btn-icon btn-icon-sm"
-                        aria-label="+"
-                      >
-                        +
-                      </button>
-                    </div>
+      {isPopoverOpen && (
+        <div
+          ref={popoverContentRef}
+          className="syntax-panel absolute left-0 top-full mt-1 z-20 min-w-[240px] !bg-[#131713] border-white/[0.1]"
+          style={popoverLeftOffset !== 0 ? { left: popoverLeftOffset } : undefined}
+        >
+          {selectedRangeFilter ? (
+            <>
+              <div className="syntax-panel-title">{selectedRangeFilter}</div>
+              <div className="flex items-center gap-4 my-2">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-xs text-text-muted">Min</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setRangeMin((m) => m - 1)}
+                      className="btn-icon btn-icon-sm"
+                      aria-label="−"
+                    >
+                      −
+                    </button>
+                    <span className="font-mono text-lg min-w-[2ch] text-center">{rangeMin}</span>
+                    <button
+                      onClick={() => setRangeMin((m) => m + 1)}
+                      className="btn-icon btn-icon-sm"
+                      aria-label="+"
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
-                <button
-                  onClick={handleAddRangeFilter}
-                  className="btn-primary mt-3 w-full"
-                  aria-label={`Add ${selectedRangeFilter}:${rangeMin}-${rangeMax}`}
-                >
-                  Add {selectedRangeFilter}:{rangeMin}-{rangeMax}
-                </button>
-              </>
-            ) : showSkillsTypeahead ? (
-              <>
-                <div className="syntax-panel-title">Select a Skill</div>
-                <input
-                  type="text"
-                  value={skillsSearch}
-                  onChange={(e) => setSkillsSearch(e.target.value)}
-                  placeholder="Search skills..."
-                  className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
-                             rounded-md text-text-primary placeholder-text-muted outline-none
-                             focus:border-accent/50"
-                  autoFocus
-                />
-                {(() => {
-                  const filtered = SKILLS.filter((s) =>
-                    s.toLowerCase().includes(skillsSearch.toLowerCase())
-                  );
-                  return filtered.length > 0 ? (
-                    <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                      {filtered.map((skill) => (
-                        <li
-                          key={skill}
-                          role="option"
-                          aria-selected={false}
-                          onClick={() => handleSelectSkill(skill)}
-                          className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
-                                     hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
-                        >
-                          {skill}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-text-muted py-1">No skills match</p>
-                  );
-                })()}
-              </>
-            ) : showAffiliationTypeahead ? (
-              <>
-                <div className="syntax-panel-title">Select an Affiliation</div>
-                <input
-                  type="text"
-                  value={affiliationSearch}
-                  onChange={(e) => setAffiliationSearch(e.target.value)}
-                  placeholder="Search affiliations..."
-                  className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
-                             rounded-md text-text-primary placeholder-text-muted outline-none
-                             focus:border-accent/50"
-                  autoFocus
-                />
-                {(() => {
-                  const filtered = AFFILIATIONS.filter((a) =>
-                    a.label.toLowerCase().includes(affiliationSearch.toLowerCase())
-                  );
-                  return filtered.length > 0 ? (
-                    <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                      {filtered.map((affiliation) => (
-                        <li
-                          key={affiliation.value}
-                          role="option"
-                          aria-selected={false}
-                          onClick={() => handleSelectAffiliation(affiliation.value)}
-                          className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
-                                     hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
-                        >
-                          {affiliation.label}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-text-muted py-1">No affiliations match</p>
-                  );
-                })()}
-              </>
-            ) : showTypeTypeahead ? (
-              <>
-                <div className="syntax-panel-title">Select a Type</div>
-                <input
-                  type="text"
-                  value={typeSearch}
-                  onChange={(e) => setTypeSearch(e.target.value)}
-                  placeholder="Search types..."
-                  className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
-                             rounded-md text-text-primary placeholder-text-muted outline-none
-                             focus:border-accent/50"
-                  autoFocus
-                />
-                {(() => {
-                  const filtered = CARD_TYPES.filter((t) =>
-                    t.toLowerCase().includes(typeSearch.toLowerCase())
-                  );
-                  return filtered.length > 0 ? (
-                    <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                      {filtered.map((cardType) => (
-                        <li
-                          key={cardType}
-                          role="option"
-                          aria-selected={false}
-                          onClick={() => handleSelectType(cardType)}
-                          className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
-                                     hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
-                        >
-                          {cardType}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-text-muted py-1">No types match</p>
-                  );
-                })()}
-              </>
-            ) : activeSimpleTypeahead ? (
-              <>
-                <div className="syntax-panel-title">{activeSimpleTypeahead.title}</div>
-                <input
-                  type="text"
-                  value={simpleTypeaheadSearch}
-                  onChange={(e) => setSimpleTypeaheadSearch(e.target.value)}
-                  placeholder={activeSimpleTypeahead.placeholder}
-                  className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
-                             rounded-md text-text-primary placeholder-text-muted outline-none
-                             focus:border-accent/50"
-                  autoFocus
-                />
-                {(() => {
-                  const filtered = activeSimpleTypeahead.options.filter((o) =>
-                    o.toLowerCase().includes(simpleTypeaheadSearch.toLowerCase())
-                  );
-                  return filtered.length > 0 ? (
-                    <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                      {filtered.map((option) => (
-                        <li
-                          key={option}
-                          role="option"
-                          aria-selected={false}
-                          onClick={() => {
-                            const prefix = searchQuery.trim() ? `${searchQuery.trim()} ` : '';
-                            setSearchQuery(`${prefix}${activeSimpleTypeahead.field}:${option}`);
-                            closePopover();
-                          }}
-                          className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
-                                     hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
-                        >
-                          {option}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-text-muted py-1">{activeSimpleTypeahead.noMatchText}</p>
-                  );
-                })()}
-              </>
-            ) : (
-              <>
-                <div className="syntax-panel-title">Text Filters</div>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {QUICK_TEXT_FILTERS.map((filter) => (
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-xs text-text-muted">Max</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setRangeMax((m) => m - 1)}
+                      className="btn-icon btn-icon-sm"
+                      aria-label="−"
+                    >
+                      −
+                    </button>
+                    <span className="font-mono text-lg min-w-[2ch] text-center">{rangeMax}</span>
+                    <button
+                      onClick={() => setRangeMax((m) => m + 1)}
+                      className="btn-icon btn-icon-sm"
+                      aria-label="+"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleAddRangeFilter}
+                className="btn-primary mt-3 w-full"
+                aria-label={`Add ${selectedRangeFilter}:${rangeMin}-${rangeMax}`}
+              >
+                Add {selectedRangeFilter}:{rangeMin}-{rangeMax}
+              </button>
+            </>
+          ) : showSkillsTypeahead ? (
+            <>
+              <div className="syntax-panel-title">Select a Skill</div>
+              <input
+                type="text"
+                value={skillsSearch}
+                onChange={(e) => setSkillsSearch(e.target.value)}
+                placeholder="Search skills..."
+                className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
+                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           focus:border-accent/50"
+                autoFocus
+              />
+              {(() => {
+                const filtered = SKILLS.filter((s) =>
+                  s.toLowerCase().includes(skillsSearch.toLowerCase())
+                );
+                return filtered.length > 0 ? (
+                  <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                    {filtered.map((skill) => (
+                      <li
+                        key={skill}
+                        role="option"
+                        aria-selected={false}
+                        onClick={() => handleSelectSkill(skill)}
+                        className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                                   hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                      >
+                        {skill}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-text-muted py-1">No skills match</p>
+                );
+              })()}
+            </>
+          ) : showAffiliationTypeahead ? (
+            <>
+              <div className="syntax-panel-title">Select an Affiliation</div>
+              <input
+                type="text"
+                value={affiliationSearch}
+                onChange={(e) => setAffiliationSearch(e.target.value)}
+                placeholder="Search affiliations..."
+                className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
+                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           focus:border-accent/50"
+                autoFocus
+              />
+              {(() => {
+                const filtered = AFFILIATIONS.filter((a) =>
+                  a.label.toLowerCase().includes(affiliationSearch.toLowerCase())
+                );
+                return filtered.length > 0 ? (
+                  <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                    {filtered.map((affiliation) => (
+                      <li
+                        key={affiliation.value}
+                        role="option"
+                        aria-selected={false}
+                        onClick={() => handleSelectAffiliation(affiliation.value)}
+                        className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                                   hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                      >
+                        {affiliation.label}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-text-muted py-1">No affiliations match</p>
+                );
+              })()}
+            </>
+          ) : showTypeTypeahead ? (
+            <>
+              <div className="syntax-panel-title">Select a Type</div>
+              <input
+                type="text"
+                value={typeSearch}
+                onChange={(e) => setTypeSearch(e.target.value)}
+                placeholder="Search types..."
+                className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
+                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           focus:border-accent/50"
+                autoFocus
+              />
+              {(() => {
+                const filtered = CARD_TYPES.filter((t) =>
+                  t.toLowerCase().includes(typeSearch.toLowerCase())
+                );
+                return filtered.length > 0 ? (
+                  <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                    {filtered.map((cardType) => (
+                      <li
+                        key={cardType}
+                        role="option"
+                        aria-selected={false}
+                        onClick={() => handleSelectType(cardType)}
+                        className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                                   hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                      >
+                        {cardType}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-text-muted py-1">No types match</p>
+                );
+              })()}
+            </>
+          ) : activeSimpleTypeahead ? (
+            <>
+              <div className="syntax-panel-title">{activeSimpleTypeahead.title}</div>
+              <input
+                type="text"
+                value={simpleTypeaheadSearch}
+                onChange={(e) => setSimpleTypeaheadSearch(e.target.value)}
+                placeholder={activeSimpleTypeahead.placeholder}
+                className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
+                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           focus:border-accent/50"
+                autoFocus
+              />
+              {(() => {
+                const filtered = activeSimpleTypeahead.options.filter((o) =>
+                  o.toLowerCase().includes(simpleTypeaheadSearch.toLowerCase())
+                );
+                return filtered.length > 0 ? (
+                  <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                    {filtered.map((option) => (
+                      <li
+                        key={option}
+                        role="option"
+                        aria-selected={false}
+                        onClick={() => {
+                          const base = getBaseQuery();
+                          const prefix = base.trim() ? `${base.trim()} ` : '';
+                          setSearchQuery(`${prefix}${activeSimpleTypeahead.field}:${option}`);
+                          closePopover();
+                        }}
+                        className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                                   hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                      >
+                        {option}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-text-muted py-1">{activeSimpleTypeahead.noMatchText}</p>
+                );
+              })()}
+            </>
+          ) : (
+            <>
+              <div className="syntax-panel-title">Text Filters</div>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {QUICK_TEXT_FILTERS.map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => handleSelectTextFilter(filter)}
+                    className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
+                               rounded-md text-text-secondary hover:text-text-primary
+                               hover:bg-white/[0.08] transition-colors font-mono"
+                    aria-label={`${filter}:`}
+                  >
+                    {filter}:
+                  </button>
+                ))}
+              </div>
+
+              <div className="divider" />
+              <div className="syntax-panel-title">Range Filters</div>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {Object.keys(RANGE_DEFAULTS).map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => handleSelectRangeFilter(filter)}
+                    className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
+                               rounded-md text-text-secondary hover:text-text-primary
+                               hover:bg-white/[0.08] transition-colors font-mono"
+                    aria-label={`${filter}:`}
+                  >
+                    {filter}:
+                  </button>
+                ))}
+              </div>
+
+              <div className="divider" />
+              <button
+                onClick={() => setShowMoreFilters((prev) => !prev)}
+                className="btn-ghost text-xs w-full text-left px-0"
+              >
+                {showMoreFilters ? '▼ Less' : '▶ More text filters'}
+              </button>
+
+              {showMoreFilters && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {MORE_TEXT_FILTERS.map((filter) => (
                     <button
                       key={filter}
                       onClick={() => handleSelectTextFilter(filter)}
@@ -602,53 +710,11 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                     </button>
                   ))}
                 </div>
-
-                <div className="divider" />
-                <div className="syntax-panel-title">Range Filters</div>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {Object.keys(RANGE_DEFAULTS).map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => handleSelectRangeFilter(filter)}
-                      className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
-                                 rounded-md text-text-secondary hover:text-text-primary
-                                 hover:bg-white/[0.08] transition-colors font-mono"
-                      aria-label={`${filter}:`}
-                    >
-                      {filter}:
-                    </button>
-                  ))}
-                </div>
-
-                <div className="divider" />
-                <button
-                  onClick={() => setShowMoreFilters((prev) => !prev)}
-                  className="btn-ghost text-xs w-full text-left px-0"
-                >
-                  {showMoreFilters ? '▼ Less' : '▶ More text filters'}
-                </button>
-
-                {showMoreFilters && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {MORE_TEXT_FILTERS.map((filter) => (
-                      <button
-                        key={filter}
-                        onClick={() => handleSelectTextFilter(filter)}
-                        className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
-                                   rounded-md text-text-secondary hover:text-text-primary
-                                   hover:bg-white/[0.08] transition-colors font-mono"
-                        aria-label={`${filter}:`}
-                      >
-                        {filter}:
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
