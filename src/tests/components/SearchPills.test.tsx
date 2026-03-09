@@ -263,8 +263,8 @@ describe('SearchPills', () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="existing" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
-        fireEvent.click(screen.getByRole('button', { name: /^name:$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('existing name:');
+        fireEvent.click(screen.getByRole('button', { name: /^icons:$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('existing icons:');
         expect(screen.queryByText('Text Filters')).not.toBeInTheDocument();
       });
 
@@ -272,8 +272,8 @@ describe('SearchPills', () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
-        fireEvent.click(screen.getByRole('button', { name: /^name:$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('name:');
+        fireEvent.click(screen.getByRole('button', { name: /^icons:$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('icons:');
       });
     });
 
@@ -323,10 +323,9 @@ describe('SearchPills', () => {
     });
 
     describe('more filters expansion', () => {
-      it('shows more text filters when expanded', () => {
+      it('shows all text filters together without expansion', () => {
         render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
-        fireEvent.click(screen.getByText(/more text filters/i));
         expect(screen.getByRole('button', { name: /^gametext:$/i })).toBeInTheDocument();
       });
     });
