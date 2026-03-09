@@ -441,7 +441,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                   value={skillsSearch}
                   onChange={(e) => setSkillsSearch(e.target.value)}
                   placeholder="Search skills..."
-                  className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
+                  className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
                              rounded-md text-text-primary placeholder-text-muted outline-none
                              focus:border-accent/50"
                   autoFocus
@@ -478,7 +478,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                   value={affiliationSearch}
                   onChange={(e) => setAffiliationSearch(e.target.value)}
                   placeholder="Search affiliations..."
-                  className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
+                  className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
                              rounded-md text-text-primary placeholder-text-muted outline-none
                              focus:border-accent/50"
                   autoFocus
@@ -515,7 +515,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                   value={typeSearch}
                   onChange={(e) => setTypeSearch(e.target.value)}
                   placeholder="Search types..."
-                  className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
+                  className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
                              rounded-md text-text-primary placeholder-text-muted outline-none
                              focus:border-accent/50"
                   autoFocus
@@ -552,7 +552,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                   value={simpleTypeaheadSearch}
                   onChange={(e) => setSimpleTypeaheadSearch(e.target.value)}
                   placeholder={activeSimpleTypeahead.placeholder}
-                  className="w-full px-2 py-1 mb-2 text-sm bg-white/[0.05] border border-white/10
+                  className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
                              rounded-md text-text-primary placeholder-text-muted outline-none
                              focus:border-accent/50"
                   autoFocus
