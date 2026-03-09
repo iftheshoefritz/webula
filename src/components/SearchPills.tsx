@@ -222,6 +222,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   const [simpleTypeaheadSearch, setSimpleTypeaheadSearch] = useState('');
   const [activeTextInputFilter, setActiveTextInputFilter] = useState<string | null>(null);
   const [textInputValue, setTextInputValue] = useState('');
+  const [filterMode, setFilterMode] = useState<'include' | 'exclude'>('include');
 
   const popoverRef = useRef<HTMLDivElement>(null);
   const popoverContentRef = useRef<HTMLDivElement>(null);
@@ -246,6 +247,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setEditingFilter(null);
     onPopoverOpenChange?.(true);
     setSelectedRangeFilter(null);
+    setFilterMode('include');
   };
 
   const closePopover = () => {
@@ -263,6 +265,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setSimpleTypeaheadSearch('');
     setActiveTextInputFilter(null);
     setTextInputValue('');
+    setFilterMode('include');
   };
 
   const handleEditFilter = (filter: ParsedFilter) => {
@@ -280,6 +283,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setTextInputValue('');
 
     setEditingFilter(filter);
+    setFilterMode(filter.isExclude ? 'exclude' : 'include');
 
     if (filter.isRange) {
       const expandedKey = expandKeyword(filter.key);
@@ -351,22 +355,25 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   const handleSelectSkill = (skill: string) => {
     const base = getBaseQuery();
     const prefix = base.trim() ? `${base.trim()} ` : '';
-    setSearchQuery(`${prefix}skills:${skill}`);
+    const excludePrefix = filterMode === 'exclude' ? '-' : '';
+    setSearchQuery(`${prefix}${excludePrefix}skills:${skill}`);
     closePopover();
   };
 
   const handleSelectAffiliation = (value: string) => {
     const base = getBaseQuery();
     const prefix = base.trim() ? `${base.trim()} ` : '';
+    const excludePrefix = filterMode === 'exclude' ? '-' : '';
     const needsQuotes = value.includes(' ');
-    setSearchQuery(`${prefix}affiliation:${needsQuotes ? `"${value}"` : value}`);
+    setSearchQuery(`${prefix}${excludePrefix}affiliation:${needsQuotes ? `"${value}"` : value}`);
     closePopover();
   };
 
   const handleSelectType = (value: string) => {
     const base = getBaseQuery();
     const prefix = base.trim() ? `${base.trim()} ` : '';
-    setSearchQuery(`${prefix}type:${value}`);
+    const excludePrefix = filterMode === 'exclude' ? '-' : '';
+    setSearchQuery(`${prefix}${excludePrefix}type:${value}`);
     closePopover();
   };
 
@@ -390,9 +397,39 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     const prefix = base.trim() ? `${base.trim()} ` : '';
     const val = textInputValue.trim();
     const needsQuotes = val.includes(' ');
-    setSearchQuery(`${prefix}${activeTextInputFilter}:${needsQuotes ? `"${val}"` : val}`);
+    const excludePrefix = filterMode === 'exclude' ? '-' : '';
+    setSearchQuery(`${prefix}${excludePrefix}${activeTextInputFilter}:${needsQuotes ? `"${val}"` : val}`);
     closePopover();
   };
+
+  const renderIncludeExcludeToggle = (disabled = false) => (
+    <div className="flex gap-1 mb-3">
+      <button
+        onClick={() => setFilterMode('include')}
+        disabled={disabled}
+        aria-pressed={filterMode === 'include'}
+        className={`text-xs px-2 py-1 rounded-md border transition-colors ${
+          filterMode === 'include'
+            ? 'bg-green-800/50 border-green-600/60 text-green-400'
+            : 'bg-white/[0.03] border-white/10 text-text-muted hover:bg-white/[0.08]'
+        } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+      >
+        + Include
+      </button>
+      <button
+        onClick={() => setFilterMode('exclude')}
+        disabled={disabled}
+        aria-pressed={filterMode === 'exclude'}
+        className={`text-xs px-2 py-1 rounded-md border transition-colors ${
+          filterMode === 'exclude'
+            ? 'bg-red-900/50 border-red-600/60 text-red-400'
+            : 'bg-white/[0.03] border-white/10 text-text-muted hover:bg-white/[0.08]'
+        } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+      >
+        − Exclude
+      </button>
+    </div>
+  );
 
   // Adjust popover position to keep its right edge within the viewport
   useLayoutEffect(() => {
@@ -475,6 +512,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
           {selectedRangeFilter ? (
             <>
               <div className="syntax-panel-title">{selectedRangeFilter}</div>
+              {renderIncludeExcludeToggle(true)}
               <div className="flex items-center gap-4 my-2">
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-xs text-text-muted">Min</span>
@@ -528,6 +566,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
           ) : showSkillsTypeahead ? (
             <>
               <div className="syntax-panel-title">Select a Skill</div>
+              {renderIncludeExcludeToggle()}
               <input
                 type="text"
                 value={skillsSearch}
@@ -565,6 +604,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
           ) : showAffiliationTypeahead ? (
             <>
               <div className="syntax-panel-title">Select an Affiliation</div>
+              {renderIncludeExcludeToggle()}
               <input
                 type="text"
                 value={affiliationSearch}
@@ -602,6 +642,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
           ) : showTypeTypeahead ? (
             <>
               <div className="syntax-panel-title">Select a Type</div>
+              {renderIncludeExcludeToggle()}
               <input
                 type="text"
                 value={typeSearch}
@@ -639,6 +680,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
           ) : activeSimpleTypeahead ? (
             <>
               <div className="syntax-panel-title">{activeSimpleTypeahead.title}</div>
+              {renderIncludeExcludeToggle()}
               <input
                 type="text"
                 value={simpleTypeaheadSearch}
@@ -663,7 +705,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                         onClick={() => {
                           const base = getBaseQuery();
                           const prefix = base.trim() ? `${base.trim()} ` : '';
-                          setSearchQuery(`${prefix}${activeSimpleTypeahead.field}:${option}`);
+                          const excludePrefix = filterMode === 'exclude' ? '-' : '';
+                          setSearchQuery(`${prefix}${excludePrefix}${activeSimpleTypeahead.field}:${option}`);
                           closePopover();
                         }}
                         className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
@@ -681,6 +724,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
           ) : activeTextInputFilter ? (
             <>
               <div className="syntax-panel-title">{TEXT_INPUT_FILTER_TITLES[activeTextInputFilter]}</div>
+              {renderIncludeExcludeToggle()}
               <input
                 type="text"
                 value={textInputValue}
