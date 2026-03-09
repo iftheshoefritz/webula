@@ -34,8 +34,6 @@ interface ParsedFilter {
 
 const QUOTE_CHARS_REGEX = /[''""«»\u2018\u2019\u201C\u201D]/g;
 
-const QUICK_TEXT_FILTERS = ['type', 'affiliation', 'skills', 'icons', 'keywords', 'name', 'quadrant', 'staff', 'hof', 'unique', 'mission', 'dilemmatype'];
-
 interface SimpleTypeaheadConfig {
   field: string;
   title: string;
@@ -63,9 +61,6 @@ const SIMPLE_TYPEAHEAD_CONFIGS: Record<string, SimpleTypeaheadConfig> = {
   mission: { field: 'mission', title: 'Select Mission Type', options: MISSION_OPTIONS, placeholder: 'Search mission types...', noMatchText: 'No mission types match' },
   dilemmatype: { field: 'dilemmatype', title: 'Select Dilemma Type', options: DILEMMA_TYPES, placeholder: 'Search dilemma types...', noMatchText: 'No dilemma types match' },
 };
-
-// All text columns not in quick filters
-const MORE_TEXT_FILTERS = textColumns.filter((col) => !QUICK_TEXT_FILTERS.includes(col));
 
 const RANGE_DEFAULTS: Record<string, number> = {
   cost: 2,
@@ -214,7 +209,6 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
 
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [editingFilter, setEditingFilter] = useState<ParsedFilter | null>(null);
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [selectedRangeFilter, setSelectedRangeFilter] = useState<string | null>(null);
   const [rangeMin, setRangeMin] = useState(5);
   const [rangeMax, setRangeMax] = useState(5);
@@ -251,7 +245,6 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setIsPopoverOpen(true);
     setEditingFilter(null);
     onPopoverOpenChange?.(true);
-    setShowMoreFilters(false);
     setSelectedRangeFilter(null);
   };
 
@@ -259,7 +252,6 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setIsPopoverOpen(false);
     setEditingFilter(null);
     onPopoverOpenChange?.(false);
-    setShowMoreFilters(false);
     setSelectedRangeFilter(null);
     setShowSkillsTypeahead(false);
     setSkillsSearch('');
@@ -275,7 +267,6 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
 
   const handleEditFilter = (filter: ParsedFilter) => {
     // Reset all popover states before opening in edit mode
-    setShowMoreFilters(false);
     setSelectedRangeFilter(null);
     setShowSkillsTypeahead(false);
     setSkillsSearch('');
@@ -714,7 +705,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
             <>
               <div className="syntax-panel-title">Text Filters</div>
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {QUICK_TEXT_FILTERS.map((filter) => (
+                {textColumns.map((filter) => (
                   <button
                     key={filter}
                     onClick={() => handleSelectTextFilter(filter)}
@@ -744,31 +735,6 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                   </button>
                 ))}
               </div>
-
-              <div className="divider" />
-              <button
-                onClick={() => setShowMoreFilters((prev) => !prev)}
-                className="btn-ghost text-xs w-full text-left px-0"
-              >
-                {showMoreFilters ? '▼ Less' : '▶ More text filters'}
-              </button>
-
-              {showMoreFilters && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {MORE_TEXT_FILTERS.map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => handleSelectTextFilter(filter)}
-                      className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
-                                 rounded-md text-text-secondary hover:text-text-primary
-                                 hover:bg-white/[0.08] transition-colors font-mono"
-                      aria-label={`${filter}:`}
-                    >
-                      {filter}:
-                    </button>
-                  ))}
-                </div>
-              )}
             </>
           )}
         </div>
