@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
-import { SKILLS, AFFILIATIONS, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES } from '../lib/missionRequirements';
+import { SKILLS, AFFILIATIONS, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES, ICONS, KEYWORDS } from '../lib/missionRequirements';
 
 // Create reverse mappings: abbreviation → full keyword
 const textAbbreviationToFull: Record<string, string> = Object.fromEntries(
@@ -60,6 +60,8 @@ const SIMPLE_TYPEAHEAD_CONFIGS: Record<string, SimpleTypeaheadConfig> = {
   unique: { field: 'unique', title: 'Select Unique', options: UNIQUE_OPTIONS, placeholder: 'Search...', noMatchText: 'No options match' },
   mission: { field: 'mission', title: 'Select Mission Type', options: MISSION_OPTIONS, placeholder: 'Search mission types...', noMatchText: 'No mission types match' },
   dilemmatype: { field: 'dilemmatype', title: 'Select Dilemma Type', options: DILEMMA_TYPES, placeholder: 'Search dilemma types...', noMatchText: 'No dilemma types match' },
+  icons: { field: 'icons', title: 'Select an Icon', options: ICONS, placeholder: 'Search icons...', noMatchText: 'No icons match' },
+  keywords: { field: 'keywords', title: 'Select a Keyword', options: KEYWORDS, placeholder: 'Search keywords...', noMatchText: 'No keywords match' },
 };
 
 const RANGE_DEFAULTS: Record<string, number> = {
@@ -725,7 +727,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                           const base = getBaseQuery();
                           const prefix = base.trim() ? `${base.trim()} ` : '';
                           const excludePrefix = filterMode === 'exclude' ? '-' : '';
-                          setSearchQuery(`${prefix}${excludePrefix}${activeSimpleTypeahead.field}:${option}`);
+                          const needsQuotes = option.includes(' ');
+                          setSearchQuery(`${prefix}${excludePrefix}${activeSimpleTypeahead.field}:${needsQuotes ? `"${option}"` : option}`);
                           closePopover();
                         }}
                         className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
