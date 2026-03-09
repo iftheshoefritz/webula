@@ -529,6 +529,154 @@ describe('SearchPills', () => {
     });
   });
 
+  describe('include/exclude toggle', () => {
+    describe('toggle visibility', () => {
+      it('shows include/exclude toggle in skills typeahead view', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        expect(screen.getByRole('button', { name: /\+ include/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /− exclude/i })).toBeInTheDocument();
+      });
+
+      it('shows include/exclude toggle in affiliation typeahead view', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^affiliation:$/i }));
+        expect(screen.getByRole('button', { name: /\+ include/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /− exclude/i })).toBeInTheDocument();
+      });
+
+      it('shows include/exclude toggle in type typeahead view', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
+        expect(screen.getByRole('button', { name: /\+ include/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /− exclude/i })).toBeInTheDocument();
+      });
+
+      it('shows include/exclude toggle in text input view', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^name:$/i }));
+        expect(screen.getByRole('button', { name: /\+ include/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /− exclude/i })).toBeInTheDocument();
+      });
+
+      it('shows disabled include/exclude toggle in range stepper view', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^cost:$/i }));
+        const includeBtn = screen.getByRole('button', { name: /\+ include/i });
+        const excludeBtn = screen.getByRole('button', { name: /− exclude/i });
+        expect(includeBtn).toBeDisabled();
+        expect(excludeBtn).toBeDisabled();
+      });
+    });
+
+    describe('default state', () => {
+      it('has include mode active by default', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        expect(screen.getByRole('button', { name: /\+ include/i })).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByRole('button', { name: /− exclude/i })).toHaveAttribute('aria-pressed', 'false');
+      });
+    });
+
+    describe('exclude mode for skills', () => {
+      it('adds exclude prefix when exclude mode is selected and skill chosen', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        fireEvent.click(screen.getByRole('button', { name: /− exclude/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Diplomacy$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('-skills:Diplomacy');
+      });
+
+      it('appends excluded skill filter to existing query', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="type:personnel" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        fireEvent.click(screen.getByRole('button', { name: /− exclude/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Security$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('type:personnel -skills:Security');
+      });
+    });
+
+    describe('exclude mode for affiliation', () => {
+      it('adds exclude prefix when exclude mode is selected and affiliation chosen', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^affiliation:$/i }));
+        fireEvent.click(screen.getByRole('button', { name: /− exclude/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Klingon$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('-affiliation:Klingon');
+      });
+    });
+
+    describe('exclude mode for type', () => {
+      it('adds exclude prefix when exclude mode is selected and type chosen', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^type:$/i }));
+        fireEvent.click(screen.getByRole('button', { name: /− exclude/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Personnel$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('-type:Personnel');
+      });
+    });
+
+    describe('exclude mode for text input', () => {
+      it('adds exclude prefix when exclude mode is selected and name filter submitted', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^name:$/i }));
+        fireEvent.click(screen.getByRole('button', { name: /− exclude/i }));
+        fireEvent.change(screen.getByPlaceholderText(/enter name/i), { target: { value: 'odo' } });
+        fireEvent.click(screen.getByRole('button', { name: /apply name filter/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('-name:odo');
+      });
+    });
+
+    describe('toggle resets to include on close', () => {
+      it('resets to include mode after popover is closed and reopened', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        fireEvent.click(screen.getByRole('button', { name: /− exclude/i }));
+        expect(screen.getByRole('button', { name: /− exclude/i })).toHaveAttribute('aria-pressed', 'true');
+        // Close the popover
+        fireEvent.keyDown(document, { key: 'Escape' });
+        // Reopen
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        expect(screen.getByRole('button', { name: /\+ include/i })).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByRole('button', { name: /− exclude/i })).toHaveAttribute('aria-pressed', 'false');
+      });
+    });
+
+    describe('editing excluded filters', () => {
+      it('opens with exclude mode pre-selected when editing an excluded filter', () => {
+        render(<SearchPills searchQuery="-type:personnel" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit -type:personnel filter/i }));
+        expect(screen.getByRole('button', { name: /− exclude/i })).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByRole('button', { name: /\+ include/i })).toHaveAttribute('aria-pressed', 'false');
+      });
+
+      it('opens with include mode pre-selected when editing an included filter', () => {
+        render(<SearchPills searchQuery="type:personnel" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit type:personnel filter/i }));
+        expect(screen.getByRole('button', { name: /\+ include/i })).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByRole('button', { name: /− exclude/i })).toHaveAttribute('aria-pressed', 'false');
+      });
+    });
+  });
+
   describe('accessibility', () => {
     it('remove buttons have appropriate aria labels', () => {
       const setSearchQuery = jest.fn();
