@@ -30,7 +30,7 @@ import useFilterData from '../../hooks/useFilterData';
 import useScrollVisibility from '../../hooks/useScrollVisibility';
 
 const mockCardData = [
-  { collectorsinfo: '1R000', originalName: 'Test Card', type: 'mission', name: 'test card' }
+  { collectorsinfo: '1R000', originalName: 'Test Card', type: 'mission', name: 'test card', dilemmatype: '', imagefile: '', mission: '', unique: '' }
 ];
 
 const mockColumns = ['collectorsinfo', 'originalName', 'type', 'name'];
