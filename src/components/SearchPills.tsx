@@ -402,10 +402,29 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     closePopover();
   };
 
+  const handleToggleMode = (newMode: 'include' | 'exclude') => {
+    if (filterMode === newMode) return;
+    setFilterMode(newMode);
+
+    // When editing an existing filter, immediately re-commit with the new mode
+    // so the search query (and results) update right away.
+    if (editingFilter && !editingFilter.isRange) {
+      const base = removeFilter(searchQuery, editingFilter);
+      const prefix = base.trim() ? `${base.trim()} ` : '';
+      const excludePrefix = newMode === 'exclude' ? '-' : '';
+      const displayKey = expandKeyword(editingFilter.key) || editingFilter.key;
+      const val = editingFilter.value;
+      const needsQuotes = val.includes(' ');
+      const newRawText = `${excludePrefix}${displayKey}:${needsQuotes ? `"${val}"` : val}`;
+      setSearchQuery(`${prefix}${newRawText}`);
+      setEditingFilter({ ...editingFilter, isExclude: newMode === 'exclude', rawText: newRawText });
+    }
+  };
+
   const renderIncludeExcludeToggle = (disabled = false) => (
     <div className="flex gap-1 mb-3">
       <button
-        onClick={() => setFilterMode('include')}
+        onClick={() => handleToggleMode('include')}
         disabled={disabled}
         aria-pressed={filterMode === 'include'}
         className={`text-xs px-2 py-1 rounded-md border transition-colors ${
@@ -417,7 +436,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
         + Include
       </button>
       <button
-        onClick={() => setFilterMode('exclude')}
+        onClick={() => handleToggleMode('exclude')}
         disabled={disabled}
         aria-pressed={filterMode === 'exclude'}
         className={`text-xs px-2 py-1 rounded-md border transition-colors ${

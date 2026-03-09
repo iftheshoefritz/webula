@@ -675,6 +675,44 @@ describe('SearchPills', () => {
         expect(screen.getByRole('button', { name: /− exclude/i })).toHaveAttribute('aria-pressed', 'false');
       });
     });
+
+    describe('immediate query update when toggling in edit mode', () => {
+      it('immediately updates query to exclude when toggling to exclude while editing', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="type:personnel" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit type:personnel filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /− exclude/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('-type:personnel');
+      });
+
+      it('immediately updates query to include when toggling back from exclude while editing', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="-type:personnel" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit -type:personnel filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /\+ include/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('type:personnel');
+      });
+
+      it('preserves other filters when toggling mode in edit mode', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="skills:Diplomacy type:personnel" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /edit type:personnel filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /− exclude/i }));
+        const newQuery = setSearchQuery.mock.calls[0][0];
+        expect(newQuery).toContain('-type:personnel');
+        expect(newQuery).toContain('skills:Diplomacy');
+      });
+
+      it('does not update query when toggling while adding (no editingFilter)', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^skills:$/i }));
+        fireEvent.click(screen.getByRole('button', { name: /− exclude/i }));
+        // No query update yet — only happens when a value is selected
+        expect(setSearchQuery).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('accessibility', () => {
