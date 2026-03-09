@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import SearchBar from './SearchBar';
 import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
@@ -18,6 +18,18 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const filteredData = useFilterData(false, data, columns, searchQuery);
   const isVisible = useScrollVisibility({ suspended: isPopoverOpen });
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const [overlayHeight, setOverlayHeight] = useState(112); // 7rem fallback
+
+  useEffect(() => {
+    const el = overlayRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setOverlayHeight(entry.contentRect.height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const overlayStyle = useMemo(
     () => ({
@@ -39,7 +51,7 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
     // overflow-hidden which would prevent window-level scroll (needed for VirtuosoGrid
     // useWindowScroll=true and scroll detection in useScrollVisibility).
     <div className="min-h-screen bg-gradient-page font-body text-text-primary">
-      <div style={overlayStyle} className="bg-gradient-page px-4 py-4">
+      <div ref={overlayRef} style={overlayStyle} className="bg-gradient-page px-4 py-4">
         <div className="max-w-7xl mx-auto">
           <SearchBar
             searchQuery={searchQuery}
@@ -54,8 +66,7 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
         </div>
       </div>
 
-      {/* pt-28 (7rem) matches the fixed overlay height so content is never hidden beneath it */}
-      <div className="max-w-7xl mx-auto pt-28">
+      <div className="max-w-7xl mx-auto" style={{ paddingTop: overlayHeight }}>
         <SearchResults
           filteredData={filteredData}
           variant="styled"
