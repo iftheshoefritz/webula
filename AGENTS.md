@@ -25,7 +25,7 @@ yarn test:watch # Run tests in watch mode
 ## Architecture
 
 ### Tech Stack
-- Next.js 13 with App Router (`experimental: {appDir: true}`)
+- Next.js 14 with App Router
 - React 18 with TypeScript and JavaScript (mixed codebase)
 - Tailwind CSS for styling
 - NextAuth.js for Google OAuth authentication
