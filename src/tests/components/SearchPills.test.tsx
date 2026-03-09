@@ -259,21 +259,48 @@ describe('SearchPills', () => {
     });
 
     describe('text filter selection', () => {
-      it('inserts text filter syntax and closes popover', () => {
+      it('inserts text filter syntax and closes popover for gametext filter', () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="existing" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
-        fireEvent.click(screen.getByRole('button', { name: /^icons:$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('existing icons:');
+        fireEvent.click(screen.getByRole('button', { name: /^gametext:$/i }));
+        const input = screen.getByPlaceholderText(/enter gametext/i);
+        fireEvent.change(input, { target: { value: 'warp' } });
+        fireEvent.click(screen.getByRole('button', { name: /apply gametext filter/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('existing gametext:warp');
         expect(screen.queryByText('Text Filters')).not.toBeInTheDocument();
       });
 
-      it('handles empty query when inserting filter', () => {
+      it('shows icons typeahead when icons filter is clicked', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^icons:$/i }));
+        expect(screen.getByPlaceholderText(/search icons/i)).toBeInTheDocument();
+      });
+
+      it('inserts icons filter when an icon option is clicked', () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
         fireEvent.click(screen.getByRole('button', { name: /^icons:$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('icons:');
+        fireEvent.click(screen.getByRole('option', { name: /^Cmd$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('icons:Cmd');
+      });
+
+      it('shows keywords typeahead when keywords filter is clicked', () => {
+        render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^keywords:$/i }));
+        expect(screen.getByPlaceholderText(/search keywords/i)).toBeInTheDocument();
+      });
+
+      it('inserts keywords filter with quotes for multi-word keywords', () => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^keywords:$/i }));
+        fireEvent.click(screen.getByRole('option', { name: /^Bajoran Resistance$/i }));
+        expect(setSearchQuery).toHaveBeenCalledWith('keywords:"Bajoran Resistance"');
       });
     });
 
