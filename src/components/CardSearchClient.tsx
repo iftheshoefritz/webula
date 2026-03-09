@@ -25,7 +25,8 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
     const el = overlayRef.current;
     if (!el) return;
     const observer = new ResizeObserver(([entry]) => {
-      setOverlayHeight(entry.contentRect.height);
+      const size = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+      setOverlayHeight(size);
     });
     observer.observe(el);
     return () => observer.disconnect();
