@@ -44,6 +44,17 @@ interface SimpleTypeaheadConfig {
   noMatchText: string;
 }
 
+// Filters that use a free-text input popover instead of a typeahead list
+const TEXT_INPUT_FILTER_TITLES: Record<string, string> = {
+  name: 'Search by Name',
+  set: 'Search by Set',
+  rarity: 'Search by Rarity',
+  collectorsinfo: 'Search by Collectors Info',
+  class: 'Search by Class',
+  species: 'Search by Species',
+  gametext: 'Search by Game Text',
+};
+
 const SIMPLE_TYPEAHEAD_CONFIGS: Record<string, SimpleTypeaheadConfig> = {
   quadrant: { field: 'quadrant', title: 'Select a Quadrant', options: QUADRANTS, placeholder: 'Search quadrants...', noMatchText: 'No quadrants match' },
   staff: { field: 'staff', title: 'Select Staff', options: STAFF_OPTIONS, placeholder: 'Search staff...', noMatchText: 'No staff options match' },
@@ -215,6 +226,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   const [typeSearch, setTypeSearch] = useState('');
   const [activeSimpleTypeahead, setActiveSimpleTypeahead] = useState<SimpleTypeaheadConfig | null>(null);
   const [simpleTypeaheadSearch, setSimpleTypeaheadSearch] = useState('');
+  const [activeTextInputFilter, setActiveTextInputFilter] = useState<string | null>(null);
+  const [textInputValue, setTextInputValue] = useState('');
 
   const popoverRef = useRef<HTMLDivElement>(null);
   const popoverContentRef = useRef<HTMLDivElement>(null);
@@ -256,6 +269,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setTypeSearch('');
     setActiveSimpleTypeahead(null);
     setSimpleTypeaheadSearch('');
+    setActiveTextInputFilter(null);
+    setTextInputValue('');
   };
 
   const handleEditFilter = (filter: ParsedFilter) => {
@@ -270,6 +285,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setTypeSearch('');
     setActiveSimpleTypeahead(null);
     setSimpleTypeaheadSearch('');
+    setActiveTextInputFilter(null);
+    setTextInputValue('');
 
     setEditingFilter(filter);
 
@@ -296,6 +313,9 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
         const simpleConfig = SIMPLE_TYPEAHEAD_CONFIGS[fullKey];
         if (simpleConfig) {
           setActiveSimpleTypeahead(simpleConfig);
+        } else if (TEXT_INPUT_FILTER_TITLES[fullKey]) {
+          setActiveTextInputFilter(fullKey);
+          setTextInputValue(filter.value);
         }
       }
     }
@@ -324,6 +344,11 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     if (simpleConfig) {
       setActiveSimpleTypeahead(simpleConfig);
       setSimpleTypeaheadSearch('');
+      return;
+    }
+    if (TEXT_INPUT_FILTER_TITLES[fieldName]) {
+      setActiveTextInputFilter(fieldName);
+      setTextInputValue('');
       return;
     }
     const base = getBaseQuery();
@@ -365,6 +390,16 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     const base = getBaseQuery();
     const prefix = base.trim() ? `${base.trim()} ` : '';
     setSearchQuery(`${prefix}${selectedRangeFilter}:${rangeMin}-${rangeMax}`);
+    closePopover();
+  };
+
+  const handleSubmitTextInputFilter = () => {
+    if (!activeTextInputFilter || !textInputValue.trim()) return;
+    const base = getBaseQuery();
+    const prefix = base.trim() ? `${base.trim()} ` : '';
+    const val = textInputValue.trim();
+    const needsQuotes = val.includes(' ');
+    setSearchQuery(`${prefix}${activeTextInputFilter}:${needsQuotes ? `"${val}"` : val}`);
     closePopover();
   };
 
@@ -651,6 +686,29 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                   <p className="text-xs text-text-muted py-1">{activeSimpleTypeahead.noMatchText}</p>
                 );
               })()}
+            </>
+          ) : activeTextInputFilter ? (
+            <>
+              <div className="syntax-panel-title">{TEXT_INPUT_FILTER_TITLES[activeTextInputFilter]}</div>
+              <input
+                type="text"
+                value={textInputValue}
+                onChange={(e) => setTextInputValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSubmitTextInputFilter(); }}
+                placeholder={`Enter ${activeTextInputFilter}...`}
+                className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
+                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           focus:border-accent/50"
+                autoFocus
+              />
+              <button
+                onClick={handleSubmitTextInputFilter}
+                disabled={!textInputValue.trim()}
+                className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label={`Apply ${activeTextInputFilter} filter`}
+              >
+                Apply
+              </button>
             </>
           ) : (
             <>
