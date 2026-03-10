@@ -20,10 +20,15 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
   const [searchQuery, setSearchQueryState] = useState(() => searchParams.get('q') ?? '');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
+  const searchParamsRef = useRef(searchParams);
+  useEffect(() => {
+    searchParamsRef.current = searchParams;
+  });
+
   const setSearchQuery = useCallback(
     (query: string) => {
       setSearchQueryState(query);
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(searchParamsRef.current.toString());
       if (query) {
         params.set('q', query);
       } else {
@@ -31,7 +36,7 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
       }
       router.replace(`?${params.toString()}`, { scroll: false });
     },
-    [router, searchParams]
+    [router]
   );
   const filteredData = useFilterData(false, data, columns, searchQuery);
   const isVisible = useScrollVisibility({ suspended: isPopoverOpen });

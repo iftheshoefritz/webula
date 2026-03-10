@@ -66,4 +66,40 @@ describe('SearchBar (styled variant)', () => {
     expect(setSearchQuery).not.toHaveBeenCalledWith('worf');
     expect(setSearchQuery).toHaveBeenCalledWith('');
   });
+
+  it('does not re-send the old query when setSearchQuery prop is replaced and searchQuery prop changes simultaneously', () => {
+    // Regression: when a SearchPills pill is removed, CardSearchClient calls
+    // setSearchQuery(newQuery) which triggers router.replace(). This used to cause
+    // useSearchParams() to return a new object reference, recreating the setSearchQuery
+    // useCallback, which in turn recreated debouncedSetSearchQuery in SearchBar.
+    // The useMemo effect re-firing would set isLocalChangeRef=true and queue a
+    // debounced call with the stale localSearchQuery, restoring the removed pill.
+    const firstSetSearchQuery = jest.fn();
+    const { rerender } = render(
+      <SearchBar searchQuery="affiliation:federation type:personnel" setSearchQuery={firstSetSearchQuery} variant="styled" />
+    );
+
+    // Flush the initial debounce triggered by mounting with a non-empty searchQuery
+    act(() => jest.advanceTimersByTime(500));
+    firstSetSearchQuery.mockClear();
+
+    // Simulate what CardSearchClient does after a pill is removed:
+    // - searchQuery prop is updated to the stripped query
+    // - setSearchQuery prop is a NEW function reference (recreated useCallback)
+    const newSetSearchQuery = jest.fn();
+    act(() => {
+      rerender(
+        <SearchBar searchQuery="type:personnel" setSearchQuery={newSetSearchQuery} variant="styled" />
+      );
+    });
+
+    // Flush the debounce window
+    act(() => jest.advanceTimersByTime(600));
+
+    // The old full query must never have been re-sent
+    expect(newSetSearchQuery).not.toHaveBeenCalledWith('affiliation:federation type:personnel');
+
+    // The input must show the new (stripped) query
+    expect(screen.getByPlaceholderText('Search cards...')).toHaveValue('type:personnel');
+  });
 });
