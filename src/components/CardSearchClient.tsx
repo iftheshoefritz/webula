@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import SearchBar from './SearchBar';
 import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
@@ -14,8 +15,24 @@ interface CardSearchClientProps {
 }
 
 export default function CardSearchClient({ data, columns }: CardSearchClientProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [searchQuery, setSearchQueryState] = useState(() => searchParams.get('q') ?? '');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
+  const setSearchQuery = useCallback(
+    (query: string) => {
+      setSearchQueryState(query);
+      const params = new URLSearchParams(searchParams.toString());
+      if (query) {
+        params.set('q', query);
+      } else {
+        params.delete('q');
+      }
+      router.replace(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
   const filteredData = useFilterData(false, data, columns, searchQuery);
   const isVisible = useScrollVisibility({ suspended: isPopoverOpen });
   const overlayRef = useRef<HTMLDivElement>(null);

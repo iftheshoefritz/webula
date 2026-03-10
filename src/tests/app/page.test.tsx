@@ -1,3 +1,10 @@
+// Mock next/navigation hooks (required for App Router hooks in Jest/jsdom)
+const mockReplace = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mockReplace }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // Mock useFilterData hook
 jest.mock('../../hooks/useFilterData', () => ({
   __esModule: true,

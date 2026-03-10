@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import '../styles/globals.css';
 import { loadCards } from '../lib/loadCards';
 import CardSearchClient from '../components/CardSearchClient';
@@ -7,7 +8,9 @@ export default function Home() {
 
   return (
     <div>
-      <CardSearchClient data={data} columns={columns} />
+      <Suspense>
+        <CardSearchClient data={data} columns={columns} />
+      </Suspense>
     </div>
   );
 }
