@@ -187,85 +187,67 @@ describe('useFilterData — open "any affiliation" missions', () => {
 });
 
 describe('useFilterData — reportsto filter', () => {
-  const bajorPersonnel = makeCard({ name: 'Kira Nerys', affiliation: 'bajoran', icons: '' });
-  const ds9Personnel = makeCard({ name: 'Benjamin Sisko', affiliation: 'bajoran', icons: '[cmd][ds9]' });
-  const fedPersonnel = makeCard({ name: 'Robin Lefler', affiliation: 'federation', icons: '[cmd][tng]' });
-  const nonAligned = makeCard({ name: 'Guinan', affiliation: 'non-aligned', icons: '' });
-  const equipment = makeCard({ name: 'Phaser', type: 'equipment', affiliation: '', icons: '' });
-  const borgPersonnel = makeCard({ name: 'Locutus', affiliation: 'borg', icons: '[cmd]' });
-  const klingonPersonnel = makeCard({ name: "Worf", affiliation: 'klingon', icons: '[cmd]' });
-  const maquis = makeCard({ name: 'Chakotay', affiliation: 'federation', icons: '[cmd][maq]' });
+  const bajorPersonnel = makeCard({ name: 'Kira Nerys', affiliation: 'bajoran', icons: '', keywords: '' });
+  const ds9Personnel = makeCard({ name: 'Benjamin Sisko', affiliation: 'bajoran', icons: '[cmd][ds9]', keywords: '' });
+  const fedPersonnel = makeCard({ name: 'Robin Lefler', affiliation: 'federation', icons: '[cmd][tng]', keywords: '' });
+  const nonAligned = makeCard({ name: 'Guinan', affiliation: 'non-aligned', icons: '', keywords: '' });
+  const equipment = makeCard({ name: 'Phaser', type: 'equipment', affiliation: '', icons: '', keywords: '' });
+  const borgPersonnel = makeCard({ name: 'Locutus', affiliation: 'borg', icons: '[cmd]', keywords: '' });
+  const klingonPersonnel = makeCard({ name: 'Worf', affiliation: 'klingon', icons: '[cmd]', keywords: '' });
+  const maquis = makeCard({ name: 'Chakotay', affiliation: 'federation', icons: '[cmd][maq]', keywords: '' });
 
   const allCards = [bajorPersonnel, ds9Personnel, fedPersonnel, nonAligned, equipment, borgPersonnel, klingonPersonnel, maquis];
 
-  it('reportsto:bajor returns bajoran personnel', () => {
-    const result = getFiltered(allCards, 'reportsto:bajor');
+  it('reportsto:"bajor gift of the prophets" returns bajoran personnel, NA, and equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"bajor gift of the prophets"');
     const names = result.map(c => c.name);
     expect(names).toContain('Kira Nerys');
     expect(names).toContain('Benjamin Sisko');
-  });
-
-  it('reportsto:bajor returns non-aligned cards', () => {
-    const result = getFiltered(allCards, 'reportsto:bajor');
-    expect(result.map(c => c.name)).toContain('Guinan');
-  });
-
-  it('reportsto:bajor returns equipment', () => {
-    const result = getFiltered(allCards, 'reportsto:bajor');
-    expect(result.map(c => c.name)).toContain('Phaser');
-  });
-
-  it('reportsto:bajor does not return non-bajoran, non-NA, non-equipment cards', () => {
-    const result = getFiltered(allCards, 'reportsto:bajor');
-    const names = result.map(c => c.name);
+    expect(names).toContain('Guinan');
+    expect(names).toContain('Phaser');
     expect(names).not.toContain('Robin Lefler');
     expect(names).not.toContain('Locutus');
     expect(names).not.toContain('Worf');
   });
 
-  it('reportsto:ds9 returns cards with [ds9] icon', () => {
-    const result = getFiltered(allCards, 'reportsto:ds9');
+  it('reportsto:"mouth of the wormhole deep space 9" returns cards with [ds9] icon, NA, and equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"mouth of the wormhole deep space 9"');
     const names = result.map(c => c.name);
     expect(names).toContain('Benjamin Sisko');
-    expect(names).not.toContain('Kira Nerys'); // no [ds9] icon
-    expect(names).not.toContain('Robin Lefler'); // has [tng] not [ds9]
-  });
-
-  it('reportsto:ds9 returns non-aligned and equipment', () => {
-    const result = getFiltered(allCards, 'reportsto:ds9');
-    const names = result.map(c => c.name);
     expect(names).toContain('Guinan');
     expect(names).toContain('Phaser');
+    expect(names).not.toContain('Kira Nerys'); // no [ds9] icon
+    expect(names).not.toContain('Robin Lefler'); // [tng] not [ds9]
   });
 
-  it('reportsto:borg returns borg cards and equipment but NOT non-aligned', () => {
-    const result = getFiltered(allCards, 'reportsto:borg');
+  it('reportsto:"unicomplex root of the hive mind" returns borg and equipment but NOT non-aligned', () => {
+    const result = getFiltered(allCards, 'reportsto:"unicomplex root of the hive mind"');
     const names = result.map(c => c.name);
     expect(names).toContain('Locutus');
     expect(names).toContain('Phaser');
     expect(names).not.toContain('Guinan');
   });
 
-  it('reportsto:maquis returns cards with [maq] icon', () => {
-    const result = getFiltered(allCards, 'reportsto:maquis');
+  it('reportsto:"athos iv maquis base" returns cards with [maq] icon', () => {
+    const result = getFiltered(allCards, 'reportsto:"athos iv maquis base"');
     const names = result.map(c => c.name);
     expect(names).toContain('Chakotay');
-    expect(names).not.toContain('Robin Lefler'); // [tng] not [maq]
+    expect(names).not.toContain('Robin Lefler');
   });
 
-  it('rt:bajor abbreviation works the same as reportsto:bajor', () => {
-    const full = getFiltered(allCards, 'reportsto:bajor');
-    const abbrev = getFiltered(allCards, 'rt:bajor');
+  it('rt: abbreviation works the same as reportsto:', () => {
+    const full = getFiltered(allCards, 'reportsto:"bajor gift of the prophets"');
+    const abbrev = getFiltered(allCards, 'rt:"bajor gift of the prophets"');
     expect(abbrev.map(c => c.name)).toEqual(full.map(c => c.name));
   });
 
-  it('unknown HQ identifier returns no cards', () => {
-    const result = getFiltered(allCards, 'reportsto:unknownhq');
+  it('unknown HQ name returns no cards', () => {
+    const result = getFiltered(allCards, 'reportsto:"unknown planet hq"');
     expect(result).toHaveLength(0);
   });
 
-  it('-reportsto:bajor excludes bajoran and non-aligned cards', () => {
-    const result = getFiltered(allCards, '-reportsto:bajor');
+  it('-reportsto:"bajor gift of the prophets" excludes bajoran, NA, and equipment', () => {
+    const result = getFiltered(allCards, '-reportsto:"bajor gift of the prophets"');
     const names = result.map(c => c.name);
     expect(names).not.toContain('Kira Nerys');
     expect(names).not.toContain('Guinan');
