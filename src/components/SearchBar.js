@@ -44,6 +44,19 @@ export default function SearchBar({ searchQuery, setSearchQuery, variant = "lega
           className="input-search"
         />
         <span className="input-search-icon">⌕</span>
+        {localSearchQuery && (
+          <button
+            aria-label="Clear search"
+            onClick={() => {
+              debouncedSetSearchQuery.cancel();
+              setLocalSearchQuery('');
+              setSearchQuery('');
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary leading-none"
+          >
+            ×
+          </button>
+        )}
       </div>
     );
   }

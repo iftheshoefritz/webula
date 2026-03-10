@@ -26,8 +26,9 @@ jest.mock('../../components/SearchResults', () => {
   };
 });
 
-// SearchBar mock exposes two buttons so tests can simulate typing a query
-// or clearing it.
+// SearchBar mock exposes buttons so tests can simulate typing or clearing a
+// query by calling setSearchQuery directly. The real clear button UI is
+// tested in SearchBar.test.js.
 jest.mock('../../components/SearchBar', () => {
   return function MockSearchBar({ setSearchQuery }: { searchQuery: string; setSearchQuery: (q: string) => void }) {
     return (
@@ -164,17 +165,28 @@ describe('CardSearchClient', () => {
       );
     });
 
-    it('removes the q param from the URL when the search query is cleared', () => {
+    it('updates the URL when the search query changes', () => {
       (useFilterData as jest.Mock).mockReturnValue([]);
-      // Start with an existing query in the URL
+
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+      fireEvent.click(screen.getByTestId('search-bar-trigger'));
+
+      // router.replace should have been called with the encoded query
+      expect(mockReplace).toHaveBeenCalledWith(
+        '?q=affiliation%3Afederation',
+        { scroll: false }
+      );
+    });
+
+    it('removes the q param from the URL when the search query is cleared to an empty string', () => {
+      (useFilterData as jest.Mock).mockReturnValue([]);
       mockSearchParamsValue = new URLSearchParams('q=affiliation%3Afederation');
 
       render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
 
-      // Simulate the user clearing the search input
       fireEvent.click(screen.getByTestId('search-bar-clear'));
 
-      // When query is empty, q param should be absent from the URL
       const lastCall = mockReplace.mock.calls[mockReplace.mock.calls.length - 1];
       expect(lastCall[0]).toBe('?');
     });
