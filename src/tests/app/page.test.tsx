@@ -26,8 +26,10 @@ jest.mock('../../components/SearchResults', () => {
   };
 });
 
+let capturedSetSearchQuery: ((q: string) => void) | null = null;
 jest.mock('../../components/SearchPills', () => {
-  return function MockSearchPills() {
+  return function MockSearchPills({ setSearchQuery }: { setSearchQuery: (q: string) => void }) {
+    capturedSetSearchQuery = setSearchQuery;
     return <div data-testid="search-pills" />;
   };
 });
@@ -47,6 +49,7 @@ describe('CardSearchClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSearchResultsProps.mockClear();
+    capturedSetSearchQuery = null;
     mockSearchParamsValue = new URLSearchParams();
     (useScrollVisibility as jest.Mock).mockReturnValue(true);
     jest.useFakeTimers();

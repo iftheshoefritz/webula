@@ -14,10 +14,15 @@ export default function SearchBar({ searchQuery, setSearchQuery, variant = "lega
     [setSearchQuery]
   );
 
+  const debouncedSetSearchQueryRef = useRef(debouncedSetSearchQuery);
+  useEffect(() => {
+    debouncedSetSearchQueryRef.current = debouncedSetSearchQuery;
+  });
+
   useEffect(() => {
     isLocalChangeRef.current = true;
-    debouncedSetSearchQuery(localSearchQuery);
-  }, [localSearchQuery, debouncedSetSearchQuery]);
+    debouncedSetSearchQueryRef.current(localSearchQuery);
+  }, [localSearchQuery]);
 
   // Sync local state when parent changes searchQuery externally (e.g., from SearchPills removing a filter)
   useEffect(() => {
