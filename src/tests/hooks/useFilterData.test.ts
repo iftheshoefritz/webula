@@ -164,3 +164,56 @@ describe('useFilterData — open "any affiliation" missions', () => {
     expect(names).not.toContain('Borg Mission');
   });
 });
+
+describe('useFilterData — affiliation match sorting order', () => {
+  const fedPersonnel = makeCard({ name: 'Robin Lefler', affiliation: 'federation' });
+  const fedMission = makeCard({ name: 'Establish Relations', type: 'mission', affiliation: '[fed]' });
+  const bajFedMission = makeCard({ name: 'Rescue Captives', type: 'mission', affiliation: '[baj][fed][kli]' });
+  const anyOpenMission = makeCard({
+    name: 'Open Mission',
+    type: 'mission',
+    affiliation: 'any affiliation may attempt this mission.',
+  });
+  const anyExceptBorgMission = makeCard({
+    name: 'Hromi Cluster',
+    type: 'mission',
+    affiliation: 'any affiliation (except [bor]) may attempt this mission.',
+  });
+
+  it('places exact affiliation matches before "any affiliation" missions', () => {
+    const allCards = [anyOpenMission, fedMission, anyExceptBorgMission, fedPersonnel];
+    const result = getFiltered(allCards, 'affiliation:federation');
+    const names = result.map(c => c.name);
+    const openIdx = names.indexOf('Open Mission');
+    const hromiIdx = names.indexOf('Hromi Cluster');
+    const fedMissionIdx = names.indexOf('Establish Relations');
+    const fedPersonnelIdx = names.indexOf('Robin Lefler');
+    expect(fedMissionIdx).toBeLessThan(openIdx);
+    expect(fedPersonnelIdx).toBeLessThan(openIdx);
+    expect(fedMissionIdx).toBeLessThan(hromiIdx);
+    expect(fedPersonnelIdx).toBeLessThan(hromiIdx);
+  });
+
+  it('preserves relative order within exact-match group', () => {
+    const allCards = [anyOpenMission, fedMission, bajFedMission, fedPersonnel];
+    const result = getFiltered(allCards, 'affiliation:federation');
+    const names = result.map(c => c.name);
+    expect(names.indexOf('Establish Relations')).toBeLessThan(names.indexOf('Rescue Captives'));
+    expect(names.indexOf('Rescue Captives')).toBeLessThan(names.indexOf('Robin Lefler'));
+  });
+
+  it('preserves relative order within "any affiliation" group', () => {
+    const allCards = [anyOpenMission, fedMission, anyExceptBorgMission];
+    const result = getFiltered(allCards, 'affiliation:federation');
+    const names = result.map(c => c.name);
+    expect(names.indexOf('Open Mission')).toBeLessThan(names.indexOf('Hromi Cluster'));
+  });
+
+  it('does not sort when there is no affiliation filter', () => {
+    const allCards = [anyOpenMission, fedMission];
+    const result = getFiltered(allCards, 'type:mission');
+    // Both cards should still appear, just not reordered by affiliation logic
+    expect(result.map(c => c.name)).toContain('Open Mission');
+    expect(result.map(c => c.name)).toContain('Establish Relations');
+  });
+});

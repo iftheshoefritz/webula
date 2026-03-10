@@ -18,6 +18,10 @@ interface ParsedQuery {
   [key: string]: string | string[] | RangeValue | Record<string, string | string[]> | undefined;
 }
 
+function isAnyAffiliationMatch(row: CardRow): boolean {
+  return row.affiliation.includes('any affiliation');
+}
+
 function toArray(item: string | string[]): string[] {
   if (Array.isArray(item)) {
     return item;
@@ -112,6 +116,16 @@ const useFilterData = (loading: boolean, data: CardRow[], columns: string[], sea
           }
           return true;
         });
+      });
+    }
+
+    const affiliationCol = colInQuery('affiliation', parsedQuery);
+    if (typeof parsedQuery !== 'string' && parsedQuery[affiliationCol]) {
+      filtered = [...filtered].sort((a, b) => {
+        const aIsAny = isAnyAffiliationMatch(a);
+        const bIsAny = isAnyAffiliationMatch(b);
+        if (aIsAny === bIsAny) return 0;
+        return aIsAny ? 1 : -1;
       });
     }
 
