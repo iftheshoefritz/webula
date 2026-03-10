@@ -1,8 +1,9 @@
 // Mock next/navigation hooks (required for App Router hooks in Jest/jsdom)
 const mockReplace = jest.fn();
+let mockSearchParamsValue = new URLSearchParams();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParamsValue,
 }));
 
 // Mock useFilterData hook
@@ -25,13 +26,31 @@ jest.mock('../../components/SearchResults', () => {
   };
 });
 
+// SearchBar mock exposes two buttons so tests can simulate typing a query
+// or clearing it.
 jest.mock('../../components/SearchBar', () => {
-  return function MockSearchBar() {
-    return <div data-testid="search-bar">Search Bar</div>;
+  return function MockSearchBar({ setSearchQuery }: { searchQuery: string; setSearchQuery: (q: string) => void }) {
+    return (
+      <div data-testid="search-bar">
+        Search Bar
+        <button
+          data-testid="search-bar-trigger"
+          onClick={() => setSearchQuery('affiliation:federation')}
+        >
+          trigger search
+        </button>
+        <button
+          data-testid="search-bar-clear"
+          onClick={() => setSearchQuery('')}
+        >
+          clear search
+        </button>
+      </div>
+    );
   };
 });
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import CardSearchClient from '../../components/CardSearchClient';
 import useFilterData from '../../hooks/useFilterData';
 import useScrollVisibility from '../../hooks/useScrollVisibility';
@@ -46,6 +65,7 @@ describe('CardSearchClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSearchResultsProps.mockClear();
+    mockSearchParamsValue = new URLSearchParams();
     (useScrollVisibility as jest.Mock).mockReturnValue(true);
   });
 
@@ -127,5 +147,60 @@ describe('CardSearchClient', () => {
     // Overlay should be visible (opacity 1) during scrolling
     expect(overlay.style.opacity).toBe('1');
     expect(overlay.style.pointerEvents).toBe('auto');
+  });
+
+  describe('URL synchronisation', () => {
+    it('updates the URL when the search query changes', () => {
+      (useFilterData as jest.Mock).mockReturnValue([]);
+
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+      fireEvent.click(screen.getByTestId('search-bar-trigger'));
+
+      // router.replace should have been called with the encoded query
+      expect(mockReplace).toHaveBeenCalledWith(
+        '?q=affiliation%3Afederation',
+        { scroll: false }
+      );
+    });
+
+    it('removes the q param from the URL when the search query is cleared', () => {
+      (useFilterData as jest.Mock).mockReturnValue([]);
+      // Start with an existing query in the URL
+      mockSearchParamsValue = new URLSearchParams('q=affiliation%3Afederation');
+
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+      // Simulate the user clearing the search input
+      fireEvent.click(screen.getByTestId('search-bar-clear'));
+
+      // When query is empty, q param should be absent from the URL
+      const lastCall = mockReplace.mock.calls[mockReplace.mock.calls.length - 1];
+      expect(lastCall[0]).toBe('?');
+    });
+
+    it('initialises search state from the ?q= URL parameter on load', () => {
+      (useFilterData as jest.Mock).mockReturnValue([]);
+      mockSearchParamsValue = new URLSearchParams('q=affiliation%3Afederation');
+
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+      // useFilterData should receive the query from the URL, not an empty string
+      expect(useFilterData).toHaveBeenCalledWith(
+        false,
+        mockCardData,
+        mockColumns,
+        'affiliation:federation'
+      );
+    });
+
+    it('does not update the URL on initial render when there is no query', () => {
+      (useFilterData as jest.Mock).mockReturnValue([]);
+
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+      // router.replace should not be called on mount with an empty query
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
   });
 });
