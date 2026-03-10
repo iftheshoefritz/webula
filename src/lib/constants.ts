@@ -1,7 +1,7 @@
 export const textColumns: string[] = [
   'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission', 'dilemmatype',
   'quadrant', 'affiliation', 'icons', 'staff', 'keywords', 'class', 'species', 'skills',
-  'gametext', 'hof'
+  'gametext', 'hof', 'reportsto'
 ];
 
 export const textAbbreviations: Record<string, string> = {
@@ -22,7 +22,8 @@ export const textAbbreviations: Record<string, string> = {
   'species': 'sp',
   'skills': 'sk',
   'gametext': 't',
-  'hof': 'hof'
+  'hof': 'hof',
+  'reportsto': 'rt'
 };
 
 export const rangeColumns: string[] = [
