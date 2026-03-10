@@ -26,32 +26,13 @@ jest.mock('../../components/SearchResults', () => {
   };
 });
 
-// SearchBar mock exposes buttons so tests can simulate typing or clearing a
-// query by calling setSearchQuery directly. The real clear button UI is
-// tested in SearchBar.test.js.
-jest.mock('../../components/SearchBar', () => {
-  return function MockSearchBar({ setSearchQuery }: { searchQuery: string; setSearchQuery: (q: string) => void }) {
-    return (
-      <div data-testid="search-bar">
-        Search Bar
-        <button
-          data-testid="search-bar-trigger"
-          onClick={() => setSearchQuery('affiliation:federation')}
-        >
-          trigger search
-        </button>
-        <button
-          data-testid="search-bar-clear"
-          onClick={() => setSearchQuery('')}
-        >
-          clear search
-        </button>
-      </div>
-    );
+jest.mock('../../components/SearchPills', () => {
+  return function MockSearchPills() {
+    return <div data-testid="search-pills" />;
   };
 });
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import CardSearchClient from '../../components/CardSearchClient';
 import useFilterData from '../../hooks/useFilterData';
 import useScrollVisibility from '../../hooks/useScrollVisibility';
@@ -68,6 +49,11 @@ describe('CardSearchClient', () => {
     mockSearchResultsProps.mockClear();
     mockSearchParamsValue = new URLSearchParams();
     (useScrollVisibility as jest.Mock).mockReturnValue(true);
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('renders the search bar immediately (no loading state)', () => {
@@ -77,7 +63,7 @@ describe('CardSearchClient', () => {
 
     // No loading state - data is passed directly as props
     expect(screen.queryByText('Loading data...')).not.toBeInTheDocument();
-    expect(screen.getByTestId('search-bar')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search cards...')).toBeInTheDocument();
   });
 
   it('passes data to useFilterData hook', () => {
@@ -126,8 +112,8 @@ describe('CardSearchClient', () => {
 
     render(<CardSearchClient data={mockCardData as any} columns={mockColumns} />);
 
-    const searchBar = screen.getByTestId('search-bar');
-    const overlay = searchBar.closest('[style]') as HTMLElement;
+    const input = screen.getByPlaceholderText('Search cards...');
+    const overlay = input.closest('[style]') as HTMLElement;
 
     // Overlay should be hidden (opacity 0) when not scrolling
     expect(overlay.style.opacity).toBe('0');
@@ -142,8 +128,8 @@ describe('CardSearchClient', () => {
 
     render(<CardSearchClient data={mockCardData as any} columns={mockColumns} />);
 
-    const searchBar = screen.getByTestId('search-bar');
-    const overlay = searchBar.closest('[style]') as HTMLElement;
+    const input = screen.getByPlaceholderText('Search cards...');
+    const overlay = input.closest('[style]') as HTMLElement;
 
     // Overlay should be visible (opacity 1) during scrolling
     expect(overlay.style.opacity).toBe('1');
@@ -156,21 +142,11 @@ describe('CardSearchClient', () => {
 
       render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
 
-      fireEvent.click(screen.getByTestId('search-bar-trigger'));
+      fireEvent.change(screen.getByPlaceholderText('Search cards...'), {
+        target: { value: 'affiliation:federation' },
+      });
 
-      // router.replace should have been called with the encoded query
-      expect(mockReplace).toHaveBeenCalledWith(
-        '?q=affiliation%3Afederation',
-        { scroll: false }
-      );
-    });
-
-    it('updates the URL when the search query changes', () => {
-      (useFilterData as jest.Mock).mockReturnValue([]);
-
-      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
-
-      fireEvent.click(screen.getByTestId('search-bar-trigger'));
+      act(() => { jest.advanceTimersByTime(500); });
 
       // router.replace should have been called with the encoded query
       expect(mockReplace).toHaveBeenCalledWith(
@@ -185,7 +161,8 @@ describe('CardSearchClient', () => {
 
       render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
 
-      fireEvent.click(screen.getByTestId('search-bar-clear'));
+      // The input is pre-populated from the URL param so the clear button is visible
+      fireEvent.click(screen.getByRole('button', { name: /clear search/i }));
 
       const lastCall = mockReplace.mock.calls[mockReplace.mock.calls.length - 1];
       expect(lastCall[0]).toBe('?');
@@ -211,7 +188,8 @@ describe('CardSearchClient', () => {
 
       render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
 
-      // router.replace should not be called on mount with an empty query
+      // Do not advance timers: the SearchBar debounce must not have fired yet.
+      // router.replace should not be called before the debounce settles with an empty query.
       expect(mockReplace).not.toHaveBeenCalled();
     });
   });
