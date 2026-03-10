@@ -30,8 +30,11 @@ function toArray(item: string | string[]): string[] {
   }
 }
 
-const colInQuery = (col: string, parsedQuery: ParsedQuery): string =>
-      parsedQuery[col] ? col : (textAbbreviations[col] || rangeAbbreviations[col])
+const colInQuery = (col: string, parsedQuery: ParsedQuery): string => {
+  if (parsedQuery[col]) return col;
+  if (parsedQuery.exclude && parsedQuery.exclude[col]) return col;
+  return textAbbreviations[col] || rangeAbbreviations[col];
+}
 
 
 const useFilterData = (loading: boolean, data: CardRow[], columns: string[], searchQuery: string): CardRow[] => {

@@ -29,6 +29,27 @@ function getFiltered(data, searchQuery) {
   return result.current;
 }
 
+describe('useFilterData — exclusion filter using full column name', () => {
+  const cmdPersonnel = makeCard({ name: 'Picard', icons: 'cmd', type: 'personnel' });
+  const noIconPersonnel = makeCard({ name: 'Ensign Ro', icons: '', type: 'personnel' });
+  const dualDilemma = makeCard({ name: 'Antedean Assassins', type: 'dilemma', dilemmatype: 'd' });
+  const spaceDilemma = makeCard({ name: 'Spatial Rift', type: 'dilemma', dilemmatype: 's' });
+
+  it('-icons:Cmd excludes personnel with command icons', () => {
+    const result = getFiltered([cmdPersonnel, noIconPersonnel], '-icons:Cmd');
+    const names = result.map(c => c.name);
+    expect(names).not.toContain('Picard');
+    expect(names).toContain('Ensign Ro');
+  });
+
+  it('-dilemmatype:d type:Dilemma excludes dual dilemmas', () => {
+    const result = getFiltered([dualDilemma, spaceDilemma], '-dilemmatype:d type:Dilemma');
+    const names = result.map(c => c.name);
+    expect(names).not.toContain('Antedean Assassins');
+    expect(names).toContain('Spatial Rift');
+  });
+});
+
 describe('useFilterData — affiliation filter', () => {
   const federationPersonnel = makeCard({ name: 'Robin Lefler', affiliation: 'federation' });
   const bajorPersonnel = makeCard({ name: 'Kira Nerys', affiliation: 'bajoran' });
