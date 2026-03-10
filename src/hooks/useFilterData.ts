@@ -2,6 +2,7 @@ import searchQueryParser from 'search-query-parser';
 import { useState, useEffect } from 'react';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
 import { AFFILIATION_ABBREVIATIONS } from '../lib/missionRequirements';
+import { HQ_PLAYABILITY } from '../lib/hqPlayability';
 import { track } from '@vercel/analytics';
 
 const QUOTE_CHARS_REGEX = /[''""«»\u2018\u2019\u201C\u201D]/g;
@@ -82,6 +83,10 @@ const useFilterData = (loading: boolean, data: CardRow[], columns: string[], sea
                   const affiliationText = row[column].replace(/\(except[^)]*\)/g, '');
                   return !affiliationText.includes(match) && !(abbrev && affiliationText.includes(abbrev));
                 }
+                if (column === 'reportsto') {
+                  const predicate = HQ_PLAYABILITY[match];
+                  return !predicate || !predicate(row);
+                }
                 return !row[column].includes(match);
               })
             }
@@ -106,6 +111,10 @@ const useFilterData = (loading: boolean, data: CardRow[], columns: string[], sea
                     return !exceptText.includes(match) && !(abbrev && exceptText.includes(abbrev));
                   }
                   return affiliationText.includes(match) || (abbrev && affiliationText.includes(abbrev));
+                }
+                if (column === 'reportsto') {
+                  const predicate = HQ_PLAYABILITY[match];
+                  return predicate ? predicate(row) : false;
                 }
                 return row[column].includes(match);
               })

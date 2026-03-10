@@ -186,6 +186,95 @@ describe('useFilterData — open "any affiliation" missions', () => {
   });
 });
 
+describe('useFilterData — reportsto filter', () => {
+  const bajorPersonnel = makeCard({ name: 'Kira Nerys', affiliation: 'bajoran', icons: '' });
+  const ds9Personnel = makeCard({ name: 'Benjamin Sisko', affiliation: 'bajoran', icons: '[cmd][ds9]' });
+  const fedPersonnel = makeCard({ name: 'Robin Lefler', affiliation: 'federation', icons: '[cmd][tng]' });
+  const nonAligned = makeCard({ name: 'Guinan', affiliation: 'non-aligned', icons: '' });
+  const equipment = makeCard({ name: 'Phaser', type: 'equipment', affiliation: '', icons: '' });
+  const borgPersonnel = makeCard({ name: 'Locutus', affiliation: 'borg', icons: '[cmd]' });
+  const klingonPersonnel = makeCard({ name: "Worf", affiliation: 'klingon', icons: '[cmd]' });
+  const maquis = makeCard({ name: 'Chakotay', affiliation: 'federation', icons: '[cmd][maq]' });
+
+  const allCards = [bajorPersonnel, ds9Personnel, fedPersonnel, nonAligned, equipment, borgPersonnel, klingonPersonnel, maquis];
+
+  it('reportsto:bajor returns bajoran personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:bajor');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Kira Nerys');
+    expect(names).toContain('Benjamin Sisko');
+  });
+
+  it('reportsto:bajor returns non-aligned cards', () => {
+    const result = getFiltered(allCards, 'reportsto:bajor');
+    expect(result.map(c => c.name)).toContain('Guinan');
+  });
+
+  it('reportsto:bajor returns equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:bajor');
+    expect(result.map(c => c.name)).toContain('Phaser');
+  });
+
+  it('reportsto:bajor does not return non-bajoran, non-NA, non-equipment cards', () => {
+    const result = getFiltered(allCards, 'reportsto:bajor');
+    const names = result.map(c => c.name);
+    expect(names).not.toContain('Robin Lefler');
+    expect(names).not.toContain('Locutus');
+    expect(names).not.toContain('Worf');
+  });
+
+  it('reportsto:ds9 returns cards with [ds9] icon', () => {
+    const result = getFiltered(allCards, 'reportsto:ds9');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Benjamin Sisko');
+    expect(names).not.toContain('Kira Nerys'); // no [ds9] icon
+    expect(names).not.toContain('Robin Lefler'); // has [tng] not [ds9]
+  });
+
+  it('reportsto:ds9 returns non-aligned and equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:ds9');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Guinan');
+    expect(names).toContain('Phaser');
+  });
+
+  it('reportsto:borg returns borg cards and equipment but NOT non-aligned', () => {
+    const result = getFiltered(allCards, 'reportsto:borg');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Locutus');
+    expect(names).toContain('Phaser');
+    expect(names).not.toContain('Guinan');
+  });
+
+  it('reportsto:maquis returns cards with [maq] icon', () => {
+    const result = getFiltered(allCards, 'reportsto:maquis');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Chakotay');
+    expect(names).not.toContain('Robin Lefler'); // [tng] not [maq]
+  });
+
+  it('rt:bajor abbreviation works the same as reportsto:bajor', () => {
+    const full = getFiltered(allCards, 'reportsto:bajor');
+    const abbrev = getFiltered(allCards, 'rt:bajor');
+    expect(abbrev.map(c => c.name)).toEqual(full.map(c => c.name));
+  });
+
+  it('unknown HQ identifier returns no cards', () => {
+    const result = getFiltered(allCards, 'reportsto:unknownhq');
+    expect(result).toHaveLength(0);
+  });
+
+  it('-reportsto:bajor excludes bajoran and non-aligned cards', () => {
+    const result = getFiltered(allCards, '-reportsto:bajor');
+    const names = result.map(c => c.name);
+    expect(names).not.toContain('Kira Nerys');
+    expect(names).not.toContain('Guinan');
+    expect(names).not.toContain('Phaser');
+    expect(names).toContain('Locutus');
+    expect(names).toContain('Worf');
+  });
+});
+
 describe('useFilterData — affiliation match sorting order', () => {
   const fedPersonnel = makeCard({ name: 'Robin Lefler', affiliation: 'federation' });
   const fedMission = makeCard({ name: 'Establish Relations', type: 'mission', affiliation: '[fed]' });
