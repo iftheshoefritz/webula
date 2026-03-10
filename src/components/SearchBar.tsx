@@ -3,12 +3,18 @@ import { textColumns, rangeColumns } from '../lib/constants';
 import { debounce } from 'lodash';
 import { track } from '@vercel/analytics';
 
-export default function SearchBar({ searchQuery, setSearchQuery, variant = "legacy" }) {
+interface SearchBarProps {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  variant?: 'legacy' | 'styled';
+}
+
+export default function SearchBar({ searchQuery, setSearchQuery, variant = "legacy" }: SearchBarProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
   const isLocalChangeRef = useRef(false);
 
   const debouncedSetSearchQuery = useMemo(
-    () => debounce((query) => {
+    () => debounce((query: string) => {
       setSearchQuery(query);
     }, 500),
     [setSearchQuery]
