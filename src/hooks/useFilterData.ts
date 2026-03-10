@@ -4,9 +4,21 @@ import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from
 import { AFFILIATION_ABBREVIATIONS } from '../lib/missionRequirements';
 import { track } from '@vercel/analytics';
 
-const QUOTE_CHARS_REGEX = /[‘’“”«»\u2018\u2019\u201C\u201D]/g;
+const QUOTE_CHARS_REGEX = /[''""«»\u2018\u2019\u201C\u201D]/g;
 
-function toArray(item) {
+type CardRow = Record<string, any>;
+
+interface RangeValue {
+  from?: string;
+  to?: string;
+}
+
+interface ParsedQuery {
+  exclude?: Record<string, string | string[]>;
+  [key: string]: string | string[] | RangeValue | Record<string, string | string[]> | undefined;
+}
+
+function toArray(item: string | string[]): string[] {
   if (Array.isArray(item)) {
     return item;
   } else {
@@ -14,40 +26,42 @@ function toArray(item) {
   }
 }
 
-const colInQuery = (col, parsedQuery) =>
+const colInQuery = (col: string, parsedQuery: ParsedQuery): string =>
       parsedQuery[col] ? col : (textAbbreviations[col] || rangeAbbreviations[col])
 
 
-const useFilterData = (loading, data, columns, searchQuery) => {
+const useFilterData = (loading: boolean, data: CardRow[], columns: string[], searchQuery: string): CardRow[] => {
   console.log('starting useFilterData');
-  const [filteredData, setFilteredData] = useState([]);
+  const [filteredData, setFilteredData] = useState<CardRow[]>([]);
 
-  let filtered;
+  let filtered: CardRow[];
 
   useEffect(() => {
     console.log(searchQuery);
-    const parsedQuery = searchQueryParser.parse((searchQuery.toLowerCase() || '').replace(QUOTE_CHARS_REGEX, '"'), {
+    const parsedQuery: ParsedQuery = searchQueryParser.parse((searchQuery.toLowerCase() || '').replace(QUOTE_CHARS_REGEX, '"'), {
       keywords: textColumns.concat(Object.values(textAbbreviations)),
       ranges: rangeColumns.concat(Object.values(rangeAbbreviations)),
       offsets: false,
-    });
+    }) as ParsedQuery;
 
     if (typeof parsedQuery === 'string') {
       console.log('typeof parsedQuery is string!')
       filtered = data.filter((row) => {
-        return row.name.includes(parsedQuery.toLowerCase());
+        return row.name.includes((parsedQuery as unknown as string).toLowerCase());
       })
     } else {
       console.log('typeof parsedQuery is not string!');
       textColumns.forEach((column) => {
         const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery)
-        if (parsedQuery[fullOrAbbreviatedColumn]) {
-          parsedQuery[fullOrAbbreviatedColumn] = toArray(parsedQuery[fullOrAbbreviatedColumn])
+        const colValue = parsedQuery[fullOrAbbreviatedColumn];
+        if (colValue) {
+          parsedQuery[fullOrAbbreviatedColumn] = toArray(colValue as string | string[])
             .map((term) => term.toLowerCase())
         }
-        if (parsedQuery.exclude && parsedQuery.exclude[fullOrAbbreviatedColumn])
-          parsedQuery.exclude[fullOrAbbreviatedColumn] = toArray(parsedQuery.exclude[fullOrAbbreviatedColumn])
+        if (parsedQuery.exclude && parsedQuery.exclude[fullOrAbbreviatedColumn]) {
+          parsedQuery.exclude[fullOrAbbreviatedColumn] = toArray(parsedQuery.exclude[fullOrAbbreviatedColumn] as string | string[])
             .map((term) => term.toLowerCase())
+        }
       });
 
       const withoutExcluded = data.filter((row) => {
@@ -55,7 +69,7 @@ const useFilterData = (loading, data, columns, searchQuery) => {
           const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery)
           if ( parsedQuery.exclude && parsedQuery.exclude[fullOrAbbreviatedColumn] ) {
             if (textColumns.includes(column)) {
-              return parsedQuery.exclude[fullOrAbbreviatedColumn].every((match) => {
+              return (parsedQuery.exclude[fullOrAbbreviatedColumn] as string[]).every((match) => {
                 if (column === 'affiliation') {
                   const abbrev = AFFILIATION_ABBREVIATIONS[match];
                   const affiliationText = row[column].replace(/\(except[^)]*\)/g, '');
@@ -74,7 +88,7 @@ const useFilterData = (loading, data, columns, searchQuery) => {
           const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery)
           if (parsedQuery[fullOrAbbreviatedColumn]) {
             if (textColumns.includes(column)) {
-              return parsedQuery[fullOrAbbreviatedColumn].every((match) => {
+              return (parsedQuery[fullOrAbbreviatedColumn] as string[]).every((match) => {
                 if (column === 'affiliation') {
                   const abbrev = AFFILIATION_ABBREVIATIONS[match];
                   const exceptMatch = row[column].match(/\(except([^)]*)\)/i);
@@ -89,7 +103,7 @@ const useFilterData = (loading, data, columns, searchQuery) => {
                 return row[column].includes(match);
               })
             } else if (rangeColumns.includes(column)) {
-              const range = parsedQuery[fullOrAbbreviatedColumn];
+              const range = parsedQuery[fullOrAbbreviatedColumn] as RangeValue;
               const rowValue = parseFloat(row[column]);
               const fromValue = (range.from !== '' && range.from !== undefined) ? parseFloat(range.from) : -Infinity;
               const toValue = range.to !== '' && range.to !== undefined ? parseFloat(range.to) : Infinity;

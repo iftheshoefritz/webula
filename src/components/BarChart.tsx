@@ -13,7 +13,12 @@ const options = {
   },
 };
 
-const BarChart = ({labels, values}) => (
+interface BarChartProps {
+  labels: (string | number)[];
+  values: number[];
+}
+
+const BarChart = ({ labels, values }: BarChartProps) => (
     <>
     <Bar data={{
       labels: labels,

@@ -1,4 +1,4 @@
-export const AFFILIATIONS = [
+export const AFFILIATIONS: { label: string; value: string }[] = [
   { label: 'Bajoran', value: 'Bajoran' },
   { label: 'Borg', value: 'Borg' },
   { label: 'Cardassian', value: 'Cardassian' },
@@ -14,7 +14,7 @@ export const AFFILIATIONS = [
   { label: 'Vidiian', value: 'Vidiian' },
 ];
 
-export const AFFILIATION_ABBREVIATIONS = {
+export const AFFILIATION_ABBREVIATIONS: Record<string, string> = {
   'bajoran':     '[baj]',
   'borg':        '[bor]',
   'cardassian':  '[car]',
@@ -30,7 +30,7 @@ export const AFFILIATION_ABBREVIATIONS = {
   'vidiian':     '[vid]',
 };
 
-export const CARD_TYPES = [
+export const CARD_TYPES: string[] = [
   'Dilemma',
   'Equipment',
   'Event',
@@ -40,19 +40,19 @@ export const CARD_TYPES = [
   'Ship',
 ];
 
-export const QUADRANTS = ['Alpha', 'Gamma', 'Delta'];
+export const QUADRANTS: string[] = ['Alpha', 'Gamma', 'Delta'];
 
-export const STAFF_OPTIONS = ['st', 'cmd'];
+export const STAFF_OPTIONS: string[] = ['st', 'cmd'];
 
-export const HOF_OPTIONS = ['y', 'n'];
+export const HOF_OPTIONS: string[] = ['y', 'n'];
 
-export const UNIQUE_OPTIONS = ['y', 'n'];
+export const UNIQUE_OPTIONS: string[] = ['y', 'n'];
 
-export const MISSION_OPTIONS = ['p', 's', 'h'];
+export const MISSION_OPTIONS: string[] = ['p', 's', 'h'];
 
-export const DILEMMA_TYPES = ['d', 's', 'p'];
+export const DILEMMA_TYPES: string[] = ['d', 's', 'p'];
 
-export const ICONS = [
+export const ICONS: string[] = [
   'AU',
   'Cmd',
   'DS9',
@@ -67,7 +67,7 @@ export const ICONS = [
   'Voy',
 ];
 
-export const KEYWORDS = [
+export const KEYWORDS: string[] = [
   'Admiral',
   'Alpha',
   'Artifact',
@@ -159,7 +159,7 @@ export const KEYWORDS = [
   'Waiter',
 ];
 
-export const SKILLS = [
+export const SKILLS: string[] = [
   'Acquisition',
   'Anthropology',
   'Archaeology',
@@ -185,14 +185,14 @@ export const SKILLS = [
   'Treachery',
 ]
 
-export function missionRequirements(card) {
-  const count = {};
+export function missionRequirements(card: { name: string; skills: string }): Record<string, number> {
+  const count: Record<string, number> = {};
   console.log("unparsed: " + card.name + " requirements is: " + card.skills);
   card.skills.split(',').forEach((token) => {
     var match = /(\d?)\s(\S+)/.exec(token);
     if (match !== null) {
       if (SKILLS.includes(match[2])) {
-        count[match[2]] = (count[match[2]] || 0) + (match[1] || 1);
+        count[match[2]] = (count[match[2]] || 0) + (match[1] ? parseInt(match[1]) : 1);
       }
     }
   });

@@ -1,10 +1,10 @@
-export const textColumns = [
+export const textColumns: string[] = [
   'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission', 'dilemmatype',
   'quadrant', 'affiliation', 'icons', 'staff', 'keywords', 'class', 'species', 'skills',
   'gametext', 'hof'
 ];
 
-export const textAbbreviations = {
+export const textAbbreviations: Record<string, string> = {
   'name': 'n',
   'set': 'se',
   'rarity': 'r',
@@ -25,12 +25,12 @@ export const textAbbreviations = {
   'hof': 'hof'
 };
 
-export const rangeColumns = [
+export const rangeColumns: string[] = [
   'cost', 'span', 'points', 'integrity', 'range', 'cunning', 'weapons', 'strength', 'shields'
 ];
 
 
-export const rangeAbbreviations = {
+export const rangeAbbreviations: Record<string, string> = {
   'cost': 'c',
   'span': 's',
   'points': 'p',
