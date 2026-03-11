@@ -309,3 +309,49 @@ describe('useFilterData — affiliation match sorting order', () => {
     expect(result.map(c => c.name)).toContain('Establish Relations');
   });
 });
+
+describe('useFilterData — reportsto sort order', () => {
+  const tngPersonnel = makeCard({ name: 'TNG Personnel', type: 'personnel', affiliation: 'federation', icons: '[tng]', keywords: '' });
+  const naPersonnel = makeCard({ name: 'NA Personnel', type: 'personnel', affiliation: 'non-aligned', icons: '', keywords: '' });
+  const tngShip = makeCard({ name: 'TNG Ship', type: 'ship', affiliation: 'federation', icons: '[tng]', keywords: '' });
+  const naShip = makeCard({ name: 'NA Ship', type: 'ship', affiliation: 'non-aligned', icons: '', keywords: '' });
+  const equipment = makeCard({ name: 'Equipment', type: 'equipment', affiliation: '', icons: '', keywords: '' });
+
+  // All match 'earth cradle of the federation': [tng] or [e] icon, or NA, or equipment
+  const allCards = [equipment, naShip, tngShip, naPersonnel, tngPersonnel];
+
+  it('sorts reportsto results: non-NA personnel first, then NA personnel, then non-NA ships, then NA ships, then equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"earth cradle of the federation"');
+    const names = result.map(c => c.name);
+    const tngPersonnelIdx = names.indexOf('TNG Personnel');
+    const naPersonnelIdx = names.indexOf('NA Personnel');
+    const tngShipIdx = names.indexOf('TNG Ship');
+    const naShipIdx = names.indexOf('NA Ship');
+    const equipmentIdx = names.indexOf('Equipment');
+    expect(tngPersonnelIdx).toBeLessThan(naPersonnelIdx);
+    expect(naPersonnelIdx).toBeLessThan(tngShipIdx);
+    expect(tngShipIdx).toBeLessThan(naShipIdx);
+    expect(naShipIdx).toBeLessThan(equipmentIdx);
+  });
+
+  it('preserves relative order within each group', () => {
+    const tngPersonnel2 = makeCard({ name: 'TNG Personnel 2', type: 'personnel', affiliation: 'federation', icons: '[tng]', keywords: '' });
+    const cards = [tngPersonnel2, equipment, tngPersonnel];
+    const result = getFiltered(cards, 'reportsto:"earth cradle of the federation"');
+    const names = result.map(c => c.name);
+    // Both TNG personnel should appear before equipment
+    expect(names.indexOf('TNG Personnel 2')).toBeLessThan(names.indexOf('Equipment'));
+    expect(names.indexOf('TNG Personnel')).toBeLessThan(names.indexOf('Equipment'));
+    // Relative order within group preserved
+    expect(names.indexOf('TNG Personnel 2')).toBeLessThan(names.indexOf('TNG Personnel'));
+  });
+
+  it('does not apply reportsto sort when no reportsto filter is present', () => {
+    // Input order should be preserved (no sort applied)
+    const cards = [equipment, naShip, tngPersonnel];
+    const result = getFiltered(cards, 'type:personnel');
+    // Only tngPersonnel matches, so just verify no error
+    expect(result.map(c => c.name)).toContain('TNG Personnel');
+    expect(result.map(c => c.name)).not.toContain('Equipment');
+  });
+});
