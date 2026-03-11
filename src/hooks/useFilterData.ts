@@ -23,6 +23,14 @@ function isAnyAffiliationMatch(row: CardRow): boolean {
   return row.affiliation.includes('any affiliation');
 }
 
+function getReportsToSortRank(card: CardRow): number {
+  const na = card.affiliation.includes('non-aligned');
+  if (card.type === 'personnel') return na ? 1 : 0;
+  if (card.type === 'ship') return na ? 3 : 2;
+  if (card.type === 'equipment') return 4;
+  return 5;
+}
+
 function toArray(item: string | string[]): string[] {
   if (Array.isArray(item)) {
     return item;
@@ -139,6 +147,11 @@ const useFilterData = (loading: boolean, data: CardRow[], columns: string[], sea
         if (aIsAny === bIsAny) return 0;
         return aIsAny ? 1 : -1;
       });
+    }
+
+    const reportstoCol = colInQuery('reportsto', parsedQuery);
+    if (typeof parsedQuery !== 'string' && parsedQuery[reportstoCol]) {
+      filtered = [...filtered].sort((a, b) => getReportsToSortRank(a) - getReportsToSortRank(b));
     }
 
     if (JSON.stringify(filtered) !== JSON.stringify(filteredData)) {
