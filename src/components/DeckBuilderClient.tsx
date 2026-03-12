@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { track } from '@vercel/analytics';
 import useFilterData from '../hooks/useFilterData';
 import useLocalStorage from '../hooks/useLocalStorage';
@@ -11,11 +11,12 @@ import Help from './Help';
 import PileAggregate from './PileAggregate';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import SearchBar from './SearchBar';
+import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, numericCount } from '../app/beta/deckBuilderUtils';
-import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen } from 'react-icons/fa';
+import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 
@@ -55,6 +56,27 @@ interface Session {
 interface DeckBuilderClientProps {
   data: CardData[];
   columns: string[];
+}
+
+interface CollapsibleSectionProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+function CollapsibleSection({ title, children }: CollapsibleSectionProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  return (
+    <div className="container mx-auto p-4">
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="text-2xl font-bold mt-4 mb-2 flex items-center gap-2 w-full text-left text-text-primary"
+      >
+        {title}
+        <span className="font-bold text-lg">&nbsp;{isCollapsed ? '>' : 'v'}</span>
+      </button>
+      {!isCollapsed && children}
+    </div>
+  );
 }
 
 export default function DeckBuilderClient({ data, columns }: DeckBuilderClientProps) {
@@ -272,174 +294,184 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       .filter((row) => row.count > 0);
   }, [currentDeck]);
 
-  const [isSearching, setIsSearching] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  // activeView controls which panel is shown (search or deck list)
+  const [activeView, setActiveView] = useState<'search' | 'deck'>('deck');
+  // isMobileSheetOpen controls the mobile bottom sheet visibility
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsDrawerOpen(window.innerWidth > 1024);
-    };
-
-    window.addEventListener('resize', handleResize);
-    handleResize();
-
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const handleMobileTabClick = (tab: 'search' | 'deck') => {
+    if (isMobileSheetOpen && activeView === tab) {
+      setIsMobileSheetOpen(false);
+    } else {
+      setActiveView(tab);
+      setIsMobileSheetOpen(true);
+    }
+  };
 
   const compare = (a: string, b: string) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
   };
 
-  return (
-    <div>
-      <div className="flex flex-col lg:flex-row h-[100dvh] overflow-hidden">
-        <div
-          className={`fixed left-0 top-0 h-[100dvh] lg:relative flex flex-col lg:w-1/4 w-full bg-white transform transition-transform ease-in-out duration-200 ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 z-10 ${isSearching ? 'overflow-hidden' : 'overflow-y-auto'}`}
-        >
-          <button className="lg:hidden px-4 py-2 shrink-0" onClick={() => setIsDrawerOpen(false)}>
-            Close List
-          </button>
-          {isSearching && (
-            <div className="mx-2 mt-4 flex flex-col flex-1 min-h-0 overflow-hidden">
-              <div className="shrink-0">
-                <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-                <button className="py-2" onClick={() => setIsSearching(false)}>
-                  &lt;&lt; Back to list
-                </button>
-                <Help />
-              </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <SearchResults
-                  filteredData={filteredData}
-                  onCardSelected={incrementIncluded}
-                  onCardDeselected={decrementIncluded}
-                  currentDeck={currentDeck}
-                  withHover={true}
-                  useWindowScroll={false}
-                  gridClassName="grid grid-cols-1 lg:grid-cols-2 gap-4"
-                />
-              </div>
-            </div>
-          )}
+  const searchPanel = (
+    <div className="mx-2 mt-4 flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="shrink-0">
+        <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} variant="styled" />
+        <SearchPills searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+        <Help variant="styled" />
+      </div>
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <SearchResults
+          filteredData={filteredData}
+          onCardSelected={incrementIncluded}
+          onCardDeselected={decrementIncluded}
+          currentDeck={currentDeck}
+          withHover={true}
+          useWindowScroll={false}
+          gridClassName="grid grid-cols-1 lg:grid-cols-2 gap-4"
+        />
+      </div>
+    </div>
+  );
 
-          <div className={`flex flex-col flex-1 min-h-0 overflow-y-scroll px-2 mt-4 ${isSearching ? 'hidden' : ''}`}>
-            <div className="flex flex-col space-y-2">
-              <div className="flex justify-start space-x-2">
-                <input
-                  type="text"
-                  id="deckTitle"
-                  placeholder="Set deck title here"
-                  value={deckTitle}
-                  onChange={(e) => {
-                    setDeckTitle(e.target.value);
-                  }}
-                  className="bg-white text-black font-bold py-2 px-4 rounded my-0 border border-gray-600 w-full"
-                />
-              </div>
-              <Tooltip id="button-tooltip" />
-              <div className="flex justify-start items-center space-x-2">
-                <button
-                  className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
-                  onClick={() => setIsSearching(true)}
-                  data-tooltip-id="button-tooltip"
-                  data-tooltip-content="Search for cards to add to your deck"
-                >
-                  <FaSearch />
-                </button>
-                <button
-                  className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
-                  onClick={clearDeck}
-                  data-tooltip-id="button-tooltip"
-                  data-tooltip-content="Clear the current deck"
-                >
-                  <FaTrash />
-                </button>
-                &nbsp;
-                <DeckUploader onFileLoad={handleFileLoad} />
-                <button
-                  className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
-                  onClick={exportLackeyDeckToDisk}
-                  data-tooltip-id="button-tooltip"
-                  data-tooltip-content="Export the current deck to a LackeyCCG file"
-                >
-                  <FaFileExport />
-                </button>
-              </div>
-              {!session && (
-                <div className="flex justify-start space-x-2">
-                  <button
-                    className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
-                    onClick={() => signIn()}
-                    data-tooltip-id="button-tooltip"
-                    data-tooltip-content="Sign in to load and save your decks with Google Drive"
-                  >
-                    <FaSignInAlt />
-                  </button>
-                </div>
-              )}
-              {session && (
-                <div className="flex justify-start items-center space-x-2">
-                  <button
-                    className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
-                    onClick={loadFilesFromDrive}
-                    data-tooltip-id="button-tooltip"
-                    data-tooltip-content="Load a deck from Google Drive"
-                  >
-                    <FaFolderOpen />
-                  </button>
-                  <button
-                    className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
-                    onClick={() => writeToDrive()}
-                    data-tooltip-id="button-tooltip"
-                    data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
-                  >
-                    <FaCloudUploadAlt />
-                  </button>
-                  <button
-                    className="bg-black hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
-                    onClick={() => writeToBrowserList()}
-                    data-tooltip-id="button-tooltip"
-                    data-tooltip-content="Save to this browser"
-                  >
-                    <FaSave />
-                  </button>
-                </div>
-              )}
-            </div>
-            <DeckListPile
-              pileName="Missions"
-              cardsForPile={currentDeckRows.filter((row) => row.pile === 'mission')}
-              incrementIncluded={incrementIncluded}
-              decrementIncluded={decrementIncluded}
-              sortBy={(r1: CardDef, r2: CardDef) => compare(r1.mission, r2.mission)}
-            />
-            <DeckListPile
-              pileName="Dilemmas"
-              cardsForPile={currentDeckRows.filter((row) => row.pile === 'dilemma')}
-              decrementIncluded={decrementIncluded}
-              incrementIncluded={incrementIncluded}
-              sortBy={(r1: CardDef, r2: CardDef) =>
-                r1.dilemmatype === r2.dilemmatype ? compare(r1.name, r2.name) : compare(r1.dilemmatype, r2.dilemmatype)
-              }
-            />
-            <DeckListPile
-              pileName="Draw"
-              cardsForPile={currentDeckRows.filter((row) => row.pile === 'draw')}
-              sortBy={(r1: CardDef, r2: CardDef) =>
-                r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)
-              }
-              incrementIncluded={incrementIncluded}
-              decrementIncluded={decrementIncluded}
-            />
-          </div>
+  const deckPanel = (
+    <div className="flex flex-col flex-1 min-h-0 overflow-y-scroll px-2 mt-4">
+      <div className="flex flex-col space-y-2">
+        <div className="flex justify-start space-x-2">
+          <input
+            type="text"
+            id="deckTitle"
+            placeholder="Set deck title here"
+            value={deckTitle}
+            onChange={(e) => {
+              setDeckTitle(e.target.value);
+            }}
+            className="bg-white/[0.05] text-text-primary font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
+          />
         </div>
-        <div className="flex-grow lg:w-3/4 overflow-y-scroll">
-          <div className="container mx-auto p-4">
-            <button className="lg:hidden px-4 py-2" onClick={() => setIsDrawerOpen(true)}>
-              Open List
+        <Tooltip id="button-tooltip" />
+        <div className="flex justify-start items-center space-x-2">
+          <button
+            className="btn-icon"
+            onClick={clearDeck}
+            data-tooltip-id="button-tooltip"
+            data-tooltip-content="Clear the current deck"
+          >
+            <FaTrash />
+          </button>
+          &nbsp;
+          <DeckUploader onFileLoad={handleFileLoad} />
+          <button
+            className="btn-icon"
+            onClick={exportLackeyDeckToDisk}
+            data-tooltip-id="button-tooltip"
+            data-tooltip-content="Export the current deck to a LackeyCCG file"
+          >
+            <FaFileExport />
+          </button>
+        </div>
+        {!session && (
+          <div className="flex justify-start space-x-2">
+            <button
+              className="btn-icon"
+              onClick={() => signIn()}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="Sign in to load and save your decks with Google Drive"
+            >
+              <FaSignInAlt />
             </button>
+          </div>
+        )}
+        {session && (
+          <div className="flex justify-start items-center space-x-2">
+            <button
+              className="btn-icon"
+              onClick={loadFilesFromDrive}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="Load a deck from Google Drive"
+            >
+              <FaFolderOpen />
+            </button>
+            <button
+              className="btn-icon"
+              onClick={() => writeToDrive()}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
+            >
+              <FaCloudUploadAlt />
+            </button>
+            <button
+              className="btn-icon"
+              onClick={() => writeToBrowserList()}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="Save to this browser"
+            >
+              <FaSave />
+            </button>
+          </div>
+        )}
+      </div>
+      <DeckListPile
+        pileName="Missions"
+        cardsForPile={currentDeckRows.filter((row) => row.pile === 'mission')}
+        incrementIncluded={incrementIncluded}
+        decrementIncluded={decrementIncluded}
+        sortBy={(r1: CardDef, r2: CardDef) => compare(r1.mission, r2.mission)}
+      />
+      <DeckListPile
+        pileName="Dilemmas"
+        cardsForPile={currentDeckRows.filter((row) => row.pile === 'dilemma')}
+        decrementIncluded={decrementIncluded}
+        incrementIncluded={incrementIncluded}
+        sortBy={(r1: CardDef, r2: CardDef) =>
+          r1.dilemmatype === r2.dilemmatype ? compare(r1.name, r2.name) : compare(r1.dilemmatype, r2.dilemmatype)
+        }
+      />
+      <DeckListPile
+        pileName="Draw"
+        cardsForPile={currentDeckRows.filter((row) => row.pile === 'draw')}
+        sortBy={(r1: CardDef, r2: CardDef) =>
+          r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)
+        }
+        incrementIncluded={incrementIncluded}
+        decrementIncluded={decrementIncluded}
+      />
+    </div>
+  );
 
-            <span className="text-2xl font-bold mt-4 mb-2 block">Missions</span>
+  return (
+    <div className="bg-gradient-page text-text-primary">
+      <div className="flex flex-col lg:flex-row h-[100dvh] overflow-hidden">
+        {/* Desktop left panel - always visible on lg+ */}
+        <div className="hidden lg:flex flex-col lg:w-1/4 bg-[#131713] border-r border-white/[0.06] overflow-hidden">
+          {/* Desktop tab bar */}
+          <div className="flex shrink-0 border-b border-white/[0.06]">
+            <button
+              onClick={() => setActiveView('search')}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm transition-colors ${
+                activeView === 'search' ? 'text-accent border-b-2 border-accent' : 'text-text-muted hover:text-text-secondary'
+              }`}
+            >
+              <FaSearch className="text-xs" />
+              Search
+            </button>
+            <button
+              onClick={() => setActiveView('deck')}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm transition-colors ${
+                activeView === 'deck' ? 'text-accent border-b-2 border-accent' : 'text-text-muted hover:text-text-secondary'
+              }`}
+            >
+              <FaList className="text-xs" />
+              Deck
+            </button>
+          </div>
+
+          {activeView === 'search' ? searchPanel : deckPanel}
+        </div>
+
+        {/* Main content area */}
+        <div className="flex-grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0">
+          <div className="container mx-auto p-4">
+            <span className="text-2xl font-bold mt-4 mb-2 block text-text-primary">Missions</span>
             <div className="flex space-x-4 overflow-x-scroll">
               {currentDeckRows
                 .filter((row) => row.pile === 'mission')
@@ -458,111 +490,144 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 })}
             </div>
           </div>
-          <div className="container mx-auto p-4">
-            <span className="text-2xl font-bold mt-4 mb-2 block">Personnel skills</span>
-            <div>
-              <PileAggregate
-                currentDeckRows={currentDeckRows}
-                characteristicName="skills"
-                filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
-                splitFunction={(skills: string): Array<string> => skills.match(/(?:\d+ \w+|\w+)/g) || []}
-                assembleCounts={(counts, skillItem, rowcount) => {
-                  let [, levelStr, skill] = skillItem.trim().match(/(\d*)\s*(\w+)/) || [null, null, null];
-                  let count = levelStr ? Number(levelStr) : 1;
 
-                  if (skillList.includes(skill)) {
-                    if (counts[skill] === undefined) {
-                      counts[skill] = {};
-                    }
-                    counts[skill][String(count)] = (counts[skill][String(count)] || 0) + rowcount;
+          <CollapsibleSection title="Personnel skills">
+            <PileAggregate
+              currentDeckRows={currentDeckRows}
+              characteristicName="skills"
+              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+              splitFunction={(skills: string): Array<string> => skills.match(/(?:\d+ \w+|\w+)/g) || []}
+              assembleCounts={(counts, skillItem, rowcount) => {
+                let [, levelStr, skill] = skillItem.trim().match(/(\d*)\s*(\w+)/) || [null, null, null];
+                let count = levelStr ? Number(levelStr) : 1;
+
+                if (skillList.includes(skill)) {
+                  if (counts[skill] === undefined) {
+                    counts[skill] = {};
                   }
+                  counts[skill][String(count)] = (counts[skill][String(count)] || 0) + rowcount;
+                }
 
-                  return counts;
-                }}
-              >
-                {([skill, skillLevels]) => (
-                  <div key={skill} className="m-2 p-2 border rounded">
-                    <div className="font-bold">{skill}</div>
-                    <div>
-                      {skillLevels['1'] && <span className="px-1">{skillLevels['1']}x1</span>}
-                      {skillLevels['2'] && <span className="px-1">{skillLevels['2']}x2</span>}
-                      {skillLevels['3'] && <span className="px-1">{skillLevels['3']}x3</span>}
-                    </div>
+                return counts;
+              }}
+            >
+              {([skill, skillLevels]) => (
+                <div key={skill} className="m-2 p-2 border border-white/[0.06] rounded surface-hover">
+                  <div className="font-bold text-text-primary">{skill}</div>
+                  <div className="text-text-secondary">
+                    {skillLevels['1'] && <span className="px-1">{skillLevels['1']}x1</span>}
+                    {skillLevels['2'] && <span className="px-1">{skillLevels['2']}x2</span>}
+                    {skillLevels['3'] && <span className="px-1">{skillLevels['3']}x3</span>}
                   </div>
-                )}
-              </PileAggregate>
-            </div>
-          </div>
-          <div className="container mx-auto p-4">
-            <span className="text-2xl font-bold mt-4 mb-2 block">Keywords</span>
-            <div>
-              <PileAggregate
-                currentDeckRows={currentDeckRows}
-                characteristicName="keywords"
-                filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
-                splitFunction={(keywords) =>
-                  keywords
-                    .split('.')
-                    .map((k) => k.trim())
-                    .filter((k) => k.length > 0)
-                }
-                assembleCounts={(counts, keyword, count) => {
-                  counts[keyword] = (counts[keyword] || 0) + count;
-                  return counts;
-                }}
-              >
-                {([keyword, count]) => (
-                  <div key={keyword} className="m-2 p-2 border rounded">
-                    <span className="px-1">
-                      {count}x <b>{keyword}</b>
-                    </span>
-                  </div>
-                )}
-              </PileAggregate>
-            </div>
-          </div>
-          <div className="container mx-auto p-4">
-            <span className="text-2xl font-bold mt-4 mb-2 block">Icons</span>
-            <div>
-              <PileAggregate
-                currentDeckRows={currentDeckRows}
-                characteristicName="icons"
-                filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
-                splitFunction={(keywords) =>
-                  keywords
-                    .split(/[\[\]]/)
-                    .map((k) => k.trim())
-                    .filter((k) => k.length > 0)
-                }
-                assembleCounts={(counts, icon, count) => {
-                  counts[icon] = (counts[icon] || 0) + count;
-                  return counts;
-                }}
-              >
-                {([icon, count]) => (
-                  <div key={icon} className="m-2 p-2 border rounded">
-                    <span className="px-1">
-                      {count}x <b>[{icon}]</b>
-                    </span>
-                  </div>
-                )}
-              </PileAggregate>
-            </div>
-          </div>
-          <div className="container mx-auto p-4">
+                </div>
+              )}
+            </PileAggregate>
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Keywords">
+            <PileAggregate
+              currentDeckRows={currentDeckRows}
+              characteristicName="keywords"
+              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+              splitFunction={(keywords) =>
+                keywords
+                  .split('.')
+                  .map((k) => k.trim())
+                  .filter((k) => k.length > 0)
+              }
+              assembleCounts={(counts, keyword, count) => {
+                counts[keyword] = (counts[keyword] || 0) + count;
+                return counts;
+              }}
+            >
+              {([keyword, count]) => (
+                <div key={keyword} className="m-2 p-2 border border-white/[0.06] rounded surface-hover">
+                  <span className="px-1 text-text-secondary">
+                    {count}x <b className="text-text-primary">{keyword}</b>
+                  </span>
+                </div>
+              )}
+            </PileAggregate>
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Icons">
+            <PileAggregate
+              currentDeckRows={currentDeckRows}
+              characteristicName="icons"
+              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+              splitFunction={(keywords) =>
+                keywords
+                  .split(/[\[\]]/)
+                  .map((k) => k.trim())
+                  .filter((k) => k.length > 0)
+              }
+              assembleCounts={(counts, icon, count) => {
+                counts[icon] = (counts[icon] || 0) + count;
+                return counts;
+              }}
+            >
+              {([icon, count]) => (
+                <div key={icon} className="m-2 p-2 border border-white/[0.06] rounded surface-hover">
+                  <span className="px-1 text-text-secondary">
+                    {count}x <b className="text-text-primary">[{icon}]</b>
+                  </span>
+                </div>
+              )}
+            </PileAggregate>
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Costs">
             <div className="flex flex-col lg:flex-row">
               <div className="w-full lg:w-1/2 lg:flex-row">
-                <span className="text-2xl font-bold mt-4 mb-2 block">Draw Deck Costs</span>
+                <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Draw Deck</span>
                 <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'draw'} />
               </div>
               <div className="w-full lg:w-1/2 lg:flex-row">
-                <span className="text-2xl font-bold mt-4 mb-2 block">Dilemma Pile Costs</span>
+                <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Dilemma Pile</span>
                 <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'dilemma'} />
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
         </div>
       </div>
+
+      {/* Mobile: Bottom sheet */}
+      <div
+        className={`lg:hidden fixed inset-x-0 bottom-14 z-20 h-[85vh] bg-[#131713] transform transition-transform duration-300 ease-in-out rounded-t-xl border-t border-white/[0.06] flex flex-col ${
+          isMobileSheetOpen ? 'translate-y-0' : 'translate-y-full'
+        }`}
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center py-2 shrink-0">
+          <div className="w-12 h-1 bg-white/20 rounded-full" />
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {activeView === 'search' ? searchPanel : deckPanel}
+        </div>
+      </div>
+
+      {/* Mobile: Persistent tab bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex bg-[#131713] border-t border-white/[0.06]">
+        <button
+          onClick={() => handleMobileTabClick('search')}
+          className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
+            activeView === 'search' && isMobileSheetOpen ? 'text-accent' : 'text-text-muted'
+          }`}
+        >
+          <FaSearch className="text-base" />
+          <span>Search</span>
+        </button>
+        <button
+          onClick={() => handleMobileTabClick('deck')}
+          className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
+            activeView === 'deck' && isMobileSheetOpen ? 'text-accent' : 'text-text-muted'
+          }`}
+        >
+          <FaList className="text-base" />
+          <span>Deck</span>
+        </button>
+      </div>
+
       {showDrivePicker && (
         <DrivePickerModal
           driveFiles={driveFiles}

@@ -52,7 +52,7 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
 
   return (
     <li
-      className="flex relative justify-between h-14 px-1"
+      className="flex relative justify-between h-14 px-1 text-text-primary hover:bg-white/[0.04] rounded transition-colors"
       key={collectorsinfo}
     >
       <div className="flex gap-x-2 items-center mt-2">
@@ -60,13 +60,13 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
           <div
             onClick={incrementIncluded}
           >
-            <FaChevronUp className="cursor-pointer hover:text-gray-500" />
+            <FaChevronUp className="cursor-pointer hover:text-text-secondary" />
           </div>
           <div >{count}x</div>
           <div
             onClick={decrementIncluded}
           >
-            <FaChevronDown className="cursor-pointer hover:text-gray-500" />
+            <FaChevronDown className="cursor-pointer hover:text-text-secondary" />
           </div>
         </div>
         <div

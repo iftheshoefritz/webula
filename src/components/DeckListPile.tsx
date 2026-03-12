@@ -26,7 +26,7 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
     <div>
       <div className="flex items-center justify-between py-2">
         <span
-          className="font-semibold cursor-pointer text-xl"
+          className="font-semibold cursor-pointer text-xl text-text-primary"
           onClick={() => setIsCollapsed(!isCollapsed)}
           title={hoverMessage}
         >
@@ -35,7 +35,7 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
         </span>
       </div>
       {!isCollapsed && (
-        <ul className="divide-y divide-solid divide-gray-300 space-y-2">
+        <ul className="divide-y divide-solid divide-white/[0.06] space-y-2">
           {cardsForPile
             .sort(sortBy)
             .map((row: CardDef) => (

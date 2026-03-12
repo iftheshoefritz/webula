@@ -115,4 +115,38 @@
   .divider {
     @apply border-t border-white/[0.04] my-3;
   }
+
+  /* ==================== */
+  /* BUTTONS              */
+  /* ==================== */
+
+  .btn-primary {
+    @apply px-3 py-1.5
+           bg-gradient-button text-text-primary
+           rounded-md text-sm font-medium
+           hover:brightness-110 transition-all duration-150
+           cursor-pointer;
+  }
+
+  .btn-icon {
+    @apply w-8 h-8 flex items-center justify-center
+           bg-white/[0.05] border border-white/10 rounded-md
+           text-text-secondary hover:text-text-primary hover:bg-white/[0.1]
+           transition-colors duration-150 cursor-pointer;
+  }
+
+  .btn-icon-sm {
+    @apply w-6 h-6 text-xs;
+  }
+
+  /* ==================== */
+  /* FILTER CHIPS         */
+  /* ==================== */
+
+  .filter-chip-add {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1.5
+           bg-white/[0.05] border border-white/10 rounded-lg
+           text-sm text-text-muted hover:text-text-primary hover:bg-white/[0.08]
+           transition-colors cursor-pointer;
+  }
 }
