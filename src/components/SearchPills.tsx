@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
-import { SKILLS, AFFILIATIONS, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES, ICONS, KEYWORDS } from '../lib/missionRequirements';
+import { SKILLS, AFFILIATIONS, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES, ICONS, KEYWORDS, AFFILIATION_ICONS, CARD_ICON_IMAGES, DILEMMA_TYPE_ICONS, MISSION_TYPE_ICONS } from '../lib/missionRequirements';
 import { HQ_NAMES } from '../lib/hqPlayability';
 
 // Create reverse mappings: abbreviation → full keyword
@@ -17,6 +17,29 @@ const rangeAbbreviationToFull: Record<string, string> = Object.fromEntries(
 // Expand an abbreviation to its full keyword, or return as-is if already full
 function expandKeyword(keyword: string): string {
   return textAbbreviationToFull[keyword] || rangeAbbreviationToFull[keyword] || keyword;
+}
+
+// Look up icon URL for a filter key+value (values are lowercase after parsing)
+function getFilterIconSrc(key: string, value: string): string | null {
+  const fullKey = expandKeyword(key);
+  switch (fullKey) {
+    case 'affiliation': return AFFILIATION_ICONS[value.toLowerCase()] ?? null;
+    case 'icons': return CARD_ICON_IMAGES[value.toLowerCase()] ?? null;
+    case 'dilemmatype': return DILEMMA_TYPE_ICONS[value.toLowerCase()] ?? null;
+    case 'mission': return MISSION_TYPE_ICONS[value.toLowerCase()] ?? null;
+    default: return null;
+  }
+}
+
+// Look up icon for a typeahead option value (may be original case)
+function getOptionIconSrc(field: string, value: string): string | null {
+  switch (field) {
+    case 'affiliation': return AFFILIATION_ICONS[value.toLowerCase()] ?? null;
+    case 'icons': return CARD_ICON_IMAGES[value.toLowerCase()] ?? null;
+    case 'dilemmatype': return DILEMMA_TYPE_ICONS[value.toLowerCase()] ?? null;
+    case 'mission': return MISSION_TYPE_ICONS[value.toLowerCase()] ?? null;
+    default: return null;
+  }
 }
 
 interface SearchPillsProps {
@@ -494,7 +517,13 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
 
   return (
     <div ref={popoverRef} className="relative flex flex-wrap items-center gap-2 mt-3">
-      {filters.map((filter, index) => (
+      {filters.map((filter, index) => {
+        const pillIconSrc = filter.key ? getFilterIconSrc(filter.key, filter.value) : null;
+        const fullKey = filter.key ? expandKeyword(filter.key) : '';
+        const pillPrefix = filter.key
+          ? `${filter.isExclude ? '-' : ''}${fullKey}:`
+          : '';
+        return (
         <span
           key={`${filter.rawText}-${index}`}
           className="filter-chip inline-flex items-center gap-1.5 px-2.5 py-1.5
@@ -506,7 +535,14 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
             className={filter.isExclude ? 'text-red-400' : ''}
             aria-label={`Edit ${filter.rawText} filter`}
           >
-            {filter.rawText}
+            {pillIconSrc ? (
+              <span className="inline-flex items-center gap-1">
+                <span>{pillPrefix}</span>
+                <img src={pillIconSrc} alt={filter.value} title={filter.value} width={16} height={16} style={{ display: 'inline', verticalAlign: 'middle' }} />
+              </span>
+            ) : (
+              filter.rawText
+            )}
           </button>
           <button
             onClick={() => handleRemoveFilter(filter)}
@@ -516,7 +552,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
             ×
           </button>
         </span>
-      ))}
+        );
+      })}
 
       <button
         onClick={handleAddFilterClick}
@@ -644,7 +681,9 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 );
                 return filtered.length > 0 ? (
                   <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                    {filtered.map((affiliation) => (
+                    {filtered.map((affiliation) => {
+                      const iconSrc = getOptionIconSrc('affiliation', affiliation.value);
+                      return (
                       <li
                         key={affiliation.value}
                         role="option"
@@ -653,9 +692,13 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                         className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
                                    hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
                       >
-                        {affiliation.label}
+                        <span className="inline-flex items-center gap-2">
+                          {iconSrc && <img src={iconSrc} alt="" width={16} height={16} style={{ display: 'inline' }} />}
+                          {affiliation.label}
+                        </span>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 ) : (
                   <p className="text-xs text-text-muted py-1">No affiliations match</p>
@@ -720,7 +763,9 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 );
                 return filtered.length > 0 ? (
                   <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                    {filtered.map((option) => (
+                    {filtered.map((option) => {
+                      const iconSrc = getOptionIconSrc(activeSimpleTypeahead.field, option);
+                      return (
                       <li
                         key={option}
                         role="option"
@@ -736,9 +781,13 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                         className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
                                    hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
                       >
-                        {option}
+                        <span className="inline-flex items-center gap-2">
+                          {iconSrc && <img src={iconSrc} alt="" width={16} height={16} style={{ display: 'inline' }} />}
+                          {option}
+                        </span>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 ) : (
                   <p className="text-xs text-text-muted py-1">{activeSimpleTypeahead.noMatchText}</p>
