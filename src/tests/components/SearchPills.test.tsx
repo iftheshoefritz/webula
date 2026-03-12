@@ -67,8 +67,8 @@ describe('SearchPills', () => {
       const setSearchQuery = jest.fn();
       render(<SearchPills searchQuery="a:federation" setSearchQuery={setSearchQuery} />);
 
-      // Abbreviations are expanded to full keywords
-      expect(screen.getByText('affiliation:federation')).toBeInTheDocument();
+      // Affiliation pills show an icon; verify via accessible button label
+      expect(screen.getByRole('button', { name: /edit affiliation:federation filter/i })).toBeInTheDocument();
     });
 
     it('handles quoted values with spaces (lowercase normalized)', () => {
@@ -84,8 +84,8 @@ describe('SearchPills', () => {
       render(<SearchPills searchQuery="type:personnel a:federation" setSearchQuery={setSearchQuery} />);
 
       expect(screen.getByText('type:personnel')).toBeInTheDocument();
-      // Abbreviations are expanded to full keywords
-      expect(screen.getByText('affiliation:federation')).toBeInTheDocument();
+      // Affiliation pills show an icon; verify via accessible button label
+      expect(screen.getByRole('button', { name: /edit affiliation:federation filter/i })).toBeInTheDocument();
     });
   });
 
@@ -141,10 +141,10 @@ describe('SearchPills', () => {
       const setSearchQuery = jest.fn();
       render(<SearchPills searchQuery="-a:borg" setSearchQuery={setSearchQuery} />);
 
-      // Abbreviations are expanded to full keywords
-      const pill = screen.getByText('-affiliation:borg');
-      expect(pill).toBeInTheDocument();
-      expect(pill).toHaveClass('text-red-400');
+      // Affiliation pills show an icon; excluded pills have red styling on the edit button
+      const editButton = screen.getByRole('button', { name: /edit -affiliation:borg filter/i });
+      expect(editButton).toBeInTheDocument();
+      expect(editButton).toHaveClass('text-red-400');
     });
   });
 
@@ -162,7 +162,8 @@ describe('SearchPills', () => {
       expect(screen.getByText('picard')).toBeInTheDocument();
       expect(screen.getByText('type:personnel')).toBeInTheDocument();
       expect(screen.getByText('cost:2-5')).toBeInTheDocument();
-      expect(screen.getByText('-affiliation:borg')).toBeInTheDocument();
+      // Affiliation pills show an icon; verify via accessible button label
+      expect(screen.getByRole('button', { name: /edit -affiliation:borg filter/i })).toBeInTheDocument();
     });
   });
 
@@ -893,7 +894,8 @@ describe('SearchPills', () => {
       const setSearchQuery = jest.fn();
       render(<SearchPills searchQuery="a:federation" setSearchQuery={setSearchQuery} />);
 
-      expect(screen.getByText('affiliation:federation')).toBeInTheDocument();
+      // Affiliation pills show an icon; verify expansion via accessible button label
+      expect(screen.getByRole('button', { name: /edit affiliation:federation filter/i })).toBeInTheDocument();
       expect(screen.queryByText('a:federation')).not.toBeInTheDocument();
     });
 
@@ -941,9 +943,10 @@ describe('SearchPills', () => {
       const setSearchQuery = jest.fn();
       render(<SearchPills searchQuery="-a:borg" setSearchQuery={setSearchQuery} />);
 
-      const pill = screen.getByText('-affiliation:borg');
-      expect(pill).toBeInTheDocument();
-      expect(pill).toHaveClass('text-red-400');
+      // Affiliation pills show an icon; excluded pills have red styling on the edit button
+      const editButton = screen.getByRole('button', { name: /edit -affiliation:borg filter/i });
+      expect(editButton).toBeInTheDocument();
+      expect(editButton).toHaveClass('text-red-400');
       expect(screen.queryByText('-a:borg')).not.toBeInTheDocument();
     });
 
@@ -952,7 +955,8 @@ describe('SearchPills', () => {
       render(<SearchPills searchQuery="name:picard affiliation:federation cost:3-5" setSearchQuery={setSearchQuery} />);
 
       expect(screen.getByText('name:picard')).toBeInTheDocument();
-      expect(screen.getByText('affiliation:federation')).toBeInTheDocument();
+      // Affiliation pills show an icon; verify via accessible button label
+      expect(screen.getByRole('button', { name: /edit affiliation:federation filter/i })).toBeInTheDocument();
       expect(screen.getByText('cost:3-5')).toBeInTheDocument();
     });
 
@@ -961,7 +965,8 @@ describe('SearchPills', () => {
       render(<SearchPills searchQuery="n:picard a:federation c:2-4" setSearchQuery={setSearchQuery} />);
 
       expect(screen.getByText('name:picard')).toBeInTheDocument();
-      expect(screen.getByText('affiliation:federation')).toBeInTheDocument();
+      // Affiliation pills show an icon; verify via accessible button label
+      expect(screen.getByRole('button', { name: /edit affiliation:federation filter/i })).toBeInTheDocument();
       expect(screen.getByText('cost:2-4')).toBeInTheDocument();
     });
   });
