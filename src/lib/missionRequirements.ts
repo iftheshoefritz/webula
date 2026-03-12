@@ -52,15 +52,13 @@ export const MISSION_OPTIONS: string[] = ['p', 's', 'h'];
 
 export const DILEMMA_TYPES: string[] = ['d', 's', 'p'];
 
-export const AFFILIATION_ICONS: Record<string, string | null> = {
+export const AFFILIATION_ICONS: Record<string, string> = {
   'bajoran': '/icons/icon_affiliation_bajoran.gif',
   'borg': '/icons/icon_affiliation_borg.gif',
   'cardassian': '/icons/icon_affiliation_cardassian.gif',
   'dominion': '/icons/icon_affiliation_dominion.gif',
   'federation': '/icons/icon_affiliation_federation.gif',
   'ferengi': '/icons/icon_ferengi.gif',
-  'hirogen': null,
-  'kazon': null,
   'klingon': '/icons/icon_affiliation_klingon.gif',
   'non-aligned': '/icons/icon_nonaligned.gif',
   'romulan': '/icons/icon_affiliation_romulan.gif',
