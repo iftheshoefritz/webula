@@ -13,6 +13,7 @@ type HQPredicate = (card: CardRow) => boolean;
 
 const isNA = (card: CardRow): boolean => card.affiliation.includes('non-aligned');
 const isEquipment = (card: CardRow): boolean => card.type === 'equipment';
+const isNonUnique = (card: CardRow): boolean => card.unique === 'n';
 
 // HQ card names in display (mixed-case) form, used for the typeahead list.
 export const HQ_NAMES: string[] = [
@@ -62,6 +63,7 @@ export const HQ_PLAYABILITY: Record<string, HQPredicate> = {
   // Alliance Headquarters (Bajor Terok Nor)
   // "You may play [AU][Baj] cards, [AU][Car] cards, [AU][Fer] cards,
   //  [AU][Kli] cards, [AU][Non] cards, and equipment at this mission."
+  // Secondary gametext: grants [AU] to each non-unique [Car] and non-unique [Kli] personnel you own.
   'bajor terok nor': (card) =>
     (card.icons.includes('[au]') && (
       card.affiliation.includes('bajoran') ||
@@ -69,7 +71,10 @@ export const HQ_PLAYABILITY: Record<string, HQPredicate> = {
       card.affiliation.includes('ferengi') ||
       card.affiliation.includes('klingon') ||
       card.affiliation.includes('non-aligned')
-    )) || isEquipment(card),
+    )) ||
+    (isNonUnique(card) && card.type === 'personnel' && card.affiliation.includes('cardassian')) ||
+    (isNonUnique(card) && card.type === 'personnel' && card.affiliation.includes('klingon')) ||
+    isEquipment(card),
 
   // Cardassian Headquarters (Cardassia Prime Bastion of Resistance)
   // "You may play [Car] Dissidents, [NA] Dissidents, and [Car] ships, and equipment."

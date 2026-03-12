@@ -310,6 +310,59 @@ describe('useFilterData — affiliation match sorting order', () => {
   });
 });
 
+describe('useFilterData — reportsto:"bajor terok nor" non-unique personnel', () => {
+  const auBajPersonnel = makeCard({ name: 'AU Bajoran', affiliation: 'bajoran', icons: '[au]', unique: 'y', keywords: '' });
+  const auCarPersonnel = makeCard({ name: 'AU Cardassian', affiliation: 'cardassian', icons: '[au]', unique: 'y', keywords: '' });
+  const nonUniqueCarPersonnel = makeCard({ name: 'Non-Unique Cardassian', affiliation: 'cardassian', icons: '', unique: 'n', keywords: '' });
+  const uniqueCarPersonnel = makeCard({ name: 'Unique Cardassian', affiliation: 'cardassian', icons: '', unique: 'y', keywords: '' });
+  const nonUniqueKliPersonnel = makeCard({ name: 'Non-Unique Klingon', affiliation: 'klingon', icons: '', unique: 'n', keywords: '' });
+  const uniqueKliPersonnel = makeCard({ name: 'Unique Klingon', affiliation: 'klingon', icons: '', unique: 'y', keywords: '' });
+  const nonUniqueKliAU = makeCard({ name: 'Non-Unique Klingon AU', affiliation: 'klingon', icons: '[au]', unique: 'n', keywords: '' });
+  const equipment = makeCard({ name: 'Equipment', type: 'equipment', affiliation: '', icons: '', unique: 'n', keywords: '' });
+
+  const allCards = [auBajPersonnel, auCarPersonnel, nonUniqueCarPersonnel, uniqueCarPersonnel, nonUniqueKliPersonnel, uniqueKliPersonnel, nonUniqueKliAU, equipment];
+
+  it('includes [AU] Bajoran personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"bajor terok nor"');
+    expect(result.map(c => c.name)).toContain('AU Bajoran');
+  });
+
+  it('includes [AU] Cardassian personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"bajor terok nor"');
+    expect(result.map(c => c.name)).toContain('AU Cardassian');
+  });
+
+  it('includes non-unique Cardassian personnel without [AU] icon', () => {
+    const result = getFiltered(allCards, 'reportsto:"bajor terok nor"');
+    expect(result.map(c => c.name)).toContain('Non-Unique Cardassian');
+  });
+
+  it('excludes unique Cardassian personnel without [AU] icon', () => {
+    const result = getFiltered(allCards, 'reportsto:"bajor terok nor"');
+    expect(result.map(c => c.name)).not.toContain('Unique Cardassian');
+  });
+
+  it('includes non-unique Klingon personnel without [AU] icon', () => {
+    const result = getFiltered(allCards, 'reportsto:"bajor terok nor"');
+    expect(result.map(c => c.name)).toContain('Non-Unique Klingon');
+  });
+
+  it('excludes unique Klingon personnel without [AU] icon', () => {
+    const result = getFiltered(allCards, 'reportsto:"bajor terok nor"');
+    expect(result.map(c => c.name)).not.toContain('Unique Klingon');
+  });
+
+  it('includes non-unique Klingon personnel who also have [AU] icon', () => {
+    const result = getFiltered(allCards, 'reportsto:"bajor terok nor"');
+    expect(result.map(c => c.name)).toContain('Non-Unique Klingon AU');
+  });
+
+  it('includes equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"bajor terok nor"');
+    expect(result.map(c => c.name)).toContain('Equipment');
+  });
+});
+
 describe('useFilterData — reportsto sort order', () => {
   const tngPersonnel = makeCard({ name: 'TNG Personnel', type: 'personnel', affiliation: 'federation', icons: '[tng]', keywords: '' });
   const naPersonnel = makeCard({ name: 'NA Personnel', type: 'personnel', affiliation: 'non-aligned', icons: '', keywords: '' });
