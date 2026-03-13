@@ -507,7 +507,9 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   useEffect(() => {
     if (!isPopoverOpen) return;
     const handleMouseDown = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const isInsidePopover = popoverRef.current && popoverRef.current.contains(target) && target !== popoverRef.current;
+      if (!isInsidePopover) {
         closePopover();
       }
     };
