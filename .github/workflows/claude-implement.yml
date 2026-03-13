@@ -43,5 +43,5 @@ jobs:
                - A brief summary of what was changed and why
 
             Be thorough but focused. Only change what is necessary to implement the issue. Reference the AGENTS.md file for project conventions and commands.
-          claude_args: "--max-turns 40 --dangerously-skip-permissions"
+          claude_args: "--max-turns 80 --dangerously-skip-permissions"
           show_full_output: "true"
