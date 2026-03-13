@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import DeckListItem from '../components/DeckListItem';
 import { CardDef } from '../types';
 
@@ -31,7 +32,7 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
           title={hoverMessage}
         >
           {pileName} ({count})
-          <span className="font-bold">&nbsp;{ isCollapsed ? '>' : 'v'}</span>
+          {isCollapsed ? <FaChevronRight className="inline ml-1 font-bold" /> : <FaChevronDown className="inline ml-1 font-bold" />}
         </span>
       </div>
       {!isCollapsed && (
