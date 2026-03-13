@@ -11,10 +11,11 @@ interface SearchBarProps {
 
 export default function SearchBar({ searchQuery, setSearchQuery, variant = "legacy" }: SearchBarProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
-  const isLocalChangeRef = useRef(false);
+  const lastSentQueryRef = useRef(searchQuery);
 
   const debouncedSetSearchQuery = useMemo(
     () => debounce((query: string) => {
+      lastSentQueryRef.current = query;
       setSearchQuery(query);
     }, 500),
     [setSearchQuery]
@@ -26,20 +27,15 @@ export default function SearchBar({ searchQuery, setSearchQuery, variant = "lega
   });
 
   useEffect(() => {
-    isLocalChangeRef.current = true;
     debouncedSetSearchQueryRef.current(localSearchQuery);
   }, [localSearchQuery]);
 
   // Sync local state when parent changes searchQuery externally (e.g., from SearchPills removing a filter)
   useEffect(() => {
-    if (isLocalChangeRef.current) {
-      // This change came from our debounced update, ignore it
-      isLocalChangeRef.current = false;
-      return;
+    if (searchQuery === lastSentQueryRef.current) {
+      return; // Our own debounced update reflected back — ignore
     }
-    if (searchQuery !== localSearchQuery) {
-      setLocalSearchQuery(searchQuery);
-    }
+    setLocalSearchQuery(searchQuery);
   }, [searchQuery]);
 
   if (variant === "styled") {
