@@ -41,3 +41,4 @@ jobs:
 
             Be concise and concrete. Reference specific file paths and function names where applicable.
           claude_args: "--max-turns 10"
+          show_full_output: "true"
