@@ -39,7 +39,7 @@ yarn test:watch # Run tests in watch mode
 
 ### Main Pages
 - `/` (`src/app/page.tsx`) - Simple card search interface
-- `/beta` (`src/app/beta/page.tsx`) - Full deck builder with search, deck management, and analytics
+- `/decks` (`src/app/decks/page.tsx`) - Full deck builder with search, deck management, and analytics
 
 ### Search Query Syntax
 The search supports advanced query syntax defined in `src/lib/constants.js`:
@@ -53,7 +53,7 @@ Decks are organized into three piles:
 - `dilemma` - Dilemma cards
 - `draw` - All other cards (personnel, ships, events, etc.)
 
-Card pile assignment determined by `cardPileFor()` in `src/app/beta/deckBuilderUtils.ts`
+Card pile assignment determined by `cardPileFor()` in `src/app/decks/deckBuilderUtils.ts`
 
 ### Google Drive Integration
 - API routes in `src/app/api/drive/` handle CRUD operations

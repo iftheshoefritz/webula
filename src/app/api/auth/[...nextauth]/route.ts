@@ -46,7 +46,7 @@ const authOptions: NextAuthOptions = {
       return refreshAccessToken(token);
     },
     async redirect({}) {
-      return "/beta"
+      return "/decks"
     }
   },
 }

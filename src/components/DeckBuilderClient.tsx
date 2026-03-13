@@ -15,7 +15,7 @@ import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
-import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, numericCount } from '../app/beta/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, numericCount } from '../app/decks/deckBuilderUtils';
 import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
