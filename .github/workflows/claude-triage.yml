@@ -40,5 +40,5 @@ jobs:
             5. Add the "ready-for-dev" label to the issue.
 
             Be concise and concrete. Reference specific file paths and function names where applicable.
-          claude_args: "--max-turns 10"
+          claude_args: "--max-turns 10 --dangerously-skip-permissions"
           show_full_output: "true"
