@@ -56,7 +56,7 @@ interface ParsedFilter {
   rawText: string;
 }
 
-const QUOTE_CHARS_REGEX = /[''""«»\u2018\u2019\u201C\u201D]/g;
+const QUOTE_CHARS_REGEX = /[""«»\u2018\u2019\u201C\u201D]/g;
 
 interface SimpleTypeaheadConfig {
   field: string;

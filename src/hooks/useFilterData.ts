@@ -5,7 +5,7 @@ import { AFFILIATION_ABBREVIATIONS } from '../lib/missionRequirements';
 import { HQ_PLAYABILITY } from '../lib/hqPlayability';
 import { track } from '@vercel/analytics';
 
-const QUOTE_CHARS_REGEX = /[''""«»\u2018\u2019\u201C\u201D]/g;
+const QUOTE_CHARS_REGEX = /[""«»\u2018\u2019\u201C\u201D]/g;
 
 type CardRow = Record<string, any>;
 
