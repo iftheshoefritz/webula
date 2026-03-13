@@ -345,12 +345,17 @@ describe('useFilterData — affiliation match sorting order', () => {
     expect(fedPersonnelIdx).toBeLessThan(hromiIdx);
   });
 
-  it('preserves relative order within exact-match group', () => {
+  it('sorts personnel before missions within exact-match group', () => {
     const allCards = [anyOpenMission, fedMission, bajFedMission, fedPersonnel];
     const result = getFiltered(allCards, 'affiliation:federation');
     const names = result.map(c => c.name);
-    expect(names.indexOf('Establish Relations')).toBeLessThan(names.indexOf('Rescue Captives'));
-    expect(names.indexOf('Rescue Captives')).toBeLessThan(names.indexOf('Robin Lefler'));
+    const fedPersonnelIdx = names.indexOf('Robin Lefler');
+    const fedMissionIdx = names.indexOf('Establish Relations');
+    const bajFedMissionIdx = names.indexOf('Rescue Captives');
+    expect(fedPersonnelIdx).toBeLessThan(fedMissionIdx);
+    expect(fedPersonnelIdx).toBeLessThan(bajFedMissionIdx);
+    // Relative order within missions is preserved
+    expect(fedMissionIdx).toBeLessThan(bajFedMissionIdx);
   });
 
   it('preserves relative order within "any affiliation" group', () => {

@@ -31,6 +31,15 @@ function getReportsToSortRank(card: CardRow): number {
   return 5;
 }
 
+function getAffiliationSortRank(card: CardRow): number {
+  const isAny = isAnyAffiliationMatch(card);
+  const baseRank = isAny ? 4 : 0;
+  if (card.type === 'personnel') return baseRank + 0;
+  if (card.type === 'ship') return baseRank + 1;
+  if (card.type === 'equipment') return baseRank + 2;
+  return baseRank + 3;
+}
+
 function toArray(item: string | string[]): string[] {
   if (Array.isArray(item)) {
     return item;
@@ -141,12 +150,7 @@ const useFilterData = (loading: boolean, data: CardRow[], columns: string[], sea
 
     const affiliationCol = colInQuery('affiliation', parsedQuery);
     if (typeof parsedQuery !== 'string' && parsedQuery[affiliationCol]) {
-      filtered = [...filtered].sort((a, b) => {
-        const aIsAny = isAnyAffiliationMatch(a);
-        const bIsAny = isAnyAffiliationMatch(b);
-        if (aIsAny === bIsAny) return 0;
-        return aIsAny ? 1 : -1;
-      });
+      filtered = [...filtered].sort((a, b) => getAffiliationSortRank(a) - getAffiliationSortRank(b));
     }
 
     const reportstoCol = colInQuery('reportsto', parsedQuery);
