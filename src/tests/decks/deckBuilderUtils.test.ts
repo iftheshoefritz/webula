@@ -1,4 +1,4 @@
-import { aboveMinimumCount, belowMaximumCount, cardPileFor, deckFromTsv, decrementedRow, findExisting, findExistingOrUseRow, incrementedRow, numericCount, parsedDeck } from '../../app/beta/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, cardPileFor, deckFromTsv, decrementedRow, findExisting, findExistingOrUseRow, incrementedRow, numericCount, parsedDeck } from '../../app/decks/deckBuilderUtils';
 import { CardDef } from '../../types';
 
 describe('constructing a deck object based on TSV text and a list of all card data', () => {
