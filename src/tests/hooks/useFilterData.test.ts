@@ -363,6 +363,54 @@ describe('useFilterData — reportsto:"bajor terok nor" non-unique personnel', (
   });
 });
 
+describe('useFilterData — reportsto filter with apostrophes in HQ names', () => {
+  const starfleetPersonnel = makeCard({ name: 'Archer', affiliation: 'starfleet', icons: '', keywords: '' });
+  const foundersPersonnel = makeCard({ name: 'Odo', affiliation: 'dominion', icons: '', keywords: '' });
+  const klingonPersonnel = makeCard({ name: 'Martok', affiliation: 'klingon', icons: '', keywords: '' });
+  const nonAligned = makeCard({ name: 'Guinan', affiliation: 'non-aligned', icons: '', keywords: '' });
+  const equipment = makeCard({ name: 'Phaser', type: 'equipment', affiliation: '', icons: '', keywords: '' });
+
+  const allCards = [starfleetPersonnel, foundersPersonnel, klingonPersonnel, nonAligned, equipment];
+
+  it('reportsto:"earth humanity\'s home" returns starfleet, NA, and equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"earth humanity\'s home"');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Archer');
+    expect(names).toContain('Guinan');
+    expect(names).toContain('Phaser');
+    expect(names).not.toContain('Martok');
+    expect(names).not.toContain('Odo');
+  });
+
+  it('reportsto:"founders\' homeworld contingent refuge" returns dominion and equipment but not NA', () => {
+    const result = getFiltered(allCards, 'reportsto:"founders\' homeworld contingent refuge"');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Odo');
+    expect(names).toContain('Phaser');
+    expect(names).not.toContain('Guinan');
+    expect(names).not.toContain('Martok');
+  });
+
+  it('reportsto:"founders\' homeworld home of the great link" returns dominion, NA, and equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"founders\' homeworld home of the great link"');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Odo');
+    expect(names).toContain('Guinan');
+    expect(names).toContain('Phaser');
+    expect(names).not.toContain('Martok');
+  });
+
+  it('reportsto:"qo\'nos heart of the empire" returns klingon, NA, and equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"qo\'nos heart of the empire"');
+    const names = result.map(c => c.name);
+    expect(names).toContain('Martok');
+    expect(names).toContain('Guinan');
+    expect(names).toContain('Phaser');
+    expect(names).not.toContain('Archer');
+    expect(names).not.toContain('Odo');
+  });
+});
+
 describe('useFilterData — reportsto sort order', () => {
   const tngPersonnel = makeCard({ name: 'TNG Personnel', type: 'personnel', affiliation: 'federation', icons: '[tng]', keywords: '' });
   const naPersonnel = makeCard({ name: 'NA Personnel', type: 'personnel', affiliation: 'non-aligned', icons: '', keywords: '' });
