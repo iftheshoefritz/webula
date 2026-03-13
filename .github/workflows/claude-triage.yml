@@ -26,18 +26,18 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            A GitHub issue has been labeled "needs-elaboration" and requires your analysis.
+            GitHub issue #${{ github.event.issue.number }} ("${{ github.event.issue.title }}") has been labeled "needs-elaboration" and requires your analysis.
 
-            Review the issue title, body, and all existing comments carefully. Then:
+            Review issue #${{ github.event.issue.number }}, its body, and all existing comments carefully. Then:
 
             1. Answer any open questions posed in the issue or its comments.
             2. Write a clear implementation plan describing what changes would need to be made
                to implement the feature or fix the bug described, referencing specific files
                and components in this codebase where relevant.
-            3. Update the issue description by appending a "## Implementation Plan" section
+            3. Update issue #${{ github.event.issue.number }} description by appending a "## Implementation Plan" section
                with your findings and plan.
-            4. Remove the "needs-elaboration" label from the issue.
-            5. Add the "ready-for-dev" label to the issue.
+            4. Remove the "needs-elaboration" label from issue #${{ github.event.issue.number }}.
+            5. Add the "ready-for-dev" label to issue #${{ github.event.issue.number }}.
 
             Be concise and concrete. Reference specific file paths and function names where applicable.
           claude_args: "--max-turns 10 --dangerously-skip-permissions"
