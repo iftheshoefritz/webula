@@ -37,8 +37,7 @@ jobs:
             3. Update issue #${{ github.event.issue.number }} description by appending a "## Implementation Plan" section
                with your findings and plan.
             4. Remove the "needs-elaboration" label from issue #${{ github.event.issue.number }}.
-            5. Add the "ready-for-dev" label to issue #${{ github.event.issue.number }}.
 
             Be concise and concrete. Reference specific file paths and function names where applicable.
-          claude_args: "--max-turns 10 --dangerously-skip-permissions"
+          claude_args: "--max-turns 20 --dangerously-skip-permissions"
           show_full_output: "true"
