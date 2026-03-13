@@ -69,7 +69,7 @@ function CollapsibleSection({ title, children }: CollapsibleSectionProps) {
     <div className="container mx-auto p-4">
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="text-2xl font-bold mt-4 mb-2 flex items-center gap-2 w-full text-left text-text-primary"
+        className="text-2xl font-display font-medium mt-4 mb-2 flex items-center gap-2 w-full text-left text-text-primary"
       >
         {title}
         <span className="font-bold text-lg">&nbsp;{isCollapsed ? '>' : 'v'}</span>
@@ -345,7 +345,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             onChange={(e) => {
               setDeckTitle(e.target.value);
             }}
-            className="bg-white/[0.05] text-text-primary font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
+            className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
           />
         </div>
         <Tooltip id="button-tooltip" />
@@ -439,7 +439,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   );
 
   return (
-    <div className="bg-gradient-page text-text-primary">
+    <div className="bg-gradient-page font-body text-text-primary">
       <div className="flex flex-col lg:flex-row h-[100dvh] overflow-hidden">
         {/* Desktop left panel - always visible on lg+ */}
         <div className="hidden lg:flex flex-col lg:w-1/4 bg-[#131713] border-r border-white/[0.06] overflow-hidden">
@@ -471,7 +471,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         {/* Main content area */}
         <div className="flex-grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0">
           <div className="container mx-auto p-4">
-            <span className="text-2xl font-bold mt-4 mb-2 block text-text-primary">Missions</span>
+            <span className="text-2xl font-display font-medium mt-4 mb-2 block text-text-primary">Missions</span>
             <div className="flex space-x-4 overflow-x-scroll">
               {currentDeckRows
                 .filter((row) => row.pile === 'mission')
