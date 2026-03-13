@@ -475,6 +475,158 @@ describe('useFilterData — reportsto filter with apostrophes in HQ names', () =
   });
 });
 
+describe('useFilterData — reportsto no-HQ filter (Caretaker\'s Array Voyager)', () => {
+  const voyPersonnel = makeCard({ name: 'Chakotay', affiliation: 'federation', icons: '[cmd][voy]', keywords: '', skills: '' });
+  const voyShip = makeCard({ name: 'USS Voyager', affiliation: 'federation', type: 'ship', icons: '[voy]', keywords: '', skills: '' });
+  const naPersonnel = makeCard({ name: 'Guinan', affiliation: 'non-aligned', icons: '', keywords: '', skills: '' });
+  const naShip = makeCard({ name: 'NA Ship', affiliation: 'non-aligned', type: 'ship', icons: '', keywords: '', skills: '' });
+  const equipment = makeCard({ name: 'Phaser', type: 'equipment', affiliation: '', icons: '', keywords: '' });
+  const fedPersonnel = makeCard({ name: 'Robin Lefler', affiliation: 'federation', icons: '[cmd][tng]', keywords: '', skills: '' });
+
+  const allCards = [voyPersonnel, voyShip, naPersonnel, naShip, equipment, fedPersonnel];
+
+  it('returns [Voy] personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array voyager"');
+    expect(result.map(c => c.name)).toContain('Chakotay');
+  });
+
+  it('returns [Voy] ships', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array voyager"');
+    expect(result.map(c => c.name)).toContain('USS Voyager');
+  });
+
+  it('returns [NA] personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array voyager"');
+    expect(result.map(c => c.name)).toContain('Guinan');
+  });
+
+  it('returns [NA] ships', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array voyager"');
+    expect(result.map(c => c.name)).toContain('NA Ship');
+  });
+
+  it('returns equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array voyager"');
+    expect(result.map(c => c.name)).toContain('Phaser');
+  });
+
+  it('excludes non-[Voy] non-NA personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array voyager"');
+    expect(result.map(c => c.name)).not.toContain('Robin Lefler');
+  });
+});
+
+describe('useFilterData — reportsto no-HQ filter (Caretaker\'s Array Equinox)', () => {
+  const voyTreacheryPersonnel = makeCard({ name: 'Seska', affiliation: 'federation', icons: '[cmd][voy]', keywords: '', skills: 'treachery' });
+  const voyNonTreacheryPersonnel = makeCard({ name: 'Chakotay', affiliation: 'federation', icons: '[cmd][voy]', keywords: '', skills: 'diplomacy' });
+  const naPersonnel = makeCard({ name: 'Guinan', affiliation: 'non-aligned', icons: '', keywords: '', skills: '' });
+  const naShip = makeCard({ name: 'NA Ship', affiliation: 'non-aligned', type: 'ship', icons: '', keywords: '', skills: '' });
+  const equipment = makeCard({ name: 'Phaser', type: 'equipment', affiliation: '', icons: '', keywords: '' });
+  const fedPersonnel = makeCard({ name: 'Robin Lefler', affiliation: 'federation', icons: '[cmd][tng]', keywords: '', skills: '' });
+
+  const allCards = [voyTreacheryPersonnel, voyNonTreacheryPersonnel, naPersonnel, naShip, equipment, fedPersonnel];
+
+  it('returns [Voy] Treachery personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array equinox"');
+    expect(result.map(c => c.name)).toContain('Seska');
+  });
+
+  it('excludes [Voy] personnel without Treachery', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array equinox"');
+    expect(result.map(c => c.name)).not.toContain('Chakotay');
+  });
+
+  it('returns [NA] personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array equinox"');
+    expect(result.map(c => c.name)).toContain('Guinan');
+  });
+
+  it('excludes [NA] ships', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array equinox"');
+    expect(result.map(c => c.name)).not.toContain('NA Ship');
+  });
+
+  it('returns equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array equinox"');
+    expect(result.map(c => c.name)).toContain('Phaser');
+  });
+
+  it('excludes non-[Voy] non-NA personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"caretaker\'s array equinox"');
+    expect(result.map(c => c.name)).not.toContain('Robin Lefler');
+  });
+});
+
+describe('useFilterData — reportsto no-HQ filter (Prevent Historical Disruption Relativity)', () => {
+  const futFedPersonnel = makeCard({ name: 'Braxton', affiliation: 'federation', icons: '[cmd][fut]', keywords: '', skills: '' });
+  const futNonFedPersonnel = makeCard({ name: 'Future Klingon', affiliation: 'klingon', icons: '[fut]', keywords: '', skills: '' });
+  const fedNonFutPersonnel = makeCard({ name: 'Picard', affiliation: 'federation', icons: '[cmd][tng]', keywords: '', skills: '' });
+  const temporalShip = makeCard({ name: 'USS Relativity', affiliation: 'federation', type: 'ship', icons: '[voy][fut]', keywords: 'temporal', skills: '' });
+  const nonTemporalShip = makeCard({ name: 'USS Enterprise', affiliation: 'federation', type: 'ship', icons: '[tng]', keywords: '', skills: '' });
+  const equipment = makeCard({ name: 'Phaser', type: 'equipment', affiliation: '', icons: '', keywords: '' });
+
+  const allCards = [futFedPersonnel, futNonFedPersonnel, fedNonFutPersonnel, temporalShip, nonTemporalShip, equipment];
+
+  it('returns [Fut][Fed] personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"prevent historical disruption relativity"');
+    expect(result.map(c => c.name)).toContain('Braxton');
+  });
+
+  it('excludes [Fut] non-Federation personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"prevent historical disruption relativity"');
+    expect(result.map(c => c.name)).not.toContain('Future Klingon');
+  });
+
+  it('excludes Federation personnel without [Fut] icon', () => {
+    const result = getFiltered(allCards, 'reportsto:"prevent historical disruption relativity"');
+    expect(result.map(c => c.name)).not.toContain('Picard');
+  });
+
+  it('returns Temporal ships', () => {
+    const result = getFiltered(allCards, 'reportsto:"prevent historical disruption relativity"');
+    expect(result.map(c => c.name)).toContain('USS Relativity');
+  });
+
+  it('excludes non-Temporal ships', () => {
+    const result = getFiltered(allCards, 'reportsto:"prevent historical disruption relativity"');
+    expect(result.map(c => c.name)).not.toContain('USS Enterprise');
+  });
+
+  it('returns equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"prevent historical disruption relativity"');
+    expect(result.map(c => c.name)).toContain('Phaser');
+  });
+});
+
+describe('useFilterData — reportsto no-HQ filter (Ceti Alpha V Khan)', () => {
+  const naGePersonnel = makeCard({ name: 'Khan', affiliation: 'non-aligned', icons: '[cmd]', keywords: 'genetically enhanced', skills: '' });
+  const naPersonnel = makeCard({ name: 'Guinan', affiliation: 'non-aligned', icons: '', keywords: '', skills: '' });
+  const equipment = makeCard({ name: 'Phaser', type: 'equipment', affiliation: '', icons: '', keywords: '' });
+  const fedPersonnel = makeCard({ name: 'Picard', affiliation: 'federation', icons: '[cmd][tng]', keywords: 'genetically enhanced', skills: '' });
+
+  const allCards = [naGePersonnel, naPersonnel, equipment, fedPersonnel];
+
+  it('returns [NA] Genetically Enhanced personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"ceti alpha v khan"');
+    expect(result.map(c => c.name)).toContain('Khan');
+  });
+
+  it('excludes [NA] personnel without Genetically Enhanced keyword', () => {
+    const result = getFiltered(allCards, 'reportsto:"ceti alpha v khan"');
+    expect(result.map(c => c.name)).not.toContain('Guinan');
+  });
+
+  it('excludes non-NA Genetically Enhanced personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"ceti alpha v khan"');
+    expect(result.map(c => c.name)).not.toContain('Picard');
+  });
+
+  it('returns equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"ceti alpha v khan"');
+    expect(result.map(c => c.name)).toContain('Phaser');
+  });
+});
+
 describe('useFilterData — reportsto sort order', () => {
   const tngPersonnel = makeCard({ name: 'TNG Personnel', type: 'personnel', affiliation: 'federation', icons: '[tng]', keywords: '' });
   const naPersonnel = makeCard({ name: 'NA Personnel', type: 'personnel', affiliation: 'non-aligned', icons: '', keywords: '' });

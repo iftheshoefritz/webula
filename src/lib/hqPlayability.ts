@@ -21,9 +21,12 @@ export const HQ_NAMES: string[] = [
   'Bajor Blessed of the Prophets',
   'Bajor Gift of the Prophets',
   'Bajor Terok Nor',
+  'Caretaker\'s Array Equinox',
+  'Caretaker\'s Array Voyager',
   'Cardassia Prime Bastion of Resistance',
   'Cardassia Prime Hardscrabble World',
   'Cardassia Prime Subjugated Planet',
+  'Ceti Alpha V Khan',
   'Earth Cradle of the Federation',
   'Earth Home of Starfleet Command',
   'Earth Humanity\'s Home',
@@ -36,6 +39,7 @@ export const HQ_NAMES: string[] = [
   'Mouth of the Wormhole Deep Space 9',
   'Mouth of the Wormhole Terok Nor',
   'Orias III Hidden Base',
+  'Prevent Historical Disruption Relativity',
   'Qo\'noS Heart of the Empire',
   'Quatal Prime Quiet Mining Colony',
   'Romulus Patient Stronghold',
@@ -77,6 +81,20 @@ export const HQ_PLAYABILITY: Record<string, HQPredicate> = {
     (isNonUnique(card) && card.type === 'personnel' && card.affiliation.includes('klingon')) ||
     isEquipment(card),
 
+  // Voyager no-HQ (Caretaker's Array Voyager)
+  // "While this ship is at a [DQ] mission, you may play [Voy] personnel, [NA] personnel,
+  //  and equipment aboard this ship."
+  "caretaker's array voyager": (card) =>
+    card.icons.includes('[voy]') || isNA(card) || isEquipment(card),
+
+  // Equinox no-HQ (Caretaker's Array Equinox)
+  // "While this ship is at a [DQ] mission, you may play [Voy] Treachery personnel,
+  //  [NA] personnel, and equipment aboard this ship."
+  "caretaker's array equinox": (card) =>
+    (card.icons.includes('[voy]') && card.skills.includes('treachery')) ||
+    (isNA(card) && card.type === 'personnel') ||
+    isEquipment(card),
+
   // Cardassian Headquarters (Cardassia Prime Bastion of Resistance)
   // "You may play [Car] Dissidents, [NA] Dissidents, and [Car] ships, and equipment."
   'cardassia prime bastion of resistance': (card) =>
@@ -94,6 +112,12 @@ export const HQ_PLAYABILITY: Record<string, HQPredicate> = {
   // "You may play [Dom] cards and equipment at this mission." (no NA)
   'cardassia prime subjugated planet': (card) =>
     card.affiliation.includes('dominion') || isEquipment(card),
+
+  // Khan/To Rule in Hell no-HQ (Ceti Alpha V Khan)
+  // "You may play [NA] Genetically Enhanced personnel and equipment at this mission."
+  'ceti alpha v khan': (card) =>
+    (isNA(card) && card.keywords.includes('genetically enhanced') && card.type === 'personnel') ||
+    isEquipment(card),
 
   // Federation Headquarters (Earth Cradle of the Federation)
   // "You may play [TNG] cards, [E] cards, [NA] cards, and equipment at this mission."
@@ -164,6 +188,14 @@ export const HQ_PLAYABILITY: Record<string, HQPredicate> = {
     (card.affiliation.includes('romulan') && card.type === 'personnel' && card.skills.includes('intelligence')) ||
     (card.type === 'ship' && card.class.includes("d'deridex class")) ||
     (card.type === 'ship' && card.class.includes('keldon class')) ||
+    isEquipment(card),
+
+  // Relativity no-HQ (Prevent Historical Disruption Relativity)
+  // "You may play [Fut][Fed] personnel and equipment aboard this ship."
+  // Temporal ships may also report to the mission.
+  'prevent historical disruption relativity': (card) =>
+    (card.icons.includes('[fut]') && card.affiliation.includes('federation') && card.type === 'personnel') ||
+    (card.keywords.includes('temporal') && card.type === 'ship') ||
     isEquipment(card),
 
   // Klingon Headquarters (Qo'noS Heart of the Empire)
