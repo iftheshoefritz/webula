@@ -1,0 +1,47 @@
+name: Claude Issue Implementation
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  claude-implement:
+    if: github.event.label.name == 'ready-for-dev'
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1.0.70
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            GitHub issue #${{ github.event.issue.number }} ("${{ github.event.issue.title }}") has been labeled "ready-for-dev" and is ready for implementation.
+
+            Review issue #${{ github.event.issue.number }}, its body, and all existing comments carefully, paying particular attention to any "## Implementation Plan" section. Then:
+
+            1. Implement the feature or fix described in the issue, following the implementation plan if one exists.
+            2. Make all necessary code changes, following existing code style and conventions in the codebase.
+            3. Run `yarn test` to ensure all tests pass. Fix any test failures caused by your changes.
+            4. Create a new branch named `issue-${{ github.event.issue.number }}-<short-description>` from the current HEAD.
+            5. Commit your changes to that branch with a descriptive commit message referencing the issue number.
+            6. Push the branch to the remote repository.
+            7. Open a pull request targeting the main branch with:
+               - Title summarizing the change
+               - Body that closes issue #${{ github.event.issue.number }} (include "Closes #${{ github.event.issue.number }}" in the PR body)
+               - A brief summary of what was changed and why
+
+            Be thorough but focused. Only change what is necessary to implement the issue. Reference the AGENTS.md file for project conventions and commands.
+          claude_args: "--max-turns 40 --dangerously-skip-permissions"
+          show_full_output: "true"
