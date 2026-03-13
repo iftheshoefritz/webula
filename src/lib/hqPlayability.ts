@@ -35,6 +35,7 @@ export const HQ_NAMES: string[] = [
   'Luna Orpheus Mining Facility',
   'Mouth of the Wormhole Deep Space 9',
   'Mouth of the Wormhole Terok Nor',
+  'Orias III Hidden Base',
   'Qo\'noS Heart of the Empire',
   'Quatal Prime Quiet Mining Colony',
   'Romulus Patient Stronghold',
@@ -154,6 +155,16 @@ export const HQ_PLAYABILITY: Record<string, HQPredicate> = {
   // "You may play [TN] cards, [NA] cards, and equipment at this mission."
   'mouth of the wormhole terok nor': (card) =>
     card.icons.includes('[tn]') || isNA(card) || isEquipment(card),
+
+  // Tal Shiar/Obsidian Order Headquarters (Orias III Hidden Base)
+  // "You may play [Car] Intelligence personnel, [Rom] Intelligence personnel,
+  //  D'deridex-class ships, Keldon-class ships, and equipment at this mission."
+  'orias iii hidden base': (card) =>
+    (card.affiliation.includes('cardassian') && card.type === 'personnel' && card.skills.includes('intelligence')) ||
+    (card.affiliation.includes('romulan') && card.type === 'personnel' && card.skills.includes('intelligence')) ||
+    (card.type === 'ship' && card.class.includes("d'deridex class")) ||
+    (card.type === 'ship' && card.class.includes('keldon class')) ||
+    isEquipment(card),
 
   // Klingon Headquarters (Qo'noS Heart of the Empire)
   // "You may play [Kli] cards, [NA] cards, and equipment at this mission."

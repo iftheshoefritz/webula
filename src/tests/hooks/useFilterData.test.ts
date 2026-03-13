@@ -257,6 +257,65 @@ describe('useFilterData — reportsto filter', () => {
   });
 });
 
+describe('useFilterData — reportsto:"orias iii hidden base"', () => {
+  const carIntelPersonnel = makeCard({ name: 'Enabran Tain', affiliation: 'cardassian', type: 'personnel', skills: 'anthropology intelligence treachery', icons: '', keywords: '', class: '' });
+  const romIntelPersonnel = makeCard({ name: 'Mendak', affiliation: 'romulan', type: 'personnel', skills: 'intelligence leadership officer', icons: '', keywords: '', class: '' });
+  const carNonIntelPersonnel = makeCard({ name: 'Gul Dukat', affiliation: 'cardassian', type: 'personnel', skills: 'diplomacy leadership officer', icons: '', keywords: '', class: '' });
+  const romNonIntelPersonnel = makeCard({ name: 'Cretak', affiliation: 'romulan', type: 'personnel', skills: 'anthropology diplomacy law', icons: '', keywords: '', class: '' });
+  const dderidexShip = makeCard({ name: 'Haakona', affiliation: 'romulan', type: 'ship', skills: '', icons: '', keywords: '', class: "d'deridex class" });
+  const keldonShip = makeCard({ name: 'Keldon', affiliation: 'cardassian', type: 'ship', skills: '', icons: '', keywords: '', class: 'keldon class' });
+  const otherShip = makeCard({ name: 'Galor', affiliation: 'cardassian', type: 'ship', skills: '', icons: '', keywords: '', class: 'galor class' });
+  const equipment = makeCard({ name: 'Phaser', type: 'equipment', affiliation: '', icons: '', keywords: '', class: '' });
+  const nonAligned = makeCard({ name: 'Guinan', affiliation: 'non-aligned', type: 'personnel', skills: 'anthropology', icons: '', keywords: '', class: '' });
+
+  const allCards = [carIntelPersonnel, romIntelPersonnel, carNonIntelPersonnel, romNonIntelPersonnel, dderidexShip, keldonShip, otherShip, equipment, nonAligned];
+
+  it('includes Cardassian Intelligence personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"orias iii hidden base"');
+    expect(result.map(c => c.name)).toContain('Enabran Tain');
+  });
+
+  it('includes Romulan Intelligence personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"orias iii hidden base"');
+    expect(result.map(c => c.name)).toContain('Mendak');
+  });
+
+  it('includes D\'deridex-class ships', () => {
+    const result = getFiltered(allCards, 'reportsto:"orias iii hidden base"');
+    expect(result.map(c => c.name)).toContain('Haakona');
+  });
+
+  it('includes Keldon-class ships', () => {
+    const result = getFiltered(allCards, 'reportsto:"orias iii hidden base"');
+    expect(result.map(c => c.name)).toContain('Keldon');
+  });
+
+  it('includes equipment', () => {
+    const result = getFiltered(allCards, 'reportsto:"orias iii hidden base"');
+    expect(result.map(c => c.name)).toContain('Phaser');
+  });
+
+  it('excludes Cardassian personnel without Intelligence', () => {
+    const result = getFiltered(allCards, 'reportsto:"orias iii hidden base"');
+    expect(result.map(c => c.name)).not.toContain('Gul Dukat');
+  });
+
+  it('excludes Romulan personnel without Intelligence', () => {
+    const result = getFiltered(allCards, 'reportsto:"orias iii hidden base"');
+    expect(result.map(c => c.name)).not.toContain('Cretak');
+  });
+
+  it('excludes ships that are not D\'deridex-class or Keldon-class', () => {
+    const result = getFiltered(allCards, 'reportsto:"orias iii hidden base"');
+    expect(result.map(c => c.name)).not.toContain('Galor');
+  });
+
+  it('excludes non-aligned personnel', () => {
+    const result = getFiltered(allCards, 'reportsto:"orias iii hidden base"');
+    expect(result.map(c => c.name)).not.toContain('Guinan');
+  });
+});
+
 describe('useFilterData — affiliation match sorting order', () => {
   const fedPersonnel = makeCard({ name: 'Robin Lefler', affiliation: 'federation' });
   const fedMission = makeCard({ name: 'Establish Relations', type: 'mission', affiliation: '[fed]' });
