@@ -1,0 +1,58 @@
+name: Claude Architecture Discussion
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  claude-architecture:
+    if: github.event.label.name == 'architecture-discussion'
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1.0.70
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            GitHub issue #${{ github.event.issue.number }} ("${{ github.event.issue.title }}") has been labeled "architecture-discussion" and requires a thorough architectural analysis of the codebase.
+
+            Review issue #${{ github.event.issue.number }}, its body, and all existing comments carefully. Identify every unanswered question and every piece of unspecified or speculative conjecture (e.g. "I think...", "maybe...", "it might be...", "not sure if..."). Then:
+
+            1. For each unanswered question, investigate the actual codebase to find a concrete answer.
+               Reference specific file paths and line numbers where relevant.
+            2. For each speculative or unverified claim, verify it against the codebase and state
+               whether it is confirmed, partially correct, or incorrect — with evidence.
+            3. Identify any architectural gaps, trade-offs, or risks implied by the discussion
+               that were not already raised, based on what you observe in the code.
+            4. Update issue #${{ github.event.issue.number }} description as follows:
+               - If the description already contains an "## Architectural Analysis" section,
+                 update it in place: add newly answered questions to **Answered Questions**,
+                 update the verdict on any claims in **Verified Claims**, expand
+                 **Additional Findings** with new observations, and remove from **Open Questions**
+                 anything that can now be answered. Do not duplicate content that is already there.
+               - If no "## Architectural Analysis" section exists yet, append one.
+               The section should contain:
+               - **Answered Questions** — each original question followed by a concrete answer grounded in the code
+               - **Verified Claims** — each speculative statement with a verdict and supporting evidence
+               - **Additional Findings** — any architectural observations, risks, or trade-offs worth noting
+               - **Open Questions** — any questions that still cannot be answered from the codebase alone
+                 and would require further input (e.g. product decisions, external constraints)
+            5. Add the label "needs-human-input" to issue #${{ github.event.issue.number }} to signal
+               that the remaining open questions require human judgment.
+
+            Be precise and cite file paths and function names. Do not speculate — only assert what
+            the code actually shows. Reference the AGENTS.md file for project conventions.
+          claude_args: "--max-turns 40 --dangerously-skip-permissions"
+          show_full_output: "true"
