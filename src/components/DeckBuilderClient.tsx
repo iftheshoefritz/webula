@@ -16,7 +16,7 @@ import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, numericCount } from '../app/beta/deckBuilderUtils';
-import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList } from 'react-icons/fa';
+import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 
@@ -72,7 +72,7 @@ function CollapsibleSection({ title, children }: CollapsibleSectionProps) {
         className="text-2xl font-display font-medium mt-4 mb-2 flex items-center gap-2 w-full text-left text-text-primary"
       >
         {title}
-        <span className="font-bold text-lg">&nbsp;{isCollapsed ? '>' : 'v'}</span>
+        {isCollapsed ? <FaChevronRight className="text-lg" /> : <FaChevronDown className="text-lg" />}
       </button>
       {!isCollapsed && children}
     </div>
@@ -477,15 +477,17 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 .filter((row) => row.pile === 'mission')
                 .map((row) => {
                   return (
-                    <img
-                      src={`/cardimages/${row.imagefile}.jpg`}
-                      width={165}
-                      height={229}
-                      loading="lazy"
-                      alt={row.name}
-                      key={row.collectorsinfo}
-                      className="w-56 h-auto"
-                    />
+                    <div key={row.collectorsinfo} className="relative flex-shrink-0">
+                      <img
+                        src={`/cardimages/${row.imagefile}.jpg`}
+                        width={165}
+                        height={229}
+                        loading="lazy"
+                        alt={row.name}
+                        className="w-56 h-auto rounded-xl block"
+                      />
+                      <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
+                    </div>
                   );
                 })}
             </div>
