@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SearchPills from '../../components/SearchPills';
 
 describe('SearchPills', () => {
@@ -279,13 +279,14 @@ describe('SearchPills', () => {
         expect(screen.getByPlaceholderText(/search icons/i)).toBeInTheDocument();
       });
 
-      it('inserts icons filter when an icon option is clicked', () => {
+      it('inserts icons filter when an icon option is clicked', async () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
         fireEvent.click(screen.getByRole('button', { name: /^icons:$/i }));
-        fireEvent.click(screen.getByRole('option', { name: /^Cmd$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('icons:Cmd');
+        const cmdOption = await screen.findByRole('option', { name: /^cmd$/i });
+        fireEvent.click(cmdOption);
+        expect(setSearchQuery).toHaveBeenCalledWith('icons:cmd');
       });
 
       it('shows keywords typeahead when keywords filter is clicked', () => {
@@ -295,13 +296,14 @@ describe('SearchPills', () => {
         expect(screen.getByPlaceholderText(/search keywords/i)).toBeInTheDocument();
       });
 
-      it('inserts keywords filter with quotes for multi-word keywords', () => {
+      it('inserts keywords filter with quotes for multi-word keywords', async () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
         fireEvent.click(screen.getByRole('button', { name: /^keywords:$/i }));
-        fireEvent.click(screen.getByRole('option', { name: /^Bajoran Resistance$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('keywords:"Bajoran Resistance"');
+        const option = await screen.findByRole('option', { name: /^bajoran resistance$/i });
+        fireEvent.click(option);
+        expect(setSearchQuery).toHaveBeenCalledWith('keywords:"bajoran resistance"');
       });
     });
 
@@ -429,57 +431,63 @@ describe('SearchPills', () => {
         expect(screen.getByPlaceholderText(/search affiliations/i)).toBeInTheDocument();
       });
 
-      it('lists known affiliations in the typeahead', () => {
+      it('lists known affiliations in the typeahead', async () => {
         render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
         fireEvent.click(screen.getByRole('button', { name: /^affiliation:$/i }));
-        expect(screen.getByRole('option', { name: /^Bajoran$/i })).toBeInTheDocument();
-        expect(screen.getByRole('option', { name: /^Klingon$/i })).toBeInTheDocument();
-        expect(screen.getByRole('option', { name: /^Federation$/i })).toBeInTheDocument();
+        expect(await screen.findByRole('option', { name: /^bajoran$/i })).toBeInTheDocument();
+        expect(screen.getByRole('option', { name: /^klingon$/i })).toBeInTheDocument();
+        expect(screen.getByRole('option', { name: /^federation$/i })).toBeInTheDocument();
       });
 
-      it('filters affiliations list as the user types', () => {
+      it('filters affiliations list as the user types', async () => {
         render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
         fireEvent.click(screen.getByRole('button', { name: /^affiliation:$/i }));
+        // wait for options to load
+        await screen.findByRole('option', { name: /^bajoran$/i });
         const input = screen.getByPlaceholderText(/search affiliations/i);
         fireEvent.change(input, { target: { value: 'rom' } });
-        expect(screen.getByRole('option', { name: /^Romulan$/i })).toBeInTheDocument();
-        expect(screen.queryByRole('option', { name: /^Bajoran$/i })).not.toBeInTheDocument();
+        expect(screen.getByRole('option', { name: /^romulan$/i })).toBeInTheDocument();
+        expect(screen.queryByRole('option', { name: /^bajoran$/i })).not.toBeInTheDocument();
       });
 
-      it('inserts affiliation filter when an option is clicked', () => {
+      it('inserts affiliation filter when an option is clicked', async () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
         fireEvent.click(screen.getByRole('button', { name: /^affiliation:$/i }));
-        fireEvent.click(screen.getByRole('option', { name: /^Klingon$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('affiliation:Klingon');
+        const option = await screen.findByRole('option', { name: /^klingon$/i });
+        fireEvent.click(option);
+        expect(setSearchQuery).toHaveBeenCalledWith('affiliation:klingon');
       });
 
-      it('appends affiliation filter when existing query is present', () => {
+      it('appends affiliation filter when existing query is present', async () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="type:personnel" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
         fireEvent.click(screen.getByRole('button', { name: /^affiliation:$/i }));
-        fireEvent.click(screen.getByRole('option', { name: /^Romulan$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('type:personnel affiliation:Romulan');
+        const option = await screen.findByRole('option', { name: /^romulan$/i });
+        fireEvent.click(option);
+        expect(setSearchQuery).toHaveBeenCalledWith('type:personnel affiliation:romulan');
       });
 
-      it('wraps affiliation value in quotes when it contains a space', () => {
+      it('wraps affiliation value in quotes when it contains a space', async () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
         fireEvent.click(screen.getByRole('button', { name: /^affiliation:$/i }));
-        fireEvent.click(screen.getByRole('option', { name: /^Non-Aligned$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('affiliation:Non-Aligned');
+        const option = await screen.findByRole('option', { name: /^non-aligned$/i });
+        fireEvent.click(option);
+        expect(setSearchQuery).toHaveBeenCalledWith('affiliation:non-aligned');
       });
 
-      it('closes the popover after selecting an affiliation', () => {
+      it('closes the popover after selecting an affiliation', async () => {
         render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
         fireEvent.click(screen.getByRole('button', { name: /^affiliation:$/i }));
-        fireEvent.click(screen.getByRole('option', { name: /^Federation$/i }));
+        const option = await screen.findByRole('option', { name: /^federation$/i });
+        fireEvent.click(option);
         expect(screen.queryByPlaceholderText(/search affiliations/i)).not.toBeInTheDocument();
       });
 
@@ -635,14 +643,15 @@ describe('SearchPills', () => {
     });
 
     describe('exclude mode for affiliation', () => {
-      it('adds exclude prefix when exclude mode is selected and affiliation chosen', () => {
+      it('adds exclude prefix when exclude mode is selected and affiliation chosen', async () => {
         const setSearchQuery = jest.fn();
         render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
         fireEvent.click(screen.getByRole('button', { name: /^affiliation:$/i }));
         fireEvent.click(screen.getByRole('button', { name: /− exclude/i }));
-        fireEvent.click(screen.getByRole('option', { name: /^Klingon$/i }));
-        expect(setSearchQuery).toHaveBeenCalledWith('-affiliation:Klingon');
+        const option = await screen.findByRole('option', { name: /^klingon$/i });
+        fireEvent.click(option);
+        expect(setSearchQuery).toHaveBeenCalledWith('-affiliation:klingon');
       });
     });
 
@@ -805,12 +814,13 @@ describe('SearchPills', () => {
       expect(setSearchQuery).toHaveBeenCalledWith('skills:Security');
     });
 
-    it('editing an affiliation filter replaces the old filter', () => {
+    it('editing an affiliation filter replaces the old filter', async () => {
       const setSearchQuery = jest.fn();
       render(<SearchPills searchQuery="affiliation:Klingon" setSearchQuery={setSearchQuery} />);
       fireEvent.click(screen.getByRole('button', { name: /edit affiliation:klingon filter/i }));
-      fireEvent.click(screen.getByRole('option', { name: /^Romulan$/i }));
-      expect(setSearchQuery).toHaveBeenCalledWith('affiliation:Romulan');
+      const option = await screen.findByRole('option', { name: /^romulan$/i });
+      fireEvent.click(option);
+      expect(setSearchQuery).toHaveBeenCalledWith('affiliation:romulan');
     });
 
     it('editing a range filter replaces the old filter', () => {

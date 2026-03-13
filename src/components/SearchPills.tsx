@@ -3,8 +3,16 @@
 import { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
-import { SKILLS, AFFILIATIONS, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES, ICONS, KEYWORDS, AFFILIATION_ICONS, CARD_ICON_IMAGES, DILEMMA_TYPE_ICONS, MISSION_TYPE_ICONS } from '../lib/missionRequirements';
+import { SKILLS, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES, AFFILIATION_ICONS, CARD_ICON_IMAGES, DILEMMA_TYPE_ICONS, MISSION_TYPE_ICONS } from '../lib/missionRequirements';
 import { HQ_NAMES } from '../lib/hqPlayability';
+
+interface FilterOptionsResponse {
+  sets: string[];
+  species: string[];
+  keywords: string[];
+  affiliations: string[];
+  icons: string[];
+}
 
 // Create reverse mappings: abbreviation → full keyword
 const textAbbreviationToFull: Record<string, string> = Object.fromEntries(
@@ -69,25 +77,27 @@ interface SimpleTypeaheadConfig {
 // Filters that use a free-text input popover instead of a typeahead list
 const TEXT_INPUT_FILTER_TITLES: Record<string, string> = {
   name: 'Search by Name',
-  set: 'Search by Set',
   rarity: 'Search by Rarity',
   collectorsinfo: 'Search by Collectors Info',
   class: 'Search by Class',
-  species: 'Search by Species',
   gametext: 'Search by Game Text',
 };
 
-const SIMPLE_TYPEAHEAD_CONFIGS: Record<string, SimpleTypeaheadConfig> = {
-  quadrant: { field: 'quadrant', title: 'Select a Quadrant', options: QUADRANTS, placeholder: 'Search quadrants...', noMatchText: 'No quadrants match' },
-  staff: { field: 'staff', title: 'Select Staff', options: STAFF_OPTIONS, placeholder: 'Search staff...', noMatchText: 'No staff options match' },
-  hof: { field: 'hof', title: 'Select Hall of Fame', options: HOF_OPTIONS, placeholder: 'Search...', noMatchText: 'No options match' },
-  unique: { field: 'unique', title: 'Select Unique', options: UNIQUE_OPTIONS, placeholder: 'Search...', noMatchText: 'No options match' },
-  mission: { field: 'mission', title: 'Select Mission Type', options: MISSION_OPTIONS, placeholder: 'Search mission types...', noMatchText: 'No mission types match' },
-  dilemmatype: { field: 'dilemmatype', title: 'Select Dilemma Type', options: DILEMMA_TYPES, placeholder: 'Search dilemma types...', noMatchText: 'No dilemma types match' },
-  icons: { field: 'icons', title: 'Select an Icon', options: ICONS, placeholder: 'Search icons...', noMatchText: 'No icons match' },
-  keywords: { field: 'keywords', title: 'Select a Keyword', options: KEYWORDS, placeholder: 'Search keywords...', noMatchText: 'No keywords match' },
-  reportsto: { field: 'reportsto', title: 'Select a Headquarters', options: HQ_NAMES, placeholder: 'Search headquarters...', noMatchText: 'No headquarters match' },
-};
+function buildSimpleTypeaheadConfigs(filterOptions: FilterOptionsResponse | null): Record<string, SimpleTypeaheadConfig> {
+  return {
+    quadrant: { field: 'quadrant', title: 'Select a Quadrant', options: QUADRANTS, placeholder: 'Search quadrants...', noMatchText: 'No quadrants match' },
+    staff: { field: 'staff', title: 'Select Staff', options: STAFF_OPTIONS, placeholder: 'Search staff...', noMatchText: 'No staff options match' },
+    hof: { field: 'hof', title: 'Select Hall of Fame', options: HOF_OPTIONS, placeholder: 'Search...', noMatchText: 'No options match' },
+    unique: { field: 'unique', title: 'Select Unique', options: UNIQUE_OPTIONS, placeholder: 'Search...', noMatchText: 'No options match' },
+    mission: { field: 'mission', title: 'Select Mission Type', options: MISSION_OPTIONS, placeholder: 'Search mission types...', noMatchText: 'No mission types match' },
+    dilemmatype: { field: 'dilemmatype', title: 'Select Dilemma Type', options: DILEMMA_TYPES, placeholder: 'Search dilemma types...', noMatchText: 'No dilemma types match' },
+    icons: { field: 'icons', title: 'Select an Icon', options: filterOptions?.icons ?? [], placeholder: 'Search icons...', noMatchText: 'No icons match' },
+    keywords: { field: 'keywords', title: 'Select a Keyword', options: filterOptions?.keywords ?? [], placeholder: 'Search keywords...', noMatchText: 'No keywords match' },
+    reportsto: { field: 'reportsto', title: 'Select a Headquarters', options: HQ_NAMES, placeholder: 'Search headquarters...', noMatchText: 'No headquarters match' },
+    set: { field: 'set', title: 'Select a Set', options: filterOptions?.sets ?? [], placeholder: 'Search sets...', noMatchText: 'No sets match' },
+    species: { field: 'species', title: 'Select a Species', options: filterOptions?.species ?? [], placeholder: 'Search species...', noMatchText: 'No species match' },
+  };
+}
 
 const RANGE_DEFAULTS: Record<string, number> = {
   cost: 2,
@@ -234,6 +244,18 @@ function removeFilter(searchQuery: string, filterToRemove: ParsedFilter): string
 export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpenChange }: SearchPillsProps) {
   const filters = useMemo(() => parseFilters(searchQuery), [searchQuery]);
 
+  const [filterOptions, setFilterOptions] = useState<FilterOptionsResponse | null>(null);
+  const simpleTypeaheadConfigs = useMemo(() => buildSimpleTypeaheadConfigs(filterOptions), [filterOptions]);
+
+  useEffect(() => {
+    fetch('/api/filter-options')
+      .then((res) => res.json())
+      .then((data: FilterOptionsResponse) => setFilterOptions(data))
+      .catch(() => {
+        // leave filterOptions null; dynamic typeaheads will show empty lists
+      });
+  }, []);
+
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [editingFilter, setEditingFilter] = useState<ParsedFilter | null>(null);
   const [selectedRangeFilter, setSelectedRangeFilter] = useState<string | null>(null);
@@ -245,7 +267,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   const [affiliationSearch, setAffiliationSearch] = useState('');
   const [showTypeTypeahead, setShowTypeTypeahead] = useState(false);
   const [typeSearch, setTypeSearch] = useState('');
-  const [activeSimpleTypeahead, setActiveSimpleTypeahead] = useState<SimpleTypeaheadConfig | null>(null);
+  const [activeSimpleTypeahead, setActiveSimpleTypeahead] = useState<string | null>(null);
+  const activeSimpleTypeaheadConfig = activeSimpleTypeahead ? simpleTypeaheadConfigs[activeSimpleTypeahead] ?? null : null;
   const [simpleTypeaheadSearch, setSimpleTypeaheadSearch] = useState('');
   const [activeTextInputFilter, setActiveTextInputFilter] = useState<string | null>(null);
   const [textInputValue, setTextInputValue] = useState('');
@@ -332,9 +355,9 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
       } else if (fullKey === 'type') {
         setShowTypeTypeahead(true);
       } else {
-        const simpleConfig = SIMPLE_TYPEAHEAD_CONFIGS[fullKey];
+        const simpleConfig = simpleTypeaheadConfigs[fullKey];
         if (simpleConfig) {
-          setActiveSimpleTypeahead(simpleConfig);
+          setActiveSimpleTypeahead(fullKey);
         } else if (TEXT_INPUT_FILTER_TITLES[fullKey]) {
           setActiveTextInputFilter(fullKey);
           setTextInputValue(filter.value);
@@ -362,9 +385,9 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
       setTypeSearch('');
       return;
     }
-    const simpleConfig = SIMPLE_TYPEAHEAD_CONFIGS[fieldName];
+    const simpleConfig = simpleTypeaheadConfigs[fieldName];
     if (simpleConfig) {
-      setActiveSimpleTypeahead(simpleConfig);
+      setActiveSimpleTypeahead(fieldName);
       setSimpleTypeaheadSearch('');
       return;
     }
@@ -678,7 +701,11 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 autoFocus
               />
               {(() => {
-                const filtered = AFFILIATIONS.filter((a) =>
+                const affiliationList = (filterOptions?.affiliations ?? []).map((a) => ({
+                  label: a.replace(/(^|\s|-)(\S)/g, (_, pre, char) => pre + char.toUpperCase()),
+                  value: a,
+                }));
+                const filtered = affiliationList.filter((a) =>
                   a.label.toLowerCase().includes(affiliationSearch.toLowerCase())
                 );
                 return filtered.length > 0 ? (
@@ -745,28 +772,28 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 );
               })()}
             </>
-          ) : activeSimpleTypeahead ? (
+          ) : activeSimpleTypeahead && activeSimpleTypeaheadConfig ? (
             <>
-              <div className="syntax-panel-title">{activeSimpleTypeahead.title}</div>
+              <div className="syntax-panel-title">{activeSimpleTypeaheadConfig.title}</div>
               {renderIncludeExcludeToggle()}
               <input
                 type="text"
                 value={simpleTypeaheadSearch}
                 onChange={(e) => setSimpleTypeaheadSearch(e.target.value)}
-                placeholder={activeSimpleTypeahead.placeholder}
+                placeholder={activeSimpleTypeaheadConfig.placeholder}
                 className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
                            rounded-md text-text-primary placeholder-text-muted outline-none
                            focus:border-accent/50"
                 autoFocus
               />
               {(() => {
-                const filtered = activeSimpleTypeahead.options.filter((o) =>
+                const filtered = activeSimpleTypeaheadConfig.options.filter((o) =>
                   o.toLowerCase().includes(simpleTypeaheadSearch.toLowerCase())
                 );
                 return filtered.length > 0 ? (
                   <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
                     {filtered.map((option) => {
-                      const iconSrc = getOptionIconSrc(activeSimpleTypeahead.field, option);
+                      const iconSrc = getOptionIconSrc(activeSimpleTypeaheadConfig.field, option);
                       return (
                       <li
                         key={option}
@@ -777,7 +804,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                           const prefix = base.trim() ? `${base.trim()} ` : '';
                           const excludePrefix = filterMode === 'exclude' ? '-' : '';
                           const needsQuotes = option.includes(' ');
-                          setSearchQuery(`${prefix}${excludePrefix}${activeSimpleTypeahead.field}:${needsQuotes ? `"${option}"` : option}`);
+                          setSearchQuery(`${prefix}${excludePrefix}${activeSimpleTypeaheadConfig.field}:${needsQuotes ? `"${option}"` : option}`);
                           closePopover();
                         }}
                         className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
@@ -792,7 +819,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                     })}
                   </ul>
                 ) : (
-                  <p className="text-xs text-text-muted py-1">{activeSimpleTypeahead.noMatchText}</p>
+                  <p className="text-xs text-text-muted py-1">{activeSimpleTypeaheadConfig.noMatchText}</p>
                 );
               })()}
             </>

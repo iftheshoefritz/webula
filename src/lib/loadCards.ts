@@ -61,7 +61,16 @@ function parseCardData(text: string): { data: CardData[]; columns: string[] } {
   };
 }
 
+export interface FilterOptions {
+  sets: string[];
+  species: string[];
+  keywords: string[];
+  affiliations: string[];
+  icons: string[];
+}
+
 let cachedData: { data: CardData[]; columns: string[] } | null = null;
+let cachedFilterOptions: FilterOptions | null = null;
 
 export function loadCards(): { data: CardData[]; columns: string[] } {
   if (cachedData) {
@@ -73,4 +82,65 @@ export function loadCards(): { data: CardData[]; columns: string[] } {
   cachedData = parseCardData(text);
 
   return cachedData;
+}
+
+export function loadFilterOptions(): FilterOptions {
+  if (cachedFilterOptions) {
+    return cachedFilterOptions;
+  }
+
+  const { data } = loadCards();
+
+  const sets = new Set<string>();
+  const species = new Set<string>();
+  const keywords = new Set<string>();
+  const affiliations = new Set<string>();
+  const icons = new Set<string>();
+
+  for (const card of data) {
+    // Single-value fields
+    if (card.set && typeof card.set === 'string' && card.set.trim()) {
+      sets.add(card.set.trim());
+    }
+    if (card.species && typeof card.species === 'string' && card.species.trim()) {
+      species.add(card.species.trim());
+    }
+    if (card.affiliation && typeof card.affiliation === 'string' && card.affiliation.trim()) {
+      affiliations.add(card.affiliation.trim());
+    }
+
+    // Keywords: period-separated tokens, e.g. "admiral. region: badlands."
+    if (card.keywords && typeof card.keywords === 'string' && card.keywords.trim()) {
+      // Split on '. ' or '.' at end of string; filter out Commander: ship names
+      const raw = card.keywords as string;
+      // Split on '. ' boundaries and strip trailing dot
+      const parts = raw.split(/\.\s+/).map((p) => p.replace(/\.$/, '').trim()).filter(Boolean);
+      for (const part of parts) {
+        // Skip "Commander: <ship>" entries — too specific to be useful as filter options
+        if (!part.toLowerCase().startsWith('commander:')) {
+          keywords.add(part);
+        }
+      }
+    }
+
+    // Icons: tokens in [brackets], e.g. "[cmd][ds9]"
+    if (card.icons && typeof card.icons === 'string' && card.icons.trim()) {
+      const iconRaw = card.icons as string;
+      const iconRegex = /\[([^\]]+)\]/g;
+      let iconMatch: RegExpExecArray | null;
+      while ((iconMatch = iconRegex.exec(iconRaw)) !== null) {
+        icons.add(iconMatch[1].trim());
+      }
+    }
+  }
+
+  cachedFilterOptions = {
+    sets: Array.from(sets).sort(),
+    species: Array.from(species).sort(),
+    keywords: Array.from(keywords).sort(),
+    affiliations: Array.from(affiliations).sort(),
+    icons: Array.from(icons).sort(),
+  };
+
+  return cachedFilterOptions;
 }
