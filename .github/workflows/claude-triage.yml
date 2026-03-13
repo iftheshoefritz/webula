@@ -1,0 +1,40 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  claude-triage:
+    if: github.event.label.name == 'needs-elaboration'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            A GitHub issue has been labeled "needs-elaboration" and requires your analysis.
+
+            Review the issue title, body, and all existing comments carefully. Then:
+
+            1. Answer any open questions posed in the issue or its comments.
+            2. Write a clear implementation plan describing what changes would need to be made
+               to implement the feature or fix the bug described, referencing specific files
+               and components in this codebase where relevant.
+            3. Update the issue description by appending a "## Implementation Plan" section
+               with your findings and plan.
+            4. Remove the "needs-elaboration" label from the issue.
+            5. Add the "ready-for-dev" label to the issue.
+
+            Be concise and concrete. Reference specific file paths and function names where applicable.
+          claude_args: "--max-turns 10"
