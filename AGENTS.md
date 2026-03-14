@@ -64,7 +64,7 @@ Card pile assignment determined by `cardPileFor()` in `src/app/decks/deckBuilder
 
 ### `scripts/extract_card_options.sh`
 
-Extracts unique `Class`, `Species`, and `Set` values from `public/cards_with_processed_columns.txt` and writes them as hardcoded TypeScript constants into `src/lib/missionRequirements.ts` between sentinel comments.
+Extracts unique `Class` and `Species` values from `public/cards_with_processed_columns.txt` and writes them as hardcoded TypeScript constants into `src/lib/missionRequirements.ts` between sentinel comments.
 
 **When to run:** After updating `public/cards_with_processed_columns.txt` with new card data.
 
@@ -75,7 +75,6 @@ bash scripts/extract_card_options.sh
 The script:
 1. Reads the TSV card data file
 2. Extracts sorted unique non-empty values for `Class` and `Species` columns
-3. For `Set`: maps abbreviations to full set names using a hardcoded table in the script; unrecognised abbreviations fall back to the raw abbreviation
-4. Overwrites the `SHIP_CLASSES`, `SPECIES`, and `SETS` constant blocks in `src/lib/missionRequirements.ts`
+3. Overwrites the `SHIP_CLASSES` and `SPECIES` constant blocks in `src/lib/missionRequirements.ts`
 
-The script is idempotent — safe to re-run after every card data update. Set name mappings are maintained in the `SET_NAMES` associative array near the top of the script; update that table when new sets are released (sourced from https://www.trekcc.org/2e/).
+The script is idempotent — safe to re-run after every card data update.
