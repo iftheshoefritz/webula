@@ -78,7 +78,7 @@ export default function SearchBar({ searchQuery, setSearchQuery, variant = "lega
           onChange={(e) => {
             setLocalSearchQuery(e.target.value);
           }}
-          className="bg-white text-black font-bold py-2 px-4 rounded my-0 border border-gray-600 w-full"
+          className="bg-white text-black text-base font-bold py-2 px-4 rounded my-0 border border-gray-600 w-full"
         />
       </div>
     </>

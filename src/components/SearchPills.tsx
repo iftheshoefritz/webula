@@ -506,7 +506,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     </div>
   );
 
-  // Adjust popover position to keep its right edge within the viewport
+  // Adjust popover position to keep its right and left edges within the viewport
   useLayoutEffect(() => {
     if (!isPopoverOpen || !popoverContentRef.current) {
       setPopoverLeftOffset(0);
@@ -514,12 +514,17 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     }
     const el = popoverContentRef.current;
     const rect = el.getBoundingClientRect();
-    const overflow = rect.right - window.innerWidth;
-    if (overflow > 0) {
-      setPopoverLeftOffset(-overflow - 8);
-    } else {
-      setPopoverLeftOffset(0);
+    const rightOverflow = rect.right - window.innerWidth;
+    let offset = 0;
+    if (rightOverflow > 0) {
+      offset = -(rightOverflow + 8);
     }
+    // Clamp so left edge doesn't go off-screen
+    const newLeftInViewport = rect.left + offset;
+    if (newLeftInViewport < 8) {
+      offset += 8 - newLeftInViewport;
+    }
+    setPopoverLeftOffset(offset !== 0 ? offset : 0);
   }, [isPopoverOpen]);
 
   // Close on Escape key
