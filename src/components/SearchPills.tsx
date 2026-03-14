@@ -69,6 +69,7 @@ interface SimpleTypeaheadConfig {
 // Filters that use a free-text input popover instead of a typeahead list
 const TEXT_INPUT_FILTER_TITLES: Record<string, string> = {
   name: 'Search by Name',
+  set: 'Search by Set',
   rarity: 'Search by Rarity',
   collectorsinfo: 'Search by Collectors Info',
   gametext: 'Search by Game Text',
