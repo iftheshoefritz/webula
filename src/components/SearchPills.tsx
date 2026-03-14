@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
-import { SKILLS, AFFILIATIONS, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES, ICONS, KEYWORDS, AFFILIATION_ICONS, CARD_ICON_IMAGES, DILEMMA_TYPE_ICONS, MISSION_TYPE_ICONS } from '../lib/missionRequirements';
+import { SKILLS, AFFILIATIONS, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES, ICONS, KEYWORDS, AFFILIATION_ICONS, CARD_ICON_IMAGES, DILEMMA_TYPE_ICONS, MISSION_TYPE_ICONS, SHIP_CLASSES, SPECIES, SETS } from '../lib/missionRequirements';
 import { HQ_NAMES } from '../lib/hqPlayability';
 
 // Create reverse mappings: abbreviation → full keyword
@@ -69,11 +69,8 @@ interface SimpleTypeaheadConfig {
 // Filters that use a free-text input popover instead of a typeahead list
 const TEXT_INPUT_FILTER_TITLES: Record<string, string> = {
   name: 'Search by Name',
-  set: 'Search by Set',
   rarity: 'Search by Rarity',
   collectorsinfo: 'Search by Collectors Info',
-  class: 'Search by Class',
-  species: 'Search by Species',
   gametext: 'Search by Game Text',
 };
 
@@ -87,6 +84,8 @@ const SIMPLE_TYPEAHEAD_CONFIGS: Record<string, SimpleTypeaheadConfig> = {
   icons: { field: 'icons', title: 'Select an Icon', options: ICONS, placeholder: 'Search icons...', noMatchText: 'No icons match' },
   keywords: { field: 'keywords', title: 'Select a Keyword', options: KEYWORDS, placeholder: 'Search keywords...', noMatchText: 'No keywords match' },
   reportsto: { field: 'reportsto', title: 'Select a Headquarters', options: HQ_NAMES, placeholder: 'Search headquarters...', noMatchText: 'No headquarters match' },
+  class: { field: 'class', title: 'Select a Class', options: SHIP_CLASSES, placeholder: 'Search classes...', noMatchText: 'No classes match' },
+  species: { field: 'species', title: 'Select a Species', options: SPECIES, placeholder: 'Search species...', noMatchText: 'No species match' },
 };
 
 const RANGE_DEFAULTS: Record<string, number> = {
@@ -243,6 +242,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   const [skillsSearch, setSkillsSearch] = useState('');
   const [showAffiliationTypeahead, setShowAffiliationTypeahead] = useState(false);
   const [affiliationSearch, setAffiliationSearch] = useState('');
+  const [showSetTypeahead, setShowSetTypeahead] = useState(false);
+  const [setSearch, setSetSearch] = useState('');
   const [showTypeTypeahead, setShowTypeTypeahead] = useState(false);
   const [typeSearch, setTypeSearch] = useState('');
   const [activeSimpleTypeahead, setActiveSimpleTypeahead] = useState<SimpleTypeaheadConfig | null>(null);
@@ -286,6 +287,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setSkillsSearch('');
     setShowAffiliationTypeahead(false);
     setAffiliationSearch('');
+    setShowSetTypeahead(false);
+    setSetSearch('');
     setShowTypeTypeahead(false);
     setTypeSearch('');
     setActiveSimpleTypeahead(null);
@@ -302,6 +305,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setSkillsSearch('');
     setShowAffiliationTypeahead(false);
     setAffiliationSearch('');
+    setShowSetTypeahead(false);
+    setSetSearch('');
     setShowTypeTypeahead(false);
     setTypeSearch('');
     setActiveSimpleTypeahead(null);
@@ -329,6 +334,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
         setShowSkillsTypeahead(true);
       } else if (fullKey === 'affiliation') {
         setShowAffiliationTypeahead(true);
+      } else if (fullKey === 'set') {
+        setShowSetTypeahead(true);
       } else if (fullKey === 'type') {
         setShowTypeTypeahead(true);
       } else {
@@ -355,6 +362,11 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     if (fieldName === 'affiliation') {
       setShowAffiliationTypeahead(true);
       setAffiliationSearch('');
+      return;
+    }
+    if (fieldName === 'set') {
+      setShowSetTypeahead(true);
+      setSetSearch('');
       return;
     }
     if (fieldName === 'type') {
@@ -393,6 +405,14 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     const excludePrefix = filterMode === 'exclude' ? '-' : '';
     const needsQuotes = value.includes(' ');
     setSearchQuery(`${prefix}${excludePrefix}affiliation:${needsQuotes ? `"${value}"` : value}`);
+    closePopover();
+  };
+
+  const handleSelectSet = (value: string) => {
+    const base = getBaseQuery();
+    const prefix = base.trim() ? `${base.trim()} ` : '';
+    const excludePrefix = filterMode === 'exclude' ? '-' : '';
+    setSearchQuery(`${prefix}${excludePrefix}set:${value}`);
     closePopover();
   };
 
@@ -704,6 +724,45 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                   </ul>
                 ) : (
                   <p className="text-xs text-text-muted py-1">No affiliations match</p>
+                );
+              })()}
+            </>
+          ) : showSetTypeahead ? (
+            <>
+              <div className="syntax-panel-title">Select a Set</div>
+              {renderIncludeExcludeToggle()}
+              <input
+                type="text"
+                value={setSearch}
+                onChange={(e) => setSetSearch(e.target.value)}
+                placeholder="Search sets..."
+                className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
+                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           focus:border-accent/50"
+                autoFocus
+              />
+              {(() => {
+                const filtered = SETS.filter((s) =>
+                  s.label.toLowerCase().includes(setSearch.toLowerCase()) ||
+                  s.value.toLowerCase().includes(setSearch.toLowerCase())
+                );
+                return filtered.length > 0 ? (
+                  <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                    {filtered.map((set) => (
+                      <li
+                        key={set.value}
+                        role="option"
+                        aria-selected={false}
+                        onClick={() => handleSelectSet(set.value)}
+                        className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                                   hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                      >
+                        {set.label !== set.value ? `${set.label} (${set.value})` : set.value}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-text-muted py-1">No sets match</p>
                 );
               })()}
             </>

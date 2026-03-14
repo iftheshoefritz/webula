@@ -27,6 +27,18 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
 
+## Card Data Scripts
+
+### `scripts/extract_card_options.sh`
+
+Extracts unique `Class`, `Species`, and `Set` values from the card data TSV and updates the hardcoded option lists in `src/lib/missionRequirements.ts`. Run this whenever the card data file is updated:
+
+```bash
+bash scripts/extract_card_options.sh
+```
+
+Set abbreviation → full name mappings are maintained in the `SET_NAMES` table near the top of the script (sourced from https://www.trekcc.org/2e/).
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
