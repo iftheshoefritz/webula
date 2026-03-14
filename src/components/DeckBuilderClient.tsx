@@ -294,19 +294,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       .filter((row) => row.count > 0);
   }, [currentDeck]);
 
-  // activeView controls which panel is shown (search or deck list)
+  // activeView controls which panel is shown in the desktop left panel
   const [activeView, setActiveView] = useState<'search' | 'deck'>('deck');
-  // isMobileSheetOpen controls the mobile bottom sheet visibility
-  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
-
-  const handleMobileTabClick = (tab: 'search' | 'deck') => {
-    if (isMobileSheetOpen && activeView === tab) {
-      setIsMobileSheetOpen(false);
-    } else {
-      setActiveView(tab);
-      setIsMobileSheetOpen(true);
-    }
-  };
+  // mobileView controls which full-page view is shown on mobile
+  const [mobileView, setMobileView] = useState<'analysis' | 'search' | 'deck'>('analysis');
 
   const compare = (a: string, b: string) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
@@ -469,7 +460,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         </div>
 
         {/* Main content area */}
-        <div className="flex-grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0">
+        <div className={`flex-grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0 ${mobileView !== 'analysis' ? 'hidden lg:block' : ''}`}>
           <div className="container mx-auto p-4">
             <span className="text-2xl font-display font-medium mt-4 mb-2 block text-text-primary">Missions</span>
             <div className="flex space-x-4 overflow-x-scroll">
@@ -593,45 +584,44 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         </div>
       </div>
 
-      {/* Mobile: Bottom sheet */}
-      <div
-        className={`lg:hidden fixed inset-x-0 bottom-14 z-20 h-[85dvh] bg-[#131713] transform transition-transform duration-300 ease-in-out rounded-t-xl border-t border-white/[0.06] flex flex-col ${
-          isMobileSheetOpen ? 'translate-y-0' : 'translate-y-full'
-        }`}
-      >
-        {/* Drag handle */}
-        <div className="flex justify-center py-2 shrink-0">
-          <div className="w-12 h-1 bg-white/20 rounded-full" />
+      {/* Mobile: Full-page search view */}
+      {mobileView === 'search' && (
+        <div className="lg:hidden fixed inset-x-0 top-0 bottom-14 z-20 bg-[#131713] flex flex-col">
+          {searchPanel}
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          {activeView === 'search' ? searchPanel : deckPanel}
+      )}
+
+      {/* Mobile: Full-page deck view */}
+      {mobileView === 'deck' && (
+        <div className="lg:hidden fixed inset-x-0 top-0 bottom-14 z-20 bg-[#131713] flex flex-col">
+          {deckPanel}
         </div>
-      </div>
+      )}
 
       {/* Mobile: Persistent tab bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex bg-[#131713] border-t border-white/[0.06]">
         <button
-          onClick={() => setIsMobileSheetOpen(false)}
+          onClick={() => setMobileView('analysis')}
           className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
-            !isMobileSheetOpen ? 'text-accent' : 'text-text-muted'
+            mobileView === 'analysis' ? 'text-accent' : 'text-text-muted'
           }`}
         >
           <FaChartBar className="text-base" />
           <span>Analysis</span>
         </button>
         <button
-          onClick={() => handleMobileTabClick('search')}
+          onClick={() => setMobileView('search')}
           className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
-            activeView === 'search' && isMobileSheetOpen ? 'text-accent' : 'text-text-muted'
+            mobileView === 'search' ? 'text-accent' : 'text-text-muted'
           }`}
         >
           <FaSearch className="text-base" />
           <span>Search</span>
         </button>
         <button
-          onClick={() => handleMobileTabClick('deck')}
+          onClick={() => setMobileView('deck')}
           className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
-            activeView === 'deck' && isMobileSheetOpen ? 'text-accent' : 'text-text-muted'
+            mobileView === 'deck' ? 'text-accent' : 'text-text-muted'
           }`}
         >
           <FaList className="text-base" />
