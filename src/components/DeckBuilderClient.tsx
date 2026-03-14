@@ -16,7 +16,7 @@ import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, numericCount } from '../app/decks/deckBuilderUtils';
-import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown } from 'react-icons/fa';
+import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 
@@ -319,7 +319,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         <SearchPills searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
         <Help variant="styled" />
       </div>
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <SearchResults
           filteredData={filteredData}
           onCardSelected={incrementIncluded}
@@ -595,7 +595,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
       {/* Mobile: Bottom sheet */}
       <div
-        className={`lg:hidden fixed inset-x-0 bottom-14 z-20 h-[85vh] bg-[#131713] transform transition-transform duration-300 ease-in-out rounded-t-xl border-t border-white/[0.06] flex flex-col ${
+        className={`lg:hidden fixed inset-x-0 bottom-14 z-20 h-[85dvh] bg-[#131713] transform transition-transform duration-300 ease-in-out rounded-t-xl border-t border-white/[0.06] flex flex-col ${
           isMobileSheetOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
@@ -603,13 +603,22 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         <div className="flex justify-center py-2 shrink-0">
           <div className="w-12 h-1 bg-white/20 rounded-full" />
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {activeView === 'search' ? searchPanel : deckPanel}
         </div>
       </div>
 
       {/* Mobile: Persistent tab bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex bg-[#131713] border-t border-white/[0.06]">
+        <button
+          onClick={() => setIsMobileSheetOpen(false)}
+          className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
+            !isMobileSheetOpen ? 'text-accent' : 'text-text-muted'
+          }`}
+        >
+          <FaChartBar className="text-base" />
+          <span>Analysis</span>
+        </button>
         <button
           onClick={() => handleMobileTabClick('search')}
           className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
