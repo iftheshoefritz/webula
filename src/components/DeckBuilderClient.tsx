@@ -319,7 +319,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         <SearchPills searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
         <Help variant="styled" />
       </div>
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <SearchResults
           filteredData={filteredData}
           onCardSelected={incrementIncluded}
@@ -595,7 +595,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
       {/* Mobile: Bottom sheet */}
       <div
-        className={`lg:hidden fixed inset-x-0 bottom-14 z-20 h-[85vh] bg-[#131713] transform transition-transform duration-300 ease-in-out rounded-t-xl border-t border-white/[0.06] flex flex-col ${
+        className={`lg:hidden fixed inset-x-0 bottom-14 z-20 h-[85dvh] bg-[#131713] transform transition-transform duration-300 ease-in-out rounded-t-xl border-t border-white/[0.06] flex flex-col ${
           isMobileSheetOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
@@ -603,7 +603,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         <div className="flex justify-center py-2 shrink-0">
           <div className="w-12 h-1 bg-white/20 rounded-full" />
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {activeView === 'search' ? searchPanel : deckPanel}
         </div>
       </div>
