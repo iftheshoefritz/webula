@@ -10,6 +10,7 @@ import { DrivePickerModal } from './DrivePickerModal';
 import Help from './Help';
 import PileAggregate from './PileAggregate';
 import PileAggregateCostChart from './PileAggregateCostChart';
+import SkillsChart from './SkillsChart';
 import SearchBar from './SearchBar';
 import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
@@ -485,36 +486,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           </div>
 
           <CollapsibleSection title="Personnel skills">
-            <PileAggregate
-              currentDeckRows={currentDeckRows}
-              characteristicName="skills"
-              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
-              splitFunction={(skills: string): Array<string> => skills.match(/(?:\d+ \w+|\w+)/g) || []}
-              assembleCounts={(counts, skillItem, rowcount) => {
-                let [, levelStr, skill] = skillItem.trim().match(/(\d*)\s*(\w+)/) || [null, null, null];
-                let count = levelStr ? Number(levelStr) : 1;
-
-                if (skillList.includes(skill)) {
-                  if (counts[skill] === undefined) {
-                    counts[skill] = {};
-                  }
-                  counts[skill][String(count)] = (counts[skill][String(count)] || 0) + rowcount;
-                }
-
-                return counts;
-              }}
-            >
-              {([skill, skillLevels]) => (
-                <div key={skill} className="m-2 p-2 border border-white/[0.06] rounded surface-hover">
-                  <div className="font-bold text-text-primary">{skill}</div>
-                  <div className="text-text-secondary">
-                    {skillLevels['1'] && <span className="px-1">{skillLevels['1']}x1</span>}
-                    {skillLevels['2'] && <span className="px-1">{skillLevels['2']}x2</span>}
-                    {skillLevels['3'] && <span className="px-1">{skillLevels['3']}x3</span>}
-                  </div>
-                </div>
-              )}
-            </PileAggregate>
+            <SkillsChart currentDeckRows={currentDeckRows} />
           </CollapsibleSection>
 
           <CollapsibleSection title="Keywords">
