@@ -114,13 +114,13 @@ export default function PracticeDrawPage() {
               >
                 {pile.length > 0 ? (
                   <>
-                    <img
-                      src="/cardimages/cardback.jpg"
-                      width={120}
-                      height={167}
-                      alt="Face-down draw pile"
-                      className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-28 h-auto"
-                    />
+                    <div className="w-28 h-[154px] rounded-lg overflow-hidden shadow-lg group-hover:shadow-accent/30 transition-shadow">
+                      <img
+                        src="/cardimages/cardback.jpg"
+                        alt="Face-down draw pile"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                     <span className="absolute -top-2 -right-2 bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
                       {pile.length}
                     </span>
@@ -159,13 +159,13 @@ export default function PracticeDrawPage() {
                       data-tooltip-id="practice-tooltip"
                       data-tooltip-content={card.name}
                     >
-                      <img
-                        src={`/cardimages/${card.imagefile}.jpg`}
-                        width={120}
-                        height={167}
-                        alt={card.name}
-                        className="rounded-lg shadow-md w-28 h-auto"
-                      />
+                      <div className="w-28 h-[154px] rounded-lg overflow-hidden shadow-md">
+                        <img
+                          src={`/cardimages/${card.imagefile}.jpg`}
+                          alt={card.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                     </button>
                   );
                 })}
