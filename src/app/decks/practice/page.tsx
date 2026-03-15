@@ -100,78 +100,83 @@ export default function PracticeDrawPage() {
       )}
 
       {!isEmpty && (
-        <div className="flex flex-col flex-1 p-4 gap-6">
-          {/* Pile */}
-          <div className="flex items-start gap-4">
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-sm text-text-muted font-medium">Draw Pile</span>
-              <button
-                onClick={drawOne}
-                disabled={pile.length === 0}
-                className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
-                data-tooltip-id="practice-tooltip"
-                data-tooltip-content={pile.length > 0 ? `${pile.length} card${pile.length !== 1 ? 's' : ''} remaining — click to draw` : 'Pile is empty'}
-              >
-                {pile.length > 0 ? (
-                  <>
-                    <img
-                      src="/cardimages/cardback.jpg"
-                      width={120}
-                      height={167}
-                      alt="Face-down draw pile"
-                      className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-28 h-auto"
-                    />
-                    <span className="absolute -top-2 -right-2 bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
-                      {pile.length}
-                    </span>
-                  </>
-                ) : (
-                  <div className="w-28 h-40 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
-                    Empty
-                  </div>
-                )}
-              </button>
-            </div>
-          </div>
+        <div className="flex flex-col flex-1 p-4">
+          {/* Future game elements go here */}
 
-          {/* Hand */}
-          {hand.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <span className="text-sm text-text-muted font-medium">Hand ({hand.length})</span>
-              <div className="relative flex" style={{ minHeight: '180px' }}>
-                {hand.map((card, idx) => {
-                  const isFocused = focusedCard === idx;
-                  const fanOffset = Math.min(44, Math.floor(320 / Math.max(hand.length, 1)));
-                  return (
-                    <button
-                      key={`${card.collectorsinfo}-${idx}`}
-                      className="absolute focus:outline-none transition-transform duration-150"
-                      style={{
-                        left: idx * fanOffset,
-                        zIndex: isFocused ? 100 : idx + 1,
-                        transform: isFocused ? 'translateY(-32px) scale(1.08)' : 'none',
-                      }}
-                      onMouseEnter={() => setFocusedCard(idx)}
-                      onMouseLeave={() => setFocusedCard(null)}
-                      onFocus={() => setFocusedCard(idx)}
-                      onBlur={() => setFocusedCard(null)}
-                      aria-label={card.name}
-                      data-tooltip-id="practice-tooltip"
-                      data-tooltip-content={card.name}
-                    >
+          {/* Draw Pile + Hand anchored to the bottom */}
+          <div className="mt-auto flex flex-col gap-6">
+            {/* Pile */}
+            <div className="flex items-start gap-4">
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-sm text-text-muted font-medium">Draw Pile</span>
+                <button
+                  onClick={drawOne}
+                  disabled={pile.length === 0}
+                  className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
+                  data-tooltip-id="practice-tooltip"
+                  data-tooltip-content={pile.length > 0 ? `${pile.length} card${pile.length !== 1 ? 's' : ''} remaining — click to draw` : 'Pile is empty'}
+                >
+                  {pile.length > 0 ? (
+                    <>
                       <img
-                        src={`/cardimages/${card.imagefile}.jpg`}
+                        src="/cardimages/cardback.jpg"
                         width={120}
                         height={167}
-                        alt={card.name}
-                        className="rounded-lg shadow-md w-28 h-auto"
+                        alt="Face-down draw pile"
+                        className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-28 h-auto"
                       />
-                    </button>
-                  );
-                })}
+                      <span className="absolute -top-2 -right-2 bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
+                        {pile.length}
+                      </span>
+                    </>
+                  ) : (
+                    <div className="w-28 h-40 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
+                      Empty
+                    </div>
+                  )}
+                </button>
               </div>
             </div>
-          )}
+
+            {/* Hand */}
+            {hand.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <span className="text-sm text-text-muted font-medium">Hand ({hand.length})</span>
+                <div className="relative flex" style={{ minHeight: '180px' }}>
+                  {hand.map((card, idx) => {
+                    const isFocused = focusedCard === idx;
+                    const fanOffset = Math.min(44, Math.floor(320 / Math.max(hand.length, 1)));
+                    return (
+                      <button
+                        key={`${card.collectorsinfo}-${idx}`}
+                        className="absolute focus:outline-none transition-transform duration-150"
+                        style={{
+                          left: idx * fanOffset,
+                          zIndex: isFocused ? 100 : idx + 1,
+                          transform: isFocused ? 'translateY(-32px) scale(1.08)' : 'none',
+                        }}
+                        onMouseEnter={() => setFocusedCard(idx)}
+                        onMouseLeave={() => setFocusedCard(null)}
+                        onFocus={() => setFocusedCard(idx)}
+                        onBlur={() => setFocusedCard(null)}
+                        aria-label={card.name}
+                        data-tooltip-id="practice-tooltip"
+                        data-tooltip-content={card.name}
+                      >
+                        <img
+                          src={`/cardimages/${card.imagefile}.jpg`}
+                          width={120}
+                          height={167}
+                          alt={card.name}
+                          className="rounded-lg shadow-md w-28 h-auto"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
