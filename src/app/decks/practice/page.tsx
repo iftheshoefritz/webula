@@ -145,11 +145,10 @@ export default function PracticeDrawPage() {
                   return (
                     <button
                       key={`${card.collectorsinfo}-${idx}`}
-                      className="absolute focus:outline-none transition-transform duration-150"
+                      className="absolute focus:outline-none transition-transform duration-150 hover:-translate-y-8 hover:scale-[1.08]"
                       style={{
                         left: idx * fanOffset,
                         zIndex: isFocused ? 100 : idx + 1,
-                        transform: isFocused ? 'translateY(-32px) scale(1.08)' : 'none',
                       }}
                       onMouseEnter={() => setFocusedCard(idx)}
                       onMouseLeave={() => setFocusedCard(null)}
