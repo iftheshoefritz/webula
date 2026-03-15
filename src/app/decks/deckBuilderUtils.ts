@@ -49,3 +49,24 @@ export const parsedDeck = (lines: Array<string>, data: Array<any>) => {
 export const deckFromTsv = (tsv: string, data: Array<any>) => (
   parsedDeck(tsv.trim().split('\n'), data)
 )
+
+export const expandDeck = (deck: import('../../types').Deck): any[] => {
+  const result: any[] = [];
+  for (const entry of Object.values(deck)) {
+    if (cardPileFor(entry.row) === 'draw') {
+      for (let i = 0; i < entry.count; i++) {
+        result.push(entry.row);
+      }
+    }
+  }
+  return result;
+}
+
+export const shuffleArray = <T>(arr: T[]): T[] => {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
