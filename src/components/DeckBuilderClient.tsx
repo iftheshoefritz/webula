@@ -17,7 +17,8 @@ import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, numericCount } from '../app/decks/deckBuilderUtils';
-import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar } from 'react-icons/fa';
+import Link from 'next/link';
+import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 
@@ -360,6 +361,15 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           >
             <FaFileExport />
           </button>
+          <Link
+            href="/decks/practice"
+            className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
+            data-tooltip-id="button-tooltip"
+            data-tooltip-content="Practice drawing from your draw pile"
+            aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
+          >
+            <FaPlayCircle />
+          </Link>
         </div>
         {!session && (
           <div className="flex justify-start space-x-2">
@@ -599,6 +609,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           <FaList className="text-base" />
           <span>Deck</span>
         </button>
+        <Link
+          href="/decks/practice"
+          className="flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors text-text-muted hover:text-text-primary"
+        >
+          <FaPlayCircle className="text-base" />
+          <span>Practice</span>
+        </Link>
       </div>
 
       {showDrivePicker && (

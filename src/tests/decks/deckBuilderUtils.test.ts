@@ -1,4 +1,4 @@
-import { aboveMinimumCount, belowMaximumCount, cardPileFor, deckFromTsv, decrementedRow, findExisting, findExistingOrUseRow, incrementedRow, numericCount, parsedDeck } from '../../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, cardPileFor, deckFromTsv, decrementedRow, expandDeck, findExisting, findExistingOrUseRow, incrementedRow, numericCount, parsedDeck, shuffleArray } from '../../app/decks/deckBuilderUtils';
 import { CardDef } from '../../types';
 
 describe('constructing a deck object based on TSV text and a list of all card data', () => {
@@ -209,6 +209,71 @@ describe('findExistingOrUseRow', () => {
   it('returns the input row if the existing row does not exist', () => {
     const row = {collectorsinfo: '1R000'}
     expect(findExistingOrUseRow({}, row)).toEqual(row)
+  })
+})
+
+describe('expandDeck', () => {
+  it('expands draw cards by their count', () => {
+    const deck = {
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw' }, count: 2 },
+    }
+    expect(expandDeck(deck).length).toEqual(2)
+  })
+
+  it('excludes mission cards', () => {
+    const deck = {
+      '1R000': { row: { collectorsinfo: '1R000', type: 'mission', pile: 'mission' }, count: 1 },
+    }
+    expect(expandDeck(deck).length).toEqual(0)
+  })
+
+  it('excludes dilemma cards', () => {
+    const deck = {
+      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemma' }, count: 3 },
+    }
+    expect(expandDeck(deck).length).toEqual(0)
+  })
+
+  it('expands multiple draw cards', () => {
+    const deck = {
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event' }, count: 2 },
+      '2C002': { row: { collectorsinfo: '2C002', type: 'personnel' }, count: 3 },
+    }
+    expect(expandDeck(deck).length).toEqual(5)
+  })
+
+  it('returns each copy as a reference to the row object', () => {
+    const row = { collectorsinfo: '2C001', type: 'event', name: 'My Card' }
+    const deck = { '2C001': { row, count: 2 } }
+    const result = expandDeck(deck)
+    expect(result[0]).toBe(row)
+    expect(result[1]).toBe(row)
+  })
+
+  it('returns an empty array for an empty deck', () => {
+    expect(expandDeck({})).toEqual([])
+  })
+})
+
+describe('shuffleArray', () => {
+  it('returns an array of the same length', () => {
+    const arr = [1, 2, 3, 4, 5]
+    expect(shuffleArray(arr).length).toEqual(5)
+  })
+
+  it('contains the same elements as the input', () => {
+    const arr = [1, 2, 3, 4, 5]
+    expect(shuffleArray(arr).sort()).toEqual([1, 2, 3, 4, 5])
+  })
+
+  it('does not mutate the original array', () => {
+    const arr = [1, 2, 3, 4, 5]
+    shuffleArray(arr)
+    expect(arr).toEqual([1, 2, 3, 4, 5])
+  })
+
+  it('returns an empty array when given an empty array', () => {
+    expect(shuffleArray([])).toEqual([])
   })
 })
 
