@@ -1,4 +1,3 @@
-import '../../styles/globals.css';
 import { loadCards } from '../../lib/loadCards';
 import DeckBuilderClient from '../../components/DeckBuilderClient';
 
