@@ -609,13 +609,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           <FaList className="text-base" />
           <span>Deck</span>
         </button>
-        <Link
-          href="/decks/practice"
-          className="flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors text-text-muted hover:text-text-primary"
-        >
-          <FaPlayCircle className="text-base" />
-          <span>Practice</span>
-        </Link>
       </div>
 
       {showDrivePicker && (
