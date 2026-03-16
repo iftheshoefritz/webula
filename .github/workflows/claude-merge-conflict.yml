@@ -1,0 +1,65 @@
+name: Claude Merge Conflict Resolution
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  resolve-merge-conflicts:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Check for merge conflicts
+        id: check-conflicts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+
+            // GitHub computes mergeability asynchronously; poll until it's resolved
+            let mergeable_state = 'unknown';
+            for (let i = 0; i < 10; i++) {
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+              mergeable_state = pr.mergeable_state;
+              if (mergeable_state !== 'unknown') break;
+              await new Promise(r => setTimeout(r, 3000));
+            }
+
+            core.setOutput('has_conflicts', mergeable_state === 'dirty' ? 'true' : 'false');
+            console.log(`mergeable_state: ${mergeable_state}`);
+
+      - name: Checkout repository
+        if: steps.check-conflicts.outputs.has_conflicts == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Run Claude Code to resolve conflicts
+        if: steps.check-conflicts.outputs.has_conflicts == 'true'
+        uses: anthropics/claude-code-action@v1.0.70
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Pull request #${{ github.event.pull_request.number }} ("${{ github.event.pull_request.title }}") has merge conflicts with the main branch.
+
+            Your job is to resolve those conflicts. Here's what to do:
+
+            1. Fetch the latest main branch: `git fetch origin main`
+            2. Identify all files with merge conflicts by attempting a merge: `git merge origin/main` (do not abort if it fails — that's expected)
+            3. For each conflicted file, carefully resolve the conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) by understanding both sides of the change and producing a correct, logical result that preserves the intent of both the PR branch and main.
+            4. Stage the resolved files with `git add`.
+            5. Complete the merge with `git commit -m "Resolve merge conflicts with main"`.
+            6. Push the result: `git push origin HEAD`.
+            7. Leave a comment on PR #${{ github.event.pull_request.number }} summarizing which files had conflicts and how they were resolved.
+
+            Be careful and precise when resolving conflicts. If a conflict is too ambiguous to resolve safely, leave a clear comment explaining what needs human review instead of guessing.
+          claude_args: "--max-turns 40 --dangerously-skip-permissions"
+          show_full_output: "true"
