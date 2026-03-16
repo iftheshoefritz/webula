@@ -182,7 +182,7 @@ function PracticeDrawContent() {
 
             {/* Hand */}
             {hand.length > 0 && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 flex-1">
                 <div className="relative flex" style={{ minHeight: '180px' }}>
                   {hand.map((card, idx) => {
                     const isFocused = focusedCard === idx;
