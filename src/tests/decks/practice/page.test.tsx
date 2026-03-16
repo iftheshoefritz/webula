@@ -501,14 +501,9 @@ describe('PracticeDrawPage', () => {
     expect(screen.getByText('Hand (3)')).toBeInTheDocument();
     expect(screen.getByText('7')).toBeInTheDocument();
 
-    // Click reset (the FaRedo button — it's the only button without text that follows "Draw to 7")
-    // Find by its tooltip content or find it as unlabeled button beside "Draw to 7"
-    const allButtons = screen.getAllByRole('button');
-    // The reset button is the one with no visible text (only an icon) in the controls bar
-    // It comes after the "Draw to 7" button
-    const resetButton = allButtons.find(
-      (btn) => btn.getAttribute('data-tooltip-content') === 'Shuffle all cards back and start over',
-    );
+    // Click reset (the button immediately after "Draw to 7" in the controls bar)
+    const drawTo7Button = screen.getByRole('button', { name: /draw to 7/i });
+    const resetButton = drawTo7Button.nextElementSibling as HTMLButtonElement | null;
     expect(resetButton).toBeTruthy();
 
     await act(async () => {

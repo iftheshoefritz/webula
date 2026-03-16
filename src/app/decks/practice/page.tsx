@@ -3,7 +3,6 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Tooltip } from 'react-tooltip';
 import { FaArrowLeft, FaRedo, FaLayerGroup, FaMobileAlt } from 'react-icons/fa';
 import { deckFromTsv, expandDeck, shuffleArray } from '../deckBuilderUtils';
 import { Deck } from '../../../types';
@@ -119,21 +118,16 @@ function PracticeDrawContent() {
 
       {/* Controls */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
-        <Tooltip id="practice-tooltip" />
         <button
           className="btn-icon"
           onClick={drawToSeven}
           disabled={pile.length === 0 || hand.length >= INITIAL_HAND_SIZE}
-          data-tooltip-id="practice-tooltip"
-          data-tooltip-content="Draw cards until you have 7 in hand"
         >
           Draw to 7
         </button>
         <button
           className="btn-icon"
           onClick={reset}
-          data-tooltip-id="practice-tooltip"
-          data-tooltip-content="Shuffle all cards back and start over"
         >
           <FaRedo />
         </button>
@@ -159,13 +153,10 @@ function PracticeDrawContent() {
             {/* Pile */}
             <div className="flex items-start gap-4">
               <div className="flex flex-col items-center gap-1">
-                <span className="text-sm text-text-muted font-medium">Draw Pile</span>
                 <button
                   onClick={drawOne}
                   disabled={pile.length === 0}
                   className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
-                  data-tooltip-id="practice-tooltip"
-                  data-tooltip-content={pile.length > 0 ? `${pile.length} card${pile.length !== 1 ? 's' : ''} remaining — click to draw` : 'Pile is empty'}
                 >
                   {pile.length > 0 ? (
                     <>
@@ -211,8 +202,6 @@ function PracticeDrawContent() {
                       onFocus={() => setFocusedCard(idx)}
                       onBlur={() => setFocusedCard(null)}
                       aria-label={card.name}
-                      data-tooltip-id="practice-tooltip"
-                      data-tooltip-content={card.name}
                     >
                       <img
                         src={`/cardimages/${card.imagefile}.jpg`}
