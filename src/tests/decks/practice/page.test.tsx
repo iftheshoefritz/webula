@@ -40,7 +40,7 @@ jest.mock('next/link', () => {
 });
 
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
@@ -58,6 +58,27 @@ const mockDeck = {
 const mockExpandedCards = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
 ];
+
+// A deck large enough to test draw mechanics (10 cards)
+const makeManyCards = (n: number) =>
+  Array.from({ length: n }, (_, i) => ({
+    collectorsinfo: `1U${String(i + 1).padStart(3, '0')}`,
+    originalName: `Card ${i + 1}`,
+    type: 'equipment',
+    name: `card ${i + 1}`,
+    imagefile: `card_${i + 1}`,
+    pile: 'draw',
+    count: 1,
+  }));
+
+const mockManyCards = makeManyCards(10);
+
+const mockManyDeck = Object.fromEntries(
+  mockManyCards.map((c) => [
+    c.collectorsinfo,
+    { count: 1, row: c },
+  ]),
+);
 
 describe('PracticeDrawPage', () => {
   beforeEach(() => {
@@ -237,5 +258,386 @@ describe('PracticeDrawPage', () => {
     });
 
     expect(screen.getByText('No draw cards in deck.')).toBeInTheDocument();
+  });
+
+  // Behaviour: Empty state NOT shown when a valid deck is loaded from localStorage
+  it('does not show empty state after a valid deck loads from localStorage', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    expect(screen.queryByText('No draw cards in deck.')).not.toBeInTheDocument();
+  });
+
+  // Behaviour: "Go to Deck Builder" link inside empty state points to /decks
+  it('renders "Go to Deck Builder" link inside empty state pointing to /decks', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const link = screen.getByRole('link', { name: /go to deck builder/i });
+    expect(link).toHaveAttribute('href', '/decks');
+  });
+
+  // Draw Mechanics: drawOne — clicking the pile reduces pile by 1 and adds to hand
+  it('drawOne: clicking the draw pile button reduces pile by 1 and adds a card to hand', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    // pile badge shows 10
+    expect(screen.getByText('10')).toBeInTheDocument();
+    // Hand label not shown yet
+    expect(screen.queryByText(/Hand \(/)).not.toBeInTheDocument();
+
+    // Click the draw pile button
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    await act(async () => {
+      fireEvent.click(drawPileButton);
+    });
+
+    // pile badge now shows 9
+    expect(screen.getByText('9')).toBeInTheDocument();
+    // Hand (1) label appears
+    expect(screen.getByText('Hand (1)')).toBeInTheDocument();
+  });
+
+  // Draw Mechanics: pile count badge shows remaining count
+  it('pile count badge shows correct count as cards are drawn', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    expect(screen.getByText('10')).toBeInTheDocument();
+
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+
+    for (let remaining = 9; remaining >= 7; remaining--) {
+      await act(async () => {
+        fireEvent.click(drawPileButton);
+      });
+      expect(screen.getByText(String(remaining))).toBeInTheDocument();
+    }
+  });
+
+  // Draw Mechanics: drawToSeven draws the correct number of cards
+  it('drawToSeven draws exactly enough cards to reach 7', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    // Draw 3 cards manually first
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        fireEvent.click(drawPileButton);
+      });
+    }
+    expect(screen.getByText('Hand (3)')).toBeInTheDocument();
+
+    // Click "Draw to 7"
+    const drawToSevenButton = screen.getByRole('button', { name: /draw to 7/i });
+    await act(async () => {
+      fireEvent.click(drawToSevenButton);
+    });
+
+    // Should have 7 in hand and 3 remaining in pile
+    expect(screen.getByText('Hand (7)')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  // Draw Mechanics: drawToSeven draws 0 cards when hand already has 7
+  it('drawToSeven draws 0 cards when hand already has 7', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    // Draw 7 manually
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    for (let i = 0; i < 7; i++) {
+      await act(async () => {
+        fireEvent.click(drawPileButton);
+      });
+    }
+    expect(screen.getByText('Hand (7)')).toBeInTheDocument();
+
+    // "Draw to 7" button should now be disabled
+    const drawToSevenButton = screen.getByRole('button', { name: /draw to 7/i });
+    expect(drawToSevenButton).toBeDisabled();
+  });
+
+  // Draw Mechanics: "Draw to 7" button disabled when pile is empty
+  it('"Draw to 7" button is disabled when pile is exhausted', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    // Only 1 card so pile empties after one draw
+    (expandDeck as jest.Mock).mockReturnValue([mockManyCards[0]]);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    await act(async () => {
+      fireEvent.click(drawPileButton);
+    });
+
+    // pile is now empty, "Draw to 7" should be disabled
+    const drawToSevenButton = screen.getByRole('button', { name: /draw to 7/i });
+    expect(drawToSevenButton).toBeDisabled();
+  });
+
+  // Draw Mechanics: draw pile button is disabled when pile is exhausted
+  it('draw pile button is disabled when pile is exhausted', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue([mockManyCards[0]]);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    await act(async () => {
+      fireEvent.click(drawPileButton);
+    });
+
+    // After drawing, pile is empty; the pile button (now the "Empty" placeholder button) should be disabled
+    const emptyButton = screen.getByRole('button', { name: /^empty$/i });
+    expect(emptyButton).toBeDisabled();
+  });
+
+  // UI State: after drawing all cards, pile renders the "Empty" placeholder
+  it('after drawing all cards, the pile shows the "Empty" placeholder', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue([mockManyCards[0]]);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    await act(async () => {
+      fireEvent.click(drawPileButton);
+    });
+
+    expect(screen.getByText('Empty')).toBeInTheDocument();
+    expect(screen.queryByAltText('Face-down draw pile')).not.toBeInTheDocument();
+  });
+
+  // UI State: hand renders drawn cards with correct images and aria-labels
+  it('hand renders drawn cards with correct aria-labels and images', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    await act(async () => {
+      fireEvent.click(drawPileButton);
+    });
+
+    // The first card from mockManyCards should be in hand
+    const cardButton = screen.getByRole('button', { name: 'card 1' });
+    expect(cardButton).toBeInTheDocument();
+    const cardImg = cardButton.querySelector('img');
+    expect(cardImg).toHaveAttribute('src', '/cardimages/card_1.jpg');
+  });
+
+  // Reset: restores pile and clears hand
+  it('clicking reset after drawing cards restores pile and clears hand', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    // Draw 3 cards
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        fireEvent.click(drawPileButton);
+      });
+    }
+    expect(screen.getByText('Hand (3)')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+
+    // Click reset (the FaRedo button — it's the only button without text that follows "Draw to 7")
+    // Find by its tooltip content or find it as unlabeled button beside "Draw to 7"
+    const allButtons = screen.getAllByRole('button');
+    // The reset button is the one with no visible text (only an icon) in the controls bar
+    // It comes after the "Draw to 7" button
+    const resetButton = allButtons.find(
+      (btn) => btn.getAttribute('data-tooltip-content') === 'Shuffle all cards back and start over',
+    );
+    expect(resetButton).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(resetButton!);
+    });
+
+    // Pile should be back to 10 and hand should be gone
+    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(screen.queryByText(/Hand \(/)).not.toBeInTheDocument();
+  });
+
+  // Orientation: RotateDeviceOverlay is rendered when matchMedia reports portrait
+  it('renders RotateDeviceOverlay when orientation is portrait', async () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: query === '(orientation: portrait)',
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    });
+
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    expect(screen.getByText('Rotate your device')).toBeInTheDocument();
+  });
+
+  // Orientation: simulating a MediaQueryListEvent with matches: true causes the overlay to appear
+  it('overlay appears when a portrait MediaQueryListEvent fires', async () => {
+    let capturedHandler: ((e: MediaQueryListEvent) => void) | null = null;
+
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn().mockImplementation((_event: string, handler: (e: MediaQueryListEvent) => void) => {
+          capturedHandler = handler;
+        }),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    });
+
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    // Initially landscape — overlay not shown
+    expect(screen.queryByText('Rotate your device')).not.toBeInTheDocument();
+
+    // Fire portrait event
+    await act(async () => {
+      capturedHandler!({ matches: true } as MediaQueryListEvent);
+    });
+
+    expect(screen.getByText('Rotate your device')).toBeInTheDocument();
+  });
+
+  // Orientation: screen.orientation.lock is called on mount
+  it('calls screen.orientation.lock("landscape") on mount', async () => {
+    const lockMock = jest.fn().mockResolvedValue(undefined);
+    const unlockMock = jest.fn();
+    Object.defineProperty(window.screen, 'orientation', {
+      value: { lock: lockMock, unlock: unlockMock },
+      writable: true,
+      configurable: true,
+    });
+
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    expect(lockMock).toHaveBeenCalledWith('landscape');
+  });
+
+  // Orientation: unlock and removeEventListener are called on unmount
+  it('calls screen.orientation.unlock and removeEventListener on unmount', async () => {
+    const lockMock = jest.fn().mockResolvedValue(undefined);
+    const unlockMock = jest.fn();
+    Object.defineProperty(window.screen, 'orientation', {
+      value: { lock: lockMock, unlock: unlockMock },
+      writable: true,
+      configurable: true,
+    });
+
+    const removeEventListener = jest.fn();
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener,
+        dispatchEvent: jest.fn(),
+      })),
+    });
+
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
+
+    let unmount: () => void;
+    await act(async () => {
+      ({ unmount } = render(<PracticeDrawPage />));
+    });
+
+    await act(async () => {
+      unmount!();
+    });
+
+    expect(unlockMock).toHaveBeenCalled();
+    expect(removeEventListener).toHaveBeenCalled();
   });
 });
