@@ -201,7 +201,7 @@ function PracticeDrawContent() {
                   return (
                     <button
                       key={`${card.collectorsinfo}-${idx}`}
-                      className="absolute focus:outline-none transition-transform duration-150 hover:-translate-y-8 hover:scale-[1.08]"
+                      className="absolute focus:outline-none transition-transform duration-150 hover:-translate-y-8 hover:scale-[1.5]"
                       style={{
                         left: idx * fanOffset,
                         zIndex: isFocused ? 100 : idx + 1,
