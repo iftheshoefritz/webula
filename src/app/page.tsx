@@ -1,5 +1,4 @@
 import { Suspense } from 'react';
-import '../styles/globals.css';
 import { loadCards } from '../lib/loadCards';
 import CardSearchClient from '../components/CardSearchClient';
 
