@@ -7,6 +7,10 @@ import { FaArrowLeft, FaRedo, FaLayerGroup, FaMobileAlt } from 'react-icons/fa';
 import { expandDeck, shuffleArray } from '../deckBuilderUtils';
 import { Deck } from '../../../types';
 
+interface ScreenOrientationWithLock extends ScreenOrientation {
+  lock?(orientation: string): Promise<void>;
+}
+
 const INITIAL_HAND_SIZE = 7;
 
 function RotateDeviceOverlay() {
@@ -52,11 +56,11 @@ export default function PracticeDrawPage() {
     const handler = (e: MediaQueryListEvent) => setIsPortrait(e.matches);
     mql.addEventListener('change', handler);
 
-    screen.orientation?.lock('landscape').catch(() => {});
+    (screen.orientation as ScreenOrientationWithLock)?.lock?.('landscape')?.catch(() => {});
 
     return () => {
       mql.removeEventListener('change', handler);
-      screen.orientation?.unlock();
+      (screen.orientation as ScreenOrientationWithLock)?.unlock?.();
     };
   }, []);
 
