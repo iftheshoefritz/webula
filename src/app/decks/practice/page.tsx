@@ -8,7 +8,7 @@ import { expandDeck, shuffleArray } from '../deckBuilderUtils';
 import { Deck } from '../../../types';
 
 interface ScreenOrientationWithLock extends ScreenOrientation {
-  lock?(orientation: OrientationLockType): Promise<void>;
+  lock?(orientation: string): Promise<void>;
 }
 
 const INITIAL_HAND_SIZE = 7;
@@ -56,7 +56,7 @@ export default function PracticeDrawPage() {
     const handler = (e: MediaQueryListEvent) => setIsPortrait(e.matches);
     mql.addEventListener('change', handler);
 
-    (screen.orientation as ScreenOrientationWithLock)?.lock?.('landscape').catch(() => {});
+    (screen.orientation as ScreenOrientationWithLock)?.lock?.('landscape')?.catch(() => {});
 
     return () => {
       mql.removeEventListener('change', handler);
