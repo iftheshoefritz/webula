@@ -52,11 +52,11 @@ export default function PracticeDrawPage() {
     const handler = (e: MediaQueryListEvent) => setIsPortrait(e.matches);
     mql.addEventListener('change', handler);
 
-    screen.orientation?.lock('landscape').catch(() => {});
+    (screen.orientation as any)?.lock?.('landscape')?.catch?.(() => {});
 
     return () => {
       mql.removeEventListener('change', handler);
-      screen.orientation?.unlock();
+      (screen.orientation as any)?.unlock?.();
     };
   }, []);
 
