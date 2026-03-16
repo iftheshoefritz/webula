@@ -311,8 +311,8 @@ describe('PracticeDrawPage', () => {
 
     // pile badge now shows 9
     expect(screen.getByText('9')).toBeInTheDocument();
-    // Hand (1) label appears
-    expect(screen.getByText('Hand (1)')).toBeInTheDocument();
+    // One card now in hand
+    expect(screen.getAllByRole('button', { name: /^card \d+$/i }).length).toBe(1);
   });
 
   // Draw Mechanics: pile count badge shows remaining count
@@ -356,7 +356,7 @@ describe('PracticeDrawPage', () => {
         fireEvent.click(drawPileButton);
       });
     }
-    expect(screen.getByText('Hand (3)')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^card \d+$/i }).length).toBe(3);
 
     // Click "Draw to 7"
     const drawToSevenButton = screen.getByRole('button', { name: /draw to 7/i });
@@ -365,7 +365,7 @@ describe('PracticeDrawPage', () => {
     });
 
     // Should have 7 in hand and 3 remaining in pile
-    expect(screen.getByText('Hand (7)')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^card \d+$/i }).length).toBe(7);
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
@@ -387,7 +387,7 @@ describe('PracticeDrawPage', () => {
         fireEvent.click(drawPileButton);
       });
     }
-    expect(screen.getByText('Hand (7)')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^card \d+$/i }).length).toBe(7);
 
     // "Draw to 7" button should now be disabled
     const drawToSevenButton = screen.getByRole('button', { name: /draw to 7/i });
@@ -498,7 +498,7 @@ describe('PracticeDrawPage', () => {
         fireEvent.click(drawPileButton);
       });
     }
-    expect(screen.getByText('Hand (3)')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^card \d+$/i }).length).toBe(3);
     expect(screen.getByText('7')).toBeInTheDocument();
 
     // Click reset (the button immediately after "Draw to 7" in the controls bar)
