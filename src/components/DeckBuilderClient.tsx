@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { track } from '@vercel/analytics';
+import { useSearchParams } from 'next/navigation';
 import useFilterData from '../hooks/useFilterData';
 import useLocalStorage from '../hooks/useLocalStorage';
 import DeckUploader from './DeckUploader';
@@ -16,11 +17,12 @@ import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
-import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, numericCount } from '../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, deckFromTsv, expandDeck, decrementedRow, findExistingOrUseRow, incrementedRow, numericCount } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
 import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
+import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
 
 const skillList = [
   'acquisition',
@@ -82,11 +84,17 @@ function CollapsibleSection({ title, children }: CollapsibleSectionProps) {
 }
 
 export default function DeckBuilderClient({ data, columns }: DeckBuilderClientProps) {
+  const searchParams = useSearchParams();
+  const isFixture = searchParams.get('fixture') === '1';
+
   const [searchQuery, setSearchQuery] = useState('');
   const filteredData = useFilterData(false, data, columns, searchQuery);
 
   const [browserDecks, setBrowserDecks] = useLocalStorage<Array<{ name: string; deck: Deck }>>('browserDecks', []);
-  const [currentDeck, setCurrentDeck] = useLocalStorage<Deck>('currentDeck', {});
+  const [localCurrentDeck, setLocalCurrentDeck] = useLocalStorage<Deck>('currentDeck', {});
+  const [fixtureCurrentDeck, setFixtureCurrentDeck] = useState<Deck>({});
+  const currentDeck = isFixture ? fixtureCurrentDeck : localCurrentDeck;
+  const setCurrentDeck = isFixture ? setFixtureCurrentDeck : setLocalCurrentDeck;
   const [deckTitle, setDeckTitle] = useLocalStorage<string>('deckTitle', '');
   const [deckFile, setDeckFile] = useLocalStorage<{ id: string | null; name: string }>('deckFile', { id: null, name: 'My deck' });
   const [driveFiles, setDriveFiles] = useState([]);
@@ -102,6 +110,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       setSession(isSessionExpired ? null : sessionFromNextAuth);
     })();
   }, []);
+
+  useEffect(() => {
+    if (!isFixture || data.length === 0) return;
+    setFixtureCurrentDeck(deckFromTsv(PRACTICE_DECK_TSV, data));
+  }, [data, isFixture]);
 
   useEffect(() => {
     console.log('currentDeck modified!');
@@ -362,7 +375,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <FaFileExport />
           </button>
           <Link
-            href="/decks/practice"
+            href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
             className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
             data-tooltip-id="button-tooltip"
             data-tooltip-content="Practice drawing from your draw pile"
