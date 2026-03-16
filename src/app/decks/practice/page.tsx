@@ -155,7 +155,7 @@ function PracticeDrawContent() {
           {/* Future game elements go here */}
 
           {/* Draw Pile + Hand anchored to the bottom */}
-          <div className="mt-auto flex flex-col gap-6">
+          <div className="mt-auto flex flex-row items-end gap-6">
             {/* Pile */}
             <div className="flex items-start gap-4">
               <div className="flex flex-col items-center gap-1">
@@ -190,42 +190,42 @@ function PracticeDrawContent() {
             </div>
 
             {/* Hand */}
-            {hand.length > 0 && (
-              <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 flex-1">
+              {hand.length > 0 && (
                 <span className="text-sm text-text-muted font-medium">Hand ({hand.length})</span>
-                <div className="relative flex" style={{ minHeight: '180px' }}>
-                  {hand.map((card, idx) => {
-                    const isFocused = focusedCard === idx;
-                    const fanOffset = Math.min(44, Math.floor(320 / Math.max(hand.length, 1)));
-                    return (
-                      <button
-                        key={`${card.collectorsinfo}-${idx}`}
-                        className="absolute focus:outline-none transition-transform duration-150 hover:-translate-y-8 hover:scale-[1.08]"
-                        style={{
-                          left: idx * fanOffset,
-                          zIndex: isFocused ? 100 : idx + 1,
-                        }}
-                        onMouseEnter={() => setFocusedCard(idx)}
-                        onMouseLeave={() => setFocusedCard(null)}
-                        onFocus={() => setFocusedCard(idx)}
-                        onBlur={() => setFocusedCard(null)}
-                        aria-label={card.name}
-                        data-tooltip-id="practice-tooltip"
-                        data-tooltip-content={card.name}
-                      >
-                        <img
-                          src={`/cardimages/${card.imagefile}.jpg`}
-                          width={120}
-                          height={167}
-                          alt={card.name}
-                          className="rounded-lg shadow-md w-28 h-auto"
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
+              )}
+              <div className="relative flex" style={{ minHeight: '180px' }}>
+                {hand.map((card, idx) => {
+                  const isFocused = focusedCard === idx;
+                  const fanOffset = Math.min(44, Math.floor(320 / Math.max(hand.length, 1)));
+                  return (
+                    <button
+                      key={`${card.collectorsinfo}-${idx}`}
+                      className="absolute focus:outline-none transition-transform duration-150 hover:-translate-y-8 hover:scale-[1.08]"
+                      style={{
+                        left: idx * fanOffset,
+                        zIndex: isFocused ? 100 : idx + 1,
+                      }}
+                      onMouseEnter={() => setFocusedCard(idx)}
+                      onMouseLeave={() => setFocusedCard(null)}
+                      onFocus={() => setFocusedCard(idx)}
+                      onBlur={() => setFocusedCard(null)}
+                      aria-label={card.name}
+                      data-tooltip-id="practice-tooltip"
+                      data-tooltip-content={card.name}
+                    >
+                      <img
+                        src={`/cardimages/${card.imagefile}.jpg`}
+                        width={120}
+                        height={167}
+                        alt={card.name}
+                        className="rounded-lg shadow-md w-28 h-auto"
+                      />
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
