@@ -4,22 +4,38 @@ import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Tooltip } from 'react-tooltip';
-import { FaArrowLeft, FaRedo, FaLayerGroup } from 'react-icons/fa';
+import { FaArrowLeft, FaRedo, FaLayerGroup, FaMobileAlt } from 'react-icons/fa';
 import { deckFromTsv, expandDeck, shuffleArray } from '../deckBuilderUtils';
 import { Deck } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 
+interface ScreenOrientationWithLock extends ScreenOrientation {
+  lock?(orientation: string): Promise<void>;
+}
+
 const INITIAL_HAND_SIZE = 7;
+
+function RotateDeviceOverlay() {
+  return (
+    <div className="fixed inset-0 z-50 bg-[#131713] flex flex-col items-center justify-center gap-4 text-text-primary">
+      <FaMobileAlt className="text-6xl text-text-muted" style={{ transform: 'rotate(90deg)' }} />
+      <p className="text-xl font-display font-medium">Rotate your device</p>
+      <p className="text-sm text-text-muted text-center px-8">
+        Rotate your device to landscape to use Practice Draw
+      </p>
+    </div>
+  );
+}
 
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
   const isFixture = searchParams.get('fixture') === '1';
   const { data, loading } = useDataFetching();
-
   const [pile, setPile] = useState<any[]>([]);
   const [hand, setHand] = useState<any[]>([]);
   const [focusedCard, setFocusedCard] = useState<number | null>(null);
+  const [isPortrait, setIsPortrait] = useState(false);
 
   const initDeck = () => {
     if (isFixture) {
@@ -50,6 +66,20 @@ function PracticeDrawContent() {
     initDeck();
   }, [data]);
 
+  useEffect(() => {
+    const mql = window.matchMedia('(orientation: portrait)');
+    setIsPortrait(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsPortrait(e.matches);
+    mql.addEventListener('change', handler);
+
+    (screen.orientation as ScreenOrientationWithLock)?.lock?.('landscape')?.catch(() => {});
+
+    return () => {
+      mql.removeEventListener('change', handler);
+      (screen.orientation as ScreenOrientationWithLock)?.unlock?.();
+    };
+  }, []);
+
   const drawOne = () => {
     if (pile.length === 0) return;
     const [top, ...rest] = pile;
@@ -70,6 +100,10 @@ function PracticeDrawContent() {
   };
 
   const isEmpty = pile.length === 0 && hand.length === 0;
+
+  if (isPortrait) {
+    return <RotateDeviceOverlay />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-page font-body text-text-primary flex flex-col">
