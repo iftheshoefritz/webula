@@ -521,7 +521,6 @@ export const SPECIES: string[] = [
 
 export function missionRequirements(card: { name: string; skills: string }): Record<string, number> {
   const count: Record<string, number> = {};
-  console.log("unparsed: " + card.name + " requirements is: " + card.skills);
   card.skills.split(',').forEach((token) => {
     var match = /(\d?)\s(\S+)/.exec(token);
     if (match !== null) {
@@ -530,7 +529,5 @@ export function missionRequirements(card: { name: string; skills: string }): Rec
       }
     }
   });
-  console.log("parsed: " + card.name + " requirements is: ");
-  console.log(count);
   return count;
 }
