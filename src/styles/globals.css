@@ -33,7 +33,7 @@
     @apply w-full
            bg-white/[0.05] border border-white/10 rounded-lg
            px-3.5 py-2.5
-           text-lg text-text-primary font-body
+           text-[16px] text-text-primary font-body
            placeholder:text-text-disabled
            focus:outline-none focus:border-accent/40;
   }
