@@ -26,9 +26,17 @@ export async function generateMetadata(
     ? `Webula – "${query}" (${count} card${count !== 1 ? 's' : ''})`
     : 'Webula – Star Trek CCG Card Search';
 
-  const description = query
-    ? `${count} card${count !== 1 ? 's' : ''} match "${query}" in Webula 2e search.`
-    : 'Search the Star Trek CCG card database.';
+  let description: string;
+  if (!query) {
+    description = 'Search the Star Trek CCG card database.';
+  } else if (count === 1) {
+    description = `1 card matches "${query}" in Webula 2e search.`;
+  } else {
+    const previewNames = results.slice(0, 3).map((c: any) => c.originalName);
+    const namesStr = previewNames.join(', ');
+    const suffix = count > 3 ? ` & more — search Webula 2e` : ` — search Webula 2e`;
+    description = `${count} cards: ${namesStr}${suffix}`;
+  }
 
   const imageUrl =
     count === 1
