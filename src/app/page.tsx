@@ -16,11 +16,11 @@ export async function generateMetadata(
   const count = results.length;
 
   const title = query
-    ? `Webula – "${query}" (${count} result${count !== 1 ? 's' : ''})`
+    ? `Webula – "${query}" (${count} card${count !== 1 ? 's' : ''})`
     : 'Webula – Star Trek CCG Card Search';
 
   const description = query
-    ? `${count} card${count !== 1 ? 's' : ''} match "${query}" in the Star Trek CCG database.`
+    ? `${count} card${count !== 1 ? 's' : ''} match "${query}" in Webula 2e search.`
     : 'Search the Star Trek CCG card database.';
 
   const imageUrl =
@@ -34,7 +34,7 @@ export async function generateMetadata(
     openGraph: {
       title,
       description,
-      images: [{ url: imageUrl }],
+      images: [{ url: imageUrl, width: count === 1 ? 357 : 1200, height: count === 1 ? 497 : 630 }],
       siteName: 'Webula',
     },
     twitter: {
