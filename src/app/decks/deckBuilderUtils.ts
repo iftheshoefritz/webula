@@ -31,10 +31,9 @@ export const parsedDeck = (lines: Array<string>, data: Array<any>) => {
   const deck = {}
   for (const line of lines) {
     const [qty, uploadCardName] = line.split('\t').map((x) => x.trim())
-    const card = data.find((row: CardDef) =>  row.originalName === uploadCardName)
-    if (card) {
-      card.count = parseInt(qty);
-      card.pile = cardPileFor(card);
+    const found = data.find((row: CardDef) =>  row.originalName === uploadCardName)
+    if (found) {
+      const card = { ...found, count: parseInt(qty), pile: cardPileFor(found) };
       deck[card.collectorsinfo] = {
         count: parseInt(qty),
         row: card
@@ -55,7 +54,7 @@ export const expandDeck = (deck: import('../../types').Deck): any[] => {
   for (const entry of Object.values(deck)) {
     if (cardPileFor(entry.row) === 'draw') {
       for (let i = 0; i < entry.count; i++) {
-        result.push(entry.row);
+        result.push({ ...entry.row });
       }
     }
   }
