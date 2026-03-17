@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import * as d3 from 'd3';
 import { track as originalTrack } from '@vercel/analytics';
 
+const nonFilterColumns = ['ImageFile'];
+
 const useDataFetching = () => {
   const track = (eventName: string) => {
     if (typeof window !== 'undefined') {
@@ -14,7 +16,6 @@ const useDataFetching = () => {
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [columns, setColumns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const nonFilterColumns = ['ImageFile'];
 
   useEffect(() => {
     console.log(`useEffect ${nonFilterColumns}`);
