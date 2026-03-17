@@ -34,7 +34,7 @@ export async function generateMetadata(
     openGraph: {
       title,
       description,
-      images: [{ url: imageUrl, width: count === 1 ? 357 : 1200, height: count === 1 ? 497 : 630 }],
+      images: [count === 1 ? { url: imageUrl } : { url: imageUrl, width: 1200, height: 630 }],
       siteName: 'Webula',
     },
     twitter: {
