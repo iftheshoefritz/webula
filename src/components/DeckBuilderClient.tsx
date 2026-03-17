@@ -17,7 +17,8 @@ import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
-import { aboveMinimumCount, belowMaximumCount, deckFromTsv, expandDeck, decrementedRow, findExistingOrUseRow, incrementedRow, numericCount } from '../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, deckFromTsv, expandDeck, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount } from '../app/decks/deckBuilderUtils';
+import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
 import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
@@ -171,17 +172,19 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setDeckFile({ id: null, name: 'My deck' });
   };
 
-  const handleFileLoad = (name: string, contents: string) => {
+  const handleFileLoad = (name: string, contents: string, piles?: DeckPile[]) => {
     track('deckBuilder.handleFileLoad.start');
 
-    setCurrentDeck(deckFromTsv(contents, data));
-    if (name) {
+    const incoming = deckFromTsv(contents, data);
+    const next = piles ? mergeDeckPiles(currentDeck, incoming, piles) : incoming;
+    setCurrentDeck(next);
+    if (name && !piles) {
       setDeckTitle(name.replace('.txt', ''));
     }
     track('deckBuilder.handleFileLoad.finish', { lines: Object.keys(currentDeck).length });
   };
 
-  const fetchDriveFile = async (driveFile: { id: string; name: string }) => {
+  const fetchDriveFile = async (driveFile: { id: string; name: string }, piles?: DeckPile[]) => {
     track('deckBuilder.driveFileLoad.start');
     console.log('id from modal', driveFile.id);
     setLoadingFromGDrive(true);
@@ -189,8 +192,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     const json = await response.json();
     console.log(`fetched ${driveFile.id} `, json);
 
-    setDeckFile(driveFile);
-    handleFileLoad(driveFile.name, json);
+    if (!piles) setDeckFile(driveFile);
+    handleFileLoad(driveFile.name, json, piles);
     setLoadingFromGDrive(false);
     setShowDrivePicker(false);
     track('deckBuilder.driveFileLoad.end');
@@ -630,9 +633,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           browserFiles={browserDecks}
           loadDriveFile={fetchDriveFile}
           deleteDriveFile={deleteDriveFile}
-          loadBrowserFile={(file) => {
-            setCurrentDeck(file.deck);
-            setDeckTitle(file.name);
+          loadBrowserFile={(file, piles) => {
+            if (piles) {
+              setCurrentDeck(mergeDeckPiles(currentDeck, file.deck, piles));
+            } else {
+              setCurrentDeck(file.deck);
+              setDeckTitle(file.name);
+            }
           }}
           deleteBrowserFile={deleteBrowserFile}
           inProgress={loadingFromGDrive}
