@@ -62,6 +62,18 @@ export const expandDeck = (deck: import('../../types').Deck): any[] => {
   return result;
 }
 
+export type DeckPile = 'mission' | 'dilemma' | 'draw';
+
+export function mergeDeckPiles(current: import('../../types').Deck, incoming: import('../../types').Deck, piles: DeckPile[]): import('../../types').Deck {
+  const kept = Object.fromEntries(
+    Object.entries(current).filter(([, v]) => !piles.includes(cardPileFor(v.row) as DeckPile))
+  );
+  const added = Object.fromEntries(
+    Object.entries(incoming).filter(([, v]) => piles.includes(cardPileFor(v.row) as DeckPile))
+  );
+  return { ...kept, ...added };
+}
+
 export const shuffleArray = <T>(arr: T[]): T[] => {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {

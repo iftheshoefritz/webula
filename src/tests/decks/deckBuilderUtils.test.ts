@@ -1,4 +1,4 @@
-import { aboveMinimumCount, belowMaximumCount, cardPileFor, deckFromTsv, decrementedRow, expandDeck, findExisting, findExistingOrUseRow, incrementedRow, numericCount, parsedDeck, shuffleArray } from '../../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, cardPileFor, deckFromTsv, decrementedRow, expandDeck, findExisting, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount, parsedDeck, shuffleArray } from '../../app/decks/deckBuilderUtils';
 import { CardDef } from '../../types';
 
 describe('constructing a deck object based on TSV text and a list of all card data', () => {
@@ -276,6 +276,68 @@ describe('shuffleArray', () => {
     expect(shuffleArray([])).toEqual([])
   })
 })
+
+describe('mergeDeckPiles', () => {
+  const missionCard = { collectorsinfo: 'M1', type: 'mission', originalName: 'Mission 1', pile: 'mission', count: 1, name: 'Mission 1', dilemmatype: '', imagefile: '', unique: 'n', mission: 'S' };
+  const dilemmaCard = { collectorsinfo: 'D1', type: 'dilemma', originalName: 'Dilemma 1', pile: 'dilemma', count: 2, name: 'Dilemma 1', dilemmatype: 'planet', imagefile: '', unique: 'n', mission: '' };
+  const drawCard = { collectorsinfo: 'P1', type: 'personnel', originalName: 'Personnel 1', pile: 'draw', count: 3, name: 'Personnel 1', dilemmatype: '', imagefile: '', unique: 'n', mission: '' };
+
+  const currentDeck = {
+    M1: { count: 1, row: missionCard },
+    D1: { count: 2, row: dilemmaCard },
+    P1: { count: 3, row: drawCard },
+  };
+
+  const newMission = { ...missionCard, collectorsinfo: 'M2', originalName: 'Mission 2', name: 'Mission 2' };
+  const newDilemma = { ...dilemmaCard, collectorsinfo: 'D2', originalName: 'Dilemma 2', name: 'Dilemma 2' };
+  const newDraw = { ...drawCard, collectorsinfo: 'P2', originalName: 'Personnel 2', name: 'Personnel 2' };
+
+  const incomingDeck = {
+    M2: { count: 1, row: newMission },
+    D2: { count: 1, row: newDilemma },
+    P2: { count: 2, row: newDraw },
+  };
+
+  it('loading only dilemmas replaces dilemmas and keeps missions + draw', () => {
+    const result = mergeDeckPiles(currentDeck, incomingDeck, ['dilemma']);
+    expect(result['M1']).toBeDefined();
+    expect(result['P1']).toBeDefined();
+    expect(result['D2']).toBeDefined();
+    expect(result['D1']).toBeUndefined();
+    expect(result['M2']).toBeUndefined();
+    expect(result['P2']).toBeUndefined();
+  });
+
+  it('loading only draw replaces draw and keeps missions + dilemmas', () => {
+    const result = mergeDeckPiles(currentDeck, incomingDeck, ['draw']);
+    expect(result['M1']).toBeDefined();
+    expect(result['D1']).toBeDefined();
+    expect(result['P2']).toBeDefined();
+    expect(result['P1']).toBeUndefined();
+    expect(result['M2']).toBeUndefined();
+    expect(result['D2']).toBeUndefined();
+  });
+
+  it('loading only missions replaces missions and keeps dilemmas + draw', () => {
+    const result = mergeDeckPiles(currentDeck, incomingDeck, ['mission']);
+    expect(result['D1']).toBeDefined();
+    expect(result['P1']).toBeDefined();
+    expect(result['M2']).toBeDefined();
+    expect(result['M1']).toBeUndefined();
+    expect(result['D2']).toBeUndefined();
+    expect(result['P2']).toBeUndefined();
+  });
+
+  it('loading multiple piles replaces those piles and keeps the rest', () => {
+    const result = mergeDeckPiles(currentDeck, incomingDeck, ['mission', 'dilemma']);
+    expect(result['P1']).toBeDefined();
+    expect(result['M2']).toBeDefined();
+    expect(result['D2']).toBeDefined();
+    expect(result['M1']).toBeUndefined();
+    expect(result['D1']).toBeUndefined();
+    expect(result['P2']).toBeUndefined();
+  });
+});
 
 const cardFixture = (overrides = {}): CardDef => ({
   collectorsinfo: '1R000',

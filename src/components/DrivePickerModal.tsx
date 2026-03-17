@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { FaTrash, FaFolderOpen } from 'react-icons/fa';
 import { Deck } from '../types';
+import { DeckPile } from '../app/decks/deckBuilderUtils';
 
 interface File {
   name: string
@@ -10,12 +11,26 @@ interface File {
 type PickerProps = {
   browserFiles: Array<File>
   driveFiles: Array<any>
-  loadDriveFile: (file: any) => void
+  loadDriveFile: (file: any, piles?: DeckPile[]) => void
   deleteDriveFile: (file: any) => void
-  loadBrowserFile: (file: File) => void
+  loadBrowserFile: (file: File, piles?: DeckPile[]) => void
   deleteBrowserFile: (file: File) => void
   inProgress: boolean
   onClose: () => void
+}
+
+type LoadMode = 'full' | 'mission' | 'dilemma' | 'draw';
+
+const PILE_OPTIONS: { value: LoadMode; label: string }[] = [
+  { value: 'full', label: 'Full deck' },
+  { value: 'mission', label: 'Missions only' },
+  { value: 'dilemma', label: 'Dilemmas only' },
+  { value: 'draw', label: 'Draw pile only' },
+];
+
+function pilesForMode(mode: LoadMode): DeckPile[] | undefined {
+  if (mode === 'full') return undefined;
+  return [mode as DeckPile];
 }
 
 export const DrivePickerModal: React.FC<PickerProps> = ({
@@ -28,12 +43,18 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   inProgress,
   onClose,
 }) => {
-  const handleDriveFileSelect = (file) => loadDriveFile(file)
+  const [browserLoadModes, setBrowserLoadModes] = useState<Record<string, LoadMode>>({});
+  const [driveLoadModes, setDriveLoadModes] = useState<Record<string, LoadMode>>({});
+
+  const handleDriveFileSelect = (file: { id: string; name: string }) => {
+    const mode = driveLoadModes[file.id] ?? 'full';
+    loadDriveFile(file, pilesForMode(mode));
+  };
   const handleDriveFileDelete = (file) => deleteDriveFile(file)
   const handleBrowserFileDelete = (file) => deleteBrowserFile(file)
-  const handleBrowserFileSelect = (file) => {
-    console.log('file', file)
-    loadBrowserFile(file)
+  const handleBrowserFileSelect = (file: File) => {
+    const mode = browserLoadModes[file.name] ?? 'full';
+    loadBrowserFile(file, pilesForMode(mode));
   }
   return (
     <div className="fixed inset-0 z-10 overflow-y-auto">
@@ -59,7 +80,16 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                 {!inProgress && browserFiles.map((file) => (
                   <tr key={file.name} className="border border-white/10 text-text-primary" >
                     <td><span className="px-3">{file.name}</span></td>
-                    <td className="flex justify-end">
+                    <td className="flex justify-end items-center">
+                      <select
+                        className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
+                        value={browserLoadModes[file.name] ?? 'full'}
+                        onChange={(e) => setBrowserLoadModes((prev) => ({ ...prev, [file.name]: e.target.value as LoadMode }))}
+                      >
+                        {PILE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
                       <button
                         type="button"
                         className="ml-auto text-text-primary hover:text-text-secondary font-bold py-1"
@@ -89,7 +119,16 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                 {!inProgress && driveFiles.map((file: {id: string, name: string}) => (
                   <tr key={file.id} className="border border-white/10 text-text-primary" >
                     <td><span className="px-3">{file.name}</span></td>
-                    <td className="flex justify-end">
+                    <td className="flex justify-end items-center">
+                      <select
+                        className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
+                        value={driveLoadModes[file.id] ?? 'full'}
+                        onChange={(e) => setDriveLoadModes((prev) => ({ ...prev, [file.id]: e.target.value as LoadMode }))}
+                      >
+                        {PILE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
                       <button
                         type="button"
                         className="ml-auto text-text-primary hover:text-text-secondary font-bold py-1"
