@@ -71,6 +71,7 @@ describe('useDataFetching', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mockFetch).toHaveBeenCalledWith('/cards_with_processed_columns.txt');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it('parses TSV into card rows', async () => {
