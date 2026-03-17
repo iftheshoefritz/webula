@@ -200,8 +200,6 @@ function PracticeDrawContent() {
                         onFocus={() => setFocusedCard(idx)}
                         onBlur={() => setFocusedCard(null)}
                         aria-label={card.name}
-                        data-tooltip-id="practice-tooltip"
-                        data-tooltip-content={card.name}
                       >
                         <img
                           src={`/cardimages/${card.imagefile}.jpg`}

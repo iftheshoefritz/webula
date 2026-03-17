@@ -19,11 +19,6 @@ jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   shuffleArray: jest.fn((arr) => arr),
 }));
 
-// Mock react-tooltip to avoid jsdom noise
-jest.mock('react-tooltip', () => ({
-  Tooltip: () => null,
-}));
-
 // Mock react-icons to avoid jsdom noise
 jest.mock('react-icons/fa', () => ({
   FaArrowLeft: () => null,
