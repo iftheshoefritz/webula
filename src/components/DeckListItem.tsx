@@ -88,14 +88,17 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
           className="absolute left-0 z-50"
           style={imageStyle}
         >
-          <img
-            src={`/cardimages/${imagefile}.jpg`}
-            alt={name}
-            width={288}
-            height={400}
-            loading="lazy"
-            className="z-50"
-          />
+          <div className="relative">
+            <img
+              src={`/cardimages/${imagefile}.jpg`}
+              alt={name}
+              width={288}
+              height={400}
+              loading="lazy"
+              className="rounded-xl block"
+            />
+            <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
+          </div>
         </div>
       )}
     </li>
