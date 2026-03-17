@@ -70,6 +70,14 @@ describe('constructing a deck object based on TSV lines and a list of all card d
     const deck = parsedDeck(lines, data)
     expect(Object.keys(deck).length).toEqual(2)
   })
+
+  it('does not mutate the original data objects', () => {
+    const original = { collectorsinfo: '1R000', originalName: 'Card 1', type: 'mission' }
+    const data = [{ ...original }]
+    parsedDeck(['2\tCard 1'], data)
+    expect((data[0] as any).count).toBeUndefined()
+    expect((data[0] as any).pile).toBeUndefined()
+  })
 })
 
 describe('incrementedRow', () => {
@@ -242,12 +250,15 @@ describe('expandDeck', () => {
     expect(expandDeck(deck).length).toEqual(5)
   })
 
-  it('returns each copy as a reference to the row object', () => {
+  it('returns each copy as an independent object with the same data', () => {
     const row = { collectorsinfo: '2C001', type: 'event', name: 'My Card' }
     const deck = { '2C001': { row, count: 2 } }
     const result = expandDeck(deck)
-    expect(result[0]).toBe(row)
-    expect(result[1]).toBe(row)
+    expect(result[0]).toEqual(row)
+    expect(result[1]).toEqual(row)
+    expect(result[0]).not.toBe(row)
+    expect(result[1]).not.toBe(row)
+    expect(result[0]).not.toBe(result[1])
   })
 
   it('returns an empty array for an empty deck', () => {
