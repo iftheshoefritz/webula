@@ -521,13 +521,16 @@ export const SPECIES: string[] = [
 
 export function missionRequirements(card: { name: string; skills: string }): Record<string, number> {
   const count: Record<string, number> = {};
-  card.skills.split(',').forEach((token) => {
-    var match = /(\d?)\s(\S+)/.exec(token);
-    if (match !== null) {
-      if (SKILLS.includes(match[2])) {
-        count[match[2]] = (count[match[2]] || 0) + (match[1] ? parseInt(match[1]) : 1);
-      }
+  const skillsLower = new Set(SKILLS.map(s => s.toLowerCase()));
+  // Scan all words in the skills string; handle optional numeric prefix (e.g. "2 Biology")
+  const pattern = /(\d+\s+)?([a-zA-Z]+)/g;
+  let match;
+  while ((match = pattern.exec(card.skills)) !== null) {
+    const skillLower = match[2].toLowerCase();
+    if (skillsLower.has(skillLower)) {
+      const n = match[1] ? parseInt(match[1].trim()) : 1;
+      count[skillLower] = (count[skillLower] || 0) + n;
     }
-  });
+  }
   return count;
 }
