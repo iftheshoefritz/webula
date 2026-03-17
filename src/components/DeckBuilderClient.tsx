@@ -18,6 +18,7 @@ import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, deckFromTsv, expandDeck, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount } from '../app/decks/deckBuilderUtils';
+import { missionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
 import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle } from 'react-icons/fa';
@@ -312,6 +313,20 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       .filter((row) => row.count > 0);
   }, [currentDeck]);
 
+  const aggregatedMissionReqs = useMemo(() => {
+    const totals: Record<string, number> = {};
+    currentDeckRows
+      .filter((row) => row.pile === 'mission')
+      .forEach((row) => {
+        const reqs = missionRequirements(row);
+        Object.entries(reqs).forEach(([skill, n]) => {
+          const key = skill.toLowerCase();
+          totals[key] = (totals[key] || 0) + (n as number);
+        });
+      });
+    return totals;
+  }, [currentDeckRows]);
+
   // activeView controls which panel is shown in the desktop left panel
   const [activeView, setActiveView] = useState<'search' | 'deck'>('deck');
   // mobileView controls which full-page view is shown on mobile
@@ -512,7 +527,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           </div>
 
           <CollapsibleSection title="Personnel skills">
-            <SkillsChart currentDeckRows={currentDeckRows} />
+            <SkillsChart currentDeckRows={currentDeckRows} missionRequirements={aggregatedMissionReqs} />
           </CollapsibleSection>
 
           <CollapsibleSection title="Keywords">

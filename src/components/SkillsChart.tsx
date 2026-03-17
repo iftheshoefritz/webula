@@ -30,9 +30,10 @@ const skillList = [
 
 interface SkillsChartProps {
   currentDeckRows: any[];
+  missionRequirements?: Record<string, number>;
 }
 
-export default function SkillsChart({ currentDeckRows }: SkillsChartProps) {
+export default function SkillsChart({ currentDeckRows, missionRequirements }: SkillsChartProps) {
   const skillCounts = useMemo(() => {
     const counts: Record<string, number> = {};
 
@@ -53,26 +54,66 @@ export default function SkillsChart({ currentDeckRows }: SkillsChartProps) {
       .sort((a, b) => b.count - a.count || a.skill.localeCompare(b.skill));
   }, [currentDeckRows]);
 
-  if (skillCounts.length === 0) {
+  const hasMissionReqs = missionRequirements && Object.keys(missionRequirements).length > 0;
+
+  // Collect skills that are required but absent from draw pile
+  const missionOnlySkills = useMemo(() => {
+    if (!hasMissionReqs) return [];
+    const drawSkills = new Set(skillCounts.map((s) => s.skill));
+    return Object.keys(missionRequirements!)
+      .filter((skill) => !drawSkills.has(skill) && skillList.includes(skill))
+      .map((skill) => ({ skill, count: 0 }));
+  }, [skillCounts, missionRequirements, hasMissionReqs]);
+
+  const allSkills = [...skillCounts, ...missionOnlySkills];
+
+  if (allSkills.length === 0) {
     return null;
   }
 
-  const max = skillCounts[0].count;
+  const maxCount = skillCounts.length > 0 ? skillCounts[0].count : 0;
+  const maxReq = hasMissionReqs
+    ? Math.max(...Object.values(missionRequirements!))
+    : 0;
+  const max = Math.max(maxCount, maxReq, 1);
 
   return (
     <div className="space-y-1 px-2 py-1">
-      {skillCounts.map(({ skill, count }) => (
-        <div key={skill} className="flex items-center gap-2 text-sm">
-          <span className="w-28 capitalize text-text-primary">{skill}</span>
-          <div className="flex flex-1 h-3 rounded overflow-hidden bg-white/10">
-            <div
-              className="bg-blue-500/70 h-full"
-              style={{ width: `${(count / max) * 100}%` }}
-            />
-          </div>
-          <span className="w-6 text-right text-text-secondary">{count}</span>
+      {hasMissionReqs && (
+        <div className="flex gap-4 text-xs text-text-secondary mb-2">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-3 rounded-sm bg-blue-500/70" />
+            Personnel skills
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-0.5 h-3 bg-amber-400" />
+            Mission required
+          </span>
         </div>
-      ))}
+      )}
+      {allSkills.map(({ skill, count }) => {
+        const req = missionRequirements?.[skill];
+        return (
+          <div key={skill} className="flex items-center gap-2 text-sm">
+            <span className="w-28 capitalize text-text-primary">{skill}</span>
+            <div className="relative flex flex-1 h-3 rounded overflow-hidden bg-white/10">
+              {count > 0 && (
+                <div
+                  className="bg-blue-500/70 h-full"
+                  style={{ width: `${(count / max) * 100}%` }}
+                />
+              )}
+              {req !== undefined && (
+                <div
+                  className="absolute top-0 h-full w-0.5 bg-amber-400"
+                  style={{ left: `${(req / max) * 100}%` }}
+                />
+              )}
+            </div>
+            <span className="w-6 text-right text-text-secondary">{count > 0 ? count : ''}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
