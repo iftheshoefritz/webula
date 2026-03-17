@@ -4,7 +4,14 @@ import { loadCards } from '../lib/loadCards';
 import { filterCards } from '../lib/filterCards';
 import CardSearchClient from '../components/CardSearchClient';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://webula.app';
+// On Vercel preview deployments, NEXT_PUBLIC_BASE_URL (from .env.production) is always
+// 'https://webula.app', so OG image URLs would point to production rather than the preview
+// host where the images actually live. Use VERCEL_URL (set automatically per-deployment)
+// for previews so Discord can fetch the card images from the correct host.
+const BASE_URL =
+  process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : (process.env.NEXT_PUBLIC_BASE_URL ?? 'https://webula.app');
 
 export async function generateMetadata(
   { searchParams }: { searchParams: Promise<{ q?: string }> }
