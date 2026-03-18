@@ -12,7 +12,6 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
-    "@vercel/analytics": "^1.1.1",
     "autoprefixer": "^10.4.14",
     "chart.js": "^4.3.2",
     "d3": "^7.8.4",
@@ -24,6 +23,7 @@
     "next": "14.2.35",
     "next-auth": "^4.24.5",
     "postcss": "^8.4.21",
+    "posthog-js": "^1.362.0",
     "react": "18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "18.2.0",

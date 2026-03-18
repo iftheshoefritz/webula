@@ -1,14 +1,14 @@
 // hooks/useDataFetching.js
 import { useState, useEffect } from 'react';
 import * as d3 from 'd3';
-import { track as originalTrack } from '@vercel/analytics';
+import posthog from 'posthog-js';
 
 const nonFilterColumns = ['ImageFile'];
 
 const useDataFetching = () => {
   const track = (eventName: string) => {
     if (typeof window !== 'undefined') {
-      originalTrack(eventName);
+      posthog.capture(eventName);
     }
   };
   const [data, setData] = useState<any[]>([]);

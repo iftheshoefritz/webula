@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { textColumns, rangeColumns } from '../lib/constants';
 import { debounce } from 'lodash';
-import { track } from '@vercel/analytics';
 
 interface SearchBarProps {
   searchQuery: string;
