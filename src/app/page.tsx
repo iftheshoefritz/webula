@@ -20,26 +20,27 @@ export async function generateMetadata(
   const query = params.q ?? '';
   const { data, columns } = loadCards();
   const results = query ? filterCards(data, columns, query) : data;
-  const count = results.length;
+  const uniqueTitles = [...new Set(results.map((c: any) => c.originalName))];
+  const uniqueCount = uniqueTitles.length;
 
   const title = query
-    ? `Webula – "${query}" (${count} card${count !== 1 ? 's' : ''})`
+    ? `Webula – "${query}" (${uniqueCount} card${uniqueCount !== 1 ? 's' : ''})`
     : 'Webula – Star Trek CCG Card Search';
 
   let description: string;
   if (!query) {
     description = 'Search the Star Trek CCG card database.';
-  } else if (count === 1) {
+  } else if (uniqueCount === 1) {
     description = `1 card matches "${query}" in Webula 2e search.`;
   } else {
-    const previewNames = results.slice(0, 3).map((c: any) => c.originalName);
+    const previewNames = uniqueTitles.slice(0, 3);
     const namesStr = previewNames.join(', ');
-    const suffix = count > 3 ? ` & more — search Webula 2e` : ` — search Webula 2e`;
-    description = `${count} cards: ${namesStr}${suffix}`;
+    const suffix = uniqueCount > 3 ? ` & more — search Webula 2e` : ` — search Webula 2e`;
+    description = `${uniqueCount} cards: ${namesStr}${suffix}`;
   }
 
   const imageUrl =
-    count === 1
+    uniqueCount === 1
       ? `${BASE_URL}/cardimages/${results[0].imagefile}.jpg`
       : `${BASE_URL}/og-default.png`;
 
@@ -49,11 +50,11 @@ export async function generateMetadata(
     openGraph: {
       title,
       description,
-      images: [count === 1 ? { url: imageUrl, width: 357, height: 497 } : { url: imageUrl, width: 1200, height: 630 }],
+      images: [uniqueCount === 1 ? { url: imageUrl, width: 357, height: 497 } : { url: imageUrl, width: 1200, height: 630 }],
       siteName: 'Webula',
     },
     twitter: {
-      card: count === 1 ? 'summary_large_image' : 'summary',
+      card: uniqueCount === 1 ? 'summary_large_image' : 'summary',
       title,
       description,
       images: [imageUrl],
