@@ -145,7 +145,7 @@ describe('useDataFetching', () => {
       const { result } = renderHook(() => useDataFetching());
 
       await waitFor(() => expect(result.current.data.length).toBeGreaterThan(0));
-      expect(result.current.data[0].mission).toBe('');
+      expect(result.current.data[0].missiontype).toBe('');
     });
 
     it('preserves mission field for Mission cards', async () => {
@@ -155,7 +155,7 @@ describe('useDataFetching', () => {
       const { result } = renderHook(() => useDataFetching());
 
       await waitFor(() => expect(result.current.data.length).toBeGreaterThan(0));
-      expect(result.current.data[0].mission).toBe('planet');
+      expect(result.current.data[0].missiontype).toBe('planet');
     });
 
     it('clears dilemmatype field for non-Dilemma cards', async () => {

@@ -9,7 +9,7 @@ export interface CardData {
   name: string;
   type: string;
   originalName: string;
-  mission: string;
+  missiontype: string;
   unique: string;
   [key: string]: string | number;
 }
@@ -53,7 +53,8 @@ export function parseCardData(text: string): { data: CardData[]; columns: string
 
   const dataWithSeparatedTypes = dataWithSingleImageFile.map((row) => {
     const type = (row.type as string).toLowerCase();
-    if (type !== 'mission')  row.mission     = '';
+    row.missiontype = type === 'mission' ? (row.mission as string) : '';
+    delete (row as Record<string, unknown>).mission;
     if (type !== 'dilemma')  row.dilemmatype = '';
     return row;
   });

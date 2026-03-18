@@ -1,5 +1,5 @@
 export const textColumns: string[] = [
-  'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'mission', 'dilemmatype',
+  'name', 'set', 'rarity', 'unique', 'collectorsinfo', 'type', 'missiontype', 'dilemmatype',
   'quadrant', 'affiliation', 'icons', 'staff', 'keywords', 'class', 'species', 'skills',
   'gametext', 'hof', 'reportsto'
 ];
@@ -11,7 +11,7 @@ export const textAbbreviations: Record<string, string> = {
   'unique': 'u',
   'collectorsinfo': 'ci',
   'type': 'ty',
-  'mission': 'mt',
+  'missiontype': 'mt',
   'dilemmatype': 'dt',
   'quadrant': 'q',
   'affiliation': 'a',
