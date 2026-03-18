@@ -93,7 +93,6 @@ When asked to fix or update an existing pull request:
 
 If you do not have permission to push to the original branch:
 1. Create a new branch based on the original PR's branch (NOT from main).
-   Example: `git checkout -b fix/<short-description> origin/<original-branch>`
 2. Commit your changes there.
 3. Open a new PR targeting the original PR's branch as the base (not main).
 4. Describe the new PR as a fix/follow-up for the original PR number.
