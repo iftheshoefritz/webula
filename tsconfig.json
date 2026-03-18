@@ -23,7 +23,8 @@
         "name": "next"
       }
     ],
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "target": "es2015"
   },
   "include": [
     "next-env.d.ts",
