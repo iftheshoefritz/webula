@@ -448,7 +448,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         cardsForPile={currentDeckRows.filter((row) => row.pile === 'mission')}
         incrementIncluded={incrementIncluded}
         decrementIncluded={decrementIncluded}
-        sortBy={(r1: CardDef, r2: CardDef) => compare(r1.mission, r2.mission)}
+        sortBy={(r1: CardDef, r2: CardDef) => compare(r1.missiontype, r2.missiontype)}
       />
       <DeckListPile
         pileName="Dilemmas"

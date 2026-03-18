@@ -35,13 +35,13 @@ describe('parseCardData mission/dilemmatype normalization', () => {
   it('clears mission field for non-Mission cards', () => {
     const tsv = buildTsv([{ ...baseRow, Type: 'Personnel', Mission: 'planet' }]);
     const { data } = parseCardData(tsv);
-    expect(data[0].mission).toBe('');
+    expect(data[0].missiontype).toBe('');
   });
 
   it('preserves mission field for Mission cards', () => {
     const tsv = buildTsv([{ ...baseRow, Type: 'Mission', Mission: 'planet' }]);
     const { data } = parseCardData(tsv);
-    expect(data[0].mission).toBe('planet');
+    expect(data[0].missiontype).toBe('planet');
   });
 
   it('clears dilemmatype field for non-Dilemma cards', () => {

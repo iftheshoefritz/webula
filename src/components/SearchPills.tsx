@@ -26,7 +26,7 @@ function getFilterIconSrc(key: string, value: string): string | null {
     case 'affiliation': return AFFILIATION_ICONS[value.toLowerCase()] ?? null;
     case 'icons': return CARD_ICON_IMAGES[value.toLowerCase()] ?? null;
     case 'dilemmatype': return DILEMMA_TYPE_ICONS[value.toLowerCase()] ?? null;
-    case 'mission': return MISSION_TYPE_ICONS[value.toLowerCase()] ?? null;
+    case 'missiontype': return MISSION_TYPE_ICONS[value.toLowerCase()] ?? null;
     default: return null;
   }
 }
@@ -46,7 +46,7 @@ function getOptionIconSrc(field: string, value: string): string | null {
     case 'affiliation': return AFFILIATION_ICONS[value.toLowerCase()] ?? null;
     case 'icons': return CARD_ICON_IMAGES[value.toLowerCase()] ?? null;
     case 'dilemmatype': return DILEMMA_TYPE_ICONS[value.toLowerCase()] ?? null;
-    case 'mission': return MISSION_TYPE_ICONS[value.toLowerCase()] ?? null;
+    case 'missiontype': return MISSION_TYPE_ICONS[value.toLowerCase()] ?? null;
     default: return null;
   }
 }
@@ -88,7 +88,7 @@ const SIMPLE_TYPEAHEAD_CONFIGS: Record<string, SimpleTypeaheadConfig> = {
   staff: { field: 'staff', title: 'Select Staff', options: STAFF_OPTIONS, placeholder: 'Search staff...', noMatchText: 'No staff options match' },
   hof: { field: 'hof', title: 'Select Hall of Fame', options: HOF_OPTIONS, placeholder: 'Search...', noMatchText: 'No options match' },
   unique: { field: 'unique', title: 'Select Unique', options: UNIQUE_OPTIONS, placeholder: 'Search...', noMatchText: 'No options match' },
-  mission: { field: 'mission', title: 'Select Mission Type', options: MISSION_OPTIONS, placeholder: 'Search mission types...', noMatchText: 'No mission types match' },
+  missiontype: { field: 'missiontype', title: 'Select Mission Type', options: MISSION_OPTIONS, placeholder: 'Search mission types...', noMatchText: 'No mission types match' },
   dilemmatype: { field: 'dilemmatype', title: 'Select Dilemma Type', options: DILEMMA_TYPES, placeholder: 'Search dilemma types...', noMatchText: 'No dilemma types match' },
   icons: { field: 'icons', title: 'Select an Icon', options: ICONS, placeholder: 'Search icons...', noMatchText: 'No icons match' },
   keywords: { field: 'keywords', title: 'Select a Keyword', options: KEYWORDS, placeholder: 'Search keywords...', noMatchText: 'No keywords match' },
