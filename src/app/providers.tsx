@@ -2,7 +2,7 @@
 import { SessionProvider } from "next-auth/react";
 import posthog from 'posthog-js';
 import { PostHogProvider } from 'posthog-js/react';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import PostHogPageView from '../components/PostHogPageView';
 
 function PostHogInit({ children }: { children: React.ReactNode }) {
@@ -19,7 +19,9 @@ function PostHogInit({ children }: { children: React.ReactNode }) {
 
   return (
     <PostHogProvider client={posthog}>
-      <PostHogPageView />
+      <Suspense fallback={null}>
+        <PostHogPageView />
+      </Suspense>
       {children}
     </PostHogProvider>
   );
