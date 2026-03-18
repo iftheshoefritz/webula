@@ -78,3 +78,22 @@ The script:
 3. Overwrites the `SHIP_CLASSES` and `SPECIES` constant blocks in `src/lib/missionRequirements.ts`
 
 The script is idempotent — safe to re-run after every card data update.
+
+## Fixing Existing PRs
+
+When asked to fix or update an existing pull request:
+1. Check out the PR's existing branch (do NOT create a new branch from main).
+2. Make targeted changes on top of the existing commits.
+3. Run `yarn test` and fix any failures.
+4. Commit with a message like `fix: <short description> (follow-up for #<pr-number>)`.
+5. Push to the same branch — this will update the open PR automatically.
+6. Do NOT open a new PR unless explicitly asked.
+
+### Fallback: no push permission to the original branch
+
+If you do not have permission to push to the original branch:
+1. Create a new branch based on the original PR's branch (NOT from main).
+   Example: `git checkout -b fix/<short-description> origin/<original-branch>`
+2. Commit your changes there.
+3. Open a new PR targeting the original PR's branch as the base (not main).
+4. Describe the new PR as a fix/follow-up for the original PR number.
