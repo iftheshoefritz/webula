@@ -136,4 +136,46 @@ describe('useDataFetching', () => {
     expect(result.current.data[0].originalName).toBe('Jean-Luc Picard');
     expect(result.current.data[0].name).toBe('jean-luc picard');
   });
+
+  describe('mission/dilemmatype field normalization', () => {
+    it('clears mission field for non-Mission cards', async () => {
+      const tsv = buildTsv([{ ...baseRow, Type: 'Personnel', Mission: 'planet', DilemmaType: '' }]);
+      global.fetch = jest.fn().mockResolvedValue({ text: async () => tsv } as any);
+
+      const { result } = renderHook(() => useDataFetching());
+
+      await waitFor(() => expect(result.current.data.length).toBeGreaterThan(0));
+      expect(result.current.data[0].mission).toBe('');
+    });
+
+    it('preserves mission field for Mission cards', async () => {
+      const tsv = buildTsv([{ ...baseRow, Type: 'Mission', Mission: 'planet', DilemmaType: '' }]);
+      global.fetch = jest.fn().mockResolvedValue({ text: async () => tsv } as any);
+
+      const { result } = renderHook(() => useDataFetching());
+
+      await waitFor(() => expect(result.current.data.length).toBeGreaterThan(0));
+      expect(result.current.data[0].mission).toBe('planet');
+    });
+
+    it('clears dilemmatype field for non-Dilemma cards', async () => {
+      const tsv = buildTsv([{ ...baseRow, Type: 'Mission', Mission: 'planet', DilemmaType: 'planet' }]);
+      global.fetch = jest.fn().mockResolvedValue({ text: async () => tsv } as any);
+
+      const { result } = renderHook(() => useDataFetching());
+
+      await waitFor(() => expect(result.current.data.length).toBeGreaterThan(0));
+      expect(result.current.data[0].dilemmatype).toBe('');
+    });
+
+    it('preserves dilemmatype field for Dilemma cards', async () => {
+      const tsv = buildTsv([{ ...baseRow, Type: 'Dilemma', Mission: '', DilemmaType: 'planet' }]);
+      global.fetch = jest.fn().mockResolvedValue({ text: async () => tsv } as any);
+
+      const { result } = renderHook(() => useDataFetching());
+
+      await waitFor(() => expect(result.current.data.length).toBeGreaterThan(0));
+      expect(result.current.data[0].dilemmatype).toBe('planet');
+    });
+  });
 });

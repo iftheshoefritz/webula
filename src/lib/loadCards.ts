@@ -16,7 +16,7 @@ export interface CardData {
 
 const nonFilterColumns = ['ImageFile'];
 
-function parseCardData(text: string): { data: CardData[]; columns: string[] } {
+export function parseCardData(text: string): { data: CardData[]; columns: string[] } {
   const parsedData = d3.tsvParse(text);
 
   const formattedData = parsedData.map((row) => {
@@ -51,12 +51,19 @@ function parseCardData(text: string): { data: CardData[]; columns: string[] } {
     return row;
   });
 
+  const dataWithSeparatedTypes = dataWithSingleImageFile.map((row) => {
+    const type = (row.type as string).toLowerCase();
+    if (type !== 'mission')  row.mission     = '';
+    if (type !== 'dilemma')  row.dilemmatype = '';
+    return row;
+  });
+
   const columns = parsedData.length > 0
     ? Object.keys(parsedData[0]).map((key) => key.toLowerCase())
     : [];
 
   return {
-    data: dataWithSingleImageFile as CardData[],
+    data: dataWithSeparatedTypes as CardData[],
     columns
   };
 }

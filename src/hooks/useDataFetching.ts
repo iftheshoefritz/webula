@@ -63,7 +63,13 @@ const useDataFetching = () => {
         row.imagefile = imageFile.split(',')[0];
         return row
       })
-      setData(dataWithSingleImageFile);
+      const dataWithSeparatedTypes = dataWithSingleImageFile.map((row) => {
+        const type = (row.type as string).toLowerCase();
+        if (type !== 'mission')  row.mission     = '';
+        if (type !== 'dilemma')  row.dilemmatype = '';
+        return row;
+      });
+      setData(dataWithSeparatedTypes);
       setFilteredData(formattedData);
 
       // Extract column names
