@@ -20,7 +20,7 @@ export async function generateMetadata(
   const query = params.q ?? '';
   const { data, columns } = loadCards();
   const results = query ? filterCards(data, columns, query) : data;
-  const uniqueTitles = [...new Set(results.map((c: any) => c.originalName))];
+  const uniqueTitles = [...new Set(results.map((c: any) => c.originalName.replace(/\s+\*VP$/i, '')))];
   const uniqueCount = uniqueTitles.length;
 
   const title = query
