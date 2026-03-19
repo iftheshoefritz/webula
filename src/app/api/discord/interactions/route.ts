@@ -5,7 +5,7 @@ import { filterCards } from '../../../../lib/filterCards';
 const BASE_URL =
   process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
-    : (process.env.NEXT_PUBLIC_BASE_URL ?? 'https://webula.app');
+    : (process.env.NEXT_PUBLIC_BASE_URL ?? 'https://webula.vercel.app');
 
 // Discord interaction types
 const INTERACTION_TYPE_PING = 1;
