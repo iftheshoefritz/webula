@@ -1,4 +1,3 @@
-import { Analytics } from '@vercel/analytics/react';
 import { Providers } from './providers'
 import '../styles/globals.css';
 import type { Metadata } from 'next';
@@ -30,7 +29,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <Providers>
           {children}
         </Providers>
-        <Analytics />
       </body>
     </html>
   );

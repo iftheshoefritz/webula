@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { track } from '@vercel/analytics';
+import posthog from 'posthog-js';
 import { filterCards } from '../lib/filterCards';
 
 type CardRow = Record<string, any>;
@@ -13,7 +13,7 @@ const useFilterData = (loading: boolean, data: CardRow[], columns: string[], sea
     const filtered = filterCards(data, columns, searchQuery);
 
     if (JSON.stringify(filtered) !== JSON.stringify(filteredData)) {
-      track('deckBuilder.setFiltered', {q: searchQuery})
+      posthog.capture('deckBuilder.setFiltered', {q: searchQuery})
       setFilteredData(filtered);
     }
   }, [searchQuery, columns, data]);

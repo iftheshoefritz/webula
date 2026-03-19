@@ -1,4 +1,4 @@
-import { track } from '@vercel/analytics'
+import posthog from 'posthog-js'
 import { CardDef } from "../../types"
 
 export const numericCount = (withPotentialCount?: {count?: number}): number => ( withPotentialCount?.count ?? 0 )
@@ -39,7 +39,7 @@ export const parsedDeck = (lines: Array<string>, data: Array<any>) => {
         row: card
       }
     } else {
-      track('deckBuilder.handleFileLoad.unknownCard', {card: uploadCardName})
+      posthog.capture('deckBuilder.handleFileLoad.unknownCard', {card: uploadCardName})
     }
   }
   return deck

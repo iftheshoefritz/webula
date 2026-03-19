@@ -1,6 +1,7 @@
-// Mock @vercel/analytics so tests don't hit the network
-jest.mock('@vercel/analytics', () => ({
-  track: jest.fn(),
+// Mock posthog-js so tests don't hit the network
+jest.mock('posthog-js', () => ({
+  __esModule: true,
+  default: { capture: jest.fn(), init: jest.fn() },
 }));
 
 // Mock d3 (ESM module — not transformable by default Jest config)

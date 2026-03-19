@@ -1,8 +1,11 @@
 import { renderHook, act } from '@testing-library/react';
 import useFilterData from '../../hooks/useFilterData';
 
-// Mock @vercel/analytics
-jest.mock('@vercel/analytics', () => ({ track: jest.fn() }));
+// Mock posthog-js
+jest.mock('posthog-js', () => ({
+  __esModule: true,
+  default: { capture: jest.fn(), init: jest.fn() },
+}));
 
 const makeCard = (overrides = {}) => ({
   collectorsinfo: '1R001',

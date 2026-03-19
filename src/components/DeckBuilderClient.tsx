@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { track } from '@vercel/analytics';
+import posthog from 'posthog-js';
 import { useSearchParams } from 'next/navigation';
 import useFilterData from '../hooks/useFilterData';
 import useLocalStorage from '../hooks/useLocalStorage';
@@ -174,7 +174,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   };
 
   const handleFileLoad = (name: string, contents: string, piles?: DeckPile[]) => {
-    track('deckBuilder.handleFileLoad.start');
+    posthog.capture('deckBuilder.handleFileLoad.start');
 
     const incoming = deckFromTsv(contents, data);
     const next = piles ? mergeDeckPiles(currentDeck, incoming, piles) : incoming;
@@ -182,11 +182,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     if (name && !piles) {
       setDeckTitle(name.replace('.txt', ''));
     }
-    track('deckBuilder.handleFileLoad.finish', { lines: Object.keys(currentDeck).length });
+    posthog.capture('deckBuilder.handleFileLoad.finish', { lines: Object.keys(currentDeck).length });
   };
 
   const fetchDriveFile = async (driveFile: { id: string; name: string }, piles?: DeckPile[]) => {
-    track('deckBuilder.driveFileLoad.start');
+    posthog.capture('deckBuilder.driveFileLoad.start');
     console.log('id from modal', driveFile.id);
     setLoadingFromGDrive(true);
     const response = await fetch(`/api/drive/${driveFile.id}`, { method: 'GET', credentials: 'include' });
@@ -197,16 +197,16 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     handleFileLoad(driveFile.name, json, piles);
     setLoadingFromGDrive(false);
     setShowDrivePicker(false);
-    track('deckBuilder.driveFileLoad.end');
+    posthog.capture('deckBuilder.driveFileLoad.end');
   };
 
   const deleteDriveFile = async (file: { id: number }) => {
-    track('deckBuilder.driveFileDelete.start');
+    posthog.capture('deckBuilder.driveFileDelete.start');
     console.log('file', file);
     console.log('id from modal', file.id);
     setDriveFiles(driveFiles.filter((f: { id: number }) => f.id !== file.id));
     await fetch(`/api/drive/${file.id}`, { method: 'DELETE', credentials: 'include' });
-    track('deckBuilder.driveFileDelete.end');
+    posthog.capture('deckBuilder.driveFileDelete.end');
   };
 
   const deleteBrowserFile = (file: { name: string }) => {
@@ -289,7 +289,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   };
 
   const exportLackeyDeckToDisk = () => {
-    track('deckBuilder.lackeyExport.start');
+    posthog.capture('deckBuilder.lackeyExport.start');
 
     const tsvString = createLackeyTSV();
     const blob = new Blob([tsvString], { type: 'text/tab-separated-values' });
@@ -304,7 +304,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     document.body.removeChild(a);
 
     URL.revokeObjectURL(url);
-    track('deckBuilder.lackeyExport.finish', { bytes: tsvString.length });
+    posthog.capture('deckBuilder.lackeyExport.finish', { bytes: tsvString.length });
   };
 
   const currentDeckRows = useMemo(() => {
