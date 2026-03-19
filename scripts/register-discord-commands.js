@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * One-time script to register the /card slash command with Discord.
+ * One-time script to register the /card2e slash command with Discord.
  *
  * Usage:
  *   DISCORD_APPLICATION_ID=<app-id> DISCORD_BOT_TOKEN=<bot-token> node scripts/register-discord-commands.js
@@ -27,7 +27,7 @@ if (!APPLICATION_ID || !BOT_TOKEN) {
 
 const commands = [
   {
-    name: 'card',
+    name: 'card2e',
     description: 'Search for ST2e cards',
     options: [
       {
@@ -72,7 +72,7 @@ async function registerCommands() {
   }
 
   console.log('');
-  console.log('Done. The /card command is now available globally (may take up to 1 hour to propagate).');
+  console.log('Done. The /card2e command is now available globally (may take up to 1 hour to propagate).');
 }
 
 registerCommands().catch((err) => {

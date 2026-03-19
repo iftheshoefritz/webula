@@ -75,10 +75,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ type: RESPONSE_TYPE_PONG });
   }
 
-  // Handle /card slash command
+  // Handle /card2e slash command
   if (interaction.type === INTERACTION_TYPE_APPLICATION_COMMAND) {
     const commandName = interaction.data?.name;
-    if (commandName === 'card') {
+    if (commandName === 'card2e') {
       const query: string = interaction.data?.options?.find(
         (o: { name: string }) => o.name === 'query',
       )?.value ?? '';
