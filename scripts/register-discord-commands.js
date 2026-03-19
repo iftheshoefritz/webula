@@ -28,7 +28,7 @@ if (!APPLICATION_ID || !BOT_TOKEN) {
 const commands = [
   {
     name: 'card',
-    description: 'Look up a Star Trek CCG card',
+    description: 'Search for ST2e cards',
     options: [
       {
         name: 'query',
