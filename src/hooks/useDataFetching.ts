@@ -6,11 +6,6 @@ import posthog from 'posthog-js';
 const nonFilterColumns = ['ImageFile'];
 
 const useDataFetching = () => {
-  const track = (eventName: string) => {
-    if (typeof window !== 'undefined') {
-      posthog.capture(eventName);
-    }
-  };
   const [data, setData] = useState<any[]>([]);
   const [unparsedData, setUnparsedData] = useState('')
   const [filteredData, setFilteredData] = useState<any[]>([]);
@@ -20,10 +15,10 @@ const useDataFetching = () => {
   useEffect(() => {
     console.log(`useEffect ${nonFilterColumns}`);
     const fetchData = async () => {
-      track('useDataFetch.fetchCardsStart');
+      posthog.capture('useDataFetch.fetchCardsStart');
       console.log('fetchData');
       const response = await fetch('/cards_with_processed_columns.txt');
-      track('useDataFetch.fetchCardsFinish');
+      posthog.capture('useDataFetch.fetchCardsFinish');
       const text = await response.text();
       setUnparsedData(text);
       setLoading(false);
@@ -33,7 +28,7 @@ const useDataFetching = () => {
 
   useEffect(() => {
     if (!loading) {
-      track('useDataFetch.parseDataStart');
+      posthog.capture('useDataFetch.parseDataStart');
       const parsedData = d3.tsvParse(unparsedData);
       const formattedData = parsedData.map((row) => {
         const newRow = Object.fromEntries(
@@ -77,10 +72,10 @@ const useDataFetching = () => {
       if (parsedData.length > 0) {
         setColumns(Object.keys(parsedData[0]).map((key) => key.toLowerCase()));
       }
+      posthog.capture('useDataFetching.parseDataFinish');
     }
   }, [unparsedData])
 
-  track('useDataFetching.parseDataFinish');
   return { data, filteredData, setFilteredData, columns, loading };
 };
 
