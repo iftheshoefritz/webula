@@ -92,7 +92,7 @@ describe('POST /api/discord/interactions', () => {
     (filterCards as jest.Mock).mockReturnValue([]);
     const req = makeInteractionRequest({
       type: 2,
-      data: { name: 'card', options: [{ name: 'query', value: 'name:nobody' }] },
+      data: { name: 'card2e', options: [{ name: 'query', value: 'name:nobody' }] },
     });
     const res = await POST(req);
     const body = await res.json();
@@ -105,7 +105,7 @@ describe('POST /api/discord/interactions', () => {
     (filterCards as jest.Mock).mockReturnValue([makeCard('Jean-Luc Picard', 'picard')]);
     const req = makeInteractionRequest({
       type: 2,
-      data: { name: 'card', options: [{ name: 'query', value: 'name:picard' }] },
+      data: { name: 'card2e', options: [{ name: 'query', value: 'name:picard' }] },
     });
     const res = await POST(req);
     const body = await res.json();
@@ -121,7 +121,7 @@ describe('POST /api/discord/interactions', () => {
     (filterCards as jest.Mock).mockReturnValue([makeCard('No Image Card', '')]);
     const req = makeInteractionRequest({
       type: 2,
-      data: { name: 'card', options: [{ name: 'query', value: 'name:noimage' }] },
+      data: { name: 'card2e', options: [{ name: 'query', value: 'name:noimage' }] },
     });
     const res = await POST(req);
     const body = await res.json();
@@ -134,7 +134,7 @@ describe('POST /api/discord/interactions', () => {
     (filterCards as jest.Mock).mockReturnValue(cards);
     const req = makeInteractionRequest({
       type: 2,
-      data: { name: 'card', options: [{ name: 'query', value: 'type:personnel' }] },
+      data: { name: 'card2e', options: [{ name: 'query', value: 'type:personnel' }] },
     });
     const res = await POST(req);
     const body = await res.json();
