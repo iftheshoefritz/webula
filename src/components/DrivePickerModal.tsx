@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FaTrash, FaFolderOpen, FaSignInAlt } from 'react-icons/fa';
+import { FaTrash, FaFolderOpen, FaSignInAlt, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { Deck } from '../types';
 import { DeckPile } from '../app/decks/deckBuilderUtils';
 
@@ -49,6 +49,8 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
 }) => {
   const [browserLoadModes, setBrowserLoadModes] = useState<Record<string, LoadMode>>({});
   const [driveLoadModes, setDriveLoadModes] = useState<Record<string, LoadMode>>({});
+  const [browserOpen, setBrowserOpen] = useState(true);
+  const [driveOpen, setDriveOpen] = useState(true);
 
   const handleDriveFileSelect = (file: { id: string; name: string }) => {
     const mode = driveLoadModes[file.id] ?? 'full';
@@ -75,69 +77,30 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
               <span className="text-2xl">&times;</span>
             </button>
           </div>
-          <div className="max-h-96 overflow-y-auto">
-            <table className="table-auto w-full border-collapse">
-              <thead><tr><td className="text-text-secondary">This Browser</td></tr></thead>
-              <tbody>
-                <tr><td className="text-text-primary">{inProgress && <p>please wait...</p>}</td></tr>
-                <tr><td className="text-text-primary">{!inProgress && browserFiles.length === 0 && <p>no files found</p>}</td></tr>
-                {!inProgress && browserFiles.map((file) => (
-                  <tr key={file.name} className="border border-white/10 text-text-primary" >
-                    <td><span className="px-3">{file.name}</span></td>
-                    <td className="flex justify-end items-center">
-                      <select
-                        className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
-                        value={browserLoadModes[file.name] ?? 'full'}
-                        onChange={(e) => setBrowserLoadModes((prev) => ({ ...prev, [file.name]: e.target.value as LoadMode }))}
-                      >
-                        {PILE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        className="ml-auto text-text-primary hover:text-text-secondary font-bold py-1"
-                        onClick={() => handleBrowserFileSelect(file)}
-                      >
-                        <FaFolderOpen/>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleBrowserFileDelete(file)}
-                        className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
-                      >
-                        <FaTrash/>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="max-h-96 overflow-y-auto">
-            <table className="table-auto w-full border-collapse">
-              <thead className="text-text-secondary">Google Drive</thead>
-              <tbody>
-                {!isSignedIn ? (
-                  <tr>
-                    <td className="text-text-primary py-2 px-3">
-                      <button className="btn-icon" onClick={onSignIn}>
-                        <FaSignInAlt className="inline mr-2" />Sign in with Google to load Drive decks
-                      </button>
-                    </td>
-                  </tr>
-                ) : (
-                  <>
+          <div>
+            <button
+              type="button"
+              className="flex items-center gap-2 w-full text-left text-text-secondary py-1"
+              onClick={() => setBrowserOpen((o) => !o)}
+              aria-expanded={browserOpen}
+            >
+              {browserOpen ? <FaChevronUp /> : <FaChevronDown />}
+              This Browser
+            </button>
+            {browserOpen && (
+              <div className="max-h-64 overflow-y-auto">
+                <table className="table-auto w-full border-collapse">
+                  <tbody>
                     <tr><td className="text-text-primary">{inProgress && <p>please wait...</p>}</td></tr>
-                    <tr><td className="text-text-primary">{!inProgress && driveFiles.length === 0 && <p>no files found</p>}</td></tr>
-                    {!inProgress && driveFiles.map((file: {id: string, name: string}) => (
-                      <tr key={file.id} className="border border-white/10 text-text-primary" >
+                    <tr><td className="text-text-primary">{!inProgress && browserFiles.length === 0 && <p>no files found</p>}</td></tr>
+                    {!inProgress && browserFiles.map((file) => (
+                      <tr key={file.name} className="border border-white/10 text-text-primary" >
                         <td><span className="px-3">{file.name}</span></td>
                         <td className="flex justify-end items-center">
                           <select
                             className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
-                            value={driveLoadModes[file.id] ?? 'full'}
-                            onChange={(e) => setDriveLoadModes((prev) => ({ ...prev, [file.id]: e.target.value as LoadMode }))}
+                            value={browserLoadModes[file.name] ?? 'full'}
+                            onChange={(e) => setBrowserLoadModes((prev) => ({ ...prev, [file.name]: e.target.value as LoadMode }))}
                           >
                             {PILE_OPTIONS.map((opt) => (
                               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -146,13 +109,13 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                           <button
                             type="button"
                             className="ml-auto text-text-primary hover:text-text-secondary font-bold py-1"
-                            onClick={() => handleDriveFileSelect(file)}
+                            onClick={() => handleBrowserFileSelect(file)}
                           >
                             <FaFolderOpen/>
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDriveFileDelete(file)}
+                            onClick={() => handleBrowserFileDelete(file)}
                             className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
                           >
                             <FaTrash/>
@@ -160,10 +123,73 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                         </td>
                       </tr>
                     ))}
-                  </>
-                )}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <div>
+            <button
+              type="button"
+              className="flex items-center gap-2 w-full text-left text-text-secondary py-1"
+              onClick={() => setDriveOpen((o) => !o)}
+              aria-expanded={driveOpen}
+            >
+              {driveOpen ? <FaChevronUp /> : <FaChevronDown />}
+              Google Drive
+            </button>
+            {driveOpen && (
+              <div className="max-h-64 overflow-y-auto">
+                <table className="table-auto w-full border-collapse">
+                  <tbody>
+                    {!isSignedIn ? (
+                      <tr>
+                        <td className="text-text-primary py-2 px-3">
+                          <button className="btn-icon" onClick={onSignIn}>
+                            <FaSignInAlt className="inline mr-2" />Sign in with Google to load Drive decks
+                          </button>
+                        </td>
+                      </tr>
+                    ) : (
+                      <>
+                        <tr><td className="text-text-primary">{inProgress && <p>please wait...</p>}</td></tr>
+                        <tr><td className="text-text-primary">{!inProgress && driveFiles.length === 0 && <p>no files found</p>}</td></tr>
+                        {!inProgress && driveFiles.map((file: {id: string, name: string}) => (
+                          <tr key={file.id} className="border border-white/10 text-text-primary" >
+                            <td><span className="px-3">{file.name}</span></td>
+                            <td className="flex justify-end items-center">
+                              <select
+                                className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
+                                value={driveLoadModes[file.id] ?? 'full'}
+                                onChange={(e) => setDriveLoadModes((prev) => ({ ...prev, [file.id]: e.target.value as LoadMode }))}
+                              >
+                                {PILE_OPTIONS.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                className="ml-auto text-text-primary hover:text-text-secondary font-bold py-1"
+                                onClick={() => handleDriveFileSelect(file)}
+                              >
+                                <FaFolderOpen/>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDriveFileDelete(file)}
+                                className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
+                              >
+                                <FaTrash/>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>
