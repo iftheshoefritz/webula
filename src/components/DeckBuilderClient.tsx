@@ -103,6 +103,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false);
   const [savingToGDrive, setSavingToGDrive] = useState(false);
+  const [savedRecently, setSavedRecently] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
@@ -258,29 +260,48 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     return tsvArray.join('\n');
   };
 
+  const showSavedFeedback = () => {
+    setSavedRecently(true);
+    setSaveError(null);
+    setTimeout(() => setSavedRecently(false), 2000);
+  };
+
   const writeToDrive = async () => {
     if (deckTitle.length === 0) {
       window.alert('please enter a deck name!');
     } else {
       setSavingToGDrive(true);
-      let response: Response | null = null;
-      if (deckFile?.id && deckFile?.name === deckTitle) {
-        response = await fetch(`/api/drive/${deckFile.id}`, {
-          method: 'PUT',
-          credentials: 'include',
-          body: JSON.stringify({ fileName: deckTitle, content: createLackeyTSV() }),
-        });
-      } else {
-        response = await fetch('/api/drive', {
-          method: 'POST',
-          credentials: 'include',
-          body: JSON.stringify({ fileName: deckTitle, content: createLackeyTSV() }),
-        });
+      setSaveError(null);
+      try {
+        let response: Response | null = null;
+        if (deckFile?.id && deckFile?.name === deckTitle) {
+          response = await fetch(`/api/drive/${deckFile.id}`, {
+            method: 'PUT',
+            credentials: 'include',
+            body: JSON.stringify({ fileName: deckTitle, content: createLackeyTSV() }),
+          });
+        } else {
+          response = await fetch('/api/drive', {
+            method: 'POST',
+            credentials: 'include',
+            body: JSON.stringify({ fileName: deckTitle, content: createLackeyTSV() }),
+          });
+        }
+        const json = await response.json();
+        console.log('JSON FROM api/drive POST/PUT!', json);
+        if (!response.ok) {
+          setSaveError('Save failed');
+        } else {
+          if (json?.file?.id) {
+            setDeckFile({ id: json.file.id, name: deckTitle });
+          }
+          showSavedFeedback();
+        }
+      } catch {
+        setSaveError('Save failed');
+      } finally {
+        setSavingToGDrive(false);
       }
-      const json = await response.json();
-      setSavingToGDrive(false);
-
-      console.log('JSON FROM api/drive POST/PUT!', json);
     }
   };
 
@@ -288,7 +309,17 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     if (deckTitle.length === 0) {
       window.alert('please enter a deck name!');
     } else {
-      setBrowserDecks([...browserDecks, { name: deckTitle, deck: currentDeck }]);
+      const existingIndex = browserDecks.findIndex((d: { name: string }) => d.name === deckTitle);
+      if (existingIndex !== -1) {
+        const overwrite = window.confirm(`A deck named "${deckTitle}" already exists. Overwrite it?`);
+        if (!overwrite) return;
+        const updated = [...browserDecks];
+        updated[existingIndex] = { name: deckTitle, deck: currentDeck };
+        setBrowserDecks(updated);
+      } else {
+        setBrowserDecks([...browserDecks, { name: deckTitle, deck: currentDeck }]);
+      }
+      showSavedFeedback();
     }
   };
 
@@ -446,6 +477,12 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 <FaSave />
               </button>
             </>
+          )}
+          {savedRecently && (
+            <span className="text-sm text-green-400 font-medium">Saved!</span>
+          )}
+          {saveError && (
+            <span className="text-sm text-red-400 font-medium">{saveError}</span>
           )}
         </div>
       </div>
