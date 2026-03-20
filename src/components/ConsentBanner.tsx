@@ -34,7 +34,7 @@ export default function ConsentBanner() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-700 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-300">
       <p>
-        This site uses analytics to improve your experience.{' '}
+        All your decks (should you create any) stay on your machine in your browser cookies or in your Google Drive. No one else can access this data. This site uses analytics to learn about how we can improve.{' '}
         <Link href="/privacy" className="underline text-blue-400">
           Privacy Policy
         </Link>
