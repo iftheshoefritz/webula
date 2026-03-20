@@ -61,7 +61,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     loadBrowserFile(file, pilesForMode(mode));
   }
   return (
-    <div className="fixed inset-0 z-10 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen">
         <div className="absolute inset-0 bg-black opacity-50" onClick={onClose}></div>
         <div className="bg-bg-secondary p-3 border border-white/10 shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
