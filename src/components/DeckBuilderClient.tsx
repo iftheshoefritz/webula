@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import posthog from 'posthog-js';
 import { useSearchParams } from 'next/navigation';
 import useFilterData from '../hooks/useFilterData';
@@ -106,6 +106,23 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [savedRecently, setSavedRecently] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [loadedBrowserDeckName, setLoadedBrowserDeckName] = useState<string | null>(null);
+  const isFirstRender = useRef(true);
+  const suppressDirtyRef = useRef(false);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (suppressDirtyRef.current) {
+      suppressDirtyRef.current = false;
+      setIsDirty(false);
+      return;
+    }
+    setIsDirty(true);
+  }, [currentDeck, deckTitle]);
 
   useEffect(() => {
     (async () => {
@@ -263,6 +280,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const showSavedFeedback = () => {
     setSavedRecently(true);
     setSaveError(null);
+    setIsDirty(false);
     setTimeout(() => setSavedRecently(false), 2000);
   };
 
@@ -311,8 +329,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     } else {
       const existingIndex = browserDecks.findIndex((d: { name: string }) => d.name === deckTitle);
       if (existingIndex !== -1) {
-        const overwrite = window.confirm(`A deck named "${deckTitle}" already exists. Overwrite it?`);
-        if (!overwrite) return;
+        const isSavingLoadedDeck = deckTitle === loadedBrowserDeckName;
+        if (!isSavingLoadedDeck) {
+          const overwrite = window.confirm(`A deck named "${deckTitle}" already exists. Overwrite it?`);
+          if (!overwrite) return;
+        }
         const updated = [...browserDecks];
         updated[existingIndex] = { name: deckTitle, deck: currentDeck };
         setBrowserDecks(updated);
@@ -535,7 +556,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               }`}
             >
               <FaList className="text-xs" />
-              Deck
+              Deck{isDirty && <span className="text-yellow-400 font-bold"> *</span>}
             </button>
           </div>
 
@@ -679,7 +700,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           }`}
         >
           <FaList className="text-base" />
-          <span>Deck</span>
+          <span>Deck{isDirty && <span className="text-yellow-400 font-bold"> *</span>}</span>
         </button>
       </div>
 
@@ -693,8 +714,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             if (piles) {
               setCurrentDeck(mergeDeckPiles(currentDeck, file.deck, piles));
             } else {
+              suppressDirtyRef.current = true;
               setCurrentDeck(file.deck);
               setDeckTitle(file.name);
+              setLoadedBrowserDeckName(file.name);
             }
           }}
           deleteBrowserFile={deleteBrowserFile}
