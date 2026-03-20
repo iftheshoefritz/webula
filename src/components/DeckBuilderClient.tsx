@@ -459,25 +459,23 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <FaFolderOpen />
           </button>
           {session && (
-            <>
-              <button
-                className="btn-icon"
-                onClick={() => writeToDrive()}
-                data-tooltip-id="button-tooltip"
-                data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
-              >
-                <FaCloudUploadAlt />
-              </button>
-              <button
-                className="btn-icon"
-                onClick={() => writeToBrowserList()}
-                data-tooltip-id="button-tooltip"
-                data-tooltip-content="Save to this browser"
-              >
-                <FaSave />
-              </button>
-            </>
+            <button
+              className="btn-icon"
+              onClick={() => writeToDrive()}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
+            >
+              <FaCloudUploadAlt />
+            </button>
           )}
+          <button
+            className="btn-icon"
+            onClick={() => writeToBrowserList()}
+            data-tooltip-id="button-tooltip"
+            data-tooltip-content="Save to this browser"
+          >
+            <FaSave />
+          </button>
           {savedRecently && (
             <span className="text-sm text-green-400 font-medium">Saved!</span>
           )}
