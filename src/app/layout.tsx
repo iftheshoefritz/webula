@@ -1,6 +1,8 @@
 import { Providers } from './providers'
 import '../styles/globals.css';
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import ConsentBanner from '../components/ConsentBanner';
 
 import React from 'react';
 
@@ -28,6 +30,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <body>
         <Providers>
           {children}
+          <ConsentBanner />
+          <footer className="text-center text-xs text-gray-500 py-4">
+            <Link href="/privacy" className="underline hover:text-gray-300">
+              Privacy Policy
+            </Link>
+          </footer>
         </Providers>
       </body>
     </html>
