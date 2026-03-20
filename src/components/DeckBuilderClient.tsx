@@ -109,7 +109,21 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     (async () => {
       const sessionFromNextAuth = (await getSession()) as Session;
       const isSessionExpired = sessionFromNextAuth && new Date() > new Date(sessionFromNextAuth.expires);
-      setSession(isSessionExpired ? null : sessionFromNextAuth);
+      const resolvedSession = isSessionExpired ? null : sessionFromNextAuth;
+      setSession(resolvedSession);
+
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('openPicker') === 'true') {
+        window.history.replaceState({}, '', '/decks');
+        setShowDrivePicker(true);
+        if (resolvedSession) {
+          setLoadingFromGDrive(true);
+          const response = await fetch('/api/drive', { method: 'GET', credentials: 'include' });
+          const json = await response.json();
+          setDriveFiles(json.files);
+          setLoadingFromGDrive(false);
+        }
+      }
     })();
   }, []);
 
@@ -278,14 +292,16 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     }
   };
 
-  const loadFilesFromDrive = async () => {
-    setLoadingFromGDrive(true);
+  const openDeckPicker = async () => {
     setShowDrivePicker(true);
-    const response = await fetch('/api/drive', { method: 'GET', credentials: 'include' });
-    const json = await response.json();
-    console.log('JSON FROM api/drive GET', json);
-    setDriveFiles(json.files);
-    setLoadingFromGDrive(false);
+    if (session) {
+      setLoadingFromGDrive(true);
+      const response = await fetch('/api/drive', { method: 'GET', credentials: 'include' });
+      const json = await response.json();
+      console.log('JSON FROM api/drive GET', json);
+      setDriveFiles(json.files);
+      setLoadingFromGDrive(false);
+    }
   };
 
   const exportLackeyDeckToDisk = () => {
@@ -402,46 +418,36 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <FaPlayCircle />
           </Link>
         </div>
-        {!session && (
-          <div className="flex justify-start space-x-2">
-            <button
-              className="btn-icon"
-              onClick={() => signIn()}
-              data-tooltip-id="button-tooltip"
-              data-tooltip-content="Sign in to load and save your decks with Google Drive"
-            >
-              <FaSignInAlt />
-            </button>
-          </div>
-        )}
-        {session && (
-          <div className="flex justify-start items-center space-x-2">
-            <button
-              className="btn-icon"
-              onClick={loadFilesFromDrive}
-              data-tooltip-id="button-tooltip"
-              data-tooltip-content="Load a deck from Google Drive"
-            >
-              <FaFolderOpen />
-            </button>
-            <button
-              className="btn-icon"
-              onClick={() => writeToDrive()}
-              data-tooltip-id="button-tooltip"
-              data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
-            >
-              <FaCloudUploadAlt />
-            </button>
-            <button
-              className="btn-icon"
-              onClick={() => writeToBrowserList()}
-              data-tooltip-id="button-tooltip"
-              data-tooltip-content="Save to this browser"
-            >
-              <FaSave />
-            </button>
-          </div>
-        )}
+        <div className="flex justify-start items-center space-x-2">
+          <button
+            className="btn-icon"
+            onClick={openDeckPicker}
+            data-tooltip-id="button-tooltip"
+            data-tooltip-content="Load decks"
+          >
+            <FaFolderOpen />
+          </button>
+          {session && (
+            <>
+              <button
+                className="btn-icon"
+                onClick={() => writeToDrive()}
+                data-tooltip-id="button-tooltip"
+                data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
+              >
+                <FaCloudUploadAlt />
+              </button>
+              <button
+                className="btn-icon"
+                onClick={() => writeToBrowserList()}
+                data-tooltip-id="button-tooltip"
+                data-tooltip-content="Save to this browser"
+              >
+                <FaSave />
+              </button>
+            </>
+          )}
+        </div>
       </div>
       <DeckListPile
         pileName="Missions"
@@ -659,6 +665,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           deleteBrowserFile={deleteBrowserFile}
           inProgress={loadingFromGDrive}
           onClose={() => setShowDrivePicker(false)}
+          isSignedIn={!!session}
+          onSignIn={() => signIn('google', { callbackUrl: '/decks?openPicker=true' })}
         />
       )}
     </div>

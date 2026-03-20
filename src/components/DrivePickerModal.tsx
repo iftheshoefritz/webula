@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FaTrash, FaFolderOpen } from 'react-icons/fa';
+import { FaTrash, FaFolderOpen, FaSignInAlt } from 'react-icons/fa';
 import { Deck } from '../types';
 import { DeckPile } from '../app/decks/deckBuilderUtils';
 
@@ -17,6 +17,8 @@ type PickerProps = {
   deleteBrowserFile: (file: File) => void
   inProgress: boolean
   onClose: () => void
+  isSignedIn: boolean
+  onSignIn: () => void
 }
 
 type LoadMode = 'full' | 'mission' | 'dilemma' | 'draw';
@@ -42,6 +44,8 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   deleteBrowserFile,
   inProgress,
   onClose,
+  isSignedIn,
+  onSignIn,
 }) => {
   const [browserLoadModes, setBrowserLoadModes] = useState<Record<string, LoadMode>>({});
   const [driveLoadModes, setDriveLoadModes] = useState<Record<string, LoadMode>>({});
@@ -114,38 +118,50 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
             <table className="table-auto w-full border-collapse">
               <thead className="text-text-secondary">Google Drive</thead>
               <tbody>
-                <tr><td className="text-text-primary">{inProgress && <p>please wait...</p>}</td></tr>
-                <tr><td className="text-text-primary">{!inProgress && driveFiles.length === 0 && <p>no files found</p>}</td></tr>
-                {!inProgress && driveFiles.map((file: {id: string, name: string}) => (
-                  <tr key={file.id} className="border border-white/10 text-text-primary" >
-                    <td><span className="px-3">{file.name}</span></td>
-                    <td className="flex justify-end items-center">
-                      <select
-                        className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
-                        value={driveLoadModes[file.id] ?? 'full'}
-                        onChange={(e) => setDriveLoadModes((prev) => ({ ...prev, [file.id]: e.target.value as LoadMode }))}
-                      >
-                        {PILE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        className="ml-auto text-text-primary hover:text-text-secondary font-bold py-1"
-                        onClick={() => handleDriveFileSelect(file)}
-                      >
-                        <FaFolderOpen/>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDriveFileDelete(file)}
-                        className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
-                      >
-                        <FaTrash/>
+                {!isSignedIn ? (
+                  <tr>
+                    <td className="text-text-primary py-2 px-3">
+                      <button className="btn-icon" onClick={onSignIn}>
+                        <FaSignInAlt className="inline mr-2" />Sign in with Google to load Drive decks
                       </button>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  <>
+                    <tr><td className="text-text-primary">{inProgress && <p>please wait...</p>}</td></tr>
+                    <tr><td className="text-text-primary">{!inProgress && driveFiles.length === 0 && <p>no files found</p>}</td></tr>
+                    {!inProgress && driveFiles.map((file: {id: string, name: string}) => (
+                      <tr key={file.id} className="border border-white/10 text-text-primary" >
+                        <td><span className="px-3">{file.name}</span></td>
+                        <td className="flex justify-end items-center">
+                          <select
+                            className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
+                            value={driveLoadModes[file.id] ?? 'full'}
+                            onChange={(e) => setDriveLoadModes((prev) => ({ ...prev, [file.id]: e.target.value as LoadMode }))}
+                          >
+                            {PILE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="ml-auto text-text-primary hover:text-text-secondary font-bold py-1"
+                            onClick={() => handleDriveFileSelect(file)}
+                          >
+                            <FaFolderOpen/>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDriveFileDelete(file)}
+                            className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
+                          >
+                            <FaTrash/>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                )}
               </tbody>
             </table>
           </div>

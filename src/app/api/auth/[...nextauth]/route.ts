@@ -45,8 +45,9 @@ const authOptions: NextAuthOptions = {
       console.log('Access token has expired, refreshing...');
       return refreshAccessToken(token);
     },
-    async redirect({}) {
-      return "/decks"
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith(baseUrl)) return url;
+      return `${baseUrl}/decks`;
     }
   },
 }
