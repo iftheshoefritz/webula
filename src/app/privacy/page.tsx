@@ -15,7 +15,7 @@ export default function PrivacyPage() {
       <section className="mb-8">
         <h2 className="text-lg font-semibold mb-3 text-white">1. Who we are</h2>
         <p>
-          Webula is a Star Trek CCG deck-builder and card-search application. The data controller
+          Webula is a Star Trek CCG 2nd Edition deck-builder and card-search application. The data controller
           is the Webula project. For privacy questions, open an issue at the project&apos;s GitHub
           repository.
         </p>
