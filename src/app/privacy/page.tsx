@@ -107,7 +107,7 @@ export default function PrivacyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-3 text-white">5. Third-party services</h2>
+        <h2 className="text-lg font-semibold mb-3 text-black">5. Third-party services</h2>
         <ul className="list-disc list-inside space-y-2">
           <li>
             <strong>PostHog</strong> — analytics platform. See their{' '}
