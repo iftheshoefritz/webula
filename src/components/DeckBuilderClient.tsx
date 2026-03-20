@@ -340,6 +340,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       } else {
         setBrowserDecks([...browserDecks, { name: deckTitle, deck: currentDeck }]);
       }
+      setLoadedBrowserDeckName(deckTitle);
       showSavedFeedback();
     }
   };
