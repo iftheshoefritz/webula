@@ -145,7 +145,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                     {!isSignedIn ? (
                       <tr>
                         <td className="text-text-primary py-2 px-3">
-                          <button className="btn-icon" onClick={onSignIn}>
+                          <button className="btn-primary" onClick={onSignIn}>
                             <FaSignInAlt className="inline mr-2" />Sign in with Google to load Drive decks
                           </button>
                         </td>
