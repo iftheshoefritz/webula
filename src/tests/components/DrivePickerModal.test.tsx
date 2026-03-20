@@ -51,3 +51,45 @@ describe('DrivePickerModal – Google Drive section', () => {
     expect(screen.queryByText(/sign in with google/i)).not.toBeInTheDocument();
   });
 });
+
+describe('DrivePickerModal – collapsible sections', () => {
+  it('shows "This Browser" and "Google Drive" section headers', () => {
+    render(<DrivePickerModal {...baseProps} />);
+    expect(screen.getByText('This Browser')).toBeInTheDocument();
+    expect(screen.getByText('Google Drive')).toBeInTheDocument();
+  });
+
+  it('collapses the browser section when the header is clicked', () => {
+    const browserFiles = [{ name: 'Local Deck', deck: {} as any }];
+    render(<DrivePickerModal {...baseProps} browserFiles={browserFiles} />);
+    expect(screen.getByText('Local Deck')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('This Browser'));
+    expect(screen.queryByText('Local Deck')).not.toBeInTheDocument();
+  });
+
+  it('expands the browser section again after a second click', () => {
+    const browserFiles = [{ name: 'Local Deck', deck: {} as any }];
+    render(<DrivePickerModal {...baseProps} browserFiles={browserFiles} />);
+    fireEvent.click(screen.getByText('This Browser'));
+    expect(screen.queryByText('Local Deck')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('This Browser'));
+    expect(screen.getByText('Local Deck')).toBeInTheDocument();
+  });
+
+  it('collapses the drive section when the header is clicked', () => {
+    const driveFiles = [{ id: '1', name: 'Drive Deck' }];
+    render(<DrivePickerModal {...baseProps} isSignedIn={true} driveFiles={driveFiles} />);
+    expect(screen.getByText('Drive Deck')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Google Drive'));
+    expect(screen.queryByText('Drive Deck')).not.toBeInTheDocument();
+  });
+
+  it('expands the drive section again after a second click', () => {
+    const driveFiles = [{ id: '1', name: 'Drive Deck' }];
+    render(<DrivePickerModal {...baseProps} isSignedIn={true} driveFiles={driveFiles} />);
+    fireEvent.click(screen.getByText('Google Drive'));
+    expect(screen.queryByText('Drive Deck')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Google Drive'));
+    expect(screen.getByText('Drive Deck')).toBeInTheDocument();
+  });
+});
