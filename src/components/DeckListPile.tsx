@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FaChevronRight, FaChevronDown } from 'react-icons/fa';
+import { FaChevronRight, FaChevronDown, FaSearch } from 'react-icons/fa';
 import DeckListItem from '../components/DeckListItem';
 import { CardDef } from '../types';
 
@@ -10,6 +10,7 @@ type DeckListPileProps = {
   decrementIncluded: (e: React.MouseEvent, row: CardDef) => void;
   sortBy: (a: any, b: any) => number;
   collapsed?: boolean;
+  onSearch?: () => void;
 }
 
 const DeckListPile: React.FC<DeckListPileProps> = ({
@@ -17,7 +18,8 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
   cardsForPile,
   incrementIncluded,
   decrementIncluded,
-  sortBy
+  sortBy,
+  onSearch,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const count = cardsForPile.reduce((sum, row) => sum + row.count, 0);
@@ -34,6 +36,15 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
           {pileName} ({count})
           {isCollapsed ? <FaChevronRight className="inline ml-1 font-bold" /> : <FaChevronDown className="inline ml-1 font-bold" />}
         </span>
+        {onSearch && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onSearch(); }}
+            className="btn-icon text-sm ml-2"
+            title={`Search ${pileName}`}
+          >
+            <FaSearch />
+          </button>
+        )}
       </div>
       {!isCollapsed && (
         <ul className="divide-y divide-solid divide-white/[0.06] space-y-2">
