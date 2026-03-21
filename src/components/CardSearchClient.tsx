@@ -8,13 +8,15 @@ import SearchResults from './SearchResults';
 import useFilterData from '../hooks/useFilterData';
 import useScrollVisibility from '../hooks/useScrollVisibility';
 import type { CardData } from '../lib/loadCards';
+import { PreviewBanner } from './PreviewBanner';
 
 interface CardSearchClientProps {
   data: CardData[];
   columns: string[];
+  isPreview?: boolean;
 }
 
-export default function CardSearchClient({ data, columns }: CardSearchClientProps) {
+export default function CardSearchClient({ data, columns, isPreview = false }: CardSearchClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQueryState] = useState(() => searchParams.get('q') ?? '');
@@ -74,18 +76,21 @@ export default function CardSearchClient({ data, columns }: CardSearchClientProp
     // overflow-hidden which would prevent window-level scroll (needed for VirtuosoGrid
     // useWindowScroll=true and scroll detection in useScrollVisibility).
     <div className="min-h-screen bg-gradient-page font-body text-text-primary">
-      <div ref={overlayRef} style={overlayStyle} className="bg-gradient-page px-4 py-4">
-        <div className="max-w-7xl mx-auto">
-          <SearchBar
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            variant="styled"
-          />
-          <SearchPills
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            onPopoverOpenChange={setIsPopoverOpen}
-          />
+      <div ref={overlayRef} style={overlayStyle} className="bg-gradient-page">
+        <PreviewBanner isPreview={isPreview} />
+        <div className="px-4 py-4">
+          <div className="max-w-7xl mx-auto">
+            <SearchBar
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              variant="styled"
+            />
+            <SearchPills
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              onPopoverOpenChange={setIsPopoverOpen}
+            />
+          </div>
         </div>
       </div>
 

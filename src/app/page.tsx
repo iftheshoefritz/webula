@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import { loadCards } from '../lib/loadCards';
 import { filterCards } from '../lib/filterCards';
 import CardSearchClient from '../components/CardSearchClient';
-import { PreviewBanner } from '../components/PreviewBanner';
 
 // On Vercel preview deployments, NEXT_PUBLIC_BASE_URL (from .env.production) is always
 // 'https://webula.app', so OG image URLs would point to production rather than the preview
@@ -67,11 +66,8 @@ export default function Home() {
   const { data, columns } = loadCards();
 
   return (
-    <div>
-      <PreviewBanner isPreview={process.env.VERCEL_ENV === 'preview'} />
-      <Suspense>
-        <CardSearchClient data={data} columns={columns} />
-      </Suspense>
-    </div>
+    <Suspense>
+      <CardSearchClient data={data} columns={columns} isPreview={process.env.VERCEL_ENV === 'preview'} />
+    </Suspense>
   );
 }
