@@ -18,7 +18,7 @@ import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, deckFromTsv, expandDeck, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount } from '../app/decks/deckBuilderUtils';
-import { missionRequirements } from '../lib/missionRequirements';
+import { missionRequirements, CARD_ICON_IMAGES } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
 import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle } from 'react-icons/fa';
@@ -635,13 +635,20 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 return counts;
               }}
             >
-              {([icon, count]) => (
-                <div key={icon} className="m-2 p-2 border border-white/[0.06] rounded surface-hover">
-                  <span className="px-1 text-text-secondary">
-                    {count}x <b className="text-text-primary">[{icon}]</b>
-                  </span>
-                </div>
-              )}
+              {([icon, count]) => {
+                const iconSrc = CARD_ICON_IMAGES[icon.toLowerCase()];
+                return (
+                  <div key={icon} className="m-2 p-2 border border-white/[0.06] rounded surface-hover">
+                    <span className="px-1 text-text-secondary flex items-center gap-1">
+                      {count}x{' '}
+                      {iconSrc
+                        ? <img src={iconSrc} alt={icon} title={icon} className="inline h-4 w-4" />
+                        : <b className="text-text-primary">[{icon}]</b>
+                      }
+                    </span>
+                  </div>
+                );
+              }}
             </PileAggregate>
           </CollapsibleSection>
 
