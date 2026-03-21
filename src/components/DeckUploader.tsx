@@ -28,7 +28,7 @@ const DeckUploader: FunctionComponent<DeckUploaderProps> = ({ onFileLoad }) => {
   return (
     <label
       htmlFor="fileInput"
-      className="bg-black hover:bg-gray-600 text-white font-bold inline-block py-2 px-4 rounded"
+      className="btn-icon"
       data-tooltip-id="button-tooltip"
       data-tooltip-content="Load a decklist from a LackeyCCG file"
     >
