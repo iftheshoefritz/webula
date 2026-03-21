@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FaChevronRight, FaChevronDown, FaSearch } from 'react-icons/fa';
+import { FaChevronRight, FaChevronDown, FaPlus } from 'react-icons/fa';
 import DeckListItem from '../components/DeckListItem';
 import { CardDef } from '../types';
 
@@ -42,7 +42,7 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
             className="btn-icon text-sm ml-2"
             title={`Search ${pileName}`}
           >
-            <FaSearch />
+            <FaPlus />
           </button>
         )}
       </div>
