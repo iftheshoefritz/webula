@@ -64,9 +64,19 @@ export async function generateMetadata(
 
 export default function Home() {
   const { data, columns } = loadCards();
+  const isPreview = process.env.VERCEL_ENV === 'preview';
 
   return (
     <div>
+      {isPreview && (
+        <div className="bg-yellow-100 border-b border-yellow-300 px-4 py-2 text-sm flex gap-4 flex-wrap">
+          <span className="font-semibold text-yellow-800">Preview links:</span>
+          <a href="/decks" className="text-blue-700 underline hover:text-blue-900">/decks</a>
+          <a href="/decks?fixture=1" className="text-blue-700 underline hover:text-blue-900">/decks?fixture=1</a>
+          <a href="/api/auth/signin" className="text-blue-700 underline hover:text-blue-900">/api/auth/signin</a>
+          <a href="/api/auth/signout" className="text-blue-700 underline hover:text-blue-900">/api/auth/signout</a>
+        </div>
+      )}
       <Suspense>
         <CardSearchClient data={data} columns={columns} />
       </Suspense>
