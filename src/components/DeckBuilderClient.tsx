@@ -410,6 +410,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [activeView, setActiveView] = useState<'search' | 'deck'>('deck');
   // mobileView controls which full-page view is shown on mobile
   const [mobileView, setMobileView] = useState<'analysis' | 'search' | 'deck'>('deck');
+  // activePile controls which pile tab is shown in the deck panel
+  const [activePile, setActivePile] = useState<'mission' | 'dilemma' | 'draw'>('draw');
 
   const compare = (a: string, b: string) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
@@ -420,6 +422,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setActiveView('search');
     setMobileView('search');
   }, []);
+
+  const missionCount = currentDeckRows.filter(r => r.pile === 'mission').reduce((s, r) => s + r.count, 0);
+  const dilemmaCount = currentDeckRows.filter(r => r.pile === 'dilemma').reduce((s, r) => s + r.count, 0);
+  const drawCount = currentDeckRows.filter(r => r.pile === 'draw').reduce((s, r) => s + r.count, 0);
 
   const searchPanel = (
     <div className="mx-2 mt-4 flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -524,34 +530,65 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           )}
         </div>
       </div>
-      <DeckListPile
-        pileName="Missions"
-        cardsForPile={currentDeckRows.filter((row) => row.pile === 'mission')}
-        incrementIncluded={incrementIncluded}
-        decrementIncluded={decrementIncluded}
-        sortBy={(r1: CardDef, r2: CardDef) => compare(r1.missiontype, r2.missiontype)}
-        onSearch={() => searchPile('type:mission')}
-      />
-      <DeckListPile
-        pileName="Dilemmas"
-        cardsForPile={currentDeckRows.filter((row) => row.pile === 'dilemma')}
-        decrementIncluded={decrementIncluded}
-        incrementIncluded={incrementIncluded}
-        sortBy={(r1: CardDef, r2: CardDef) =>
-          r1.dilemmatype === r2.dilemmatype ? compare(r1.name, r2.name) : compare(r1.dilemmatype, r2.dilemmatype)
-        }
-        onSearch={() => searchPile('type:dilemma')}
-      />
-      <DeckListPile
-        pileName="Draw"
-        cardsForPile={currentDeckRows.filter((row) => row.pile === 'draw')}
-        sortBy={(r1: CardDef, r2: CardDef) =>
-          r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)
-        }
-        incrementIncluded={incrementIncluded}
-        decrementIncluded={decrementIncluded}
-        onSearch={() => searchPile('-type:mission -type:dilemma')}
-      />
+      {/* Nested pile tabs */}
+      <div className="flex shrink-0 border-b border-white/[0.06] mt-2">
+        {([
+          { key: 'mission', label: 'Missions', count: missionCount },
+          { key: 'dilemma', label: 'Dilemmas', count: dilemmaCount },
+          { key: 'draw',    label: 'Draw',     count: drawCount    },
+        ] as const).map(({ key, label, count }) => (
+          <button
+            key={key}
+            onClick={() => setActivePile(key)}
+            className={`flex-1 py-2 text-sm transition-colors ${
+              activePile === key
+                ? 'text-accent border-b-2 border-accent'
+                : 'text-text-muted hover:text-text-secondary'
+            }`}
+          >
+            {label} ({count})
+          </button>
+        ))}
+      </div>
+
+      {/* Active pile content */}
+      {activePile === 'mission' && (
+        <DeckListPile
+          pileName="Missions"
+          cardsForPile={currentDeckRows.filter((row) => row.pile === 'mission')}
+          incrementIncluded={incrementIncluded}
+          decrementIncluded={decrementIncluded}
+          sortBy={(r1: CardDef, r2: CardDef) => compare(r1.missiontype, r2.missiontype)}
+          collapsed={false}
+          onSearch={() => searchPile('type:mission')}
+        />
+      )}
+      {activePile === 'dilemma' && (
+        <DeckListPile
+          pileName="Dilemmas"
+          cardsForPile={currentDeckRows.filter((row) => row.pile === 'dilemma')}
+          decrementIncluded={decrementIncluded}
+          incrementIncluded={incrementIncluded}
+          sortBy={(r1: CardDef, r2: CardDef) =>
+            r1.dilemmatype === r2.dilemmatype ? compare(r1.name, r2.name) : compare(r1.dilemmatype, r2.dilemmatype)
+          }
+          collapsed={false}
+          onSearch={() => searchPile('type:dilemma')}
+        />
+      )}
+      {activePile === 'draw' && (
+        <DeckListPile
+          pileName="Draw"
+          cardsForPile={currentDeckRows.filter((row) => row.pile === 'draw')}
+          sortBy={(r1: CardDef, r2: CardDef) =>
+            r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)
+          }
+          incrementIncluded={incrementIncluded}
+          decrementIncluded={decrementIncluded}
+          collapsed={false}
+          onSearch={() => searchPile('-type:mission -type:dilemma')}
+        />
+      )}
     </div>
   );
 
