@@ -90,43 +90,45 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
               This Browser
             </button>
             {browserOpen && (
-              <div className="max-h-64 overflow-y-auto">
-                <table className="table-auto w-full border-collapse">
-                  <tbody>
-                    <tr><td className="text-text-primary">{inProgress && <p>please wait...</p>}</td></tr>
-                    <tr><td className="text-text-primary">{!inProgress && browserFiles.length === 0 && <p>no files found</p>}</td></tr>
-                    {!inProgress && browserFiles.map((file) => (
-                      <tr key={file.name} className="border border-white/10 text-text-primary" >
-                        <td><span className="px-3">{file.name}</span></td>
-                        <td className="flex justify-end items-center">
-                          <select
-                            className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
-                            value={browserLoadModes[file.name] ?? 'full'}
-                            onChange={(e) => setBrowserLoadModes((prev) => ({ ...prev, [file.name]: e.target.value as LoadMode }))}
-                          >
-                            {PILE_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            className="ml-auto text-text-primary hover:text-text-secondary font-bold py-1"
-                            onClick={() => handleBrowserFileSelect(file)}
-                          >
-                            <FaFolderOpen/>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleBrowserFileDelete(file)}
-                            className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
-                          >
-                            <FaTrash/>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="max-h-64 overflow-y-auto overflow-x-hidden">
+                <ul className="w-full">
+                  {inProgress && (
+                    <li className="text-text-primary px-3 py-1">please wait...</li>
+                  )}
+                  {!inProgress && browserFiles.length === 0 && (
+                    <li className="text-text-primary px-3 py-1">no files found</li>
+                  )}
+                  {!inProgress && browserFiles.map((file) => (
+                    <li key={file.name} className="flex items-center border border-white/10 text-text-primary py-1">
+                      <span className="flex-1 min-w-0 px-3 truncate" title={file.name}>{file.name}</span>
+                      <div className="flex items-center whitespace-nowrap flex-shrink-0">
+                        <select
+                          className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
+                          value={browserLoadModes[file.name] ?? 'full'}
+                          onChange={(e) => setBrowserLoadModes((prev) => ({ ...prev, [file.name]: e.target.value as LoadMode }))}
+                        >
+                          {PILE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                          onClick={() => handleBrowserFileSelect(file)}
+                        >
+                          <FaFolderOpen/>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBrowserFileDelete(file)}
+                          className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
+                        >
+                          <FaTrash/>
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
@@ -141,63 +143,61 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
               Google Drive
             </button>
             {driveOpen && (
-              <div className="max-h-64 overflow-y-auto">
-                <table className="table-auto w-full border-collapse">
-                  <tbody>
-                    {!isSignedIn ? (
-                      <tr>
-                        <td className="text-text-primary py-2 px-3">
-                          <button className="btn-primary" onClick={onSignIn}>
-                            <FaSignInAlt className="inline mr-2" />Sign in with Google to load Drive decks
-                          </button>
-                        </td>
-                      </tr>
-                    ) : !hasDriveScope ? (
-                      <tr>
-                        <td className="text-text-primary py-2 px-3">
-                          <button className="btn-primary" onClick={onSignIn}>
-                            <FaSignInAlt className="inline mr-2" />Grant Google Drive access
-                          </button>
-                        </td>
-                      </tr>
-                    ) : (
-                      <>
-                        <tr><td className="text-text-primary">{inProgress && <p>please wait...</p>}</td></tr>
-                        <tr><td className="text-text-primary">{!inProgress && driveFiles.length === 0 && <p>no files found</p>}</td></tr>
-                        {!inProgress && driveFiles.map((file: {id: string, name: string}) => (
-                          <tr key={file.id} className="border border-white/10 text-text-primary" >
-                            <td><span className="px-3">{file.name}</span></td>
-                            <td className="flex justify-end items-center">
-                              <select
-                                className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
-                                value={driveLoadModes[file.id] ?? 'full'}
-                                onChange={(e) => setDriveLoadModes((prev) => ({ ...prev, [file.id]: e.target.value as LoadMode }))}
-                              >
-                                {PILE_OPTIONS.map((opt) => (
-                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                              </select>
-                              <button
-                                type="button"
-                                className="ml-auto text-text-primary hover:text-text-secondary font-bold py-1"
-                                onClick={() => handleDriveFileSelect(file)}
-                              >
-                                <FaFolderOpen/>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDriveFileDelete(file)}
-                                className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
-                              >
-                                <FaTrash/>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </>
-                    )}
-                  </tbody>
-                </table>
+              <div className="max-h-64 overflow-y-auto overflow-x-hidden">
+                <ul className="w-full">
+                  {!isSignedIn ? (
+                    <li className="text-text-primary py-2 px-3">
+                      <button className="btn-primary" onClick={onSignIn}>
+                        <FaSignInAlt className="inline mr-2" />Sign in with Google to load Drive decks
+                      </button>
+                    </li>
+                  ) : !hasDriveScope ? (
+                    <li className="text-text-primary py-2 px-3">
+                      <button className="btn-primary" onClick={onSignIn}>
+                        <FaSignInAlt className="inline mr-2" />Grant Google Drive access
+                      </button>
+                    </li>
+                  ) : (
+                    <>
+                      {inProgress && (
+                        <li className="text-text-primary px-3 py-1">please wait...</li>
+                      )}
+                      {!inProgress && driveFiles.length === 0 && (
+                        <li className="text-text-primary px-3 py-1">no files found</li>
+                      )}
+                      {!inProgress && driveFiles.map((file: {id: string, name: string}) => (
+                        <li key={file.id} className="flex items-center border border-white/10 text-text-primary py-1">
+                          <span className="flex-1 min-w-0 px-3 truncate" title={file.name}>{file.name}</span>
+                          <div className="flex items-center whitespace-nowrap flex-shrink-0">
+                            <select
+                              className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
+                              value={driveLoadModes[file.id] ?? 'full'}
+                              onChange={(e) => setDriveLoadModes((prev) => ({ ...prev, [file.id]: e.target.value as LoadMode }))}
+                            >
+                              {PILE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              onClick={() => handleDriveFileSelect(file)}
+                            >
+                              <FaFolderOpen/>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDriveFileDelete(file)}
+                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
+                            >
+                              <FaTrash/>
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </>
+                  )}
+                </ul>
               </div>
             )}
           </div>
