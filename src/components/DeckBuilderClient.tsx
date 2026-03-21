@@ -26,6 +26,7 @@ import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt,
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
+import { isEarlyAccessUser } from '../lib/featureFlags';
 
 const skillList = [
   'acquisition',
@@ -55,8 +56,8 @@ const skillList = [
 
 interface Session {
   accessToken: string;
-  session: { user: { name: string } };
-  user: { name: string };
+  session: { user: { name: string; email: string } };
+  user: { name: string; email: string };
   expires: string;
 }
 
@@ -462,15 +463,17 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           >
             <FaFileExport />
           </button>
-          <Link
-            href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
-            className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
-            data-tooltip-id="button-tooltip"
-            data-tooltip-content="Practice drawing from your draw pile"
-            aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
-          >
-            <FaPlayCircle />
-          </Link>
+          {isEarlyAccessUser(session?.user?.email) && (
+            <Link
+              href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
+              className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="Practice drawing from your draw pile"
+              aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
+            >
+              <FaPlayCircle />
+            </Link>
+          )}
         </div>
         <div className="flex justify-start items-center space-x-2">
           <button
