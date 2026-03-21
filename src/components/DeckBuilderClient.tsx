@@ -415,6 +415,12 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
   };
 
+  const searchPile = useCallback((query: string) => {
+    setSearchQuery(query);
+    setActiveView('search');
+    setMobileView('search');
+  }, []);
+
   const searchPanel = (
     <div className="mx-2 mt-4 flex flex-col flex-1 min-h-0 overflow-hidden">
       <div className="shrink-0">
@@ -524,6 +530,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         incrementIncluded={incrementIncluded}
         decrementIncluded={decrementIncluded}
         sortBy={(r1: CardDef, r2: CardDef) => compare(r1.missiontype, r2.missiontype)}
+        onSearch={() => searchPile('type:mission')}
       />
       <DeckListPile
         pileName="Dilemmas"
@@ -533,6 +540,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         sortBy={(r1: CardDef, r2: CardDef) =>
           r1.dilemmatype === r2.dilemmatype ? compare(r1.name, r2.name) : compare(r1.dilemmatype, r2.dilemmatype)
         }
+        onSearch={() => searchPile('type:dilemma')}
       />
       <DeckListPile
         pileName="Draw"
@@ -542,6 +550,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         }
         incrementIncluded={incrementIncluded}
         decrementIncluded={decrementIncluded}
+        onSearch={() => searchPile('-type:mission -type:dilemma')}
       />
     </div>
   );
