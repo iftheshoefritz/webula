@@ -50,16 +50,30 @@ export async function GET(
     auth: auth,
   })
 
-  const fetchedFile = await drive.files.get({
-    fileId: id,
-    alt: 'media'
-  })
-  console.log('fetchedFile.data', fetchedFile.data)
+  try {
+    const fetchedFile = await drive.files.get({
+      fileId: id,
+      alt: 'media'
+    })
+    console.log('fetchedFile.data', fetchedFile.data)
 
-  return new Response(JSON.stringify(fetchedFile.data), {
-    status: 200,
-    headers: {'Content-Type': 'application/json'}
-  })
+    return new Response(JSON.stringify(fetchedFile.data), {
+      status: 200,
+      headers: {'Content-Type': 'application/json'}
+    })
+  } catch (error: any) {
+    console.error('Google API returned an error:', error);
+    if (error?.response?.status === 403 || error?.code === 403) {
+      return new Response(JSON.stringify({ error: 'drive_scope_missing' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ error: 'Google API error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 }
 
 export async function DELETE(
@@ -92,15 +106,29 @@ export async function DELETE(
     auth: auth,
   })
 
-  const response = await drive.files.delete({
-    fileId: id,
-  })
-  console.log('response.data', response.data)
+  try {
+    const response = await drive.files.delete({
+      fileId: id,
+    })
+    console.log('response.data', response.data)
 
-  return new Response(JSON.stringify(response.data), {
-    status: 200,
-    headers: {'Content-Type': 'application/json'}
-  })
+    return new Response(JSON.stringify(response.data), {
+      status: 200,
+      headers: {'Content-Type': 'application/json'}
+    })
+  } catch (error: any) {
+    console.error('Google API returned an error:', error);
+    if (error?.response?.status === 403 || error?.code === 403) {
+      return new Response(JSON.stringify({ error: 'drive_scope_missing' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ error: 'Google API error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 }
 
 export async function PUT(
@@ -134,18 +162,32 @@ export async function PUT(
 
   const { content } = await request.json()
 
-  const response = await drive.files.update({
-    fileId: id,
-    uploadType: 'media',
-    media: {
-      mimeType: 'application/json',
-      body: JSON.stringify(content)
-    }
-  })
-  console.log('response.data', response.data)
+  try {
+    const response = await drive.files.update({
+      fileId: id,
+      uploadType: 'media',
+      media: {
+        mimeType: 'application/json',
+        body: JSON.stringify(content)
+      }
+    })
+    console.log('response.data', response.data)
 
-  return new Response(JSON.stringify(response.data), {
-    status: 200,
-    headers: {'Content-Type': 'application/json'}
-  })
+    return new Response(JSON.stringify(response.data), {
+      status: 200,
+      headers: {'Content-Type': 'application/json'}
+    })
+  } catch (error: any) {
+    console.error('Google API returned an error:', error);
+    if (error?.response?.status === 403 || error?.code === 403) {
+      return new Response(JSON.stringify({ error: 'drive_scope_missing' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ error: 'Google API error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 }

@@ -71,8 +71,14 @@ export async function POST(
         'Content-Type': 'application/json',
       }
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Google API returned an error:', error);
+    if (error?.response?.status === 403 || error?.code === 403) {
+      return new Response(JSON.stringify({ error: 'drive_scope_missing' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     return new Response(JSON.stringify({ error: 'Google API error' }), {
       status: 500,
       headers: {
@@ -120,8 +126,14 @@ export async function GET(
         'Content-Type': 'application/json',
       }
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Google API returned an error:', error);
+    if (error?.response?.status === 403 || error?.code === 403) {
+      return new Response(JSON.stringify({ error: 'drive_scope_missing' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     return new Response(JSON.stringify({ error: 'Google API error' }), {
       status: 500,
       headers: {

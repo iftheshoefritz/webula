@@ -11,6 +11,7 @@ const baseProps = {
   inProgress: false,
   onClose: jest.fn(),
   isSignedIn: true,
+  hasDriveScope: true,
   onSignIn: jest.fn(),
 };
 
@@ -47,8 +48,25 @@ describe('DrivePickerModal – Google Drive section', () => {
   });
 
   it('does not show sign-in button when signed in', () => {
-    render(<DrivePickerModal {...baseProps} isSignedIn={true} />);
+    render(<DrivePickerModal {...baseProps} isSignedIn={true} hasDriveScope={true} />);
     expect(screen.queryByText(/sign in with google/i)).not.toBeInTheDocument();
+  });
+
+  it('shows grant drive access button when signed in but missing drive scope', () => {
+    render(<DrivePickerModal {...baseProps} isSignedIn={true} hasDriveScope={false} driveFiles={[]} />);
+    expect(screen.getByText(/grant google drive access/i)).toBeInTheDocument();
+    expect(screen.queryByText(/sign in with google/i)).not.toBeInTheDocument();
+    // Drive section shows grant button, not "no files found"
+    // (browser section may still show "no files found")
+    const noFilesMessages = screen.queryAllByText('no files found');
+    expect(noFilesMessages).toHaveLength(1); // only from browser section
+  });
+
+  it('calls onSignIn when grant drive access button is clicked', () => {
+    const onSignIn = jest.fn();
+    render(<DrivePickerModal {...baseProps} isSignedIn={true} hasDriveScope={false} onSignIn={onSignIn} />);
+    fireEvent.click(screen.getByText(/grant google drive access/i));
+    expect(onSignIn).toHaveBeenCalledTimes(1);
   });
 });
 

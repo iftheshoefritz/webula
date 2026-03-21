@@ -58,6 +58,7 @@ interface Session {
   session: { user: { name: string } };
   user: { name: string };
   expires: string;
+  hasDriveScope?: boolean;
 }
 
 interface DeckBuilderClientProps {
@@ -309,6 +310,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         const json = await response.json();
         console.log('JSON FROM api/drive POST/PUT!', json);
         if (!response.ok) {
+          if (json?.error === 'drive_scope_missing') {
+            signIn('google', {
+              callbackUrl: '/decks',
+              scope: 'https://www.googleapis.com/auth/drive.appdata',
+              include_granted_scopes: true,
+            });
+            return;
+          }
           setSaveError('Save failed');
         } else {
           if (json?.file?.id) {
@@ -722,7 +731,12 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           inProgress={loadingFromGDrive}
           onClose={() => setShowDrivePicker(false)}
           isSignedIn={!!session}
-          onSignIn={() => signIn('google', { callbackUrl: '/decks?openPicker=true' })}
+          hasDriveScope={session?.hasDriveScope ?? false}
+          onSignIn={() => signIn('google', {
+            callbackUrl: '/decks?openPicker=true',
+            scope: 'https://www.googleapis.com/auth/drive.appdata',
+            include_granted_scopes: true,
+          })}
         />
       )}
     </div>
