@@ -10,7 +10,7 @@ import DeckListPile from './DeckListPile';
 import { DrivePickerModal } from './DrivePickerModal';
 import Help from './Help';
 import PileAggregate from './PileAggregate';
-import IconsAggregate from './IconsAggregate';
+import IconPill from './IconPill';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import SkillsChart from './SkillsChart';
 import SearchBar from './SearchBar';
@@ -621,7 +621,25 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           </CollapsibleSection>
 
           <CollapsibleSection title="Icons">
-            <IconsAggregate currentDeckRows={currentDeckRows} />
+            <PileAggregate
+              currentDeckRows={currentDeckRows}
+              characteristicName="icons"
+              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+              splitFunction={(keywords) =>
+                keywords
+                  .split(/[\[\]]/)
+                  .map((k) => k.trim())
+                  .filter((k) => k.length > 0)
+              }
+              assembleCounts={(counts, icon, count) => {
+                counts[icon] = (counts[icon] || 0) + count;
+                return counts;
+              }}
+            >
+              {([icon, count]) => (
+                <IconPill key={icon} icon={icon} count={count} />
+              )}
+            </PileAggregate>
           </CollapsibleSection>
 
           <CollapsibleSection title="Costs">
