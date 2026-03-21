@@ -4,7 +4,7 @@ This file provides guidance to agents like Claude Code, OpenCode, and Amp when w
 
 ## Project Overview
 
-Webula is a Star Trek CCG (Customizable Card Game) deck builder and card search application. It allows users to:
+Webula is a Star Trek CCG (Customizable Card Game) 2nd Edition deck builder and card search application. It allows users to:
 - Search and filter cards from a card database
 - Build decks with missions, dilemmas, and draw pile cards
 - Save/load decks to Google Drive or browser local storage
