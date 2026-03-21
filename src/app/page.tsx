@@ -66,10 +66,8 @@ export default function Home() {
   const { data, columns } = loadCards();
 
   return (
-    <div>
-      <Suspense>
-        <CardSearchClient data={data} columns={columns} />
-      </Suspense>
-    </div>
+    <Suspense>
+      <CardSearchClient data={data} columns={columns} isPreview={process.env.VERCEL_ENV === 'preview'} />
+    </Suspense>
   );
 }
