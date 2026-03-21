@@ -79,6 +79,9 @@ The script:
 
 The script is idempotent — safe to re-run after every card data update.
 
+## Fixing bugs
+When asked to fix a bug do your best to write a test that fails without the bug fix. Weigh up the cost and brittleness of writing the test and comment in the PR with the circumstances that made you feel like you couldn't write a useful test. 
+
 ## Fixing Existing PRs
 
 When asked to fix or update an existing pull request:
