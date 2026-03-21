@@ -312,11 +312,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         console.log('JSON FROM api/drive POST/PUT!', json);
         if (!response.ok) {
           if (json?.error === 'drive_scope_missing') {
-            signIn('google', {
-              callbackUrl: '/decks',
-              scope: 'https://www.googleapis.com/auth/drive.appdata',
-              include_granted_scopes: true,
-            });
+            signIn('google',
+              { callbackUrl: '/decks' },
+              { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
+            );
             return;
           }
           setSaveError('Save failed');
@@ -735,11 +734,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           onClose={() => setShowDrivePicker(false)}
           isSignedIn={!!session}
           hasDriveScope={session?.hasDriveScope ?? false}
-          onSignIn={() => signIn('google', {
-            callbackUrl: '/decks?openPicker=true',
-            scope: 'https://www.googleapis.com/auth/drive.appdata',
-            include_granted_scopes: true,
-          })}
+          onSignIn={() => signIn('google',
+            { callbackUrl: '/decks?openPicker=true' },
+            { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
+          )}
         />
       )}
     </div>
