@@ -409,7 +409,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   // activeView controls which panel is shown in the desktop left panel
   const [activeView, setActiveView] = useState<'search' | 'deck'>('deck');
   // mobileView controls which full-page view is shown on mobile
-  const [mobileView, setMobileView] = useState<'analysis' | 'search' | 'deck'>('analysis');
+  const [mobileView, setMobileView] = useState<'analysis' | 'search' | 'deck'>('deck');
 
   const compare = (a: string, b: string) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
