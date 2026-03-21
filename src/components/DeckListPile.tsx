@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FaChevronRight, FaChevronDown, FaPlus } from 'react-icons/fa';
+import React from 'react';
+import { FaPlus } from 'react-icons/fa';
 import DeckListItem from '../components/DeckListItem';
 import { CardDef } from '../types';
 
@@ -21,50 +21,34 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
   sortBy,
   onSearch,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(true);
-  const count = cardsForPile.reduce((sum, row) => sum + row.count, 0);
-  const hoverMessage = isCollapsed ? "Click to expand" : "Click to collapse";
-
   return (
-    <div>
-      <div className="flex items-center justify-between py-2">
-        <span
-          className="font-semibold cursor-pointer text-xl text-text-primary"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          title={hoverMessage}
+    <div className="relative">
+      {onSearch && (
+        <button
+          onClick={onSearch}
+          className="btn-icon text-sm absolute top-0 right-0"
+          title={`Search ${pileName}`}
         >
-          {pileName} ({count})
-          {isCollapsed ? <FaChevronRight className="inline ml-1 font-bold" /> : <FaChevronDown className="inline ml-1 font-bold" />}
-        </span>
-        {onSearch && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onSearch(); }}
-            className="btn-icon text-sm ml-2"
-            title={`Search ${pileName}`}
-          >
-            <FaPlus />
-          </button>
-        )}
-      </div>
-      {!isCollapsed && (
-        <ul className="divide-y divide-solid divide-white/[0.06] space-y-2">
-          {cardsForPile
-            .sort(sortBy)
-            .map((row: CardDef) => (
-              <DeckListItem
-                key={row.collectorsinfo}
-                collectorsinfo={row.collectorsinfo}
-                decrementIncluded={(e: React.MouseEvent) => decrementIncluded(e, row)}
-                incrementIncluded={() => incrementIncluded(row)}
-                count={row.count}
-                name={row.originalName}
-                imagefile={row.imagefile}
-                unique={row.unique === 'y'}
-              />
-            ))
-          }
-        </ul>
+          <FaPlus />
+        </button>
       )}
+      <ul className="divide-y divide-solid divide-white/[0.06] space-y-2">
+        {cardsForPile
+          .sort(sortBy)
+          .map((row: CardDef) => (
+            <DeckListItem
+              key={row.collectorsinfo}
+              collectorsinfo={row.collectorsinfo}
+              decrementIncluded={(e: React.MouseEvent) => decrementIncluded(e, row)}
+              incrementIncluded={() => incrementIncluded(row)}
+              count={row.count}
+              name={row.originalName}
+              imagefile={row.imagefile}
+              unique={row.unique === 'y'}
+            />
+          ))
+        }
+      </ul>
     </div>
   );
 }
