@@ -551,39 +551,20 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         ))}
       </div>
 
-      {/* Plus button - floats above list, does not scroll */}
-      <div className="shrink-0 flex justify-end pr-3 py-1">
-        {activePile === 'mission' && (
-          <button
-            onClick={() => searchPile('type:mission')}
-            className="btn-icon text-sm"
-            title="Search Missions"
-          >
-            <FaPlus />
-          </button>
-        )}
-        {activePile === 'dilemma' && (
-          <button
-            onClick={() => searchPile('type:dilemma')}
-            className="btn-icon text-sm"
-            title="Search Dilemmas"
-          >
-            <FaPlus />
-          </button>
-        )}
-        {activePile === 'draw' && (
-          <button
-            onClick={() => searchPile('-type:mission -type:dilemma')}
-            className="btn-icon text-sm"
-            title="Search Draw pile"
-          >
-            <FaPlus />
-          </button>
-        )}
-      </div>
-
-      {/* Active pile content - scrollable */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      {/* Active pile content - scrollable, with floating plus button */}
+      <div className="flex-1 min-h-0 relative">
+        <button
+          onClick={() => {
+            if (activePile === 'mission') searchPile('type:mission');
+            else if (activePile === 'dilemma') searchPile('type:dilemma');
+            else searchPile('-type:mission -type:dilemma');
+          }}
+          className="btn-icon text-sm absolute top-1 right-3 z-10"
+          title={`Search ${activePile === 'mission' ? 'Missions' : activePile === 'dilemma' ? 'Dilemmas' : 'Draw pile'}`}
+        >
+          <FaPlus />
+        </button>
+      <div className="h-full overflow-y-auto">
         {activePile === 'mission' && (
           <DeckListPile
             pileName="Missions"
@@ -618,6 +599,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             collapsed={false}
           />
         )}
+      </div>
       </div>
     </div>
   );
