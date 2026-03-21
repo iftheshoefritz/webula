@@ -1,0 +1,60 @@
+name: Agent Review
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  agent-review:
+    if: github.event.label.name == 'agent-review'
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1.0.70
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Pull request #${{ github.event.pull_request.number }} ("${{ github.event.pull_request.title }}") has been labeled "agent-review". Your job is to address all unresolved review comments on this PR.
+
+            1. Fetch all unresolved review comments on the PR:
+               `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments`
+
+            2. For each unresolved comment thread, assess whether it requires:
+               a. A **code change** (the reviewer identified a bug, style issue, missing test, logic problem, etc.)
+               b. A **reply only** (the comment is a question, clarification request, or acknowledgement that needs a response but no code edit)
+
+            3. **If code changes are needed:**
+               - Read the relevant file(s) and understand the context.
+               - Make the necessary edits to address the reviewer's concern.
+               - Write or update tests for any new or modified code.
+               - Run `yarn test` to confirm nothing is broken. Fix any failures before continuing.
+               - Commit with a message like `fix: address review comments (PR #${{ github.event.pull_request.number }})`.
+               - Push to the same branch (already checked out): `git push origin HEAD`.
+
+            4. **If no code changes are needed for a thread:**
+               - Reply to that comment thread with a clear clarification or acknowledgement using:
+                 `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments/<comment_id>/replies -f body="<your reply>"`
+
+            5. Leave a top-level PR comment summarising:
+               - Which review threads were addressed and how (code change vs. reply).
+               - Which threads still need human attention (if any).
+
+            6. Remove the "agent-review" label so the workflow does not re-trigger:
+               `gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/agent-review -X DELETE`
+
+            Be precise and focused. Only change what is needed to address the review comments. Reference the AGENTS.md file for project conventions and commands.
+          claude_args: "--max-turns 80 --dangerously-skip-permissions"
+          show_full_output: "true"
