@@ -27,7 +27,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            Pull request #${{ github.event.pull_request.number }} ("${{ github.event.pull_request.title }}") has been labeled "agent-review". Your job is to address all unresolved review comments on this PR.
+            Pull request #${{ github.event.pull_request.number }} ("${{ github.event.pull_request.title }}") has been labeled "agent-review". Your job is to address all unresolved or unaddressed comments on this PR.
 
             1. Fetch all unresolved review comments on the PR:
                `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments`
