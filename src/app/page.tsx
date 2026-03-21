@@ -68,7 +68,7 @@ export default function Home() {
 
   return (
     <div>
-      <PreviewBanner />
+      <PreviewBanner isPreview={process.env.VERCEL_ENV === 'preview'} />
       <Suspense>
         <CardSearchClient data={data} columns={columns} />
       </Suspense>

@@ -1,14 +1,8 @@
-'use client';
+interface PreviewBannerProps {
+  isPreview: boolean;
+}
 
-import { useState, useEffect } from 'react';
-
-export function PreviewBanner() {
-  const [isPreview, setIsPreview] = useState(false);
-
-  useEffect(() => {
-    setIsPreview(window.location.hostname.endsWith('.vercel.app'));
-  }, []);
-
+export function PreviewBanner({ isPreview }: PreviewBannerProps) {
   if (!isPreview) return null;
 
   return (
