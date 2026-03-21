@@ -10,6 +10,7 @@ import DeckListPile from './DeckListPile';
 import { DrivePickerModal } from './DrivePickerModal';
 import Help from './Help';
 import PileAggregate from './PileAggregate';
+import IconPill from './IconPill';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import SkillsChart from './SkillsChart';
 import SearchBar from './SearchBar';
@@ -636,11 +637,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               }}
             >
               {([icon, count]) => (
-                <div key={icon} className="m-2 p-2 border border-white/[0.06] rounded surface-hover">
-                  <span className="px-1 text-text-secondary">
-                    {count}x <b className="text-text-primary">[{icon}]</b>
-                  </span>
-                </div>
+                <IconPill key={icon} icon={icon} count={count} />
               )}
             </PileAggregate>
           </CollapsibleSection>
