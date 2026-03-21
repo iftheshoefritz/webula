@@ -10,11 +10,9 @@ const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_SECRET as string,
       authorization: {
         params: {
-          scope: [
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/drive.appdata'
-          ].join(' '),
+          scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+          access_type: 'offline',
+          include_granted_scopes: true,
         }
       }
     })
@@ -33,6 +31,7 @@ const authOptions: NextAuthOptions = {
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
+        token.hasDriveScope = account.scope?.includes('drive.appdata') ?? false;
       }
       token.accessTokenExpires = Date.now() + (account?.expires_at || 3600) * 1000;
 
@@ -44,6 +43,10 @@ const authOptions: NextAuthOptions = {
       // Access token has expired, so we need to refresh it
       console.log('Access token has expired, refreshing...');
       return refreshAccessToken(token);
+    },
+    async session({ session, token }) {
+      (session as any).hasDriveScope = (token as any).hasDriveScope ?? false;
+      return session;
     },
     async redirect({ url, baseUrl }) {
       if (url.startsWith(baseUrl)) return url;

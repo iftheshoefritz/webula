@@ -18,6 +18,7 @@ type PickerProps = {
   inProgress: boolean
   onClose: () => void
   isSignedIn: boolean
+  hasDriveScope: boolean
   onSignIn: () => void
 }
 
@@ -45,6 +46,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   inProgress,
   onClose,
   isSignedIn,
+  hasDriveScope,
   onSignIn,
 }) => {
   const [browserLoadModes, setBrowserLoadModes] = useState<Record<string, LoadMode>>({});
@@ -147,6 +149,14 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                         <td className="text-text-primary py-2 px-3">
                           <button className="btn-primary" onClick={onSignIn}>
                             <FaSignInAlt className="inline mr-2" />Sign in with Google to load Drive decks
+                          </button>
+                        </td>
+                      </tr>
+                    ) : !hasDriveScope ? (
+                      <tr>
+                        <td className="text-text-primary py-2 px-3">
+                          <button className="btn-primary" onClick={onSignIn}>
+                            <FaSignInAlt className="inline mr-2" />Grant Google Drive access
                           </button>
                         </td>
                       </tr>
