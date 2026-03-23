@@ -21,7 +21,6 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQueryState] = useState(() => searchParams.get('q') ?? '');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-
   const searchParamsRef = useRef(searchParams);
   useEffect(() => {
     searchParamsRef.current = searchParams;
@@ -80,11 +79,15 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
         <PreviewBanner isPreview={isPreview} />
         <div className="px-4 py-4">
           <div className="max-w-7xl mx-auto">
-            <SearchBar
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              variant="styled"
-            />
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <SearchBar
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  variant="styled"
+                />
+              </div>
+            </div>
             <SearchPills
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
