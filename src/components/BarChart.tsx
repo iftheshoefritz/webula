@@ -25,6 +25,8 @@ const BarChart = ({ labels, values }: BarChartProps) => (
       datasets: [{
           label: '# of Occurrences',
           data: values,
+          backgroundColor: 'rgba(54, 162, 235, 0.5)',
+          borderColor: 'rgba(54, 162, 235, 1)',
           borderWidth: 1,
         }],
       }}
