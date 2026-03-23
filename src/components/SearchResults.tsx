@@ -65,6 +65,13 @@ const TYPE_CODE_TO_ICON: Record<string, string> = {
   'h': '/icons/icon_headquarters.gif',
 };
 
+// Map quadrant codes to icon paths (for missions)
+const QUADRANT_TO_ICON: Record<string, string> = {
+  'a': '/icons/icon_quadrant_alpha.gif',
+  'd': '/icons/icon_quadrant_delta.gif',
+  'g': '/icons/icon_quadrant_gamma.gif',
+};
+
 function renderAffiliationIcon(affiliation: string): React.ReactNode {
   if (!affiliation) return null;
   const src = AFFILIATION_TEXT_TO_ICON[affiliation.toLowerCase()];
@@ -327,19 +334,22 @@ export default function SearchResults({
           onClick={() => onCardSelected && onCardSelected(row)}
           onContextMenu={(e) => onCardDeselected && onCardDeselected(e, row)}
         >
-          {/* Header: left icon, cost/points, name, type badge, count */}
+          {/* Header: icon immediately followed by cost/points (no gap), then name and count */}
           <div className="flex items-center gap-2 flex-wrap">
-            {leftIcon && (
-              <span className="flex items-center flex-shrink-0">{leftIcon}</span>
-            )}
-            {showCost && (
-              <span className="text-base font-bold font-mono text-text-primary w-6 text-center flex-shrink-0">
-                {row.cost}
-              </span>
-            )}
-            {showPoints && (
-              <span className="text-base font-bold font-mono text-text-primary w-6 text-center flex-shrink-0">
-                {row.points}
+            {/* Icon + cost/points grouped with no gap between them */}
+            {(leftIcon || showCost || showPoints) && (
+              <span className="flex items-center flex-shrink-0">
+                {leftIcon}
+                {showCost && (
+                  <span className="text-base font-bold font-mono text-text-primary w-6 text-center">
+                    {row.cost}
+                  </span>
+                )}
+                {showPoints && (
+                  <span className="text-base font-bold font-mono text-text-primary w-6 text-center">
+                    {row.points}
+                  </span>
+                )}
               </span>
             )}
             <span
@@ -348,9 +358,6 @@ export default function SearchResults({
               onMouseLeave={handleUnhover}
             >
               {row.name}
-            </span>
-            <span className="text-xs px-1.5 py-0.5 rounded bg-white/10 text-text-muted capitalize">
-              {row.type}
             </span>
             {deckCount !== null && (
               <span className="ml-auto text-xs font-mono bg-white/10 rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
@@ -374,11 +381,16 @@ export default function SearchResults({
             </div>
           )}
 
-          {/* Mission: affiliation, quadrant (uppercase), span, keywords, skills */}
+          {/* Mission: quadrant icon, affiliation, span, keywords, skills */}
           {type === 'mission' && (
-            <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
+            <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2 items-center">
+              {row.quadrant && (() => {
+                const qSrc = QUADRANT_TO_ICON[row.quadrant.toLowerCase()];
+                return qSrc
+                  ? <img src={qSrc} alt={row.quadrant.toUpperCase()} title={`${row.quadrant.toUpperCase()} Quadrant`} className="inline h-4 w-4 align-middle" />
+                  : <span className="uppercase">{row.quadrant}</span>;
+              })()}
               {row.affiliation && <span className="flex items-center gap-0.5">{renderWithIcons(row.affiliation)}</span>}
-              {row.quadrant && <span className="uppercase">{row.quadrant}</span>}
               {row.span && <span>Span {row.span}</span>}
               {row.keywords && <span className="text-text-secondary">{row.keywords}</span>}
               {row.skills && (

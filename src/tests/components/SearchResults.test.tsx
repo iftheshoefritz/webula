@@ -445,12 +445,39 @@ describe('SearchResults', () => {
 
       // Mission type is now rendered as an icon
       expect(screen.getByAltText('P')).toBeInTheDocument();
-      // Quadrant is uppercase, no "Q" suffix
-      expect(screen.getByText('A')).toBeInTheDocument();
+      // Quadrant is now rendered as an icon (Alpha quadrant)
+      expect(screen.getByAltText('A')).toBeInTheDocument();
       expect(screen.getByText('Span 3')).toBeInTheDocument();
       // Points now shown to left of title
       expect(screen.getByText('35')).toBeInTheDocument();
       expect(screen.getByText('Leadership, Diplomacy')).toBeInTheDocument();
+    });
+
+    it('shows quadrant icon for gamma quadrant missions', () => {
+      const card = {
+        ...cardFixture({ type: 'mission', name: 'GQ Mission' }),
+        quadrant: 'G',
+        dilemmatype: 'S',
+      };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      expect(screen.getByAltText('G')).toBeInTheDocument();
+    });
+
+    it('shows quadrant icon for delta quadrant missions', () => {
+      const card = {
+        ...cardFixture({ type: 'mission', name: 'DQ Mission' }),
+        quadrant: 'D',
+        dilemmatype: 'S',
+      };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      expect(screen.getByAltText('D')).toBeInTheDocument();
+    });
+
+    it('does not show card type badge in list view', () => {
+      const card = cardFixture({ type: 'event', name: 'Badge Test' });
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      // The type badge text (e.g., "event" in a pill span) should not be present
+      expect(screen.queryByText('event')).not.toBeInTheDocument();
     });
 
     it('applies height styling in list view when useWindowScroll is false', () => {
