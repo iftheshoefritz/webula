@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import SearchResults from '../../components/SearchResults';
 import { CardDef, Deck } from '../../types';
 
-// Mock react-virtuoso's VirtuosoGrid to render items directly in jsdom
+// Mock react-virtuoso's VirtuosoGrid and Virtuoso to render items directly in jsdom
 jest.mock('react-virtuoso', () => ({
   VirtuosoGrid: ({ totalCount, itemContent, listClassName, components, style, useWindowScroll, ...rest }: any) => {
     const ListComp = components?.List || 'div';
@@ -19,6 +19,19 @@ jest.mock('react-virtuoso', () => ({
           <ItemComp key={i}>{itemContent(i)}</ItemComp>
         ))}
       </ListComp>
+    );
+  },
+  Virtuoso: ({ totalCount, itemContent, style, useWindowScroll, ...rest }: any) => {
+    return (
+      <div
+        style={style}
+        data-testid="virtuoso-list"
+        data-use-window-scroll={useWindowScroll}
+      >
+        {Array.from({ length: totalCount }, (_, i) => (
+          <div key={i}>{itemContent(i)}</div>
+        ))}
+      </div>
     );
   },
 }));
@@ -306,6 +319,147 @@ describe('SearchResults', () => {
 
       // The badge div has specific classes; should not be present
       expect(container.querySelector('.bg-black.bg-opacity-50')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('list view mode', () => {
+    it('renders Virtuoso list when viewMode is list', () => {
+      const cards = [
+        cardFixture({ collectorsinfo: '1R100', name: 'Alpha', imagefile: 'alpha' }),
+        cardFixture({ collectorsinfo: '1R101', name: 'Beta', imagefile: 'beta' }),
+      ];
+
+      render(<SearchResults filteredData={cards} viewMode="list" />);
+
+      expect(screen.getByTestId('virtuoso-list')).toBeInTheDocument();
+      expect(screen.queryByTestId('virtuoso-grid')).not.toBeInTheDocument();
+    });
+
+    it('renders VirtuosoGrid when viewMode is image (default)', () => {
+      render(<SearchResults filteredData={[cardFixture()]} viewMode="image" />);
+
+      expect(screen.getByTestId('virtuoso-grid')).toBeInTheDocument();
+      expect(screen.queryByTestId('virtuoso-list')).not.toBeInTheDocument();
+    });
+
+    it('shows card name as text in list view', () => {
+      const card = cardFixture({ name: 'Test Card Name' });
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+
+      expect(screen.getByText('Test Card Name')).toBeInTheDocument();
+    });
+
+    it('calls onCardSelected when list row is clicked', () => {
+      const card = cardFixture({ name: 'Clickable Card' });
+      const onCardSelected = jest.fn();
+
+      render(
+        <SearchResults
+          filteredData={[card]}
+          onCardSelected={onCardSelected}
+          viewMode="list"
+        />
+      );
+
+      fireEvent.click(screen.getByText('Clickable Card'));
+      expect(onCardSelected).toHaveBeenCalledWith(card);
+    });
+
+    it('calls onCardDeselected on context menu in list view', () => {
+      const card = cardFixture({ name: 'Right Click Card' });
+      const onCardDeselected = jest.fn();
+
+      render(
+        <SearchResults
+          filteredData={[card]}
+          onCardDeselected={onCardDeselected}
+          viewMode="list"
+        />
+      );
+
+      fireEvent.contextMenu(screen.getByText('Right Click Card'));
+      expect(onCardDeselected).toHaveBeenCalledTimes(1);
+      expect(onCardDeselected.mock.calls[0][1]).toEqual(card);
+    });
+
+    it('shows deck count badge in list view', () => {
+      const card = cardFixture({ collectorsinfo: '1R010' });
+      const deck: Deck = {
+        '1R010': { row: { ...card, count: 3 }, count: 3 },
+      };
+
+      render(
+        <SearchResults
+          filteredData={[card]}
+          currentDeck={deck}
+          viewMode="list"
+        />
+      );
+
+      expect(screen.getByText('3')).toBeInTheDocument();
+    });
+
+    it('shows type-specific fields for personnel in list view', () => {
+      const card = {
+        ...cardFixture({ type: 'personnel', name: 'Crew Member' }),
+        affiliation: 'federation',
+        species: 'human',
+        integrity: '6',
+        cunning: '7',
+        strength: '5',
+        skills: 'Diplomacy Medical',
+      };
+
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+
+      expect(screen.getByText('federation')).toBeInTheDocument();
+      expect(screen.getByText('human')).toBeInTheDocument();
+      expect(screen.getByText('6|7|5')).toBeInTheDocument();
+      expect(screen.getByText('Diplomacy Medical')).toBeInTheDocument();
+    });
+
+    it('shows gametext in list view', () => {
+      const card = {
+        ...cardFixture({ type: 'event', name: 'Some Event' }),
+        gametext: 'This is the full game text.',
+      };
+
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+
+      expect(screen.getByText('This is the full game text.')).toBeInTheDocument();
+    });
+
+    it('shows mission-specific fields in list view', () => {
+      const card = {
+        ...cardFixture({ type: 'mission', name: 'Test Mission' }),
+        affiliation: '[baj][fed]',
+        missiontype: 's',
+        quadrant: 'A',
+        span: '3',
+        points: '35',
+        skills: 'Leadership, Diplomacy',
+      };
+
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+
+      expect(screen.getByText('Space')).toBeInTheDocument();
+      expect(screen.getByText('AQ')).toBeInTheDocument();
+      expect(screen.getByText('Span 3')).toBeInTheDocument();
+      expect(screen.getByText('35 pts')).toBeInTheDocument();
+      expect(screen.getByText('Leadership, Diplomacy')).toBeInTheDocument();
+    });
+
+    it('applies height styling in list view when useWindowScroll is false', () => {
+      render(
+        <SearchResults
+          filteredData={[cardFixture()]}
+          viewMode="list"
+          useWindowScroll={false}
+        />
+      );
+
+      const list = screen.getByTestId('virtuoso-list');
+      expect(list).toHaveStyle({ height: '100%', flex: '1 1 auto' });
     });
   });
 

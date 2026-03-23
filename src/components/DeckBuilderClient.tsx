@@ -22,7 +22,7 @@ import { aboveMinimumCount, belowMaximumCount, deckFromTsv, expandDeck, decremen
 import { missionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus } from 'react-icons/fa';
+import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -406,6 +406,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     return totals;
   }, [currentDeckRows]);
 
+  const [viewMode, setViewMode] = useLocalStorage<'image' | 'list'>(
+    'search-view-mode',
+    typeof window !== 'undefined' && window.innerWidth < 640 ? 'list' : 'image',
+  );
+
   // activeView controls which panel is shown in the desktop left panel
   const [activeView, setActiveView] = useState<'search' | 'deck'>('deck');
   // mobileView controls which full-page view is shown on mobile
@@ -430,7 +435,19 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const searchPanel = (
     <div className="mx-2 mt-4 flex flex-col flex-1 min-h-0 overflow-hidden">
       <div className="shrink-0">
-        <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} variant="styled" />
+        <div className="flex items-start gap-2">
+          <div className="flex-1">
+            <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} variant="styled" />
+          </div>
+          <button
+            onClick={() => setViewMode(viewMode === 'image' ? 'list' : 'image')}
+            className="btn-icon mt-1 flex-shrink-0"
+            title={viewMode === 'image' ? 'Switch to list view' : 'Switch to image view'}
+            aria-label={viewMode === 'image' ? 'Switch to list view' : 'Switch to image view'}
+          >
+            {viewMode === 'image' ? <FaList /> : <FaTh />}
+          </button>
+        </div>
         <SearchPills searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
         <Help variant="styled" />
       </div>
@@ -443,6 +460,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           withHover={true}
           useWindowScroll={false}
           gridClassName="grid grid-cols-1 lg:grid-cols-2 gap-4"
+          viewMode={viewMode}
         />
       </div>
     </div>
