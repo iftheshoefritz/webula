@@ -412,7 +412,7 @@ describe('SearchResults', () => {
 
       render(<SearchResults filteredData={[card]} viewMode="list" />);
 
-      // Affiliation is now rendered as an icon
+      // Affiliation icon is now in the header row (left of cost/title)
       expect(screen.getByAltText('Federation')).toBeInTheDocument();
       expect(screen.getByText('human')).toBeInTheDocument();
       expect(screen.getByText('6|7|5')).toBeInTheDocument();
@@ -497,6 +497,70 @@ describe('SearchResults', () => {
       render(<SearchResults filteredData={[card]} viewMode="list" />);
       expect(screen.getByAltText('Baj')).toBeInTheDocument();
       expect(screen.getByAltText('Fed')).toBeInTheDocument();
+    });
+
+    it('shows affiliation icon in header row (left of title) for personnel', () => {
+      const card = {
+        ...cardFixture({ type: 'personnel', name: 'Header Personnel' }),
+        affiliation: 'Klingon',
+      };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      const icon = screen.getByAltText('Klingon');
+      expect(icon).toBeInTheDocument();
+      // Affiliation icon should appear before the name in the DOM (same header row)
+      const name = screen.getByText('Header Personnel');
+      expect(icon.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('shows affiliation icon in header row (left of title) for ships', () => {
+      const card = {
+        ...cardFixture({ type: 'ship', name: 'USS Test' }),
+        affiliation: 'Federation',
+      };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      const icon = screen.getByAltText('Federation');
+      const name = screen.getByText('USS Test');
+      expect(icon.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('shows event type icon in header for events', () => {
+      const card = { ...cardFixture({ type: 'event', name: 'Test Event' }) };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      expect(screen.getByAltText('event')).toBeInTheDocument();
+    });
+
+    it('shows interrupt type icon in header for interrupts', () => {
+      const card = { ...cardFixture({ type: 'interrupt', name: 'Test Interrupt' }) };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      expect(screen.getByAltText('interrupt')).toBeInTheDocument();
+    });
+
+    it('shows equipment type icon in header for equipment', () => {
+      const card = { ...cardFixture({ type: 'equipment', name: 'Test Equipment' }) };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      expect(screen.getByAltText('equipment')).toBeInTheDocument();
+    });
+
+    it('shows dilemma type icon in header for dilemmas', () => {
+      const card = {
+        ...cardFixture({ type: 'dilemma', name: 'Test Dilemma' }),
+        dilemmatype: 'S',
+      };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      const icon = screen.getByAltText('S');
+      const name = screen.getByText('Test Dilemma');
+      expect(icon.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('shows mission type icon in header for missions', () => {
+      const card = {
+        ...cardFixture({ type: 'mission', name: 'Test Mission 2' }),
+        dilemmatype: 'P',
+      };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      const icon = screen.getByAltText('P');
+      const name = screen.getByText('Test Mission 2');
+      expect(icon.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
     it('renders icon images in gametext bracket tags', () => {

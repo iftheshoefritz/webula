@@ -36,6 +36,10 @@ const INLINE_ICON_MAP: Record<string, string> = {
   'p': '/icons/icon_planet.gif',
   'h': '/icons/icon_headquarters.gif',
   'hq': '/icons/icon_headquarters.gif',
+  // Card type icons
+  'equipment': '/icons/icon_equipment.gif',
+  'event': '/icons/icon_event.gif',
+  'interrupt': '/icons/icon_interrupt.gif',
 };
 
 // Map affiliation text to icon paths (for personnel/ships where affiliation is plain text)
@@ -303,14 +307,31 @@ export default function SearchResults({
       const showCost = row.cost && type !== 'interrupt' && type !== 'mission';
       const showPoints = type === 'mission' && row.points;
 
+      // Left-side icon: affiliation for personnel/ships, type icon for event/interrupt/equipment,
+      // space/planet/dual/hq icon for missions and dilemmas
+      let leftIcon: React.ReactNode = null;
+      if ((type === 'personnel' || type === 'ship') && row.affiliation) {
+        leftIcon = renderAffiliationIcon(row.affiliation);
+      } else if (type === 'event' || type === 'interrupt' || type === 'equipment') {
+        const typeSrc = INLINE_ICON_MAP[type];
+        if (typeSrc) {
+          leftIcon = <img src={typeSrc} alt={type} title={row.type} className="inline h-4 w-4 align-middle" />;
+        }
+      } else if ((type === 'mission' || type === 'dilemma') && row.dilemmatype) {
+        leftIcon = renderTypeIcon(row.dilemmatype);
+      }
+
       return (
         <div
           className="flex flex-col px-3 py-2 border-b border-white/[0.06] hover:bg-white/[0.04] cursor-pointer select-none"
           onClick={() => onCardSelected && onCardSelected(row)}
           onContextMenu={(e) => onCardDeselected && onCardDeselected(e, row)}
         >
-          {/* Header: cost/points, name, type badge, count */}
+          {/* Header: left icon, cost/points, name, type badge, count */}
           <div className="flex items-center gap-2 flex-wrap">
+            {leftIcon && (
+              <span className="flex items-center flex-shrink-0">{leftIcon}</span>
+            )}
             {showCost && (
               <span className="text-base font-bold font-mono text-text-primary w-6 text-center flex-shrink-0">
                 {row.cost}
@@ -338,10 +359,9 @@ export default function SearchResults({
             )}
           </div>
 
-          {/* Personnel: affiliation icon, icons, species, INT|CUN|STR, skills, keywords */}
+          {/* Personnel: icons, species, INT|CUN|STR, skills, keywords */}
           {type === 'personnel' && (
             <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
-              {row.affiliation && <span className="flex items-center">{renderAffiliationIcon(row.affiliation)}</span>}
               {row.icons && <span className="flex items-center gap-0.5">{renderWithIcons(row.icons)}</span>}
               {row.species && <span>{row.species}</span>}
               {(row.integrity || row.cunning || row.strength) && (
@@ -354,13 +374,10 @@ export default function SearchResults({
             </div>
           )}
 
-          {/* Mission: affiliation, space/planet icon, quadrant (uppercase), span, keywords, skills */}
+          {/* Mission: affiliation, quadrant (uppercase), span, keywords, skills */}
           {type === 'mission' && (
             <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
               {row.affiliation && <span className="flex items-center gap-0.5">{renderWithIcons(row.affiliation)}</span>}
-              {row.dilemmatype && (
-                <span className="flex items-center">{renderTypeIcon(row.dilemmatype)}</span>
-              )}
               {row.quadrant && <span className="uppercase">{row.quadrant}</span>}
               {row.span && <span>Span {row.span}</span>}
               {row.keywords && <span className="text-text-secondary">{row.keywords}</span>}
@@ -370,10 +387,9 @@ export default function SearchResults({
             </div>
           )}
 
-          {/* Ship: affiliation icon, class, staff icons, R/W/S, keywords */}
+          {/* Ship: class, staff icons, R/W/S, keywords */}
           {type === 'ship' && (
             <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
-              {row.affiliation && <span className="flex items-center">{renderAffiliationIcon(row.affiliation)}</span>}
               {row.class && <span>{row.class}</span>}
               {row.staff && <span className="flex items-center gap-0.5">{renderWithIcons(row.staff)}</span>}
               {(row.range || row.weapons || row.shields) && (
@@ -383,13 +399,10 @@ export default function SearchResults({
             </div>
           )}
 
-          {/* Dilemma: space/planet/dual icon, keywords */}
-          {type === 'dilemma' && (
+          {/* Dilemma: keywords (type icon is now in header) */}
+          {type === 'dilemma' && row.keywords && (
             <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
-              {row.dilemmatype && (
-                <span className="flex items-center">{renderTypeIcon(row.dilemmatype)}</span>
-              )}
-              {row.keywords && <span>{row.keywords}</span>}
+              <span>{row.keywords}</span>
             </div>
           )}
 
