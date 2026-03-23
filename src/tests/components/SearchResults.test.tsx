@@ -402,7 +402,7 @@ describe('SearchResults', () => {
     it('shows type-specific fields for personnel in list view', () => {
       const card = {
         ...cardFixture({ type: 'personnel', name: 'Crew Member' }),
-        affiliation: 'federation',
+        affiliation: 'Federation',
         species: 'human',
         integrity: '6',
         cunning: '7',
@@ -412,7 +412,8 @@ describe('SearchResults', () => {
 
       render(<SearchResults filteredData={[card]} viewMode="list" />);
 
-      expect(screen.getByText('federation')).toBeInTheDocument();
+      // Affiliation is now rendered as an icon
+      expect(screen.getByAltText('Federation')).toBeInTheDocument();
       expect(screen.getByText('human')).toBeInTheDocument();
       expect(screen.getByText('6|7|5')).toBeInTheDocument();
       expect(screen.getByText('Diplomacy Medical')).toBeInTheDocument();
@@ -433,7 +434,7 @@ describe('SearchResults', () => {
       const card = {
         ...cardFixture({ type: 'mission', name: 'Test Mission' }),
         affiliation: '[baj][fed]',
-        missiontype: 's',
+        dilemmatype: 'P',
         quadrant: 'A',
         span: '3',
         points: '35',
@@ -442,10 +443,13 @@ describe('SearchResults', () => {
 
       render(<SearchResults filteredData={[card]} viewMode="list" />);
 
-      expect(screen.getByText('Space')).toBeInTheDocument();
-      expect(screen.getByText('AQ')).toBeInTheDocument();
+      // Mission type is now rendered as an icon
+      expect(screen.getByAltText('P')).toBeInTheDocument();
+      // Quadrant is uppercase, no "Q" suffix
+      expect(screen.getByText('A')).toBeInTheDocument();
       expect(screen.getByText('Span 3')).toBeInTheDocument();
-      expect(screen.getByText('35 pts')).toBeInTheDocument();
+      // Points now shown to left of title
+      expect(screen.getByText('35')).toBeInTheDocument();
       expect(screen.getByText('Leadership, Diplomacy')).toBeInTheDocument();
     });
 
