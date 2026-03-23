@@ -413,6 +413,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   // activePile controls which pile tab is shown in the deck panel
   const [activePile, setActivePile] = useState<'mission' | 'dilemma' | 'draw'>('draw');
 
+  useEffect(() => {
+    if (mobileView === 'analysis') {
+      const id = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      return () => cancelAnimationFrame(id);
+    }
+  }, [mobileView]);
+
   const compare = (a: string, b: string) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
   };
