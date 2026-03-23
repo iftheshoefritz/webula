@@ -1,6 +1,6 @@
 // a typescript version of the DeckListItem component
 import React, { SyntheticEvent } from 'react';
-import { FaChevronUp, FaChevronDown } from 'react-icons/fa';
+import { FaMinus, FaPlus } from 'react-icons/fa';
 
 type DeckListItemProps = {
   incrementIncluded: () => void;
@@ -55,19 +55,23 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
       className="flex relative justify-between h-14 px-1 text-text-primary hover:bg-white/[0.04] rounded transition-colors"
       key={collectorsinfo}
     >
-      <div className="flex gap-x-2 items-center mt-2">
-        <div className="flex flex-col items-center justify-center">
-          <div
-            onClick={incrementIncluded}
-          >
-            <FaChevronUp className="cursor-pointer hover:text-text-secondary" />
-          </div>
-          <div >{count}x</div>
-          <div
+      <div className="flex gap-x-2 items-center">
+        <div className="flex items-center self-stretch gap-x-1">
+          <button
             onClick={decrementIncluded}
+            className="flex items-center justify-center w-8 self-stretch cursor-pointer hover:text-text-secondary rounded"
+            aria-label="Decrease quantity"
           >
-            <FaChevronDown className="cursor-pointer hover:text-text-secondary" />
-          </div>
+            <FaMinus />
+          </button>
+          <span className="w-6 text-center">{count}x</span>
+          <button
+            onClick={incrementIncluded}
+            className="flex items-center justify-center w-8 self-stretch cursor-pointer hover:text-text-secondary rounded"
+            aria-label="Increase quantity"
+          >
+            <FaPlus />
+          </button>
         </div>
         <div
           onMouseEnter={handleHover}
