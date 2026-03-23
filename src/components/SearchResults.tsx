@@ -3,6 +3,59 @@ import { createPortal } from "react-dom";
 import { VirtuosoGrid, Virtuoso } from "react-virtuoso";
 import { CardDef, Deck } from "../types";
 
+const INLINE_ICON_MAP: Record<string, string> = {
+  // Personnel/card icons
+  'au': '/icons/icon_au.gif',
+  'cmd': '/icons/icon_command.gif',
+  'ds9': '/icons/icon_ds9.gif',
+  'e': '/icons/icon_earth.gif',
+  'fut': '/icons/icon_future.gif',
+  'maq': '/icons/icon_maquis.gif',
+  'pa': '/icons/icon_past.gif',
+  'stf': '/icons/icon_staff.gif',
+  'tn': '/icons/icon_teroknor.gif',
+  'tng': '/icons/icon_tng.gif',
+  'tos': '/icons/icon_tos.gif',
+  'voy': '/icons/icon_voyager.gif',
+  // Affiliation icons
+  'baj': '/icons/icon_affiliation_bajoran.gif',
+  'bor': '/icons/icon_affiliation_borg.gif',
+  'car': '/icons/icon_affiliation_cardassian.gif',
+  'dom': '/icons/icon_affiliation_dominion.gif',
+  'fed': '/icons/icon_affiliation_federation.gif',
+  'fer': '/icons/icon_ferengi.gif',
+  'kli': '/icons/icon_affiliation_klingon.gif',
+  'na': '/icons/icon_nonaligned.gif',
+  'rom': '/icons/icon_affiliation_romulan.gif',
+  'sf': '/icons/icon_affiliation_starfleet.gif',
+  'sta': '/icons/icon_affiliation_starfleet.gif',
+  'vid': '/icons/icons_affiliation_vidiian.png',
+  // Mission/dilemma type icons
+  'd': '/icons/icon_dual.gif',
+  's': '/icons/icon_space.gif',
+  'p': '/icons/icon_planet.gif',
+  'h': '/icons/icon_headquarters.gif',
+  'hq': '/icons/icon_headquarters.gif',
+};
+
+function renderWithIcons(text: string): React.ReactNode {
+  if (!text) return null;
+  const parts = text.split(/(\[[^\]]+\])/);
+  // Fast path: no bracket tags
+  if (parts.length === 1) return text;
+  return parts.map((part, i) => {
+    if (!part) return null;
+    const match = part.match(/^\[([^\]]+)\]$/);
+    if (match) {
+      const src = INLINE_ICON_MAP[match[1].toLowerCase()];
+      if (src) {
+        return <img key={i} src={src} alt={match[1]} title={match[1]} className="inline h-4 w-4 align-middle" />;
+      }
+    }
+    return part;
+  }).filter(Boolean);
+}
+
 const DEFAULT_GRID_CLASS =
   "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4";
 
@@ -209,10 +262,15 @@ export default function SearchResults({
           onClick={() => onCardSelected && onCardSelected(row)}
           onContextMenu={(e) => onCardDeselected && onCardDeselected(e, row)}
         >
-          {/* Header: name, type badge, cost, HoF, count */}
+          {/* Header: cost, name, type badge, count */}
           <div className="flex items-center gap-2 flex-wrap">
+            {row.cost && (
+              <span className="text-base font-bold font-mono text-text-primary w-6 text-center flex-shrink-0">
+                {row.cost}
+              </span>
+            )}
             <span
-              className="font-bold text-text-primary text-sm leading-tight"
+              className="font-bold text-text-primary text-sm leading-tight uppercase"
               onMouseEnter={(e) => withHover && handleHover(row.collectorsinfo, e)}
               onMouseLeave={handleUnhover}
             >
@@ -221,12 +279,6 @@ export default function SearchResults({
             <span className="text-xs px-1.5 py-0.5 rounded bg-white/10 text-text-muted capitalize">
               {row.type}
             </span>
-            {row.cost && (
-              <span className="text-xs text-text-muted">Cost: {row.cost}</span>
-            )}
-            {(row.hof === 'y' || row.hof === 'Y') && (
-              <span className="text-xs px-1 py-0.5 rounded bg-yellow-900/40 text-yellow-400">HoF</span>
-            )}
             {deckCount !== null && (
               <span className="ml-auto text-xs font-mono bg-white/10 rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
                 {deckCount}
@@ -238,13 +290,13 @@ export default function SearchResults({
           {type === 'personnel' && (
             <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
               {row.affiliation && <span>{row.affiliation}</span>}
-              {row.icons && <span>{row.icons}</span>}
+              {row.icons && <span className="flex items-center gap-0.5">{renderWithIcons(row.icons)}</span>}
               {row.species && <span>{row.species}</span>}
               {(row.integrity || row.cunning || row.strength) && (
                 <span className="font-mono">{row.integrity}|{row.cunning}|{row.strength}</span>
               )}
               {row.skills && (
-                <span className="text-text-secondary w-full mt-0.5">{row.skills}</span>
+                <span className="text-text-secondary w-full mt-0.5">{renderWithIcons(row.skills)}</span>
               )}
             </div>
           )}
@@ -252,7 +304,7 @@ export default function SearchResults({
           {/* Mission: affiliation, space/planet, quadrant, span, points, skills */}
           {type === 'mission' && (
             <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
-              {row.affiliation && <span>{row.affiliation}</span>}
+              {row.affiliation && <span className="flex items-center gap-0.5">{renderWithIcons(row.affiliation)}</span>}
               {row.missiontype && (
                 <span className="font-medium">
                   {row.missiontype === 's' || row.missiontype === 'S' ? 'Space' : 'Planet'}
@@ -262,7 +314,7 @@ export default function SearchResults({
               {row.span && <span>Span {row.span}</span>}
               {row.points && <span>{row.points} pts</span>}
               {row.skills && (
-                <span className="text-text-secondary w-full mt-0.5">{row.skills}</span>
+                <span className="text-text-secondary w-full mt-0.5">{renderWithIcons(row.skills)}</span>
               )}
             </div>
           )}
@@ -299,7 +351,7 @@ export default function SearchResults({
 
           {/* Full gametext */}
           {row.gametext && (
-            <div className="text-xs text-text-muted mt-1 leading-relaxed">{row.gametext}</div>
+            <div className="text-xs text-text-muted mt-1 leading-relaxed">{renderWithIcons(row.gametext)}</div>
           )}
 
           {hoverPortal(row)}

@@ -2,13 +2,11 @@
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FaTh, FaList } from 'react-icons/fa';
 import SearchBar from './SearchBar';
 import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
 import useFilterData from '../hooks/useFilterData';
 import useScrollVisibility from '../hooks/useScrollVisibility';
-import useLocalStorage from '../hooks/useLocalStorage';
 import type { CardData } from '../lib/loadCards';
 import { PreviewBanner } from './PreviewBanner';
 
@@ -23,11 +21,6 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQueryState] = useState(() => searchParams.get('q') ?? '');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const [viewMode, setViewMode] = useLocalStorage<'image' | 'list'>(
-    'search-view-mode',
-    typeof window !== 'undefined' && window.innerWidth < 640 ? 'list' : 'image',
-  );
-
   const searchParamsRef = useRef(searchParams);
   useEffect(() => {
     searchParamsRef.current = searchParams;
@@ -94,14 +87,6 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
                   variant="styled"
                 />
               </div>
-              <button
-                onClick={() => setViewMode(viewMode === 'image' ? 'list' : 'image')}
-                className="btn-icon mt-1 flex-shrink-0"
-                title={viewMode === 'image' ? 'Switch to list view' : 'Switch to image view'}
-                aria-label={viewMode === 'image' ? 'Switch to list view' : 'Switch to image view'}
-              >
-                {viewMode === 'image' ? <FaList /> : <FaTh />}
-              </button>
             </div>
             <SearchPills
               searchQuery={searchQuery}
@@ -117,7 +102,6 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
           filteredData={filteredData}
           variant="styled"
           useWindowScroll={true}
-          viewMode={viewMode}
         />
       </div>
     </div>

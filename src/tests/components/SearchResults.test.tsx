@@ -461,6 +461,50 @@ describe('SearchResults', () => {
       const list = screen.getByTestId('virtuoso-list');
       expect(list).toHaveStyle({ height: '100%', flex: '1 1 auto' });
     });
+
+    it('does not show HoF badge even when card has hof=y', () => {
+      const card = { ...cardFixture({ type: 'event', name: 'HoF Card' }), hof: 'y' };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      expect(screen.queryByText('HoF')).not.toBeInTheDocument();
+    });
+
+    it('shows cost as a prominent number without "Cost:" label', () => {
+      const card = { ...cardFixture({ type: 'event', name: 'Costly Card' }), cost: '5' };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      expect(screen.getByText('5')).toBeInTheDocument();
+      expect(screen.queryByText(/Cost:/i)).not.toBeInTheDocument();
+    });
+
+    it('renders icon images for bracket tags in the icons field', () => {
+      const card = {
+        ...cardFixture({ type: 'personnel', name: 'Test Personnel' }),
+        icons: '[Cmd][Stf]',
+      };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      expect(screen.getByAltText('Cmd')).toBeInTheDocument();
+      expect(screen.getByAltText('Stf')).toBeInTheDocument();
+    });
+
+    it('renders affiliation icon images for bracket tags in mission affiliation', () => {
+      const card = {
+        ...cardFixture({ type: 'mission', name: 'Test Mission' }),
+        affiliation: '[Baj][Fed]',
+      };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      expect(screen.getByAltText('Baj')).toBeInTheDocument();
+      expect(screen.getByAltText('Fed')).toBeInTheDocument();
+    });
+
+    it('renders icon images in gametext bracket tags', () => {
+      const card = {
+        ...cardFixture({ type: 'event', name: 'Test Event' }),
+        gametext: 'Plays on [Fed] personnel.',
+      };
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      expect(screen.getByAltText('Fed')).toBeInTheDocument();
+      expect(screen.getByText(/Plays on/)).toBeInTheDocument();
+      expect(screen.getByText(/personnel\./)).toBeInTheDocument();
+    });
   });
 
   describe('search/filter updates list correctly', () => {
