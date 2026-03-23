@@ -324,7 +324,9 @@ export default function SearchResults({
         if (typeSrc) {
           leftIcon = <img src={typeSrc} alt={type} title={row.type} className="inline h-4 w-4 align-middle" />;
         }
-      } else if ((type === 'mission' || type === 'dilemma') && row.dilemmatype) {
+      } else if (type === 'mission' && row.missiontype) {
+        leftIcon = renderTypeIcon(row.missiontype);
+      } else if (type === 'dilemma' && row.dilemmatype) {
         leftIcon = renderTypeIcon(row.dilemmatype);
       }
 
@@ -335,7 +337,7 @@ export default function SearchResults({
           onContextMenu={(e) => onCardDeselected && onCardDeselected(e, row)}
         >
           {/* Header: icon immediately followed by cost/points (no gap), then name and count */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
             {/* Icon + cost/points grouped with no gap between them */}
             {(leftIcon || showCost || showPoints) && (
               <span className="flex items-center flex-shrink-0">
@@ -353,7 +355,7 @@ export default function SearchResults({
               </span>
             )}
             <span
-              className="font-bold text-text-primary text-sm leading-tight uppercase"
+              className="font-bold text-text-primary text-sm leading-tight uppercase flex-1 min-w-0 truncate"
               onMouseEnter={(e) => withHover && handleHover(row.collectorsinfo, e)}
               onMouseLeave={handleUnhover}
             >

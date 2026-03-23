@@ -434,7 +434,7 @@ describe('SearchResults', () => {
       const card = {
         ...cardFixture({ type: 'mission', name: 'Test Mission' }),
         affiliation: '[baj][fed]',
-        dilemmatype: 'P',
+        missiontype: 'P',
         quadrant: 'A',
         span: '3',
         points: '35',
@@ -457,7 +457,7 @@ describe('SearchResults', () => {
       const card = {
         ...cardFixture({ type: 'mission', name: 'GQ Mission' }),
         quadrant: 'G',
-        dilemmatype: 'S',
+        missiontype: 'S',
       };
       render(<SearchResults filteredData={[card]} viewMode="list" />);
       expect(screen.getByAltText('G')).toBeInTheDocument();
@@ -467,7 +467,7 @@ describe('SearchResults', () => {
       const card = {
         ...cardFixture({ type: 'mission', name: 'DQ Mission' }),
         quadrant: 'D',
-        dilemmatype: 'S',
+        missiontype: 'S',
       };
       render(<SearchResults filteredData={[card]} viewMode="list" />);
       expect(screen.getByAltText('D')).toBeInTheDocument();
@@ -582,7 +582,7 @@ describe('SearchResults', () => {
     it('shows mission type icon in header for missions', () => {
       const card = {
         ...cardFixture({ type: 'mission', name: 'Test Mission 2' }),
-        dilemmatype: 'P',
+        missiontype: 'P',
       };
       render(<SearchResults filteredData={[card]} viewMode="list" />);
       const icon = screen.getByAltText('P');
