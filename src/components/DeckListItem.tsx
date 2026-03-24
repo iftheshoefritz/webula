@@ -84,9 +84,7 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
           {name}
         </div>
       </div>
-      <div className="flex gap-x-2 items-center">
-        <div>{collectorsinfo}</div>
-      </div>
+
       {isHovering && (
         <div
           className="absolute left-0 z-50"
