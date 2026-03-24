@@ -13,6 +13,7 @@ interface RangeValue {
 }
 
 interface ParsedQuery {
+  text?: string | string[];
   exclude?: Record<string, string | string[]>;
   [key: string]: string | string[] | RangeValue | Record<string, string | string[]> | undefined;
 }
@@ -136,6 +137,14 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
         return true;
       });
     });
+
+    // Apply free-text portion (e.g. "Ezri" in "-type:mission -type:dilemma Ezri")
+    if (parsedQuery.text) {
+      const textTerms = (Array.isArray(parsedQuery.text) ? parsedQuery.text : [parsedQuery.text]);
+      filtered = filtered.filter((row) =>
+        textTerms.every((term) => row.name.includes(term.toLowerCase()))
+      );
+    }
   }
 
   const affiliationCol = colInQuery('affiliation', parsedQuery);
