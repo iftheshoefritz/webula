@@ -136,9 +136,9 @@ export const AFFILIATION_ICONS: Record<string, string> = {
   'cardassian': '/icons/icon_affiliation_cardassian.gif',
   'dominion': '/icons/icon_affiliation_dominion.gif',
   'federation': '/icons/icon_affiliation_federation.gif',
-  'ferengi': '/icons/icon_ferengi.gif',
+  'ferengi': '/icons/icon_ferengi.png',
   'klingon': '/icons/icon_affiliation_klingon.gif',
-  'non-aligned': '/icons/icon_nonaligned.gif',
+  'non-aligned': '/icons/icon_nonaligned.png',
   'romulan': '/icons/icon_affiliation_romulan.gif',
   'starfleet': '/icons/icon_affiliation_starfleet.gif',
   'vidiian': '/icons/icons_affiliation_vidiian.png',
@@ -147,16 +147,16 @@ export const AFFILIATION_ICONS: Record<string, string> = {
 export const CARD_ICON_IMAGES: Record<string, string | null> = {
   'au': '/icons/icon_au.gif',
   'cmd': '/icons/icon_command.gif',
-  'ds9': '/icons/icon_ds9.gif',
+  'ds9': '/icons/icon_ds9.png',
   'e': '/icons/icon_earth.gif',
   'fut': '/icons/icon_future.gif',
   'maq': '/icons/icon_maquis.gif',
   'pa': '/icons/icon_past.gif',
   'stf': '/icons/icon_staff.gif',
   'tn': '/icons/icon_teroknor.gif',
-  'tng': '/icons/icon_tng.gif',
-  'tos': '/icons/icon_tos.gif',
-  'voy': '/icons/icon_voyager.gif',
+  'tng': '/icons/icon_tng.png',
+  'tos': '/icons/icon_tos.png',
+  'voy': '/icons/icon_voyager.png',
 };
 
 export const DILEMMA_TYPE_ICONS: Record<string, string | null> = {
