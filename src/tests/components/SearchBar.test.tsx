@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import SearchBar from '../../components/SearchBar';
+import SearchBar, { extractTextPortion, extractFieldPortion } from '../../components/SearchBar';
 
 // Lodash debounce is used inside SearchBar. We fake timers so we can control
 // when debounced callbacks fire without waiting real milliseconds.
@@ -12,7 +12,49 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
+describe('extractTextPortion / extractFieldPortion helpers', () => {
+  it('returns empty string when query has no free text', () => {
+    expect(extractTextPortion('-type:mission -type:dilemma')).toBe('');
+    expect(extractTextPortion('type:personnel')).toBe('');
+  });
+
+  it('returns the free-text words when there are no field filters', () => {
+    expect(extractTextPortion('picard')).toBe('picard');
+    expect(extractTextPortion('jean luc')).toBe('jean luc');
+  });
+
+  it('returns only the free-text portion when mixed with field filters', () => {
+    expect(extractTextPortion('type:personnel picard')).toBe('picard');
+  });
+
+  it('strips free-text words from the field portion', () => {
+    expect(extractFieldPortion('type:personnel picard', 'picard')).toBe('type:personnel');
+    expect(extractFieldPortion('-type:mission -type:dilemma', '')).toBe('-type:mission -type:dilemma');
+  });
+});
+
 describe('SearchBar (styled variant)', () => {
+  it('shows only the free-text portion when searchQuery contains field filters', () => {
+    render(<SearchBar searchQuery="-type:mission -type:dilemma" setSearchQuery={jest.fn()} variant="styled" />);
+    expect(screen.getByPlaceholderText('Search cards...')).toHaveValue('');
+  });
+
+  it('preserves field filters when user types free text', () => {
+    const setSearchQuery = jest.fn();
+    render(<SearchBar searchQuery="-type:mission -type:dilemma" setSearchQuery={setSearchQuery} variant="styled" />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search cards...'), {
+      target: { value: 'picard' },
+    });
+
+    act(() => jest.advanceTimersByTime(500));
+
+    // The full query sent to the parent must include both the field filter and the typed text
+    expect(setSearchQuery).toHaveBeenCalledWith(expect.stringContaining('-type:mission'));
+    expect(setSearchQuery).toHaveBeenCalledWith(expect.stringContaining('-type:dilemma'));
+    expect(setSearchQuery).toHaveBeenCalledWith(expect.stringContaining('picard'));
+  });
+
   it('does not show the clear button when the input is empty', () => {
     render(<SearchBar searchQuery="" setSearchQuery={jest.fn()} variant="styled" />);
     expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument();
@@ -99,7 +141,8 @@ describe('SearchBar (styled variant)', () => {
     // The old full query must never have been re-sent
     expect(newSetSearchQuery).not.toHaveBeenCalledWith('affiliation:federation type:personnel');
 
-    // The input must show the new (stripped) query
-    expect(screen.getByPlaceholderText('Search cards...')).toHaveValue('type:personnel');
+    // The input shows only the free-text portion of the query; field filters like
+    // type:personnel are displayed as chips in SearchPills, not in the text input.
+    expect(screen.getByPlaceholderText('Search cards...')).toHaveValue('');
   });
 });

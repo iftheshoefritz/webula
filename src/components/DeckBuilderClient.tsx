@@ -428,10 +428,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
   };
 
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   const searchPile = useCallback((query: string) => {
     setSearchQuery(query);
     setActiveView('search');
     setMobileView('search');
+    requestAnimationFrame(() => searchInputRef.current?.focus());
   }, []);
 
   const missionCount = currentDeckRows.filter(r => r.pile === 'mission').reduce((s, r) => s + r.count, 0);
@@ -443,7 +446,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       <div className="shrink-0">
         <div className="flex items-start gap-2">
           <div className="flex-1">
-            <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} variant="styled" />
+            <SearchBar ref={searchInputRef} searchQuery={searchQuery} setSearchQuery={setSearchQuery} variant="styled" />
           </div>
           <button
             onClick={() => setViewMode(viewMode === 'image' ? 'list' : 'image')}
