@@ -337,25 +337,25 @@ export default function SearchResults({
           onContextMenu={(e) => onCardDeselected && onCardDeselected(e, row)}
         >
           {/* Header: icon immediately followed by cost/points (no gap), then name and count */}
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center h-7 gap-2 min-w-0">
             {/* Icon + cost/points grouped with no gap between them */}
             {(leftIcon || showCost || showPoints) && (
               <span className="flex items-center flex-shrink-0">
                 {leftIcon}
                 {showCost && (
-                  <span className="text-base font-bold font-mono text-text-primary w-6 text-center">
+                  <span className="text-lg font-bold font-mono text-text-primary w-6 text-center leading-none">
                     {row.cost}
                   </span>
                 )}
                 {showPoints && (
-                  <span className="text-base font-bold font-mono text-text-primary w-6 text-center">
+                  <span className="text-lg font-bold font-mono text-text-primary w-6 text-center leading-none">
                     {row.points}
                   </span>
                 )}
               </span>
             )}
             <span
-              className="font-bold text-text-primary text-base leading-tight uppercase flex-1 min-w-0 truncate"
+              className="font-bold text-text-primary text-lg leading-none uppercase flex-1 min-w-0 truncate"
               onMouseEnter={(e) => withHover && handleHover(row.collectorsinfo, e)}
               onMouseLeave={handleUnhover}
             >
