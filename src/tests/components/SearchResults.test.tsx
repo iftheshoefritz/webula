@@ -296,7 +296,7 @@ describe('SearchResults', () => {
       expect(screen.getByText('2')).toBeInTheDocument();
     });
 
-    it('shows 0 when card is not in currentDeck', () => {
+    it('does not show count control when card is not in currentDeck (count=0)', () => {
       const card = cardFixture({ collectorsinfo: '1R011' });
       const deck: Deck = {};
 
@@ -307,18 +307,93 @@ describe('SearchResults', () => {
         />
       );
 
-      expect(screen.getByText('0')).toBeInTheDocument();
+      expect(screen.queryByText('0')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Remove one')).not.toBeInTheDocument();
     });
 
     it('does not show badge when currentDeck is not provided', () => {
       const card = cardFixture();
 
-      const { container } = render(
+      render(
         <SearchResults filteredData={[card]} />
       );
 
-      // The badge div has specific classes; should not be present
-      expect(container.querySelector('.bg-black.bg-opacity-50')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Remove one')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Add one')).not.toBeInTheDocument();
+    });
+
+    it('shows minus and plus buttons when count > 0', () => {
+      const card = cardFixture({ collectorsinfo: '1R012' });
+      const deck: Deck = {
+        '1R012': { row: { ...card, count: 1 }, count: 1 },
+      };
+
+      render(
+        <SearchResults
+          filteredData={[card]}
+          currentDeck={deck}
+        />
+      );
+
+      expect(screen.getByLabelText('Remove one')).toBeInTheDocument();
+      expect(screen.getByLabelText('Add one')).toBeInTheDocument();
+      expect(screen.getByText('1')).toBeInTheDocument();
+    });
+
+    it('calls onCardDeselected when minus button is clicked', () => {
+      const card = cardFixture({ collectorsinfo: '1R013' });
+      const deck: Deck = {
+        '1R013': { row: { ...card, count: 2 }, count: 2 },
+      };
+      const onCardDeselected = jest.fn();
+
+      render(
+        <SearchResults
+          filteredData={[card]}
+          currentDeck={deck}
+          onCardDeselected={onCardDeselected}
+        />
+      );
+
+      fireEvent.click(screen.getByLabelText('Remove one'));
+      expect(onCardDeselected).toHaveBeenCalledTimes(1);
+      expect(onCardDeselected.mock.calls[0][1]).toEqual(card);
+    });
+
+    it('calls onCardSelected when plus button is clicked', () => {
+      const card = cardFixture({ collectorsinfo: '1R014' });
+      const deck: Deck = {
+        '1R014': { row: { ...card, count: 1 }, count: 1 },
+      };
+      const onCardSelected = jest.fn();
+
+      render(
+        <SearchResults
+          filteredData={[card]}
+          currentDeck={deck}
+          onCardSelected={onCardSelected}
+        />
+      );
+
+      fireEvent.click(screen.getByLabelText('Add one'));
+      expect(onCardSelected).toHaveBeenCalledWith(card);
+    });
+
+    it('disables plus button when count is at max (3)', () => {
+      const card = cardFixture({ collectorsinfo: '1R015' });
+      const deck: Deck = {
+        '1R015': { row: { ...card, count: 3 }, count: 3 },
+      };
+
+      render(
+        <SearchResults
+          filteredData={[card]}
+          currentDeck={deck}
+        />
+      );
+
+      expect(screen.getByLabelText('Add one')).toBeDisabled();
+      expect(screen.getByLabelText('Remove one')).not.toBeDisabled();
     });
   });
 
@@ -397,6 +472,78 @@ describe('SearchResults', () => {
       );
 
       expect(screen.getByText('3')).toBeInTheDocument();
+    });
+
+    it('shows minus and plus buttons in list view when count > 0', () => {
+      const card = cardFixture({ collectorsinfo: '1R020' });
+      const deck: Deck = {
+        '1R020': { row: { ...card, count: 2 }, count: 2 },
+      };
+
+      render(
+        <SearchResults
+          filteredData={[card]}
+          currentDeck={deck}
+          viewMode="list"
+        />
+      );
+
+      expect(screen.getByLabelText('Remove one')).toBeInTheDocument();
+      expect(screen.getByLabelText('Add one')).toBeInTheDocument();
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+
+    it('does not show count control in list view when count is 0', () => {
+      const card = cardFixture({ collectorsinfo: '1R021' });
+      const deck: Deck = {};
+
+      render(
+        <SearchResults
+          filteredData={[card]}
+          currentDeck={deck}
+          viewMode="list"
+        />
+      );
+
+      expect(screen.queryByLabelText('Remove one')).not.toBeInTheDocument();
+    });
+
+    it('calls onCardDeselected when minus button is clicked in list view', () => {
+      const card = cardFixture({ collectorsinfo: '1R022' });
+      const deck: Deck = {
+        '1R022': { row: { ...card, count: 1 }, count: 1 },
+      };
+      const onCardDeselected = jest.fn();
+
+      render(
+        <SearchResults
+          filteredData={[card]}
+          currentDeck={deck}
+          onCardDeselected={onCardDeselected}
+          viewMode="list"
+        />
+      );
+
+      fireEvent.click(screen.getByLabelText('Remove one'));
+      expect(onCardDeselected).toHaveBeenCalledTimes(1);
+      expect(onCardDeselected.mock.calls[0][1]).toEqual(card);
+    });
+
+    it('disables plus button at max count in list view', () => {
+      const card = cardFixture({ collectorsinfo: '1R023' });
+      const deck: Deck = {
+        '1R023': { row: { ...card, count: 3 }, count: 3 },
+      };
+
+      render(
+        <SearchResults
+          filteredData={[card]}
+          currentDeck={deck}
+          viewMode="list"
+        />
+      );
+
+      expect(screen.getByLabelText('Add one')).toBeDisabled();
     });
 
     it('shows type-specific fields for personnel in list view', () => {
@@ -649,12 +796,14 @@ describe('SearchResults', () => {
       const { rerender } = render(
         <SearchResults filteredData={[card]} currentDeck={emptyDeck} />
       );
-      expect(screen.getByText('0')).toBeInTheDocument();
+      // Count of 0 means no control is shown
+      expect(screen.queryByLabelText('Remove one')).not.toBeInTheDocument();
 
       rerender(
         <SearchResults filteredData={[card]} currentDeck={updatedDeck} />
       );
       expect(screen.getByText('3')).toBeInTheDocument();
+      expect(screen.getByLabelText('Remove one')).toBeInTheDocument();
     });
   });
 });

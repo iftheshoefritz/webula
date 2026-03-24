@@ -259,9 +259,7 @@ export default function SearchResults({
         ? "relative rounded-lg overflow-hidden transition-transform duration-150 hover:scale-[1.02] hover:shadow-lg"
         : "relative";
 
-      const badgeClass = isStyled
-        ? "absolute top-2 right-2 bg-gradient-to-br from-[#4a6a4a] to-[#3a5a3a] text-text-primary text-sm font-mono font-medium rounded-full w-6 h-6 flex items-center justify-center"
-        : "absolute top-0 right-0 bg-black bg-opacity-50 text-white rounded-full px-2 py-1";
+      const count = currentDeck ? (currentDeck[row.collectorsinfo]?.row?.count || 0) : 0;
 
       return (
         <div className={cardWrapperClass}>
@@ -282,9 +280,20 @@ export default function SearchResults({
             />
             <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
           </div>
-          {currentDeck && (
-            <div className={badgeClass}>
-              {currentDeck[row.collectorsinfo]?.row?.count || 0}
+          {currentDeck && count > 0 && (
+            <div className="absolute top-2 right-2 flex items-center gap-0.5 bg-black/70 rounded-full px-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); onCardDeselected?.(e as any, row); }}
+                className="w-5 h-5 flex items-center justify-center text-white text-base leading-none"
+                aria-label="Remove one"
+              >−</button>
+              <span className="text-white text-sm font-mono w-4 text-center">{count}</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onCardSelected?.(row); }}
+                className="w-5 h-5 flex items-center justify-center text-white text-base leading-none disabled:opacity-40"
+                disabled={count >= 3}
+                aria-label="Add one"
+              >+</button>
             </div>
           )}
           {hoverPortal(row)}
@@ -361,10 +370,21 @@ export default function SearchResults({
             >
               {row.name}
             </span>
-            {deckCount !== null && (
-              <span className="ml-auto text-xs font-mono bg-white/10 rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
-                {deckCount}
-              </span>
+            {deckCount !== null && deckCount > 0 && (
+              <div className="ml-auto flex items-center gap-0.5 bg-black/70 rounded-full px-1 flex-shrink-0">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onCardDeselected?.(e as any, row); }}
+                  className="w-5 h-5 flex items-center justify-center text-white text-base leading-none"
+                  aria-label="Remove one"
+                >−</button>
+                <span className="text-white text-xs font-mono w-4 text-center">{deckCount}</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onCardSelected?.(row); }}
+                  className="w-5 h-5 flex items-center justify-center text-white text-base leading-none disabled:opacity-40"
+                  disabled={deckCount >= 3}
+                  aria-label="Add one"
+                >+</button>
+              </div>
             )}
           </div>
 
