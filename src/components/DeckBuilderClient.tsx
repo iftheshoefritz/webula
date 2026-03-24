@@ -702,13 +702,27 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 return counts;
               }}
             >
-              {([keyword, count]) => (
-                <div key={keyword} className="m-2 p-2 border border-white/[0.06] rounded surface-hover">
-                  <span className="px-1 text-text-secondary">
-                    {count}x <b className="text-text-primary">{keyword}</b>
-                  </span>
-                </div>
-              )}
+              {([keyword, count]) => {
+                const colonIndex = keyword.indexOf(':');
+                const hasColon = colonIndex !== -1;
+                const keywordPrefix = hasColon ? keyword.slice(0, colonIndex) : keyword;
+                const keywordSuffix = hasColon ? keyword.slice(colonIndex + 1).trim() : null;
+                return (
+                  <div key={keyword} className="m-2 p-2 border border-white/[0.06] rounded surface-hover">
+                    <span className="px-1 text-text-secondary">
+                      {count}x{' '}
+                      {hasColon ? (
+                        <span className="inline-flex flex-col">
+                          <b className="text-text-primary">{keywordPrefix}:</b>
+                          <span className="text-text-secondary font-normal">{keywordSuffix}</span>
+                        </span>
+                      ) : (
+                        <b className="text-text-primary">{keyword}</b>
+                      )}
+                    </span>
+                  </div>
+                );
+              }}
             </PileAggregate>
           </CollapsibleSection>
 
