@@ -76,7 +76,7 @@ function renderAffiliationIcon(affiliation: string): React.ReactNode {
   if (!affiliation) return null;
   const src = AFFILIATION_TEXT_TO_ICON[affiliation.toLowerCase()];
   if (src) {
-    return <img src={src} alt={affiliation} title={affiliation} className="inline h-4 w-4 align-middle" />;
+    return <img src={src} alt={affiliation} title={affiliation} className="inline-block h-4 w-4 align-middle" />;
   }
   return affiliation;
 }
@@ -86,7 +86,7 @@ function renderTypeIcon(typeCode: string, label?: string): React.ReactNode {
   const src = TYPE_CODE_TO_ICON[typeCode.toLowerCase()];
   if (src) {
     const altText = label || typeCode.toUpperCase();
-    return <img src={src} alt={altText} title={altText} className="inline h-4 w-4 align-middle" />;
+    return <img src={src} alt={altText} title={altText} className="inline-block h-4 w-4 align-middle" />;
   }
   return typeCode;
 }
@@ -322,7 +322,7 @@ export default function SearchResults({
       } else if (type === 'event' || type === 'interrupt' || type === 'equipment') {
         const typeSrc = INLINE_ICON_MAP[type];
         if (typeSrc) {
-          leftIcon = <img src={typeSrc} alt={type} title={row.type} className="inline h-4 w-4 align-middle" />;
+          leftIcon = <img src={typeSrc} alt={type} title={row.type} className="inline-block h-4 w-4 align-middle" />;
         }
       } else if (type === 'mission' && row.missiontype) {
         leftIcon = renderTypeIcon(row.missiontype);
@@ -355,7 +355,7 @@ export default function SearchResults({
               </span>
             )}
             <span
-              className="font-bold text-text-primary text-sm leading-tight uppercase flex-1 min-w-0 truncate"
+              className="font-bold text-text-primary text-base leading-tight uppercase flex-1 min-w-0 truncate"
               onMouseEnter={(e) => withHover && handleHover(row.collectorsinfo, e)}
               onMouseLeave={handleUnhover}
             >
