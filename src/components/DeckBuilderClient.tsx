@@ -8,7 +8,6 @@ import useLocalStorage from '../hooks/useLocalStorage';
 import DeckUploader from './DeckUploader';
 import DeckListPile from './DeckListPile';
 import { DrivePickerModal } from './DrivePickerModal';
-import Help from './Help';
 import PileAggregate from './PileAggregate';
 import IconPill from './IconPill';
 import PileAggregateCostChart from './PileAggregateCostChart';
@@ -456,7 +455,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           </button>
         </div>
         <SearchPills searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-        <Help variant="styled" />
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
         <SearchResults
