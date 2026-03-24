@@ -76,7 +76,7 @@ function renderAffiliationIcon(affiliation: string): React.ReactNode {
   if (!affiliation) return null;
   const src = AFFILIATION_TEXT_TO_ICON[affiliation.toLowerCase()];
   if (src) {
-    return <img src={src} alt={affiliation} title={affiliation} className="inline h-4 w-4 align-middle" />;
+    return <img src={src} alt={affiliation} title={affiliation} className="inline-block h-4 w-4 align-middle" />;
   }
   return affiliation;
 }
@@ -86,7 +86,7 @@ function renderTypeIcon(typeCode: string, label?: string): React.ReactNode {
   const src = TYPE_CODE_TO_ICON[typeCode.toLowerCase()];
   if (src) {
     const altText = label || typeCode.toUpperCase();
-    return <img src={src} alt={altText} title={altText} className="inline h-4 w-4 align-middle" />;
+    return <img src={src} alt={altText} title={altText} className="inline-block h-4 w-4 align-middle" />;
   }
   return typeCode;
 }
@@ -322,7 +322,7 @@ export default function SearchResults({
       } else if (type === 'event' || type === 'interrupt' || type === 'equipment') {
         const typeSrc = INLINE_ICON_MAP[type];
         if (typeSrc) {
-          leftIcon = <img src={typeSrc} alt={type} title={row.type} className="inline h-4 w-4 align-middle" />;
+          leftIcon = <img src={typeSrc} alt={type} title={row.type} className="inline-block h-4 w-4 align-middle" />;
         }
       } else if (type === 'mission' && row.missiontype) {
         leftIcon = renderTypeIcon(row.missiontype);
@@ -337,25 +337,25 @@ export default function SearchResults({
           onContextMenu={(e) => onCardDeselected && onCardDeselected(e, row)}
         >
           {/* Header: icon immediately followed by cost/points (no gap), then name and count */}
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center h-7 gap-2 min-w-0">
             {/* Icon + cost/points grouped with no gap between them */}
             {(leftIcon || showCost || showPoints) && (
               <span className="flex items-center flex-shrink-0">
                 {leftIcon}
                 {showCost && (
-                  <span className="text-base font-bold font-mono text-text-primary w-6 text-center">
+                  <span className="text-lg font-bold font-mono text-text-primary w-6 text-center leading-none">
                     {row.cost}
                   </span>
                 )}
                 {showPoints && (
-                  <span className="text-base font-bold font-mono text-text-primary w-6 text-center">
+                  <span className="text-lg font-bold font-mono text-text-primary w-6 text-center leading-none">
                     {row.points}
                   </span>
                 )}
               </span>
             )}
             <span
-              className="font-bold text-text-primary text-sm leading-tight uppercase flex-1 min-w-0 truncate"
+              className="font-bold text-text-primary text-lg leading-none uppercase flex-1 min-w-0 truncate"
               onMouseEnter={(e) => withHover && handleHover(row.collectorsinfo, e)}
               onMouseLeave={handleUnhover}
             >
@@ -370,7 +370,7 @@ export default function SearchResults({
 
           {/* Personnel: icons, species, INT|CUN|STR, skills, keywords */}
           {type === 'personnel' && (
-            <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
+            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap items-center gap-x-2">
               {row.icons && <span className="flex items-center gap-0.5">{renderWithIcons(row.icons)}</span>}
               {row.species && <span>{row.species}</span>}
               {(row.integrity || row.cunning || row.strength) && (
@@ -378,14 +378,14 @@ export default function SearchResults({
               )}
               {row.keywords && <span className="text-text-secondary">{row.keywords}</span>}
               {row.skills && (
-                <span className="text-text-secondary w-full mt-0.5">{renderWithIcons(row.skills)}</span>
+                <span className="text-text-secondary w-full mt-0.5 flex items-center flex-wrap gap-x-1">{renderWithIcons(row.skills)}</span>
               )}
             </div>
           )}
 
           {/* Mission: quadrant icon, affiliation, span, keywords, skills */}
           {type === 'mission' && (
-            <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2 items-center">
+            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap gap-x-2 items-center">
               {row.quadrant && (() => {
                 const qSrc = QUADRANT_TO_ICON[row.quadrant.toLowerCase()];
                 return qSrc
@@ -403,7 +403,7 @@ export default function SearchResults({
 
           {/* Ship: class, staff icons, R/W/S, keywords */}
           {type === 'ship' && (
-            <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
+            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap items-center gap-x-2">
               {row.class && <span>{row.class}</span>}
               {row.staff && <span className="flex items-center gap-0.5">{renderWithIcons(row.staff)}</span>}
               {(row.range || row.weapons || row.shields) && (
@@ -415,19 +415,19 @@ export default function SearchResults({
 
           {/* Dilemma: keywords (type icon is now in header) */}
           {type === 'dilemma' && row.keywords && (
-            <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
+            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap gap-x-2">
               <span>{row.keywords}</span>
             </div>
           )}
 
           {/* Event / Interrupt / Equipment: keywords */}
           {(type === 'event' || type === 'interrupt' || type === 'equipment') && row.keywords && (
-            <div className="text-xs text-text-muted mt-0.5">{row.keywords}</div>
+            <div className="text-sm text-text-muted mt-0.5">{row.keywords}</div>
           )}
 
           {/* Full gametext */}
           {row.gametext && (
-            <div className="text-xs text-text-muted mt-1 leading-relaxed">{renderWithIcons(row.gametext)}</div>
+            <div className="text-sm text-text-muted mt-1 leading-relaxed flex flex-wrap items-center gap-x-0.5">{renderWithIcons(row.gametext)}</div>
           )}
 
           {hoverPortal(row)}
