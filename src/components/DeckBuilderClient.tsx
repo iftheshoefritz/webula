@@ -21,7 +21,7 @@ import { aboveMinimumCount, belowMaximumCount, deckFromTsv, expandDeck, decremen
 import { missionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh } from 'react-icons/fa';
+import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaEllipsisV } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -416,6 +416,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [mobileView, setMobileView] = useState<'analysis' | 'search' | 'deck'>('deck');
   // activePile controls which pile tab is shown in the deck panel
   const [activePile, setActivePile] = useState<'mission' | 'dilemma' | 'draw'>('draw');
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (mobileView === 'analysis') {
@@ -423,6 +425,17 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       return () => cancelAnimationFrame(id);
     }
   }, [mobileView]);
+
+  useEffect(() => {
+    if (!showActionMenu) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setShowActionMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showActionMenu]);
 
   const compare = (a: string, b: string) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
@@ -490,37 +503,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         <div className="flex justify-start items-center space-x-2">
           <button
             className="btn-icon"
-            onClick={clearDeck}
-            data-tooltip-id="button-tooltip"
-            data-tooltip-content="Clear the current deck"
-          >
-            <FaTrash />
-          </button>
-          &nbsp;
-          <DeckUploader onFileLoad={handleFileLoad} />
-          <button
-            className="btn-icon"
-            onClick={exportLackeyDeckToDisk}
-            data-tooltip-id="button-tooltip"
-            data-tooltip-content="Export the current deck to a LackeyCCG file"
-          >
-            <FaFileExport />
-          </button>
-          {isEarlyAccessUser(session?.user?.email) && (
-            <Link
-              href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
-              className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
-              data-tooltip-id="button-tooltip"
-              data-tooltip-content="Practice drawing from your draw pile"
-              aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
-            >
-              <FaPlayCircle />
-            </Link>
-          )}
-        </div>
-        <div className="flex justify-start items-center space-x-2">
-          <button
-            className="btn-icon"
             onClick={openDeckPicker}
             data-tooltip-id="button-tooltip"
             data-tooltip-content="Load decks"
@@ -551,6 +533,49 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           {saveError && (
             <span className="text-sm text-red-400 font-medium">{saveError}</span>
           )}
+          <div className="relative ml-auto" ref={actionMenuRef}>
+            <button
+              className="btn-icon"
+              onClick={() => setShowActionMenu((v) => !v)}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="More actions"
+              aria-label="More actions"
+            >
+              <FaEllipsisV />
+            </button>
+            {showActionMenu && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary border border-white/10 rounded shadow-lg min-w-[160px] py-1">
+                <button
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-primary hover:bg-white/10"
+                  onClick={() => { clearDeck(); setShowActionMenu(false); }}
+                >
+                  <FaTrash className="text-text-muted" /> Clear deck
+                </button>
+                <div
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-primary hover:bg-white/10 cursor-pointer"
+                  onClick={() => setShowActionMenu(false)}
+                >
+                  <DeckUploader onFileLoad={handleFileLoad} menuStyle />
+                </div>
+                <button
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-primary hover:bg-white/10"
+                  onClick={() => { exportLackeyDeckToDisk(); setShowActionMenu(false); }}
+                >
+                  <FaFileExport className="text-text-muted" /> Export to LackeyCCG
+                </button>
+                {isEarlyAccessUser(session?.user?.email) && (
+                  <Link
+                    href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
+                    className={`flex items-center gap-2 w-full px-3 py-2 text-sm text-text-primary hover:bg-white/10 ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
+                    aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
+                    onClick={() => setShowActionMenu(false)}
+                  >
+                    <FaPlayCircle className="text-text-muted" /> Practice mode
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {/* Nested pile tabs */}
