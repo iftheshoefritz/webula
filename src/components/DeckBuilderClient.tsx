@@ -499,7 +499,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           >
             <FaTrash />
           </button>
-          &nbsp;
           <DeckUploader onFileLoad={handleFileLoad} />
           <button
             className="btn-icon"
@@ -520,8 +519,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               <FaPlayCircle />
             </Link>
           )}
-        </div>
-        <div className="flex justify-start items-center space-x-2">
           <button
             className="btn-icon"
             onClick={openDeckPicker}
