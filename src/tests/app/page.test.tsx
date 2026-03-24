@@ -160,11 +160,13 @@ describe('CardSearchClient', () => {
 
     it('removes the q param from the URL when the search query is cleared to an empty string', () => {
       (useFilterData as jest.Mock).mockReturnValue([]);
-      mockSearchParamsValue = new URLSearchParams('q=affiliation%3Afederation');
+      // Use a free-text query so it appears in the input (field-filter queries
+      // appear as chips in SearchPills and don't populate the text input).
+      mockSearchParamsValue = new URLSearchParams('q=picard');
 
       render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
 
-      // The input is pre-populated from the URL param so the clear button is visible
+      // The input is pre-populated with the free-text portion so the clear button is visible
       fireEvent.click(screen.getByRole('button', { name: /clear search/i }));
 
       const lastCall = mockReplace.mock.calls[mockReplace.mock.calls.length - 1];
