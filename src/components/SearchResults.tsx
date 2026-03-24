@@ -370,7 +370,7 @@ export default function SearchResults({
 
           {/* Personnel: icons, species, INT|CUN|STR, skills, keywords */}
           {type === 'personnel' && (
-            <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
+            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap items-center gap-x-2">
               {row.icons && <span className="flex items-center gap-0.5">{renderWithIcons(row.icons)}</span>}
               {row.species && <span>{row.species}</span>}
               {(row.integrity || row.cunning || row.strength) && (
@@ -378,14 +378,14 @@ export default function SearchResults({
               )}
               {row.keywords && <span className="text-text-secondary">{row.keywords}</span>}
               {row.skills && (
-                <span className="text-text-secondary w-full mt-0.5">{renderWithIcons(row.skills)}</span>
+                <span className="text-text-secondary w-full mt-0.5 flex items-center flex-wrap gap-x-1">{renderWithIcons(row.skills)}</span>
               )}
             </div>
           )}
 
           {/* Mission: quadrant icon, affiliation, span, keywords, skills */}
           {type === 'mission' && (
-            <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2 items-center">
+            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap gap-x-2 items-center">
               {row.quadrant && (() => {
                 const qSrc = QUADRANT_TO_ICON[row.quadrant.toLowerCase()];
                 return qSrc
@@ -403,7 +403,7 @@ export default function SearchResults({
 
           {/* Ship: class, staff icons, R/W/S, keywords */}
           {type === 'ship' && (
-            <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
+            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap items-center gap-x-2">
               {row.class && <span>{row.class}</span>}
               {row.staff && <span className="flex items-center gap-0.5">{renderWithIcons(row.staff)}</span>}
               {(row.range || row.weapons || row.shields) && (
@@ -415,19 +415,19 @@ export default function SearchResults({
 
           {/* Dilemma: keywords (type icon is now in header) */}
           {type === 'dilemma' && row.keywords && (
-            <div className="text-xs text-text-muted mt-0.5 flex flex-wrap gap-x-2">
+            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap gap-x-2">
               <span>{row.keywords}</span>
             </div>
           )}
 
           {/* Event / Interrupt / Equipment: keywords */}
           {(type === 'event' || type === 'interrupt' || type === 'equipment') && row.keywords && (
-            <div className="text-xs text-text-muted mt-0.5">{row.keywords}</div>
+            <div className="text-sm text-text-muted mt-0.5">{row.keywords}</div>
           )}
 
           {/* Full gametext */}
           {row.gametext && (
-            <div className="text-xs text-text-muted mt-1 leading-relaxed">{renderWithIcons(row.gametext)}</div>
+            <div className="text-sm text-text-muted mt-1 leading-relaxed flex flex-wrap items-center gap-x-0.5">{renderWithIcons(row.gametext)}</div>
           )}
 
           {hoverPortal(row)}
