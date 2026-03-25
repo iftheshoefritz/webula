@@ -668,7 +668,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         {/* Main content area */}
         <div className={`flex-grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0 ${mobileView !== 'analysis' ? 'hidden lg:block' : ''}`}>
           <div className="container mx-auto p-4">
-            <span className="text-2xl font-display font-medium mt-4 mb-2 block text-text-primary">Missions</span>
             {/* Desktop: horizontal scroll row */}
             <div className="hidden lg:flex space-x-4 overflow-x-scroll">
               {missions.map((row) => {
