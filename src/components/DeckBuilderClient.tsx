@@ -21,7 +21,7 @@ import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, find
 import { missionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -275,6 +275,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   };
 
   const writeToDrive = async () => {
+    if (!session) {
+      signIn('google',
+        { callbackUrl: '/decks' },
+        { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
+      );
+      return;
+    }
     if (deckTitle.length === 0) {
       window.alert('please enter a deck name!');
     } else {
@@ -504,16 +511,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           >
             <FaFolderOpen />
           </button>
-          {session && (
-            <button
-              className="btn-icon"
-              onClick={() => writeToDrive()}
-              data-tooltip-id="button-tooltip"
-              data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
-            >
-              <FaCloudUploadAlt />
-            </button>
-          )}
+          <button
+            className="btn-icon"
+            onClick={() => writeToDrive()}
+            data-tooltip-id="button-tooltip"
+            data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
+          >
+            <FaSave />
+          </button>
           {savedRecently && (
             <span className="text-sm text-green-400 font-medium">Saved!</span>
           )}
