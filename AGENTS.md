@@ -79,6 +79,13 @@ The script:
 
 The script is idempotent — safe to re-run after every card data update.
 
+## PR Requirements
+
+All PRs from automated agents MUST include:
+- Visual verification via `yarn dev` + `agent-browser` before opening the PR
+- A `## Visual Verification` section in the PR body describing which pages were visited and what was confirmed
+- If the dev server or browser fails, a `## Dev Server Issues` section with the full error output (do NOT skip or omit this step)
+
 ## Fixing bugs
 When asked to fix a bug do your best to write a test that fails without the bug fix. Weigh up the cost and brittleness of writing the test and comment in the PR with the circumstances that made you feel like you couldn't write a useful test. 
 
