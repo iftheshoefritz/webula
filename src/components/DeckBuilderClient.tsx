@@ -380,6 +380,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [activeView, setActiveView] = useState<'search' | 'deck'>('deck');
   // mobileView controls which full-page view is shown on mobile
   const [mobileView, setMobileView] = useState<'analysis' | 'search' | 'deck'>('deck');
+  // previousMobileView tracks where the user came from before entering search
+  const [previousMobileView, setPreviousMobileView] = useState<'analysis' | 'deck'>('deck');
   // activePile controls which pile tab is shown in the deck panel
   const [activePile, setActivePile] = useState<'mission' | 'dilemma' | 'draw'>('draw');
   // missionIndex controls which mission is shown in the mobile carousel
@@ -405,11 +407,12 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const searchPile = useCallback((query: string) => {
+    setPreviousMobileView(mobileView === 'search' ? previousMobileView : (mobileView as 'analysis' | 'deck'));
     setSearchQuery(query);
     setActiveView('search');
     setMobileView('search');
     requestAnimationFrame(() => searchInputRef.current?.focus());
-  }, []);
+  }, [mobileView, previousMobileView]);
 
   const missionCount = currentDeckRows.filter(r => r.pile === 'mission').reduce((s, r) => s + r.count, 0);
   const dilemmaCount = currentDeckRows.filter(r => r.pile === 'dilemma').reduce((s, r) => s + r.count, 0);
@@ -819,11 +822,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         <div className="lg:hidden fixed inset-x-0 top-0 bottom-14 z-20 bg-[#131713] flex flex-col">
           <div className="shrink-0 flex items-center px-2 pt-2">
             <button
-              onClick={() => setMobileView('deck')}
+              onClick={() => setMobileView(previousMobileView)}
               className="flex items-center gap-1 text-sm text-text-muted hover:text-text-secondary"
-              aria-label="Back to deck"
+              aria-label={previousMobileView === 'analysis' ? 'Back to analysis' : 'Back to deck'}
             >
-              <FaChevronLeft className="text-xs" /> Back to deck
+              <FaChevronLeft className="text-xs" /> {previousMobileView === 'analysis' ? 'Back to analysis' : 'Back to deck'}
             </button>
           </div>
           {searchPanel}
