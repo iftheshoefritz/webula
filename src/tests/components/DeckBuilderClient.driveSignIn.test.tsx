@@ -66,6 +66,31 @@ describe('DeckBuilderClient – Drive scope signIn', () => {
     mockSearchParamsValue = new URLSearchParams();
   });
 
+  it('shows save button even when not logged in and triggers signIn with drive scope when clicked', async () => {
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    const buttons = screen.getAllByRole('button');
+    const saveButton = buttons.find(
+      (b) => b.getAttribute('data-tooltip-content') === 'Save to G Drive'
+    );
+    expect(saveButton).not.toBeUndefined();
+
+    await act(async () => {
+      fireEvent.click(saveButton!);
+    });
+
+    expect(signIn).toHaveBeenCalledWith(
+      'google',
+      expect.objectContaining({ callbackUrl: '/decks' }),
+      expect.objectContaining({
+        scope: expect.stringContaining('https://www.googleapis.com/auth/drive.appdata'),
+        include_granted_scopes: 'true',
+      })
+    );
+  });
+
   it('calls signIn with drive scope in authorizationParams (third arg) when onSignIn is invoked', async () => {
     await act(async () => {
       render(<DeckBuilderClient data={[]} columns={[]} />);
