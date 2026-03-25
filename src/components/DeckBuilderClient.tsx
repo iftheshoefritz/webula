@@ -670,8 +670,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           <div className="container mx-auto p-4">
             {/* Desktop: horizontal scroll row */}
             <div className="hidden lg:flex space-x-4 overflow-x-scroll">
-              {missions.map((row) => {
-                return (
+              {Array.from({ length: 5 }, (_, i) => missions[i] ?? null).map((row, i) =>
+                row ? (
                   <div key={row.collectorsinfo} className="relative flex-shrink-0">
                     <img
                       src={`/cardimages/${row.imagefile}.jpg`}
@@ -683,48 +683,95 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     />
                     <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
                   </div>
-                );
-              })}
+                ) : (
+                  <div
+                    key={`empty-${i}`}
+                    className="flex-shrink-0 w-56 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 p-3"
+                    style={{ aspectRatio: '165/229' }}
+                  >
+                    <span className="text-xs text-text-secondary mb-1">Add mission</span>
+                    <button
+                      onClick={() => searchPile('type:mission missiontype:h')}
+                      className="btn-secondary text-xs w-full"
+                    >
+                      HQ
+                    </button>
+                    <button
+                      onClick={() => searchPile('type:mission missiontype:s')}
+                      className="btn-secondary text-xs w-full"
+                    >
+                      Space
+                    </button>
+                    <button
+                      onClick={() => searchPile('type:mission missiontype:p')}
+                      className="btn-secondary text-xs w-full"
+                    >
+                      Planet
+                    </button>
+                  </div>
+                )
+              )}
             </div>
 
             {/* Mobile: single-card carousel */}
             <div className="lg:hidden">
-              {missions.length === 0 ? (
-                <p className="text-text-secondary text-sm">No missions added yet.</p>
-              ) : (
-                <>
-                  <div className="flex items-center justify-center gap-3">
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setMissionIndex((i) => (i - 1 + 5) % 5)}
+                  className="text-2xl px-2"
+                  aria-label="Previous mission"
+                >
+                  ‹
+                </button>
+                {missions[missionIndex] ? (
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={`/cardimages/${missions[missionIndex].imagefile}.jpg`}
+                      width={165}
+                      height={229}
+                      loading="lazy"
+                      alt={missions[missionIndex].name}
+                      className="w-72 h-auto rounded-xl block"
+                    />
+                    <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
+                  </div>
+                ) : (
+                  <div
+                    className="flex-shrink-0 w-72 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 p-4"
+                    style={{ aspectRatio: '165/229' }}
+                  >
+                    <span className="text-xs text-text-secondary mb-1">Add mission</span>
                     <button
-                      onClick={() => setMissionIndex((i) => (i - 1 + missions.length) % missions.length)}
-                      className="text-2xl px-2"
-                      aria-label="Previous mission"
+                      onClick={() => searchPile('type:mission missiontype:h')}
+                      className="btn-secondary text-xs w-full"
                     >
-                      ‹
+                      HQ
                     </button>
-                    <div className="relative flex-shrink-0">
-                      <img
-                        src={`/cardimages/${missions[missionIndex].imagefile}.jpg`}
-                        width={165}
-                        height={229}
-                        loading="lazy"
-                        alt={missions[missionIndex].name}
-                        className="w-72 h-auto rounded-xl block"
-                      />
-                      <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
-                    </div>
                     <button
-                      onClick={() => setMissionIndex((i) => (i + 1) % missions.length)}
-                      className="text-2xl px-2"
-                      aria-label="Next mission"
+                      onClick={() => searchPile('type:mission missiontype:s')}
+                      className="btn-secondary text-xs w-full"
                     >
-                      ›
+                      Space
+                    </button>
+                    <button
+                      onClick={() => searchPile('type:mission missiontype:p')}
+                      className="btn-secondary text-xs w-full"
+                    >
+                      Planet
                     </button>
                   </div>
-                  <p className="text-xs text-center text-text-secondary mt-2">
-                    {missionIndex + 1} / {missions.length}
-                  </p>
-                </>
-              )}
+                )}
+                <button
+                  onClick={() => setMissionIndex((i) => (i + 1) % 5)}
+                  className="text-2xl px-2"
+                  aria-label="Next mission"
+                >
+                  ›
+                </button>
+              </div>
+              <p className="text-xs text-center text-text-secondary mt-2">
+                {missionIndex + 1} / 5
+              </p>
             </div>
           </div>
 
