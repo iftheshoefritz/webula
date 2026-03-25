@@ -56,22 +56,12 @@ export default function SkillsChart({ currentDeckRows, missionRequirements }: Sk
 
   const hasMissionReqs = missionRequirements && Object.keys(missionRequirements).length > 0;
 
-  // Collect skills that are required but absent from draw pile
-  const missionOnlySkills = useMemo(() => {
-    if (!hasMissionReqs) return [];
-    const drawSkills = new Set(skillCounts.map((s) => s.skill));
-    return Object.keys(missionRequirements!)
-      .filter((skill) => !drawSkills.has(skill) && skillList.includes(skill))
-      .map((skill) => ({ skill, count: 0 }));
-  }, [skillCounts, missionRequirements, hasMissionReqs]);
+  const allSkills = skillList.map((skill) => ({
+    skill,
+    count: skillCounts.find((s) => s.skill === skill)?.count ?? 0,
+  }));
 
-  const allSkills = [...skillCounts, ...missionOnlySkills];
-
-  if (allSkills.length === 0) {
-    return null;
-  }
-
-  const maxCount = skillCounts.length > 0 ? skillCounts[0].count : 0;
+  const maxCount = skillCounts.length > 0 ? Math.max(...skillCounts.map((s) => s.count)) : 0;
   const maxReq = hasMissionReqs
     ? Math.max(...Object.values(missionRequirements!))
     : 0;
@@ -110,7 +100,12 @@ export default function SkillsChart({ currentDeckRows, missionRequirements }: Sk
                 />
               )}
             </div>
-            <span className="w-6 text-right text-text-secondary">{count > 0 ? count : ''}</span>
+            <span className="w-10 text-right text-text-secondary">
+              {count > 0 ? count : ''}
+              {req !== undefined && (
+                <span className="text-amber-400 ml-0.5">{count > 0 ? `/${req}` : req}</span>
+              )}
+            </span>
           </div>
         );
       })}
