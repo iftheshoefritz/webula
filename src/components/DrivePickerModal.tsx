@@ -1,20 +1,11 @@
 import React, { useState } from 'react'
 import { FaTrash, FaFolderOpen, FaSignInAlt, FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import { Deck } from '../types';
 import { DeckPile } from '../app/decks/deckBuilderUtils';
 
-interface File {
-  name: string
-  deck: Deck
-}
-
 type PickerProps = {
-  browserFiles: Array<File>
   driveFiles: Array<any>
   loadDriveFile: (file: any, piles?: DeckPile[]) => void
   deleteDriveFile: (file: any) => void
-  loadBrowserFile: (file: File, piles?: DeckPile[]) => void
-  deleteBrowserFile: (file: File) => void
   inProgress: boolean
   onClose: () => void
   isSignedIn: boolean
@@ -38,20 +29,15 @@ function pilesForMode(mode: LoadMode): DeckPile[] | undefined {
 
 export const DrivePickerModal: React.FC<PickerProps> = ({
   driveFiles = [],
-  browserFiles,
   loadDriveFile,
   deleteDriveFile,
-  loadBrowserFile,
-  deleteBrowserFile,
   inProgress,
   onClose,
   isSignedIn,
   hasDriveScope,
   onSignIn,
 }) => {
-  const [browserLoadModes, setBrowserLoadModes] = useState<Record<string, LoadMode>>({});
   const [driveLoadModes, setDriveLoadModes] = useState<Record<string, LoadMode>>({});
-  const [browserOpen, setBrowserOpen] = useState(true);
   const [driveOpen, setDriveOpen] = useState(true);
 
   const handleDriveFileSelect = (file: { id: string; name: string }) => {
@@ -59,11 +45,6 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     loadDriveFile(file, pilesForMode(mode));
   };
   const handleDriveFileDelete = (file) => deleteDriveFile(file)
-  const handleBrowserFileDelete = (file) => deleteBrowserFile(file)
-  const handleBrowserFileSelect = (file: File) => {
-    const mode = browserLoadModes[file.name] ?? 'full';
-    loadBrowserFile(file, pilesForMode(mode));
-  }
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen">
@@ -78,59 +59,6 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
             >
               <span className="text-2xl">&times;</span>
             </button>
-          </div>
-          <div>
-            <button
-              type="button"
-              className="flex items-center gap-2 w-full text-left text-text-secondary py-1"
-              onClick={() => setBrowserOpen((o) => !o)}
-              aria-expanded={browserOpen}
-            >
-              {browserOpen ? <FaChevronUp /> : <FaChevronDown />}
-              This Browser
-            </button>
-            {browserOpen && (
-              <div className="max-h-64 overflow-y-auto overflow-x-hidden">
-                <ul className="w-full">
-                  {inProgress && (
-                    <li className="text-text-primary px-3 py-1">please wait...</li>
-                  )}
-                  {!inProgress && browserFiles.length === 0 && (
-                    <li className="text-text-primary px-3 py-1">no files found</li>
-                  )}
-                  {!inProgress && browserFiles.map((file) => (
-                    <li key={file.name} className="flex items-center border border-white/10 text-text-primary py-1">
-                      <span className="flex-1 min-w-0 px-3 truncate" title={file.name}>{file.name}</span>
-                      <div className="flex items-center whitespace-nowrap flex-shrink-0">
-                        <select
-                          className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
-                          value={browserLoadModes[file.name] ?? 'full'}
-                          onChange={(e) => setBrowserLoadModes((prev) => ({ ...prev, [file.name]: e.target.value as LoadMode }))}
-                        >
-                          {PILE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
-                          onClick={() => handleBrowserFileSelect(file)}
-                        >
-                          <FaFolderOpen/>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleBrowserFileDelete(file)}
-                          className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
-                        >
-                          <FaTrash/>
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
           <div>
             <button
