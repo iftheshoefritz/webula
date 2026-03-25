@@ -21,7 +21,7 @@ import { aboveMinimumCount, belowMaximumCount, deckFromTsv, expandDeck, decremen
 import { missionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh } from 'react-icons/fa';
+import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -766,6 +766,15 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       {/* Mobile: Full-page search view */}
       {mobileView === 'search' && (
         <div className="lg:hidden fixed inset-x-0 top-0 bottom-14 z-20 bg-[#131713] flex flex-col">
+          <div className="shrink-0 flex items-center px-2 pt-2">
+            <button
+              onClick={() => setMobileView('deck')}
+              className="flex items-center gap-1 text-sm text-text-muted hover:text-text-secondary"
+              aria-label="Back to deck"
+            >
+              <FaChevronLeft className="text-xs" /> Back to deck
+            </button>
+          </div>
           {searchPanel}
         </div>
       )}
