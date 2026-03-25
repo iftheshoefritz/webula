@@ -101,10 +101,8 @@ export default function SkillsChart({ currentDeckRows, missionRequirements }: Sk
               )}
             </div>
             <span className="w-10 text-right text-text-secondary">
-              {count > 0 ? count : ''}
-              {req !== undefined && (
-                <span className="text-amber-400 ml-0.5">{count > 0 ? `/${req}` : req}</span>
-              )}
+              {count}
+              <span className="text-amber-400 ml-0.5">/{req ?? 0}</span>
             </span>
           </div>
         );
