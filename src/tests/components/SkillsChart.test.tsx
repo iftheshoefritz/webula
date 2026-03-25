@@ -11,13 +11,16 @@ const makeRow = (overrides = {}) => ({
 });
 
 describe('SkillsChart', () => {
-  describe('renders nothing when there are no skills', () => {
-    it('returns null for empty deck', () => {
+  describe('always renders all skills', () => {
+    it('renders all skills alphabetically for empty deck', () => {
       const { container } = render(<SkillsChart currentDeckRows={[]} />);
-      expect(container.firstChild).toBeNull();
+      expect(container.firstChild).not.toBeNull();
+      expect(screen.getByText('acquisition')).toBeInTheDocument();
+      expect(screen.getByText('diplomacy')).toBeInTheDocument();
+      expect(screen.getByText('treachery')).toBeInTheDocument();
     });
 
-    it('returns null when no draw-pile personnel are present', () => {
+    it('renders all skills when no draw-pile personnel are present', () => {
       const { container } = render(
         <SkillsChart
           currentDeckRows={[
@@ -27,21 +30,24 @@ describe('SkillsChart', () => {
           ]}
         />
       );
-      expect(container.firstChild).toBeNull();
+      expect(container.firstChild).not.toBeNull();
+      expect(screen.getByText('diplomacy')).toBeInTheDocument();
     });
 
-    it('returns null when personnel have no recognised skills', () => {
+    it('renders all skills when personnel have no recognised skills', () => {
       const { container } = render(
         <SkillsChart currentDeckRows={[makeRow({ skills: 'unknownskill' })]} />
       );
-      expect(container.firstChild).toBeNull();
+      expect(container.firstChild).not.toBeNull();
+      expect(screen.getByText('diplomacy')).toBeInTheDocument();
     });
 
-    it('returns null when personnel have empty skills string', () => {
+    it('renders all skills when personnel have empty skills string', () => {
       const { container } = render(
         <SkillsChart currentDeckRows={[makeRow({ skills: '' })]} />
       );
-      expect(container.firstChild).toBeNull();
+      expect(container.firstChild).not.toBeNull();
+      expect(screen.getByText('security')).toBeInTheDocument();
     });
   });
 
@@ -77,7 +83,7 @@ describe('SkillsChart', () => {
   });
 
   describe('sorting', () => {
-    it('sorts skills by count descending', () => {
+    it('always shows skills in alphabetical order', () => {
       render(
         <SkillsChart
           currentDeckRows={[
@@ -94,7 +100,7 @@ describe('SkillsChart', () => {
       expect(skillLabels).toEqual(['diplomacy', 'medical', 'security']);
     });
 
-    it('breaks count ties alphabetically', () => {
+    it('keeps alphabetical order even when counts differ', () => {
       render(
         <SkillsChart
           currentDeckRows={[
@@ -104,7 +110,7 @@ describe('SkillsChart', () => {
       );
 
       const skillLabels = screen
-        .getAllByText(/biology|honor|security/)
+        .getAllByText(/^(biology|honor|security)$/)
         .map((el) => el.textContent);
       expect(skillLabels).toEqual(['biology', 'honor', 'security']);
     });
@@ -122,7 +128,8 @@ describe('SkillsChart', () => {
       );
 
       const bars = container.querySelectorAll<HTMLDivElement>('.bg-blue-500\\/70');
-      expect(bars[0].style.width).toBe('100%');
+      const widths = Array.from(bars).map((b) => b.style.width);
+      expect(widths).toContain('100%');
     });
 
     it('gives lower-count skills a proportional width', () => {
@@ -136,7 +143,8 @@ describe('SkillsChart', () => {
       );
 
       const bars = container.querySelectorAll<HTMLDivElement>('.bg-blue-500\\/70');
-      expect(bars[1].style.width).toBe('50%');
+      const widths = Array.from(bars).map((b) => b.style.width);
+      expect(widths).toContain('50%');
     });
   });
 
@@ -176,6 +184,39 @@ describe('SkillsChart', () => {
       );
       expect(screen.getByText('security')).toBeInTheDocument();
       expect(screen.getByText('1')).toBeInTheDocument();
+    });
+  });
+
+  describe('mission requirement labels', () => {
+    it('shows the requirement number in amber when a mission requirement exists', () => {
+      render(
+        <SkillsChart
+          currentDeckRows={[makeRow({ skills: 'diplomacy', count: 2 })]}
+          missionRequirements={{ diplomacy: 3 }}
+        />
+      );
+      expect(screen.getByText('/3')).toBeInTheDocument();
+    });
+
+    it('shows only the requirement number when there are no personnel with that skill', () => {
+      render(
+        <SkillsChart
+          currentDeckRows={[]}
+          missionRequirements={{ security: 2 }}
+        />
+      );
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+
+    it('shows count/req format when both count and requirement exist', () => {
+      render(
+        <SkillsChart
+          currentDeckRows={[makeRow({ skills: 'medical', count: 1 })]}
+          missionRequirements={{ medical: 4 }}
+        />
+      );
+      expect(screen.getByText('1')).toBeInTheDocument();
+      expect(screen.getByText('/4')).toBeInTheDocument();
     });
   });
 });
