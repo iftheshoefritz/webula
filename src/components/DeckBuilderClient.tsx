@@ -416,6 +416,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [mobileView, setMobileView] = useState<'analysis' | 'search' | 'deck'>('deck');
   // activePile controls which pile tab is shown in the deck panel
   const [activePile, setActivePile] = useState<'mission' | 'dilemma' | 'draw'>('draw');
+  // missionIndex controls which mission is shown in the mobile carousel
+  const [missionIndex, setMissionIndex] = useState(0);
 
   useEffect(() => {
     if (mobileView === 'analysis') {
@@ -423,6 +425,12 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       return () => cancelAnimationFrame(id);
     }
   }, [mobileView]);
+
+  const missions = currentDeckRows.filter((row) => row.pile === 'mission');
+
+  useEffect(() => {
+    setMissionIndex((i) => Math.min(i, Math.max(0, missions.length - 1)));
+  }, [missions.length]);
 
   const compare = (a: string, b: string) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
@@ -661,24 +669,65 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         <div className={`flex-grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0 ${mobileView !== 'analysis' ? 'hidden lg:block' : ''}`}>
           <div className="container mx-auto p-4">
             <span className="text-2xl font-display font-medium mt-4 mb-2 block text-text-primary">Missions</span>
-            <div className="flex space-x-4 overflow-x-scroll">
-              {currentDeckRows
-                .filter((row) => row.pile === 'mission')
-                .map((row) => {
-                  return (
-                    <div key={row.collectorsinfo} className="relative flex-shrink-0">
+            {/* Desktop: horizontal scroll row */}
+            <div className="hidden lg:flex space-x-4 overflow-x-scroll">
+              {missions.map((row) => {
+                return (
+                  <div key={row.collectorsinfo} className="relative flex-shrink-0">
+                    <img
+                      src={`/cardimages/${row.imagefile}.jpg`}
+                      width={165}
+                      height={229}
+                      loading="lazy"
+                      alt={row.name}
+                      className="w-56 h-auto rounded-xl block"
+                    />
+                    <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mobile: single-card carousel */}
+            <div className="lg:hidden">
+              {missions.length === 0 ? (
+                <p className="text-text-secondary text-sm">No missions added yet.</p>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setMissionIndex((i) => i - 1)}
+                      disabled={missionIndex === 0}
+                      className="text-2xl px-2 disabled:opacity-30"
+                      aria-label="Previous mission"
+                    >
+                      ‹
+                    </button>
+                    <div className="relative flex-shrink-0">
                       <img
-                        src={`/cardimages/${row.imagefile}.jpg`}
+                        src={`/cardimages/${missions[missionIndex].imagefile}.jpg`}
                         width={165}
                         height={229}
                         loading="lazy"
-                        alt={row.name}
+                        alt={missions[missionIndex].name}
                         className="w-56 h-auto rounded-xl block"
                       />
                       <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
                     </div>
-                  );
-                })}
+                    <button
+                      onClick={() => setMissionIndex((i) => i + 1)}
+                      disabled={missionIndex === missions.length - 1}
+                      className="text-2xl px-2 disabled:opacity-30"
+                      aria-label="Next mission"
+                    >
+                      ›
+                    </button>
+                  </div>
+                  <p className="text-xs text-center text-text-secondary mt-2">
+                    {missionIndex + 1} / {missions.length}
+                  </p>
+                </>
+              )}
             </div>
           </div>
 
