@@ -73,7 +73,7 @@ describe('DeckBuilderClient – Mission carousel', () => {
     mockSearchParamsValue = new URLSearchParams();
   });
 
-  it('wraps from last mission back to first when clicking Next', async () => {
+  it('wraps from last slot back to first when clicking Next', async () => {
     const m1 = makeMission('1U001', 'Mission Alpha');
     const m2 = makeMission('1U002', 'Mission Beta');
 
@@ -89,19 +89,22 @@ describe('DeckBuilderClient – Mission carousel', () => {
       render(<DeckBuilderClient data={[m1, m2] as any} columns={[]} />);
     });
 
-    // Initially showing first mission (1/2)
-    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    // Always 5 slots — initially showing slot 1
+    expect(screen.getByText('1 / 5')).toBeInTheDocument();
 
-    // Advance to the last mission
+    // Advance to the last slot (slot 5)
     fireEvent.click(screen.getByRole('button', { name: 'Next mission' }));
-    expect(screen.getByText('2 / 2')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Next mission' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next mission' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next mission' }));
+    expect(screen.getByText('5 / 5')).toBeInTheDocument();
 
-    // Click Next again — should wrap to first
+    // Click Next again — should wrap to first slot
     fireEvent.click(screen.getByRole('button', { name: 'Next mission' }));
-    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    expect(screen.getByText('1 / 5')).toBeInTheDocument();
   });
 
-  it('wraps from first mission to last when clicking Previous', async () => {
+  it('wraps from first slot to last when clicking Previous', async () => {
     const m1 = makeMission('1U001', 'Mission Alpha');
     const m2 = makeMission('1U002', 'Mission Beta');
 
@@ -117,11 +120,11 @@ describe('DeckBuilderClient – Mission carousel', () => {
       render(<DeckBuilderClient data={[m1, m2] as any} columns={[]} />);
     });
 
-    // Initially at first mission (1/2)
-    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    // Always 5 slots — initially at slot 1
+    expect(screen.getByText('1 / 5')).toBeInTheDocument();
 
-    // Click Previous — should wrap to last
+    // Click Previous — should wrap to last slot (5)
     fireEvent.click(screen.getByRole('button', { name: 'Previous mission' }));
-    expect(screen.getByText('2 / 2')).toBeInTheDocument();
+    expect(screen.getByText('5 / 5')).toBeInTheDocument();
   });
 });
