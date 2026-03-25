@@ -17,11 +17,11 @@ import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
-import { aboveMinimumCount, belowMaximumCount, deckFromTsv, expandDeck, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount } from '../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount } from '../app/decks/deckBuilderUtils';
 import { missionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh } from 'react-icons/fa';
+import { FaCloudUploadAlt, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -94,7 +94,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [searchQuery, setSearchQuery] = useState('');
   const filteredData = useFilterData(false, data, columns, searchQuery);
 
-  const [browserDecks, setBrowserDecks] = useLocalStorage<Array<{ name: string; deck: Deck }>>('browserDecks', []);
   const [localCurrentDeck, setLocalCurrentDeck] = useLocalStorage<Deck>('currentDeck', {});
   const [fixtureCurrentDeck, setFixtureCurrentDeck] = useState<Deck>({});
   const currentDeck = isFixture ? fixtureCurrentDeck : localCurrentDeck;
@@ -109,18 +108,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [saveError, setSaveError] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isDirty, setIsDirty] = useState(false);
-  const [loadedBrowserDeckName, setLoadedBrowserDeckName] = useState<string | null>(null);
   const isFirstRender = useRef(true);
-  const suppressDirtyRef = useRef(false);
 
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
-      return;
-    }
-    if (suppressDirtyRef.current) {
-      suppressDirtyRef.current = false;
-      setIsDirty(false);
       return;
     }
     setIsDirty(true);
@@ -244,10 +236,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     posthog.capture('deckBuilder.driveFileDelete.end');
   };
 
-  const deleteBrowserFile = (file: { name: string }) => {
-    setBrowserDecks(browserDecks.filter((deck: { name: string }) => deck.name !== file.name));
-  };
-
   const createLackeyTSV = (): string => {
     const lackeyPileNameFor: Record<string, string> = {
       mission: 'Missions:',
@@ -329,28 +317,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       } finally {
         setSavingToGDrive(false);
       }
-    }
-  };
-
-  const writeToBrowserList = () => {
-    if (deckTitle.length === 0) {
-      window.alert('please enter a deck name!');
-    } else {
-      const existingIndex = browserDecks.findIndex((d: { name: string }) => d.name === deckTitle);
-      if (existingIndex !== -1) {
-        const isSavingLoadedDeck = deckTitle === loadedBrowserDeckName;
-        if (!isSavingLoadedDeck) {
-          const overwrite = window.confirm(`A deck named "${deckTitle}" already exists. Overwrite it?`);
-          if (!overwrite) return;
-        }
-        const updated = [...browserDecks];
-        updated[existingIndex] = { name: deckTitle, deck: currentDeck };
-        setBrowserDecks(updated);
-      } else {
-        setBrowserDecks([...browserDecks, { name: deckTitle, deck: currentDeck }]);
-      }
-      setLoadedBrowserDeckName(deckTitle);
-      showSavedFeedback();
     }
   };
 
@@ -545,14 +511,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               <FaCloudUploadAlt />
             </button>
           )}
-          <button
-            className="btn-icon"
-            onClick={() => writeToBrowserList()}
-            data-tooltip-id="button-tooltip"
-            data-tooltip-content="Save to this browser"
-          >
-            <FaSave />
-          </button>
           {savedRecently && (
             <span className="text-sm text-green-400 font-medium">Saved!</span>
           )}
@@ -913,20 +871,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       {showDrivePicker && (
         <DrivePickerModal
           driveFiles={driveFiles}
-          browserFiles={browserDecks}
           loadDriveFile={fetchDriveFile}
           deleteDriveFile={deleteDriveFile}
-          loadBrowserFile={(file, piles) => {
-            if (piles) {
-              setCurrentDeck(mergeDeckPiles(currentDeck, file.deck, piles));
-            } else {
-              suppressDirtyRef.current = true;
-              setCurrentDeck(file.deck);
-              setDeckTitle(file.name);
-              setLoadedBrowserDeckName(file.name);
-            }
-          }}
-          deleteBrowserFile={deleteBrowserFile}
           inProgress={loadingFromGDrive}
           onClose={() => setShowDrivePicker(false)}
           isSignedIn={!!session}
