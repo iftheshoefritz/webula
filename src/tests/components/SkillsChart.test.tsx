@@ -52,10 +52,11 @@ describe('SkillsChart', () => {
   });
 
   describe('renders skill rows', () => {
-    it('shows a skill name and its count', () => {
+    it('shows a skill name and its count/req', () => {
       render(<SkillsChart currentDeckRows={[makeRow({ skills: 'diplomacy' })]} />);
       expect(screen.getByText('diplomacy')).toBeInTheDocument();
       expect(screen.getByText('1')).toBeInTheDocument();
+      expect(screen.getAllByText('/0').length).toBeGreaterThan(0);
     });
 
     it('aggregates the same skill across multiple personnel cards', () => {
@@ -68,6 +69,7 @@ describe('SkillsChart', () => {
         />
       );
       expect(screen.getByText('5')).toBeInTheDocument();
+      expect(screen.getAllByText('/0').length).toBeGreaterThan(0);
     });
 
     it('renders multiple skills', () => {
@@ -198,14 +200,15 @@ describe('SkillsChart', () => {
       expect(screen.getByText('/3')).toBeInTheDocument();
     });
 
-    it('shows only the requirement number when there are no personnel with that skill', () => {
+    it('shows 0/req when there are no personnel with that skill', () => {
       render(
         <SkillsChart
           currentDeckRows={[]}
           missionRequirements={{ security: 2 }}
         />
       );
-      expect(screen.getByText('2')).toBeInTheDocument();
+      // count is 0, req is 2 → shows "0" and "/2"
+      expect(screen.getByText('/2')).toBeInTheDocument();
     });
 
     it('shows count/req format when both count and requirement exist', () => {
@@ -217,6 +220,23 @@ describe('SkillsChart', () => {
       );
       expect(screen.getByText('1')).toBeInTheDocument();
       expect(screen.getByText('/4')).toBeInTheDocument();
+    });
+
+    it('shows 0/0 for every skill when no personnel and no missions are chosen', () => {
+      render(<SkillsChart currentDeckRows={[]} />);
+      const zeros = screen.getAllByText('/0');
+      // All 23 skills should show /0
+      expect(zeros.length).toBe(23);
+    });
+
+    it('shows 0/1 for a skill with one requirement and no personnel', () => {
+      render(
+        <SkillsChart
+          currentDeckRows={[]}
+          missionRequirements={{ diplomacy: 1 }}
+        />
+      );
+      expect(screen.getByText('/1')).toBeInTheDocument();
     });
   });
 });
