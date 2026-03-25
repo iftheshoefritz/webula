@@ -694,11 +694,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 <p className="text-text-secondary text-sm">No missions added yet.</p>
               ) : (
                 <>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center gap-3">
                     <button
-                      onClick={() => setMissionIndex((i) => i - 1)}
-                      disabled={missionIndex === 0}
-                      className="text-2xl px-2 disabled:opacity-30"
+                      onClick={() => setMissionIndex((i) => (i - 1 + missions.length) % missions.length)}
+                      className="text-2xl px-2"
                       aria-label="Previous mission"
                     >
                       ‹
@@ -710,14 +709,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                         height={229}
                         loading="lazy"
                         alt={missions[missionIndex].name}
-                        className="w-56 h-auto rounded-xl block"
+                        className="w-72 h-auto rounded-xl block"
                       />
                       <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
                     </div>
                     <button
-                      onClick={() => setMissionIndex((i) => i + 1)}
-                      disabled={missionIndex === missions.length - 1}
-                      className="text-2xl px-2 disabled:opacity-30"
+                      onClick={() => setMissionIndex((i) => (i + 1) % missions.length)}
+                      className="text-2xl px-2"
                       aria-label="Next mission"
                     >
                       ›
