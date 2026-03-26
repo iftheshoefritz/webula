@@ -331,7 +331,7 @@ describe('DeckBuilderClient – hqOptions computation', () => {
   });
 });
 
-describe('DeckBuilderClient – handleSkillClick / skill search query', () => {
+describe('DeckBuilderClient – handleSkillSearch / skill search query', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseFilterData.mockReturnValue([]);
@@ -341,14 +341,13 @@ describe('DeckBuilderClient – handleSkillClick / skill search query', () => {
     localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': false }));
   });
 
-  it('builds a plain skills query when HQ selection is "all"', async () => {
+  it('builds a plain skills query when onSkillSearch is called with null hq', async () => {
     const hqMission = makeMission('1U001', 'bajor', 'h');
 
     localStorage.setItem(
       'currentDeck',
       JSON.stringify({ '1U001': { count: 1, row: hqMission } })
     );
-    // No skillHqSelections stored → defaults to 'all'
 
     await act(async () => {
       render(<DeckBuilderClient data={[hqMission] as any} columns={[]} />);
@@ -356,26 +355,20 @@ describe('DeckBuilderClient – handleSkillClick / skill search query', () => {
 
     const props = lastSkillsChartProps();
 
-    // Invoke the skill click handler as SkillsChart would
     act(() => {
-      props.onSkillClick('diplomacy');
+      props.onSkillSearch('diplomacy', null);
     });
 
-    // useFilterData should have been called with the plain skills query
     const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
     expect(lastQuery).toBe('type:personnel skills:diplomacy');
   });
 
-  it('includes reportsto in the query when a specific HQ is selected for the skill', async () => {
+  it('includes reportsto in the query when onSkillSearch is called with a specific HQ', async () => {
     const hqMission = makeMission('1U001', 'bajor', 'h');
 
     localStorage.setItem(
       'currentDeck',
       JSON.stringify({ '1U001': { count: 1, row: hqMission } })
-    );
-    localStorage.setItem(
-      'skillHqSelections',
-      JSON.stringify({ diplomacy: 'bajor' })
     );
 
     await act(async () => {
@@ -385,14 +378,14 @@ describe('DeckBuilderClient – handleSkillClick / skill search query', () => {
     const props = lastSkillsChartProps();
 
     act(() => {
-      props.onSkillClick('diplomacy');
+      props.onSkillSearch('diplomacy', 'bajor');
     });
 
     const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
     expect(lastQuery).toBe('type:personnel skills:diplomacy reportsto:"bajor"');
   });
 
-  it('persists skillHqSelections changes to localStorage', async () => {
+  it('passes hqOptions to SkillsChart', async () => {
     const hqMission = makeMission('1U001', 'bajor', 'h');
 
     localStorage.setItem(
@@ -405,34 +398,8 @@ describe('DeckBuilderClient – handleSkillClick / skill search query', () => {
     });
 
     const props = lastSkillsChartProps();
-
-    act(() => {
-      props.onSkillHqChange('security', 'bajor');
-    });
-
-    const stored = JSON.parse(localStorage.getItem('skillHqSelections') ?? '{}');
-    expect(stored.security).toBe('bajor');
-  });
-
-  it('passes existing skillHqSelections from localStorage to SkillsChart', async () => {
-    const hqMission = makeMission('1U001', 'bajor', 'h');
-
-    localStorage.setItem(
-      'currentDeck',
-      JSON.stringify({ '1U001': { count: 1, row: hqMission } })
-    );
-    localStorage.setItem(
-      'skillHqSelections',
-      JSON.stringify({ medical: 'bajor', security: 'bajor' })
-    );
-
-    await act(async () => {
-      render(<DeckBuilderClient data={[hqMission] as any} columns={[]} />);
-    });
-
-    const props = lastSkillsChartProps();
-    expect(props.skillHqSelections).toEqual(
-      expect.objectContaining({ medical: 'bajor', security: 'bajor' })
+    expect(props.hqOptions).toEqual(
+      expect.arrayContaining([{ label: 'bajor', value: 'bajor' }])
     );
   });
 });

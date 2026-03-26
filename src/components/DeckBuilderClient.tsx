@@ -402,8 +402,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   // missionIndex controls which mission is shown in the mobile carousel
   const [missionIndex, setMissionIndex] = useState(0);
 
-  // skillHqSelections stores per-skill HQ filter selections, persisted in localStorage
-  const [skillHqSelections, setSkillHqSelections] = useLocalStorage<Record<string, string>>('skillHqSelections', {});
+
 
   const missions = currentDeckRows.filter((row) => row.pile === 'mission');
 
@@ -480,17 +479,16 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     requestAnimationFrame(() => searchInputRef.current?.focus());
   }, [mobileView, previousMobileView]);
 
-  const handleSkillClick = useCallback((skill: string) => {
-    const selectedHq = skillHqSelections[skill] ?? 'all';
-    const query = selectedHq === 'all'
-      ? `type:personnel skills:${skill}`
-      : `type:personnel skills:${skill} reportsto:"${selectedHq}"`;
+  const handleSkillSearch = useCallback((skill: string, hq: string | null) => {
+    const query = hq
+      ? `type:personnel skills:${skill} reportsto:"${hq}"`
+      : `type:personnel skills:${skill}`;
     setPreviousMobileView(mobileView === 'search' ? previousMobileView : (mobileView as 'analysis' | 'deck'));
     setSearchQuery(query);
     setActiveView('search');
     setMobileView('search');
     requestAnimationFrame(() => searchInputRef.current?.focus());
-  }, [skillHqSelections, mobileView, previousMobileView]);
+  }, [mobileView, previousMobileView]);
 
   const removeMission = useCallback((row: CardDef) => {
     setCurrentDeck((prevState) => ({
@@ -842,10 +840,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <SkillsChart
               currentDeckRows={currentDeckRows}
               missionRequirements={aggregatedMissionReqs}
-              onSkillClick={handleSkillClick}
+              onSkillSearch={handleSkillSearch}
               hqOptions={hqOptions}
-              skillHqSelections={skillHqSelections}
-              onSkillHqChange={(skill, hq) => setSkillHqSelections((prev) => ({ ...prev, [skill]: hq }))}
             />
           </CollapsibleSection>
 

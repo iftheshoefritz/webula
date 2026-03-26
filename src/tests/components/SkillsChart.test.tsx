@@ -189,166 +189,139 @@ describe('SkillsChart', () => {
     });
   });
 
-  describe('onSkillClick', () => {
-    it('calls onSkillClick with the skill name when a row is clicked', () => {
-      const handleClick = jest.fn();
-      render(
-        <SkillsChart
-          currentDeckRows={[makeRow({ skills: 'diplomacy', count: 1 })]}
-          onSkillClick={handleClick}
-        />
-      );
-      const diplomacyRow = screen.getByRole('button', { name: /diplomacy/i });
-      diplomacyRow.click();
-      expect(handleClick).toHaveBeenCalledWith('diplomacy');
-    });
-
-    it('calls onSkillClick when Enter is pressed on a row', () => {
-      const handleClick = jest.fn();
-      render(
-        <SkillsChart
-          currentDeckRows={[]}
-          onSkillClick={handleClick}
-        />
-      );
-      const securityRow = screen.getByRole('button', { name: /security/i });
-      securityRow.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      expect(handleClick).toHaveBeenCalledWith('security');
-    });
-
-    it('calls onSkillClick when Space is pressed on a row', () => {
-      const handleClick = jest.fn();
-      render(
-        <SkillsChart
-          currentDeckRows={[]}
-          onSkillClick={handleClick}
-        />
-      );
-      const medicalRow = screen.getByRole('button', { name: /medical/i });
-      medicalRow.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
-      expect(handleClick).toHaveBeenCalledWith('medical');
-    });
-
-    it('rows have role=button when onSkillClick is provided', () => {
-      render(
-        <SkillsChart
-          currentDeckRows={[]}
-          onSkillClick={jest.fn()}
-        />
-      );
-      // All 23 skills should be buttons
-      expect(screen.getAllByRole('button').length).toBe(23);
-    });
-
-    it('rows do NOT have role=button when onSkillClick is not provided', () => {
-      render(<SkillsChart currentDeckRows={[]} />);
-      expect(screen.queryAllByRole('button')).toHaveLength(0);
-    });
-  });
-
-  describe('HQ dropdown per skill row', () => {
+  describe('+ button and search overlay', () => {
     const hqOptions = [
       { label: 'Bajor', value: 'bajor' },
       { label: 'Cardassia Prime', value: 'cardassia prime' },
     ];
 
-    it('renders a dropdown for each skill when hqOptions and onSkillHqChange are provided', () => {
+    it('renders a + button for each skill when onSkillSearch is provided', () => {
+      render(
+        <SkillsChart
+          currentDeckRows={[]}
+          onSkillSearch={jest.fn()}
+        />
+      );
+      // 23 skills × 1 + button each
+      expect(screen.getAllByRole('button', { name: /search personnel with/i }).length).toBe(23);
+    });
+
+    it('does not render + buttons when onSkillSearch is not provided', () => {
+      render(<SkillsChart currentDeckRows={[]} />);
+      expect(screen.queryAllByRole('button')).toHaveLength(0);
+    });
+
+    it('rows are NOT role=button (bar rows are not clickable)', () => {
+      render(
+        <SkillsChart
+          currentDeckRows={[]}
+          onSkillSearch={jest.fn()}
+        />
+      );
+      // Only the + buttons should have role=button, not the skill label rows
+      const buttons = screen.getAllByRole('button');
+      buttons.forEach((btn) => {
+        expect(btn).toHaveAttribute('aria-label');
+      });
+    });
+
+    it('clicking + with no hqOptions calls onSkillSearch immediately with null', () => {
+      const handleSearch = jest.fn();
+      render(
+        <SkillsChart
+          currentDeckRows={[]}
+          onSkillSearch={handleSearch}
+        />
+      );
+      const diplomacyBtn = screen.getByRole('button', { name: /search personnel with diplomacy/i });
+      fireEvent.click(diplomacyBtn);
+      expect(handleSearch).toHaveBeenCalledWith('diplomacy', null);
+    });
+
+    it('clicking + with hqOptions opens an overlay menu', () => {
       render(
         <SkillsChart
           currentDeckRows={[]}
           hqOptions={hqOptions}
-          onSkillHqChange={jest.fn()}
+          onSkillSearch={jest.fn()}
         />
       );
-      // 23 skills × 1 dropdown each
-      expect(screen.getAllByRole('combobox').length).toBe(23);
+      const diplomacyBtn = screen.getByRole('button', { name: /search personnel with diplomacy/i });
+      fireEvent.click(diplomacyBtn);
+      expect(screen.getByRole('menu')).toBeInTheDocument();
     });
 
-    it('each dropdown contains "All" and the provided HQ options', () => {
+    it('overlay contains a header, all hqOptions, and "All" last', () => {
       render(
         <SkillsChart
           currentDeckRows={[]}
           hqOptions={hqOptions}
-          onSkillHqChange={jest.fn()}
+          onSkillSearch={jest.fn()}
         />
       );
-      const firstDropdown = screen.getAllByRole('combobox')[0];
-      expect(firstDropdown).toHaveDisplayValue('All');
-      const options = Array.from(firstDropdown.querySelectorAll('option')).map((o) => (o as HTMLOptionElement).value);
-      expect(options).toContain('all');
-      expect(options).toContain('bajor');
-      expect(options).toContain('cardassia prime');
+      fireEvent.click(screen.getByRole('button', { name: /search personnel with diplomacy/i }));
+      expect(screen.getByText(/search/i)).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'All' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Bajor' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Cardassia Prime' })).toBeInTheDocument();
+      // "All" should be the last menuitem
+      const items = screen.getAllByRole('menuitem');
+      expect(items[items.length - 1]).toHaveTextContent('All');
     });
 
-    it('dropdown shows the selected value from skillHqSelections', () => {
+    it('clicking "All" calls onSkillSearch with null and closes overlay', () => {
+      const handleSearch = jest.fn();
+      render(
+        <SkillsChart
+          currentDeckRows={[]}
+          hqOptions={hqOptions}
+          onSkillSearch={handleSearch}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /search personnel with security/i }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'All' }));
+      expect(handleSearch).toHaveBeenCalledWith('security', null);
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('clicking an HQ option calls onSkillSearch with that HQ value and closes overlay', () => {
+      const handleSearch = jest.fn();
+      render(
+        <SkillsChart
+          currentDeckRows={[]}
+          hqOptions={hqOptions}
+          onSkillSearch={handleSearch}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /search personnel with diplomacy/i }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Bajor' }));
+      expect(handleSearch).toHaveBeenCalledWith('diplomacy', 'bajor');
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('surfaces the active skillHqSelection as the first overlay item', () => {
       render(
         <SkillsChart
           currentDeckRows={[]}
           hqOptions={hqOptions}
           skillHqSelections={{ diplomacy: 'bajor' }}
-          onSkillHqChange={jest.fn()}
+          onSkillSearch={jest.fn()}
         />
       );
-      const diplomacyDropdown = screen.getByRole('combobox', { name: /hq filter for diplomacy/i });
-      expect(diplomacyDropdown).toHaveValue('bajor');
+      fireEvent.click(screen.getByRole('button', { name: /search personnel with diplomacy/i }));
+      const items = screen.getAllByRole('menuitem');
+      // First item should be the active HQ (Bajor), not "All personnel"
+      expect(items[0]).toHaveTextContent('Bajor');
     });
 
-    it('dropdown defaults to "all" when skill has no entry in skillHqSelections', () => {
-      render(
-        <SkillsChart
-          currentDeckRows={[]}
-          hqOptions={hqOptions}
-          skillHqSelections={{}}
-          onSkillHqChange={jest.fn()}
-        />
-      );
-      const dropdown = screen.getByRole('combobox', { name: /hq filter for security/i });
-      expect(dropdown).toHaveValue('all');
-    });
-
-    it('calls onSkillHqChange with the skill and new value when dropdown changes', () => {
-      const handleChange = jest.fn();
-      render(
-        <SkillsChart
-          currentDeckRows={[]}
-          hqOptions={hqOptions}
-          onSkillHqChange={handleChange}
-        />
-      );
-      const dropdown = screen.getByRole('combobox', { name: /hq filter for diplomacy/i });
-      fireEvent.change(dropdown, { target: { value: 'bajor' } });
-      expect(handleChange).toHaveBeenCalledWith('diplomacy', 'bajor');
-    });
-
-    it('clicking the dropdown does NOT trigger onSkillClick', () => {
-      const handleClick = jest.fn();
-      render(
-        <SkillsChart
-          currentDeckRows={[]}
-          hqOptions={hqOptions}
-          onSkillHqChange={jest.fn()}
-          onSkillClick={handleClick}
-        />
-      );
-      const dropdown = screen.getByRole('combobox', { name: /hq filter for diplomacy/i });
-      fireEvent.click(dropdown);
-      expect(handleClick).not.toHaveBeenCalled();
-    });
-
-    it('does not render dropdowns when hqOptions is empty', () => {
+    it('does not render + buttons when hqOptions is empty and onSkillSearch is not provided', () => {
       render(
         <SkillsChart
           currentDeckRows={[]}
           hqOptions={[]}
-          onSkillHqChange={jest.fn()}
         />
       );
-      expect(screen.queryAllByRole('combobox')).toHaveLength(0);
-    });
-
-    it('does not render dropdowns when hqOptions is not provided', () => {
-      render(<SkillsChart currentDeckRows={[]} />);
-      expect(screen.queryAllByRole('combobox')).toHaveLength(0);
+      expect(screen.queryAllByRole('button')).toHaveLength(0);
     });
   });
 
