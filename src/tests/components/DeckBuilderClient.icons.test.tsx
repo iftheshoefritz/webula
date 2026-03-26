@@ -19,9 +19,10 @@ jest.mock('react-icons/fa', () =>
 
 jest.mock('react-tooltip', () => ({ Tooltip: () => null }));
 
+const mockUseFilterData = jest.fn().mockReturnValue([]);
 jest.mock('../../hooks/useFilterData', () => ({
   __esModule: true,
-  default: jest.fn().mockReturnValue([]),
+  default: (...args: any[]) => mockUseFilterData(...args),
 }));
 
 // Mock heavy leaf components
@@ -44,7 +45,7 @@ jest.mock('next/link', () =>
 // Spy on IconPill so we can assert how many times it's rendered and with what props
 const mockIconPill = jest.fn();
 jest.mock('../../components/IconPill', () =>
-  function MockIconPill(props: { icon: string; count: number }) {
+  function MockIconPill(props: { icon: string; count: number; onSearch?: (icon: string, hq: string | null) => void; hqOptions?: any[] }) {
     mockIconPill(props);
     return <div data-testid="icon-pill" data-icon={props.icon} />;
   }
@@ -77,6 +78,7 @@ const makePersonnel = (collectorsinfo: string, icons: string) => ({
 describe('DeckBuilderClient – Icons section', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseFilterData.mockReturnValue([]);
     localStorage.clear();
     mockSearchParamsValue = new URLSearchParams();
   });
@@ -130,5 +132,68 @@ describe('DeckBuilderClient – Icons section', () => {
     });
 
     expect(mockIconPill).not.toHaveBeenCalled();
+  });
+
+  describe('handleIconSearch', () => {
+    it('passes an onSearch function to IconPill', async () => {
+      const card = makePersonnel('1U001', '[Cmd]');
+
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({ '1U001': { count: 1, row: card } })
+      );
+      localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': true, 'Icons': false, 'Costs': true }));
+
+      await act(async () => {
+        render(<DeckBuilderClient data={[card] as any} columns={[]} />);
+      });
+
+      const props = mockIconPill.mock.calls[mockIconPill.mock.calls.length - 1][0];
+      expect(typeof props.onSearch).toBe('function');
+    });
+
+    it('fires a personnel icons search when onSearch is called with null hq', async () => {
+      const card = makePersonnel('1U001', '[Cmd]');
+
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({ '1U001': { count: 1, row: card } })
+      );
+      localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': true, 'Icons': false, 'Costs': true }));
+
+      await act(async () => {
+        render(<DeckBuilderClient data={[card] as any} columns={[]} />);
+      });
+
+      const props = mockIconPill.mock.calls[mockIconPill.mock.calls.length - 1][0];
+      act(() => {
+        props.onSearch('Cmd', null);
+      });
+
+      const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
+      expect(lastQuery).toBe('type:personnel icons:"Cmd"');
+    });
+
+    it('includes reportsto in the query when onSearch is called with a specific HQ', async () => {
+      const card = makePersonnel('1U001', '[Cmd]');
+
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({ '1U001': { count: 1, row: card } })
+      );
+      localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': true, 'Icons': false, 'Costs': true }));
+
+      await act(async () => {
+        render(<DeckBuilderClient data={[card] as any} columns={[]} />);
+      });
+
+      const props = mockIconPill.mock.calls[mockIconPill.mock.calls.length - 1][0];
+      act(() => {
+        props.onSearch('Cmd', 'bajor');
+      });
+
+      const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
+      expect(lastQuery).toBe('type:personnel icons:"Cmd" reportsto:"bajor"');
+    });
   });
 });
