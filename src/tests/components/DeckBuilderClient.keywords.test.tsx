@@ -80,6 +80,7 @@ describe('DeckBuilderClient – Keywords section', () => {
       'currentDeck',
       JSON.stringify({ '1U001': { count: 1, row: card } })
     );
+    localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': false, 'Icons': true, 'Costs': true }));
 
     await act(async () => {
       render(<DeckBuilderClient data={[card] as any} columns={[]} />);
@@ -97,6 +98,7 @@ describe('DeckBuilderClient – Keywords section', () => {
       'currentDeck',
       JSON.stringify({ '1U002': { count: 1, row: card } })
     );
+    localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': false, 'Icons': true, 'Costs': true }));
 
     await act(async () => {
       render(<DeckBuilderClient data={[card] as any} columns={[]} />);
