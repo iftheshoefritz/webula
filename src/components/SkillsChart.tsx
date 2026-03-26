@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 
 const skillList = [
   'acquisition',
@@ -61,6 +61,7 @@ function SkillSearchOverlay({
   onClose: () => void;
 }) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [openUpward, setOpenUpward] = useState(false);
 
   // Close on outside click or Escape
   useEffect(() => {
@@ -85,6 +86,15 @@ function SkillSearchOverlay({
     };
   }, [anchorRef, onClose]);
 
+  // Flip the overlay upward if it would be clipped below the viewport
+  useLayoutEffect(() => {
+    if (!overlayRef.current || !anchorRef.current) return;
+    const anchorRect = anchorRef.current.getBoundingClientRect();
+    const overlayHeight = overlayRef.current.offsetHeight;
+    const spaceBelow = window.innerHeight - anchorRect.bottom;
+    setOpenUpward(spaceBelow < overlayHeight + 8);
+  }, [anchorRef]);
+
   // Build the ordered list of options.
   // If an HQ is selected for this skill, put it first.
   const activeHq = selectedHq !== 'all' ? hqOptions.find((o) => o.value === selectedHq) : null;
@@ -93,11 +103,11 @@ function SkillSearchOverlay({
   return (
     <div
       ref={overlayRef}
-      className="absolute right-0 top-full mt-1 z-50 min-w-[14rem] rounded-lg border border-white/15 bg-bg-secondary shadow-xl py-1"
+      className={`absolute right-0 z-50 min-w-[14rem] rounded-lg border border-white/15 bg-bg-secondary shadow-xl py-1 ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'}`}
       role="menu"
     >
-      <div className="px-3 py-1.5 text-xs text-text-secondary border-b border-white/10 mb-1">
-        Search <span className="text-text-primary capitalize">{skill}</span> personnel matching
+      <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-text-muted bg-white/[0.03] rounded-t-lg border-b border-white/10 mb-1">
+        Search <span className="text-text-secondary capitalize">{skill}</span> matching
       </div>
       {activeHq && (
         <button
@@ -122,10 +132,10 @@ function SkillSearchOverlay({
       <div className="border-t border-white/10 mt-1" />
       <button
         role="menuitem"
-        className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-white/10"
+        className="w-full text-left px-3 py-1.5 text-xs text-text-primary hover:bg-white/10"
         onClick={() => onSelect(null)}
       >
-        All
+        Any HQ
       </button>
     </div>
   );
@@ -193,7 +203,7 @@ function SkillRow({
               onSkillSearch(skill, null);
             }
           }}
-          className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors text-base leading-none"
+          className="btn-icon btn-icon-sm shrink-0"
         >
           +
         </button>
