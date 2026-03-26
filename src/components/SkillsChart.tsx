@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 
 const skillList = [
   'acquisition',
@@ -36,19 +36,188 @@ export interface HqOption {
 interface SkillsChartProps {
   currentDeckRows: any[];
   missionRequirements?: Record<string, number>;
-  onSkillClick?: (skill: string) => void;
+  /** Called when the user picks a search option from the + overlay.
+   *  hq is null for "All personnel", or a reportsto value string. */
+  onSkillSearch?: (skill: string, hq: string | null) => void;
   hqOptions?: HqOption[];
+  /** Per-skill currently selected HQ value (or 'all') — used to surface the
+   *  active reportsto option at the top of the overlay. */
   skillHqSelections?: Record<string, string>;
-  onSkillHqChange?: (skill: string, hq: string) => void;
+}
+
+function SkillSearchOverlay({
+  skill,
+  hqOptions,
+  selectedHq,
+  anchorRef,
+  onSelect,
+  onClose,
+}: {
+  skill: string;
+  hqOptions: HqOption[];
+  selectedHq: string;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+  onSelect: (hq: string | null) => void;
+  onClose: () => void;
+}) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click or Escape
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        overlayRef.current &&
+        !overlayRef.current.contains(e.target as Node) &&
+        anchorRef.current &&
+        !anchorRef.current.contains(e.target as Node)
+      ) {
+        onClose();
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [anchorRef, onClose]);
+
+  // Build the ordered list of options.
+  // If an HQ is selected for this skill, put it first.
+  const activeHq = selectedHq !== 'all' ? hqOptions.find((o) => o.value === selectedHq) : null;
+  const restOptions = hqOptions.filter((o) => o.value !== selectedHq);
+
+  return (
+    <div
+      ref={overlayRef}
+      className="absolute right-0 top-full mt-1 z-50 min-w-[14rem] rounded-lg border border-white/15 bg-bg-secondary shadow-xl py-1"
+      role="menu"
+    >
+      <div className="px-3 py-1.5 text-xs text-text-secondary border-b border-white/10 mb-1">
+        Search <span className="text-text-primary capitalize">{skill}</span> personnel matching
+      </div>
+      {activeHq && (
+        <button
+          role="menuitem"
+          className="w-full text-left px-3 py-1.5 text-xs text-text-primary hover:bg-white/10 flex items-center gap-2"
+          onClick={() => onSelect(activeHq.value)}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+          {activeHq.label}
+        </button>
+      )}
+      {restOptions.map((opt) => (
+        <button
+          key={opt.value}
+          role="menuitem"
+          className="w-full text-left px-3 py-1.5 text-xs text-text-primary hover:bg-white/10"
+          onClick={() => onSelect(opt.value)}
+        >
+          {opt.label}
+        </button>
+      ))}
+      <div className="border-t border-white/10 mt-1" />
+      <button
+        role="menuitem"
+        className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-white/10"
+        onClick={() => onSelect(null)}
+      >
+        All
+      </button>
+    </div>
+  );
+}
+
+function SkillRow({
+  skill,
+  count,
+  req,
+  max,
+  hqOptions,
+  selectedHq,
+  onSkillSearch,
+}: {
+  skill: string;
+  count: number;
+  req?: number;
+  max: number;
+  hqOptions: HqOption[];
+  selectedHq: string;
+  onSkillSearch?: (skill: string, hq: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const hasSearch = !!onSkillSearch;
+  const hasOptions = hqOptions.length > 0;
+
+  const handleSelect = (hq: string | null) => {
+    setOpen(false);
+    onSkillSearch?.(skill, hq);
+  };
+
+  return (
+    <div className="relative flex items-center gap-2 text-sm py-0.5 rounded">
+      <span className="w-28 capitalize text-text-primary">{skill}</span>
+      <div className="relative flex flex-1 h-5 rounded overflow-hidden bg-white/10">
+        {count > 0 && (
+          <div
+            className="bg-blue-500/70 h-full"
+            style={{ width: `${(count / max) * 100}%` }}
+          />
+        )}
+        {req !== undefined && (
+          <div
+            className="absolute top-0 h-full w-0.5 bg-amber-400"
+            style={{ left: `${(req / max) * 100}%` }}
+          />
+        )}
+      </div>
+      <span className="w-10 text-right text-text-secondary shrink-0">
+        {count}
+        <span className="text-amber-400 ml-0.5">/{req ?? 0}</span>
+      </span>
+      {hasSearch && (
+        <button
+          ref={btnRef}
+          aria-label={`Search personnel with ${skill}`}
+          aria-haspopup={hasOptions ? 'menu' : undefined}
+          aria-expanded={open}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (hasOptions) {
+              setOpen((v) => !v);
+            } else {
+              onSkillSearch(skill, null);
+            }
+          }}
+          className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors text-base leading-none"
+        >
+          +
+        </button>
+      )}
+      {open && hasOptions && (
+        <SkillSearchOverlay
+          skill={skill}
+          hqOptions={hqOptions}
+          selectedHq={selectedHq}
+          anchorRef={btnRef}
+          onSelect={handleSelect}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
+  );
 }
 
 export default function SkillsChart({
   currentDeckRows,
   missionRequirements,
-  onSkillClick,
-  hqOptions,
-  skillHqSelections,
-  onSkillHqChange,
+  onSkillSearch,
+  hqOptions = [],
+  skillHqSelections = {},
 }: SkillsChartProps) {
   const skillCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -71,7 +240,6 @@ export default function SkillsChart({
   }, [currentDeckRows]);
 
   const hasMissionReqs = missionRequirements && Object.keys(missionRequirements).length > 0;
-  const hasHqOptions = hqOptions && hqOptions.length > 0;
 
   const allSkills = skillList.map((skill) => ({
     skill,
@@ -98,58 +266,18 @@ export default function SkillsChart({
           </span>
         </div>
       )}
-      {allSkills.map(({ skill, count }) => {
-        const req = missionRequirements?.[skill];
-        const clickable = !!onSkillClick;
-        const selectedHq = skillHqSelections?.[skill] ?? 'all';
-        return (
-          <div
-            key={skill}
-            className={`flex items-center gap-2 text-sm py-0.5 rounded ${clickable ? 'cursor-pointer hover:bg-white/5' : ''}`}
-            onClick={clickable ? () => onSkillClick(skill) : undefined}
-            role={clickable ? 'button' : undefined}
-            tabIndex={clickable ? 0 : undefined}
-            onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onSkillClick(skill); } : undefined}
-          >
-            <span className="w-28 capitalize text-text-primary">{skill}</span>
-            <div className="relative flex flex-1 h-5 rounded overflow-hidden bg-white/10">
-              {count > 0 && (
-                <div
-                  className="bg-blue-500/70 h-full"
-                  style={{ width: `${(count / max) * 100}%` }}
-                />
-              )}
-              {req !== undefined && (
-                <div
-                  className="absolute top-0 h-full w-0.5 bg-amber-400"
-                  style={{ left: `${(req / max) * 100}%` }}
-                />
-              )}
-            </div>
-            <span className="w-10 text-right text-text-secondary shrink-0">
-              {count}
-              <span className="text-amber-400 ml-0.5">/{req ?? 0}</span>
-            </span>
-            {hasHqOptions && onSkillHqChange && (
-              <select
-                value={selectedHq}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  onSkillHqChange(skill, e.target.value);
-                }}
-                className="bg-surface border border-white/20 rounded px-1 py-0.5 text-text-primary text-xs shrink-0 max-w-[8rem]"
-                aria-label={`HQ filter for ${skill}`}
-              >
-                <option value="all">All</option>
-                {hqOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            )}
-          </div>
-        );
-      })}
+      {allSkills.map(({ skill, count }) => (
+        <SkillRow
+          key={skill}
+          skill={skill}
+          count={count}
+          req={missionRequirements?.[skill]}
+          max={max}
+          hqOptions={hqOptions}
+          selectedHq={skillHqSelections[skill] ?? 'all'}
+          onSkillSearch={onSkillSearch}
+        />
+      ))}
     </div>
   );
 }
