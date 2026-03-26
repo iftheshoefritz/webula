@@ -401,6 +401,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   // missionIndex controls which mission is shown in the mobile carousel
   const [missionIndex, setMissionIndex] = useState(0);
 
+  // skillSearchHq controls which HQ is used when clicking a skill bar
+  const [skillSearchHq, setSkillSearchHq] = useState<string>('all');
+
   useEffect(() => {
     if (mobileView === 'analysis') {
       const id = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
@@ -413,6 +416,15 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   useEffect(() => {
     setMissionIndex((i) => Math.min(i, Math.max(0, missions.length - 1)));
   }, [missions.length]);
+
+  const hqMissions = useMemo(
+    () => currentDeckRows.filter((row) => row.pile === 'mission' && row.missiontype === 'h'),
+    [currentDeckRows],
+  );
+
+  useEffect(() => {
+    setSkillSearchHq('all');
+  }, [hqMissions]);
 
   const compare = (a: string, b: string) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
@@ -427,6 +439,17 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setMobileView('search');
     requestAnimationFrame(() => searchInputRef.current?.focus());
   }, [mobileView, previousMobileView]);
+
+  const handleSkillClick = useCallback((skill: string) => {
+    const query = skillSearchHq === 'all'
+      ? `type:personnel skills:${skill}`
+      : `type:personnel skills:${skill} reportsto:"${skillSearchHq}"`;
+    setPreviousMobileView(mobileView === 'search' ? previousMobileView : (mobileView as 'analysis' | 'deck'));
+    setSearchQuery(query);
+    setActiveView('search');
+    setMobileView('search');
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, [skillSearchHq, mobileView, previousMobileView]);
 
   const missionCount = currentDeckRows.filter(r => r.pile === 'mission').reduce((s, r) => s + r.count, 0);
   const dilemmaCount = currentDeckRows.filter(r => r.pile === 'dilemma').reduce((s, r) => s + r.count, 0);
@@ -749,7 +772,23 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           </div>
 
           <CollapsibleSection title="Personnel skills" isCollapsed={analysisCollapsed['Personnel skills'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Personnel skills': !(prev['Personnel skills'] ?? true) }))}>
-            <SkillsChart currentDeckRows={currentDeckRows} missionRequirements={aggregatedMissionReqs} />
+            {hqMissions.length > 0 && (
+              <div className="px-2 pb-2 flex items-center gap-2 text-sm">
+                <label htmlFor="skill-hq-filter" className="text-text-secondary whitespace-nowrap">Find for:</label>
+                <select
+                  id="skill-hq-filter"
+                  value={skillSearchHq}
+                  onChange={(e) => setSkillSearchHq(e.target.value)}
+                  className="flex-1 bg-surface border border-white/20 rounded px-2 py-1 text-text-primary text-sm"
+                >
+                  <option value="all">All personnel</option>
+                  {hqMissions.map((hq) => (
+                    <option key={hq.name} value={hq.name}>{hq.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <SkillsChart currentDeckRows={currentDeckRows} missionRequirements={aggregatedMissionReqs} onSkillClick={handleSkillClick} />
           </CollapsibleSection>
 
           <CollapsibleSection title="Keywords" isCollapsed={analysisCollapsed['Keywords'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Keywords': !(prev['Keywords'] ?? true) }))}>

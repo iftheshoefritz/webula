@@ -31,9 +31,10 @@ const skillList = [
 interface SkillsChartProps {
   currentDeckRows: any[];
   missionRequirements?: Record<string, number>;
+  onSkillClick?: (skill: string) => void;
 }
 
-export default function SkillsChart({ currentDeckRows, missionRequirements }: SkillsChartProps) {
+export default function SkillsChart({ currentDeckRows, missionRequirements, onSkillClick }: SkillsChartProps) {
   const skillCounts = useMemo(() => {
     const counts: Record<string, number> = {};
 
@@ -83,10 +84,18 @@ export default function SkillsChart({ currentDeckRows, missionRequirements }: Sk
       )}
       {allSkills.map(({ skill, count }) => {
         const req = missionRequirements?.[skill];
+        const clickable = !!onSkillClick;
         return (
-          <div key={skill} className="flex items-center gap-2 text-sm">
+          <div
+            key={skill}
+            className={`flex items-center gap-2 text-sm py-0.5 rounded ${clickable ? 'cursor-pointer hover:bg-white/5' : ''}`}
+            onClick={clickable ? () => onSkillClick(skill) : undefined}
+            role={clickable ? 'button' : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onSkillClick(skill); } : undefined}
+          >
             <span className="w-28 capitalize text-text-primary">{skill}</span>
-            <div className="relative flex flex-1 h-3 rounded overflow-hidden bg-white/10">
+            <div className="relative flex flex-1 h-5 rounded overflow-hidden bg-white/10">
               {count > 0 && (
                 <div
                   className="bg-blue-500/70 h-full"
