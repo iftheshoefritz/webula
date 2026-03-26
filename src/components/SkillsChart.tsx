@@ -28,13 +28,28 @@ const skillList = [
   'treachery',
 ];
 
+export interface HqOption {
+  label: string;
+  value: string;
+}
+
 interface SkillsChartProps {
   currentDeckRows: any[];
   missionRequirements?: Record<string, number>;
   onSkillClick?: (skill: string) => void;
+  hqOptions?: HqOption[];
+  skillHqSelections?: Record<string, string>;
+  onSkillHqChange?: (skill: string, hq: string) => void;
 }
 
-export default function SkillsChart({ currentDeckRows, missionRequirements, onSkillClick }: SkillsChartProps) {
+export default function SkillsChart({
+  currentDeckRows,
+  missionRequirements,
+  onSkillClick,
+  hqOptions,
+  skillHqSelections,
+  onSkillHqChange,
+}: SkillsChartProps) {
   const skillCounts = useMemo(() => {
     const counts: Record<string, number> = {};
 
@@ -56,6 +71,7 @@ export default function SkillsChart({ currentDeckRows, missionRequirements, onSk
   }, [currentDeckRows]);
 
   const hasMissionReqs = missionRequirements && Object.keys(missionRequirements).length > 0;
+  const hasHqOptions = hqOptions && hqOptions.length > 0;
 
   const allSkills = skillList.map((skill) => ({
     skill,
@@ -85,6 +101,7 @@ export default function SkillsChart({ currentDeckRows, missionRequirements, onSk
       {allSkills.map(({ skill, count }) => {
         const req = missionRequirements?.[skill];
         const clickable = !!onSkillClick;
+        const selectedHq = skillHqSelections?.[skill] ?? 'all';
         return (
           <div
             key={skill}
@@ -109,10 +126,27 @@ export default function SkillsChart({ currentDeckRows, missionRequirements, onSk
                 />
               )}
             </div>
-            <span className="w-10 text-right text-text-secondary">
+            <span className="w-10 text-right text-text-secondary shrink-0">
               {count}
               <span className="text-amber-400 ml-0.5">/{req ?? 0}</span>
             </span>
+            {hasHqOptions && onSkillHqChange && (
+              <select
+                value={selectedHq}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onSkillHqChange(skill, e.target.value);
+                }}
+                className="bg-surface border border-white/20 rounded px-1 py-0.5 text-text-primary text-xs shrink-0 max-w-[8rem]"
+                aria-label={`HQ filter for ${skill}`}
+              >
+                <option value="all">All</option>
+                {hqOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            )}
           </div>
         );
       })}

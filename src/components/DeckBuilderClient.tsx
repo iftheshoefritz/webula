@@ -12,6 +12,7 @@ import PileAggregate from './PileAggregate';
 import IconPill from './IconPill';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import SkillsChart from './SkillsChart';
+import type { HqOption } from './SkillsChart';
 import SearchBar from './SearchBar';
 import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
@@ -401,15 +402,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   // missionIndex controls which mission is shown in the mobile carousel
   const [missionIndex, setMissionIndex] = useState(0);
 
-  // skillSearchHq controls which HQ is used when clicking a skill bar
-  const [skillSearchHq, setSkillSearchHq] = useState<string>('all');
-
-  useEffect(() => {
-    if (mobileView === 'analysis') {
-      const id = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
-      return () => cancelAnimationFrame(id);
-    }
-  }, [mobileView]);
+  // skillHqSelections stores per-skill HQ filter selections, persisted in localStorage
+  const [skillHqSelections, setSkillHqSelections] = useLocalStorage<Record<string, string>>('skillHqSelections', {});
 
   const missions = currentDeckRows.filter((row) => row.pile === 'mission');
 
@@ -417,14 +411,60 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setMissionIndex((i) => Math.min(i, Math.max(0, missions.length - 1)));
   }, [missions.length]);
 
-  const hqMissions = useMemo(
-    () => currentDeckRows.filter((row) => row.pile === 'mission' && row.missiontype === 'h'),
-    [currentDeckRows],
-  );
+  // Compute available HQ/reportsto filter options from the deck contents.
+  // Regular HQ missions (missiontype='h') use their name as the reportsto key.
+  // No-HQ scenarios (Caretaker's Array, Prevent Historical Disruption, Ceti Alpha V)
+  // are determined by the combination of missions and ships/events in the draw pile.
+  const hqOptions = useMemo((): HqOption[] => {
+    const options: HqOption[] = [];
 
-  useEffect(() => {
-    setSkillSearchHq('all');
-  }, [hqMissions]);
+    // Regular HQ missions
+    const hqMissions = missions.filter((row) => row.missiontype === 'h');
+    for (const hq of hqMissions) {
+      options.push({ label: hq.name, value: hq.name.toLowerCase() });
+    }
+
+    // No-HQ: Caretaker's Array + U.S.S. Equinox
+    const hasCaretakers = missions.some((row) => row.name.startsWith("caretaker's array"));
+    if (hasCaretakers) {
+      const hasEquinox = currentDeckRows.some(
+        (row) => row.pile === 'draw' && row.type === 'ship' && row.name.includes('equinox')
+      );
+      const hasVoyager = currentDeckRows.some(
+        (row) => row.pile === 'draw' && row.type === 'ship' && (
+          row.name.includes('u.s.s. voyager') || (row.keywords || '').includes('commander: uss voyager')
+        )
+      );
+      if (hasEquinox) {
+        options.push({ label: "Caretaker's Array (Equinox)", value: "caretaker's array equinox" });
+      }
+      if (hasVoyager) {
+        options.push({ label: "Caretaker's Array (Voyager)", value: "caretaker's array voyager" });
+      }
+    }
+
+    // No-HQ: Prevent Historical Disruption + U.S.S. Relativity
+    const hasPreventHistorical = missions.some((row) => row.name.startsWith('prevent historical disruption'));
+    if (hasPreventHistorical) {
+      const hasRelativity = currentDeckRows.some(
+        (row) => row.pile === 'draw' && row.type === 'ship' && row.name.includes('relativity')
+      );
+      if (hasRelativity) {
+        options.push({ label: 'Prevent Historical Disruption (Relativity)', value: 'prevent historical disruption relativity' });
+      }
+    }
+
+    // No-HQ: To Rule In Hell (event in draw pile) + Ceti Alpha V (any version in missions)
+    const hasCetiAlphaV = missions.some((row) => row.name.startsWith('ceti alpha v'));
+    const hasToRuleInHell = currentDeckRows.some(
+      (row) => row.pile === 'draw' && row.name.includes('to rule in hell')
+    );
+    if (hasCetiAlphaV && hasToRuleInHell) {
+      options.push({ label: 'Ceti Alpha V (Khan)', value: 'ceti alpha v khan' });
+    }
+
+    return options;
+  }, [missions, currentDeckRows]);
 
   const compare = (a: string, b: string) => {
     return a.localeCompare(b, 'en', { ignorePunctuation: true });
@@ -441,15 +481,26 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   }, [mobileView, previousMobileView]);
 
   const handleSkillClick = useCallback((skill: string) => {
-    const query = skillSearchHq === 'all'
+    const selectedHq = skillHqSelections[skill] ?? 'all';
+    const query = selectedHq === 'all'
       ? `type:personnel skills:${skill}`
-      : `type:personnel skills:${skill} reportsto:"${skillSearchHq}"`;
+      : `type:personnel skills:${skill} reportsto:"${selectedHq}"`;
     setPreviousMobileView(mobileView === 'search' ? previousMobileView : (mobileView as 'analysis' | 'deck'));
     setSearchQuery(query);
     setActiveView('search');
     setMobileView('search');
     requestAnimationFrame(() => searchInputRef.current?.focus());
-  }, [skillSearchHq, mobileView, previousMobileView]);
+  }, [skillHqSelections, mobileView, previousMobileView]);
+
+  const removeMission = useCallback((row: CardDef) => {
+    setCurrentDeck((prevState) => ({
+      ...prevState,
+      [row.collectorsinfo]: {
+        count: 0,
+        row: { ...row, count: 0 },
+      },
+    }));
+  }, [setCurrentDeck]);
 
   const missionCount = currentDeckRows.filter(r => r.pile === 'mission').reduce((s, r) => s + r.count, 0);
   const dilemmaCount = currentDeckRows.filter(r => r.pile === 'dilemma').reduce((s, r) => s + r.count, 0);
@@ -668,7 +719,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <div className="hidden lg:flex space-x-4 overflow-x-scroll">
               {Array.from({ length: 5 }, (_, i) => missions[i] ?? null).map((row, i) =>
                 row ? (
-                  <div key={row.collectorsinfo} className="relative flex-shrink-0">
+                  <div key={row.collectorsinfo} className="relative flex-shrink-0 group">
                     <img
                       src={`/cardimages/${row.imagefile}.jpg`}
                       width={165}
@@ -678,6 +729,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                       className="w-56 h-auto rounded-xl block"
                     />
                     <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
+                    <button
+                      onClick={() => removeMission(row)}
+                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600/80"
+                      aria-label={`Remove ${row.name}`}
+                      title={`Remove ${row.name}`}
+                    >
+                      ×
+                    </button>
                   </div>
                 ) : (
                   <div
@@ -730,6 +789,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                       className="w-72 h-auto rounded-xl block"
                     />
                     <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
+                    <button
+                      onClick={() => removeMission(missions[missionIndex])}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 text-white text-sm flex items-center justify-center hover:bg-red-600/80"
+                      aria-label={`Remove ${missions[missionIndex].name}`}
+                      title={`Remove ${missions[missionIndex].name}`}
+                    >
+                      ×
+                    </button>
                   </div>
                 ) : (
                   <div
@@ -772,23 +839,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           </div>
 
           <CollapsibleSection title="Personnel skills" isCollapsed={analysisCollapsed['Personnel skills'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Personnel skills': !(prev['Personnel skills'] ?? true) }))}>
-            {hqMissions.length > 0 && (
-              <div className="px-2 pb-2 flex items-center gap-2 text-sm">
-                <label htmlFor="skill-hq-filter" className="text-text-secondary whitespace-nowrap">Find for:</label>
-                <select
-                  id="skill-hq-filter"
-                  value={skillSearchHq}
-                  onChange={(e) => setSkillSearchHq(e.target.value)}
-                  className="flex-1 bg-surface border border-white/20 rounded px-2 py-1 text-text-primary text-sm"
-                >
-                  <option value="all">All personnel</option>
-                  {hqMissions.map((hq) => (
-                    <option key={hq.name} value={hq.name}>{hq.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <SkillsChart currentDeckRows={currentDeckRows} missionRequirements={aggregatedMissionReqs} onSkillClick={handleSkillClick} />
+            <SkillsChart
+              currentDeckRows={currentDeckRows}
+              missionRequirements={aggregatedMissionReqs}
+              onSkillClick={handleSkillClick}
+              hqOptions={hqOptions}
+              skillHqSelections={skillHqSelections}
+              onSkillHqChange={(skill, hq) => setSkillHqSelections((prev) => ({ ...prev, [skill]: hq }))}
+            />
           </CollapsibleSection>
 
           <CollapsibleSection title="Keywords" isCollapsed={analysisCollapsed['Keywords'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Keywords': !(prev['Keywords'] ?? true) }))}>
