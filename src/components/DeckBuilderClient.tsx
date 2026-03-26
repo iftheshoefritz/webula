@@ -13,6 +13,7 @@ import IconPill from './IconPill';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import SkillsChart from './SkillsChart';
 import type { HqOption } from './SkillsChart';
+import SearchOverlay from './SearchOverlay';
 import SearchBar from './SearchBar';
 import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
@@ -53,6 +54,77 @@ const skillList = [
   'transporters',
   'treachery',
 ];
+
+function KeywordBadge({
+  keyword,
+  count,
+  onSearch,
+  hqOptions = [],
+}: {
+  keyword: string;
+  count: number;
+  onSearch?: (keyword: string, hq: string | null) => void;
+  hqOptions?: HqOption[];
+}) {
+  const [open, setOpen] = React.useState(false);
+  const btnRef = React.useRef<HTMLButtonElement>(null);
+  const hasSearch = !!onSearch;
+  const hasOptions = hqOptions.length > 0;
+  const colonIndex = keyword.indexOf(':');
+  const hasColon = colonIndex !== -1;
+  const keywordPrefix = hasColon ? keyword.slice(0, colonIndex) : keyword;
+  const keywordSuffix = hasColon ? keyword.slice(colonIndex + 1).trim() : null;
+
+  const handleSelect = (hq: string | null) => {
+    setOpen(false);
+    onSearch?.(keyword, hq);
+  };
+
+  return (
+    <div className="relative m-2 p-2 border border-white/[0.06] rounded surface-hover">
+      <span className="px-1 text-text-secondary flex items-center gap-1 flex-wrap">
+        {count}x{' '}
+        {hasColon ? (
+          <span className="inline-flex flex-col">
+            <b className="text-text-primary">{keywordPrefix}:</b>
+            <span className="text-text-secondary font-normal">{keywordSuffix}</span>
+          </span>
+        ) : (
+          <b className="text-text-primary">{keyword}</b>
+        )}
+        {hasSearch && (
+          <button
+            ref={btnRef}
+            aria-label={`Search personnel with keyword ${keyword}`}
+            aria-haspopup={hasOptions ? 'menu' : undefined}
+            aria-expanded={open}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (hasOptions) {
+                setOpen((v) => !v);
+              } else {
+                onSearch(keyword, null);
+              }
+            }}
+            className="btn-icon btn-icon-sm shrink-0"
+          >
+            +
+          </button>
+        )}
+      </span>
+      {open && hasOptions && (
+        <SearchOverlay
+          label={keyword}
+          hqOptions={hqOptions}
+          selectedHq="all"
+          anchorRef={btnRef}
+          onSelect={handleSelect}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
 
 interface Session {
   accessToken: string;
@@ -490,6 +562,20 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     requestAnimationFrame(() => searchInputRef.current?.focus());
   }, [mobileView, previousMobileView]);
 
+  const handleKeywordSearch = useCallback((keyword: string, hq: string | null) => {
+    const query = hq
+      ? `type:personnel keywords:"${keyword}" reportsto:"${hq}"`
+      : `type:personnel keywords:"${keyword}"`;
+    searchPile(query);
+  }, [searchPile]);
+
+  const handleIconSearch = useCallback((icon: string, hq: string | null) => {
+    const query = hq
+      ? `type:personnel icons:"${icon}" reportsto:"${hq}"`
+      : `type:personnel icons:"${icon}"`;
+    searchPile(query);
+  }, [searchPile]);
+
   const removeMission = useCallback((row: CardDef) => {
     setCurrentDeck((prevState) => ({
       ...prevState,
@@ -861,27 +947,15 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 return counts;
               }}
             >
-              {([keyword, count]) => {
-                const colonIndex = keyword.indexOf(':');
-                const hasColon = colonIndex !== -1;
-                const keywordPrefix = hasColon ? keyword.slice(0, colonIndex) : keyword;
-                const keywordSuffix = hasColon ? keyword.slice(colonIndex + 1).trim() : null;
-                return (
-                  <div key={keyword} className="m-2 p-2 border border-white/[0.06] rounded surface-hover">
-                    <span className="px-1 text-text-secondary">
-                      {count}x{' '}
-                      {hasColon ? (
-                        <span className="inline-flex flex-col">
-                          <b className="text-text-primary">{keywordPrefix}:</b>
-                          <span className="text-text-secondary font-normal">{keywordSuffix}</span>
-                        </span>
-                      ) : (
-                        <b className="text-text-primary">{keyword}</b>
-                      )}
-                    </span>
-                  </div>
-                );
-              }}
+              {([keyword, count]) => (
+                <KeywordBadge
+                  key={keyword}
+                  keyword={keyword}
+                  count={count}
+                  onSearch={handleKeywordSearch}
+                  hqOptions={hqOptions}
+                />
+              )}
             </PileAggregate>
           </CollapsibleSection>
 
@@ -902,7 +976,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               }}
             >
               {([icon, count]) => (
-                <IconPill key={icon} icon={icon} count={count} />
+                <IconPill key={icon} icon={icon} count={count} onSearch={handleIconSearch} hqOptions={hqOptions} />
               )}
             </PileAggregate>
           </CollapsibleSection>
