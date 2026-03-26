@@ -290,6 +290,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       );
       return;
     }
+    if (savingToGDrive) return;
     if (deckTitle.length === 0) {
       window.alert('please enter a deck name!');
     } else {
@@ -297,7 +298,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       setSaveError(null);
       try {
         let response: Response | null = null;
-        if (deckFile?.id && deckFile?.name === deckTitle) {
+        if (deckFile?.id) {
           response = await fetch(`/api/drive/${deckFile.id}`, {
             method: 'PUT',
             credentials: 'include',
@@ -324,6 +325,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         } else {
           if (json?.file?.id) {
             setDeckFile({ id: json.file.id, name: deckTitle });
+          } else if (deckFile?.id) {
+            setDeckFile({ id: deckFile.id, name: deckTitle });
           }
           showSavedFeedback();
         }

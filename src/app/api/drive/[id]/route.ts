@@ -160,12 +160,13 @@ export async function PUT(
     auth: auth,
   })
 
-  const { content } = await request.json()
+  const { content, fileName } = await request.json()
 
   try {
     const response = await drive.files.update({
       fileId: id,
       uploadType: 'media',
+      requestBody: fileName ? { name: fileName } : undefined,
       media: {
         mimeType: 'application/json',
         body: JSON.stringify(content)
