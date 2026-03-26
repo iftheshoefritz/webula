@@ -109,7 +109,7 @@ const RANGE_DEFAULTS: Record<string, number> = {
   shields: 5,
 };
 
-function parseFilters(searchQuery: string): ParsedFilter[] {
+export function parseFilters(searchQuery: string): ParsedFilter[] {
   if (!searchQuery.trim()) {
     return [];
   }
