@@ -157,8 +157,9 @@ export const HQ_PLAYABILITY: Record<string, HQPredicate> = {
 
   // Photonic Headquarters (Grid 296 Holographic Training Facility)
   // "You may play Holograms, equipment, and [NA] ships at this mission."
+  // Note: "Hologram" is stored in the Species column (card.species), not Keywords.
   'grid 296 holographic training facility': (card) =>
-    card.keywords.includes('hologram') ||
+    card.species.includes('hologram') ||
     isEquipment(card) ||
     (isNA(card) && card.type === 'ship'),
 
