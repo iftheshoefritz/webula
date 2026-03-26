@@ -28,9 +28,14 @@ jest.mock('../../components/SearchResults', () => {
 
 let capturedSetSearchQuery: ((q: string) => void) | null = null;
 jest.mock('../../components/SearchPills', () => {
-  return function MockSearchPills({ setSearchQuery }: { setSearchQuery: (q: string) => void }) {
+  const MockSearchPills = function ({ setSearchQuery }: { setSearchQuery: (q: string) => void }) {
     capturedSetSearchQuery = setSearchQuery;
     return <div data-testid="search-pills" />;
+  };
+  return {
+    __esModule: true,
+    default: MockSearchPills,
+    parseFilters: () => [],
   };
 });
 

@@ -7,6 +7,7 @@ interface SearchBarProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   variant?: 'legacy' | 'styled';
+  autoFocus?: boolean;
 }
 
 const PARSER_OPTIONS = {
@@ -38,7 +39,7 @@ export function extractFieldPortion(query: string, textPortion: string): string 
 }
 
 const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(
-  function SearchBar({ searchQuery, setSearchQuery, variant = "legacy" }, ref) {
+  function SearchBar({ searchQuery, setSearchQuery, variant = "legacy", autoFocus }, ref) {
     // Show only the free-text portion of the query in the input
     const [localTextQuery, setLocalTextQuery] = useState(() => extractTextPortion(searchQuery));
     // Store field-filter portion separately so we can reconstruct the full query
@@ -91,6 +92,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(
             onChange={(e) => {
               setLocalTextQuery(e.target.value);
             }}
+            autoFocus={autoFocus}
             className="input-search"
           />
           <span className="input-search-icon">⌕</span>
