@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { VirtuosoGrid, Virtuoso } from "react-virtuoso";
 import { CardDef, Deck } from "../types";
+import { useLongPress } from "../hooks/useLongPress";
+import SharePopup from "./SharePopup";
 
 const INLINE_ICON_MAP: Record<string, string> = {
   // Personnel/card icons
@@ -112,6 +114,275 @@ function renderWithIcons(text: string): React.ReactNode {
 const DEFAULT_GRID_CLASS =
   "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4";
 
+// ---- Sub-components using useLongPress (hooks can't be called inside useCallback) ----
+
+type GridCardItemProps = {
+  row: CardDef;
+  isStyled: boolean;
+  currentDeck?: Deck;
+  onCardSelected?: (row: CardDef) => void;
+  onCardDeselected?: (event: any, row: CardDef) => void;
+  onShare: (card: CardDef, x: number, y: number) => void;
+  handleHover: (collectorsinfo: string, event: React.MouseEvent<HTMLElement>) => void;
+  handleUnhover: () => void;
+  hoverPortal: (row: CardDef) => React.ReactNode;
+};
+
+const GridCardItem = React.memo(function GridCardItem({
+  row,
+  isStyled,
+  currentDeck,
+  onCardSelected,
+  onCardDeselected,
+  onShare,
+  handleHover,
+  handleUnhover,
+  hoverPortal,
+}: GridCardItemProps) {
+  const handleShare = useCallback(
+    (x: number, y: number) => onShare(row, x, y),
+    [row, onShare],
+  );
+  const longPressHandlers = useLongPress(handleShare);
+
+  const count = currentDeck ? (currentDeck[row.collectorsinfo]?.row?.count || 0) : 0;
+  const cardWrapperClass = isStyled
+    ? "relative rounded-lg overflow-hidden transition-transform duration-150 hover:scale-[1.02] hover:shadow-lg"
+    : "relative";
+
+  const handleContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLImageElement>) => {
+      if (onCardDeselected) {
+        onCardDeselected(event, row);
+      } else {
+        longPressHandlers.onContextMenu(event);
+      }
+    },
+    [onCardDeselected, row, longPressHandlers],
+  );
+
+  return (
+    <div className={cardWrapperClass}>
+      <div className="relative">
+        <img
+          src={`/cardimages/${row.imagefile}.jpg`}
+          width={165}
+          height={229}
+          loading="lazy"
+          alt={row.name}
+          className="w-full h-auto rounded-xl block"
+          onClick={() => onCardSelected && onCardSelected(row)}
+          onContextMenu={handleContextMenu}
+          onMouseEnter={(event) => handleHover(row.collectorsinfo, event)}
+          onMouseLeave={handleUnhover}
+          onTouchStart={longPressHandlers.onTouchStart}
+          onTouchEnd={longPressHandlers.onTouchEnd}
+          onTouchMove={longPressHandlers.onTouchMove}
+        />
+        <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
+      </div>
+      {currentDeck && count > 0 && (
+        <div className="absolute top-2 right-2 flex items-center gap-0.5 bg-black/70 rounded-full px-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onCardDeselected?.(e as any, row); }}
+            className="w-5 h-5 flex items-center justify-center text-white text-base leading-none"
+            aria-label="Remove one"
+          >−</button>
+          <span className="text-white text-sm font-mono w-4 text-center">{count}</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onCardSelected?.(row); }}
+            className="w-5 h-5 flex items-center justify-center text-white text-base leading-none disabled:opacity-40"
+            disabled={count >= 3}
+            aria-label="Add one"
+          >+</button>
+        </div>
+      )}
+      {hoverPortal(row)}
+    </div>
+  );
+});
+
+type ListCardItemProps = {
+  row: any;
+  currentDeck?: Deck;
+  withHover?: boolean;
+  onCardSelected?: (row: CardDef) => void;
+  onCardDeselected?: (event: any, row: CardDef) => void;
+  onShare: (card: CardDef, x: number, y: number) => void;
+  handleHover: (collectorsinfo: string, event: React.MouseEvent<HTMLElement>) => void;
+  handleUnhover: () => void;
+  hoverPortal: (row: any) => React.ReactNode;
+};
+
+const ListCardItem = React.memo(function ListCardItem({
+  row,
+  currentDeck,
+  withHover,
+  onCardSelected,
+  onCardDeselected,
+  onShare,
+  handleHover,
+  handleUnhover,
+  hoverPortal,
+}: ListCardItemProps) {
+  const handleShare = useCallback(
+    (x: number, y: number) => onShare(row, x, y),
+    [row, onShare],
+  );
+  const longPressHandlers = useLongPress(handleShare);
+
+  const type = (row.type || '').toLowerCase();
+  const deckCount = currentDeck ? (currentDeck[row.collectorsinfo]?.row?.count ?? 0) : null;
+
+  const showCost = row.cost && type !== 'interrupt' && type !== 'mission';
+  const showPoints = type === 'mission' && row.points;
+
+  let leftIcon: React.ReactNode = null;
+  if ((type === 'personnel' || type === 'ship') && row.affiliation) {
+    leftIcon = renderAffiliationIcon(row.affiliation);
+  } else if (type === 'event' || type === 'interrupt' || type === 'equipment') {
+    const typeSrc = INLINE_ICON_MAP[type];
+    if (typeSrc) {
+      leftIcon = <img src={typeSrc} alt={type} title={row.type} className="inline-block h-4 w-4 align-middle" />;
+    }
+  } else if (type === 'mission' && row.missiontype) {
+    leftIcon = renderTypeIcon(row.missiontype);
+  } else if (type === 'dilemma' && row.dilemmatype) {
+    leftIcon = renderTypeIcon(row.dilemmatype);
+  }
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (onCardDeselected) {
+        onCardDeselected(e, row);
+      } else {
+        longPressHandlers.onContextMenu(e);
+      }
+    },
+    [onCardDeselected, row, longPressHandlers],
+  );
+
+  return (
+    <div
+      className="flex flex-col px-3 py-2 border-b border-white/[0.06] hover:bg-white/[0.04] cursor-pointer select-none"
+      onClick={() => onCardSelected && onCardSelected(row)}
+      onContextMenu={handleContextMenu}
+      onTouchStart={longPressHandlers.onTouchStart}
+      onTouchEnd={longPressHandlers.onTouchEnd}
+      onTouchMove={longPressHandlers.onTouchMove}
+    >
+      {/* Header: icon immediately followed by cost/points (no gap), then name and count */}
+      <div className="flex items-center h-7 gap-2 min-w-0">
+        {/* Icon + cost/points grouped with no gap between them */}
+        {(leftIcon || showCost || showPoints) && (
+          <span className="flex items-center flex-shrink-0">
+            {leftIcon}
+            {showCost && (
+              <span className="text-lg font-bold font-mono text-text-primary w-6 text-center leading-none">
+                {row.cost}
+              </span>
+            )}
+            {showPoints && (
+              <span className="text-lg font-bold font-mono text-text-primary w-6 text-center leading-none">
+                {row.points}
+              </span>
+            )}
+          </span>
+        )}
+        <span
+          className="font-bold text-text-primary text-lg leading-none uppercase flex-1 min-w-0 truncate"
+          onMouseEnter={(e) => withHover && handleHover(row.collectorsinfo, e)}
+          onMouseLeave={handleUnhover}
+        >
+          {row.unique === 'y' && <span>·</span>}{row.name}
+        </span>
+        {deckCount !== null && deckCount > 0 && (
+          <div className="ml-auto flex items-center gap-0.5 bg-black/70 rounded-full px-1 flex-shrink-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); onCardDeselected?.(e as any, row); }}
+              className="w-5 h-5 flex items-center justify-center text-white text-base leading-none"
+              aria-label="Remove one"
+            >−</button>
+            <span className="text-white text-xs font-mono w-4 text-center">{deckCount}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onCardSelected?.(row); }}
+              className="w-5 h-5 flex items-center justify-center text-white text-base leading-none disabled:opacity-40"
+              disabled={deckCount >= 3}
+              aria-label="Add one"
+            >+</button>
+          </div>
+        )}
+      </div>
+
+      {/* Personnel: icons, species, INT|CUN|STR, skills, keywords */}
+      {type === 'personnel' && (
+        <div className="text-sm text-text-muted mt-0.5 flex flex-wrap items-center gap-x-2">
+          {row.icons && <span className="flex items-center gap-0.5">{renderWithIcons(row.icons)}</span>}
+          {row.species && <span>{row.species}</span>}
+          {(row.integrity || row.cunning || row.strength) && (
+            <span className="font-mono">{row.integrity}|{row.cunning}|{row.strength}</span>
+          )}
+          {row.keywords && <span className="text-text-secondary">{row.keywords}</span>}
+          {row.skills && (
+            <span className="text-text-secondary w-full mt-0.5 flex items-center flex-wrap gap-x-1">{renderWithIcons(row.skills)}</span>
+          )}
+        </div>
+      )}
+
+      {/* Mission: quadrant icon, affiliation, span, keywords, skills */}
+      {type === 'mission' && (
+        <div className="text-sm text-text-muted mt-0.5 flex flex-wrap gap-x-2 items-center">
+          {row.quadrant && (() => {
+            const qSrc = QUADRANT_TO_ICON[row.quadrant.toLowerCase()];
+            return qSrc
+              ? <img src={qSrc} alt={row.quadrant.toUpperCase()} title={`${row.quadrant.toUpperCase()} Quadrant`} className="inline h-4 w-4 align-middle" />
+              : <span className="uppercase">{row.quadrant}</span>;
+          })()}
+          {row.affiliation && <span className="flex items-center gap-0.5">{renderWithIcons(row.affiliation)}</span>}
+          {row.span && <span>Span {row.span}</span>}
+          {row.keywords && <span className="text-text-secondary">{row.keywords}</span>}
+          {row.skills && (
+            <span className="text-text-secondary w-full mt-0.5">{renderWithIcons(row.skills)}</span>
+          )}
+        </div>
+      )}
+
+      {/* Ship: class, staff icons, R/W/S, keywords */}
+      {type === 'ship' && (
+        <div className="text-sm text-text-muted mt-0.5 flex flex-wrap items-center gap-x-2">
+          {row.class && <span>{row.class}</span>}
+          {row.staff && <span className="flex items-center gap-0.5">{renderWithIcons(row.staff)}</span>}
+          {(row.range || row.weapons || row.shields) && (
+            <span className="font-mono">R{row.range} W{row.weapons} S{row.shields}</span>
+          )}
+          {row.keywords && <span className="text-text-secondary">{row.keywords}</span>}
+        </div>
+      )}
+
+      {/* Dilemma: keywords (type icon is now in header) */}
+      {type === 'dilemma' && row.keywords && (
+        <div className="text-sm text-text-muted mt-0.5 flex flex-wrap gap-x-2">
+          <span>{row.keywords}</span>
+        </div>
+      )}
+
+      {/* Event / Interrupt / Equipment: keywords */}
+      {(type === 'event' || type === 'interrupt' || type === 'equipment') && row.keywords && (
+        <div className="text-sm text-text-muted mt-0.5">{row.keywords}</div>
+      )}
+
+      {/* Full gametext */}
+      {row.gametext && (
+        <div className="text-sm text-text-muted mt-1 leading-relaxed flex flex-wrap items-center gap-x-0.5">{renderWithIcons(row.gametext)}</div>
+      )}
+
+      {hoverPortal(row)}
+    </div>
+  );
+});
+
+// ---- End sub-components ----
+
 type SearchResultsProps = {
   filteredData: any[];
   onCardSelected?: (row: CardDef) => void;
@@ -139,6 +410,7 @@ export default function SearchResults({
   const [imageStyle, setImageStyle] = useState({});
   const [mounted, setMounted] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [shareTarget, setShareTarget] = useState<{ card: CardDef; x: number; y: number } | null>(null);
 
   // SSR guard: document.body doesn't exist during server-side rendering
   useEffect(() => {
@@ -211,6 +483,13 @@ export default function SearchResults({
     }, 100);
   }, []);
 
+  const handleShare = useCallback(
+    (card: CardDef, x: number, y: number) => {
+      setShareTarget({ card, x, y });
+    },
+    [],
+  );
+
   const styledGridClass = "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 px-4 py-4";
   const listClassName = variant === 'styled'
     ? styledGridClass
@@ -253,59 +532,27 @@ export default function SearchResults({
   const itemContent = useCallback(
     (index: number) => {
       const row: CardDef = filteredData[index];
-      const isStyled = variant === 'styled';
-
-      const cardWrapperClass = isStyled
-        ? "relative rounded-lg overflow-hidden transition-transform duration-150 hover:scale-[1.02] hover:shadow-lg"
-        : "relative";
-
-      const count = currentDeck ? (currentDeck[row.collectorsinfo]?.row?.count || 0) : 0;
-
       return (
-        <div className={cardWrapperClass}>
-          <div className="relative">
-            <img
-              src={`/cardimages/${row.imagefile}.jpg`}
-              width={165}
-              height={229}
-              loading="lazy"
-              alt={row.name}
-              className="w-full h-auto rounded-xl block"
-              onClick={() => onCardSelected && onCardSelected(row)}
-              onContextMenu={(event) =>
-                onCardDeselected && onCardDeselected(event, row)
-              }
-              onMouseEnter={(event) => handleHover(row.collectorsinfo, event)}
-              onMouseLeave={handleUnhover}
-            />
-            <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
-          </div>
-          {currentDeck && count > 0 && (
-            <div className="absolute top-2 right-2 flex items-center gap-0.5 bg-black/70 rounded-full px-1">
-              <button
-                onClick={(e) => { e.stopPropagation(); onCardDeselected?.(e as any, row); }}
-                className="w-5 h-5 flex items-center justify-center text-white text-base leading-none"
-                aria-label="Remove one"
-              >−</button>
-              <span className="text-white text-sm font-mono w-4 text-center">{count}</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); onCardSelected?.(row); }}
-                className="w-5 h-5 flex items-center justify-center text-white text-base leading-none disabled:opacity-40"
-                disabled={count >= 3}
-                aria-label="Add one"
-              >+</button>
-            </div>
-          )}
-          {hoverPortal(row)}
-        </div>
+        <GridCardItem
+          row={row}
+          isStyled={variant === 'styled'}
+          currentDeck={currentDeck}
+          onCardSelected={onCardSelected}
+          onCardDeselected={onCardDeselected}
+          onShare={handleShare}
+          handleHover={handleHover}
+          handleUnhover={handleUnhover}
+          hoverPortal={hoverPortal}
+        />
       );
     },
     [
       filteredData,
+      variant,
+      currentDeck,
       onCardSelected,
       onCardDeselected,
-      currentDeck,
-      variant,
+      handleShare,
       handleHover,
       handleUnhover,
       hoverPortal,
@@ -314,152 +561,28 @@ export default function SearchResults({
 
   const renderListItem = useCallback(
     (index: number) => {
-      const row: any = filteredData[index];
-      const type = (row.type || '').toLowerCase();
-      const deckCount = currentDeck ? (currentDeck[row.collectorsinfo]?.row?.count ?? 0) : null;
-
-      // Determine what to show in the left position (cost for most cards, points for missions)
-      // Don't show cost for interrupts and missions
-      const showCost = row.cost && type !== 'interrupt' && type !== 'mission';
-      const showPoints = type === 'mission' && row.points;
-
-      // Left-side icon: affiliation for personnel/ships, type icon for event/interrupt/equipment,
-      // space/planet/dual/hq icon for missions and dilemmas
-      let leftIcon: React.ReactNode = null;
-      if ((type === 'personnel' || type === 'ship') && row.affiliation) {
-        leftIcon = renderAffiliationIcon(row.affiliation);
-      } else if (type === 'event' || type === 'interrupt' || type === 'equipment') {
-        const typeSrc = INLINE_ICON_MAP[type];
-        if (typeSrc) {
-          leftIcon = <img src={typeSrc} alt={type} title={row.type} className="inline-block h-4 w-4 align-middle" />;
-        }
-      } else if (type === 'mission' && row.missiontype) {
-        leftIcon = renderTypeIcon(row.missiontype);
-      } else if (type === 'dilemma' && row.dilemmatype) {
-        leftIcon = renderTypeIcon(row.dilemmatype);
-      }
-
+      const row: CardDef = filteredData[index];
       return (
-        <div
-          className="flex flex-col px-3 py-2 border-b border-white/[0.06] hover:bg-white/[0.04] cursor-pointer select-none"
-          onClick={() => onCardSelected && onCardSelected(row)}
-          onContextMenu={(e) => onCardDeselected && onCardDeselected(e, row)}
-        >
-          {/* Header: icon immediately followed by cost/points (no gap), then name and count */}
-          <div className="flex items-center h-7 gap-2 min-w-0">
-            {/* Icon + cost/points grouped with no gap between them */}
-            {(leftIcon || showCost || showPoints) && (
-              <span className="flex items-center flex-shrink-0">
-                {leftIcon}
-                {showCost && (
-                  <span className="text-lg font-bold font-mono text-text-primary w-6 text-center leading-none">
-                    {row.cost}
-                  </span>
-                )}
-                {showPoints && (
-                  <span className="text-lg font-bold font-mono text-text-primary w-6 text-center leading-none">
-                    {row.points}
-                  </span>
-                )}
-              </span>
-            )}
-            <span
-              className="font-bold text-text-primary text-lg leading-none uppercase flex-1 min-w-0 truncate"
-              onMouseEnter={(e) => withHover && handleHover(row.collectorsinfo, e)}
-              onMouseLeave={handleUnhover}
-            >
-              {row.unique === 'y' && <span>·</span>}{row.name}
-            </span>
-            {deckCount !== null && deckCount > 0 && (
-              <div className="ml-auto flex items-center gap-0.5 bg-black/70 rounded-full px-1 flex-shrink-0">
-                <button
-                  onClick={(e) => { e.stopPropagation(); onCardDeselected?.(e as any, row); }}
-                  className="w-5 h-5 flex items-center justify-center text-white text-base leading-none"
-                  aria-label="Remove one"
-                >−</button>
-                <span className="text-white text-xs font-mono w-4 text-center">{deckCount}</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onCardSelected?.(row); }}
-                  className="w-5 h-5 flex items-center justify-center text-white text-base leading-none disabled:opacity-40"
-                  disabled={deckCount >= 3}
-                  aria-label="Add one"
-                >+</button>
-              </div>
-            )}
-          </div>
-
-          {/* Personnel: icons, species, INT|CUN|STR, skills, keywords */}
-          {type === 'personnel' && (
-            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap items-center gap-x-2">
-              {row.icons && <span className="flex items-center gap-0.5">{renderWithIcons(row.icons)}</span>}
-              {row.species && <span>{row.species}</span>}
-              {(row.integrity || row.cunning || row.strength) && (
-                <span className="font-mono">{row.integrity}|{row.cunning}|{row.strength}</span>
-              )}
-              {row.keywords && <span className="text-text-secondary">{row.keywords}</span>}
-              {row.skills && (
-                <span className="text-text-secondary w-full mt-0.5 flex items-center flex-wrap gap-x-1">{renderWithIcons(row.skills)}</span>
-              )}
-            </div>
-          )}
-
-          {/* Mission: quadrant icon, affiliation, span, keywords, skills */}
-          {type === 'mission' && (
-            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap gap-x-2 items-center">
-              {row.quadrant && (() => {
-                const qSrc = QUADRANT_TO_ICON[row.quadrant.toLowerCase()];
-                return qSrc
-                  ? <img src={qSrc} alt={row.quadrant.toUpperCase()} title={`${row.quadrant.toUpperCase()} Quadrant`} className="inline h-4 w-4 align-middle" />
-                  : <span className="uppercase">{row.quadrant}</span>;
-              })()}
-              {row.affiliation && <span className="flex items-center gap-0.5">{renderWithIcons(row.affiliation)}</span>}
-              {row.span && <span>Span {row.span}</span>}
-              {row.keywords && <span className="text-text-secondary">{row.keywords}</span>}
-              {row.skills && (
-                <span className="text-text-secondary w-full mt-0.5">{renderWithIcons(row.skills)}</span>
-              )}
-            </div>
-          )}
-
-          {/* Ship: class, staff icons, R/W/S, keywords */}
-          {type === 'ship' && (
-            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap items-center gap-x-2">
-              {row.class && <span>{row.class}</span>}
-              {row.staff && <span className="flex items-center gap-0.5">{renderWithIcons(row.staff)}</span>}
-              {(row.range || row.weapons || row.shields) && (
-                <span className="font-mono">R{row.range} W{row.weapons} S{row.shields}</span>
-              )}
-              {row.keywords && <span className="text-text-secondary">{row.keywords}</span>}
-            </div>
-          )}
-
-          {/* Dilemma: keywords (type icon is now in header) */}
-          {type === 'dilemma' && row.keywords && (
-            <div className="text-sm text-text-muted mt-0.5 flex flex-wrap gap-x-2">
-              <span>{row.keywords}</span>
-            </div>
-          )}
-
-          {/* Event / Interrupt / Equipment: keywords */}
-          {(type === 'event' || type === 'interrupt' || type === 'equipment') && row.keywords && (
-            <div className="text-sm text-text-muted mt-0.5">{row.keywords}</div>
-          )}
-
-          {/* Full gametext */}
-          {row.gametext && (
-            <div className="text-sm text-text-muted mt-1 leading-relaxed flex flex-wrap items-center gap-x-0.5">{renderWithIcons(row.gametext)}</div>
-          )}
-
-          {hoverPortal(row)}
-        </div>
+        <ListCardItem
+          row={row}
+          currentDeck={currentDeck}
+          withHover={withHover}
+          onCardSelected={onCardSelected}
+          onCardDeselected={onCardDeselected}
+          onShare={handleShare}
+          handleHover={handleHover}
+          handleUnhover={handleUnhover}
+          hoverPortal={hoverPortal}
+        />
       );
     },
     [
       filteredData,
-      onCardSelected,
-      onCardDeselected,
       currentDeck,
       withHover,
+      onCardSelected,
+      onCardDeselected,
+      handleShare,
       handleHover,
       handleUnhover,
       hoverPortal,
@@ -470,24 +593,39 @@ export default function SearchResults({
   // to fill available space in scrollable containers
   const containerStyle = useWindowScroll ? undefined : { height: "100%", flex: "1 1 auto" };
 
+  const sharePopup = shareTarget && mounted ? (
+    <SharePopup
+      card={shareTarget.card}
+      x={shareTarget.x}
+      y={shareTarget.y}
+      onDismiss={() => setShareTarget(null)}
+    />
+  ) : null;
+
   if (viewMode === 'list') {
     return (
-      <Virtuoso
-        style={containerStyle}
-        totalCount={filteredData.length}
-        useWindowScroll={useWindowScroll}
-        itemContent={renderListItem}
-      />
+      <>
+        <Virtuoso
+          style={containerStyle}
+          totalCount={filteredData.length}
+          useWindowScroll={useWindowScroll}
+          itemContent={renderListItem}
+        />
+        {sharePopup}
+      </>
     );
   }
 
   return (
-    <VirtuosoGrid
-      style={containerStyle}
-      totalCount={filteredData.length}
-      useWindowScroll={useWindowScroll}
-      listClassName={listClassName}
-      itemContent={itemContent}
-    />
+    <>
+      <VirtuosoGrid
+        style={containerStyle}
+        totalCount={filteredData.length}
+        useWindowScroll={useWindowScroll}
+        listClassName={listClassName}
+        itemContent={itemContent}
+      />
+      {sharePopup}
+    </>
   );
 }
