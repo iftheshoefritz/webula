@@ -59,27 +59,16 @@ describe('DrivePickerModal – Google Drive section', () => {
   });
 });
 
-describe('DrivePickerModal – collapsible section', () => {
+describe('DrivePickerModal – Google Drive header', () => {
   it('does not show a "This Browser" section header', () => {
     render(<DrivePickerModal {...baseProps} />);
     expect(screen.queryByText('This Browser')).not.toBeInTheDocument();
     expect(screen.getByText('Google Drive')).toBeInTheDocument();
   });
 
-  it('collapses the drive section when the header is clicked', () => {
+  it('always shows drive content without requiring a click to expand', () => {
     const driveFiles = [{ id: '1', name: 'Drive Deck' }];
     render(<DrivePickerModal {...baseProps} isSignedIn={true} driveFiles={driveFiles} />);
-    expect(screen.getByText('Drive Deck')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Google Drive'));
-    expect(screen.queryByText('Drive Deck')).not.toBeInTheDocument();
-  });
-
-  it('expands the drive section again after a second click', () => {
-    const driveFiles = [{ id: '1', name: 'Drive Deck' }];
-    render(<DrivePickerModal {...baseProps} isSignedIn={true} driveFiles={driveFiles} />);
-    fireEvent.click(screen.getByText('Google Drive'));
-    expect(screen.queryByText('Drive Deck')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText('Google Drive'));
     expect(screen.getByText('Drive Deck')).toBeInTheDocument();
   });
 });
