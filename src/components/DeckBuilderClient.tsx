@@ -69,15 +69,16 @@ interface DeckBuilderClientProps {
 interface CollapsibleSectionProps {
   title: string;
   children: React.ReactNode;
+  isCollapsed: boolean;
+  onToggle: () => void;
 }
 
-function CollapsibleSection({ title, children }: CollapsibleSectionProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+function CollapsibleSection({ title, children, isCollapsed, onToggle }: CollapsibleSectionProps) {
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto px-4 py-1 lg:py-4">
       <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="text-2xl font-display font-medium mt-4 mb-2 flex items-center gap-2 w-full text-left text-text-primary"
+        onClick={onToggle}
+        className="text-base lg:text-2xl font-display font-medium mt-2 mb-1 lg:mt-4 lg:mb-2 flex items-center gap-2 w-full text-left text-text-primary"
       >
         {title}
         {isCollapsed ? <FaChevronRight className="text-lg" /> : <FaChevronDown className="text-lg" />}
@@ -100,6 +101,12 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const setCurrentDeck = isFixture ? setFixtureCurrentDeck : setLocalCurrentDeck;
   const [deckTitle, setDeckTitle] = useLocalStorage<string>('deckTitle', '');
   const [deckFile, setDeckFile] = useLocalStorage<{ id: string | null; name: string }>('deckFile', { id: null, name: 'My deck' });
+  const [analysisCollapsed, setAnalysisCollapsed] = useLocalStorage<Record<string, boolean>>('analysisCollapsed', {
+    'Personnel skills': true,
+    'Keywords': true,
+    'Icons': true,
+    'Costs': true,
+  });
   const [driveFiles, setDriveFiles] = useState([]);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false);
@@ -741,11 +748,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             </div>
           </div>
 
-          <CollapsibleSection title="Personnel skills">
+          <CollapsibleSection title="Personnel skills" isCollapsed={analysisCollapsed['Personnel skills'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Personnel skills': !(prev['Personnel skills'] ?? true) }))}>
             <SkillsChart currentDeckRows={currentDeckRows} missionRequirements={aggregatedMissionReqs} />
           </CollapsibleSection>
 
-          <CollapsibleSection title="Keywords">
+          <CollapsibleSection title="Keywords" isCollapsed={analysisCollapsed['Keywords'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Keywords': !(prev['Keywords'] ?? true) }))}>
             <PileAggregate
               currentDeckRows={currentDeckRows}
               characteristicName="keywords"
@@ -785,7 +792,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             </PileAggregate>
           </CollapsibleSection>
 
-          <CollapsibleSection title="Icons">
+          <CollapsibleSection title="Icons" isCollapsed={analysisCollapsed['Icons'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Icons': !(prev['Icons'] ?? true) }))}>
             <PileAggregate
               currentDeckRows={currentDeckRows}
               characteristicName="icons"
@@ -807,7 +814,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             </PileAggregate>
           </CollapsibleSection>
 
-          <CollapsibleSection title="Costs">
+          <CollapsibleSection title="Costs" isCollapsed={analysisCollapsed['Costs'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Costs': !(prev['Costs'] ?? true) }))}>
             <div className="flex flex-col lg:flex-row">
               <div className="w-full lg:w-1/2 lg:flex-row">
                 <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Draw Deck</span>

@@ -92,6 +92,7 @@ describe('DeckBuilderClient – Icons section', () => {
         '1U002': { count: 1, row: cardB },
       })
     );
+    localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': true, 'Icons': false, 'Costs': true }));
 
     await act(async () => {
       render(<DeckBuilderClient data={[cardA, cardB] as any} columns={[]} />);
@@ -113,6 +114,7 @@ describe('DeckBuilderClient – Icons section', () => {
         '1U002': { count: 3, row: { ...cardB, count: 3 } },
       })
     );
+    localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': true, 'Icons': false, 'Costs': true }));
 
     await act(async () => {
       render(<DeckBuilderClient data={[cardA, cardB] as any} columns={[]} />);
