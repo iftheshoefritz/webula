@@ -715,6 +715,24 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
         {/* Main content area */}
         <div className={`flex-grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0 ${mobileView !== 'analysis' ? 'hidden lg:block' : ''}`}>
+          {/* Mobile-only save toolbar for Analysis tab */}
+          <div className="lg:hidden flex items-center justify-between px-4 py-2 border-b border-border bg-bg-secondary">
+            <span className="text-sm font-medium truncate text-text-muted">
+              {deckTitle || 'Untitled Deck'}{isDirty && <span className="text-yellow-400 font-bold"> *</span>}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                className="btn-icon"
+                onClick={() => writeToDrive()}
+                data-tooltip-id="button-tooltip"
+                data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
+              >
+                <FaSave />
+              </button>
+              {savedRecently && <span className="text-sm text-green-400 font-medium">Saved!</span>}
+              {saveError && <span className="text-sm text-red-400 font-medium">{saveError}</span>}
+            </div>
+          </div>
           <div className="container mx-auto p-4">
             {/* Desktop: horizontal scroll row */}
             <div className="hidden lg:flex space-x-4 overflow-x-scroll">
