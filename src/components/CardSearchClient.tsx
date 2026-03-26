@@ -44,8 +44,10 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
   const isVisible = useScrollVisibility({ suspended: isPopoverOpen });
   const overlayRef = useRef<HTMLDivElement>(null);
   const compactBarRef = useRef<HTMLDivElement>(null);
+  const mobileOverlayRef = useRef<HTMLDivElement>(null);
   const [overlayHeight, setOverlayHeight] = useState(112); // 7rem fallback
   const [compactBarHeight, setCompactBarHeight] = useState(52); // fallback
+  const [mobileOverlayHeight, setMobileOverlayHeight] = useState(160); // fallback
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -78,6 +80,17 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const el = mobileOverlayRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const size = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+      if (size > 0) setMobileOverlayHeight(size);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isMobileSearchOpen]);
+
   const overlayStyle = useMemo(
     () => ({
       position: 'fixed' as const,
@@ -103,7 +116,9 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
     return parts.join(' · ');
   }, [searchQuery]);
 
-  const paddingTop = isMobile ? compactBarHeight : overlayHeight;
+  const paddingTop = isMobile
+    ? (isMobileSearchOpen ? mobileOverlayHeight : compactBarHeight)
+    : overlayHeight;
 
   return (
     // Use inline utilities rather than 'page-container' because that class applies
@@ -152,19 +167,19 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
         </button>
       </div>
 
-      {/* Mobile expanded search panel */}
+      {/* Mobile search overlay - positioned at top, results visible underneath */}
       {isMobileSearchOpen && (
-        <div className="fixed inset-0 z-[60] bg-gradient-page sm:hidden flex flex-col">
+        <div ref={mobileOverlayRef} className="fixed top-0 left-0 right-0 z-[60] bg-gradient-page sm:hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
             <span className="text-sm font-medium text-text-primary">Search</span>
             <button
               onClick={() => setIsMobileSearchOpen(false)}
               className="text-sm text-accent hover:text-accent/80 transition-colors px-2 py-1"
             >
-              Done
+              Close
             </button>
           </div>
-          <div className="px-4 py-4 overflow-y-auto flex-1">
+          <div className="px-4 py-4">
             <SearchBar
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
