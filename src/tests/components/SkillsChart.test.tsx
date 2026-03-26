@@ -251,7 +251,7 @@ describe('SkillsChart', () => {
       expect(screen.getByRole('menu')).toBeInTheDocument();
     });
 
-    it('overlay contains a header, all hqOptions, and "All" last', () => {
+    it('overlay contains a header, all hqOptions, and "Any HQ" last', () => {
       render(
         <SkillsChart
           currentDeckRows={[]}
@@ -261,15 +261,15 @@ describe('SkillsChart', () => {
       );
       fireEvent.click(screen.getByRole('button', { name: /search personnel with diplomacy/i }));
       expect(screen.getByText(/search/i)).toBeInTheDocument();
-      expect(screen.getByRole('menuitem', { name: 'All' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Any HQ' })).toBeInTheDocument();
       expect(screen.getByRole('menuitem', { name: 'Bajor' })).toBeInTheDocument();
       expect(screen.getByRole('menuitem', { name: 'Cardassia Prime' })).toBeInTheDocument();
-      // "All" should be the last menuitem
+      // "Any HQ" should be the last menuitem
       const items = screen.getAllByRole('menuitem');
-      expect(items[items.length - 1]).toHaveTextContent('All');
+      expect(items[items.length - 1]).toHaveTextContent('Any HQ');
     });
 
-    it('clicking "All" calls onSkillSearch with null and closes overlay', () => {
+    it('clicking "Any HQ" calls onSkillSearch with null and closes overlay', () => {
       const handleSearch = jest.fn();
       render(
         <SkillsChart
@@ -279,7 +279,7 @@ describe('SkillsChart', () => {
         />
       );
       fireEvent.click(screen.getByRole('button', { name: /search personnel with security/i }));
-      fireEvent.click(screen.getByRole('menuitem', { name: 'All' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Any HQ' }));
       expect(handleSearch).toHaveBeenCalledWith('security', null);
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
