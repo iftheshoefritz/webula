@@ -19,9 +19,10 @@ jest.mock('react-icons/fa', () =>
 
 jest.mock('react-tooltip', () => ({ Tooltip: () => null }));
 
+const mockUseFilterData = jest.fn().mockReturnValue([]);
 jest.mock('../../hooks/useFilterData', () => ({
   __esModule: true,
-  default: jest.fn().mockReturnValue([]),
+  default: (...args: any[]) => mockUseFilterData(...args),
 }));
 
 // Mock heavy leaf components
@@ -45,7 +46,7 @@ jest.mock('next/link', () =>
 // ── Imports ──────────────────────────────────────────────────────────────────
 
 import React from 'react';
-import { render, act, screen } from '@testing-library/react';
+import { render, act, screen, fireEvent } from '@testing-library/react';
 import DeckBuilderClient from '../../components/DeckBuilderClient';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ const makePersonnel = (collectorsinfo: string, keywords: string) => ({
 describe('DeckBuilderClient – Keywords section', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseFilterData.mockReturnValue([]);
     localStorage.clear();
     mockSearchParamsValue = new URLSearchParams();
   });
@@ -105,5 +107,42 @@ describe('DeckBuilderClient – Keywords section', () => {
     });
 
     expect(screen.getByText('maquis')).toBeInTheDocument();
+  });
+
+  describe('search button (+ button)', () => {
+    it('renders a + button for each keyword', async () => {
+      const card = makePersonnel('1U003', 'maquis');
+
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({ '1U003': { count: 1, row: card } })
+      );
+      localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': false, 'Icons': true, 'Costs': true }));
+
+      await act(async () => {
+        render(<DeckBuilderClient data={[card] as any} columns={[]} />);
+      });
+
+      expect(screen.getByRole('button', { name: /search personnel with keyword maquis/i })).toBeInTheDocument();
+    });
+
+    it('fires a personnel keywords search when the + button is clicked (no HQ missions)', async () => {
+      const card = makePersonnel('1U004', 'maquis');
+
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({ '1U004': { count: 1, row: card } })
+      );
+      localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': false, 'Icons': true, 'Costs': true }));
+
+      await act(async () => {
+        render(<DeckBuilderClient data={[card] as any} columns={[]} />);
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /search personnel with keyword maquis/i }));
+
+      const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
+      expect(lastQuery).toBe('type:personnel keywords:"maquis"');
+    });
   });
 });
