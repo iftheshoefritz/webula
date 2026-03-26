@@ -368,7 +368,7 @@ export default function SearchResults({
               onMouseEnter={(e) => withHover && handleHover(row.collectorsinfo, e)}
               onMouseLeave={handleUnhover}
             >
-              {row.name}
+              {row.unique === 'y' && <span>·</span>}{row.name}
             </span>
             {deckCount !== null && deckCount > 0 && (
               <div className="ml-auto flex items-center gap-0.5 bg-black/70 rounded-full px-1 flex-shrink-0">
