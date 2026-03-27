@@ -23,7 +23,7 @@ import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, find
 import { missionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaFileExport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaFileExport, FaFileUpload, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -690,37 +690,56 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 <FaChevronDown className={`transition-transform ${deckActionsOpen ? 'rotate-180' : ''}`} />
               </button>
               {deckActionsOpen && (
-                <div className="absolute right-0 top-full mt-1 z-20 bg-[#131713] border border-white/20 rounded shadow-lg p-3 flex flex-col space-y-2 min-w-[200px]">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      className="btn-icon"
-                      onClick={() => { clearDeck(); setDeckActionsOpen(false); }}
-                      data-tooltip-id="button-tooltip"
-                      data-tooltip-content="Clear the current deck"
+                <div className="absolute right-0 top-full mt-1 z-20 bg-[#131713] border border-white/20 rounded shadow-lg py-1 flex flex-col min-w-[180px]">
+                  <button
+                    className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 text-left"
+                    onClick={() => { clearDeck(); setDeckActionsOpen(false); }}
+                  >
+                    <FaTrash className="shrink-0" />
+                    <span>Clear deck</span>
+                  </button>
+                  <label
+                    htmlFor="fileInputMobile"
+                    className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 cursor-pointer"
+                  >
+                    <input
+                      id="fileInputMobile"
+                      type="file"
+                      onChange={(e) => {
+                        if (!e.target.files) return;
+                        const file = e.target.files[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            if (!ev.target?.result) return;
+                            handleFileLoad(file.name, ev.target.result as string);
+                            setDeckActionsOpen(false);
+                          };
+                          reader.readAsText(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <FaFileUpload className="shrink-0" />
+                    <span>Load from file</span>
+                  </label>
+                  <button
+                    className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 text-left"
+                    onClick={() => { exportLackeyDeckToDisk(); setDeckActionsOpen(false); }}
+                  >
+                    <FaFileExport className="shrink-0" />
+                    <span>Export to LackeyCCG</span>
+                  </button>
+                  {isEarlyAccessUser(session?.user?.email) && (
+                    <Link
+                      href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
+                      className={`flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
+                      aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
                     >
-                      <FaTrash />
-                    </button>
-                    <DeckUploader onFileLoad={handleFileLoad} />
-                    <button
-                      className="btn-icon"
-                      onClick={() => { exportLackeyDeckToDisk(); setDeckActionsOpen(false); }}
-                      data-tooltip-id="button-tooltip"
-                      data-tooltip-content="Export the current deck to a LackeyCCG file"
-                    >
-                      <FaFileExport />
-                    </button>
-                    {isEarlyAccessUser(session?.user?.email) && (
-                      <Link
-                        href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
-                        className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
-                        data-tooltip-id="button-tooltip"
-                        data-tooltip-content="Practice drawing from your draw pile"
-                        aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
-                      >
-                        <FaPlayCircle />
-                      </Link>
-                    )}
-                  </div>
+                      <FaPlayCircle className="shrink-0" />
+                      <span>Practice draw</span>
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
