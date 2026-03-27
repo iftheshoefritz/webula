@@ -1,0 +1,62 @@
+name: Claude Issue Outcome
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  claude-issue-outcome:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1.0.70
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Issue #${{ github.event.issue.number }} ("${{ github.event.issue.title }}") has just been closed.
+
+            Your task is to add an ## Outcome section to the top of the issue body summarizing what was actually implemented via linked PRs.
+
+            Steps:
+            1. Find all merged PRs linked to this issue by running:
+               `gh pr list --search "closes #${{ github.event.issue.number }} OR fixes #${{ github.event.issue.number }} OR #${{ github.event.issue.number }}" --state merged --json number,title,body,mergedAt`
+               Also try searching just by the issue number reference:
+               `gh pr list --repo iftheshoefritz/webula --search "#${{ github.event.issue.number }}" --state merged --json number,title,body,mergedAt`
+
+            2. For each linked merged PR, run:
+               `gh pr view <PR_NUMBER> --json number,title,body,commits,files,mergedAt`
+               to get commit messages and changed files.
+
+            3. Write a concise outcome summary (2–5 bullet points) covering:
+               - What was changed and why
+               - Which files were modified
+               - The merge date of the PR(s)
+
+            4. If no linked PRs are found, note "No linked PRs found" in the outcome.
+
+            5. Prepend the following block to the existing issue body (keep the original body intact below it):
+
+               ## Outcome
+               _Recorded ${{ github.event.issue.closed_at }} UTC_
+
+               <your summary here>
+
+               ---
+
+               Then update the issue using:
+               `gh issue edit ${{ github.event.issue.number }} --body "<new body with outcome prepended>"`
+
+            Be concise and factual. Only describe what was actually implemented, not what was planned.
+          claude_args: "--max-turns 20 --dangerously-skip-permissions"
