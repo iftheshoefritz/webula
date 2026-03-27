@@ -1,22 +1,22 @@
 name: Vercel Preview Check
 
 on:
-  deployment_status:
+  issue_comment:
+    types: [created]
 
 jobs:
   preview-check:
     if: |
-      github.event.deployment_status.state == 'success' &&
-      (contains(github.event.deployment_status.environment, 'Preview') ||
-       contains(github.event.deployment_status.environment, 'vercel') ||
-       contains(github.event.deployment_status.target_url, 'vercel.app'))
+      github.event.issue.pull_request != null &&
+      github.event.comment.user.login == 'vercel[bot]' &&
+      contains(github.event.comment.body, 'vercel.app') &&
+      contains(github.event.comment.body, 'Ready')
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
       contents: read
       pull-requests: write
-      deployments: read
       id-token: write
 
     steps:
@@ -30,48 +30,45 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            A Vercel preview deployment has just completed successfully.
+            Vercel has just posted a deployment-ready comment on PR #${{ github.event.issue.number }}.
 
-            Deployment branch: ${{ github.event.deployment.ref }}
-            Vercel preview URL: ${{ github.event.deployment_status.target_url }}
-            Repository: ${{ github.repository }}
+            The Vercel bot comment body is:
+            ${{ github.event.comment.body }}
 
-            Your job is to analyse the associated PR and post a helpful comment with preview links and a verification assessment. Follow these steps exactly:
+            Your job is to analyse the PR and post a helpful comment with preview links and a verification assessment. Follow these steps exactly:
 
-            1. Find the open PR associated with this branch:
+            1. Extract the Vercel preview URL from the comment body above. It will be a link labelled "Preview" pointing to a *.vercel.app host. Use only the scheme+host (e.g. `https://webula-abc123.vercel.app`) as the base URL — discard any path.
+
+            2. Get the PR diff to understand which files changed:
                ```
-               gh pr list --repo ${{ github.repository }} --head "${{ github.event.deployment.ref }}" --state open --json number,body,title --jq '.[0]'
-               ```
-               If the result is empty or null, stop immediately — there is no open PR to comment on.
-
-            2. Record the PR number from step 1. Get the PR diff to understand which files changed:
-               ```
-               gh pr diff <PR_NUMBER> --repo ${{ github.repository }} --name-only
+               gh pr diff ${{ github.event.issue.number }} --repo ${{ github.repository }} --name-only
                ```
 
-            3. Read the PR body (from step 1) and extract the "## Visual Verification" section if it exists.
+            3. Get the PR body to extract the "## Visual Verification" section if it exists:
+               ```
+               gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json body --jq '.body'
+               ```
 
-            4. Review the changed files and routing in the full code base to identify which routes will be affected by and/or surface that changes.
+            4. Review the changed files and the codebase routing to identify which app routes will surface the changes.
 
-               Note: appending `?fixture=1` preloads a hardcoded demo deck so a reviewer does not need their own saved account or saved deck.
+               Note: appending `?fixture=1` preloads a hardcoded demo deck so a reviewer does not need their own saved account or saved deck. It is supported on `/decks` and `/decks/practice`.
 
-            5. Construct full clickable URLs by appending each relevant path to the Vercel preview base URL:
-               `${{ github.event.deployment_status.target_url }}`
+            5. Construct full clickable URLs by appending each relevant path to the Vercel preview base URL from step 1.
 
                Example: if the base URL is `https://webula-abc123.vercel.app` and the route is `/decks?fixture=1`,
                the full URL is `https://webula-abc123.vercel.app/decks?fixture=1`.
 
-            6. Assess whether the visual verification section in the PR body adequately covers the relevant paths:
-               - Did the author mention visiting all relevant routes? The host name does not need to match because the agent will have tested locally. Only the paths need to match.
+            6. Assess whether the Visual Verification section in the PR body adequately covers the relevant paths:
+               - Did the author mention visiting all relevant routes? The hostname does not need to match because the author tested locally — only the paths matter.
                - Do their described actions match what the changed code actually affects?
                - For deck-related routes, did they use or mention `?fixture=1`?
 
             7. Post a comment on the PR using:
                ```
-               gh pr comment <PR_NUMBER> --repo ${{ github.repository }} --body "..."
+               gh pr comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "..."
                ```
 
-               Format the comment body as follows (use real URLs, not placeholders):
+               Format the comment as follows (use real URLs, not placeholders):
 
                ```
                ## Preview Links
@@ -89,7 +86,7 @@ jobs:
 
                Use 👀 when the verification section mentions all relevant paths.
                Use ⚠️ for partial coverage or missing fixture=1 (where deck loading is relevant).
-               Use 🟠 for correct URLs visited, but actions recorded would have been insufficient to verify the feature
+               Use 🟠 for correct URLs visited, but actions recorded would have been insufficient to verify the feature.
                Use ❌ when no verification section is found or the coverage is clearly inadequate.
 
                If the changed files are infrastructure-only (e.g. only workflow files changed), still post a comment noting that no app routes are affected and therefore no preview links are relevant, and assess the verification section accordingly.
