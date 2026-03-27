@@ -40,8 +40,8 @@ jobs:
                to get commit messages and changed files.
 
             3. Write a concise outcome summary (2–5 bullet points) covering:
-               - What was changed and why
-               - Which files were modified
+               - What (especially functionality) was changed
+               - Which files were modified (list only names)
                - The merge date of the PR(s)
 
             4. If no linked PRs are found, note "No linked PRs found" in the outcome.
