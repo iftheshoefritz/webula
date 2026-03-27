@@ -32,7 +32,7 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
           <FaPlus />
         </button>
       )}
-      <ul className="divide-y divide-solid divide-white/[0.06] space-y-2">
+      <ul className="divide-y divide-solid divide-white/[0.06]">
         {cardsForPile
           .sort(sortBy)
           .map((row: CardDef) => (
