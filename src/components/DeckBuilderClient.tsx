@@ -542,8 +542,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     return options;
   }, [missions, currentDeckRows]);
 
-  const compare = (a: string, b: string) => {
-    return a.localeCompare(b, 'en', { ignorePunctuation: true });
+  const compare = (a: string | undefined | null, b: string | undefined | null) => {
+    return (a ?? '').localeCompare(b ?? '', 'en', { ignorePunctuation: true });
   };
 
   const searchInputRef = useRef<HTMLInputElement>(null);
