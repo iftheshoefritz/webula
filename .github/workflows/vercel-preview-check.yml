@@ -50,14 +50,9 @@ jobs:
 
             3. Read the PR body (from step 1) and extract the "## Visual Verification" section if it exists.
 
-            4. Map the changed files to relevant app routes using these rules:
-               - Files matching `src/app/page.tsx`, `src/components/SearchResults*`, `src/components/CardImage*`, or `src/lib/filter*` → route: `/`
-               - Files matching `src/app/decks/*`, `src/components/DeckBuilder*`, `src/components/DeckList*`, `src/hooks/use*`, or `src/lib/deck*` → route: `/decks?fixture=1`
-               - Files matching `src/app/decks/practice/*` → route: `/decks/practice?fixture=1`
-               - Files matching `src/components/*` not covered above → both `/` and `/decks?fixture=1`
-               - Files matching `.github/workflows/*`, config files, or infrastructure-only changes → no specific app route (skip preview links for these)
+            4. Review the changed files and routing in the full code base to identify which routes will be affected by and/or surface that changes.
 
-               Note: `?fixture=1` preloads a hardcoded demo deck so a reviewer does not need their own saved account or saved deck.
+               Note: appending `?fixture=1` preloads a hardcoded demo deck so a reviewer does not need their own saved account or saved deck.
 
             5. Construct full clickable URLs by appending each relevant path to the Vercel preview base URL:
                `${{ github.event.deployment_status.target_url }}`
@@ -65,8 +60,8 @@ jobs:
                Example: if the base URL is `https://webula-abc123.vercel.app` and the route is `/decks?fixture=1`,
                the full URL is `https://webula-abc123.vercel.app/decks?fixture=1`.
 
-            6. Assess whether the "## Visual Verification" section in the PR body adequately covers the relevant paths:
-               - Did the author mention visiting all relevant routes?
+            6. Assess whether the visual verification section in the PR body adequately covers the relevant paths:
+               - Did the author mention visiting all relevant routes? The host name does not need to match because the agent will have tested locally. Only the paths need to match.
                - Do their described actions match what the changed code actually affects?
                - For deck-related routes, did they use or mention `?fixture=1`?
 
@@ -91,8 +86,9 @@ jobs:
                ⚠️ The verification does not mention fixture=1 — consider testing with a preloaded deck.
                ```
 
-               Use ✅ when the verification section adequately covers all relevant paths.
-               Use ⚠️ for partial coverage or missing fixture=1.
+               Use 👀 when the verification section mentions all relevant paths.
+               Use ⚠️ for partial coverage or missing fixture=1 (where deck loading is relevant).
+               Use 🟠 for correct URLs visited, but actions recorded would have been insufficient to verify the feature
                Use ❌ when no verification section is found or the coverage is clearly inadequate.
 
                If the changed files are infrastructure-only (e.g. only workflow files changed), still post a comment noting that no app routes are affected and therefore no preview links are relevant, and assess the verification section accordingly.
