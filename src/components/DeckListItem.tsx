@@ -57,14 +57,14 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
 
   return (
     <li
-      className="flex relative justify-between h-14 px-1 text-text-primary hover:bg-white/[0.04] rounded transition-colors"
+      className="flex relative justify-between h-9 px-1 text-text-secondary hover:bg-white/[0.04] rounded transition-colors"
       key={collectorsinfo}
     >
       <div className="flex gap-x-2 items-center">
         <div className="flex items-center self-stretch gap-x-1">
           <button
             onClick={decrementIncluded}
-            className="flex items-center justify-center w-8 self-stretch cursor-pointer hover:text-text-secondary rounded"
+            className="flex items-center justify-center w-8 h-7 cursor-pointer hover:text-text-secondary rounded"
             aria-label="Decrease quantity"
           >
             <FaMinus />
@@ -72,7 +72,7 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
           <span className="w-6 text-center">{count}x</span>
           <button
             onClick={incrementIncluded}
-            className="flex items-center justify-center w-8 self-stretch cursor-pointer hover:text-text-secondary rounded"
+            className="flex items-center justify-center w-8 h-7 cursor-pointer hover:text-text-secondary rounded"
             aria-label="Increase quantity"
           >
             <FaPlus />
@@ -82,7 +82,7 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
           onMouseEnter={handleHover}
           onMouseLeave={handleUnhover}
           onTouchStart={handleTouchStart}
-          className="text-lg"
+          className="text-sm"
         >
           {unique && <span>·</span>}
           {name}
