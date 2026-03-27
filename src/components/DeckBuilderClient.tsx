@@ -23,7 +23,7 @@ import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, find
 import { missionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaFileExport, FaFileUpload, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaEraser, FaFileExport, FaFileUpload, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -275,6 +275,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   );
 
   const clearDeck = () => {
+    const message = isDirty
+      ? 'You have unsaved changes. This will remove all cards from your deck. Your saved decks are not affected. Are you sure?'
+      : 'This will remove all cards from your deck. Your saved decks are not affected. Are you sure?';
+    if (!window.confirm(message)) return;
     setCurrentDeck({});
     setDeckTitle('');
     setDeckFile({ id: null, name: 'My deck' });
@@ -695,7 +699,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 text-left"
                     onClick={() => { clearDeck(); setDeckActionsOpen(false); }}
                   >
-                    <FaTrash className="shrink-0" />
+                    <FaEraser className="shrink-0" />
                     <span>Clear deck</span>
                   </button>
                   <label
@@ -767,9 +771,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               className="btn-icon"
               onClick={clearDeck}
               data-tooltip-id="button-tooltip"
-              data-tooltip-content="Clear the current deck"
+              data-tooltip-content="Clear current deck (your saved decks are not affected)"
             >
-              <FaTrash />
+              <FaEraser />
             </button>
             <DeckUploader onFileLoad={handleFileLoad} />
             <button
