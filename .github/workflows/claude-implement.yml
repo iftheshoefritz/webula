@@ -34,10 +34,10 @@ jobs:
             1. Implement the feature or fix described in the issue, following the implementation plan if one exists.
             2. Make all necessary code changes, following existing code style and conventions in the codebase.
             3. Run `yarn test` to ensure all tests pass. Fix any test failures caused by your changes.
-            4. You MUST start the dev server with `yarn dev` (runs at http://localhost:3000) and visually verify your changes:
+            4. You MUST start the dev server with `yarn dev` (runs at http://localhost:3000) and visually verify your changes. YOU MUST DO ALL OF THE FOLLOWING:
                a. Open the affected page at the default desktop viewport:
                   `npx agent-browser open http://localhost:3000`
-               b. If your changes include any responsive or mobile-specific layout (e.g. Tailwind `sm:`, `md:`, `lg:` breakpoint classes, or `hidden`/`block` visibility changes), ALSO check at a mobile viewport:
+               b. If your changes include any responsive or mobile-specific layout (e.g. Tailwind `sm:`, `md:`, `lg:` breakpoint classes, or `hidden`/`block` visibility changes) OR touches existing responsive code, ALSO check at a mobile viewport:
                   `npx agent-browser set viewport 390 844 && npx agent-browser open http://localhost:3000/decks`
                   (adjust the URL to the affected page)
                   Confirm that the single-column / mobile layout renders as intended and include a specific description in the PR under "## Visual Verification".
