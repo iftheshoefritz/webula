@@ -81,16 +81,16 @@ function KeywordBadge({
   };
 
   return (
-    <div className="relative m-2 p-2 border border-white/[0.06] rounded surface-hover">
-      <span className="px-1 text-text-secondary flex items-center gap-1 flex-wrap">
+    <div className="relative m-1 px-2 py-1 rounded bg-white/[0.04] surface-hover">
+      <span className="text-sm text-text-secondary flex items-center gap-1 flex-wrap">
         {count}x{' '}
         {hasColon ? (
-          <span className="inline-flex flex-col">
-            <b className="text-text-primary">{keywordPrefix}:</b>
-            <span className="text-text-secondary font-normal">{keywordSuffix}</span>
+          <span>
+            <span>{keywordPrefix}:</span>
+            <span className="ml-1 text-text-tertiary">{keywordSuffix}</span>
           </span>
         ) : (
-          <b className="text-text-primary">{keyword}</b>
+          <span>{keyword}</span>
         )}
         {hasSearch && (
           <button
