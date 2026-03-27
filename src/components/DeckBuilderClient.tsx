@@ -87,7 +87,7 @@ function KeywordBadge({
         {hasColon ? (
           <span>
             <span>{keywordPrefix}:</span>
-            <span className="ml-1 text-text-tertiary">{keywordSuffix}</span>
+            <span className="ml-1 text-text-muted">{keywordSuffix}</span>
           </span>
         ) : (
           <span>{keyword}</span>
@@ -106,7 +106,7 @@ function KeywordBadge({
                 onSearch(keyword, null);
               }
             }}
-            className="btn-icon btn-icon-sm shrink-0"
+            className="ml-0.5 w-4 h-4 flex items-center justify-center text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer shrink-0"
           >
             +
           </button>
