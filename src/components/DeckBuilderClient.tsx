@@ -151,7 +151,7 @@ function CollapsibleSection({ title, children, isCollapsed, onToggle }: Collapsi
     <div className="container mx-auto px-4 py-1 lg:py-4">
       <button
         onClick={onToggle}
-        className="text-base lg:text-2xl font-display font-medium mt-2 mb-1 lg:mt-4 lg:mb-2 flex items-center gap-2 w-full text-left text-text-primary"
+        className="text-sm mt-2 mb-1 flex items-center gap-2 w-full text-left text-text-secondary"
       >
         {title}
         {isCollapsed ? <FaChevronRight className="text-lg" /> : <FaChevronDown className="text-lg" />}
