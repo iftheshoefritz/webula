@@ -43,12 +43,12 @@ jobs:
                ```
                Call this CURRENT_SHA.
 
-            2. Check whether you have already posted a preview-check comment for this exact commit. List all comments on the PR and look for one from `github-actions[bot]` whose body contains the HTML marker `<!-- vercel-preview-check: CURRENT_SHA -->`:
+            2. Check whether you have already posted a preview-check comment for this exact commit. Search all comments on the PR for one whose body contains the HTML marker `<!-- vercel-preview-check: CURRENT_SHA -->` (replace CURRENT_SHA with the actual SHA):
                ```
                gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
-                 --jq '[.[] | select(.user.login == "github-actions[bot]")] | last | .body'
+                 --jq '[.[] | select(.body | contains("<!-- vercel-preview-check: CURRENT_SHA -->"))] | length'
                ```
-               If the most recent `github-actions[bot]` comment already contains `<!-- vercel-preview-check: CURRENT_SHA -->`, stop immediately — there is nothing new to report.
+               If the result is 1 or more, stop immediately — you have already commented for this commit.
 
             3. Extract the Vercel preview base URL from the Vercel bot comment body above. It will be a link labelled "Preview" pointing to a *.vercel.app host. Use only the scheme+host (e.g. `https://webula-abc123.vercel.app`) — discard any path.
 
