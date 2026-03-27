@@ -6,7 +6,7 @@ type CardDef = {
   type: string,
   count: number,
   originalName: string,
-  missiontype: 'S'|'s'|'P'|'p',
+  missiontype: 'S'|'s'|'P'|'p'|'H'|'h'|'',
   unique: 'y'|'n',
 }
 
