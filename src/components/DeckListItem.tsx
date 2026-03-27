@@ -1,6 +1,7 @@
 // a typescript version of the DeckListItem component
 import React, { SyntheticEvent } from 'react';
 import { FaMinus, FaPlus } from 'react-icons/fa';
+import CardPreviewModal from './CardPreviewModal';
 
 type DeckListItemProps = {
   incrementIncluded: () => void;
@@ -23,13 +24,13 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
   unique
 }) => {
   const [isHovering, setIsHovering] = React.useState(false);
+  const [isTapped, setIsTapped] = React.useState(false);
   const [imageStyle, setImageStyle] = React.useState({
     top: '100%',
     bottom: 'auto'
   });
 
   const handleHover = (event: SyntheticEvent) => {
-    const imageHeight = 403;
     const viewportHeight = window.innerHeight;
     const liRect = event.currentTarget.getBoundingClientRect();
     const liCenter = liRect.top + liRect.height / 2;
@@ -48,6 +49,10 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
 
   const handleUnhover = () => {
     setIsHovering(false);
+  }
+
+  const handleTouchStart = () => {
+    setIsTapped(true);
   }
 
   return (
@@ -76,8 +81,7 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
         <div
           onMouseEnter={handleHover}
           onMouseLeave={handleUnhover}
-          onTouchStart={handleHover}
-          onTouchEnd={handleUnhover}
+          onTouchStart={handleTouchStart}
           className="text-lg"
         >
           {unique && <span>·</span>}
@@ -102,6 +106,14 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
             <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
           </div>
         </div>
+      )}
+
+      {isTapped && (
+        <CardPreviewModal
+          imagefile={imagefile}
+          name={name}
+          onClose={() => setIsTapped(false)}
+        />
       )}
     </li>
   );
