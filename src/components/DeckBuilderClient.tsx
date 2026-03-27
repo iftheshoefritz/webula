@@ -474,6 +474,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [previousMobileView, setPreviousMobileView] = useState<'analysis' | 'deck'>('deck');
   // activePile controls which pile tab is shown in the deck panel
   const [activePile, setActivePile] = useState<'mission' | 'dilemma' | 'draw'>('draw');
+  const [deckActionsOpen, setDeckActionsOpen] = useState(false);
   // missionIndex controls which mission is shown in the mobile carousel
   const [missionIndex, setMissionIndex] = useState(0);
 
@@ -628,49 +629,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
   const deckPanel = (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-2 mt-4">
-      <div className="shrink-0 flex flex-col space-y-2">
-        <div className="flex justify-start space-x-2">
-          <input
-            type="text"
-            id="deckTitle"
-            placeholder="Set deck title here"
-            value={deckTitle}
-            onChange={(e) => {
-              setDeckTitle(e.target.value);
-            }}
-            className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
-          />
-        </div>
-        <Tooltip id="button-tooltip" />
-        <div className="flex justify-start items-center space-x-2">
-          <button
-            className="btn-icon"
-            onClick={clearDeck}
-            data-tooltip-id="button-tooltip"
-            data-tooltip-content="Clear the current deck"
-          >
-            <FaTrash />
-          </button>
-          <DeckUploader onFileLoad={handleFileLoad} />
-          <button
-            className="btn-icon"
-            onClick={exportLackeyDeckToDisk}
-            data-tooltip-id="button-tooltip"
-            data-tooltip-content="Export the current deck to a LackeyCCG file"
-          >
-            <FaFileExport />
-          </button>
-          {isEarlyAccessUser(session?.user?.email) && (
-            <Link
-              href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
-              className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
-              data-tooltip-id="button-tooltip"
-              data-tooltip-content="Practice drawing from your draw pile"
-              aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
-            >
-              <FaPlayCircle />
-            </Link>
-          )}
+      <Tooltip id="button-tooltip" />
+
+      {/* Mobile compact header (hidden on lg+) */}
+      <div className="lg:hidden shrink-0">
+        <div className="flex items-center space-x-2">
+          <span className="flex-1 text-text-primary font-body font-bold truncate min-w-0">
+            {deckTitle || <span className="text-text-disabled">Set deck title here</span>}
+          </span>
           <button
             className="btn-icon"
             onClick={openDeckPicker}
@@ -693,6 +659,133 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           {saveError && (
             <span className="text-sm text-red-400 font-medium">{saveError}</span>
           )}
+          <div className="relative">
+            <button
+              className="btn-icon"
+              onClick={() => setDeckActionsOpen((prev) => !prev)}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="More actions"
+              aria-label="More deck actions"
+            >
+              <FaChevronDown className={`transition-transform ${deckActionsOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {deckActionsOpen && (
+              <div className="absolute right-0 top-full mt-1 z-20 bg-surface border border-white/10 rounded shadow-lg p-3 flex flex-col space-y-2 min-w-[200px]">
+                <div className="flex justify-start space-x-2 mb-1">
+                  <input
+                    type="text"
+                    id="deckTitleMobile"
+                    placeholder="Set deck title here"
+                    value={deckTitle}
+                    onChange={(e) => {
+                      setDeckTitle(e.target.value);
+                    }}
+                    className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    className="btn-icon"
+                    onClick={() => { clearDeck(); setDeckActionsOpen(false); }}
+                    data-tooltip-id="button-tooltip"
+                    data-tooltip-content="Clear the current deck"
+                  >
+                    <FaTrash />
+                  </button>
+                  <DeckUploader onFileLoad={handleFileLoad} />
+                  <button
+                    className="btn-icon"
+                    onClick={() => { exportLackeyDeckToDisk(); setDeckActionsOpen(false); }}
+                    data-tooltip-id="button-tooltip"
+                    data-tooltip-content="Export the current deck to a LackeyCCG file"
+                  >
+                    <FaFileExport />
+                  </button>
+                  {isEarlyAccessUser(session?.user?.email) && (
+                    <Link
+                      href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
+                      className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
+                      data-tooltip-id="button-tooltip"
+                      data-tooltip-content="Practice drawing from your draw pile"
+                      aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
+                    >
+                      <FaPlayCircle />
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop full header (hidden below lg) */}
+      <div className="hidden lg:block shrink-0">
+        <div className="flex flex-col space-y-2">
+          <div className="flex justify-start space-x-2">
+            <input
+              type="text"
+              id="deckTitle"
+              placeholder="Set deck title here"
+              value={deckTitle}
+              onChange={(e) => {
+                setDeckTitle(e.target.value);
+              }}
+              className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
+            />
+          </div>
+          <div className="flex justify-start items-center space-x-2">
+            <button
+              className="btn-icon"
+              onClick={clearDeck}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="Clear the current deck"
+            >
+              <FaTrash />
+            </button>
+            <DeckUploader onFileLoad={handleFileLoad} />
+            <button
+              className="btn-icon"
+              onClick={exportLackeyDeckToDisk}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="Export the current deck to a LackeyCCG file"
+            >
+              <FaFileExport />
+            </button>
+            {isEarlyAccessUser(session?.user?.email) && (
+              <Link
+                href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
+                className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
+                data-tooltip-id="button-tooltip"
+                data-tooltip-content="Practice drawing from your draw pile"
+                aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
+              >
+                <FaPlayCircle />
+              </Link>
+            )}
+            <button
+              className="btn-icon"
+              onClick={openDeckPicker}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="Load decks"
+            >
+              <FaFolderOpen />
+            </button>
+            <button
+              className="btn-icon"
+              onClick={() => writeToDrive()}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
+            >
+              <FaSave />
+            </button>
+            {savedRecently && (
+              <span className="text-sm text-green-400 font-medium">Saved!</span>
+            )}
+            {saveError && (
+              <span className="text-sm text-red-400 font-medium">{saveError}</span>
+            )}
+          </div>
         </div>
       </div>
       {/* Nested pile tabs */}
