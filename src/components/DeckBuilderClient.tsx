@@ -702,6 +702,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     htmlFor="fileInputMobile"
                     className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 cursor-pointer"
                   >
+                    <FaFileUpload className="shrink-0" />
+                    <span>Load from file</span>
                     <input
                       id="fileInputMobile"
                       type="file"
@@ -720,8 +722,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                       }}
                       className="hidden"
                     />
-                    <FaFileUpload className="shrink-0" />
-                    <span>Load from file</span>
                   </label>
                   <button
                     className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 text-left"
