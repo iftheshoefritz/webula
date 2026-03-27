@@ -43,7 +43,10 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     const mode = driveLoadModes[file.id] ?? 'full';
     loadDriveFile(file, pilesForMode(mode));
   };
-  const handleDriveFileDelete = (file) => deleteDriveFile(file)
+  const handleDriveFileDelete = (file) => {
+    if (!window.confirm(`This will permanently delete "${file.name}" from your Google Drive. Are you sure?`)) return;
+    deleteDriveFile(file);
+  };
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen">
