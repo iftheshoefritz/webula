@@ -1,0 +1,100 @@
+name: Vercel Preview Check
+
+on:
+  deployment_status:
+
+jobs:
+  preview-check:
+    if: |
+      github.event.deployment_status.state == 'success' &&
+      (contains(github.event.deployment_status.environment, 'Preview') ||
+       contains(github.event.deployment_status.environment, 'vercel') ||
+       contains(github.event.deployment_status.target_url, 'vercel.app'))
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: read
+      pull-requests: write
+      deployments: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1.0.70
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            A Vercel preview deployment has just completed successfully.
+
+            Deployment branch: ${{ github.event.deployment.ref }}
+            Vercel preview URL: ${{ github.event.deployment_status.target_url }}
+            Repository: ${{ github.repository }}
+
+            Your job is to analyse the associated PR and post a helpful comment with preview links and a verification assessment. Follow these steps exactly:
+
+            1. Find the open PR associated with this branch:
+               ```
+               gh pr list --repo ${{ github.repository }} --head "${{ github.event.deployment.ref }}" --state open --json number,body,title --jq '.[0]'
+               ```
+               If the result is empty or null, stop immediately — there is no open PR to comment on.
+
+            2. Record the PR number from step 1. Get the PR diff to understand which files changed:
+               ```
+               gh pr diff <PR_NUMBER> --repo ${{ github.repository }} --name-only
+               ```
+
+            3. Read the PR body (from step 1) and extract the "## Visual Verification" section if it exists.
+
+            4. Map the changed files to relevant app routes using these rules:
+               - Files matching `src/app/page.tsx`, `src/components/SearchResults*`, `src/components/CardImage*`, or `src/lib/filter*` → route: `/`
+               - Files matching `src/app/decks/*`, `src/components/DeckBuilder*`, `src/components/DeckList*`, `src/hooks/use*`, or `src/lib/deck*` → route: `/decks?fixture=1`
+               - Files matching `src/app/decks/practice/*` → route: `/decks/practice?fixture=1`
+               - Files matching `src/components/*` not covered above → both `/` and `/decks?fixture=1`
+               - Files matching `.github/workflows/*`, config files, or infrastructure-only changes → no specific app route (skip preview links for these)
+
+               Note: `?fixture=1` preloads a hardcoded demo deck so a reviewer does not need their own saved account or saved deck.
+
+            5. Construct full clickable URLs by appending each relevant path to the Vercel preview base URL:
+               `${{ github.event.deployment_status.target_url }}`
+
+               Example: if the base URL is `https://webula-abc123.vercel.app` and the route is `/decks?fixture=1`,
+               the full URL is `https://webula-abc123.vercel.app/decks?fixture=1`.
+
+            6. Assess whether the "## Visual Verification" section in the PR body adequately covers the relevant paths:
+               - Did the author mention visiting all relevant routes?
+               - Do their described actions match what the changed code actually affects?
+               - For deck-related routes, did they use or mention `?fixture=1`?
+
+            7. Post a comment on the PR using:
+               ```
+               gh pr comment <PR_NUMBER> --repo ${{ github.repository }} --body "..."
+               ```
+
+               Format the comment body as follows (use real URLs, not placeholders):
+
+               ```
+               ## Preview Links
+
+               Changed files affect these routes:
+
+               - [/decks?fixture=1](https://webula-abc123.vercel.app/decks?fixture=1) — deck builder (fixture deck preloaded)
+               - [/](https://webula-abc123.vercel.app/) — card search
+
+               ## Verification Assessment
+
+               ✅ PR description includes a Visual Verification section covering /decks and /.
+               ⚠️ The verification does not mention fixture=1 — consider testing with a preloaded deck.
+               ```
+
+               Use ✅ when the verification section adequately covers all relevant paths.
+               Use ⚠️ for partial coverage or missing fixture=1.
+               Use ❌ when no verification section is found or the coverage is clearly inadequate.
+
+               If the changed files are infrastructure-only (e.g. only workflow files changed), still post a comment noting that no app routes are affected and therefore no preview links are relevant, and assess the verification section accordingly.
+          claude_args: "--max-turns 30 --dangerously-skip-permissions"
+          show_full_output: "true"
