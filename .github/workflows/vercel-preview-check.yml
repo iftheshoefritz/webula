@@ -2,7 +2,7 @@ name: Vercel Preview Check
 
 on:
   issue_comment:
-    types: [created]
+    types: [created, edited]
 
 jobs:
   preview-check:
@@ -30,47 +30,61 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            Vercel has just posted a deployment-ready comment on PR #${{ github.event.issue.number }}.
+            Vercel has posted or updated a deployment-ready comment on PR #${{ github.event.issue.number }}.
 
             The Vercel bot comment body is:
             ${{ github.event.comment.body }}
 
-            Your job is to analyse the PR and post a helpful comment with preview links and a verification assessment. Follow these steps exactly:
+            Your job is to post a NEW comment with preview links and a verification assessment — but only if the PR has new commits since you last commented. Follow these steps exactly:
 
-            1. Extract the Vercel preview URL from the comment body above. It will be a link labelled "Preview" pointing to a *.vercel.app host. Use only the scheme+host (e.g. `https://webula-abc123.vercel.app`) as the base URL — discard any path.
+            1. Get the PR's current HEAD commit SHA:
+               ```
+               gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json headRefOid --jq '.headRefOid'
+               ```
+               Call this CURRENT_SHA.
 
-            2. Get the PR diff to understand which files changed:
+            2. Check whether you have already posted a preview-check comment for this exact commit. List all comments on the PR and look for one from `github-actions[bot]` whose body contains the HTML marker `<!-- vercel-preview-check: CURRENT_SHA -->`:
+               ```
+               gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+                 --jq '[.[] | select(.user.login == "github-actions[bot]")] | last | .body'
+               ```
+               If the most recent `github-actions[bot]` comment already contains `<!-- vercel-preview-check: CURRENT_SHA -->`, stop immediately — there is nothing new to report.
+
+            3. Extract the Vercel preview base URL from the Vercel bot comment body above. It will be a link labelled "Preview" pointing to a *.vercel.app host. Use only the scheme+host (e.g. `https://webula-abc123.vercel.app`) — discard any path.
+
+            4. Get the PR diff to understand which files changed:
                ```
                gh pr diff ${{ github.event.issue.number }} --repo ${{ github.repository }} --name-only
                ```
 
-            3. Get the PR body to extract the "## Visual Verification" section if it exists:
+            5. Get the PR body to extract the "## Visual Verification" section if it exists:
                ```
                gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json body --jq '.body'
                ```
 
-            4. Review the changed files and the codebase routing to identify which app routes will surface the changes.
+            6. Review the changed files and the codebase routing to identify which app routes will surface the changes.
 
                Note: appending `?fixture=1` preloads a hardcoded demo deck so a reviewer does not need their own saved account or saved deck. It is supported on `/decks` and `/decks/practice`.
 
-            5. Construct full clickable URLs by appending each relevant path to the Vercel preview base URL from step 1.
+            7. Construct full clickable URLs by appending each relevant path to the Vercel preview base URL from step 3.
 
                Example: if the base URL is `https://webula-abc123.vercel.app` and the route is `/decks?fixture=1`,
                the full URL is `https://webula-abc123.vercel.app/decks?fixture=1`.
 
-            6. Assess whether the Visual Verification section in the PR body adequately covers the relevant paths:
+            8. Assess whether the Visual Verification section in the PR body adequately covers the relevant paths:
                - Did the author mention visiting all relevant routes? The hostname does not need to match because the author tested locally — only the paths matter.
                - Do their described actions match what the changed code actually affects?
                - For deck-related routes, did they use or mention `?fixture=1`?
 
-            7. Post a comment on the PR using:
+            9. Post a NEW comment on the PR using:
                ```
                gh pr comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "..."
                ```
 
-               Format the comment as follows (use real URLs, not placeholders):
+               Format the comment as follows (use real URLs, not placeholders). The HTML marker at the top is required — replace CURRENT_SHA with the actual SHA from step 1:
 
                ```
+               <!-- vercel-preview-check: CURRENT_SHA -->
                ## Preview Links
 
                Changed files affect these routes:
