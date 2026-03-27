@@ -117,6 +117,30 @@ describe('SearchResults', () => {
     });
   });
 
+  describe('card image link for OS share', () => {
+    it('wraps each card image in an anchor with the collectorsinfo URL', () => {
+      const card = cardFixture({ collectorsinfo: '1R999' });
+      render(<SearchResults filteredData={[card]} />);
+
+      const img = screen.getByAltText('Test Card');
+      const anchor = img.closest('a');
+      expect(anchor).not.toBeNull();
+      expect(anchor).toHaveAttribute('href', '/?q=collectorsinfo:1R999');
+    });
+
+    it('does not navigate when the card image is clicked', () => {
+      const card = cardFixture({ collectorsinfo: '1R999' });
+      const onCardSelected = jest.fn();
+      render(<SearchResults filteredData={[card]} onCardSelected={onCardSelected} />);
+
+      const img = screen.getByAltText('Test Card');
+      const anchor = img.closest('a')!;
+      const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true });
+      anchor.dispatchEvent(clickEvent);
+      expect(clickEvent.defaultPrevented).toBe(true);
+    });
+  });
+
   describe('click functionality', () => {
     it('calls onCardSelected when a card image is clicked', () => {
       const card = cardFixture();

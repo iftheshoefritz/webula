@@ -164,21 +164,27 @@ const GridCardItem = React.memo(function GridCardItem({
   return (
     <div className={cardWrapperClass}>
       <div className="relative">
-        <img
-          src={`/cardimages/${row.imagefile}.jpg`}
-          width={165}
-          height={229}
-          loading="lazy"
-          alt={row.name}
-          className="w-full h-auto rounded-xl block"
-          onClick={() => onCardSelected && onCardSelected(row)}
-          onContextMenu={handleContextMenu}
-          onMouseEnter={(event) => handleHover(row.collectorsinfo, event)}
-          onMouseLeave={handleUnhover}
-          onTouchStart={longPressHandlers.onTouchStart}
-          onTouchEnd={longPressHandlers.onTouchEnd}
-          onTouchMove={longPressHandlers.onTouchMove}
-        />
+        <a
+          href={`/?q=collectorsinfo:${encodeURIComponent(row.collectorsinfo)}`}
+          onClick={(e) => e.preventDefault()}
+          className="block"
+        >
+          <img
+            src={`/cardimages/${row.imagefile}.jpg`}
+            width={165}
+            height={229}
+            loading="lazy"
+            alt={row.name}
+            className="w-full h-auto rounded-xl block"
+            onClick={() => onCardSelected && onCardSelected(row)}
+            onContextMenu={handleContextMenu}
+            onMouseEnter={(event) => handleHover(row.collectorsinfo, event)}
+            onMouseLeave={handleUnhover}
+            onTouchStart={longPressHandlers.onTouchStart}
+            onTouchEnd={longPressHandlers.onTouchEnd}
+            onTouchMove={longPressHandlers.onTouchMove}
+          />
+        </a>
         <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
       </div>
       {currentDeck && count > 0 && (
