@@ -538,3 +538,103 @@ export function missionRequirements(card: { name: string; skills: string }): Rec
   }
   return count;
 }
+
+export type SkillMap = Record<string, number>;
+
+export interface ParsedMissionRequirements {
+  /** Skills required on every branch — always present regardless of OR structure. */
+  mandatory: SkillMap;
+  /** null when there is no OR clause; two or more branch maps when an OR exists. */
+  orBranches: SkillMap[] | null;
+}
+
+/** Extract skill counts from a plain skills string (no OR structure). */
+function extractSkills(text: string, skillsLower: Set<string>): SkillMap {
+  const count: SkillMap = {};
+  const pattern = /(\d+\s+)?([a-zA-Z]+)/g;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    const skillLower = match[2].toLowerCase();
+    if (skillsLower.has(skillLower)) {
+      const n = match[1] ? parseInt(match[1].trim()) : 1;
+      count[skillLower] = (count[skillLower] || 0) + n;
+    }
+  }
+  return count;
+}
+
+/**
+ * Split a skills string on top-level `or` tokens (case-insensitive, not inside parentheses).
+ * Returns null if no top-level OR is found.
+ */
+function splitTopLevelOr(text: string): string[] | null {
+  const parts: string[] = [];
+  let depth = 0;
+  let lastSplit = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '(') {
+      depth++;
+    } else if (ch === ')') {
+      depth--;
+    } else if (
+      depth === 0 &&
+      /^or\b/i.test(text.slice(i)) &&
+      (i === 0 || /\W/.test(text[i - 1]))
+    ) {
+      parts.push(text.slice(lastSplit, i).trim());
+      i += 1; // skip 'or' (loop increment covers the second char)
+      lastSplit = i + 1;
+    }
+  }
+
+  if (parts.length === 0) return null;
+  parts.push(text.slice(lastSplit).trim());
+  return parts;
+}
+
+/**
+ * Parse a mission card's skills string into mandatory skills and optional OR branches.
+ *
+ * Handles four patterns observed in the card data:
+ * 1. No OR:                  "Physics, Treachery, Cunning>34"
+ * 2. Simple inline OR:       "Physics, (Astrometrics or Engineer)"
+ * 3. Grouped inline OR:      "Treachery, and (Intelligence and Leadership or Law and Officer)"
+ * 4. Top-level disjunction:  "Anthropology, Law or Leadership, Security, 2 Treachery"
+ */
+export function parseMissionRequirements(skills: string): ParsedMissionRequirements {
+  const skillsLower = new Set(SKILLS.map(s => s.toLowerCase()));
+
+  // 1. Check for top-level OR (not inside parentheses)
+  const topLevelBranches = splitTopLevelOr(skills);
+  if (topLevelBranches && topLevelBranches.length >= 2) {
+    const branchMaps = topLevelBranches.map(b => extractSkills(b, skillsLower));
+    const mandatory: SkillMap = {};
+    const allKeys = new Set(branchMaps.flatMap(m => Object.keys(m)));
+    for (const key of allKeys) {
+      if (branchMaps.every(m => m[key] !== undefined)) {
+        mandatory[key] = Math.min(...branchMaps.map(m => m[key]));
+      }
+    }
+    return { mandatory, orBranches: branchMaps };
+  }
+
+  // 2. Check for inline (... or ...) group inside parentheses
+  const parenPattern = /\(([^)]+)\)/g;
+  let parenMatch;
+  let outsideText = skills;
+  while ((parenMatch = parenPattern.exec(skills)) !== null) {
+    const inner = parenMatch[1];
+    if (/\bor\b/i.test(inner)) {
+      outsideText = outsideText.replace(parenMatch[0], ' ');
+      const orParts = inner.split(/\bor\b/i);
+      const orBranches = orParts.map(p => extractSkills(p.trim(), skillsLower));
+      const mandatory = extractSkills(outsideText, skillsLower);
+      return { mandatory, orBranches };
+    }
+  }
+
+  // 3. No OR at all
+  return { mandatory: extractSkills(skills, skillsLower), orBranches: null };
+}
