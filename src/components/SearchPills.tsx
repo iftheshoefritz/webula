@@ -84,7 +84,6 @@ const TEXT_INPUT_FILTER_TITLES: Record<string, string> = {
 };
 
 const SIMPLE_TYPEAHEAD_CONFIGS: Record<string, SimpleTypeaheadConfig> = {
-  quadrant: { field: 'quadrant', title: 'Select a Quadrant', options: QUADRANTS, placeholder: 'Search quadrants...', noMatchText: 'No quadrants match' },
   staff: { field: 'staff', title: 'Select Staff', options: STAFF_OPTIONS, placeholder: 'Search staff...', noMatchText: 'No staff options match' },
   hof: { field: 'hof', title: 'Select Hall of Fame', options: HOF_OPTIONS, placeholder: 'Search...', noMatchText: 'No options match' },
   unique: { field: 'unique', title: 'Select Unique', options: UNIQUE_OPTIONS, placeholder: 'Search...', noMatchText: 'No options match' },
@@ -253,6 +252,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
   const [affiliationSearch, setAffiliationSearch] = useState('');
   const [showSetTypeahead, setShowSetTypeahead] = useState(false);
   const [setSearch, setSetSearch] = useState('');
+  const [showQuadrantTypeahead, setShowQuadrantTypeahead] = useState(false);
+  const [quadrantSearch, setQuadrantSearch] = useState('');
   const [showTypeTypeahead, setShowTypeTypeahead] = useState(false);
   const [typeSearch, setTypeSearch] = useState('');
   const [activeSimpleTypeahead, setActiveSimpleTypeahead] = useState<SimpleTypeaheadConfig | null>(null);
@@ -298,6 +299,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setAffiliationSearch('');
     setShowSetTypeahead(false);
     setSetSearch('');
+    setShowQuadrantTypeahead(false);
+    setQuadrantSearch('');
     setShowTypeTypeahead(false);
     setTypeSearch('');
     setActiveSimpleTypeahead(null);
@@ -316,6 +319,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setAffiliationSearch('');
     setShowSetTypeahead(false);
     setSetSearch('');
+    setShowQuadrantTypeahead(false);
+    setQuadrantSearch('');
     setShowTypeTypeahead(false);
     setTypeSearch('');
     setActiveSimpleTypeahead(null);
@@ -345,6 +350,8 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
         setShowAffiliationTypeahead(true);
       } else if (fullKey === 'set') {
         setShowSetTypeahead(true);
+      } else if (fullKey === 'quadrant') {
+        setShowQuadrantTypeahead(true);
       } else if (fullKey === 'type') {
         setShowTypeTypeahead(true);
       } else {
@@ -376,6 +383,11 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     if (fieldName === 'set') {
       setShowSetTypeahead(true);
       setSetSearch('');
+      return;
+    }
+    if (fieldName === 'quadrant') {
+      setShowQuadrantTypeahead(true);
+      setQuadrantSearch('');
       return;
     }
     if (fieldName === 'type') {
@@ -422,6 +434,14 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     const prefix = base.trim() ? `${base.trim()} ` : '';
     const excludePrefix = filterMode === 'exclude' ? '-' : '';
     setSearchQuery(`${prefix}${excludePrefix}set:${value}`);
+    closePopover();
+  };
+
+  const handleSelectQuadrant = (value: string) => {
+    const base = getBaseQuery();
+    const prefix = base.trim() ? `${base.trim()} ` : '';
+    const excludePrefix = filterMode === 'exclude' ? '-' : '';
+    setSearchQuery(`${prefix}${excludePrefix}quadrant:${value}`);
     closePopover();
   };
 
@@ -782,6 +802,44 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                   </ul>
                 ) : (
                   <p className="text-xs text-text-muted py-1">No sets match</p>
+                );
+              })()}
+            </>
+          ) : showQuadrantTypeahead ? (
+            <>
+              <div className="syntax-panel-title">Select a Quadrant</div>
+              {renderIncludeExcludeToggle()}
+              <input
+                type="text"
+                value={quadrantSearch}
+                onChange={(e) => setQuadrantSearch(e.target.value)}
+                placeholder="Search quadrants..."
+                className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
+                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           focus:border-accent/50"
+                autoFocus
+              />
+              {(() => {
+                const filtered = QUADRANTS.filter((q) =>
+                  q.label.toLowerCase().includes(quadrantSearch.toLowerCase())
+                );
+                return filtered.length > 0 ? (
+                  <ul className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                    {filtered.map((quadrant) => (
+                      <li
+                        key={quadrant.value}
+                        role="option"
+                        aria-selected={false}
+                        onClick={() => handleSelectQuadrant(quadrant.value)}
+                        className="px-2 py-1 text-sm text-text-secondary hover:text-text-primary
+                                   hover:bg-white/[0.08] rounded cursor-pointer transition-colors"
+                      >
+                        {quadrant.label}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-text-muted py-1">No quadrants match</p>
                 );
               })()}
             </>

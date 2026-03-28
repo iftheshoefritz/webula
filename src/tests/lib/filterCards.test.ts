@@ -90,3 +90,28 @@ describe('filterCards reportsto:"grid 296 holographic training facility"', () =>
     expect(result.map(c => c.name)).toContain('phaser');
   });
 });
+
+describe('filterCards quadrant filter', () => {
+  const alphaMission = makeCard('bajor', 'mission', { quadrant: 'a' });
+  const deltaMission = makeCard('borg space', 'mission', { quadrant: 'd' });
+  const gammaMission = makeCard('dominion world', 'mission', { quadrant: 'g' });
+
+  const QUADRANT_CARDS = [alphaMission, deltaMission, gammaMission];
+  const QUADRANT_COLUMNS = ['name', 'type', 'quadrant'];
+
+  it('filters by alpha quadrant using single-letter code', () => {
+    const result = filterCards(QUADRANT_CARDS, QUADRANT_COLUMNS, 'quadrant:a');
+    expect(result.map(c => c.name)).toEqual(['bajor']);
+  });
+
+  it('filters by delta quadrant using single-letter code', () => {
+    const result = filterCards(QUADRANT_CARDS, QUADRANT_COLUMNS, 'quadrant:d');
+    expect(result.map(c => c.name)).toEqual(['borg space']);
+  });
+
+  it('does not match full quadrant name against single-letter code', () => {
+    // Prior to the fix, "alpha" would not match "a" in the card data
+    const result = filterCards(QUADRANT_CARDS, QUADRANT_COLUMNS, 'quadrant:alpha');
+    expect(result).toHaveLength(0);
+  });
+});

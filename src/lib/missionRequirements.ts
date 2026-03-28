@@ -118,7 +118,11 @@ export const CARD_TYPES: string[] = [
   'Ship',
 ];
 
-export const QUADRANTS: string[] = ['Alpha', 'Gamma', 'Delta'];
+export const QUADRANTS: { label: string; value: string }[] = [
+  { label: 'Alpha', value: 'A' },
+  { label: 'Gamma', value: 'G' },
+  { label: 'Delta', value: 'D' },
+];
 
 export const STAFF_OPTIONS: string[] = ['st', 'cmd'];
 
