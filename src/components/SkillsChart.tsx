@@ -2,32 +2,9 @@
 
 import React, { useMemo, useState, useRef } from 'react';
 import SearchOverlay from './SearchOverlay';
+import { SKILLS } from '../lib/missionRequirements';
 
-const skillList = [
-  'acquisition',
-  'anthropology',
-  'archaeology',
-  'astrometrics',
-  'biology',
-  'diplomacy',
-  'engineer',
-  'exobiology',
-  'geology',
-  'honor',
-  'intelligence',
-  'law',
-  'leadership',
-  'medical',
-  'navigation',
-  'officer',
-  'physics',
-  'programming',
-  'science',
-  'security',
-  'telepathy',
-  'transporters',
-  'treachery',
-];
+const skillList = SKILLS.map((s) => s.toLowerCase());
 
 export interface HqOption {
   label: string;
