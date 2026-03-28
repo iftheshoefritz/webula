@@ -20,7 +20,7 @@ import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount } from '../app/decks/deckBuilderUtils';
-import { missionRequirements } from '../lib/missionRequirements';
+import { missionRequirements, parseMissionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
 import { FaSave, FaSearch, FaTrash, FaEraser, FaFileExport, FaFileUpload, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt } from 'react-icons/fa';
@@ -437,14 +437,29 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     currentDeckRows
       .filter((row) => row.pile === 'mission')
       .forEach((row) => {
-        const reqs = missionRequirements(row);
-        Object.entries(reqs).forEach(([skill, n]) => {
-          const key = skill.toLowerCase();
-          totals[key] = (totals[key] || 0) + (n as number);
+        const parsed = parseMissionRequirements(row.skills || '');
+        // Always include mandatory skills (common to every branch)
+        Object.entries(parsed.mandatory).forEach(([skill, n]) => {
+          totals[skill] = (totals[skill] || 0) + n;
         });
+        if (parsed.orBranches) {
+          const selectedIndex = missionBranchSelections[row.name] ?? null;
+          const branches =
+            selectedIndex !== null ? [parsed.orBranches[selectedIndex]] : parsed.orBranches;
+          // Union across all included branches (conservative when no selection)
+          const branchUnion: Record<string, number> = {};
+          for (const branch of branches) {
+            Object.entries(branch).forEach(([skill, n]) => {
+              branchUnion[skill] = Math.max(branchUnion[skill] || 0, n);
+            });
+          }
+          Object.entries(branchUnion).forEach(([skill, n]) => {
+            totals[skill] = (totals[skill] || 0) + n;
+          });
+        }
       });
     return totals;
-  }, [currentDeckRows]);
+  }, [currentDeckRows, missionBranchSelections]);
 
   const [viewMode, setViewMode] = useLocalStorage<'image' | 'list'>(
     'search-view-mode',
