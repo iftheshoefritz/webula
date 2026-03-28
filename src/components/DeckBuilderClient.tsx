@@ -29,32 +29,6 @@ import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
 import { isEarlyAccessUser } from '../lib/featureFlags';
 
-const skillList = [
-  'acquisition',
-  'anthropology',
-  'archaeology',
-  'astrometrics',
-  'biology',
-  'diplomacy',
-  'engineer',
-  'exobiology',
-  'geology',
-  'honor',
-  'intelligence',
-  'law',
-  'leadership',
-  'medical',
-  'navigation',
-  'officer',
-  'physics',
-  'programming',
-  'science',
-  'security',
-  'telepathy',
-  'transporters',
-  'treachery',
-];
-
 function KeywordBadge({
   keyword,
   count,
