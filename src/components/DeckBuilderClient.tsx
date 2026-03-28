@@ -21,6 +21,7 @@ import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount } from '../app/decks/deckBuilderUtils';
 import { missionRequirements, parseMissionRequirements } from '../lib/missionRequirements';
+import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
 import { FaSave, FaSearch, FaTrash, FaEraser, FaFileExport, FaFileUpload, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt } from 'react-icons/fa';
@@ -131,6 +132,55 @@ function CollapsibleSection({ title, children, isCollapsed, onToggle }: Collapsi
         {isCollapsed ? <FaChevronRight className="text-lg" /> : <FaChevronDown className="text-lg" />}
       </button>
       {!isCollapsed && children}
+    </div>
+  );
+}
+
+function MissionBranchSelector({
+  missionName,
+  parsed,
+  selected,
+  onChange,
+}: {
+  missionName: string;
+  parsed: ParsedMissionRequirements;
+  selected: number | null;
+  onChange: (index: number | null) => void;
+}) {
+  if (!parsed.orBranches) return null;
+
+  const branchLabel = (branch: Record<string, number>) =>
+    Object.keys(branch)
+      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+      .join(' + ');
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1 justify-center" data-testid={`branch-selector-${missionName}`}>
+      <button
+        className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+          selected === null
+            ? 'bg-amber-500 border-amber-500 text-black font-semibold'
+            : 'border-border text-text-secondary hover:border-amber-400 hover:text-amber-300'
+        }`}
+        onClick={() => onChange(null)}
+        aria-pressed={selected === null}
+      >
+        All
+      </button>
+      {parsed.orBranches.map((branch, i) => (
+        <button
+          key={i}
+          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+            selected === i
+              ? 'bg-amber-500 border-amber-500 text-black font-semibold'
+              : 'border-border text-text-secondary hover:border-amber-400 hover:text-amber-300'
+          }`}
+          onClick={() => onChange(i)}
+          aria-pressed={selected === i}
+        >
+          {branchLabel(branch)}
+        </button>
+      ))}
     </div>
   );
 }
@@ -460,6 +510,16 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       });
     return totals;
   }, [currentDeckRows, missionBranchSelections]);
+
+  const parsedMissionReqs = useMemo(() => {
+    const result: Record<string, ParsedMissionRequirements> = {};
+    currentDeckRows
+      .filter((row) => row.pile === 'mission')
+      .forEach((row) => {
+        result[row.name] = parseMissionRequirements(row.skills || '');
+      });
+    return result;
+  }, [currentDeckRows]);
 
   const [viewMode, setViewMode] = useLocalStorage<'image' | 'list'>(
     'search-view-mode',
@@ -945,24 +1005,34 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <div className="hidden lg:flex space-x-4 overflow-x-scroll">
               {Array.from({ length: 5 }, (_, i) => missions[i] ?? null).map((row, i) =>
                 row ? (
-                  <div key={row.collectorsinfo} className="relative flex-shrink-0 group">
-                    <img
-                      src={`/cardimages/${row.imagefile}.jpg`}
-                      width={165}
-                      height={229}
-                      loading="lazy"
-                      alt={row.name}
-                      className="w-56 h-auto rounded-xl block"
+                  <div key={row.collectorsinfo} className="flex-shrink-0 flex flex-col items-center w-56">
+                    <div className="relative group w-full">
+                      <img
+                        src={`/cardimages/${row.imagefile}.jpg`}
+                        width={165}
+                        height={229}
+                        loading="lazy"
+                        alt={row.name}
+                        className="w-56 h-auto rounded-xl block"
+                      />
+                      <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
+                      <button
+                        onClick={() => removeMission(row)}
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600/80"
+                        aria-label={`Remove ${row.name}`}
+                        title={`Remove ${row.name}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <MissionBranchSelector
+                      missionName={row.name}
+                      parsed={parsedMissionReqs[row.name] ?? { mandatory: {}, orBranches: null }}
+                      selected={missionBranchSelections[row.name] ?? null}
+                      onChange={(idx) =>
+                        setMissionBranchSelections((prev) => ({ ...prev, [row.name]: idx }))
+                      }
                     />
-                    <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
-                    <button
-                      onClick={() => removeMission(row)}
-                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600/80"
-                      aria-label={`Remove ${row.name}`}
-                      title={`Remove ${row.name}`}
-                    >
-                      ×
-                    </button>
                   </div>
                 ) : (
                   <div
@@ -1061,6 +1131,19 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               <p className="text-xs text-center text-text-secondary mt-2">
                 {missionIndex + 1} / 5
               </p>
+              {missions[missionIndex] && (
+                <MissionBranchSelector
+                  missionName={missions[missionIndex].name}
+                  parsed={parsedMissionReqs[missions[missionIndex].name] ?? { mandatory: {}, orBranches: null }}
+                  selected={missionBranchSelections[missions[missionIndex].name] ?? null}
+                  onChange={(idx) =>
+                    setMissionBranchSelections((prev) => ({
+                      ...prev,
+                      [missions[missionIndex].name]: idx,
+                    }))
+                  }
+                />
+              )}
             </div>
           </div>
 
