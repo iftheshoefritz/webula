@@ -147,6 +147,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const currentDeck = isFixture ? fixtureCurrentDeck : localCurrentDeck;
   const setCurrentDeck = isFixture ? setFixtureCurrentDeck : setLocalCurrentDeck;
   const [deckTitle, setDeckTitle] = useLocalStorage<string>('deckTitle', '');
+  // Per-mission chosen OR branch index (0-based). Absent = all branches included (conservative default).
+  const [missionBranchSelections, setMissionBranchSelections] = useLocalStorage<Record<string, number | null>>(
+    'missionBranchSelections',
+    {}
+  );
   const [deckFile, setDeckFile] = useLocalStorage<{ id: string | null; name: string }>('deckFile', { id: null, name: 'My deck' });
   const [analysisCollapsed, setAnalysisCollapsed] = useLocalStorage<Record<string, boolean>>('analysisCollapsed', {
     'Personnel skills': true,
@@ -256,6 +261,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setCurrentDeck({});
     setDeckTitle('');
     setDeckFile({ id: null, name: 'My deck' });
+    setMissionBranchSelections({});
   };
 
   const handleFileLoad = (name: string, contents: string, piles?: DeckPile[]) => {
@@ -266,6 +272,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setCurrentDeck(next);
     if (name && !piles) {
       setDeckTitle(name.replace('.txt', ''));
+      setMissionBranchSelections({});
     }
     posthog.capture('deckBuilder.handleFileLoad.finish', { lines: Object.keys(currentDeck).length });
   };
