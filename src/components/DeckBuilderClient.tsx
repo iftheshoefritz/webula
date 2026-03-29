@@ -11,6 +11,7 @@ import { DrivePickerModal } from './DrivePickerModal';
 import PileAggregate from './PileAggregate';
 import IconPill from './IconPill';
 import PileAggregateCostChart from './PileAggregateCostChart';
+import BarChart from './BarChart';
 import SkillsChart from './SkillsChart';
 import type { HqOption } from './SkillsChart';
 import SearchOverlay from './SearchOverlay';
@@ -655,6 +656,16 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const dilemmaCount = currentDeckRows.filter(r => r.pile === 'dilemma').reduce((s, r) => s + r.count, 0);
   const drawCount = currentDeckRows.filter(r => r.pile === 'draw').reduce((s, r) => s + r.count, 0);
 
+  const drawTypeBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const row of currentDeckRows) {
+      if (row.pile === 'draw') {
+        counts[row.type] = (counts[row.type] ?? 0) + (row.count ?? 0);
+      }
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [currentDeckRows]);
+
   const searchPanel = (
     <div className="mx-2 mt-4 flex flex-col flex-1 min-h-0 overflow-hidden">
       <div className="shrink-0">
@@ -1217,6 +1228,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'dilemma'} />
               </div>
             </div>
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Card types" isCollapsed={analysisCollapsed['Card types'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Card types': !(prev['Card types'] ?? true) }))}>
+            <BarChart
+              labels={drawTypeBreakdown.map(([type]) => type)}
+              values={drawTypeBreakdown.map(([, count]) => count)}
+            />
           </CollapsibleSection>
         </div>
       </div>
