@@ -842,12 +842,23 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                   </button>
                   <button
                     className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 text-left"
-                    onClick={() => { shareDeck(); setDeckActionsOpen(false); }}
+                    onClick={() => shareDeck()}
                     disabled={shareState === 'copying'}
                   >
                     {shareState === 'copying' ? <FaSpinner className="shrink-0 animate-spin" /> : <FaShareAlt className="shrink-0" />}
                     <span>{shareState === 'copying' ? 'Creating...' : shareState === 'copied' ? 'Copied!' : shareState === 'error' ? (shareError ?? 'Share failed') : 'Copy share link'}</span>
                   </button>
+                  {shareUrl && (
+                    <div className="px-4 py-2">
+                      <input
+                        className="text-xs bg-bg-secondary text-text-primary border border-border rounded px-2 py-1 w-full cursor-text"
+                        value={shareUrl}
+                        readOnly
+                        onClick={(e) => e.currentTarget.select()}
+                        aria-label="Share link"
+                      />
+                    </div>
+                  )}
                   {isEarlyAccessUser(session?.user?.email) && (
                     <Link
                       href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
