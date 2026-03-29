@@ -9,7 +9,7 @@ export default function PostHogPageView() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (pathname && localStorage.getItem('analytics_consent') === 'true') {
+    if (pathname) {
       let url = pathname;
       const search = searchParams?.toString();
       if (search) {

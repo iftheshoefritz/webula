@@ -25,18 +25,32 @@ export default function PrivacyPage() {
         <section className="mb-8">
           <h2 className="text-lg font-semibold mb-3 text-white">2. Data we collect</h2>
 
-          <h3 className="font-semibold mt-4 mb-2 text-gray-100">2a. Analytics (PostHog)</h3>
+          <h3 className="font-semibold mt-4 mb-2 text-gray-100">2a. Anonymous analytics (PostHog — always on)</h3>
           <p>
-            With your consent, we use PostHog to collect anonymous analytics: page views, navigation
-            events, and deck-building interactions. PostHog assigns a pseudonymous device identifier
-            stored in a browser cookie. No personally identifiable information is included in these
-            events.
+            On every visit we collect cookieless, anonymous page-view counts via PostHog. This
+            tracking uses <strong>no cookies</strong>, stores <strong>no persistent
+            identifiers</strong>, and does <strong>not</strong> send your IP address to PostHog.
+            Because no identifying information is collected, individual users cannot be tracked or
+            re-identified across visits.
           </p>
           <p className="mt-2">
-            <strong>Legal basis:</strong> Consent (GDPR Art. 6(1)(a)). Analytics are only initialised
-            after you click &quot;Accept&quot; in the consent banner. You can withdraw consent at any
-            time by clearing your browser&apos;s local storage or clicking &quot;Decline&quot; on a
-            new visit.
+            <strong>Legal basis:</strong> Legitimate interest (GDPR Art. 6(1)(f)). No consent is
+            required for purely aggregate, non-identifying analytics. PostHog&apos;s own cookieless
+            mode is designed to be used without a consent gate under GDPR.
+          </p>
+
+          <h3 className="font-semibold mt-4 mb-2 text-gray-100">2b. Enhanced analytics (PostHog — with consent)</h3>
+          <p>
+            If you click &quot;Accept&quot; in the consent banner, PostHog is re-initialised with
+            standard persistence (cookies / localStorage). This enables richer analytics such as
+            navigation flows and session-level aggregates. PostHog assigns a pseudonymous device
+            identifier stored in a browser cookie. No personally identifiable information is included
+            in these events.
+          </p>
+          <p className="mt-2">
+            <strong>Legal basis:</strong> Consent (GDPR Art. 6(1)(a)). You can withdraw consent at
+            any time by clearing your browser&apos;s local storage or clicking &quot;Decline&quot; on
+            a new visit.
           </p>
 
           <h3 className="font-semibold mt-4 mb-2 text-gray-100">2b. Google Sign-In and Drive</h3>
@@ -75,8 +89,11 @@ export default function PrivacyPage() {
           <h2 className="text-lg font-semibold mb-3 text-white">3. Data retention</h2>
           <ul className="list-disc list-inside space-y-2">
             <li>
-              <strong>Analytics:</strong> PostHog retains event data per their own retention policy.
-              Withdrawing consent stops future data collection but does not delete past events.
+              <strong>Anonymous analytics:</strong> PostHog retains aggregate page-view data per their
+              own retention policy. No per-user data is stored because no user identifiers are
+              collected.{' '}
+              <strong>Enhanced analytics (consent-based):</strong> Withdrawing consent stops future
+              enhanced data collection but does not delete past events.
             </li>
             <li>
               <strong>Google Drive decks:</strong> Deck files remain in your Google Drive until you
