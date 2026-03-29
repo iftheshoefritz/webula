@@ -498,14 +498,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setShareUrl(null);
     try {
       const tsv = createLackeyTSV();
-      const res = await fetch('https://api.github.com/gists', {
+      const res = await fetch('/api/gist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description: `Webula deck: ${deckTitle}`,
-          public: false,
-          files: { 'deck.txt': { content: tsv } },
-        }),
+        body: JSON.stringify({ content: tsv, title: deckTitle }),
       });
       if (!res.ok) throw new Error('Gist creation failed');
       const json = await res.json();
