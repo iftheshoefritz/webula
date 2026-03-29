@@ -219,6 +219,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [isDirty, setIsDirty] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'copying' | 'copied' | 'error'>('idle');
   const [shareError, setShareError] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const isFirstRender = useRef(true);
 
   useEffect(() => {
@@ -494,6 +495,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const shareDeck = async () => {
     setShareState('copying');
     setShareError(null);
+    setShareUrl(null);
     try {
       const tsv = createLackeyTSV();
       const res = await fetch('https://api.github.com/gists', {
@@ -508,9 +510,15 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       if (!res.ok) throw new Error('Gist creation failed');
       const json = await res.json();
       const url = `${window.location.origin}/decks?gist=${json.id}`;
-      await navigator.clipboard.writeText(url);
-      setShareState('copied');
-      setTimeout(() => setShareState('idle'), 2000);
+      setShareUrl(url);
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareState('copied');
+      } catch {
+        // Clipboard API unavailable (common on iOS after async) — show URL for manual copy
+        setShareState('copied');
+      }
+      setTimeout(() => { setShareState('idle'); setShareUrl(null); }, 15000);
     } catch {
       setShareState('error');
       setShareError('Share failed');
@@ -902,6 +910,15 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             {shareState === 'copied' && (
               <span className="text-sm text-green-400 font-medium">Copied!</span>
             )}
+            {shareUrl && (
+              <input
+                className="text-xs bg-bg-secondary text-text-primary border border-border rounded px-2 py-1 w-72 cursor-text"
+                value={shareUrl}
+                readOnly
+                onClick={(e) => e.currentTarget.select()}
+                aria-label="Share link"
+              />
+            )}
             {shareState === 'error' && shareError && (
               <span className="text-sm text-red-400 font-medium">{shareError}</span>
             )}
@@ -1048,33 +1065,46 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         {/* Main content area */}
         <div className={`flex-grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0 ${mobileView !== 'analysis' ? 'hidden lg:block' : ''}`}>
           {/* Mobile-only save toolbar for Analysis tab */}
-          <div className="lg:hidden flex items-center justify-between px-4 py-2 border-b border-border bg-bg-secondary">
-            <span className="text-sm font-medium truncate text-text-muted">
-              {deckTitle || 'Untitled Deck'}{isDirty && <span className="text-yellow-400 font-bold"> *</span>}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                className="btn-icon"
-                onClick={shareDeck}
-                disabled={shareState === 'copying'}
-                data-tooltip-id="button-tooltip"
-                data-tooltip-content={shareState === 'copying' ? 'Creating share link...' : 'Copy share link to clipboard'}
-              >
-                <FaShareAlt />
-              </button>
-              <button
-                className="btn-icon"
-                onClick={() => writeToDrive()}
-                data-tooltip-id="button-tooltip"
-                data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
-              >
-                <FaSave />
-              </button>
-              {savedRecently && <span className="text-sm text-green-400 font-medium">Saved!</span>}
-              {shareState === 'copied' && <span className="text-sm text-green-400 font-medium">Copied!</span>}
-              {saveError && <span className="text-sm text-red-400 font-medium">{saveError}</span>}
-              {shareState === 'error' && shareError && <span className="text-sm text-red-400 font-medium">{shareError}</span>}
+          <div className="lg:hidden flex flex-col border-b border-border bg-bg-secondary">
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm font-medium truncate text-text-muted">
+                {deckTitle || 'Untitled Deck'}{isDirty && <span className="text-yellow-400 font-bold"> *</span>}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  className="btn-icon"
+                  onClick={shareDeck}
+                  disabled={shareState === 'copying'}
+                  data-tooltip-id="button-tooltip"
+                  data-tooltip-content={shareState === 'copying' ? 'Creating share link...' : 'Copy share link to clipboard'}
+                >
+                  <FaShareAlt />
+                </button>
+                <button
+                  className="btn-icon"
+                  onClick={() => writeToDrive()}
+                  data-tooltip-id="button-tooltip"
+                  data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
+                >
+                  <FaSave />
+                </button>
+                {savedRecently && <span className="text-sm text-green-400 font-medium">Saved!</span>}
+                {shareState === 'copied' && <span className="text-sm text-green-400 font-medium">Copied!</span>}
+                {saveError && <span className="text-sm text-red-400 font-medium">{saveError}</span>}
+                {shareState === 'error' && shareError && <span className="text-sm text-red-400 font-medium">{shareError}</span>}
+              </div>
             </div>
+            {shareUrl && (
+              <div className="px-4 pb-2">
+                <input
+                  className="text-xs bg-bg-secondary text-text-primary border border-border rounded px-2 py-1 w-full cursor-text"
+                  value={shareUrl}
+                  readOnly
+                  onClick={(e) => e.currentTarget.select()}
+                  aria-label="Share link"
+                />
+              </div>
+            )}
           </div>
           <div className="container mx-auto p-4">
             {/* Desktop: horizontal scroll row */}
