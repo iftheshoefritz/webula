@@ -53,7 +53,7 @@ export default function PrivacyPage() {
             a new visit.
           </p>
 
-          <h3 className="font-semibold mt-4 mb-2 text-gray-100">2b. Google Sign-In and Drive</h3>
+          <h3 className="font-semibold mt-4 mb-2 text-gray-100">2c. Google Sign-In and Drive</h3>
           <p>
             If you choose to sign in with Google, we request the following OAuth scopes:
           </p>
@@ -72,7 +72,7 @@ export default function PrivacyPage() {
             requested by signing in.
           </p>
 
-          <h3 className="font-semibold mt-4 mb-2 text-gray-100">2c. Browser local storage</h3>
+          <h3 className="font-semibold mt-4 mb-2 text-gray-100">2d. Browser local storage</h3>
           <p>
             Deck data (current deck, saved decks, deck title) is stored in your browser&apos;s{' '}
             <code>localStorage</code> under the keys <code>browserDecks</code>,{' '}
