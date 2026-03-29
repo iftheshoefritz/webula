@@ -25,7 +25,7 @@ import { missionRequirements, parseMissionRequirements } from '../lib/missionReq
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaEraser, FaFileExport, FaFileUpload, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaEraser, FaFileExport, FaFileUpload, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -218,6 +218,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [saveError, setSaveError] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [shareState, setShareState] = useState<'idle' | 'copying' | 'copied' | 'error'>('idle');
+  const [shareError, setShareError] = useState<string | null>(null);
   const isFirstRender = useRef(true);
 
   useEffect(() => {
@@ -245,6 +247,19 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           const json = await response.json();
           setDriveFiles(json.files);
           setLoadingFromGDrive(false);
+        }
+      }
+
+      const gistId = params.get('gist');
+      if (gistId) {
+        window.history.replaceState({}, '', '/decks');
+        try {
+          const gistResponse = await fetch(`https://api.github.com/gists/${gistId}`);
+          const gistJson = await gistResponse.json();
+          const file = Object.values(gistJson.files as Record<string, { content: string }>)[0];
+          handleFileLoad('shared-deck.txt', file.content);
+        } catch {
+          console.error('Failed to load shared deck from Gist');
         }
       }
     })();
@@ -475,6 +490,33 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
     URL.revokeObjectURL(url);
     posthog.capture('deckBuilder.lackeyExport.finish', { bytes: tsvString.length });
+  };
+
+  const shareDeck = async () => {
+    setShareState('copying');
+    setShareError(null);
+    try {
+      const tsv = createLackeyTSV();
+      const res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: `Webula deck: ${deckTitle}`,
+          public: false,
+          files: { 'deck.txt': { content: tsv } },
+        }),
+      });
+      if (!res.ok) throw new Error('Gist creation failed');
+      const json = await res.json();
+      const url = `${window.location.origin}/decks?gist=${json.id}`;
+      await navigator.clipboard.writeText(url);
+      setShareState('copied');
+      setTimeout(() => setShareState('idle'), 2000);
+    } catch {
+      setShareState('error');
+      setShareError('Share failed');
+      setTimeout(() => { setShareState('idle'); setShareError(null); }, 3000);
+    }
   };
 
   const currentDeckRows = useMemo(() => {
@@ -801,6 +843,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     <FaFileExport className="shrink-0" />
                     <span>Export to LackeyCCG</span>
                   </button>
+                  <button
+                    className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 text-left"
+                    onClick={() => { shareDeck(); setDeckActionsOpen(false); }}
+                    disabled={shareState === 'copying'}
+                  >
+                    <FaShareAlt className="shrink-0" />
+                    <span>{shareState === 'copied' ? 'Copied!' : shareState === 'error' ? (shareError ?? 'Share failed') : 'Copy share link'}</span>
+                  </button>
                   {isEarlyAccessUser(session?.user?.email) && (
                     <Link
                       href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
@@ -851,6 +901,21 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             >
               <FaFileExport />
             </button>
+            <button
+              className="btn-icon"
+              onClick={shareDeck}
+              disabled={shareState === 'copying'}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content={shareState === 'copying' ? 'Creating share link...' : 'Copy share link to clipboard'}
+            >
+              <FaShareAlt />
+            </button>
+            {shareState === 'copied' && (
+              <span className="text-sm text-green-400 font-medium">Copied!</span>
+            )}
+            {shareState === 'error' && shareError && (
+              <span className="text-sm text-red-400 font-medium">{shareError}</span>
+            )}
             {isEarlyAccessUser(session?.user?.email) && (
               <Link
                 href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
@@ -1001,6 +1066,15 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <div className="flex items-center gap-2">
               <button
                 className="btn-icon"
+                onClick={shareDeck}
+                disabled={shareState === 'copying'}
+                data-tooltip-id="button-tooltip"
+                data-tooltip-content={shareState === 'copying' ? 'Creating share link...' : 'Copy share link to clipboard'}
+              >
+                <FaShareAlt />
+              </button>
+              <button
+                className="btn-icon"
                 onClick={() => writeToDrive()}
                 data-tooltip-id="button-tooltip"
                 data-tooltip-content={savingToGDrive ? 'Saving...' : 'Save to G Drive'}
@@ -1008,7 +1082,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 <FaSave />
               </button>
               {savedRecently && <span className="text-sm text-green-400 font-medium">Saved!</span>}
+              {shareState === 'copied' && <span className="text-sm text-green-400 font-medium">Copied!</span>}
               {saveError && <span className="text-sm text-red-400 font-medium">{saveError}</span>}
+              {shareState === 'error' && shareError && <span className="text-sm text-red-400 font-medium">{shareError}</span>}
             </div>
           </div>
           <div className="container mx-auto p-4">
