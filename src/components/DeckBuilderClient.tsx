@@ -24,7 +24,7 @@ import { missionRequirements, parseMissionRequirements } from '../lib/missionReq
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaEraser, FaFileExport, FaFileUpload, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaEraser, FaFileExport, FaFileUpload, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -845,8 +845,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     onClick={() => { shareDeck(); setDeckActionsOpen(false); }}
                     disabled={shareState === 'copying'}
                   >
-                    <FaShareAlt className="shrink-0" />
-                    <span>{shareState === 'copied' ? 'Copied!' : shareState === 'error' ? (shareError ?? 'Share failed') : 'Copy share link'}</span>
+                    {shareState === 'copying' ? <FaSpinner className="shrink-0 animate-spin" /> : <FaShareAlt className="shrink-0" />}
+                    <span>{shareState === 'copying' ? 'Creating...' : shareState === 'copied' ? 'Copied!' : shareState === 'error' ? (shareError ?? 'Share failed') : 'Copy share link'}</span>
                   </button>
                   {isEarlyAccessUser(session?.user?.email) && (
                     <Link
@@ -905,7 +905,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               data-tooltip-id="button-tooltip"
               data-tooltip-content={shareState === 'copying' ? 'Creating share link...' : 'Copy share link to clipboard'}
             >
-              <FaShareAlt />
+              {shareState === 'copying' ? <FaSpinner className="animate-spin" /> : <FaShareAlt />}
             </button>
             {shareState === 'copied' && (
               <span className="text-sm text-green-400 font-medium">Copied!</span>
@@ -1078,7 +1078,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                   data-tooltip-id="button-tooltip"
                   data-tooltip-content={shareState === 'copying' ? 'Creating share link...' : 'Copy share link to clipboard'}
                 >
-                  <FaShareAlt />
+                  {shareState === 'copying' ? <FaSpinner className="animate-spin" /> : <FaShareAlt />}
                 </button>
                 <button
                   className="btn-icon"
