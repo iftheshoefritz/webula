@@ -254,12 +254,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       if (gistId) {
         window.history.replaceState({}, '', '/decks');
         try {
-          const gistResponse = await fetch(`https://api.github.com/gists/${gistId}`);
-          const gistJson = await gistResponse.json();
-          const file = Object.values(gistJson.files as Record<string, { content: string }>)[0];
-          handleFileLoad('shared-deck.txt', file.content);
+          const pasteResponse = await fetch(`https://dpaste.com/${gistId}.txt`);
+          const content = await pasteResponse.text();
+          handleFileLoad('shared-deck.txt', content);
         } catch {
-          console.error('Failed to load shared deck from Gist');
+          console.error('Failed to load shared deck');
         }
       }
     })();
