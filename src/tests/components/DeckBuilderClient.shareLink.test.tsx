@@ -62,6 +62,24 @@ function getShareButton(): HTMLElement {
   return btn;
 }
 
+/** A minimal non-empty deck stored in localStorage so shareDeck doesn't bail early. */
+function seedDeck() {
+  const deck = {
+    'test-card-1': {
+      count: 1,
+      row: {
+        collectorsinfo: 'test-card-1',
+        count: 1,
+        pile: 'draw',
+        name: 'Test Card',
+        originalName: 'Test Card',
+        imagefile: 'test',
+      },
+    },
+  };
+  localStorage.setItem('currentDeck', JSON.stringify(deck));
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('DeckBuilderClient – share link', () => {
@@ -76,6 +94,7 @@ describe('DeckBuilderClient – share link', () => {
 
   it('calls /api/share when share button is clicked', async () => {
     localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
+    seedDeck();
 
     const mockFetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -103,6 +122,7 @@ describe('DeckBuilderClient – share link', () => {
 
   it('shows "Share failed" when /api/share returns an error', async () => {
     localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
+    seedDeck();
 
     const mockFetch = jest.fn().mockResolvedValue({
       ok: false,
@@ -122,5 +142,85 @@ describe('DeckBuilderClient – share link', () => {
     await act(async () => {});
 
     expect(screen.getAllByText('Share failed').length).toBeGreaterThan(0);
+  });
+
+  it('shows "Deck is empty" and does not call /api/share when deck has no cards', async () => {
+    // No seedDeck() — deck stays empty
+    const mockFetch = jest.fn();
+    global.fetch = mockFetch;
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(getShareButton());
+    });
+
+    await act(async () => {});
+
+    expect(screen.getAllByText('Deck is empty').length).toBeGreaterThan(0);
+    const shareCalls = mockFetch.mock.calls.filter(
+      ([url]: [string]) => url === '/api/share'
+    );
+    expect(shareCalls.length).toBe(0);
+  });
+
+  it('shows "Link ready" message when clipboard write fails', async () => {
+    localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
+    seedDeck();
+
+    // Clipboard API throws (simulates iOS behaviour)
+    Object.assign(navigator, {
+      clipboard: { writeText: jest.fn().mockRejectedValue(new Error('Not allowed')) },
+    });
+
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'paste-abc123' }),
+    });
+    global.fetch = mockFetch;
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(getShareButton());
+    });
+
+    await act(async () => {});
+
+    // Should show "Link ready" hint, not "Copied!"
+    expect(screen.queryByText('Copied!')).toBeNull();
+    expect(screen.getAllByText(/Link ready/i).length).toBeGreaterThan(0);
+  });
+
+  it('fetches deck content from dpaste when ?share= param is in URL', async () => {
+    const tsvContent = 'Deck:\n1\tEnterprise-D';
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () => tsvContent,
+    });
+
+    // Set window.location so the component picks up ?share=TESTID
+    // (the component reads window.location.search directly)
+    delete (window as any).location;
+    (window as any).location = new URL('http://localhost/decks?share=TESTID');
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    await act(async () => {});
+
+    const dpasteCalls = (global.fetch as jest.Mock).mock.calls.filter(
+      ([url]: [string]) => url === 'https://dpaste.com/TESTID.txt'
+    );
+    expect(dpasteCalls.length).toBe(1);
+
+    // Reset location
+    delete (window as any).location;
+    (window as any).location = new URL('http://localhost/decks');
   });
 });
