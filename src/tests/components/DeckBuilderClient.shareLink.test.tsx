@@ -166,7 +166,7 @@ describe('DeckBuilderClient – share link', () => {
     expect(shareCalls.length).toBe(0);
   });
 
-  it('shows "Link ready" message when clipboard write fails', async () => {
+  it('does not show "Copied!" when clipboard write fails, but still shows the URL input', async () => {
     localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
     seedDeck();
 
@@ -191,12 +191,13 @@ describe('DeckBuilderClient – share link', () => {
 
     await act(async () => {});
 
-    // Should show "Link ready" hint, not "Copied!"
+    // Should NOT show "Copied!" when clipboard fails
     expect(screen.queryByText('Copied!')).toBeNull();
-    expect(screen.getAllByText(/Link ready/i).length).toBeGreaterThan(0);
+    // URL input should be present for manual copy
+    expect(screen.getAllByDisplayValue(/http.*share=paste-abc123/i).length).toBeGreaterThan(0);
   });
 
-  it('fetches deck content from dpaste when ?share= param is in URL', async () => {
+  it('fetches deck content via /api/share proxy when ?share= param is in URL', async () => {
     const tsvContent = 'Deck:\n1\tEnterprise-D';
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -214,10 +215,17 @@ describe('DeckBuilderClient – share link', () => {
 
     await act(async () => {});
 
-    const dpasteCalls = (global.fetch as jest.Mock).mock.calls.filter(
+    // Should call the server-side proxy, not dpaste.com directly (avoids CORS)
+    const proxyCalls = (global.fetch as jest.Mock).mock.calls.filter(
+      ([url]: [string]) => url === '/api/share?id=TESTID'
+    );
+    expect(proxyCalls.length).toBe(1);
+
+    // Should NOT call dpaste.com directly from the browser
+    const directDpasteCalls = (global.fetch as jest.Mock).mock.calls.filter(
       ([url]: [string]) => url === 'https://dpaste.com/TESTID.txt'
     );
-    expect(dpasteCalls.length).toBe(1);
+    expect(directDpasteCalls.length).toBe(0);
 
     // Reset location
     delete (window as any).location;

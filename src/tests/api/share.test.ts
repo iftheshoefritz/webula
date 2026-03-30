@@ -2,10 +2,52 @@
  * @jest-environment node
  */
 
-import { POST } from '../../app/api/share/route';
+import { GET, POST } from '../../app/api/share/route';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+describe('GET /api/share', () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it('fetches paste content from dpaste and returns it as plain text', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => 'Deck:\n1\tPicard\n',
+    });
+
+    const req = new Request('http://localhost/api/share?id=ABC123');
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toBe('Deck:\n1\tPicard\n');
+    expect(mockFetch).toHaveBeenCalledWith('https://dpaste.com/ABC123.txt');
+  });
+
+  it('returns 400 when id param is missing', async () => {
+    const req = new Request('http://localhost/api/share');
+    const res = await GET(req);
+    expect(res.status).toBe(400);
+  });
+
+  it('propagates non-ok status from dpaste', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+
+    const req = new Request('http://localhost/api/share?id=NOTEXIST');
+    const res = await GET(req);
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 500 on unexpected errors', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+    const req = new Request('http://localhost/api/share?id=ABC123');
+    const res = await GET(req);
+    expect(res.status).toBe(500);
+  });
+});
 
 describe('POST /api/share', () => {
   beforeEach(() => {
