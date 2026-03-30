@@ -7,6 +7,7 @@ export async function POST(req: Request) {
     body.set('title', title || 'Webula deck');
     body.set('syntax', 'text');
     body.set('expiry_days', '30');
+    body.set('format', 'url');
 
     const res = await fetch('https://dpaste.com/api/v2/', {
       method: 'POST',
@@ -23,9 +24,9 @@ export async function POST(req: Request) {
       });
     }
 
-    const json = await res.json();
-    // json.link looks like "https://dpaste.com/ABCDE"
-    const id = (json.link as string).split('/').filter(Boolean).pop();
+    // format=url returns the paste URL as plain text, e.g. "https://dpaste.com/ABCDE\n"
+    const pasteUrl = (await res.text()).trim();
+    const id = pasteUrl.split('/').filter(Boolean).pop();
 
     return new Response(JSON.stringify({ id }), {
       status: 200,
