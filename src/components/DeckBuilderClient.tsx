@@ -250,11 +250,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         }
       }
 
-      const gistId = params.get('gist');
-      if (gistId) {
+      const shareId = params.get('share');
+      if (shareId) {
         window.history.replaceState({}, '', '/decks');
         try {
-          const pasteResponse = await fetch(`https://dpaste.com/${gistId}.txt`);
+          const pasteResponse = await fetch(`https://dpaste.com/${shareId}.txt`);
           const content = await pasteResponse.text();
           handleFileLoad('shared-deck.txt', content);
         } catch {
@@ -497,14 +497,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setShareUrl(null);
     try {
       const tsv = createLackeyTSV();
-      const res = await fetch('/api/gist', {
+      const res = await fetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: tsv, title: deckTitle }),
       });
-      if (!res.ok) throw new Error('Gist creation failed');
+      if (!res.ok) throw new Error('Share failed');
       const json = await res.json();
-      const url = `${window.location.origin}/decks?gist=${json.id}`;
+      const url = `${window.location.origin}/decks?share=${json.id}`;
       setShareUrl(url);
       try {
         await navigator.clipboard.writeText(url);
