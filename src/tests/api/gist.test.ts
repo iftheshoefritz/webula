@@ -8,33 +8,14 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 describe('POST /api/gist', () => {
-  const originalEnv = process.env;
-
   beforeEach(() => {
     jest.resetAllMocks();
-    process.env = { ...originalEnv, GITHUB_TOKEN: 'test-token' };
   });
 
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  it('returns 500 when GITHUB_TOKEN is not set', async () => {
-    delete process.env.GITHUB_TOKEN;
-    const req = new Request('http://localhost/api/gist', {
-      method: 'POST',
-      body: JSON.stringify({ content: 'Deck:\n1\tPicard', title: 'My Deck' }),
-    });
-    const res = await POST(req);
-    expect(res.status).toBe(500);
-    const body = await res.json();
-    expect(body.error).toMatch(/token not configured/i);
-  });
-
-  it('calls GitHub API with Authorization header and returns the gist id', async () => {
+  it('calls dpaste.com API and returns the paste id', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ id: 'abc123' }),
+      json: async () => ({ link: 'https://dpaste.com/ABC123' }),
     });
 
     const req = new Request('http://localhost/api/gist', {
@@ -44,24 +25,22 @@ describe('POST /api/gist', () => {
     const res = await POST(req);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.id).toBe('abc123');
+    expect(body.id).toBe('ABC123');
 
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.github.com/gists',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          Authorization: 'Bearer test-token',
-        }),
-      })
+      'https://dpaste.com/api/v2/',
+      expect.objectContaining({ method: 'POST' })
     );
+    // No Authorization header — no token required
+    const [, opts] = mockFetch.mock.calls[0];
+    expect((opts.headers as Record<string, string>)?.Authorization).toBeUndefined();
   });
 
-  it('returns error status when GitHub API fails', async () => {
+  it('returns error status when dpaste API fails', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
-      status: 403,
-      text: async () => 'Forbidden',
+      status: 503,
+      text: async () => 'Service Unavailable',
     });
 
     const req = new Request('http://localhost/api/gist', {
@@ -69,8 +48,19 @@ describe('POST /api/gist', () => {
       body: JSON.stringify({ content: 'Deck:\n1\tPicard', title: 'My Deck' }),
     });
     const res = await POST(req);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(503);
     const body = await res.json();
-    expect(body.error).toBe('Gist creation failed');
+    expect(body.error).toBe('Paste creation failed');
+  });
+
+  it('returns 500 on unexpected errors', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+    const req = new Request('http://localhost/api/gist', {
+      method: 'POST',
+      body: JSON.stringify({ content: 'Deck:\n1\tPicard', title: 'My Deck' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(500);
   });
 });
