@@ -217,7 +217,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [saveError, setSaveError] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isDirty, setIsDirty] = useState(false);
-  const [shareState, setShareState] = useState<'idle' | 'copying' | 'copied' | 'url-ready' | 'error'>('idle');
+  const [shareState, setShareState] = useState<'idle' | 'copying' | 'copied' | 'error'>('idle');
   const [pendingShareContent, setPendingShareContent] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -255,7 +255,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       if (shareId) {
         window.history.replaceState({}, '', '/decks');
         try {
-          const pasteResponse = await fetch(`https://dpaste.com/${shareId}.txt`);
+          const pasteResponse = await fetch(`/api/share?id=${shareId}`);
           const content = await pasteResponse.text();
           setPendingShareContent(content);
         } catch {
@@ -524,8 +524,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         await navigator.clipboard.writeText(url);
         setShareState('copied');
       } catch {
-        // Clipboard API unavailable (common on iOS after async) — show URL for manual copy
-        setShareState('url-ready');
+        // Clipboard API unavailable (common on iOS after async) — URL input is shown for manual copy
+        setShareState('idle');
       }
       setTimeout(() => { setShareState('idle'); setShareUrl(null); }, 15000);
     } catch {
@@ -855,7 +855,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     disabled={shareState === 'copying'}
                   >
                     {shareState === 'copying' ? <FaSpinner className="shrink-0 animate-spin" /> : <FaShareAlt className="shrink-0" />}
-                    <span>{shareState === 'copying' ? 'Creating...' : shareState === 'copied' ? 'Copied!' : shareState === 'url-ready' ? 'Link ready — copy above' : shareState === 'error' ? (shareError ?? 'Share failed') : 'Copy share link'}</span>
+                    <span>{shareState === 'copying' ? 'Creating...' : shareState === 'copied' ? 'Copied!' : shareState === 'error' ? (shareError ?? 'Share failed') : 'Copy share link'}</span>
                   </button>
                   {shareUrl && (
                     <div className="px-4 py-2">
@@ -929,9 +929,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             </button>
             {shareState === 'copied' && (
               <span className="text-sm text-green-400 font-medium">Copied!</span>
-            )}
-            {shareState === 'url-ready' && (
-              <span className="text-sm text-yellow-400 font-medium">Link ready — copy below</span>
             )}
             {shareUrl && (
               <input
@@ -1113,7 +1110,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 </button>
                 {savedRecently && <span className="text-sm text-green-400 font-medium">Saved!</span>}
                 {shareState === 'copied' && <span className="text-sm text-green-400 font-medium">Copied!</span>}
-                {shareState === 'url-ready' && <span className="text-sm text-yellow-400 font-medium">Link ready — copy below</span>}
                 {saveError && <span className="text-sm text-red-400 font-medium">{saveError}</span>}
                 {shareState === 'error' && shareError && <span className="text-sm text-red-400 font-medium">{shareError}</span>}
               </div>
