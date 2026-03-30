@@ -74,12 +74,12 @@ describe('DeckBuilderClient – share link', () => {
     });
   });
 
-  it('calls /api/gist (not GitHub directly) when share button is clicked', async () => {
+  it('calls /api/share when share button is clicked', async () => {
     localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
 
     const mockFetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ id: 'gist-abc123' }),
+      json: async () => ({ id: 'paste-abc123' }),
     });
     global.fetch = mockFetch;
 
@@ -94,18 +94,14 @@ describe('DeckBuilderClient – share link', () => {
     // Allow async shareDeck to complete
     await act(async () => {});
 
-    const gistCalls = mockFetch.mock.calls.filter(
-      ([url]: [string]) => url === '/api/gist'
-    );
-    const directGitHubCalls = mockFetch.mock.calls.filter(
-      ([url]: [string]) => typeof url === 'string' && url.includes('api.github.com/gists')
+    const shareCalls = mockFetch.mock.calls.filter(
+      ([url]: [string]) => url === '/api/share'
     );
 
-    expect(gistCalls.length).toBe(1);
-    expect(directGitHubCalls.length).toBe(0);
+    expect(shareCalls.length).toBe(1);
   });
 
-  it('shows "Share failed" when /api/gist returns an error', async () => {
+  it('shows "Share failed" when /api/share returns an error', async () => {
     localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
 
     const mockFetch = jest.fn().mockResolvedValue({

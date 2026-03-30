@@ -2,12 +2,12 @@
  * @jest-environment node
  */
 
-import { POST } from '../../app/api/gist/route';
+import { POST } from '../../app/api/share/route';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-describe('POST /api/gist', () => {
+describe('POST /api/share', () => {
   beforeEach(() => {
     jest.resetAllMocks();
   });
@@ -18,7 +18,7 @@ describe('POST /api/gist', () => {
       json: async () => ({ link: 'https://dpaste.com/ABC123' }),
     });
 
-    const req = new Request('http://localhost/api/gist', {
+    const req = new Request('http://localhost/api/share', {
       method: 'POST',
       body: JSON.stringify({ content: 'Deck:\n1\tPicard', title: 'My Deck' }),
     });
@@ -43,7 +43,7 @@ describe('POST /api/gist', () => {
       text: async () => 'Service Unavailable',
     });
 
-    const req = new Request('http://localhost/api/gist', {
+    const req = new Request('http://localhost/api/share', {
       method: 'POST',
       body: JSON.stringify({ content: 'Deck:\n1\tPicard', title: 'My Deck' }),
     });
@@ -56,7 +56,7 @@ describe('POST /api/gist', () => {
   it('returns 500 on unexpected errors', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-    const req = new Request('http://localhost/api/gist', {
+    const req = new Request('http://localhost/api/share', {
       method: 'POST',
       body: JSON.stringify({ content: 'Deck:\n1\tPicard', title: 'My Deck' }),
     });
