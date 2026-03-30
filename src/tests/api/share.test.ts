@@ -15,7 +15,7 @@ describe('POST /api/share', () => {
   it('calls dpaste.com API and returns the paste id', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ link: 'https://dpaste.com/ABC123' }),
+      text: async () => 'https://dpaste.com/ABC123\n',
     });
 
     const req = new Request('http://localhost/api/share', {
