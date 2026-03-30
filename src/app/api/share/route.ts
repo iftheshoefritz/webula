@@ -1,3 +1,34 @@
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  if (!id) {
+    return new Response(JSON.stringify({ error: 'Missing id' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  try {
+    const res = await fetch(`https://dpaste.com/${id}.txt`);
+    if (!res.ok) {
+      return new Response(JSON.stringify({ error: 'Paste not found' }), {
+        status: res.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    const content = await res.text();
+    return new Response(content, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  } catch (error) {
+    console.error('Paste fetch error:', error);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { content, title } = await req.json();
