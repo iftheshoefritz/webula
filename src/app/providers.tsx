@@ -7,6 +7,14 @@ import PostHogPageView from '../components/PostHogPageView';
 
 function PostHogInit({ children }: { children: React.ReactNode }) {
   useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      posthog.captureException(event.reason);
+    };
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    return () => window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+  }, []);
+
+  useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
     if (!key) return;
