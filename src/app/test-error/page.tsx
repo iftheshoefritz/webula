@@ -1,7 +1,7 @@
 "use client";
-import { useState } from 'react';
+import React, { useState } from 'react';
 
-function BrokenComponent() {
+function BrokenComponent(): React.ReactNode {
   throw new Error('Intentional client-side test error');
 }
 
