@@ -220,6 +220,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [isDirty, setIsDirty] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'copying' | 'copied' | 'error'>('idle');
   const [pendingShareContent, setPendingShareContent] = useState<string | null>(null);
+  const [pendingShareWarning, setPendingShareWarning] = useState<boolean>(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const isFirstRender = useRef(true);
@@ -273,8 +274,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
   useEffect(() => {
     if (!pendingShareContent || data.length === 0) return;
-    handleFileLoad('shared-deck.txt', pendingShareContent);
-    setPendingShareContent(null);
+    const deckIsEmpty = Object.values(currentDeck).every(pile => (pile as unknown[]).length === 0);
+    if (deckIsEmpty) {
+      handleFileLoad('shared-deck.txt', pendingShareContent);
+      setPendingShareContent(null);
+    } else {
+      setPendingShareWarning(true);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingShareContent, data]);
 
@@ -1441,6 +1447,31 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           <span>Deck{isDirty && <span className="text-yellow-400 font-bold"> *</span>}</span>
         </button>
       </div>
+
+      {pendingShareWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h2 className="text-lg font-semibold text-white mb-3">A shared deck is ready to load</h2>
+            <p className="text-gray-300 text-sm mb-6">
+              Loading this deck will replace your current deck in the browser. Save to Google Drive or export your deck first if you want to keep it.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm"
+                onClick={() => { setPendingShareWarning(false); setPendingShareContent(null); }}
+              >
+                Go back to my previous deck to save
+              </button>
+              <button
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm"
+                onClick={() => { handleFileLoad('shared-deck.txt', pendingShareContent!); setPendingShareContent(null); setPendingShareWarning(false); }}
+              >
+                I&apos;m ready to load this awesome shared deck
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDrivePicker && (
         <DrivePickerModal
