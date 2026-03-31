@@ -12,6 +12,8 @@ export function PreviewBanner({ isPreview }: PreviewBannerProps) {
       <a href="/decks?fixture=1" className="text-blue-700 underline hover:text-blue-900">/decks?fixture=1</a>
       <a href="/api/auth/signin" className="text-blue-700 underline hover:text-blue-900">/api/auth/signin</a>
       <a href="/api/auth/signout" className="text-blue-700 underline hover:text-blue-900">/api/auth/signout</a>
+      <a href="/test-error" className="text-blue-700 underline hover:text-blue-900">/test-error</a>
+      <a href="/test-error?trigger=client" className="text-blue-700 underline hover:text-blue-900">/test-error?trigger=client</a>
     </div>
   );
 }
