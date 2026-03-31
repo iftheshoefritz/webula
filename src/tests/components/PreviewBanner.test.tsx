@@ -10,6 +10,8 @@ describe('PreviewBanner', () => {
     expect(screen.getByRole('link', { name: '/decks?fixture=1' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '/api/auth/signin' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '/api/auth/signout' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '/test-error' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '/test-error?trigger=client' })).toBeInTheDocument();
   });
 
   it('does not show the banner when isPreview is false', () => {
