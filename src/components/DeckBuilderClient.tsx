@@ -512,22 +512,45 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setShareUrl(null);
     try {
       const tsv = createLackeyTSV();
-      const res = await fetch('/api/share', {
+      // Build the URL as a promise so we can pass it to ClipboardItem synchronously
+      // (preserves the user gesture context on iOS Safari, where writeText fails after async)
+      const urlPromise = fetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: tsv, title: deckTitle }),
-      });
-      if (!res.ok) throw new Error('Share failed');
-      const json = await res.json();
-      const url = `${window.location.origin}/decks?share=${json.id}`;
-      setShareUrl(url);
-      try {
-        await navigator.clipboard.writeText(url);
-        setShareState('copied');
-      } catch {
-        // Clipboard API unavailable (common on iOS after async) — URL input is shown for manual copy
-        setShareState('idle');
+      }).then(res => {
+        if (!res.ok) throw new Error('Share failed');
+        return res.json();
+      }).then((json: { id: string }) => `${window.location.origin}/decks?share=${json.id}`);
+
+      let copied = false;
+      // ClipboardItem with a Promise preserves the user gesture on iOS Safari
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'text/plain': urlPromise.then(url => new Blob([url], { type: 'text/plain' })),
+            }),
+          ]);
+          copied = true;
+        } catch {
+          // Clipboard write failed — fall through to writeText fallback
+        }
       }
+
+      const url = await urlPromise;
+      setShareUrl(url);
+
+      if (!copied) {
+        try {
+          await navigator.clipboard.writeText(url);
+          copied = true;
+        } catch {
+          // Clipboard unavailable — URL input is shown for manual copy
+        }
+      }
+
+      setShareState(copied ? 'copied' : 'idle');
       setTimeout(() => { setShareState('idle'); setShareUrl(null); }, 15000);
     } catch {
       setShareState('error');

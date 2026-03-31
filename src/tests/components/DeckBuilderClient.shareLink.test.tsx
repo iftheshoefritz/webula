@@ -87,8 +87,13 @@ describe('DeckBuilderClient – share link', () => {
     jest.clearAllMocks();
     localStorage.clear();
     mockSearchParamsValue = new URLSearchParams();
+    // Default: ClipboardItem not available (simulates environments without it)
+    delete (global as any).ClipboardItem;
     Object.assign(navigator, {
-      clipboard: { writeText: jest.fn().mockResolvedValue(undefined) },
+      clipboard: {
+        writeText: jest.fn().mockResolvedValue(undefined),
+        write: jest.fn().mockResolvedValue(undefined),
+      },
     });
   });
 
@@ -164,6 +169,77 @@ describe('DeckBuilderClient – share link', () => {
       ([url]: [string]) => url === '/api/share'
     );
     expect(shareCalls.length).toBe(0);
+  });
+
+  it('shows "Copied!" when /api/share succeeds and clipboard write succeeds', async () => {
+    localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
+    seedDeck();
+
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'paste-abc123' }),
+    });
+    global.fetch = mockFetch;
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(getShareButton());
+    });
+
+    await act(async () => {});
+
+    expect(screen.getAllByText('Copied!').length).toBeGreaterThan(0);
+  });
+
+  it('uses ClipboardItem with a Promise when available (preserves iOS user gesture)', async () => {
+    localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
+    seedDeck();
+
+    // Mock ClipboardItem to simulate iOS Safari support
+    class MockClipboardItem {
+      data: Record<string, Promise<Blob>>;
+      constructor(data: Record<string, Promise<Blob>>) { this.data = data; }
+    }
+    (global as any).ClipboardItem = MockClipboardItem;
+
+    let resolvedBlob: Blob | null = null;
+    Object.assign(navigator, {
+      clipboard: {
+        write: jest.fn().mockImplementation(async (items: MockClipboardItem[]) => {
+          resolvedBlob = await items[0].data['text/plain'];
+        }),
+        writeText: jest.fn(),
+      },
+    });
+
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'paste-ios123' }),
+    });
+    global.fetch = mockFetch;
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(getShareButton());
+    });
+
+    await act(async () => {});
+
+    // clipboard.write (ClipboardItem path) should have been called
+    expect((navigator.clipboard as any).write).toHaveBeenCalled();
+    // The resolved value should be a Blob
+    expect(resolvedBlob).not.toBeNull();
+    expect(resolvedBlob).toBeInstanceOf(Blob);
+    // clipboard.writeText should NOT have been called (ClipboardItem path succeeded)
+    expect((navigator.clipboard as any).writeText).not.toHaveBeenCalled();
+    // "Copied!" shown
+    expect(screen.getAllByText('Copied!').length).toBeGreaterThan(0);
   });
 
   it('does not show "Copied!" when clipboard write fails, but still shows the URL input', async () => {
