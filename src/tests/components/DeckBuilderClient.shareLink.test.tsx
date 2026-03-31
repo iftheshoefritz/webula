@@ -80,6 +80,21 @@ function seedDeck() {
   localStorage.setItem('currentDeck', JSON.stringify(deck));
 }
 
+/** Minimal card data satisfying CardDef so the share useEffect can proceed. */
+const MINIMAL_CARD_DATA = [
+  {
+    collectorsinfo: 'test-card-1',
+    name: 'Test Card',
+    originalName: 'Test Card',
+    imagefile: 'test',
+    type: 'Personnel',
+    count: 1,
+    dilemmatype: '',
+    missiontype: '' as const,
+    unique: 'n' as const,
+  },
+];
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('DeckBuilderClient – share link', () => {
@@ -302,6 +317,99 @@ describe('DeckBuilderClient – share link', () => {
       ([url]: [string]) => url === 'https://dpaste.com/TESTID.txt'
     );
     expect(directDpasteCalls.length).toBe(0);
+
+    // Reset location
+    delete (window as any).location;
+    (window as any).location = new URL('http://localhost/decks');
+  });
+
+  it('shows warning modal when a non-empty deck exists and ?share= param is in URL', async () => {
+    seedDeck();
+
+    const tsvContent = 'Deck:\n1\tEnterprise-D';
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () => tsvContent,
+    });
+
+    delete (window as any).location;
+    (window as any).location = new URL('http://localhost/decks?share=TESTID');
+
+    await act(async () => {
+      render(<DeckBuilderClient data={MINIMAL_CARD_DATA} columns={[]} />);
+    });
+
+    await act(async () => {});
+
+    expect(screen.getByText('A shared deck is ready to load')).toBeInTheDocument();
+    expect(screen.getByText('Go back to my previous deck to save')).toBeInTheDocument();
+    expect(screen.getByText("I'm ready to load this awesome shared deck")).toBeInTheDocument();
+
+    // Reset location
+    delete (window as any).location;
+    (window as any).location = new URL('http://localhost/decks');
+  });
+
+  it('dismisses warning modal without loading deck when "Go back" is clicked', async () => {
+    seedDeck();
+
+    const tsvContent = 'Deck:\n1\tEnterprise-D';
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () => tsvContent,
+    });
+
+    delete (window as any).location;
+    (window as any).location = new URL('http://localhost/decks?share=TESTID');
+
+    await act(async () => {
+      render(<DeckBuilderClient data={MINIMAL_CARD_DATA} columns={[]} />);
+    });
+
+    await act(async () => {});
+
+    // Warning modal should be visible
+    expect(screen.getByText('A shared deck is ready to load')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Go back to my previous deck to save'));
+    });
+
+    // Modal should be gone
+    expect(screen.queryByText('A shared deck is ready to load')).toBeNull();
+
+    // Reset location
+    delete (window as any).location;
+    (window as any).location = new URL('http://localhost/decks');
+  });
+
+  it('loads shared deck when "I\'m ready" is clicked in the warning modal', async () => {
+    seedDeck();
+
+    const tsvContent = 'Deck Title\ttitle\nDeck:\n1\tEnterprise-D';
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () => tsvContent,
+    });
+
+    delete (window as any).location;
+    (window as any).location = new URL('http://localhost/decks?share=TESTID');
+
+    await act(async () => {
+      render(<DeckBuilderClient data={MINIMAL_CARD_DATA} columns={[]} />);
+    });
+
+    await act(async () => {});
+
+    // Warning modal should be visible
+    expect(screen.getByText('A shared deck is ready to load')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("I'm ready to load this awesome shared deck"));
+    });
+
+    // Modal should be gone after confirming
+    expect(screen.queryByText('A shared deck is ready to load')).toBeNull();
 
     // Reset location
     delete (window as any).location;
