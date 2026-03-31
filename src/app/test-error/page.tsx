@@ -1,12 +1,16 @@
 "use client";
 import React, { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 function BrokenComponent(): React.ReactNode {
   throw new Error('Intentional client-side test error');
 }
 
 export default function TestErrorPage() {
-  const [triggerClientError, setTriggerClientError] = useState(false);
+  const searchParams = useSearchParams();
+  const [triggerClientError, setTriggerClientError] = useState(
+    searchParams.get('trigger') === 'client'
+  );
   const [serverResult, setServerResult] = useState<string | null>(null);
   const [serverLoading, setServerLoading] = useState(false);
 
