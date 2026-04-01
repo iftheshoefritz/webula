@@ -274,7 +274,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
   useEffect(() => {
     if (!pendingShareContent || data.length === 0) return;
-    const deckIsEmpty = Object.values(currentDeck).every(pile => (pile as unknown[]).length === 0);
+    const deckIsEmpty = Object.keys(currentDeck).length === 0;
     if (deckIsEmpty) {
       handleFileLoad('shared-deck.txt', pendingShareContent);
       setPendingShareContent(null);
