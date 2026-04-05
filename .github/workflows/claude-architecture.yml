@@ -28,7 +28,15 @@ jobs:
           prompt: |
             GitHub issue #${{ github.event.issue.number }} ("${{ github.event.issue.title }}") has been labeled "architecture-discussion" and requires a thorough architectural analysis of the codebase.
 
-            Review issue #${{ github.event.issue.number }}, its body, and all existing comments carefully. Identify every unanswered question and every piece of unspecified or speculative conjecture (e.g. "I think...", "maybe...", "it might be...", "not sure if..."). Then:
+            Review issue #${{ github.event.issue.number }}, its body, and all existing comments carefully.
+
+            If the issue body or comments contain external URLs, fetch their content using agent-browser
+            before proceeding — this is essential for questions that reference external documentation
+            or live deployments:
+              npx agent-browser open <url>
+              npx agent-browser get text
+
+            Identify every unanswered question and every piece of unspecified or speculative conjecture (e.g. "I think...", "maybe...", "it might be...", "not sure if..."). Then:
 
             1. For each unanswered question, investigate the actual codebase to find a concrete answer.
                Reference specific file paths and line numbers where relevant.
