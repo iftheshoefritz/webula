@@ -148,8 +148,6 @@ function MissionBranchSelector({
   selected: number | null;
   onChange: (index: number | null) => void;
 }) {
-  if (!parsed.orBranches) return null;
-
   const branchLabel = (branch: Record<string, number>) => {
     const combined = { ...parsed.mandatory, ...branch };
     return Object.keys(combined)
@@ -170,7 +168,7 @@ function MissionBranchSelector({
       >
         All
       </button>
-      {parsed.orBranches.map((branch, i) => (
+      {parsed.orBranches?.map((branch, i) => (
         <button
           key={i}
           className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
