@@ -73,7 +73,7 @@ describe('DeckBuilderClient – MissionBranchSelector', () => {
     mockSearchParamsValue = new URLSearchParams();
   });
 
-  it('does not render a branch selector for a mission with no OR skills', async () => {
+  it('renders "All" and "None" pills for a mission with no OR skills', async () => {
     const m = makeMission('1U001', 'Mission Alpha', 'Physics, Treachery');
     localStorage.setItem('currentDeck', JSON.stringify({ '1U001': { count: 1, row: m } }));
 
@@ -81,7 +81,13 @@ describe('DeckBuilderClient – MissionBranchSelector', () => {
       render(<DeckBuilderClient data={[m] as any} columns={[]} />);
     });
 
-    expect(screen.queryByTestId('branch-selector-Mission Alpha')).toBeNull();
+    const selectors = screen.getAllByTestId('branch-selector-Mission Alpha');
+    expect(selectors.length).toBeGreaterThanOrEqual(1);
+    const first = selectors[0];
+    expect(within(first).getByRole('button', { name: 'All' })).toBeInTheDocument();
+    expect(within(first).getByRole('button', { name: 'None' })).toBeInTheDocument();
+    // No branch-specific buttons — only All and None
+    expect(within(first).getAllByRole('button')).toHaveLength(2);
   });
 
   it('renders "All", one button per OR branch (including mandatory skills), and "None"', async () => {
