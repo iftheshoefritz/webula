@@ -150,10 +150,12 @@ function MissionBranchSelector({
 }) {
   if (!parsed.orBranches) return null;
 
-  const branchLabel = (branch: Record<string, number>) =>
-    Object.keys(branch)
+  const branchLabel = (branch: Record<string, number>) => {
+    const combined = { ...parsed.mandatory, ...branch };
+    return Object.keys(combined)
       .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-      .join(' + ');
+      .join(', ');
+  };
 
   return (
     <div className="mt-2 flex flex-wrap gap-1 justify-center" data-testid={`branch-selector-${missionName}`}>
@@ -182,6 +184,17 @@ function MissionBranchSelector({
           {branchLabel(branch)}
         </button>
       ))}
+      <button
+        className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+          selected === -1
+            ? 'bg-amber-500 border-amber-500 text-black font-semibold'
+            : 'border-border text-text-secondary hover:border-amber-400 hover:text-amber-300'
+        }`}
+        onClick={() => onChange(-1)}
+        aria-pressed={selected === -1}
+      >
+        None
+      </button>
     </div>
   );
 }
@@ -577,12 +590,16 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       .filter((row) => row.pile === 'mission')
       .forEach((row) => {
         const parsed = parseMissionRequirements(row.skills || '');
+        const selectedIndex = missionBranchSelections[row.name] ?? null;
+
+        // "None" (-1) means ignore this mission entirely for skill requirements
+        if (selectedIndex === -1) return;
+
         // Always include mandatory skills (common to every branch)
         Object.entries(parsed.mandatory).forEach(([skill, n]) => {
           totals[skill] = (totals[skill] || 0) + n;
         });
         if (parsed.orBranches) {
-          const selectedIndex = missionBranchSelections[row.name] ?? null;
           const branches =
             selectedIndex !== null ? [parsed.orBranches[selectedIndex]] : parsed.orBranches;
           // Union across all included branches (conservative when no selection)
