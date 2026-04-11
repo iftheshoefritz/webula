@@ -24,9 +24,9 @@ async function tokenDecode(req): Promise<{ accessToken: string; accessTokenExpir
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = params.id
+  const id = (await params).id
 
   let tokenDetails = await tokenDecode(request);
   if (!tokenDetails) {
@@ -78,9 +78,9 @@ export async function GET(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = params.id
+  const id = (await params).id
   console.log('file id to delete', id)
   console.log('parms', params)
 
@@ -133,9 +133,9 @@ export async function DELETE(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = params.id
+  const id = (await params).id
 
   let tokenDetails = await tokenDecode(request);
   if (!tokenDetails) {
