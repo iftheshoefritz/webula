@@ -1864,6 +1864,11 @@
   dependencies:
     cross-spawn "^7.0.6"
 
+"@posthog/core@1.25.2":
+  version "1.25.2"
+  resolved "https://registry.yarnpkg.com/@posthog/core/-/core-1.25.2.tgz#94a7b7ae44739fa945eaf688126f9af3435473d7"
+  integrity sha512-h2FO7ut/BbfwpAXWpwdDHTzQgUo9ibDFEs6ZO+3cI3KPWQt5XwczK1OLAuPprcjm8T/jl0SH8jSFo5XdU4RbTg==
+
 "@posthog/types@1.362.0":
   version "1.362.0"
   resolved "https://registry.yarnpkg.com/@posthog/types/-/types-1.362.0.tgz#024d2560e5dacae01e4c4eff63d7287704c04432"
@@ -6375,6 +6380,13 @@ posthog-js@^1.362.0:
     preact "^10.28.2"
     query-selector-shadow-dom "^1.0.1"
     web-vitals "^5.1.0"
+
+posthog-node@^5.29.2:
+  version "5.29.2"
+  resolved "https://registry.yarnpkg.com/posthog-node/-/posthog-node-5.29.2.tgz#081394948c1c7dd9b13f2838d31b09585da4802c"
+  integrity sha512-rI7kkF0XqDc0G1qjx+Hb4iuY9NAlL+XQNoGOpnEpRNTUcXvjY6WlsRGZ9m2whgc39emrrYdszi/YT8wZkr2xsg==
+  dependencies:
+    "@posthog/core" "1.25.2"
 
 preact-render-to-string@^5.1.19:
   version "5.2.6"
