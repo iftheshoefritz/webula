@@ -11,6 +11,7 @@ import { DrivePickerModal } from './DrivePickerModal';
 import PileAggregate from './PileAggregate';
 import IconPill from './IconPill';
 import PileAggregateCostChart from './PileAggregateCostChart';
+import PileAggregateAttributeChart from './PileAggregateAttributeChart';
 import BarChart from './BarChart';
 import SkillsChart from './SkillsChart';
 import type { HqOption } from './SkillsChart';
@@ -240,6 +241,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     'Keywords': true,
     'Icons': true,
     'Costs': true,
+    'Attributes': true,
   });
   const [driveFiles, setDriveFiles] = useState([]);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
@@ -1417,6 +1419,21 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Dilemma Pile</span>
                 <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'dilemma'} />
               </div>
+            </div>
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Attributes" isCollapsed={analysisCollapsed['Attributes'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Attributes': !(prev['Attributes'] ?? true) }))}>
+            <div className="flex flex-col lg:flex-row">
+              {(['integrity', 'cunning', 'strength'] as const).map((attr) => (
+                <div key={attr} className="w-full lg:w-1/3">
+                  <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary capitalize">{attr}</span>
+                  <PileAggregateAttributeChart
+                    currentDeckRows={currentDeckRows}
+                    filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+                    attribute={attr}
+                  />
+                </div>
+              ))}
             </div>
           </CollapsibleSection>
 
