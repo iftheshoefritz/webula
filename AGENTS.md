@@ -86,6 +86,8 @@ All PRs from automated agents MUST include:
 - A `## Visual Verification` section in the PR body describing which pages were visited and what was confirmed
 - If the dev server or browser fails, a `## Dev Server Issues` section with the full error output (do NOT skip or omit this step)
 
+When verifying changes to the deck builder (`/decks`), always visit `/decks?fixture=1` — this loads a pre-populated fixture deck (see `src/lib/practiceDeck.ts` and the fixture handling in `src/components/DeckBuilderClient.tsx`) so you can verify UI that depends on cards being present (analysis tabs, card lists, mission selectors, charts, etc.). Visiting `/decks` alone shows only the empty state. The fixture URL bypasses authentication and localStorage, so no login or saved deck is required.
+
 ## Fixing bugs
 When asked to fix a bug do your best to write a test that fails without the bug fix. Weigh up the cost and brittleness of writing the test and comment in the PR with the circumstances that made you feel like you couldn't write a useful test. 
 
