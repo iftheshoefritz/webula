@@ -33,6 +33,18 @@ describe('extractTextPortion / extractFieldPortion helpers', () => {
   });
 });
 
+describe('SearchBar accessible name', () => {
+  it('styled variant input is reachable by accessible name', () => {
+    render(<SearchBar searchQuery="" setSearchQuery={jest.fn()} variant="styled" />);
+    expect(screen.getByRole('textbox', { name: /search cards/i })).toBeInTheDocument();
+  });
+
+  it('legacy variant input is reachable by accessible name', () => {
+    render(<SearchBar searchQuery="" setSearchQuery={jest.fn()} variant="legacy" />);
+    expect(screen.getByRole('textbox', { name: /search cards/i })).toBeInTheDocument();
+  });
+});
+
 describe('SearchBar (styled variant)', () => {
   it('shows only the free-text portion when searchQuery contains field filters', () => {
     render(<SearchBar searchQuery="-type:mission -type:dilemma" setSearchQuery={jest.fn()} variant="styled" />);

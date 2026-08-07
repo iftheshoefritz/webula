@@ -87,6 +87,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(
           <input
             ref={ref}
             type="text"
+            aria-label="Search cards"
             placeholder="Search cards..."
             value={localTextQuery}
             onChange={(e) => {
@@ -115,6 +116,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(
           <input
             ref={ref}
             type="text"
+            aria-label="Search cards"
             placeholder="Search cards by name e.g. 'Odo'"
             value={localTextQuery}
             onChange={(e) => {
