@@ -45,5 +45,5 @@ jobs:
             2. Remove the "needs-elaboration" label from issue #${{ github.event.issue.number }}.
 
             Be concise and concrete. Reference specific file paths and function names where applicable.
-          claude_args: "--max-turns 30 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 30 --dangerously-skip-permissions"
           show_full_output: "true"
