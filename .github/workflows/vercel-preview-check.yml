@@ -105,5 +105,5 @@ jobs:
                Use ❌ when no verification section is found or the coverage is clearly inadequate.
 
                If the changed files are infrastructure-only (e.g. only workflow files changed), still post a comment noting that no app routes are affected and therefore no preview links are relevant, and assess the verification section accordingly.
-          claude_args: "--max-turns 30 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 30 --dangerously-skip-permissions"
           show_full_output: "true"

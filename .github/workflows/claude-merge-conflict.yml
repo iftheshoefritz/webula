@@ -63,5 +63,5 @@ jobs:
             7. Leave a comment on PR #${{ github.event.pull_request.number }} summarizing which commits had conflicts and how they were resolved.
 
             Be careful and precise when resolving conflicts. If a conflict is too ambiguous to resolve safely, abort the rebase with `git rebase --abort` and leave a clear comment explaining what needs human review instead of guessing.
-          claude_args: "--max-turns 40 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 40 --dangerously-skip-permissions"
           show_full_output: "true"

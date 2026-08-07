@@ -64,5 +64,5 @@ jobs:
 
             Be precise and cite file paths and function names. Do not speculate — only assert what
             the code actually shows. Reference the AGENTS.md file for project conventions.
-          claude_args: "--max-turns 40 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 40 --dangerously-skip-permissions"
           show_full_output: "true"

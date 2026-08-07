@@ -61,4 +61,4 @@ jobs:
                `gh issue edit ${{ github.event.issue.number }} --body "<new body with outcome prepended>"`
 
             Be concise and factual. Only describe what was actually implemented, not what was planned.
-          claude_args: "--max-turns 20 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 20 --dangerously-skip-permissions"
