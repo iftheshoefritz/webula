@@ -488,6 +488,7 @@ export const SPECIES: string[] = [
   'Rakhari',
   'Ramatin',
   'Reman',
+  'Reptilian',
   'Risan',
   'Romulan',
   'Satarran',
@@ -520,7 +521,6 @@ export const SPECIES: string[] = [
   'Zalkonian',
   'Zibalian',
 ];
-
 // END AUTO-GENERATED
 
 export function missionRequirements(card: { name: string; skills: string }): Record<string, number> {
