@@ -45,7 +45,8 @@ This repository uses label-driven automation to trigger Claude AI workflows.
 
 | Label | Applies to | Workflow file | What Claude does |
 |---|---|---|---|
-| `needs-elaboration` | Issues | `.github/workflows/claude-triage.yml` | Reads the issue, answers open questions, appends an `## Implementation Plan` section, then removes the label |
+| `needs-elaboration` | Issues | `.github/workflows/claude-triage.yml` | Reads the issue, answers open questions as a comment, then removes the label |
+| `needs-plan` | Issues | `.github/workflows/claude-plan.yml` | Investigates the codebase and posts an `## Implementation Plan` comment, then removes the label. Re-applying the label updates the same comment in place |
 | `ready-for-dev` | Issues | `.github/workflows/claude-implement.yml` | Implements the feature/fix, runs tests, visual verification, creates a branch, opens a PR |
 | `architecture-discussion` | Issues | `.github/workflows/claude-architecture.yml` | Deep-dives the codebase, writes an `## Architectural Analysis` section, adds `needs-human-input` label |
 | `agent-review` | Pull Requests | `.github/workflows/agent-review.yml` | Addresses all unresolved review comments (code changes or replies), commits, pushes, removes label |

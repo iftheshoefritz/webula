@@ -1,0 +1,124 @@
+name: Claude Implementation Plan
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  claude-plan:
+    if: github.event.label.name == 'needs-plan'
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+      POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1.0.70
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            GitHub issue #${{ github.event.issue.number }} ("${{ github.event.issue.title }}") has been labeled "needs-plan". Write the implementation plan for it, or bring the existing plan up to date.
+
+            Review issue #${{ github.event.issue.number }}, its body, and all existing comments carefully.
+
+            If the issue body or comments contain external URLs, fetch their content using agent-browser
+            before proceeding — this is essential for questions that reference external documentation
+            or live deployments:
+              npx agent-browser open <url>
+              npx agent-browser get text
+
+            Then investigate this codebase until you actually understand how the change would be made:
+            which modules own the behaviour today, what the data flow is, what already exists that the
+            change should reuse. Reference the AGENTS.md file for project conventions.
+
+            ## First: does a plan already exist?
+
+            Every plan lives in a single issue comment whose first line is the marker
+            `<!-- claude-plan -->`. Find it before writing anything:
+
+              gh api /repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+                --paginate --jq '.[] | select(.body | startswith("<!-- claude-plan -->")) | .id'
+
+            - No id returned: this is the first plan. Write it to /tmp/plan.md and post it:
+                gh api --method POST \
+                  /repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+                  -F body=@/tmp/plan.md
+            - An id returned: a plan already exists. Do NOT post a second comment. Write the full,
+              current plan to /tmp/plan.md and replace that comment's body with it:
+                gh api --method PATCH \
+                  /repos/${{ github.repository }}/issues/comments/<id> -F body=@/tmp/plan.md
+              If more than one marked comment exists, update the oldest and delete the others.
+
+            ## Shape of the comment
+
+            The body is the marker line, then a `## Implementation Plan` heading, then the plan.
+            The heading must be exactly that — the ready-for-dev workflow looks for it by name.
+
+            ## How to write the plan
+
+            - Address the code by concept, not by coordinates. Name the modules, components, hooks,
+              functions, classes, types, constants and test suites involved, and say what each one has
+              to start doing differently. Names survive edits; line numbers rot the moment anyone
+              touches the file.
+            - Use a line number only where a name genuinely fails to identify the code — two helpers
+              with the same name, an anonymous callback, a repeated literal — and then give it as a
+              disambiguator alongside the name, not instead of it.
+            - Do NOT include a list of files to create or edit, and do not organise the plan as a
+              walk through the file tree. Describe what has to become true: the behaviour to change,
+              the state that needs to exist, the rule the code must enforce. Where that ends up living
+              is the implementer's call.
+            - Say what to be careful of: existing behaviour that must not regress, edge cases and data
+              shapes that will bite, conventions in this repo the change has to respect.
+            - Say how the change should be verified — what tests should cover, and which pages to check
+              per AGENTS.md (for deck builder work, /decks?fixture=1).
+            - Only assert what the code actually shows. If something can't be settled from the codebase
+              and needs a human decision, say so plainly, in one line, where it's relevant.
+            - Keep it as small as the issue warrants. A one-line fix gets a short plan.
+
+            ## The plan describes reality, not its own history
+
+            The plan is a standing description of the change as it should be made, given everything
+            currently known. It is not a record of how that understanding was arrived at, and it is not
+            an audit of what it used to say. Someone reading it for the first time must get exactly the
+            current picture, with no sign that earlier versions existed.
+
+            - Write in the present tense, as settled fact.
+            - When you now believe something different, silently replace the old statement with the new
+              one. Never write "previously", "originally", "updated", "correction", "as noted earlier",
+              "on further investigation", "this was wrong", or "still accurate". No changelog, no
+              revision history, no "changes since last run" section, no dated entries, no struck-through
+              or marked-obsolete text.
+            - Do not comment on the plan or the issue as objects: "the issue doesn't specify X", "this
+              plan now covers Y", "nothing changed this run". Anything that only makes sense to a reader
+              comparing two versions does not belong in the plan.
+            - If new information invalidates a step, delete the step. If it narrows a step, tighten the
+              wording. If the approach is now wrong end to end, replace the plan end to end.
+            - Anything still accurate stays as it is. Do not reword or reorder correct content for its
+              own sake — a refresh should read as the same plan, corrected.
+
+            ## Keep the structure stable when refreshing
+
+            On a refresh, your default is to change words inside the sections that are already there.
+            Adding a new section, heading or list is a last resort: do it only when the new information
+            genuinely has nowhere to live. If it can be expressed as a correction to, or an extension of,
+            an existing statement, do that instead. Never restructure, retitle or reorder an existing
+            plan because you would have organised it differently — the structure belongs to the plan,
+            not to this run.
+
+            ## Finally
+
+            Remove the "needs-plan" label from issue #${{ github.event.issue.number }}, so that
+            re-applying the label later re-runs this workflow and refreshes the plan in place.
+          claude_args: "--model claude-sonnet-5 --max-turns 40 --dangerously-skip-permissions"
+          show_full_output: "true"
