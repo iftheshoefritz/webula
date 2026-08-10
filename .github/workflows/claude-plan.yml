@@ -1,0 +1,127 @@
+name: Claude Implementation Plan
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  claude-plan:
+    if: github.event.label.name == 'needs-plan'
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+      POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1.0.70
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            GitHub issue #${{ github.event.issue.number }} ("${{ github.event.issue.title }}") has been labeled "needs-plan" and requires an implementation plan.
+
+            Review issue #${{ github.event.issue.number }}, its body, and all existing comments carefully.
+
+            If the issue body or comments contain external URLs, fetch their content using agent-browser
+            before proceeding — this is essential for questions that reference external documentation
+            or live deployments:
+              npx agent-browser open <url>
+              npx agent-browser get text
+
+            The plan lives in exactly ONE comment on the issue, which this workflow owns and rewrites
+            every time it runs. It is marked by the literal HTML comment `<!-- claude-plan -->` on its
+            first line, followed by a section headed exactly "## Implementation Plan" (that heading must
+            be exact — the implementation workflow, `claude-implement.yml`, looks for it).
+
+            Before investigating, find out whether the plan comment already exists:
+
+              gh api /repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+                --jq '.[] | select(.body | test("<!-- claude-plan -->|## Implementation Plan")) | {id, html_url, body}'
+
+            Read every match in full. The marker was not always present, so a comment carrying only the
+            "## Implementation Plan" heading is still the plan comment; if several match, the newest one
+            is the plan and the older ones are stale — leave them alone and do not merge their content in.
+
+            After investigating, write the complete comment body to a file and publish it:
+
+            - No existing plan comment: `gh issue comment ${{ github.event.issue.number }} --body-file <file>`
+            - Existing plan comment: overwrite it in place, never post a second one —
+
+                gh api -X PATCH /repos/${{ github.repository }}/issues/comments/<id> -F body=@<file>
+
+              where `<id>` is the numeric `id` from the query above. The file must contain the entire new
+              body, starting with the marker line. You are replacing the comment, not appending to it —
+              anything you leave out of the file is gone, and anything still true must be carried over.
+
+              Because editing a comment is silent, follow the PATCH with a short new comment so the issue
+              shows that something happened — one or two sentences, no detail beyond what changed at the
+              headline level, and a link to the plan comment:
+
+                gh issue comment ${{ github.event.issue.number }} \
+                  --body "Updated the [implementation plan](<html_url of the plan comment>) — <one line on what changed>."
+
+              This notification comment must NOT contain the `<!-- claude-plan -->` marker or the string
+              "## Implementation Plan", or it will be mistaken for the plan itself. Post it only when you
+              actually changed the plan comment; if the rewrite came out identical, skip both the PATCH
+              and the notification. Never post it on a first run — the plan comment is its own notice.
+
+            The comment must read as a plan written once, today, by someone who already knew everything
+            you now know. So, when rewriting an existing one:
+
+            - Start from the current plan's structure and stay inside it: same headings, same order, same
+              granularity. Change the words under a heading; do not add a heading because new information
+              arrived. Add structure only when something genuinely cannot be said under any existing
+              heading, and never reorganise a plan that still works.
+            - Carry over verbatim whatever your investigation did not change. A re-run that learned little
+              should produce a nearly identical comment.
+            - State the current intent as fact. Where your understanding has changed, replace the old
+              statement with the new one — do not put them side by side.
+            - The plan is not a record of how it was reached. Delete, rather than annotate, anything that
+              only documents the journey: rejected alternatives, approaches that proved wrong, and
+              phrasing like "previously", "update:", "on reflection", "this no longer applies",
+              "~~struck through~~". A reader arriving cold must be able to take every line at face value.
+              If a discarded option matters — because it looks obvious and is a trap — say why it does not
+              work, in the present tense, as part of the plan; do not preserve it as history.
+
+            The plan must describe what is needed in the abstract: the behaviour that has to change, the
+            state or data involved, and the conditions under which it applies. Do not write a file-by-file
+            edit list, and do not prescribe the exact code to write. An implementing agent should be able to
+            find its own way to the change from your description of what the change has to accomplish.
+
+            Refer to the code by its concepts, not its coordinates. Name the modules, components, hooks,
+            functions, classes and types involved, so that the plan stays accurate as the code moves around.
+            Do NOT cite line numbers. The single exception is disambiguation: if a name alone is genuinely
+            ambiguous — the same identifier defined in more than one place, or one of several similar blocks
+            in a long file — add the minimum locating detail needed, and prefer the enclosing function or
+            module over a line number even then.
+
+            Cover, as far as the code supports it (this is what a first plan has to contain; when rewriting
+            an existing plan, these are the questions to re-check, not a structure to impose on it):
+            - What behaviour the issue asks for, restated concretely enough to be checked against.
+            - Which parts of the system own that behaviour today, named as above, and how they fit together.
+            - What has to change conceptually, and anything that has to change with it to stay consistent.
+            - Existing abstractions that should be reused rather than reinvented.
+            - How the change can be verified — what a test should assert, and what to look at in the running
+              app. Where the deck builder is involved, verification uses `/decks?fixture=1` (see AGENTS.md).
+            - Anything the issue leaves genuinely undecided, called out as an open question rather than
+              guessed at.
+
+            If the issue turns out to need no code change — the behaviour already exists, or the premise is
+            wrong — say so plainly in the plan with the evidence, instead of inventing work.
+
+            Then remove the "needs-plan" label from issue #${{ github.event.issue.number }}.
+
+            Be concise and concrete. Assert only what the code actually shows. Reference the AGENTS.md file
+            for project conventions and commands.
+          claude_args: "--model claude-sonnet-5 --max-turns 40 --dangerously-skip-permissions"
+          show_full_output: "true"
