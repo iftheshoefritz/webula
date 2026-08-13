@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import BookmarkletLink from '../../components/BookmarkletLink';
 import { bookmarkletHref } from './bookmarklet';
 
 export const metadata: Metadata = {
@@ -31,12 +32,12 @@ export default function ImportTrekccPage() {
           <ol className="list-decimal list-inside space-y-2">
             <li>
               Drag this link to your browser&apos;s bookmarks bar:{' '}
-              <a
+              <BookmarkletLink
                 href={bookmarkletHref}
                 className="inline-block px-3 py-1 rounded bg-accent/20 border border-accent/40 text-accent font-semibold no-underline cursor-move"
               >
                 Import from TrekCC
-              </a>
+              </BookmarkletLink>
             </li>
             <li>
               Go to your{' '}
