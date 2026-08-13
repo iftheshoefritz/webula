@@ -6,14 +6,23 @@
 // 3. Fetches the chosen export (same-origin, using the browser's existing trekcc.org
 //    session, so it isn't blocked by Cloudflare's bot-check) and POSTs the text to
 //    Webula's /api/share endpoint.
-// 4. Opens the imported deck at https://webula.app/decks?share=<id> in a new tab.
+// 4. Opens the imported deck at <BASE_URL>/decks?share=<id> in a new tab.
+//
+// BASE_URL points at whichever deployment generated this bookmarklet (production or a
+// Vercel preview), so the bookmarklet keeps working when dragged from a preview URL
+// instead of always hard-coding production.
 //
 // Kept as plain ES5-ish JS (no arrow functions/template literals) for maximum
 // compatibility with whatever browser a bookmarklet gets run in.
+const BASE_URL =
+  process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : (process.env.NEXT_PUBLIC_BASE_URL ?? 'https://webula.app');
+
 const BOOKMARKLET_SOURCE = `
 (function () {
-  var API = 'https://webula.app/api/share';
-  var DECKS_URL = 'https://webula.app/decks';
+  var API = '${BASE_URL}/api/share';
+  var DECKS_URL = '${BASE_URL}/decks';
 
   function findDecks() {
     var decks = [];
