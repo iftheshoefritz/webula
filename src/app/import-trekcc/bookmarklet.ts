@@ -24,6 +24,14 @@ const BOOKMARKLET_SOURCE = `
   var API = '${BASE_URL}/api/share';
   var DECKS_URL = '${BASE_URL}/decks';
 
+  // iOS Shortcuts' "Run JavaScript on Web Page" action injects a global completion()
+  // function and errors ("The script must call the function completion(result) when
+  // finished") if the script's top-level execution ends without calling it. It's absent
+  // when this script runs as an ordinary browser bookmarklet, so only call it if present.
+  function finish() {
+    if (typeof completion === 'function') { completion(); }
+  }
+
   function findDecks() {
     var decks = [];
     var links = document.querySelectorAll('a[href*="mode=lackeyexport2020"]');
@@ -72,10 +80,12 @@ const BOOKMARKLET_SOURCE = `
   var decks = findDecks();
   if (decks.length === 0) {
     alert('No "Download Deck to Lackey" links found on this page. Go to https://www.trekcc.org/decklists/?mode=list and try again.');
+    finish();
     return;
   }
   if (decks.length === 1) {
     startImport(decks[0]);
+    finish();
     return;
   }
 
@@ -109,6 +119,7 @@ const BOOKMARKLET_SOURCE = `
 
   overlay.appendChild(box);
   document.body.appendChild(overlay);
+  finish();
 })();
 `.trim();
 
