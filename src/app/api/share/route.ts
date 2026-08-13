@@ -1,3 +1,19 @@
+// Allows the trekcc.org import bookmarklet (see /import-trekcc) to POST a decklist
+// it fetched from trekcc.org directly to this endpoint.
+const ALLOWED_ORIGIN = 'https://www.trekcc.org';
+
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+}
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: corsHeaders() });
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const id = url.searchParams.get('id');
@@ -51,7 +67,7 @@ export async function POST(req: Request) {
       console.error('dpaste API error:', res.status, errorText);
       return new Response(JSON.stringify({ error: 'Paste creation failed' }), {
         status: res.status,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders() },
       });
     }
 
@@ -61,13 +77,13 @@ export async function POST(req: Request) {
 
     return new Response(JSON.stringify({ id }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders() },
     });
   } catch (error) {
     console.error('Paste route error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders() },
     });
   }
 }
