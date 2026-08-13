@@ -26,7 +26,7 @@ import { missionRequirements, parseMissionRequirements } from '../lib/missionReq
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaEraser, FaFileExport, FaFileUpload, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaEraser, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -919,6 +919,16 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                       className="hidden"
                     />
                   </label>
+                  <Link
+                    href="/import-trekcc"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10"
+                    onClick={() => setDeckActionsOpen(false)}
+                  >
+                    <FaFileImport className="shrink-0" />
+                    <span>Import from TrekCC</span>
+                  </Link>
                   <button
                     className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 text-left"
                     onClick={() => { exportLackeyDeckToDisk(); setDeckActionsOpen(false); }}
@@ -987,6 +997,16 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               <FaEraser />
             </button>
             <DeckUploader onFileLoad={handleFileLoad} />
+            <Link
+              href="/import-trekcc"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-icon flex items-center justify-center"
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="Import a deck from TrekCC.org"
+            >
+              <FaFileImport />
+            </Link>
             <button
               className="btn-icon"
               onClick={exportLackeyDeckToDisk}

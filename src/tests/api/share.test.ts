@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { GET, POST } from '../../app/api/share/route';
+import { GET, POST, OPTIONS } from '../../app/api/share/route';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -104,5 +104,28 @@ describe('POST /api/share', () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(500);
+  });
+
+  it('sets Access-Control-Allow-Origin for trekcc.org on success', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => 'https://dpaste.com/ABC123\n',
+    });
+
+    const req = new Request('http://localhost/api/share', {
+      method: 'POST',
+      body: JSON.stringify({ content: 'Deck:\n1\tPicard', title: 'My Deck' }),
+    });
+    const res = await POST(req);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://www.trekcc.org');
+  });
+});
+
+describe('OPTIONS /api/share', () => {
+  it('responds to a CORS preflight request for trekcc.org', async () => {
+    const res = await OPTIONS();
+    expect(res.status).toBe(204);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://www.trekcc.org');
+    expect(res.headers.get('Access-Control-Allow-Methods')).toContain('POST');
   });
 });
