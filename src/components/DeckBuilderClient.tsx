@@ -253,6 +253,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [isDirty, setIsDirty] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'copying' | 'copied' | 'error'>('idle');
   const [pendingShareContent, setPendingShareContent] = useState<string | null>(null);
+  const [pendingShareTitle, setPendingShareTitle] = useState<string | null>(null);
   const [pendingShareWarning, setPendingShareWarning] = useState<boolean>(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -291,8 +292,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         window.history.replaceState({}, '', '/decks');
         try {
           const pasteResponse = await fetch(`/api/share?id=${shareId}`);
-          const content = await pasteResponse.text();
+          const { content, title } = await pasteResponse.json();
           setPendingShareContent(content);
+          setPendingShareTitle(title || null);
         } catch {
           console.error('Failed to load shared deck');
         }
@@ -309,7 +311,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     if (!pendingShareContent || data.length === 0) return;
     const deckIsEmpty = Object.keys(currentDeck).length === 0;
     if (deckIsEmpty) {
-      handleFileLoad('shared-deck.txt', pendingShareContent);
+      handleFileLoad(pendingShareTitle || 'shared-deck', pendingShareContent);
       setPendingShareContent(null);
     } else {
       setPendingShareWarning(true);
@@ -1530,13 +1532,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <div className="flex flex-col gap-3">
               <button
                 className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm"
-                onClick={() => { setPendingShareWarning(false); setPendingShareContent(null); }}
+                onClick={() => { setPendingShareWarning(false); setPendingShareContent(null); setPendingShareTitle(null); }}
               >
                 Go back to my previous deck to save
               </button>
               <button
                 className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm"
-                onClick={() => { handleFileLoad('shared-deck.txt', pendingShareContent!); setPendingShareContent(null); setPendingShareWarning(false); }}
+                onClick={() => { handleFileLoad(pendingShareTitle || 'shared-deck', pendingShareContent!); setPendingShareContent(null); setPendingShareTitle(null); setPendingShareWarning(false); }}
               >
                 I&apos;m ready to load this awesome shared deck
               </button>

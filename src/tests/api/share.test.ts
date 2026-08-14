@@ -12,18 +12,42 @@ describe('GET /api/share', () => {
     jest.resetAllMocks();
   });
 
-  it('fetches paste content from dpaste and returns it as plain text', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      text: async () => 'Deck:\n1\tPicard\n',
+  it('fetches paste content and title from dpaste and returns them as JSON', async () => {
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url === 'https://dpaste.com/ABC123.txt') {
+        return { ok: true, text: async () => 'Deck:\n1\tPicard\n' };
+      }
+      if (url === 'https://dpaste.com/api/item_detail/ABC123') {
+        return { ok: true, json: async () => ({ ABC123: { title: 'My Deck' } }) };
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
     });
 
     const req = new Request('http://localhost/api/share?id=ABC123');
     const res = await GET(req);
     expect(res.status).toBe(200);
-    const body = await res.text();
-    expect(body).toBe('Deck:\n1\tPicard\n');
+    const body = await res.json();
+    expect(body).toEqual({ content: 'Deck:\n1\tPicard\n', title: 'My Deck' });
     expect(mockFetch).toHaveBeenCalledWith('https://dpaste.com/ABC123.txt');
+    expect(mockFetch).toHaveBeenCalledWith('https://dpaste.com/api/item_detail/ABC123');
+  });
+
+  it('returns a null title if the item_detail lookup fails', async () => {
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url === 'https://dpaste.com/ABC123.txt') {
+        return { ok: true, text: async () => 'Deck:\n1\tPicard\n' };
+      }
+      if (url === 'https://dpaste.com/api/item_detail/ABC123') {
+        return { ok: false, status: 500 };
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const req = new Request('http://localhost/api/share?id=ABC123');
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({ content: 'Deck:\n1\tPicard\n', title: null });
   });
 
   it('returns 400 when id param is missing', async () => {
