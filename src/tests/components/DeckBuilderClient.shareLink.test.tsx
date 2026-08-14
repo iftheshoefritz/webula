@@ -292,7 +292,7 @@ describe('DeckBuilderClient – share link', () => {
     const tsvContent = 'Deck:\n1\tEnterprise-D';
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      text: async () => tsvContent,
+      json: async () => ({ content: tsvContent, title: null }),
     });
 
     // Set window.location so the component picks up ?share=TESTID
@@ -323,13 +323,36 @@ describe('DeckBuilderClient – share link', () => {
     (window as any).location = new URL('http://localhost/decks');
   });
 
+  it('uses the paste title as the deck title when loading a shared deck', async () => {
+    const tsvContent = 'Deck:\n1\tEnterprise-D';
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ content: tsvContent, title: 'My TrekCC Deck' }),
+    });
+
+    delete (window as any).location;
+    (window as any).location = new URL('http://localhost/decks?share=TESTID');
+
+    await act(async () => {
+      render(<DeckBuilderClient data={MINIMAL_CARD_DATA} columns={[]} />);
+    });
+
+    await act(async () => {});
+
+    expect(screen.getAllByDisplayValue('My TrekCC Deck').length).toBeGreaterThan(0);
+
+    // Reset location
+    delete (window as any).location;
+    (window as any).location = new URL('http://localhost/decks');
+  });
+
   it('shows warning modal when a non-empty deck exists and ?share= param is in URL', async () => {
     seedDeck();
 
     const tsvContent = 'Deck:\n1\tEnterprise-D';
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      text: async () => tsvContent,
+      json: async () => ({ content: tsvContent, title: null }),
     });
 
     delete (window as any).location;
@@ -356,7 +379,7 @@ describe('DeckBuilderClient – share link', () => {
     const tsvContent = 'Deck:\n1\tEnterprise-D';
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      text: async () => tsvContent,
+      json: async () => ({ content: tsvContent, title: null }),
     });
 
     delete (window as any).location;
@@ -389,7 +412,7 @@ describe('DeckBuilderClient – share link', () => {
     const tsvContent = 'Deck Title\ttitle\nDeck:\n1\tEnterprise-D';
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      text: async () => tsvContent,
+      json: async () => ({ content: tsvContent, title: null }),
     });
 
     delete (window as any).location;

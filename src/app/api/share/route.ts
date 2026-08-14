@@ -32,9 +32,24 @@ export async function GET(req: Request) {
       });
     }
     const content = await res.text();
-    return new Response(content, {
+
+    // Best-effort: fetch the title dpaste stored for this paste (set when the deck was
+    // shared) so the deck builder can use it instead of a generic filename. If this fails,
+    // fall back to no title rather than failing the whole share load.
+    let title: string | null = null;
+    try {
+      const detailRes = await fetch(`https://dpaste.com/api/item_detail/${id}`);
+      if (detailRes.ok) {
+        const detail = await detailRes.json();
+        title = detail?.[id]?.title || null;
+      }
+    } catch (detailError) {
+      console.error('Paste title fetch error:', detailError);
+    }
+
+    return new Response(JSON.stringify({ content, title }), {
       status: 200,
-      headers: { 'Content-Type': 'text/plain' },
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Paste fetch error:', error);
