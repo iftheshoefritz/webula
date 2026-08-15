@@ -1,10 +1,8 @@
 # iOS Shortcut: building and sharing a pre-built Shortcut
 
-`/import-trekcc` no longer walks end users through assembling a multi-step iOS Shortcut by
-hand — that flow required ~7 manual Shortcuts-app actions, which is impractical to do
-one-thumbed on a phone. Instead, the app author builds the Shortcut once (on a Mac or
-iPhone/iPad with the Shortcuts app) and shares a single iCloud link that users tap to
-install.
+`/import-trekcc` doesn't walk end users through assembling an iOS Shortcut by hand. Instead,
+the app author builds the Shortcut once (on a Mac or iPhone/iPad with the Shortcuts app) and
+shares a single iCloud link that users tap to install.
 
 This can't be automated in CI: the `.shortcut` file format is an undocumented
 `WFWorkflow*` property list, and Apple's trusted signing only happens when a Shortcut is
