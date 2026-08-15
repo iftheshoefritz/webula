@@ -127,4 +127,64 @@ const BOOKMARKLET_SOURCE = `
 // javascript: URL before percent-decoding and evaluating it, don't mangle the script.
 export const bookmarkletHref = `javascript:${encodeURIComponent(BOOKMARKLET_SOURCE)}`;
 
+// --- iOS Shortcuts ---
+//
+// Under iOS Shortcuts' "Run JavaScript on Web Page" action, calling the injected
+// completion() tells Shortcuts the script is done and lets it tear down the web view
+// immediately — cancelling any in-flight fetch() calls and discarding the DOM (including
+// an overlay deck picker) before they get a chance to run. BOOKMARKLET_SOURCE above only
+// calls completion() synchronously, so it can't reliably import a deck under Shortcuts.
+//
+// Instead, a Shortcut built from these two scripts calls completion() promptly from each:
+// 1. iosListDecksSource only scrapes the page and calls completion() immediately with a
+//    dictionary of { "deck name": "download href" }, for the Shortcut's native
+//    "Choose from List" action to present.
+// 2. iosImportDeckSource performs the fetch/POST chain and calls completion() only from
+//    inside the resolved/rejected promise chain — never synchronously — with either the
+//    imported deck's Webula URL or an "error:" prefixed message, for the Shortcut to open
+//    or display natively. The chosen deck's name/href have to be pasted into this script's
+//    placeholders using Shortcuts' variable-insertion UI, since there's no way to feed
+//    values into a pasted "Run JavaScript on Web Page" script other than editing its text.
+export const iosListDecksSource = `
+(function () {
+  var decks = {};
+  var links = document.querySelectorAll('a[href*="mode=lackeyexport2020"]');
+  for (var i = 0; i < links.length; i++) {
+    var link = links[i];
+    var container = link.closest('p') || link.parentElement;
+    var nameEl = container ? container.querySelector('a[href*="mode=viewdeck"] b') : null;
+    var name = nameEl ? nameEl.textContent.trim() : 'Untitled deck';
+    decks[name] = link.href;
+  }
+  completion(decks);
+})();
+`.trim();
+
+export const iosImportDeckSource = `
+(function () {
+  var API = '${BASE_URL}/api/share';
+  var DECKS_URL = '${BASE_URL}/decks';
+  var name = 'PASTE DECK NAME HERE';
+  var href = 'PASTE DECK LINK HERE';
+
+  fetch(href, { credentials: 'include' })
+    .then(function (r) { return r.text(); })
+    .then(function (content) {
+      return fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: content, title: name })
+      });
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (json) {
+      if (!json.id) { throw new Error('Webula did not return a share id'); }
+      completion(DECKS_URL + '?share=' + json.id);
+    })
+    .catch(function (err) {
+      completion('error:' + err.message);
+    });
+})();
+`.trim();
+
 export default BOOKMARKLET_SOURCE;
