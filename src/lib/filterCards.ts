@@ -95,6 +95,17 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
                 const predicate = HQ_PLAYABILITY[match];
                 return !predicate || !predicate(row);
               }
+              if (column === 'staff') {
+                const m = match.toLowerCase();
+                const staffVal = (row.staff || '').toLowerCase();
+                const iconsVal = (row.icons || '').toLowerCase();
+                const isMatch = (m === 'st' || m === 'stf' || m === 'staff')
+                  ? (staffVal.includes('stf') || staffVal.includes('st') || iconsVal.includes('stf') || iconsVal.includes('st'))
+                  : (m === 'cmd' || m === 'command')
+                    ? (staffVal.includes('cmd') || iconsVal.includes('cmd'))
+                    : (staffVal.includes(m) || iconsVal.includes(m));
+                return !isMatch;
+              }
               return !row[column].includes(match);
             });
           }
@@ -123,6 +134,16 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
               if (column === 'reportsto') {
                 const predicate = HQ_PLAYABILITY[match];
                 return predicate ? predicate(row) : false;
+              }
+              if (column === 'staff') {
+                const m = match.toLowerCase();
+                const staffVal = (row.staff || '').toLowerCase();
+                const iconsVal = (row.icons || '').toLowerCase();
+                return (m === 'st' || m === 'stf' || m === 'staff')
+                  ? (staffVal.includes('stf') || staffVal.includes('st') || iconsVal.includes('stf') || iconsVal.includes('st'))
+                  : (m === 'cmd' || m === 'command')
+                    ? (staffVal.includes('cmd') || iconsVal.includes('cmd'))
+                    : (staffVal.includes(m) || iconsVal.includes(m));
               }
               return row[column].includes(match);
             });
