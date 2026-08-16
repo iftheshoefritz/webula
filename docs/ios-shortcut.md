@@ -17,22 +17,25 @@ action can finish. That rules out a single script that both fetches the deck lis
 the user pick one. The Shortcut therefore uses two separate "Run JavaScript on Web Page"
 actions with native Shortcuts steps in between:
 
-1. `iosListDecksSource` (exported from
-   [`src/app/import-trekcc/bookmarklet.ts`](../src/app/import-trekcc/bookmarklet.ts)) scrapes
-   the page and calls `completion()` immediately with a `{ "deck name": "download href" }`
-   dictionary.
-2. `iosImportDeckSource` (same file) performs the fetch/POST import chain and calls
-   `completion()` only once that chain resolves or rejects, with either the imported
-   deck's Webula URL or an `error:`-prefixed message.
+1. [`src/app/import-trekcc/iosListDecksScript.ts`](../src/app/import-trekcc/iosListDecksScript.ts)
+   scrapes the page and calls `completion()` immediately with a
+   `{ "deck name": "download href" }` dictionary.
+2. [`src/app/import-trekcc/iosImportDeckScript.ts`](../src/app/import-trekcc/iosImportDeckScript.ts)
+   performs the fetch/POST import chain and calls `completion()` only once that chain
+   resolves or rejects, with either the imported deck's Webula URL or an `error:`-prefixed
+   message.
 
 ## Building the Shortcut (author, one-time — repeat whenever the scripts change)
 
 You need a Mac, iPhone, or iPad with the Shortcuts app.
 
-1. Open [`src/app/import-trekcc/bookmarklet.ts`](../src/app/import-trekcc/bookmarklet.ts) in
-   this repo and copy the current value of `iosListDecksSource`.
+1. Open
+   [`src/app/import-trekcc/iosListDecksScript.ts`](../src/app/import-trekcc/iosListDecksScript.ts)
+   in this repo. It contains only this one script (nothing else to skip past) — copy the
+   value of its `iosListDecksSource` template literal, between (not including) the
+   surrounding backticks.
 2. In the Shortcuts app, create a new Shortcut.
-3. Add a "Run JavaScript on Web Page" action and paste in `iosListDecksSource`.
+3. Add a "Run JavaScript on Web Page" action and paste in that script.
 4. Add a "Get Dictionary Value" action set to "Get Keys", fed by the previous action's
    result.
 5. Add a "Choose from List" action fed by those keys — this shows the deck names and lets
@@ -40,9 +43,10 @@ You need a Mac, iPhone, or iPad with the Shortcuts app.
 6. Add another "Get Dictionary Value" action: set the dictionary back to the result of the
    step 3 action, and set the key to the "Chosen Item" from step 5 — this looks up the
    download link for the picked deck.
-7. Copy the current value of `iosImportDeckSource` from
-   [`bookmarklet.ts`](../src/app/import-trekcc/bookmarklet.ts).
-8. Add a second "Run JavaScript on Web Page" action and paste in `iosImportDeckSource`.
+7. Open
+   [`src/app/import-trekcc/iosImportDeckScript.ts`](../src/app/import-trekcc/iosImportDeckScript.ts)
+   the same way and copy the value of its `iosImportDeckSource` template literal.
+8. Add a second "Run JavaScript on Web Page" action and paste in that script.
 9. Edit the pasted script: replace the `'PASTE DECK NAME HERE'` placeholder with the
    "Chosen Item" variable from step 5 (via Shortcuts' variable-insertion menu), and replace
    `'PASTE DECK LINK HERE'` with the dictionary value from step 6.

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import BookmarkletLink from '../../components/BookmarkletLink';
-import { bookmarkletHref } from './bookmarklet';
+import { bookmarkletHref } from './desktopBookmarklet';
 
 export const metadata: Metadata = {
   title: 'Import from TrekCC – Webula',
