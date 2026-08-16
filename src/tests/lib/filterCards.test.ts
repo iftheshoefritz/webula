@@ -115,3 +115,21 @@ describe('filterCards quadrant filter', () => {
     expect(result).toHaveLength(0);
   });
 });
+
+describe('filterCards staff and icons filter', () => {
+  const staffPersonnel = makeCard('staff officer', 'personnel', { icons: '[stf]', staff: '' });
+  const cmdPersonnel = makeCard('command officer', 'personnel', { icons: '[cmd]', staff: '' });
+  const civilian = makeCard('civilian', 'personnel', { icons: '', staff: '' });
+
+  const CARDS = [staffPersonnel, cmdPersonnel, civilian];
+
+  it('excludes personnel with staff icons when using -staff:st', () => {
+    const result = filterCards(CARDS, ['name', 'type', 'staff', 'icons'], '-staff:st');
+    expect(result.map(c => c.name)).toEqual(['command officer', 'civilian']);
+  });
+
+  it('includes personnel with staff icons when using staff:st', () => {
+    const result = filterCards(CARDS, ['name', 'type', 'staff', 'icons'], 'staff:st');
+    expect(result.map(c => c.name)).toEqual(['staff officer']);
+  });
+});
