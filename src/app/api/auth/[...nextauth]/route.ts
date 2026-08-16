@@ -32,8 +32,10 @@ const authOptions: NextAuthOptions = {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.hasDriveScope = account.scope?.includes('drive.appdata') ?? false;
+        token.accessTokenExpires = account.expires_at
+          ? account.expires_at * 1000
+          : Date.now() + 3600 * 1000;
       }
-      token.accessTokenExpires = Date.now() + (account?.expires_at || 3600) * 1000;
 
       // Return previous token if it hasn't expired yet
       if (Date.now() < (token as { accessTokenExpires: number} ).accessTokenExpires) {
@@ -57,4 +59,4 @@ const authOptions: NextAuthOptions = {
 
 const handler = NextAuth(authOptions)
 
-export { handler as GET, handler as POST }
+export { handler as GET, handler as POST, authOptions }
