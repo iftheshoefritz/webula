@@ -34,6 +34,7 @@ describe('BulkImportClient', () => {
   it('loads the batch, saves signed-in users automatically, and shows the per-deck summary', async () => {
     (getSession as jest.Mock).mockResolvedValue({
       expires: new Date(Date.now() + 3600 * 1000).toISOString(),
+      hasDriveScope: true,
     });
 
     const decks = [
@@ -92,5 +93,54 @@ describe('BulkImportClient', () => {
       expect.objectContaining({ callbackUrl: '/import-trekcc/bulk?share=BATCH123' }),
       expect.objectContaining({ scope: expect.stringContaining('drive.appdata') })
     );
+  });
+
+  it('prompts sign-in when the session lacks Drive scope, without calling the bulk import API', async () => {
+    (getSession as jest.Mock).mockResolvedValue({
+      expires: new Date(Date.now() + 3600 * 1000).toISOString(),
+      hasDriveScope: false,
+    });
+
+    const decks = [{ trekccDeckId: '1', title: 'Deck One', content: 'x' }];
+    const mockFetch = jest.fn(async (url: string) => {
+      if (url.includes('/api/share')) return { ok: true, json: async () => ({ content: JSON.stringify(decks) }) };
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    global.fetch = mockFetch as any;
+
+    await act(async () => {
+      render(<BulkImportClient />);
+    });
+
+    expect(await screen.findByText('Sign in with Google')).toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalledWith(expect.stringContaining('/api/drive/bulk'), expect.anything());
+  });
+
+  it('shows the failure reason for a failed deck', async () => {
+    (getSession as jest.Mock).mockResolvedValue({
+      expires: new Date(Date.now() + 3600 * 1000).toISOString(),
+      hasDriveScope: true,
+    });
+
+    const decks = [{ trekccDeckId: '1', title: 'Deck One', content: 'x' }];
+    const mockFetch = jest.fn(async (url: string) => {
+      if (url.includes('/api/share')) return { ok: true, json: async () => ({ content: JSON.stringify(decks) }) };
+      if (url.includes('/api/drive/bulk')) {
+        return {
+          ok: true,
+          json: async () => ({
+            results: [{ trekccDeckId: '1', title: 'Deck One', status: 'failed', error: 'Save failed' }],
+          }),
+        };
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    global.fetch = mockFetch as any;
+
+    await act(async () => {
+      render(<BulkImportClient />);
+    });
+
+    expect(await screen.findByText('Save failed')).toBeInTheDocument();
   });
 });

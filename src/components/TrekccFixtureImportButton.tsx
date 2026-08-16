@@ -25,9 +25,9 @@ export default function TrekccFixtureImportButton() {
     setStatus('saving');
     setError(null);
     try {
-      const session = (await getSession()) as { expires: string } | null;
+      const session = (await getSession()) as { expires: string; hasDriveScope?: boolean } | null;
       const isSessionExpired = session && new Date() > new Date(session.expires);
-      if (!session || isSessionExpired) {
+      if (!session || isSessionExpired || !session.hasDriveScope) {
         signIn('google', { callbackUrl: '/import-trekcc' }, { scope: DRIVE_SCOPE, include_granted_scopes: 'true' });
         return;
       }
@@ -74,7 +74,12 @@ export default function TrekccFixtureImportButton() {
         <ul className="mt-3 space-y-1">
           {results.map((r, i) => (
             <li key={i} className="flex justify-between border-b border-gray-700 pb-1">
-              <span>{r.title}</span>
+              <span>
+                {r.title}
+                {r.status === 'failed' && r.error && (
+                  <span className="block text-xs text-red-400">{r.error}</span>
+                )}
+              </span>
               <span
                 className={
                   r.status === 'failed' ? 'text-red-400' : r.status === 'updated' ? 'text-blue-400' : 'text-green-400'

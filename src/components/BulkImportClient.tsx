@@ -64,9 +64,9 @@ export default function BulkImportClient() {
         const parsedDecks: DeckPayload[] = JSON.parse(content);
         setDecks(parsedDecks);
 
-        const session = (await getSession()) as { expires: string } | null;
+        const session = (await getSession()) as { expires: string; hasDriveScope?: boolean } | null;
         const isSessionExpired = session && new Date() > new Date(session.expires);
-        if (!session || isSessionExpired) {
+        if (!session || isSessionExpired || !session.hasDriveScope) {
           setStatus('needs-signin');
           return;
         }
@@ -115,7 +115,12 @@ export default function BulkImportClient() {
             <ul className="space-y-2 mb-6">
               {results.map((r, i) => (
                 <li key={i} className="flex justify-between border-b border-gray-700 pb-1">
-                  <span>{r.title}</span>
+                  <span>
+                    {r.title}
+                    {r.status === 'failed' && r.error && (
+                      <span className="block text-xs text-red-400">{r.error}</span>
+                    )}
+                  </span>
                   <span
                     className={
                       r.status === 'failed'
