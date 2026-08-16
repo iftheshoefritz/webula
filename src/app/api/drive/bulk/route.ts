@@ -29,6 +29,13 @@ async function tokenDecode(req): Promise<{ accessToken: string; accessTokenExpir
 type DeckPayload = { trekccDeckId?: string | null; title: string; content: string };
 type DeckResult = { trekccDeckId?: string | null; title: string; status: 'created' | 'updated' | 'failed'; error?: string };
 
+// Pulls a human-readable message out of a failed Drive API call so per-deck failures are
+// diagnosable from the UI instead of only visible in server logs. Falls back to a generic
+// message when the error shape doesn't match what Gaxios/the Drive client normally throws.
+function driveErrorMessage(error: any): string {
+  return error?.response?.data?.error?.message || error?.message || 'Save failed';
+}
+
 export async function POST(req: Request) {
   try {
     let tokenDetails = await tokenDecode(req);
@@ -76,7 +83,7 @@ export async function POST(req: Request) {
             headers: { 'Content-Type': 'application/json' },
           });
         }
-        results.push({ trekccDeckId: deck.trekccDeckId, title: deck.title, status: 'failed', error: 'Save failed' });
+        results.push({ trekccDeckId: deck.trekccDeckId, title: deck.title, status: 'failed', error: driveErrorMessage(error) });
       }
     }
 
