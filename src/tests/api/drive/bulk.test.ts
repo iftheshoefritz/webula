@@ -95,7 +95,7 @@ describe('POST /api/drive/bulk', () => {
     expect(mockFilesCreate).not.toHaveBeenCalled();
   });
 
-  it('isolates a failure for one deck and continues saving the rest', async () => {
+  it('isolates a failure for one deck and continues saving the rest, surfacing the real error message', async () => {
     mockFilesList
       .mockRejectedValueOnce(new Error('Drive unavailable'))
       .mockResolvedValueOnce({ data: { files: [] } });
@@ -113,8 +113,38 @@ describe('POST /api/drive/bulk', () => {
 
     expect(res.status).toBe(200);
     expect(body.results).toEqual([
-      { trekccDeckId: '1', title: 'Broken Deck', status: 'failed', error: 'Save failed' },
+      { trekccDeckId: '1', title: 'Broken Deck', status: 'failed', error: 'Drive unavailable' },
       { trekccDeckId: '2', title: 'Good Deck', status: 'created' },
+    ]);
+  });
+
+  it('prefers the Gaxios response error message over the generic Error message when both are present', async () => {
+    mockFilesList.mockRejectedValueOnce({
+      message: 'Request failed with status code 400',
+      response: { data: { error: { message: "Invalid query: 'appProperties has ...'" } } },
+    });
+
+    const res = await POST(
+      makeRequest({ decks: [{ trekccDeckId: '1', title: 'Broken Deck', content: 'x' }] })
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.results).toEqual([
+      { trekccDeckId: '1', title: 'Broken Deck', status: 'failed', error: "Invalid query: 'appProperties has ...'" },
+    ]);
+  });
+
+  it('falls back to "Save failed" when the error has no message', async () => {
+    mockFilesList.mockRejectedValueOnce({});
+
+    const res = await POST(
+      makeRequest({ decks: [{ trekccDeckId: '1', title: 'Broken Deck', content: 'x' }] })
+    );
+    const body = await res.json();
+
+    expect(body.results).toEqual([
+      { trekccDeckId: '1', title: 'Broken Deck', status: 'failed', error: 'Save failed' },
     ]);
   });
 
