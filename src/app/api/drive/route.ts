@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { getToken } from "next-auth/jwt"
 import { refreshAccessToken } from '../auth/refreshToken';
+import { writeDeckIdempotent } from './idempotentWrite';
 
 async function tokenDecode(req): Promise<{ accessToken: string; accessTokenExpires: number; refreshToken: string | undefined} | undefined> {
   try {
@@ -50,7 +51,20 @@ export async function POST(
       auth: auth,
     })
 
-    const { fileName, content } = await req.json();
+    const { fileName, content, trekccDeckId } = await req.json();
+
+    // trekccDeckId is only sent when this deck originated from a trekCC import; in that
+    // case, look for an existing Drive file for the same trekCC deck and update it in
+    // place instead of creating a duplicate. Manual saves (no trekccDeckId) always create.
+    if (trekccDeckId) {
+      const { status, fileId } = await writeDeckIdempotent(drive, { fileName, content, trekccDeckId });
+      return new Response(JSON.stringify({ file: { id: fileId }, status }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+    }
 
     const fileMetadata = {
       'name': fileName,
