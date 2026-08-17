@@ -103,6 +103,66 @@ function KeywordBadge({
   );
 }
 
+function SpeciesBadge({
+  species,
+  count,
+  onSearch,
+  hqOptions = [],
+}: {
+  species: string;
+  count: number;
+  onSearch?: (species: string, hq: string | null) => void;
+  hqOptions?: HqOption[];
+}) {
+  const [open, setOpen] = React.useState(false);
+  const btnRef = React.useRef<HTMLButtonElement>(null);
+  const hasSearch = !!onSearch;
+  const hasOptions = hqOptions.length > 0;
+
+  const handleSelect = (hq: string | null) => {
+    setOpen(false);
+    onSearch?.(species, hq);
+  };
+
+  return (
+    <div className="relative m-1 px-2 py-1 rounded bg-white/[0.04] surface-hover">
+      <span className="text-sm text-text-secondary flex items-center gap-1 flex-wrap">
+        {count}x{' '}
+        <span>{species}</span>
+        {hasSearch && (
+          <button
+            ref={btnRef}
+            aria-label={`Search personnel with species ${species}`}
+            aria-haspopup={hasOptions ? 'menu' : undefined}
+            aria-expanded={open}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (hasOptions) {
+                setOpen((v) => !v);
+              } else {
+                onSearch(species, null);
+              }
+            }}
+            className="ml-0.5 w-4 h-4 flex items-center justify-center text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer shrink-0"
+          >
+            +
+          </button>
+        )}
+      </span>
+      {open && hasOptions && (
+        <SearchOverlay
+          label={species}
+          hqOptions={hqOptions}
+          selectedHq="all"
+          anchorRef={btnRef}
+          onSelect={handleSelect}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 interface Session {
   accessToken: string;
   session: { user: { name: string; email: string } };
@@ -239,6 +299,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [analysisCollapsed, setAnalysisCollapsed] = useLocalStorage<Record<string, boolean>>('analysisCollapsed', {
     'Personnel skills': true,
     'Keywords': true,
+    'Species': true,
     'Icons': true,
     'Costs': true,
     'Attributes': true,
@@ -759,6 +820,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     const query = hq
       ? `type:personnel keywords:"${keyword}" reportsto:"${hq}"`
       : `type:personnel keywords:"${keyword}"`;
+    searchPile(query);
+  }, [searchPile]);
+
+  const handleSpeciesSearch = useCallback((species: string, hq: string | null) => {
+    const query = hq
+      ? `type:personnel species:"${species}" reportsto:"${hq}"`
+      : `type:personnel species:"${species}"`;
     searchPile(query);
   }, [searchPile]);
 
@@ -1403,6 +1471,34 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                   keyword={keyword}
                   count={count}
                   onSearch={handleKeywordSearch}
+                  hqOptions={hqOptions}
+                />
+              )}
+            </PileAggregate>
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Species" isCollapsed={analysisCollapsed['Species'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Species': !(prev['Species'] ?? true) }))}>
+            <PileAggregate
+              currentDeckRows={currentDeckRows}
+              characteristicName="species"
+              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+              splitFunction={(species) =>
+                species
+                  .split('/')
+                  .map((s) => s.trim())
+                  .filter((s) => s.length > 0)
+              }
+              assembleCounts={(counts, species, count) => {
+                counts[species] = (counts[species] || 0) + count;
+                return counts;
+              }}
+            >
+              {([species, count]) => (
+                <SpeciesBadge
+                  key={species}
+                  species={species}
+                  count={count}
+                  onSearch={handleSpeciesSearch}
                   hqOptions={hqOptions}
                 />
               )}
