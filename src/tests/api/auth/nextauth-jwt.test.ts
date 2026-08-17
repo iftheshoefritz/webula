@@ -10,7 +10,7 @@ jest.mock('googleapis', () => ({
   },
 }));
 
-import { authOptions } from '../../../app/api/auth/[...nextauth]/route';
+import { authOptions } from '../../../app/api/auth/authOptions';
 
 describe('nextauth jwt callback', () => {
   it('computes accessTokenExpires from account.expires_at (absolute epoch seconds) on sign-in', async () => {
