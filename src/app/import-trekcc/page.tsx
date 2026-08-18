@@ -29,7 +29,7 @@ export default function ImportTrekccPage() {
         </p>
 
         <section className="mb-8">
-          <h2 className="text-lg font-semibold mb-3 text-white">Desktop: drag the bookmarklet</h2>
+          <h2 className="text-lg font-semibold mb-3 text-white">Drag the bookmarklet</h2>
           <ol className="list-decimal list-inside space-y-2">
             <li>
               Drag this link to your browser&apos;s bookmarks bar:{' '}
@@ -57,38 +57,6 @@ export default function ImportTrekccPage() {
               you want (or &quot;Select all&quot;) from the popup and click &quot;Import selected&quot;. Webula opens
               in a new tab — with a single deck already loaded for you to review and save, or with several decks
               saved straight to your Google Drive.
-            </li>
-          </ol>
-        </section>
-
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold mb-3 text-white">iOS: use a Shortcut instead</h2>
-          <p className="mb-2">
-            iOS Safari doesn&apos;t let you type or paste a bookmarklet directly into a new bookmark, so use a
-            Shortcut instead:
-          </p>
-          <ol className="list-decimal list-inside space-y-2">
-            <li>Open the Shortcuts app and create a new Shortcut.</li>
-            <li>Add the &quot;Run JavaScript on Web Page&quot; action.</li>
-            <li>
-              Copy the script below and paste it as that action&apos;s JavaScript (tap the code box to select all,
-              then copy):
-              <pre className="mt-2 p-3 bg-bg-secondary border border-border rounded overflow-x-auto text-xs whitespace-pre-wrap break-all">
-                {decodeURIComponent(bookmarkletHref.slice('javascript:'.length))}
-              </pre>
-            </li>
-            <li>Name the Shortcut (e.g. &quot;Import from TrekCC&quot;) and enable it in the Safari share sheet.</li>
-            <li>
-              On your{' '}
-              <a
-                href="https://www.trekcc.org/decklists/?mode=list"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline text-blue-400"
-              >
-                trekcc.org decks list
-              </a>
-              , tap the Share button and run the Shortcut.
             </li>
           </ol>
         </section>
