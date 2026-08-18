@@ -431,8 +431,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
   const clearDeck = () => {
     const message = isDirty
-      ? 'You have unsaved changes. This will remove all cards from your deck. Your saved decks are not affected. Are you sure?'
-      : 'This will remove all cards from your deck. Your saved decks are not affected. Are you sure?';
+      ? 'You have unsaved changes. This will start a new deck. Your saved decks are not affected. Are you sure?'
+      : 'This will start a new deck. Your saved decks are not affected. Are you sure?';
     if (!window.confirm(message)) return;
     setCurrentDeck({});
     setDeckTitle('');
@@ -962,7 +962,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     onClick={() => { clearDeck(); setDeckActionsOpen(false); }}
                   >
                     <FaEraser className="shrink-0" />
-                    <span>Clear deck</span>
+                    <span>New deck</span>
                   </button>
                   <label
                     htmlFor="fileInputMobile"
@@ -1062,7 +1062,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               className="btn-icon"
               onClick={clearDeck}
               data-tooltip-id="button-tooltip"
-              data-tooltip-content="Clear current deck (your saved decks are not affected)"
+              data-tooltip-content="Start a new deck (your saved decks are not affected)"
             >
               <FaEraser />
             </button>
