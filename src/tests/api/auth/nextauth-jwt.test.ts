@@ -52,3 +52,34 @@ describe('nextauth jwt callback', () => {
     expect((token as any).accessToken).toBe('existing-token');
   });
 });
+
+describe('nextauth redirect callback', () => {
+  const baseUrl = 'https://webula.example.com';
+
+  it('resolves a relative callback URL against baseUrl', async () => {
+    const result = await authOptions.callbacks!.redirect!({
+      url: '/import-trekcc/bulk?share=abc123',
+      baseUrl,
+    } as any);
+
+    expect(result).toBe(`${baseUrl}/import-trekcc/bulk?share=abc123`);
+  });
+
+  it('passes through an absolute callback URL on the same origin', async () => {
+    const result = await authOptions.callbacks!.redirect!({
+      url: `${baseUrl}/import-trekcc/bulk?share=abc123`,
+      baseUrl,
+    } as any);
+
+    expect(result).toBe(`${baseUrl}/import-trekcc/bulk?share=abc123`);
+  });
+
+  it('falls back to /decks for an off-origin URL', async () => {
+    const result = await authOptions.callbacks!.redirect!({
+      url: 'https://evil.example.com/phish',
+      baseUrl,
+    } as any);
+
+    expect(result).toBe(`${baseUrl}/decks`);
+  });
+});
