@@ -37,6 +37,17 @@ function makeRequest(body: unknown) {
   });
 }
 
+// Successful responses are now streamed as NDJSON (one JSON object per line) instead of a
+// single JSON body, so tests read the raw text and parse each line themselves.
+async function readNdjson(res: Response) {
+  const text = await res.text();
+  return text
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
 describe('POST /api/drive/bulk', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -63,10 +74,10 @@ describe('POST /api/drive/bulk', () => {
     const res = await POST(
       makeRequest({ decks: [{ trekccDeckId: '54535', title: 'Deck One', content: '1\tPicard' }] })
     );
-    const body = await res.json();
+    const lines = await readNdjson(res);
 
     expect(res.status).toBe(200);
-    expect(body.results).toEqual([{ trekccDeckId: '54535', title: 'Deck One', status: 'created' }]);
+    expect(lines).toEqual([{ trekccDeckId: '54535', title: 'Deck One', status: 'created' }]);
     expect(mockFilesCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         requestBody: expect.objectContaining({
@@ -85,10 +96,10 @@ describe('POST /api/drive/bulk', () => {
     const res = await POST(
       makeRequest({ decks: [{ trekccDeckId: '54535', title: 'Deck One Renamed', content: '1\tPicard' }] })
     );
-    const body = await res.json();
+    const lines = await readNdjson(res);
 
     expect(res.status).toBe(200);
-    expect(body.results).toEqual([{ trekccDeckId: '54535', title: 'Deck One Renamed', status: 'updated' }]);
+    expect(lines).toEqual([{ trekccDeckId: '54535', title: 'Deck One Renamed', status: 'updated' }]);
     expect(mockFilesUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ fileId: 'existing-file-id', requestBody: { name: 'Deck One Renamed' } })
     );
@@ -109,10 +120,10 @@ describe('POST /api/drive/bulk', () => {
         ],
       })
     );
-    const body = await res.json();
+    const lines = await readNdjson(res);
 
     expect(res.status).toBe(200);
-    expect(body.results).toEqual([
+    expect(lines).toEqual([
       { trekccDeckId: '1', title: 'Broken Deck', status: 'failed', error: 'Drive unavailable' },
       { trekccDeckId: '2', title: 'Good Deck', status: 'created' },
     ]);
@@ -127,10 +138,10 @@ describe('POST /api/drive/bulk', () => {
     const res = await POST(
       makeRequest({ decks: [{ trekccDeckId: '1', title: 'Broken Deck', content: 'x' }] })
     );
-    const body = await res.json();
+    const lines = await readNdjson(res);
 
     expect(res.status).toBe(200);
-    expect(body.results).toEqual([
+    expect(lines).toEqual([
       { trekccDeckId: '1', title: 'Broken Deck', status: 'failed', error: "Invalid query: 'appProperties has ...'" },
     ]);
   });
@@ -141,9 +152,9 @@ describe('POST /api/drive/bulk', () => {
     const res = await POST(
       makeRequest({ decks: [{ trekccDeckId: '1', title: 'Broken Deck', content: 'x' }] })
     );
-    const body = await res.json();
+    const lines = await readNdjson(res);
 
-    expect(body.results).toEqual([
+    expect(lines).toEqual([
       { trekccDeckId: '1', title: 'Broken Deck', status: 'failed', error: 'Save failed' },
     ]);
   });
@@ -159,5 +170,46 @@ describe('POST /api/drive/bulk', () => {
 
     expect(res.status).toBe(403);
     expect(body.error).toBe('drive_scope_missing');
+  });
+
+  it('caps the number of Drive writes in flight at once', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    mockFilesList.mockImplementation(async () => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight--;
+      return { data: { files: [] } };
+    });
+    mockFilesCreate.mockResolvedValue({ data: { id: 'id' } });
+
+    const decks = Array.from({ length: 7 }, (_, i) => ({ trekccDeckId: String(i), title: `Deck ${i}`, content: 'x' }));
+    const res = await POST(makeRequest({ decks }));
+    const lines = await readNdjson(res);
+
+    expect(lines).toHaveLength(7);
+    expect(maxInFlight).toBeLessThanOrEqual(3);
+  });
+
+  it('emits a drive_scope_missing line and stops further batches when the scope error appears after the first batch', async () => {
+    let call = 0;
+    mockFilesList.mockImplementation(async () => {
+      call++;
+      if (call === 4) {
+        throw { code: 403, response: { status: 403 } };
+      }
+      return { data: { files: [] } };
+    });
+    mockFilesCreate.mockResolvedValue({ data: { id: 'id' } });
+
+    const decks = Array.from({ length: 5 }, (_, i) => ({ trekccDeckId: String(i), title: `Deck ${i}`, content: 'x' }));
+    const res = await POST(makeRequest({ decks }));
+
+    expect(res.status).toBe(200);
+    const lines = await readNdjson(res);
+    expect(lines).toHaveLength(4);
+    expect(lines.slice(0, 3).every((l) => l.status === 'created')).toBe(true);
+    expect(lines[3]).toEqual({ error: 'drive_scope_missing' });
   });
 });

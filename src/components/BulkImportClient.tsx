@@ -27,6 +27,7 @@ export default function BulkImportClient() {
 
   const saveDecks = async (decksToSave: DeckPayload[]) => {
     setStatus('saving');
+    setResults([]);
     try {
       const res = await fetch('/api/drive/bulk', {
         method: 'POST',
@@ -34,15 +35,47 @@ export default function BulkImportClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ decks: decksToSave }),
       });
-      const json = await res.json();
+
       if (!res.ok) {
+        const json = await res.json().catch(() => null);
         if (json?.error === 'drive_scope_missing') {
           setStatus('needs-signin');
           return;
         }
         throw new Error(json?.error || 'Import failed');
       }
-      setResults(json.results || []);
+
+      // The route streams one NDJSON line per deck result as it finishes, so results are read
+      // incrementally and appended live instead of waiting for a single JSON body — this also
+      // avoids the response being cut short mid-body (e.g. by a platform timeout) leaving a
+      // truncated body that a single res.json() call would fail to parse.
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('Import failed');
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let scopeMissing = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (value) buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const parsed = JSON.parse(line);
+          if (parsed?.error === 'drive_scope_missing') {
+            scopeMissing = true;
+            break;
+          }
+          setResults((prev) => [...prev, parsed as DeckResult]);
+        }
+        if (scopeMissing || done) break;
+      }
+
+      if (scopeMissing) {
+        setStatus('needs-signin');
+        return;
+      }
       setStatus('done');
     } catch (err: any) {
       setStatus('error');
@@ -105,13 +138,17 @@ export default function BulkImportClient() {
           </div>
         )}
 
-        {status === 'saving' && decks && <p>Saving {decks.length} decks to Google Drive…</p>}
+        {status === 'saving' && decks && results.length === 0 && (
+          <p>Saving {decks.length} decks to Google Drive…</p>
+        )}
 
         {status === 'error' && <p className="text-red-400">{error}</p>}
 
-        {status === 'done' && (
+        {(status === 'saving' || status === 'done') && results.length > 0 && (
           <div>
-            <p className="mb-4 font-semibold text-white">Import complete:</p>
+            <p className="mb-4 font-semibold text-white">
+              {status === 'done' ? 'Import complete:' : `Saved ${results.length}/${decks?.length ?? results.length}…`}
+            </p>
             <ul className="space-y-2 mb-6">
               {results.map((r, i) => (
                 <li key={i} className="flex justify-between border-b border-gray-700 pb-1">
