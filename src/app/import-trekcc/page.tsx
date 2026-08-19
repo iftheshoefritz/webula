@@ -68,14 +68,11 @@ export default function ImportTrekccPage() {
         <section className="mb-8">
           <h2 className="text-lg font-semibold mb-3 text-white">How it works</h2>
           <p>
-            The bookmarklet runs on trekcc.org itself, as you, so it can fetch your &quot;Download Deck to
-            Lackey&quot; export using your existing trekcc.org session. For a single deck, it sends that decklist to
-            Webula&apos;s share endpoint and opens your deck at <code>webula.app/decks?share=…</code> — the same
-            link format used by Webula&apos;s own &quot;Copy share link&quot; button — so you can review and save it
-            yourself. For several selected decks, Webula opens a new tab that signs you in if needed and saves every
-            deck straight to your Google Drive, re-importing the same trekCC deck later updates its existing file
-            instead of creating a duplicate. Nothing is stored on trekcc.org, and Webula never sees your trekcc.org
-            login.
+            The bookmarklet runs on trekcc.org while you&apos;re signed in, so it can grab your deck the same way
+            trekcc.org already lets you export it. For a single deck, it opens that deck in Webula for you to review
+            and save. For several selected decks, it saves them straight to your Google Drive (signing you in first
+            if needed) — re-importing the same deck later updates its existing file instead of creating a duplicate.
+            Nothing is stored on trekcc.org, and Webula never sees your trekcc.org login.
           </p>
         </section>
 
