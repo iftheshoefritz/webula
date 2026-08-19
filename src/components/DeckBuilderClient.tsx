@@ -26,7 +26,7 @@ import { missionRequirements, parseMissionRequirements } from '../lib/missionReq
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaEraser, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -961,7 +961,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 text-left"
                     onClick={() => { clearDeck(); setDeckActionsOpen(false); }}
                   >
-                    <FaEraser className="shrink-0" />
+                    <FaFileAlt className="shrink-0" />
                     <span>New deck</span>
                   </button>
                   <label
@@ -1064,7 +1064,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               data-tooltip-id="button-tooltip"
               data-tooltip-content="Start a new deck (your saved decks are not affected)"
             >
-              <FaEraser />
+              <FaFileAlt />
             </button>
             <DeckUploader onFileLoad={handleFileLoad} />
             <Link
