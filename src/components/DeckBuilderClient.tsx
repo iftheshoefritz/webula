@@ -12,6 +12,7 @@ import PileAggregate from './PileAggregate';
 import IconPill from './IconPill';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import PileAggregateAttributeChart from './PileAggregateAttributeChart';
+import PileAggregateDilemmaTypeChart from './PileAggregateDilemmaTypeChart';
 import BarChart from './BarChart';
 import SkillsChart from './SkillsChart';
 import type { HqOption } from './SkillsChart';
@@ -1560,6 +1561,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               labels={drawTypeBreakdown.map(([type]) => type)}
               values={drawTypeBreakdown.map(([, count]) => count)}
             />
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Dilemma types" isCollapsed={analysisCollapsed['Dilemma types'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Dilemma types': !(prev['Dilemma types'] ?? true) }))}>
+            <PileAggregateDilemmaTypeChart currentDeckRows={currentDeckRows} />
           </CollapsibleSection>
         </div>
       </div>
