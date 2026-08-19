@@ -28,6 +28,10 @@ export default function ImportTrekccPage() {
           into Webula in one click, without manually downloading and re-uploading a file.
         </p>
 
+        <p className="mb-4 text-text-secondary">
+          This only works on desktop browsers — it isn&apos;t supported on iOS or other mobile devices.
+        </p>
+
         <section className="mb-8">
           <h2 className="text-lg font-semibold mb-3 text-white">Drag the bookmarklet</h2>
           <ol className="list-decimal list-inside space-y-2">
