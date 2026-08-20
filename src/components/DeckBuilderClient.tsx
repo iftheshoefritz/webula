@@ -22,12 +22,12 @@ import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
-import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount } from '../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles } from '../app/decks/deckBuilderUtils';
 import { missionRequirements, parseMissionRequirements } from '../lib/missionRequirements';
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -317,6 +317,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [pendingShareContent, setPendingShareContent] = useState<string | null>(null);
   const [pendingShareTitle, setPendingShareTitle] = useState<string | null>(null);
   const [pendingShareWarning, setPendingShareWarning] = useState<boolean>(false);
+  const [shareLoadError, setShareLoadError] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const isFirstRender = useRef(true);
@@ -358,7 +359,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           setPendingShareContent(content);
           setPendingShareTitle(title || null);
         } catch {
-          console.error('Failed to load shared deck');
+          setShareLoadError('Failed to load shared deck');
         }
       }
     })();
@@ -381,20 +382,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingShareContent, data]);
 
-  useEffect(() => {
-    console.log('currentDeck modified!');
-    console.log(currentDeck);
-  }, [currentDeck]);
-
   const incrementIncluded = useCallback(
     (row: CardDef) => {
-      console.log('incrementIncluded: ');
-      console.log(row.collectorsinfo);
-      console.log('incrementIncluded wants to increment: ' + numericCount(currentDeck[row.collectorsinfo]));
       if (belowMaximumCount(currentDeck[row.collectorsinfo])) {
         const currentRow = findExistingOrUseRow(currentDeck, row);
-        console.log('found currentRow with count: ' + numericCount(currentRow));
-
         const newRow = incrementedRow(currentRow);
         setCurrentDeck((prevState) => ({
           ...prevState,
@@ -410,10 +401,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
   const decrementIncluded = useCallback(
     (event: any, row: CardDef) => {
-      console.log('decrementIncluded: ' + row.collectorsinfo);
       event.preventDefault();
       if (aboveMinimumCount(currentDeck[row.collectorsinfo])) {
-        console.log('function thinks it is possible to decrement from ' + numericCount(currentDeck[row.collectorsinfo]));
         const newRow = decrementedRow(currentDeck[row.collectorsinfo].row);
         setCurrentDeck((prevState) => ({
           ...prevState,
@@ -422,9 +411,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             row: newRow,
           },
         }));
-      } else {
-        console.log('function thinks it is NOT possible to decrement:');
-        console.log(numericCount(currentDeck[row.collectorsinfo]));
       }
     },
     [currentDeck, setCurrentDeck]
@@ -456,11 +442,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
   const fetchDriveFile = async (driveFile: { id: string; name: string }, piles?: DeckPile[]) => {
     posthog.capture('deckBuilder.driveFileLoad.start');
-    console.log('id from modal', driveFile.id);
     setLoadingFromGDrive(true);
     const response = await fetch(`/api/drive/${driveFile.id}`, { method: 'GET', credentials: 'include' });
     const json = await response.json();
-    console.log(`fetched ${driveFile.id} `, json);
 
     if (!piles) setDeckFile(driveFile);
     handleFileLoad(driveFile.name, json, piles);
@@ -471,8 +455,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
   const deleteDriveFile = async (file: { id: number }) => {
     posthog.capture('deckBuilder.driveFileDelete.start');
-    console.log('file', file);
-    console.log('id from modal', file.id);
     setDriveFiles(driveFiles.filter((f: { id: number }) => f.id !== file.id));
     await fetch(`/api/drive/${file.id}`, { method: 'DELETE', credentials: 'include' });
     posthog.capture('deckBuilder.driveFileDelete.end');
@@ -546,7 +528,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           });
         }
         const json = await response.json();
-        console.log('JSON FROM api/drive POST/PUT!', json);
         if (!response.ok) {
           if (json?.error === 'drive_scope_missing') {
             signIn('google',
@@ -578,7 +559,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       setLoadingFromGDrive(true);
       const response = await fetch('/api/drive', { method: 'GET', credentials: 'include' });
       const json = await response.json();
-      console.log('JSON FROM api/drive GET', json);
       setDriveFiles(json.files);
       setLoadingFromGDrive(false);
     }
@@ -1622,6 +1602,21 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           <span>Deck{isDirty && <span className="text-yellow-400 font-bold"> *</span>}</span>
         </button>
       </div>
+
+      {shareLoadError && (
+        <div className="fixed top-2 inset-x-0 z-50 flex justify-center px-4">
+          <div className="bg-red-900/90 border border-red-700 text-red-100 text-sm rounded-lg px-4 py-2 shadow-xl flex items-center gap-3">
+            <span>{shareLoadError}</span>
+            <button
+              onClick={() => setShareLoadError(null)}
+              className="text-red-200 hover:text-white"
+              aria-label="Dismiss"
+            >
+              <FaTimes />
+            </button>
+          </div>
+        </div>
+      )}
 
       {pendingShareWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
