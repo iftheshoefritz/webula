@@ -10,6 +10,8 @@ import DeckListPile from './DeckListPile';
 import { DrivePickerModal } from './DrivePickerModal';
 import PileAggregate from './PileAggregate';
 import IconPill from './IconPill';
+import CollapsibleSection from './CollapsibleSection';
+import MissionBranchSelector from './MissionBranchSelector';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import PileAggregateAttributeChart from './PileAggregateAttributeChart';
 import PileAggregateDilemmaTypeChart from './PileAggregateDilemmaTypeChart';
@@ -27,7 +29,7 @@ import { missionRequirements, parseMissionRequirements } from '../lib/missionReq
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -175,108 +177,6 @@ interface Session {
 interface DeckBuilderClientProps {
   data: CardData[];
   columns: string[];
-}
-
-interface CollapsibleSectionProps {
-  title: string;
-  children: React.ReactNode;
-  isCollapsed: boolean;
-  onToggle: () => void;
-}
-
-function CollapsibleSection({ title, children, isCollapsed, onToggle }: CollapsibleSectionProps) {
-  return (
-    <div className="container mx-auto px-4 py-1 lg:py-4">
-      <button
-        onClick={onToggle}
-        className="text-sm mt-2 mb-1 flex items-center gap-2 w-full text-left text-text-secondary"
-      >
-        {title}
-        {isCollapsed ? <FaChevronRight className="text-lg" /> : <FaChevronDown className="text-lg" />}
-      </button>
-      {!isCollapsed && children}
-    </div>
-  );
-}
-
-function MissionBranchSelector({
-  missionName,
-  parsed,
-  selected,
-  onChange,
-}: {
-  missionName: string;
-  parsed: ParsedMissionRequirements;
-  selected: number | null;
-  onChange: (index: number | null) => void;
-}) {
-  const branchLabel = (branch: Record<string, number>) => {
-    const combined = { ...parsed.mandatory, ...branch };
-    return Object.keys(combined)
-      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-      .join(', ');
-  };
-
-  const mandatoryLabel = Object.keys(parsed.mandatory)
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(', ');
-
-  return (
-    <div className="mt-2 flex flex-wrap gap-1 justify-center" data-testid={`branch-selector-${missionName}`}>
-      {parsed.orBranches ? (
-        <>
-          <button
-            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-              selected === null
-                ? 'bg-amber-500 border-amber-500 text-black font-semibold'
-                : 'border-border text-text-secondary hover:border-amber-400 hover:text-amber-300'
-            }`}
-            onClick={() => onChange(null)}
-            aria-pressed={selected === null}
-          >
-            All
-          </button>
-          {parsed.orBranches.map((branch, i) => (
-            <button
-              key={i}
-              className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                selected === i
-                  ? 'bg-amber-500 border-amber-500 text-black font-semibold'
-                  : 'border-border text-text-secondary hover:border-amber-400 hover:text-amber-300'
-              }`}
-              onClick={() => onChange(i)}
-              aria-pressed={selected === i}
-            >
-              {branchLabel(branch)}
-            </button>
-          ))}
-        </>
-      ) : (
-        <button
-          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-            selected !== -1
-              ? 'bg-amber-500 border-amber-500 text-black font-semibold'
-              : 'border-border text-text-secondary hover:border-amber-400 hover:text-amber-300'
-          }`}
-          onClick={() => onChange(null)}
-          aria-pressed={selected !== -1}
-        >
-          {mandatoryLabel}
-        </button>
-      )}
-      <button
-        className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-          selected === -1
-            ? 'bg-amber-500 border-amber-500 text-black font-semibold'
-            : 'border-border text-text-secondary hover:border-amber-400 hover:text-amber-300'
-        }`}
-        onClick={() => onChange(-1)}
-        aria-pressed={selected === -1}
-      >
-        None
-      </button>
-    </div>
-  );
 }
 
 export default function DeckBuilderClient({ data, columns }: DeckBuilderClientProps) {
