@@ -735,7 +735,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const drawCount = currentDeckRows.filter(r => r.pile === 'draw').reduce((s, r) => s + r.count, 0);
 
   const drawTypeChart = useMemo(() => {
-    const countByType = (rows: CardDef[]) => {
+    const countByType = (rows: Array<Record<string, any>>) => {
       const counts: Record<string, number> = {};
       for (const row of rows) {
         if (row.pile === 'draw') {
