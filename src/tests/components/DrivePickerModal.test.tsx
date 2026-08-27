@@ -72,3 +72,33 @@ describe('DrivePickerModal – Google Drive header', () => {
     expect(screen.getByText('Drive Deck')).toBeInTheDocument();
   });
 });
+
+describe('DrivePickerModal – compare mode', () => {
+  const driveFiles = [{ id: '1', name: 'Drive Deck' }];
+
+  it('does not render the pile-subset select in compare mode', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare" driveFiles={driveFiles} />);
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('renders the pile-subset select in load mode (default)', () => {
+    render(<DrivePickerModal {...baseProps} driveFiles={driveFiles} />);
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+
+  it('calls loadDriveFile with no piles argument when a file is opened in compare mode', () => {
+    const loadDriveFile = jest.fn();
+    render(<DrivePickerModal {...baseProps} mode="compare" driveFiles={driveFiles} loadDriveFile={loadDriveFile} />);
+    // Buttons in order: modal close (×), then per-file open, then per-file delete.
+    const buttons = screen.getAllByRole('button');
+    fireEvent.click(buttons[1]);
+    expect(loadDriveFile).toHaveBeenCalledWith(driveFiles[0]);
+    expect(loadDriveFile.mock.calls[0]).toHaveLength(1);
+  });
+
+  it('shows a "Compare deck" title in compare mode', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare" driveFiles={driveFiles} />);
+    expect(screen.getByText('Compare deck')).toBeInTheDocument();
+    expect(screen.queryByText('Your decks')).not.toBeInTheDocument();
+  });
+});

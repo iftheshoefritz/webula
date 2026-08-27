@@ -26,10 +26,11 @@ import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles } from '../app/decks/deckBuilderUtils';
 import { missionRequirements, parseMissionRequirements } from '../lib/missionRequirements';
+import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
@@ -178,7 +179,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   });
   const [driveFiles, setDriveFiles] = useState([]);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
+  const [drivePickerMode, setDrivePickerMode] = useState<'load' | 'compare'>('load');
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false);
+  const [compareDeckRows, setCompareDeckRows] = useState<CardDef[]>([]);
+  const [compareDeckName, setCompareDeckName] = useState<string | null>(null);
   const [savingToGDrive, setSavingToGDrive] = useState(false);
   const [savedRecently, setSavedRecently] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -324,6 +328,27 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     posthog.capture('deckBuilder.driveFileLoad.end');
   };
 
+  const fetchCompareDriveFile = async (driveFile: { id: string; name: string }) => {
+    posthog.capture('deckBuilder.compareDeckLoad.start');
+    setLoadingFromGDrive(true);
+    const response = await fetch(`/api/drive/${driveFile.id}`, { method: 'GET', credentials: 'include' });
+    const json = await response.json();
+    const incoming = deckFromTsv(json, data);
+    const rows = Object.keys(incoming)
+      .map((collectorsinfo) => incoming[collectorsinfo].row)
+      .filter((row) => row.count > 0);
+    setCompareDeckRows(rows);
+    setCompareDeckName(driveFile.name);
+    setLoadingFromGDrive(false);
+    setShowDrivePicker(false);
+    posthog.capture('deckBuilder.compareDeckLoad.end');
+  };
+
+  const clearCompareDeck = () => {
+    setCompareDeckRows([]);
+    setCompareDeckName(null);
+  };
+
   const deleteDriveFile = async (file: { id: number }) => {
     posthog.capture('deckBuilder.driveFileDelete.start');
     setDriveFiles(driveFiles.filter((f: { id: number }) => f.id !== file.id));
@@ -424,7 +449,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     }
   };
 
-  const openDeckPicker = async () => {
+  const openDrivePicker = async (mode: 'load' | 'compare') => {
+    setDrivePickerMode(mode);
     setShowDrivePicker(true);
     if (session) {
       setLoadingFromGDrive(true);
@@ -434,6 +460,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       setLoadingFromGDrive(false);
     }
   };
+
+  const openDeckPicker = () => openDrivePicker('load');
+  const openComparePicker = () => openDrivePicker('compare');
 
   const exportLackeyDeckToDisk = () => {
     posthog.capture('deckBuilder.lackeyExport.start');
@@ -518,6 +547,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       .map((collectorsinfo) => currentDeck[collectorsinfo].row)
       .filter((row) => row.count > 0);
   }, [currentDeck]);
+
+  const activeCompareDeckRows = compareDeckRows.length > 0 ? compareDeckRows : undefined;
 
   const aggregatedMissionReqs = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -703,15 +734,22 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const dilemmaCount = currentDeckRows.filter(r => r.pile === 'dilemma').reduce((s, r) => s + r.count, 0);
   const drawCount = currentDeckRows.filter(r => r.pile === 'draw').reduce((s, r) => s + r.count, 0);
 
-  const drawTypeBreakdown = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const row of currentDeckRows) {
-      if (row.pile === 'draw') {
-        counts[row.type] = (counts[row.type] ?? 0) + (row.count ?? 0);
+  const drawTypeChart = useMemo(() => {
+    const countByType = (rows: CardDef[]) => {
+      const counts: Record<string, number> = {};
+      for (const row of rows) {
+        if (row.pile === 'draw') {
+          counts[row.type] = (counts[row.type] ?? 0) + (row.count ?? 0);
+        }
       }
-    }
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [currentDeckRows]);
+      return counts;
+    };
+    const primaryCounts = countByType(currentDeckRows);
+    const compareCounts = activeCompareDeckRows ? countByType(activeCompareDeckRows) : undefined;
+    const labels = unionSortedLabels(primaryCounts, compareCounts, (a, b) => (primaryCounts[b] ?? 0) - (primaryCounts[a] ?? 0) || a.localeCompare(b));
+    const { values, compareValues } = unionAlignValues(primaryCounts, compareCounts, labels);
+    return { labels, values, compareValues };
+  }, [currentDeckRows, activeCompareDeckRows]);
 
   const searchPanel = (
     <div className="mx-2 mt-4 flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -1145,6 +1183,34 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               </div>
             )}
           </div>
+          {/* Compare deck toolbar for the Analysis tab */}
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-secondary">
+            {compareDeckName ? (
+              <>
+                <FaBalanceScale className="shrink-0 text-text-muted" />
+                <span className="flex-1 min-w-0 truncate text-sm text-text-muted">
+                  Comparing to <span className="text-text-primary">{compareDeckName}</span>
+                </span>
+                <button
+                  className="btn-icon"
+                  onClick={clearCompareDeck}
+                  aria-label="Clear comparison deck"
+                  data-tooltip-id="button-tooltip"
+                  data-tooltip-content="Clear comparison deck"
+                >
+                  <FaTimes />
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn-secondary text-sm flex items-center gap-2"
+                onClick={openComparePicker}
+              >
+                <FaBalanceScale />
+                Compare deck
+              </button>
+            )}
+          </div>
           <div className="container mx-auto p-4">
             {/* Desktop: horizontal scroll row */}
             <div className="hidden lg:flex space-x-4 overflow-x-scroll">
@@ -1383,11 +1449,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <div className="flex flex-col lg:flex-row">
               <div className="w-full lg:w-1/2 lg:flex-row">
                 <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Draw Deck</span>
-                <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'draw'} />
+                <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'draw'} compareDeckRows={activeCompareDeckRows} compareLabel={compareDeckName ?? undefined} />
               </div>
               <div className="w-full lg:w-1/2 lg:flex-row">
                 <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Dilemma Pile</span>
-                <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'dilemma'} />
+                <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'dilemma'} compareDeckRows={activeCompareDeckRows} compareLabel={compareDeckName ?? undefined} />
               </div>
             </div>
           </CollapsibleSection>
@@ -1401,6 +1467,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     currentDeckRows={currentDeckRows}
                     filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
                     attribute={attr}
+                    compareDeckRows={activeCompareDeckRows}
+                    compareLabel={compareDeckName ?? undefined}
                   />
                 </div>
               ))}
@@ -1409,13 +1477,15 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
           <CollapsibleSection title="Card types" isCollapsed={analysisCollapsed['Card types'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Card types': !(prev['Card types'] ?? true) }))}>
             <BarChart
-              labels={drawTypeBreakdown.map(([type]) => type)}
-              values={drawTypeBreakdown.map(([, count]) => count)}
+              labels={drawTypeChart.labels}
+              values={drawTypeChart.values}
+              compareValues={drawTypeChart.compareValues}
+              compareLabel={compareDeckName ?? undefined}
             />
           </CollapsibleSection>
 
           <CollapsibleSection title="Dilemma types" isCollapsed={analysisCollapsed['Dilemma types'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Dilemma types': !(prev['Dilemma types'] ?? true) }))}>
-            <PileAggregateDilemmaTypeChart currentDeckRows={currentDeckRows} />
+            <PileAggregateDilemmaTypeChart currentDeckRows={currentDeckRows} compareDeckRows={activeCompareDeckRows} compareLabel={compareDeckName ?? undefined} />
           </CollapsibleSection>
         </div>
       </div>
@@ -1517,12 +1587,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       {showDrivePicker && (
         <DrivePickerModal
           driveFiles={driveFiles}
-          loadDriveFile={fetchDriveFile}
+          loadDriveFile={drivePickerMode === 'compare' ? fetchCompareDriveFile : fetchDriveFile}
           deleteDriveFile={deleteDriveFile}
           inProgress={loadingFromGDrive}
           onClose={() => setShowDrivePicker(false)}
           isSignedIn={!!session}
           hasDriveScope={session?.hasDriveScope ?? false}
+          mode={drivePickerMode}
           onSignIn={() => signIn('google',
             { callbackUrl: '/decks?openPicker=true' },
             { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
