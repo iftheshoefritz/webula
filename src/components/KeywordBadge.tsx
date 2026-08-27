@@ -2,16 +2,19 @@
 
 import React from 'react';
 import SearchOverlay from './SearchOverlay';
+import CompareDelta from './CompareDelta';
 import type { HqOption } from './SkillsChart';
 
 export default function KeywordBadge({
   keyword,
   count,
+  compareCount,
   onSearch,
   hqOptions = [],
 }: {
   keyword: string;
   count: number;
+  compareCount?: number;
   onSearch?: (keyword: string, hq: string | null) => void;
   hqOptions?: HqOption[];
 }) {
@@ -32,7 +35,7 @@ export default function KeywordBadge({
   return (
     <div className="relative m-1 px-2 py-1 rounded bg-white/[0.04] surface-hover">
       <span className="text-sm text-text-secondary flex items-center gap-1 flex-wrap">
-        {count}x{' '}
+        {count}x<CompareDelta count={count} compareCount={compareCount} />{' '}
         {hasColon ? (
           <span>
             <span>{keywordPrefix}:</span>

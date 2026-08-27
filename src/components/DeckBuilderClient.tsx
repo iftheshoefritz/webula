@@ -1385,12 +1385,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 counts[keyword] = (counts[keyword] || 0) + count;
                 return counts;
               }}
+              compareDeckRows={activeCompareDeckRows}
             >
-              {([keyword, count]) => (
+              {([keyword, count], compareCount) => (
                 <KeywordBadge
                   key={keyword}
                   keyword={keyword}
                   count={count}
+                  compareCount={compareCount}
                   onSearch={handleKeywordSearch}
                   hqOptions={hqOptions}
                 />
@@ -1413,12 +1415,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 counts[species] = (counts[species] || 0) + count;
                 return counts;
               }}
+              compareDeckRows={activeCompareDeckRows}
             >
-              {([species, count]) => (
+              {([species, count], compareCount) => (
                 <SpeciesBadge
                   key={species}
                   species={species}
                   count={count}
+                  compareCount={compareCount}
                   onSearch={handleSpeciesSearch}
                   hqOptions={hqOptions}
                 />
@@ -1441,9 +1445,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 counts[icon] = (counts[icon] || 0) + count;
                 return counts;
               }}
+              compareDeckRows={activeCompareDeckRows}
             >
-              {([icon, count]) => (
-                <IconPill key={icon} icon={icon} count={count} onSearch={handleIconSearch} hqOptions={hqOptions} />
+              {([icon, count], compareCount) => (
+                <IconPill key={icon} icon={icon} count={count} compareCount={compareCount} onSearch={handleIconSearch} hqOptions={hqOptions} />
               )}
             </PileAggregate>
           </CollapsibleSection>
