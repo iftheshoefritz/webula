@@ -3,16 +3,18 @@
 import React, { useRef, useState } from 'react';
 import { CARD_ICON_IMAGES } from '../lib/missionRequirements';
 import SearchOverlay from './SearchOverlay';
+import CompareDelta from './CompareDelta';
 import type { HqOption } from './SkillsChart';
 
 interface IconPillProps {
   icon: string;
   count: number;
+  compareCount?: number;
   onSearch?: (icon: string, hq: string | null) => void;
   hqOptions?: HqOption[];
 }
 
-export default function IconPill({ icon, count, onSearch, hqOptions = [] }: IconPillProps) {
+export default function IconPill({ icon, count, compareCount, onSearch, hqOptions = [] }: IconPillProps) {
   const iconSrc = CARD_ICON_IMAGES[icon.toLowerCase()];
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -27,7 +29,7 @@ export default function IconPill({ icon, count, onSearch, hqOptions = [] }: Icon
   return (
     <div className="relative m-2 p-2 border border-white/[0.06] rounded surface-hover">
       <span className="px-1 text-text-secondary flex items-center gap-1">
-        {count}x{' '}
+        {count}x<CompareDelta count={count} compareCount={compareCount} />{' '}
         {iconSrc
           ? <img src={iconSrc} alt={icon} title={icon} className="inline h-4 w-4" />
           : <b className="text-text-primary">[{icon}]</b>

@@ -34,6 +34,18 @@ describe('IconPill', () => {
     });
   });
 
+  describe('compareCount', () => {
+    it('renders no delta when compareCount is not provided', () => {
+      const { queryByText } = render(<IconPill icon="Cmd" count={4} />);
+      expect(queryByText(/\(\+|\(-|\(0\)/)).toBeNull();
+    });
+
+    it('renders a delta relative to compareCount', () => {
+      const { getByText } = render(<IconPill icon="Cmd" count={4} compareCount={2} />);
+      expect(getByText('(+2)')).toBeInTheDocument();
+    });
+  });
+
   describe('search button', () => {
     const hqOptions = [
       { label: 'Bajor', value: 'bajor' },
