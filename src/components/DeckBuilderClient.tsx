@@ -215,6 +215,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       const params = new URLSearchParams(window.location.search);
       if (params.get('openPicker') === 'true') {
         window.history.replaceState({}, '', '/decks');
+        if (params.get('pickerMode') === 'compare') {
+          setDrivePickerMode('compare');
+        }
         setShowDrivePicker(true);
         if (resolvedSession) {
           setLoadingFromGDrive(true);
@@ -1595,7 +1598,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           hasDriveScope={session?.hasDriveScope ?? false}
           mode={drivePickerMode}
           onSignIn={() => signIn('google',
-            { callbackUrl: '/decks?openPicker=true' },
+            { callbackUrl: `/decks?openPicker=true&pickerMode=${drivePickerMode}` },
             { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
           )}
         />
