@@ -1,8 +1,11 @@
 import BarChart from '../components/BarChart';
 import { useMemo } from 'react';
+import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 
 interface PileAggregateDilemmaTypeChartProps {
   currentDeckRows: Array<Record<string, any>>;
+  compareDeckRows?: Array<Record<string, any>>;
+  compareLabel?: string;
 }
 
 const DILEMMA_TYPE_LABELS: Record<string, string> = {
@@ -11,23 +14,31 @@ const DILEMMA_TYPE_LABELS: Record<string, string> = {
   d: 'Dual',
 };
 
-export default function PileAggregateDilemmaTypeChart({
-  currentDeckRows
-}: PileAggregateDilemmaTypeChartProps) {
-  const breakdown = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const row of currentDeckRows) {
-      if (row.pile === 'dilemma' && row.dilemmatype) {
-        counts[row.dilemmatype] = (counts[row.dilemmatype] || 0) + row.count;
-      }
+function dilemmaTypeCounts(rows: Array<Record<string, any>>) {
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    if (row.pile === 'dilemma' && row.dilemmatype) {
+      counts[row.dilemmatype] = (counts[row.dilemmatype] || 0) + row.count;
     }
-    return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [currentDeckRows]);
+  }
+  return counts;
+}
 
-  const labels = breakdown.map(([type]) => DILEMMA_TYPE_LABELS[type] ?? type);
-  const values = breakdown.map(([, count]) => count);
+export default function PileAggregateDilemmaTypeChart({
+  currentDeckRows,
+  compareDeckRows,
+  compareLabel
+}: PileAggregateDilemmaTypeChartProps) {
+  const { labels, values, compareValues } = useMemo(() => {
+    const primaryCounts = dilemmaTypeCounts(currentDeckRows);
+    const compareCounts = compareDeckRows ? dilemmaTypeCounts(compareDeckRows) : undefined;
+    const rawLabels = unionSortedLabels(primaryCounts, compareCounts, (a, b) => a.localeCompare(b));
+    const { values, compareValues } = unionAlignValues(primaryCounts, compareCounts, rawLabels);
+    const labels = rawLabels.map((type) => DILEMMA_TYPE_LABELS[type] ?? type);
+    return { labels, values, compareValues };
+  }, [currentDeckRows, compareDeckRows]);
 
   return (
-      <BarChart labels={labels} values={values}/>
+      <BarChart labels={labels} values={values} compareValues={compareValues} compareLabel={compareLabel}/>
   );
 }

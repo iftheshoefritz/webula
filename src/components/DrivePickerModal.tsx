@@ -11,6 +11,8 @@ type PickerProps = {
   isSignedIn: boolean
   hasDriveScope: boolean
   onSignIn: () => void
+  /** 'compare' loads a full deck for comparison only, with no pile-subset option. */
+  mode?: 'load' | 'compare'
 }
 
 type LoadMode = 'full' | 'mission' | 'dilemma' | 'draw';
@@ -36,12 +38,17 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   isSignedIn,
   hasDriveScope,
   onSignIn,
+  mode = 'load',
 }) => {
   const [driveLoadModes, setDriveLoadModes] = useState<Record<string, LoadMode>>({});
 
   const handleDriveFileSelect = (file: { id: string; name: string }) => {
-    const mode = driveLoadModes[file.id] ?? 'full';
-    loadDriveFile(file, pilesForMode(mode));
+    if (mode === 'compare') {
+      loadDriveFile(file);
+      return;
+    }
+    const loadMode = driveLoadModes[file.id] ?? 'full';
+    loadDriveFile(file, pilesForMode(loadMode));
   };
   const handleDriveFileDelete = (file) => {
     if (!window.confirm(`This will permanently delete "${file.name}" from your Google Drive. Are you sure?`)) return;
@@ -53,7 +60,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
         <div className="absolute inset-0 bg-black opacity-50" onClick={onClose}></div>
         <div className="bg-bg-secondary p-3 border border-white/10 shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
           <div className="flex justify-between items-center">
-            <span className="text-2xl font-bold mt-4 mb-2 block text-text-primary">Your decks</span>
+            <span className="text-2xl font-bold mt-4 mb-2 block text-text-primary">{mode === 'compare' ? 'Compare deck' : 'Your decks'}</span>
             <button
               type="button"
               className="text-text-primary hover:text-text-secondary"
@@ -90,15 +97,17 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                       <li key={file.id} className="flex items-center border border-white/10 text-text-primary py-1">
                         <span className="flex-1 min-w-0 px-3 truncate" title={file.name}>{file.name}</span>
                         <div className="flex items-center whitespace-nowrap flex-shrink-0">
-                          <select
-                            className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
-                            value={driveLoadModes[file.id] ?? 'full'}
-                            onChange={(e) => setDriveLoadModes((prev) => ({ ...prev, [file.id]: e.target.value as LoadMode }))}
-                          >
-                            {PILE_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                          </select>
+                          {mode !== 'compare' && (
+                            <select
+                              className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
+                              value={driveLoadModes[file.id] ?? 'full'}
+                              onChange={(e) => setDriveLoadModes((prev) => ({ ...prev, [file.id]: e.target.value as LoadMode }))}
+                            >
+                              {PILE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          )}
                           <button
                             type="button"
                             className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
