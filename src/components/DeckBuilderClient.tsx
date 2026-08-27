@@ -788,7 +788,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   );
 
   const deckPanel = (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-2 mt-4">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-2 pt-2">
       <Tooltip id="button-tooltip" />
 
       {/* Mobile compact header (hidden on lg+) */}
@@ -1144,13 +1144,40 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
         {/* Main content area */}
         <div className={`flex-grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0 ${mobileView !== 'analysis' ? 'hidden lg:block' : ''}`}>
-          {/* Mobile-only save toolbar for Analysis tab */}
-          <div className="lg:hidden flex flex-col border-b border-border bg-bg-secondary">
-            <div className="flex items-center justify-between px-4 py-2">
-              <span className="text-sm font-medium truncate text-text-muted">
-                {deckTitle || 'Untitled Deck'}{isDirty && <span className="text-yellow-400 font-bold"> *</span>}
-              </span>
-              <div className="flex items-center gap-2">
+          {/* Mobile-only header for Analysis tab: title + controls in one row, matching the deck tab */}
+          <div className="lg:hidden shrink-0 border-b border-border bg-bg-secondary px-2 py-2">
+            {mobileTitleEditing ? (
+              <input
+                type="text"
+                id="deckTitleAnalysisMobile"
+                placeholder="Set deck title here"
+                value={deckTitle}
+                autoFocus
+                onChange={(e) => setDeckTitle(e.target.value)}
+                onBlur={() => setMobileTitleEditing(false)}
+                className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
+              />
+            ) : (
+              <div className="flex items-center space-x-2">
+                <button
+                  className="flex-1 flex items-center gap-2 min-w-0 text-left"
+                  onClick={() => setMobileTitleEditing(true)}
+                  aria-label="Edit deck title"
+                >
+                  <span className="text-text-primary font-body font-bold truncate min-w-0">
+                    {deckTitle || <span className="text-text-disabled">Set deck title here</span>}
+                  </span>
+                  <FaPencilAlt className="shrink-0 text-text-disabled text-xs" />
+                </button>
+                <button
+                  className={`btn-icon ${compareDeckName ? 'text-accent' : ''}`}
+                  onClick={() => (compareDeckName ? clearCompareDeck() : openComparePicker())}
+                  aria-label={compareDeckName ? `Comparing to ${compareDeckName}, tap to clear` : 'Compare deck'}
+                  data-tooltip-id="button-tooltip"
+                  data-tooltip-content={compareDeckName ? `Comparing to ${compareDeckName} — tap to clear` : 'Compare deck'}
+                >
+                  <FaBalanceScale />
+                </button>
                 <button
                   className="btn-icon"
                   onClick={shareDeck}
@@ -1168,14 +1195,18 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 >
                   <FaSave />
                 </button>
+              </div>
+            )}
+            {(savedRecently || saveError || shareState === 'copied' || (shareState === 'error' && shareError)) && (
+              <div className="flex items-center gap-2 pt-1">
                 {savedRecently && <span className="text-sm text-green-400 font-medium">Saved!</span>}
                 {shareState === 'copied' && <span className="text-sm text-green-400 font-medium">Copied!</span>}
                 {saveError && <span className="text-sm text-red-400 font-medium">{saveError}</span>}
                 {shareState === 'error' && shareError && <span className="text-sm text-red-400 font-medium">{shareError}</span>}
               </div>
-            </div>
+            )}
             {shareUrl && (
-              <div className="px-4 pb-2">
+              <div className="pt-2">
                 <input
                   className="text-xs bg-bg-secondary text-text-primary border border-border rounded px-2 py-1 w-full cursor-text"
                   value={shareUrl}
@@ -1186,8 +1217,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               </div>
             )}
           </div>
-          {/* Compare deck toolbar for the Analysis tab */}
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-secondary">
+          {/* Desktop-only compare deck toolbar for the Analysis tab */}
+          <div className="hidden lg:flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-secondary">
             {compareDeckName ? (
               <>
                 <FaBalanceScale className="shrink-0 text-text-muted" />
