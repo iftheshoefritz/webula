@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useRef } from 'react';
 import SearchOverlay from './SearchOverlay';
+import CompareDelta from './CompareDelta';
 import { SKILLS } from '../lib/missionRequirements';
 
 const skillList = SKILLS.map((s) => s.toLowerCase());
@@ -21,12 +22,32 @@ interface SkillsChartProps {
   /** Per-skill currently selected HQ value (or 'all') — used to surface the
    *  active reportsto option at the top of the overlay. */
   skillHqSelections?: Record<string, string>;
+  compareDeckRows?: any[];
+}
+
+function countSkills(rows: any[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  rows
+    .filter((row) => row.pile === 'draw' && row.type === 'personnel')
+    .forEach((row) => {
+      const skills: string[] = (row.skills || '').match(/(?:\d+ \w+|\w+)/g) || [];
+      skills.forEach((skillItem: string) => {
+        const [, , skill] = skillItem.trim().match(/(\d*)\s*(\w+)/) || [null, null, null];
+        if (skill && skillList.includes(skill)) {
+          counts[skill] = (counts[skill] || 0) + row.count;
+        }
+      });
+    });
+
+  return counts;
 }
 
 
 function SkillRow({
   skill,
   count,
+  compareCount,
   req,
   max,
   hqOptions,
@@ -35,6 +56,7 @@ function SkillRow({
 }: {
   skill: string;
   count: number;
+  compareCount?: number;
   req?: number;
   max: number;
   hqOptions: HqOption[];
@@ -68,9 +90,10 @@ function SkillRow({
           />
         )}
       </div>
-      <span className="w-10 text-right text-text-secondary shrink-0">
+      <span className="min-w-10 text-right text-text-secondary shrink-0">
         {count}
         <span className="text-amber-400 ml-0.5">/{req ?? 0}</span>
+        <CompareDelta count={count} compareCount={compareCount} />
       </span>
       {hasSearch && (
         <button
@@ -111,32 +134,27 @@ export default function SkillsChart({
   onSkillSearch,
   hqOptions = [],
   skillHqSelections = {},
+  compareDeckRows,
 }: SkillsChartProps) {
   const skillCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-
-    currentDeckRows
-      .filter((row) => row.pile === 'draw' && row.type === 'personnel')
-      .forEach((row) => {
-        const skills: string[] = (row.skills || '').match(/(?:\d+ \w+|\w+)/g) || [];
-        skills.forEach((skillItem: string) => {
-          const [, , skill] = skillItem.trim().match(/(\d*)\s*(\w+)/) || [null, null, null];
-          if (skill && skillList.includes(skill)) {
-            counts[skill] = (counts[skill] || 0) + row.count;
-          }
-        });
-      });
+    const counts = countSkills(currentDeckRows);
 
     return Object.entries(counts)
       .map(([skill, count]) => ({ skill, count }))
       .sort((a, b) => b.count - a.count || a.skill.localeCompare(b.skill));
   }, [currentDeckRows]);
 
+  const compareSkillCounts = useMemo(
+    () => (compareDeckRows ? countSkills(compareDeckRows) : undefined),
+    [compareDeckRows]
+  );
+
   const hasMissionReqs = missionRequirements && Object.keys(missionRequirements).length > 0;
 
   const allSkills = skillList.map((skill) => ({
     skill,
     count: skillCounts.find((s) => s.skill === skill)?.count ?? 0,
+    compareCount: compareSkillCounts ? compareSkillCounts[skill] ?? 0 : undefined,
   }));
 
   const maxCount = skillCounts.length > 0 ? Math.max(...skillCounts.map((s) => s.count)) : 0;
@@ -159,11 +177,12 @@ export default function SkillsChart({
           </span>
         </div>
       )}
-      {allSkills.map(({ skill, count }) => (
+      {allSkills.map(({ skill, count, compareCount }) => (
         <SkillRow
           key={skill}
           skill={skill}
           count={count}
+          compareCount={compareCount}
           req={missionRequirements?.[skill]}
           max={max}
           hqOptions={hqOptions}

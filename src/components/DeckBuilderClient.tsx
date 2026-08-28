@@ -1398,6 +1398,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               missionRequirements={aggregatedMissionReqs}
               onSkillSearch={handleSkillSearch}
               hqOptions={hqOptions}
+              compareDeckRows={activeCompareDeckRows}
             />
           </CollapsibleSection>
 
