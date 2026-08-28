@@ -325,6 +325,46 @@ describe('SkillsChart', () => {
     });
   });
 
+  describe('compare deck delta', () => {
+    it('renders no delta when compareDeckRows is not provided', () => {
+      const { container } = render(
+        <SkillsChart currentDeckRows={[makeRow({ skills: 'diplomacy', count: 3 })]} />
+      );
+      expect(container.querySelector('.text-green-400')).not.toBeInTheDocument();
+      expect(container.querySelector('.text-red-400')).not.toBeInTheDocument();
+    });
+
+    it('shows a positive delta when the current deck has more of a skill than the compare deck', () => {
+      render(
+        <SkillsChart
+          currentDeckRows={[makeRow({ skills: 'diplomacy', count: 5 })]}
+          compareDeckRows={[makeRow({ skills: 'diplomacy', count: 2 })]}
+        />
+      );
+      expect(screen.getByText('(+3)')).toBeInTheDocument();
+    });
+
+    it('shows a negative delta when the current deck has fewer of a skill than the compare deck', () => {
+      render(
+        <SkillsChart
+          currentDeckRows={[makeRow({ skills: 'diplomacy', count: 1 })]}
+          compareDeckRows={[makeRow({ skills: 'diplomacy', count: 4 })]}
+        />
+      );
+      expect(screen.getByText('(-3)')).toBeInTheDocument();
+    });
+
+    it('treats a skill absent from the compare deck as a zero count', () => {
+      render(
+        <SkillsChart
+          currentDeckRows={[makeRow({ skills: 'diplomacy', count: 2 })]}
+          compareDeckRows={[makeRow({ skills: 'security', count: 1 })]}
+        />
+      );
+      expect(screen.getByText('(+2)')).toBeInTheDocument();
+    });
+  });
+
   describe('mission requirement labels', () => {
     it('shows the requirement number in amber when a mission requirement exists', () => {
       render(

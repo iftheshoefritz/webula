@@ -12,6 +12,8 @@ import PileAggregate from './PileAggregate';
 import IconPill from './IconPill';
 import CollapsibleSection from './CollapsibleSection';
 import MissionBranchSelector from './MissionBranchSelector';
+import KeywordBadge from './KeywordBadge';
+import SpeciesBadge from './SpeciesBadge';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import PileAggregateAttributeChart from './PileAggregateAttributeChart';
 import PileAggregateDilemmaTypeChart from './PileAggregateDilemmaTypeChart';
@@ -26,145 +28,15 @@ import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
 import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles } from '../app/decks/deckBuilderUtils';
 import { missionRequirements, parseMissionRequirements } from '../lib/missionRequirements';
+import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
 import { isEarlyAccessUser } from '../lib/featureFlags';
-
-function KeywordBadge({
-  keyword,
-  count,
-  onSearch,
-  hqOptions = [],
-}: {
-  keyword: string;
-  count: number;
-  onSearch?: (keyword: string, hq: string | null) => void;
-  hqOptions?: HqOption[];
-}) {
-  const [open, setOpen] = React.useState(false);
-  const btnRef = React.useRef<HTMLButtonElement>(null);
-  const hasSearch = !!onSearch;
-  const hasOptions = hqOptions.length > 0;
-  const colonIndex = keyword.indexOf(':');
-  const hasColon = colonIndex !== -1;
-  const keywordPrefix = hasColon ? keyword.slice(0, colonIndex) : keyword;
-  const keywordSuffix = hasColon ? keyword.slice(colonIndex + 1).trim() : null;
-
-  const handleSelect = (hq: string | null) => {
-    setOpen(false);
-    onSearch?.(keyword, hq);
-  };
-
-  return (
-    <div className="relative m-1 px-2 py-1 rounded bg-white/[0.04] surface-hover">
-      <span className="text-sm text-text-secondary flex items-center gap-1 flex-wrap">
-        {count}x{' '}
-        {hasColon ? (
-          <span>
-            <span>{keywordPrefix}:</span>
-            <span className="ml-1 text-text-muted">{keywordSuffix}</span>
-          </span>
-        ) : (
-          <span>{keyword}</span>
-        )}
-        {hasSearch && (
-          <button
-            ref={btnRef}
-            aria-label={`Search personnel with keyword ${keyword}`}
-            aria-haspopup={hasOptions ? 'menu' : undefined}
-            aria-expanded={open}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (hasOptions) {
-                setOpen((v) => !v);
-              } else {
-                onSearch(keyword, null);
-              }
-            }}
-            className="ml-0.5 w-4 h-4 flex items-center justify-center text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer shrink-0"
-          >
-            +
-          </button>
-        )}
-      </span>
-      {open && hasOptions && (
-        <SearchOverlay
-          label={keyword}
-          hqOptions={hqOptions}
-          selectedHq="all"
-          anchorRef={btnRef}
-          onSelect={handleSelect}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </div>
-  );
-}
-
-function SpeciesBadge({
-  species,
-  count,
-  onSearch,
-  hqOptions = [],
-}: {
-  species: string;
-  count: number;
-  onSearch?: (species: string, hq: string | null) => void;
-  hqOptions?: HqOption[];
-}) {
-  const [open, setOpen] = React.useState(false);
-  const btnRef = React.useRef<HTMLButtonElement>(null);
-  const hasSearch = !!onSearch;
-  const hasOptions = hqOptions.length > 0;
-
-  const handleSelect = (hq: string | null) => {
-    setOpen(false);
-    onSearch?.(species, hq);
-  };
-
-  return (
-    <div className="relative m-1 px-2 py-1 rounded bg-white/[0.04] surface-hover">
-      <span className="text-sm text-text-secondary flex items-center gap-1 flex-wrap">
-        {count}x{' '}
-        <span>{species}</span>
-        {hasSearch && (
-          <button
-            ref={btnRef}
-            aria-label={`Search personnel with species ${species}`}
-            aria-haspopup={hasOptions ? 'menu' : undefined}
-            aria-expanded={open}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (hasOptions) {
-                setOpen((v) => !v);
-              } else {
-                onSearch(species, null);
-              }
-            }}
-            className="ml-0.5 w-4 h-4 flex items-center justify-center text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer shrink-0"
-          >
-            +
-          </button>
-        )}
-      </span>
-      {open && hasOptions && (
-        <SearchOverlay
-          label={species}
-          hqOptions={hqOptions}
-          selectedHq="all"
-          anchorRef={btnRef}
-          onSelect={handleSelect}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </div>
-  );
-}
 
 interface Session {
   accessToken: string;
@@ -207,7 +79,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   });
   const [driveFiles, setDriveFiles] = useState([]);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
+  const [drivePickerMode, setDrivePickerMode] = useState<'load' | 'compare'>('load');
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false);
+  const [compareDeckRows, setCompareDeckRows] = useState<CardDef[]>([]);
+  const [compareDeckName, setCompareDeckName] = useState<string | null>(null);
   const [savingToGDrive, setSavingToGDrive] = useState(false);
   const [savedRecently, setSavedRecently] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -240,6 +115,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       const params = new URLSearchParams(window.location.search);
       if (params.get('openPicker') === 'true') {
         window.history.replaceState({}, '', '/decks');
+        if (params.get('pickerMode') === 'compare') {
+          setDrivePickerMode('compare');
+        }
         setShowDrivePicker(true);
         if (resolvedSession) {
           setLoadingFromGDrive(true);
@@ -353,6 +231,27 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     posthog.capture('deckBuilder.driveFileLoad.end');
   };
 
+  const fetchCompareDriveFile = async (driveFile: { id: string; name: string }) => {
+    posthog.capture('deckBuilder.compareDeckLoad.start');
+    setLoadingFromGDrive(true);
+    const response = await fetch(`/api/drive/${driveFile.id}`, { method: 'GET', credentials: 'include' });
+    const json = await response.json();
+    const incoming = deckFromTsv(json, data);
+    const rows = Object.keys(incoming)
+      .map((collectorsinfo) => incoming[collectorsinfo].row)
+      .filter((row) => row.count > 0);
+    setCompareDeckRows(rows);
+    setCompareDeckName(driveFile.name);
+    setLoadingFromGDrive(false);
+    setShowDrivePicker(false);
+    posthog.capture('deckBuilder.compareDeckLoad.end');
+  };
+
+  const clearCompareDeck = () => {
+    setCompareDeckRows([]);
+    setCompareDeckName(null);
+  };
+
   const deleteDriveFile = async (file: { id: number }) => {
     posthog.capture('deckBuilder.driveFileDelete.start');
     setDriveFiles(driveFiles.filter((f: { id: number }) => f.id !== file.id));
@@ -453,7 +352,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     }
   };
 
-  const openDeckPicker = async () => {
+  const openDrivePicker = async (mode: 'load' | 'compare') => {
+    setDrivePickerMode(mode);
     setShowDrivePicker(true);
     if (session) {
       setLoadingFromGDrive(true);
@@ -463,6 +363,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       setLoadingFromGDrive(false);
     }
   };
+
+  const openDeckPicker = () => openDrivePicker('load');
+  const openComparePicker = () => openDrivePicker('compare');
 
   const exportLackeyDeckToDisk = () => {
     posthog.capture('deckBuilder.lackeyExport.start');
@@ -547,6 +450,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       .map((collectorsinfo) => currentDeck[collectorsinfo].row)
       .filter((row) => row.count > 0);
   }, [currentDeck]);
+
+  const activeCompareDeckRows = compareDeckRows.length > 0 ? compareDeckRows : undefined;
 
   const aggregatedMissionReqs = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -732,15 +637,22 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const dilemmaCount = currentDeckRows.filter(r => r.pile === 'dilemma').reduce((s, r) => s + r.count, 0);
   const drawCount = currentDeckRows.filter(r => r.pile === 'draw').reduce((s, r) => s + r.count, 0);
 
-  const drawTypeBreakdown = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const row of currentDeckRows) {
-      if (row.pile === 'draw') {
-        counts[row.type] = (counts[row.type] ?? 0) + (row.count ?? 0);
+  const drawTypeChart = useMemo(() => {
+    const countByType = (rows: Array<Record<string, any>>) => {
+      const counts: Record<string, number> = {};
+      for (const row of rows) {
+        if (row.pile === 'draw') {
+          counts[row.type] = (counts[row.type] ?? 0) + (row.count ?? 0);
+        }
       }
-    }
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [currentDeckRows]);
+      return counts;
+    };
+    const primaryCounts = countByType(currentDeckRows);
+    const compareCounts = activeCompareDeckRows ? countByType(activeCompareDeckRows) : undefined;
+    const labels = unionSortedLabels(primaryCounts, compareCounts, (a, b) => (primaryCounts[b] ?? 0) - (primaryCounts[a] ?? 0) || a.localeCompare(b));
+    const { values, compareValues } = unionAlignValues(primaryCounts, compareCounts, labels);
+    return { labels, values, compareValues };
+  }, [currentDeckRows, activeCompareDeckRows]);
 
   const searchPanel = (
     <div className="mx-2 mt-4 flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -776,7 +688,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   );
 
   const deckPanel = (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-2 mt-4">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-2 pt-2">
       <Tooltip id="button-tooltip" />
 
       {/* Mobile compact header (hidden on lg+) */}
@@ -1132,13 +1044,40 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
         {/* Main content area */}
         <div className={`flex-grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0 ${mobileView !== 'analysis' ? 'hidden lg:block' : ''}`}>
-          {/* Mobile-only save toolbar for Analysis tab */}
-          <div className="lg:hidden flex flex-col border-b border-border bg-bg-secondary">
-            <div className="flex items-center justify-between px-4 py-2">
-              <span className="text-sm font-medium truncate text-text-muted">
-                {deckTitle || 'Untitled Deck'}{isDirty && <span className="text-yellow-400 font-bold"> *</span>}
-              </span>
-              <div className="flex items-center gap-2">
+          {/* Mobile-only header for Analysis tab: title + controls in one row, matching the deck tab */}
+          <div className="lg:hidden shrink-0 border-b border-border bg-bg-secondary px-2 py-2">
+            {mobileTitleEditing ? (
+              <input
+                type="text"
+                id="deckTitleAnalysisMobile"
+                placeholder="Set deck title here"
+                value={deckTitle}
+                autoFocus
+                onChange={(e) => setDeckTitle(e.target.value)}
+                onBlur={() => setMobileTitleEditing(false)}
+                className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
+              />
+            ) : (
+              <div className="flex items-center space-x-2">
+                <button
+                  className="flex-1 flex items-center gap-2 min-w-0 text-left"
+                  onClick={() => setMobileTitleEditing(true)}
+                  aria-label="Edit deck title"
+                >
+                  <span className="text-text-primary font-body font-bold truncate min-w-0">
+                    {deckTitle || <span className="text-text-disabled">Set deck title here</span>}
+                  </span>
+                  <FaPencilAlt className="shrink-0 text-text-disabled text-xs" />
+                </button>
+                <button
+                  className={`btn-icon ${compareDeckName ? 'text-accent' : ''}`}
+                  onClick={() => (compareDeckName ? clearCompareDeck() : openComparePicker())}
+                  aria-label={compareDeckName ? `Comparing to ${compareDeckName}, tap to clear` : 'Compare deck'}
+                  data-tooltip-id="button-tooltip"
+                  data-tooltip-content={compareDeckName ? `Comparing to ${compareDeckName} — tap to clear` : 'Compare deck'}
+                >
+                  <FaBalanceScale />
+                </button>
                 <button
                   className="btn-icon"
                   onClick={shareDeck}
@@ -1156,14 +1095,18 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 >
                   <FaSave />
                 </button>
+              </div>
+            )}
+            {(savedRecently || saveError || shareState === 'copied' || (shareState === 'error' && shareError)) && (
+              <div className="flex items-center gap-2 pt-1">
                 {savedRecently && <span className="text-sm text-green-400 font-medium">Saved!</span>}
                 {shareState === 'copied' && <span className="text-sm text-green-400 font-medium">Copied!</span>}
                 {saveError && <span className="text-sm text-red-400 font-medium">{saveError}</span>}
                 {shareState === 'error' && shareError && <span className="text-sm text-red-400 font-medium">{shareError}</span>}
               </div>
-            </div>
+            )}
             {shareUrl && (
-              <div className="px-4 pb-2">
+              <div className="pt-2">
                 <input
                   className="text-xs bg-bg-secondary text-text-primary border border-border rounded px-2 py-1 w-full cursor-text"
                   value={shareUrl}
@@ -1172,6 +1115,34 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                   aria-label="Share link"
                 />
               </div>
+            )}
+          </div>
+          {/* Desktop-only compare deck toolbar for the Analysis tab */}
+          <div className="hidden lg:flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-secondary">
+            {compareDeckName ? (
+              <>
+                <FaBalanceScale className="shrink-0 text-text-muted" />
+                <span className="flex-1 min-w-0 truncate text-sm text-text-muted">
+                  Comparing to <span className="text-text-primary">{compareDeckName}</span>
+                </span>
+                <button
+                  className="btn-icon"
+                  onClick={clearCompareDeck}
+                  aria-label="Clear comparison deck"
+                  data-tooltip-id="button-tooltip"
+                  data-tooltip-content="Clear comparison deck"
+                >
+                  <FaTimes />
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn-secondary text-sm flex items-center gap-2"
+                onClick={openComparePicker}
+              >
+                <FaBalanceScale />
+                Compare deck
+              </button>
             )}
           </div>
           <div className="container mx-auto p-4">
@@ -1327,6 +1298,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               missionRequirements={aggregatedMissionReqs}
               onSkillSearch={handleSkillSearch}
               hqOptions={hqOptions}
+              compareDeckRows={activeCompareDeckRows}
             />
           </CollapsibleSection>
 
@@ -1345,12 +1317,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 counts[keyword] = (counts[keyword] || 0) + count;
                 return counts;
               }}
+              compareDeckRows={activeCompareDeckRows}
             >
-              {([keyword, count]) => (
+              {([keyword, count], compareCount) => (
                 <KeywordBadge
                   key={keyword}
                   keyword={keyword}
                   count={count}
+                  compareCount={compareCount}
                   onSearch={handleKeywordSearch}
                   hqOptions={hqOptions}
                 />
@@ -1373,12 +1347,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 counts[species] = (counts[species] || 0) + count;
                 return counts;
               }}
+              compareDeckRows={activeCompareDeckRows}
             >
-              {([species, count]) => (
+              {([species, count], compareCount) => (
                 <SpeciesBadge
                   key={species}
                   species={species}
                   count={count}
+                  compareCount={compareCount}
                   onSearch={handleSpeciesSearch}
                   hqOptions={hqOptions}
                 />
@@ -1401,9 +1377,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 counts[icon] = (counts[icon] || 0) + count;
                 return counts;
               }}
+              compareDeckRows={activeCompareDeckRows}
             >
-              {([icon, count]) => (
-                <IconPill key={icon} icon={icon} count={count} onSearch={handleIconSearch} hqOptions={hqOptions} />
+              {([icon, count], compareCount) => (
+                <IconPill key={icon} icon={icon} count={count} compareCount={compareCount} onSearch={handleIconSearch} hqOptions={hqOptions} />
               )}
             </PileAggregate>
           </CollapsibleSection>
@@ -1412,11 +1389,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <div className="flex flex-col lg:flex-row">
               <div className="w-full lg:w-1/2 lg:flex-row">
                 <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Draw Deck</span>
-                <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'draw'} />
+                <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'draw'} compareDeckRows={activeCompareDeckRows} compareLabel={compareDeckName ?? undefined} />
               </div>
               <div className="w-full lg:w-1/2 lg:flex-row">
                 <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Dilemma Pile</span>
-                <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'dilemma'} />
+                <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'dilemma'} compareDeckRows={activeCompareDeckRows} compareLabel={compareDeckName ?? undefined} />
               </div>
             </div>
           </CollapsibleSection>
@@ -1430,6 +1407,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     currentDeckRows={currentDeckRows}
                     filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
                     attribute={attr}
+                    compareDeckRows={activeCompareDeckRows}
+                    compareLabel={compareDeckName ?? undefined}
                   />
                 </div>
               ))}
@@ -1438,13 +1417,15 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
           <CollapsibleSection title="Card types" isCollapsed={analysisCollapsed['Card types'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Card types': !(prev['Card types'] ?? true) }))}>
             <BarChart
-              labels={drawTypeBreakdown.map(([type]) => type)}
-              values={drawTypeBreakdown.map(([, count]) => count)}
+              labels={drawTypeChart.labels}
+              values={drawTypeChart.values}
+              compareValues={drawTypeChart.compareValues}
+              compareLabel={compareDeckName ?? undefined}
             />
           </CollapsibleSection>
 
           <CollapsibleSection title="Dilemma types" isCollapsed={analysisCollapsed['Dilemma types'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Dilemma types': !(prev['Dilemma types'] ?? true) }))}>
-            <PileAggregateDilemmaTypeChart currentDeckRows={currentDeckRows} />
+            <PileAggregateDilemmaTypeChart currentDeckRows={currentDeckRows} compareDeckRows={activeCompareDeckRows} compareLabel={compareDeckName ?? undefined} />
           </CollapsibleSection>
         </div>
       </div>
@@ -1546,14 +1527,15 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       {showDrivePicker && (
         <DrivePickerModal
           driveFiles={driveFiles}
-          loadDriveFile={fetchDriveFile}
+          loadDriveFile={drivePickerMode === 'compare' ? fetchCompareDriveFile : fetchDriveFile}
           deleteDriveFile={deleteDriveFile}
           inProgress={loadingFromGDrive}
           onClose={() => setShowDrivePicker(false)}
           isSignedIn={!!session}
           hasDriveScope={session?.hasDriveScope ?? false}
+          mode={drivePickerMode}
           onSignIn={() => signIn('google',
-            { callbackUrl: '/decks?openPicker=true' },
+            { callbackUrl: `/decks?openPicker=true&pickerMode=${drivePickerMode}` },
             { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
           )}
         />

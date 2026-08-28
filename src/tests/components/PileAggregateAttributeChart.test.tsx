@@ -3,8 +3,8 @@ import { render } from '@testing-library/react';
 import PileAggregateAttributeChart from '../../components/PileAggregateAttributeChart';
 
 // Capture props passed to BarChart so we can assert on labels/values
-let capturedBarChartProps: { labels: any[]; values: any[] } | null = null;
-jest.mock('../../components/BarChart', () => (props: { labels: any[]; values: any[] }) => {
+let capturedBarChartProps: { labels: any[]; values: any[]; compareValues?: any[]; compareLabel?: string } | null = null;
+jest.mock('../../components/BarChart', () => (props: { labels: any[]; values: any[]; compareValues?: any[]; compareLabel?: string }) => {
   capturedBarChartProps = props;
   return null;
 });
@@ -177,6 +177,67 @@ describe('PileAggregateAttributeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['9']);
+    });
+  });
+
+  describe('compareDeckRows', () => {
+    it('does not pass compareValues when compareDeckRows is omitted', () => {
+      render(
+        <PileAggregateAttributeChart
+          currentDeckRows={[makeRow({ integrity: '4', count: 2 })]}
+          filterFunction={personnelFilter}
+          attribute="integrity"
+        />
+      );
+      expect(capturedBarChartProps!.compareValues).toBeUndefined();
+    });
+
+    it('aligns values when the comparison deck has the same label set', () => {
+      render(
+        <PileAggregateAttributeChart
+          currentDeckRows={[makeRow({ integrity: '4', count: 2 })]}
+          compareDeckRows={[makeRow({ integrity: '4', count: 5 })]}
+          filterFunction={personnelFilter}
+          attribute="integrity"
+        />
+      );
+      expect(capturedBarChartProps!.labels).toEqual(['4']);
+      expect(capturedBarChartProps!.values).toEqual([2]);
+      expect(capturedBarChartProps!.compareValues).toEqual([5]);
+    });
+
+    it('unions and zero-fills labels when the comparison deck has a disjoint label set', () => {
+      render(
+        <PileAggregateAttributeChart
+          currentDeckRows={[makeRow({ integrity: '4', count: 2 })]}
+          compareDeckRows={[makeRow({ integrity: '6', count: 3 })]}
+          filterFunction={personnelFilter}
+          attribute="integrity"
+        />
+      );
+      expect(capturedBarChartProps!.labels).toEqual(['4', '6']);
+      expect(capturedBarChartProps!.values).toEqual([2, 0]);
+      expect(capturedBarChartProps!.compareValues).toEqual([0, 3]);
+    });
+
+    it('unions partially-overlapping label sets and keeps both arrays index-aligned', () => {
+      render(
+        <PileAggregateAttributeChart
+          currentDeckRows={[
+            makeRow({ integrity: '4', count: 2 }),
+            makeRow({ integrity: '6', count: 1 }),
+          ]}
+          compareDeckRows={[
+            makeRow({ integrity: '6', count: 3 }),
+            makeRow({ integrity: '8', count: 4 }),
+          ]}
+          filterFunction={personnelFilter}
+          attribute="integrity"
+        />
+      );
+      expect(capturedBarChartProps!.labels).toEqual(['4', '6', '8']);
+      expect(capturedBarChartProps!.values).toEqual([2, 1, 0]);
+      expect(capturedBarChartProps!.compareValues).toEqual([0, 3, 4]);
     });
   });
 });

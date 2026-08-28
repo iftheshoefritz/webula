@@ -3,8 +3,8 @@ import { render } from '@testing-library/react';
 import PileAggregateDilemmaTypeChart from '../../components/PileAggregateDilemmaTypeChart';
 
 // Capture props passed to BarChart so we can assert on labels/values
-let capturedBarChartProps: { labels: any[]; values: any[] } | null = null;
-jest.mock('../../components/BarChart', () => (props: { labels: any[]; values: any[] }) => {
+let capturedBarChartProps: { labels: any[]; values: any[]; compareValues?: any[]; compareLabel?: string } | null = null;
+jest.mock('../../components/BarChart', () => (props: { labels: any[]; values: any[]; compareValues?: any[]; compareLabel?: string }) => {
   capturedBarChartProps = props;
   return null;
 });
@@ -72,6 +72,37 @@ describe('PileAggregateDilemmaTypeChart', () => {
       );
       expect(capturedBarChartProps!.labels).toEqual(['Space']);
       expect(capturedBarChartProps!.values).toEqual([2]);
+    });
+  });
+
+  describe('compareDeckRows', () => {
+    it('does not pass compareValues when compareDeckRows is omitted', () => {
+      render(<PileAggregateDilemmaTypeChart currentDeckRows={[makeRow({ dilemmatype: 'p', count: 2 })]} />);
+      expect(capturedBarChartProps!.compareValues).toBeUndefined();
+    });
+
+    it('unions and zero-fills labels when the comparison deck has a disjoint dilemma-type set', () => {
+      render(
+        <PileAggregateDilemmaTypeChart
+          currentDeckRows={[makeRow({ dilemmatype: 'p', count: 2 })]}
+          compareDeckRows={[makeRow({ dilemmatype: 's', count: 3 })]}
+        />
+      );
+      expect(capturedBarChartProps!.labels).toEqual(['Planet', 'Space']);
+      expect(capturedBarChartProps!.values).toEqual([2, 0]);
+      expect(capturedBarChartProps!.compareValues).toEqual([0, 3]);
+    });
+
+    it('aligns values when both decks share the same dilemma types', () => {
+      render(
+        <PileAggregateDilemmaTypeChart
+          currentDeckRows={[makeRow({ dilemmatype: 'p', count: 2 })]}
+          compareDeckRows={[makeRow({ dilemmatype: 'p', count: 5 })]}
+        />
+      );
+      expect(capturedBarChartProps!.labels).toEqual(['Planet']);
+      expect(capturedBarChartProps!.values).toEqual([2]);
+      expect(capturedBarChartProps!.compareValues).toEqual([5]);
     });
   });
 });

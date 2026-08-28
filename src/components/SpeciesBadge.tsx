@@ -1,43 +1,42 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
-import { CARD_ICON_IMAGES } from '../lib/missionRequirements';
+import React from 'react';
 import SearchOverlay from './SearchOverlay';
 import CompareDelta from './CompareDelta';
 import type { HqOption } from './SkillsChart';
 
-interface IconPillProps {
-  icon: string;
+export default function SpeciesBadge({
+  species,
+  count,
+  compareCount,
+  onSearch,
+  hqOptions = [],
+}: {
+  species: string;
   count: number;
   compareCount?: number;
-  onSearch?: (icon: string, hq: string | null) => void;
+  onSearch?: (species: string, hq: string | null) => void;
   hqOptions?: HqOption[];
-}
-
-export default function IconPill({ icon, count, compareCount, onSearch, hqOptions = [] }: IconPillProps) {
-  const iconSrc = CARD_ICON_IMAGES[icon.toLowerCase()];
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef<HTMLButtonElement>(null);
+}) {
+  const [open, setOpen] = React.useState(false);
+  const btnRef = React.useRef<HTMLButtonElement>(null);
   const hasSearch = !!onSearch;
   const hasOptions = hqOptions.length > 0;
 
   const handleSelect = (hq: string | null) => {
     setOpen(false);
-    onSearch?.(icon, hq);
+    onSearch?.(species, hq);
   };
 
   return (
-    <div className="relative m-2 p-2 border border-white/[0.06] rounded surface-hover">
-      <span className="px-1 text-text-secondary flex items-center gap-1">
+    <div className="relative m-1 px-2 py-1 rounded bg-white/[0.04] surface-hover">
+      <span className="text-sm text-text-secondary flex items-center gap-1 flex-wrap">
         {count}x<CompareDelta count={count} compareCount={compareCount} />{' '}
-        {iconSrc
-          ? <img src={iconSrc} alt={icon} title={icon} className="inline h-4 w-4" />
-          : <b className="text-text-primary">[{icon}]</b>
-        }
+        <span>{species}</span>
         {hasSearch && (
           <button
             ref={btnRef}
-            aria-label={`Search personnel with ${icon}`}
+            aria-label={`Search personnel with species ${species}`}
             aria-haspopup={hasOptions ? 'menu' : undefined}
             aria-expanded={open}
             onClick={(e) => {
@@ -45,10 +44,10 @@ export default function IconPill({ icon, count, compareCount, onSearch, hqOption
               if (hasOptions) {
                 setOpen((v) => !v);
               } else {
-                onSearch(icon, null);
+                onSearch(species, null);
               }
             }}
-            className="btn-icon btn-icon-sm shrink-0 ml-1"
+            className="ml-0.5 w-4 h-4 flex items-center justify-center text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer shrink-0"
           >
             +
           </button>
@@ -56,7 +55,7 @@ export default function IconPill({ icon, count, compareCount, onSearch, hqOption
       </span>
       {open && hasOptions && (
         <SearchOverlay
-          label={icon}
+          label={species}
           hqOptions={hqOptions}
           selectedHq="all"
           anchorRef={btnRef}

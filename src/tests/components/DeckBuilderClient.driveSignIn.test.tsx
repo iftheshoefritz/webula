@@ -40,11 +40,13 @@ jest.mock('next/link', () =>
   }
 );
 
-// Capture the onSignIn prop passed to DrivePickerModal
+// Capture the onSignIn/mode props passed to DrivePickerModal
 let capturedOnSignIn: (() => void) | null = null;
+let capturedMode: string | null = null;
 jest.mock('../../components/DrivePickerModal', () => ({
-  DrivePickerModal: (props: { onSignIn?: () => void }) => {
+  DrivePickerModal: (props: { onSignIn?: () => void; mode?: string }) => {
     capturedOnSignIn = props.onSignIn ?? null;
+    capturedMode = props.mode ?? null;
     return null;
   },
 }));
@@ -113,11 +115,53 @@ describe('DeckBuilderClient – Drive scope signIn', () => {
 
     expect(signIn).toHaveBeenCalledWith(
       'google',
-      expect.objectContaining({ callbackUrl: '/decks?openPicker=true' }),
+      expect.objectContaining({ callbackUrl: '/decks?openPicker=true&pickerMode=load' }),
       expect.objectContaining({
         scope: expect.stringContaining('https://www.googleapis.com/auth/drive.appdata'),
         include_granted_scopes: 'true',
       })
     );
+  });
+
+  it('encodes compare mode in the signIn callbackUrl when opening the compare deck picker', async () => {
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    const buttons = screen.getAllByRole('button');
+    const compareButton = buttons.find((b) => b.textContent?.includes('Compare deck'));
+    expect(compareButton).not.toBeUndefined();
+    await act(async () => {
+      fireEvent.click(compareButton!);
+    });
+
+    expect(capturedOnSignIn).not.toBeNull();
+    act(() => {
+      capturedOnSignIn!();
+    });
+
+    expect(signIn).toHaveBeenCalledWith(
+      'google',
+      expect.objectContaining({ callbackUrl: '/decks?openPicker=true&pickerMode=compare' }),
+      expect.objectContaining({
+        scope: expect.stringContaining('https://www.googleapis.com/auth/drive.appdata'),
+        include_granted_scopes: 'true',
+      })
+    );
+  });
+
+  it('restores compare picker mode after the Google OAuth redirect', async () => {
+    const originalLocation = window.location;
+    // @ts-expect-error - overriding window.location for the test
+    delete window.location;
+    window.location = { ...originalLocation, search: '?openPicker=true&pickerMode=compare' } as Location;
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    expect(capturedMode).toBe('compare');
+
+    window.location = originalLocation;
   });
 });
