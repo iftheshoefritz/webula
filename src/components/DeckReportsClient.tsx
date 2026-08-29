@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { getSession, signIn } from 'next-auth/react';
-import { FaArrowLeft, FaChartBar, FaFolderOpen } from 'react-icons/fa';
+import { FaArrowLeft, FaChartBar, FaFolderOpen, FaTimes } from 'react-icons/fa';
 import { DrivePickerModal } from './DrivePickerModal';
 import SkillsChart from './SkillsChart';
 import PileAggregate from './PileAggregate';
@@ -30,6 +30,12 @@ interface DeckReportsClientProps {
   data: CardData[];
 }
 
+interface LoadedDeck {
+  id: string;
+  name: string;
+  rows: CardDef[];
+}
+
 function rowsFromTsv(tsv: string, data: CardData[]): CardDef[] {
   const deck = deckFromTsv(tsv, data);
   return Object.keys(deck)
@@ -45,13 +51,11 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false);
-  const [deckRows, setDeckRows] = useState<CardDef[]>([]);
-  const [deckName, setDeckName] = useState<string | null>(null);
+  const [decks, setDecks] = useState<LoadedDeck[]>([]);
 
   useEffect(() => {
     if (!isFixture || data.length === 0) return;
-    setDeckRows(rowsFromTsv(PRACTICE_DECK_TSV, data));
-    setDeckName('Fixture deck');
+    setDecks([{ id: 'fixture', name: 'Fixture deck', rows: rowsFromTsv(PRACTICE_DECK_TSV, data) }]);
   }, [isFixture, data]);
 
   useEffect(() => {
@@ -88,14 +92,24 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
     }
   };
 
-  const loadDriveFile = async (driveFile: { id: string; name: string }) => {
+  const handleConfirmSelection = async (files: { id: string; name: string }[]) => {
     setLoadingFromGDrive(true);
-    const response = await fetch(`/api/drive/${driveFile.id}`, { method: 'GET', credentials: 'include' });
-    const json = await response.json();
-    setDeckRows(rowsFromTsv(json, data));
-    setDeckName(driveFile.name);
+    const loaded = await Promise.all(
+      files.map(async (file) => {
+        const existing = decks.find((d) => d.id === file.id);
+        if (existing) return existing;
+        const response = await fetch(`/api/drive/${file.id}`, { method: 'GET', credentials: 'include' });
+        const json = await response.json();
+        return { id: file.id, name: file.name, rows: rowsFromTsv(json, data) };
+      })
+    );
+    setDecks(loaded);
     setLoadingFromGDrive(false);
     setShowDrivePicker(false);
+  };
+
+  const removeDeck = (id: string) => {
+    setDecks((prev) => prev.filter((d) => d.id !== id));
   };
 
   const deleteDriveFile = async (file: { id: string }) => {
@@ -103,7 +117,8 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
     await fetch(`/api/drive/${file.id}`, { method: 'DELETE', credentials: 'include' });
   };
 
-  const hasDeck = deckRows.length > 0;
+  const hasDeck = decks.length > 0;
+  const singleDeck = decks.length === 1 ? decks[0] : null;
 
   return (
     <div className="min-h-screen bg-gradient-page font-body text-text-primary flex flex-col">
@@ -117,16 +132,28 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
       </div>
 
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
-        {hasDeck ? (
+        {singleDeck ? (
           <>
             <span className="text-sm text-text-muted">
-              Showing <span className="text-text-primary">{deckName}</span>
+              Showing <span className="text-text-primary">{singleDeck.name}</span>
             </span>
             <button className="btn-secondary text-sm flex items-center gap-2" onClick={openPicker}>
               <FaFolderOpen />
               Change deck
             </button>
+            <button
+              type="button"
+              aria-label={`Remove ${singleDeck.name}`}
+              className="text-text-muted hover:text-text-primary"
+              onClick={() => removeDeck(singleDeck.id)}
+            >
+              <FaTimes />
+            </button>
           </>
+        ) : decks.length >= 2 ? (
+          <span className="text-sm text-text-muted">
+            Comparing <span className="text-text-primary">{decks.length}</span> decks
+          </span>
         ) : (
           <button className="btn-secondary text-sm flex items-center gap-2" onClick={openPicker}>
             <FaFolderOpen />
@@ -143,17 +170,44 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
         </div>
       )}
 
-      {hasDeck && (
+      {decks.length >= 2 && (
+        <div className="p-4 flex flex-col gap-4">
+          <h2 className="text-xl font-bold text-text-secondary">Selected decks</h2>
+          <ul className="flex flex-col gap-2">
+            {decks.map((deck) => (
+              <li key={deck.id} className="flex items-center justify-between border border-white/10 px-3 py-2">
+                <span className="text-text-primary truncate">{deck.name}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${deck.name}`}
+                  className="text-text-muted hover:text-text-primary"
+                  onClick={() => removeDeck(deck.id)}
+                >
+                  <FaTimes />
+                </button>
+              </li>
+            ))}
+          </ul>
+          {decks.length < 5 && (
+            <button className="btn-secondary text-sm flex items-center gap-2 self-start" onClick={openPicker}>
+              <FaFolderOpen />
+              Add deck
+            </button>
+          )}
+        </div>
+      )}
+
+      {singleDeck && (
         <div className="p-4 flex flex-col gap-8">
           <section>
             <h2 className="text-xl font-bold mb-2 text-text-secondary">Personnel skills</h2>
-            <SkillsChart currentDeckRows={deckRows} />
+            <SkillsChart currentDeckRows={singleDeck.rows} />
           </section>
 
           <section>
             <h2 className="text-xl font-bold mb-2 text-text-secondary">Keywords</h2>
             <PileAggregate
-              currentDeckRows={deckRows}
+              currentDeckRows={singleDeck.rows}
               characteristicName="keywords"
               filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
               splitFunction={(keywords) =>
@@ -174,7 +228,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
           <section>
             <h2 className="text-xl font-bold mb-2 text-text-secondary">Species</h2>
             <PileAggregate
-              currentDeckRows={deckRows}
+              currentDeckRows={singleDeck.rows}
               characteristicName="species"
               filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
               splitFunction={(species) =>
@@ -195,7 +249,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
           <section>
             <h2 className="text-xl font-bold mb-2 text-text-secondary">Icons</h2>
             <PileAggregate
-              currentDeckRows={deckRows}
+              currentDeckRows={singleDeck.rows}
               characteristicName="icons"
               filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
               splitFunction={(keywords) =>
@@ -218,11 +272,11 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
             <div className="flex flex-col lg:flex-row">
               <div className="w-full lg:w-1/2">
                 <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary">Draw Deck</span>
-                <PileAggregateCostChart currentDeckRows={deckRows} filterFunction={(row) => row.pile === 'draw'} />
+                <PileAggregateCostChart currentDeckRows={singleDeck.rows} filterFunction={(row) => row.pile === 'draw'} />
               </div>
               <div className="w-full lg:w-1/2">
                 <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary">Dilemma Pile</span>
-                <PileAggregateCostChart currentDeckRows={deckRows} filterFunction={(row) => row.pile === 'dilemma'} />
+                <PileAggregateCostChart currentDeckRows={singleDeck.rows} filterFunction={(row) => row.pile === 'dilemma'} />
               </div>
             </div>
           </section>
@@ -234,7 +288,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
                 <div key={attr} className="w-full lg:w-1/3">
                   <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary capitalize">{attr}</span>
                   <PileAggregateAttributeChart
-                    currentDeckRows={deckRows}
+                    currentDeckRows={singleDeck.rows}
                     filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
                     attribute={attr}
                   />
@@ -248,13 +302,15 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
       {showDrivePicker && (
         <DrivePickerModal
           driveFiles={driveFiles}
-          loadDriveFile={loadDriveFile}
+          loadDriveFile={() => {}}
           deleteDriveFile={deleteDriveFile}
           inProgress={loadingFromGDrive}
           onClose={() => setShowDrivePicker(false)}
           isSignedIn={!!session}
           hasDriveScope={session?.hasDriveScope ?? false}
-          mode="compare"
+          mode="compare-multi"
+          onConfirmSelection={handleConfirmSelection}
+          preSelectedFiles={decks.map((d) => ({ id: d.id, name: d.name }))}
           onSignIn={() => signIn('google',
             { callbackUrl: '/decks/reports?openPicker=true' },
             { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
