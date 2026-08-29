@@ -32,8 +32,9 @@ export default function PileAggregateDilemmaTypeChart({
   const { labels, values, compareValues } = useMemo(() => {
     const primaryCounts = dilemmaTypeCounts(currentDeckRows);
     const compareCounts = compareDeckRows ? dilemmaTypeCounts(compareDeckRows) : undefined;
-    const rawLabels = unionSortedLabels(primaryCounts, compareCounts, (a, b) => a.localeCompare(b));
-    const { values, compareValues } = unionAlignValues(primaryCounts, compareCounts, rawLabels);
+    const seriesCounts = compareCounts ? [primaryCounts, compareCounts] : [primaryCounts];
+    const rawLabels = unionSortedLabels(seriesCounts, (a, b) => a.localeCompare(b));
+    const [values, compareValues] = unionAlignValues(seriesCounts, rawLabels);
     const labels = rawLabels.map((type) => DILEMMA_TYPE_LABELS[type] ?? type);
     return { labels, values, compareValues };
   }, [currentDeckRows, compareDeckRows]);
