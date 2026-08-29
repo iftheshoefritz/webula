@@ -102,3 +102,98 @@ describe('DrivePickerModal – compare mode', () => {
     expect(screen.queryByText('Your decks')).not.toBeInTheDocument();
   });
 });
+
+describe('DrivePickerModal – compare-multi mode', () => {
+  const driveFiles = [
+    { id: '1', name: 'Deck One' },
+    { id: '2', name: 'Deck Two' },
+    { id: '3', name: 'Deck Three' },
+    { id: '4', name: 'Deck Four' },
+    { id: '5', name: 'Deck Five' },
+    { id: '6', name: 'Deck Six' },
+  ];
+
+  it('shows a "Compare decks" title', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare-multi" driveFiles={driveFiles} />);
+    expect(screen.getByText('Compare decks')).toBeInTheDocument();
+    expect(screen.queryByText('Your decks')).not.toBeInTheDocument();
+  });
+
+  it('renders a checkbox per file instead of the pile-subset select or open button', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare-multi" driveFiles={driveFiles} />);
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('checkbox')).toHaveLength(driveFiles.length);
+  });
+
+  it('updates the "N selected" indicator as checkboxes are toggled', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare-multi" driveFiles={driveFiles} />);
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
+
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]);
+    fireEvent.click(checkboxes[1]);
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+
+    fireEvent.click(checkboxes[0]);
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+  });
+
+  it('prevents checking a 6th file once 5 are selected', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare-multi" driveFiles={driveFiles} />);
+    const checkboxes = screen.getAllByRole('checkbox');
+    checkboxes.slice(0, 5).forEach((cb) => fireEvent.click(cb));
+    expect(screen.getByText('5 selected')).toBeInTheDocument();
+
+    fireEvent.click(checkboxes[5]);
+    expect(screen.getByText('5 selected')).toBeInTheDocument();
+    expect(checkboxes[5]).not.toBeChecked();
+  });
+
+  it('disables the confirm button below 2 selections and enables it at 2-5', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare-multi" driveFiles={driveFiles} />);
+    const checkboxes = screen.getAllByRole('checkbox');
+
+    expect(screen.getByRole('button', { name: /compare 0 decks/i })).toBeDisabled();
+
+    fireEvent.click(checkboxes[0]);
+    expect(screen.getByRole('button', { name: /compare 1 deck/i })).toBeDisabled();
+
+    fireEvent.click(checkboxes[1]);
+    expect(screen.getByRole('button', { name: /compare 2 decks/i })).toBeEnabled();
+  });
+
+  it('confirms with the full list of selected files and closes', () => {
+    const onConfirmSelection = jest.fn();
+    render(
+      <DrivePickerModal
+        {...baseProps}
+        mode="compare-multi"
+        driveFiles={driveFiles}
+        onConfirmSelection={onConfirmSelection}
+      />
+    );
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]);
+    fireEvent.click(checkboxes[2]);
+
+    fireEvent.click(screen.getByRole('button', { name: /compare 2 decks/i }));
+
+    expect(onConfirmSelection).toHaveBeenCalledWith([driveFiles[0], driveFiles[2]]);
+  });
+
+  it('pre-checks files passed in preSelectedFiles', () => {
+    render(
+      <DrivePickerModal
+        {...baseProps}
+        mode="compare-multi"
+        driveFiles={driveFiles}
+        preSelectedFiles={[driveFiles[0], driveFiles[1]]}
+      />
+    );
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    const checkboxes = screen.getAllByRole('checkbox');
+    expect(checkboxes[0]).toBeChecked();
+    expect(checkboxes[1]).toBeChecked();
+    expect(checkboxes[2]).not.toBeChecked();
+  });
+});

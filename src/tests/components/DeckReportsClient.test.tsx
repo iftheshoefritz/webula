@@ -34,19 +34,22 @@ jest.mock('../../components/PileAggregate', () => () => null);
 jest.mock('../../components/PileAggregateCostChart', () => () => null);
 jest.mock('../../components/PileAggregateAttributeChart', () => () => null);
 
-// Capture the onSignIn/mode/loadDriveFile props passed to DrivePickerModal.
+// Capture the onSignIn/mode/onConfirmSelection/preSelectedFiles props passed to DrivePickerModal.
 let capturedOnSignIn: (() => void) | null = null;
 let capturedMode: string | null = null;
-let capturedLoadDriveFile: ((file: { id: string; name: string }) => void) | null = null;
+let capturedOnConfirmSelection: ((files: { id: string; name: string }[]) => void) | null = null;
+let capturedPreSelectedFiles: { id: string; name: string }[] | null = null;
 jest.mock('../../components/DrivePickerModal', () => ({
   DrivePickerModal: (props: {
     onSignIn?: () => void;
     mode?: string;
-    loadDriveFile: (file: { id: string; name: string }) => void;
+    onConfirmSelection?: (files: { id: string; name: string }[]) => void;
+    preSelectedFiles?: { id: string; name: string }[];
   }) => {
     capturedOnSignIn = props.onSignIn ?? null;
     capturedMode = props.mode ?? null;
-    capturedLoadDriveFile = props.loadDriveFile;
+    capturedOnConfirmSelection = props.onConfirmSelection ?? null;
+    capturedPreSelectedFiles = props.preSelectedFiles ?? null;
     return null;
   },
 }));
@@ -85,7 +88,8 @@ describe('DeckReportsClient', () => {
     mockSearchParamsValue = new URLSearchParams();
     capturedOnSignIn = null;
     capturedMode = null;
-    capturedLoadDriveFile = null;
+    capturedOnConfirmSelection = null;
+    capturedPreSelectedFiles = null;
     capturedSkillsChartRows = null;
   });
 
@@ -97,7 +101,7 @@ describe('DeckReportsClient', () => {
     expect(screen.getByText('No deck selected.')).toBeInTheDocument();
   });
 
-  it('opens the picker in single-select ("compare") mode with a drive-scoped signIn callback', async () => {
+  it('opens the picker in multi-select ("compare-multi") mode with a drive-scoped signIn callback', async () => {
     await act(async () => {
       render(<DeckReportsClient data={testData} />);
     });
@@ -107,7 +111,7 @@ describe('DeckReportsClient', () => {
       fireEvent.click(pickButton);
     });
 
-    expect(capturedMode).toBe('compare');
+    expect(capturedMode).toBe('compare-multi');
     expect(capturedOnSignIn).not.toBeNull();
 
     act(() => {
@@ -124,7 +128,7 @@ describe('DeckReportsClient', () => {
     );
   });
 
-  it('loads the picked deck into the report charts and clears the empty state', async () => {
+  it('loads a single picked deck into the report charts and clears the empty state', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       json: async () => '1\tTest Card',
     }) as unknown as typeof fetch;
@@ -137,13 +141,146 @@ describe('DeckReportsClient', () => {
       fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
     });
 
-    expect(capturedLoadDriveFile).not.toBeNull();
+    expect(capturedOnConfirmSelection).not.toBeNull();
     await act(async () => {
-      await capturedLoadDriveFile!({ id: 'file-1', name: 'My Deck' });
+      await capturedOnConfirmSelection!([{ id: 'file-1', name: 'My Deck' }]);
     });
 
     expect(screen.queryByText('No deck selected.')).not.toBeInTheDocument();
     expect(screen.getByText('My Deck')).toBeInTheDocument();
     expect(capturedSkillsChartRows).toHaveLength(1);
+  });
+
+  it('shows a list of deck names (no charts) when 2+ decks are selected', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => '1\tTest Card',
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+    });
+
+    await act(async () => {
+      await capturedOnConfirmSelection!([
+        { id: 'file-1', name: 'Deck One' },
+        { id: 'file-2', name: 'Deck Two' },
+      ]);
+    });
+
+    expect(screen.getByText('Deck One')).toBeInTheDocument();
+    expect(screen.getByText('Deck Two')).toBeInTheDocument();
+    expect(capturedSkillsChartRows).toBeNull();
+  });
+
+  it('falls back to the chart view when removing down to 1 deck', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => '1\tTest Card',
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+    });
+
+    await act(async () => {
+      await capturedOnConfirmSelection!([
+        { id: 'file-1', name: 'Deck One' },
+        { id: 'file-2', name: 'Deck Two' },
+      ]);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /remove deck two/i }));
+    });
+
+    expect(screen.getByText('Deck One')).toBeInTheDocument();
+    expect(screen.queryByText('Deck Two')).not.toBeInTheDocument();
+    expect(capturedSkillsChartRows).toHaveLength(1);
+  });
+
+  it('falls back to the empty state when removing down to 0 decks', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => '1\tTest Card',
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+    });
+
+    await act(async () => {
+      await capturedOnConfirmSelection!([{ id: 'file-1', name: 'Deck One' }]);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /remove deck one/i }));
+    });
+
+    expect(screen.getByText('No deck selected.')).toBeInTheDocument();
+    expect(screen.queryByText('Deck One')).not.toBeInTheDocument();
+  });
+
+  it('pre-checks the current deck when re-opening the picker via "Change deck"', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => '1\tTest Card',
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+    });
+
+    await act(async () => {
+      await capturedOnConfirmSelection!([{ id: 'file-1', name: 'Deck One' }]);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /change deck/i }));
+    });
+
+    expect(capturedPreSelectedFiles).toEqual([{ id: 'file-1', name: 'Deck One' }]);
+  });
+
+  it('re-opens the picker with previously-chosen files pre-checked when adding more decks', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => '1\tTest Card',
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+    });
+
+    await act(async () => {
+      await capturedOnConfirmSelection!([
+        { id: 'file-1', name: 'Deck One' },
+        { id: 'file-2', name: 'Deck Two' },
+      ]);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /add deck/i }));
+    });
+
+    expect(capturedPreSelectedFiles).toEqual([
+      { id: 'file-1', name: 'Deck One' },
+      { id: 'file-2', name: 'Deck Two' },
+    ]);
   });
 });
