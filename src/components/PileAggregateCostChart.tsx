@@ -24,8 +24,9 @@ export default function PileAggregateCostChart({
   const { labels, values, compareValues } = useMemo(() => {
     const primaryCounts = costCounts(currentDeckRows, filterFunction);
     const compareCounts = compareDeckRows ? costCounts(compareDeckRows, filterFunction) : undefined;
-    const labels = unionSortedLabels(primaryCounts, compareCounts, (a, b) => (a < b ? -1 : a > b ? 1 : 0));
-    const { values, compareValues } = unionAlignValues(primaryCounts, compareCounts, labels);
+    const seriesCounts = compareCounts ? [primaryCounts, compareCounts] : [primaryCounts];
+    const labels = unionSortedLabels(seriesCounts, (a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    const [values, compareValues] = unionAlignValues(seriesCounts, labels);
     return { labels, values, compareValues };
   }, [currentDeckRows, filterFunction, compareDeckRows]);
 

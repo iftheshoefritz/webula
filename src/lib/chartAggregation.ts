@@ -1,28 +1,23 @@
 /**
- * Shared helpers for aligning two count-by-label series (e.g. the current
- * deck vs. a comparison deck) onto a single shared, sorted label list so
- * they can be overlaid on the same bar chart axis.
+ * Shared helpers for aligning N count-by-label series (e.g. the current
+ * deck plus any number of comparison decks) onto a single shared, sorted
+ * label list so they can be overlaid on the same bar chart axis.
  */
 
 export function unionSortedLabels(
-  primaryCounts: Record<string, number>,
-  compareCounts: Record<string, number> | undefined,
+  seriesCounts: Record<string, number>[],
   sortFn: (a: string, b: string) => number
 ): string[] {
-  const keys = new Set(Object.keys(primaryCounts));
-  if (compareCounts) {
-    Object.keys(compareCounts).forEach((key) => keys.add(key));
-  }
+  const keys = new Set<string>();
+  seriesCounts.forEach((counts) => {
+    Object.keys(counts).forEach((key) => keys.add(key));
+  });
   return Array.from(keys).sort(sortFn);
 }
 
 export function unionAlignValues(
-  primaryCounts: Record<string, number>,
-  compareCounts: Record<string, number> | undefined,
+  seriesCounts: Record<string, number>[],
   sortedLabels: string[]
-): { values: number[]; compareValues?: number[] } {
-  const values = sortedLabels.map((label) => primaryCounts[label] ?? 0);
-  if (!compareCounts) return { values };
-  const compareValues = sortedLabels.map((label) => compareCounts[label] ?? 0);
-  return { values, compareValues };
+): number[][] {
+  return seriesCounts.map((counts) => sortedLabels.map((label) => counts[label] ?? 0));
 }

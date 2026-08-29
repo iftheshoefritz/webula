@@ -749,8 +749,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     };
     const primaryCounts = countByType(currentDeckRows);
     const compareCounts = activeCompareDeckRows ? countByType(activeCompareDeckRows) : undefined;
-    const labels = unionSortedLabels(primaryCounts, compareCounts, (a, b) => (primaryCounts[b] ?? 0) - (primaryCounts[a] ?? 0) || a.localeCompare(b));
-    const { values, compareValues } = unionAlignValues(primaryCounts, compareCounts, labels);
+    const seriesCounts = compareCounts ? [primaryCounts, compareCounts] : [primaryCounts];
+    const labels = unionSortedLabels(seriesCounts, (a, b) => (primaryCounts[b] ?? 0) - (primaryCounts[a] ?? 0) || a.localeCompare(b));
+    const [values, compareValues] = unionAlignValues(seriesCounts, labels);
     return { labels, values, compareValues };
   }, [currentDeckRows, activeCompareDeckRows]);
 

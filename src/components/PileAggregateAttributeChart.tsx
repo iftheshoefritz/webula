@@ -35,8 +35,9 @@ export default function PileAggregateAttributeChart({
   const { labels, values, compareValues } = useMemo(() => {
     const primaryCounts = attributeCounts(currentDeckRows, filterFunction, attribute);
     const compareCounts = compareDeckRows ? attributeCounts(compareDeckRows, filterFunction, attribute) : undefined;
-    const labels = unionSortedLabels(primaryCounts, compareCounts, (a, b) => Number(a) - Number(b));
-    const { values, compareValues } = unionAlignValues(primaryCounts, compareCounts, labels);
+    const seriesCounts = compareCounts ? [primaryCounts, compareCounts] : [primaryCounts];
+    const labels = unionSortedLabels(seriesCounts, (a, b) => Number(a) - Number(b));
+    const [values, compareValues] = unionAlignValues(seriesCounts, labels);
     return { labels, values, compareValues };
   }, [currentDeckRows, filterFunction, attribute, compareDeckRows]);
 
