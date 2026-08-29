@@ -20,12 +20,12 @@ jest.mock('next/link', () =>
   }
 );
 
-// Capture the props passed to SkillsChart so we can assert on the loaded rows.
-let capturedSkillsChartRows: unknown[] | null = null;
-jest.mock('../../components/SkillsChart', () => ({
+// Capture the props passed to SkillsCompareTable so we can assert on the loaded decks.
+let capturedSkillsCompareTableDecks: { id: string; name: string; rows: unknown[] }[] | null = null;
+jest.mock('../../components/SkillsCompareTable', () => ({
   __esModule: true,
-  default: (props: { currentDeckRows: unknown[] }) => {
-    capturedSkillsChartRows = props.currentDeckRows;
+  default: (props: { decks: { id: string; name: string; rows: unknown[] }[] }) => {
+    capturedSkillsCompareTableDecks = props.decks;
     return null;
   },
 }));
@@ -90,15 +90,16 @@ describe('DeckReportsClient', () => {
     capturedMode = null;
     capturedOnConfirmSelection = null;
     capturedPreSelectedFiles = null;
-    capturedSkillsChartRows = null;
+    capturedSkillsCompareTableDecks = null;
   });
 
-  it('shows an empty state before any deck is picked', async () => {
+  it('shows an empty state before any deck is picked, and renders the skills table with 0 decks', async () => {
     await act(async () => {
       render(<DeckReportsClient data={testData} />);
     });
 
     expect(screen.getByText('No deck selected.')).toBeInTheDocument();
+    expect(capturedSkillsCompareTableDecks).toEqual([]);
   });
 
   it('opens the picker in multi-select ("compare-multi") mode with a drive-scoped signIn callback', async () => {
@@ -128,7 +129,7 @@ describe('DeckReportsClient', () => {
     );
   });
 
-  it('loads a single picked deck into the report charts and clears the empty state', async () => {
+  it('loads a single picked deck into the skills table and clears the empty state', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       json: async () => '1\tTest Card',
     }) as unknown as typeof fetch;
@@ -148,10 +149,10 @@ describe('DeckReportsClient', () => {
 
     expect(screen.queryByText('No deck selected.')).not.toBeInTheDocument();
     expect(screen.getByText('My Deck')).toBeInTheDocument();
-    expect(capturedSkillsChartRows).toHaveLength(1);
+    expect(capturedSkillsCompareTableDecks).toHaveLength(1);
   });
 
-  it('shows a list of deck names (no charts) when 2+ decks are selected', async () => {
+  it('shows a list of deck names and a skills table with a column per deck when 2+ decks are selected', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       json: async () => '1\tTest Card',
     }) as unknown as typeof fetch;
@@ -173,10 +174,10 @@ describe('DeckReportsClient', () => {
 
     expect(screen.getByText('Deck One')).toBeInTheDocument();
     expect(screen.getByText('Deck Two')).toBeInTheDocument();
-    expect(capturedSkillsChartRows).toBeNull();
+    expect(capturedSkillsCompareTableDecks).toHaveLength(2);
   });
 
-  it('falls back to the chart view when removing down to 1 deck', async () => {
+  it('keeps the skills table at 1 column when removing down to 1 deck', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       json: async () => '1\tTest Card',
     }) as unknown as typeof fetch;
@@ -202,10 +203,10 @@ describe('DeckReportsClient', () => {
 
     expect(screen.getByText('Deck One')).toBeInTheDocument();
     expect(screen.queryByText('Deck Two')).not.toBeInTheDocument();
-    expect(capturedSkillsChartRows).toHaveLength(1);
+    expect(capturedSkillsCompareTableDecks).toHaveLength(1);
   });
 
-  it('falls back to the empty state when removing down to 0 decks', async () => {
+  it('falls back to the empty state and a 0-column skills table when removing down to 0 decks', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       json: async () => '1\tTest Card',
     }) as unknown as typeof fetch;
@@ -228,6 +229,7 @@ describe('DeckReportsClient', () => {
 
     expect(screen.getByText('No deck selected.')).toBeInTheDocument();
     expect(screen.queryByText('Deck One')).not.toBeInTheDocument();
+    expect(capturedSkillsCompareTableDecks).toEqual([]);
   });
 
   it('pre-checks the current deck when re-opening the picker via "Change deck"', async () => {
