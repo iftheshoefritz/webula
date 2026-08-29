@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { getSession, signIn } from 'next-auth/react';
 import { FaArrowLeft, FaChartBar, FaFolderOpen, FaTimes } from 'react-icons/fa';
 import { DrivePickerModal } from './DrivePickerModal';
-import SkillsChart from './SkillsChart';
+import SkillsCompareTable from './SkillsCompareTable';
 import PileAggregate from './PileAggregate';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import PileAggregateAttributeChart from './PileAggregateAttributeChart';
@@ -197,13 +197,15 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
         </div>
       )}
 
+      <div className="p-4 flex flex-col gap-8">
+        <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Personnel skills</h2>
+          <SkillsCompareTable decks={decks} />
+        </section>
+      </div>
+
       {singleDeck && (
         <div className="p-4 flex flex-col gap-8">
-          <section>
-            <h2 className="text-xl font-bold mb-2 text-text-secondary">Personnel skills</h2>
-            <SkillsChart currentDeckRows={singleDeck.rows} />
-          </section>
-
           <section>
             <h2 className="text-xl font-bold mb-2 text-text-secondary">Keywords</h2>
             <PileAggregate

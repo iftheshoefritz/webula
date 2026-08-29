@@ -25,7 +25,7 @@ interface SkillsChartProps {
   compareDeckRows?: any[];
 }
 
-function countSkills(rows: any[]): Record<string, number> {
+export function countSkills(rows: any[]): Record<string, number> {
   const counts: Record<string, number> = {};
 
   rows
