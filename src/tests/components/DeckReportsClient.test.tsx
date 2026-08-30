@@ -50,6 +50,15 @@ jest.mock('../../components/PileAggregateAttributeChart', () => ({
   },
 }));
 
+let capturedRadarChartDecks: { id: string; name: string; rows: unknown[] }[] | null = null;
+jest.mock('../../components/PileAggregateRadarChart', () => ({
+  __esModule: true,
+  default: (props: { decks: { id: string; name: string; rows: unknown[] }[] }) => {
+    capturedRadarChartDecks = props.decks;
+    return null;
+  },
+}));
+
 // Capture the onSignIn/mode/onConfirmSelection/preSelectedFiles props passed to DrivePickerModal.
 let capturedOnSignIn: (() => void) | null = null;
 let capturedMode: string | null = null;
@@ -109,6 +118,7 @@ describe('DeckReportsClient', () => {
     capturedSkillsCompareTableDecks = null;
     capturedCostChartDecks = null;
     capturedAttributeChartDecks = null;
+    capturedRadarChartDecks = null;
   });
 
   it('shows an empty state before any deck is picked, and renders the skills table with 0 decks', async () => {
@@ -125,10 +135,12 @@ describe('DeckReportsClient', () => {
       render(<DeckReportsClient data={testData} />);
     });
 
+    expect(screen.getByText('Overview')).toBeInTheDocument();
     expect(screen.getByText('Costs')).toBeInTheDocument();
     expect(screen.getByText('Attributes')).toBeInTheDocument();
     expect(capturedCostChartDecks).toEqual([]);
     expect(capturedAttributeChartDecks).toEqual([]);
+    expect(capturedRadarChartDecks).toEqual([]);
   });
 
   it('opens the picker in multi-select ("compare-multi") mode with a drive-scoped signIn callback', async () => {
@@ -183,6 +195,7 @@ describe('DeckReportsClient', () => {
     expect(screen.getByText('Attributes')).toBeInTheDocument();
     expect(capturedCostChartDecks).toHaveLength(1);
     expect(capturedAttributeChartDecks).toHaveLength(1);
+    expect(capturedRadarChartDecks).toHaveLength(1);
   });
 
   it('shows a list of deck names and a skills table with a column per deck when 2+ decks are selected', async () => {
@@ -212,6 +225,7 @@ describe('DeckReportsClient', () => {
     expect(screen.getByText('Attributes')).toBeInTheDocument();
     expect(capturedCostChartDecks).toHaveLength(2);
     expect(capturedAttributeChartDecks).toHaveLength(2);
+    expect(capturedRadarChartDecks).toHaveLength(2);
   });
 
   it('keeps the skills table at 1 column when removing down to 1 deck', async () => {

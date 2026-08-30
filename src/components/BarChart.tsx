@@ -14,7 +14,7 @@ const options = {
 };
 
 /** Palette of distinct colors assigned to bar series by index. */
-const PALETTE = [
+export const PALETTE = [
   { background: 'rgba(54, 162, 235, 0.5)', border: 'rgba(54, 162, 235, 1)' },
   { background: 'rgba(251, 191, 36, 0.5)', border: 'rgba(251, 191, 36, 1)' },
   { background: 'rgba(75, 192, 192, 0.5)', border: 'rgba(75, 192, 192, 1)' },
