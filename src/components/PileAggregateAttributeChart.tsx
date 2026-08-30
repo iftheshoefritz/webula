@@ -2,12 +2,16 @@ import BarChart from '../components/BarChart';
 import { useMemo } from 'react';
 import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 
+interface Deck {
+  id: string;
+  name: string;
+  rows: Array<Record<string, any>>;
+}
+
 interface PileAggregateAttributeChartProps {
-  currentDeckRows: Array<Record<string, any>>;
+  decks: Deck[];
   filterFunction: (row: Record<string, any>) => boolean;
   attribute: 'integrity' | 'cunning' | 'strength';
-  compareDeckRows?: Array<Record<string, any>>;
-  compareLabel?: string;
 }
 
 function attributeCounts(
@@ -25,25 +29,17 @@ function attributeCounts(
     }, {});
 }
 
-export default function PileAggregateAttributeChart({
-  currentDeckRows,
-  filterFunction,
-  attribute,
-  compareDeckRows,
-  compareLabel
-}: PileAggregateAttributeChartProps) {
+export default function PileAggregateAttributeChart({ decks, filterFunction, attribute }: PileAggregateAttributeChartProps) {
   const { labels, series } = useMemo(() => {
-    const primaryCounts = attributeCounts(currentDeckRows, filterFunction, attribute);
-    const compareCounts = compareDeckRows ? attributeCounts(compareDeckRows, filterFunction, attribute) : undefined;
-    const seriesCounts = compareCounts ? [primaryCounts, compareCounts] : [primaryCounts];
+    const seriesCounts = decks.map((deck) => attributeCounts(deck.rows, filterFunction, attribute));
     const labels = unionSortedLabels(seriesCounts, (a, b) => Number(a) - Number(b));
     const values = unionAlignValues(seriesCounts, labels);
     const series = values.map((v, i) => ({
-      label: i === 0 ? '# of Occurrences' : compareLabel ?? 'Comparison deck',
+      label: decks[i].name,
       values: v,
     }));
     return { labels, series };
-  }, [currentDeckRows, filterFunction, attribute, compareDeckRows, compareLabel]);
+  }, [decks, filterFunction, attribute]);
 
   return (
       <BarChart labels={labels} series={series}/>

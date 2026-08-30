@@ -2,11 +2,15 @@ import BarChart from '../components/BarChart';
 import { useMemo } from 'react';
 import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 
+interface Deck {
+  id: string;
+  name: string;
+  rows: Array<Record<string, any>>;
+}
+
 interface PileAggregateCostChartProps {
-  currentDeckRows: Array<Record<string, any>>;
+  decks: Deck[];
   filterFunction: (row: Record<string, any>) => boolean;
-  compareDeckRows?: Array<Record<string, any>>;
-  compareLabel?: string;
 }
 
 function costCounts(rows: Array<Record<string, any>>, filterFunction: (row: Record<string, any>) => boolean) {
@@ -15,24 +19,17 @@ function costCounts(rows: Array<Record<string, any>>, filterFunction: (row: Reco
     .reduce<Record<string, number>>((acc, row) => { acc[row.cost] = (acc[row.cost] || 0) + row.count; return acc }, {});
 }
 
-export default function PileAggregateCostChart({
-  currentDeckRows,
-  filterFunction,
-  compareDeckRows,
-  compareLabel
-}: PileAggregateCostChartProps) {
+export default function PileAggregateCostChart({ decks, filterFunction }: PileAggregateCostChartProps) {
   const { labels, series } = useMemo(() => {
-    const primaryCounts = costCounts(currentDeckRows, filterFunction);
-    const compareCounts = compareDeckRows ? costCounts(compareDeckRows, filterFunction) : undefined;
-    const seriesCounts = compareCounts ? [primaryCounts, compareCounts] : [primaryCounts];
+    const seriesCounts = decks.map((deck) => costCounts(deck.rows, filterFunction));
     const labels = unionSortedLabels(seriesCounts, (a, b) => (a < b ? -1 : a > b ? 1 : 0));
     const values = unionAlignValues(seriesCounts, labels);
     const series = values.map((v, i) => ({
-      label: i === 0 ? '# of Occurrences' : compareLabel ?? 'Comparison deck',
+      label: decks[i].name,
       values: v,
     }));
     return { labels, series };
-  }, [currentDeckRows, filterFunction, compareDeckRows, compareLabel]);
+  }, [decks, filterFunction]);
 
   return (
       <BarChart labels={labels} series={series}/>

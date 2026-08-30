@@ -553,6 +553,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
   const activeCompareDeckRows = compareDeckRows.length > 0 ? compareDeckRows : undefined;
 
+  const costAttributeDecks = useMemo(() => {
+    const decks = [{ id: 'current', name: '# of Occurrences', rows: currentDeckRows }];
+    if (activeCompareDeckRows) {
+      decks.push({ id: 'compare', name: compareDeckName ?? 'Comparison deck', rows: activeCompareDeckRows });
+    }
+    return decks;
+  }, [currentDeckRows, activeCompareDeckRows, compareDeckName]);
+
   const aggregatedMissionReqs = useMemo(() => {
     const totals: Record<string, number> = {};
     currentDeckRows
@@ -1494,11 +1502,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <div className="flex flex-col lg:flex-row">
               <div className="w-full lg:w-1/2 lg:flex-row">
                 <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Draw Deck</span>
-                <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'draw'} compareDeckRows={activeCompareDeckRows} compareLabel={compareDeckName ?? undefined} />
+                <PileAggregateCostChart decks={costAttributeDecks} filterFunction={(row) => row.pile === 'draw'} />
               </div>
               <div className="w-full lg:w-1/2 lg:flex-row">
                 <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Dilemma Pile</span>
-                <PileAggregateCostChart currentDeckRows={currentDeckRows} filterFunction={(row) => row.pile === 'dilemma'} compareDeckRows={activeCompareDeckRows} compareLabel={compareDeckName ?? undefined} />
+                <PileAggregateCostChart decks={costAttributeDecks} filterFunction={(row) => row.pile === 'dilemma'} />
               </div>
             </div>
           </CollapsibleSection>
@@ -1509,11 +1517,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 <div key={attr} className="w-full lg:w-1/3">
                   <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary capitalize">{attr}</span>
                   <PileAggregateAttributeChart
-                    currentDeckRows={currentDeckRows}
+                    decks={costAttributeDecks}
                     filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
                     attribute={attr}
-                    compareDeckRows={activeCompareDeckRows}
-                    compareLabel={compareDeckName ?? undefined}
                   />
                 </div>
               ))}
