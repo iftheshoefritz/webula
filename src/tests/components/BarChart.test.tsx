@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import BarChart from '../../components/BarChart';
 
 let capturedBarProps: any = null;
@@ -89,5 +89,46 @@ describe('BarChart', () => {
     );
     expect(screen.getByText('My deck')).toBeInTheDocument();
     expect(screen.getByText('My other deck')).toBeInTheDocument();
+  });
+
+  it('toggles a bar dataset hidden on legend click and restores it on a second click', () => {
+    render(
+      <BarChart
+        labels={['a']}
+        series={[
+          { label: 'My deck', values: [1] },
+          { label: 'My other deck', values: [2] },
+        ]}
+      />
+    );
+    const button = screen.getByRole('button', { name: /My deck/ });
+    expect(capturedBarProps.data.datasets[0].hidden).toBe(false);
+
+    fireEvent.click(button);
+    expect(capturedBarProps.data.datasets[0].hidden).toBe(true);
+    expect(capturedBarProps.data.datasets[1].hidden).toBe(false);
+
+    fireEvent.click(button);
+    expect(capturedBarProps.data.datasets[0].hidden).toBe(false);
+  });
+
+  it('toggles a line dataset hidden on legend click and restores it on a second click', () => {
+    render(
+      <BarChart
+        labels={['a']}
+        series={[
+          { label: 'My deck', values: [1] },
+          { label: 'My other deck', values: [2] },
+        ]}
+        type="line"
+      />
+    );
+    const button = screen.getByRole('button', { name: /My other deck/ });
+    fireEvent.click(button);
+    expect(capturedBarProps.data.datasets[1].hidden).toBe(true);
+    expect(capturedBarProps.data.datasets[0].hidden).toBe(false);
+
+    fireEvent.click(button);
+    expect(capturedBarProps.data.datasets[1].hidden).toBe(false);
   });
 });
