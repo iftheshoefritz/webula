@@ -64,10 +64,14 @@ jest.mock('../../components/PileAggregateRadarChart', () => ({
 }));
 
 // Capture the onSignIn/mode/onConfirmSelection/preSelectedFiles props passed to DrivePickerModal.
+// Also keep a copy of every DrivePickerModal instance's full props keyed by mode, since
+// DeckReportsClient renders a separate instance for the deck picker ('compare-multi') and the
+// Reports picker ('reports').
 let capturedOnSignIn: (() => void) | null = null;
 let capturedMode: string | null = null;
 let capturedOnConfirmSelection: ((files: { id: string; name: string }[]) => void) | null = null;
 let capturedPreSelectedFiles: { id: string; name: string }[] | null = null;
+let capturedPropsByMode: Record<string, any> = {};
 jest.mock('../../components/DrivePickerModal', () => ({
   DrivePickerModal: (props: {
     onSignIn?: () => void;
@@ -79,6 +83,7 @@ jest.mock('../../components/DrivePickerModal', () => ({
     capturedMode = props.mode ?? null;
     capturedOnConfirmSelection = props.onConfirmSelection ?? null;
     capturedPreSelectedFiles = props.preSelectedFiles ?? null;
+    capturedPropsByMode[props.mode ?? 'load'] = props;
     return null;
   },
 }));
@@ -87,8 +92,16 @@ jest.mock('../../components/DrivePickerModal', () => ({
 
 import React from 'react';
 import { render, act, screen, fireEvent } from '@testing-library/react';
-import { signIn } from 'next-auth/react';
+import { getSession, signIn } from 'next-auth/react';
 import DeckReportsClient from '../../components/DeckReportsClient';
+
+const fakeSession = {
+  accessToken: 'tok',
+  session: { user: { name: 'Test', email: 'test@example.com' } },
+  user: { name: 'Test', email: 'test@example.com' },
+  expires: new Date(Date.now() + 100000).toISOString(),
+  hasDriveScope: true,
+};
 
 // ── Test data ────────────────────────────────────────────────────────────────
 
@@ -115,10 +128,12 @@ describe('DeckReportsClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSearchParamsValue = new URLSearchParams();
+    window.history.pushState({}, '', '/decks/reports');
     capturedOnSignIn = null;
     capturedMode = null;
     capturedOnConfirmSelection = null;
     capturedPreSelectedFiles = null;
+    capturedPropsByMode = {};
     capturedSkillsCompareTableDecks = null;
     capturedCostChartDecks = null;
     capturedCostChartTypes = [];
@@ -350,5 +365,209 @@ describe('DeckReportsClient', () => {
       { id: 'file-1', name: 'Deck One' },
       { id: 'file-2', name: 'Deck Two' },
     ]);
+  });
+});
+
+describe('DeckReportsClient – saved Reports', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSearchParamsValue = new URLSearchParams();
+    window.history.pushState({}, '', '/decks/reports');
+    capturedOnSignIn = null;
+    capturedMode = null;
+    capturedOnConfirmSelection = null;
+    capturedPreSelectedFiles = null;
+    capturedPropsByMode = {};
+    capturedSkillsCompareTableDecks = null;
+  });
+
+  it('opens the reports picker in "reports" mode', async () => {
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /my reports/i }));
+    });
+
+    expect(capturedMode).toBe('reports');
+  });
+
+  it('shows a disabled Save as Report button until a name is entered, once a deck is loaded', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => '1\tTest Card',
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+    });
+    await act(async () => {
+      await capturedOnConfirmSelection!([{ id: 'file-1', name: 'My Deck' }]);
+    });
+
+    const saveButton = screen.getByRole('button', { name: /save as report/i });
+    expect(saveButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'My Report' } });
+    expect(saveButton).toBeEnabled();
+  });
+
+  it('does not show the Save as Report control before any deck is loaded', async () => {
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    expect(screen.queryByLabelText('Report name')).not.toBeInTheDocument();
+  });
+
+  it('POSTs the current decks to /api/drive/reports when Save as Report is confirmed', async () => {
+    (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
+    const fetchMock = jest.fn((url: string) => {
+      if (url === '/api/drive/file-1') {
+        return Promise.resolve({ ok: true, json: async () => '1\tTest Card' });
+      }
+      if (url === '/api/drive/reports') {
+        return Promise.resolve({ ok: true, json: async () => ({ id: 'new-report-id' }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ files: [] }) });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+    });
+    await act(async () => {
+      await capturedOnConfirmSelection!([{ id: 'file-1', name: 'My Deck' }]);
+    });
+
+    fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'My Report' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /save as report/i }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/drive/reports',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ name: 'My Report', decks: [{ id: 'file-1', name: 'My Deck' }] }),
+      })
+    );
+  });
+
+  it("loads a Report's decks via the reports picker's load action", async () => {
+    (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
+    const fetchMock = jest.fn((url: string) => {
+      if (url === '/api/drive/reports') {
+        return Promise.resolve({ ok: true, json: async () => ({ files: [{ id: 'report-1', name: 'My Report' }] }) });
+      }
+      if (url === '/api/drive/report-1') {
+        return Promise.resolve({ ok: true, json: async () => ({ decks: [{ id: 'file-1', name: 'Deck One' }] }) });
+      }
+      if (url === '/api/drive/file-1') {
+        return Promise.resolve({ ok: true, json: async () => '1\tTest Card' });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /my reports/i }));
+    });
+
+    expect(capturedPropsByMode['reports']?.driveFiles).toEqual([{ id: 'report-1', name: 'My Report' }]);
+
+    await act(async () => {
+      await capturedPropsByMode['reports']!.loadDriveFile({ id: 'report-1', name: 'My Report' });
+    });
+
+    expect(screen.getByText('Deck One')).toBeInTheDocument();
+  });
+
+  it('renames a saved Report via the reports picker', async () => {
+    (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
+    const fetchMock = jest.fn((url: string) => {
+      if (url === '/api/drive/reports') {
+        return Promise.resolve({ ok: true, json: async () => ({ files: [{ id: 'report-1', name: 'My Report' }] }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /my reports/i }));
+    });
+
+    await act(async () => {
+      await capturedPropsByMode['reports']!.onRenameFile({ id: 'report-1', name: 'My Report' }, 'Renamed Report');
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/drive/report-1',
+      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ fileName: 'Renamed Report' }) })
+    );
+  });
+
+  it('surfaces a per-deck load error for a stale deck ref without discarding the rest', async () => {
+    const fetchMock = jest.fn((url: string) => {
+      if (url === '/api/drive/file-1') {
+        return Promise.resolve({ ok: true, json: async () => '1\tTest Card' });
+      }
+      if (url === '/api/drive/missing') {
+        return Promise.resolve({ ok: false, json: async () => ({ error: 'Google API error' }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+    });
+    await act(async () => {
+      await capturedOnConfirmSelection!([
+        { id: 'file-1', name: 'Deck One' },
+        { id: 'missing', name: 'Deleted Deck' },
+      ]);
+    });
+
+    expect(screen.getByText('Deck One')).toBeInTheDocument();
+    expect(screen.getByText('Deleted Deck')).toBeInTheDocument();
+    expect(screen.getByText(/failed to load this deck/i)).toBeInTheDocument();
+  });
+
+  it('loads a Report from the ?report=<id> URL param on mount', async () => {
+    window.history.pushState({}, '', '/decks/reports?report=report-1');
+    (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
+    const fetchMock = jest.fn((url: string) => {
+      if (url === '/api/drive/report-1') {
+        return Promise.resolve({ ok: true, json: async () => ({ decks: [{ id: 'file-1', name: 'Deck One' }] }) });
+      }
+      if (url === '/api/drive/file-1') {
+        return Promise.resolve({ ok: true, json: async () => '1\tTest Card' });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    expect(screen.getByText('Deck One')).toBeInTheDocument();
   });
 });

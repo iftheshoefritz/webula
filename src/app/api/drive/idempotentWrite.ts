@@ -1,4 +1,5 @@
 import type { drive_v3 } from 'googleapis';
+import { DECK_MIME_TYPE } from './mimeTypes';
 
 // Custom Drive appProperties key used to make trekCC imports idempotent: re-importing
 // the same trekCC deck updates its existing appDataFolder file instead of creating a
@@ -33,7 +34,7 @@ export async function writeDeckIdempotent(
   { fileName, content, trekccDeckId }: { fileName: string; content: string; trekccDeckId?: string | null }
 ): Promise<IdempotentWriteResult> {
   const media = {
-    mimeType: 'application/json',
+    mimeType: DECK_MIME_TYPE,
     body: JSON.stringify(content),
   };
 
@@ -50,7 +51,7 @@ export async function writeDeckIdempotent(
 
   const requestBody: drive_v3.Schema$File = {
     name: fileName,
-    mimeType: 'application/json',
+    mimeType: DECK_MIME_TYPE,
     parents: ['appDataFolder'],
     ...(trekccDeckId ? { appProperties: { [TREKCC_DECK_ID_PROPERTY]: trekccDeckId } } : {}),
   };

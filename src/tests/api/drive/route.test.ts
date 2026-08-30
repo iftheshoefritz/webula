@@ -24,7 +24,8 @@ jest.mock('googleapis', () => ({
   },
 }));
 
-import { POST } from '../../../app/api/drive/route';
+import { GET, POST } from '../../../app/api/drive/route';
+import { DECK_MIME_TYPE } from '../../../app/api/drive/mimeTypes';
 
 function validToken() {
   return { accessToken: 'tok', accessTokenExpires: Date.now() + 100000, refreshToken: 'r' };
@@ -82,6 +83,26 @@ describe('POST /api/drive', () => {
       expect.objectContaining({
         requestBody: expect.objectContaining({ appProperties: { trekccDeckId: '54535' } }),
       })
+    );
+  });
+});
+
+describe('GET /api/drive', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetToken.mockResolvedValue(validToken());
+  });
+
+  it('lists only files with the deck mimeType, excluding saved Reports', async () => {
+    mockFilesList.mockResolvedValue({ data: { files: [{ id: 'd1', name: 'My Deck' }] } });
+
+    const res = await GET(new Request('http://localhost/api/drive', { method: 'GET' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ files: [{ id: 'd1', name: 'My Deck' }] });
+    expect(mockFilesList).toHaveBeenCalledWith(
+      expect.objectContaining({ q: `mimeType='${DECK_MIME_TYPE}'` })
     );
   });
 });
