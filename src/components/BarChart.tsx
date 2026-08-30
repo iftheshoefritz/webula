@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bar } from 'react-chartjs-2';
 import { Chart } from 'chart.js';
+import type { ChartDataset } from 'chart.js';
 import {
   BarController,
   LinearScale,
@@ -54,6 +55,11 @@ interface BarChartProps {
 }
 
 const BarChart = ({ labels, series, type = 'bar' }: BarChartProps) => {
+  // Chart.js supports mixing dataset types (e.g. line datasets on a bar
+  // chart) at runtime via a per-dataset `type` override, but
+  // react-chartjs-2's typed `Bar` component only accepts `ChartDataset<'bar'>`.
+  // Cast to that type here since the actual `type` field still drives
+  // rendering correctly regardless of this static type.
   const datasets = series.map((s, i) => {
     const color = PALETTE[i % PALETTE.length];
     if (type === 'line') {
@@ -75,7 +81,7 @@ const BarChart = ({ labels, series, type = 'bar' }: BarChartProps) => {
       borderColor: color.border,
       borderWidth: 1,
     };
-  });
+  }) as ChartDataset<'bar', number[]>[];
 
   return (
     <>
