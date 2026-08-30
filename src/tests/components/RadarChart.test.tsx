@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import RadarChart from '../../components/RadarChart';
 
 let capturedRadarProps: any = null;
@@ -56,5 +56,26 @@ describe('RadarChart', () => {
     );
     expect(screen.getByText('My deck')).toBeInTheDocument();
     expect(screen.getByText('My other deck')).toBeInTheDocument();
+  });
+
+  it('toggles a radar dataset hidden on legend click and restores it on a second click', () => {
+    render(
+      <RadarChart
+        labels={['Cost']}
+        series={[
+          { label: 'My deck', values: [0.5], rawValues: [3] },
+          { label: 'My other deck', values: [1], rawValues: [6] },
+        ]}
+      />
+    );
+    const button = screen.getByRole('button', { name: /My deck/ });
+    expect(capturedRadarProps.data.datasets[0].hidden).toBe(false);
+
+    fireEvent.click(button);
+    expect(capturedRadarProps.data.datasets[0].hidden).toBe(true);
+    expect(capturedRadarProps.data.datasets[1].hidden).toBe(false);
+
+    fireEvent.click(button);
+    expect(capturedRadarProps.data.datasets[0].hidden).toBe(false);
   });
 });
