@@ -751,9 +751,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     const compareCounts = activeCompareDeckRows ? countByType(activeCompareDeckRows) : undefined;
     const seriesCounts = compareCounts ? [primaryCounts, compareCounts] : [primaryCounts];
     const labels = unionSortedLabels(seriesCounts, (a, b) => (primaryCounts[b] ?? 0) - (primaryCounts[a] ?? 0) || a.localeCompare(b));
-    const [values, compareValues] = unionAlignValues(seriesCounts, labels);
-    return { labels, values, compareValues };
-  }, [currentDeckRows, activeCompareDeckRows]);
+    const values = unionAlignValues(seriesCounts, labels);
+    const series = values.map((v, i) => ({
+      label: i === 0 ? '# of Occurrences' : compareDeckName ?? 'Comparison deck',
+      values: v,
+    }));
+    return { labels, series };
+  }, [currentDeckRows, activeCompareDeckRows, compareDeckName]);
 
   const searchPanel = (
     <div className="mx-2 mt-4 flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -1519,9 +1523,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           <CollapsibleSection title="Card types" isCollapsed={analysisCollapsed['Card types'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Card types': !(prev['Card types'] ?? true) }))}>
             <BarChart
               labels={drawTypeChart.labels}
-              values={drawTypeChart.values}
-              compareValues={drawTypeChart.compareValues}
-              compareLabel={compareDeckName ?? undefined}
+              series={drawTypeChart.series}
             />
           </CollapsibleSection>
 

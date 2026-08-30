@@ -2,9 +2,9 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import PileAggregateAttributeChart from '../../components/PileAggregateAttributeChart';
 
-// Capture props passed to BarChart so we can assert on labels/values
-let capturedBarChartProps: { labels: any[]; values: any[]; compareValues?: any[]; compareLabel?: string } | null = null;
-jest.mock('../../components/BarChart', () => (props: { labels: any[]; values: any[]; compareValues?: any[]; compareLabel?: string }) => {
+// Capture props passed to BarChart so we can assert on labels/series
+let capturedBarChartProps: { labels: any[]; series: { label: string; values: any[] }[] } | null = null;
+jest.mock('../../components/BarChart', () => (props: { labels: any[]; series: { label: string; values: any[] }[] }) => {
   capturedBarChartProps = props;
   return null;
 });
@@ -38,7 +38,7 @@ describe('PileAggregateAttributeChart', () => {
       );
       expect(capturedBarChartProps).not.toBeNull();
       expect(capturedBarChartProps!.labels).toEqual([]);
-      expect(capturedBarChartProps!.values).toEqual([]);
+      expect(capturedBarChartProps!.series).toEqual([{ label: '# of Occurrences', values: [] }]);
     });
   });
 
@@ -55,7 +55,7 @@ describe('PileAggregateAttributeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['4']);
-      expect(capturedBarChartProps!.values).toEqual([5]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([5]);
     });
 
     it('produces separate buckets for different attribute values', () => {
@@ -70,7 +70,7 @@ describe('PileAggregateAttributeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['5', '7']);
-      expect(capturedBarChartProps!.values).toEqual([1, 2]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([1, 2]);
     });
   });
 
@@ -88,7 +88,7 @@ describe('PileAggregateAttributeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['2', '7', '10']);
-      expect(capturedBarChartProps!.values).toEqual([3, 2, 1]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([3, 2, 1]);
     });
   });
 
@@ -105,7 +105,7 @@ describe('PileAggregateAttributeChart', () => {
         />
       );
       // Only the draw-pile personnel row should count
-      expect(capturedBarChartProps!.values).toEqual([1]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([1]);
     });
 
     it('excludes rows where the attribute is empty string', () => {
@@ -120,7 +120,7 @@ describe('PileAggregateAttributeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['5']);
-      expect(capturedBarChartProps!.values).toEqual([2]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([2]);
     });
 
     it('excludes rows where the attribute is null', () => {
@@ -135,7 +135,7 @@ describe('PileAggregateAttributeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['6']);
-      expect(capturedBarChartProps!.values).toEqual([1]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([1]);
     });
 
     it('excludes rows where the attribute is undefined', () => {
@@ -150,7 +150,7 @@ describe('PileAggregateAttributeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['8']);
-      expect(capturedBarChartProps!.values).toEqual([2]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([2]);
     });
   });
 
@@ -181,7 +181,7 @@ describe('PileAggregateAttributeChart', () => {
   });
 
   describe('compareDeckRows', () => {
-    it('does not pass compareValues when compareDeckRows is omitted', () => {
+    it('renders only a single series when compareDeckRows is omitted', () => {
       render(
         <PileAggregateAttributeChart
           currentDeckRows={[makeRow({ integrity: '4', count: 2 })]}
@@ -189,7 +189,7 @@ describe('PileAggregateAttributeChart', () => {
           attribute="integrity"
         />
       );
-      expect(capturedBarChartProps!.compareValues).toBeUndefined();
+      expect(capturedBarChartProps!.series).toHaveLength(1);
     });
 
     it('aligns values when the comparison deck has the same label set', () => {
@@ -202,8 +202,8 @@ describe('PileAggregateAttributeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['4']);
-      expect(capturedBarChartProps!.values).toEqual([2]);
-      expect(capturedBarChartProps!.compareValues).toEqual([5]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([2]);
+      expect(capturedBarChartProps!.series[1].values).toEqual([5]);
     });
 
     it('unions and zero-fills labels when the comparison deck has a disjoint label set', () => {
@@ -216,8 +216,8 @@ describe('PileAggregateAttributeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['4', '6']);
-      expect(capturedBarChartProps!.values).toEqual([2, 0]);
-      expect(capturedBarChartProps!.compareValues).toEqual([0, 3]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([2, 0]);
+      expect(capturedBarChartProps!.series[1].values).toEqual([0, 3]);
     });
 
     it('unions partially-overlapping label sets and keeps both arrays index-aligned', () => {
@@ -236,8 +236,8 @@ describe('PileAggregateAttributeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['4', '6', '8']);
-      expect(capturedBarChartProps!.values).toEqual([2, 1, 0]);
-      expect(capturedBarChartProps!.compareValues).toEqual([0, 3, 4]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([2, 1, 0]);
+      expect(capturedBarChartProps!.series[1].values).toEqual([0, 3, 4]);
     });
   });
 });

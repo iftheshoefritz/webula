@@ -32,16 +32,20 @@ export default function PileAggregateAttributeChart({
   compareDeckRows,
   compareLabel
 }: PileAggregateAttributeChartProps) {
-  const { labels, values, compareValues } = useMemo(() => {
+  const { labels, series } = useMemo(() => {
     const primaryCounts = attributeCounts(currentDeckRows, filterFunction, attribute);
     const compareCounts = compareDeckRows ? attributeCounts(compareDeckRows, filterFunction, attribute) : undefined;
     const seriesCounts = compareCounts ? [primaryCounts, compareCounts] : [primaryCounts];
     const labels = unionSortedLabels(seriesCounts, (a, b) => Number(a) - Number(b));
-    const [values, compareValues] = unionAlignValues(seriesCounts, labels);
-    return { labels, values, compareValues };
-  }, [currentDeckRows, filterFunction, attribute, compareDeckRows]);
+    const values = unionAlignValues(seriesCounts, labels);
+    const series = values.map((v, i) => ({
+      label: i === 0 ? '# of Occurrences' : compareLabel ?? 'Comparison deck',
+      values: v,
+    }));
+    return { labels, series };
+  }, [currentDeckRows, filterFunction, attribute, compareDeckRows, compareLabel]);
 
   return (
-      <BarChart labels={labels} values={values} compareValues={compareValues} compareLabel={compareLabel}/>
+      <BarChart labels={labels} series={series}/>
   );
 }
