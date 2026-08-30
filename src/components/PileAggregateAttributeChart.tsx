@@ -12,6 +12,7 @@ interface PileAggregateAttributeChartProps {
   decks: Deck[];
   filterFunction: (row: Record<string, any>) => boolean;
   attribute: 'integrity' | 'cunning' | 'strength';
+  type?: 'bar' | 'line';
 }
 
 function attributeCounts(
@@ -29,7 +30,7 @@ function attributeCounts(
     }, {});
 }
 
-export default function PileAggregateAttributeChart({ decks, filterFunction, attribute }: PileAggregateAttributeChartProps) {
+export default function PileAggregateAttributeChart({ decks, filterFunction, attribute, type }: PileAggregateAttributeChartProps) {
   const { labels, series } = useMemo(() => {
     const seriesCounts = decks.map((deck) => attributeCounts(deck.rows, filterFunction, attribute));
     const labels = unionSortedLabels(seriesCounts, (a, b) => Number(a) - Number(b));
@@ -42,6 +43,6 @@ export default function PileAggregateAttributeChart({ decks, filterFunction, att
   }, [decks, filterFunction, attribute]);
 
   return (
-      <BarChart labels={labels} series={series}/>
+      <BarChart labels={labels} series={series} type={type}/>
   );
 }

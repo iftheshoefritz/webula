@@ -33,19 +33,23 @@ jest.mock('../../components/SkillsCompareTable', () => ({
 jest.mock('../../components/PileAggregate', () => () => null);
 
 let capturedCostChartDecks: { id: string; name: string; rows: unknown[] }[] | null = null;
+let capturedCostChartTypes: (string | undefined)[] = [];
 jest.mock('../../components/PileAggregateCostChart', () => ({
   __esModule: true,
-  default: (props: { decks: { id: string; name: string; rows: unknown[] }[] }) => {
+  default: (props: { decks: { id: string; name: string; rows: unknown[] }[]; type?: string }) => {
     capturedCostChartDecks = props.decks;
+    capturedCostChartTypes.push(props.type);
     return null;
   },
 }));
 
 let capturedAttributeChartDecks: { id: string; name: string; rows: unknown[] }[] | null = null;
+let capturedAttributeChartTypes: (string | undefined)[] = [];
 jest.mock('../../components/PileAggregateAttributeChart', () => ({
   __esModule: true,
-  default: (props: { decks: { id: string; name: string; rows: unknown[] }[] }) => {
+  default: (props: { decks: { id: string; name: string; rows: unknown[] }[]; type?: string }) => {
     capturedAttributeChartDecks = props.decks;
+    capturedAttributeChartTypes.push(props.type);
     return null;
   },
 }));
@@ -117,7 +121,9 @@ describe('DeckReportsClient', () => {
     capturedPreSelectedFiles = null;
     capturedSkillsCompareTableDecks = null;
     capturedCostChartDecks = null;
+    capturedCostChartTypes = [];
     capturedAttributeChartDecks = null;
+    capturedAttributeChartTypes = [];
     capturedRadarChartDecks = null;
   });
 
@@ -141,6 +147,15 @@ describe('DeckReportsClient', () => {
     expect(capturedCostChartDecks).toEqual([]);
     expect(capturedAttributeChartDecks).toEqual([]);
     expect(capturedRadarChartDecks).toEqual([]);
+  });
+
+  it('requests line rendering from the Costs and Attributes charts', async () => {
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    expect(capturedCostChartTypes).toEqual(['line', 'line']);
+    expect(capturedAttributeChartTypes).toEqual(['line', 'line', 'line']);
   });
 
   it('opens the picker in multi-select ("compare-multi") mode with a drive-scoped signIn callback', async () => {

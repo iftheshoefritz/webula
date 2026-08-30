@@ -216,11 +216,11 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
           <div className="flex flex-col lg:flex-row">
             <div className="w-full lg:w-1/2">
               <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary">Draw Deck</span>
-              <PileAggregateCostChart decks={decks} filterFunction={(row) => row.pile === 'draw'} />
+              <PileAggregateCostChart decks={decks} filterFunction={(row) => row.pile === 'draw'} type="line" />
             </div>
             <div className="w-full lg:w-1/2">
               <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary">Dilemma Pile</span>
-              <PileAggregateCostChart decks={decks} filterFunction={(row) => row.pile === 'dilemma'} />
+              <PileAggregateCostChart decks={decks} filterFunction={(row) => row.pile === 'dilemma'} type="line" />
             </div>
           </div>
         </section>
@@ -235,6 +235,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
                   decks={decks}
                   filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
                   attribute={attr}
+                  type="line"
                 />
               </div>
             ))}
