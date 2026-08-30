@@ -2,9 +2,9 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import PileAggregateCostChart from '../../components/PileAggregateCostChart';
 
-// Capture props passed to BarChart so we can assert on labels/values
-let capturedBarChartProps: { labels: any[]; values: any[]; compareValues?: any[]; compareLabel?: string } | null = null;
-jest.mock('../../components/BarChart', () => (props: { labels: any[]; values: any[]; compareValues?: any[]; compareLabel?: string }) => {
+// Capture props passed to BarChart so we can assert on labels/series
+let capturedBarChartProps: { labels: any[]; series: { label: string; values: any[] }[] } | null = null;
+jest.mock('../../components/BarChart', () => (props: { labels: any[]; series: { label: string; values: any[] }[] }) => {
   capturedBarChartProps = props;
   return null;
 });
@@ -28,7 +28,7 @@ describe('PileAggregateCostChart', () => {
       render(<PileAggregateCostChart currentDeckRows={[]} filterFunction={drawFilter} />);
       expect(capturedBarChartProps).not.toBeNull();
       expect(capturedBarChartProps!.labels).toEqual([]);
-      expect(capturedBarChartProps!.values).toEqual([]);
+      expect(capturedBarChartProps!.series).toEqual([{ label: '# of Occurrences', values: [] }]);
     });
   });
 
@@ -41,7 +41,7 @@ describe('PileAggregateCostChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['2']);
-      expect(capturedBarChartProps!.values).toEqual([5]);
+      expect(capturedBarChartProps!.series).toEqual([{ label: '# of Occurrences', values: [5] }]);
     });
 
     it('excludes rows that do not pass the filterFunction', () => {
@@ -51,14 +51,14 @@ describe('PileAggregateCostChart', () => {
           filterFunction={drawFilter}
         />
       );
-      expect(capturedBarChartProps!.values).toEqual([1]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([1]);
     });
   });
 
   describe('compareDeckRows', () => {
-    it('does not pass compareValues when compareDeckRows is omitted', () => {
+    it('renders only a single series when compareDeckRows is omitted', () => {
       render(<PileAggregateCostChart currentDeckRows={[makeRow({ cost: '2', count: 2 })]} filterFunction={drawFilter} />);
-      expect(capturedBarChartProps!.compareValues).toBeUndefined();
+      expect(capturedBarChartProps!.series).toHaveLength(1);
     });
 
     it('unions and zero-fills labels when the comparison deck has a disjoint cost set', () => {
@@ -70,8 +70,10 @@ describe('PileAggregateCostChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['2', '5']);
-      expect(capturedBarChartProps!.values).toEqual([2, 0]);
-      expect(capturedBarChartProps!.compareValues).toEqual([0, 3]);
+      expect(capturedBarChartProps!.series).toEqual([
+        { label: '# of Occurrences', values: [2, 0] },
+        { label: 'Comparison deck', values: [0, 3] },
+      ]);
     });
 
     it('keeps both value arrays index-aligned with a shared label list', () => {
@@ -83,8 +85,20 @@ describe('PileAggregateCostChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['2', '4', '6']);
-      expect(capturedBarChartProps!.values).toEqual([2, 1, 0]);
-      expect(capturedBarChartProps!.compareValues).toEqual([0, 3, 4]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([2, 1, 0]);
+      expect(capturedBarChartProps!.series[1].values).toEqual([0, 3, 4]);
+    });
+
+    it('labels the comparison series using compareLabel when provided', () => {
+      render(
+        <PileAggregateCostChart
+          currentDeckRows={[makeRow({ cost: '2', count: 2 })]}
+          compareDeckRows={[makeRow({ cost: '2', count: 3 })]}
+          filterFunction={drawFilter}
+          compareLabel="My other deck"
+        />
+      );
+      expect(capturedBarChartProps!.series[1].label).toBe('My other deck');
     });
   });
 });

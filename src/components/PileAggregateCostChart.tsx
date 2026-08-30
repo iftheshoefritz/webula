@@ -21,16 +21,20 @@ export default function PileAggregateCostChart({
   compareDeckRows,
   compareLabel
 }: PileAggregateCostChartProps) {
-  const { labels, values, compareValues } = useMemo(() => {
+  const { labels, series } = useMemo(() => {
     const primaryCounts = costCounts(currentDeckRows, filterFunction);
     const compareCounts = compareDeckRows ? costCounts(compareDeckRows, filterFunction) : undefined;
     const seriesCounts = compareCounts ? [primaryCounts, compareCounts] : [primaryCounts];
     const labels = unionSortedLabels(seriesCounts, (a, b) => (a < b ? -1 : a > b ? 1 : 0));
-    const [values, compareValues] = unionAlignValues(seriesCounts, labels);
-    return { labels, values, compareValues };
-  }, [currentDeckRows, filterFunction, compareDeckRows]);
+    const values = unionAlignValues(seriesCounts, labels);
+    const series = values.map((v, i) => ({
+      label: i === 0 ? '# of Occurrences' : compareLabel ?? 'Comparison deck',
+      values: v,
+    }));
+    return { labels, series };
+  }, [currentDeckRows, filterFunction, compareDeckRows, compareLabel]);
 
   return (
-      <BarChart labels={labels} values={values} compareValues={compareValues} compareLabel={compareLabel}/>
+      <BarChart labels={labels} series={series}/>
   );
 }

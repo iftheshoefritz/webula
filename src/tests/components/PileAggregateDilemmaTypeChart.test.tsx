@@ -2,9 +2,9 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import PileAggregateDilemmaTypeChart from '../../components/PileAggregateDilemmaTypeChart';
 
-// Capture props passed to BarChart so we can assert on labels/values
-let capturedBarChartProps: { labels: any[]; values: any[]; compareValues?: any[]; compareLabel?: string } | null = null;
-jest.mock('../../components/BarChart', () => (props: { labels: any[]; values: any[]; compareValues?: any[]; compareLabel?: string }) => {
+// Capture props passed to BarChart so we can assert on labels/series
+let capturedBarChartProps: { labels: any[]; series: { label: string; values: any[] }[] } | null = null;
+jest.mock('../../components/BarChart', () => (props: { labels: any[]; series: { label: string; values: any[] }[] }) => {
   capturedBarChartProps = props;
   return null;
 });
@@ -26,7 +26,7 @@ describe('PileAggregateDilemmaTypeChart', () => {
       render(<PileAggregateDilemmaTypeChart currentDeckRows={[]} />);
       expect(capturedBarChartProps).not.toBeNull();
       expect(capturedBarChartProps!.labels).toEqual([]);
-      expect(capturedBarChartProps!.values).toEqual([]);
+      expect(capturedBarChartProps!.series).toEqual([{ label: '# of Occurrences', values: [] }]);
     });
   });
 
@@ -43,7 +43,7 @@ describe('PileAggregateDilemmaTypeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['Dual', 'Planet', 'Space']);
-      expect(capturedBarChartProps!.values).toEqual([1, 3, 3]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([1, 3, 3]);
     });
   });
 
@@ -58,7 +58,7 @@ describe('PileAggregateDilemmaTypeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['Planet']);
-      expect(capturedBarChartProps!.values).toEqual([2]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([2]);
     });
 
     it('excludes rows with an empty dilemmatype', () => {
@@ -71,14 +71,14 @@ describe('PileAggregateDilemmaTypeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['Space']);
-      expect(capturedBarChartProps!.values).toEqual([2]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([2]);
     });
   });
 
   describe('compareDeckRows', () => {
-    it('does not pass compareValues when compareDeckRows is omitted', () => {
+    it('renders only a single series when compareDeckRows is omitted', () => {
       render(<PileAggregateDilemmaTypeChart currentDeckRows={[makeRow({ dilemmatype: 'p', count: 2 })]} />);
-      expect(capturedBarChartProps!.compareValues).toBeUndefined();
+      expect(capturedBarChartProps!.series).toHaveLength(1);
     });
 
     it('unions and zero-fills labels when the comparison deck has a disjoint dilemma-type set', () => {
@@ -89,8 +89,8 @@ describe('PileAggregateDilemmaTypeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['Planet', 'Space']);
-      expect(capturedBarChartProps!.values).toEqual([2, 0]);
-      expect(capturedBarChartProps!.compareValues).toEqual([0, 3]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([2, 0]);
+      expect(capturedBarChartProps!.series[1].values).toEqual([0, 3]);
     });
 
     it('aligns values when both decks share the same dilemma types', () => {
@@ -101,8 +101,8 @@ describe('PileAggregateDilemmaTypeChart', () => {
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['Planet']);
-      expect(capturedBarChartProps!.values).toEqual([2]);
-      expect(capturedBarChartProps!.compareValues).toEqual([5]);
+      expect(capturedBarChartProps!.series[0].values).toEqual([2]);
+      expect(capturedBarChartProps!.series[1].values).toEqual([5]);
     });
   });
 });

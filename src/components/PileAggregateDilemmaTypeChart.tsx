@@ -29,17 +29,21 @@ export default function PileAggregateDilemmaTypeChart({
   compareDeckRows,
   compareLabel
 }: PileAggregateDilemmaTypeChartProps) {
-  const { labels, values, compareValues } = useMemo(() => {
+  const { labels, series } = useMemo(() => {
     const primaryCounts = dilemmaTypeCounts(currentDeckRows);
     const compareCounts = compareDeckRows ? dilemmaTypeCounts(compareDeckRows) : undefined;
     const seriesCounts = compareCounts ? [primaryCounts, compareCounts] : [primaryCounts];
     const rawLabels = unionSortedLabels(seriesCounts, (a, b) => a.localeCompare(b));
-    const [values, compareValues] = unionAlignValues(seriesCounts, rawLabels);
+    const values = unionAlignValues(seriesCounts, rawLabels);
     const labels = rawLabels.map((type) => DILEMMA_TYPE_LABELS[type] ?? type);
-    return { labels, values, compareValues };
-  }, [currentDeckRows, compareDeckRows]);
+    const series = values.map((v, i) => ({
+      label: i === 0 ? '# of Occurrences' : compareLabel ?? 'Comparison deck',
+      values: v,
+    }));
+    return { labels, series };
+  }, [currentDeckRows, compareDeckRows, compareLabel]);
 
   return (
-      <BarChart labels={labels} values={values} compareValues={compareValues} compareLabel={compareLabel}/>
+      <BarChart labels={labels} series={series}/>
   );
 }
