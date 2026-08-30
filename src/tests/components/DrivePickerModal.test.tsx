@@ -197,3 +197,58 @@ describe('DrivePickerModal – compare-multi mode', () => {
     expect(checkboxes[2]).not.toBeChecked();
   });
 });
+
+describe('DrivePickerModal – reports mode', () => {
+  const driveFiles = [
+    { id: '1', name: 'Report One' },
+    { id: '2', name: 'Report Two' },
+  ];
+
+  it('shows a "Your Reports" title', () => {
+    render(<DrivePickerModal {...baseProps} mode="reports" driveFiles={driveFiles} />);
+    expect(screen.getByText('Your Reports')).toBeInTheDocument();
+  });
+
+  it('does not render the pile-subset select or checkboxes', () => {
+    render(<DrivePickerModal {...baseProps} mode="reports" driveFiles={driveFiles} />);
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  it('calls loadDriveFile with no piles argument when a report is loaded', () => {
+    const loadDriveFile = jest.fn();
+    render(<DrivePickerModal {...baseProps} mode="reports" driveFiles={driveFiles} loadDriveFile={loadDriveFile} />);
+    fireEvent.click(screen.getByRole('button', { name: /load report one/i }));
+    expect(loadDriveFile).toHaveBeenCalledWith(driveFiles[0]);
+    expect(loadDriveFile.mock.calls[0]).toHaveLength(1);
+  });
+
+  it('renames a report via the inline rename control', () => {
+    const onRenameFile = jest.fn();
+    render(
+      <DrivePickerModal {...baseProps} mode="reports" driveFiles={driveFiles} onRenameFile={onRenameFile} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /rename report one/i }));
+    const input = screen.getByRole('textbox', { name: /rename report one/i });
+    fireEvent.change(input, { target: { value: 'Renamed Report' } });
+    fireEvent.click(screen.getByRole('button', { name: /save name for report one/i }));
+
+    expect(onRenameFile).toHaveBeenCalledWith(driveFiles[0], 'Renamed Report');
+    expect(screen.queryByRole('textbox', { name: /rename report one/i })).not.toBeInTheDocument();
+  });
+
+  it('cancels a rename without calling onRenameFile', () => {
+    const onRenameFile = jest.fn();
+    render(
+      <DrivePickerModal {...baseProps} mode="reports" driveFiles={driveFiles} onRenameFile={onRenameFile} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /rename report one/i }));
+    fireEvent.change(screen.getByRole('textbox', { name: /rename report one/i }), { target: { value: 'Changed' } });
+    fireEvent.click(screen.getByRole('button', { name: /cancel rename/i }));
+
+    expect(onRenameFile).not.toHaveBeenCalled();
+    expect(screen.getByText('Report One')).toBeInTheDocument();
+  });
+});

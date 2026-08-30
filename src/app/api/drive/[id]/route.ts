@@ -165,12 +165,11 @@ export async function PUT(
   try {
     const response = await drive.files.update({
       fileId: id,
-      uploadType: 'media',
       requestBody: fileName ? { name: fileName } : undefined,
-      media: {
-        mimeType: 'application/json',
-        body: JSON.stringify(content)
-      }
+      // Renaming a file (e.g. a saved Report) doesn't need to touch its content — only
+      // include media when content is actually being written, so a rename-only PUT
+      // doesn't overwrite the file's body.
+      ...(content !== undefined ? { media: { mimeType: 'application/json', body: JSON.stringify(content) } } : {}),
     })
     console.log('response.data', response.data)
 

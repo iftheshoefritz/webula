@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FaTrash, FaFolderOpen, FaSignInAlt } from 'react-icons/fa';
+import { FaTrash, FaFolderOpen, FaSignInAlt, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
 import { DeckPile } from '../app/decks/deckBuilderUtils';
 
 type DriveFile = { id: string; name: string };
@@ -19,12 +19,15 @@ type PickerProps = {
   /**
    * 'compare' loads a single full deck for comparison, with no pile-subset option.
    * 'compare-multi' selects 2-5 decks via checkboxes and confirms via onConfirmSelection.
+   * 'reports' lists saved Reports, with per-row load and rename actions instead of decks.
    */
-  mode?: 'load' | 'compare' | 'compare-multi'
+  mode?: 'load' | 'compare' | 'compare-multi' | 'reports'
   /** Called with the full list of selected files when the user confirms a 'compare-multi' selection. */
   onConfirmSelection?: (files: DriveFile[]) => void
   /** Files that should start pre-checked in 'compare-multi' mode, e.g. when re-opening to add more decks. */
   preSelectedFiles?: DriveFile[]
+  /** Called with a file and its new name when the user confirms a rename in 'reports' mode. */
+  onRenameFile?: (file: DriveFile, newName: string) => void
 }
 
 type LoadMode = 'full' | 'mission' | 'dilemma' | 'draw';
@@ -53,19 +56,38 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   mode = 'load',
   onConfirmSelection,
   preSelectedFiles = [],
+  onRenameFile,
 }) => {
   const [driveLoadModes, setDriveLoadModes] = useState<Record<string, LoadMode>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(preSelectedFiles.map((f) => f.id))
   );
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const handleDriveFileSelect = (file: { id: string; name: string }) => {
-    if (mode === 'compare') {
+    if (mode === 'compare' || mode === 'reports') {
       loadDriveFile(file);
       return;
     }
     const loadMode = driveLoadModes[file.id] ?? 'full';
     loadDriveFile(file, pilesForMode(loadMode));
+  };
+  const startRename = (file: DriveFile) => {
+    setRenamingId(file.id);
+    setRenameValue(file.name);
+  };
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameValue('');
+  };
+  const confirmRename = (file: DriveFile) => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== file.name) {
+      onRenameFile?.(file, trimmed);
+    }
+    setRenamingId(null);
+    setRenameValue('');
   };
   const handleDriveFileDelete = (file) => {
     if (!window.confirm(`This will permanently delete "${file.name}" from your Google Drive. Are you sure?`)) return;
@@ -88,7 +110,10 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     onConfirmSelection?.(selectedFiles);
   };
 
-  const title = mode === 'compare-multi' ? 'Compare decks' : mode === 'compare' ? 'Compare deck' : 'Your decks';
+  const title = mode === 'compare-multi' ? 'Compare decks'
+    : mode === 'compare' ? 'Compare deck'
+    : mode === 'reports' ? 'Your Reports'
+    : 'Your decks';
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -131,7 +156,22 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                     )}
                     {!inProgress && driveFiles.map((file: {id: string, name: string}) => (
                       <li key={file.id} className="flex items-center border border-white/10 text-text-primary py-1">
-                        <span className="flex-1 min-w-0 px-3 truncate" title={file.name}>{file.name}</span>
+                        {mode === 'reports' && renamingId === file.id ? (
+                          <input
+                            type="text"
+                            aria-label={`Rename ${file.name}`}
+                            className="flex-1 min-w-0 mx-3 bg-bg-secondary text-text-primary border border-white/10 rounded px-1"
+                            value={renameValue}
+                            autoFocus
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') confirmRename(file);
+                              if (e.key === 'Escape') cancelRename();
+                            }}
+                          />
+                        ) : (
+                          <span className="flex-1 min-w-0 px-3 truncate" title={file.name}>{file.name}</span>
+                        )}
                         <div className="flex items-center whitespace-nowrap flex-shrink-0">
                           {mode === 'load' && (
                             <select
@@ -153,6 +193,44 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                               disabled={!selectedIds.has(file.id) && selectedIds.size >= MAX_COMPARE_SELECTION}
                               onChange={() => toggleFileSelection(file)}
                             />
+                          ) : mode === 'reports' && renamingId === file.id ? (
+                            <>
+                              <button
+                                type="button"
+                                aria-label={`Save name for ${file.name}`}
+                                className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                                onClick={() => confirmRename(file)}
+                              >
+                                <FaCheck/>
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="Cancel rename"
+                                className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                                onClick={cancelRename}
+                              >
+                                <FaTimes/>
+                              </button>
+                            </>
+                          ) : mode === 'reports' ? (
+                            <>
+                              <button
+                                type="button"
+                                aria-label={`Load ${file.name}`}
+                                className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                                onClick={() => handleDriveFileSelect(file)}
+                              >
+                                <FaFolderOpen/>
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`Rename ${file.name}`}
+                                className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                                onClick={() => startRename(file)}
+                              >
+                                <FaEdit/>
+                              </button>
+                            </>
                           ) : (
                             <button
                               type="button"
