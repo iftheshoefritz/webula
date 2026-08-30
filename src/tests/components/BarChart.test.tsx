@@ -112,6 +112,35 @@ describe('BarChart', () => {
     expect(capturedBarProps.data.datasets[0].hidden).toBe(false);
   });
 
+  it('uses index-mode interaction/tooltip for line charts so hovering near a label shows all series', () => {
+    render(
+      <BarChart
+        labels={['a', 'b']}
+        series={[
+          { label: 'Deck 1', values: [1, 2] },
+          { label: 'Deck 2', values: [3, 4] },
+        ]}
+        type="line"
+      />
+    );
+    expect(capturedBarProps.options.interaction).toMatchObject({ mode: 'index', intersect: false });
+    expect(capturedBarProps.options.plugins.tooltip).toMatchObject({ mode: 'index' });
+  });
+
+  it('does not override interaction/tooltip options for bar charts', () => {
+    render(
+      <BarChart
+        labels={['a', 'b']}
+        series={[
+          { label: 'Deck 1', values: [1, 2] },
+          { label: 'Deck 2', values: [3, 4] },
+        ]}
+      />
+    );
+    expect(capturedBarProps.options.interaction).toBeUndefined();
+    expect(capturedBarProps.options.plugins).toBeUndefined();
+  });
+
   it('toggles a line dataset hidden on legend click and restores it on a second click', () => {
     render(
       <BarChart

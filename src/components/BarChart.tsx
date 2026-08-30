@@ -26,10 +26,23 @@ Chart.register(
   Title
 );
 
-const options = {
+const barOptions = {
   scales: {
     y: {
       beginAtZero: true,
+    },
+  },
+};
+
+const lineOptions = {
+  ...barOptions,
+  interaction: {
+    mode: 'index' as const,
+    intersect: false,
+  },
+  plugins: {
+    tooltip: {
+      mode: 'index' as const,
     },
   },
 };
@@ -125,7 +138,7 @@ const BarChart = ({ labels, series, type = 'bar' }: BarChartProps) => {
           })}
         </div>
       )}
-      <Bar data={{ labels, datasets }} options={options} />
+      <Bar data={{ labels, datasets }} options={type === 'line' ? lineOptions : barOptions} />
     </>
   );
 };
