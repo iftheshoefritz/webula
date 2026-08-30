@@ -1,9 +1,29 @@
 import React from 'react';
 import { Bar } from 'react-chartjs-2';
 import { Chart } from 'chart.js';
-import { BarController, LinearScale, CategoryScale, BarElement, Tooltip, Title } from 'chart.js';
+import {
+  BarController,
+  LinearScale,
+  CategoryScale,
+  BarElement,
+  LineController,
+  LineElement,
+  PointElement,
+  Tooltip,
+  Title,
+} from 'chart.js';
 
-Chart.register(BarController, LinearScale, CategoryScale, BarElement, Tooltip, Title);
+Chart.register(
+  BarController,
+  LinearScale,
+  CategoryScale,
+  BarElement,
+  LineController,
+  LineElement,
+  PointElement,
+  Tooltip,
+  Title
+);
 
 const options = {
   scales: {
@@ -30,11 +50,23 @@ interface BarChartSeries {
 interface BarChartProps {
   labels: (string | number)[];
   series: BarChartSeries[];
+  type?: 'bar' | 'line';
 }
 
-const BarChart = ({ labels, series }: BarChartProps) => {
+const BarChart = ({ labels, series, type = 'bar' }: BarChartProps) => {
   const datasets = series.map((s, i) => {
     const color = PALETTE[i % PALETTE.length];
+    if (type === 'line') {
+      return {
+        type: 'line' as const,
+        label: s.label,
+        data: s.values,
+        backgroundColor: color.background,
+        borderColor: color.border,
+        fill: false,
+        tension: 0,
+      };
+    }
     return {
       type: 'bar' as const,
       label: s.label,

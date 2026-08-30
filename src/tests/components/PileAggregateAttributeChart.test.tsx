@@ -3,8 +3,8 @@ import { render } from '@testing-library/react';
 import PileAggregateAttributeChart from '../../components/PileAggregateAttributeChart';
 
 // Capture props passed to BarChart so we can assert on labels/series
-let capturedBarChartProps: { labels: any[]; series: { label: string; values: any[] }[] } | null = null;
-jest.mock('../../components/BarChart', () => (props: { labels: any[]; series: { label: string; values: any[] }[] }) => {
+let capturedBarChartProps: { labels: any[]; series: { label: string; values: any[] }[]; type?: string } | null = null;
+jest.mock('../../components/BarChart', () => (props: { labels: any[]; series: { label: string; values: any[] }[]; type?: string }) => {
   capturedBarChartProps = props;
   return null;
 });
@@ -29,6 +29,16 @@ const makeRow = (overrides = {}) => ({
 const makeDeck = (id: string, name: string, rows: Array<Record<string, any>>) => ({ id, name, rows });
 
 describe('PileAggregateAttributeChart', () => {
+  it('does not request a chart type from BarChart by default', () => {
+    render(<PileAggregateAttributeChart decks={[]} filterFunction={personnelFilter} attribute="integrity" />);
+    expect(capturedBarChartProps!.type).toBeUndefined();
+  });
+
+  it('forwards an explicit type prop to BarChart', () => {
+    render(<PileAggregateAttributeChart decks={[]} filterFunction={personnelFilter} attribute="integrity" type="line" />);
+    expect(capturedBarChartProps!.type).toBe('line');
+  });
+
   describe('0 decks', () => {
     it('renders no labels or series', () => {
       render(<PileAggregateAttributeChart decks={[]} filterFunction={personnelFilter} attribute="integrity" />);

@@ -11,6 +11,7 @@ interface Deck {
 interface PileAggregateCostChartProps {
   decks: Deck[];
   filterFunction: (row: Record<string, any>) => boolean;
+  type?: 'bar' | 'line';
 }
 
 function costCounts(rows: Array<Record<string, any>>, filterFunction: (row: Record<string, any>) => boolean) {
@@ -19,7 +20,7 @@ function costCounts(rows: Array<Record<string, any>>, filterFunction: (row: Reco
     .reduce<Record<string, number>>((acc, row) => { acc[row.cost] = (acc[row.cost] || 0) + row.count; return acc }, {});
 }
 
-export default function PileAggregateCostChart({ decks, filterFunction }: PileAggregateCostChartProps) {
+export default function PileAggregateCostChart({ decks, filterFunction, type }: PileAggregateCostChartProps) {
   const { labels, series } = useMemo(() => {
     const seriesCounts = decks.map((deck) => costCounts(deck.rows, filterFunction));
     const labels = unionSortedLabels(seriesCounts, (a, b) => (a < b ? -1 : a > b ? 1 : 0));
@@ -32,6 +33,6 @@ export default function PileAggregateCostChart({ decks, filterFunction }: PileAg
   }, [decks, filterFunction]);
 
   return (
-      <BarChart labels={labels} series={series}/>
+      <BarChart labels={labels} series={series} type={type}/>
   );
 }
