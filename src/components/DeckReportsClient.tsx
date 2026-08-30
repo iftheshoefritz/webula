@@ -204,6 +204,38 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
         </section>
       </div>
 
+      <div className="p-4 flex flex-col gap-8">
+        <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Costs</h2>
+          <div className="flex flex-col lg:flex-row">
+            <div className="w-full lg:w-1/2">
+              <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary">Draw Deck</span>
+              <PileAggregateCostChart decks={decks} filterFunction={(row) => row.pile === 'draw'} />
+            </div>
+            <div className="w-full lg:w-1/2">
+              <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary">Dilemma Pile</span>
+              <PileAggregateCostChart decks={decks} filterFunction={(row) => row.pile === 'dilemma'} />
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Attributes</h2>
+          <div className="flex flex-col lg:flex-row">
+            {(['integrity', 'cunning', 'strength'] as const).map((attr) => (
+              <div key={attr} className="w-full lg:w-1/3">
+                <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary capitalize">{attr}</span>
+                <PileAggregateAttributeChart
+                  decks={decks}
+                  filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+                  attribute={attr}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
       {singleDeck && (
         <div className="p-4 flex flex-col gap-8">
           <section>
@@ -267,36 +299,6 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
             >
               {([icon, count]) => <IconPill key={icon} icon={icon} count={count} />}
             </PileAggregate>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-bold mb-2 text-text-secondary">Costs</h2>
-            <div className="flex flex-col lg:flex-row">
-              <div className="w-full lg:w-1/2">
-                <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary">Draw Deck</span>
-                <PileAggregateCostChart currentDeckRows={singleDeck.rows} filterFunction={(row) => row.pile === 'draw'} />
-              </div>
-              <div className="w-full lg:w-1/2">
-                <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary">Dilemma Pile</span>
-                <PileAggregateCostChart currentDeckRows={singleDeck.rows} filterFunction={(row) => row.pile === 'dilemma'} />
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-bold mb-2 text-text-secondary">Attributes</h2>
-            <div className="flex flex-col lg:flex-row">
-              {(['integrity', 'cunning', 'strength'] as const).map((attr) => (
-                <div key={attr} className="w-full lg:w-1/3">
-                  <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary capitalize">{attr}</span>
-                  <PileAggregateAttributeChart
-                    currentDeckRows={singleDeck.rows}
-                    filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
-                    attribute={attr}
-                  />
-                </div>
-              ))}
-            </div>
           </section>
         </div>
       )}

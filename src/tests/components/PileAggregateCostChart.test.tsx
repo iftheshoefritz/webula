@@ -22,32 +22,40 @@ const makeRow = (overrides = {}) => ({
   ...overrides,
 });
 
+const makeDeck = (id: string, name: string, rows: Array<Record<string, any>>) => ({ id, name, rows });
+
 describe('PileAggregateCostChart', () => {
-  describe('empty deck', () => {
-    it('renders without error when currentDeckRows is empty', () => {
-      render(<PileAggregateCostChart currentDeckRows={[]} filterFunction={drawFilter} />);
+  describe('0 decks', () => {
+    it('renders no labels or series', () => {
+      render(<PileAggregateCostChart decks={[]} filterFunction={drawFilter} />);
       expect(capturedBarChartProps).not.toBeNull();
       expect(capturedBarChartProps!.labels).toEqual([]);
-      expect(capturedBarChartProps!.series).toEqual([{ label: '# of Occurrences', values: [] }]);
+      expect(capturedBarChartProps!.series).toEqual([]);
     });
   });
 
-  describe('aggregation', () => {
+  describe('1 deck', () => {
+    it('renders without error when the deck has no rows', () => {
+      render(<PileAggregateCostChart decks={[makeDeck('a', 'Deck A', [])]} filterFunction={drawFilter} />);
+      expect(capturedBarChartProps!.labels).toEqual([]);
+      expect(capturedBarChartProps!.series).toEqual([{ label: 'Deck A', values: [] }]);
+    });
+
     it('aggregates counts for the same cost', () => {
       render(
         <PileAggregateCostChart
-          currentDeckRows={[makeRow({ cost: '2', count: 2 }), makeRow({ cost: '2', count: 3 })]}
+          decks={[makeDeck('a', 'Deck A', [makeRow({ cost: '2', count: 2 }), makeRow({ cost: '2', count: 3 })])]}
           filterFunction={drawFilter}
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['2']);
-      expect(capturedBarChartProps!.series).toEqual([{ label: '# of Occurrences', values: [5] }]);
+      expect(capturedBarChartProps!.series).toEqual([{ label: 'Deck A', values: [5] }]);
     });
 
     it('excludes rows that do not pass the filterFunction', () => {
       render(
         <PileAggregateCostChart
-          currentDeckRows={[makeRow({ pile: 'dilemma', cost: '4', count: 5 }), makeRow({ cost: '4', count: 1 })]}
+          decks={[makeDeck('a', 'Deck A', [makeRow({ pile: 'dilemma', cost: '4', count: 5 }), makeRow({ cost: '4', count: 1 })])]}
           filterFunction={drawFilter}
         />
       );
@@ -55,50 +63,40 @@ describe('PileAggregateCostChart', () => {
     });
   });
 
-  describe('compareDeckRows', () => {
-    it('renders only a single series when compareDeckRows is omitted', () => {
-      render(<PileAggregateCostChart currentDeckRows={[makeRow({ cost: '2', count: 2 })]} filterFunction={drawFilter} />);
-      expect(capturedBarChartProps!.series).toHaveLength(1);
-    });
-
-    it('unions and zero-fills labels when the comparison deck has a disjoint cost set', () => {
+  describe('multiple decks', () => {
+    it('unions and zero-fills labels when decks have disjoint cost sets', () => {
       render(
         <PileAggregateCostChart
-          currentDeckRows={[makeRow({ cost: '2', count: 2 })]}
-          compareDeckRows={[makeRow({ cost: '5', count: 3 })]}
+          decks={[
+            makeDeck('a', 'Deck A', [makeRow({ cost: '2', count: 2 })]),
+            makeDeck('b', 'Deck B', [makeRow({ cost: '5', count: 3 })]),
+          ]}
           filterFunction={drawFilter}
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['2', '5']);
       expect(capturedBarChartProps!.series).toEqual([
-        { label: '# of Occurrences', values: [2, 0] },
-        { label: 'Comparison deck', values: [0, 3] },
+        { label: 'Deck A', values: [2, 0] },
+        { label: 'Deck B', values: [0, 3] },
       ]);
     });
 
-    it('keeps both value arrays index-aligned with a shared label list', () => {
+    it('keeps value arrays index-aligned with a shared label list across 3+ decks', () => {
       render(
         <PileAggregateCostChart
-          currentDeckRows={[makeRow({ cost: '2', count: 2 }), makeRow({ cost: '4', count: 1 })]}
-          compareDeckRows={[makeRow({ cost: '4', count: 3 }), makeRow({ cost: '6', count: 4 })]}
+          decks={[
+            makeDeck('a', 'Deck A', [makeRow({ cost: '2', count: 2 }), makeRow({ cost: '4', count: 1 })]),
+            makeDeck('b', 'Deck B', [makeRow({ cost: '4', count: 3 }), makeRow({ cost: '6', count: 4 })]),
+            makeDeck('c', 'Deck C', [makeRow({ cost: '2', count: 5 })]),
+          ]}
           filterFunction={drawFilter}
         />
       );
       expect(capturedBarChartProps!.labels).toEqual(['2', '4', '6']);
+      expect(capturedBarChartProps!.series.map((s) => s.label)).toEqual(['Deck A', 'Deck B', 'Deck C']);
       expect(capturedBarChartProps!.series[0].values).toEqual([2, 1, 0]);
       expect(capturedBarChartProps!.series[1].values).toEqual([0, 3, 4]);
-    });
-
-    it('labels the comparison series using compareLabel when provided', () => {
-      render(
-        <PileAggregateCostChart
-          currentDeckRows={[makeRow({ cost: '2', count: 2 })]}
-          compareDeckRows={[makeRow({ cost: '2', count: 3 })]}
-          filterFunction={drawFilter}
-          compareLabel="My other deck"
-        />
-      );
-      expect(capturedBarChartProps!.series[1].label).toBe('My other deck');
+      expect(capturedBarChartProps!.series[2].values).toEqual([5, 0, 0]);
     });
   });
 });

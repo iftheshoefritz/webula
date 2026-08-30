@@ -31,8 +31,24 @@ jest.mock('../../components/SkillsCompareTable', () => ({
 }));
 
 jest.mock('../../components/PileAggregate', () => () => null);
-jest.mock('../../components/PileAggregateCostChart', () => () => null);
-jest.mock('../../components/PileAggregateAttributeChart', () => () => null);
+
+let capturedCostChartDecks: { id: string; name: string; rows: unknown[] }[] | null = null;
+jest.mock('../../components/PileAggregateCostChart', () => ({
+  __esModule: true,
+  default: (props: { decks: { id: string; name: string; rows: unknown[] }[] }) => {
+    capturedCostChartDecks = props.decks;
+    return null;
+  },
+}));
+
+let capturedAttributeChartDecks: { id: string; name: string; rows: unknown[] }[] | null = null;
+jest.mock('../../components/PileAggregateAttributeChart', () => ({
+  __esModule: true,
+  default: (props: { decks: { id: string; name: string; rows: unknown[] }[] }) => {
+    capturedAttributeChartDecks = props.decks;
+    return null;
+  },
+}));
 
 // Capture the onSignIn/mode/onConfirmSelection/preSelectedFiles props passed to DrivePickerModal.
 let capturedOnSignIn: (() => void) | null = null;
@@ -91,6 +107,8 @@ describe('DeckReportsClient', () => {
     capturedOnConfirmSelection = null;
     capturedPreSelectedFiles = null;
     capturedSkillsCompareTableDecks = null;
+    capturedCostChartDecks = null;
+    capturedAttributeChartDecks = null;
   });
 
   it('shows an empty state before any deck is picked, and renders the skills table with 0 decks', async () => {
@@ -100,6 +118,17 @@ describe('DeckReportsClient', () => {
 
     expect(screen.getByText('No deck selected.')).toBeInTheDocument();
     expect(capturedSkillsCompareTableDecks).toEqual([]);
+  });
+
+  it('renders the Costs and Attributes sections with 0 decks', async () => {
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    expect(screen.getByText('Costs')).toBeInTheDocument();
+    expect(screen.getByText('Attributes')).toBeInTheDocument();
+    expect(capturedCostChartDecks).toEqual([]);
+    expect(capturedAttributeChartDecks).toEqual([]);
   });
 
   it('opens the picker in multi-select ("compare-multi") mode with a drive-scoped signIn callback', async () => {
@@ -150,6 +179,10 @@ describe('DeckReportsClient', () => {
     expect(screen.queryByText('No deck selected.')).not.toBeInTheDocument();
     expect(screen.getByText('My Deck')).toBeInTheDocument();
     expect(capturedSkillsCompareTableDecks).toHaveLength(1);
+    expect(screen.getByText('Costs')).toBeInTheDocument();
+    expect(screen.getByText('Attributes')).toBeInTheDocument();
+    expect(capturedCostChartDecks).toHaveLength(1);
+    expect(capturedAttributeChartDecks).toHaveLength(1);
   });
 
   it('shows a list of deck names and a skills table with a column per deck when 2+ decks are selected', async () => {
@@ -175,6 +208,10 @@ describe('DeckReportsClient', () => {
     expect(screen.getByText('Deck One')).toBeInTheDocument();
     expect(screen.getByText('Deck Two')).toBeInTheDocument();
     expect(capturedSkillsCompareTableDecks).toHaveLength(2);
+    expect(screen.getByText('Costs')).toBeInTheDocument();
+    expect(screen.getByText('Attributes')).toBeInTheDocument();
+    expect(capturedCostChartDecks).toHaveLength(2);
+    expect(capturedAttributeChartDecks).toHaveLength(2);
   });
 
   it('keeps the skills table at 1 column when removing down to 1 deck', async () => {
