@@ -9,6 +9,7 @@ import { DrivePickerModal } from './DrivePickerModal';
 import SkillsCompareTable from './SkillsCompareTable';
 import CardsInCommonTable from './CardsInCommonTable';
 import CharacteristicCompareTable from './CharacteristicCompareTable';
+import IconCompareTable from './IconCompareTable';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import PileAggregateAttributeChart from './PileAggregateAttributeChart';
 import PileAggregateRadarChart from './PileAggregateRadarChart';
@@ -409,7 +410,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
 
         <section>
           <h2 className="text-xl font-bold mb-2 text-text-secondary">Icons</h2>
-          <CharacteristicCompareTable
+          <IconCompareTable
             decks={decks}
             label="Icon"
             characteristicName="icons"
