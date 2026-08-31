@@ -5,7 +5,7 @@ import { DeckPile } from '../app/decks/deckBuilderUtils';
 type DriveFile = { id: string; name: string };
 
 const MAX_COMPARE_SELECTION = 5;
-const MIN_COMPARE_SELECTION = 2;
+const MIN_COMPARE_SELECTION = 0;
 
 type PickerProps = {
   driveFiles: Array<any>

@@ -149,17 +149,50 @@ describe('DrivePickerModal – compare-multi mode', () => {
     expect(checkboxes[5]).not.toBeChecked();
   });
 
-  it('disables the confirm button below 2 selections and enables it at 2-5', () => {
+  it('enables the confirm button at 0, 1, and 2-5 selections', () => {
     render(<DrivePickerModal {...baseProps} mode="compare-multi" driveFiles={driveFiles} />);
     const checkboxes = screen.getAllByRole('checkbox');
 
-    expect(screen.getByRole('button', { name: /compare 0 decks/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /compare 0 decks/i })).toBeEnabled();
 
     fireEvent.click(checkboxes[0]);
-    expect(screen.getByRole('button', { name: /compare 1 deck/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /compare 1 deck/i })).toBeEnabled();
 
     fireEvent.click(checkboxes[1]);
     expect(screen.getByRole('button', { name: /compare 2 decks/i })).toBeEnabled();
+  });
+
+  it('confirms with an empty selection', () => {
+    const onConfirmSelection = jest.fn();
+    render(
+      <DrivePickerModal
+        {...baseProps}
+        mode="compare-multi"
+        driveFiles={driveFiles}
+        onConfirmSelection={onConfirmSelection}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /compare 0 decks/i }));
+
+    expect(onConfirmSelection).toHaveBeenCalledWith([]);
+  });
+
+  it('confirms with a single selected file', () => {
+    const onConfirmSelection = jest.fn();
+    render(
+      <DrivePickerModal
+        {...baseProps}
+        mode="compare-multi"
+        driveFiles={driveFiles}
+        onConfirmSelection={onConfirmSelection}
+      />
+    );
+
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    fireEvent.click(screen.getByRole('button', { name: /compare 1 deck/i }));
+
+    expect(onConfirmSelection).toHaveBeenCalledWith([driveFiles[0]]);
   });
 
   it('confirms with the full list of selected files and closes', () => {

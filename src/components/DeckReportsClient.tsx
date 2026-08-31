@@ -8,13 +8,10 @@ import { FaArrowLeft, FaChartBar, FaFolderOpen, FaSave, FaTimes } from 'react-ic
 import { DrivePickerModal } from './DrivePickerModal';
 import SkillsCompareTable from './SkillsCompareTable';
 import CardsInCommonTable from './CardsInCommonTable';
-import PileAggregate from './PileAggregate';
+import CharacteristicCompareTable from './CharacteristicCompareTable';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import PileAggregateAttributeChart from './PileAggregateAttributeChart';
 import PileAggregateRadarChart from './PileAggregateRadarChart';
-import KeywordBadge from './KeywordBadge';
-import SpeciesBadge from './SpeciesBadge';
-import IconPill from './IconPill';
 import { CardDef } from '../types';
 import { deckFromTsv } from '../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV, PRACTICE_DECK_TSV_2 } from '../lib/practiceDeck';
@@ -239,7 +236,6 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
   };
 
   const hasDeck = decks.length > 0;
-  const singleDeck = decks.length === 1 ? decks[0] : null;
 
   return (
     <div className="min-h-screen bg-gradient-page font-body text-text-primary flex flex-col">
@@ -253,35 +249,10 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
       </div>
 
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] flex-wrap">
-        {singleDeck ? (
-          <>
-            <span className="text-sm text-text-muted">
-              Showing <span className="text-text-primary">{singleDeck.name}</span>
-              {singleDeck.error && <span className="text-red-400 ml-2">({singleDeck.error})</span>}
-            </span>
-            <button className="btn-secondary text-sm flex items-center gap-2" onClick={openPicker}>
-              <FaFolderOpen />
-              Change deck
-            </button>
-            <button
-              type="button"
-              aria-label={`Remove ${singleDeck.name}`}
-              className="text-text-muted hover:text-text-primary"
-              onClick={() => removeDeck(singleDeck.id)}
-            >
-              <FaTimes />
-            </button>
-          </>
-        ) : decks.length >= 2 ? (
-          <span className="text-sm text-text-muted">
-            Comparing <span className="text-text-primary">{decks.length}</span> decks
-          </span>
-        ) : (
-          <button className="btn-secondary text-sm flex items-center gap-2" onClick={openPicker}>
-            <FaFolderOpen />
-            Pick a deck
-          </button>
-        )}
+        <button className="btn-secondary text-sm flex items-center gap-2" onClick={openPicker}>
+          <FaFolderOpen />
+          Select decks
+        </button>
 
         <div className="flex items-center gap-2 ml-auto">
           <button className="btn-secondary text-sm flex items-center gap-2" onClick={openReportsPicker}>
@@ -316,39 +287,37 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
         <div className="flex flex-col items-center justify-center flex-1 text-text-muted gap-2 p-8">
           <FaChartBar className="text-4xl" />
           <p className="text-lg">No deck selected.</p>
-          <p className="text-sm">Pick a deck from Google Drive to see its report.</p>
+          <p className="text-sm">Select decks from Google Drive to see their report.</p>
         </div>
       )}
 
-      {decks.length >= 2 && (
-        <div className="p-4 flex flex-col gap-4">
-          <h2 className="text-xl font-bold text-text-secondary">Selected decks</h2>
-          <ul className="flex flex-col gap-2">
-            {decks.map((deck) => (
-              <li key={deck.id} className="flex items-center justify-between border border-white/10 px-3 py-2">
-                <span className="text-text-primary truncate">
-                  {deck.name}
-                  {deck.error && <span className="text-red-400 text-xs ml-2">({deck.error})</span>}
-                </span>
-                <button
-                  type="button"
-                  aria-label={`Remove ${deck.name}`}
-                  className="text-text-muted hover:text-text-primary"
-                  onClick={() => removeDeck(deck.id)}
-                >
-                  <FaTimes />
-                </button>
-              </li>
-            ))}
-          </ul>
-          {decks.length < 5 && (
-            <button className="btn-secondary text-sm flex items-center gap-2 self-start" onClick={openPicker}>
-              <FaFolderOpen />
-              Add deck
-            </button>
-          )}
-        </div>
-      )}
+      <div className="p-4 flex flex-col gap-4">
+        <h2 className="text-xl font-bold text-text-secondary">Selected decks</h2>
+        <ul className="flex flex-col gap-2">
+          {decks.map((deck) => (
+            <li key={deck.id} className="flex items-center justify-between border border-white/10 px-3 py-2">
+              <span className="text-text-primary truncate">
+                {deck.name}
+                {deck.error && <span className="text-red-400 text-xs ml-2">({deck.error})</span>}
+              </span>
+              <button
+                type="button"
+                aria-label={`Remove ${deck.name}`}
+                className="text-text-muted hover:text-text-primary"
+                onClick={() => removeDeck(deck.id)}
+              >
+                <FaTimes />
+              </button>
+            </li>
+          ))}
+        </ul>
+        {decks.length < 5 && (
+          <button className="btn-secondary text-sm flex items-center gap-2 self-start" onClick={openPicker}>
+            <FaFolderOpen />
+            Add deck
+          </button>
+        )}
+      </div>
 
       <div className="p-4 flex flex-col gap-8">
         <section>
@@ -356,12 +325,10 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
           <SkillsCompareTable decks={decks} />
         </section>
 
-        {decks.length >= 2 && (
-          <section>
-            <h2 className="text-xl font-bold mb-2 text-text-secondary">Cards in common</h2>
-            <CardsInCommonTable decks={decks} />
-          </section>
-        )}
+        <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Cards in common</h2>
+          <CardsInCommonTable decks={decks} />
+        </section>
       </div>
 
       <div className="p-4 flex flex-col gap-8">
@@ -402,72 +369,67 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
         </section>
       </div>
 
-      {singleDeck && (
-        <div className="p-4 flex flex-col gap-8">
-          <section>
-            <h2 className="text-xl font-bold mb-2 text-text-secondary">Keywords</h2>
-            <PileAggregate
-              currentDeckRows={singleDeck.rows}
-              characteristicName="keywords"
-              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
-              splitFunction={(keywords) =>
-                keywords
-                  .split('.')
-                  .map((k: string) => k.trim())
-                  .filter((k: string) => k.length > 0)
-              }
-              assembleCounts={(counts, keyword, count) => {
-                counts[keyword] = (counts[keyword] || 0) + count;
-                return counts;
-              }}
-            >
-              {([keyword, count]) => <KeywordBadge key={keyword} keyword={keyword} count={count} />}
-            </PileAggregate>
-          </section>
+      <div className="p-4 flex flex-col gap-8">
+        <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Keywords</h2>
+          <CharacteristicCompareTable
+            decks={decks}
+            label="Keyword"
+            characteristicName="keywords"
+            filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+            splitFunction={(keywords) =>
+              keywords
+                .split('.')
+                .map((k: string) => k.trim())
+                .filter((k: string) => k.length > 0)
+            }
+            assembleCounts={(counts, keyword, count) => {
+              counts[keyword] = (counts[keyword] || 0) + count;
+              return counts;
+            }}
+          />
+        </section>
 
-          <section>
-            <h2 className="text-xl font-bold mb-2 text-text-secondary">Species</h2>
-            <PileAggregate
-              currentDeckRows={singleDeck.rows}
-              characteristicName="species"
-              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
-              splitFunction={(species) =>
-                species
-                  .split('/')
-                  .map((s: string) => s.trim())
-                  .filter((s: string) => s.length > 0)
-              }
-              assembleCounts={(counts, species, count) => {
-                counts[species] = (counts[species] || 0) + count;
-                return counts;
-              }}
-            >
-              {([species, count]) => <SpeciesBadge key={species} species={species} count={count} />}
-            </PileAggregate>
-          </section>
+        <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Species</h2>
+          <CharacteristicCompareTable
+            decks={decks}
+            label="Species"
+            characteristicName="species"
+            filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+            splitFunction={(species) =>
+              species
+                .split('/')
+                .map((s: string) => s.trim())
+                .filter((s: string) => s.length > 0)
+            }
+            assembleCounts={(counts, species, count) => {
+              counts[species] = (counts[species] || 0) + count;
+              return counts;
+            }}
+          />
+        </section>
 
-          <section>
-            <h2 className="text-xl font-bold mb-2 text-text-secondary">Icons</h2>
-            <PileAggregate
-              currentDeckRows={singleDeck.rows}
-              characteristicName="icons"
-              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
-              splitFunction={(keywords) =>
-                keywords
-                  .split(/[[\]]/)
-                  .map((k: string) => k.trim())
-                  .filter((k: string) => k.length > 0)
-              }
-              assembleCounts={(counts, icon, count) => {
-                counts[icon] = (counts[icon] || 0) + count;
-                return counts;
-              }}
-            >
-              {([icon, count]) => <IconPill key={icon} icon={icon} count={count} />}
-            </PileAggregate>
-          </section>
-        </div>
-      )}
+        <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Icons</h2>
+          <CharacteristicCompareTable
+            decks={decks}
+            label="Icon"
+            characteristicName="icons"
+            filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+            splitFunction={(keywords) =>
+              keywords
+                .split(/[[\]]/)
+                .map((k: string) => k.trim())
+                .filter((k: string) => k.length > 0)
+            }
+            assembleCounts={(counts, icon, count) => {
+              counts[icon] = (counts[icon] || 0) + count;
+              return counts;
+            }}
+          />
+        </section>
+      </div>
 
       {showDrivePicker && (
         <DrivePickerModal

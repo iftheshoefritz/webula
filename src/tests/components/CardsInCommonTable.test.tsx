@@ -26,6 +26,8 @@ describe('CardsInCommonTable', () => {
       />
     );
 
+    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
+
     const row = screen.getByText('Riker').closest('tr')!;
     const cells = within(row).getAllByRole('cell');
     expect(cells[1]).toHaveTextContent('2');
@@ -38,7 +40,8 @@ describe('CardsInCommonTable', () => {
       <CardsInCommonTable
         decks={[
           { id: 'a', name: 'Deck A', rows: [makeRow({ name: 'Riker', count: 1 })] },
-          { id: 'b', name: 'Deck B', rows: [makeRow({ name: 'Picard', count: 1 })] },
+          { id: 'b', name: 'Deck B', rows: [makeRow({ name: 'Riker', count: 1 })] },
+          { id: 'c', name: 'Deck C', rows: [makeRow({ name: 'Picard', count: 1 })] },
         ]}
       />
     );
@@ -47,7 +50,7 @@ describe('CardsInCommonTable', () => {
 
     const row = screen.getByText('Riker').closest('tr')!;
     const cells = within(row).getAllByRole('cell');
-    expect(cells[2]).toHaveTextContent('0');
+    expect(cells[3]).toHaveTextContent('0'); // Deck C, which lacks Riker
   });
 
   it('defaults the threshold to the current deck count', () => {
@@ -64,7 +67,7 @@ describe('CardsInCommonTable', () => {
     expect(screen.getByLabelText('Minimum decks')).toHaveValue(3);
   });
 
-  it('filters out cards below the threshold', () => {
+  it('shows no cards at the default threshold, since it equals the deck count', () => {
     render(
       <CardsInCommonTable
         decks={[
@@ -78,14 +81,16 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    // Default threshold is 2 (deck count), so Picard (in 1 deck) is filtered out.
-    expect(screen.getByText('Riker')).toBeInTheDocument();
+    // Default threshold is 2 (deck count); the strict `>` comparison means nothing
+    // can exceed it by default, so the user must lower the threshold to see any cards.
+    expect(screen.queryByText('Riker')).not.toBeInTheDocument();
     expect(screen.queryByText('Picard')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
 
+    // Riker is in 2 decks (>1); Picard is in only 1 deck (not >1).
     expect(screen.getByText('Riker')).toBeInTheDocument();
-    expect(screen.getByText('Picard')).toBeInTheDocument();
+    expect(screen.queryByText('Picard')).not.toBeInTheDocument();
   });
 
   it('clamps the threshold to at least 1', () => {
@@ -105,7 +110,9 @@ describe('CardsInCommonTable', () => {
     fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '0' } });
 
     expect(screen.getByLabelText('Minimum decks')).toHaveValue(1);
-    expect(screen.getByText('Picard')).toBeInTheDocument();
+    // Riker is in 2 decks (>1), so it's visible once clamped to the minimum threshold of 1.
+    expect(screen.getByText('Riker')).toBeInTheDocument();
+    expect(screen.queryByText('Picard')).not.toBeInTheDocument();
   });
 
   it('clamps the threshold to at most the deck count', () => {
@@ -136,10 +143,20 @@ describe('CardsInCommonTable', () => {
               makeRow({ name: 'Data', count: 3 }),
             ],
           },
+          {
+            id: 'b',
+            name: 'Deck B',
+            rows: [
+              makeRow({ name: 'Riker', count: 1 }),
+              makeRow({ name: 'Picard', count: 1 }),
+              makeRow({ name: 'Data', count: 1 }),
+            ],
+          },
         ]}
       />
     );
 
+    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Deck A' }));
 
     const rows = screen.getAllByRole('row').slice(1);
@@ -160,10 +177,20 @@ describe('CardsInCommonTable', () => {
               makeRow({ name: 'Data', count: 3 }),
             ],
           },
+          {
+            id: 'b',
+            name: 'Deck B',
+            rows: [
+              makeRow({ name: 'Riker', count: 1 }),
+              makeRow({ name: 'Picard', count: 1 }),
+              makeRow({ name: 'Data', count: 1 }),
+            ],
+          },
         ]}
       />
     );
 
+    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
     const header = screen.getByRole('button', { name: 'Deck A' });
     fireEvent.click(header);
     fireEvent.click(header);
@@ -182,7 +209,12 @@ describe('CardsInCommonTable', () => {
             name: 'Deck A',
             rows: [makeRow({ name: 'Riker' }), makeRow({ name: 'Picard' })],
           },
-          { id: 'b', name: 'Deck B', rows: [makeRow({ name: 'Riker' })] },
+          {
+            id: 'b',
+            name: 'Deck B',
+            rows: [makeRow({ name: 'Riker' }), makeRow({ name: 'Picard' })],
+          },
+          { id: 'c', name: 'Deck C', rows: [makeRow({ name: 'Riker' })] },
         ]}
       />
     );
@@ -204,10 +236,16 @@ describe('CardsInCommonTable', () => {
             name: 'Deck A',
             rows: [makeRow({ name: 'Riker' }), makeRow({ name: 'Picard' })],
           },
+          {
+            id: 'b',
+            name: 'Deck B',
+            rows: [makeRow({ name: 'Riker' }), makeRow({ name: 'Picard' })],
+          },
         ]}
       />
     );
 
+    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Card' }));
 
     const rows = screen.getAllByRole('row').slice(1);

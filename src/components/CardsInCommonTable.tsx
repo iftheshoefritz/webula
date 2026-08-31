@@ -43,14 +43,14 @@ export default function CardsInCommonTable({ decks }: CardsInCommonTableProps) {
   const rows = useMemo(() => aggregateCardsInCommon(decks), [decks]);
 
   const maxThreshold = Math.max(decks.length, 1);
-  const [threshold, setThreshold] = useState(decks.length);
-  const effectiveThreshold = Math.min(Math.max(threshold, 1), maxThreshold);
+  const [threshold, setThreshold] = useState<number | null>(null);
+  const effectiveThreshold = threshold === null ? maxThreshold : Math.min(Math.max(threshold, 1), maxThreshold);
 
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const filteredRows = useMemo(
-    () => rows.filter((row) => row.numDecks >= effectiveThreshold),
+    () => rows.filter((row) => row.numDecks > effectiveThreshold),
     [rows, effectiveThreshold]
   );
 
