@@ -17,7 +17,7 @@ import SpeciesBadge from './SpeciesBadge';
 import IconPill from './IconPill';
 import { CardDef } from '../types';
 import { deckFromTsv } from '../app/decks/deckBuilderUtils';
-import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
+import { PRACTICE_DECK_TSV, PRACTICE_DECK_TSV_2 } from '../lib/practiceDeck';
 import type { CardData } from '../lib/loadCards';
 
 interface Session {
@@ -88,7 +88,10 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
 
   useEffect(() => {
     if (!isFixture || data.length === 0) return;
-    setDecks([{ id: 'fixture', name: 'Fixture deck', rows: rowsFromTsv(PRACTICE_DECK_TSV, data) }]);
+    setDecks([
+      { id: 'fixture-1', name: 'Fixture deck A', rows: rowsFromTsv(PRACTICE_DECK_TSV, data) },
+      { id: 'fixture-2', name: 'Fixture deck B', rows: rowsFromTsv(PRACTICE_DECK_TSV_2, data) },
+    ]);
   }, [isFixture, data]);
 
   useEffect(() => {
