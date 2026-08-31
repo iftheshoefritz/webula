@@ -331,11 +331,6 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
           <h2 className="text-xl font-bold mb-2 text-text-secondary">Personnel skills</h2>
           <SkillsCompareTable decks={decks} />
         </section>
-
-        <section>
-          <h2 className="text-xl font-bold mb-2 text-text-secondary">Cards in common</h2>
-          <CardsInCommonTable decks={decks} />
-        </section>
       </div>
 
       <div className="p-4 flex flex-col gap-8">
@@ -430,6 +425,23 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
               return counts;
             }}
           />
+        </section>
+      </div>
+
+      <div className="p-4 flex flex-col gap-8">
+        <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Mission cards in common</h2>
+          <CardsInCommonTable decks={decks} filterFunction={(row) => row.pile === 'mission'} />
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Draw deck cards in common</h2>
+          <CardsInCommonTable decks={decks} filterFunction={(row) => row.pile === 'draw'} />
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Dilemma cards in common</h2>
+          <CardsInCommonTable decks={decks} filterFunction={(row) => row.pile === 'dilemma'} />
         </section>
       </div>
 

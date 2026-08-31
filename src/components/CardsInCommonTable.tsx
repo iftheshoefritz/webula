@@ -10,6 +10,7 @@ interface Deck {
 
 interface CardsInCommonTableProps {
   decks: Deck[];
+  filterFunction?: (row: any) => boolean;
 }
 
 interface CardsInCommonRow {
@@ -20,11 +21,14 @@ interface CardsInCommonRow {
 
 type SortKey = 'name' | 'numDecks' | string;
 
-export function aggregateCardsInCommon(decks: Deck[]): CardsInCommonRow[] {
+export function aggregateCardsInCommon(
+  decks: Deck[],
+  filterFunction: (row: any) => boolean = () => true
+): CardsInCommonRow[] {
   const countsByName = new Map<string, Record<string, number>>();
 
   decks.forEach((deck) => {
-    deck.rows.forEach((row) => {
+    deck.rows.filter(filterFunction).forEach((row) => {
       const name = row.name;
       const countsByDeckId = countsByName.get(name) ?? {};
       countsByDeckId[deck.id] = (countsByDeckId[deck.id] ?? 0) + (row.count ?? 0);
@@ -39,8 +43,8 @@ export function aggregateCardsInCommon(decks: Deck[]): CardsInCommonRow[] {
   }));
 }
 
-export default function CardsInCommonTable({ decks }: CardsInCommonTableProps) {
-  const rows = useMemo(() => aggregateCardsInCommon(decks), [decks]);
+export default function CardsInCommonTable({ decks, filterFunction }: CardsInCommonTableProps) {
+  const rows = useMemo(() => aggregateCardsInCommon(decks, filterFunction), [decks, filterFunction]);
 
   const maxThreshold = Math.max(decks.length, 1);
   const [threshold, setThreshold] = useState<number | null>(null);

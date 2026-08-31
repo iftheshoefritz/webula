@@ -170,7 +170,7 @@ describe('DeckReportsClient', () => {
 
     expect(screen.getByText('No deck selected.')).toBeInTheDocument();
     expect(capturedSkillsCompareTableDecks).toEqual([]);
-    expect(screen.getByText('Cards in common')).toBeInTheDocument();
+    expect(screen.getByText('Mission cards in common')).toBeInTheDocument();
     expect(capturedCardsInCommonDecks).toEqual([]);
   });
 
@@ -260,7 +260,7 @@ describe('DeckReportsClient', () => {
     expect(capturedCostChartDecks).toHaveLength(1);
     expect(capturedAttributeChartDecks).toHaveLength(1);
     expect(capturedRadarChartDecks).toHaveLength(1);
-    expect(screen.getByText('Cards in common')).toBeInTheDocument();
+    expect(screen.getByText('Mission cards in common')).toBeInTheDocument();
     expect(capturedCardsInCommonDecks).toHaveLength(1);
   });
 
@@ -292,7 +292,7 @@ describe('DeckReportsClient', () => {
     expect(capturedCostChartDecks).toHaveLength(2);
     expect(capturedAttributeChartDecks).toHaveLength(2);
     expect(capturedRadarChartDecks).toHaveLength(2);
-    expect(screen.getByText('Cards in common')).toBeInTheDocument();
+    expect(screen.getByText('Mission cards in common')).toBeInTheDocument();
     expect(capturedCardsInCommonDecks).toHaveLength(2);
   });
 
@@ -323,7 +323,7 @@ describe('DeckReportsClient', () => {
     expect(screen.getByText('Deck One')).toBeInTheDocument();
     expect(screen.queryByText('Deck Two')).not.toBeInTheDocument();
     expect(capturedSkillsCompareTableDecks).toHaveLength(1);
-    expect(screen.getByText('Cards in common')).toBeInTheDocument();
+    expect(screen.getByText('Mission cards in common')).toBeInTheDocument();
     expect(capturedCardsInCommonDecks).toHaveLength(1);
   });
 
@@ -415,7 +415,7 @@ describe('DeckReportsClient', () => {
     });
 
     expect(capturedSkillsCompareTableDecks).toHaveLength(2);
-    expect(screen.getByText('Cards in common')).toBeInTheDocument();
+    expect(screen.getByText('Mission cards in common')).toBeInTheDocument();
     expect(capturedCardsInCommonDecks).toHaveLength(2);
   });
 });
