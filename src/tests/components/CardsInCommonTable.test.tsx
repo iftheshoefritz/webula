@@ -227,6 +227,37 @@ describe('CardsInCommonTable', () => {
     expect(nameCells).toEqual(['Riker', 'Picard']);
   });
 
+  it('excludes rows that do not match filterFunction', () => {
+    render(
+      <CardsInCommonTable
+        decks={[
+          {
+            id: 'a',
+            name: 'Deck A',
+            rows: [
+              makeRow({ name: 'Riker', count: 1, pile: 'draw' }),
+              makeRow({ name: 'Kobayashi Maru', count: 1, pile: 'mission' }),
+            ],
+          },
+          {
+            id: 'b',
+            name: 'Deck B',
+            rows: [
+              makeRow({ name: 'Riker', count: 1, pile: 'draw' }),
+              makeRow({ name: 'Kobayashi Maru', count: 1, pile: 'mission' }),
+            ],
+          },
+        ]}
+        filterFunction={(row) => row.pile === 'mission'}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
+
+    expect(screen.getByText('Kobayashi Maru')).toBeInTheDocument();
+    expect(screen.queryByText('Riker')).not.toBeInTheDocument();
+  });
+
   it('sorts by the card name column', () => {
     render(
       <CardsInCommonTable
