@@ -30,7 +30,16 @@ jest.mock('../../components/SkillsCompareTable', () => ({
   },
 }));
 
-jest.mock('../../components/PileAggregate', () => () => null);
+// Capture the props passed to CharacteristicCompareTable (Keywords/Species/Icons) so we can
+// assert on the loaded decks.
+let capturedCharacteristicCompareTableDecks: { id: string; name: string; rows: unknown[] }[][] = [];
+jest.mock('../../components/CharacteristicCompareTable', () => ({
+  __esModule: true,
+  default: (props: { decks: { id: string; name: string; rows: unknown[] }[] }) => {
+    capturedCharacteristicCompareTableDecks.push(props.decks);
+    return null;
+  },
+}));
 
 // Capture the props passed to CardsInCommonTable so we can assert on the loaded decks.
 let capturedCardsInCommonDecks: { id: string; name: string; rows: unknown[] }[] | null = null;
@@ -151,17 +160,29 @@ describe('DeckReportsClient', () => {
     capturedAttributeChartTypes = [];
     capturedRadarChartDecks = null;
     capturedCardsInCommonDecks = null;
+    capturedCharacteristicCompareTableDecks = [];
   });
 
-  it('shows an empty state before any deck is picked, and renders the skills table with 0 decks', async () => {
+  it('shows an empty state before any deck is picked, and renders the skills/cards-in-common tables with 0 decks', async () => {
     await act(async () => {
       render(<DeckReportsClient data={testData} />);
     });
 
     expect(screen.getByText('No deck selected.')).toBeInTheDocument();
     expect(capturedSkillsCompareTableDecks).toEqual([]);
-    expect(screen.queryByText('Cards in common')).not.toBeInTheDocument();
-    expect(capturedCardsInCommonDecks).toBeNull();
+    expect(screen.getByText('Cards in common')).toBeInTheDocument();
+    expect(capturedCardsInCommonDecks).toEqual([]);
+  });
+
+  it('renders the Keywords/Species/Icons tables unconditionally, including with 0 decks', async () => {
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    expect(screen.getByText('Keywords')).toBeInTheDocument();
+    expect(screen.getByText('Species')).toBeInTheDocument();
+    expect(screen.getByText('Icons')).toBeInTheDocument();
+    expect(capturedCharacteristicCompareTableDecks).toEqual([[], [], []]);
   });
 
   it('renders the Costs and Attributes sections with 0 decks', async () => {
@@ -191,7 +212,7 @@ describe('DeckReportsClient', () => {
       render(<DeckReportsClient data={testData} />);
     });
 
-    const pickButton = screen.getByRole('button', { name: /pick a deck/i });
+    const pickButton = screen.getByRole('button', { name: /select decks/i });
     await act(async () => {
       fireEvent.click(pickButton);
     });
@@ -223,7 +244,7 @@ describe('DeckReportsClient', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
     });
 
     expect(capturedOnConfirmSelection).not.toBeNull();
@@ -239,8 +260,8 @@ describe('DeckReportsClient', () => {
     expect(capturedCostChartDecks).toHaveLength(1);
     expect(capturedAttributeChartDecks).toHaveLength(1);
     expect(capturedRadarChartDecks).toHaveLength(1);
-    expect(screen.queryByText('Cards in common')).not.toBeInTheDocument();
-    expect(capturedCardsInCommonDecks).toBeNull();
+    expect(screen.getByText('Cards in common')).toBeInTheDocument();
+    expect(capturedCardsInCommonDecks).toHaveLength(1);
   });
 
   it('shows a list of deck names and a skills table with a column per deck when 2+ decks are selected', async () => {
@@ -253,7 +274,7 @@ describe('DeckReportsClient', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
     });
 
     await act(async () => {
@@ -285,7 +306,7 @@ describe('DeckReportsClient', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
     });
 
     await act(async () => {
@@ -302,7 +323,8 @@ describe('DeckReportsClient', () => {
     expect(screen.getByText('Deck One')).toBeInTheDocument();
     expect(screen.queryByText('Deck Two')).not.toBeInTheDocument();
     expect(capturedSkillsCompareTableDecks).toHaveLength(1);
-    expect(screen.queryByText('Cards in common')).not.toBeInTheDocument();
+    expect(screen.getByText('Cards in common')).toBeInTheDocument();
+    expect(capturedCardsInCommonDecks).toHaveLength(1);
   });
 
   it('falls back to the empty state and a 0-column skills table when removing down to 0 decks', async () => {
@@ -315,7 +337,7 @@ describe('DeckReportsClient', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
     });
 
     await act(async () => {
@@ -331,7 +353,7 @@ describe('DeckReportsClient', () => {
     expect(capturedSkillsCompareTableDecks).toEqual([]);
   });
 
-  it('pre-checks the current deck when re-opening the picker via "Change deck"', async () => {
+  it('pre-checks the current deck when re-opening the picker via "Select decks"', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       json: async () => '1\tTest Card',
     }) as unknown as typeof fetch;
@@ -341,7 +363,7 @@ describe('DeckReportsClient', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
     });
 
     await act(async () => {
@@ -349,7 +371,7 @@ describe('DeckReportsClient', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /change deck/i }));
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
     });
 
     expect(capturedPreSelectedFiles).toEqual([{ id: 'file-1', name: 'Deck One' }]);
@@ -365,7 +387,7 @@ describe('DeckReportsClient', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
     });
 
     await act(async () => {
@@ -433,7 +455,7 @@ describe('DeckReportsClient – saved Reports', () => {
       render(<DeckReportsClient data={testData} />);
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
     });
     await act(async () => {
       await capturedOnConfirmSelection!([{ id: 'file-1', name: 'My Deck' }]);
@@ -471,7 +493,7 @@ describe('DeckReportsClient – saved Reports', () => {
       render(<DeckReportsClient data={testData} />);
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
     });
     await act(async () => {
       await capturedOnConfirmSelection!([{ id: 'file-1', name: 'My Deck' }]);
@@ -566,7 +588,7 @@ describe('DeckReportsClient – saved Reports', () => {
       render(<DeckReportsClient data={testData} />);
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pick a deck/i }));
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
     });
     await act(async () => {
       await capturedOnConfirmSelection!([
