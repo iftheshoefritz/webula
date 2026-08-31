@@ -321,6 +321,13 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
 
       <div className="p-4 flex flex-col gap-8">
         <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Overview</h2>
+          <PileAggregateRadarChart decks={decks} />
+        </section>
+      </div>
+
+      <div className="p-4 flex flex-col gap-8">
+        <section>
           <h2 className="text-xl font-bold mb-2 text-text-secondary">Personnel skills</h2>
           <SkillsCompareTable decks={decks} />
         </section>
@@ -332,11 +339,6 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
       </div>
 
       <div className="p-4 flex flex-col gap-8">
-        <section>
-          <h2 className="text-xl font-bold mb-2 text-text-secondary">Overview</h2>
-          <PileAggregateRadarChart decks={decks} />
-        </section>
-
         <section>
           <h2 className="text-xl font-bold mb-2 text-text-secondary">Costs</h2>
           <div className="flex flex-col lg:flex-row">
