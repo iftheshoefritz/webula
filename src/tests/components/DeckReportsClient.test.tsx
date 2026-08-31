@@ -32,6 +32,16 @@ jest.mock('../../components/SkillsCompareTable', () => ({
 
 jest.mock('../../components/PileAggregate', () => () => null);
 
+// Capture the props passed to CardsInCommonTable so we can assert on the loaded decks.
+let capturedCardsInCommonDecks: { id: string; name: string; rows: unknown[] }[] | null = null;
+jest.mock('../../components/CardsInCommonTable', () => ({
+  __esModule: true,
+  default: (props: { decks: { id: string; name: string; rows: unknown[] }[] }) => {
+    capturedCardsInCommonDecks = props.decks;
+    return null;
+  },
+}));
+
 let capturedCostChartDecks: { id: string; name: string; rows: unknown[] }[] | null = null;
 let capturedCostChartTypes: (string | undefined)[] = [];
 jest.mock('../../components/PileAggregateCostChart', () => ({
@@ -140,6 +150,7 @@ describe('DeckReportsClient', () => {
     capturedAttributeChartDecks = null;
     capturedAttributeChartTypes = [];
     capturedRadarChartDecks = null;
+    capturedCardsInCommonDecks = null;
   });
 
   it('shows an empty state before any deck is picked, and renders the skills table with 0 decks', async () => {
@@ -149,6 +160,8 @@ describe('DeckReportsClient', () => {
 
     expect(screen.getByText('No deck selected.')).toBeInTheDocument();
     expect(capturedSkillsCompareTableDecks).toEqual([]);
+    expect(screen.queryByText('Cards in common')).not.toBeInTheDocument();
+    expect(capturedCardsInCommonDecks).toBeNull();
   });
 
   it('renders the Costs and Attributes sections with 0 decks', async () => {
@@ -226,6 +239,8 @@ describe('DeckReportsClient', () => {
     expect(capturedCostChartDecks).toHaveLength(1);
     expect(capturedAttributeChartDecks).toHaveLength(1);
     expect(capturedRadarChartDecks).toHaveLength(1);
+    expect(screen.queryByText('Cards in common')).not.toBeInTheDocument();
+    expect(capturedCardsInCommonDecks).toBeNull();
   });
 
   it('shows a list of deck names and a skills table with a column per deck when 2+ decks are selected', async () => {
@@ -256,6 +271,8 @@ describe('DeckReportsClient', () => {
     expect(capturedCostChartDecks).toHaveLength(2);
     expect(capturedAttributeChartDecks).toHaveLength(2);
     expect(capturedRadarChartDecks).toHaveLength(2);
+    expect(screen.getByText('Cards in common')).toBeInTheDocument();
+    expect(capturedCardsInCommonDecks).toHaveLength(2);
   });
 
   it('keeps the skills table at 1 column when removing down to 1 deck', async () => {
@@ -285,6 +302,7 @@ describe('DeckReportsClient', () => {
     expect(screen.getByText('Deck One')).toBeInTheDocument();
     expect(screen.queryByText('Deck Two')).not.toBeInTheDocument();
     expect(capturedSkillsCompareTableDecks).toHaveLength(1);
+    expect(screen.queryByText('Cards in common')).not.toBeInTheDocument();
   });
 
   it('falls back to the empty state and a 0-column skills table when removing down to 0 decks', async () => {

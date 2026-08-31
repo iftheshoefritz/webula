@@ -7,6 +7,7 @@ import { getSession, signIn } from 'next-auth/react';
 import { FaArrowLeft, FaChartBar, FaFolderOpen, FaSave, FaTimes } from 'react-icons/fa';
 import { DrivePickerModal } from './DrivePickerModal';
 import SkillsCompareTable from './SkillsCompareTable';
+import CardsInCommonTable from './CardsInCommonTable';
 import PileAggregate from './PileAggregate';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import PileAggregateAttributeChart from './PileAggregateAttributeChart';
@@ -351,6 +352,13 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
           <h2 className="text-xl font-bold mb-2 text-text-secondary">Personnel skills</h2>
           <SkillsCompareTable decks={decks} />
         </section>
+
+        {decks.length >= 2 && (
+          <section>
+            <h2 className="text-xl font-bold mb-2 text-text-secondary">Cards in common</h2>
+            <CardsInCommonTable decks={decks} />
+          </section>
+        )}
       </div>
 
       <div className="p-4 flex flex-col gap-8">
