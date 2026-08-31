@@ -30,13 +30,23 @@ jest.mock('../../components/SkillsCompareTable', () => ({
   },
 }));
 
-// Capture the props passed to CharacteristicCompareTable (Keywords/Species/Icons) so we can
+// Capture the props passed to CharacteristicCompareTable (Keywords/Species) so we can
 // assert on the loaded decks.
 let capturedCharacteristicCompareTableDecks: { id: string; name: string; rows: unknown[] }[][] = [];
 jest.mock('../../components/CharacteristicCompareTable', () => ({
   __esModule: true,
   default: (props: { decks: { id: string; name: string; rows: unknown[] }[] }) => {
     capturedCharacteristicCompareTableDecks.push(props.decks);
+    return null;
+  },
+}));
+
+// Capture the props passed to IconCompareTable (Icons) so we can assert on the loaded decks.
+let capturedIconCompareTableDecks: { id: string; name: string; rows: unknown[] }[][] = [];
+jest.mock('../../components/IconCompareTable', () => ({
+  __esModule: true,
+  default: (props: { decks: { id: string; name: string; rows: unknown[] }[] }) => {
+    capturedIconCompareTableDecks.push(props.decks);
     return null;
   },
 }));
@@ -161,6 +171,7 @@ describe('DeckReportsClient', () => {
     capturedRadarChartDecks = null;
     capturedCardsInCommonDecks = null;
     capturedCharacteristicCompareTableDecks = [];
+    capturedIconCompareTableDecks = [];
   });
 
   it('shows an empty state before any deck is picked, and renders the skills/cards-in-common tables with 0 decks', async () => {
@@ -182,7 +193,8 @@ describe('DeckReportsClient', () => {
     expect(screen.getByText('Keywords')).toBeInTheDocument();
     expect(screen.getByText('Species')).toBeInTheDocument();
     expect(screen.getByText('Icons')).toBeInTheDocument();
-    expect(capturedCharacteristicCompareTableDecks).toEqual([[], [], []]);
+    expect(capturedCharacteristicCompareTableDecks).toEqual([[], []]);
+    expect(capturedIconCompareTableDecks).toEqual([[]]);
   });
 
   it('renders the Costs and Attributes sections with 0 decks', async () => {

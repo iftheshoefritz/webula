@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useCharacteristicCompare } from '../hooks/useCharacteristicCompare';
+import IconGlyph from './IconGlyph';
 
 interface Deck {
   id: string;
@@ -9,7 +10,7 @@ interface Deck {
   rows: any[];
 }
 
-interface CharacteristicCompareTableProps {
+interface IconCompareTableProps {
   decks: Deck[];
   label: string;
   characteristicName: string;
@@ -18,14 +19,14 @@ interface CharacteristicCompareTableProps {
   assembleCounts: (counts: Record<string, any>, item: any, count: number) => Record<string, any>;
 }
 
-export default function CharacteristicCompareTable({
+export default function IconCompareTable({
   decks,
   label,
   characteristicName,
   filterFunction,
   splitFunction,
   assembleCounts,
-}: CharacteristicCompareTableProps) {
+}: IconCompareTableProps) {
   const { deckCounts, sortedKeys, sortDeckId, sortDirection, handleHeaderClick } = useCharacteristicCompare(
     decks,
     characteristicName,
@@ -56,7 +57,9 @@ export default function CharacteristicCompareTable({
       <tbody>
         {sortedKeys.map((key) => (
           <tr key={key} className="border-t border-white/10">
-            <td className="text-text-primary py-1 pr-4">{key}</td>
+            <td className="text-text-primary py-1 pr-4">
+              <IconGlyph icon={key} />
+            </td>
             {deckCounts.map(({ deck, counts }) => (
               <td key={deck.id} className="text-right text-text-secondary py-1 px-2">
                 {counts[key] ?? 0}

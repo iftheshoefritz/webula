@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { CARD_ICON_IMAGES } from '../lib/missionRequirements';
+import IconGlyph from './IconGlyph';
 import SearchOverlay from './SearchOverlay';
 import CompareDelta from './CompareDelta';
 import type { HqOption } from './SkillsChart';
@@ -15,7 +15,6 @@ interface IconPillProps {
 }
 
 export default function IconPill({ icon, count, compareCount, onSearch, hqOptions = [] }: IconPillProps) {
-  const iconSrc = CARD_ICON_IMAGES[icon.toLowerCase()];
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const hasSearch = !!onSearch;
@@ -30,10 +29,7 @@ export default function IconPill({ icon, count, compareCount, onSearch, hqOption
     <div className="relative m-2 p-2 border border-white/[0.06] rounded surface-hover">
       <span className="px-1 text-text-secondary flex items-center gap-1">
         {count}x<CompareDelta count={count} compareCount={compareCount} />{' '}
-        {iconSrc
-          ? <img src={iconSrc} alt={icon} title={icon} className="inline h-4 w-4" />
-          : <b className="text-text-primary">[{icon}]</b>
-        }
+        <IconGlyph icon={icon} />
         {hasSearch && (
           <button
             ref={btnRef}
