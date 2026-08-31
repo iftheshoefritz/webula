@@ -384,6 +384,18 @@ describe('DeckReportsClient', () => {
       { id: 'file-2', name: 'Deck Two' },
     ]);
   });
+
+  it('loads 2 decks and shows Cards in common when ?fixture=1 is present', async () => {
+    mockSearchParamsValue = new URLSearchParams('fixture=1');
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    expect(capturedSkillsCompareTableDecks).toHaveLength(2);
+    expect(screen.getByText('Cards in common')).toBeInTheDocument();
+    expect(capturedCardsInCommonDecks).toHaveLength(2);
+  });
 });
 
 describe('DeckReportsClient – saved Reports', () => {
