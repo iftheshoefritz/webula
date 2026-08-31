@@ -69,10 +69,31 @@ describe('IconCompareTable', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Deck A' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Deck A (9)' }));
 
     const rows = screen.getAllByRole('row').slice(1);
     const iconCells = rows.map((r) => within(r).getByRole('img').getAttribute('alt'));
     expect(iconCells).toEqual(['tng', 'stf', 'cmd']);
+  });
+
+  it('shows draw-pile card count in header, counting non-personnel but excluding non-draw piles', () => {
+    render(
+      <IconCompareTable
+        decks={[
+          {
+            id: 'a',
+            name: 'Deck A',
+            rows: [
+              makeRow({ icons: '[cmd]', count: 2 }),
+              makeRow({ icons: '[tng]', count: 3, type: 'ship' }),
+              makeRow({ icons: '[stf]', count: 10, pile: 'dilemma' }),
+            ],
+          },
+        ]}
+        {...iconProps}
+      />
+    );
+
+    expect(screen.getByText('Deck A (5)')).toBeInTheDocument();
   });
 });

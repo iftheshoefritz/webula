@@ -26,7 +26,7 @@ describe('SkillsCompareTable', () => {
         decks={[{ id: 'a', name: 'Deck A', rows: [makeRow({ skills: 'diplomacy', count: 3 })] }]}
       />
     );
-    expect(screen.getByText('Deck A')).toBeInTheDocument();
+    expect(screen.getByText('Deck A (3)')).toBeInTheDocument();
     const row = screen.getByText('diplomacy').closest('tr')!;
     expect(within(row).getByText('3')).toBeInTheDocument();
   });
@@ -40,8 +40,8 @@ describe('SkillsCompareTable', () => {
         ]}
       />
     );
-    expect(screen.getByText('Deck A')).toBeInTheDocument();
-    expect(screen.getByText('Deck B')).toBeInTheDocument();
+    expect(screen.getByText('Deck A (2)')).toBeInTheDocument();
+    expect(screen.getByText('Deck B (7)')).toBeInTheDocument();
     const row = screen.getByText('diplomacy').closest('tr')!;
     const cells = within(row).getAllByRole('cell');
     expect(cells[1]).toHaveTextContent('2');
@@ -85,7 +85,7 @@ describe('SkillsCompareTable', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Deck A' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Deck A (9)' }));
 
     const rows = screen.getAllByRole('row').slice(1); // skip header row
     const skillCells = rows.map((r) => within(r).getAllByRole('cell')[0].textContent);
@@ -111,7 +111,7 @@ describe('SkillsCompareTable', () => {
       />
     );
 
-    const header = screen.getByRole('button', { name: 'Deck A' });
+    const header = screen.getByRole('button', { name: 'Deck A (9)' });
     fireEvent.click(header);
     fireEvent.click(header);
 
@@ -145,12 +145,12 @@ describe('SkillsCompareTable', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Deck A' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Deck A (6)' }));
     let rows = screen.getAllByRole('row').slice(1);
     let skillCells = rows.map((r) => within(r).getAllByRole('cell')[0].textContent);
     expect(skillCells[0]).toBe('diplomacy');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Deck B' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Deck B (6)' }));
     rows = screen.getAllByRole('row').slice(1);
     skillCells = rows.map((r) => within(r).getAllByRole('cell')[0].textContent);
     expect(skillCells[0]).toBe('security');

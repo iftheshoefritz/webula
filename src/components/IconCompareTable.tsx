@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useCharacteristicCompare } from '../hooks/useCharacteristicCompare';
+import { countDrawPileCards } from './SkillsChart';
 import IconGlyph from './IconGlyph';
 
 interface Deck {
@@ -47,7 +48,7 @@ export default function IconCompareTable({
                 onClick={() => handleHeaderClick(deck.id)}
                 className="hover:text-text-primary"
               >
-                {deck.name}
+                {deck.name} ({countDrawPileCards(deck.rows)})
                 {sortDeckId === deck.id && (sortDirection === 'desc' ? ' \u2193' : ' \u2191')}
               </button>
             </th>
