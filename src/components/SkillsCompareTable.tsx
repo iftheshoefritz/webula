@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { countSkills } from './SkillsChart';
+import { countSkills, countDrawPileCards } from './SkillsChart';
 import { SKILLS } from '../lib/missionRequirements';
 
 const skillList = SKILLS.map((s) => s.toLowerCase());
@@ -60,7 +60,7 @@ export default function SkillsCompareTable({ decks }: SkillsCompareTableProps) {
                 onClick={() => handleHeaderClick(deck.id)}
                 className="hover:text-text-primary"
               >
-                {deck.name}
+                {deck.name} ({countDrawPileCards(deck.rows)})
                 {sortDeckId === deck.id && (sortDirection === 'desc' ? ' \u2193' : ' \u2191')}
               </button>
             </th>

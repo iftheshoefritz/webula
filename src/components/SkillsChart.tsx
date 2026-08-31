@@ -25,6 +25,12 @@ interface SkillsChartProps {
   compareDeckRows?: any[];
 }
 
+export function countDrawPileCards(rows: any[]): number {
+  return rows
+    .filter((row) => row.pile === 'draw')
+    .reduce((total, row) => total + row.count, 0);
+}
+
 export function countSkills(rows: any[]): Record<string, number> {
   const counts: Record<string, number> = {};
 
