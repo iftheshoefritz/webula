@@ -130,6 +130,30 @@ describe('CardsInCommonTable', () => {
     expect(screen.getByLabelText('Minimum decks')).toHaveValue(2);
   });
 
+  it('allows retyping the threshold via an empty intermediate state (#499)', () => {
+    render(
+      <CardsInCommonTable
+        decks={[
+          { id: 'a', name: 'Deck A', rows: [makeRow({ name: 'Riker' })] },
+          { id: 'b', name: 'Deck B', rows: [makeRow({ name: 'Riker' })] },
+          { id: 'c', name: 'Deck C', rows: [makeRow({ name: 'Riker' })] },
+          { id: 'd', name: 'Deck D', rows: [makeRow({ name: 'Riker' })] },
+          { id: 'e', name: 'Deck E', rows: [makeRow({ name: 'Riker' })] },
+        ]}
+      />
+    );
+
+    const input = screen.getByLabelText('Minimum decks');
+    expect(input).toHaveValue(5);
+
+    // Simulate clearing the field (backspace) before typing a new digit.
+    fireEvent.change(input, { target: { value: '' } });
+    expect(input).toHaveValue(null);
+
+    fireEvent.change(input, { target: { value: '3' } });
+    expect(input).toHaveValue(3);
+  });
+
   it('sorts rows by a deck column descending on first header click', () => {
     render(
       <CardsInCommonTable

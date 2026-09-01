@@ -47,8 +47,19 @@ export default function CardsInCommonTable({ decks, filterFunction }: CardsInCom
   const rows = useMemo(() => aggregateCardsInCommon(decks, filterFunction), [decks, filterFunction]);
 
   const maxThreshold = Math.max(decks.length, 1);
-  const [threshold, setThreshold] = useState<number | null>(null);
-  const effectiveThreshold = threshold === null ? maxThreshold : Math.min(Math.max(threshold, 1), maxThreshold);
+  // Raw text of the "Minimum decks" input. `null` means the user hasn't touched it
+  // (falls back to `maxThreshold`); `''` represents a transient empty state while
+  // the user is retyping the value, which must NOT be force-clamped back to a
+  // number, or the next keystroke would be appended to the clamped value instead
+  // of starting fresh (see #499).
+  const [rawThreshold, setRawThreshold] = useState<string | null>(null);
+  const effectiveThreshold = useMemo(() => {
+    if (rawThreshold === null || rawThreshold === '') return maxThreshold;
+    const parsed = Number(rawThreshold);
+    if (Number.isNaN(parsed)) return maxThreshold;
+    return Math.min(Math.max(parsed, 1), maxThreshold);
+  }, [rawThreshold, maxThreshold]);
+  const displayThreshold = rawThreshold === '' ? '' : effectiveThreshold;
 
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -93,8 +104,11 @@ export default function CardsInCommonTable({ decks, filterFunction }: CardsInCom
           aria-label="Minimum decks"
           min={1}
           max={maxThreshold}
-          value={effectiveThreshold}
-          onChange={(e) => setThreshold(Number(e.target.value))}
+          value={displayThreshold}
+          onChange={(e) => setRawThreshold(e.target.value)}
+          onBlur={() => {
+            if (rawThreshold === '') setRawThreshold(null);
+          }}
           className="w-16 bg-white/[0.05] text-text-primary text-sm py-1 px-2 rounded border border-white/10 focus:outline-none focus:border-accent/40"
         />
       </label>
