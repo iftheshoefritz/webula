@@ -240,13 +240,15 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                               <FaFolderOpen/>
                             </button>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => handleDriveFileDelete(file)}
-                            className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
-                          >
-                            <FaTrash/>
-                          </button>
+                          {mode !== 'compare-multi' && (
+                            <button
+                              type="button"
+                              onClick={() => handleDriveFileDelete(file)}
+                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
+                            >
+                              <FaTrash/>
+                            </button>
+                          )}
                         </div>
                       </li>
                     ))}

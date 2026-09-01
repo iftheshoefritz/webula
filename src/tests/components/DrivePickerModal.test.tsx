@@ -214,6 +214,12 @@ describe('DrivePickerModal – compare-multi mode', () => {
     expect(onConfirmSelection).toHaveBeenCalledWith([driveFiles[0], driveFiles[2]]);
   });
 
+  it('does not render a delete button per file', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare-multi" driveFiles={driveFiles} />);
+    // Only the modal close (×) and the confirm-selection button should be buttons; no per-file delete buttons.
+    expect(screen.getAllByRole('button')).toHaveLength(2);
+  });
+
   it('pre-checks files passed in preSelectedFiles', () => {
     render(
       <DrivePickerModal
