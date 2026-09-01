@@ -115,3 +115,26 @@ describe('filterCards quadrant filter', () => {
     expect(result).toHaveLength(0);
   });
 });
+
+describe('filterCards skills exact match', () => {
+  const exobiologyPersonnel = makeCard('exo person', 'personnel', { skills: 'exobiology intelligence' });
+  const biologyPersonnel = makeCard('bio person', 'personnel', { skills: 'biology leadership' });
+  const leveledBiologyPersonnel = makeCard('leveled bio person', 'personnel', { skills: 'leadership 2 biology' });
+
+  const SKILLS_CARDS = [exobiologyPersonnel, biologyPersonnel, leveledBiologyPersonnel];
+
+  it('excludes cards whose only relevant skill is exobiology when searching biology', () => {
+    const result = filterCards(SKILLS_CARDS, COLUMNS, 'skills:biology');
+    expect(result.map(c => c.name)).not.toContain('exo person');
+  });
+
+  it('includes cards with an exact biology skill', () => {
+    const result = filterCards(SKILLS_CARDS, COLUMNS, 'skills:biology');
+    expect(result.map(c => c.name)).toEqual(expect.arrayContaining(['bio person', 'leveled bio person']));
+  });
+
+  it('excludes the biology card and keeps exobiology when negated', () => {
+    const result = filterCards(SKILLS_CARDS, COLUMNS, '-skills:biology');
+    expect(result.map(c => c.name)).toEqual(['exo person']);
+  });
+});
