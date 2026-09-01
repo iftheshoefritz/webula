@@ -47,7 +47,7 @@ export default function CardsInCommonTable({ decks, filterFunction }: CardsInCom
   const rows = useMemo(() => aggregateCardsInCommon(decks, filterFunction), [decks, filterFunction]);
 
   const maxThreshold = Math.max(decks.length, 1);
-  // Raw text of the "Minimum decks" input. `null` means the user hasn't touched it
+  // Raw text of the "Appearing in more than" input. `null` means the user hasn't touched it
   // (falls back to `maxThreshold`); `''` represents a transient empty state while
   // the user is retyping the value, which must NOT be force-clamped back to a
   // number, or the next keystroke would be appended to the clamped value instead
@@ -98,10 +98,10 @@ export default function CardsInCommonTable({ decks, filterFunction }: CardsInCom
   return (
     <div className="flex flex-col gap-3">
       <label className="flex items-center gap-2 text-sm text-text-secondary">
-        Minimum decks
+        Appearing in more than
         <input
           type="number"
-          aria-label="Minimum decks"
+          aria-label="Appearing in more than"
           min={1}
           max={maxThreshold}
           value={displayThreshold}
@@ -111,6 +111,7 @@ export default function CardsInCommonTable({ decks, filterFunction }: CardsInCom
           }}
           className="w-16 bg-white/[0.05] text-text-primary text-sm py-1 px-2 rounded border border-white/10 focus:outline-none focus:border-accent/40"
         />
+        decks
       </label>
       <table className="text-sm w-full">
         <thead>
