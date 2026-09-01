@@ -39,6 +39,10 @@ function getAffiliationSortRank(card: CardRow): number {
   return baseRank + 3;
 }
 
+function skillTokens(skillsCell: string): string[] {
+  return skillsCell.split(/\s+/).filter((token) => !/^\d+$/.test(token));
+}
+
 function toArray(item: string | string[]): string[] {
   if (Array.isArray(item)) {
     return item;
@@ -95,6 +99,9 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
                 const predicate = HQ_PLAYABILITY[match];
                 return !predicate || !predicate(row);
               }
+              if (column === 'skills') {
+                return !skillTokens(row[column]).includes(match);
+              }
               return !row[column].includes(match);
             });
           }
@@ -123,6 +130,9 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
               if (column === 'reportsto') {
                 const predicate = HQ_PLAYABILITY[match];
                 return predicate ? predicate(row) : false;
+              }
+              if (column === 'skills') {
+                return skillTokens(row[column]).includes(match);
               }
               return row[column].includes(match);
             });
