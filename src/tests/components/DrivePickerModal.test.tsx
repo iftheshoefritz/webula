@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { DrivePickerModal } from '../../components/DrivePickerModal';
+import { FOLDER_MIME_TYPE } from '../../app/api/drive/mimeTypes';
 
 const baseProps = {
   driveFiles: [],
@@ -70,6 +71,34 @@ describe('DrivePickerModal – Google Drive header', () => {
     const driveFiles = [{ id: '1', name: 'Drive Deck' }];
     render(<DrivePickerModal {...baseProps} isSignedIn={true} driveFiles={driveFiles} />);
     expect(screen.getByText('Drive Deck')).toBeInTheDocument();
+  });
+});
+
+describe('DrivePickerModal – folders in load mode', () => {
+  const driveFiles = [
+    { id: 'f1', name: 'My Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] },
+    { id: 'd1', name: 'My Deck', mimeType: 'application/json', parents: ['appDataFolder'] },
+  ];
+
+  it('renders a folder-shaped item as a read-only folder row, not a deck row', () => {
+    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} />);
+
+    expect(screen.getByText('My Folder')).toBeInTheDocument();
+    expect(screen.getByText('My Deck')).toBeInTheDocument();
+    // Only the deck row gets a pile-subset select; the folder row has no controls.
+    expect(screen.getAllByRole('combobox')).toHaveLength(1);
+  });
+
+  it('does not show "no files found" when only a folder is present', () => {
+    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={[driveFiles[0]]} />);
+    expect(screen.getByText('My Folder')).toBeInTheDocument();
+    expect(screen.queryByText('no files found')).not.toBeInTheDocument();
+  });
+
+  it('does not render folder rows outside load mode', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare" driveFiles={driveFiles} />);
+    expect(screen.queryByText('My Folder')).not.toBeInTheDocument();
+    expect(screen.getByText('My Deck')).toBeInTheDocument();
   });
 });
 

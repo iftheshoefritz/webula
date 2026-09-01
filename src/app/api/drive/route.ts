@@ -2,7 +2,7 @@ import { google } from 'googleapis';
 import { getToken } from "next-auth/jwt"
 import { refreshAccessToken } from '../auth/refreshToken';
 import { writeDeckIdempotent } from './idempotentWrite';
-import { DECK_MIME_TYPE } from './mimeTypes';
+import { DECK_MIME_TYPE, FOLDER_MIME_TYPE } from './mimeTypes';
 
 async function tokenDecode(req): Promise<{ accessToken: string; accessTokenExpires: number; refreshToken: string | undefined} | undefined> {
   try {
@@ -130,10 +130,22 @@ export async function GET(
       auth: auth,
     })
 
-    const response = await drive.files.list({
+    // Opt-in: includes root-level folders alongside decks and returns each file's
+    // mimeType/parents. Without this flag, the query and returned fields must stay
+    // exactly as they are today — compare/compare-multi/reports pickers depend on it.
+    const includeFolders = new URL(req.url).searchParams.get('includeFolders') === 'true';
+
+    const listParams: { spaces: string; q: string; fields?: string } = {
       spaces: 'appDataFolder',
-      q: `mimeType='${DECK_MIME_TYPE}'`,
-    })
+      q: includeFolders
+        ? `mimeType='${DECK_MIME_TYPE}' or mimeType='${FOLDER_MIME_TYPE}'`
+        : `mimeType='${DECK_MIME_TYPE}'`,
+    }
+    if (includeFolders) {
+      listParams.fields = 'files(id, name, mimeType, parents)';
+    }
+
+    const response = await drive.files.list(listParams)
     console.log(response.data)
 
     return new Response(JSON.stringify(response.data), {

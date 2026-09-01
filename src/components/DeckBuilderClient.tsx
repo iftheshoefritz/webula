@@ -221,7 +221,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         setShowDrivePicker(true);
         if (resolvedSession) {
           setLoadingFromGDrive(true);
-          const response = await fetch('/api/drive', { method: 'GET', credentials: 'include' });
+          const response = await fetch('/api/drive?includeFolders=true', { method: 'GET', credentials: 'include' });
           const json = await response.json();
           setDriveFiles(json.files);
           setLoadingFromGDrive(false);
@@ -457,7 +457,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setShowDrivePicker(true);
     if (session) {
       setLoadingFromGDrive(true);
-      const response = await fetch('/api/drive', { method: 'GET', credentials: 'include' });
+      const response = await fetch('/api/drive?includeFolders=true', { method: 'GET', credentials: 'include' });
       const json = await response.json();
       setDriveFiles(json.files);
       setLoadingFromGDrive(false);
