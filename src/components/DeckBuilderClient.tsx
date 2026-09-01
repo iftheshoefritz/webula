@@ -45,6 +45,13 @@ interface Session {
   hasDriveScope?: boolean;
 }
 
+interface DriveFile {
+  id: string;
+  name: string;
+  mimeType?: string;
+  parents?: string[];
+}
+
 interface DeckBuilderClientProps {
   data: CardData[];
   columns: string[];
@@ -178,7 +185,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     'Costs': true,
     'Attributes': true,
   });
-  const [driveFiles, setDriveFiles] = useState([]);
+  const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [drivePickerMode, setDrivePickerMode] = useState<'load' | 'compare'>('load');
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false);
@@ -353,9 +360,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setCompareDeckName(null);
   };
 
-  const deleteDriveFile = async (file: { id: number }) => {
+  const deleteDriveFile = async (file: { id: string }) => {
     posthog.capture('deckBuilder.driveFileDelete.start');
-    setDriveFiles(driveFiles.filter((f: { id: number }) => f.id !== file.id));
+    setDriveFiles(driveFiles.filter((f: DriveFile) => f.id !== file.id));
     await fetch(`/api/drive/${file.id}`, { method: 'DELETE', credentials: 'include' });
     posthog.capture('deckBuilder.driveFileDelete.end');
   };
