@@ -26,7 +26,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
 
     const row = screen.getByText('Riker').closest('tr')!;
     const cells = within(row).getAllByRole('cell');
@@ -46,7 +46,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
 
     const row = screen.getByText('Riker').closest('tr')!;
     const cells = within(row).getAllByRole('cell');
@@ -64,7 +64,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    expect(screen.getByLabelText('Minimum decks')).toHaveValue(3);
+    expect(screen.getByLabelText('Appearing in more than')).toHaveValue(3);
   });
 
   it('shows no cards at the default threshold, since it equals the deck count', () => {
@@ -86,7 +86,7 @@ describe('CardsInCommonTable', () => {
     expect(screen.queryByText('Riker')).not.toBeInTheDocument();
     expect(screen.queryByText('Picard')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
 
     // Riker is in 2 decks (>1); Picard is in only 1 deck (not >1).
     expect(screen.getByText('Riker')).toBeInTheDocument();
@@ -107,9 +107,9 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '0' } });
 
-    expect(screen.getByLabelText('Minimum decks')).toHaveValue(1);
+    expect(screen.getByLabelText('Appearing in more than')).toHaveValue(1);
     // Riker is in 2 decks (>1), so it's visible once clamped to the minimum threshold of 1.
     expect(screen.getByText('Riker')).toBeInTheDocument();
     expect(screen.queryByText('Picard')).not.toBeInTheDocument();
@@ -125,9 +125,9 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '5' } });
+    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '5' } });
 
-    expect(screen.getByLabelText('Minimum decks')).toHaveValue(2);
+    expect(screen.getByLabelText('Appearing in more than')).toHaveValue(2);
   });
 
   it('allows retyping the threshold via an empty intermediate state (#499)', () => {
@@ -143,7 +143,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    const input = screen.getByLabelText('Minimum decks');
+    const input = screen.getByLabelText('Appearing in more than');
     expect(input).toHaveValue(5);
 
     // Simulate clearing the field (backspace) before typing a new digit.
@@ -180,7 +180,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Deck A' }));
 
     const rows = screen.getAllByRole('row').slice(1);
@@ -214,7 +214,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
     const header = screen.getByRole('button', { name: 'Deck A' });
     fireEvent.click(header);
     fireEvent.click(header);
@@ -243,7 +243,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
     fireEvent.click(screen.getByRole('button', { name: /# decks/i }));
 
     const rows = screen.getAllByRole('row').slice(1);
@@ -276,7 +276,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
 
     expect(screen.getByText('Kobayashi Maru')).toBeInTheDocument();
     expect(screen.queryByText('Riker')).not.toBeInTheDocument();
@@ -300,7 +300,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Minimum decks'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Card' }));
 
     const rows = screen.getAllByRole('row').slice(1);
