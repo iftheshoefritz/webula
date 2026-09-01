@@ -102,6 +102,54 @@ describe('DrivePickerModal – folders in load mode', () => {
   });
 });
 
+describe('DrivePickerModal – creating a folder in load mode', () => {
+  it('shows a "New folder" control in load mode', () => {
+    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={[]} />);
+    expect(screen.getByText('New folder')).toBeInTheDocument();
+  });
+
+  it('does not show a "New folder" control outside load mode', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare" driveFiles={[]} />);
+    expect(screen.queryByText('New folder')).not.toBeInTheDocument();
+  });
+
+  it('creates a folder via the inline new-folder control', () => {
+    const onCreateFolder = jest.fn();
+    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={[]} onCreateFolder={onCreateFolder} />);
+
+    fireEvent.click(screen.getByText('New folder'));
+    const input = screen.getByRole('textbox', { name: /new folder name/i });
+    fireEvent.change(input, { target: { value: 'Tournament Decks' } });
+    fireEvent.click(screen.getByRole('button', { name: /save new folder/i }));
+
+    expect(onCreateFolder).toHaveBeenCalledWith('Tournament Decks');
+    expect(screen.queryByRole('textbox', { name: /new folder name/i })).not.toBeInTheDocument();
+  });
+
+  it('cancels creating a folder without calling onCreateFolder', () => {
+    const onCreateFolder = jest.fn();
+    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={[]} onCreateFolder={onCreateFolder} />);
+
+    fireEvent.click(screen.getByText('New folder'));
+    fireEvent.change(screen.getByRole('textbox', { name: /new folder name/i }), { target: { value: 'Discard me' } });
+    fireEvent.click(screen.getByRole('button', { name: /cancel new folder/i }));
+
+    expect(onCreateFolder).not.toHaveBeenCalled();
+    expect(screen.getByText('New folder')).toBeInTheDocument();
+  });
+
+  it('does not call onCreateFolder with a blank name', () => {
+    const onCreateFolder = jest.fn();
+    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={[]} onCreateFolder={onCreateFolder} />);
+
+    fireEvent.click(screen.getByText('New folder'));
+    fireEvent.change(screen.getByRole('textbox', { name: /new folder name/i }), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: /save new folder/i }));
+
+    expect(onCreateFolder).not.toHaveBeenCalled();
+  });
+});
+
 describe('DrivePickerModal – compare mode', () => {
   const driveFiles = [{ id: '1', name: 'Drive Deck' }];
 

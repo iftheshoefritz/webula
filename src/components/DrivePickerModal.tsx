@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FaTrash, FaFolder, FaFolderOpen, FaSignInAlt, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaTrash, FaFolder, FaFolderOpen, FaFolderPlus, FaSignInAlt, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
 import { DeckPile } from '../app/decks/deckBuilderUtils';
 import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
 
@@ -35,6 +35,8 @@ type PickerProps = {
   preSelectedFiles?: DriveFile[]
   /** Called with a file and its new name when the user confirms a rename in 'reports' mode. */
   onRenameFile?: (file: DriveFile, newName: string) => void
+  /** Called with a name when the user confirms creating a new folder in 'load' mode, root view. */
+  onCreateFolder?: (name: string) => void
 }
 
 type LoadMode = 'full' | 'mission' | 'dilemma' | 'draw';
@@ -64,6 +66,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   onConfirmSelection,
   preSelectedFiles = [],
   onRenameFile,
+  onCreateFolder,
 }) => {
   const [driveLoadModes, setDriveLoadModes] = useState<Record<string, LoadMode>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
@@ -71,10 +74,29 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   );
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
 
   const isFolder = (file: { mimeType?: string }) => file.mimeType === FOLDER_MIME_TYPE;
   const deckFiles = driveFiles.filter((f) => !isFolder(f));
   const rootFolders = mode === 'load' ? driveFiles.filter((f) => isFolder(f) && isRootItem(f)) : [];
+
+  const startCreateFolder = () => {
+    setCreatingFolder(true);
+    setNewFolderName('');
+  };
+  const cancelCreateFolder = () => {
+    setCreatingFolder(false);
+    setNewFolderName('');
+  };
+  const confirmCreateFolder = () => {
+    const trimmed = newFolderName.trim();
+    if (trimmed) {
+      onCreateFolder?.(trimmed);
+    }
+    setCreatingFolder(false);
+    setNewFolderName('');
+  };
 
   const handleDriveFileSelect = (file: { id: string; name: string }) => {
     if (mode === 'compare' || mode === 'reports') {
@@ -161,6 +183,50 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                   <>
                     {inProgress && (
                       <li className="text-text-primary px-3 py-1">please wait...</li>
+                    )}
+                    {!inProgress && mode === 'load' && (
+                      <li className="flex items-center border border-white/10 text-text-primary py-1">
+                        {creatingFolder ? (
+                          <>
+                            <input
+                              type="text"
+                              aria-label="New folder name"
+                              className="flex-1 min-w-0 mx-3 bg-bg-secondary text-text-primary border border-white/10 rounded px-1"
+                              value={newFolderName}
+                              autoFocus
+                              onChange={(e) => setNewFolderName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') confirmCreateFolder();
+                                if (e.key === 'Escape') cancelCreateFolder();
+                              }}
+                            />
+                            <button
+                              type="button"
+                              aria-label="Save new folder"
+                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              onClick={confirmCreateFolder}
+                            >
+                              <FaCheck/>
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Cancel new folder"
+                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              onClick={cancelCreateFolder}
+                            >
+                              <FaTimes/>
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary"
+                            onClick={startCreateFolder}
+                          >
+                            <FaFolderPlus className="inline mr-2" />New folder
+                          </button>
+                        )}
+                      </li>
                     )}
                     {!inProgress && deckFiles.length === 0 && rootFolders.length === 0 && (
                       <li className="text-text-primary px-3 py-1">no files found</li>
