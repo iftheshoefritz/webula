@@ -1,8 +1,15 @@
 import React, { useState } from 'react'
-import { FaTrash, FaFolderOpen, FaSignInAlt, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaTrash, FaFolder, FaFolderOpen, FaSignInAlt, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
 import { DeckPile } from '../app/decks/deckBuilderUtils';
+import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
 
 type DriveFile = { id: string; name: string };
+
+// Folders only ever live at the appDataFolder root today (no nesting), so an item is a
+// root item when it has no parents info (folders weren't requested) or its parents
+// include the appDataFolder root.
+const isRootItem = (file: { parents?: string[] }) =>
+  !file.parents || file.parents.includes('appDataFolder');
 
 const MAX_COMPARE_SELECTION = 5;
 const MIN_COMPARE_SELECTION = 0;
@@ -64,6 +71,10 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   );
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+
+  const isFolder = (file: { mimeType?: string }) => file.mimeType === FOLDER_MIME_TYPE;
+  const deckFiles = driveFiles.filter((f) => !isFolder(f));
+  const rootFolders = mode === 'load' ? driveFiles.filter((f) => isFolder(f) && isRootItem(f)) : [];
 
   const handleDriveFileSelect = (file: { id: string; name: string }) => {
     if (mode === 'compare' || mode === 'reports') {
@@ -151,10 +162,17 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                     {inProgress && (
                       <li className="text-text-primary px-3 py-1">please wait...</li>
                     )}
-                    {!inProgress && driveFiles.length === 0 && (
+                    {!inProgress && deckFiles.length === 0 && rootFolders.length === 0 && (
                       <li className="text-text-primary px-3 py-1">no files found</li>
                     )}
-                    {!inProgress && driveFiles.map((file: {id: string, name: string}) => (
+                    {!inProgress && rootFolders.map((folder: {id: string, name: string}) => (
+                      <li key={folder.id} className="flex items-center border border-white/10 text-text-primary py-1">
+                        <span className="flex-1 min-w-0 px-3 truncate" title={folder.name}>
+                          <FaFolder className="inline mr-2" />{folder.name}
+                        </span>
+                      </li>
+                    ))}
+                    {!inProgress && deckFiles.map((file: {id: string, name: string}) => (
                       <li key={file.id} className="flex items-center border border-white/10 text-text-primary py-1">
                         {mode === 'reports' && renamingId === file.id ? (
                           <input

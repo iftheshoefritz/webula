@@ -25,7 +25,7 @@ jest.mock('googleapis', () => ({
 }));
 
 import { GET, POST } from '../../../app/api/drive/route';
-import { DECK_MIME_TYPE } from '../../../app/api/drive/mimeTypes';
+import { DECK_MIME_TYPE, FOLDER_MIME_TYPE } from '../../../app/api/drive/mimeTypes';
 
 function validToken() {
   return { accessToken: 'tok', accessTokenExpires: Date.now() + 100000, refreshToken: 'r' };
@@ -103,6 +103,28 @@ describe('GET /api/drive', () => {
     expect(body).toEqual({ files: [{ id: 'd1', name: 'My Deck' }] });
     expect(mockFilesList).toHaveBeenCalledWith(
       expect.objectContaining({ q: `mimeType='${DECK_MIME_TYPE}'` })
+    );
+    expect(mockFilesList).not.toHaveBeenCalledWith(
+      expect.objectContaining({ fields: expect.anything() })
+    );
+  });
+
+  it('includes folders and returns mimeType/parents fields when includeFolders=true is given', async () => {
+    mockFilesList.mockResolvedValue({
+      data: { files: [{ id: 'd1', name: 'My Deck', mimeType: DECK_MIME_TYPE, parents: ['appDataFolder'] }] },
+    });
+
+    const res = await GET(new Request('http://localhost/api/drive?includeFolders=true', { method: 'GET' }));
+
+    expect(res.status).toBe(200);
+    expect(mockFilesList).toHaveBeenCalledWith(
+      expect.objectContaining({
+        q: `mimeType='${DECK_MIME_TYPE}' or mimeType='${FOLDER_MIME_TYPE}'`,
+        fields: expect.stringContaining('mimeType'),
+      })
+    );
+    expect(mockFilesList).toHaveBeenCalledWith(
+      expect.objectContaining({ fields: expect.stringContaining('parents') })
     );
   });
 });
