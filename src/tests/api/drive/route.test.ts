@@ -85,6 +85,26 @@ describe('POST /api/drive', () => {
       })
     );
   });
+
+  it('creates a folder with no media when folderName is given', async () => {
+    mockFilesCreate.mockResolvedValue({ data: { id: 'folder-id' } });
+
+    const res = await POST(makeRequest({ folderName: 'My Folder' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ file: { id: 'folder-id' } });
+    expect(mockFilesList).not.toHaveBeenCalled();
+    expect(mockFilesCreate).toHaveBeenCalledWith({
+      requestBody: {
+        name: 'My Folder',
+        mimeType: FOLDER_MIME_TYPE,
+        parents: ['appDataFolder'],
+      },
+      fields: 'id',
+    });
+    expect(mockFilesCreate.mock.calls[0][0]).not.toHaveProperty('media');
+  });
 });
 
 describe('GET /api/drive', () => {

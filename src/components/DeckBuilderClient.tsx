@@ -35,6 +35,7 @@ import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
 import { isEarlyAccessUser } from '../lib/featureFlags';
+import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
 
 interface Session {
   accessToken: string;
@@ -357,6 +358,23 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setDriveFiles(driveFiles.filter((f: { id: number }) => f.id !== file.id));
     await fetch(`/api/drive/${file.id}`, { method: 'DELETE', credentials: 'include' });
     posthog.capture('deckBuilder.driveFileDelete.end');
+  };
+
+  const createDriveFolder = async (name: string) => {
+    posthog.capture('deckBuilder.driveFolderCreate.start');
+    const response = await fetch('/api/drive', {
+      method: 'POST',
+      credentials: 'include',
+      body: JSON.stringify({ folderName: name }),
+    });
+    const json = await response.json();
+    if (json?.file?.id) {
+      setDriveFiles((prev) => [
+        ...prev,
+        { id: json.file.id, name, mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] },
+      ]);
+    }
+    posthog.capture('deckBuilder.driveFolderCreate.end');
   };
 
   const createLackeyTSV = (): string => {
@@ -1638,6 +1656,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           driveFiles={driveFiles}
           loadDriveFile={drivePickerMode === 'compare' ? fetchCompareDriveFile : fetchDriveFile}
           deleteDriveFile={deleteDriveFile}
+          onCreateFolder={createDriveFolder}
           inProgress={loadingFromGDrive}
           onClose={() => setShowDrivePicker(false)}
           isSignedIn={!!session}
