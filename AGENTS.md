@@ -79,6 +79,29 @@ The script:
 
 The script is idempotent — safe to re-run after every card data update.
 
+## Validation
+
+Before you open or update a PR, run both commands. Both must pass.
+
+```bash
+yarn test       # Jest test suite
+yarn build      # type checks, ESLint, and static page pre-render
+```
+
+`yarn test` alone is not enough. Vercel deploys with `yarn build`, and that step
+catches three more classes of error:
+
+1. TypeScript type errors.
+2. ESLint errors.
+3. Errors thrown at build time while Next.js pre-renders the static pages.
+
+CI runs the two commands as two parallel jobs, so a red check tells you which
+one failed. Run them independently while you work.
+
+Vercel runs both in one chain. The `buildCommand` in `vercel.json` is
+`NODE_ENV=test yarn test --ci && yarn build`, so a test failure stops the
+deployment before the build starts.
+
 ## PR Requirements
 
 All PRs from automated agents MUST include:
@@ -96,7 +119,7 @@ When asked to fix a bug do your best to write a test that fails without the bug 
 When asked to fix or update an existing pull request:
 1. Check out the PR's existing branch (do NOT create a new branch from main).
 2. Make targeted changes on top of the existing commits.
-3. Run `yarn test` and fix any failures.
+3. Run `yarn test` and `yarn build`, then fix any failures.
 4. Commit with a message like `fix: <short description> (follow-up for #<pr-number>)`.
 5. Push to the same branch — this will update the open PR automatically.
 6. Do NOT open a new PR unless explicitly asked.

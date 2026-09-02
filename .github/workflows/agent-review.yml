@@ -42,7 +42,7 @@ jobs:
                - Read the relevant file(s) and understand the context.
                - Make the necessary edits to address the reviewer's concern.
                - Write or update tests for any new or modified code.
-               - Run `yarn test` to confirm nothing is broken. Fix any failures before continuing.
+               - Run `yarn test` and then `yarn build` to confirm nothing is broken. `yarn build` also checks types, runs ESLint, and pre-renders the static pages. Fix every failure before you continue.
                - Commit with a message like `fix: address review comments (PR #${{ github.event.pull_request.number }})`.
                - Push to the same branch (already checked out): `git push origin HEAD`.
 
