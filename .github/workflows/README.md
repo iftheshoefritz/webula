@@ -62,3 +62,35 @@ Re-labelling the issue rewrites that same comment rather than adding another. Th
 **Event:** Issue closed
 **Action:** Claude finds all merged PRs linked to the issue, summarizes what was implemented (files changed, merge date), and prepends an `## Outcome` section to the issue body.
 (currently broken)
+
+---
+
+## Label agent failures (`agent-failure-label.yml`)
+**Event:** Any of the Claude workflows above completes with the `failure` conclusion
+**Action:** No Claude. `scripts/classify_agent_failure.sh` downloads the run logs, works out why the run failed, finds the issue or PR the run acted on, and adds an `agent-error:<reason>` label to it. An older `agent-error:` label on the same issue or PR is removed, so only the newest reason stays.
+
+The script finds the issue or PR number in the prompt that the runner echoes near the top of the log (`GitHub issue #507`, `Pull request #512`), and falls back to an `issue-<number>-<description>` branch name.
+
+Reasons, in the order the script tests them:
+
+| Label | What the log shows |
+|---|---|
+| `agent-error:max-turns` | `"subtype": "error_max_turns"` — Claude hit `--max-turns` |
+| `agent-error:execution-error` | `"subtype": "error_during_execution"` |
+| `agent-error:credit-balance` | `Credit balance is too low` |
+| `agent-error:rate-limit` | `usage limit reached` or a rate limit error |
+| `agent-error:context-overflow` | `prompt is too long` |
+| `agent-error:auth` | An expired OAuth token or an invalid API key |
+| `agent-error:job-timeout` | The runner stopped the job, or the job was cancelled |
+| `agent-error:api-error` | An overloaded or internal API error |
+| `agent-error:oidc-token` | `Could not fetch an OIDC token` — the job needs `id-token: write` |
+| `agent-error:post-run-step` | Claude finished, but a later step failed |
+| `agent-error:startup-failure` | Claude never started |
+| `agent-error:logs-unavailable` | The logs could not be downloaded |
+| `agent-error:unknown` | None of the above matched |
+
+To classify a run by hand, run the script with the run ID:
+
+```bash
+GITHUB_REPOSITORY=iftheshoefritz/webula bash scripts/classify_agent_failure.sh 33534646859
+```
