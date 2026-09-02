@@ -52,7 +52,7 @@ export async function POST(
       auth: auth,
     })
 
-    const { fileName, content, trekccDeckId, folderName } = await req.json();
+    const { fileName, content, trekccDeckId, folderName, targetParentId } = await req.json();
 
     // folderName is only sent when creating a folder from the load picker; folders have
     // no content/media, unlike decks.
@@ -86,10 +86,12 @@ export async function POST(
       })
     }
 
+    // targetParentId is only sent when saving into a folder from the load picker's
+    // "save here" action; manual saves without it keep creating at the appDataFolder root.
     const fileMetadata = {
       'name': fileName,
       'mimeType': DECK_MIME_TYPE,
-      'parents': ['appDataFolder'],
+      'parents': [targetParentId || 'appDataFolder'],
     }
 
     const media = {
