@@ -135,7 +135,11 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     setRenameValue('');
   };
   const handleDriveFileDelete = (file) => {
-    if (!window.confirm(`This will permanently delete "${file.name}" from your Google Drive. Are you sure?`)) return;
+    const isNonEmptyFolder = isFolder(file) && deckFiles.some((f) => f.parents?.includes(file.id));
+    const message = isNonEmptyFolder
+      ? `This will permanently delete "${file.name}" and everything inside it from your Google Drive. Are you sure?`
+      : `This will permanently delete "${file.name}" from your Google Drive. Are you sure?`;
+    if (!window.confirm(message)) return;
     deleteDriveFile(file);
   };
   const toggleFileSelection = (file: DriveFile) => {
@@ -264,6 +268,14 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                           title={folder.name}
                         >
                           <FaFolder className="inline mr-2" />{folder.name}
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Delete ${folder.name}`}
+                          onClick={() => handleDriveFileDelete(folder)}
+                          className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
+                        >
+                          <FaTrash/>
                         </button>
                       </li>
                     ))}
