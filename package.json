@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "NODE_ENV=test yarn test --ci",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

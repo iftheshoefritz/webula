@@ -2,7 +2,9 @@
 
 ## CI (`ci.yml`)
 **Event:** `push` or `pull_request` on any branch
-**Action:** Runs `yarn test --ci` — standard test suite, no Claude.
+**Action:** Two parallel jobs, no Claude. The `test` job runs `yarn test --ci`. The `build` job runs `yarn build`, which checks types, runs ESLint, and pre-renders the static pages — the same checks as the Vercel deployment.
+
+Vercel chains the two through the `buildCommand` in `vercel.json`, so a test failure stops the deployment.
 
 ---
 

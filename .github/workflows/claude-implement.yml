@@ -35,7 +35,7 @@ jobs:
 
             1. Implement the feature or fix described in the issue, following the implementation plan if one exists.
             2. Make all necessary code changes, following existing code style and conventions in the codebase.
-            3. Run `yarn test` to ensure all tests pass. Fix any test failures caused by your changes.
+            3. Run `yarn test` and then `yarn build`. Both must pass. `yarn build` also checks types, runs ESLint, and pre-renders the static pages, which is what the Vercel deployment does. Fix every test failure, type error, lint error, and pre-render error caused by your changes.
             4. You MUST start the dev server with `yarn dev` (runs at http://localhost:3000) and visually verify your changes. YOU MUST DO ALL OF THE FOLLOWING:
                a. Open the affected page at the default desktop viewport:
                   `npx agent-browser open http://localhost:3000`
