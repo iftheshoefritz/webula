@@ -1,0 +1,96 @@
+name: Label agent failures
+
+# When a Claude workflow fails, find the issue or PR it worked on and add an
+# `agent-error:<reason>` label to it. No Claude — a bash script reads the run
+# logs and classifies the failure.
+
+on:
+  workflow_run:
+    workflows:
+      - Claude Issue Triage
+      - Claude Implementation Plan
+      - Claude Architecture Discussion
+      - Claude Issue Implementation
+      - Claude Issue Outcome
+      - Claude Merge Conflict Resolution
+      - Agent Review
+      - Vercel Preview Check
+    types: [completed]
+
+jobs:
+  label:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Classify the failure
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          bash scripts/classify_agent_failure.sh \
+            "${{ github.event.workflow_run.id }}" >> "$GITHUB_OUTPUT"
+
+      - name: Add the label
+        if: steps.classify.outputs.target != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REASON: ${{ steps.classify.outputs.reason }}
+          TARGET: ${{ steps.classify.outputs.target }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+        run: |
+          set -euo pipefail
+          LABEL="agent-error:$REASON"
+
+          # Make the label first. --force keeps the step green if it exists.
+          gh label create "$LABEL" \
+            --repo "$REPO" \
+            --color B60205 \
+            --description "A Claude workflow failed: $REASON" \
+            --force
+
+          # Read the agent-error labels that are on the target now.
+          CURRENT=$(gh api "repos/$REPO/issues/$TARGET/labels" \
+            --jq '.[].name | select(startswith("agent-error:"))')
+
+          # Adding a label twice is safe, but if the target already carries this
+          # label and no other, there is nothing to change.
+          if [ "$CURRENT" = "$LABEL" ]; then
+            echo "#$TARGET already has $LABEL ($WORKFLOW: $RUN_URL)"
+            exit 0
+          fi
+
+          # Drop any earlier agent-error label, so the newest one is the only one.
+          OLD=$(printf '%s\n' "$CURRENT" \
+            | grep -v "^$LABEL$" | grep -v '^$' | paste -sd, - || true)
+
+          ARGS=(--repo "$REPO" --add-label "$LABEL")
+          if [ -n "$OLD" ]; then
+            ARGS+=(--remove-label "$OLD")
+          fi
+
+          # An issue number and a PR number come from the same series, so try
+          # the issue command first and fall back to the PR command.
+          gh issue edit "$TARGET" "${ARGS[@]}" || gh pr edit "$TARGET" "${ARGS[@]}"
+
+          echo "Labelled #$TARGET with $LABEL ($WORKFLOW: $RUN_URL)"
+
+      - name: Report when no target was found
+        if: steps.classify.outputs.target == ''
+        run: |
+          echo "::warning::No issue or PR found in the logs of" \
+            "${{ github.event.workflow_run.html_url }}." \
+            "Reason was ${{ steps.classify.outputs.reason }}."
