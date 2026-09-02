@@ -160,17 +160,30 @@ export async function PUT(
     auth: auth,
   })
 
-  const { content, fileName } = await request.json()
+  const { content, fileName, targetParentId, currentParentId } = await request.json()
+
+  // A move request (dragging a deck into/out of a folder) is independent of rename/content
+  // updates — it never touches name/media, and a rename/content PUT never touches parents.
+  // Drive v3 requires addParents/removeParents to change a file's parent; a plain
+  // requestBody.parents overwrite is not supported.
+  const isMoveRequest = targetParentId !== undefined && currentParentId !== undefined
 
   try {
-    const response = await drive.files.update({
-      fileId: id,
-      requestBody: fileName ? { name: fileName } : undefined,
-      // Renaming a file (e.g. a saved Report) doesn't need to touch its content — only
-      // include media when content is actually being written, so a rename-only PUT
-      // doesn't overwrite the file's body.
-      ...(content !== undefined ? { media: { mimeType: 'application/json', body: JSON.stringify(content) } } : {}),
-    })
+    const response = isMoveRequest
+      ? await drive.files.update({
+          fileId: id,
+          addParents: targetParentId,
+          removeParents: currentParentId,
+          fields: 'id, parents',
+        })
+      : await drive.files.update({
+          fileId: id,
+          requestBody: fileName ? { name: fileName } : undefined,
+          // Renaming a file (e.g. a saved Report) doesn't need to touch its content — only
+          // include media when content is actually being written, so a rename-only PUT
+          // doesn't overwrite the file's body.
+          ...(content !== undefined ? { media: { mimeType: 'application/json', body: JSON.stringify(content) } } : {}),
+        })
     console.log('response.data', response.data)
 
     return new Response(JSON.stringify(response.data), {
