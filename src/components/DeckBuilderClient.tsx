@@ -188,6 +188,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [drivePickerMode, setDrivePickerMode] = useState<'load' | 'compare'>('load');
+  const [browsedFolder, setBrowsedFolder] = useState<DriveFile | null>(null);
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false);
   const [compareDeckRows, setCompareDeckRows] = useState<CardDef[]>([]);
   const [compareDeckName, setCompareDeckName] = useState<string | null>(null);
@@ -480,6 +481,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const openDrivePicker = async (mode: 'load' | 'compare') => {
     setDrivePickerMode(mode);
     setShowDrivePicker(true);
+    setBrowsedFolder(null);
     if (session) {
       setLoadingFromGDrive(true);
       const response = await fetch('/api/drive?includeFolders=true', { method: 'GET', credentials: 'include' });
@@ -1664,8 +1666,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           loadDriveFile={drivePickerMode === 'compare' ? fetchCompareDriveFile : fetchDriveFile}
           deleteDriveFile={deleteDriveFile}
           onCreateFolder={createDriveFolder}
+          browsedFolder={browsedFolder}
+          onBrowseFolder={setBrowsedFolder}
           inProgress={loadingFromGDrive}
-          onClose={() => setShowDrivePicker(false)}
+          onClose={() => { setShowDrivePicker(false); setBrowsedFolder(null); }}
           isSignedIn={!!session}
           hasDriveScope={session?.hasDriveScope ?? false}
           mode={drivePickerMode}
