@@ -40,7 +40,10 @@ function getAffiliationSortRank(card: CardRow): number {
 }
 
 function skillTokens(skillsCell: string): string[] {
-  return skillsCell.split(/\s+/).filter((token) => !/^\d+$/.test(token));
+  return skillsCell
+    .split(/\s+/)
+    .map((token) => token.replace(/^[(),]+|[<>]=?\d+|[(),]+$/g, ''))
+    .filter((token) => token !== '' && !/^\d+$/.test(token));
 }
 
 function toArray(item: string | string[]): string[] {
