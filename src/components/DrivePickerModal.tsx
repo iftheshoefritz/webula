@@ -96,13 +96,16 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   const [newFolderName, setNewFolderName] = useState('');
 
   const isFolder = (file: { mimeType?: string }) => file.mimeType === FOLDER_MIME_TYPE;
-  const isBrowsingFolder = mode === 'load' && !!browsedFolder;
+  // 'reports' lists a different Drive file kind with no folder concept, so it stays
+  // folder-blind; every other mode browses folders the same way.
+  const supportsFolders = mode !== 'reports';
+  const isBrowsingFolder = supportsFolders && !!browsedFolder;
   const deckFiles = driveFiles.filter((f) => !isFolder(f));
   // Folders to move a deck into aren't scoped to the browsed view — a deck can move into any
   // root folder regardless of whether the picker is currently browsing root or inside one.
   const folders = driveFiles.filter((f) => isFolder(f) && isRootItem(f));
-  const rootFolders = mode === 'load' && !isBrowsingFolder ? folders : [];
-  const visibleDeckFiles = mode === 'load'
+  const rootFolders = supportsFolders && !isBrowsingFolder ? folders : [];
+  const visibleDeckFiles = supportsFolders
     ? (isBrowsingFolder
         ? deckFiles.filter((f) => f.parents?.includes(browsedFolder!.id))
         : deckFiles.filter(isRootItem))
@@ -220,7 +223,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                     {inProgress && (
                       <li className="text-text-primary px-3 py-1">please wait...</li>
                     )}
-                    {!inProgress && mode === 'load' && isBrowsingFolder && (
+                    {!inProgress && isBrowsingFolder && (
                       <li className="flex items-center border border-white/10 text-text-primary py-1">
                         <button
                           type="button"
@@ -315,7 +318,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                             <FaFolder className="inline mr-2" />{folder.name}
                           </button>
                         )}
-                        {renamingId === folder.id ? (
+                        {mode === 'load' && renamingId === folder.id ? (
                           <>
                             <button
                               type="button"
@@ -334,7 +337,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                               <FaTimes/>
                             </button>
                           </>
-                        ) : (
+                        ) : mode === 'load' ? (
                           <>
                             <button
                               type="button"
@@ -353,7 +356,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                               <FaTrash/>
                             </button>
                           </>
-                        )}
+                        ) : null}
                       </li>
                     ))}
                     {!inProgress && visibleDeckFiles.map((file: {id: string, name: string, parents?: string[]}) => (
