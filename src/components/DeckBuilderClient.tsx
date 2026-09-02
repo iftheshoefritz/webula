@@ -363,7 +363,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
   const deleteDriveFile = async (file: { id: string }) => {
     posthog.capture('deckBuilder.driveFileDelete.start');
-    setDriveFiles(driveFiles.filter((f: DriveFile) => f.id !== file.id));
+    setDriveFiles(driveFiles.filter((f: DriveFile) => f.id !== file.id && !f.parents?.includes(file.id)));
     await fetch(`/api/drive/${file.id}`, { method: 'DELETE', credentials: 'include' });
     posthog.capture('deckBuilder.driveFileDelete.end');
   };

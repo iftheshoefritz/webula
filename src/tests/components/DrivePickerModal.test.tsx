@@ -102,6 +102,71 @@ describe('DrivePickerModal – folders in load mode', () => {
   });
 });
 
+describe('DrivePickerModal – deleting a folder in load mode', () => {
+  const confirmSpy = jest.spyOn(window, 'confirm');
+
+  afterEach(() => {
+    confirmSpy.mockReset();
+  });
+
+  it('renders a delete button on a folder row', () => {
+    const emptyFolder = { id: 'f1', name: 'Empty Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
+    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={[emptyFolder]} />);
+    expect(screen.getByRole('button', { name: /delete empty folder/i })).toBeInTheDocument();
+  });
+
+  it('deletes an empty folder with the single-item confirmation copy', () => {
+    confirmSpy.mockReturnValue(true);
+    const deleteDriveFile = jest.fn();
+    const emptyFolder = { id: 'f1', name: 'Empty Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
+    render(
+      <DrivePickerModal {...baseProps} mode="load" driveFiles={[emptyFolder]} deleteDriveFile={deleteDriveFile} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /delete empty folder/i }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'This will permanently delete "Empty Folder" from your Google Drive. Are you sure?'
+    );
+    expect(deleteDriveFile).toHaveBeenCalledWith(emptyFolder);
+  });
+
+  it('warns that contents will also be deleted for a non-empty folder', () => {
+    confirmSpy.mockReturnValue(true);
+    const deleteDriveFile = jest.fn();
+    const nonEmptyFolder = { id: 'f1', name: 'Full Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
+    const childDeck = { id: 'd1', name: 'Child Deck', mimeType: 'application/json', parents: ['f1'] };
+    render(
+      <DrivePickerModal
+        {...baseProps}
+        mode="load"
+        driveFiles={[nonEmptyFolder, childDeck]}
+        deleteDriveFile={deleteDriveFile}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /delete full folder/i }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'This will permanently delete "Full Folder" and everything inside it from your Google Drive. Are you sure?'
+    );
+    expect(deleteDriveFile).toHaveBeenCalledWith(nonEmptyFolder);
+  });
+
+  it('does not call deleteDriveFile when the confirmation is dismissed', () => {
+    confirmSpy.mockReturnValue(false);
+    const deleteDriveFile = jest.fn();
+    const emptyFolder = { id: 'f1', name: 'Empty Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
+    render(
+      <DrivePickerModal {...baseProps} mode="load" driveFiles={[emptyFolder]} deleteDriveFile={deleteDriveFile} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /delete empty folder/i }));
+
+    expect(deleteDriveFile).not.toHaveBeenCalled();
+  });
+});
+
 describe('DrivePickerModal – browsing a folder in load mode', () => {
   const folder = { id: 'f1', name: 'My Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
   const rootDeck = { id: 'd1', name: 'Root Deck', mimeType: 'application/json', parents: ['appDataFolder'] };
