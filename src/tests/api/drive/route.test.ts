@@ -5,6 +5,7 @@
 const mockFilesList = jest.fn();
 const mockFilesCreate = jest.fn();
 const mockFilesUpdate = jest.fn();
+const mockFilesGet = jest.fn();
 const mockGetToken = jest.fn();
 
 jest.mock('next-auth/jwt', () => ({ getToken: (...args: unknown[]) => mockGetToken(...args) }));
@@ -19,6 +20,7 @@ jest.mock('googleapis', () => ({
         list: (...args: unknown[]) => mockFilesList(...args),
         create: (...args: unknown[]) => mockFilesCreate(...args),
         update: (...args: unknown[]) => mockFilesUpdate(...args),
+        get: (...args: unknown[]) => mockFilesGet(...args),
       },
     })),
   },
@@ -111,6 +113,7 @@ describe('GET /api/drive', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetToken.mockResolvedValue(validToken());
+    mockFilesGet.mockResolvedValue({ data: { id: 'real-appdata-id-123' } });
   });
 
   it('lists only files with the deck mimeType, excluding saved Reports', async () => {
@@ -146,5 +149,36 @@ describe('GET /api/drive', () => {
     expect(mockFilesList).toHaveBeenCalledWith(
       expect.objectContaining({ fields: expect.stringContaining('parents') })
     );
+  });
+
+  it('normalizes the App Data folder\'s real resolved id back to the literal "appDataFolder" in parents', async () => {
+    mockFilesList.mockResolvedValue({
+      data: {
+        files: [
+          { id: 'd1', name: 'Root Deck', mimeType: DECK_MIME_TYPE, parents: ['real-appdata-id-123'] },
+          { id: 'd2', name: 'Nested Deck', mimeType: DECK_MIME_TYPE, parents: ['folder-1'] },
+        ],
+      },
+    });
+    mockFilesGet.mockResolvedValue({ data: { id: 'real-appdata-id-123' } });
+
+    const res = await GET(new Request('http://localhost/api/drive?includeFolders=true', { method: 'GET' }));
+    const body = await res.json();
+
+    expect(mockFilesGet).toHaveBeenCalledWith({ fileId: 'appDataFolder', fields: 'id' });
+    expect(body).toEqual({
+      files: [
+        { id: 'd1', name: 'Root Deck', mimeType: DECK_MIME_TYPE, parents: ['appDataFolder'] },
+        { id: 'd2', name: 'Nested Deck', mimeType: DECK_MIME_TYPE, parents: ['folder-1'] },
+      ],
+    });
+  });
+
+  it('does not resolve the App Data folder id when includeFolders is not given', async () => {
+    mockFilesList.mockResolvedValue({ data: { files: [{ id: 'd1', name: 'My Deck' }] } });
+
+    await GET(new Request('http://localhost/api/drive', { method: 'GET' }));
+
+    expect(mockFilesGet).not.toHaveBeenCalled();
   });
 });
