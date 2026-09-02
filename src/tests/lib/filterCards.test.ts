@@ -138,3 +138,39 @@ describe('filterCards skills exact match', () => {
     expect(result.map(c => c.name)).toEqual(['exo person']);
   });
 });
+
+describe('filterCards skills exact match against mission skill requirements', () => {
+  // Mission skills cells are boolean expressions with adjacent punctuation,
+  // e.g. "Transporters, Treachery, Cunning>34, and (Intelligence and Leadership or Law and Officer)"
+  const requirementMission = makeCard('mission with requirements', 'mission', {
+    skills: 'transporters, treachery, cunning>34, and (intelligence and leadership or law and officer)',
+  });
+  const otherMission = makeCard('unrelated mission', 'mission', { skills: 'diplomacy, and (security or honor)' });
+
+  const REQUIREMENT_CARDS = [requirementMission, otherMission];
+
+  it('matches a skill token immediately followed by a comma', () => {
+    const result = filterCards(REQUIREMENT_CARDS, COLUMNS, 'skills:transporters');
+    expect(result.map(c => c.name)).toEqual(['mission with requirements']);
+  });
+
+  it('matches a skill token immediately followed by an attribute comparison and comma', () => {
+    const result = filterCards(REQUIREMENT_CARDS, COLUMNS, 'skills:cunning');
+    expect(result.map(c => c.name)).toEqual(['mission with requirements']);
+  });
+
+  it('matches a skill token immediately preceded by an open parenthesis', () => {
+    const result = filterCards(REQUIREMENT_CARDS, COLUMNS, 'skills:intelligence');
+    expect(result.map(c => c.name)).toEqual(['mission with requirements']);
+  });
+
+  it('matches a skill token immediately followed by a closing parenthesis', () => {
+    const result = filterCards(REQUIREMENT_CARDS, COLUMNS, 'skills:officer');
+    expect(result.map(c => c.name)).toEqual(['mission with requirements']);
+  });
+
+  it('does not match a skill that is not present', () => {
+    const result = filterCards(REQUIREMENT_CARDS, COLUMNS, 'skills:biology');
+    expect(result).toHaveLength(0);
+  });
+});
