@@ -102,6 +102,68 @@ describe('DrivePickerModal – folders in load mode', () => {
   });
 });
 
+describe('DrivePickerModal – browsing a folder in load mode', () => {
+  const folder = { id: 'f1', name: 'My Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
+  const rootDeck = { id: 'd1', name: 'Root Deck', mimeType: 'application/json', parents: ['appDataFolder'] };
+  const folderDeck = { id: 'd2', name: 'Folder Deck', mimeType: 'application/json', parents: ['f1'] };
+  const driveFiles = [folder, rootDeck, folderDeck];
+
+  it('only shows root-level decks and folders when no folder is being browsed', () => {
+    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} />);
+    expect(screen.getByText('My Folder')).toBeInTheDocument();
+    expect(screen.getByText('Root Deck')).toBeInTheDocument();
+    expect(screen.queryByText('Folder Deck')).not.toBeInTheDocument();
+  });
+
+  it('calls onBrowseFolder with the folder when a folder row is clicked', () => {
+    const onBrowseFolder = jest.fn();
+    render(
+      <DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} onBrowseFolder={onBrowseFolder} />
+    );
+    fireEvent.click(screen.getByText('My Folder'));
+    expect(onBrowseFolder).toHaveBeenCalledWith(folder);
+  });
+
+  it('shows only the browsed folder\'s decks, not root decks or other folders, when browsing', () => {
+    render(
+      <DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} browsedFolder={folder} />
+    );
+    expect(screen.getByText('Folder Deck')).toBeInTheDocument();
+    expect(screen.queryByText('Root Deck')).not.toBeInTheDocument();
+    // The only "My Folder" text present is the back control's label, not a clickable folder row.
+    expect(screen.getAllByText('My Folder')).toHaveLength(1);
+  });
+
+  it('does not show "New folder" while browsing a folder', () => {
+    render(
+      <DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} browsedFolder={folder} />
+    );
+    expect(screen.queryByText('New folder')).not.toBeInTheDocument();
+  });
+
+  it('shows a back control with the folder name while browsing', () => {
+    render(
+      <DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} browsedFolder={folder} />
+    );
+    expect(screen.getByRole('button', { name: /my folder/i })).toBeInTheDocument();
+  });
+
+  it('calls onBrowseFolder with null when the back control is clicked', () => {
+    const onBrowseFolder = jest.fn();
+    render(
+      <DrivePickerModal
+        {...baseProps}
+        mode="load"
+        driveFiles={driveFiles}
+        browsedFolder={folder}
+        onBrowseFolder={onBrowseFolder}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /my folder/i }));
+    expect(onBrowseFolder).toHaveBeenCalledWith(null);
+  });
+});
+
 describe('DrivePickerModal – creating a folder in load mode', () => {
   it('shows a "New folder" control in load mode', () => {
     render(<DrivePickerModal {...baseProps} mode="load" driveFiles={[]} />);

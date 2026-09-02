@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FaTrash, FaFolder, FaFolderOpen, FaFolderPlus, FaSignInAlt, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaTrash, FaFolder, FaFolderOpen, FaFolderPlus, FaSignInAlt, FaEdit, FaCheck, FaTimes, FaArrowLeft } from 'react-icons/fa';
 import { DeckPile } from '../app/decks/deckBuilderUtils';
 import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
 
@@ -37,6 +37,10 @@ type PickerProps = {
   onRenameFile?: (file: DriveFile, newName: string) => void
   /** Called with a name when the user confirms creating a new folder in 'load' mode, root view. */
   onCreateFolder?: (name: string) => void
+  /** The folder currently being browsed in 'load' mode's root/folder view, or null/undefined for root. */
+  browsedFolder?: DriveFile | null
+  /** Called with a folder to browse into it, or null to return to the root listing, in 'load' mode. */
+  onBrowseFolder?: (folder: DriveFile | null) => void
 }
 
 type LoadMode = 'full' | 'mission' | 'dilemma' | 'draw';
@@ -67,6 +71,8 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   preSelectedFiles = [],
   onRenameFile,
   onCreateFolder,
+  browsedFolder = null,
+  onBrowseFolder,
 }) => {
   const [driveLoadModes, setDriveLoadModes] = useState<Record<string, LoadMode>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
@@ -78,8 +84,14 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   const [newFolderName, setNewFolderName] = useState('');
 
   const isFolder = (file: { mimeType?: string }) => file.mimeType === FOLDER_MIME_TYPE;
+  const isBrowsingFolder = mode === 'load' && !!browsedFolder;
   const deckFiles = driveFiles.filter((f) => !isFolder(f));
-  const rootFolders = mode === 'load' ? driveFiles.filter((f) => isFolder(f) && isRootItem(f)) : [];
+  const rootFolders = mode === 'load' && !isBrowsingFolder ? driveFiles.filter((f) => isFolder(f) && isRootItem(f)) : [];
+  const visibleDeckFiles = mode === 'load'
+    ? (isBrowsingFolder
+        ? deckFiles.filter((f) => f.parents?.includes(browsedFolder!.id))
+        : deckFiles.filter(isRootItem))
+    : deckFiles;
 
   const startCreateFolder = () => {
     setCreatingFolder(true);
@@ -184,7 +196,19 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                     {inProgress && (
                       <li className="text-text-primary px-3 py-1">please wait...</li>
                     )}
-                    {!inProgress && mode === 'load' && (
+                    {!inProgress && mode === 'load' && isBrowsingFolder && (
+                      <li className="flex items-center border border-white/10 text-text-primary py-1">
+                        <button
+                          type="button"
+                          className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
+                          onClick={() => onBrowseFolder?.(null)}
+                          title={browsedFolder!.name}
+                        >
+                          <FaArrowLeft className="inline mr-2" />{browsedFolder!.name}
+                        </button>
+                      </li>
+                    )}
+                    {!inProgress && mode === 'load' && !isBrowsingFolder && (
                       <li className="flex items-center border border-white/10 text-text-primary py-1">
                         {creatingFolder ? (
                           <>
@@ -228,17 +252,22 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                         )}
                       </li>
                     )}
-                    {!inProgress && deckFiles.length === 0 && rootFolders.length === 0 && (
+                    {!inProgress && visibleDeckFiles.length === 0 && rootFolders.length === 0 && (
                       <li className="text-text-primary px-3 py-1">no files found</li>
                     )}
                     {!inProgress && rootFolders.map((folder: {id: string, name: string}) => (
                       <li key={folder.id} className="flex items-center border border-white/10 text-text-primary py-1">
-                        <span className="flex-1 min-w-0 px-3 truncate" title={folder.name}>
+                        <button
+                          type="button"
+                          className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
+                          onClick={() => onBrowseFolder?.(folder)}
+                          title={folder.name}
+                        >
                           <FaFolder className="inline mr-2" />{folder.name}
-                        </span>
+                        </button>
                       </li>
                     ))}
-                    {!inProgress && deckFiles.map((file: {id: string, name: string}) => (
+                    {!inProgress && visibleDeckFiles.map((file: {id: string, name: string}) => (
                       <li key={file.id} className="flex items-center border border-white/10 text-text-primary py-1">
                         {mode === 'reports' && renamingId === file.id ? (
                           <input
