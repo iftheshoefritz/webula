@@ -167,6 +167,56 @@ describe('DrivePickerModal – deleting a folder in load mode', () => {
   });
 });
 
+describe('DrivePickerModal – renaming a folder in load mode', () => {
+  const folder = { id: 'f1', name: 'My Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
+
+  it('renders a rename control on a folder row', () => {
+    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={[folder]} />);
+    expect(screen.getByRole('button', { name: /rename my folder/i })).toBeInTheDocument();
+  });
+
+  it('renames a folder via the inline rename control', () => {
+    const onRenameFile = jest.fn();
+    render(
+      <DrivePickerModal {...baseProps} mode="load" driveFiles={[folder]} onRenameFile={onRenameFile} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /rename my folder/i }));
+    const input = screen.getByRole('textbox', { name: /rename my folder/i });
+    fireEvent.change(input, { target: { value: 'Renamed Folder' } });
+    fireEvent.click(screen.getByRole('button', { name: /save name for my folder/i }));
+
+    expect(onRenameFile).toHaveBeenCalledWith(folder, 'Renamed Folder');
+    expect(screen.queryByRole('textbox', { name: /rename my folder/i })).not.toBeInTheDocument();
+  });
+
+  it('cancels a folder rename without calling onRenameFile', () => {
+    const onRenameFile = jest.fn();
+    render(
+      <DrivePickerModal {...baseProps} mode="load" driveFiles={[folder]} onRenameFile={onRenameFile} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /rename my folder/i }));
+    fireEvent.change(screen.getByRole('textbox', { name: /rename my folder/i }), { target: { value: 'Changed' } });
+    fireEvent.click(screen.getByRole('button', { name: /cancel rename/i }));
+
+    expect(onRenameFile).not.toHaveBeenCalled();
+    expect(screen.getByText('My Folder')).toBeInTheDocument();
+  });
+
+  it('does not call onRenameFile when the name is unchanged', () => {
+    const onRenameFile = jest.fn();
+    render(
+      <DrivePickerModal {...baseProps} mode="load" driveFiles={[folder]} onRenameFile={onRenameFile} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /rename my folder/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save name for my folder/i }));
+
+    expect(onRenameFile).not.toHaveBeenCalled();
+  });
+});
+
 describe('DrivePickerModal – browsing a folder in load mode', () => {
   const folder = { id: 'f1', name: 'My Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
   const rootDeck = { id: 'd1', name: 'Root Deck', mimeType: 'application/json', parents: ['appDataFolder'] };

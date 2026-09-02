@@ -261,22 +261,68 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                     )}
                     {!inProgress && rootFolders.map((folder: {id: string, name: string}) => (
                       <li key={folder.id} className="flex items-center border border-white/10 text-text-primary py-1">
-                        <button
-                          type="button"
-                          className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
-                          onClick={() => onBrowseFolder?.(folder)}
-                          title={folder.name}
-                        >
-                          <FaFolder className="inline mr-2" />{folder.name}
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Delete ${folder.name}`}
-                          onClick={() => handleDriveFileDelete(folder)}
-                          className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
-                        >
-                          <FaTrash/>
-                        </button>
+                        {renamingId === folder.id ? (
+                          <input
+                            type="text"
+                            aria-label={`Rename ${folder.name}`}
+                            className="flex-1 min-w-0 mx-3 bg-bg-secondary text-text-primary border border-white/10 rounded px-1"
+                            value={renameValue}
+                            autoFocus
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') confirmRename(folder);
+                              if (e.key === 'Escape') cancelRename();
+                            }}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
+                            onClick={() => onBrowseFolder?.(folder)}
+                            title={folder.name}
+                          >
+                            <FaFolder className="inline mr-2" />{folder.name}
+                          </button>
+                        )}
+                        {renamingId === folder.id ? (
+                          <>
+                            <button
+                              type="button"
+                              aria-label={`Save name for ${folder.name}`}
+                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              onClick={() => confirmRename(folder)}
+                            >
+                              <FaCheck/>
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Cancel rename"
+                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              onClick={cancelRename}
+                            >
+                              <FaTimes/>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              aria-label={`Rename ${folder.name}`}
+                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              onClick={() => startRename(folder)}
+                            >
+                              <FaEdit/>
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Delete ${folder.name}`}
+                              onClick={() => handleDriveFileDelete(folder)}
+                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
+                            >
+                              <FaTrash/>
+                            </button>
+                          </>
+                        )}
                       </li>
                     ))}
                     {!inProgress && visibleDeckFiles.map((file: {id: string, name: string}) => (
