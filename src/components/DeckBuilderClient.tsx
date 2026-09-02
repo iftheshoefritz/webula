@@ -385,6 +385,17 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     posthog.capture('deckBuilder.driveFolderCreate.end');
   };
 
+  const renameDriveFile = async (file: { id: string }, newName: string) => {
+    posthog.capture('deckBuilder.driveFileRename.start');
+    setDriveFiles((prev) => prev.map((f: DriveFile) => (f.id === file.id ? { ...f, name: newName } : f)));
+    await fetch(`/api/drive/${file.id}`, {
+      method: 'PUT',
+      credentials: 'include',
+      body: JSON.stringify({ fileName: newName }),
+    });
+    posthog.capture('deckBuilder.driveFileRename.end');
+  };
+
   const createLackeyTSV = (): string => {
     const lackeyPileNameFor: Record<string, string> = {
       mission: 'Missions:',
@@ -1665,6 +1676,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           driveFiles={driveFiles}
           loadDriveFile={drivePickerMode === 'compare' ? fetchCompareDriveFile : fetchDriveFile}
           deleteDriveFile={deleteDriveFile}
+          onRenameFile={renameDriveFile}
           onCreateFolder={createDriveFolder}
           browsedFolder={browsedFolder}
           onBrowseFolder={setBrowsedFolder}
