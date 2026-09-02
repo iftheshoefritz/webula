@@ -88,6 +88,30 @@ describe('POST /api/drive', () => {
     );
   });
 
+  it('creates a file with the given targetParentId as parents instead of appDataFolder', async () => {
+    mockFilesCreate.mockResolvedValue({ data: { id: 'created-id' } });
+
+    await POST(makeRequest({ fileName: 'My Deck', content: '1\tPicard', targetParentId: 'folder-1' }));
+
+    expect(mockFilesCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestBody: expect.objectContaining({ parents: ['folder-1'] }),
+      })
+    );
+  });
+
+  it('creates a file with appDataFolder as parents when no targetParentId is given', async () => {
+    mockFilesCreate.mockResolvedValue({ data: { id: 'created-id' } });
+
+    await POST(makeRequest({ fileName: 'My Deck', content: '1\tPicard' }));
+
+    expect(mockFilesCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestBody: expect.objectContaining({ parents: ['appDataFolder'] }),
+      })
+    );
+  });
+
   it('creates a folder with no media when folderName is given', async () => {
     mockFilesCreate.mockResolvedValue({ data: { id: 'folder-id' } });
 
