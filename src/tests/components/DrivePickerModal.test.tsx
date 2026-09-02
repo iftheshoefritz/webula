@@ -83,10 +83,10 @@ describe('DrivePickerModal – folders in load mode', () => {
   it('renders a folder-shaped item as a read-only folder row, not a deck row', () => {
     render(<DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} />);
 
-    expect(screen.getByText('My Folder')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^my folder$/i })).toBeInTheDocument();
     expect(screen.getByText('My Deck')).toBeInTheDocument();
-    // Only the deck row gets a pile-subset select; the folder row has no controls.
-    expect(screen.getAllByRole('combobox')).toHaveLength(1);
+    // Only the deck row gets a pile-subset select and a move-to-folder select; the folder row has no controls.
+    expect(screen.getAllByRole('combobox')).toHaveLength(2);
   });
 
   it('does not show "no files found" when only a folder is present', () => {
@@ -225,7 +225,7 @@ describe('DrivePickerModal – browsing a folder in load mode', () => {
 
   it('only shows root-level decks and folders when no folder is being browsed', () => {
     render(<DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} />);
-    expect(screen.getByText('My Folder')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^my folder$/i })).toBeInTheDocument();
     expect(screen.getByText('Root Deck')).toBeInTheDocument();
     expect(screen.queryByText('Folder Deck')).not.toBeInTheDocument();
   });
@@ -235,7 +235,7 @@ describe('DrivePickerModal – browsing a folder in load mode', () => {
     render(
       <DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} onBrowseFolder={onBrowseFolder} />
     );
-    fireEvent.click(screen.getByText('My Folder'));
+    fireEvent.click(screen.getByRole('button', { name: /^my folder$/i }));
     expect(onBrowseFolder).toHaveBeenCalledWith(folder);
   });
 
@@ -245,8 +245,8 @@ describe('DrivePickerModal – browsing a folder in load mode', () => {
     );
     expect(screen.getByText('Folder Deck')).toBeInTheDocument();
     expect(screen.queryByText('Root Deck')).not.toBeInTheDocument();
-    // The only "My Folder" text present is the back control's label, not a clickable folder row.
-    expect(screen.getAllByText('My Folder')).toHaveLength(1);
+    // The only folder button present is the back control; no clickable folder row is rendered in the list.
+    expect(screen.getAllByRole('button', { name: /my folder/i })).toHaveLength(1);
   });
 
   it('does not show "New folder" while browsing a folder', () => {
@@ -276,6 +276,49 @@ describe('DrivePickerModal – browsing a folder in load mode', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /my folder/i }));
     expect(onBrowseFolder).toHaveBeenCalledWith(null);
+  });
+});
+
+describe('DrivePickerModal – moving a deck between folders in load mode', () => {
+  const folder = { id: 'f1', name: 'My Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
+  const rootDeck = { id: 'd1', name: 'Root Deck', mimeType: 'application/json', parents: ['appDataFolder'] };
+  const folderDeck = { id: 'd2', name: 'Folder Deck', mimeType: 'application/json', parents: ['f1'] };
+  const driveFiles = [folder, rootDeck, folderDeck];
+
+  it('renders a move select per deck row, pre-selected to the deck\'s current folder', () => {
+    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} />);
+    expect(screen.getByRole('combobox', { name: /move root deck/i })).toHaveValue('appDataFolder');
+  });
+
+  it('lists root and every existing folder as move options, regardless of the browsed view', () => {
+    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} browsedFolder={folder} />);
+    const select = screen.getByRole('combobox', { name: /move folder deck/i });
+    expect(select).toHaveValue('f1');
+    const options = Array.from(select.querySelectorAll('option')).map((o) => o.textContent);
+    expect(options).toEqual(['Root', 'My Folder']);
+  });
+
+  it('calls onMoveFile immediately when a new target is chosen', () => {
+    const onMoveFile = jest.fn();
+    render(
+      <DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} onMoveFile={onMoveFile} />
+    );
+    fireEvent.change(screen.getByRole('combobox', { name: /move root deck/i }), { target: { value: 'f1' } });
+    expect(onMoveFile).toHaveBeenCalledWith(rootDeck, 'f1');
+  });
+
+  it('does not call onMoveFile when the selection is unchanged', () => {
+    const onMoveFile = jest.fn();
+    render(
+      <DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} onMoveFile={onMoveFile} />
+    );
+    fireEvent.change(screen.getByRole('combobox', { name: /move root deck/i }), { target: { value: 'appDataFolder' } });
+    expect(onMoveFile).not.toHaveBeenCalled();
+  });
+
+  it('does not render a move select outside load mode', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare" driveFiles={driveFiles} />);
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 });
 
@@ -335,9 +378,9 @@ describe('DrivePickerModal – compare mode', () => {
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
-  it('renders the pile-subset select in load mode (default)', () => {
+  it('renders the pile-subset select and move-to-folder select in load mode (default)', () => {
     render(<DrivePickerModal {...baseProps} driveFiles={driveFiles} />);
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.getAllByRole('combobox')).toHaveLength(2);
   });
 
   it('calls loadDriveFile with no piles argument when a file is opened in compare mode', () => {

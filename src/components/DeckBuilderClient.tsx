@@ -385,6 +385,22 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     posthog.capture('deckBuilder.driveFolderCreate.end');
   };
 
+  const moveDriveFile = async (file: DriveFile, targetParentId: string) => {
+    posthog.capture('deckBuilder.driveFileMove.start');
+    const currentParentId = file.parents?.[0] ?? 'appDataFolder';
+    if (currentParentId === targetParentId) return;
+    const response = await fetch(`/api/drive/${file.id}`, {
+      method: 'PUT',
+      credentials: 'include',
+      body: JSON.stringify({ targetParentId, currentParentId }),
+    });
+    const json = await response.json();
+    setDriveFiles((prev) =>
+      prev.map((f: DriveFile) => (f.id === file.id ? { ...f, parents: json.parents ?? [targetParentId] } : f))
+    );
+    posthog.capture('deckBuilder.driveFileMove.end');
+  };
+
   const renameDriveFile = async (file: { id: string }, newName: string) => {
     posthog.capture('deckBuilder.driveFileRename.start');
     setDriveFiles((prev) => prev.map((f: DriveFile) => (f.id === file.id ? { ...f, name: newName } : f)));
@@ -1680,6 +1696,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           onCreateFolder={createDriveFolder}
           browsedFolder={browsedFolder}
           onBrowseFolder={setBrowsedFolder}
+          onMoveFile={moveDriveFile}
           inProgress={loadingFromGDrive}
           onClose={() => { setShowDrivePicker(false); setBrowsedFolder(null); }}
           isSignedIn={!!session}

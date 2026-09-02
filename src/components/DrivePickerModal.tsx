@@ -41,6 +41,8 @@ type PickerProps = {
   browsedFolder?: DriveFile | null
   /** Called with a folder to browse into it, or null to return to the root listing, in 'load' mode. */
   onBrowseFolder?: (folder: DriveFile | null) => void
+  /** Called with a deck file and the id of the folder to move it into ('appDataFolder' for root), in 'load' mode. */
+  onMoveFile?: (file: DriveFile, targetParentId: string) => void
 }
 
 type LoadMode = 'full' | 'mission' | 'dilemma' | 'draw';
@@ -73,6 +75,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   onCreateFolder,
   browsedFolder = null,
   onBrowseFolder,
+  onMoveFile,
 }) => {
   const [driveLoadModes, setDriveLoadModes] = useState<Record<string, LoadMode>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
@@ -86,7 +89,10 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   const isFolder = (file: { mimeType?: string }) => file.mimeType === FOLDER_MIME_TYPE;
   const isBrowsingFolder = mode === 'load' && !!browsedFolder;
   const deckFiles = driveFiles.filter((f) => !isFolder(f));
-  const rootFolders = mode === 'load' && !isBrowsingFolder ? driveFiles.filter((f) => isFolder(f) && isRootItem(f)) : [];
+  // Folders to move a deck into aren't scoped to the browsed view — a deck can move into any
+  // root folder regardless of whether the picker is currently browsing root or inside one.
+  const folders = driveFiles.filter((f) => isFolder(f) && isRootItem(f));
+  const rootFolders = mode === 'load' && !isBrowsingFolder ? folders : [];
   const visibleDeckFiles = mode === 'load'
     ? (isBrowsingFolder
         ? deckFiles.filter((f) => f.parents?.includes(browsedFolder!.id))
@@ -110,6 +116,11 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     setNewFolderName('');
   };
 
+  const currentParentIdFor = (file: { parents?: string[] }) => file.parents?.[0] ?? 'appDataFolder';
+  const handleMoveFile = (file: DriveFile & { parents?: string[] }, targetParentId: string) => {
+    if (targetParentId === currentParentIdFor(file)) return;
+    onMoveFile?.(file, targetParentId);
+  };
   const handleDriveFileSelect = (file: { id: string; name: string }) => {
     if (mode === 'compare' || mode === 'reports') {
       loadDriveFile(file);
@@ -325,7 +336,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                         )}
                       </li>
                     ))}
-                    {!inProgress && visibleDeckFiles.map((file: {id: string, name: string}) => (
+                    {!inProgress && visibleDeckFiles.map((file: {id: string, name: string, parents?: string[]}) => (
                       <li key={file.id} className="flex items-center border border-white/10 text-text-primary py-1">
                         {mode === 'reports' && renamingId === file.id ? (
                           <input
@@ -352,6 +363,19 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                             >
                               {PILE_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          )}
+                          {mode === 'load' && (
+                            <select
+                              aria-label={`Move ${file.name}`}
+                              className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
+                              value={currentParentIdFor(file)}
+                              onChange={(e) => handleMoveFile(file, e.target.value)}
+                            >
+                              <option value="appDataFolder">Root</option>
+                              {folders.map((folder) => (
+                                <option key={folder.id} value={folder.id}>{folder.name}</option>
                               ))}
                             </select>
                           )}
