@@ -246,6 +246,24 @@ describe('DeckReportsClient', () => {
     );
   });
 
+  it('requests folders alongside decks and wires up folder-browsing props when opening the picker', async () => {
+    (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ files: [] }) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/drive?includeFolders=true', expect.objectContaining({ method: 'GET' }));
+    expect(capturedPropsByMode['compare-multi'].browsedFolder).toBeNull();
+    expect(typeof capturedPropsByMode['compare-multi'].onBrowseFolder).toBe('function');
+  });
+
   it('loads a single picked deck into the skills table and clears the empty state', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       json: async () => '1\tTest Card',

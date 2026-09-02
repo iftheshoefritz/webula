@@ -95,8 +95,20 @@ describe('DrivePickerModal – folders in load mode', () => {
     expect(screen.queryByText('no files found')).not.toBeInTheDocument();
   });
 
-  it('does not render folder rows outside load mode', () => {
+  it('renders folder rows in compare mode too', () => {
     render(<DrivePickerModal {...baseProps} mode="compare" driveFiles={driveFiles} />);
+    expect(screen.getByRole('button', { name: /^my folder$/i })).toBeInTheDocument();
+    expect(screen.getByText('My Deck')).toBeInTheDocument();
+  });
+
+  it('renders folder rows in compare-multi mode too', () => {
+    render(<DrivePickerModal {...baseProps} mode="compare-multi" driveFiles={driveFiles} />);
+    expect(screen.getByRole('button', { name: /^my folder$/i })).toBeInTheDocument();
+    expect(screen.getByText('My Deck')).toBeInTheDocument();
+  });
+
+  it('does not render folder rows in reports mode', () => {
+    render(<DrivePickerModal {...baseProps} mode="reports" driveFiles={driveFiles} />);
     expect(screen.queryByText('My Folder')).not.toBeInTheDocument();
     expect(screen.getByText('My Deck')).toBeInTheDocument();
   });
@@ -276,6 +288,89 @@ describe('DrivePickerModal – browsing a folder in load mode', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /my folder/i }));
     expect(onBrowseFolder).toHaveBeenCalledWith(null);
+  });
+});
+
+describe.each(['compare', 'compare-multi'] as const)('DrivePickerModal – browsing a folder in %s mode', (mode) => {
+  const folder = { id: 'f1', name: 'My Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
+  const rootDeck = { id: 'd1', name: 'Root Deck', mimeType: 'application/json', parents: ['appDataFolder'] };
+  const folderDeck = { id: 'd2', name: 'Folder Deck', mimeType: 'application/json', parents: ['f1'] };
+  const driveFiles = [folder, rootDeck, folderDeck];
+
+  it('only shows root-level decks and folders when no folder is being browsed', () => {
+    render(<DrivePickerModal {...baseProps} mode={mode} driveFiles={driveFiles} />);
+    expect(screen.getByRole('button', { name: /^my folder$/i })).toBeInTheDocument();
+    expect(screen.getByText('Root Deck')).toBeInTheDocument();
+    expect(screen.queryByText('Folder Deck')).not.toBeInTheDocument();
+  });
+
+  it('navigates into a folder and shows its decks, hiding root decks', () => {
+    const onBrowseFolder = jest.fn();
+    const { rerender } = render(
+      <DrivePickerModal {...baseProps} mode={mode} driveFiles={driveFiles} onBrowseFolder={onBrowseFolder} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^my folder$/i }));
+    expect(onBrowseFolder).toHaveBeenCalledWith(folder);
+
+    rerender(
+      <DrivePickerModal {...baseProps} mode={mode} driveFiles={driveFiles} browsedFolder={folder} />
+    );
+    expect(screen.getByText('Folder Deck')).toBeInTheDocument();
+    expect(screen.queryByText('Root Deck')).not.toBeInTheDocument();
+  });
+
+  it('shows a back-to-root control that calls onBrowseFolder with null', () => {
+    const onBrowseFolder = jest.fn();
+    render(
+      <DrivePickerModal
+        {...baseProps}
+        mode={mode}
+        driveFiles={driveFiles}
+        browsedFolder={folder}
+        onBrowseFolder={onBrowseFolder}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /my folder/i }));
+    expect(onBrowseFolder).toHaveBeenCalledWith(null);
+  });
+
+  it('does not render rename or delete controls on a folder row', () => {
+    render(<DrivePickerModal {...baseProps} mode={mode} driveFiles={driveFiles} />);
+    expect(screen.queryByRole('button', { name: /rename my folder/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /delete my folder/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render "New folder" or "Save deck here" controls', () => {
+    render(<DrivePickerModal {...baseProps} mode={mode} driveFiles={driveFiles} browsedFolder={folder} />);
+    expect(screen.queryByText('New folder')).not.toBeInTheDocument();
+    expect(screen.queryByText('Save deck here')).not.toBeInTheDocument();
+  });
+});
+
+describe('DrivePickerModal – compare-multi selection persists across folder navigation', () => {
+  const folder = { id: 'f1', name: 'My Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
+  const rootDeck = { id: 'd1', name: 'Root Deck', mimeType: 'application/json', parents: ['appDataFolder'] };
+  const folderDeck = { id: 'd2', name: 'Folder Deck', mimeType: 'application/json', parents: ['f1'] };
+  const driveFiles = [folder, rootDeck, folderDeck];
+
+  it('keeps a root deck checked and counted after navigating into and back out of a folder', () => {
+    const { rerender } = render(
+      <DrivePickerModal {...baseProps} mode="compare-multi" driveFiles={driveFiles} />
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: /select root deck/i }));
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+    rerender(
+      <DrivePickerModal {...baseProps} mode="compare-multi" driveFiles={driveFiles} browsedFolder={folder} />
+    );
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /select root deck/i })).not.toBeInTheDocument();
+
+    rerender(
+      <DrivePickerModal {...baseProps} mode="compare-multi" driveFiles={driveFiles} />
+    );
+    expect(screen.getByRole('checkbox', { name: /select root deck/i })).toBeChecked();
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
   });
 });
 

@@ -76,6 +76,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
+  const [browsedFolder, setBrowsedFolder] = useState<{ id: string; name: string } | null>(null);
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false);
   const [decks, setDecks] = useState<LoadedDeck[]>([]);
   const [showReportsPicker, setShowReportsPicker] = useState(false);
@@ -104,9 +105,10 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
       if (params.get('openPicker') === 'true') {
         window.history.replaceState({}, '', '/decks/reports');
         setShowDrivePicker(true);
+        setBrowsedFolder(null);
         if (resolvedSession) {
           setLoadingFromGDrive(true);
-          const response = await fetch('/api/drive', { method: 'GET', credentials: 'include' });
+          const response = await fetch('/api/drive?includeFolders=true', { method: 'GET', credentials: 'include' });
           const json = await response.json();
           setDriveFiles(json.files);
           setLoadingFromGDrive(false);
@@ -141,9 +143,10 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
 
   const openPicker = async () => {
     setShowDrivePicker(true);
+    setBrowsedFolder(null);
     if (session) {
       setLoadingFromGDrive(true);
-      const response = await fetch('/api/drive', { method: 'GET', credentials: 'include' });
+      const response = await fetch('/api/drive?includeFolders=true', { method: 'GET', credentials: 'include' });
       const json = await response.json();
       setDriveFiles(json.files);
       setLoadingFromGDrive(false);
@@ -452,12 +455,14 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
           loadDriveFile={() => {}}
           deleteDriveFile={deleteDriveFile}
           inProgress={loadingFromGDrive}
-          onClose={() => setShowDrivePicker(false)}
+          onClose={() => { setShowDrivePicker(false); setBrowsedFolder(null); }}
           isSignedIn={!!session}
           hasDriveScope={session?.hasDriveScope ?? false}
           mode="compare-multi"
           onConfirmSelection={handleConfirmSelection}
           preSelectedFiles={decks.map((d) => ({ id: d.id, name: d.name }))}
+          browsedFolder={browsedFolder}
+          onBrowseFolder={setBrowsedFolder}
           onSignIn={() => signIn('google',
             { callbackUrl: '/decks/reports?openPicker=true' },
             { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
