@@ -167,7 +167,27 @@ export async function GET(
     const response = await drive.files.list(listParams)
     console.log(response.data)
 
-    return new Response(JSON.stringify(response.data), {
+    let responseData = response.data;
+    if (includeFolders && responseData.files?.length) {
+      // Drive's read APIs (files.list/files.get) echo back the App Data folder's real,
+      // resolved folder id in `parents` — never the literal string 'appDataFolder'. That
+      // literal is only a write-time alias, valid when setting `parents: ['appDataFolder']`
+      // on files.create. Rewrite the resolved id back to the literal here so the client
+      // (which uses 'appDataFolder' as its root sentinel everywhere) sees consistent data
+      // regardless of whether a file came from a create response or a list/get response.
+      const appDataFolderId = await drive.files.get({ fileId: 'appDataFolder', fields: 'id' });
+      const rootId = appDataFolderId.data.id;
+      responseData = {
+        ...responseData,
+        files: responseData.files.map((file) =>
+          file.parents
+            ? { ...file, parents: file.parents.map((p) => (p === rootId ? 'appDataFolder' : p)) }
+            : file
+        ),
+      };
+    }
+
+    return new Response(JSON.stringify(responseData), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
