@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FaTrash, FaFolder, FaFolderOpen, FaFolderPlus, FaSignInAlt, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaSave } from 'react-icons/fa';
+import { FaTrash, FaFolder, FaFolderOpen, FaFolderPlus, FaSignInAlt, FaEdit, FaCheck, FaTimes, FaArrowLeft } from 'react-icons/fa';
 import { DeckPile } from '../app/decks/deckBuilderUtils';
 import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
 
@@ -43,12 +43,6 @@ type PickerProps = {
   onBrowseFolder?: (folder: DriveFile | null) => void
   /** Called with a deck file and the id of the folder to move it into ('appDataFolder' for root), in 'load' mode. */
   onMoveFile?: (file: DriveFile, targetParentId: string) => void
-  /** The name of the deck currently open in the builder, used by the "save deck here" action in 'load' mode. */
-  deckName?: string
-  /** The content of the deck currently open in the builder, used by the "save deck here" action in 'load' mode. */
-  deckContent?: string
-  /** Called with the browsed folder's id, deckName, and deckContent when "save deck here" is confirmed, in 'load' mode. */
-  onSaveDeckToFolder?: (folderId: string, name: string, content: string) => void
 }
 
 type LoadMode = 'full' | 'mission' | 'dilemma' | 'draw';
@@ -82,9 +76,6 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   browsedFolder = null,
   onBrowseFolder,
   onMoveFile,
-  deckName = '',
-  deckContent = '',
-  onSaveDeckToFolder,
 }) => {
   const [driveLoadModes, setDriveLoadModes] = useState<Record<string, LoadMode>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
@@ -232,17 +223,6 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                           title={browsedFolder!.name}
                         >
                           <FaArrowLeft className="inline mr-2" />{browsedFolder!.name}
-                        </button>
-                      </li>
-                    )}
-                    {!inProgress && mode === 'load' && isBrowsingFolder && (
-                      <li className="flex items-center border border-white/10 text-text-primary py-1">
-                        <button
-                          type="button"
-                          className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary"
-                          onClick={() => onSaveDeckToFolder?.(browsedFolder!.id, deckName, deckContent)}
-                        >
-                          <FaSave className="inline mr-2" />Save deck here
                         </button>
                       </li>
                     )}
