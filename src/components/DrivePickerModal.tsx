@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FaTrash, FaFolder, FaFolderOpen, FaFolderPlus, FaSignInAlt, FaEdit, FaCheck, FaTimes, FaArrowLeft } from 'react-icons/fa';
+import { FaTrash, FaFolder, FaFolderOpen, FaFolderPlus, FaSignInAlt, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaExchangeAlt } from 'react-icons/fa';
 import { DeckPile } from '../app/decks/deckBuilderUtils';
 import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
 
@@ -85,6 +85,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   const [renameValue, setRenameValue] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [movingFile, setMovingFile] = useState<(DriveFile & { parents?: string[] }) | null>(null);
 
   const isFolder = (file: { mimeType?: string }) => file.mimeType === FOLDER_MIME_TYPE;
   // 'reports' lists a different Drive file kind with no folder concept, so it stays
@@ -123,6 +124,16 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   const handleMoveFile = (file: DriveFile & { parents?: string[] }, targetParentId: string) => {
     if (targetParentId === currentParentIdFor(file)) return;
     onMoveFile?.(file, targetParentId);
+  };
+  const startMoveFile = (file: DriveFile & { parents?: string[] }) => {
+    setMovingFile(file);
+  };
+  const cancelMoveFile = () => {
+    setMovingFile(null);
+  };
+  const selectMoveDestination = (targetParentId: string) => {
+    if (movingFile) handleMoveFile(movingFile, targetParentId);
+    setMovingFile(null);
   };
   const handleDriveFileSelect = (file: { id: string; name: string }) => {
     if (mode === 'compare' || mode === 'reports') {
@@ -179,6 +190,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     : 'Your decks';
 
   return (
+    <>
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen">
         <div className="absolute inset-0 bg-black opacity-50" onClick={onClose}></div>
@@ -370,17 +382,14 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                             </select>
                           )}
                           {mode === 'load' && (
-                            <select
+                            <button
+                              type="button"
                               aria-label={`Move ${file.name}`}
-                              className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
-                              value={currentParentIdFor(file)}
-                              onChange={(e) => handleMoveFile(file, e.target.value)}
+                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              onClick={() => startMoveFile(file)}
                             >
-                              <option value="appDataFolder">Root</option>
-                              {folders.map((folder) => (
-                                <option key={folder.id} value={folder.id}>{folder.name}</option>
-                              ))}
-                            </select>
+                              <FaExchangeAlt/>
+                            </button>
                           )}
                           {mode === 'compare-multi' ? (
                             <input
@@ -471,5 +480,50 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
         </div>
       </div>
     </div>
+    {movingFile && (
+      <div className="fixed inset-0 z-[60] overflow-y-auto">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="absolute inset-0 bg-black opacity-50" onClick={cancelMoveFile}></div>
+          <div className="bg-bg-secondary p-3 border border-white/10 shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
+            <div className="flex justify-between items-center">
+              <span className="text-2xl font-bold mt-4 mb-2 block text-text-primary">Move &quot;{movingFile.name}&quot;</span>
+              <button
+                type="button"
+                className="text-text-primary hover:text-text-secondary"
+                onClick={cancelMoveFile}
+              >
+                <span className="text-2xl">&times;</span>
+              </button>
+            </div>
+            <ul className="w-full">
+              <li className="border border-white/10 text-text-primary py-1">
+                <button
+                  type="button"
+                  aria-label="Move to Root"
+                  className="w-full px-3 text-left text-text-primary hover:text-text-secondary"
+                  onClick={() => selectMoveDestination('appDataFolder')}
+                >
+                  Root
+                </button>
+              </li>
+              {folders.map((folder) => (
+                <li key={folder.id} className="border border-white/10 text-text-primary py-1">
+                  <button
+                    type="button"
+                    aria-label={`Move to ${folder.name}`}
+                    className="w-full px-3 text-left text-text-primary hover:text-text-secondary truncate"
+                    onClick={() => selectMoveDestination(folder.id)}
+                    title={folder.name}
+                  >
+                    <FaFolder className="inline mr-2" />{folder.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
