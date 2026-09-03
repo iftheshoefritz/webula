@@ -50,10 +50,14 @@ describe('POST /api/drive', () => {
     mockFilesCreate.mockResolvedValue({ data: { id: 'created-id' } });
 
     const res = await POST(makeRequest({ fileName: 'My Deck', content: '1\tPicard' }));
+    const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(mockFilesList).not.toHaveBeenCalled();
     expect(mockFilesCreate).toHaveBeenCalled();
+    // Wrapped consistently with the folderName/trekccDeckId create branches so callers
+    // (e.g. the Save As dialog) can read the new file's id from json.file.id.
+    expect(body).toEqual({ file: { id: 'created-id' } });
   });
 
   it('updates the existing Drive file instead of creating a duplicate when trekccDeckId matches an existing file', async () => {
