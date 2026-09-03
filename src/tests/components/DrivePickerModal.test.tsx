@@ -340,10 +340,9 @@ describe.each(['compare', 'compare-multi'] as const)('DrivePickerModal – brows
     expect(screen.queryByRole('button', { name: /delete my folder/i })).not.toBeInTheDocument();
   });
 
-  it('does not render "New folder" or "Save deck here" controls', () => {
+  it('does not render a "New folder" control', () => {
     render(<DrivePickerModal {...baseProps} mode={mode} driveFiles={driveFiles} browsedFolder={folder} />);
     expect(screen.queryByText('New folder')).not.toBeInTheDocument();
-    expect(screen.queryByText('Save deck here')).not.toBeInTheDocument();
   });
 });
 
@@ -371,45 +370,6 @@ describe('DrivePickerModal – compare-multi selection persists across folder na
     );
     expect(screen.getByRole('checkbox', { name: /select root deck/i })).toBeChecked();
     expect(screen.getByText('1 selected')).toBeInTheDocument();
-  });
-});
-
-describe('DrivePickerModal – saving the current deck into a browsed folder', () => {
-  const folder = { id: 'f1', name: 'My Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
-  const driveFiles = [folder];
-
-  it('does not show "save deck here" at root', () => {
-    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} />);
-    expect(screen.queryByText('Save deck here')).not.toBeInTheDocument();
-  });
-
-  it('shows "save deck here" while browsing a folder', () => {
-    render(<DrivePickerModal {...baseProps} mode="load" driveFiles={driveFiles} browsedFolder={folder} />);
-    expect(screen.getByText('Save deck here')).toBeInTheDocument();
-  });
-
-  it('does not show "save deck here" outside load mode', () => {
-    render(<DrivePickerModal {...baseProps} mode="compare" driveFiles={driveFiles} />);
-    expect(screen.queryByText('Save deck here')).not.toBeInTheDocument();
-  });
-
-  it('calls onSaveDeckToFolder with the browsed folder id and the current deck name/content', () => {
-    const onSaveDeckToFolder = jest.fn();
-    render(
-      <DrivePickerModal
-        {...baseProps}
-        mode="load"
-        driveFiles={driveFiles}
-        browsedFolder={folder}
-        deckName="My Deck"
-        deckContent={'1\tPicard'}
-        onSaveDeckToFolder={onSaveDeckToFolder}
-      />
-    );
-
-    fireEvent.click(screen.getByText('Save deck here'));
-
-    expect(onSaveDeckToFolder).toHaveBeenCalledWith('f1', 'My Deck', '1\tPicard');
   });
 });
 

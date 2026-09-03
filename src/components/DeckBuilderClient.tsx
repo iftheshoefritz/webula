@@ -35,7 +35,7 @@ import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
 import { isEarlyAccessUser } from '../lib/featureFlags';
-import { DECK_MIME_TYPE, FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
+import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
 
 interface Session {
   accessToken: string;
@@ -503,26 +503,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         setSavingToGDrive(false);
       }
     }
-  };
-
-  // Saves the current deck as a new file inside a folder browsed in the load picker.
-  // Always a create (never updates deckFile), and leaves deckFile untouched — the toolbar's
-  // writeToDrive continues to save to wherever the currently-open deck already lives.
-  const saveDeckToFolder = async (folderId: string, name: string, content: string) => {
-    posthog.capture('deckBuilder.driveFileSaveToFolder.start');
-    const response = await fetch('/api/drive', {
-      method: 'POST',
-      credentials: 'include',
-      body: JSON.stringify({ fileName: name, content, targetParentId: folderId }),
-    });
-    const json = await response.json();
-    if (json?.file?.id) {
-      setDriveFiles((prev) => [
-        ...prev,
-        { id: json.file.id, name, mimeType: DECK_MIME_TYPE, parents: [folderId] },
-      ]);
-    }
-    posthog.capture('deckBuilder.driveFileSaveToFolder.end');
   };
 
   const openDrivePicker = async (mode: 'load' | 'compare') => {
@@ -1717,9 +1697,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           browsedFolder={browsedFolder}
           onBrowseFolder={setBrowsedFolder}
           onMoveFile={moveDriveFile}
-          deckName={deckTitle}
-          deckContent={createLackeyTSV()}
-          onSaveDeckToFolder={saveDeckToFolder}
           inProgress={loadingFromGDrive}
           onClose={() => { setShowDrivePicker(false); setBrowsedFolder(null); }}
           isSignedIn={!!session}
