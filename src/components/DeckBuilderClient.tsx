@@ -8,6 +8,7 @@ import useLocalStorage from '../hooks/useLocalStorage';
 import DeckUploader from './DeckUploader';
 import DeckListPile from './DeckListPile';
 import { DrivePickerModal } from './DrivePickerModal';
+import { SaveAsDialog } from './SaveAsDialog';
 import PileAggregate from './PileAggregate';
 import IconPill from './IconPill';
 import KeywordBadge from './KeywordBadge';
@@ -187,6 +188,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   });
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
+  const [showSaveAsDialog, setShowSaveAsDialog] = useState(false);
   const [drivePickerMode, setDrivePickerMode] = useState<'load' | 'compare'>('load');
   const [browsedFolder, setBrowsedFolder] = useState<DriveFile | null>(null);
   const [loadingFromGDrive, setLoadingFromGDrive] = useState(false);
@@ -450,6 +452,54 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     setTimeout(() => setSavedRecently(false), 2000);
   };
 
+  // Performs the actual Drive write. targetParentId is only meaningful on create (no
+  // deckFile.id yet) and comes from the Save As dialog; updates always write in place.
+  const performDriveSave = async (targetParentId?: string) => {
+    setSavingToGDrive(true);
+    setSaveError(null);
+    try {
+      let response: Response | null = null;
+      if (deckFile?.id) {
+        response = await fetch(`/api/drive/${deckFile.id}`, {
+          method: 'PUT',
+          credentials: 'include',
+          body: JSON.stringify({ fileName: deckTitle, content: createLackeyTSV() }),
+        });
+      } else {
+        response = await fetch('/api/drive', {
+          method: 'POST',
+          credentials: 'include',
+          body: JSON.stringify({ fileName: deckTitle, content: createLackeyTSV(), targetParentId }),
+        });
+      }
+      const json = await response.json();
+      if (!response.ok) {
+        if (json?.error === 'drive_scope_missing') {
+          signIn('google',
+            { callbackUrl: '/decks' },
+            { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
+          );
+          return;
+        }
+        setSaveError('Save failed');
+      } else {
+        if (json?.file?.id) {
+          setDeckFile({ id: json.file.id, name: deckTitle });
+        } else if (deckFile?.id) {
+          setDeckFile({ id: deckFile.id, name: deckTitle });
+        }
+        showSavedFeedback();
+      }
+    } catch {
+      setSaveError('Save failed');
+    } finally {
+      setSavingToGDrive(false);
+    }
+  };
+
+  // Saving a deck that has never been written to Drive (no deckFile.id) opens the Save As
+  // dialog to choose a destination folder first, the same pattern desktop apps use for an
+  // unsaved document. Saving an already-saved deck updates it in place with no prompt.
   const writeToDrive = async () => {
     if (!session) {
       signIn('google',
@@ -461,48 +511,27 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     if (savingToGDrive) return;
     if (deckTitle.length === 0) {
       window.alert('please enter a deck name!');
-    } else {
-      setSavingToGDrive(true);
-      setSaveError(null);
-      try {
-        let response: Response | null = null;
-        if (deckFile?.id) {
-          response = await fetch(`/api/drive/${deckFile.id}`, {
-            method: 'PUT',
-            credentials: 'include',
-            body: JSON.stringify({ fileName: deckTitle, content: createLackeyTSV() }),
-          });
-        } else {
-          response = await fetch('/api/drive', {
-            method: 'POST',
-            credentials: 'include',
-            body: JSON.stringify({ fileName: deckTitle, content: createLackeyTSV() }),
-          });
-        }
-        const json = await response.json();
-        if (!response.ok) {
-          if (json?.error === 'drive_scope_missing') {
-            signIn('google',
-              { callbackUrl: '/decks' },
-              { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
-            );
-            return;
-          }
-          setSaveError('Save failed');
-        } else {
-          if (json?.file?.id) {
-            setDeckFile({ id: json.file.id, name: deckTitle });
-          } else if (deckFile?.id) {
-            setDeckFile({ id: deckFile.id, name: deckTitle });
-          }
-          showSavedFeedback();
-        }
-      } catch {
-        setSaveError('Save failed');
-      } finally {
-        setSavingToGDrive(false);
-      }
+      return;
     }
+    if (!deckFile?.id) {
+      setShowSaveAsDialog(true);
+      setLoadingFromGDrive(true);
+      const response = await fetch('/api/drive?includeFolders=true', { method: 'GET', credentials: 'include' });
+      const json = await response.json();
+      setDriveFiles(json.files);
+      setLoadingFromGDrive(false);
+      return;
+    }
+    await performDriveSave();
+  };
+
+  const confirmSaveAs = async (targetParentId: string) => {
+    setShowSaveAsDialog(false);
+    await performDriveSave(targetParentId);
+  };
+
+  const cancelSaveAs = () => {
+    setShowSaveAsDialog(false);
   };
 
   const openDrivePicker = async (mode: 'load' | 'compare') => {
@@ -1706,6 +1735,17 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             { callbackUrl: `/decks?openPicker=true&pickerMode=${drivePickerMode}` },
             { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
           )}
+        />
+      )}
+
+      {showSaveAsDialog && (
+        <SaveAsDialog
+          deckTitle={deckTitle}
+          driveFiles={driveFiles}
+          inProgress={loadingFromGDrive}
+          onConfirm={confirmSaveAs}
+          onCreateFolder={createDriveFolder}
+          onClose={cancelSaveAs}
         />
       )}
     </div>

@@ -70,6 +70,10 @@ function getSaveButton(): HTMLElement {
   return btn;
 }
 
+function driveListResponse(files: unknown[] = []) {
+  return { ok: true, json: async () => ({ files }) };
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('DeckBuilderClient – Drive save deduplication', () => {
@@ -100,7 +104,8 @@ describe('DeckBuilderClient – Drive save deduplication', () => {
       fireEvent.click(getSaveButton());
     });
 
-    // Should have called PUT on the existing ID, not POST to create a new file
+    // Should have called PUT on the existing ID, not POST to create a new file, and no
+    // Save As dialog should have appeared (already-saved decks update in place).
     const putCalls = mockFetch.mock.calls.filter(
       ([url, opts]) => url === '/api/drive/existing-drive-id' && opts?.method === 'PUT'
     );
@@ -110,47 +115,140 @@ describe('DeckBuilderClient – Drive save deduplication', () => {
 
     expect(putCalls.length).toBe(1);
     expect(postCalls.length).toBe(0);
+    expect(screen.queryByRole('button', { name: 'Save to Root' })).not.toBeInTheDocument();
   });
 
-  it('does not fire a second save if one is already in flight', async () => {
+  it('opens the Save As dialog instead of calling POST immediately when the deck has no deckFile.id', async () => {
     mockSession();
 
     localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
 
-    let resolveFirst: (value: unknown) => void;
-    const firstSavePromise = new Promise((res) => { resolveFirst = res; });
-
-    const mockFetch = jest.fn()
-      .mockReturnValueOnce(firstSavePromise) // first save hangs
-      .mockResolvedValue({                   // any subsequent call (shouldn't happen for POST)
-        ok: true,
-        json: async () => ({ file: { id: 'new-id' } }),
-      });
+    const mockFetch = jest.fn().mockResolvedValue(driveListResponse());
     global.fetch = mockFetch;
 
     await act(async () => {
       render(<DeckBuilderClient data={[]} columns={[]} />);
     });
 
-    // Click save (starts in-flight)
-    act(() => {
-      fireEvent.click(getSaveButton());
-    });
-
-    // Click save again while the first is still in flight
-    act(() => {
-      fireEvent.click(getSaveButton());
-    });
-
-    // Resolve the first save
     await act(async () => {
-      resolveFirst!({
-        ok: true,
-        json: async () => ({ file: { id: 'new-id' } }),
-      });
+      fireEvent.click(getSaveButton());
     });
 
-    // Only one POST should have been made (the second click was blocked)
+    expect(screen.getByRole('button', { name: 'Save to Root' })).toBeInTheDocument();
+    const postCalls = mockFetch.mock.calls.filter(
+      ([url, opts]) => url === '/api/drive' && opts?.method === 'POST'
+    );
+    expect(postCalls.length).toBe(0);
+  });
+
+  it('confirming a destination in the Save As dialog creates the file there and switches subsequent saves to PUT', async () => {
+    mockSession();
+
+    localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
+
+    const mockFetch = jest.fn()
+      .mockResolvedValueOnce(driveListResponse([{ id: 'folder-1', name: 'My Folder', mimeType: 'application/vnd.google-apps.folder', parents: ['appDataFolder'] }]))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ file: { id: 'new-drive-id' } }) })
+      .mockResolvedValue({ ok: true, json: async () => ({ file: { id: 'new-drive-id' } }) });
+    global.fetch = mockFetch;
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(getSaveButton());
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save to My Folder' }));
+    });
+
+    const postCalls = mockFetch.mock.calls.filter(
+      ([url, opts]) => url === '/api/drive' && opts?.method === 'POST'
+    );
+    expect(postCalls.length).toBe(1);
+    expect(JSON.parse(postCalls[0][1].body)).toEqual(
+      expect.objectContaining({ fileName: 'My Deck', targetParentId: 'folder-1' })
+    );
+    expect(screen.queryByRole('button', { name: 'Save to Root' })).not.toBeInTheDocument();
+
+    // Saving again should PUT to the newly created file, not open the dialog or POST again.
+    await act(async () => {
+      fireEvent.click(getSaveButton());
+    });
+
+    const putCalls = mockFetch.mock.calls.filter(
+      ([url, opts]) => url === '/api/drive/new-drive-id' && opts?.method === 'PUT'
+    );
+    expect(putCalls.length).toBe(1);
+    expect(mockFetch.mock.calls.filter(
+      ([url, opts]) => url === '/api/drive' && opts?.method === 'POST'
+    ).length).toBe(1);
+  });
+
+  it('closes the Save As dialog without saving when canceled', async () => {
+    mockSession();
+
+    localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
+
+    const mockFetch = jest.fn().mockResolvedValue(driveListResponse());
+    global.fetch = mockFetch;
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(getSaveButton());
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('×'));
+    });
+
+    expect(screen.queryByRole('button', { name: 'Save to Root' })).not.toBeInTheDocument();
+    const postCalls = mockFetch.mock.calls.filter(
+      ([url, opts]) => url === '/api/drive' && opts?.method === 'POST'
+    );
+    expect(postCalls.length).toBe(0);
+  });
+
+  it('does not reopen the Save As dialog or start a second save while one is already in flight', async () => {
+    mockSession();
+
+    localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
+
+    let resolveSave: (value: unknown) => void;
+    const savePromise = new Promise((res) => { resolveSave = res; });
+
+    const mockFetch = jest.fn()
+      .mockResolvedValueOnce(driveListResponse())
+      .mockReturnValueOnce(savePromise) // the POST triggered by confirming "Root" hangs
+      .mockResolvedValue({ ok: true, json: async () => ({ file: { id: 'new-id' } }) });
+    global.fetch = mockFetch;
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(getSaveButton());
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save to Root' }));
+    });
+
+    // Save is now in flight; clicking Save again should be a no-op (no dialog reopens).
+    act(() => {
+      fireEvent.click(getSaveButton());
+    });
+
+    await act(async () => {
+      resolveSave!({ ok: true, json: async () => ({ file: { id: 'new-id' } }) });
+    });
+
     const postCalls = mockFetch.mock.calls.filter(
       ([url, opts]) => url === '/api/drive' && opts?.method === 'POST'
     );

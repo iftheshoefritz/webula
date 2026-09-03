@@ -86,8 +86,9 @@ export async function POST(
       })
     }
 
-    // targetParentId is only sent when saving into a folder from the load picker's
-    // "save here" action; manual saves without it keep creating at the appDataFolder root.
+    // targetParentId is sent by the Save As dialog when a deck with no deckFile.id is
+    // saved for the first time and the user picks a destination folder; manual saves
+    // without it (e.g. the dialog's "Root" option) keep creating at the appDataFolder root.
     const fileMetadata = {
       'name': fileName,
       'mimeType': DECK_MIME_TYPE,
@@ -101,7 +102,7 @@ export async function POST(
 
     const response = await drive.files.create({ requestBody: fileMetadata, media, fields: 'id' });
 
-    return new Response(JSON.stringify(response), {
+    return new Response(JSON.stringify({ file: { id: response.data.id } }), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
