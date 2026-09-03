@@ -192,6 +192,43 @@ describe('POST /api/drive/bulk', () => {
     expect(maxInFlight).toBeLessThanOrEqual(3);
   });
 
+  it('creates files in the given targetParentId when saving a batch to a chosen destination folder', async () => {
+    mockFilesList.mockResolvedValue({ data: { files: [] } });
+    mockFilesCreate.mockResolvedValue({ data: { id: 'new-file-id' } });
+
+    const res = await POST(
+      makeRequest({
+        decks: [{ title: 'Deck From Disk', content: '1\tPicard' }],
+        targetParentId: 'folder-1',
+      })
+    );
+    const lines = await readNdjson(res);
+
+    expect(res.status).toBe(200);
+    expect(lines).toEqual([{ title: 'Deck From Disk', status: 'created' }]);
+    expect(mockFilesCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestBody: expect.objectContaining({ name: 'Deck From Disk', parents: ['folder-1'] }),
+      })
+    );
+  });
+
+  it('defaults new files to the appDataFolder root when targetParentId is omitted', async () => {
+    mockFilesList.mockResolvedValue({ data: { files: [] } });
+    mockFilesCreate.mockResolvedValue({ data: { id: 'new-file-id' } });
+
+    const res = await POST(
+      makeRequest({ decks: [{ title: 'Deck From Disk', content: '1\tPicard' }] })
+    );
+    await readNdjson(res);
+
+    expect(mockFilesCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestBody: expect.objectContaining({ parents: ['appDataFolder'] }),
+      })
+    );
+  });
+
   it('emits a drive_scope_missing line and stops further batches when the scope error appears after the first batch', async () => {
     let call = 0;
     mockFilesList.mockImplementation(async () => {

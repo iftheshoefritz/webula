@@ -54,12 +54,13 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-async function writeDeck(drive: any, deck: DeckPayload): Promise<DeckResult | ScopeMissing> {
+async function writeDeck(drive: any, deck: DeckPayload, targetParentId?: string): Promise<DeckResult | ScopeMissing> {
   try {
     const { status } = await writeDeckIdempotent(drive, {
       fileName: deck.title,
       content: deck.content,
       trekccDeckId: deck.trekccDeckId,
+      targetParentId,
     });
     return { trekccDeckId: deck.trekccDeckId, title: deck.title, status };
   } catch (error: any) {
@@ -93,7 +94,11 @@ export async function POST(req: Request) {
       auth: auth,
     })
 
-    const { decks } = await req.json() as { decks: DeckPayload[] };
+    // targetParentId applies to every deck in the batch (there's a single destination-folder
+    // prompt for the whole import, not one per file); it only affects newly created files,
+    // mirroring /api/drive's own POST handler, which defaults to the appDataFolder root when
+    // it's absent.
+    const { decks, targetParentId } = await req.json() as { decks: DeckPayload[]; targetParentId?: string };
     if (!Array.isArray(decks) || decks.length === 0) {
       return new Response(JSON.stringify({ error: 'No decks provided' }), {
         status: 400,
@@ -106,7 +111,7 @@ export async function POST(req: Request) {
     // Process the first batch up front so a token missing the Drive scope can still short-circuit
     // with a plain 403 JSON response before any streaming begins — the scope applies to the whole
     // request (same auth for every deck), so it will surface on the very first Drive call.
-    const firstChunkResults = await Promise.all(chunks[0].map((deck) => writeDeck(drive, deck)));
+    const firstChunkResults = await Promise.all(chunks[0].map((deck) => writeDeck(drive, deck, targetParentId)));
     if (firstChunkResults.some((r) => 'scopeMissing' in r)) {
       return new Response(JSON.stringify({ error: 'drive_scope_missing' }), {
         status: 403,
@@ -125,7 +130,7 @@ export async function POST(req: Request) {
         (firstChunkResults as DeckResult[]).forEach(writeLine);
 
         for (let i = 1; i < chunks.length; i++) {
-          const chunkResults = await Promise.all(chunks[i].map((deck) => writeDeck(drive, deck)));
+          const chunkResults = await Promise.all(chunks[i].map((deck) => writeDeck(drive, deck, targetParentId)));
           if (chunkResults.some((r) => 'scopeMissing' in r)) {
             writeLine({ error: 'drive_scope_missing' });
             controller.close();

@@ -1,4 +1,4 @@
-import { aboveMinimumCount, belowMaximumCount, cardPileFor, deckFromTsv, decrementedRow, expandDeck, findExisting, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount, parsedDeck, shuffleArray } from '../../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, cardPileFor, deckFromTsv, decrementedRow, expandDeck, findExisting, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount, parsedDeck, shuffleArray } from '../../app/decks/deckBuilderUtils';
 import { CardDef } from '../../types';
 
 describe('constructing a deck object based on TSV text and a list of all card data', () => {
@@ -361,4 +361,46 @@ const cardFixture = (overrides = {}): CardDef => ({
   mission: 'S',
   unique: 'n',
   ...overrides,
+})
+
+describe('building bulk-import payloads from locally selected LackeyCCG files', () => {
+  const data = [
+    { collectorsinfo: '1R000', originalName: 'Card 1', type: 'mission' },
+    { collectorsinfo: '2C001', originalName: 'Card 2', type: 'event' },
+  ];
+
+  it('builds a payload per recognized file, stripping the .txt extension for the title', () => {
+    const files = [
+      { name: 'Deck A.txt', content: '1\tCard 1' },
+      { name: 'Deck B.txt', content: '2\tCard 2' },
+    ];
+    const { payloads, failures } = buildBulkImportPayloads(files, data);
+
+    expect(failures).toEqual([]);
+    expect(payloads).toEqual([
+      { title: 'Deck A', content: '1\tCard 1' },
+      { title: 'Deck B', content: '2\tCard 2' },
+    ]);
+  });
+
+  it('reports a file that parses to zero recognized cards as a failure instead of an empty payload', () => {
+    const files = [
+      { name: 'Deck A.txt', content: '1\tCard 1' },
+      { name: 'Not A Deck.txt', content: 'this is not a lackey export' },
+    ];
+    const { payloads, failures } = buildBulkImportPayloads(files, data);
+
+    expect(payloads).toEqual([{ title: 'Deck A', content: '1\tCard 1' }]);
+    expect(failures).toEqual([{ name: 'Not A Deck.txt', error: 'Not a recognized LackeyCCG deck file' }]);
+  });
+
+  it('de-duplicates titles that collide after stripping the extension', () => {
+    const files = [
+      { name: 'Deck A.txt', content: '1\tCard 1' },
+      { name: 'Deck A.txt', content: '2\tCard 2' },
+    ];
+    const { payloads } = buildBulkImportPayloads(files, data);
+
+    expect(payloads.map((p) => p.title)).toEqual(['Deck A', 'Deck A (2)']);
+  });
 })
