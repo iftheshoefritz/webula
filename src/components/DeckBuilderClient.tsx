@@ -5,7 +5,7 @@ import posthog from 'posthog-js';
 import { useSearchParams } from 'next/navigation';
 import useFilterData from '../hooks/useFilterData';
 import useLocalStorage from '../hooks/useLocalStorage';
-import DeckUploader from './DeckUploader';
+import DeckUploader, { UploadedFile } from './DeckUploader';
 import DeckListPile from './DeckListPile';
 import { DrivePickerModal } from './DrivePickerModal';
 import { SaveAsDialog } from './SaveAsDialog';
@@ -25,7 +25,7 @@ import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
 import { CardDef, Deck } from '../types';
 import { getSession, signIn } from 'next-auth/react';
-import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles } from '../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles } from '../app/decks/deckBuilderUtils';
 import { missionRequirements, parseMissionRequirements } from '../lib/missionRequirements';
 import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
@@ -206,6 +206,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [shareLoadError, setShareLoadError] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [bulkImportPending, setBulkImportPending] = useState<UploadedFile[] | null>(null);
+  const [showBulkSaveAsDialog, setShowBulkSaveAsDialog] = useState(false);
+  const [bulkImportStatus, setBulkImportStatus] = useState<'idle' | 'saving' | 'done'>('idle');
+  const [bulkImportResults, setBulkImportResults] = useState<
+    { title: string; status: 'created' | 'updated' | 'failed'; error?: string }[]
+  >([]);
+  const [bulkImportSkipped, setBulkImportSkipped] = useState<{ name: string; error: string }[]>([]);
+  const [bulkImportError, setBulkImportError] = useState<string | null>(null);
   const isFirstRender = useRef(true);
 
   useEffect(() => {
@@ -327,6 +335,127 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       setMissionBranchSelections({});
     }
     posthog.capture('deckBuilder.handleFileLoad.finish', { lines: Object.keys(currentDeck).length });
+  };
+
+  // A single selected file keeps today's behaviour (load into the builder). Selecting more
+  // than one file at once skips the builder entirely and saves each one straight to Drive.
+  const handleFilesLoad = (files: UploadedFile[]) => {
+    if (files.length <= 1) {
+      const file = files[0];
+      if (file) handleFileLoad(file.name, file.content);
+      return;
+    }
+    posthog.capture('deckBuilder.bulkImportFromDisk.start', { fileCount: files.length });
+    if (!session) {
+      signIn('google',
+        { callbackUrl: '/decks' },
+        { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
+      );
+      return;
+    }
+    startBulkImport(files);
+  };
+
+  const startBulkImport = async (files: UploadedFile[]) => {
+    setBulkImportPending(files);
+    setShowBulkSaveAsDialog(true);
+    setLoadingFromGDrive(true);
+    const response = await fetch('/api/drive?includeFolders=true', { method: 'GET', credentials: 'include' });
+    const json = await response.json();
+    setDriveFiles(json.files);
+    setLoadingFromGDrive(false);
+  };
+
+  const cancelBulkSaveAs = () => {
+    setShowBulkSaveAsDialog(false);
+    setBulkImportPending(null);
+  };
+
+  const requestDriveSignInForBulkImport = () => {
+    signIn('google',
+      { callbackUrl: '/decks' },
+      { scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata', include_granted_scopes: 'true' }
+    );
+  };
+
+  const confirmBulkSaveAs = async (targetParentId: string) => {
+    setShowBulkSaveAsDialog(false);
+    const files = bulkImportPending;
+    setBulkImportPending(null);
+    if (!files) return;
+
+    const { payloads, failures } = buildBulkImportPayloads(files, data);
+    setBulkImportSkipped(failures);
+    setBulkImportResults([]);
+    setBulkImportError(null);
+
+    if (payloads.length === 0) {
+      setBulkImportStatus('done');
+      return;
+    }
+
+    setBulkImportStatus('saving');
+    try {
+      const response = await fetch('/api/drive/bulk', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decks: payloads, targetParentId }),
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        if (json?.error === 'drive_scope_missing') {
+          setBulkImportStatus('idle');
+          requestDriveSignInForBulkImport();
+          return;
+        }
+        throw new Error(json?.error || 'Import failed');
+      }
+
+      // The route streams one NDJSON line per deck result as it finishes, so results are
+      // read incrementally and appended live instead of waiting for a single JSON body.
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Import failed');
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let scopeMissing = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (value) buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const parsed = JSON.parse(line);
+          if (parsed?.error === 'drive_scope_missing') {
+            scopeMissing = true;
+            break;
+          }
+          setBulkImportResults((prev) => [...prev, parsed]);
+        }
+        if (scopeMissing || done) break;
+      }
+
+      if (scopeMissing) {
+        setBulkImportStatus('idle');
+        requestDriveSignInForBulkImport();
+        return;
+      }
+      setBulkImportStatus('done');
+      posthog.capture('deckBuilder.bulkImportFromDisk.finish', { fileCount: files.length });
+    } catch (err: any) {
+      setBulkImportError(err?.message || 'Import failed');
+      setBulkImportStatus('done');
+    }
+  };
+
+  const closeBulkImportResults = () => {
+    setBulkImportStatus('idle');
+    setBulkImportResults([]);
+    setBulkImportSkipped([]);
+    setBulkImportError(null);
   };
 
   const fetchDriveFile = async (driveFile: { id: string; name: string }, piles?: DeckPile[]) => {
@@ -1055,7 +1184,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             >
               <FaFileAlt />
             </button>
-            <DeckUploader onFileLoad={handleFileLoad} />
+            <DeckUploader onFilesLoad={handleFilesLoad} />
             <Link
               href="/import-trekcc"
               target="_blank"
@@ -1747,6 +1876,71 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           onCreateFolder={createDriveFolder}
           onClose={cancelSaveAs}
         />
+      )}
+
+      {showBulkSaveAsDialog && bulkImportPending && (
+        <SaveAsDialog
+          deckTitle={`${bulkImportPending.length} decks`}
+          driveFiles={driveFiles}
+          inProgress={loadingFromGDrive}
+          onConfirm={confirmBulkSaveAs}
+          onCreateFolder={createDriveFolder}
+          onClose={cancelBulkSaveAs}
+        />
+      )}
+
+      {bulkImportStatus !== 'idle' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-bg-secondary border border-white/10 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h2 className="text-lg font-semibold text-text-primary mb-3">Importing decks from disk</h2>
+            {bulkImportStatus === 'saving' && bulkImportResults.length === 0 && (
+              <p className="text-text-secondary text-sm mb-4">Saving decks to Google Drive&hellip;</p>
+            )}
+            {bulkImportError && <p className="text-red-400 text-sm mb-4">{bulkImportError}</p>}
+            {(bulkImportResults.length > 0 || bulkImportSkipped.length > 0) && (
+              <ul className="space-y-2 mb-4 max-h-64 overflow-y-auto text-sm">
+                {bulkImportResults.map((r, i) => (
+                  <li key={`bulk-result-${i}`} className="flex justify-between border-b border-white/10 pb-1">
+                    <span>
+                      {r.title}
+                      {r.status === 'failed' && r.error && (
+                        <span className="block text-xs text-red-400">{r.error}</span>
+                      )}
+                    </span>
+                    <span
+                      className={
+                        r.status === 'failed'
+                          ? 'text-red-400'
+                          : r.status === 'updated'
+                          ? 'text-blue-400'
+                          : 'text-green-400'
+                      }
+                    >
+                      {r.status}
+                    </span>
+                  </li>
+                ))}
+                {bulkImportSkipped.map((s, i) => (
+                  <li key={`bulk-skipped-${i}`} className="flex justify-between border-b border-white/10 pb-1">
+                    <span>
+                      {s.name}
+                      <span className="block text-xs text-red-400">{s.error}</span>
+                    </span>
+                    <span className="text-red-400">skipped</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {bulkImportStatus === 'done' && (
+              <button
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm"
+                onClick={closeBulkImportResults}
+              >
+                Close
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

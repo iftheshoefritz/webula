@@ -28,10 +28,12 @@ export type IdempotentWriteResult = { status: 'created' | 'updated'; fileId: str
 // Creates a Drive appDataFolder file for a deck, or updates it in place if a file with
 // a matching trekccDeckId appProperty already exists. Falls back to always creating a
 // new file when no trekccDeckId is given (matches the previous, non-idempotent behavior
-// used by the manual single-deck save flow).
+// used by the manual single-deck save flow). targetParentId picks the destination folder
+// on create (defaulting to the appDataFolder root); it has no effect on an update, which
+// always writes in place.
 export async function writeDeckIdempotent(
   drive: drive_v3.Drive,
-  { fileName, content, trekccDeckId }: { fileName: string; content: string; trekccDeckId?: string | null }
+  { fileName, content, trekccDeckId, targetParentId }: { fileName: string; content: string; trekccDeckId?: string | null; targetParentId?: string }
 ): Promise<IdempotentWriteResult> {
   const media = {
     mimeType: DECK_MIME_TYPE,
@@ -52,7 +54,7 @@ export async function writeDeckIdempotent(
   const requestBody: drive_v3.Schema$File = {
     name: fileName,
     mimeType: DECK_MIME_TYPE,
-    parents: ['appDataFolder'],
+    parents: [targetParentId || 'appDataFolder'],
     ...(trekccDeckId ? { appProperties: { [TREKCC_DECK_ID_PROPERTY]: trekccDeckId } } : {}),
   };
 
