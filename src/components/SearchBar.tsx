@@ -8,7 +8,7 @@ interface SearchBarProps {
   setSearchQuery: (query: string) => void;
   variant?: 'legacy' | 'styled';
   autoFocus?: boolean;
-  /** Optional result count label (e.g. "38 unique · 42 cards") shown inside the search bar. */
+  /** Optional result count label (e.g. "38 cards, 42 versions") shown inside the search bar. */
   countLabel?: string;
 }
 

@@ -148,21 +148,21 @@ describe('SearchBar (styled variant)', () => {
 
   it('does not show a count label when countLabel is not provided', () => {
     render(<SearchBar searchQuery="" setSearchQuery={jest.fn()} variant="styled" />);
-    expect(screen.queryByText(/unique/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/version/)).not.toBeInTheDocument();
   });
 
   it('shows the count label inside the search bar when provided', () => {
     render(
-      <SearchBar searchQuery="" setSearchQuery={jest.fn()} variant="styled" countLabel="38 unique · 42 cards" />
+      <SearchBar searchQuery="" setSearchQuery={jest.fn()} variant="styled" countLabel="38 cards, 42 versions" />
     );
-    expect(screen.getByText('38 unique · 42 cards')).toBeInTheDocument();
+    expect(screen.getByText('38 cards, 42 versions')).toBeInTheDocument();
   });
 
   it('still shows the count label alongside the clear button when the input has a value', () => {
     render(
-      <SearchBar searchQuery="picard" setSearchQuery={jest.fn()} variant="styled" countLabel="1 unique · 1 card" />
+      <SearchBar searchQuery="picard" setSearchQuery={jest.fn()} variant="styled" countLabel="1 card, 1 version" />
     );
-    expect(screen.getByText('1 unique · 1 card')).toBeInTheDocument();
+    expect(screen.getByText('1 card, 1 version')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /clear search/i })).toBeInTheDocument();
   });
 });
