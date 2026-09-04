@@ -34,6 +34,7 @@ import Link from 'next/link';
 import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
+import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
 import { isEarlyAccessUser } from '../lib/featureFlags';
 import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
@@ -166,6 +167,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
   const [searchQuery, setSearchQuery] = useState('');
   const filteredData = useFilterData(false, data, columns, searchQuery);
+  const cardCountLabel = useMemo(() => formatCardCountLabel(getCardCounts(filteredData)), [filteredData]);
 
   const [localCurrentDeck, setLocalCurrentDeck] = useLocalStorage<Deck>('currentDeck', {});
   const [fixtureCurrentDeck, setFixtureCurrentDeck] = useState<Deck>({});
@@ -996,6 +998,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           </button>
         </div>
         <SearchPills searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+        <div className="mt-2 text-xs text-text-muted">{cardCountLabel}</div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
         <SearchResults

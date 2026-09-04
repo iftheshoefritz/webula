@@ -100,6 +100,22 @@ describe('CardSearchClient', () => {
     expect(screen.getByTestId('search-results')).toHaveTextContent('0 items');
   });
 
+  it('renders a count of matched cards for the current search', () => {
+    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+
+    render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+    expect(screen.getAllByText('1 unique · 1 card').length).toBeGreaterThan(0);
+  });
+
+  it('renders a zero-result count when the search matches nothing', () => {
+    (useFilterData as jest.Mock).mockReturnValue([]);
+
+    render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+    expect(screen.getAllByText('0 unique · 0 cards').length).toBeGreaterThan(0);
+  });
+
   it('passes useWindowScroll=true to SearchResults for window-based scrolling', () => {
     (useFilterData as jest.Mock).mockReturnValue(mockCardData);
 
