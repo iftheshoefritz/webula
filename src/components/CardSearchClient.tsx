@@ -8,6 +8,7 @@ import SearchResults from './SearchResults';
 import useFilterData from '../hooks/useFilterData';
 import useScrollVisibility from '../hooks/useScrollVisibility';
 import type { CardData } from '../lib/loadCards';
+import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import { PreviewBanner } from './PreviewBanner';
 
 interface CardSearchClientProps {
@@ -41,6 +42,7 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
     [router]
   );
   const filteredData = useFilterData(false, data, columns, searchQuery);
+  const cardCountLabel = useMemo(() => formatCardCountLabel(getCardCounts(filteredData)), [filteredData]);
   const isVisible = useScrollVisibility({ suspended: isPopoverOpen });
   const overlayRef = useRef<HTMLDivElement>(null);
   const compactBarRef = useRef<HTMLDivElement>(null);
@@ -144,6 +146,7 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
               setSearchQuery={setSearchQuery}
               onPopoverOpenChange={setIsPopoverOpen}
             />
+            <div className="mt-2 text-xs text-text-muted">{cardCountLabel}</div>
           </div>
         </div>
       </div>
@@ -163,6 +166,7 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
           <span className={`flex-1 text-sm truncate ${compactBarSummary ? 'text-text-primary' : 'text-text-muted'}`}>
             {compactBarSummary || 'Search cards...'}
           </span>
+          <span className="text-text-muted text-xs whitespace-nowrap">{cardCountLabel}</span>
           <span className="text-text-muted text-xs">▾</span>
         </button>
       </div>
@@ -191,6 +195,7 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
               setSearchQuery={setSearchQuery}
               onPopoverOpenChange={setIsPopoverOpen}
             />
+            <div className="mt-2 text-xs text-text-muted">{cardCountLabel}</div>
           </div>
         </div>
       )}
