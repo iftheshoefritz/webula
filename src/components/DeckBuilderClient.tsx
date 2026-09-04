@@ -986,7 +986,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       <div className="shrink-0">
         <div className="flex items-start gap-2">
           <div className="flex-1">
-            <SearchBar ref={searchInputRef} searchQuery={searchQuery} setSearchQuery={setSearchQuery} variant="styled" />
+            <SearchBar
+              ref={searchInputRef}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              variant="styled"
+              countLabel={cardCountLabel}
+            />
           </div>
           <button
             onClick={() => setViewMode(viewMode === 'image' ? 'list' : 'image')}
@@ -998,7 +1004,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           </button>
         </div>
         <SearchPills searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-        <div className="mt-2 text-xs text-text-muted">{cardCountLabel}</div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
         <SearchResults

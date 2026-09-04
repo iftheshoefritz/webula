@@ -8,6 +8,8 @@ interface SearchBarProps {
   setSearchQuery: (query: string) => void;
   variant?: 'legacy' | 'styled';
   autoFocus?: boolean;
+  /** Optional result count label (e.g. "38 unique · 42 cards") shown inside the search bar. */
+  countLabel?: string;
 }
 
 const PARSER_OPTIONS = {
@@ -39,7 +41,7 @@ export function extractFieldPortion(query: string, textPortion: string): string 
 }
 
 const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(
-  function SearchBar({ searchQuery, setSearchQuery, variant = "legacy", autoFocus }, ref) {
+  function SearchBar({ searchQuery, setSearchQuery, variant = "legacy", autoFocus, countLabel }, ref) {
     // Show only the free-text portion of the query in the input
     const [localTextQuery, setLocalTextQuery] = useState(() => extractTextPortion(searchQuery));
     // Store field-filter portion separately so we can reconstruct the full query
@@ -93,8 +95,13 @@ const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(
               setLocalTextQuery(e.target.value);
             }}
             autoFocus={autoFocus}
-            className="input-search"
+            className={`input-search${countLabel ? ' pr-44' : ''}`}
           />
+          {countLabel && (
+            <span className="absolute right-9 top-1/2 -translate-y-1/2 text-text-muted text-xs whitespace-nowrap pointer-events-none">
+              {countLabel}
+            </span>
+          )}
           <span className="input-search-icon">⌕</span>
           {localTextQuery && (
             <button

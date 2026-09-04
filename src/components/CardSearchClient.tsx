@@ -138,6 +138,7 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
                   searchQuery={searchQuery}
                   setSearchQuery={setSearchQuery}
                   variant="styled"
+                  countLabel={cardCountLabel}
                 />
               </div>
             </div>
@@ -146,7 +147,6 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
               setSearchQuery={setSearchQuery}
               onPopoverOpenChange={setIsPopoverOpen}
             />
-            <div className="mt-2 text-xs text-text-muted">{cardCountLabel}</div>
           </div>
         </div>
       </div>
@@ -189,13 +189,13 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
               setSearchQuery={setSearchQuery}
               variant="styled"
               autoFocus
+              countLabel={cardCountLabel}
             />
             <SearchPills
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               onPopoverOpenChange={setIsPopoverOpen}
             />
-            <div className="mt-2 text-xs text-text-muted">{cardCountLabel}</div>
           </div>
         </div>
       )}
