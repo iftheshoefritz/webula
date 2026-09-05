@@ -67,7 +67,7 @@ Re-labelling the issue rewrites that same comment rather than adding another. Th
 
 ## Label agent failures (`agent-failure-label.yml`)
 **Event:** Any of the Claude workflows above completes with the `failure` conclusion
-**Action:** No Claude. `scripts/classify_agent_failure.sh` downloads the run logs, works out why the run failed, finds the issue or PR the run acted on, and adds an `agent-error:<reason>` label to it. An older `agent-error:` label on the same issue or PR is removed, so only the newest reason stays. The workflow also adds a comment that names every job that failed and links straight to the log of that job, because the run URL alone points at the run overview.
+**Action:** No Claude. `scripts/classify_agent_failure.sh` downloads the run logs, works out why the run failed, finds the issue or PR the run acted on, and adds an `agent-error:<reason>` label to it. An older `agent-error:` label on the same issue or PR is removed, so only the newest reason stays. The workflow also adds a comment that names every job that failed and links straight to the log of that job, because the run URL alone points at the run overview. For an `agent-error:max-turns` failure, the comment also asks the next agent to find the parts of the work that consumed the most turns, and to recommend how to reduce them or what work to extract into sub-issues.
 
 The script finds the issue or PR number in the prompt that the runner echoes near the top of the log (`GitHub issue #507`, `Pull request #512`), and falls back to an `issue-<number>-<description>` branch name.
 
