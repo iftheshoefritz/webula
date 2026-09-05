@@ -11,6 +11,7 @@ import { DrivePickerModal } from './DrivePickerModal';
 import { SaveAsDialog } from './SaveAsDialog';
 import PileAggregate from './PileAggregate';
 import IconPill from './IconPill';
+import CollapsibleSection from './CollapsibleSection';
 import KeywordBadge from './KeywordBadge';
 import SpeciesBadge from './SpeciesBadge';
 import PileAggregateCostChart from './PileAggregateCostChart';
@@ -29,7 +30,7 @@ import { missionRequirements, parseMissionRequirements } from '../lib/missionReq
 import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
@@ -40,28 +41,6 @@ import useDeckState from '../hooks/useDeckState';
 interface DeckBuilderClientProps {
   data: CardData[];
   columns: string[];
-}
-
-interface CollapsibleSectionProps {
-  title: string;
-  children: React.ReactNode;
-  isCollapsed: boolean;
-  onToggle: () => void;
-}
-
-function CollapsibleSection({ title, children, isCollapsed, onToggle }: CollapsibleSectionProps) {
-  return (
-    <div className="container mx-auto px-4 py-1 lg:py-4">
-      <button
-        onClick={onToggle}
-        className="text-sm mt-2 mb-1 flex items-center gap-2 w-full text-left text-text-secondary"
-      >
-        {title}
-        {isCollapsed ? <FaChevronRight className="text-lg" /> : <FaChevronDown className="text-lg" />}
-      </button>
-      {!isCollapsed && children}
-    </div>
-  );
 }
 
 function MissionBranchSelector({
