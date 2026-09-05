@@ -8,6 +8,8 @@
 //   "[NA] cards"   = Non-Aligned affiliation
 //   "equipment"    = type === 'equipment'
 
+import { stripVariantSuffix } from './cardCount';
+
 type CardRow = Record<string, any>;
 type HQPredicate = (card: CardRow) => boolean;
 
@@ -229,3 +231,26 @@ export const HQ_PLAYABILITY: Record<string, HQPredicate> = {
   'vidiia locus of infection': (card) =>
     card.affiliation.includes('vidiian') || isNA(card) || isEquipment(card),
 };
+
+// Cards whose own gametext grants playability at specific HQ locations,
+// independent of their affiliation/icons (e.g. "You may play this personnel
+// at [HQ]{Bajor}"). Keys are lowercased card names (shared across *VP variants
+// since gametext is identical), values are lowercased HQ-name substrings
+// matched against HQ_NAMES via startsWith.
+const CARD_SPECIFIC_HQ_LOCATIONS: Record<string, string[]> = {
+  'kira nerys starfleet emissary': ['bajor', 'cardassia prime'],
+  'bejal otner wormhole theorist': ['mouth of the wormhole'],
+  yelsar: ['mouth of the wormhole'],
+  'kaga melodious epicure': ['mouth of the wormhole'],
+  'odo bajoran representative': ['mouth of the wormhole'],
+  'odo stalwart ally': ['cardassia prime'],
+};
+
+// Combines the affiliation/icon-based HQ_PLAYABILITY predicates with the
+// per-card location overrides above. A card matches if either applies.
+export function reportsToMatches(card: CardRow, match: string): boolean {
+  const predicate = HQ_PLAYABILITY[match];
+  if (predicate && predicate(card)) return true;
+  const baseName = stripVariantSuffix(card.name);
+  return !!CARD_SPECIFIC_HQ_LOCATIONS[baseName]?.some((loc) => match.startsWith(loc));
+}

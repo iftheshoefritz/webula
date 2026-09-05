@@ -1,7 +1,7 @@
 import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from './constants';
 import { AFFILIATION_ABBREVIATIONS } from './missionRequirements';
-import { HQ_PLAYABILITY } from './hqPlayability';
+import { reportsToMatches } from './hqPlayability';
 
 const QUOTE_CHARS_REGEX = /[""«»\u2018\u2019\u201C\u201D]/g;
 
@@ -99,8 +99,7 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
                 return !affiliationText.includes(match) && !(abbrev && affiliationText.includes(abbrev));
               }
               if (column === 'reportsto') {
-                const predicate = HQ_PLAYABILITY[match];
-                return !predicate || !predicate(row);
+                return !reportsToMatches(row, match);
               }
               if (column === 'skills') {
                 return !skillTokens(row[column]).includes(match);
@@ -131,8 +130,7 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
                 return affiliationText.includes(match) || (abbrev && affiliationText.includes(abbrev));
               }
               if (column === 'reportsto') {
-                const predicate = HQ_PLAYABILITY[match];
-                return predicate ? predicate(row) : false;
+                return reportsToMatches(row, match);
               }
               if (column === 'skills') {
                 return skillTokens(row[column]).includes(match);
