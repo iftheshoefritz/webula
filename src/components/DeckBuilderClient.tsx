@@ -23,21 +23,19 @@ import SearchOverlay from './SearchOverlay';
 import SearchBar from './SearchBar';
 import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
-import { CardDef, Deck } from '../types';
+import { CardDef } from '../types';
 import { signIn } from 'next-auth/react';
-import { aboveMinimumCount, belowMaximumCount, deckFromTsv, decrementedRow, findExistingOrUseRow, incrementedRow, mergeDeckPiles } from '../app/decks/deckBuilderUtils';
 import { missionRequirements, parseMissionRequirements } from '../lib/missionRequirements';
 import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
-import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import Link from 'next/link';
 import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronRight, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
-import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
 import { isEarlyAccessUser } from '../lib/featureFlags';
 import useDriveSync from '../hooks/useDriveSync';
+import useDeckState from '../hooks/useDeckState';
 
 interface DeckBuilderClientProps {
   data: CardData[];
@@ -154,16 +152,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const filteredData = useFilterData(false, data, columns, searchQuery);
   const cardCountLabel = useMemo(() => formatCardCountLabel(getCardCounts(filteredData)), [filteredData]);
 
-  const [localCurrentDeck, setLocalCurrentDeck] = useLocalStorage<Deck>('currentDeck', {});
-  const [fixtureCurrentDeck, setFixtureCurrentDeck] = useState<Deck>({});
-  const currentDeck = isFixture ? fixtureCurrentDeck : localCurrentDeck;
-  const setCurrentDeck = isFixture ? setFixtureCurrentDeck : setLocalCurrentDeck;
-  const [deckTitle, setDeckTitle] = useLocalStorage<string>('deckTitle', '');
-  // Per-mission chosen OR branch index (0-based). Absent = all branches included (conservative default).
-  const [missionBranchSelections, setMissionBranchSelections] = useLocalStorage<Record<string, number | null>>(
-    'missionBranchSelections',
-    {}
-  );
   const [analysisCollapsed, setAnalysisCollapsed] = useLocalStorage<Record<string, boolean>>('analysisCollapsed', {
     'Personnel skills': true,
     'Keywords': true,
@@ -172,7 +160,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     'Costs': true,
     'Attributes': true,
   });
-  const [isDirty, setIsDirty] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'copying' | 'copied' | 'error'>('idle');
   const [pendingShareContent, setPendingShareContent] = useState<string | null>(null);
   const [pendingShareTitle, setPendingShareTitle] = useState<string | null>(null);
@@ -180,20 +167,28 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [shareLoadError, setShareLoadError] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const isFirstRender = useRef(true);
 
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    setIsDirty(true);
-  }, [currentDeck, deckTitle]);
-
-  useEffect(() => {
-    if (!isFixture || data.length === 0) return;
-    setFixtureCurrentDeck(deckFromTsv(PRACTICE_DECK_TSV, data));
-  }, [data, isFixture]);
+  const {
+    currentDeck,
+    setCurrentDeck,
+    deckTitle,
+    setDeckTitle,
+    missionBranchSelections,
+    setMissionBranchSelections,
+    isDirty,
+    clearDirty,
+    incrementIncluded,
+    decrementIncluded,
+    clearDeck,
+    handleFileLoad,
+  } = useDeckState({
+    data,
+    isFixture,
+    pendingShareContent,
+    pendingShareTitle,
+    setPendingShareContent,
+    setPendingShareWarning,
+  });
 
   useEffect(() => {
     (async () => {
@@ -212,31 +207,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       }
     })();
   }, []);
-
-  const handleFileLoad = (name: string, contents: string, piles?: DeckPile[]) => {
-    posthog.capture('deckBuilder.handleFileLoad.start');
-
-    const incoming = deckFromTsv(contents, data);
-    const next = piles ? mergeDeckPiles(currentDeck, incoming, piles) : incoming;
-    setCurrentDeck(next);
-    if (name && !piles) {
-      setDeckTitle(name.replace('.txt', ''));
-      setMissionBranchSelections({});
-    }
-    posthog.capture('deckBuilder.handleFileLoad.finish', { lines: Object.keys(currentDeck).length });
-  };
-
-  useEffect(() => {
-    if (!pendingShareContent || data.length === 0) return;
-    const deckIsEmpty = Object.keys(currentDeck).length === 0;
-    if (deckIsEmpty) {
-      handleFileLoad(pendingShareTitle || 'shared-deck', pendingShareContent);
-      setPendingShareContent(null);
-    } else {
-      setPendingShareWarning(true);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingShareContent, data]);
 
   const createLackeyTSV = (): string => {
     const lackeyPileNameFor: Record<string, string> = {
@@ -314,53 +284,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     deckTitle,
     createLackeyTSV,
     handleFileLoad,
-    clearDirty: () => setIsDirty(false),
+    clearDirty,
   });
-
-  const incrementIncluded = useCallback(
-    (row: CardDef) => {
-      if (belowMaximumCount(currentDeck[row.collectorsinfo])) {
-        const currentRow = findExistingOrUseRow(currentDeck, row);
-        const newRow = incrementedRow(currentRow);
-        setCurrentDeck((prevState) => ({
-          ...prevState,
-          [row.collectorsinfo]: {
-            count: newRow.count,
-            row: newRow,
-          },
-        }));
-      }
-    },
-    [currentDeck, setCurrentDeck]
-  );
-
-  const decrementIncluded = useCallback(
-    (event: any, row: CardDef) => {
-      event.preventDefault();
-      if (aboveMinimumCount(currentDeck[row.collectorsinfo])) {
-        const newRow = decrementedRow(currentDeck[row.collectorsinfo].row);
-        setCurrentDeck((prevState) => ({
-          ...prevState,
-          [row.collectorsinfo]: {
-            count: newRow.count,
-            row: newRow,
-          },
-        }));
-      }
-    },
-    [currentDeck, setCurrentDeck]
-  );
-
-  const clearDeck = () => {
-    const message = isDirty
-      ? 'You have unsaved changes. This will start a new deck. Your saved decks are not affected. Are you sure?'
-      : 'This will start a new deck. Your saved decks are not affected. Are you sure?';
-    if (!window.confirm(message)) return;
-    setCurrentDeck({});
-    setDeckTitle('');
-    resetDeckFile();
-    setMissionBranchSelections({});
-  };
 
   const exportLackeyDeckToDisk = () => {
     posthog.capture('deckBuilder.lackeyExport.start');
@@ -766,7 +691,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 <div className="absolute right-0 top-full mt-1 z-20 bg-[#131713] border border-white/20 rounded shadow-lg py-1 flex flex-col min-w-[180px]">
                   <button
                     className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 text-left"
-                    onClick={() => { clearDeck(); setDeckActionsOpen(false); }}
+                    onClick={() => { clearDeck(resetDeckFile); setDeckActionsOpen(false); }}
                   >
                     <FaFileAlt className="shrink-0" />
                     <span>New deck</span>
@@ -867,7 +792,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           <div className="flex justify-start items-center space-x-2">
             <button
               className="btn-icon"
-              onClick={clearDeck}
+              onClick={() => clearDeck(resetDeckFile)}
               data-tooltip-id="button-tooltip"
               data-tooltip-content="Start a new deck (your saved decks are not affected)"
             >
