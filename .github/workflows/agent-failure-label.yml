@@ -88,6 +88,42 @@ jobs:
 
           echo "Labelled #$TARGET with $LABEL ($WORKFLOW: $RUN_URL)"
 
+      - name: Comment with the failing job
+        if: steps.classify.outputs.target != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REASON: ${{ steps.classify.outputs.reason }}
+          TARGET: ${{ steps.classify.outputs.target }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          FAILED_JOBS: ${{ steps.classify.outputs.failed_jobs }}
+        run: |
+          set -euo pipefail
+
+          JOBS="$FAILED_JOBS"
+          if [ -z "$JOBS" ]; then
+            JOBS="- No failed job was reported. Open the run and read every job."
+          fi
+
+          BODY="$(cat <<EOF
+          The **$WORKFLOW** workflow failed, so I added the \`agent-error:$REASON\` label.
+
+          These jobs failed:
+
+          $JOBS
+
+          Run: $RUN_URL
+
+          Read the log of the failed job before you work on this again.
+          EOF
+          )"
+
+          # An issue number and a PR number come from the same series, so try
+          # the issue command first and fall back to the PR command.
+          gh issue comment "$TARGET" --repo "$REPO" --body "$BODY" \
+            || gh pr comment "$TARGET" --repo "$REPO" --body "$BODY"
+
       - name: Report when no target was found
         if: steps.classify.outputs.target == ''
         run: |
