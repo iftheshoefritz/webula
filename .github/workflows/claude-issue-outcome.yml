@@ -60,5 +60,11 @@ jobs:
                Then update the issue using:
                `gh issue edit ${{ github.event.issue.number }} --body "<new body with outcome prepended>"`
 
+            Never add the "ready-for-dev" label to an issue, and never create an issue that
+            carries it. Only a person applies that label. A bot that applies it starts the
+            Claude Issue Implementation workflow, which then stops at once with "Workflow
+            initiated by non-human actor". If you make an issue that is ready to implement,
+            say so in the issue body and leave the label to the owner.
+
             Be concise and factual. Only describe what was actually implemented, not what was planned.
           claude_args: "--model claude-sonnet-5 --max-turns 20 --dangerously-skip-permissions"

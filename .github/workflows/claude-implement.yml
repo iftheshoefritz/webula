@@ -54,6 +54,12 @@ jobs:
                - A brief summary of what was changed and why
                - A "## Visual Verification" section describing which pages you visited and what you confirmed looked correct
 
+            Never add the "ready-for-dev" label to an issue, and never create an issue that
+            carries it. Only a person applies that label. A bot that applies it starts the
+            Claude Issue Implementation workflow, which then stops at once with "Workflow
+            initiated by non-human actor". If you make an issue that is ready to implement,
+            say so in the issue body and leave the label to the owner.
+
             Be thorough but focused. Only change what is necessary to implement the issue. Reference the AGENTS.md file for project conventions and commands.
           claude_args: "--model claude-sonnet-5 --max-turns 80 --dangerously-skip-permissions"
           show_full_output: "true"

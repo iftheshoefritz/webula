@@ -44,6 +44,12 @@ jobs:
                comment on issue #${{ github.event.issue.number }}.
             2. Remove the "needs-elaboration" label from issue #${{ github.event.issue.number }}.
 
+            Never add the "ready-for-dev" label to an issue, and never create an issue that
+            carries it. Only a person applies that label. A bot that applies it starts the
+            Claude Issue Implementation workflow, which then stops at once with "Workflow
+            initiated by non-human actor". If you make an issue that is ready to implement,
+            say so in the issue body and leave the label to the owner.
+
             Be concise and concrete. Reference specific file paths and function names where applicable.
           claude_args: "--model claude-sonnet-5 --max-turns 30 --dangerously-skip-permissions"
           show_full_output: "true"

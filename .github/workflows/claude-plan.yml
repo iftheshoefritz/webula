@@ -121,6 +121,12 @@ jobs:
 
             Then remove the "needs-plan" label from issue #${{ github.event.issue.number }}.
 
+            Never add the "ready-for-dev" label to an issue, and never create an issue that
+            carries it. Only a person applies that label. A bot that applies it starts the
+            Claude Issue Implementation workflow, which then stops at once with "Workflow
+            initiated by non-human actor". If you make an issue that is ready to implement,
+            say so in the issue body and leave the label to the owner.
+
             Be concise and concrete. Assert only what the code actually shows. Reference the AGENTS.md file
             for project conventions and commands.
           claude_args: "--model claude-sonnet-5 --max-turns 40 --dangerously-skip-permissions"
