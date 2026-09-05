@@ -91,6 +91,58 @@ describe('filterCards reportsto:"grid 296 holographic training facility"', () =>
   });
 });
 
+describe('filterCards reportsto per-card HQ-location override', () => {
+  // Odo, Bajoran Representative's own gametext grants play at any "Mouth of
+  // the Wormhole" HQ, but his own affiliation/icons ([TN]) only satisfy the
+  // existing predicate for the Terok Nor variant, not the DS9 variant.
+  const odoBajoranRep = makeCard('odo bajoran representative', 'personnel', {
+    affiliation: 'bajoran', icons: '[cmd][tn]',
+  });
+  // Kira Nerys has no own-icon coverage for either Bajor or Cardassia Prime.
+  const kiraNerys = makeCard('kira nerys starfleet emissary', 'personnel', {
+    affiliation: 'federation', icons: '[cmd][ds9]',
+  });
+  const kiraNerysVP = makeCard('kira nerys starfleet emissary *vp', 'personnel', {
+    affiliation: 'federation', icons: '[cmd][ds9]',
+  });
+  const unrelatedPersonnel = makeCard('worf', 'personnel', { affiliation: 'klingon', icons: '' });
+
+  const CARDS = [odoBajoranRep, kiraNerys, kiraNerysVP, unrelatedPersonnel];
+
+  it('includes a card via its own granted location even without icon coverage', () => {
+    const result = filterCards(CARDS, COLUMNS, 'reportsto:"mouth of the wormhole deep space 9"');
+    expect(result.map(c => c.name)).toContain('odo bajoran representative');
+  });
+
+  it('still includes a card at HQs already covered by its icons', () => {
+    const result = filterCards(CARDS, COLUMNS, 'reportsto:"mouth of the wormhole terok nor"');
+    expect(result.map(c => c.name)).toContain('odo bajoran representative');
+  });
+
+  it('matches every HQ name starting with a granted location', () => {
+    const bajorResult = filterCards(CARDS, COLUMNS, 'reportsto:"bajor terok nor"');
+    expect(bajorResult.map(c => c.name)).toContain('kira nerys starfleet emissary');
+
+    const cardassiaResult = filterCards(CARDS, COLUMNS, 'reportsto:"cardassia prime bastion of resistance"');
+    expect(cardassiaResult.map(c => c.name)).toContain('kira nerys starfleet emissary');
+  });
+
+  it('applies the override to *VP variants sharing the same base card name', () => {
+    const result = filterCards(CARDS, COLUMNS, 'reportsto:"bajor terok nor"');
+    expect(result.map(c => c.name)).toContain('kira nerys starfleet emissary *vp');
+  });
+
+  it('excludes cards with no granted location and no icon coverage', () => {
+    const result = filterCards(CARDS, COLUMNS, 'reportsto:"bajor terok nor"');
+    expect(result.map(c => c.name)).not.toContain('worf');
+  });
+
+  it('excludes the card when negated even though its own gametext grants access', () => {
+    const result = filterCards(CARDS, COLUMNS, '-reportsto:"mouth of the wormhole deep space 9"');
+    expect(result.map(c => c.name)).not.toContain('odo bajoran representative');
+  });
+});
+
 describe('filterCards quadrant filter', () => {
   const alphaMission = makeCard('bajor', 'mission', { quadrant: 'a' });
   const deltaMission = makeCard('borg space', 'mission', { quadrant: 'd' });
