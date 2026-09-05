@@ -34,6 +34,19 @@ Re-labelling the issue rewrites that same comment rather than adding another. Th
 
 ---
 
+## The `ready-for-dev` label is for people only
+
+No Claude workflow adds `ready-for-dev`, and no agent adds it to an issue it creates.
+`anthropics/claude-code-action` refuses a run that a bot started ("Workflow initiated by
+non-human actor") unless the workflow sets `allowed_bots`. So a label from `claude[bot]`
+starts `claude-implement.yml`, the run stops after a few seconds, and `agent-failure-label.yml`
+puts `agent-error:startup-failure` on the issue for work that never ran.
+
+The rule is in AGENTS.md, which every prompt refers to, and again in the prompt of each
+workflow that can create or label an issue.
+
+---
+
 ## Claude Issue Implementation (`claude-implement.yml`)
 **Event:** Issue labeled `ready-for-dev`
 **Action:** Claude implements the feature/fix, runs tests, visually verifies via `yarn dev` + `agent-browser`, creates a branch, commits, and opens a PR targeting `main` with `Closes #<issue>`.

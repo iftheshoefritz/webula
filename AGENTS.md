@@ -102,6 +102,19 @@ Vercel runs both in one chain. The `buildCommand` in `vercel.json` is
 `NODE_ENV=test yarn test --ci && yarn build`, so a test failure stops the
 deployment before the build starts.
 
+## Labels an agent must not apply
+
+Never add the `ready-for-dev` label to an issue. This applies to issues you create,
+such as sub-issues of the issue you work on, and to issues you update.
+
+Only a person applies `ready-for-dev`. The label starts the Claude Issue Implementation
+workflow (`.github/workflows/claude-implement.yml`). When a bot applies it, the run starts
+and then stops at once with "Workflow initiated by non-human actor", and the repository
+gets an `agent-error:startup-failure` label for work that never ran.
+
+When you make an issue that is ready to implement, say so in the issue body and leave the
+label to the owner.
+
 ## PR Requirements
 
 All PRs from automated agents MUST include:
