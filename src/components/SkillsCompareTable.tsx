@@ -69,10 +69,21 @@ export default function SkillsCompareTable({ decks }: SkillsCompareTableProps) {
       </thead>
       <tbody>
         {sortedSkills.map((skill) => (
-          <tr key={skill} className="border-t border-white/10">
-            <td className="capitalize text-text-primary py-1 pr-4">{skill}</td>
-            {deckCounts.map(({ deck, counts }) => (
-              <td key={deck.id} className="text-right text-text-secondary py-1 px-2">
+          <tr key={skill} className="group border-t border-white/10">
+            <td
+              className={`capitalize text-text-primary py-1 pr-4 rounded-l transition-colors group-hover:bg-white/[0.04] ${
+                deckCounts.length === 0 ? 'rounded-r' : ''
+              }`}
+            >
+              {skill}
+            </td>
+            {deckCounts.map(({ deck, counts }, index) => (
+              <td
+                key={deck.id}
+                className={`text-right text-text-secondary py-1 px-2 transition-colors group-hover:bg-white/[0.04] ${
+                  index === deckCounts.length - 1 ? 'rounded-r' : ''
+                }`}
+              >
                 {counts[skill] ?? 0}
               </td>
             ))}

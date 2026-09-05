@@ -8,6 +8,18 @@ const makeRow = (overrides = {}) => ({
   ...overrides,
 });
 
+const decreaseThreshold = (times = 1) => {
+  const button = screen.getByLabelText('Decrease appearing in more than threshold');
+  for (let i = 0; i < times; i++) fireEvent.click(button);
+};
+
+const increaseThreshold = (times = 1) => {
+  const button = screen.getByLabelText('Increase appearing in more than threshold');
+  for (let i = 0; i < times; i++) fireEvent.click(button);
+};
+
+const getThresholdValue = () => screen.getByLabelText('Appearing in more than').textContent;
+
 describe('CardsInCommonTable', () => {
   it('groups rows by name across decks, summing print-variant copies', () => {
     render(
@@ -26,7 +38,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
+    decreaseThreshold(); // default threshold is 2 (deck count); lower it to 1
 
     const row = screen.getByText('Riker').closest('tr')!;
     const cells = within(row).getAllByRole('cell');
@@ -46,7 +58,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
+    decreaseThreshold(2); // default threshold is 3 (deck count); lower it to 1
 
     const row = screen.getByText('Riker').closest('tr')!;
     const cells = within(row).getAllByRole('cell');
@@ -64,7 +76,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    expect(screen.getByLabelText('Appearing in more than')).toHaveValue(3);
+    expect(getThresholdValue()).toBe('3');
   });
 
   it('shows no cards at the default threshold, since it equals the deck count', () => {
@@ -86,7 +98,7 @@ describe('CardsInCommonTable', () => {
     expect(screen.queryByText('Riker')).not.toBeInTheDocument();
     expect(screen.queryByText('Picard')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
+    decreaseThreshold();
 
     // Riker is in 2 decks (>1); Picard is in only 1 deck (not >1).
     expect(screen.getByText('Riker')).toBeInTheDocument();
@@ -107,9 +119,9 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '0' } });
+    decreaseThreshold(5); // attempt to go well below the minimum of 1
 
-    expect(screen.getByLabelText('Appearing in more than')).toHaveValue(1);
+    expect(getThresholdValue()).toBe('1');
     // Riker is in 2 decks (>1), so it's visible once clamped to the minimum threshold of 1.
     expect(screen.getByText('Riker')).toBeInTheDocument();
     expect(screen.queryByText('Picard')).not.toBeInTheDocument();
@@ -125,33 +137,29 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '5' } });
+    increaseThreshold(5); // attempt to go well above the deck count of 2
 
-    expect(screen.getByLabelText('Appearing in more than')).toHaveValue(2);
+    expect(getThresholdValue()).toBe('2');
   });
 
-  it('allows retyping the threshold via an empty intermediate state (#499)', () => {
+  it('applies hover/rounded row styling matching the deck builder list rows', () => {
     render(
       <CardsInCommonTable
         decks={[
           { id: 'a', name: 'Deck A', rows: [makeRow({ name: 'Riker' })] },
           { id: 'b', name: 'Deck B', rows: [makeRow({ name: 'Riker' })] },
-          { id: 'c', name: 'Deck C', rows: [makeRow({ name: 'Riker' })] },
-          { id: 'd', name: 'Deck D', rows: [makeRow({ name: 'Riker' })] },
-          { id: 'e', name: 'Deck E', rows: [makeRow({ name: 'Riker' })] },
         ]}
       />
     );
 
-    const input = screen.getByLabelText('Appearing in more than');
-    expect(input).toHaveValue(5);
+    decreaseThreshold();
 
-    // Simulate clearing the field (backspace) before typing a new digit.
-    fireEvent.change(input, { target: { value: '' } });
-    expect(input).toHaveValue(null);
-
-    fireEvent.change(input, { target: { value: '3' } });
-    expect(input).toHaveValue(3);
+    const row = screen.getByText('Riker').closest('tr')!;
+    expect(row.className).toContain('group');
+    const cells = within(row).getAllByRole('cell');
+    expect(cells[0].className).toContain('group-hover:bg-white/[0.04]');
+    expect(cells[0].className).toContain('rounded-l');
+    expect(cells[cells.length - 1].className).toContain('rounded-r');
   });
 
   it('sorts rows by a deck column descending on first header click', () => {
@@ -180,7 +188,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
+    decreaseThreshold();
     fireEvent.click(screen.getByRole('button', { name: 'Deck A' }));
 
     const rows = screen.getAllByRole('row').slice(1);
@@ -214,7 +222,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
+    decreaseThreshold();
     const header = screen.getByRole('button', { name: 'Deck A' });
     fireEvent.click(header);
     fireEvent.click(header);
@@ -243,7 +251,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
+    decreaseThreshold(2);
     fireEvent.click(screen.getByRole('button', { name: /# decks/i }));
 
     const rows = screen.getAllByRole('row').slice(1);
@@ -276,7 +284,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
+    decreaseThreshold();
 
     expect(screen.getByText('Kobayashi Maru')).toBeInTheDocument();
     expect(screen.queryByText('Riker')).not.toBeInTheDocument();
@@ -300,7 +308,7 @@ describe('CardsInCommonTable', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Appearing in more than'), { target: { value: '1' } });
+    decreaseThreshold();
     fireEvent.click(screen.getByRole('button', { name: 'Card' }));
 
     const rows = screen.getAllByRole('row').slice(1);

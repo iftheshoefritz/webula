@@ -51,6 +51,22 @@ describe('IconCompareTable', () => {
     expect(screen.queryByRole('img')).toBeNull();
   });
 
+  it('applies hover/rounded row styling matching the deck builder list rows', () => {
+    render(
+      <IconCompareTable
+        decks={[{ id: 'a', name: 'Deck A', rows: [makeRow({ icons: '[cmd]', count: 1 })] }]}
+        {...iconProps}
+      />
+    );
+    const img = screen.getByRole('img', { name: 'cmd' });
+    const row = img.closest('tr')!;
+    expect(row.className).toContain('group');
+    const cells = within(row).getAllByRole('cell');
+    expect(cells[0].className).toContain('group-hover:bg-white/[0.04]');
+    expect(cells[0].className).toContain('rounded-l');
+    expect(cells[cells.length - 1].className).toContain('rounded-r');
+  });
+
   it('sorts rows by a deck column descending on first header click', () => {
     render(
       <IconCompareTable

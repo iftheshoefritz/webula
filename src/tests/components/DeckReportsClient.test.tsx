@@ -294,6 +294,29 @@ describe('DeckReportsClient', () => {
     expect(capturedCardsInCommonDecks).toHaveLength(1);
   });
 
+  it('applies hover/rounded styling to the Selected decks list rows', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => '1\tTest Card',
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
+    });
+
+    await act(async () => {
+      await capturedOnConfirmSelection!([{ id: 'file-1', name: 'My Deck' }]);
+    });
+
+    const row = screen.getByText('My Deck').closest('li')!;
+    expect(row.className).toContain('hover:bg-white/[0.04]');
+    expect(row.className).toContain('rounded');
+    expect(row.className).toContain('transition-colors');
+  });
+
   it('shows a list of deck names and a skills table with a column per deck when 2+ decks are selected', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       json: async () => '1\tTest Card',
