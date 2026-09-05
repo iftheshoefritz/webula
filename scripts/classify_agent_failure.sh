@@ -5,10 +5,12 @@
 #
 # Usage: scripts/classify_agent_failure.sh <run-id> [repo]
 #
-# Writes three key=value lines to stdout, ready for $GITHUB_OUTPUT:
+# Writes these key=value lines to stdout, ready for $GITHUB_OUTPUT:
 #   reason=<slug>            one of the REASON_* slugs below
 #   target=<number>          issue or PR number, empty if none was found
 #   target_type=issue|pr     empty if no target was found
+#   failed_jobs=<markdown>   a multi-line block, one Markdown link per failed
+#                            job, in the $GITHUB_OUTPUT heredoc format
 #
 # Needs: gh (authenticated), unzip.
 
@@ -33,6 +35,8 @@ if ! gh api "repos/$REPO/actions/runs/$RUN_ID/logs" > "$workdir/logs.zip" 2>"$wo
   echo "reason=logs-unavailable"
   echo "target="
   echo "target_type="
+  echo "failed_jobs<<AGENT_FAILURE_JOBS_EOF"
+  echo "AGENT_FAILURE_JOBS_EOF"
   exit 0
 fi
 
@@ -100,6 +104,19 @@ if [ -z "$target" ]; then
   fi
 fi
 
+# Name and page link of every job that failed in this run. The run URL points
+# at the run overview only, so an agent has to guess which job failed. The Jobs
+# API gives a link straight to the log of the job.
+failed_jobs="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
+  --jq '.jobs[] | select(.conclusion == "failure") | "- [\(.name)](\(.html_url))"' \
+  2>/dev/null || true)"
+
 echo "reason=$reason"
 echo "target=$target"
 echo "target_type=$target_type"
+# A multi-line value needs the heredoc form of $GITHUB_OUTPUT.
+echo "failed_jobs<<AGENT_FAILURE_JOBS_EOF"
+if [ -n "$failed_jobs" ]; then
+  printf '%s\n' "$failed_jobs"
+fi
+echo "AGENT_FAILURE_JOBS_EOF"
