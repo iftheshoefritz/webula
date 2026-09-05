@@ -55,10 +55,21 @@ export default function CharacteristicCompareTable({
       </thead>
       <tbody>
         {sortedKeys.map((key) => (
-          <tr key={key} className="border-t border-white/10">
-            <td className="text-text-primary py-1 pr-4">{key}</td>
-            {deckCounts.map(({ deck, counts }) => (
-              <td key={deck.id} className="text-right text-text-secondary py-1 px-2">
+          <tr key={key} className="group border-t border-white/10">
+            <td
+              className={`text-text-primary py-1 pr-4 rounded-l transition-colors group-hover:bg-white/[0.04] ${
+                deckCounts.length === 0 ? 'rounded-r' : ''
+              }`}
+            >
+              {key}
+            </td>
+            {deckCounts.map(({ deck, counts }, index) => (
+              <td
+                key={deck.id}
+                className={`text-right text-text-secondary py-1 px-2 transition-colors group-hover:bg-white/[0.04] ${
+                  index === deckCounts.length - 1 ? 'rounded-r' : ''
+                }`}
+              >
                 {counts[key] ?? 0}
               </td>
             ))}

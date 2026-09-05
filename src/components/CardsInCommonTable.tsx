@@ -47,19 +47,13 @@ export default function CardsInCommonTable({ decks, filterFunction }: CardsInCom
   const rows = useMemo(() => aggregateCardsInCommon(decks, filterFunction), [decks, filterFunction]);
 
   const maxThreshold = Math.max(decks.length, 1);
-  // Raw text of the "Appearing in more than" input. `null` means the user hasn't touched it
-  // (falls back to `maxThreshold`); `''` represents a transient empty state while
-  // the user is retyping the value, which must NOT be force-clamped back to a
-  // number, or the next keystroke would be appended to the clamped value instead
-  // of starting fresh (see #499).
-  const [rawThreshold, setRawThreshold] = useState<string | null>(null);
+  // `null` means the user hasn't touched the stepper yet, so the threshold tracks
+  // the current deck count.
+  const [threshold, setThreshold] = useState<number | null>(null);
   const effectiveThreshold = useMemo(() => {
-    if (rawThreshold === null || rawThreshold === '') return maxThreshold;
-    const parsed = Number(rawThreshold);
-    if (Number.isNaN(parsed)) return maxThreshold;
-    return Math.min(Math.max(parsed, 1), maxThreshold);
-  }, [rawThreshold, maxThreshold]);
-  const displayThreshold = rawThreshold === '' ? '' : effectiveThreshold;
+    if (threshold === null) return maxThreshold;
+    return Math.min(Math.max(threshold, 1), maxThreshold);
+  }, [threshold, maxThreshold]);
 
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -97,22 +91,31 @@ export default function CardsInCommonTable({ decks, filterFunction }: CardsInCom
 
   return (
     <div className="flex flex-col gap-3">
-      <label className="flex items-center gap-2 text-sm text-text-secondary">
+      <div className="flex items-center gap-2 text-sm text-text-secondary">
         Appearing in more than
-        <input
-          type="number"
-          aria-label="Appearing in more than"
-          min={1}
-          max={maxThreshold}
-          value={displayThreshold}
-          onChange={(e) => setRawThreshold(e.target.value)}
-          onBlur={() => {
-            if (rawThreshold === '') setRawThreshold(null);
-          }}
-          className="w-16 bg-white/[0.05] text-text-primary text-sm py-1 px-2 rounded border border-white/10 focus:outline-none focus:border-accent/40"
-        />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setThreshold(Math.max(effectiveThreshold - 1, 1))}
+            className="btn-icon btn-icon-sm"
+            aria-label="Decrease appearing in more than threshold"
+          >
+            &minus;
+          </button>
+          <span className="font-mono text-lg min-w-[2ch] text-center" aria-label="Appearing in more than">
+            {effectiveThreshold}
+          </span>
+          <button
+            type="button"
+            onClick={() => setThreshold(Math.min(effectiveThreshold + 1, maxThreshold))}
+            className="btn-icon btn-icon-sm"
+            aria-label="Increase appearing in more than threshold"
+          >
+            +
+          </button>
+        </div>
         decks
-      </label>
+      </div>
       <table className="text-sm w-full">
         <thead>
           <tr>
@@ -144,14 +147,21 @@ export default function CardsInCommonTable({ decks, filterFunction }: CardsInCom
         </thead>
         <tbody>
           {sortedRows.map((row) => (
-            <tr key={row.name} className="border-t border-white/10">
-              <td className="text-text-primary py-1 pr-4">{row.name}</td>
+            <tr key={row.name} className="group border-t border-white/10">
+              <td className="text-text-primary py-1 pr-4 rounded-l transition-colors group-hover:bg-white/[0.04]">
+                {row.name}
+              </td>
               {decks.map((deck) => (
-                <td key={deck.id} className="text-right text-text-secondary py-1 px-2">
+                <td
+                  key={deck.id}
+                  className="text-right text-text-secondary py-1 px-2 transition-colors group-hover:bg-white/[0.04]"
+                >
                   {row.countsByDeckId[deck.id] ?? 0}
                 </td>
               ))}
-              <td className="text-right text-text-secondary py-1 px-2">{row.numDecks}</td>
+              <td className="text-right text-text-secondary py-1 px-2 rounded-r transition-colors group-hover:bg-white/[0.04]">
+                {row.numDecks}
+              </td>
             </tr>
           ))}
         </tbody>

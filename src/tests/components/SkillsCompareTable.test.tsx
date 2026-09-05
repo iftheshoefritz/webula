@@ -121,6 +121,20 @@ describe('SkillsCompareTable', () => {
     expect(relevant).toEqual([...relevant].sort((a, b) => a - b));
   });
 
+  it('applies hover/rounded row styling matching the deck builder list rows', () => {
+    render(
+      <SkillsCompareTable
+        decks={[{ id: 'a', name: 'Deck A', rows: [makeRow({ skills: 'diplomacy', count: 1 })] }]}
+      />
+    );
+    const row = screen.getByText('diplomacy').closest('tr')!;
+    expect(row.className).toContain('group');
+    const cells = within(row).getAllByRole('cell');
+    expect(cells[0].className).toContain('group-hover:bg-white/[0.04]');
+    expect(cells[0].className).toContain('rounded-l');
+    expect(cells[cells.length - 1].className).toContain('rounded-r');
+  });
+
   it('re-sorts by a different deck column when a different header is clicked, resetting to descending', () => {
     render(
       <SkillsCompareTable

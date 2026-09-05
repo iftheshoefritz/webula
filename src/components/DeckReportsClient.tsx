@@ -299,7 +299,10 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
         <h2 className="text-xl font-bold text-text-secondary">Selected decks</h2>
         <ul className="flex flex-col gap-2">
           {decks.map((deck) => (
-            <li key={deck.id} className="flex items-center justify-between border border-white/10 px-3 py-2">
+            <li
+              key={deck.id}
+              className="flex items-center justify-between border border-white/10 px-3 py-2 rounded hover:bg-white/[0.04] transition-colors"
+            >
               <span className="text-text-primary truncate">
                 {deck.name}
                 {deck.error && <span className="text-red-400 text-xs ml-2">({deck.error})</span>}

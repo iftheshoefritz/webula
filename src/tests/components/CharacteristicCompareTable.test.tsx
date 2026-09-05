@@ -94,6 +94,21 @@ describe('CharacteristicCompareTable', () => {
     expect(cells[2]).toHaveTextContent('0');
   });
 
+  it('applies hover/rounded row styling matching the deck builder list rows', () => {
+    render(
+      <CharacteristicCompareTable
+        decks={[{ id: 'a', name: 'Deck A', rows: [makeRow({ keywords: 'Diplomat', count: 1 })] }]}
+        {...keywordProps}
+      />
+    );
+    const row = screen.getByText('Diplomat').closest('tr')!;
+    expect(row.className).toContain('group');
+    const cells = within(row).getAllByRole('cell');
+    expect(cells[0].className).toContain('group-hover:bg-white/[0.04]');
+    expect(cells[0].className).toContain('rounded-l');
+    expect(cells[cells.length - 1].className).toContain('rounded-r');
+  });
+
   it('sorts rows by a deck column descending on first header click', () => {
     render(
       <CharacteristicCompareTable
