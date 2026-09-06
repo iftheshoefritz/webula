@@ -1032,6 +1032,12 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                       HQ
                     </button>
                     <button
+                      onClick={() => searchPile('type:mission -missiontype:h')}
+                      className="btn-secondary text-xs w-full"
+                    >
+                      Any non-HQ
+                    </button>
+                    <button
                       onClick={() => searchPile('type:mission missiontype:s')}
                       className="btn-secondary text-xs w-full"
                     >
@@ -1089,6 +1095,12 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                       className="btn-secondary text-xs w-full"
                     >
                       HQ
+                    </button>
+                    <button
+                      onClick={() => searchPile('type:mission -missiontype:h')}
+                      className="btn-secondary text-xs w-full"
+                    >
+                      Any non-HQ
                     </button>
                     <button
                       onClick={() => searchPile('type:mission missiontype:s')}
