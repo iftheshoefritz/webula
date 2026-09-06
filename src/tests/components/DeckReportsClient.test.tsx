@@ -41,7 +41,7 @@ jest.mock('../../components/CharacteristicCompareTable', () => ({
   },
 }));
 
-// Capture the props passed to IconCompareTable (Icons) so we can assert on the loaded decks.
+// Capture the props passed to IconCompareTable (Affiliation, Icons) so we can assert on the loaded decks.
 let capturedIconCompareTableDecks: { id: string; name: string; rows: unknown[] }[][] = [];
 jest.mock('../../components/IconCompareTable', () => ({
   __esModule: true,
@@ -185,16 +185,17 @@ describe('DeckReportsClient', () => {
     expect(capturedCardsInCommonDecks).toEqual([]);
   });
 
-  it('renders the Keywords/Species/Icons tables unconditionally, including with 0 decks', async () => {
+  it('renders the Keywords/Species/Affiliation/Icons tables unconditionally, including with 0 decks', async () => {
     await act(async () => {
       render(<DeckReportsClient data={testData} />);
     });
 
     expect(screen.getByText('Keywords')).toBeInTheDocument();
     expect(screen.getByText('Species')).toBeInTheDocument();
+    expect(screen.getByText('Affiliation')).toBeInTheDocument();
     expect(screen.getByText('Icons')).toBeInTheDocument();
     expect(capturedCharacteristicCompareTableDecks).toEqual([[], []]);
-    expect(capturedIconCompareTableDecks).toEqual([[]]);
+    expect(capturedIconCompareTableDecks).toEqual([[], []]);
   });
 
   it('renders the Costs and Attributes sections with 0 decks', async () => {

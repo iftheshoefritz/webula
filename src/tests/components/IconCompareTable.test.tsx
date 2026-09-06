@@ -112,4 +112,16 @@ describe('IconCompareTable', () => {
 
     expect(screen.getByText('Deck A (5)')).toBeInTheDocument();
   });
+
+  it('uses a custom renderIcon function to render the row label when provided', () => {
+    render(
+      <IconCompareTable
+        decks={[{ id: 'a', name: 'Deck A', rows: [makeRow({ icons: '[cmd]', count: 1 })] }]}
+        {...iconProps}
+        renderIcon={(key) => <span data-testid="custom-icon">{key}</span>}
+      />
+    );
+    expect(screen.getByTestId('custom-icon')).toHaveTextContent('cmd');
+    expect(screen.queryByRole('img')).toBeNull();
+  });
 });

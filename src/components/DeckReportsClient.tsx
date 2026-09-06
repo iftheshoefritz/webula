@@ -10,6 +10,7 @@ import SkillsCompareTable from './SkillsCompareTable';
 import CardsInCommonTable from './CardsInCommonTable';
 import CharacteristicCompareTable from './CharacteristicCompareTable';
 import IconCompareTable from './IconCompareTable';
+import AffiliationGlyph from './AffiliationGlyph';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import PileAggregateAttributeChart from './PileAggregateAttributeChart';
 import PileAggregateRadarChart from './PileAggregateRadarChart';
@@ -411,6 +412,22 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
               counts[species] = (counts[species] || 0) + count;
               return counts;
             }}
+          />
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold mb-2 text-text-secondary">Affiliation</h2>
+          <IconCompareTable
+            decks={decks}
+            label="Affiliation"
+            characteristicName="affiliation"
+            filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+            splitFunction={(affiliation) => [affiliation]}
+            assembleCounts={(counts, affiliation, count) => {
+              counts[affiliation] = (counts[affiliation] || 0) + count;
+              return counts;
+            }}
+            renderIcon={(key) => <AffiliationGlyph affiliation={key} />}
           />
         </section>
 
