@@ -18,6 +18,7 @@ interface IconCompareTableProps {
   filterFunction: (row: Record<string, any>) => boolean;
   splitFunction: (value: any) => any[];
   assembleCounts: (counts: Record<string, any>, item: any, count: number) => Record<string, any>;
+  renderIcon?: (key: string) => React.ReactNode;
 }
 
 export default function IconCompareTable({
@@ -27,6 +28,7 @@ export default function IconCompareTable({
   filterFunction,
   splitFunction,
   assembleCounts,
+  renderIcon = (key) => <IconGlyph icon={key} />,
 }: IconCompareTableProps) {
   const { deckCounts, sortedKeys, sortDeckId, sortDirection, handleHeaderClick } = useCharacteristicCompare(
     decks,
@@ -63,7 +65,7 @@ export default function IconCompareTable({
                 deckCounts.length === 0 ? 'rounded-r' : ''
               }`}
             >
-              <IconGlyph icon={key} />
+              {renderIcon(key)}
             </td>
             {deckCounts.map(({ deck, counts }, index) => (
               <td
