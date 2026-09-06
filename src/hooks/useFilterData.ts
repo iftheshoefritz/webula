@@ -4,19 +4,19 @@ import { filterCards } from '../lib/filterCards';
 
 type CardRow = Record<string, any>;
 
-const useFilterData = (loading: boolean, data: CardRow[], columns: string[], searchQuery: string): CardRow[] => {
+const useFilterData = (loading: boolean, data: CardRow[], columns: string[], searchQuery: string, deckRows?: CardRow[]): CardRow[] => {
   console.log('starting useFilterData');
   const [filteredData, setFilteredData] = useState<CardRow[]>([]);
 
   useEffect(() => {
     console.log(searchQuery);
-    const filtered = filterCards(data, columns, searchQuery);
+    const filtered = filterCards(data, columns, searchQuery, deckRows);
 
     if (JSON.stringify(filtered) !== JSON.stringify(filteredData)) {
       posthog.capture('deckBuilder.setFiltered', {q: searchQuery})
       setFilteredData(filtered);
     }
-  }, [searchQuery, columns, data]);
+  }, [searchQuery, columns, data, deckRows]);
 
   return filteredData;
 }

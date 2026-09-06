@@ -29,6 +29,7 @@ import SearchResults from './SearchResults';
 import { CardDef } from '../types';
 import { signIn } from 'next-auth/react';
 import { missionRequirements, parseMissionRequirements } from '../lib/missionRequirements';
+import { getReportsToOptions } from '../lib/reportsToOptions';
 import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import Link from 'next/link';
@@ -50,8 +51,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const isFixture = searchParams.get('fixture') === '1';
 
   const [searchQuery, setSearchQuery] = useState('');
-  const filteredData = useFilterData(false, data, columns, searchQuery);
-  const cardCountLabel = useMemo(() => formatCardCountLabel(getCardCounts(filteredData)), [filteredData]);
 
   const [analysisCollapsed, setAnalysisCollapsed] = useLocalStorage<Record<string, boolean>>('analysisCollapsed', {
     'Personnel skills': true,
@@ -273,6 +272,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       .filter((row) => row.count > 0);
   }, [currentDeck]);
 
+  const filteredData = useFilterData(false, data, columns, searchQuery, currentDeckRows);
+  const cardCountLabel = useMemo(() => formatCardCountLabel(getCardCounts(filteredData)), [filteredData]);
+
   const activeCompareDeckRows = compareDeckRows.length > 0 ? compareDeckRows : undefined;
 
   const costAttributeDecks = useMemo(() => {
@@ -356,56 +358,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   // Regular HQ missions (missiontype='h') use their name as the reportsto key.
   // No-HQ scenarios (Caretaker's Array, Prevent Historical Disruption, Ceti Alpha V)
   // are determined by the combination of missions and ships/events in the draw pile.
-  const hqOptions = useMemo((): HqOption[] => {
-    const options: HqOption[] = [];
-
-    // Regular HQ missions
-    const hqMissions = missions.filter((row) => row.missiontype === 'h');
-    for (const hq of hqMissions) {
-      options.push({ label: hq.name, value: hq.name.toLowerCase() });
-    }
-
-    // No-HQ: Caretaker's Array + U.S.S. Equinox
-    const hasCaretakers = missions.some((row) => row.name.startsWith("caretaker's array"));
-    if (hasCaretakers) {
-      const hasEquinox = currentDeckRows.some(
-        (row) => row.pile === 'draw' && row.type === 'ship' && row.name.includes('equinox')
-      );
-      const hasVoyager = currentDeckRows.some(
-        (row) => row.pile === 'draw' && row.type === 'ship' && (
-          row.name.includes('u.s.s. voyager') || (row.keywords || '').includes('commander: uss voyager')
-        )
-      );
-      if (hasEquinox) {
-        options.push({ label: "Caretaker's Array (Equinox)", value: "caretaker's array equinox" });
-      }
-      if (hasVoyager) {
-        options.push({ label: "Caretaker's Array (Voyager)", value: "caretaker's array voyager" });
-      }
-    }
-
-    // No-HQ: Prevent Historical Disruption + U.S.S. Relativity
-    const hasPreventHistorical = missions.some((row) => row.name.startsWith('prevent historical disruption'));
-    if (hasPreventHistorical) {
-      const hasRelativity = currentDeckRows.some(
-        (row) => row.pile === 'draw' && row.type === 'ship' && row.name.includes('relativity')
-      );
-      if (hasRelativity) {
-        options.push({ label: 'Prevent Historical Disruption (Relativity)', value: 'prevent historical disruption relativity' });
-      }
-    }
-
-    // No-HQ: To Rule In Hell (event in draw pile) + Ceti Alpha V (any version in missions)
-    const hasCetiAlphaV = missions.some((row) => row.name.startsWith('ceti alpha v'));
-    const hasToRuleInHell = currentDeckRows.some(
-      (row) => row.pile === 'draw' && row.name.includes('to rule in hell')
-    );
-    if (hasCetiAlphaV && hasToRuleInHell) {
-      options.push({ label: 'Ceti Alpha V (Khan)', value: 'ceti alpha v khan' });
-    }
-
-    return options;
-  }, [missions, currentDeckRows]);
+  const hqOptions = useMemo((): HqOption[] => getReportsToOptions(currentDeckRows), [currentDeckRows]);
 
   const compare = (a: string | undefined | null, b: string | undefined | null) => {
     return (a ?? '').localeCompare(b ?? '', 'en', { ignorePunctuation: true });
