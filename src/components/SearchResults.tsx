@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { VirtuosoGrid, Virtuoso } from "react-virtuoso";
 import { CardDef, Deck } from "../types";
+import { AFFILIATION_ICONS } from "../lib/missionRequirements";
 
 const INLINE_ICON_MAP: Record<string, string> = {
   // Personnel/card icons
@@ -42,21 +43,6 @@ const INLINE_ICON_MAP: Record<string, string> = {
   'interrupt': '/icons/icon_interrupt.gif',
 };
 
-// Map affiliation text to icon paths (for personnel/ships where affiliation is plain text)
-const AFFILIATION_TEXT_TO_ICON: Record<string, string> = {
-  'bajoran': '/icons/icon_affiliation_bajoran.gif',
-  'borg': '/icons/icon_affiliation_borg.gif',
-  'cardassian': '/icons/icon_affiliation_cardassian.gif',
-  'dominion': '/icons/icon_affiliation_dominion.gif',
-  'federation': '/icons/icon_affiliation_federation.gif',
-  'ferengi': '/icons/icon_ferengi.png',
-  'klingon': '/icons/icon_affiliation_klingon.gif',
-  'non-aligned': '/icons/icon_nonaligned.png',
-  'romulan': '/icons/icon_affiliation_romulan.gif',
-  'starfleet': '/icons/icon_affiliation_starfleet.gif',
-  'vidiian': '/icons/icons_affiliation_vidiian.png',
-};
-
 // Map mission/dilemma type codes to icon paths
 const TYPE_CODE_TO_ICON: Record<string, string> = {
   's': '/icons/icon_space.gif',
@@ -74,7 +60,7 @@ const QUADRANT_TO_ICON: Record<string, string> = {
 
 function renderAffiliationIcon(affiliation: string): React.ReactNode {
   if (!affiliation) return null;
-  const src = AFFILIATION_TEXT_TO_ICON[affiliation.toLowerCase()];
+  const src = AFFILIATION_ICONS[affiliation.toLowerCase()];
   if (src) {
     return <img src={src} alt={affiliation} title={affiliation} className="inline-block h-4 w-4 align-middle" />;
   }

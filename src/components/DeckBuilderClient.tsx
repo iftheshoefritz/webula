@@ -14,6 +14,7 @@ import IconPill from './IconPill';
 import CollapsibleSection from './CollapsibleSection';
 import KeywordBadge from './KeywordBadge';
 import SpeciesBadge from './SpeciesBadge';
+import AffiliationBadge from './AffiliationBadge';
 import MissionBranchSelector from './MissionBranchSelector';
 import PileAggregateCostChart from './PileAggregateCostChart';
 import PileAggregateAttributeChart from './PileAggregateAttributeChart';
@@ -56,6 +57,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     'Personnel skills': true,
     'Keywords': true,
     'Species': true,
+    'Affiliation': true,
     'Icons': true,
     'Costs': true,
     'Attributes': true,
@@ -448,6 +450,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     const query = hq
       ? `type:personnel icons:"${icon}" reportsto:"${hq}"`
       : `type:personnel icons:"${icon}"`;
+    searchPile(query);
+  }, [searchPile]);
+
+  const handleAffiliationSearch = useCallback((affiliation: string, hq: string | null) => {
+    const query = hq
+      ? `type:personnel affiliation:"${affiliation}" reportsto:"${hq}"`
+      : `type:personnel affiliation:"${affiliation}"`;
     searchPile(query);
   }, [searchPile]);
 
@@ -1195,6 +1204,31 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                   count={count}
                   compareCount={compareCount}
                   onSearch={handleSpeciesSearch}
+                  hqOptions={hqOptions}
+                />
+              )}
+            </PileAggregate>
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Affiliation" isCollapsed={analysisCollapsed['Affiliation'] ?? true} onToggle={() => setAnalysisCollapsed((prev) => ({ ...prev, 'Affiliation': !(prev['Affiliation'] ?? true) }))}>
+            <PileAggregate
+              currentDeckRows={currentDeckRows}
+              characteristicName="affiliation"
+              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+              splitFunction={(affiliation) => [affiliation]}
+              assembleCounts={(counts, affiliation, count) => {
+                counts[affiliation] = (counts[affiliation] || 0) + count;
+                return counts;
+              }}
+              compareDeckRows={activeCompareDeckRows}
+            >
+              {([affiliation, count], compareCount) => (
+                <AffiliationBadge
+                  key={affiliation}
+                  affiliation={affiliation}
+                  count={count}
+                  compareCount={compareCount}
+                  onSearch={handleAffiliationSearch}
                   hqOptions={hqOptions}
                 />
               )}
