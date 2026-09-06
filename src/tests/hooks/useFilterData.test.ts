@@ -25,9 +25,9 @@ const makeCard = (overrides = {}) => ({
 
 const columns = ['name', 'type', 'affiliation', 'skills', 'gametext', 'cost', 'integrity', 'cunning', 'strength'];
 
-function getFiltered(data, searchQuery) {
+function getFiltered(data, searchQuery, deckRows) {
   const { result } = renderHook(() =>
-    useFilterData(false, data, columns, searchQuery)
+    useFilterData(false, data, columns, searchQuery, deckRows)
   );
   return result.current;
 }
@@ -673,5 +673,37 @@ describe('useFilterData — reportsto sort order', () => {
     // Only tngPersonnel matches, so just verify no error
     expect(result.map(c => c.name)).toContain('TNG Personnel');
     expect(result.map(c => c.name)).not.toContain('Equipment');
+  });
+});
+
+describe('useFilterData — playable:currentDeck (reportsto superset)', () => {
+  const tngPersonnel = makeCard({ name: 'TNG Personnel', type: 'personnel', affiliation: 'federation', icons: '[tng]', keywords: '' });
+  const naPersonnel = makeCard({ name: 'NA Personnel', type: 'personnel', affiliation: 'non-aligned', icons: '', keywords: '' });
+  const klingonPersonnel = makeCard({ name: 'Worf', type: 'personnel', affiliation: 'klingon', icons: '[cmd]', keywords: '' });
+  const equipment = makeCard({ name: 'Phaser', type: 'equipment', affiliation: '', icons: '', keywords: '' });
+
+  const allCards = [tngPersonnel, naPersonnel, klingonPersonnel, equipment];
+
+  const hqMission = { name: 'earth cradle of the federation', pile: 'mission', missiontype: 'h', type: 'mission' };
+  const deckRows = [hqMission];
+
+  it('matches the same cards as reportsto:"<hq>" for a deck that qualifies for that HQ', () => {
+    const reportsToResult = getFiltered(allCards, 'reportsto:"earth cradle of the federation"');
+    const playableResult = getFiltered(allCards, 'playable:currentDeck', deckRows);
+    expect(playableResult.map(c => c.name).sort()).toEqual(reportsToResult.map(c => c.name).sort());
+    expect(playableResult.map(c => c.name)).toContain('TNG Personnel');
+    expect(playableResult.map(c => c.name)).toContain('NA Personnel');
+    expect(playableResult.map(c => c.name)).toContain('Phaser');
+    expect(playableResult.map(c => c.name)).not.toContain('Worf');
+  });
+
+  it('matches nothing when deckRows is omitted (no-op on the home page)', () => {
+    const result = getFiltered(allCards, 'playable:currentDeck');
+    expect(result).toHaveLength(0);
+  });
+
+  it('matches nothing when the deck has no qualifying HQ/no-HQ scenario', () => {
+    const result = getFiltered(allCards, 'playable:currentDeck', []);
+    expect(result).toHaveLength(0);
   });
 });

@@ -2,6 +2,7 @@ import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from './constants';
 import { AFFILIATION_ABBREVIATIONS } from './missionRequirements';
 import { reportsToMatches } from './hqPlayability';
+import { getReportsToOptions } from './reportsToOptions';
 
 const QUOTE_CHARS_REGEX = /[""«»\u2018\u2019\u201C\u201D]/g;
 
@@ -20,6 +21,15 @@ interface ParsedQuery {
 
 function isAnyAffiliationMatch(row: CardRow): boolean {
   return row.affiliation.includes('any affiliation');
+}
+
+// `playable:currentDeck` matches whichever HQ/no-HQ scenario(s) the deck
+// currently qualifies for (see reportsToOptions.ts). Without deckRows (e.g.
+// on the home page, which never passes deckRows), this is always empty, so
+// `playable:currentDeck` matches nothing there.
+function playableMatches(row: CardRow, match: string, currentDeckReportsToValues: string[]): boolean {
+  if (match !== 'currentdeck') return false;
+  return currentDeckReportsToValues.some((value) => reportsToMatches(row, value));
 }
 
 function getReportsToSortRank(card: CardRow): number {
@@ -60,8 +70,9 @@ const colInQuery = (col: string, parsedQuery: ParsedQuery): string => {
   return textAbbreviations[col] || rangeAbbreviations[col];
 }
 
-export function filterCards(data: CardRow[], columns: string[], searchQuery: string): CardRow[] {
+export function filterCards(data: CardRow[], columns: string[], searchQuery: string, deckRows?: CardRow[]): CardRow[] {
   let filtered: CardRow[];
+  const currentDeckReportsToValues = deckRows ? getReportsToOptions(deckRows).map((option) => option.value) : [];
 
   const parsedQuery: ParsedQuery = searchQueryParser.parse((searchQuery.toLowerCase() || '').replace(QUOTE_CHARS_REGEX, '"'), {
     keywords: textColumns.concat(Object.values(textAbbreviations)),
@@ -101,6 +112,9 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
               if (column === 'reportsto') {
                 return !reportsToMatches(row, match);
               }
+              if (column === 'playable') {
+                return !playableMatches(row, match, currentDeckReportsToValues);
+              }
               if (column === 'skills') {
                 return !skillTokens(row[column]).includes(match);
               }
@@ -131,6 +145,9 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
               }
               if (column === 'reportsto') {
                 return reportsToMatches(row, match);
+              }
+              if (column === 'playable') {
+                return playableMatches(row, match, currentDeckReportsToValues);
               }
               if (column === 'skills') {
                 return skillTokens(row[column]).includes(match);
@@ -165,6 +182,11 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
 
   const reportstoCol = colInQuery('reportsto', parsedQuery);
   if (typeof parsedQuery !== 'string' && parsedQuery[reportstoCol]) {
+    filtered = [...filtered].sort((a, b) => getReportsToSortRank(a) - getReportsToSortRank(b));
+  }
+
+  const playableCol = colInQuery('playable', parsedQuery);
+  if (typeof parsedQuery !== 'string' && parsedQuery[playableCol]) {
     filtered = [...filtered].sort((a, b) => getReportsToSortRank(a) - getReportsToSortRank(b));
   }
 

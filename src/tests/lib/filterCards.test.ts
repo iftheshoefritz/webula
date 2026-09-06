@@ -191,6 +191,29 @@ describe('filterCards skills exact match', () => {
   });
 });
 
+describe('filterCards playable:currentDeck (reportsto superset)', () => {
+  const bajorPersonnel = makeCard('kira nerys', 'personnel', { affiliation: 'bajoran' });
+  const naPersonnel = makeCard('guinan', 'personnel', { affiliation: 'non-aligned' });
+  const klingonPersonnel = makeCard('worf', 'personnel', { affiliation: 'klingon' });
+  const equipment = makeCard('phaser', 'equipment');
+
+  const PLAYABLE_CARDS = [bajorPersonnel, naPersonnel, klingonPersonnel, equipment];
+
+  const bajorHqMission = { name: 'bajor gift of the prophets', pile: 'mission', missiontype: 'h', type: 'mission' };
+  const deckRows = [bajorHqMission];
+
+  it('matches the same cards as reportsto:"<hq>" for a deck that qualifies for that HQ', () => {
+    const reportsToResult = filterCards(PLAYABLE_CARDS, COLUMNS, 'reportsto:"bajor gift of the prophets"');
+    const playableResult = filterCards(PLAYABLE_CARDS, COLUMNS, 'playable:currentDeck', deckRows);
+    expect(playableResult.map(c => c.name).sort()).toEqual(reportsToResult.map(c => c.name).sort());
+  });
+
+  it('matches nothing when deckRows is not provided', () => {
+    const result = filterCards(PLAYABLE_CARDS, COLUMNS, 'playable:currentDeck');
+    expect(result).toHaveLength(0);
+  });
+});
+
 describe('filterCards skills exact match against mission skill requirements', () => {
   // Mission skills cells are boolean expressions with adjacent punctuation,
   // e.g. "Transporters, Treachery, Cunning>34, and (Intelligence and Leadership or Law and Officer)"
