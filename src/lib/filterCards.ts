@@ -3,6 +3,7 @@ import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from
 import { AFFILIATION_ABBREVIATIONS } from './missionRequirements';
 import { reportsToMatches } from './hqPlayability';
 import { getReportsToOptions } from './reportsToOptions';
+import { deckPlayabilityMatches } from './deckPlayability';
 
 const QUOTE_CHARS_REGEX = /[""«»\u2018\u2019\u201C\u201D]/g;
 
@@ -24,12 +25,15 @@ function isAnyAffiliationMatch(row: CardRow): boolean {
 }
 
 // `playable:currentDeck` matches whichever HQ/no-HQ scenario(s) the deck
-// currently qualifies for (see reportsToOptions.ts). Without deckRows (e.g.
-// on the home page, which never passes deckRows), this is always empty, so
-// `playable:currentDeck` matches nothing there.
-function playableMatches(row: CardRow, match: string, currentDeckReportsToValues: string[]): boolean {
+// currently qualifies for (see reportsToOptions.ts), OR-ed with per-card
+// predicates for gametext that grants playability aboard an icon-bearing
+// ship elsewhere in the deck (see deckPlayability.ts). Without deckRows
+// (e.g. on the home page, which never passes deckRows), both are always
+// empty, so `playable:currentDeck` matches nothing there.
+function playableMatches(row: CardRow, match: string, currentDeckReportsToValues: string[], deckRows: CardRow[]): boolean {
   if (match !== 'currentdeck') return false;
-  return currentDeckReportsToValues.some((value) => reportsToMatches(row, value));
+  return currentDeckReportsToValues.some((value) => reportsToMatches(row, value)) ||
+    deckPlayabilityMatches(row, deckRows);
 }
 
 function getReportsToSortRank(card: CardRow): number {
@@ -113,7 +117,7 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
                 return !reportsToMatches(row, match);
               }
               if (column === 'playable') {
-                return !playableMatches(row, match, currentDeckReportsToValues);
+                return !playableMatches(row, match, currentDeckReportsToValues, deckRows || []);
               }
               if (column === 'skills') {
                 return !skillTokens(row[column]).includes(match);
@@ -147,7 +151,7 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
                 return reportsToMatches(row, match);
               }
               if (column === 'playable') {
-                return playableMatches(row, match, currentDeckReportsToValues);
+                return playableMatches(row, match, currentDeckReportsToValues, deckRows || []);
               }
               if (column === 'skills') {
                 return skillTokens(row[column]).includes(match);

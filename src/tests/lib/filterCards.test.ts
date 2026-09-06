@@ -214,6 +214,29 @@ describe('filterCards playable:currentDeck (reportsto superset)', () => {
   });
 });
 
+describe('filterCards playable:currentDeck (icon-gated "aboard your ship" predicates)', () => {
+  const spock = makeCard('spock experienced officer', 'personnel', { affiliation: 'federation' });
+  const worf = makeCard('worf', 'personnel', { affiliation: 'klingon' });
+  const tosShip = makeCard('tos ship', 'ship', { icons: '[tos]' });
+
+  const ICON_CARDS = [spock, worf];
+
+  it('includes an icon-gated personnel when a qualifying ship is in the deck', () => {
+    const result = filterCards(ICON_CARDS, COLUMNS, 'playable:currentDeck', [tosShip]);
+    expect(result.map(c => c.name)).toContain('spock experienced officer');
+  });
+
+  it('excludes an icon-gated personnel when no qualifying ship is in the deck', () => {
+    const result = filterCards(ICON_CARDS, COLUMNS, 'playable:currentDeck', []);
+    expect(result.map(c => c.name)).not.toContain('spock experienced officer');
+  });
+
+  it('does not match an unrelated card via the icon-gated predicate', () => {
+    const result = filterCards(ICON_CARDS, COLUMNS, 'playable:currentDeck', [tosShip]);
+    expect(result.map(c => c.name)).not.toContain('worf');
+  });
+});
+
 describe('filterCards skills exact match against mission skill requirements', () => {
   // Mission skills cells are boolean expressions with adjacent punctuation,
   // e.g. "Transporters, Treachery, Cunning>34, and (Intelligence and Leadership or Law and Officer)"
