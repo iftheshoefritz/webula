@@ -30,13 +30,51 @@ function hasNonBorgShipWithIcon(deckRows: CardRow[], icon: string): boolean {
 
 const aboardShipWithIcon = (icon: string): DeckPredicate => (_card, deckRows) => hasShipWithIcon(deckRows, icon);
 
+// Maps affiliation abbreviations that can appear in gametext (e.g. "your
+// [Rom] ship") to the full affiliation name stored in the Affiliation
+// column. Per the convention documented at the top of hqPlayability.ts,
+// these bracket tokens denote affiliation, not an icon — ships never carry
+// an affiliation abbreviation in their Icons column. Covers every
+// affiliation abbreviation known to appear in card gametext, including ones
+// not yet exercised by any DECK_PLAYABILITY entry, so future cards work
+// without another one-off fix.
+const AFFILIATION_ABBREVIATIONS: Record<string, string> = {
+  '[baj]': 'bajoran',
+  '[bor]': 'borg',
+  '[car]': 'cardassian',
+  '[dom]': 'dominion',
+  '[fed]': 'federation',
+  '[fer]': 'ferengi',
+  '[kli]': 'klingon',
+  '[na]': 'non-aligned',
+  '[rom]': 'romulan',
+  '[sf]': 'starfleet',
+  '[sta]': 'starfleet',
+  '[vid]': 'vidiian',
+};
+
+function hasShipWithAffiliation(deckRows: CardRow[], abbreviation: string): boolean {
+  const affiliation = AFFILIATION_ABBREVIATIONS[abbreviation];
+  return deckRows.some((row) => row.type === 'ship' && row.affiliation.includes(affiliation));
+}
+
+const aboardShipWithAffiliation = (abbreviation: string): DeckPredicate => (_card, deckRows) =>
+  hasShipWithAffiliation(deckRows, abbreviation);
+
 // Keys are lowercased card names with stripVariantSuffix applied (shared
 // across *VP variants since gametext is identical).
 export const DECK_PLAYABILITY: Record<string, DeckPredicate> = {
   // "You may play this personnel aboard your [Rom] ship."
-  "telek r'mor astrophysical researcher": aboardShipWithIcon('[rom]'),
-  'tomek displaced alien': aboardShipWithIcon('[rom]'),
-  jera: aboardShipWithIcon('[rom]'),
+  "telek r'mor astrophysical researcher": aboardShipWithAffiliation('[rom]'),
+  'tomek displaced alien': aboardShipWithAffiliation('[rom]'),
+  jera: aboardShipWithAffiliation('[rom]'),
+
+  // "You may play this personnel at cost +2 aboard your [TOS] or [Rom] ship
+  // to reveal an opponent's hand..." (the cost +2 and reveal-hand clauses
+  // are dropped, matching the precedent for extra cost/location qualifiers
+  // noted in the file header).
+  'james t. kirk self-proclaimed enemy spy': (_card, deckRows) =>
+    hasShipWithIcon(deckRows, '[tos]') || hasShipWithAffiliation(deckRows, '[rom]'),
 
   // "You may play this personnel aboard your [TOS] ship."
   'jadzia dax communications staffer': aboardShipWithIcon('[tos]'),
@@ -49,7 +87,7 @@ export const DECK_PLAYABILITY: Record<string, DeckPredicate> = {
   'spock experienced officer': aboardShipWithIcon('[tos]'),
 
   // "You may play this personnel aboard your [Car] ship."
-  'kira nerys ambitious ally': aboardShipWithIcon('[car]'),
+  'kira nerys ambitious ally': aboardShipWithAffiliation('[car]'),
 
   // "You may play this personnel aboard your [DS9] ship."
   'benjamin sisko "jodmos, son of kobor"': aboardShipWithIcon('[ds9]'),
@@ -58,17 +96,17 @@ export const DECK_PLAYABILITY: Record<string, DeckPredicate> = {
   'worf mentoring "klingons"': aboardShipWithIcon('[ds9]'),
 
   // "You may play this personnel aboard your [Dom] ship."
-  'quark opportunistic envoy': aboardShipWithIcon('[dom]'),
-  'matthew dougherty "partner" in crime': aboardShipWithIcon('[dom]'),
+  'quark opportunistic envoy': aboardShipWithAffiliation('[dom]'),
+  'matthew dougherty "partner" in crime': aboardShipWithAffiliation('[dom]'),
 
   // "You may play this personnel aboard your [E] ship."
   'quark frontline observer': aboardShipWithIcon('[e]'),
 
   // "You may play this personnel aboard your [SF] ship."
-  'sim sacrificial lamb': aboardShipWithIcon('[sf]'),
+  'sim sacrificial lamb': aboardShipWithAffiliation('[sf]'),
 
   // "You may play this personnel aboard your [Sta] ship."
-  'daniels timeless guardian': aboardShipWithIcon('[sta]'),
+  'daniels timeless guardian': aboardShipWithAffiliation('[sta]'),
 
   // "You may play this personnel aboard your non-[Bor][Voy] ship."
   "telek r'mor anachronistic visitor": (_card, deckRows) => hasNonBorgShipWithIcon(deckRows, '[voy]'),

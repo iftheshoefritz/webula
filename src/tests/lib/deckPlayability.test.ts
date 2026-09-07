@@ -15,14 +15,30 @@ const makeShip = (icons: string, affiliation: string = ''): Record<string, any> 
 });
 
 describe('deckPlayabilityMatches', () => {
-  it('matches a [Rom]-gated personnel when a [Rom] ship is in the deck', () => {
+  it('matches a [Rom]-gated personnel when a Romulan ship is in the deck', () => {
     const card = makeCard("telek r'mor astrophysical researcher");
-    expect(deckPlayabilityMatches(card, [makeShip('[rom]')])).toBe(true);
+    expect(deckPlayabilityMatches(card, [makeShip('', 'romulan')])).toBe(true);
   });
 
   it('does not match a [Rom]-gated personnel without a qualifying ship in the deck', () => {
     const card = makeCard("telek r'mor astrophysical researcher");
-    expect(deckPlayabilityMatches(card, [makeShip('[tos]')])).toBe(false);
+    expect(deckPlayabilityMatches(card, [makeShip('[tos]', 'federation')])).toBe(false);
+    expect(deckPlayabilityMatches(card, [])).toBe(false);
+  });
+
+  it('matches James T. Kirk Self-Proclaimed Enemy Spy when a [TOS] ship is in the deck', () => {
+    const card = makeCard('james t. kirk self-proclaimed enemy spy');
+    expect(deckPlayabilityMatches(card, [makeShip('[tos]')])).toBe(true);
+  });
+
+  it('matches James T. Kirk Self-Proclaimed Enemy Spy when a Romulan ship is in the deck', () => {
+    const card = makeCard('james t. kirk self-proclaimed enemy spy');
+    expect(deckPlayabilityMatches(card, [makeShip('', 'romulan')])).toBe(true);
+  });
+
+  it('does not match James T. Kirk Self-Proclaimed Enemy Spy without a qualifying ship in the deck', () => {
+    const card = makeCard('james t. kirk self-proclaimed enemy spy');
+    expect(deckPlayabilityMatches(card, [makeShip('', 'federation')])).toBe(false);
     expect(deckPlayabilityMatches(card, [])).toBe(false);
   });
 
@@ -36,9 +52,9 @@ describe('deckPlayabilityMatches', () => {
     expect(deckPlayabilityMatches(card, [makeShip('[tos]')])).toBe(true);
   });
 
-  it('matches a [Car]-gated personnel when a [Car] ship is in the deck', () => {
+  it('matches a [Car]-gated personnel when a Cardassian ship is in the deck', () => {
     const card = makeCard('kira nerys ambitious ally');
-    expect(deckPlayabilityMatches(card, [makeShip('[car]')])).toBe(true);
+    expect(deckPlayabilityMatches(card, [makeShip('', 'cardassian')])).toBe(true);
   });
 
   it('matches a [DS9]-gated personnel when a [DS9] ship is in the deck', () => {
@@ -46,9 +62,9 @@ describe('deckPlayabilityMatches', () => {
     expect(deckPlayabilityMatches(card, [makeShip('[ds9]')])).toBe(true);
   });
 
-  it('matches a [Dom]-gated personnel when a [Dom] ship is in the deck', () => {
+  it('matches a [Dom]-gated personnel when a Dominion ship is in the deck', () => {
     const card = makeCard('matthew dougherty "partner" in crime');
-    expect(deckPlayabilityMatches(card, [makeShip('[dom]')])).toBe(true);
+    expect(deckPlayabilityMatches(card, [makeShip('', 'dominion')])).toBe(true);
   });
 
   it('matches an [E]-gated personnel when an [E] ship is in the deck', () => {
@@ -56,14 +72,14 @@ describe('deckPlayabilityMatches', () => {
     expect(deckPlayabilityMatches(card, [makeShip('[e]')])).toBe(true);
   });
 
-  it('matches an [SF]-gated personnel when an [SF] ship is in the deck', () => {
+  it('matches an [SF]-gated personnel when a Starfleet ship is in the deck', () => {
     const card = makeCard('sim sacrificial lamb');
-    expect(deckPlayabilityMatches(card, [makeShip('[sf]')])).toBe(true);
+    expect(deckPlayabilityMatches(card, [makeShip('', 'starfleet')])).toBe(true);
   });
 
-  it('matches a [Sta]-gated personnel when a [Sta] ship is in the deck', () => {
+  it('matches a [Sta]-gated personnel when a Starfleet ship is in the deck', () => {
     const card = makeCard('daniels timeless guardian');
-    expect(deckPlayabilityMatches(card, [makeShip('[sta]')])).toBe(true);
+    expect(deckPlayabilityMatches(card, [makeShip('', 'starfleet')])).toBe(true);
   });
 
   it('matches a non-[Bor][Voy]-gated personnel when a non-Borg [Voy] ship is in the deck', () => {
