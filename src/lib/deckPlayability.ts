@@ -20,8 +20,12 @@ function hasShipWithIcon(deckRows: CardRow[], icon: string): boolean {
   return deckRows.some((row) => row.type === 'ship' && row.icons.includes(icon));
 }
 
-function hasShipWithoutIcons(deckRows: CardRow[], icons: string[]): boolean {
-  return deckRows.some((row) => row.type === 'ship' && icons.every((icon) => !row.icons.includes(icon)));
+// "[Bor]" here denotes Borg affiliation, not an icon (Borg ships never carry
+// an icon in this game's data — see HQ_PLAYABILITY's "[Bor] cards" = Borg
+// affiliation convention in hqPlayability.ts), so "non-[Bor][Voy] ship" means
+// a ship with the [Voy] icon that is not Borg-affiliated.
+function hasNonBorgShipWithIcon(deckRows: CardRow[], icon: string): boolean {
+  return deckRows.some((row) => row.type === 'ship' && row.icons.includes(icon) && !row.affiliation.includes('borg'));
 }
 
 const aboardShipWithIcon = (icon: string): DeckPredicate => (_card, deckRows) => hasShipWithIcon(deckRows, icon);
@@ -67,7 +71,7 @@ export const DECK_PLAYABILITY: Record<string, DeckPredicate> = {
   'daniels timeless guardian': aboardShipWithIcon('[sta]'),
 
   // "You may play this personnel aboard your non-[Bor][Voy] ship."
-  "telek r'mor anachronistic visitor": (_card, deckRows) => hasShipWithoutIcons(deckRows, ['[bor]', '[voy]']),
+  "telek r'mor anachronistic visitor": (_card, deckRows) => hasNonBorgShipWithIcon(deckRows, '[voy]'),
 };
 
 export function deckPlayabilityMatches(card: CardRow, deckRows: CardRow[]): boolean {
