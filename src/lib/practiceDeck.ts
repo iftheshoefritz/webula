@@ -70,10 +70,10 @@ export const PRACTICE_DECK_TSV = `1\tTricorder
 3\tIn Development *VP
 2\tThe Alien's Graveyard
 1\tMoab IV Avert Danger
-1\tTrack Survivors
-1\tEvaluate Soliton Wave
+1\tAngel I Track Survivors
+1\tBilana System Evaluate Soliton Wave
 1\tMetron Arena Resolve Standing Conflict
-1\tPrevent Historical Disruption (MAH)`;
+1\tCurnab Sector Prevent Historical Disruption (MAH)`;
 
 // Second hardcoded practice fixture deck, used alongside PRACTICE_DECK_TSV to populate the
 // reports fixture (?fixture=1 on /decks/reports) with two decks. Partially overlaps
