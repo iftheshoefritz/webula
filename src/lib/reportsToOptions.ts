@@ -44,7 +44,7 @@ export function getReportsToOptions(deckRows: CardRow[]): ReportsToOption[] {
   }
 
   // No-HQ: Prevent Historical Disruption + U.S.S. Relativity
-  const hasPreventHistorical = missions.some((row) => row.name.startsWith('prevent historical disruption'));
+  const hasPreventHistorical = missions.some((row) => row.name.includes('prevent historical disruption'));
   if (hasPreventHistorical) {
     const hasRelativity = deckRows.some(
       (row) => row.pile === 'draw' && row.type === 'ship' && row.name.includes('relativity')
