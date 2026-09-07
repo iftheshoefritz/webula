@@ -21,7 +21,6 @@ export default function SpeciesBadge({
   const [open, setOpen] = React.useState(false);
   const btnRef = React.useRef<HTMLButtonElement>(null);
   const hasSearch = !!onSearch;
-  const hasOptions = hqOptions.length > 0;
 
   const handleSelect = (hq: string | null) => {
     setOpen(false);
@@ -37,15 +36,11 @@ export default function SpeciesBadge({
           <button
             ref={btnRef}
             aria-label={`Search personnel with species ${species}`}
-            aria-haspopup={hasOptions ? 'menu' : undefined}
+            aria-haspopup="menu"
             aria-expanded={open}
             onClick={(e) => {
               e.stopPropagation();
-              if (hasOptions) {
-                setOpen((v) => !v);
-              } else {
-                onSearch(species, null);
-              }
+              setOpen((v) => !v);
             }}
             className="ml-0.5 w-4 h-4 flex items-center justify-center text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer shrink-0"
           >
@@ -53,7 +48,7 @@ export default function SpeciesBadge({
           </button>
         )}
       </span>
-      {open && hasOptions && (
+      {open && (
         <SearchOverlay
           label={species}
           hqOptions={hqOptions}

@@ -111,7 +111,7 @@ describe('DeckBuilderClient – Species section', () => {
       expect(screen.getByRole('button', { name: /search personnel with species vulcan/i })).toBeInTheDocument();
     });
 
-    it('fires a personnel species search when the + button is clicked (no HQ missions)', async () => {
+    it('fires a personnel species search when "Any HQ" is selected (no HQ missions)', async () => {
       const card = makePersonnel('1U003', 'vulcan');
 
       localStorage.setItem(
@@ -125,9 +125,30 @@ describe('DeckBuilderClient – Species section', () => {
       });
 
       fireEvent.click(screen.getByRole('button', { name: /search personnel with species vulcan/i }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Any HQ' }));
 
       const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
       expect(lastQuery).toBe('type:personnel species:"vulcan"');
+    });
+
+    it('fires a playable:currentDeck species search when "Playable in this deck" is selected', async () => {
+      const card = makePersonnel('1U003', 'vulcan');
+
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({ '1U003': { count: 1, row: card } })
+      );
+      localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': true, 'Species': false, 'Icons': true, 'Costs': true }));
+
+      await act(async () => {
+        render(<DeckBuilderClient data={[card] as any} columns={[]} />);
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /search personnel with species vulcan/i }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Playable in this deck' }));
+
+      const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
+      expect(lastQuery).toBe('type:personnel species:"vulcan" playable:currentDeck');
     });
   });
 });

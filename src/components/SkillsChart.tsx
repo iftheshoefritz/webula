@@ -72,7 +72,6 @@ function SkillRow({
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const hasSearch = !!onSkillSearch;
-  const hasOptions = hqOptions.length > 0;
 
   const handleSelect = (hq: string | null) => {
     setOpen(false);
@@ -105,22 +104,18 @@ function SkillRow({
         <button
           ref={btnRef}
           aria-label={`Search personnel with ${skill}`}
-          aria-haspopup={hasOptions ? 'menu' : undefined}
+          aria-haspopup="menu"
           aria-expanded={open}
           onClick={(e) => {
             e.stopPropagation();
-            if (hasOptions) {
-              setOpen((v) => !v);
-            } else {
-              onSkillSearch(skill, null);
-            }
+            setOpen((v) => !v);
           }}
           className="btn-icon btn-icon-sm shrink-0"
         >
           +
         </button>
       )}
-      {open && hasOptions && (
+      {open && (
         <SearchOverlay
           label={skill}
           hqOptions={hqOptions}

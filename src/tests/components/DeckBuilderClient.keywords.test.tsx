@@ -126,7 +126,7 @@ describe('DeckBuilderClient – Keywords section', () => {
       expect(screen.getByRole('button', { name: /search personnel with keyword maquis/i })).toBeInTheDocument();
     });
 
-    it('fires a personnel keywords search when the + button is clicked (no HQ missions)', async () => {
+    it('fires a personnel keywords search when "Any HQ" is selected (no HQ missions)', async () => {
       const card = makePersonnel('1U004', 'maquis');
 
       localStorage.setItem(
@@ -140,9 +140,30 @@ describe('DeckBuilderClient – Keywords section', () => {
       });
 
       fireEvent.click(screen.getByRole('button', { name: /search personnel with keyword maquis/i }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Any HQ' }));
 
       const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
       expect(lastQuery).toBe('type:personnel keywords:"maquis"');
+    });
+
+    it('fires a playable:currentDeck keywords search when "Playable in this deck" is selected', async () => {
+      const card = makePersonnel('1U004', 'maquis');
+
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({ '1U004': { count: 1, row: card } })
+      );
+      localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': false, 'Icons': true, 'Costs': true }));
+
+      await act(async () => {
+        render(<DeckBuilderClient data={[card] as any} columns={[]} />);
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /search personnel with keyword maquis/i }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Playable in this deck' }));
+
+      const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
+      expect(lastQuery).toBe('type:personnel keywords:"maquis" playable:currentDeck');
     });
   });
 });

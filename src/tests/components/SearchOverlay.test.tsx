@@ -58,6 +58,37 @@ describe('SearchOverlay', () => {
     expect(items[items.length - 1]).toHaveTextContent('Any HQ');
   });
 
+  it('always renders "Playable in this deck" as a menu item, even with no hqOptions', () => {
+    render(
+      <SearchOverlay
+        label="engineering"
+        hqOptions={[]}
+        selectedHq="all"
+        anchorRef={makeAnchorRef()}
+        onSelect={jest.fn()}
+        onClose={jest.fn()}
+      />
+    );
+    expect(screen.getByRole('menuitem', { name: 'Playable in this deck' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Any HQ' })).toBeInTheDocument();
+  });
+
+  it('calls onSelect with "currentDeck" when "Playable in this deck" is clicked', () => {
+    const onSelect = jest.fn();
+    render(
+      <SearchOverlay
+        label="engineering"
+        hqOptions={hqOptions}
+        selectedHq="all"
+        anchorRef={makeAnchorRef()}
+        onSelect={onSelect}
+        onClose={jest.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Playable in this deck' }));
+    expect(onSelect).toHaveBeenCalledWith('currentDeck');
+  });
+
   it('calls onSelect with null when "Any HQ" is clicked', () => {
     const onSelect = jest.fn();
     render(

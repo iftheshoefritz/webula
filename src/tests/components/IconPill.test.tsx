@@ -64,13 +64,15 @@ describe('IconPill', () => {
       expect(getByRole('button', { name: /search personnel with cmd/i })).toBeInTheDocument();
     });
 
-    it('calls onSearch(icon, null) directly when clicked with no hqOptions', () => {
+    it('opens an overlay menu even with no hqOptions (always offers "Playable in this deck" and "Any HQ")', () => {
       const onSearch = jest.fn();
       const { getByRole } = render(
         <IconPill icon="Stf" count={2} onSearch={onSearch} />
       );
       fireEvent.click(getByRole('button', { name: /search personnel with stf/i }));
-      expect(onSearch).toHaveBeenCalledWith('Stf', null);
+      expect(getByRole('menu')).toBeInTheDocument();
+      fireEvent.click(getByRole('menuitem', { name: 'Playable in this deck' }));
+      expect(onSearch).toHaveBeenCalledWith('Stf', 'currentDeck');
     });
 
     it('opens an overlay menu when clicked with hqOptions', () => {

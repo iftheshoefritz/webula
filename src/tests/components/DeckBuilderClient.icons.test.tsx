@@ -195,5 +195,27 @@ describe('DeckBuilderClient – Icons section', () => {
       const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
       expect(lastQuery).toBe('type:personnel icons:"Cmd" reportsto:"bajor"');
     });
+
+    it('includes playable:currentDeck in the query when onSearch is called with hq "currentDeck"', async () => {
+      const card = makePersonnel('1U001', '[Cmd]');
+
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({ '1U001': { count: 1, row: card } })
+      );
+      localStorage.setItem('analysisCollapsed', JSON.stringify({ 'Personnel skills': true, 'Keywords': true, 'Icons': false, 'Costs': true }));
+
+      await act(async () => {
+        render(<DeckBuilderClient data={[card] as any} columns={[]} />);
+      });
+
+      const props = mockIconPill.mock.calls[mockIconPill.mock.calls.length - 1][0];
+      act(() => {
+        props.onSearch('Cmd', 'currentDeck');
+      });
+
+      const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
+      expect(lastQuery).toBe('type:personnel icons:"Cmd" playable:currentDeck');
+    });
   });
 });

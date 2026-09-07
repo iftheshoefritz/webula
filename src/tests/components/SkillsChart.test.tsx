@@ -225,7 +225,7 @@ describe('SkillsChart', () => {
       });
     });
 
-    it('clicking + with no hqOptions calls onSkillSearch immediately with null', () => {
+    it('clicking + with no hqOptions still opens an overlay (always offers "Playable in this deck" and "Any HQ")', () => {
       const handleSearch = jest.fn();
       render(
         <SkillsChart
@@ -235,7 +235,9 @@ describe('SkillsChart', () => {
       );
       const diplomacyBtn = screen.getByRole('button', { name: /search personnel with diplomacy/i });
       fireEvent.click(diplomacyBtn);
-      expect(handleSearch).toHaveBeenCalledWith('diplomacy', null);
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Playable in this deck' }));
+      expect(handleSearch).toHaveBeenCalledWith('diplomacy', 'currentDeck');
     });
 
     it('clicking + with hqOptions opens an overlay menu', () => {
