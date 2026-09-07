@@ -7,10 +7,11 @@ const makeCard = (name: string, extra: Record<string, string> = {}): Record<stri
   ...extra,
 });
 
-const makeShip = (icons: string): Record<string, any> => ({
+const makeShip = (icons: string, affiliation: string = ''): Record<string, any> => ({
   name: 'a ship',
   type: 'ship',
   icons,
+  affiliation,
 });
 
 describe('deckPlayabilityMatches', () => {
@@ -65,15 +66,20 @@ describe('deckPlayabilityMatches', () => {
     expect(deckPlayabilityMatches(card, [makeShip('[sta]')])).toBe(true);
   });
 
-  it('matches a non-[Bor][Voy]-gated personnel when a non-Borg/Voyager ship is in the deck', () => {
+  it('matches a non-[Bor][Voy]-gated personnel when a non-Borg [Voy] ship is in the deck', () => {
     const card = makeCard("telek r'mor anachronistic visitor");
-    expect(deckPlayabilityMatches(card, [makeShip('[rom]')])).toBe(true);
+    expect(deckPlayabilityMatches(card, [makeShip('[voy]', 'federation')])).toBe(true);
   });
 
-  it('does not match a non-[Bor][Voy]-gated personnel when only [Bor] or [Voy] ships are in the deck', () => {
+  it('does not match a non-[Bor][Voy]-gated personnel when the only [Voy] ship is Borg-affiliated', () => {
     const card = makeCard("telek r'mor anachronistic visitor");
-    expect(deckPlayabilityMatches(card, [makeShip('[bor]')])).toBe(false);
-    expect(deckPlayabilityMatches(card, [makeShip('[voy]')])).toBe(false);
+    expect(deckPlayabilityMatches(card, [makeShip('[voy]', 'borg')])).toBe(false);
+  });
+
+  it('does not match a non-[Bor][Voy]-gated personnel when the deck has no [Voy] ship', () => {
+    const card = makeCard("telek r'mor anachronistic visitor");
+    expect(deckPlayabilityMatches(card, [makeShip('[rom]', 'romulan')])).toBe(false);
+    expect(deckPlayabilityMatches(card, [])).toBe(false);
   });
 
   it('does not match a card with no gametext-based deck playability entry', () => {

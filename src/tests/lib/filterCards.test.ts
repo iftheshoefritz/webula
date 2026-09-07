@@ -235,6 +235,24 @@ describe('filterCards playable:currentDeck (icon-gated "aboard your ship" predic
     const result = filterCards(ICON_CARDS, COLUMNS, 'playable:currentDeck', [tosShip]);
     expect(result.map(c => c.name)).not.toContain('worf');
   });
+
+  it('includes a non-Borg-[Voy]-gated personnel when a non-Borg [Voy] ship is in the deck', () => {
+    const telek = makeCard("telek r'mor anachronistic visitor", 'personnel', { affiliation: 'romulan' });
+    const voyagerShip = makeCard('u.s.s. relativity federation timeship', 'ship', {
+      affiliation: 'federation', icons: '[voy][fut]',
+    });
+    const result = filterCards([telek], COLUMNS, 'playable:currentDeck', [voyagerShip]);
+    expect(result.map(c => c.name)).toContain("telek r'mor anachronistic visitor");
+  });
+
+  it('excludes a non-Borg-[Voy]-gated personnel when the only [Voy] ship is Borg-affiliated', () => {
+    const telek = makeCard("telek r'mor anachronistic visitor", 'personnel', { affiliation: 'romulan' });
+    const borgVoyagerShip = makeCard('sphere 117 renegade borg sphere', 'ship', {
+      affiliation: 'borg', icons: '[voy]',
+    });
+    const result = filterCards([telek], COLUMNS, 'playable:currentDeck', [borgVoyagerShip]);
+    expect(result.map(c => c.name)).not.toContain("telek r'mor anachronistic visitor");
+  });
 });
 
 describe('filterCards skills exact match against mission skill requirements', () => {
