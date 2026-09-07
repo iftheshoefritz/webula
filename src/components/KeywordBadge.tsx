@@ -21,7 +21,6 @@ export default function KeywordBadge({
   const [open, setOpen] = React.useState(false);
   const btnRef = React.useRef<HTMLButtonElement>(null);
   const hasSearch = !!onSearch;
-  const hasOptions = hqOptions.length > 0;
   const colonIndex = keyword.indexOf(':');
   const hasColon = colonIndex !== -1;
   const keywordPrefix = hasColon ? keyword.slice(0, colonIndex) : keyword;
@@ -48,15 +47,11 @@ export default function KeywordBadge({
           <button
             ref={btnRef}
             aria-label={`Search personnel with keyword ${keyword}`}
-            aria-haspopup={hasOptions ? 'menu' : undefined}
+            aria-haspopup="menu"
             aria-expanded={open}
             onClick={(e) => {
               e.stopPropagation();
-              if (hasOptions) {
-                setOpen((v) => !v);
-              } else {
-                onSearch(keyword, null);
-              }
+              setOpen((v) => !v);
             }}
             className="ml-0.5 w-4 h-4 flex items-center justify-center text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer shrink-0"
           >
@@ -64,7 +59,7 @@ export default function KeywordBadge({
           </button>
         )}
       </span>
-      {open && hasOptions && (
+      {open && (
         <SearchOverlay
           label={keyword}
           hqOptions={hqOptions}

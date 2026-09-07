@@ -18,7 +18,6 @@ export default function IconPill({ icon, count, compareCount, onSearch, hqOption
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const hasSearch = !!onSearch;
-  const hasOptions = hqOptions.length > 0;
 
   const handleSelect = (hq: string | null) => {
     setOpen(false);
@@ -34,15 +33,11 @@ export default function IconPill({ icon, count, compareCount, onSearch, hqOption
           <button
             ref={btnRef}
             aria-label={`Search personnel with ${icon}`}
-            aria-haspopup={hasOptions ? 'menu' : undefined}
+            aria-haspopup="menu"
             aria-expanded={open}
             onClick={(e) => {
               e.stopPropagation();
-              if (hasOptions) {
-                setOpen((v) => !v);
-              } else {
-                onSearch(icon, null);
-              }
+              setOpen((v) => !v);
             }}
             className="btn-icon btn-icon-sm shrink-0 ml-1"
           >
@@ -50,7 +45,7 @@ export default function IconPill({ icon, count, compareCount, onSearch, hqOption
           </button>
         )}
       </span>
-      {open && hasOptions && (
+      {open && (
         <SearchOverlay
           label={icon}
           hqOptions={hqOptions}

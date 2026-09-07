@@ -385,6 +385,28 @@ describe('DeckBuilderClient – handleSkillSearch / skill search query', () => {
     expect(lastQuery).toBe('type:personnel skills:diplomacy reportsto:"bajor"');
   });
 
+  it('includes playable:currentDeck in the query when onSkillSearch is called with hq "currentDeck"', async () => {
+    const hqMission = makeMission('1U001', 'bajor', 'h');
+
+    localStorage.setItem(
+      'currentDeck',
+      JSON.stringify({ '1U001': { count: 1, row: hqMission } })
+    );
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[hqMission] as any} columns={[]} />);
+    });
+
+    const props = lastSkillsChartProps();
+
+    act(() => {
+      props.onSkillSearch('diplomacy', 'currentDeck');
+    });
+
+    const lastQuery = mockUseFilterData.mock.calls[mockUseFilterData.mock.calls.length - 1][3];
+    expect(lastQuery).toBe('type:personnel skills:diplomacy playable:currentDeck');
+  });
+
   it('passes hqOptions to SkillsChart', async () => {
     const hqMission = makeMission('1U001', 'bajor', 'h');
 

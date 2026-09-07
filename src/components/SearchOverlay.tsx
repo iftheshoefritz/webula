@@ -95,6 +95,13 @@ export default function SearchOverlay({
       <button
         role="menuitem"
         className="w-full text-left px-3 py-1.5 text-xs text-text-primary hover:bg-white/10"
+        onClick={() => onSelect('currentDeck')}
+      >
+        Playable in this deck
+      </button>
+      <button
+        role="menuitem"
+        className="w-full text-left px-3 py-1.5 text-xs text-text-primary hover:bg-white/10"
         onClick={() => onSelect(null)}
       >
         Any HQ

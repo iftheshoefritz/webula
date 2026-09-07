@@ -375,7 +375,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   }, [mobileView, previousMobileView]);
 
   const handleSkillSearch = useCallback((skill: string, hq: string | null) => {
-    const query = hq
+    const query = hq === 'currentDeck'
+      ? `type:personnel skills:${skill} playable:currentDeck`
+      : hq
       ? `type:personnel skills:${skill} reportsto:"${hq}"`
       : `type:personnel skills:${skill}`;
     setPreviousMobileView(mobileView === 'search' ? previousMobileView : (mobileView as 'analysis' | 'deck'));
@@ -386,21 +388,27 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   }, [mobileView, previousMobileView]);
 
   const handleKeywordSearch = useCallback((keyword: string, hq: string | null) => {
-    const query = hq
+    const query = hq === 'currentDeck'
+      ? `type:personnel keywords:"${keyword}" playable:currentDeck`
+      : hq
       ? `type:personnel keywords:"${keyword}" reportsto:"${hq}"`
       : `type:personnel keywords:"${keyword}"`;
     searchPile(query);
   }, [searchPile]);
 
   const handleSpeciesSearch = useCallback((species: string, hq: string | null) => {
-    const query = hq
+    const query = hq === 'currentDeck'
+      ? `type:personnel species:"${species}" playable:currentDeck`
+      : hq
       ? `type:personnel species:"${species}" reportsto:"${hq}"`
       : `type:personnel species:"${species}"`;
     searchPile(query);
   }, [searchPile]);
 
   const handleIconSearch = useCallback((icon: string, hq: string | null) => {
-    const query = hq
+    const query = hq === 'currentDeck'
+      ? `type:personnel icons:"${icon}" playable:currentDeck`
+      : hq
       ? `type:personnel icons:"${icon}" reportsto:"${hq}"`
       : `type:personnel icons:"${icon}"`;
     searchPile(query);
