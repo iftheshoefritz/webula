@@ -194,7 +194,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen">
         <div className="absolute inset-0 bg-black opacity-50" onClick={onClose}></div>
-        <div className="bg-bg-secondary p-3 border border-white/10 shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
+        <div className="bg-bg-secondary p-3 border border-white/10 rounded-lg shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
           <div className="flex justify-between items-center">
             <span className="text-2xl font-bold mt-4 mb-2 block text-text-primary">{title}</span>
             <button
@@ -208,7 +208,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
           <div>
             <span className="block text-text-secondary py-1">Google Drive</span>
             <div className="max-h-64 overflow-y-auto overflow-x-hidden">
-              <ul className="w-full">
+              <ul className="w-full divide-y divide-white/[0.06]">
                 {!isSignedIn ? (
                   <li className="text-text-primary py-2 px-3">
                     <button className="btn-primary" onClick={onSignIn}>
@@ -227,7 +227,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                       <li className="text-text-primary px-3 py-1">please wait...</li>
                     )}
                     {!inProgress && isBrowsingFolder && (
-                      <li className="flex items-center border border-white/10 text-text-primary py-1">
+                      <li className="flex items-center text-text-primary py-1 px-1 hover:bg-white/[0.04] rounded transition-colors">
                         <button
                           type="button"
                           className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
@@ -239,13 +239,13 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                       </li>
                     )}
                     {!inProgress && mode === 'load' && !isBrowsingFolder && (
-                      <li className="flex items-center border border-white/10 text-text-primary py-1">
+                      <li className="flex items-center text-text-primary py-1 px-1 hover:bg-white/[0.04] rounded transition-colors">
                         {creatingFolder ? (
                           <>
                             <input
                               type="text"
                               aria-label="New folder name"
-                              className="flex-1 min-w-0 mx-3 bg-bg-secondary text-text-primary border border-white/10 rounded px-1"
+                              className="input flex-1 min-w-0 mx-3"
                               value={newFolderName}
                               autoFocus
                               onChange={(e) => setNewFolderName(e.target.value)}
@@ -254,22 +254,24 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                                 if (e.key === 'Escape') cancelCreateFolder();
                               }}
                             />
-                            <button
-                              type="button"
-                              aria-label="Save new folder"
-                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
-                              onClick={confirmCreateFolder}
-                            >
-                              <FaCheck/>
-                            </button>
-                            <button
-                              type="button"
-                              aria-label="Cancel new folder"
-                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
-                              onClick={cancelCreateFolder}
-                            >
-                              <FaTimes/>
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                aria-label="Save new folder"
+                                className="btn-icon btn-icon-sm"
+                                onClick={confirmCreateFolder}
+                              >
+                                <FaCheck/>
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="Cancel new folder"
+                                className="btn-icon btn-icon-sm"
+                                onClick={cancelCreateFolder}
+                              >
+                                <FaTimes/>
+                              </button>
+                            </div>
                           </>
                         ) : (
                           <button
@@ -286,12 +288,12 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                       <li className="text-text-primary px-3 py-1">no files found</li>
                     )}
                     {!inProgress && rootFolders.map((folder: {id: string, name: string}) => (
-                      <li key={folder.id} className="flex items-center border border-white/10 text-text-primary py-1">
+                      <li key={folder.id} className="flex items-center text-text-primary py-1 px-1 hover:bg-white/[0.04] rounded transition-colors">
                         {renamingId === folder.id ? (
                           <input
                             type="text"
                             aria-label={`Rename ${folder.name}`}
-                            className="flex-1 min-w-0 mx-3 bg-bg-secondary text-text-primary border border-white/10 rounded px-1"
+                            className="input flex-1 min-w-0 mx-3"
                             value={renameValue}
                             autoFocus
                             onChange={(e) => setRenameValue(e.target.value)}
@@ -311,11 +313,11 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                           </button>
                         )}
                         {mode === 'load' && renamingId === folder.id ? (
-                          <>
+                          <div className="flex items-center gap-1">
                             <button
                               type="button"
                               aria-label={`Save name for ${folder.name}`}
-                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              className="btn-icon btn-icon-sm"
                               onClick={() => confirmRename(folder)}
                             >
                               <FaCheck/>
@@ -323,18 +325,18 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                             <button
                               type="button"
                               aria-label="Cancel rename"
-                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              className="btn-icon btn-icon-sm"
                               onClick={cancelRename}
                             >
                               <FaTimes/>
                             </button>
-                          </>
+                          </div>
                         ) : mode === 'load' ? (
-                          <>
+                          <div className="flex items-center gap-1">
                             <button
                               type="button"
                               aria-label={`Rename ${folder.name}`}
-                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              className="btn-icon btn-icon-sm"
                               onClick={() => startRename(folder)}
                             >
                               <FaEdit/>
@@ -343,21 +345,21 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                               type="button"
                               aria-label={`Delete ${folder.name}`}
                               onClick={() => handleDriveFileDelete(folder)}
-                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
+                              className="btn-icon btn-icon-sm"
                             >
                               <FaTrash/>
                             </button>
-                          </>
+                          </div>
                         ) : null}
                       </li>
                     ))}
                     {!inProgress && visibleDeckFiles.map((file: {id: string, name: string, parents?: string[]}) => (
-                      <li key={file.id} className="flex items-center border border-white/10 text-text-primary py-1">
+                      <li key={file.id} className="flex items-center text-text-primary py-1 px-1 hover:bg-white/[0.04] rounded transition-colors">
                         {mode === 'reports' && renamingId === file.id ? (
                           <input
                             type="text"
                             aria-label={`Rename ${file.name}`}
-                            className="flex-1 min-w-0 mx-3 bg-bg-secondary text-text-primary border border-white/10 rounded px-1"
+                            className="input flex-1 min-w-0 mx-3"
                             value={renameValue}
                             autoFocus
                             onChange={(e) => setRenameValue(e.target.value)}
@@ -369,10 +371,10 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                         ) : (
                           <span className="flex-1 min-w-0 px-3 truncate" title={file.name}>{file.name}</span>
                         )}
-                        <div className="flex items-center whitespace-nowrap flex-shrink-0">
+                        <div className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
                           {mode === 'load' && (
                             <select
-                              className="bg-bg-secondary text-text-primary text-sm border border-white/10 rounded px-1 py-0.5 mr-1"
+                              className="input w-auto text-sm py-1 px-2"
                               value={driveLoadModes[file.id] ?? 'full'}
                               onChange={(e) => setDriveLoadModes((prev) => ({ ...prev, [file.id]: e.target.value as LoadMode }))}
                             >
@@ -385,7 +387,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                             <button
                               type="button"
                               aria-label={`Move ${file.name}`}
-                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              className="btn-icon btn-icon-sm"
                               onClick={() => startMoveFile(file)}
                             >
                               <FaExchangeAlt/>
@@ -405,7 +407,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                               <button
                                 type="button"
                                 aria-label={`Save name for ${file.name}`}
-                                className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                                className="btn-icon btn-icon-sm"
                                 onClick={() => confirmRename(file)}
                               >
                                 <FaCheck/>
@@ -413,7 +415,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                               <button
                                 type="button"
                                 aria-label="Cancel rename"
-                                className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                                className="btn-icon btn-icon-sm"
                                 onClick={cancelRename}
                               >
                                 <FaTimes/>
@@ -424,7 +426,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                               <button
                                 type="button"
                                 aria-label={`Load ${file.name}`}
-                                className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                                className="btn-icon btn-icon-sm"
                                 onClick={() => handleDriveFileSelect(file)}
                               >
                                 <FaFolderOpen/>
@@ -432,7 +434,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                               <button
                                 type="button"
                                 aria-label={`Rename ${file.name}`}
-                                className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                                className="btn-icon btn-icon-sm"
                                 onClick={() => startRename(file)}
                               >
                                 <FaEdit/>
@@ -441,7 +443,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                           ) : (
                             <button
                               type="button"
-                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-2"
+                              className="btn-icon btn-icon-sm"
                               onClick={() => handleDriveFileSelect(file)}
                             >
                               <FaFolderOpen/>
@@ -451,7 +453,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                             <button
                               type="button"
                               onClick={() => handleDriveFileDelete(file)}
-                              className="text-text-primary hover:text-text-secondary font-bold py-1 px-3"
+                              className="btn-icon btn-icon-sm"
                             >
                               <FaTrash/>
                             </button>
@@ -484,7 +486,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
       <div className="fixed inset-0 z-[60] overflow-y-auto">
         <div className="flex items-center justify-center min-h-screen">
           <div className="absolute inset-0 bg-black opacity-50" onClick={cancelMoveFile}></div>
-          <div className="bg-bg-secondary p-3 border border-white/10 shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
+          <div className="bg-bg-secondary p-3 border border-white/10 rounded-lg shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
             <div className="flex justify-between items-center">
               <span className="text-2xl font-bold mt-4 mb-2 block text-text-primary">Move &quot;{movingFile.name}&quot;</span>
               <button
@@ -495,8 +497,8 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                 <span className="text-2xl">&times;</span>
               </button>
             </div>
-            <ul className="w-full">
-              <li className="border border-white/10 text-text-primary py-1">
+            <ul className="w-full divide-y divide-white/[0.06]">
+              <li className="text-text-primary py-1 hover:bg-white/[0.04] rounded transition-colors">
                 <button
                   type="button"
                   aria-label="Move to Root"
@@ -507,7 +509,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                 </button>
               </li>
               {folders.map((folder) => (
-                <li key={folder.id} className="border border-white/10 text-text-primary py-1">
+                <li key={folder.id} className="text-text-primary py-1 hover:bg-white/[0.04] rounded transition-colors">
                   <button
                     type="button"
                     aria-label={`Move to ${folder.name}`}
