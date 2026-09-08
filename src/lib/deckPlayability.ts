@@ -61,6 +61,24 @@ function hasShipWithAffiliation(deckRows: CardRow[], abbreviation: string): bool
 const aboardShipWithAffiliation = (abbreviation: string): DeckPredicate => (_card, deckRows) =>
   hasShipWithAffiliation(deckRows, abbreviation);
 
+// Some cards' gametext instead names a specific ship, e.g. "You may play
+// this personnel aboard your {U.S.S. Voyager}." or "You may play this ship
+// to the same mission as your {Enterprise}." Both phrasings reduce to the
+// same underlying check: does the deck contain a ship whose name starts with
+// the named ship? A prefix match (not equality/substring) is required
+// because card names are "base ship name" + subtitle, and some ships share a
+// lookalike prefix that must NOT match (e.g. {Enterprise} refers to the
+// NX-01-era "Enterprise ..." ships, not "U.S.S. Enterprise ..." or
+// "U.S.S. Enterprise-D/-E ..." ships — the distinguishing text comes right
+// after the shared word, so a prefix check on the full lowercased name
+// correctly excludes those).
+function hasNamedShip(deckRows: CardRow[], namePrefix: string): boolean {
+  return deckRows.some((row) => row.type === 'ship' && row.name.startsWith(namePrefix));
+}
+
+const withNamedShip = (namePrefix: string): DeckPredicate => (_card, deckRows) =>
+  hasNamedShip(deckRows, namePrefix);
+
 // Keys are lowercased card names with stripVariantSuffix applied (shared
 // across *VP variants since gametext is identical).
 export const DECK_PLAYABILITY: Record<string, DeckPredicate> = {
@@ -110,6 +128,37 @@ export const DECK_PLAYABILITY: Record<string, DeckPredicate> = {
 
   // "You may play this personnel aboard your non-[Bor][Voy] ship."
   "telek r'mor anachronistic visitor": (_card, deckRows) => hasNonBorgShipWithIcon(deckRows, '[voy]'),
+
+  // "You may play this ship to the same mission as your {Enterprise}."
+  'shuttlepod one reliable transport': withNamedShip('enterprise'),
+  'shuttlepod two landing craft': withNamedShip('enterprise'),
+
+  // "You may play this personnel aboard your {Starship Excelsior}."
+  'hikaru sulu loyal captain': withNamedShip('starship excelsior'),
+
+  // "You may play this personnel aboard your {U.S.S. Reliant}."
+  'clark terrell reliant captain': withNamedShip('u.s.s. reliant'),
+
+  // "You may play this personnel aboard your {U.S.S. Voyager}."
+  'dr. lewis zimmerman diagnostic program alpha one one': withNamedShip('u.s.s. voyager'),
+  'william t. riker surprised witness': withNamedShip('u.s.s. voyager'),
+
+  // "...you may play this ship at {Caretaker's Array} or at the same
+  // mission as your {U.S.S. Voyager}." (the Caretaker's Array/headquarters
+  // clauses are dropped, matching the precedent for extra location
+  // qualifiers noted in the file header).
+  'drake voyager shuttle': withNamedShip('u.s.s. voyager'),
+  'baxial salvage ship': withNamedShip('u.s.s. voyager'),
+  'baxial salvage ship (fow)': withNamedShip('u.s.s. voyager'),
+  'cochrane voyager shuttle': withNamedShip('u.s.s. voyager'),
+
+  // "...you may play this ship at the same mission as your {U.S.S. Voyager}."
+  'delta flyer innovative vessel': withNamedShip('u.s.s. voyager'),
+  'delta flyer innovative vessel (fow)': withNamedShip('u.s.s. voyager'),
+  'delta flyer rebuilt "hot rod"': withNamedShip('u.s.s. voyager'),
+
+  // "You may play this personnel aboard your {U.S.S. Prometheus}."
+  'e.m.h. mark ii newborn but filled with courage': withNamedShip('u.s.s. prometheus'),
 };
 
 export function deckPlayabilityMatches(card: CardRow, deckRows: CardRow[]): boolean {
