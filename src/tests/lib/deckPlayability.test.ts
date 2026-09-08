@@ -7,8 +7,8 @@ const makeCard = (name: string, extra: Record<string, string> = {}): Record<stri
   ...extra,
 });
 
-const makeShip = (icons: string, affiliation: string = ''): Record<string, any> => ({
-  name: 'a ship',
+const makeShip = (icons: string, affiliation: string = '', name: string = 'a ship'): Record<string, any> => ({
+  name,
   type: 'ship',
   icons,
   affiliation,
@@ -101,5 +101,52 @@ describe('deckPlayabilityMatches', () => {
   it('does not match a card with no gametext-based deck playability entry', () => {
     const card = makeCard('worf');
     expect(deckPlayabilityMatches(card, [makeShip('[tos]')])).toBe(false);
+  });
+
+  it('matches a named-ship-gated ("aboard") personnel when that ship is in the deck', () => {
+    const card = makeCard('clark terrell reliant captain');
+    expect(deckPlayabilityMatches(card, [makeShip('', '', 'u.s.s. reliant home again')])).toBe(true);
+  });
+
+  it('does not match a named-ship-gated personnel without that ship in the deck', () => {
+    const card = makeCard('clark terrell reliant captain');
+    expect(deckPlayabilityMatches(card, [makeShip('', '', 'a ship')])).toBe(false);
+    expect(deckPlayabilityMatches(card, [])).toBe(false);
+  });
+
+  it('matches a named-ship-gated ("to the same mission as") ship when that ship is in the deck', () => {
+    const card = makeCard('shuttlepod one reliable transport', { type: 'ship' });
+    expect(deckPlayabilityMatches(card, [makeShip('', '', 'enterprise nx-01')])).toBe(true);
+  });
+
+  it('does not match {Enterprise}-gated cards against a lookalike-but-distinct ship name', () => {
+    const card = makeCard('shuttlepod one reliable transport', { type: 'ship' });
+    expect(deckPlayabilityMatches(card, [makeShip('', '', 'u.s.s. enterprise-d all good things')])).toBe(false);
+  });
+
+  it('matches U.S.S. Voyager-gated cards regardless of "aboard" or "same mission as" phrasing', () => {
+    expect(
+      deckPlayabilityMatches(makeCard('william t. riker surprised witness'), [
+        makeShip('', '', 'u.s.s. voyager home away from home'),
+      ])
+    ).toBe(true);
+    expect(
+      deckPlayabilityMatches(makeCard('delta flyer innovative vessel', { type: 'ship' }), [
+        makeShip('', '', 'u.s.s. voyager home away from home'),
+      ])
+    ).toBe(true);
+  });
+
+  it('matches the *A and (FOW) prints of Delta Flyer Innovative Vessel via the shared base name', () => {
+    expect(
+      deckPlayabilityMatches(makeCard('delta flyer innovative vessel *a', { type: 'ship' }), [
+        makeShip('', '', 'u.s.s. voyager'),
+      ])
+    ).toBe(true);
+    expect(
+      deckPlayabilityMatches(makeCard('delta flyer innovative vessel (fow)', { type: 'ship' }), [
+        makeShip('', '', 'u.s.s. voyager'),
+      ])
+    ).toBe(true);
   });
 });
