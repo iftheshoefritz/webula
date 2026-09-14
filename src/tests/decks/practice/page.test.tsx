@@ -499,17 +499,55 @@ describe('PracticeDrawPage', () => {
       fireEvent.click(cardButton);
     });
 
-    // Enlarged preview now shown, sized ~168px wide (50% bigger than the 112px default)
+    // Enlarged preview now shown, anchored to the right edge at full screen height
     const enlargedPreview = screen.getByRole('button', { name: /card 1, tap to shrink/i });
     expect(enlargedPreview).toBeInTheDocument();
     const enlargedImg = enlargedPreview.querySelector('img');
-    expect(enlargedImg).toHaveClass('w-[168px]');
+    expect(enlargedImg).toHaveClass('absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90vh]');
 
     // Tapping the enlarged preview shrinks it back
     await act(async () => {
       fireEvent.click(enlargedPreview);
     });
     expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
+  });
+
+  // Enlarged preview: position and size are identical regardless of which card is previewed
+  it('enlarged preview appears in the same right-anchored, full-height position for any card', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    for (let i = 0; i < 2; i++) {
+      await act(async () => {
+        fireEvent.click(drawPileButton);
+      });
+    }
+
+    const expectedClasses = ['absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90vh]', 'w-auto'];
+
+    // Preview card 1
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'card 1' }));
+    });
+    const firstPreview = screen.getByRole('button', { name: /card 1, tap to shrink/i });
+    expect(firstPreview.querySelector('img')).toHaveClass(...expectedClasses);
+    await act(async () => {
+      fireEvent.click(firstPreview);
+    });
+
+    // Preview card 2 — same position/size classes
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'card 2' }));
+    });
+    const secondPreview = screen.getByRole('button', { name: /card 2, tap to shrink/i });
+    expect(secondPreview.querySelector('img')).toHaveClass(...expectedClasses);
   });
 
   // Reset: restores pile and clears hand

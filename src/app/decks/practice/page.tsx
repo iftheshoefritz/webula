@@ -214,19 +214,18 @@ function PracticeDrawContent() {
             )}
           </div>
 
-          {/* Enlarged card preview, rendered outside the offset row so it always shows fully on screen */}
+          {/* Enlarged card preview, anchored to the right edge at full screen height so its
+              position never shifts regardless of which card is previewed */}
           {focusedCard !== null && hand[focusedCard] && (
             <button
-              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50"
+              className="fixed inset-0 z-[200] bg-black/50"
               onClick={() => setFocusedCard(null)}
               aria-label={`${hand[focusedCard].name}, tap to shrink`}
             >
               <img
                 src={`/cardimages/${hand[focusedCard].imagefile}.jpg`}
-                width={120}
-                height={167}
                 alt={hand[focusedCard].name}
-                className="rounded-lg shadow-2xl w-[168px] h-auto"
+                className="absolute right-4 top-1/2 -translate-y-1/2 h-[90vh] w-auto rounded-lg shadow-2xl"
               />
             </button>
           )}
