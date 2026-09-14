@@ -585,6 +585,21 @@ describe('PracticeDrawPage', () => {
     expect(screen.queryByText(/Hand \(/)).not.toBeInTheDocument();
   });
 
+  // Viewport sizing: page root is pinned to the visual viewport instead of the
+  // layout-viewport-relative min-h-screen, so mobile Safari's chrome doesn't
+  // push content below the fold and force a scroll (issue #592).
+  it('renders the page root pinned to the visual viewport with no min-h-screen', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
+
+    const { container } = render(<PracticeDrawPage />);
+    await act(async () => {});
+
+    const root = container.firstChild as HTMLElement;
+    expect(root).toHaveClass('fixed', 'inset-0', 'overflow-hidden');
+    expect(root).not.toHaveClass('min-h-screen');
+  });
+
   // Orientation: RotateDeviceOverlay is rendered when matchMedia reports portrait
   it('renders RotateDeviceOverlay when orientation is portrait', async () => {
     Object.defineProperty(window, 'matchMedia', {

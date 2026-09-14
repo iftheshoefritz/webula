@@ -105,7 +105,7 @@ function PracticeDrawContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-page font-body text-text-primary flex flex-col">
+    <div className="fixed inset-0 bg-gradient-page font-body text-text-primary flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-[#131713]">
         <Link href="/decks" className="flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors text-sm">
