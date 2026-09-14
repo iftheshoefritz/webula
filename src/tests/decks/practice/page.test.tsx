@@ -585,10 +585,13 @@ describe('PracticeDrawPage', () => {
     expect(screen.queryByText(/Hand \(/)).not.toBeInTheDocument();
   });
 
-  // Viewport sizing: page root is pinned to the visual viewport instead of the
-  // layout-viewport-relative min-h-screen, so mobile Safari's chrome doesn't
-  // push content below the fold and force a scroll (issue #592).
-  it('renders the page root pinned to the visual viewport with no min-h-screen', async () => {
+  // Viewport sizing: page root is sized to the dynamic viewport (100dvh) instead of
+  // the layout-viewport-relative min-h-screen, so mobile Safari's chrome doesn't
+  // push content below the fold and force a scroll (issue #592). Unlike a `fixed`
+  // root, this keeps the page in normal document flow so the trailing footer can
+  // still make the page nudge-scrollable, letting Safari's chrome collapse on
+  // scroll as usual instead of getting stuck fully expanded (PR #593 follow-up).
+  it('renders the page root sized to the dynamic viewport with no min-h-screen or fixed positioning', async () => {
     mockSearchParamsValue = new URLSearchParams();
     (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
 
@@ -596,8 +599,9 @@ describe('PracticeDrawPage', () => {
     await act(async () => {});
 
     const root = container.firstChild as HTMLElement;
-    expect(root).toHaveClass('fixed', 'inset-0', 'overflow-hidden');
+    expect(root).toHaveClass('h-[100dvh]', 'overflow-hidden');
     expect(root).not.toHaveClass('min-h-screen');
+    expect(root).not.toHaveClass('fixed');
   });
 
   // Orientation: RotateDeviceOverlay is rendered when matchMedia reports portrait
