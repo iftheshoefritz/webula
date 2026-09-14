@@ -475,6 +475,43 @@ describe('PracticeDrawPage', () => {
     expect(cardImg).toHaveAttribute('src', '/cardimages/card_1.jpg');
   });
 
+  // Tap-to-enlarge: tapping a hand card shows an enlarged preview, tapping it again shrinks it back
+  it('tapping a hand card shows an enlarged preview and tapping again shrinks it back', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    await act(async () => {
+      fireEvent.click(drawPileButton);
+    });
+
+    // No enlarged preview shown yet
+    expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
+
+    const cardButton = screen.getByRole('button', { name: 'card 1' });
+    await act(async () => {
+      fireEvent.click(cardButton);
+    });
+
+    // Enlarged preview now shown, sized ~168px wide (50% bigger than the 112px default)
+    const enlargedPreview = screen.getByRole('button', { name: /card 1, tap to shrink/i });
+    expect(enlargedPreview).toBeInTheDocument();
+    const enlargedImg = enlargedPreview.querySelector('img');
+    expect(enlargedImg).toHaveClass('w-[168px]');
+
+    // Tapping the enlarged preview shrinks it back
+    await act(async () => {
+      fireEvent.click(enlargedPreview);
+    });
+    expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
+  });
+
   // Reset: restores pile and clears hand
   it('clicking reset after drawing cards restores pile and clears hand', async () => {
     mockSearchParamsValue = new URLSearchParams();

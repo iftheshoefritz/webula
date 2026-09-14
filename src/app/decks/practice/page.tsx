@@ -148,8 +148,8 @@ function PracticeDrawContent() {
         <div className="flex flex-col flex-1 p-4">
           {/* Future game elements go here */}
 
-          {/* Draw Pile + Hand anchored to the bottom */}
-          <div className="mt-auto flex flex-row items-end gap-6">
+          {/* Draw Pile + Hand anchored to the bottom, offset partially below the viewport */}
+          <div className="mt-auto flex flex-row items-end gap-6" style={{ transform: 'translateY(30%)' }}>
             {/* Pile */}
             <div className="flex items-start gap-4">
               <div className="flex flex-col items-center gap-1">
@@ -165,14 +165,14 @@ function PracticeDrawContent() {
                         width={120}
                         height={167}
                         alt="Face-down draw pile"
-                        className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-28 h-auto"
+                        className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
                       />
                       <span className="absolute -top-2 -right-2 bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
                         {pile.length}
                       </span>
                     </>
                   ) : (
-                    <div className="w-28 h-40 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
+                    <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
                       Empty
                     </div>
                   )}
@@ -183,22 +183,20 @@ function PracticeDrawContent() {
             {/* Hand */}
             {hand.length > 0 && (
               <div className="flex flex-col gap-2 flex-1">
-                <div className="relative flex" style={{ minHeight: '180px' }}>
+                <div className="relative flex" style={{ minHeight: '90px' }}>
                   {hand.map((card, idx) => {
                     const isFocused = focusedCard === idx;
                     const fanOffset = Math.min(44, Math.floor(320 / Math.max(hand.length, 1)));
                     return (
                       <button
                         key={`${card.collectorsinfo}-${idx}`}
-                        className="absolute focus:outline-none transition-transform duration-150 hover:-translate-y-8 hover:scale-[1.08]"
+                        className="absolute focus:outline-none"
                         style={{
                           left: idx * fanOffset,
                           zIndex: isFocused ? 100 : idx + 1,
+                          visibility: isFocused ? 'hidden' : 'visible',
                         }}
-                        onMouseEnter={() => setFocusedCard(idx)}
-                        onMouseLeave={() => setFocusedCard(null)}
-                        onFocus={() => setFocusedCard(idx)}
-                        onBlur={() => setFocusedCard(null)}
+                        onClick={() => setFocusedCard(idx)}
                         aria-label={card.name}
                       >
                         <img
@@ -206,7 +204,7 @@ function PracticeDrawContent() {
                           width={120}
                           height={167}
                           alt={card.name}
-                          className="rounded-lg shadow-md w-28 h-auto"
+                          className="rounded-lg shadow-md w-14 h-auto"
                         />
                       </button>
                     );
@@ -215,6 +213,23 @@ function PracticeDrawContent() {
               </div>
             )}
           </div>
+
+          {/* Enlarged card preview, rendered outside the offset row so it always shows fully on screen */}
+          {focusedCard !== null && hand[focusedCard] && (
+            <button
+              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50"
+              onClick={() => setFocusedCard(null)}
+              aria-label={`${hand[focusedCard].name}, tap to shrink`}
+            >
+              <img
+                src={`/cardimages/${hand[focusedCard].imagefile}.jpg`}
+                width={120}
+                height={167}
+                alt={hand[focusedCard].name}
+                className="rounded-lg shadow-2xl w-[168px] h-auto"
+              />
+            </button>
+          )}
         </div>
       )}
     </div>
