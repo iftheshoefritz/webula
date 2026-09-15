@@ -21,7 +21,6 @@ jest.mock('../../../app/decks/deckBuilderUtils', () => ({
 
 // Mock react-icons to avoid jsdom noise
 jest.mock('react-icons/fa', () => ({
-  FaArrowLeft: () => null,
   FaRedo: () => null,
   FaLayerGroup: () => null,
   FaMobileAlt: () => null,
@@ -231,16 +230,18 @@ describe('PracticeDrawPage', () => {
     expect(screen.getByText('No draw cards in deck.')).toBeInTheDocument();
   });
 
-  // Behaviour: "Back to Deck Builder" link points to /decks
-  it('renders "Back to Deck Builder" link pointing to /decks', async () => {
-    (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
+  // Layout: no header chrome above the game table; the browser back button returns to the deck builder
+  it('does not render the "Practice Draw" title or "Back to Deck Builder" link', async () => {
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
 
-    const link = screen.getByRole('link', { name: /back to deck builder/i });
-    expect(link).toHaveAttribute('href', '/decks');
+    expect(screen.queryByText('Practice Draw')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /back to deck builder/i })).not.toBeInTheDocument();
   });
 
   // Behaviour: Empty state rendered when pile and hand are both empty
@@ -333,9 +334,8 @@ describe('PracticeDrawPage', () => {
     }
   });
 
-  // Draw Mechanics: drawToSeven draws the correct number of cards
-  it('drawToSeven draws exactly enough cards to reach 7', async () => {
-    mockSearchParamsValue = new URLSearchParams();
+  // Controls: the "Draw to 7" control is gone
+  it('does not render a "Draw to 7" button', async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
     (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
@@ -344,71 +344,7 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // Draw 3 cards manually first
-    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
-    for (let i = 0; i < 3; i++) {
-      await act(async () => {
-        fireEvent.click(drawPileButton);
-      });
-    }
-    expect(screen.getAllByRole('button', { name: /^card \d+$/i }).length).toBe(3);
-
-    // Click "Draw to 7"
-    const drawToSevenButton = screen.getByRole('button', { name: /draw to 7/i });
-    await act(async () => {
-      fireEvent.click(drawToSevenButton);
-    });
-
-    // Should have 7 in hand and 3 remaining in pile
-    expect(screen.getAllByRole('button', { name: /^card \d+$/i }).length).toBe(7);
-    expect(screen.getByText('3')).toBeInTheDocument();
-  });
-
-  // Draw Mechanics: drawToSeven draws 0 cards when hand already has 7
-  it('drawToSeven draws 0 cards when hand already has 7', async () => {
-    mockSearchParamsValue = new URLSearchParams();
-    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
-    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
-
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
-
-    // Draw 7 manually
-    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
-    for (let i = 0; i < 7; i++) {
-      await act(async () => {
-        fireEvent.click(drawPileButton);
-      });
-    }
-    expect(screen.getAllByRole('button', { name: /^card \d+$/i }).length).toBe(7);
-
-    // "Draw to 7" button should now be disabled
-    const drawToSevenButton = screen.getByRole('button', { name: /draw to 7/i });
-    expect(drawToSevenButton).toBeDisabled();
-  });
-
-  // Draw Mechanics: "Draw to 7" button disabled when pile is empty
-  it('"Draw to 7" button is disabled when pile is exhausted', async () => {
-    mockSearchParamsValue = new URLSearchParams();
-    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
-    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    // Only 1 card so pile empties after one draw
-    (expandDeck as jest.Mock).mockReturnValue([mockManyCards[0]]);
-
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
-
-    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
-    await act(async () => {
-      fireEvent.click(drawPileButton);
-    });
-
-    // pile is now empty, "Draw to 7" should be disabled
-    const drawToSevenButton = screen.getByRole('button', { name: /draw to 7/i });
-    expect(drawToSevenButton).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /draw to 7/i })).not.toBeInTheDocument();
   });
 
   // Draw Mechanics: draw pile button is disabled when pile is exhausted
@@ -499,6 +435,9 @@ describe('PracticeDrawPage', () => {
       fireEvent.click(cardButton);
     });
 
+    // The hand card stays visible in the hand while its preview shows
+    expect(screen.getByRole('button', { name: 'card 1' })).toBeVisible();
+
     // Enlarged preview now shown, anchored to the right edge at full screen height
     const enlargedPreview = screen.getByRole('button', { name: /card 1, tap to shrink/i });
     expect(enlargedPreview).toBeInTheDocument();
@@ -571,10 +510,9 @@ describe('PracticeDrawPage', () => {
     expect(screen.getAllByRole('button', { name: /^card \d+$/i }).length).toBe(3);
     expect(screen.getByText('7')).toBeInTheDocument();
 
-    // Click reset (the button immediately after "Draw to 7" in the controls bar)
-    const drawTo7Button = screen.getByRole('button', { name: /draw to 7/i });
-    const resetButton = drawTo7Button.nextElementSibling as HTMLButtonElement | null;
-    expect(resetButton).toBeTruthy();
+    // Click reset (the small button directly above the draw pile)
+    const resetButton = screen.getByRole('button', { name: /^reset$/i });
+    expect(resetButton.nextElementSibling).toBe(drawPileButton);
 
     await act(async () => {
       fireEvent.click(resetButton!);

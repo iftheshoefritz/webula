@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { FaArrowLeft, FaRedo, FaLayerGroup, FaMobileAlt } from 'react-icons/fa';
+import { FaRedo, FaLayerGroup, FaMobileAlt } from 'react-icons/fa';
 import { deckFromTsv, expandDeck, shuffleArray } from '../deckBuilderUtils';
 import { Deck } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
@@ -12,8 +12,6 @@ import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 interface ScreenOrientationWithLock extends ScreenOrientation {
   lock?(orientation: string): Promise<void>;
 }
-
-const INITIAL_HAND_SIZE = 7;
 
 function RotateDeviceOverlay() {
   return (
@@ -86,14 +84,6 @@ function PracticeDrawContent() {
     setHand((prev) => [...prev, top]);
   };
 
-  const drawToSeven = () => {
-    if (pile.length === 0) return;
-    const needed = Math.max(0, INITIAL_HAND_SIZE - hand.length);
-    const drawn = pile.slice(0, needed);
-    setPile(pile.slice(needed));
-    setHand((prev) => [...prev, ...drawn]);
-  };
-
   const reset = () => {
     initDeck();
   };
@@ -112,33 +102,6 @@ function PracticeDrawContent() {
 
       {/* Game layer: fixed inset-0 always fills the visible area as the toolbar shows and hides */}
       <div data-testid="practice-game-layer" className="fixed inset-0 bg-gradient-page font-body text-text-primary flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-[#131713]">
-          <Link href="/decks" className="flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors text-sm">
-            <FaArrowLeft />
-            Back to Deck Builder
-          </Link>
-          <span className="text-lg font-display font-medium text-text-primary">Practice Draw</span>
-          <div className="w-24" />
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
-          <button
-            className="btn-icon"
-            onClick={drawToSeven}
-            disabled={pile.length === 0 || hand.length >= INITIAL_HAND_SIZE}
-          >
-            Draw to 7
-          </button>
-          <button
-            className="btn-icon"
-            onClick={reset}
-          >
-            <FaRedo />
-          </button>
-        </div>
-
         {isEmpty && (
           <div className="flex flex-col items-center justify-center flex-1 text-text-muted gap-2 p-8">
             <FaLayerGroup className="text-4xl" />
@@ -159,6 +122,13 @@ function PracticeDrawContent() {
               {/* Pile */}
               <div className="flex items-start gap-4">
                 <div className="flex flex-col items-center gap-1">
+                  <button
+                    className="btn-icon btn-icon-sm"
+                    onClick={reset}
+                    aria-label="Reset"
+                  >
+                    <FaRedo />
+                  </button>
                   <button
                     onClick={drawOne}
                     disabled={pile.length === 0}
@@ -200,7 +170,6 @@ function PracticeDrawContent() {
                           style={{
                             left: idx * fanOffset,
                             zIndex: isFocused ? 100 : idx + 1,
-                            visibility: isFocused ? 'hidden' : 'visible',
                           }}
                           onClick={() => setFocusedCard(idx)}
                           aria-label={card.name}
