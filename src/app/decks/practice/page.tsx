@@ -105,133 +105,140 @@ function PracticeDrawContent() {
   }
 
   return (
-    <div className="min-h-[100svh] bg-gradient-page font-body text-text-primary flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-[#131713]">
-        <Link href="/decks" className="flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors text-sm">
-          <FaArrowLeft />
-          Back to Deck Builder
-        </Link>
-        <span className="text-lg font-display font-medium text-text-primary">Practice Draw</span>
-        <div className="w-24" />
-      </div>
+    <>
+      {/* Scroll room only. Mobile Safari hides its toolbar when the document scrolls, and keeps it
+          hidden only while the document is taller than the toolbar-hidden viewport (100lvh). */}
+      <div aria-hidden="true" data-testid="practice-scroll-spacer" className="h-[calc(100lvh+120px)]" />
 
-      {/* Controls */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
-        <button
-          className="btn-icon"
-          onClick={drawToSeven}
-          disabled={pile.length === 0 || hand.length >= INITIAL_HAND_SIZE}
-        >
-          Draw to 7
-        </button>
-        <button
-          className="btn-icon"
-          onClick={reset}
-        >
-          <FaRedo />
-        </button>
-      </div>
-
-      {isEmpty && (
-        <div className="flex flex-col items-center justify-center flex-1 text-text-muted gap-2 p-8">
-          <FaLayerGroup className="text-4xl" />
-          <p className="text-lg">No draw cards in deck.</p>
-          <p className="text-sm">Add cards to your draw pile in the deck builder, then come back here.</p>
-          <Link href="/decks" className="mt-4 btn-icon">
-            Go to Deck Builder
+      {/* Game layer: fixed inset-0 always fills the visible area as the toolbar shows and hides */}
+      <div data-testid="practice-game-layer" className="fixed inset-0 bg-gradient-page font-body text-text-primary flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-[#131713]">
+          <Link href="/decks" className="flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors text-sm">
+            <FaArrowLeft />
+            Back to Deck Builder
           </Link>
+          <span className="text-lg font-display font-medium text-text-primary">Practice Draw</span>
+          <div className="w-24" />
         </div>
-      )}
 
-      {!isEmpty && (
-        <div className="flex flex-col flex-1 p-4">
-          {/* Future game elements go here */}
+        {/* Controls */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
+          <button
+            className="btn-icon"
+            onClick={drawToSeven}
+            disabled={pile.length === 0 || hand.length >= INITIAL_HAND_SIZE}
+          >
+            Draw to 7
+          </button>
+          <button
+            className="btn-icon"
+            onClick={reset}
+          >
+            <FaRedo />
+          </button>
+        </div>
 
-          {/* Draw Pile + Hand anchored to the bottom, offset partially below the viewport */}
-          <div className="mt-auto flex flex-row items-end gap-6" style={{ transform: 'translateY(30%)' }}>
-            {/* Pile */}
-            <div className="flex items-start gap-4">
-              <div className="flex flex-col items-center gap-1">
-                <button
-                  onClick={drawOne}
-                  disabled={pile.length === 0}
-                  className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {pile.length > 0 ? (
-                    <>
-                      <img
-                        src="/cardimages/cardback.jpg"
-                        width={120}
-                        height={167}
-                        alt="Face-down draw pile"
-                        className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
-                      />
-                      <span className="absolute -top-2 -right-2 bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
-                        {pile.length}
-                      </span>
-                    </>
-                  ) : (
-                    <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
-                      Empty
-                    </div>
-                  )}
-                </button>
-              </div>
-            </div>
+        {isEmpty && (
+          <div className="flex flex-col items-center justify-center flex-1 text-text-muted gap-2 p-8">
+            <FaLayerGroup className="text-4xl" />
+            <p className="text-lg">No draw cards in deck.</p>
+            <p className="text-sm">Add cards to your draw pile in the deck builder, then come back here.</p>
+            <Link href="/decks" className="mt-4 btn-icon">
+              Go to Deck Builder
+            </Link>
+          </div>
+        )}
 
-            {/* Hand */}
-            {hand.length > 0 && (
-              <div className="flex flex-col gap-2 flex-1">
-                <div className="relative flex" style={{ minHeight: '90px' }}>
-                  {hand.map((card, idx) => {
-                    const isFocused = focusedCard === idx;
-                    const fanOffset = Math.min(44, Math.floor(320 / Math.max(hand.length, 1)));
-                    return (
-                      <button
-                        key={`${card.collectorsinfo}-${idx}`}
-                        className="absolute focus:outline-none"
-                        style={{
-                          left: idx * fanOffset,
-                          zIndex: isFocused ? 100 : idx + 1,
-                          visibility: isFocused ? 'hidden' : 'visible',
-                        }}
-                        onClick={() => setFocusedCard(idx)}
-                        aria-label={card.name}
-                      >
+        {!isEmpty && (
+          <div className="flex flex-col flex-1 p-4">
+            {/* Future game elements go here */}
+
+            {/* Draw Pile + Hand anchored to the bottom, offset partially below the viewport */}
+            <div className="mt-auto flex flex-row items-end gap-6" style={{ transform: 'translateY(30%)' }}>
+              {/* Pile */}
+              <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={drawOne}
+                    disabled={pile.length === 0}
+                    className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {pile.length > 0 ? (
+                      <>
                         <img
-                          src={`/cardimages/${card.imagefile}.jpg`}
+                          src="/cardimages/cardback.jpg"
                           width={120}
                           height={167}
-                          alt={card.name}
-                          className="rounded-lg shadow-md w-14 h-auto"
+                          alt="Face-down draw pile"
+                          className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
                         />
-                      </button>
-                    );
-                  })}
+                        <span className="absolute -top-2 -right-2 bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
+                          {pile.length}
+                        </span>
+                      </>
+                    ) : (
+                      <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
+                        Empty
+                      </div>
+                    )}
+                  </button>
                 </div>
               </div>
+
+              {/* Hand */}
+              {hand.length > 0 && (
+                <div className="flex flex-col gap-2 flex-1">
+                  <div className="relative flex" style={{ minHeight: '90px' }}>
+                    {hand.map((card, idx) => {
+                      const isFocused = focusedCard === idx;
+                      const fanOffset = Math.min(44, Math.floor(320 / Math.max(hand.length, 1)));
+                      return (
+                        <button
+                          key={`${card.collectorsinfo}-${idx}`}
+                          className="absolute focus:outline-none"
+                          style={{
+                            left: idx * fanOffset,
+                            zIndex: isFocused ? 100 : idx + 1,
+                            visibility: isFocused ? 'hidden' : 'visible',
+                          }}
+                          onClick={() => setFocusedCard(idx)}
+                          aria-label={card.name}
+                        >
+                          <img
+                            src={`/cardimages/${card.imagefile}.jpg`}
+                            width={120}
+                            height={167}
+                            alt={card.name}
+                            className="rounded-lg shadow-md w-14 h-auto"
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Enlarged card preview, anchored to the right edge at full screen height so its
+                position never shifts regardless of which card is previewed */}
+            {focusedCard !== null && hand[focusedCard] && (
+              <button
+                className="fixed inset-0 z-[200] bg-black/50"
+                onClick={() => setFocusedCard(null)}
+                aria-label={`${hand[focusedCard].name}, tap to shrink`}
+              >
+                <img
+                  src={`/cardimages/${hand[focusedCard].imagefile}.jpg`}
+                  alt={hand[focusedCard].name}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 h-[90%] w-auto rounded-lg shadow-2xl"
+                />
+              </button>
             )}
           </div>
-
-          {/* Enlarged card preview, anchored to the right edge at full screen height so its
-              position never shifts regardless of which card is previewed */}
-          {focusedCard !== null && hand[focusedCard] && (
-            <button
-              className="fixed inset-0 z-[200] bg-black/50"
-              onClick={() => setFocusedCard(null)}
-              aria-label={`${hand[focusedCard].name}, tap to shrink`}
-            >
-              <img
-                src={`/cardimages/${hand[focusedCard].imagefile}.jpg`}
-                alt={hand[focusedCard].name}
-                className="absolute right-4 top-1/2 -translate-y-1/2 h-[90vh] w-auto rounded-lg shadow-2xl"
-              />
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }
 

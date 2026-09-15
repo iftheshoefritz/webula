@@ -503,7 +503,7 @@ describe('PracticeDrawPage', () => {
     const enlargedPreview = screen.getByRole('button', { name: /card 1, tap to shrink/i });
     expect(enlargedPreview).toBeInTheDocument();
     const enlargedImg = enlargedPreview.querySelector('img');
-    expect(enlargedImg).toHaveClass('absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90vh]');
+    expect(enlargedImg).toHaveClass('absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90%]');
 
     // Tapping the enlarged preview shrinks it back
     await act(async () => {
@@ -530,7 +530,7 @@ describe('PracticeDrawPage', () => {
       });
     }
 
-    const expectedClasses = ['absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90vh]', 'w-auto'];
+    const expectedClasses = ['absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90%]', 'w-auto'];
 
     // Preview card 1
     await act(async () => {
@@ -585,26 +585,20 @@ describe('PracticeDrawPage', () => {
     expect(screen.queryByText(/Hand \(/)).not.toBeInTheDocument();
   });
 
-  // Viewport sizing: page root has a min-height of 100svh (the *small* viewport height,
-  // i.e. the guaranteed visible area when mobile Safari's chrome is fully expanded)
-  // instead of the layout-viewport-relative min-h-screen, so the chrome never pushes
-  // content below the fold (issue #592). Unlike 100dvh, svh is a static value that
-  // doesn't live-track the chrome as it shows/hides, so the trailing footer always
-  // adds a real, stable bit of extra scrollable height below the fold — giving mobile
-  // Safari's native scroll-to-collapse-chrome behavior a genuine, non-canceling signal
-  // to act on, instead of getting stuck fully expanded (PR #593 follow-up).
-  it('renders the page root with a min-h-[100svh] and no min-h-screen, fixed, or h-[100dvh]', async () => {
+  // Viewport sizing (issue #592): the game UI is a fixed layer that fills the visible area,
+  // and a separate in-flow spacer taller than 100lvh lets mobile Safari hide its toolbar
+  // on scroll and keep it hidden.
+  it('renders a fixed game layer and a scroll spacer taller than the large viewport', async () => {
     mockSearchParamsValue = new URLSearchParams();
     (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
 
-    const { container } = render(<PracticeDrawPage />);
+    render(<PracticeDrawPage />);
     await act(async () => {});
 
-    const root = container.firstChild as HTMLElement;
-    expect(root).toHaveClass('min-h-[100svh]', 'overflow-hidden');
-    expect(root).not.toHaveClass('min-h-screen');
-    expect(root).not.toHaveClass('fixed');
-    expect(root).not.toHaveClass('h-[100dvh]');
+    expect(screen.getByTestId('practice-scroll-spacer')).toHaveClass('h-[calc(100lvh+120px)]');
+    const gameLayer = screen.getByTestId('practice-game-layer');
+    expect(gameLayer).toHaveClass('fixed', 'inset-0');
+    expect(gameLayer).not.toHaveClass('overflow-hidden');
   });
 
   // Orientation: RotateDeviceOverlay is rendered when matchMedia reports portrait
