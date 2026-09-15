@@ -503,7 +503,7 @@ describe('PracticeDrawPage', () => {
     const enlargedPreview = screen.getByRole('button', { name: /card 1, tap to shrink/i });
     expect(enlargedPreview).toBeInTheDocument();
     const enlargedImg = enlargedPreview.querySelector('img');
-    expect(enlargedImg).toHaveClass('absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90vh]');
+    expect(enlargedImg).toHaveClass('absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90%]');
 
     // Tapping the enlarged preview shrinks it back
     await act(async () => {
@@ -530,7 +530,7 @@ describe('PracticeDrawPage', () => {
       });
     }
 
-    const expectedClasses = ['absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90vh]', 'w-auto'];
+    const expectedClasses = ['absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90%]', 'w-auto'];
 
     // Preview card 1
     await act(async () => {
@@ -583,6 +583,22 @@ describe('PracticeDrawPage', () => {
     // Pile should be back to 10 and hand should be gone
     expect(screen.getByText('10')).toBeInTheDocument();
     expect(screen.queryByText(/Hand \(/)).not.toBeInTheDocument();
+  });
+
+  // Viewport sizing (issue #592): the game UI is a fixed layer that fills the visible area,
+  // and a separate in-flow spacer taller than 100lvh lets mobile Safari hide its toolbar
+  // on scroll and keep it hidden.
+  it('renders a fixed game layer and a scroll spacer taller than the large viewport', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
+
+    render(<PracticeDrawPage />);
+    await act(async () => {});
+
+    expect(screen.getByTestId('practice-scroll-spacer')).toHaveClass('h-[calc(100lvh+120px)]');
+    const gameLayer = screen.getByTestId('practice-game-layer');
+    expect(gameLayer).toHaveClass('fixed', 'inset-0');
+    expect(gameLayer).not.toHaveClass('overflow-hidden');
   });
 
   // Orientation: RotateDeviceOverlay is rendered when matchMedia reports portrait
