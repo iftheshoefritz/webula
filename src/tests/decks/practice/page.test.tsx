@@ -384,7 +384,8 @@ describe('PracticeDrawPage', () => {
       fireEvent.click(drawPileButton);
     });
 
-    expect(screen.getByText('Empty')).toBeInTheDocument();
+    // Both the exhausted draw pile and the still-empty discard pile show the placeholder
+    expect(screen.getAllByText('Empty').length).toBe(2);
     expect(screen.queryByAltText('Face-down draw pile')).not.toBeInTheDocument();
   });
 
