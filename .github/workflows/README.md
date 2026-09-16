@@ -65,7 +65,9 @@ The prompt starts the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1`. This hides 
 
 ## Agent Review (`agent-review.yml`)
 **Event:** PR labeled `agent-review`
-**Action:** Claude fetches all unresolved review comments, either makes code changes (runs `yarn test`, commits, pushes) or replies to the thread, posts a summary comment, and removes the `agent-review` label.
+**Action:** Claude fetches all unresolved review comments, and either makes code changes or replies to the thread. For a code change, it runs `yarn test` and `yarn build`, commits, and pushes. Then, if the change affects a page, it checks only the review items in the browser. It posts a summary comment and removes the `agent-review` label.
+
+The push comes before the browser check for the same reason as in the implementation workflow. A run on PR #611 made a correct fix and stopped at the turn limit before it committed, so the fix was lost.
 
 ---
 
