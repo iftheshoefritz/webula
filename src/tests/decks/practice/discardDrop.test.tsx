@@ -34,19 +34,23 @@ jest.mock('next/link', () => {
 });
 
 // dnd-kit needs real pointer geometry to detect drop targets, which jsdom doesn't provide.
-// Mock just enough of it to capture the DndContext's `onDragEnd` and the ids each hand card
-// registers with `useDraggable`, so tests can simulate a drop by calling `onDragEnd` directly
-// with the id of the card actually rendered in the hand.
+// Mock just enough of it to capture the DndContext's `onDragStart`/`onDragEnd`, to render
+// `DragOverlay`'s children so tests can assert what it shows mid-drag, and to capture the ids
+// each open-hand card registers with `useDraggable`, so tests can simulate a drag by calling
+// `onDragStart`/`onDragEnd` directly with the id of the card actually rendered in the hand.
 const mockDraggableIds: string[] = [];
+let mockOnDragStart: ((event: { active: { id: string } }) => void) | null = null;
 let mockOnDragEnd: ((event: { active: { id: string }; over: { id: string } | null }) => void) | null = null;
 jest.mock('@dnd-kit/core', () => {
   const actual = jest.requireActual('@dnd-kit/core');
   return {
     ...actual,
-    DndContext: ({ children, onDragEnd }: any) => {
+    DndContext: ({ children, onDragStart, onDragEnd }: any) => {
+      mockOnDragStart = onDragStart;
       mockOnDragEnd = onDragEnd;
       return children;
     },
+    DragOverlay: ({ children }: any) => <div data-testid="drag-overlay">{children}</div>,
     useDraggable: ({ id }: { id: string }) => {
       mockDraggableIds.push(id);
       return { attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false };
@@ -86,6 +90,7 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDraggableIds.length = 0;
+    mockOnDragStart = null;
     mockOnDragEnd = null;
     mockSearchParamsValue = new URLSearchParams();
     localStorage.clear();
@@ -115,27 +120,30 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     });
   });
 
-  const setupHandWithOneCard = async () => {
+  // Renders the page with the given deck and opens the hand, so its cards are draggable.
+  const setupOpenHand = async (cards: any[]) => {
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+    (expandDeck as jest.Mock).mockReturnValue(cards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
 
-    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    const closedHandButton = screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
     await act(async () => {
-      fireEvent.click(drawPileButton);
+      fireEvent.click(closedHandButton);
     });
-
-    return mockDraggableIds[mockDraggableIds.length - 1];
   };
 
   it('moves the dropped card out of the hand and into the discard pile', async () => {
-    const draggedId = await setupHandWithOneCard();
+    await setupOpenHand([mockManyCards[0]]);
+    const [draggedId] = mockDraggableIds;
     expect(screen.getByRole('button', { name: 'card 1' })).toBeInTheDocument();
 
+    await act(async () => {
+      mockOnDragStart!({ active: { id: draggedId } });
+    });
     await act(async () => {
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'discard' } });
     });
@@ -146,27 +154,22 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
   });
 
   it('moves only the dropped copy when the hand has two copies of the same card', async () => {
-    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
-    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue([mockManyCards[0], mockManyCards[0]]);
-
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
-
-    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
-    await act(async () => {
-      fireEvent.click(drawPileButton);
-    });
-    await act(async () => {
-      fireEvent.click(drawPileButton);
-    });
+    await setupOpenHand([mockManyCards[0], mockManyCards[0]]);
 
     expect(screen.getAllByRole('button', { name: 'card 1' })).toHaveLength(2);
     const [firstId] = mockDraggableIds;
 
     await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
       mockOnDragEnd!({ active: { id: firstId }, over: { id: 'discard' } });
+    });
+
+    // The hand closed on drag start; re-open it to check the remaining copy.
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(closedHandButton);
     });
 
     expect(screen.getAllByRole('button', { name: 'card 1' })).toHaveLength(1);
@@ -174,9 +177,11 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
   });
 
   // Browser checks drag with `agent-browser drag '[data-zone="hand"] [data-card-id]' '[data-zone="discard"]'`
-  // (see AGENTS.md), so these selectors are part of the page's contract.
-  it('marks the zones and the hand cards with the selectors that browser checks use', async () => {
-    const draggedId = await setupHandWithOneCard();
+  // (see AGENTS.md), so these selectors are part of the page's contract. Dragging is only
+  // possible from the open hand.
+  it('marks the zones and the open-hand cards with the selectors that browser checks use', async () => {
+    await setupOpenHand([mockManyCards[0]]);
+    const [draggedId] = mockDraggableIds;
     const handZone = document.body.querySelector('[data-zone="hand"]');
     expect(handZone).not.toBeNull();
     expect(handZone!.querySelector(`[data-card-id="${draggedId}"]`)).not.toBeNull();
@@ -184,19 +189,46 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     expect(document.body.querySelector('[data-zone="discard"]')).not.toBeNull();
   });
 
-  it('leaves the card in the hand when the drop misses the discard pile', async () => {
-    const draggedId = await setupHandWithOneCard();
+  it('starting a drag from the open hand closes it and shows the card in the drag overlay', async () => {
+    await setupOpenHand([mockManyCards[0]]);
+    const [draggedId] = mockDraggableIds;
+    expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
 
+    await act(async () => {
+      mockOnDragStart!({ active: { id: draggedId } });
+    });
+
+    // The fan (and its backdrop) is gone; the closed hand button is back.
+    expect(screen.queryByRole('button', { name: /^close hand$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
+
+    // The DragOverlay carries a copy of the dragged card under the pointer.
+    const overlay = screen.getByTestId('drag-overlay');
+    expect(overlay.querySelector('img')).toHaveAttribute('src', '/cardimages/card_1.jpg');
+  });
+
+  it('leaves the card in the hand when the drop misses the discard pile', async () => {
+    await setupOpenHand([mockManyCards[0]]);
+    const [draggedId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: draggedId } });
+    });
     await act(async () => {
       mockOnDragEnd!({ active: { id: draggedId }, over: null });
     });
 
-    expect(screen.getByRole('button', { name: 'card 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
     expect(screen.queryByAltText('Discard pile')).not.toBeInTheDocument();
   });
 
   it('reset clears the discard pile along with the pile and hand', async () => {
-    const draggedId = await setupHandWithOneCard();
+    await setupOpenHand([mockManyCards[0]]);
+    const [draggedId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: draggedId } });
+    });
     await act(async () => {
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'discard' } });
     });
@@ -207,8 +239,8 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
       fireEvent.click(resetButton);
     });
 
-    expect(screen.getByText('10')).toBeInTheDocument();
+    // A single-card deck is dealt straight back into a closed hand; the discard pile clears.
+    expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
     expect(screen.queryByAltText('Discard pile')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
   });
 });

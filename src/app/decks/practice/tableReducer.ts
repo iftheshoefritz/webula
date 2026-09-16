@@ -84,8 +84,14 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       };
     }
 
-    case 'reset':
-      return { pile: action.cards, hand: [], discard: [] };
+    case 'reset': {
+      // A new game (and the reset button) deals an opening hand of 7 cards, face up, and
+      // leaves the rest in the draw pile. A deck with fewer than 7 cards deals all of it.
+      const handSize = Math.min(7, action.cards.length);
+      const hand = action.cards.slice(0, handSize).map((c) => ({ ...c, face: ZONE_FACE.hand }));
+      const pile = action.cards.slice(handSize);
+      return { pile, hand, discard: [] };
+    }
 
     default:
       return state;
