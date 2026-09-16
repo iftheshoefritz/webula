@@ -1,16 +1,23 @@
 name: Vercel Preview Check
 
+# The check runs when the preview is ready and the PR is ready for review. These two events can come
+# in either order. The implementation workflow opens a draft PR before its browser check, and writes
+# the Visual Verification section only when it marks the PR ready. An assessment of a draft reads
+# "Pending." and nothing runs it again, so a draft gets no check.
 on:
   issue_comment:
     types: [created, edited]
+  pull_request:
+    types: [ready_for_review]
 
 jobs:
   preview-check:
     if: |
-      github.event.issue.pull_request != null &&
-      github.event.comment.user.login == 'vercel[bot]' &&
-      contains(github.event.comment.body, 'vercel.app') &&
-      contains(github.event.comment.body, 'Ready')
+      github.event_name == 'pull_request' ||
+      (github.event.issue.pull_request != null &&
+       github.event.comment.user.login == 'vercel[bot]' &&
+       contains(github.event.comment.body, 'vercel.app') &&
+       contains(github.event.comment.body, 'Ready'))
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -20,33 +27,74 @@ jobs:
       id-token: write
 
     steps:
+      - name: Find the PR and the Vercel comment
+        id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+          if [ "$(gh pr view "$PR_NUMBER" --repo "$REPO" --json isDraft --jq '.isDraft')" = "true" ]; then
+            echo "PR #$PR_NUMBER is a draft. The check runs when it is ready for review."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Vercel edits one comment for each deployment, so the newest Vercel comment is the current one.
+          COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq '.[] | select(.user.login == "vercel[bot]") | .id' | tail -n 1)
+          BODY=""
+          if [ -n "$COMMENT_ID" ]; then
+            BODY=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq '.body')
+          fi
+          if [[ "$BODY" != *vercel.app* || "$BODY" != *Ready* ]]; then
+            echo "The preview for PR #$PR_NUMBER is not ready. The check runs when Vercel posts Ready."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "run=true" >> "$GITHUB_OUTPUT"
+          DELIMITER="VERCEL_COMMENT_$(openssl rand -hex 16)"
+          {
+            echo "vercel_comment<<$DELIMITER"
+            printf '%s\n' "$BODY"
+            echo "$DELIMITER"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Checkout repository
+        if: steps.context.outputs.run == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
       - name: Run Claude Code
+        if: steps.context.outputs.run == 'true'
         uses: anthropics/claude-code-action@v1.0.70
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          allowed_bots: "vercel[bot]"
+          # vercel[bot] posts the Ready comment. claude[bot] marks the PR ready for review at the end
+          # of the implementation workflow.
+          allowed_bots: "vercel[bot],claude[bot]"
           prompt: |
-            Vercel has posted or updated a deployment-ready comment on PR #${{ github.event.issue.number }}.
+            PR #${{ steps.context.outputs.pr_number }} is ready for review, and its Vercel preview deployment is ready.
 
             The Vercel bot comment body is:
-            ${{ github.event.comment.body }}
+            ${{ steps.context.outputs.vercel_comment }}
 
             Your job is to post a NEW comment with preview links and a verification assessment — but only if the PR has new commits since you last commented. Follow these steps exactly:
 
             1. Get the PR's current HEAD commit SHA:
                ```
-               gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json headRefOid --jq '.headRefOid'
+               gh pr view ${{ steps.context.outputs.pr_number }} --repo ${{ github.repository }} --json headRefOid --jq '.headRefOid'
                ```
                Call this CURRENT_SHA.
 
             2. Check whether you have already posted a preview-check comment for this exact commit. Search all comments on the PR for one whose body contains the HTML marker `<!-- vercel-preview-check: CURRENT_SHA -->` (replace CURRENT_SHA with the actual SHA):
                ```
-               gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+               gh api repos/${{ github.repository }}/issues/${{ steps.context.outputs.pr_number }}/comments \
                  --jq '[.[] | select(.body | contains("<!-- vercel-preview-check: CURRENT_SHA -->"))] | length'
                ```
                If the result is 1 or more, stop immediately — you have already commented for this commit.
@@ -55,12 +103,12 @@ jobs:
 
             4. Get the PR diff to understand which files changed:
                ```
-               gh pr diff ${{ github.event.issue.number }} --repo ${{ github.repository }} --name-only
+               gh pr diff ${{ steps.context.outputs.pr_number }} --repo ${{ github.repository }} --name-only
                ```
 
             5. Get the PR body to extract the "## Visual Verification" section if it exists:
                ```
-               gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json body --jq '.body'
+               gh pr view ${{ steps.context.outputs.pr_number }} --repo ${{ github.repository }} --json body --jq '.body'
                ```
 
             6. Review the changed files and the codebase routing to identify which app routes will surface the changes.
@@ -79,7 +127,7 @@ jobs:
 
             9. Post a NEW comment on the PR using:
                ```
-               gh pr comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "..."
+               gh pr comment ${{ steps.context.outputs.pr_number }} --repo ${{ github.repository }} --body "..."
                ```
 
                Format the comment as follows (use real URLs, not placeholders). The HTML marker at the top is required — replace CURRENT_SHA with the actual SHA from step 1:

@@ -173,6 +173,17 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     expect(screen.getByText('1')).toBeInTheDocument();
   });
 
+  // Browser checks drag with `agent-browser drag '[data-zone="hand"] [data-card-id]' '[data-zone="discard"]'`
+  // (see AGENTS.md), so these selectors are part of the page's contract.
+  it('marks the zones and the hand cards with the selectors that browser checks use', async () => {
+    const draggedId = await setupHandWithOneCard();
+    const handZone = document.body.querySelector('[data-zone="hand"]');
+    expect(handZone).not.toBeNull();
+    expect(handZone!.querySelector(`[data-card-id="${draggedId}"]`)).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="pile"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="discard"]')).not.toBeNull();
+  });
+
   it('leaves the card in the hand when the drop misses the discard pile', async () => {
     const draggedId = await setupHandWithOneCard();
 

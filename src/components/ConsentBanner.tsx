@@ -4,10 +4,20 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import posthog from 'posthog-js';
 
+// Preview deployments and the dev server of an agent browser check (NEXT_PUBLIC_AGENT_BROWSER=1) have
+// no real visitor to ask. There the banner only covers the bottom of the page and blocks clicks and drags.
+function bannerIsDisabled() {
+  return (
+    process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' ||
+    process.env.NEXT_PUBLIC_AGENT_BROWSER === '1'
+  );
+}
+
 export default function ConsentBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    if (bannerIsDisabled()) return;
     const consent = localStorage.getItem('analytics_consent');
     if (consent === null) {
       setVisible(true);
