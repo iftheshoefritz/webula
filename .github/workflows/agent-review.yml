@@ -43,8 +43,13 @@ jobs:
                - Make the necessary edits to address the reviewer's concern.
                - Write or update tests for any new or modified code.
                - Run `yarn test` and then `yarn build` to confirm nothing is broken. `yarn build` also checks types, runs ESLint, and pre-renders the static pages. Fix every failure before you continue.
-               - Commit with a message like `fix: address review comments (PR #${{ github.event.pull_request.number }})`.
-               - Push to the same branch (already checked out): `git push origin HEAD`.
+               - Commit and push before the browser check. The run can stop at the turn limit, and an unpushed change is lost.
+                 - Commit with a message like `fix: address review comments (PR #${{ github.event.pull_request.number }})`.
+                 - Run `git pull --rebase`, then push to the same branch (already checked out): `git push origin HEAD`. Never force-push.
+               - If your change affects what a page shows or does, check it in the browser. Start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`, and follow "Browser checks" in AGENTS.md.
+                 - Check only the items in the review comments. Use the page and the viewport that the comments name.
+                 - Check each item one time. After all items pass, stop the dev server.
+               - If the browser check made you change code, run `yarn test` and `yarn build` again, then commit and push again as above.
 
             4. **If no code changes are needed for a thread:**
                - Reply to that comment thread with a clear clarification or acknowledgement using:
@@ -52,6 +57,7 @@ jobs:
 
             5. Leave a top-level PR comment summarising:
                - Which review threads were addressed and how (code change vs. reply).
+               - What the browser check showed for each item, if you did a browser check.
                - Which threads still need human attention (if any).
 
             6. Remove the "agent-review" label so the workflow does not re-trigger:
