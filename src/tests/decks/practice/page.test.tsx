@@ -294,10 +294,9 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // pile badge shows 10
-    expect(screen.getByText('10')).toBeInTheDocument();
-    // Hand label not shown yet
-    expect(screen.queryByText(/Hand \(/)).not.toBeInTheDocument();
+    // A new game deals 7 of the 10 cards into the (closed) hand; the rest stay in the pile.
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
 
     // Click the draw pile button
     const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
@@ -305,10 +304,9 @@ describe('PracticeDrawPage', () => {
       fireEvent.click(drawPileButton);
     });
 
-    // pile badge now shows 9
-    expect(screen.getByText('9')).toBeInTheDocument();
-    // One card now in hand
-    expect(screen.getAllByRole('button', { name: /^card \d+$/i }).length).toBe(1);
+    // pile badge now shows 2, hand grows to 8
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^hand, 8 cards, tap to open$/i })).toBeInTheDocument();
   });
 
   // Draw Mechanics: pile count badge shows remaining count
@@ -322,16 +320,23 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    expect(screen.getByText('10')).toBeInTheDocument();
+    // 10-card deck: 7 dealt into the hand, 3 left in the pile.
+    expect(screen.getByText('3')).toBeInTheDocument();
 
     const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
 
-    for (let remaining = 9; remaining >= 7; remaining--) {
+    for (let remaining = 2; remaining >= 1; remaining--) {
       await act(async () => {
         fireEvent.click(drawPileButton);
       });
       expect(screen.getByText(String(remaining))).toBeInTheDocument();
     }
+
+    // The pile shows its "Empty" placeholder rather than a "0" badge once exhausted.
+    await act(async () => {
+      fireEvent.click(drawPileButton);
+    });
+    expect(screen.getByRole('button', { name: /^empty$/i })).toBeInTheDocument();
   });
 
   // Controls: the "Draw to 7" control is gone
@@ -352,26 +357,19 @@ describe('PracticeDrawPage', () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    // A single-card deck is dealt entirely into the hand, so the pile starts empty.
     (expandDeck as jest.Mock).mockReturnValue([mockManyCards[0]]);
 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
 
-    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
-    await act(async () => {
-      fireEvent.click(drawPileButton);
-    });
-
-    // After drawing, pile is empty; the pile button (now the "Empty" placeholder button) should be disabled
     const emptyButton = screen.getByRole('button', { name: /^empty$/i });
     expect(emptyButton).toBeDisabled();
   });
 
-  // Layout (PR #609 review): the discard pile must not shift toward the draw pile
-  // when the hand is empty. The hand's flex-1 spacer needs to stay in the layout
-  // even with zero cards in it.
-  it('keeps the hand spacer in the layout when the hand is empty so the discard pile position is stable', async () => {
+  // Bottom row layout (issue #596): hand, draw pile, core, brig, discard, dilemma pile.
+  it('renders the bottom row zones in order: hand, pile, core, brig, discard, dilemma', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -381,17 +379,10 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // Hand is empty; the discard "Empty" placeholder is present alongside it.
-    const emptyPlaceholders = screen.getAllByText('Empty');
-    expect(emptyPlaceholders.length).toBe(1);
-    const discardPlaceholder = emptyPlaceholders[0];
-
-    // The row is: pile wrapper, hand wrapper (flex-1), discard wrapper.
-    // The discard wrapper's previous sibling should be the flex-1 hand wrapper,
-    // not the pile wrapper directly, regardless of whether the hand holds cards.
-    const discardWrapper = discardPlaceholder.parentElement!.parentElement!;
-    const handWrapper = discardWrapper.previousElementSibling as HTMLElement;
-    expect(handWrapper).toHaveClass('flex-1');
+    const zones = Array.from(document.body.querySelectorAll('[data-zone]')).map((el) =>
+      el.getAttribute('data-zone')
+    );
+    expect(zones).toEqual(['hand', 'pile', 'core', 'brig', 'discard', 'dilemma']);
   });
 
   // UI State: after drawing all cards, pile renders the "Empty" placeholder
@@ -399,18 +390,14 @@ describe('PracticeDrawPage', () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    // A single-card deck is dealt entirely into the hand, so the pile starts empty.
     (expandDeck as jest.Mock).mockReturnValue([mockManyCards[0]]);
 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
 
-    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
-    await act(async () => {
-      fireEvent.click(drawPileButton);
-    });
-
-    // Both the exhausted draw pile and the still-empty discard pile show the placeholder
+    // Both the empty draw pile and the still-empty discard pile show the placeholder
     expect(screen.getAllByText('Empty').length).toBe(2);
     expect(screen.queryByAltText('Face-down draw pile')).not.toBeInTheDocument();
   });
@@ -426,16 +413,43 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    // A new game already dealt 7 cards, including "card 1", into the (closed) hand. Open it
+    // to reach the individual card buttons.
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i });
     await act(async () => {
-      fireEvent.click(drawPileButton);
+      fireEvent.click(closedHandButton);
     });
 
-    // The first card from mockManyCards should be in hand
     const cardButton = screen.getByRole('button', { name: 'card 1' });
     expect(cardButton).toBeInTheDocument();
     const cardImg = cardButton.querySelector('img');
     expect(cardImg).toHaveAttribute('src', '/cardimages/card_1.jpg');
+  });
+
+  // Open/closed hand (issue #596): a tap on the closed hand opens it, a tap outside closes it
+  it('tapping the closed hand opens it, and tapping outside the fan closes it', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
+
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(closedHandButton);
+    });
+    expect(screen.getByRole('button', { name: 'card 1' })).toBeInTheDocument();
+
+    const backdrop = screen.getByRole('button', { name: /^close hand$/i });
+    await act(async () => {
+      fireEvent.click(backdrop);
+    });
+    expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
   });
 
   // Tap-to-enlarge: tapping a hand card shows an enlarged preview, tapping it again shrinks it back
@@ -449,9 +463,9 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i });
     await act(async () => {
-      fireEvent.click(drawPileButton);
+      fireEvent.click(closedHandButton);
     });
 
     // No enlarged preview shown yet
@@ -462,7 +476,7 @@ describe('PracticeDrawPage', () => {
       fireEvent.click(cardButton);
     });
 
-    // The hand card stays visible in the hand while its preview shows
+    // The hand card stays visible in the open fan while its preview shows
     expect(screen.getByRole('button', { name: 'card 1' })).toBeVisible();
 
     // Enlarged preview now shown, anchored to the right edge at full screen height
@@ -489,12 +503,10 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
-    for (let i = 0; i < 2; i++) {
-      await act(async () => {
-        fireEvent.click(drawPileButton);
-      });
-    }
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(closedHandButton);
+    });
 
     const expectedClasses = ['absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90%]', 'w-auto'];
 
@@ -516,8 +528,8 @@ describe('PracticeDrawPage', () => {
     expect(secondPreview.querySelector('img')).toHaveClass(...expectedClasses);
   });
 
-  // Reset: restores pile and clears hand
-  it('clicking reset after drawing cards restores pile and clears hand', async () => {
+  // Reset: redeals an opening hand of 7 and closes the hand
+  it('clicking reset after drawing cards redeals an opening hand of 7 and closes the hand', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -527,27 +539,34 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // Draw 3 cards
+    // Draw the remaining 3 cards and open the hand
     const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
     for (let i = 0; i < 3; i++) {
       await act(async () => {
         fireEvent.click(drawPileButton);
       });
     }
-    expect(screen.getAllByRole('button', { name: /^card \d+$/i }).length).toBe(3);
-    expect(screen.getByText('7')).toBeInTheDocument();
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 10 cards, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(closedHandButton);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'card 1' }));
+    });
+    expect(screen.getByRole('button', { name: /tap to shrink/i })).toBeInTheDocument();
 
     // Click reset (the small button directly above the draw pile)
     const resetButton = screen.getByRole('button', { name: /^reset$/i });
-    expect(resetButton.nextElementSibling).toBe(drawPileButton);
 
     await act(async () => {
       fireEvent.click(resetButton!);
     });
 
-    // Pile should be back to 10 and hand should be gone
-    expect(screen.getByText('10')).toBeInTheDocument();
-    expect(screen.queryByText(/Hand \(/)).not.toBeInTheDocument();
+    // Pile is back to 3, hand is a fresh opening hand of 7 and is closed, and the preview clears
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
   });
 
   // Viewport sizing (issue #592): the game UI is a fixed layer that fills the visible area,

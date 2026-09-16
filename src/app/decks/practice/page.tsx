@@ -3,13 +3,23 @@
 import React, { Suspense, useEffect, useReducer, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { DndContext, DragEndEvent, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 import { FaRedo, FaLayerGroup, FaMobileAlt } from 'react-icons/fa';
 import { deckFromTsv, expandDeck, shuffleArray } from '../deckBuilderUtils';
 import { Deck } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { CardInstance, createCardInstances, initialTableState, tableReducer } from './tableReducer';
+import CardHand from './CardHand';
 
 interface ScreenOrientationWithLock extends ScreenOrientation {
   lock?(orientation: string): Promise<void>;
@@ -29,44 +39,14 @@ function RotateDeviceOverlay() {
 
 const DISCARD_DROPPABLE_ID = 'discard';
 
-function DraggableHandCard({
-  instance,
-  left,
-  zIndex,
-  onClick,
-}: {
-  instance: CardInstance;
-  left: number;
-  zIndex: number;
-  onClick: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
-  const { card } = instance;
-
+function EmptyZonePlaceholder({ zone, label }: { zone: string; label: string }) {
   return (
-    <button
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      data-card-id={instance.id}
-      className="absolute focus:outline-none touch-none"
-      style={{
-        left,
-        zIndex: isDragging ? 100 : zIndex,
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-        opacity: isDragging ? 0.5 : 1,
-      }}
-      onClick={onClick}
-      aria-label={card.name}
+    <div
+      data-zone={zone}
+      className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1"
     >
-      <img
-        src={`/cardimages/${card.imagefile}.jpg`}
-        width={120}
-        height={167}
-        alt={card.name}
-        className="rounded-lg shadow-md w-14 h-auto"
-      />
-    </button>
+      {label}
+    </div>
   );
 }
 
@@ -105,6 +85,8 @@ function PracticeDrawContent() {
   const { pile, hand, discard } = table;
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [isPortrait, setIsPortrait] = useState(false);
+  const [isHandOpen, setIsHandOpen] = useState(false);
+  const [draggingInstance, setDraggingInstance] = useState<CardInstance | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -115,6 +97,7 @@ function PracticeDrawContent() {
       const expanded = expandDeck(deck);
       dispatch({ type: 'reset', cards: createCardInstances(shuffleArray(expanded)) });
       setFocusedCardId(null);
+      setIsHandOpen(false);
       return;
     }
 
@@ -125,6 +108,7 @@ function PracticeDrawContent() {
       const expanded = expandDeck(deck);
       dispatch({ type: 'reset', cards: createCardInstances(shuffleArray(expanded)) });
       setFocusedCardId(null);
+      setIsHandOpen(false);
     } catch {
       // silently ignore parse errors
     }
@@ -156,8 +140,21 @@ function PracticeDrawContent() {
     initDeck();
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const id = String(event.active.id);
+    const instance = hand.find((c) => c.id === id);
+    if (instance) {
+      // A drag from the open hand closes it at once; the DragOverlay carries the card under
+      // the pointer for the rest of the drag, so the source card can stay put in the (now
+      // closed) hand with no jump.
+      setIsHandOpen(false);
+      setDraggingInstance(instance);
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    setDraggingInstance(null);
     if (over?.id === DISCARD_DROPPABLE_ID) {
       dispatch({ type: 'move', id: String(active.id), to: 'discard' });
     }
@@ -190,12 +187,22 @@ function PracticeDrawContent() {
         )}
 
         {!isEmpty && (
-          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="flex flex-col flex-1 p-4">
               {/* Future game elements go here */}
 
-              {/* Draw Pile + Hand + Discard anchored to the bottom, offset partially below the viewport */}
+              {/* Hand + Draw Pile + Core + Brig + Discard + Dilemma pile, anchored to the
+                  bottom, offset partially below the viewport */}
               <div className="mt-auto flex flex-row items-end gap-6" style={{ transform: 'translateY(30%)' }}>
+                {/* Hand */}
+                <CardHand
+                  instances={hand}
+                  open={isHandOpen}
+                  onOpen={() => setIsHandOpen(true)}
+                  onClose={() => setIsHandOpen(false)}
+                  onCardClick={(id) => setFocusedCardId(id)}
+                />
+
                 {/* Pile */}
                 <div className="flex items-start gap-4">
                   <div className="flex flex-col items-center gap-1">
@@ -234,30 +241,17 @@ function PracticeDrawContent() {
                   </div>
                 </div>
 
-                {/* Hand: always takes up its flex space, even when empty, so the discard
-                    pile doesn't shift toward the draw pile when the hand is drained */}
-                <div className="flex flex-col gap-2 flex-1">
-                  <div data-zone="hand" className="relative flex" style={{ minHeight: '90px' }}>
-                    {hand.map((instance, idx) => {
-                      const isFocused = focusedCardId === instance.id;
-                      const fanOffset = Math.min(44, Math.floor(320 / Math.max(hand.length, 1)));
-                      return (
-                        <DraggableHandCard
-                          key={instance.id}
-                          instance={instance}
-                          left={idx * fanOffset}
-                          zIndex={isFocused ? 100 : idx + 1}
-                          onClick={() => setFocusedCardId(instance.id)}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
+                {/* Core and Brig: no drop behaviour yet (#603) */}
+                <EmptyZonePlaceholder zone="core" label="Core" />
+                <EmptyZonePlaceholder zone="brig" label="Brig" />
 
                 {/* Discard */}
                 <div className="flex items-start gap-4">
                   <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
                 </div>
+
+                {/* Dilemma pile: no contents or drop behaviour yet (#604) */}
+                <EmptyZonePlaceholder zone="dilemma" label="Dilemma" />
               </div>
 
               {/* Enlarged card preview, anchored to the right edge at full screen height so its
@@ -276,6 +270,18 @@ function PracticeDrawContent() {
                 </button>
               )}
             </div>
+
+            <DragOverlay>
+              {draggingInstance && (
+                <img
+                  src={`/cardimages/${draggingInstance.card.imagefile}.jpg`}
+                  width={120}
+                  height={167}
+                  alt={draggingInstance.card.name}
+                  className="rounded-lg shadow-md w-14 h-auto"
+                />
+              )}
+            </DragOverlay>
           </DndContext>
         )}
       </div>

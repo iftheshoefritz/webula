@@ -15,15 +15,24 @@ const instance = (id: string, cardData: any, face: 'up' | 'down' = 'down'): Card
 
 describe('tableReducer', () => {
   describe('reset', () => {
-    it('replaces the pile with the given card instances and empties the hand and discard', () => {
-      const cards = [instance('a', card('Tricorder')), instance('b', card('Phaser'))];
+    it('deals the first 7 cards into the hand, face up, and leaves the rest in the pile', () => {
+      const cards = Array.from({ length: 10 }, (_, i) => instance(`c${i}`, card(`Card ${i}`)));
       const state = tableReducer(
         { pile: [], hand: [instance('x', card('old'))], discard: [instance('y', card('old2'))] },
         { type: 'reset', cards }
       );
 
-      expect(state.pile).toBe(cards);
-      expect(state.hand).toEqual([]);
+      expect(state.hand).toEqual(cards.slice(0, 7).map((c) => ({ ...c, face: 'up' })));
+      expect(state.pile).toEqual(cards.slice(7));
+      expect(state.discard).toEqual([]);
+    });
+
+    it('deals all the cards into the hand when the deck has fewer than 7', () => {
+      const cards = [instance('a', card('Tricorder')), instance('b', card('Phaser'))];
+      const state = tableReducer(initialTableState, { type: 'reset', cards });
+
+      expect(state.hand).toEqual(cards.map((c) => ({ ...c, face: 'up' })));
+      expect(state.pile).toEqual([]);
       expect(state.discard).toEqual([]);
     });
   });
