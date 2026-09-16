@@ -49,7 +49,17 @@ workflow that can create or label an issue.
 
 ## Claude Issue Implementation (`claude-implement.yml`)
 **Event:** Issue labeled `ready-for-dev`
-**Action:** Claude implements the feature/fix, runs tests, visually verifies via `yarn dev` + `agent-browser`, creates a branch, commits, and opens a PR targeting `main` with `Closes #<issue>`.
+**Action:** Claude implements the feature/fix and runs `yarn test` and `yarn build`. Then it creates a branch, commits, pushes, and opens a draft PR targeting `main` with `Closes #<issue>`. Then it checks the change with `yarn dev` + `agent-browser`, writes the `## Visual Verification` section into the PR body, and marks the PR ready for review.
+
+The PR opens before the browser check for three reasons:
+
+- The browser check uses many turns. If the run stops at the turn limit, the branch and the PR keep the work.
+- Vercel has more time to build the preview.
+- Other agents can work on the PR while the browser check runs.
+
+A PR that stays a draft with "Pending." in its `## Visual Verification` section is from a run that stopped before the browser check.
+
+The prompt starts the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1`. This hides the consent banner and the Next.js dev tools button, because they cover elements that the browser check clicks and drags.
 
 ---
 
@@ -66,8 +76,10 @@ workflow that can create or label an issue.
 ---
 
 ## Vercel Preview Check (`vercel-preview-check.yml`)
-**Event:** Issue comment created/edited by `vercel[bot]` on a PR containing a `vercel.app` "Ready" link
+**Event:** Issue comment created/edited by `vercel[bot]` on a PR containing a `vercel.app` "Ready" link, or a PR marked ready for review
 **Action:** Claude extracts the preview URL, identifies affected routes, checks the PR's `## Visual Verification` section for coverage adequacy, and posts a comment with clickable preview links and a ✅/⚠️/🟠/❌ assessment. Uses an idempotency marker to avoid duplicate comments per commit.
+
+The check needs both a ready preview and a PR that is not a draft. These can come in either order, so each event starts the check, and a first step stops the run when the other one is missing. The implementation workflow opens a draft PR with "Pending." in its `## Visual Verification` section, and fills in the section when it marks the PR ready. A check of the draft would read "Pending.", and no later event would run the check again.
 
 ---
 

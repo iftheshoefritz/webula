@@ -48,6 +48,7 @@ function DraggableHandCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      data-card-id={instance.id}
       className="absolute focus:outline-none touch-none"
       style={{
         left,
@@ -73,7 +74,7 @@ function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; co
   const { setNodeRef } = useDroppable({ id: DISCARD_DROPPABLE_ID });
 
   return (
-    <div ref={setNodeRef} className="flex flex-col items-center gap-1">
+    <div ref={setNodeRef} data-zone="discard" className="flex flex-col items-center gap-1">
       {topCard ? (
         <div className="relative">
           <img
@@ -206,6 +207,7 @@ function PracticeDrawContent() {
                       <FaRedo />
                     </button>
                     <button
+                      data-zone="pile"
                       onClick={drawOne}
                       disabled={pile.length === 0}
                       className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
@@ -235,7 +237,7 @@ function PracticeDrawContent() {
                 {/* Hand: always takes up its flex space, even when empty, so the discard
                     pile doesn't shift toward the draw pile when the hand is drained */}
                 <div className="flex flex-col gap-2 flex-1">
-                  <div className="relative flex" style={{ minHeight: '90px' }}>
+                  <div data-zone="hand" className="relative flex" style={{ minHeight: '90px' }}>
                     {hand.map((instance, idx) => {
                       const isFocused = focusedCardId === instance.id;
                       const fanOffset = Math.min(44, Math.floor(320 / Math.max(hand.length, 1)));
