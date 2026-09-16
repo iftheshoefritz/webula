@@ -368,6 +368,32 @@ describe('PracticeDrawPage', () => {
     expect(emptyButton).toBeDisabled();
   });
 
+  // Layout (PR #609 review): the discard pile must not shift toward the draw pile
+  // when the hand is empty. The hand's flex-1 spacer needs to stay in the layout
+  // even with zero cards in it.
+  it('keeps the hand spacer in the layout when the hand is empty so the discard pile position is stable', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    // Hand is empty; the discard "Empty" placeholder is present alongside it.
+    const emptyPlaceholders = screen.getAllByText('Empty');
+    expect(emptyPlaceholders.length).toBe(1);
+    const discardPlaceholder = emptyPlaceholders[0];
+
+    // The row is: pile wrapper, hand wrapper (flex-1), discard wrapper.
+    // The discard wrapper's previous sibling should be the flex-1 hand wrapper,
+    // not the pile wrapper directly, regardless of whether the hand holds cards.
+    const discardWrapper = discardPlaceholder.parentElement!.parentElement!;
+    const handWrapper = discardWrapper.previousElementSibling as HTMLElement;
+    expect(handWrapper).toHaveClass('flex-1');
+  });
+
   // UI State: after drawing all cards, pile renders the "Empty" placeholder
   it('after drawing all cards, the pile shows the "Empty" placeholder', async () => {
     mockSearchParamsValue = new URLSearchParams();

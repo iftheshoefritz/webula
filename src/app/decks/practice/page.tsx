@@ -232,26 +232,25 @@ function PracticeDrawContent() {
                   </div>
                 </div>
 
-                {/* Hand */}
-                {hand.length > 0 && (
-                  <div className="flex flex-col gap-2 flex-1">
-                    <div className="relative flex" style={{ minHeight: '90px' }}>
-                      {hand.map((instance, idx) => {
-                        const isFocused = focusedCardId === instance.id;
-                        const fanOffset = Math.min(44, Math.floor(320 / Math.max(hand.length, 1)));
-                        return (
-                          <DraggableHandCard
-                            key={instance.id}
-                            instance={instance}
-                            left={idx * fanOffset}
-                            zIndex={isFocused ? 100 : idx + 1}
-                            onClick={() => setFocusedCardId(instance.id)}
-                          />
-                        );
-                      })}
-                    </div>
+                {/* Hand: always takes up its flex space, even when empty, so the discard
+                    pile doesn't shift toward the draw pile when the hand is drained */}
+                <div className="flex flex-col gap-2 flex-1">
+                  <div className="relative flex" style={{ minHeight: '90px' }}>
+                    {hand.map((instance, idx) => {
+                      const isFocused = focusedCardId === instance.id;
+                      const fanOffset = Math.min(44, Math.floor(320 / Math.max(hand.length, 1)));
+                      return (
+                        <DraggableHandCard
+                          key={instance.id}
+                          instance={instance}
+                          left={idx * fanOffset}
+                          zIndex={isFocused ? 100 : idx + 1}
+                          onClick={() => setFocusedCardId(instance.id)}
+                        />
+                      );
+                    })}
                   </div>
-                )}
+                </div>
 
                 {/* Discard */}
                 <div className="flex items-start gap-4">
