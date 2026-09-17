@@ -16,6 +16,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
+import { offsetFor } from './overlapOffset';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -29,12 +30,6 @@ const CLOSED_MAX_OFFSET = 10;
 const OPEN_MAX_WIDTH = 460;
 const OPEN_MAX_OFFSET = 60;
 const OPEN_BOTTOM = 16; // px above the viewport's bottom edge, so the fan covers the zones
-
-function offsetFor(count: number, maxWidth: number, maxOffset: number): number {
-  if (count <= 1) return 0;
-  const bounded = Math.floor((maxWidth - CARD_WIDTH) / (count - 1));
-  return Math.max(2, Math.min(maxOffset, bounded));
-}
 
 function DraggableFanCard({
   instance,
@@ -98,9 +93,9 @@ export default function CardHand({
   zone?: string;
   label?: string;
 }) {
-  const closedOffset = offsetFor(instances.length, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
+  const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
-  const openOffset = offsetFor(instances.length, OPEN_MAX_WIDTH, OPEN_MAX_OFFSET);
+  const openOffset = offsetFor(instances.length, CARD_WIDTH, OPEN_MAX_WIDTH, OPEN_MAX_OFFSET);
   const openWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + openOffset * (instances.length - 1);
   const count = instances.length;
   const showFan = open || dragging;

@@ -385,10 +385,15 @@ describe('PracticeDrawPage', () => {
     );
     expect(zones).toEqual([
       'mission-0',
+      'ship-row-0',
       'mission-1',
+      'ship-row-1',
       'mission-2',
+      'ship-row-2',
       'mission-3',
+      'ship-row-3',
       'mission-4',
+      'ship-row-4',
       'discard',
       'pile',
       'hand',

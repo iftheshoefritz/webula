@@ -11,27 +11,55 @@
 // owner reads the card while it is down; see #598).
 //
 // A tap opens the large preview (#598): the whole card is a `<button>`, following the same
-// tappable-card convention as `CardHand`'s fan cards.
+// tappable-card convention as `CardHand`'s fan cards. A ship in a ship row is also draggable
+// (#599), so the same `<button>` also joins `useDraggable`, following `CardHand`'s
+// `DraggableFanCard` pattern: `listeners`/`attributes`/`setNodeRef` on the same element that has
+// the `onClick`. dnd-kit only returns `listeners` when the draggable is enabled, so a
+// non-draggable table card (a mission) can spread them unconditionally with no effect.
 
+import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 
 export const TABLE_CARD_WIDTH = 72; // px
 export const TABLE_CARD_ART_HEIGHT = 52; // px, crops the card image down to roughly its art box
 
-export default function TableCard({ instance, onClick }: { instance: CardInstance; onClick: () => void }) {
+export default function TableCard({
+  instance,
+  onClick,
+  width = TABLE_CARD_WIDTH,
+  artHeight = TABLE_CARD_ART_HEIGHT,
+  draggable = false,
+}: {
+  instance: CardInstance;
+  onClick: () => void;
+  width?: number;
+  artHeight?: number;
+  draggable?: boolean;
+}) {
   const { card, face } = instance;
   const isFaceDown = face === 'down';
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: instance.id,
+    disabled: !draggable,
+  });
 
   return (
     <button
+      ref={setNodeRef}
       type="button"
       data-card-id={instance.id}
       onClick={onClick}
-      className="flex flex-col items-center gap-0.5 focus:outline-none"
-      style={{ width: TABLE_CARD_WIDTH }}
+      {...attributes}
+      {...listeners}
+      className={`flex flex-col items-center gap-0.5 focus:outline-none ${draggable ? 'touch-none' : ''}`}
+      style={{
+        width,
+        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+        opacity: isDragging ? 0.5 : 1,
+      }}
       aria-label={isFaceDown ? 'Face-down card' : card.name}
     >
-      <div className="w-full rounded-md overflow-hidden bg-black/20" style={{ height: TABLE_CARD_ART_HEIGHT }}>
+      <div className="w-full rounded-md overflow-hidden bg-black/20" style={{ height: artHeight }}>
         <img
           src={isFaceDown ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
           alt={isFaceDown ? 'Face-down card' : card.name}

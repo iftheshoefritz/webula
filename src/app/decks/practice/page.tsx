@@ -20,7 +20,7 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { CardInstance, createCardInstances, findInstanceAnywhere, initialTableState, tableReducer } from './tableReducer';
 import CardHand from './CardHand';
-import MissionRow from './MissionRow';
+import MissionRow, { missionIndexFromDropId } from './MissionRow';
 import CardPreview from './CardPreview';
 
 interface ScreenOrientationWithLock extends ScreenOrientation {
@@ -161,14 +161,17 @@ function PracticeDrawContent() {
 
   const handleDragStart = (event: DragStartEvent) => {
     const id = String(event.active.id);
-    const instance = hand.find((c) => c.id === id);
-    if (instance) {
+    // A drag can start from the open hand or from a ship already on a mission's ship row
+    // (#599); `findInstanceAnywhere` locates a card regardless of which one it is.
+    const found = findInstanceAnywhere(table, id);
+    if (!found) return;
+    if (found.zone === 'hand') {
       // A drag from the open hand closes it at once; the DragOverlay carries the card under
       // the pointer for the rest of the drag, so the source card can stay put in the (now
       // closed) hand with no jump.
       setIsHandOpen(false);
-      setDraggingInstance(instance);
     }
+    setDraggingInstance(found.instance);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -176,6 +179,14 @@ function PracticeDrawContent() {
     setDraggingInstance(null);
     if (over?.id === DISCARD_DROPPABLE_ID) {
       dispatch({ type: 'move', id: String(active.id), to: 'discard' });
+      return;
+    }
+    // A drop on a mission card or its ship row both put a ship in that mission's ship row
+    // (#599). A drop of any other card type on either target is not supported yet (#602), so
+    // it is not dispatched and the card returns to its source zone.
+    const missionIndex = over ? missionIndexFromDropId(String(over.id)) : null;
+    if (missionIndex !== null && draggingInstance?.card.type === 'ship') {
+      dispatch({ type: 'move', id: String(active.id), to: { zone: 'shipRow', missionIndex } });
     }
   };
 

@@ -4,6 +4,7 @@ import {
   createCardInstances,
   findInstanceAnywhere,
   CardInstance,
+  MissionSlot,
   MISSION_SLOTS,
 } from '../../../app/decks/practice/tableReducer';
 
@@ -15,6 +16,17 @@ const instance = (id: string, cardData: any, face: 'up' | 'down' = 'down'): Card
   face,
 });
 
+// Builds a 5-slot missions array, each slot holding the given mission card (or null) and an
+// empty ship row, unless a slot's ships are overridden explicitly by index.
+const missionSlots = (
+  missions: (CardInstance | null)[],
+  shipsByIndex: Record<number, CardInstance[]> = {}
+): MissionSlot[] =>
+  Array.from({ length: MISSION_SLOTS }, (_, i) => ({
+    mission: missions[i] ?? null,
+    ships: shipsByIndex[i] ?? [],
+  }));
+
 describe('tableReducer', () => {
   describe('reset', () => {
     it('deals the first 7 cards into the hand, face up, and leaves the rest in the pile', () => {
@@ -24,7 +36,7 @@ describe('tableReducer', () => {
           pile: [],
           hand: [instance('x', card('old'))],
           discard: [instance('y', card('old2'))],
-          missions: Array(MISSION_SLOTS).fill(null),
+          missions: missionSlots([]),
         },
         { type: 'reset', cards, missions: [] }
       );
@@ -43,25 +55,26 @@ describe('tableReducer', () => {
       expect(state.discard).toEqual([]);
     });
 
-    it('deals 5 mission instances into 5 filled, face-up slots, in deck order, with unique ids', () => {
+    it('deals 5 mission instances into 5 filled, face-up slots, in deck order, with unique ids, each with an empty ship row', () => {
       const missions = Array.from({ length: 5 }, (_, i) => instance(`m${i}`, card(`Mission ${i}`), 'up'));
       const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions });
 
-      expect(state.missions).toEqual(missions);
-      expect(new Set(state.missions.map((m) => m!.id)).size).toBe(5);
+      expect(state.missions).toEqual(missionSlots(missions));
+      expect(new Set(state.missions.map((slot) => slot.mission!.id)).size).toBe(5);
+      expect(state.missions.every((slot) => slot.ships)).toBe(true);
     });
 
     it('deals 3 mission instances into 3 filled slots and 2 empty slots', () => {
       const missions = Array.from({ length: 3 }, (_, i) => instance(`m${i}`, card(`Mission ${i}`), 'up'));
       const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions });
 
-      expect(state.missions).toEqual([...missions, null, null]);
+      expect(state.missions).toEqual(missionSlots(missions));
     });
 
-    it('deals 0 mission instances into 5 empty slots', () => {
+    it('deals 0 mission instances into 5 empty slots, each with an empty ship row', () => {
       const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions: [] });
 
-      expect(state.missions).toEqual([null, null, null, null, null]);
+      expect(state.missions).toEqual(missionSlots([]));
     });
 
     it('re-deals the identical mission set on every reset, unlike the reshuffled draw pile', () => {
@@ -70,6 +83,14 @@ describe('tableReducer', () => {
       const second = tableReducer(first, { type: 'reset', cards: [], missions });
 
       expect(second.missions).toEqual(first.missions);
+    });
+
+    it('clears any ships that were on a ship row before the reset', () => {
+      const ship = instance('s0', card('U.S.S. Relativity'), 'up');
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
+      const state = tableReducer(start, { type: 'reset', cards: [], missions: [] });
+
+      expect(state.missions).toEqual(missionSlots([]));
     });
   });
 
@@ -137,38 +158,86 @@ describe('tableReducer', () => {
 
       expect(state).toBe(start);
     });
+
+    it('moves a hand card to a mission\'s ship row, face up', () => {
+      const ship = instance('s0', card('U.S.S. Relativity'), 'down');
+      const start = { ...initialTableState, hand: [ship], missions: missionSlots([]) };
+      const state = tableReducer(start, { type: 'move', id: 's0', to: { zone: 'shipRow', missionIndex: 2 } });
+
+      expect(state.hand).toEqual([]);
+      expect(state.missions[2].ships).toEqual([{ ...ship, face: 'up' }]);
+      expect(state.missions[0].ships).toEqual([]);
+    });
+
+    it('moves a discard-pile card to a ship row, face up', () => {
+      const ship = instance('s0', card('U.S.S. Relativity'), 'up');
+      const start = { ...initialTableState, discard: [ship], missions: missionSlots([]) };
+      const state = tableReducer(start, { type: 'move', id: 's0', to: { zone: 'shipRow', missionIndex: 0 } });
+
+      expect(state.discard).toEqual([]);
+      expect(state.missions[0].ships).toEqual([{ ...ship, face: 'up' }]);
+    });
+
+    it('moves a ship from one mission\'s ship row to another, leaving the source ship row empty', () => {
+      const ship = instance('s0', card('U.S.S. Relativity'), 'up');
+      const other = instance('s1', card('I.K.S. Somraw'), 'up');
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship, other] }) };
+      const state = tableReducer(start, { type: 'move', id: 's0', to: { zone: 'shipRow', missionIndex: 3 } });
+
+      expect(state.missions[0].ships).toEqual([other]);
+      expect(state.missions[3].ships).toEqual([ship]);
+    });
+
+    it('moves a ship from a ship row to the discard pile, removing it from that mission only', () => {
+      const ship = instance('s0', card('U.S.S. Relativity'), 'up');
+      const untouched = instance('s1', card('I.K.S. Somraw'), 'up');
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship], 1: [untouched] }) };
+      const state = tableReducer(start, { type: 'move', id: 's0', to: 'discard' });
+
+      expect(state.missions[0].ships).toEqual([]);
+      expect(state.missions[1].ships).toEqual([untouched]);
+      expect(state.discard).toEqual([{ ...ship, face: 'up' }]);
+    });
   });
 
   describe('flip', () => {
     it('turns a face-up mission face down in place', () => {
       const mission = instance('m0', card('Moab IV'), 'up');
-      const start = { ...initialTableState, missions: [mission, null, null, null, null] };
+      const start = { ...initialTableState, missions: missionSlots([mission]) };
       const state = tableReducer(start, { type: 'flip', id: 'm0' });
 
-      expect(state.missions).toEqual([{ ...mission, face: 'down' }, null, null, null, null]);
+      expect(state.missions).toEqual(missionSlots([{ ...mission, face: 'down' }]));
     });
 
     it('turns a face-down mission face up again', () => {
       const mission = instance('m0', card('Moab IV'), 'down');
-      const start = { ...initialTableState, missions: [mission, null, null, null, null] };
+      const start = { ...initialTableState, missions: missionSlots([mission]) };
       const state = tableReducer(start, { type: 'flip', id: 'm0' });
 
-      expect(state.missions).toEqual([{ ...mission, face: 'up' }, null, null, null, null]);
+      expect(state.missions).toEqual(missionSlots([{ ...mission, face: 'up' }]));
     });
 
     it('leaves the other mission slots untouched', () => {
       const m0 = instance('m0', card('Moab IV'), 'up');
       const m1 = instance('m1', card('Angel I'), 'up');
-      const start = { ...initialTableState, missions: [m0, m1, null, null, null] };
+      const start = { ...initialTableState, missions: missionSlots([m0, m1]) };
       const state = tableReducer(start, { type: 'flip', id: 'm0' });
 
-      expect(state.missions[1]).toEqual(m1);
+      expect(state.missions[1].mission).toEqual(m1);
     });
 
     it('is a no-op for an id that is not on the table', () => {
       const mission = instance('m0', card('Moab IV'), 'up');
-      const start = { ...initialTableState, missions: [mission, null, null, null, null] };
+      const start = { ...initialTableState, missions: missionSlots([mission]) };
       const state = tableReducer(start, { type: 'flip', id: 'missing' });
+
+      expect(state).toBe(start);
+    });
+
+    it('is a no-op for a ship on a ship row (a ship has no Flip control and is always face up)', () => {
+      const ship = instance('s0', card('U.S.S. Relativity'), 'up');
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
+      const state = tableReducer(start, { type: 'flip', id: 's0' });
 
       expect(state).toBe(start);
     });
@@ -204,9 +273,19 @@ describe('findInstanceAnywhere', () => {
 
   it('finds a mission slot and reports its zone as "missions"', () => {
     const mission = instance('m0', card('Moab IV'), 'up');
-    const state = { ...initialTableState, missions: [mission, null, null, null, null] };
+    const state = { ...initialTableState, missions: missionSlots([mission]) };
 
     expect(findInstanceAnywhere(state, 'm0')).toEqual({ instance: mission, zone: 'missions' });
+  });
+
+  it('finds a ship in a ship row and reports its mission index', () => {
+    const ship = instance('s0', card('U.S.S. Relativity'), 'up');
+    const state = { ...initialTableState, missions: missionSlots([], { 2: [ship] }) };
+
+    expect(findInstanceAnywhere(state, 's0')).toEqual({
+      instance: ship,
+      zone: { zone: 'shipRow', missionIndex: 2 },
+    });
   });
 
   it('returns null for an id that is not on the table', () => {
