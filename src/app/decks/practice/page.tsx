@@ -208,8 +208,8 @@ function PracticeDrawContent() {
               {/* Future game elements go here */}
 
               {/* Bottom row, anchored to the bottom, offset partially below the viewport. From left
-                  to right: discard pile, draw pile, closed hand, core, brig. The dilemma pile is at
-                  the right side, as far from the right edge as the draw pile is from the left edge. */}
+                  to right: discard pile, draw pile, closed hand, core, brig. The dilemma pile is the
+                  rightmost zone, at the right edge. */}
               <div className="mt-auto flex flex-row items-end gap-4" style={{ transform: 'translateY(30%)' }}>
                 {/* Discard */}
                 <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
@@ -267,12 +267,10 @@ function PracticeDrawContent() {
                 <EmptyZonePlaceholder zone="core" label="Core" />
                 <EmptyZonePlaceholder zone="brig" label="Brig" />
 
-                {/* Dilemma pile: no contents or drop behaviour yet (#604). The empty slot to its
-                    right has the width of the discard pile, so the two sides mirror each other.
-                    The closed dilemma hand goes in that slot (#604). */}
-                <div className="ml-auto flex flex-row items-end gap-4">
+                {/* Dilemma pile: no contents or drop behaviour yet (#604). The closed dilemma hand
+                    goes immediately to its left (#604). */}
+                <div className="ml-auto">
                   <EmptyZonePlaceholder zone="dilemma" label="Dilemma" />
-                  <div aria-hidden="true" data-testid="dilemma-hand-slot" className="w-14 shrink-0" />
                 </div>
               </div>
 
