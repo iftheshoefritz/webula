@@ -49,10 +49,10 @@ export const deckFromTsv = (tsv: string, data: Array<any>) => (
   parsedDeck(tsv.trim().split('\n'), data)
 )
 
-export const expandDeck = (deck: import('../../types').Deck): any[] => {
+const expandPile = (deck: import('../../types').Deck, pile: DeckPile): any[] => {
   const result: any[] = [];
   for (const entry of Object.values(deck)) {
-    if (cardPileFor(entry.row) === 'draw') {
+    if (cardPileFor(entry.row) === pile) {
       for (let i = 0; i < entry.count; i++) {
         result.push({ ...entry.row });
       }
@@ -60,6 +60,20 @@ export const expandDeck = (deck: import('../../types').Deck): any[] => {
   }
   return result;
 }
+
+export const expandDeck = (deck: import('../../types').Deck): any[] => expandPile(deck, 'draw')
+
+// Pulls the deck's mission-pile entries in the same deck-iteration order expandDeck uses, kept
+// un-shuffled: the mission row deals a fixed set in deck order, not a random draw (practice
+// page, #597).
+export const extractMissions = (deck: import('../../types').Deck): any[] => expandPile(deck, 'mission')
+
+// True when the loaded deck has no cards at all, across missions, dilemmas and draw combined —
+// used for the practice page's empty state, which must stay hidden for a deck that has only
+// missions and/or dilemmas (#597).
+export const isDeckEmpty = (deck: import('../../types').Deck): boolean => (
+  Object.values(deck).every((entry) => numericCount(entry) === 0)
+)
 
 export type DeckPile = 'mission' | 'dilemma' | 'draw';
 

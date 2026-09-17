@@ -1,4 +1,4 @@
-import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, cardPileFor, deckFromTsv, decrementedRow, expandDeck, findExisting, findExistingOrUseRow, incrementedRow, mergeDeckPiles, numericCount, parsedDeck, shuffleArray } from '../../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, cardPileFor, deckFromTsv, decrementedRow, expandDeck, extractMissions, findExisting, findExistingOrUseRow, incrementedRow, isDeckEmpty, mergeDeckPiles, numericCount, parsedDeck, shuffleArray } from '../../app/decks/deckBuilderUtils';
 import { CardDef } from '../../types';
 
 describe('constructing a deck object based on TSV text and a list of all card data', () => {
@@ -263,6 +263,50 @@ describe('expandDeck', () => {
 
   it('returns an empty array for an empty deck', () => {
     expect(expandDeck({})).toEqual([])
+  })
+})
+
+describe('extractMissions', () => {
+  it('extracts mission cards in deck order', () => {
+    const deck = {
+      '1R000': { row: { collectorsinfo: '1R000', type: 'mission', pile: 'mission', name: 'Mission A' }, count: 1 },
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw', name: 'Event' }, count: 2 },
+      '1R001': { row: { collectorsinfo: '1R001', type: 'mission', pile: 'mission', name: 'Mission B' }, count: 1 },
+    }
+    expect(extractMissions(deck).map((c) => c.name)).toEqual(['Mission A', 'Mission B'])
+  })
+
+  it('excludes dilemma and draw cards', () => {
+    const deck = {
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw' }, count: 2 },
+      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemma' }, count: 3 },
+    }
+    expect(extractMissions(deck)).toEqual([])
+  })
+
+  it('returns an empty array for an empty deck', () => {
+    expect(extractMissions({})).toEqual([])
+  })
+})
+
+describe('isDeckEmpty', () => {
+  it('returns true for a deck with zero entries', () => {
+    expect(isDeckEmpty({})).toEqual(true)
+  })
+
+  it('returns false for a deck with only mission and dilemma entries (no draw cards)', () => {
+    const deck = {
+      '1R000': { row: { collectorsinfo: '1R000', type: 'mission', pile: 'mission' }, count: 1 },
+      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemma' }, count: 2 },
+    }
+    expect(isDeckEmpty(deck)).toEqual(false)
+  })
+
+  it('returns false for a deck with only draw cards', () => {
+    const deck = {
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw' }, count: 2 },
+    }
+    expect(isDeckEmpty(deck)).toEqual(false)
   })
 })
 
