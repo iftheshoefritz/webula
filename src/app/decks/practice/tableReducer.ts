@@ -26,6 +26,7 @@ export interface TableState {
 export type TableAction =
   | { type: 'draw' }
   | { type: 'move'; id: string; to: Zone }
+  | { type: 'flip'; id: string }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[] };
 
 export const ZONE_FACE: Record<Zone, Face> = {
@@ -64,6 +65,29 @@ const findZone = (state: TableState, id: string): Zone | null => {
   return null;
 };
 
+// A card's location on the table, for callers (the flip action, and the page's preview) that
+// need to find a card regardless of whether it sits in one of `move`'s zones or in a
+// `missions` slot. `missions` is a positional array rather than a zone a card moves in and out
+// of, so it stays outside the `Zone` union that `move` targets.
+export type TableZone = Zone | 'missions';
+
+export function findInstanceAnywhere(
+  state: TableState,
+  id: string
+): { instance: CardInstance; zone: TableZone } | null {
+  const zone = findZone(state, id);
+  if (zone) {
+    return { instance: state[zone].find((c) => c.id === id)!, zone };
+  }
+  const missionIdx = state.missions.findIndex((m) => m?.id === id);
+  if (missionIdx !== -1) {
+    return { instance: state.missions[missionIdx]!, zone: 'missions' };
+  }
+  return null;
+}
+
+const flipFace = (face: Face): Face => (face === 'up' ? 'down' : 'up');
+
 export function tableReducer(state: TableState, action: TableAction): TableState {
   switch (action.type) {
     case 'draw': {
@@ -89,6 +113,22 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         ...state,
         [from]: withoutCard,
         [action.to]: [...destination, { ...card, face }],
+      };
+    }
+
+    case 'flip': {
+      const found = findInstanceAnywhere(state, action.id);
+      if (!found) return state;
+      const { zone, instance } = found;
+      if (zone === 'missions') {
+        const idx = state.missions.findIndex((m) => m?.id === action.id);
+        const missions = [...state.missions];
+        missions[idx] = { ...instance, face: flipFace(instance.face) };
+        return { ...state, missions };
+      }
+      return {
+        ...state,
+        [zone]: state[zone].map((c) => (c.id === action.id ? { ...c, face: flipFace(c.face) } : c)),
       };
     }
 

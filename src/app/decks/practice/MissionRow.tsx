@@ -20,7 +20,15 @@ function ReservedStrip({ height }: { height: number }) {
   return <div className="w-full rounded border border-dashed border-white/15" style={{ height }} />;
 }
 
-function MissionColumn({ zone, instance }: { zone: string; instance: CardInstance | null }) {
+function MissionColumn({
+  zone,
+  instance,
+  onCardClick,
+}: {
+  zone: string;
+  instance: CardInstance | null;
+  onCardClick: (id: string) => void;
+}) {
   return (
     <div className="flex flex-col items-center gap-1" style={{ width: TABLE_CARD_WIDTH }}>
       {/* Badge strip: personnel/event pile badges (#602), dilemma stack badge (#605) */}
@@ -28,7 +36,7 @@ function MissionColumn({ zone, instance }: { zone: string; instance: CardInstanc
 
       <div data-zone={zone} className="w-full flex items-center justify-center">
         {instance ? (
-          <TableCard card={instance.card} />
+          <TableCard instance={instance} onClick={() => onCardClick(instance.id)} />
         ) : (
           <div
             className="w-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[9px]"
@@ -48,11 +56,17 @@ function MissionColumn({ zone, instance }: { zone: string; instance: CardInstanc
   );
 }
 
-export default function MissionRow({ missions }: { missions: (CardInstance | null)[] }) {
+export default function MissionRow({
+  missions,
+  onCardClick,
+}: {
+  missions: (CardInstance | null)[];
+  onCardClick: (id: string) => void;
+}) {
   return (
     <div className="flex flex-row gap-2 justify-center">
       {missions.map((instance, idx) => (
-        <MissionColumn key={idx} zone={`mission-${idx}`} instance={instance} />
+        <MissionColumn key={idx} zone={`mission-${idx}`} instance={instance} onCardClick={onCardClick} />
       ))}
     </div>
   );
