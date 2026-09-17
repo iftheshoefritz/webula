@@ -18,9 +18,10 @@ import { deckFromTsv, expandDeck, extractMissions, isDeckEmpty, shuffleArray } f
 import { Deck } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
-import { CardInstance, createCardInstances, initialTableState, tableReducer } from './tableReducer';
+import { CardInstance, createCardInstances, findInstanceAnywhere, initialTableState, tableReducer } from './tableReducer';
 import CardHand from './CardHand';
 import MissionRow from './MissionRow';
+import CardPreview from './CardPreview';
 
 interface ScreenOrientationWithLock extends ScreenOrientation {
   lock?(orientation: string): Promise<void>;
@@ -184,7 +185,7 @@ function PracticeDrawContent() {
   };
 
   const isEmpty = deckEmpty;
-  const focusedInstance = hand.find((instance) => instance.id === focusedCardId);
+  const focused = focusedCardId ? findInstanceAnywhere(table, focusedCardId) : null;
 
   if (isPortrait) {
     return <RotateDeviceOverlay />;
@@ -218,7 +219,7 @@ function PracticeDrawContent() {
           >
             <div className="flex flex-col flex-1 p-4">
               {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597) */}
-              <MissionRow missions={missions} />
+              <MissionRow missions={missions} onCardClick={(id) => setFocusedCardId(id)} />
 
               {/* Bottom row, anchored to the bottom, offset partially below the viewport. From left
                   to right: discard pile, draw pile, closed hand, core, brig. The dilemma pile is the
@@ -288,19 +289,14 @@ function PracticeDrawContent() {
               </div>
 
               {/* Enlarged card preview, anchored to the right edge at full screen height so its
-                  position never shifts regardless of which card is previewed */}
-              {focusedInstance && (
-                <button
-                  className="fixed inset-0 z-[200] bg-black/50"
-                  onClick={() => setFocusedCardId(null)}
-                  aria-label={`${focusedInstance.card.name}, tap to shrink`}
-                >
-                  <img
-                    src={`/cardimages/${focusedInstance.card.imagefile}.jpg`}
-                    alt={focusedInstance.card.name}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 h-[90%] w-auto rounded-lg shadow-2xl"
-                  />
-                </button>
+                  position never shifts regardless of which card is previewed. A table card (a
+                  mission, for now) gets a "Flip" button; a hand card does not (#598). */}
+              {focused && (
+                <CardPreview
+                  instance={focused.instance}
+                  onClose={() => setFocusedCardId(null)}
+                  onFlip={focused.zone === 'missions' ? () => dispatch({ type: 'flip', id: focused.instance.id }) : undefined}
+                />
               )}
             </div>
 

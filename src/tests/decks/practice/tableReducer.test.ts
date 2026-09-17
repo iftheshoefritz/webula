@@ -2,6 +2,7 @@ import {
   tableReducer,
   initialTableState,
   createCardInstances,
+  findInstanceAnywhere,
   CardInstance,
   MISSION_SLOTS,
 } from '../../../app/decks/practice/tableReducer';
@@ -137,6 +138,41 @@ describe('tableReducer', () => {
       expect(state).toBe(start);
     });
   });
+
+  describe('flip', () => {
+    it('turns a face-up mission face down in place', () => {
+      const mission = instance('m0', card('Moab IV'), 'up');
+      const start = { ...initialTableState, missions: [mission, null, null, null, null] };
+      const state = tableReducer(start, { type: 'flip', id: 'm0' });
+
+      expect(state.missions).toEqual([{ ...mission, face: 'down' }, null, null, null, null]);
+    });
+
+    it('turns a face-down mission face up again', () => {
+      const mission = instance('m0', card('Moab IV'), 'down');
+      const start = { ...initialTableState, missions: [mission, null, null, null, null] };
+      const state = tableReducer(start, { type: 'flip', id: 'm0' });
+
+      expect(state.missions).toEqual([{ ...mission, face: 'up' }, null, null, null, null]);
+    });
+
+    it('leaves the other mission slots untouched', () => {
+      const m0 = instance('m0', card('Moab IV'), 'up');
+      const m1 = instance('m1', card('Angel I'), 'up');
+      const start = { ...initialTableState, missions: [m0, m1, null, null, null] };
+      const state = tableReducer(start, { type: 'flip', id: 'm0' });
+
+      expect(state.missions[1]).toEqual(m1);
+    });
+
+    it('is a no-op for an id that is not on the table', () => {
+      const mission = instance('m0', card('Moab IV'), 'up');
+      const start = { ...initialTableState, missions: [mission, null, null, null, null] };
+      const state = tableReducer(start, { type: 'flip', id: 'missing' });
+
+      expect(state).toBe(start);
+    });
+  });
 });
 
 describe('createCardInstances', () => {
@@ -155,5 +191,25 @@ describe('createCardInstances', () => {
     const instances = createCardInstances(cards, 'up');
 
     expect(instances.every((i) => i.face === 'up')).toBe(true);
+  });
+});
+
+describe('findInstanceAnywhere', () => {
+  it('finds a hand card and reports its zone', () => {
+    const moved = instance('a', card('Tricorder'), 'up');
+    const state = { ...initialTableState, hand: [moved] };
+
+    expect(findInstanceAnywhere(state, 'a')).toEqual({ instance: moved, zone: 'hand' });
+  });
+
+  it('finds a mission slot and reports its zone as "missions"', () => {
+    const mission = instance('m0', card('Moab IV'), 'up');
+    const state = { ...initialTableState, missions: [mission, null, null, null, null] };
+
+    expect(findInstanceAnywhere(state, 'm0')).toEqual({ instance: mission, zone: 'missions' });
+  });
+
+  it('returns null for an id that is not on the table', () => {
+    expect(findInstanceAnywhere(initialTableState, 'missing')).toBeNull();
   });
 });

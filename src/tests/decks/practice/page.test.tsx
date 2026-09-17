@@ -542,6 +542,100 @@ describe('PracticeDrawPage', () => {
     expect(secondPreview.querySelector('img')).toHaveClass(...expectedClasses);
   });
 
+  // Tap preview and Flip for table cards (issue #598)
+  describe('table card preview and flip', () => {
+    const missionCard = {
+      collectorsinfo: '1R100',
+      originalName: 'First Contact',
+      type: 'mission',
+      name: 'first contact',
+      imagefile: 'first_contact',
+      pile: 'mission',
+      count: 1,
+    };
+    const mockDeckWithMission = {
+      ...mockManyDeck,
+      '1R100': { count: 1, row: missionCard },
+    };
+
+    const renderWithMission = async () => {
+      mockSearchParamsValue = new URLSearchParams();
+      localStorage.setItem('currentDeck', JSON.stringify(mockDeckWithMission));
+      (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+      (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+      await act(async () => {
+        render(<PracticeDrawPage />);
+      });
+    };
+
+    it('tapping a filled mission slot opens the preview with the mission\'s image', async () => {
+      await renderWithMission();
+
+      const missionButton = screen.getByRole('button', { name: 'first contact' });
+      await act(async () => {
+        fireEvent.click(missionButton);
+      });
+
+      const preview = screen.getByRole('button', { name: /first contact, tap to shrink/i });
+      expect(preview.querySelector('img')).toHaveAttribute('src', '/cardimages/first_contact.jpg');
+    });
+
+    it('the preview for a mission shows a "Flip" button; tapping it toggles the face and the preview stays open', async () => {
+      await renderWithMission();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'first contact' }));
+      });
+
+      expect(screen.queryByText('Face down')).not.toBeInTheDocument();
+      const flipButton = screen.getByRole('button', { name: /^flip$/i });
+
+      await act(async () => {
+        fireEvent.click(flipButton);
+      });
+
+      // The preview stays open and now shows the "Face down" label
+      expect(screen.getByRole('button', { name: /first contact, tap to shrink/i })).toBeInTheDocument();
+      expect(screen.getByText('Face down')).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^flip$/i }));
+      });
+
+      expect(screen.queryByText('Face down')).not.toBeInTheDocument();
+    });
+
+    it('tapping outside the preview (the backdrop) closes it', async () => {
+      await renderWithMission();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'first contact' }));
+      });
+      expect(screen.getByRole('button', { name: /first contact, tap to shrink/i })).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /first contact, tap to shrink/i }));
+      });
+      expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
+    });
+
+    it('the hand-card preview has no "Flip" button', async () => {
+      await renderWithMission();
+
+      const closedHandButton = screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i });
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'card 1' }));
+      });
+
+      expect(screen.getByRole('button', { name: /card 1, tap to shrink/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
+    });
+  });
+
   // Reset: redeals an opening hand of 7 and closes the hand
   it('clicking reset after drawing cards redeals an opening hand of 7 and closes the hand', async () => {
     mockSearchParamsValue = new URLSearchParams();
