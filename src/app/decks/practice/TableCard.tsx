@@ -16,9 +16,14 @@
 // `DraggableFanCard` pattern: `listeners`/`attributes`/`setNodeRef` on the same element that has
 // the `onClick`. dnd-kit only returns `listeners` when the draggable is enabled, so a
 // non-draggable table card (a mission) can spread them unconditionally with no effect.
+//
+// An optional count badge (a ship's crew count, #600) sits on the art's top-right corner,
+// reusing the same small badge the discard pile and the draw pile draw. It is omitted entirely
+// when the count is 0 or absent, so a ship with no crew shows no badge.
 
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
+import CountBadge from './CountBadge';
 
 export const TABLE_CARD_WIDTH = 72; // px
 export const TABLE_CARD_ART_HEIGHT = 52; // px, crops the card image down to roughly its art box
@@ -29,12 +34,14 @@ export default function TableCard({
   width = TABLE_CARD_WIDTH,
   artHeight = TABLE_CARD_ART_HEIGHT,
   draggable = false,
+  badge,
 }: {
   instance: CardInstance;
   onClick: () => void;
   width?: number;
   artHeight?: number;
   draggable?: boolean;
+  badge?: number;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down';
@@ -59,12 +66,15 @@ export default function TableCard({
       }}
       aria-label={isFaceDown ? 'Face-down card' : card.name}
     >
-      <div className="w-full rounded-md overflow-hidden bg-black/20" style={{ height: artHeight }}>
-        <img
-          src={isFaceDown ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
-          alt={isFaceDown ? 'Face-down card' : card.name}
-          className="w-full h-full object-cover object-top"
-        />
+      <div className="relative w-full" style={{ height: artHeight }}>
+        <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
+          <img
+            src={isFaceDown ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
+            alt={isFaceDown ? 'Face-down card' : card.name}
+            className="w-full h-full object-cover object-top"
+          />
+        </div>
+        {!!badge && <CountBadge count={badge} />}
       </div>
       <span className="w-full text-[8px] leading-tight text-center text-text-primary truncate">
         {isFaceDown ? '' : card.name}

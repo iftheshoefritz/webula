@@ -14,6 +14,10 @@ export interface CardInstance {
   id: string;
   card: any;
   face: Face;
+  // A ship's crew (#600): personnel/equipment aboard it. Hidden from the table; shown face up
+  // in the ship's preview instead. Only meaningful on a ship instance, and only set once a ship
+  // has at least one crew member (absent, not an empty array, otherwise).
+  crew?: CardInstance[];
 }
 
 // A mission slot holds both the mission card dealt into that position (#597) and the ships
@@ -33,7 +37,15 @@ export interface ShipRowLocation {
   missionIndex: number;
 }
 
-export type MoveTarget = Zone | ShipRowLocation;
+// A ship's crew (#600) is addressed by the ship's own instance id, not by mission index, so a
+// crew stays reachable by the same key regardless of which mission's ship row currently holds
+// the ship (a ship move between ship rows keeps its `crew` field attached; see `move` below).
+export interface CrewLocation {
+  zone: 'crew';
+  shipId: string;
+}
+
+export type MoveTarget = Zone | ShipRowLocation | CrewLocation;
 
 export interface TableState {
   pile: CardInstance[];
@@ -57,6 +69,9 @@ export const ZONE_FACE: Record<Zone, Face> = {
 // A ship row's face convention, kept apart from ZONE_FACE since a ship row is not a top-level
 // Zone: a ship is always played face up (parent design, issue #130).
 const SHIP_ROW_FACE: Face = 'up';
+
+// A crew card's face convention: always face up, shown face up in the ship's preview (#600).
+const CREW_FACE: Face = 'up';
 
 export const initialTableState: TableState = {
   pile: [],
@@ -84,6 +99,9 @@ export function createCardInstances(cards: any[], face: Face = ZONE_FACE.pile): 
 const isShipRowLocation = (value: MoveTarget): value is ShipRowLocation =>
   typeof value === 'object' && value !== null && value.zone === 'shipRow';
 
+const isCrewLocation = (value: MoveTarget): value is CrewLocation =>
+  typeof value === 'object' && value !== null && value.zone === 'crew';
+
 const findZone = (state: TableState, id: string): Zone | null => {
   if (state.pile.some((c) => c.id === id)) return 'pile';
   if (state.hand.some((c) => c.id === id)) return 'hand';
@@ -96,13 +114,32 @@ const findShipRow = (state: TableState, id: string): ShipRowLocation | null => {
   return missionIndex === -1 ? null : { zone: 'shipRow', missionIndex };
 };
 
+// Finds the ship instance with the given id in any mission's ship row, regardless of which
+// mission currently holds it.
+const findShipInstance = (state: TableState, shipId: string): CardInstance | null => {
+  for (const slot of state.missions) {
+    const ship = slot.ships.find((s) => s.id === shipId);
+    if (ship) return ship;
+  }
+  return null;
+};
+
+const findCrewLocation = (state: TableState, id: string): CrewLocation | null => {
+  for (const slot of state.missions) {
+    for (const ship of slot.ships) {
+      if (ship.crew?.some((c) => c.id === id)) return { zone: 'crew', shipId: ship.id };
+    }
+  }
+  return null;
+};
+
 // A card's location on the table, for callers (the flip action, and the page's preview) that
 // need to find a card regardless of whether it sits in one of `move`'s zones, in the `missions`
-// array as a mission card, or in a mission's ship row. `missions` is a positional array rather
-// than a zone a card moves in and out of, so the mission card itself stays outside the
-// `MoveTarget` union that `move` targets; a ship in a ship row does move, so its location is a
-// `ShipRowLocation`.
-export type TableZone = Zone | 'missions' | ShipRowLocation;
+// array as a mission card, in a mission's ship row, or aboard a ship as crew. `missions` is a
+// positional array rather than a zone a card moves in and out of, so the mission card itself
+// stays outside the `MoveTarget` union that `move` targets; a ship in a ship row, and a crew
+// card aboard a ship, both do move, so their locations are a `ShipRowLocation`/`CrewLocation`.
+export type TableZone = Zone | 'missions' | ShipRowLocation | CrewLocation;
 
 export function findInstanceAnywhere(
   state: TableState,
@@ -121,15 +158,23 @@ export function findInstanceAnywhere(
     const ships = state.missions[shipRow.missionIndex].ships;
     return { instance: ships.find((s) => s.id === id)!, zone: shipRow };
   }
+  const crewLocation = findCrewLocation(state, id);
+  if (crewLocation) {
+    const ship = findShipInstance(state, crewLocation.shipId)!;
+    return { instance: ship.crew!.find((c) => c.id === id)!, zone: crewLocation };
+  }
   return null;
 }
 
 const flipFace = (face: Face): Face => (face === 'up' ? 'down' : 'up');
 
 // Reads the cards at a move source or destination, regardless of whether it is a top-level
-// zone (pile/hand/discard) or a mission's ship row.
-const cardsAt = (state: TableState, location: MoveTarget): CardInstance[] =>
-  isShipRowLocation(location) ? state.missions[location.missionIndex].ships : state[location];
+// zone (pile/hand/discard), a mission's ship row, or a ship's crew.
+const cardsAt = (state: TableState, location: MoveTarget): CardInstance[] => {
+  if (isShipRowLocation(location)) return state.missions[location.missionIndex].ships;
+  if (isCrewLocation(location)) return findShipInstance(state, location.shipId)?.crew ?? [];
+  return state[location];
+};
 
 // Writes the cards at a move source or destination, the counterpart to `cardsAt`.
 const withCardsAt = (state: TableState, location: MoveTarget, cards: CardInstance[]): TableState => {
@@ -139,16 +184,31 @@ const withCardsAt = (state: TableState, location: MoveTarget, cards: CardInstanc
     );
     return { ...state, missions };
   }
+  if (isCrewLocation(location)) {
+    const missions = state.missions.map((slot) => ({
+      ...slot,
+      ships: slot.ships.map((s) => (s.id === location.shipId ? { ...s, crew: cards } : s)),
+    }));
+    return { ...state, missions };
+  }
   return { ...state, [location]: cards };
 };
 
-const faceForLocation = (location: MoveTarget): Face =>
-  isShipRowLocation(location) ? SHIP_ROW_FACE : ZONE_FACE[location];
+const faceForLocation = (location: MoveTarget): Face => {
+  if (isShipRowLocation(location)) return SHIP_ROW_FACE;
+  if (isCrewLocation(location)) return CREW_FACE;
+  return ZONE_FACE[location];
+};
 
-const sameLocation = (a: MoveTarget, b: MoveTarget): boolean =>
-  isShipRowLocation(a) || isShipRowLocation(b)
-    ? isShipRowLocation(a) && isShipRowLocation(b) && a.missionIndex === b.missionIndex
-    : a === b;
+// A stable key per location, used to tell whether a move's source and destination are the same
+// place (which keeps the card's current face instead of taking on the destination's).
+const locationKey = (location: MoveTarget): string => {
+  if (isShipRowLocation(location)) return `shipRow-${location.missionIndex}`;
+  if (isCrewLocation(location)) return `crew-${location.shipId}`;
+  return location;
+};
+
+const sameLocation = (a: MoveTarget, b: MoveTarget): boolean => locationKey(a) === locationKey(b);
 
 export function tableReducer(state: TableState, action: TableAction): TableState {
   switch (action.type) {
@@ -163,17 +223,29 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     }
 
     case 'move': {
-      const from = findZone(state, action.id) ?? findShipRow(state, action.id);
+      const from = findZone(state, action.id) ?? findShipRow(state, action.id) ?? findCrewLocation(state, action.id);
       if (!from) return state;
       const card = cardsAt(state, from).find((c) => c.id === action.id)!;
-      // A move within the same zone (or the same mission's ship row) keeps the card's current
-      // face; a move to a different location takes on that location's face.
+      // A move within the same zone (or the same mission's ship row, or the same ship's crew)
+      // keeps the card's current face; a move to a different location takes on that location's
+      // face.
       const toSameLocation = sameLocation(from, action.to);
       const face = toSameLocation ? card.face : faceForLocation(action.to);
       const withoutCard = cardsAt(state, from).filter((c) => c.id !== action.id);
       const afterRemoval = withCardsAt(state, from, withoutCard);
+
+      // A ship moving out of a ship row into anywhere but another ship row releases its crew
+      // into that destination too: each crew member becomes its own independent card there,
+      // taking the destination's face, and the ship's own `crew` field clears. A ship moving
+      // between two ship rows (#601) keeps its crew attached unchanged instead.
+      const releasesCrew = isShipRowLocation(from) && !isShipRowLocation(action.to) && !!card.crew?.length;
+      const movedCard = releasesCrew ? { ...card, face, crew: undefined } : { ...card, face };
+      const releasedCrew = releasesCrew
+        ? card.crew!.map((c) => ({ ...c, face: faceForLocation(action.to) }))
+        : [];
+
       const destination = toSameLocation ? withoutCard : cardsAt(afterRemoval, action.to);
-      return withCardsAt(afterRemoval, action.to, [...destination, { ...card, face }]);
+      return withCardsAt(afterRemoval, action.to, [...destination, movedCard, ...releasedCrew]);
     }
 
     case 'flip': {
@@ -187,8 +259,9 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         );
         return { ...state, missions };
       }
-      // A ship on a ship row is always face up (parent design, issue #130) and has no Flip
-      // control (#599), so flip only applies to the string zones (pile/hand/discard).
+      // A ship on a ship row, and a crew card aboard a ship, are always face up (parent design,
+      // issue #130) and have no Flip control (#599, #600), so flip only applies to the string
+      // zones (pile/hand/discard).
       if (typeof zone !== 'string') return state;
       return {
         ...state,

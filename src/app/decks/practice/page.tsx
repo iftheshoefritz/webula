@@ -20,8 +20,9 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { CardInstance, createCardInstances, findInstanceAnywhere, initialTableState, tableReducer } from './tableReducer';
 import CardHand from './CardHand';
-import MissionRow, { missionIndexFromDropId } from './MissionRow';
+import MissionRow, { missionIndexFromDropId, shipIdFromCrewDropId } from './MissionRow';
 import CardPreview from './CardPreview';
+import CountBadge from './CountBadge';
 
 interface ScreenOrientationWithLock extends ScreenOrientation {
   lock?(orientation: string): Promise<void>;
@@ -71,9 +72,7 @@ function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; co
             alt="Discard pile"
             className="rounded-lg shadow-lg w-14 h-auto"
           />
-          <span className="absolute -top-2 -right-2 bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
-            {count}
-          </span>
+          <CountBadge count={count} />
         </div>
       ) : (
         <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
@@ -177,8 +176,20 @@ function PracticeDrawContent() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setDraggingInstance(null);
+    // Any drag closing clears the open preview: a crew card's drag begins while its own ship's
+    // preview is still open (the crew row is the only place a crew card appears), and the
+    // acceptance check for #600 requires that drag ending (dropped or not) to close the preview.
+    setFocusedCardId(null);
     if (over?.id === DISCARD_DROPPABLE_ID) {
       dispatch({ type: 'move', id: String(active.id), to: 'discard' });
+      return;
+    }
+    // A drop on a ship already in a ship row puts a personnel or equipment card aboard as crew
+    // (#600). A drop of any other card type on it is not supported, so it is not dispatched and
+    // the card returns to its source zone.
+    const shipId = over ? shipIdFromCrewDropId(String(over.id)) : null;
+    if (shipId && (draggingInstance?.card.type === 'personnel' || draggingInstance?.card.type === 'equipment')) {
+      dispatch({ type: 'move', id: String(active.id), to: { zone: 'crew', shipId } });
       return;
     }
     // A drop on a mission card or its ship row both put a ship in that mission's ship row
@@ -193,6 +204,7 @@ function PracticeDrawContent() {
   // The browser can cancel a touch drag (a pointercancel or a resize). Clear the overlay then too.
   const handleDragCancel = () => {
     setDraggingInstance(null);
+    setFocusedCardId(null);
   };
 
   const isEmpty = deckEmpty;
@@ -264,9 +276,7 @@ function PracticeDrawContent() {
                             alt="Face-down draw pile"
                             className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
                           />
-                          <span className="absolute -top-2 -right-2 bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
-                            {pile.length}
-                          </span>
+                          <CountBadge count={pile.length} />
                         </>
                       ) : (
                         <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
@@ -301,12 +311,17 @@ function PracticeDrawContent() {
 
               {/* Enlarged card preview, anchored to the right edge at full screen height so its
                   position never shifts regardless of which card is previewed. A table card (a
-                  mission, for now) gets a "Flip" button; a hand card does not (#598). */}
+                  mission, for now) gets a "Flip" button; a hand card does not (#598). A ship's
+                  preview also shows its crew in a row below the art (#600); `hidden` visually
+                  closes the preview for the duration of any drag without unmounting that row. */}
               {focused && (
                 <CardPreview
                   instance={focused.instance}
                   onClose={() => setFocusedCardId(null)}
                   onFlip={focused.zone === 'missions' ? () => dispatch({ type: 'flip', id: focused.instance.id }) : undefined}
+                  crew={focused.instance.card.type === 'ship' ? focused.instance.crew ?? [] : undefined}
+                  onCardClick={(id) => setFocusedCardId(id)}
+                  hidden={draggingInstance !== null}
                 />
               )}
             </div>
