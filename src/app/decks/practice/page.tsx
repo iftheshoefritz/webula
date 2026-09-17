@@ -14,12 +14,13 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { FaRedo, FaLayerGroup, FaMobileAlt } from 'react-icons/fa';
-import { deckFromTsv, expandDeck, shuffleArray } from '../deckBuilderUtils';
+import { deckFromTsv, expandDeck, extractMissions, isDeckEmpty, shuffleArray } from '../deckBuilderUtils';
 import { Deck } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { CardInstance, createCardInstances, initialTableState, tableReducer } from './tableReducer';
 import CardHand from './CardHand';
+import MissionRow from './MissionRow';
 
 interface ScreenOrientationWithLock extends ScreenOrientation {
   lock?(orientation: string): Promise<void>;
@@ -87,7 +88,8 @@ function PracticeDrawContent() {
   const isFixture = searchParams.get('fixture') === '1';
   const { data, loading } = useDataFetching();
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
-  const { pile, hand, discard } = table;
+  const { pile, hand, discard, missions } = table;
+  const [deckEmpty, setDeckEmpty] = useState(true);
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [isPortrait, setIsPortrait] = useState(false);
   const [isHandOpen, setIsHandOpen] = useState(false);
@@ -101,7 +103,12 @@ function PracticeDrawContent() {
       if (loading || data.length === 0) return;
       const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
       const expanded = expandDeck(deck);
-      dispatch({ type: 'reset', cards: createCardInstances(shuffleArray(expanded)) });
+      dispatch({
+        type: 'reset',
+        cards: createCardInstances(shuffleArray(expanded)),
+        missions: createCardInstances(extractMissions(deck), 'up'),
+      });
+      setDeckEmpty(isDeckEmpty(deck));
       setFocusedCardId(null);
       setIsHandOpen(false);
       return;
@@ -112,7 +119,12 @@ function PracticeDrawContent() {
       if (!raw) return;
       const deck: Deck = JSON.parse(raw);
       const expanded = expandDeck(deck);
-      dispatch({ type: 'reset', cards: createCardInstances(shuffleArray(expanded)) });
+      dispatch({
+        type: 'reset',
+        cards: createCardInstances(shuffleArray(expanded)),
+        missions: createCardInstances(extractMissions(deck), 'up'),
+      });
+      setDeckEmpty(isDeckEmpty(deck));
       setFocusedCardId(null);
       setIsHandOpen(false);
     } catch {
@@ -171,7 +183,7 @@ function PracticeDrawContent() {
     setDraggingInstance(null);
   };
 
-  const isEmpty = pile.length === 0 && hand.length === 0 && discard.length === 0;
+  const isEmpty = deckEmpty;
   const focusedInstance = hand.find((instance) => instance.id === focusedCardId);
 
   if (isPortrait) {
@@ -205,7 +217,8 @@ function PracticeDrawContent() {
             onDragCancel={handleDragCancel}
           >
             <div className="flex flex-col flex-1 p-4">
-              {/* Future game elements go here */}
+              {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597) */}
+              <MissionRow missions={missions} />
 
               {/* Bottom row, anchored to the bottom, offset partially below the viewport. From left
                   to right: discard pile, draw pile, closed hand, core, brig. The dilemma pile is the

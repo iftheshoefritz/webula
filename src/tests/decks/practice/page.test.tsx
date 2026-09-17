@@ -383,7 +383,19 @@ describe('PracticeDrawPage', () => {
     const zones = Array.from(document.body.querySelectorAll('[data-zone]')).map((el) =>
       el.getAttribute('data-zone')
     );
-    expect(zones).toEqual(['discard', 'pile', 'hand', 'core', 'brig', 'dilemma']);
+    expect(zones).toEqual([
+      'mission-0',
+      'mission-1',
+      'mission-2',
+      'mission-3',
+      'mission-4',
+      'discard',
+      'pile',
+      'hand',
+      'core',
+      'brig',
+      'dilemma',
+    ]);
   });
 
   // UI State: after drawing all cards, pile renders the "Empty" placeholder

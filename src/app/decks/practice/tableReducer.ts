@@ -5,6 +5,11 @@
 export type Face = 'up' | 'down';
 export type Zone = 'pile' | 'hand' | 'discard';
 
+// The mission row always has exactly 5 positional slots (see the parent design in issue #130
+// and the plan for #597), regardless of how many missions the deck has. A slot holds a
+// CardInstance or, for a deck with fewer than 5 missions, null.
+export const MISSION_SLOTS = 5;
+
 export interface CardInstance {
   id: string;
   card: any;
@@ -15,12 +20,13 @@ export interface TableState {
   pile: CardInstance[];
   hand: CardInstance[];
   discard: CardInstance[];
+  missions: (CardInstance | null)[];
 }
 
 export type TableAction =
   | { type: 'draw' }
   | { type: 'move'; id: string; to: Zone }
-  | { type: 'reset'; cards: CardInstance[] };
+  | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[] };
 
 export const ZONE_FACE: Record<Zone, Face> = {
   pile: 'down',
@@ -32,6 +38,7 @@ export const initialTableState: TableState = {
   pile: [],
   hand: [],
   discard: [],
+  missions: Array(MISSION_SLOTS).fill(null),
 };
 
 let nextInstanceId = 0;
@@ -44,9 +51,10 @@ const generateInstanceId = (): string => {
 };
 
 // Gives each expanded deck row a stable, unique id so a specific copy of a duplicated card
-// can be moved on its own, and a face matching where it starts (the draw pile, face down).
-export function createCardInstances(cards: any[]): CardInstance[] {
-  return cards.map((card) => ({ id: generateInstanceId(), card, face: ZONE_FACE.pile }));
+// can be moved on its own. Defaults to face down (the draw pile's convention); callers dealing
+// straight to a face-up zone (the missions) pass 'up' explicitly.
+export function createCardInstances(cards: any[], face: Face = ZONE_FACE.pile): CardInstance[] {
+  return cards.map((card) => ({ id: generateInstanceId(), card, face }));
 }
 
 const findZone = (state: TableState, id: string): Zone | null => {
@@ -90,7 +98,13 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const handSize = Math.min(7, action.cards.length);
       const hand = action.cards.slice(0, handSize).map((c) => ({ ...c, face: ZONE_FACE.hand }));
       const pile = action.cards.slice(handSize);
-      return { pile, hand, discard: [] };
+      // The missions are dealt face up into the mission row in deck order, as a fixed set: no
+      // shuffling, and reset re-deals the identical set every time (unlike the draw pile).
+      const missions: (CardInstance | null)[] = Array.from(
+        { length: MISSION_SLOTS },
+        (_, i) => action.missions[i] ?? null
+      );
+      return { pile, hand, discard: [], missions };
     }
 
     default:

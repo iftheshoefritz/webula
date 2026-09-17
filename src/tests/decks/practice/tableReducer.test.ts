@@ -3,6 +3,7 @@ import {
   initialTableState,
   createCardInstances,
   CardInstance,
+  MISSION_SLOTS,
 } from '../../../app/decks/practice/tableReducer';
 
 const card = (name: string) => ({ collectorsinfo: name, name });
@@ -18,8 +19,13 @@ describe('tableReducer', () => {
     it('deals the first 7 cards into the hand, face up, and leaves the rest in the pile', () => {
       const cards = Array.from({ length: 10 }, (_, i) => instance(`c${i}`, card(`Card ${i}`)));
       const state = tableReducer(
-        { pile: [], hand: [instance('x', card('old'))], discard: [instance('y', card('old2'))] },
-        { type: 'reset', cards }
+        {
+          pile: [],
+          hand: [instance('x', card('old'))],
+          discard: [instance('y', card('old2'))],
+          missions: Array(MISSION_SLOTS).fill(null),
+        },
+        { type: 'reset', cards, missions: [] }
       );
 
       expect(state.hand).toEqual(cards.slice(0, 7).map((c) => ({ ...c, face: 'up' })));
@@ -29,11 +35,40 @@ describe('tableReducer', () => {
 
     it('deals all the cards into the hand when the deck has fewer than 7', () => {
       const cards = [instance('a', card('Tricorder')), instance('b', card('Phaser'))];
-      const state = tableReducer(initialTableState, { type: 'reset', cards });
+      const state = tableReducer(initialTableState, { type: 'reset', cards, missions: [] });
 
       expect(state.hand).toEqual(cards.map((c) => ({ ...c, face: 'up' })));
       expect(state.pile).toEqual([]);
       expect(state.discard).toEqual([]);
+    });
+
+    it('deals 5 mission instances into 5 filled, face-up slots, in deck order, with unique ids', () => {
+      const missions = Array.from({ length: 5 }, (_, i) => instance(`m${i}`, card(`Mission ${i}`), 'up'));
+      const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions });
+
+      expect(state.missions).toEqual(missions);
+      expect(new Set(state.missions.map((m) => m!.id)).size).toBe(5);
+    });
+
+    it('deals 3 mission instances into 3 filled slots and 2 empty slots', () => {
+      const missions = Array.from({ length: 3 }, (_, i) => instance(`m${i}`, card(`Mission ${i}`), 'up'));
+      const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions });
+
+      expect(state.missions).toEqual([...missions, null, null]);
+    });
+
+    it('deals 0 mission instances into 5 empty slots', () => {
+      const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions: [] });
+
+      expect(state.missions).toEqual([null, null, null, null, null]);
+    });
+
+    it('re-deals the identical mission set on every reset, unlike the reshuffled draw pile', () => {
+      const missions = Array.from({ length: 5 }, (_, i) => instance(`m${i}`, card(`Mission ${i}`), 'up'));
+      const first = tableReducer(initialTableState, { type: 'reset', cards: [], missions });
+      const second = tableReducer(first, { type: 'reset', cards: [], missions });
+
+      expect(second.missions).toEqual(first.missions);
     });
   });
 
@@ -105,7 +140,7 @@ describe('tableReducer', () => {
 });
 
 describe('createCardInstances', () => {
-  it('gives each card a unique id and a face-down face', () => {
+  it('gives each card a unique id and a face-down face by default', () => {
     const cards = [card('Tricorder'), card('Phaser'), card('Tricorder')];
     const instances = createCardInstances(cards);
 
@@ -113,5 +148,12 @@ describe('createCardInstances', () => {
     expect(instances.every((i) => i.face === 'down')).toBe(true);
     expect(new Set(instances.map((i) => i.id)).size).toBe(3);
     expect(instances.map((i) => i.card)).toEqual(cards);
+  });
+
+  it('gives each card a face-up face when passed the face-up argument', () => {
+    const cards = [card('Moab IV'), card('Angel I')];
+    const instances = createCardInstances(cards, 'up');
+
+    expect(instances.every((i) => i.face === 'up')).toBe(true);
   });
 });
