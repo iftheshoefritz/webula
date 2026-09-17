@@ -51,10 +51,15 @@ function EmptyZonePlaceholder({ zone, label }: { zone: string; label: string }) 
 }
 
 function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; count: number }) {
-  const { setNodeRef } = useDroppable({ id: DISCARD_DROPPABLE_ID });
+  const { setNodeRef, isOver } = useDroppable({ id: DISCARD_DROPPABLE_ID });
 
+  // A ring shows that the discard pile accepts the card under the pointer.
   return (
-    <div ref={setNodeRef} data-zone="discard" className="flex flex-col items-center gap-1">
+    <div
+      ref={setNodeRef}
+      data-zone="discard"
+      className={`flex flex-col items-center gap-1 rounded-lg ${isOver ? 'ring-2 ring-accent' : ''}`}
+    >
       {topCard ? (
         <div className="relative">
           <img
@@ -69,8 +74,8 @@ function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; co
           </span>
         </div>
       ) : (
-        <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
-          Empty
+        <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
+          Discard
         </div>
       )}
     </div>
@@ -87,6 +92,7 @@ function PracticeDrawContent() {
   const [isPortrait, setIsPortrait] = useState(false);
   const [isHandOpen, setIsHandOpen] = useState(false);
   const [draggingInstance, setDraggingInstance] = useState<CardInstance | null>(null);
+  const [gameLayer, setGameLayer] = useState<HTMLDivElement | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -160,6 +166,11 @@ function PracticeDrawContent() {
     }
   };
 
+  // The browser can cancel a touch drag (a pointercancel or a resize). Clear the overlay then too.
+  const handleDragCancel = () => {
+    setDraggingInstance(null);
+  };
+
   const isEmpty = pile.length === 0 && hand.length === 0 && discard.length === 0;
   const focusedInstance = hand.find((instance) => instance.id === focusedCardId);
 
@@ -174,7 +185,7 @@ function PracticeDrawContent() {
       <div aria-hidden="true" data-testid="practice-scroll-spacer" className="h-[calc(100lvh+120px)]" />
 
       {/* Game layer: fixed inset-0 always fills the visible area as the toolbar shows and hides */}
-      <div data-testid="practice-game-layer" className="fixed inset-0 bg-gradient-page font-body text-text-primary flex flex-col">
+      <div ref={setGameLayer} data-testid="practice-game-layer" className="fixed inset-0 bg-gradient-page font-body text-text-primary flex flex-col">
         {isEmpty && (
           <div className="flex flex-col items-center justify-center flex-1 text-text-muted gap-2 p-8">
             <FaLayerGroup className="text-4xl" />
@@ -187,22 +198,18 @@ function PracticeDrawContent() {
         )}
 
         {!isEmpty && (
-          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
             <div className="flex flex-col flex-1 p-4">
               {/* Future game elements go here */}
 
-              {/* Hand + Draw Pile + Core + Brig + Discard + Dilemma pile, anchored to the
+              {/* Draw Pile + Core + Brig + Discard + Dilemma pile + Hand, anchored to the
                   bottom, offset partially below the viewport */}
               <div className="mt-auto flex flex-row items-end gap-6" style={{ transform: 'translateY(30%)' }}>
-                {/* Hand */}
-                <CardHand
-                  instances={hand}
-                  open={isHandOpen}
-                  onOpen={() => setIsHandOpen(true)}
-                  onClose={() => setIsHandOpen(false)}
-                  onCardClick={(id) => setFocusedCardId(id)}
-                />
-
                 {/* Pile */}
                 <div className="flex items-start gap-4">
                   <div className="flex flex-col items-center gap-1">
@@ -252,6 +259,17 @@ function PracticeDrawContent() {
 
                 {/* Dilemma pile: no contents or drop behaviour yet (#604) */}
                 <EmptyZonePlaceholder zone="dilemma" label="Dilemma" />
+
+                {/* Hand */}
+                <CardHand
+                  instances={hand}
+                  open={isHandOpen}
+                  onOpen={() => setIsHandOpen(true)}
+                  onClose={() => setIsHandOpen(false)}
+                  onCardClick={(id) => setFocusedCardId(id)}
+                  dragging={draggingInstance !== null}
+                  portalContainer={gameLayer}
+                />
               </div>
 
               {/* Enlarged card preview, anchored to the right edge at full screen height so its
