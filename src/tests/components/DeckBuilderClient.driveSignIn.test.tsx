@@ -151,10 +151,7 @@ describe('DeckBuilderClient – Drive scope signIn', () => {
   });
 
   it('restores compare picker mode after the Google OAuth redirect', async () => {
-    const originalLocation = window.location;
-    // @ts-expect-error - overriding window.location for the test
-    delete window.location;
-    window.location = { ...originalLocation, search: '?openPicker=true&pickerMode=compare' } as Location;
+    window.history.replaceState({}, '', '/decks?openPicker=true&pickerMode=compare');
 
     await act(async () => {
       render(<DeckBuilderClient data={[]} columns={[]} />);
@@ -162,6 +159,6 @@ describe('DeckBuilderClient – Drive scope signIn', () => {
 
     expect(capturedMode).toBe('compare');
 
-    window.location = originalLocation;
+    window.history.replaceState({}, '', '/');
   });
 });
