@@ -1,3 +1,4 @@
+import { configure } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 jest.mock('posthog-js', () => ({
@@ -31,3 +32,10 @@ if (typeof window !== 'undefined') {
     })),
   })
 }
+
+// Role queries (getByRole and the others) check that each element is not hidden. The check calls
+// getComputedStyle on the element and on its ancestors, and jsdom makes that slow. On a large
+// component such as DeckBuilderClient one getAllByRole('button') takes about 0.7 s. Under a full
+// parallel run those tests go past the 5 s timeout. The jsdom tests load no CSS, so the check
+// finds only the hidden attribute, inline styles, and aria-hidden.
+configure({ defaultHidden: true })

@@ -295,10 +295,9 @@ describe('DeckBuilderClient – share link', () => {
       json: async () => ({ content: tsvContent, title: null }),
     });
 
-    // Set window.location so the component picks up ?share=TESTID
+    // Set the URL so the component picks up ?share=TESTID
     // (the component reads window.location.search directly)
-    delete (window as any).location;
-    (window as any).location = new URL('http://localhost/decks?share=TESTID');
+    window.history.replaceState({}, '', '/decks?share=TESTID');
 
     await act(async () => {
       render(<DeckBuilderClient data={[]} columns={[]} />);
@@ -318,9 +317,8 @@ describe('DeckBuilderClient – share link', () => {
     );
     expect(directDpasteCalls.length).toBe(0);
 
-    // Reset location
-    delete (window as any).location;
-    (window as any).location = new URL('http://localhost/decks');
+    // Reset the URL
+    window.history.replaceState({}, '', '/decks');
   });
 
   it('uses the paste title as the deck title when loading a shared deck', async () => {
@@ -330,8 +328,7 @@ describe('DeckBuilderClient – share link', () => {
       json: async () => ({ content: tsvContent, title: 'My TrekCC Deck' }),
     });
 
-    delete (window as any).location;
-    (window as any).location = new URL('http://localhost/decks?share=TESTID');
+    window.history.replaceState({}, '', '/decks?share=TESTID');
 
     await act(async () => {
       render(<DeckBuilderClient data={MINIMAL_CARD_DATA} columns={[]} />);
@@ -341,9 +338,8 @@ describe('DeckBuilderClient – share link', () => {
 
     expect(screen.getAllByDisplayValue('My TrekCC Deck').length).toBeGreaterThan(0);
 
-    // Reset location
-    delete (window as any).location;
-    (window as any).location = new URL('http://localhost/decks');
+    // Reset the URL
+    window.history.replaceState({}, '', '/decks');
   });
 
   it('shows warning modal when a non-empty deck exists and ?share= param is in URL', async () => {
@@ -355,8 +351,7 @@ describe('DeckBuilderClient – share link', () => {
       json: async () => ({ content: tsvContent, title: null }),
     });
 
-    delete (window as any).location;
-    (window as any).location = new URL('http://localhost/decks?share=TESTID');
+    window.history.replaceState({}, '', '/decks?share=TESTID');
 
     await act(async () => {
       render(<DeckBuilderClient data={MINIMAL_CARD_DATA} columns={[]} />);
@@ -368,9 +363,8 @@ describe('DeckBuilderClient – share link', () => {
     expect(screen.getByText('Go back to my previous deck to save')).toBeInTheDocument();
     expect(screen.getByText("I'm ready to load this awesome shared deck")).toBeInTheDocument();
 
-    // Reset location
-    delete (window as any).location;
-    (window as any).location = new URL('http://localhost/decks');
+    // Reset the URL
+    window.history.replaceState({}, '', '/decks');
   });
 
   it('dismisses warning modal without loading deck when "Go back" is clicked', async () => {
@@ -382,8 +376,7 @@ describe('DeckBuilderClient – share link', () => {
       json: async () => ({ content: tsvContent, title: null }),
     });
 
-    delete (window as any).location;
-    (window as any).location = new URL('http://localhost/decks?share=TESTID');
+    window.history.replaceState({}, '', '/decks?share=TESTID');
 
     await act(async () => {
       render(<DeckBuilderClient data={MINIMAL_CARD_DATA} columns={[]} />);
@@ -401,9 +394,8 @@ describe('DeckBuilderClient – share link', () => {
     // Modal should be gone
     expect(screen.queryByText('A shared deck is ready to load')).toBeNull();
 
-    // Reset location
-    delete (window as any).location;
-    (window as any).location = new URL('http://localhost/decks');
+    // Reset the URL
+    window.history.replaceState({}, '', '/decks');
   });
 
   it('loads shared deck when "I\'m ready" is clicked in the warning modal', async () => {
@@ -415,8 +407,7 @@ describe('DeckBuilderClient – share link', () => {
       json: async () => ({ content: tsvContent, title: null }),
     });
 
-    delete (window as any).location;
-    (window as any).location = new URL('http://localhost/decks?share=TESTID');
+    window.history.replaceState({}, '', '/decks?share=TESTID');
 
     await act(async () => {
       render(<DeckBuilderClient data={MINIMAL_CARD_DATA} columns={[]} />);
@@ -434,8 +425,7 @@ describe('DeckBuilderClient – share link', () => {
     // Modal should be gone after confirming
     expect(screen.queryByText('A shared deck is ready to load')).toBeNull();
 
-    // Reset location
-    delete (window as any).location;
-    (window as any).location = new URL('http://localhost/decks');
+    // Reset the URL
+    window.history.replaceState({}, '', '/decks');
   });
 });
