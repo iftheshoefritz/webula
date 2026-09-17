@@ -207,9 +207,13 @@ function PracticeDrawContent() {
             <div className="flex flex-col flex-1 p-4">
               {/* Future game elements go here */}
 
-              {/* Draw Pile + Core + Brig + Discard + Dilemma pile + Hand, anchored to the
-                  bottom, offset partially below the viewport */}
-              <div className="mt-auto flex flex-row items-end gap-6" style={{ transform: 'translateY(30%)' }}>
+              {/* Bottom row, anchored to the bottom, offset partially below the viewport. From left
+                  to right: discard pile, draw pile, closed hand, core, brig. The dilemma pile is at
+                  the right side, as far from the right edge as the draw pile is from the left edge. */}
+              <div className="mt-auto flex flex-row items-end gap-4" style={{ transform: 'translateY(30%)' }}>
+                {/* Discard */}
+                <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
+
                 {/* Pile */}
                 <div className="flex items-start gap-4">
                   <div className="flex flex-col items-center gap-1">
@@ -248,18 +252,6 @@ function PracticeDrawContent() {
                   </div>
                 </div>
 
-                {/* Core and Brig: no drop behaviour yet (#603) */}
-                <EmptyZonePlaceholder zone="core" label="Core" />
-                <EmptyZonePlaceholder zone="brig" label="Brig" />
-
-                {/* Discard */}
-                <div className="flex items-start gap-4">
-                  <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
-                </div>
-
-                {/* Dilemma pile: no contents or drop behaviour yet (#604) */}
-                <EmptyZonePlaceholder zone="dilemma" label="Dilemma" />
-
                 {/* Hand */}
                 <CardHand
                   instances={hand}
@@ -270,6 +262,18 @@ function PracticeDrawContent() {
                   dragging={draggingInstance !== null}
                   portalContainer={gameLayer}
                 />
+
+                {/* Core and Brig: no drop behaviour yet (#603) */}
+                <EmptyZonePlaceholder zone="core" label="Core" />
+                <EmptyZonePlaceholder zone="brig" label="Brig" />
+
+                {/* Dilemma pile: no contents or drop behaviour yet (#604). The empty slot to its
+                    right has the width of the discard pile, so the two sides mirror each other.
+                    The closed dilemma hand goes in that slot (#604). */}
+                <div className="ml-auto flex flex-row items-end gap-4">
+                  <EmptyZonePlaceholder zone="dilemma" label="Dilemma" />
+                  <div aria-hidden="true" data-testid="dilemma-hand-slot" className="w-14 shrink-0" />
+                </div>
               </div>
 
               {/* Enlarged card preview, anchored to the right edge at full screen height so its
