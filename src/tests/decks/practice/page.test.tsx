@@ -368,8 +368,9 @@ describe('PracticeDrawPage', () => {
     expect(emptyButton).toBeDisabled();
   });
 
-  // Bottom row layout (issue #596): draw pile, core, brig, discard, dilemma pile, then the hand.
-  it('renders the bottom row zones in order: pile, core, brig, discard, dilemma, hand', async () => {
+  // Bottom row layout (issue #596): discard pile, draw pile, closed hand, core, brig, and the
+  // dilemma pile at the right side.
+  it('renders the bottom row zones in order: discard, pile, hand, core, brig, dilemma', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -382,7 +383,7 @@ describe('PracticeDrawPage', () => {
     const zones = Array.from(document.body.querySelectorAll('[data-zone]')).map((el) =>
       el.getAttribute('data-zone')
     );
-    expect(zones).toEqual(['pile', 'core', 'brig', 'discard', 'dilemma', 'hand']);
+    expect(zones).toEqual(['discard', 'pile', 'hand', 'core', 'brig', 'dilemma']);
   });
 
   // UI State: after drawing all cards, pile renders the "Empty" placeholder

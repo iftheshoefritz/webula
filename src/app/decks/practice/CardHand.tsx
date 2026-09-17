@@ -22,7 +22,7 @@ const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
 
 // Both the closed row and the open fan bound their total width regardless of card count, by
 // shrinking the offset between overlapping card edges as the hand grows, rather than letting
-// the row grow without bound. This keeps the bottom row (hand, draw pile, core, brig, discard,
+// the row grow without bound. This keeps the bottom row (discard, draw pile, hand, core, brig,
 // dilemma pile) inside a 568 x 320 viewport.
 const CLOSED_MAX_WIDTH = 80;
 const CLOSED_MAX_OFFSET = 10;
@@ -136,7 +136,7 @@ export default function CardHand({
           the fan's z-index in the row. In the game layer, the large preview stays on top.
           A full-screen backdrop sits behind the cards, so a tap outside the fan closes it, but
           a tap on a card (on top of the backdrop) opens the large preview instead. The fan is
-          anchored bottom-right, over the zones and next to the closed hand. */}
+          centred at the bottom of the screen, on top of the bottom row, over the core and the brig. */}
       {showFan &&
         typeof document !== 'undefined' &&
         createPortal(
@@ -152,7 +152,7 @@ export default function CardHand({
             <div
               data-zone={open ? zone : undefined}
               aria-hidden={open ? undefined : true}
-              className="fixed right-4 z-40 flex"
+              className="fixed left-1/2 -translate-x-1/2 z-40 flex"
               style={{
                 bottom: OPEN_BOTTOM,
                 height: CARD_HEIGHT + 10,
