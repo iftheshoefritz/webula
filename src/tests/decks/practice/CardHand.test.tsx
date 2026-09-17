@@ -14,7 +14,17 @@ const makeInstances = (n: number): CardInstance[] =>
     face: 'up',
   }));
 
-function Harness({ instances, initialOpen = false }: { instances: CardInstance[]; initialOpen?: boolean }) {
+function Harness({
+  instances,
+  initialOpen = false,
+  dragging = false,
+  portalContainer,
+}: {
+  instances: CardInstance[];
+  initialOpen?: boolean;
+  dragging?: boolean;
+  portalContainer?: HTMLElement | null;
+}) {
   const [open, setOpen] = React.useState(initialOpen);
   const [previewed, setPreviewed] = React.useState<string | null>(null);
   return (
@@ -22,6 +32,8 @@ function Harness({ instances, initialOpen = false }: { instances: CardInstance[]
       <CardHand
         instances={instances}
         open={open}
+        dragging={dragging}
+        portalContainer={portalContainer}
         onOpen={() => setOpen(true)}
         onClose={() => setOpen(false)}
         onCardClick={(id) => setPreviewed(id)}
@@ -70,6 +82,47 @@ describe('CardHand', () => {
     // wider than 20 cards packed tightly.
     expect(bigOffset).toBeLessThan(smallOffset);
     expect(bigWidth).toBeLessThan(20 * smallOffset);
+  });
+
+  // On a touch screen, the browser sends the rest of a touch's events to the element where the
+  // touch started. If the drag start removes that card from the document, WebKit's events stop
+  // bubbling to the document, where dnd-kit listens, and the drop never happens.
+  it('keeps the dragged card in the document after a drag closes the hand', () => {
+    const instances = makeInstances(3);
+    const props = { instances, onOpen: () => {}, onClose: () => {}, onCardClick: () => {} };
+    const { rerender } = render(<CardHand {...props} open />);
+    const draggedCard = document.body.querySelector(`[data-card-id="${instances[1].id}"]`);
+    expect(draggedCard).not.toBeNull();
+
+    // When the drag starts, the page closes the hand and sets `dragging` in the same update.
+    rerender(<CardHand {...props} open={false} dragging />);
+
+    expect(draggedCard!.isConnected).toBe(true);
+    // The kept fan is hidden: no backdrop, no second hand zone, and no accessible card buttons.
+    expect(screen.queryByRole('button', { name: /^close hand$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Card 1' })).not.toBeInTheDocument();
+    expect(document.body.querySelectorAll('[data-zone="hand"]')).toHaveLength(1);
+  });
+
+  it('removes the hidden fan after the drag ends', () => {
+    const instances = makeInstances(3);
+    const { rerender } = render(<Harness instances={instances} dragging />);
+    expect(document.body.querySelector('[data-card-id]')).not.toBeNull();
+
+    rerender(<Harness instances={instances} />);
+    expect(document.body.querySelector('[data-card-id]')).toBeNull();
+  });
+
+  // The bottom row has a CSS transform, which would make the fan's `fixed` position relative
+  // to the row. So the fan goes in a portal on the given container.
+  it('renders the open fan in the portal container, outside the closed hand', () => {
+    const portalContainer = document.createElement('div');
+    document.body.appendChild(portalContainer);
+    const { container } = render(<Harness instances={makeInstances(3)} initialOpen portalContainer={portalContainer} />);
+
+    expect(portalContainer.querySelector('[data-zone="hand"] [data-card-id]')).not.toBeNull();
+    expect(container.querySelector('[data-card-id]')).toBeNull();
+    portalContainer.remove();
   });
 
   it('disables the closed hand when it has no cards', () => {

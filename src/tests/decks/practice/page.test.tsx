@@ -368,8 +368,8 @@ describe('PracticeDrawPage', () => {
     expect(emptyButton).toBeDisabled();
   });
 
-  // Bottom row layout (issue #596): hand, draw pile, core, brig, discard, dilemma pile.
-  it('renders the bottom row zones in order: hand, pile, core, brig, discard, dilemma', async () => {
+  // Bottom row layout (issue #596): draw pile, core, brig, discard, dilemma pile, then the hand.
+  it('renders the bottom row zones in order: pile, core, brig, discard, dilemma, hand', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -382,7 +382,7 @@ describe('PracticeDrawPage', () => {
     const zones = Array.from(document.body.querySelectorAll('[data-zone]')).map((el) =>
       el.getAttribute('data-zone')
     );
-    expect(zones).toEqual(['hand', 'pile', 'core', 'brig', 'discard', 'dilemma']);
+    expect(zones).toEqual(['pile', 'core', 'brig', 'discard', 'dilemma', 'hand']);
   });
 
   // UI State: after drawing all cards, pile renders the "Empty" placeholder
@@ -397,8 +397,9 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // Both the empty draw pile and the still-empty discard pile show the placeholder
-    expect(screen.getAllByText('Empty').length).toBe(2);
+    // The empty draw pile shows "Empty"; the still-empty discard pile shows its "Discard" label.
+    expect(screen.getAllByText('Empty').length).toBe(1);
+    expect(screen.getByText('Discard')).toBeInTheDocument();
     expect(screen.queryByAltText('Face-down draw pile')).not.toBeInTheDocument();
   });
 

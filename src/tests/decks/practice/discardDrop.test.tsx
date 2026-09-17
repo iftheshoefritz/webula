@@ -41,13 +41,15 @@ jest.mock('next/link', () => {
 const mockDraggableIds: string[] = [];
 let mockOnDragStart: ((event: { active: { id: string } }) => void) | null = null;
 let mockOnDragEnd: ((event: { active: { id: string }; over: { id: string } | null }) => void) | null = null;
+let mockOnDragCancel: (() => void) | null = null;
 jest.mock('@dnd-kit/core', () => {
   const actual = jest.requireActual('@dnd-kit/core');
   return {
     ...actual,
-    DndContext: ({ children, onDragStart, onDragEnd }: any) => {
+    DndContext: ({ children, onDragStart, onDragEnd, onDragCancel }: any) => {
       mockOnDragStart = onDragStart;
       mockOnDragEnd = onDragEnd;
+      mockOnDragCancel = onDragCancel;
       return children;
     },
     DragOverlay: ({ children }: any) => <div data-testid="drag-overlay">{children}</div>,
@@ -55,7 +57,7 @@ jest.mock('@dnd-kit/core', () => {
       mockDraggableIds.push(id);
       return { attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false };
     },
-    useDroppable: () => ({ setNodeRef: () => {} }),
+    useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
   };
 });
 
@@ -92,6 +94,7 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     mockDraggableIds.length = 0;
     mockOnDragStart = null;
     mockOnDragEnd = null;
+    mockOnDragCancel = null;
     mockSearchParamsValue = new URLSearchParams();
     localStorage.clear();
 
@@ -205,6 +208,24 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     // The DragOverlay carries a copy of the dragged card under the pointer.
     const overlay = screen.getByTestId('drag-overlay');
     expect(overlay.querySelector('img')).toHaveAttribute('src', '/cardimages/card_1.jpg');
+  });
+
+  it('clears the drag overlay when the browser cancels the drag', async () => {
+    await setupOpenHand([mockManyCards[0]]);
+    const [draggedId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: draggedId } });
+    });
+    expect(screen.getByTestId('drag-overlay').querySelector('img')).not.toBeNull();
+
+    await act(async () => {
+      mockOnDragCancel!();
+    });
+
+    expect(screen.getByTestId('drag-overlay').querySelector('img')).toBeNull();
+    expect(document.body.querySelector('[data-card-id]')).toBeNull();
+    expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
   });
 
   it('leaves the card in the hand when the drop misses the discard pile', async () => {
