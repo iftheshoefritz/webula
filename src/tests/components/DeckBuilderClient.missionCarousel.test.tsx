@@ -92,15 +92,20 @@ describe('DeckBuilderClient – Mission carousel', () => {
     // Always 5 slots — initially showing slot 1
     expect(screen.getByText('1 / 5')).toBeInTheDocument();
 
+    // Find the button once. A role query by name is slow on this component, and the button stays the
+    // same element while the slot changes. If React replaced it, the clicks below would do nothing
+    // and the slot checks would fail.
+    const nextButton = screen.getByRole('button', { name: 'Next mission' });
+
     // Advance to the last slot (slot 5)
-    fireEvent.click(screen.getByRole('button', { name: 'Next mission' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Next mission' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Next mission' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Next mission' }));
+    fireEvent.click(nextButton);
+    fireEvent.click(nextButton);
+    fireEvent.click(nextButton);
+    fireEvent.click(nextButton);
     expect(screen.getByText('5 / 5')).toBeInTheDocument();
 
     // Click Next again — should wrap to first slot
-    fireEvent.click(screen.getByRole('button', { name: 'Next mission' }));
+    fireEvent.click(nextButton);
     expect(screen.getByText('1 / 5')).toBeInTheDocument();
   });
 

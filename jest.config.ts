@@ -5,6 +5,7 @@
 
 import type {Config} from 'jest';
 import nextJest from 'next/jest.js';
+import os from 'os';
 
 const createJestConfig = nextJest({
   // Provide the path to your Next.js app to load next.config.js and .env files in your test environment
@@ -84,7 +85,12 @@ const config: Config = {
   // globals: {},
 
   // The maximum amount of workers used to run your tests. Can be specified as % or a number. E.g. maxWorkers: 10% will use 10% of your CPU amount + 1 as the maximum worker number. maxWorkers: 2 will use a maximum of 2 workers.
-  // maxWorkers: "50%",
+  //
+  // Jest starts one worker for each CPU but one by default: 11 workers on a 12-core laptop. The jsdom
+  // tests are CPU-heavy, and 11 workers made the suite slower (82-89 s) than 4 workers (50 s). Some
+  // DeckBuilderClient tests took up to 11 s and went past the 5 s timeout. Many laptops also mix
+  // performance and efficiency cores. So use at most 4 workers, and leave one CPU free.
+  maxWorkers: Math.max(1, Math.min(4, os.availableParallelism() - 1)),
 
   // An array of directory names to be searched recursively up from the requiring module's location
   moduleDirectories: [
@@ -163,7 +169,8 @@ const config: Config = {
   // snapshotSerializers: [],
 
   // The test environment that will be used for testing
-  testEnvironment: "jsdom",
+  // jsdom with a smaller default stylesheet. See jest.environment.js.
+  testEnvironment: "<rootDir>/jest.environment.js",
 
   // Options that will be passed to the testEnvironment
   // testEnvironmentOptions: {},
