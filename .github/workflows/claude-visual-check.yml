@@ -1,0 +1,99 @@
+name: Claude Visual Check
+
+# The acceptance checks of an issue, run in the browser against the dev server.
+#
+# This work is split out of "Claude Issue Implementation" because it used most
+# of that workflow's turns and ran last, so the run often stopped at the turn
+# limit with the "## Visual Verification" section still on "Pending.". A
+# separate run gets its own turn limit, and the branch is already pushed, so it
+# risks nothing.
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  claude-visual-check:
+    if: github.event.label.name == 'visual-check'
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+      POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      # Install before Claude starts, so no turns go to the install and the
+      # first command does not fail. The yarn cache holds `agent-browser` too.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1.0.70
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The implementation workflow adds the `visual-check` label as
+          # `claude[bot]`, and the action refuses a bot-started run by default.
+          allowed_bots: "claude[bot]"
+          prompt: |
+            Pull request #${{ github.event.pull_request.number }} ("${{ github.event.pull_request.title }}") is labeled "visual-check". Its branch is checked out. Your job is to run the acceptance checks in the browser and to report what you saw.
+
+            You write the "## Visual Verification" section of this pull request. Another agent wrote the code and did a short smoke check. It did not run the acceptance checks.
+
+            1. Read the pull request and the issue it closes:
+               `gh pr view ${{ github.event.pull_request.number }}`
+               `gh issue view <the issue number in "Closes #...">`
+               The "## Acceptance checks" section of the issue is your list. Read "Browser checks" in AGENTS.md as well.
+
+            2. Start the dev server: `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`. It runs at http://localhost:3000.
+               This hides the consent banner and the Next.js dev tools button, which cover elements that the check clicks and drags.
+               The dependencies are installed already, and `agent-browser` is one of them, so `npx agent-browser` runs the local copy and downloads nothing. Do not run `yarn install`.
+
+            3. Open the page the pull request affects. For the practice table, use `/decks/practice?fixture=1`. For the deck builder, use `/decks?fixture=1`. The fixture gives you a deck with cards, so the empty state does not hide what you check.
+               Use the viewport the issue names. If the issue names none, use the default viewport.
+
+            4. Run every acceptance check of the issue, one at a time. Record the result of each one.
+               For a drag, use a real drag and the `data-zone` and `data-card-id` attributes:
+               `npx agent-browser drag '[data-zone="hand"] [data-card-id]' '[data-zone="discard"]'`
+               Read a snapshot after each step to confirm the result. Do not assume a command worked.
+               If your commands do not build the state a check needs, say so in the report. Do not report a check as passed when you did not run it.
+
+            5. Read the browser console and the dev server log for errors before you stop the server.
+
+            6. If a check fails because of a bug in the code, fix the bug.
+               a. Run `yarn test` and `yarn build`. Both must pass.
+               b. Commit with a message like `fix: <short description> (follow-up for #${{ github.event.pull_request.number }})`.
+               c. Run `git pull --rebase`, then `git push origin HEAD`. Never force-push. Other workflows push to this branch too.
+               d. Run the failed check again.
+
+            7. Write the report:
+               a. Replace "Pending." in the "## Visual Verification" section of the pull request body with your report. Use `gh pr edit ${{ github.event.pull_request.number }} --body`. Keep the rest of the body as it is.
+                  Name each page you visited, each viewport, each acceptance check, and its result. A reader must be able to tell a check you ran from a check you could not run.
+               b. If the dev server or `agent-browser` failed, add a "## Dev Server Issues" section with the full error output. Do NOT omit this.
+               c. Mark the pull request ready for review: `gh pr ready ${{ github.event.pull_request.number }}`.
+                  Leave it as a draft if an acceptance check failed and you could not fix it. Say why in the report, and add the `needs-human-input` label.
+
+            8. Remove the "visual-check" label, so the workflow does not start again:
+               `gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/visual-check -X DELETE`
+
+            Never add the "ready-for-dev" label to an issue or a pull request. Only a person applies that label.
+
+            Report what you saw. Do not change code except to fix a bug that an acceptance check found. Reference AGENTS.md for project conventions and commands.
+          claude_args: "--model claude-sonnet-5 --max-turns 80 --dangerously-skip-permissions"
+          show_full_output: "true"
