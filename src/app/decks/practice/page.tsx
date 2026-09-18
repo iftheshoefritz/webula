@@ -17,7 +17,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { FaRedo, FaLayerGroup, FaMobileAlt } from 'react-icons/fa';
-import { deckFromTsv, expandDeck, extractMissions, isDeckEmpty, shuffleArray } from '../deckBuilderUtils';
+import { deckFromTsv, expandDeck, extractDilemmas, extractMissions, isDeckEmpty, shuffleArray } from '../deckBuilderUtils';
 import { Deck } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
@@ -82,8 +82,8 @@ const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig'];
 // other four zones and their gaps take a little over 300 px, leaving roughly 250 px for the core
 // and the brig combined. A core row bounded to fit 4 overlapping cards and a brig row bounded to
 // fit 2 together stay well inside that budget.
-const CORE_ROW_MAX_WIDTH = 110; // px, fits 4 overlapping ship-sized cards
-const BRIG_ROW_MAX_WIDTH = 70; // px, fits 2 overlapping ship-sized cards
+const CORE_ROW_MAX_WIDTH = 92; // px, fits 4 overlapping ship-sized cards
+const BRIG_ROW_MAX_WIDTH = 58; // px, fits 2 overlapping ship-sized cards
 const FLAT_ROW_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
 
 // Picks the drop zone under the pointer, and falls back to the zone the dragged card overlaps
@@ -95,17 +95,6 @@ const collisionDetection: CollisionDetection = (args) => {
   const withinPointer = pointerWithin(args);
   return withinPointer.length > 0 ? withinPointer : rectIntersection(args);
 };
-
-function EmptyZonePlaceholder({ zone, label }: { zone: string; label: string }) {
-  return (
-    <div
-      data-zone={zone}
-      className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1"
-    >
-      {label}
-    </div>
-  );
-}
 
 function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; count: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: DISCARD_DROPPABLE_ID });
@@ -142,11 +131,13 @@ function PracticeDrawContent() {
   const isFixture = searchParams.get('fixture') === '1';
   const { data, loading } = useDataFetching();
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
-  const { pile, hand, discard, core, brig, missions } = table;
+  const { pile, hand, discard, core, brig, dilemmaPile, dilemmaHand, missions } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [isPortrait, setIsPortrait] = useState(false);
-  const [isHandOpen, setIsHandOpen] = useState(false);
+  // Only one hand opens at a time (#604), so one value names the open hand rather than one
+  // boolean per hand.
+  const [openHand, setOpenHand] = useState<'hand' | 'dilemmaHand' | null>(null);
   const [draggingInstance, setDraggingInstance] = useState<CardInstance | null>(null);
   const [gameLayer, setGameLayer] = useState<HTMLDivElement | null>(null);
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
@@ -162,10 +153,11 @@ function PracticeDrawContent() {
         type: 'reset',
         cards: createCardInstances(shuffleArray(expanded)),
         missions: createCardInstances(extractMissions(deck), 'up'),
+        dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
       });
       setDeckEmpty(isDeckEmpty(deck));
       setFocusedCardId(null);
-      setIsHandOpen(false);
+      setOpenHand(null);
       return;
     }
 
@@ -178,10 +170,11 @@ function PracticeDrawContent() {
         type: 'reset',
         cards: createCardInstances(shuffleArray(expanded)),
         missions: createCardInstances(extractMissions(deck), 'up'),
+        dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
       });
       setDeckEmpty(isDeckEmpty(deck));
       setFocusedCardId(null);
-      setIsHandOpen(false);
+      setOpenHand(null);
     } catch {
       // silently ignore parse errors
     }
@@ -206,7 +199,11 @@ function PracticeDrawContent() {
   }, []);
 
   const drawOne = () => {
-    dispatch({ type: 'draw' });
+    dispatch({ type: 'draw', from: 'pile', to: 'hand' });
+  };
+
+  const drawDilemma = () => {
+    dispatch({ type: 'draw', from: 'dilemmaPile', to: 'dilemmaHand' });
   };
 
   const reset = () => {
@@ -219,11 +216,11 @@ function PracticeDrawContent() {
     // (#599); `findInstanceAnywhere` locates a card regardless of which one it is.
     const found = findInstanceAnywhere(table, id);
     if (!found) return;
-    if (found.zone === 'hand') {
-      // A drag from the open hand closes it at once; the DragOverlay carries the card under
+    if (found.zone === 'hand' || found.zone === 'dilemmaHand') {
+      // A drag from an open hand closes it at once; the DragOverlay carries the card under
       // the pointer for the rest of the drag, so the source card can stay put in the (now
       // closed) hand with no jump.
-      setIsHandOpen(false);
+      setOpenHand(null);
     }
     setDraggingInstance(found.instance);
   };
@@ -383,9 +380,9 @@ function PracticeDrawContent() {
                 {/* Hand */}
                 <CardHand
                   instances={hand}
-                  open={isHandOpen}
-                  onOpen={() => setIsHandOpen(true)}
-                  onClose={() => setIsHandOpen(false)}
+                  open={openHand === 'hand'}
+                  onOpen={() => setOpenHand('hand')}
+                  onClose={() => setOpenHand(null)}
                   onCardClick={(id) => setFocusedCardId(id)}
                   dragging={draggingInstance !== null}
                   portalContainer={gameLayer}
@@ -411,10 +408,48 @@ function PracticeDrawContent() {
                   onCardClick={(id) => setFocusedCardId(id)}
                 />
 
-                {/* Dilemma pile: no contents or drop behaviour yet (#604). The closed dilemma hand
-                    goes immediately to its left (#604). */}
-                <div className="ml-auto">
-                  <EmptyZonePlaceholder zone="dilemma" label="Dilemma" />
+                {/* The dilemma pile stays the rightmost zone, with the closed dilemma hand
+                    immediately to its left, on the inside of the row (#604). The dilemma hand
+                    shows only when it holds cards. */}
+                <div className="ml-auto flex flex-row items-end gap-4">
+                  {dilemmaHand.length > 0 && (
+                    <CardHand
+                      instances={dilemmaHand}
+                      open={openHand === 'dilemmaHand'}
+                      onOpen={() => setOpenHand('dilemmaHand')}
+                      onClose={() => setOpenHand(null)}
+                      onCardClick={(id) => setFocusedCardId(id)}
+                      dragging={draggingInstance !== null}
+                      portalContainer={gameLayer}
+                      zone="dilemmaHand"
+                      label="dilemma hand"
+                    />
+                  )}
+
+                  <button
+                    data-zone="dilemmaPile"
+                    onClick={drawDilemma}
+                    disabled={dilemmaPile.length === 0}
+                    className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Dilemma pile, tap to draw"
+                  >
+                    {dilemmaPile.length > 0 ? (
+                      <>
+                        <img
+                          src="/cardimages/cardback.jpg"
+                          width={120}
+                          height={167}
+                          alt="Face-down dilemma pile"
+                          className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
+                        />
+                        <CountBadge count={dilemmaPile.length} />
+                      </>
+                    ) : (
+                      <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
+                        Dilemma
+                      </div>
+                    )}
+                  </button>
                 </div>
               </div>
 

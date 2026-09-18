@@ -44,7 +44,7 @@ describe('tableReducer', () => {
           discard: [instance('y', card('old2'))],
           missions: missionSlots([]),
         },
-        { type: 'reset', cards, missions: [] }
+        { type: 'reset', cards, missions: [], dilemmas: [] }
       );
 
       expect(state.hand).toEqual(cards.slice(0, 7).map((c) => ({ ...c, face: 'up' })));
@@ -54,7 +54,7 @@ describe('tableReducer', () => {
 
     it('deals all the cards into the hand when the deck has fewer than 7', () => {
       const cards = [instance('a', card('Tricorder')), instance('b', card('Phaser'))];
-      const state = tableReducer(initialTableState, { type: 'reset', cards, missions: [] });
+      const state = tableReducer(initialTableState, { type: 'reset', cards, missions: [], dilemmas: [] });
 
       expect(state.hand).toEqual(cards.map((c) => ({ ...c, face: 'up' })));
       expect(state.pile).toEqual([]);
@@ -63,7 +63,7 @@ describe('tableReducer', () => {
 
     it('deals 5 mission instances into 5 filled, face-up slots, in deck order, with unique ids, each with an empty ship row', () => {
       const missions = Array.from({ length: 5 }, (_, i) => instance(`m${i}`, card(`Mission ${i}`), 'up'));
-      const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions });
+      const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions, dilemmas: [] });
 
       expect(state.missions).toEqual(missionSlots(missions));
       expect(new Set(state.missions.map((slot) => slot.mission!.id)).size).toBe(5);
@@ -72,21 +72,21 @@ describe('tableReducer', () => {
 
     it('deals 3 mission instances into 3 filled slots and 2 empty slots', () => {
       const missions = Array.from({ length: 3 }, (_, i) => instance(`m${i}`, card(`Mission ${i}`), 'up'));
-      const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions });
+      const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions, dilemmas: [] });
 
       expect(state.missions).toEqual(missionSlots(missions));
     });
 
     it('deals 0 mission instances into 5 empty slots, each with an empty ship row', () => {
-      const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions: [] });
+      const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions: [], dilemmas: [] });
 
       expect(state.missions).toEqual(missionSlots([]));
     });
 
     it('re-deals the identical mission set on every reset, unlike the reshuffled draw pile', () => {
       const missions = Array.from({ length: 5 }, (_, i) => instance(`m${i}`, card(`Mission ${i}`), 'up'));
-      const first = tableReducer(initialTableState, { type: 'reset', cards: [], missions });
-      const second = tableReducer(first, { type: 'reset', cards: [], missions });
+      const first = tableReducer(initialTableState, { type: 'reset', cards: [], missions, dilemmas: [] });
+      const second = tableReducer(first, { type: 'reset', cards: [], missions, dilemmas: [] });
 
       expect(second.missions).toEqual(first.missions);
     });
@@ -94,7 +94,7 @@ describe('tableReducer', () => {
     it('clears any ships that were on a ship row before the reset', () => {
       const ship = instance('s0', card('U.S.S. Relativity'), 'up');
       const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
-      const state = tableReducer(start, { type: 'reset', cards: [], missions: [] });
+      const state = tableReducer(start, { type: 'reset', cards: [], missions: [], dilemmas: [] });
 
       expect(state.missions).toEqual(missionSlots([]));
     });
@@ -105,10 +105,73 @@ describe('tableReducer', () => {
         core: [instance('e0', card('Event'), 'up')],
         brig: [instance('p0', card('Data'), 'up')],
       };
-      const state = tableReducer(start, { type: 'reset', cards: [], missions: [] });
+      const state = tableReducer(start, { type: 'reset', cards: [], missions: [], dilemmas: [] });
 
       expect(state.core).toEqual([]);
       expect(state.brig).toEqual([]);
+    });
+  });
+
+  describe('draw from the dilemma pile (#604)', () => {
+    it('moves the top dilemma into the dilemma hand, face up', () => {
+      const top = instance('d1', card('Chula The Chandra'), 'down');
+      const rest = instance('d2', card('Kevin Uxbridge'), 'down');
+      const start = { ...initialTableState, dilemmaPile: [top, rest] };
+
+      const state = tableReducer(start, { type: 'draw', from: 'dilemmaPile', to: 'dilemmaHand' });
+
+      expect(state.dilemmaPile).toEqual([rest]);
+      expect(state.dilemmaHand).toEqual([{ ...top, face: 'up' }]);
+    });
+
+    it('leaves the draw pile and the hand alone', () => {
+      const dilemma = instance('d1', card('Chula The Chandra'), 'down');
+      const drawCard = instance('a', card('Tricorder'), 'down');
+      const start = { ...initialTableState, dilemmaPile: [dilemma], pile: [drawCard] };
+
+      const state = tableReducer(start, { type: 'draw', from: 'dilemmaPile', to: 'dilemmaHand' });
+
+      expect(state.pile).toEqual([drawCard]);
+      expect(state.hand).toEqual([]);
+    });
+
+    it('is a no-op when the dilemma pile is empty', () => {
+      const start = { ...initialTableState, dilemmaPile: [] };
+      const state = tableReducer(start, { type: 'draw', from: 'dilemmaPile', to: 'dilemmaHand' });
+      expect(state).toBe(start);
+    });
+  });
+
+  describe('reset with dilemmas (#604)', () => {
+    it('puts every dilemma in the dilemma pile and deals none to the dilemma hand', () => {
+      const dilemmas = [instance('d1', card('A')), instance('d2', card('B')), instance('d3', card('C'))];
+
+      const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions: [], dilemmas });
+
+      expect(state.dilemmaPile).toEqual(dilemmas);
+      expect(state.dilemmaHand).toEqual([]);
+    });
+
+    it('keeps the dilemmas out of the 7 card opening hand', () => {
+      const cards = Array.from({ length: 10 }, (_, i) => instance(`c${i}`, card(`Card ${i}`)));
+      const dilemmas = [instance('d1', card('A'))];
+
+      const state = tableReducer(initialTableState, { type: 'reset', cards, missions: [], dilemmas });
+
+      expect(state.hand).toHaveLength(7);
+      expect(state.hand.every((c) => c.id.startsWith('c'))).toBe(true);
+    });
+
+    it('puts the dilemmas back in the dilemma pile on a second reset', () => {
+      const dilemmas = [instance('d1', card('A')), instance('d2', card('B'))];
+      const first = tableReducer(initialTableState, { type: 'reset', cards: [], missions: [], dilemmas });
+      const drawn = tableReducer(first, { type: 'draw', from: 'dilemmaPile', to: 'dilemmaHand' });
+      expect(drawn.dilemmaHand).toHaveLength(1);
+
+      const second = tableReducer(drawn, { type: 'reset', cards: [], missions: [], dilemmas });
+
+      expect(second.dilemmaPile).toEqual(dilemmas);
+      expect(second.dilemmaHand).toEqual([]);
     });
   });
 
@@ -118,7 +181,7 @@ describe('tableReducer', () => {
       const rest = instance('b', card('Phaser'), 'down');
       const state = tableReducer(
         { ...initialTableState, pile: [top, rest] },
-        { type: 'draw' }
+        { type: 'draw', from: 'pile', to: 'hand' }
       );
 
       expect(state.pile).toEqual([rest]);
@@ -127,7 +190,7 @@ describe('tableReducer', () => {
 
     it('is a no-op when the pile is empty', () => {
       const start = { ...initialTableState, hand: [instance('a', card('Tricorder'))] };
-      const state = tableReducer(start, { type: 'draw' });
+      const state = tableReducer(start, { type: 'draw', from: 'pile', to: 'hand' });
 
       expect(state).toBe(start);
     });
