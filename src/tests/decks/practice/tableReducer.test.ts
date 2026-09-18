@@ -517,6 +517,33 @@ describe('tableReducer', () => {
       expect(state.discard).toEqual([]);
       expect(state.missions[2].underMission).toEqual([{ ...moved, face: 'up' }]);
     });
+
+    it("puts a card first in the destination when position is 'top' (#607)", () => {
+      const existing = instance('d0', card('Cardassian Trap'), 'down');
+      const moved = instance('d1', card('Chula The Chandra'), 'up');
+      const start = { ...initialTableState, dilemmaPile: [existing], discard: [moved] };
+      const state = tableReducer(start, { type: 'move', id: 'd1', to: 'dilemmaPile', position: 'top' });
+
+      expect(state.dilemmaPile).toEqual([{ ...moved, face: 'down' }, existing]);
+    });
+
+    it("puts a card last in the destination when position is 'bottom' (#607)", () => {
+      const existing = instance('d0', card('Cardassian Trap'), 'down');
+      const moved = instance('d1', card('Chula The Chandra'), 'up');
+      const start = { ...initialTableState, dilemmaPile: [existing], discard: [moved] };
+      const state = tableReducer(start, { type: 'move', id: 'd1', to: 'dilemmaPile', position: 'bottom' });
+
+      expect(state.dilemmaPile).toEqual([existing, { ...moved, face: 'down' }]);
+    });
+
+    it('puts a card last in the destination when position is omitted, matching the bottom default (#607)', () => {
+      const existing = instance('d0', card('Cardassian Trap'), 'down');
+      const moved = instance('d1', card('Chula The Chandra'), 'up');
+      const start = { ...initialTableState, dilemmaPile: [existing], discard: [moved] };
+      const state = tableReducer(start, { type: 'move', id: 'd1', to: 'dilemmaPile' });
+
+      expect(state.dilemmaPile).toEqual([existing, { ...moved, face: 'down' }]);
+    });
   });
 
   describe('flip', () => {

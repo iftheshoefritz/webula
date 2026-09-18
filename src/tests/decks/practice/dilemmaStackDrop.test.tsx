@@ -124,7 +124,7 @@ describe('Practice table: building and revealing a dilemma stack at a mission (#
       render(<PracticeDrawPage />);
     });
 
-    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile, tap to draw' });
+    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
     await act(async () => {
       fireEvent.click(drawDilemmaButton);
     });
@@ -180,7 +180,7 @@ describe('Practice table: building and revealing a dilemma stack at a mission (#
     expect(screen.getByRole('button', { name: /Under the mission pile, 1 card, tap to open/i })).toBeInTheDocument();
   });
 
-  it('moves a dilemma from a mission stack to the bottom of the dilemma pile, lowering the stack badge', async () => {
+  it('moves a dilemma from a mission stack to the bottom half of the dilemma pile, lowering the stack badge (#607)', async () => {
     await setupOpenDilemmaHand();
     const [firstId, secondId] = mockDraggableIds;
 
@@ -209,7 +209,7 @@ describe('Practice table: building and revealing a dilemma stack at a mission (#
       mockOnDragStart!({ active: { id: firstId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaPile' } });
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemma-pile-bottom' } });
     });
 
     expect(screen.getByRole('button', { name: /Dilemma pile, 1 card, tap to open/i })).toBeInTheDocument();

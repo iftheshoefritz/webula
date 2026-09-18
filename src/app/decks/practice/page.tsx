@@ -72,16 +72,28 @@ function RotateDeviceOverlay() {
 }
 
 const DISCARD_DROPPABLE_ID = 'discard';
-const DILEMMA_PILE_DROPPABLE_ID = 'dilemmaPile';
 
-// Four flat, top-level drop zones (#603 adds the core and the brig alongside the discard pile;
-// #605 adds the dilemma pile): each one's `useDroppable` id is just its own zone name
-// (`FlatCardRow`, `DiscardPile`, `DilemmaPileButton`), so a drop on any of them dispatches the
-// same `move` straight to that zone, for any card type. A card dropped on the dilemma pile this
-// way always lands on the pile's bottom, face down — `move` appends to the end of the destination
-// array, and `ZONE_FACE.dilemmaPile` is 'down' — which is the general flat-zone behavior, not a
-// choice of top or bottom (#607's later job).
-const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig', DILEMMA_PILE_DROPPABLE_ID];
+// Three flat, top-level drop zones (#603 adds the core and the brig alongside the discard pile):
+// each one's `useDroppable` id is just its own zone name (`FlatCardRow`, `DiscardPile`), so a
+// drop on any of them dispatches the same `move` straight to that zone, for any card type. The
+// dilemma pile is a flat zone too, but not one of these: it has two drop targets of its own, the
+// top half and the bottom half of `DilemmaPileButton`, handled separately below (#607) — it
+// replaces the single whole-card `dilemmaPile` droppable #605 added, which only ever appended to
+// the bottom.
+const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig'];
+
+// The dilemma pile's two drop targets (#607): a drop on the top half puts the card first in
+// `dilemmaPile` (drawn next); a drop on the bottom half puts it last, matching the pile's older,
+// single-droppable behaviour. Both ids follow the kebab-case pattern `missionPileDropId`/
+// `shipRowDropId` already use.
+const DILEMMA_PILE_TOP_DROPPABLE_ID = 'dilemma-pile-top';
+const DILEMMA_PILE_BOTTOM_DROPPABLE_ID = 'dilemma-pile-bottom';
+
+function dilemmaPileHalfFromDropId(id: string): 'top' | 'bottom' | null {
+  if (id === DILEMMA_PILE_TOP_DROPPABLE_ID) return 'top';
+  if (id === DILEMMA_PILE_BOTTOM_DROPPABLE_ID) return 'bottom';
+  return null;
+}
 
 // The core and the brig show their cards at the ship row's small size (`MissionRow.tsx`), and
 // each one's row is bounded to a width that keeps the whole bottom row (discard pile, draw pile,
@@ -157,23 +169,69 @@ function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; co
   );
 }
 
-// The dilemma pile (#604): a tap draws its top card into the dilemma hand. It is also a drop
-// target (#605): a revealed dilemma dragged here from a mission's dilemma stack goes on the
-// bottom, face down (see `FLAT_DROP_ZONES`).
-function DilemmaPileButton({ count, onDraw }: { count: number; onDraw: () => void }) {
-  const { setNodeRef, isOver } = useDroppable({ id: DILEMMA_PILE_DROPPABLE_ID });
+// One half of the dilemma pile's two drop targets (#607): the top half puts a dropped card first
+// in the pile (drawn next), the bottom half puts it last. Each half is its own `<button>`, the
+// same sibling-not-nested pattern `PileBadge` (`MissionRow.tsx`) already uses to combine a tap
+// control and a droppable without nesting one button inside another — here the two halves sit as
+// absolutely positioned siblings over the shared, non-interactive card art in `DilemmaPileButton`
+// below, each covering exactly half its height and the full width, so both halves together cover
+// the whole card and neither changes the card's footprint. A tap on either half draws, same as
+// tapping anywhere on the old single button; `disabled` here only stops the tap (`useDroppable`'s
+// geometry, and so a drop, works on a disabled button same as an enabled one, #607 review).
+function DilemmaPileHalf({
+  dropId,
+  label,
+  position,
+  count,
+  onDraw,
+  showLabel,
+}: {
+  dropId: string;
+  label: string;
+  position: 'top' | 'bottom';
+  count: number;
+  onDraw: () => void;
+  showLabel: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: dropId });
 
   return (
     <button
       ref={setNodeRef}
-      data-zone={DILEMMA_PILE_DROPPABLE_ID}
+      data-zone={dropId}
       onClick={onDraw}
       disabled={count === 0}
-      className={`relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed rounded-lg ${
+      aria-label={`Dilemma pile ${position}, tap to draw`}
+      className={`absolute inset-x-0 ${position === 'top' ? 'top-0' : 'bottom-0'} h-1/2 focus:outline-none disabled:cursor-not-allowed ${
         isOver ? 'ring-2 ring-accent' : ''
-      }`}
-      aria-label="Dilemma pile, tap to draw"
+      } ${position === 'top' ? 'rounded-t-lg' : 'rounded-b-lg'}`}
     >
+      {showLabel && isOver && (
+        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white bg-black/60 rounded">
+          {label}
+        </span>
+      )}
+    </button>
+  );
+}
+
+// The dilemma pile (#604): a tap draws its top card into the dilemma hand. It is also a drop
+// target: dropping any card on its top half puts it first in the pile (drawn next), dropping on
+// its bottom half puts it last (#607, replacing #605's single whole-card droppable, which only
+// ever appended to the bottom). Only a dragged dilemma shows the "Top"/"Bottom" label; a drop of
+// any other card type is still accepted on either half (the same advisory-zone convention every
+// other flat zone follows), with only the generic `isOver` ring.
+function DilemmaPileButton({
+  count,
+  onDraw,
+  showPositionLabel,
+}: {
+  count: number;
+  onDraw: () => void;
+  showPositionLabel: boolean;
+}) {
+  return (
+    <div className={`relative w-14 h-20 group ${count === 0 ? 'opacity-50' : ''}`} data-testid="dilemma-pile">
       {count > 0 ? (
         <>
           <img
@@ -181,16 +239,33 @@ function DilemmaPileButton({ count, onDraw }: { count: number; onDraw: () => voi
             width={120}
             height={167}
             alt="Face-down dilemma pile"
-            className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
+            className="pointer-events-none rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-full h-full object-cover"
           />
           <CountBadge count={count} />
         </>
       ) : (
-        <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
+        <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
           Dilemma
         </div>
       )}
-    </button>
+
+      <DilemmaPileHalf
+        dropId={DILEMMA_PILE_TOP_DROPPABLE_ID}
+        label="Top"
+        position="top"
+        count={count}
+        onDraw={onDraw}
+        showLabel={showPositionLabel}
+      />
+      <DilemmaPileHalf
+        dropId={DILEMMA_PILE_BOTTOM_DROPPABLE_ID}
+        label="Bottom"
+        position="bottom"
+        count={count}
+        onDraw={onDraw}
+        showLabel={showPositionLabel}
+      />
+    </div>
   );
 }
 
@@ -305,6 +380,14 @@ function PracticeDrawContent() {
     setOpenPile(null);
     if (over && FLAT_DROP_ZONES.includes(String(over.id) as Zone)) {
       dispatch({ type: 'move', id: String(active.id), to: over.id as Zone });
+      return;
+    }
+    // A drop on either half of the dilemma pile (#607): the top half puts the card first in the
+    // pile (drawn next), the bottom half puts it last. Accepted for any card type, the same
+    // advisory-zone convention every other flat zone follows.
+    const dilemmaPilePosition = over ? dilemmaPileHalfFromDropId(String(over.id)) : null;
+    if (dilemmaPilePosition) {
+      dispatch({ type: 'move', id: String(active.id), to: 'dilemmaPile', position: dilemmaPilePosition });
       return;
     }
     // A drop on a ship already in a ship row puts a personnel or equipment card aboard as crew
@@ -502,7 +585,11 @@ function PracticeDrawContent() {
                     />
                   )}
 
-                  <DilemmaPileButton count={dilemmaPile.length} onDraw={drawDilemma} />
+                  <DilemmaPileButton
+                    count={dilemmaPile.length}
+                    onDraw={drawDilemma}
+                    showPositionLabel={draggingInstance?.card.type === 'dilemma'}
+                  />
                 </div>
               </div>
 
