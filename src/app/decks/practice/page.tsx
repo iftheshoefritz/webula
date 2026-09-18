@@ -21,11 +21,30 @@ import { deckFromTsv, expandDeck, extractMissions, isDeckEmpty, shuffleArray } f
 import { Deck } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
-import { CardInstance, createCardInstances, findInstanceAnywhere, initialTableState, tableReducer } from './tableReducer';
+import {
+  CardInstance,
+  MissionPileName,
+  createCardInstances,
+  findInstanceAnywhere,
+  initialTableState,
+  tableReducer,
+} from './tableReducer';
 import CardHand from './CardHand';
-import MissionRow, { missionIndexFromDropId, shipIdFromCrewDropId } from './MissionRow';
+import MissionRow, { missionIndexFromDropId, missionPileFromDropId, shipIdFromCrewDropId } from './MissionRow';
 import CardPreview from './CardPreview';
 import CountBadge from './CountBadge';
+import PilePanel from './PilePanel';
+
+// A dropped card's type chooses its mission pile (#602): personnel and equipment go to the
+// personnel pile, event/mission/interrupt go to the event pile. A ship, and any type not listed
+// here (dilemmas, #605/#606), are handled separately or not yet supported.
+const MISSION_PILE_BY_TYPE: Record<string, MissionPileName> = {
+  personnel: 'personnel',
+  equipment: 'personnel',
+  event: 'event',
+  mission: 'event',
+  interrupt: 'event',
+};
 
 interface ScreenOrientationWithLock extends ScreenOrientation {
   lock?(orientation: string): Promise<void>;
@@ -108,6 +127,7 @@ function PracticeDrawContent() {
   const [isHandOpen, setIsHandOpen] = useState(false);
   const [draggingInstance, setDraggingInstance] = useState<CardInstance | null>(null);
   const [gameLayer, setGameLayer] = useState<HTMLDivElement | null>(null);
+  const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -192,7 +212,10 @@ function PracticeDrawContent() {
     // Any drag closing clears the open preview: a crew card's drag begins while its own ship's
     // preview is still open (the crew row is the only place a crew card appears), and the
     // acceptance check for #600 requires that drag ending (dropped or not) to close the preview.
+    // The same applies to an open pile panel (#602): a card dragged out of it begins its drag
+    // while the panel is still open.
     setFocusedCardId(null);
+    setOpenPile(null);
     if (over?.id === DISCARD_DROPPABLE_ID) {
       dispatch({ type: 'move', id: String(active.id), to: 'discard' });
       return;
@@ -205,12 +228,27 @@ function PracticeDrawContent() {
       dispatch({ type: 'move', id: String(active.id), to: { zone: 'crew', shipId } });
       return;
     }
-    // A drop on a mission card or its ship row both put a ship in that mission's ship row
-    // (#599). A drop of any other card type on either target is not supported yet (#602), so
-    // it is not dispatched and the card returns to its source zone.
+    // A drop directly on a pile's badge always goes to that pile, regardless of card type: the
+    // player's way to override the type-based routing below (#602).
+    const badgeTarget = over ? missionPileFromDropId(String(over.id)) : null;
+    if (badgeTarget) {
+      dispatch({ type: 'move', id: String(active.id), to: { zone: 'missionPile', ...badgeTarget } });
+      return;
+    }
+    // A drop on a mission card or its ship row both resolve to the same mission index. A ship
+    // goes to that mission's ship row (#599); personnel/equipment/event/mission/interrupt file
+    // into one of the mission's two piles by type (#602). Any other type (a dilemma, #605/#606)
+    // is not supported yet, so it is not dispatched and the card returns to its source zone.
     const missionIndex = over ? missionIndexFromDropId(String(over.id)) : null;
-    if (missionIndex !== null && draggingInstance?.card.type === 'ship') {
-      dispatch({ type: 'move', id: String(active.id), to: { zone: 'shipRow', missionIndex } });
+    if (missionIndex !== null && draggingInstance) {
+      if (draggingInstance.card.type === 'ship') {
+        dispatch({ type: 'move', id: String(active.id), to: { zone: 'shipRow', missionIndex } });
+        return;
+      }
+      const pile = MISSION_PILE_BY_TYPE[draggingInstance.card.type];
+      if (pile) {
+        dispatch({ type: 'move', id: String(active.id), to: { zone: 'missionPile', missionIndex, pile } });
+      }
     }
   };
 
@@ -218,6 +256,7 @@ function PracticeDrawContent() {
   const handleDragCancel = () => {
     setDraggingInstance(null);
     setFocusedCardId(null);
+    setOpenPile(null);
   };
 
   const isEmpty = deckEmpty;
@@ -270,7 +309,11 @@ function PracticeDrawContent() {
           >
             <div className="flex flex-col flex-1 p-4">
               {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597) */}
-              <MissionRow missions={missions} onCardClick={(id) => setFocusedCardId(id)} />
+              <MissionRow
+                missions={missions}
+                onCardClick={(id) => setFocusedCardId(id)}
+                onOpenPile={(missionIndex, pile) => setOpenPile({ missionIndex, pile })}
+              />
 
               {/* Bottom row, anchored to the bottom, offset partially below the viewport. From left
                   to right: discard pile, draw pile, closed hand, core, brig. The dilemma pile is the
@@ -339,15 +382,31 @@ function PracticeDrawContent() {
 
               {/* Enlarged card preview, anchored to the right edge at full screen height so its
                   position never shifts regardless of which card is previewed. A table card (a
-                  mission, for now) gets a "Flip" button; a hand card does not (#598). A ship's
-                  preview also shows its crew in a row below the art (#600); `hidden` visually
-                  closes the preview for the duration of any drag without unmounting that row. */}
+                  mission, or a card in one of its piles, #602) gets a "Flip" button; a hand card
+                  does not (#598). A ship's preview also shows its crew in a row below the art
+                  (#600); `hidden` visually closes the preview for the duration of any drag
+                  without unmounting that row. */}
               {focused && (
                 <CardPreview
                   instance={focused.instance}
                   onClose={() => setFocusedCardId(null)}
-                  onFlip={focused.zone === 'missions' ? () => dispatch({ type: 'flip', id: focused.instance.id }) : undefined}
+                  onFlip={
+                    focused.zone === 'missions' || (typeof focused.zone === 'object' && focused.zone.zone === 'missionPile')
+                      ? () => dispatch({ type: 'flip', id: focused.instance.id })
+                      : undefined
+                  }
                   crew={focused.instance.card.type === 'ship' ? focused.instance.crew ?? [] : undefined}
+                  onCardClick={(id) => setFocusedCardId(id)}
+                  hidden={draggingInstance !== null}
+                />
+              )}
+
+              {/* A mission's personnel or event pile panel (#602), opened by tapping its badge. */}
+              {openPile && (
+                <PilePanel
+                  pile={openPile.pile}
+                  cards={missions[openPile.missionIndex][openPile.pile]}
+                  onClose={() => setOpenPile(null)}
                   onCardClick={(id) => setFocusedCardId(id)}
                   hidden={draggingInstance !== null}
                 />

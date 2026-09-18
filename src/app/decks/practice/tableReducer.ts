@@ -20,13 +20,16 @@ export interface CardInstance {
   crew?: CardInstance[];
 }
 
-// A mission slot holds both the mission card dealt into that position (#597) and the ships
-// placed on that mission's ship row (#599). The mission row always has MISSION_SLOTS of these,
-// regardless of how many missions the deck has; a slot with no dealt mission still has room for
-// its own ship row.
+// A mission slot holds the mission card dealt into that position (#597), the ships placed on
+// that mission's ship row (#599), and the personnel/event piles dropped onto the mission card
+// itself (#602). The mission row always has MISSION_SLOTS of these, regardless of how many
+// missions the deck has; a slot with no dealt mission still has room for its own ship row and
+// piles.
 export interface MissionSlot {
   mission: CardInstance | null;
   ships: CardInstance[];
+  personnel: CardInstance[];
+  event: CardInstance[];
 }
 
 // A ship row is one of MISSION_SLOTS possible move destinations, not a single top-level zone
@@ -45,7 +48,19 @@ export interface CrewLocation {
   shipId: string;
 }
 
-export type MoveTarget = Zone | ShipRowLocation | CrewLocation;
+// A mission's personnel and event piles (#602): personnel, equipment, mission, interrupt, and
+// event cards dropped on a mission card (or dropped directly on one of its badges, overriding
+// the type-based routing) file into one of these two piles, addressed by mission index like a
+// ship row, plus which of the two piles.
+export type MissionPileName = 'personnel' | 'event';
+
+export interface MissionPileLocation {
+  zone: 'missionPile';
+  missionIndex: number;
+  pile: MissionPileName;
+}
+
+export type MoveTarget = Zone | ShipRowLocation | CrewLocation | MissionPileLocation;
 
 export interface TableState {
   pile: CardInstance[];
@@ -73,11 +88,21 @@ const SHIP_ROW_FACE: Face = 'up';
 // A crew card's face convention: always face up, shown face up in the ship's preview (#600).
 const CREW_FACE: Face = 'up';
 
+// A mission pile's face convention (#602): personnel/equipment go into the personnel pile face
+// down (matching the parent design's default for a personnel/equipment card in play); event,
+// mission, and interrupt cards go into the event pile face up.
+const MISSION_PILE_FACE: Record<MissionPileName, Face> = { personnel: 'down', event: 'up' };
+
 export const initialTableState: TableState = {
   pile: [],
   hand: [],
   discard: [],
-  missions: Array.from({ length: MISSION_SLOTS }, () => ({ mission: null, ships: [] })),
+  missions: Array.from({ length: MISSION_SLOTS }, () => ({
+    mission: null,
+    ships: [],
+    personnel: [],
+    event: [],
+  })),
 };
 
 let nextInstanceId = 0;
@@ -101,6 +126,9 @@ const isShipRowLocation = (value: MoveTarget): value is ShipRowLocation =>
 
 const isCrewLocation = (value: MoveTarget): value is CrewLocation =>
   typeof value === 'object' && value !== null && value.zone === 'crew';
+
+const isMissionPileLocation = (value: MoveTarget): value is MissionPileLocation =>
+  typeof value === 'object' && value !== null && value.zone === 'missionPile';
 
 const findZone = (state: TableState, id: string): Zone | null => {
   if (state.pile.some((c) => c.id === id)) return 'pile';
@@ -133,13 +161,23 @@ const findCrewLocation = (state: TableState, id: string): CrewLocation | null =>
   return null;
 };
 
+// Finds a card in either of a mission's piles (#602), across all mission slots.
+const findMissionPileLocation = (state: TableState, id: string): MissionPileLocation | null => {
+  for (let i = 0; i < state.missions.length; i++) {
+    const slot = state.missions[i];
+    if (slot.personnel.some((c) => c.id === id)) return { zone: 'missionPile', missionIndex: i, pile: 'personnel' };
+    if (slot.event.some((c) => c.id === id)) return { zone: 'missionPile', missionIndex: i, pile: 'event' };
+  }
+  return null;
+};
+
 // A card's location on the table, for callers (the flip action, and the page's preview) that
 // need to find a card regardless of whether it sits in one of `move`'s zones, in the `missions`
 // array as a mission card, in a mission's ship row, or aboard a ship as crew. `missions` is a
 // positional array rather than a zone a card moves in and out of, so the mission card itself
 // stays outside the `MoveTarget` union that `move` targets; a ship in a ship row, and a crew
 // card aboard a ship, both do move, so their locations are a `ShipRowLocation`/`CrewLocation`.
-export type TableZone = Zone | 'missions' | ShipRowLocation | CrewLocation;
+export type TableZone = Zone | 'missions' | ShipRowLocation | CrewLocation | MissionPileLocation;
 
 export function findInstanceAnywhere(
   state: TableState,
@@ -163,6 +201,11 @@ export function findInstanceAnywhere(
     const ship = findShipInstance(state, crewLocation.shipId)!;
     return { instance: ship.crew!.find((c) => c.id === id)!, zone: crewLocation };
   }
+  const missionPile = findMissionPileLocation(state, id);
+  if (missionPile) {
+    const cards = state.missions[missionPile.missionIndex][missionPile.pile];
+    return { instance: cards.find((c) => c.id === id)!, zone: missionPile };
+  }
   return null;
 }
 
@@ -173,6 +216,7 @@ const flipFace = (face: Face): Face => (face === 'up' ? 'down' : 'up');
 const cardsAt = (state: TableState, location: MoveTarget): CardInstance[] => {
   if (isShipRowLocation(location)) return state.missions[location.missionIndex].ships;
   if (isCrewLocation(location)) return findShipInstance(state, location.shipId)?.crew ?? [];
+  if (isMissionPileLocation(location)) return state.missions[location.missionIndex][location.pile];
   return state[location];
 };
 
@@ -191,12 +235,19 @@ const withCardsAt = (state: TableState, location: MoveTarget, cards: CardInstanc
     }));
     return { ...state, missions };
   }
+  if (isMissionPileLocation(location)) {
+    const missions = state.missions.map((slot, i) =>
+      i === location.missionIndex ? { ...slot, [location.pile]: cards } : slot
+    );
+    return { ...state, missions };
+  }
   return { ...state, [location]: cards };
 };
 
 const faceForLocation = (location: MoveTarget): Face => {
   if (isShipRowLocation(location)) return SHIP_ROW_FACE;
   if (isCrewLocation(location)) return CREW_FACE;
+  if (isMissionPileLocation(location)) return MISSION_PILE_FACE[location.pile];
   return ZONE_FACE[location];
 };
 
@@ -205,6 +256,7 @@ const faceForLocation = (location: MoveTarget): Face => {
 const locationKey = (location: MoveTarget): string => {
   if (isShipRowLocation(location)) return `shipRow-${location.missionIndex}`;
   if (isCrewLocation(location)) return `crew-${location.shipId}`;
+  if (isMissionPileLocation(location)) return `missionPile-${location.missionIndex}-${location.pile}`;
   return location;
 };
 
@@ -223,7 +275,11 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     }
 
     case 'move': {
-      const from = findZone(state, action.id) ?? findShipRow(state, action.id) ?? findCrewLocation(state, action.id);
+      const from =
+        findZone(state, action.id) ??
+        findShipRow(state, action.id) ??
+        findCrewLocation(state, action.id) ??
+        findMissionPileLocation(state, action.id);
       if (!from) return state;
       // A ship dropped back on the ship row it already occupies (#601) is a genuine no-op: unlike
       // a same-zone move in the flat zones (hand/pile/discard), which already reorders the moved
@@ -264,9 +320,18 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         );
         return { ...state, missions };
       }
+      if (typeof zone === 'object' && zone.zone === 'missionPile') {
+        const { missionIndex, pile } = zone;
+        const missions = state.missions.map((slot, i) =>
+          i === missionIndex
+            ? { ...slot, [pile]: slot[pile].map((c) => (c.id === action.id ? { ...c, face: flipFace(c.face) } : c)) }
+            : slot
+        );
+        return { ...state, missions };
+      }
       // A ship on a ship row, and a crew card aboard a ship, are always face up (parent design,
       // issue #130) and have no Flip control (#599, #600), so flip only applies to the string
-      // zones (pile/hand/discard).
+      // zones (pile/hand/discard) and a mission's piles, handled above.
       if (typeof zone !== 'string') return state;
       return {
         ...state,
@@ -286,6 +351,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const missions: MissionSlot[] = Array.from({ length: MISSION_SLOTS }, (_, i) => ({
         mission: action.missions[i] ?? null,
         ships: [],
+        personnel: [],
+        event: [],
       }));
       return { pile, hand, discard: [], missions };
     }
