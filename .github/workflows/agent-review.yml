@@ -43,10 +43,21 @@ jobs:
           prompt: |
             Pull request #${{ github.event.pull_request.number }} ("${{ github.event.pull_request.title }}") has been labeled "agent-review". Your job is to address all unresolved or unaddressed comments on this PR.
 
-            1. Fetch all unresolved review comments on the PR:
-               `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments`
+            1. Read every piece of review feedback on the PR. A reviewer writes feedback in three
+               places, and you must fetch all three. An inline comment alone is not the whole review.
 
-            2. For each unresolved comment thread, assess whether it requires:
+               a. Inline comments, attached to a line of the diff:
+                  `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments`
+               b. Review bodies, the summary text a reviewer writes above the inline comments:
+                  `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --jq '.[] | select(.body != "") | {id, user: .user.login, state, body}'`
+               c. Top-level PR comments:
+                  `gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments --jq '.[] | {id, user: .user.login, body}'`
+
+               A review body often holds a request that no inline comment repeats. Treat each request
+               in a review body as its own item, the same as an inline comment. Skip your own earlier
+               comments and the bot summaries of past runs.
+
+            2. For each item you found in step 1, assess whether it requires:
                a. A **code change** (the reviewer identified a bug, style issue, missing test, logic problem, etc.)
                b. A **reply only** (the comment is a question, clarification request, or acknowledgement that needs a response but no code edit)
 
@@ -64,18 +75,23 @@ jobs:
                  - Check each item one time. After all items pass, stop the dev server.
                - If the browser check made you change code, run `yarn test` and `yarn build` again, then commit and push again as above.
 
-            4. **If no code changes are needed for a thread:**
-               - Reply to that comment thread with a clear clarification or acknowledgement using:
+            4. **If no code changes are needed for an item:**
+               - For an inline comment, reply to that thread with a clear clarification or acknowledgement:
                  `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments/<comment_id>/replies -f body="<your reply>"`
+               - A review body and a top-level PR comment have no thread to reply to. Answer those in
+                 the summary comment in step 5 instead.
 
             5. Leave a top-level PR comment summarising:
-               - Which review threads were addressed and how (code change vs. reply).
+               - Every item you found, and where it came from: an inline comment, a review body, or a
+                 top-level comment. List the items from the review bodies by name, so a reader can see
+                 you did not miss them.
+               - How you addressed each one (code change vs. reply).
                - What the browser check showed for each item, if you did a browser check.
-               - Which threads still need human attention (if any).
+               - Which items still need human attention (if any).
 
             6. Remove the "agent-review" label so the workflow does not re-trigger:
                `gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/agent-review -X DELETE`
 
-            Be precise and focused. Only change what is needed to address the review comments. Reference the AGENTS.md file for project conventions and commands.
+            Be precise and focused. Only change what is needed to address the review feedback. Reference the AGENTS.md file for project conventions and commands.
           claude_args: "--model claude-sonnet-5 --max-turns 80 --dangerously-skip-permissions"
           show_full_output: "true"
