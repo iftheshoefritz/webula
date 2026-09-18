@@ -198,6 +198,70 @@ describe('tableReducer', () => {
       expect(state.missions[1].ships).toEqual([untouched]);
       expect(state.discard).toEqual([{ ...ship, face: 'up' }]);
     });
+
+    it("moves a personnel card from the hand aboard a ship, keeping the ship's other crew intact", () => {
+      const staying = instance('p0', card('Worf'), 'up');
+      const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), crew: [staying] };
+      const moved = instance('p1', card('Data'), 'up');
+      const start = { ...initialTableState, hand: [moved], missions: missionSlots([], { 0: [ship] }) };
+      const state = tableReducer(start, { type: 'move', id: 'p1', to: { zone: 'crew', shipId: 's0' } });
+
+      expect(state.hand).toEqual([]);
+      expect(state.missions[0].ships[0].crew).toEqual([staying, moved]);
+    });
+
+    it('sets a crew card face up regardless of its previous face', () => {
+      const ship = instance('s0', card('U.S.S. Relativity'), 'up');
+      const moved = instance('p0', card('Data'), 'down');
+      const start = { ...initialTableState, hand: [moved], missions: missionSlots([], { 0: [ship] }) };
+      const state = tableReducer(start, { type: 'move', id: 'p0', to: { zone: 'crew', shipId: 's0' } });
+
+      expect(state.missions[0].ships[0].crew).toEqual([{ ...moved, face: 'up' }]);
+    });
+
+    it("keeps two copies of the same personnel card aboard one ship as separate crew members", () => {
+      const ship = instance('s0', card('U.S.S. Relativity'), 'up');
+      const copy1 = instance('p1', card('Tribble Handler'), 'up');
+      const copy2 = instance('p2', card('Tribble Handler'), 'up');
+      const start = { ...initialTableState, hand: [copy1, copy2], missions: missionSlots([], { 0: [ship] }) };
+      const afterFirst = tableReducer(start, { type: 'move', id: 'p1', to: { zone: 'crew', shipId: 's0' } });
+      const afterSecond = tableReducer(afterFirst, { type: 'move', id: 'p2', to: { zone: 'crew', shipId: 's0' } });
+
+      expect(afterSecond.missions[0].ships[0].crew).toEqual([copy1, copy2]);
+    });
+
+    it("moves a crew card out to the discard pile, leaving the rest of the ship's crew intact", () => {
+      const staying = instance('p0', card('Worf'), 'up');
+      const moving = instance('p1', card('Data'), 'up');
+      const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), crew: [staying, moving] };
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
+      const state = tableReducer(start, { type: 'move', id: 'p1', to: 'discard' });
+
+      expect(state.missions[0].ships[0].crew).toEqual([staying]);
+      expect(state.discard).toEqual([moving]);
+    });
+
+    it("releases a ship's crew into the discard pile, as separate cards, when the ship itself is discarded", () => {
+      const crewMember = instance('p0', card("Miles O'Brien"), 'up');
+      const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), crew: [crewMember] };
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
+      const state = tableReducer(start, { type: 'move', id: 's0', to: 'discard' });
+
+      expect(state.missions[0].ships).toEqual([]);
+      expect(state.discard).toEqual([
+        { id: 's0', card: card('U.S.S. Relativity'), face: 'up' },
+        { id: 'p0', card: card("Miles O'Brien"), face: 'up' },
+      ]);
+    });
+
+    it("keeps a ship's crew attached when it moves between two ship rows", () => {
+      const crewMember = instance('p0', card('Worf'), 'up');
+      const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), crew: [crewMember] };
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
+      const state = tableReducer(start, { type: 'move', id: 's0', to: { zone: 'shipRow', missionIndex: 3 } });
+
+      expect(state.missions[3].ships).toEqual([ship]);
+    });
   });
 
   describe('flip', () => {
@@ -238,6 +302,15 @@ describe('tableReducer', () => {
       const ship = instance('s0', card('U.S.S. Relativity'), 'up');
       const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
       const state = tableReducer(start, { type: 'flip', id: 's0' });
+
+      expect(state).toBe(start);
+    });
+
+    it('is a no-op for a crew card (it has no Flip control and is always face up)', () => {
+      const crewMember = instance('p0', card('Worf'), 'up');
+      const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), crew: [crewMember] };
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
+      const state = tableReducer(start, { type: 'flip', id: 'p0' });
 
       expect(state).toBe(start);
     });
@@ -285,6 +358,17 @@ describe('findInstanceAnywhere', () => {
     expect(findInstanceAnywhere(state, 's0')).toEqual({
       instance: ship,
       zone: { zone: 'shipRow', missionIndex: 2 },
+    });
+  });
+
+  it("finds a crew card and reports its ship's id", () => {
+    const crewMember = instance('p0', card('Worf'), 'up');
+    const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), crew: [crewMember] };
+    const state = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
+
+    expect(findInstanceAnywhere(state, 'p0')).toEqual({
+      instance: crewMember,
+      zone: { zone: 'crew', shipId: 's0' },
     });
   });
 
