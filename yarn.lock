@@ -2395,10 +2395,10 @@ agent-base@^7.1.0, agent-base@^7.1.2:
   resolved "https://registry.yarnpkg.com/agent-base/-/agent-base-7.1.4.tgz#e3cd76d4c548ee895d3c3fd8dc1f6c5b9032e7a8"
   integrity sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==
 
-agent-browser@0.27.3:
-  version "0.27.3"
-  resolved "https://registry.yarnpkg.com/agent-browser/-/agent-browser-0.27.3.tgz#f03990088bf21f5b344d1f238f82e19eb6be54ca"
-  integrity sha512-isQ1xWoYOnfR8BigYRlYmkFOrqw71tKEmUEMmFJGStQFOyCrLSsKoOAZEu8TjPZdmjD1nPQ/hLLYlxTwdHnA0Q==
+agent-browser@0.27.0:
+  version "0.27.0"
+  resolved "https://registry.yarnpkg.com/agent-browser/-/agent-browser-0.27.0.tgz#e47cabf2897777b40d122b57e9e3cb8634ed91e8"
+  integrity sha512-mmHzVsYFVA6nshNNGJzg83aVMgKpf4h98ytY3pvtJB1Cot0ZyA2bfnkbSngGD56Azkj+GlhVH6qx9DfKOVE0yg==
 
 ajv@^6.10.0, ajv@^6.12.4:
   version "6.12.6"

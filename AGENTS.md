@@ -141,8 +141,8 @@ To keep the bottom of the page clear, start the dev server with `NEXT_PUBLIC_AGE
 and downloads nothing. In CI the dependencies are installed before the agent starts. Do not
 run `yarn install`.
 
-The version is pinned to `0.27.3`, the last release with no `engines` field. Every release
-from `0.28.0` needs Node 24, and CI runs Node 20. Do not raise the version on its own.
+The version is pinned to `0.27.0`, the last release with no `engines` field. Every release
+from `0.27.1` needs Node 24, and CI runs Node 20. Do not raise the version on its own.
 
 To check drag and drop, do a real drag with `agent-browser drag`, and select elements by their `data-zone` and `data-card-id` attributes:
 
