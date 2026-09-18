@@ -216,6 +216,32 @@ describe('Practice table: building and revealing a dilemma stack at a mission (#
     expect(document.body.querySelector('[data-zone="mission-pile-dilemma-0"]')).not.toBeNull();
   });
 
+  it('moves the discard pile\'s top dilemma under a mission when dragged there (#606 review)', async () => {
+    await setupOpenDilemmaHand();
+    const [firstId] = mockDraggableIds;
+
+    // Discard the dilemma from the dilemma hand first, so it sits on top of the discard pile.
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'discard' } });
+    });
+    expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
+
+    // Drag the discard pile's top card (its source is the discard pile, not the dilemma hand)
+    // onto a mission: this route goes under that mission, not into its dilemma stack (#606).
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
+    });
+
+    expect(document.body.querySelector('[data-zone="mission-pile-dilemma-0"]')).toBeNull();
+    expect(screen.getByRole('button', { name: /Under the mission pile, 1 card, tap to open/i })).toBeInTheDocument();
+  });
+
   it('opens the card preview when the dilemma stack badge is tapped, listing the stack in drop order', async () => {
     await setupOpenDilemmaHand();
     const [firstId, secondId] = mockDraggableIds;
