@@ -88,7 +88,13 @@ export type TableAction =
   // A tap on a face-down pile moves its top card to a hand. The draw pile and the hand are one
   // pair (#596); the dilemma pile and the dilemma hand are the other (#604).
   | { type: 'draw'; from: Zone; to: Zone }
-  | { type: 'move'; id: string; to: MoveTarget }
+  // `position` chooses which end of the destination array the moved card lands on: 'bottom'
+  // (the default, when omitted) keeps every existing call site's behaviour — the moved card (and
+  // any crew it releases) goes after the destination's existing cards, same as always. 'top'
+  // puts it before them instead, so it becomes index 0 — the card a later `draw` takes first
+  // (#607). Only the dilemma pile's two drop halves pass this; every other destination is
+  // unordered from the player's point of view, so nothing else needs it.
+  | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom' }
   | { type: 'flip'; id: string }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
 
@@ -349,7 +355,10 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         : [];
 
       const destination = toSameLocation ? withoutCard : cardsAt(afterRemoval, action.to);
-      return withCardsAt(afterRemoval, action.to, [...destination, movedCard, ...releasedCrew]);
+      const movedCards = [movedCard, ...releasedCrew];
+      const orderedDestination =
+        action.position === 'top' ? [...movedCards, ...destination] : [...destination, ...movedCards];
+      return withCardsAt(afterRemoval, action.to, orderedDestination);
     }
 
     case 'flip': {
