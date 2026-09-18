@@ -4,12 +4,11 @@
 // slots dealt face up from the deck's missions on a new game and on reset. A deck with fewer
 // than 5 missions (a valid deck never has more) shows an empty placeholder outline for the rest.
 //
-// Every column, filled or empty, reserves fixed space for parts later slices fill in, all shown
-// for now only as empty, non-interactive outlines so the column layout does not shift once they
-// gain real content:
+// Every column, filled or empty, reserves fixed space for its controls, so the column layout
+// does not shift as a mission's piles fill up:
 //   - A badge strip along the top edge: personnel/event pile badges (#602), dilemma stack badge
 //     (#605).
-//   - A card-edge strip below the bottom edge (dilemmas placed under the mission, #606).
+//   - A card-edge strip below the bottom edge: dilemmas placed under the mission (#606).
 //
 // The mission card and its ship row (#599) are both drop targets: dropping a ship on either one
 // puts it in that mission's ship row, face up. A ship row shows up to 2 ships side by side; a
@@ -27,18 +26,21 @@
 // equipment go to the personnel pile face down; event, mission, and interrupt go to the event
 // pile face up. A dilemma dropped there from the open dilemma hand instead builds a face-down
 // stack in a third pile (#605), in drop order — the first dilemma dropped is the first revealed.
-// A dilemma dropped on a mission from anywhere else is not supported by this pile (that drop
-// goes under the mission instead, #606), so it returns to its source (`page.tsx`). Each non-empty
-// pile shows a small badge on the badge strip, above (and as a sibling of, not nested inside) the
-// mission card's own `<button>` — nesting a badge button inside it would be invalid HTML and
-// would let the mission's own tap handler fire first, the same conflict already avoided for the
-// ship's own drop target. A badge is a drop target of its own: dropping a card of any type
-// directly on a badge overrides the type-based routing above and puts it in that pile regardless.
-// A badge sits geometrically on top of the mission card's larger drop target, so `pointerWithin`
-// collision detection (`page.tsx`) already picks the smaller, nested badge over the mission card
-// beneath it, the same reasoning that already lets a ship's crew zone win over its enclosing ship
-// row. A tap on a badge opens that pile's panel (`PilePanel`); a tap on the mission card elsewhere
-// still opens the mission's own preview.
+// A dilemma dropped on a mission from anywhere else — including that mission's own dilemma
+// stack — goes under the mission instead (#606), face up, permanently out of the stack. Each
+// non-empty personnel/event/dilemma pile shows a small badge on the badge strip, above (and as a
+// sibling of, not nested inside) the mission card's own `<button>` — nesting a badge button
+// inside it would be invalid HTML and would let the mission's own tap handler fire first, the
+// same conflict already avoided for the ship's own drop target. A badge is a drop target of its
+// own: dropping a card of any type directly on a badge overrides the type-based routing above and
+// puts it in that pile regardless. A badge sits geometrically on top of the mission card's larger
+// drop target, so `pointerWithin` collision detection (`page.tsx`) already picks the smaller,
+// nested badge over the mission card beneath it, the same reasoning that already lets a ship's
+// crew zone win over its enclosing ship row. A tap on a badge opens that pile's panel
+// (`PilePanel`); a tap on the mission card elsewhere still opens the mission's own preview. The
+// under-the-mission pile has no badge of its own — its control is the card-edge strip below the
+// mission card (`UnderMissionStrip` below), not a drop target, since the drop happens on the
+// mission card's own drop target like every other pile that has no badge under the pointer.
 
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName, MissionSlot } from './tableReducer';
@@ -145,13 +147,32 @@ function DilemmaIcon() {
   );
 }
 
+// Stacked bars, for the under-the-mission pile. Unused by `BadgeStrip` — that pile's control is
+// the card-edge strip below the mission card, not a top badge — but required to satisfy
+// `PILE_ICON`'s `Record<MissionPileName, ...>` type (#606).
+function UnderMissionIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-2 h-2" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="4" rx="1" />
+      <rect x="3" y="10" width="18" height="4" rx="1" />
+      <rect x="3" y="16" width="18" height="4" rx="1" />
+    </svg>
+  );
+}
+
 const PILE_ICON: Record<MissionPileName, () => JSX.Element> = {
   personnel: PersonnelIcon,
   event: EventIcon,
   dilemma: DilemmaIcon,
+  underMission: UnderMissionIcon,
 };
 
-const PILE_LABEL: Record<MissionPileName, string> = { personnel: 'Personnel', event: 'Event', dilemma: 'Dilemma' };
+const PILE_LABEL: Record<MissionPileName, string> = {
+  personnel: 'Personnel',
+  event: 'Event',
+  dilemma: 'Dilemma',
+  underMission: 'Under the mission',
+};
 
 // A mission pile's badge (#602): shown only when the pile is non-empty, it is a drop target of
 // its own (dropping any card type directly on it puts the card in that pile, overriding the
@@ -211,6 +232,51 @@ function BadgeStrip({
   );
 }
 
+// The card-edge strip's fixed height (#606): reserved on every mission column regardless of how
+// many dilemmas sit under that mission, so the ship row below it never moves. A `CountBadge` (the
+// usual count control, 24x24px, absolutely positioned) does not fit the 6px strip #597 first
+// reserved without covering the mission card above and the ship row below, so this strip is
+// double that instead, and its count is an inline, sized-to-fit number, `PileBadge`'s own pattern
+// (#602), not `CountBadge`.
+const UNDER_MISSION_STRIP_HEIGHT = 12; // px
+
+// The card-edge strip (#606): a row of small edges standing in for the dilemmas placed under the
+// mission, with an inline count, below the mission card in the space `MissionColumn` reserves.
+// Empty, it keeps the dashed placeholder outline #597 first reserved. A tap opens that pile's
+// panel (`PilePanel`), the same callback `PileBadge` already uses; it is not a drop target of its
+// own — the drop happens on the mission card's own drop target (`missionDropId`).
+function UnderMissionStrip({
+  missionIndex,
+  cards,
+  onOpen,
+}: {
+  missionIndex: number;
+  cards: CardInstance[];
+  onOpen: (missionIndex: number, pile: MissionPileName) => void;
+}) {
+  if (cards.length === 0) {
+    return <ReservedStrip height={UNDER_MISSION_STRIP_HEIGHT} />;
+  }
+  const edgeCount = Math.min(cards.length, 6);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(missionIndex, 'underMission')}
+      aria-label={`${PILE_LABEL.underMission} pile, ${cards.length} card${
+        cards.length === 1 ? '' : 's'
+      }, tap to open`}
+      className="relative w-full flex items-center justify-center gap-[1px] rounded bg-black/50"
+      style={{ height: UNDER_MISSION_STRIP_HEIGHT }}
+    >
+      {Array.from({ length: edgeCount }, (_, i) => (
+        <div key={i} className="w-2 rounded-sm bg-white/50" style={{ height: UNDER_MISSION_STRIP_HEIGHT - 4 }} />
+      ))}
+      <span className="absolute right-1 text-[8px] font-bold leading-none text-text-primary">{cards.length}</span>
+    </button>
+  );
+}
+
 function ShipRow({
   missionIndex,
   ships,
@@ -258,7 +324,7 @@ function MissionColumn({
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
-  const { mission, ships, personnel, event, dilemma } = slot;
+  const { mission, ships, personnel, event, dilemma, underMission } = slot;
 
   return (
     <div className="flex flex-col items-center gap-1" style={{ width: TABLE_CARD_WIDTH }}>
@@ -289,7 +355,7 @@ function MissionColumn({
       </div>
 
       {/* Card-edge strip: dilemmas placed under the mission (#606) */}
-      <ReservedStrip height={6} />
+      <UnderMissionStrip missionIndex={missionIndex} cards={underMission} onOpen={onOpenPile} />
 
       <ShipRow missionIndex={missionIndex} ships={ships} onCardClick={onCardClick} />
     </div>

@@ -12,6 +12,7 @@ import {
   PointerSensor,
   pointerWithin,
   rectIntersection,
+  useDraggable,
   useDroppable,
   useSensor,
   useSensors,
@@ -102,6 +103,39 @@ const collisionDetection: CollisionDetection = (args) => {
   return withinPointer.length > 0 ? withinPointer : rectIntersection(args);
 };
 
+// The discard pile's top card, draggable off the pile (#606 review): a dilemma dragged from here
+// onto a mission card lands under that mission, since its source is not the dilemma hand (see
+// `handleDragEnd`'s dilemma routing below). A separate component, mounted only while a top card
+// exists, keeps `useDraggable`'s hook call (and so its registration order, which the mock
+// `@dnd-kit/core` in the test suite relies on) tied to the card's own presence, the same as
+// `PilePanelCard` and `CardHand`'s cards.
+function DiscardPileCard({ topCard, count }: { topCard: CardInstance; count: number }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-card-id={topCard.id}
+      className="relative touch-none"
+      style={{
+        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+        opacity: isDragging ? 0.5 : 1,
+      }}
+      {...attributes}
+      {...listeners}
+    >
+      <img
+        src={`/cardimages/${topCard.card.imagefile}.jpg`}
+        width={120}
+        height={167}
+        alt="Discard pile"
+        className="rounded-lg shadow-lg w-14 h-auto"
+      />
+      <CountBadge count={count} />
+    </div>
+  );
+}
+
 function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; count: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: DISCARD_DROPPABLE_ID });
 
@@ -113,16 +147,7 @@ function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; co
       className={`flex flex-col items-center gap-1 rounded-lg ${isOver ? 'ring-2 ring-accent' : ''}`}
     >
       {topCard ? (
-        <div className="relative">
-          <img
-            src={`/cardimages/${topCard.card.imagefile}.jpg`}
-            width={120}
-            height={167}
-            alt="Discard pile"
-            className="rounded-lg shadow-lg w-14 h-auto"
-          />
-          <CountBadge count={count} />
-        </div>
+        <DiscardPileCard topCard={topCard} count={count} />
       ) : (
         <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
           Discard
@@ -301,8 +326,8 @@ function PracticeDrawContent() {
     // goes to that mission's ship row (#599); personnel/equipment/event/mission/interrupt file
     // into one of the mission's piles by type (#602). A dilemma dropped there from the open
     // dilemma hand builds the mission's dilemma stack instead (#605); a dilemma dropped there
-    // from anywhere else is not supported by this route (that drop goes under the mission, #606),
-    // so it is not dispatched and the card returns to its source zone.
+    // from anywhere else — including that mission's own dilemma stack — goes under the mission
+    // instead, face up, permanently out of the stack (#606).
     const missionIndex = over ? missionIndexFromDropId(String(over.id)) : null;
     if (missionIndex !== null && draggingInstance) {
       if (draggingInstance.card.type === 'ship') {
@@ -311,9 +336,8 @@ function PracticeDrawContent() {
       }
       if (draggingInstance.card.type === 'dilemma') {
         const source = findInstanceAnywhere(table, String(active.id));
-        if (source?.zone === 'dilemmaHand') {
-          dispatch({ type: 'move', id: String(active.id), to: { zone: 'missionPile', missionIndex, pile: 'dilemma' } });
-        }
+        const pile = source?.zone === 'dilemmaHand' ? 'dilemma' : 'underMission';
+        dispatch({ type: 'move', id: String(active.id), to: { zone: 'missionPile', missionIndex, pile } });
         return;
       }
       const pile = MISSION_PILE_BY_TYPE[draggingInstance.card.type];

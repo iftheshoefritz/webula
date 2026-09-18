@@ -153,7 +153,7 @@ describe('Practice table: building and revealing a dilemma stack at a mission (#
     expect(screen.getByRole('button', { name: /Dilemma pile, 1 card, tap to open/i })).toBeInTheDocument();
   });
 
-  it('does not move a dilemma dropped on a mission from anywhere other than the dilemma hand', async () => {
+  it('moves a dilemma dropped on a mission from anywhere other than the dilemma hand under that mission (#606)', async () => {
     await setupOpenDilemmaHand();
     const [firstId] = mockDraggableIds;
 
@@ -166,8 +166,8 @@ describe('Practice table: building and revealing a dilemma stack at a mission (#
     });
 
     // Drag that stacked card (its source is now the mission's own dilemma pile, not the dilemma
-    // hand) onto a different mission. This route is not supported yet (#606 owns it), so nothing
-    // should move.
+    // hand) onto a different mission. This route goes under that mission instead of building its
+    // dilemma stack (#606).
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
     });
@@ -176,7 +176,8 @@ describe('Practice table: building and revealing a dilemma stack at a mission (#
     });
 
     expect(document.body.querySelector('[data-zone="mission-pile-dilemma-1"]')).toBeNull();
-    expect(document.body.querySelector('[data-zone="mission-pile-dilemma-0"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="mission-pile-dilemma-0"]')).toBeNull();
+    expect(screen.getByRole('button', { name: /Under the mission pile, 1 card, tap to open/i })).toBeInTheDocument();
   });
 
   it('moves a dilemma from a mission stack to the bottom of the dilemma pile, lowering the stack badge', async () => {
@@ -213,6 +214,32 @@ describe('Practice table: building and revealing a dilemma stack at a mission (#
 
     expect(screen.getByRole('button', { name: /Dilemma pile, 1 card, tap to open/i })).toBeInTheDocument();
     expect(document.body.querySelector('[data-zone="mission-pile-dilemma-0"]')).not.toBeNull();
+  });
+
+  it('moves the discard pile\'s top dilemma under a mission when dragged there (#606 review)', async () => {
+    await setupOpenDilemmaHand();
+    const [firstId] = mockDraggableIds;
+
+    // Discard the dilemma from the dilemma hand first, so it sits on top of the discard pile.
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'discard' } });
+    });
+    expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
+
+    // Drag the discard pile's top card (its source is the discard pile, not the dilemma hand)
+    // onto a mission: this route goes under that mission, not into its dilemma stack (#606).
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
+    });
+
+    expect(document.body.querySelector('[data-zone="mission-pile-dilemma-0"]')).toBeNull();
+    expect(screen.getByRole('button', { name: /Under the mission pile, 1 card, tap to open/i })).toBeInTheDocument();
   });
 
   it('opens the card preview when the dilemma stack badge is tapped, listing the stack in drop order', async () => {

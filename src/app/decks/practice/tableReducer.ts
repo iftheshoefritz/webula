@@ -25,15 +25,17 @@ export interface CardInstance {
 
 // A mission slot holds the mission card dealt into that position (#597), the ships placed on
 // that mission's ship row (#599), the personnel/event piles dropped onto the mission card itself
-// (#602), and the face-down dilemma stack built there from the dilemma hand (#605). The mission
-// row always has MISSION_SLOTS of these, regardless of how many missions the deck has; a slot
-// with no dealt mission still has room for its own ship row and piles.
+// (#602), the face-down dilemma stack built there from the dilemma hand (#605), and the
+// permanent, face-up pile of dilemmas moved under the mission (#606). The mission row always has
+// MISSION_SLOTS of these, regardless of how many missions the deck has; a slot with no dealt
+// mission still has room for its own ship row and piles.
 export interface MissionSlot {
   mission: CardInstance | null;
   ships: CardInstance[];
   personnel: CardInstance[];
   event: CardInstance[];
   dilemma: CardInstance[];
+  underMission: CardInstance[];
 }
 
 // A ship row is one of MISSION_SLOTS possible move destinations, not a single top-level zone
@@ -52,12 +54,14 @@ export interface CrewLocation {
   shipId: string;
 }
 
-// A mission's personnel, event, and dilemma piles: personnel, equipment, mission, interrupt, and
-// event cards dropped on a mission card (or dropped directly on one of its badges, overriding
-// the type-based routing) file into one of the first two piles (#602), addressed by mission
-// index like a ship row, plus which pile. A dilemma dropped on a mission from the dilemma hand
-// builds a face-down stack in the third pile instead (#605).
-export type MissionPileName = 'personnel' | 'event' | 'dilemma';
+// A mission's personnel, event, dilemma, and under-mission piles: personnel, equipment, mission,
+// interrupt, and event cards dropped on a mission card (or dropped directly on one of its
+// badges, overriding the type-based routing) file into one of the first two piles (#602),
+// addressed by mission index like a ship row, plus which pile. A dilemma dropped on a mission
+// from the dilemma hand builds a face-down stack in the third pile instead (#605); a dilemma
+// dropped on a mission from anywhere else — including that mission's own dilemma stack — goes
+// into the fourth pile instead, face up, permanently out of the stack (#606).
+export type MissionPileName = 'personnel' | 'event' | 'dilemma' | 'underMission';
 
 export interface MissionPileLocation {
   zone: 'missionPile';
@@ -108,8 +112,14 @@ const CREW_FACE: Face = 'up';
 // A mission pile's face convention: personnel/equipment go into the personnel pile face down
 // (matching the parent design's default for a personnel/equipment card in play); event, mission,
 // and interrupt cards go into the event pile face up (#602). A dilemma stacked on a mission stays
-// face down until the player reveals it with Flip (#605).
-const MISSION_PILE_FACE: Record<MissionPileName, Face> = { personnel: 'down', event: 'up', dilemma: 'down' };
+// face down until the player reveals it with Flip (#605); a dilemma moved under the mission is
+// always face up, matching the parent design's zone for it (#606).
+const MISSION_PILE_FACE: Record<MissionPileName, Face> = {
+  personnel: 'down',
+  event: 'up',
+  dilemma: 'down',
+  underMission: 'up',
+};
 
 export const initialTableState: TableState = {
   pile: [],
@@ -125,6 +135,7 @@ export const initialTableState: TableState = {
     personnel: [],
     event: [],
     dilemma: [],
+    underMission: [],
   })),
 };
 
@@ -188,14 +199,16 @@ const findCrewLocation = (state: TableState, id: string): CrewLocation | null =>
   return null;
 };
 
-// Finds a card in any of a mission's piles (personnel/event, #602; dilemma stack, #605), across
-// all mission slots.
+// Finds a card in any of a mission's piles (personnel/event, #602; dilemma stack, #605; under
+// the mission, #606), across all mission slots.
 const findMissionPileLocation = (state: TableState, id: string): MissionPileLocation | null => {
   for (let i = 0; i < state.missions.length; i++) {
     const slot = state.missions[i];
     if (slot.personnel.some((c) => c.id === id)) return { zone: 'missionPile', missionIndex: i, pile: 'personnel' };
     if (slot.event.some((c) => c.id === id)) return { zone: 'missionPile', missionIndex: i, pile: 'event' };
     if (slot.dilemma.some((c) => c.id === id)) return { zone: 'missionPile', missionIndex: i, pile: 'dilemma' };
+    if (slot.underMission.some((c) => c.id === id))
+      return { zone: 'missionPile', missionIndex: i, pile: 'underMission' };
   }
   return null;
 };
@@ -384,6 +397,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         personnel: [],
         event: [],
         dilemma: [],
+        underMission: [],
       }));
       // The dilemmas arrive already shuffled, and all of them start in the dilemma pile: a new
       // game and the reset button deal no dilemmas into the dilemma hand.
