@@ -399,7 +399,7 @@ describe('PracticeDrawPage', () => {
       'hand',
       'core',
       'brig',
-      'dilemma',
+      'dilemmaPile',
     ]);
   });
 
@@ -638,6 +638,74 @@ describe('PracticeDrawPage', () => {
 
       expect(screen.getByRole('button', { name: /card 1, tap to shrink/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
+    });
+  });
+
+  // The dilemma pile and the dilemma hand (#604)
+  describe('dilemma pile and dilemma hand', () => {
+    const dilemmaCards = [1, 2, 3].map((n) => ({
+      collectorsinfo: `9D00${n}`,
+      originalName: `Dilemma ${n}`,
+      type: 'dilemma',
+      name: `dilemma ${n}`,
+      imagefile: `dilemma_${n}`,
+      pile: 'dilemma',
+      count: 1,
+    }));
+
+    const renderWithDilemmas = async () => {
+      mockSearchParamsValue = new URLSearchParams();
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({
+          ...mockManyDeck,
+          ...Object.fromEntries(dilemmaCards.map((c) => [c.collectorsinfo, { count: 1, row: c }])),
+        }),
+      );
+      (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+      (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+      await act(async () => {
+        render(<PracticeDrawPage />);
+      });
+    };
+
+    it('starts with every dilemma in the dilemma pile and no dilemma hand', async () => {
+      await renderWithDilemmas();
+
+      const dilemmaPile = screen.getByRole('button', { name: /dilemma pile, tap to draw/i });
+      expect(dilemmaPile.textContent).toContain('3');
+      expect(screen.queryByRole('button', { name: /dilemma hand/i })).not.toBeInTheDocument();
+    });
+
+    it('draws one dilemma into the dilemma hand on a tap', async () => {
+      await renderWithDilemmas();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /dilemma pile, tap to draw/i }));
+      });
+
+      expect(screen.getByRole('button', { name: /dilemma pile, tap to draw/i }).textContent).toContain('2');
+      expect(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i })).toBeInTheDocument();
+    });
+
+    it('closes the open hand when the dilemma hand opens', async () => {
+      await renderWithDilemmas();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /dilemma pile, tap to draw/i }));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i }));
+      });
+      expect(screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i })).not.toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
+      });
+
+      // The ordinary hand is closed again, so its closed button is back.
+      expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
     });
   });
 

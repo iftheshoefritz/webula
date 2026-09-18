@@ -68,6 +68,11 @@ export const expandDeck = (deck: import('../../types').Deck): any[] => expandPil
 // page, #597).
 export const extractMissions = (deck: import('../../types').Deck): any[] => expandPile(deck, 'mission')
 
+// The dilemmas of the deck, one entry per copy (#604). Unlike a mission, a deck holds several
+// copies of one dilemma, and `expandPile` already repeats an entry `count` times. The caller
+// shuffles this list, because the dilemma pile starts shuffled like the draw pile.
+export const extractDilemmas = (deck: import('../../types').Deck): any[] => expandPile(deck, 'dilemma')
+
 // True when the loaded deck has no cards at all, across missions, dilemmas and draw combined —
 // used for the practice page's empty state, which must stay hidden for a deck that has only
 // missions and/or dilemmas (#597).
