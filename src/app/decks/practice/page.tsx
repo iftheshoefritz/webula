@@ -8,8 +8,10 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  CollisionDetection,
   PointerSensor,
   pointerWithin,
+  rectIntersection,
   useDroppable,
   useSensor,
   useSensors,
@@ -42,6 +44,16 @@ function RotateDeviceOverlay() {
 }
 
 const DISCARD_DROPPABLE_ID = 'discard';
+
+// Picks the drop zone under the pointer, and falls back to the zone the dragged card overlaps
+// most when the pointer is inside no zone. `pointerWithin` on its own lets a small zone nested
+// inside a larger one win (a ship's crew zone inside its ship row, #600), which the area-based
+// `rectIntersection` never does; the fallback keeps a drop working when the pointer leaves every
+// zone, as it can at the bottom row, which sits partly below the bottom edge of the viewport.
+const collisionDetection: CollisionDetection = (args) => {
+  const withinPointer = pointerWithin(args);
+  return withinPointer.length > 0 ? withinPointer : rectIntersection(args);
+};
 
 function EmptyZonePlaceholder({ zone, label }: { zone: string; label: string }) {
   return (
@@ -245,7 +257,13 @@ function PracticeDrawContent() {
             // of boarding (#600 review). `pointerWithin` instead picks among only the droppables
             // that contain the pointer, ordered by distance from the pointer to each one's
             // corners, so the smaller nested zone (whose corners sit closer to the pointer) wins.
-            collisionDetection={pointerWithin}
+            //
+            // `pointerWithin` alone is stricter than the old behaviour for every other zone: it
+            // finds nothing unless the pointer itself sits inside a zone, and the bottom row sits
+            // partly below the bottom edge of the viewport. So it falls back to
+            // `rectIntersection` when the pointer is inside no zone, which keeps the older, more
+            // forgiving drops (a card that only overlaps the discard pile) working.
+            collisionDetection={collisionDetection}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
