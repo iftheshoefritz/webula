@@ -9,6 +9,7 @@ import {
   DragOverlay,
   DragStartEvent,
   PointerSensor,
+  pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
@@ -236,6 +237,15 @@ function PracticeDrawContent() {
         {!isEmpty && (
           <DndContext
             sensors={sensors}
+            // A ship's own crew drop zone (`crew-<shipId>`) sits nested inside its ship row's
+            // drop zone (`ship-row-<idx>`), which is larger. dnd-kit's default collision
+            // detection (`rectIntersection`) picks the droppable with the greatest overlap area,
+            // so the ship row would always win over the smaller zone nested inside it, and a
+            // personnel or equipment card dropped on a ship would return to its source instead
+            // of boarding (#600 review). `pointerWithin` instead picks among only the droppables
+            // that contain the pointer, ordered by distance from the pointer to each one's
+            // corners, so the smaller nested zone (whose corners sit closer to the pointer) wins.
+            collisionDetection={pointerWithin}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
