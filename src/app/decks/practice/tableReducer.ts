@@ -3,7 +3,10 @@
 // and later slices can add zones/actions without touching how existing zones behave.
 
 export type Face = 'up' | 'down';
-export type Zone = 'pile' | 'hand' | 'discard';
+// The core and the brig (#603) are two more flat, top-level zones: the core for any card not at
+// a mission (usually events), the brig for captured personnel, though the zone rules are
+// advisory, so both accept any card type, the same as the discard pile.
+export type Zone = 'pile' | 'hand' | 'discard' | 'core' | 'brig';
 
 // The mission row always has exactly 5 positional slots (see the parent design in issue #130
 // and the plan for #597), regardless of how many missions the deck has. A slot holds a
@@ -66,6 +69,8 @@ export interface TableState {
   pile: CardInstance[];
   hand: CardInstance[];
   discard: CardInstance[];
+  core: CardInstance[];
+  brig: CardInstance[];
   missions: MissionSlot[];
 }
 
@@ -79,6 +84,8 @@ export const ZONE_FACE: Record<Zone, Face> = {
   pile: 'down',
   hand: 'up',
   discard: 'up',
+  core: 'up',
+  brig: 'up',
 };
 
 // A ship row's face convention, kept apart from ZONE_FACE since a ship row is not a top-level
@@ -97,6 +104,8 @@ export const initialTableState: TableState = {
   pile: [],
   hand: [],
   discard: [],
+  core: [],
+  brig: [],
   missions: Array.from({ length: MISSION_SLOTS }, () => ({
     mission: null,
     ships: [],
@@ -134,6 +143,8 @@ const findZone = (state: TableState, id: string): Zone | null => {
   if (state.pile.some((c) => c.id === id)) return 'pile';
   if (state.hand.some((c) => c.id === id)) return 'hand';
   if (state.discard.some((c) => c.id === id)) return 'discard';
+  if (state.core.some((c) => c.id === id)) return 'core';
+  if (state.brig.some((c) => c.id === id)) return 'brig';
   return null;
 };
 
@@ -354,7 +365,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         personnel: [],
         event: [],
       }));
-      return { pile, hand, discard: [], missions };
+      return { pile, hand, discard: [], core: [], brig: [], missions };
     }
 
     default:
