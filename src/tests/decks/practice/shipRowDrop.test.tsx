@@ -191,7 +191,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     expect(shipRow!.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
   });
 
-  it('leaves a non-ship card in the hand when dropped on a mission card', async () => {
+  it('files a non-ship card into the personnel pile when dropped on a mission card (#602)', async () => {
     await setupOpenHand([mockEquipmentCard]);
     const [draggedId] = mockDraggableIds;
 
@@ -202,15 +202,15 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-0' } });
     });
 
-    // Re-open the (closed-on-drag-start) hand and confirm the card is still there.
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
-    expect(screen.getByRole('button', { name: 'tricorder' })).toBeInTheDocument();
+    // Gone from the (re-opened) hand...
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i });
+    expect(closedHandButton).toBeInTheDocument();
+
+    // ...and now filed into mission 0's personnel pile badge.
+    expect(screen.getByRole('button', { name: /personnel pile, 1 card/i })).toBeInTheDocument();
   });
 
-  it('leaves a non-ship card in the hand when dropped on a ship row', async () => {
+  it('files a non-ship card into the personnel pile when dropped on a ship row (#602)', async () => {
     await setupOpenHand([mockEquipmentCard]);
     const [draggedId] = mockDraggableIds;
 
@@ -221,11 +221,9 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'ship-row-0' } });
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
-    expect(screen.getByRole('button', { name: 'tricorder' })).toBeInTheDocument();
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i });
+    expect(closedHandButton).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /personnel pile, 1 card/i })).toBeInTheDocument();
   });
 
   it('drags a ship out of a ship row to the discard pile', async () => {
