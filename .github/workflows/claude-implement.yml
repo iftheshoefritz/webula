@@ -24,6 +24,19 @@ jobs:
         with:
           fetch-depth: 1
 
+      # Install before Claude starts. An agent that runs `yarn install` itself
+      # spends turns on it, and its first `yarn test` fails with a confusing
+      # error. The yarn cache also makes the install fast, and it holds
+      # `agent-browser`, which is a devDependency for the same reason.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1.0.70
         with:
@@ -36,6 +49,7 @@ jobs:
             1. Implement the feature or fix described in the issue, following the implementation plan if one exists.
             2. Make all necessary code changes, following existing code style and conventions in the codebase.
             3. Run `yarn test` and then `yarn build`. Both must pass. `yarn build` also checks types, runs ESLint, and pre-renders the static pages, which is what the Vercel deployment does. Fix every test failure, type error, lint error, and pre-render error caused by your changes.
+               The dependencies are installed already, and `agent-browser` is one of them, so `npx agent-browser` runs the local copy and downloads nothing. Do not run `yarn install`.
             4. Save the work and open the pull request before the browser check. The run can stop at the turn limit, and an unpushed change is lost. An early pull request also gives Vercel time to build the preview, and lets other agents work on the pull request.
                a. Create a new branch named `issue-${{ github.event.issue.number }}-<short-description>` from the current HEAD.
                b. Commit your changes to that branch with a descriptive commit message referencing the issue number.
@@ -45,17 +59,24 @@ jobs:
                   - Body that closes issue #${{ github.event.issue.number }} (include "Closes #${{ github.event.issue.number }}" in the PR body)
                   - A brief summary of what was changed and why
                   - A "## Visual Verification" section that contains only the word "Pending."
-            5. You MUST start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev` (runs at http://localhost:3000) and visually verify your changes. YOU MUST DO ALL OF THE FOLLOWING:
-               a. Open the affected page at the default desktop viewport:
-                  `npx agent-browser open http://localhost:3000`
-               b. If your changes include any responsive or mobile-specific layout (e.g. Tailwind `sm:`, `md:`, `lg:` breakpoint classes, or `hidden`/`block` visibility changes) OR touches existing responsive code, ALSO check at a mobile viewport:
-                  `npx agent-browser set viewport 390 844 && npx agent-browser open http://localhost:3000/decks`
-                  (adjust the URL to the affected page)
-                  Confirm that the single-column / mobile layout renders as intended and include a specific description in the PR under "## Visual Verification".
-               Check the acceptance checks of the issue, and follow "Browser checks" in AGENTS.md. Stop the dev server after verification.
-               If `yarn dev` fails to start or `agent-browser` encounters errors, include the full error output in the PR body under a "## Dev Server Issues" section. Do NOT skip this step if errors occur — report them.
-            6. If the browser check made you change code, run `yarn test` and `yarn build` again, then commit and push to the same branch. Other workflows can push to the branch too (for example, the merge conflict workflow rebases it). So before each push, run `git pull --rebase`, and never force-push.
-            7. Update the pull request body with `gh pr edit`. Replace "Pending." in the "## Visual Verification" section with the pages you visited and what you confirmed looked correct. Then mark the pull request ready for review with `gh pr ready`.
+            5. Do a smoke check in the browser. This is a short check that the page runs, not the full check of the acceptance checks. The "Claude Visual Check" workflow does that one, with its own turn limit. Keep this step to about five commands.
+               a. Start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`. It runs at http://localhost:3000.
+               b. Open the page your change affects, and take one snapshot:
+                  `npx agent-browser open http://localhost:3000/<the affected path>`
+                  `npx agent-browser snapshot`
+                  For a change to the practice table, open `/decks/practice?fixture=1`. For a change to the deck builder, open `/decks?fixture=1`. See AGENTS.md.
+               c. Read the snapshot and confirm that the element your change adds or changes is present.
+               d. Read the browser console and the dev server log:
+                  `npx agent-browser console`
+                  `tail -40 <the dev server log>`
+               e. Stop the dev server.
+               A smoke check finds the errors that only appear at run time: a crash on render, a component that throws, a missing `data-zone` or `data-card-id` attribute. Fix every error you find here.
+               If `yarn dev` fails to start or `agent-browser` fails, put the full error output in the PR body under a "## Dev Server Issues" section. Do NOT skip this step if errors occur — report them.
+            6. If the smoke check made you change code, run `yarn test` and `yarn build` again, then commit and push to the same branch. Other workflows can push to the branch too (for example, the merge conflict workflow rebases it). So before each push, run `git pull --rebase`, and never force-push.
+            7. Hand the pull request to the visual check. Leave "Pending." in the "## Visual Verification" section, leave the pull request as a draft, and add the label:
+               `gh pr edit <pr-number> --add-label visual-check`
+               This starts the "Claude Visual Check" workflow. That workflow runs the acceptance checks of the issue in the browser, writes the "## Visual Verification" section, and marks the pull request ready for review.
+               Then write a short comment on the pull request that says what the smoke check showed, and which acceptance checks the visual check still needs to run.
 
             Never add the "ready-for-dev" label to an issue, and never create an issue that
             carries it. Only a person applies that label. A bot that applies it starts the

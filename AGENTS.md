@@ -118,15 +118,31 @@ label to the owner.
 ## PR Requirements
 
 All PRs from automated agents MUST include:
-- Visual verification via `yarn dev` + `agent-browser` before opening the PR
+- A smoke check with `yarn dev` + `agent-browser` before you hand the PR on: open the page, take one snapshot, confirm the new element is there, and read the browser console and the dev server log
 - A `## Visual Verification` section in the PR body describing which pages were visited and what was confirmed
 - If the dev server or browser fails, a `## Dev Server Issues` section with the full error output (do NOT skip or omit this step)
+
+The smoke check and the full check are two runs. The agent that writes the code does the
+smoke check, opens the draft PR with "Pending." in the `## Visual Verification` section,
+and adds the `visual-check` label. The `visual-check` label starts
+`.github/workflows/claude-visual-check.yml`, which runs the acceptance checks of the issue,
+writes the `## Visual Verification` section, and marks the PR ready for review.
+
+A full browser check uses many turns. It ran last inside the implementation workflow, so a
+run that hit the turn limit left the section on "Pending." with the code already complete.
 
 When verifying changes to the deck builder (`/decks`), always visit `/decks?fixture=1` — this loads a pre-populated fixture deck (see `src/lib/practiceDeck.ts` and the fixture handling in `src/components/DeckBuilderClient.tsx`) so you can verify UI that depends on cards being present (analysis tabs, card lists, mission selectors, charts, etc.). Visiting `/decks` alone shows only the empty state. The fixture URL bypasses authentication and localStorage, so no login or saved deck is required.
 
 ### Browser checks
 
 To keep the bottom of the page clear, start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`. This hides the consent banner and the Next.js dev tools button.
+
+`agent-browser` is a devDependency, so `npx agent-browser` runs the copy in `node_modules`
+and downloads nothing. In CI the dependencies are installed before the agent starts. Do not
+run `yarn install`.
+
+The version is pinned to `0.27.0`, the last release with no `engines` field. Every release
+from `0.27.1` needs Node 24, and CI runs Node 20. Do not raise the version on its own.
 
 To check drag and drop, do a real drag with `agent-browser drag`, and select elements by their `data-zone` and `data-card-id` attributes:
 

@@ -49,7 +49,7 @@ workflow that can create or label an issue.
 
 ## Claude Issue Implementation (`claude-implement.yml`)
 **Event:** Issue labeled `ready-for-dev`
-**Action:** Claude implements the feature/fix and runs `yarn test` and `yarn build`. Then it creates a branch, commits, pushes, and opens a draft PR targeting `main` with `Closes #<issue>`. Then it checks the change with `yarn dev` + `agent-browser`, writes the `## Visual Verification` section into the PR body, and marks the PR ready for review.
+**Action:** Claude implements the feature/fix and runs `yarn test` and `yarn build`. Then it creates a branch, commits, pushes, and opens a draft PR targeting `main` with `Closes #<issue>`. Then it does a short smoke check in the browser, and hands the PR to `claude-visual-check.yml` with the `visual-check` label.
 
 The PR opens before the browser check for three reasons:
 
@@ -57,9 +57,35 @@ The PR opens before the browser check for three reasons:
 - Vercel has more time to build the preview.
 - Other agents can work on the PR while the browser check runs.
 
-A PR that stays a draft with "Pending." in its `## Visual Verification` section is from a run that stopped before the browser check.
-
 The prompt starts the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1`. This hides the consent banner and the Next.js dev tools button, because they cover elements that the browser check clicks and drags.
+
+### The smoke check and the visual check
+
+This workflow runs a smoke check of about five commands: open the page, take one snapshot, confirm the new element is there, and read the browser console and the dev server log. It finds the errors that only appear at run time — a crash on render, a component that throws, a missing `data-zone` attribute — while the agent still holds the context to fix them.
+
+The acceptance checks of the issue are a separate run. See `claude-visual-check.yml` below.
+
+### The install runs before Claude
+
+`actions/setup-node` with `cache: "yarn"`, then `yarn install --frozen-lockfile`, run as steps before the Claude step. The same steps are in `agent-review.yml` and `claude-visual-check.yml`.
+
+An agent that installs the dependencies itself spends turns on it, and its first `yarn test` fails with an error that reads like a broken test. `agent-browser` is a devDependency for the same reason: `npx agent-browser` then runs the local copy, and downloads nothing.
+
+`agent-browser` is pinned to `0.27.0`, the last release with no `engines` field. Every release from `0.27.1` needs Node 24, and CI runs Node 20, so a later version fails `yarn install --frozen-lockfile` with "The engine node is incompatible with this module". To move to a later `agent-browser`, raise the Node version in `ci.yml` and in the three agent workflows first, and raise the Node version of the Vercel project to match.
+
+---
+
+## Claude Visual Check (`claude-visual-check.yml`)
+**Event:** PR labeled `visual-check`
+**Action:** Claude reads the acceptance checks of the issue the PR closes, runs them in the browser against the dev server, writes the `## Visual Verification` section into the PR body, marks the PR ready for review, and removes the `visual-check` label.
+
+The check is a separate workflow because it used most of the turns of `claude-implement.yml` and ran last. Run 35314198627 on issue #605 stopped at the turn limit with the code complete, both checks green, and the `## Visual Verification` section still on "Pending.". A separate run gets its own turn limit, and the branch is already pushed, so it risks nothing.
+
+If an acceptance check fails on a bug, Claude fixes the bug, runs `yarn test` and `yarn build`, pushes to the same branch, and runs the check again. If it cannot fix it, the PR stays a draft and gets the `needs-human-input` label.
+
+`claude-implement.yml` adds the `visual-check` label as `claude[bot]`, so this workflow sets `allowed_bots: "claude[bot]"`. Without it the action refuses the run with "Workflow initiated by non-human actor". The list names one bot, so no other App can start the run.
+
+A PR that stays a draft with "Pending." in its `## Visual Verification` section is from a visual check that never ran or never finished.
 
 ---
 
@@ -81,7 +107,7 @@ The push comes before the browser check for the same reason as in the implementa
 **Event:** Issue comment created/edited by `vercel[bot]` on a PR containing a `vercel.app` "Ready" link, or a PR marked ready for review
 **Action:** Claude extracts the preview URL, identifies affected routes, checks the PR's `## Visual Verification` section for coverage adequacy, and posts a comment with clickable preview links and a ✅/⚠️/🟠/❌ assessment. Uses an idempotency marker to avoid duplicate comments per commit.
 
-The check needs both a ready preview and a PR that is not a draft. These can come in either order, so each event starts the check, and a first step stops the run when the other one is missing. The implementation workflow opens a draft PR with "Pending." in its `## Visual Verification` section, and fills in the section when it marks the PR ready. A check of the draft would read "Pending.", and no later event would run the check again.
+The check needs both a ready preview and a PR that is not a draft. These can come in either order, so each event starts the check, and a first step stops the run when the other one is missing. The implementation workflow opens a draft PR with "Pending." in its `## Visual Verification` section, and `claude-visual-check.yml` fills in the section when it marks the PR ready. A check of the draft would read "Pending.", and no later event would run the check again.
 
 ---
 

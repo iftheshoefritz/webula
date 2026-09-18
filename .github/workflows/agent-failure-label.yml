@@ -11,6 +11,7 @@ on:
       - Claude Implementation Plan
       - Claude Architecture Discussion
       - Claude Issue Implementation
+      - Claude Visual Check
       - Claude Issue Outcome
       - Claude Merge Conflict Resolution
       - Agent Review

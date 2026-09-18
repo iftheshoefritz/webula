@@ -24,6 +24,18 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
 
+      # Install before Claude starts, so no turns go to the install and the
+      # first `yarn test` does not fail. The yarn cache holds `agent-browser`
+      # too, which is a devDependency for that reason.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1.0.70
         with:
@@ -43,6 +55,7 @@ jobs:
                - Make the necessary edits to address the reviewer's concern.
                - Write or update tests for any new or modified code.
                - Run `yarn test` and then `yarn build` to confirm nothing is broken. `yarn build` also checks types, runs ESLint, and pre-renders the static pages. Fix every failure before you continue.
+                 The dependencies are installed already, and `agent-browser` is one of them, so `npx agent-browser` runs the local copy and downloads nothing. Do not run `yarn install`.
                - Commit and push before the browser check. The run can stop at the turn limit, and an unpushed change is lost.
                  - Commit with a message like `fix: address review comments (PR #${{ github.event.pull_request.number }})`.
                  - Run `git pull --rebase`, then push to the same branch (already checked out): `git push origin HEAD`. Never force-push.
