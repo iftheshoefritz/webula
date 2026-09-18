@@ -231,7 +231,7 @@ function DilemmaPileButton({
   showPositionLabel: boolean;
 }) {
   return (
-    <div className={`relative w-14 h-20 group ${count === 0 ? 'opacity-50' : ''}`} data-zone="dilemmaPile">
+    <div className={`relative w-14 h-20 group ${count === 0 ? 'opacity-50' : ''}`} data-testid="dilemma-pile">
       {count > 0 ? (
         <>
           <img

@@ -399,7 +399,6 @@ describe('PracticeDrawPage', () => {
       'hand',
       'core',
       'brig',
-      'dilemmaPile',
       'dilemma-pile-top',
       'dilemma-pile-bottom',
     ]);
@@ -677,7 +676,7 @@ describe('PracticeDrawPage', () => {
 
       // The two drop halves (#607) split the old single button; the count now sits in their
       // shared, non-interactive wrapper instead of either button's own text.
-      const dilemmaPile = document.body.querySelector('[data-zone="dilemmaPile"]');
+      const dilemmaPile = document.body.querySelector('[data-testid="dilemma-pile"]');
       expect(dilemmaPile!.textContent).toContain('3');
       expect(screen.queryByRole('button', { name: /dilemma hand/i })).not.toBeInTheDocument();
     });
@@ -689,7 +688,7 @@ describe('PracticeDrawPage', () => {
         fireEvent.click(screen.getByRole('button', { name: /dilemma pile top, tap to draw/i }));
       });
 
-      expect(document.body.querySelector('[data-zone="dilemmaPile"]')!.textContent).toContain('2');
+      expect(document.body.querySelector('[data-testid="dilemma-pile"]')!.textContent).toContain('2');
       expect(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i })).toBeInTheDocument();
     });
 
