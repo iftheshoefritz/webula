@@ -225,6 +225,11 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     case 'move': {
       const from = findZone(state, action.id) ?? findShipRow(state, action.id) ?? findCrewLocation(state, action.id);
       if (!from) return state;
+      // A ship dropped back on the ship row it already occupies (#601) is a genuine no-op: unlike
+      // a same-zone move in the flat zones (hand/pile/discard), which already reorders the moved
+      // card to the end, a ship row has no concept of order the player can see, so nothing about
+      // the ship row should change, not even its internal array order or the state reference.
+      if (isShipRowLocation(from) && sameLocation(from, action.to)) return state;
       const card = cardsAt(state, from).find((c) => c.id === action.id)!;
       // A move within the same zone (or the same mission's ship row, or the same ship's crew)
       // keeps the card's current face; a move to a different location takes on that location's

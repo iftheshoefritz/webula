@@ -262,6 +262,24 @@ describe('tableReducer', () => {
 
       expect(state.missions[3].ships).toEqual([ship]);
     });
+
+    it('is a no-op when a ship is dropped back on the ship row it already occupies (#601)', () => {
+      const ship = instance('s0', card('U.S.S. Relativity'), 'up');
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
+      const state = tableReducer(start, { type: 'move', id: 's0', to: { zone: 'shipRow', missionIndex: 0 } });
+
+      expect(state).toBe(start);
+    });
+
+    it('is a no-op, and does not reorder the row, when one of two ships in a row is dropped back on it', () => {
+      const ship = instance('s0', card('U.S.S. Relativity'), 'up');
+      const other = instance('s1', card('I.K.S. Somraw'), 'up');
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship, other] }) };
+      const state = tableReducer(start, { type: 'move', id: 's0', to: { zone: 'shipRow', missionIndex: 0 } });
+
+      expect(state).toBe(start);
+      expect(state.missions[0].ships).toEqual([ship, other]);
+    });
   });
 
   describe('flip', () => {

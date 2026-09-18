@@ -88,6 +88,16 @@ const mockEquipmentCard = {
   count: 1,
 };
 
+const mockPersonnelCard = {
+  collectorsinfo: '2C002',
+  originalName: 'Data',
+  type: 'personnel',
+  name: 'data',
+  imagefile: 'data',
+  pile: 'draw',
+  count: 1,
+};
+
 const mockManyDeck = {
   [mockShipCard.collectorsinfo]: { count: 1, row: mockShipCard },
   [mockEquipmentCard.collectorsinfo]: { count: 1, row: mockEquipmentCard },
@@ -243,5 +253,72 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
 
     expect(document.body.querySelector('[data-zone="ship-row-2"] [data-card-id]')).toBeNull();
     expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
+  });
+
+  it("moves a ship with a crew member to a different mission's ship row, keeping its crew aboard (#601)", async () => {
+    await setupOpenHand([mockShipCard, mockPersonnelCard]);
+    const [shipId, personnelId] = mockDraggableIds;
+
+    // Place the ship on mission 0.
+    await act(async () => {
+      mockOnDragStart!({ active: { id: shipId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-0' } });
+    });
+
+    // Re-open the hand (drag start closed it) and board the personnel card as crew.
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(closedHandButton);
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: personnelId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+    });
+    expect(screen.getByRole('button', { name: 'u.s.s. relativity' }).textContent).toContain('1');
+
+    // Drag the crewed ship to mission 4's ship row, crossing over the missions in between.
+    await act(async () => {
+      mockOnDragStart!({ active: { id: shipId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-4' } });
+    });
+
+    const sourceRow = document.body.querySelector('[data-zone="ship-row-0"]');
+    const destinationRow = document.body.querySelector('[data-zone="ship-row-4"]');
+    expect(sourceRow!.querySelector('[data-card-id]')).toBeNull();
+    expect(destinationRow!.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
+    expect(screen.getByRole('button', { name: 'u.s.s. relativity' }).textContent).toContain('1');
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+    });
+    expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
+  });
+
+  it('does not change the ship row when a ship is dropped back on the mission it already occupies (#601)', async () => {
+    await setupOpenHand([mockShipCard]);
+    const [shipId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: shipId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-2' } });
+    });
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: shipId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-2' } });
+    });
+
+    const shipRow = document.body.querySelector('[data-zone="ship-row-2"]');
+    expect(shipRow!.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
   });
 });
