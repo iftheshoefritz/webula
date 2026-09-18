@@ -38,6 +38,7 @@ describe('tableReducer', () => {
       const cards = Array.from({ length: 10 }, (_, i) => instance(`c${i}`, card(`Card ${i}`)));
       const state = tableReducer(
         {
+          ...initialTableState,
           pile: [],
           hand: [instance('x', card('old'))],
           discard: [instance('y', card('old2'))],
@@ -97,6 +98,18 @@ describe('tableReducer', () => {
 
       expect(state.missions).toEqual(missionSlots([]));
     });
+
+    it('clears the core and the brig even when they held cards before the reset (#603)', () => {
+      const start = {
+        ...initialTableState,
+        core: [instance('e0', card('Event'), 'up')],
+        brig: [instance('p0', card('Data'), 'up')],
+      };
+      const state = tableReducer(start, { type: 'reset', cards: [], missions: [] });
+
+      expect(state.core).toEqual([]);
+      expect(state.brig).toEqual([]);
+    });
   });
 
   describe('draw', () => {
@@ -127,6 +140,33 @@ describe('tableReducer', () => {
       const state = tableReducer(start, { type: 'move', id: 'a', to: 'discard' });
 
       expect(state.hand).toEqual([]);
+      expect(state.discard).toEqual([{ ...moved, face: 'up' }]);
+    });
+
+    it('moves one hand card to the core, setting its face up (#603)', () => {
+      const moved = instance('a', card('Tricorder'), 'down');
+      const start = { ...initialTableState, hand: [moved] };
+      const state = tableReducer(start, { type: 'move', id: 'a', to: 'core' });
+
+      expect(state.hand).toEqual([]);
+      expect(state.core).toEqual([{ ...moved, face: 'up' }]);
+    });
+
+    it('moves a personnel card from a mission pile to the brig, setting its face up (#603)', () => {
+      const captured = instance('p0', card('Data'), 'down');
+      const start = { ...initialTableState, missions: missionSlots([], {}, { 0: [captured] }) };
+      const state = tableReducer(start, { type: 'move', id: 'p0', to: 'brig' });
+
+      expect(state.missions[0].personnel).toEqual([]);
+      expect(state.brig).toEqual([{ ...captured, face: 'up' }]);
+    });
+
+    it('moves a card from the brig to the discard pile, removing it from the brig (#603)', () => {
+      const moved = instance('a', card('Data'), 'up');
+      const start = { ...initialTableState, brig: [moved] };
+      const state = tableReducer(start, { type: 'move', id: 'a', to: 'discard' });
+
+      expect(state.brig).toEqual([]);
       expect(state.discard).toEqual([{ ...moved, face: 'up' }]);
     });
 
@@ -483,6 +523,20 @@ describe('findInstanceAnywhere', () => {
 
   it('returns null for an id that is not on the table', () => {
     expect(findInstanceAnywhere(initialTableState, 'missing')).toBeNull();
+  });
+
+  it('finds a card in the core and reports its zone (#603)', () => {
+    const eventCard = instance('e0', card('Event'), 'up');
+    const state = { ...initialTableState, core: [eventCard] };
+
+    expect(findInstanceAnywhere(state, 'e0')).toEqual({ instance: eventCard, zone: 'core' });
+  });
+
+  it('finds a card in the brig and reports its zone (#603)', () => {
+    const captured = instance('p0', card('Data'), 'up');
+    const state = { ...initialTableState, brig: [captured] };
+
+    expect(findInstanceAnywhere(state, 'p0')).toEqual({ instance: captured, zone: 'brig' });
   });
 
   it("finds a card in a mission's personnel pile and reports its mission index and pile (#602)", () => {

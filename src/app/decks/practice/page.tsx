@@ -24,16 +24,23 @@ import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import {
   CardInstance,
   MissionPileName,
+  Zone,
   createCardInstances,
   findInstanceAnywhere,
   initialTableState,
   tableReducer,
 } from './tableReducer';
 import CardHand from './CardHand';
-import MissionRow, { missionIndexFromDropId, missionPileFromDropId, shipIdFromCrewDropId } from './MissionRow';
+import MissionRow, {
+  SHIP_CARD_WIDTH,
+  missionIndexFromDropId,
+  missionPileFromDropId,
+  shipIdFromCrewDropId,
+} from './MissionRow';
 import CardPreview from './CardPreview';
 import CountBadge from './CountBadge';
 import PilePanel from './PilePanel';
+import FlatCardRow from './FlatCardRow';
 
 // A dropped card's type chooses its mission pile (#602): personnel and equipment go to the
 // personnel pile, event/mission/interrupt go to the event pile. A ship, and any type not listed
@@ -63,6 +70,21 @@ function RotateDeviceOverlay() {
 }
 
 const DISCARD_DROPPABLE_ID = 'discard';
+
+// Three flat, top-level drop zones (#603 adds the core and the brig alongside the discard
+// pile): each one's `useDroppable` id is just its own zone name (`FlatCardRow`, `DiscardPile`),
+// so a drop on any of them dispatches the same `move` straight to that zone, for any card type.
+const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig'];
+
+// The core and the brig show their cards at the ship row's small size (`MissionRow.tsx`), and
+// each one's row is bounded to a width that keeps the whole bottom row (discard pile, draw pile,
+// closed hand, core, brig, dilemma placeholder) inside the 568 px acceptance-check viewport: the
+// other four zones and their gaps take a little over 300 px, leaving roughly 250 px for the core
+// and the brig combined. A core row bounded to fit 4 overlapping cards and a brig row bounded to
+// fit 2 together stay well inside that budget.
+const CORE_ROW_MAX_WIDTH = 110; // px, fits 4 overlapping ship-sized cards
+const BRIG_ROW_MAX_WIDTH = 70; // px, fits 2 overlapping ship-sized cards
+const FLAT_ROW_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
 
 // Picks the drop zone under the pointer, and falls back to the zone the dragged card overlaps
 // most when the pointer is inside no zone. `pointerWithin` on its own lets a small zone nested
@@ -120,7 +142,7 @@ function PracticeDrawContent() {
   const isFixture = searchParams.get('fixture') === '1';
   const { data, loading } = useDataFetching();
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
-  const { pile, hand, discard, missions } = table;
+  const { pile, hand, discard, core, brig, missions } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [isPortrait, setIsPortrait] = useState(false);
@@ -216,8 +238,8 @@ function PracticeDrawContent() {
     // while the panel is still open.
     setFocusedCardId(null);
     setOpenPile(null);
-    if (over?.id === DISCARD_DROPPABLE_ID) {
-      dispatch({ type: 'move', id: String(active.id), to: 'discard' });
+    if (over && FLAT_DROP_ZONES.includes(String(over.id) as Zone)) {
+      dispatch({ type: 'move', id: String(active.id), to: over.id as Zone });
       return;
     }
     // A drop on a ship already in a ship row puts a personnel or equipment card aboard as crew
@@ -369,9 +391,25 @@ function PracticeDrawContent() {
                   portalContainer={gameLayer}
                 />
 
-                {/* Core and Brig: no drop behaviour yet (#603) */}
-                <EmptyZonePlaceholder zone="core" label="Core" />
-                <EmptyZonePlaceholder zone="brig" label="Brig" />
+                {/* Core: any card, usually events (#603) */}
+                <FlatCardRow
+                  zone="core"
+                  label="Core"
+                  cards={core}
+                  maxWidth={CORE_ROW_MAX_WIDTH}
+                  maxOffset={FLAT_ROW_MAX_OFFSET}
+                  onCardClick={(id) => setFocusedCardId(id)}
+                />
+
+                {/* Brig: captured personnel, though the zone accepts any card type (#603) */}
+                <FlatCardRow
+                  zone="brig"
+                  label="Brig"
+                  cards={brig}
+                  maxWidth={BRIG_ROW_MAX_WIDTH}
+                  maxOffset={FLAT_ROW_MAX_OFFSET}
+                  onCardClick={(id) => setFocusedCardId(id)}
+                />
 
                 {/* Dilemma pile: no contents or drop behaviour yet (#604). The closed dilemma hand
                     goes immediately to its left (#604). */}
