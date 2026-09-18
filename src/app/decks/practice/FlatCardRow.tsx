@@ -14,6 +14,8 @@ import { CardInstance } from './tableReducer';
 import TableCard from './TableCard';
 import { SHIP_CARD_WIDTH, SHIP_CARD_ART_HEIGHT } from './MissionRow';
 import { offsetFor } from './overlapOffset';
+import { useDraggedCardType } from './DraggedCardTypeContext';
+import { highlightClassName, highlightState } from './zoneAccepts';
 
 export default function FlatCardRow({
   zone,
@@ -23,7 +25,7 @@ export default function FlatCardRow({
   maxOffset,
   onCardClick,
 }: {
-  zone: string;
+  zone: 'core' | 'brig';
   label: string;
   cards: CardInstance[];
   maxWidth: number;
@@ -31,15 +33,18 @@ export default function FlatCardRow({
   onCardClick: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: zone });
+  const draggedType = useDraggedCardType();
+  const highlight = highlightState(zone, draggedType, isOver);
 
   if (cards.length === 0) {
     return (
       <div
         ref={setNodeRef}
         data-zone={zone}
-        className={`w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1 ${
-          isOver ? 'ring-2 ring-accent' : ''
-        }`}
+        data-highlight={highlight}
+        className={`w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1 ${highlightClassName(
+          highlight
+        )}`}
       >
         {label}
       </div>
@@ -53,7 +58,8 @@ export default function FlatCardRow({
     <div
       ref={setNodeRef}
       data-zone={zone}
-      className={`relative rounded ${isOver ? 'ring-2 ring-accent' : ''}`}
+      data-highlight={highlight}
+      className={`relative rounded ${highlightClassName(highlight)}`}
       style={{ width: rowWidth, height: SHIP_CARD_ART_HEIGHT + 14 }}
     >
       {cards.map((instance, idx) => (
