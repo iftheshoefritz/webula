@@ -1,6 +1,8 @@
 'use client';
 
-// A mission's personnel, event, or dilemma stack pile panel (#602, #605): a tap on a pile's badge (`MissionRow`) opens
+// A mission's personnel, event, dilemma stack, or under-the-mission pile panel (#602, #605,
+// #606): a tap on a pile's badge (or, for the under-the-mission pile, the card-edge strip)
+// (`MissionRow`) opens
 // this panel, listing that pile's cards face up regardless of their stored face, with a
 // "Face down" label on any card whose stored face is actually down (the same true-face-to-owner
 // convention `CardPreview` already uses for the enlarged preview). A tap on a card opens that
@@ -18,7 +20,12 @@ import { useDraggable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 
-const PILE_LABEL: Record<MissionPileName, string> = { personnel: 'Personnel', event: 'Event', dilemma: 'Dilemma' };
+const PILE_LABEL: Record<MissionPileName, string> = {
+  personnel: 'Personnel',
+  event: 'Event',
+  dilemma: 'Dilemma',
+  underMission: 'Under the mission',
+};
 
 function PilePanelCard({ instance, onClick }: { instance: CardInstance; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });

@@ -301,8 +301,8 @@ function PracticeDrawContent() {
     // goes to that mission's ship row (#599); personnel/equipment/event/mission/interrupt file
     // into one of the mission's piles by type (#602). A dilemma dropped there from the open
     // dilemma hand builds the mission's dilemma stack instead (#605); a dilemma dropped there
-    // from anywhere else is not supported by this route (that drop goes under the mission, #606),
-    // so it is not dispatched and the card returns to its source zone.
+    // from anywhere else — including that mission's own dilemma stack — goes under the mission
+    // instead, face up, permanently out of the stack (#606).
     const missionIndex = over ? missionIndexFromDropId(String(over.id)) : null;
     if (missionIndex !== null && draggingInstance) {
       if (draggingInstance.card.type === 'ship') {
@@ -311,9 +311,8 @@ function PracticeDrawContent() {
       }
       if (draggingInstance.card.type === 'dilemma') {
         const source = findInstanceAnywhere(table, String(active.id));
-        if (source?.zone === 'dilemmaHand') {
-          dispatch({ type: 'move', id: String(active.id), to: { zone: 'missionPile', missionIndex, pile: 'dilemma' } });
-        }
+        const pile = source?.zone === 'dilemmaHand' ? 'dilemma' : 'underMission';
+        dispatch({ type: 'move', id: String(active.id), to: { zone: 'missionPile', missionIndex, pile } });
         return;
       }
       const pile = MISSION_PILE_BY_TYPE[draggingInstance.card.type];
