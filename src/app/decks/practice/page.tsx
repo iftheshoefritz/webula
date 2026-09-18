@@ -43,8 +43,9 @@ import PilePanel from './PilePanel';
 import FlatCardRow from './FlatCardRow';
 
 // A dropped card's type chooses its mission pile (#602): personnel and equipment go to the
-// personnel pile, event/mission/interrupt go to the event pile. A ship, and any type not listed
-// here (dilemmas, #605/#606), are handled separately or not yet supported.
+// personnel pile, event/mission/interrupt go to the event pile. A ship, and a dilemma (routed
+// separately below, since a dilemma's pile depends on its source zone too, #605/#606), are
+// handled elsewhere.
 const MISSION_PILE_BY_TYPE: Record<string, MissionPileName> = {
   personnel: 'personnel',
   equipment: 'personnel',
@@ -70,11 +71,16 @@ function RotateDeviceOverlay() {
 }
 
 const DISCARD_DROPPABLE_ID = 'discard';
+const DILEMMA_PILE_DROPPABLE_ID = 'dilemmaPile';
 
-// Three flat, top-level drop zones (#603 adds the core and the brig alongside the discard
-// pile): each one's `useDroppable` id is just its own zone name (`FlatCardRow`, `DiscardPile`),
-// so a drop on any of them dispatches the same `move` straight to that zone, for any card type.
-const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig'];
+// Four flat, top-level drop zones (#603 adds the core and the brig alongside the discard pile;
+// #605 adds the dilemma pile): each one's `useDroppable` id is just its own zone name
+// (`FlatCardRow`, `DiscardPile`, `DilemmaPileButton`), so a drop on any of them dispatches the
+// same `move` straight to that zone, for any card type. A card dropped on the dilemma pile this
+// way always lands on the pile's bottom, face down — `move` appends to the end of the destination
+// array, and `ZONE_FACE.dilemmaPile` is 'down' — which is the general flat-zone behavior, not a
+// choice of top or bottom (#607's later job).
+const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig', DILEMMA_PILE_DROPPABLE_ID];
 
 // The core and the brig show their cards at the ship row's small size (`MissionRow.tsx`), and
 // each one's row is bounded to a width that keeps the whole bottom row (discard pile, draw pile,
@@ -123,6 +129,43 @@ function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; co
         </div>
       )}
     </div>
+  );
+}
+
+// The dilemma pile (#604): a tap draws its top card into the dilemma hand. It is also a drop
+// target (#605): a revealed dilemma dragged here from a mission's dilemma stack goes on the
+// bottom, face down (see `FLAT_DROP_ZONES`).
+function DilemmaPileButton({ count, onDraw }: { count: number; onDraw: () => void }) {
+  const { setNodeRef, isOver } = useDroppable({ id: DILEMMA_PILE_DROPPABLE_ID });
+
+  return (
+    <button
+      ref={setNodeRef}
+      data-zone={DILEMMA_PILE_DROPPABLE_ID}
+      onClick={onDraw}
+      disabled={count === 0}
+      className={`relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed rounded-lg ${
+        isOver ? 'ring-2 ring-accent' : ''
+      }`}
+      aria-label="Dilemma pile, tap to draw"
+    >
+      {count > 0 ? (
+        <>
+          <img
+            src="/cardimages/cardback.jpg"
+            width={120}
+            height={167}
+            alt="Face-down dilemma pile"
+            className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
+          />
+          <CountBadge count={count} />
+        </>
+      ) : (
+        <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
+          Dilemma
+        </div>
+      )}
+    </button>
   );
 }
 
@@ -256,12 +299,21 @@ function PracticeDrawContent() {
     }
     // A drop on a mission card or its ship row both resolve to the same mission index. A ship
     // goes to that mission's ship row (#599); personnel/equipment/event/mission/interrupt file
-    // into one of the mission's two piles by type (#602). Any other type (a dilemma, #605/#606)
-    // is not supported yet, so it is not dispatched and the card returns to its source zone.
+    // into one of the mission's piles by type (#602). A dilemma dropped there from the open
+    // dilemma hand builds the mission's dilemma stack instead (#605); a dilemma dropped there
+    // from anywhere else is not supported by this route (that drop goes under the mission, #606),
+    // so it is not dispatched and the card returns to its source zone.
     const missionIndex = over ? missionIndexFromDropId(String(over.id)) : null;
     if (missionIndex !== null && draggingInstance) {
       if (draggingInstance.card.type === 'ship') {
         dispatch({ type: 'move', id: String(active.id), to: { zone: 'shipRow', missionIndex } });
+        return;
+      }
+      if (draggingInstance.card.type === 'dilemma') {
+        const source = findInstanceAnywhere(table, String(active.id));
+        if (source?.zone === 'dilemmaHand') {
+          dispatch({ type: 'move', id: String(active.id), to: { zone: 'missionPile', missionIndex, pile: 'dilemma' } });
+        }
         return;
       }
       const pile = MISSION_PILE_BY_TYPE[draggingInstance.card.type];
@@ -426,30 +478,7 @@ function PracticeDrawContent() {
                     />
                   )}
 
-                  <button
-                    data-zone="dilemmaPile"
-                    onClick={drawDilemma}
-                    disabled={dilemmaPile.length === 0}
-                    className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label="Dilemma pile, tap to draw"
-                  >
-                    {dilemmaPile.length > 0 ? (
-                      <>
-                        <img
-                          src="/cardimages/cardback.jpg"
-                          width={120}
-                          height={167}
-                          alt="Face-down dilemma pile"
-                          className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
-                        />
-                        <CountBadge count={dilemmaPile.length} />
-                      </>
-                    ) : (
-                      <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
-                        Dilemma
-                      </div>
-                    )}
-                  </button>
+                  <DilemmaPileButton count={dilemmaPile.length} onDraw={drawDilemma} />
                 </div>
               </div>
 
