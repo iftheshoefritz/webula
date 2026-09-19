@@ -67,6 +67,24 @@ describe('CardHand', () => {
     expect(screen.getByTestId('previewed')).toHaveTextContent(instances[1].id);
   });
 
+  it('shows the closed row as card backs, and the open fan as card faces', () => {
+    const instances = makeInstances(3);
+    render(<Harness instances={instances} />);
+
+    const closedButton = screen.getByRole('button', { name: /^hand, 3 cards, tap to open$/i });
+    closedButton.querySelectorAll('img').forEach((img) => {
+      expect(img).toHaveAttribute('src', '/cardimages/cardback.jpg');
+    });
+
+    fireEvent.click(closedButton);
+    instances.forEach((instance) => {
+      expect(document.body.querySelector(`[data-card-id="${instance.id}"] img`)).toHaveAttribute(
+        'src',
+        `/cardimages/${instance.card.imagefile}.jpg`,
+      );
+    });
+  });
+
   it('keeps the closed hand within a bounded width as the card count grows', () => {
     const { rerender, container } = render(<Harness instances={makeInstances(2)} />);
     const lastImage = () => container.querySelectorAll('img')[container.querySelectorAll('img').length - 1];
