@@ -267,4 +267,65 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
     expect(screen.getByRole('button', { name: /distress call, tap to shrink/i })).toBeInTheDocument();
   });
+
+  // #635: the dashed outline and the full 56x80 box (the same size the empty zone always shows,
+  // see FlatCardRow.tsx) helped the player see the drop target before a card was ever put there.
+  // Once the zone holds a card, both disappeared. These checks put a card in the zone first, then
+  // start a second drag mid-flight (mockOnDragStart with no mockOnDragEnd, the zoneHighlight.test.tsx
+  // pattern) to inspect the outline and size while that drag is still active.
+  it("shows the core's outline and full box size while a second card is dragged, after a card already sits there", async () => {
+    await setupOpenHand([mockEventCard, mockPersonnelCard]);
+    const [firstId, secondId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'core' } });
+    });
+
+    const coreZone = () => document.body.querySelector('[data-zone="core"]') as HTMLElement;
+    expect(coreZone().className).not.toEqual(expect.stringContaining('border-dashed'));
+
+    // Re-open the hand (the first drag start closed it) and start dragging the second card.
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(closedHandButton);
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: secondId } });
+    });
+
+    expect(coreZone().className).toEqual(expect.stringContaining('border-dashed'));
+    expect(coreZone().style.width).toBe('56px');
+    expect(coreZone().style.height).toBe('80px');
+  });
+
+  it("shows the brig's outline and full box size while a second card is dragged, after a card already sits there", async () => {
+    await setupOpenHand([mockPersonnelCard, mockEventCard]);
+    const [firstId, secondId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'brig' } });
+    });
+
+    const brigZone = () => document.body.querySelector('[data-zone="brig"]') as HTMLElement;
+    expect(brigZone().className).not.toEqual(expect.stringContaining('border-dashed'));
+
+    // Re-open the hand (the first drag start closed it) and start dragging the second card.
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(closedHandButton);
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: secondId } });
+    });
+
+    expect(brigZone().className).toEqual(expect.stringContaining('border-dashed'));
+    expect(brigZone().style.width).toBe('56px');
+    expect(brigZone().style.height).toBe('80px');
+  });
 });
