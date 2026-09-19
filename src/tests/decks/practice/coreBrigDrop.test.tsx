@@ -59,7 +59,7 @@ jest.mock('@dnd-kit/core', () => {
 });
 
 import React from 'react';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, within, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
@@ -250,7 +250,38 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
   });
 
-  it('opens the card preview when a card in the core is tapped', async () => {
+  it('opens a pile panel listing every card in the core when a card there is tapped (#640)', async () => {
+    await setupOpenHand([mockEventCard, mockPersonnelCard]);
+    const [firstId, secondId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'core' } });
+    });
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(closedHandButton);
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: secondId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: secondId }, over: { id: 'core' } });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+    });
+
+    const panel = document.body.querySelector('[data-zone="pile-panel-core"]');
+    expect(panel).not.toBeNull();
+    expect(panel!.querySelectorAll('[data-card-id]')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
+  });
+
+  it('opens a card\'s own preview when tapped inside the core pile panel (#640)', async () => {
     await setupOpenHand([mockEventCard]);
     const [draggedId] = mockDraggableIds;
 
@@ -260,12 +291,89 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     await act(async () => {
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
     });
-
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
 
+    const panel = document.body.querySelector('[data-zone="pile-panel-core"]') as HTMLElement;
+    await act(async () => {
+      fireEvent.click(within(panel).getByRole('button', { name: 'distress call' }));
+    });
+
     expect(screen.getByRole('button', { name: /distress call, tap to shrink/i })).toBeInTheDocument();
+  });
+
+  it('closes the core pile panel when its backdrop is tapped (#640)', async () => {
+    await setupOpenHand([mockEventCard]);
+    const [draggedId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: draggedId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+    });
+    expect(document.body.querySelector('[data-zone="pile-panel-core"]')).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close core' }));
+    });
+
+    expect(document.body.querySelector('[data-zone="pile-panel-core"]')).toBeNull();
+  });
+
+  it('moves a card dragged out of the core pile panel onto a mission, and closes the panel (#640)', async () => {
+    await setupOpenHand([mockEventCard]);
+    const [draggedId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: draggedId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+    });
+    expect(document.body.querySelector('[data-zone="pile-panel-core"]')).not.toBeNull();
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: draggedId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-0' } });
+    });
+
+    expect(document.body.querySelector('[data-zone="pile-panel-core"]')).toBeNull();
+    expect(document.body.querySelector('[data-zone="mission-pile-event-0"]')).not.toBeNull();
+  });
+
+  it('opens a pile panel for the brig when a card there is tapped, and closes it on backdrop tap (#640)', async () => {
+    await setupOpenHand([mockPersonnelCard]);
+    const [draggedId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: draggedId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'brig' } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'data' }));
+    });
+
+    const panel = document.body.querySelector('[data-zone="pile-panel-brig"]');
+    expect(panel).not.toBeNull();
+    expect(panel!.querySelectorAll('[data-card-id]')).toHaveLength(1);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close brig' }));
+    });
+
+    expect(document.body.querySelector('[data-zone="pile-panel-brig"]')).toBeNull();
   });
 
   // #635: the dashed outline and the full 56x80 box (the same size the empty zone always shows,

@@ -1,14 +1,15 @@
 'use client';
 
 // A mission's personnel, event, dilemma stack, or under-the-mission pile panel (#602, #605,
-// #606): a tap on a pile's badge (or, for the under-the-mission pile, the card-edge strip)
-// (`MissionRow`) opens
-// this panel, listing that pile's cards face up regardless of their stored face, with a
-// "Face down" label on any card whose stored face is actually down (the same true-face-to-owner
-// convention `CardPreview` already uses for the enlarged preview). A tap on a card opens that
-// card's own full preview via `onCardClick`, reusing `findInstanceAnywhere` + the existing
-// preview state in `page.tsx`. Each card is draggable out via the same `useDraggable` +
-// `DragOverlay` mechanism the hand and the crew row already use.
+// #606), and, since #640, the core's and the brig's own panel too: a tap on a pile's badge (or,
+// for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
+// already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
+// cards face up regardless of their stored face, with a "Face down" label on any card whose
+// stored face is actually down (the same true-face-to-owner convention `CardPreview` already
+// uses for the enlarged preview). A tap on a card opens that card's own full preview via
+// `onCardClick`, reusing `findInstanceAnywhere` + the existing preview state in `page.tsx`. Each
+// card is draggable out via the same `useDraggable` + `DragOverlay` mechanism the hand and the
+// crew row already use.
 //
 // Follows the same `hidden` convention as `CardPreview`'s crew row: the panel stays mounted (not
 // unmounted) for the rest of a drag that started from a card inside it, so a touch drag begun
@@ -20,12 +21,26 @@ import { useDraggable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 
-const PILE_LABEL: Record<MissionPileName, string> = {
+// A mission pile is one of `MissionPileName`; the core and the brig (#640) are two more flat
+// zones this same panel now lists, alongside a mission's piles.
+export type PanelZone = MissionPileName | 'core' | 'brig';
+
+const PANEL_LABEL: Record<PanelZone, string> = {
   personnel: 'Personnel',
   event: 'Event',
   dilemma: 'Dilemma',
   underMission: 'Under the mission',
+  core: 'Core',
+  brig: 'Brig',
 };
+
+// The core and the brig are not "piles" the way a mission's personnel/event/dilemma piles are,
+// so their close button's label drops that word; a mission pile's label keeps it, unchanged from
+// before #640.
+const closeLabel = (zone: PanelZone): string =>
+  zone === 'core' || zone === 'brig'
+    ? `Close ${PANEL_LABEL[zone].toLowerCase()}`
+    : `Close ${PANEL_LABEL[zone].toLowerCase()} pile`;
 
 function PilePanelCard({ instance, onClick }: { instance: CardInstance; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
@@ -65,13 +80,13 @@ function PilePanelCard({ instance, onClick }: { instance: CardInstance; onClick:
 }
 
 export default function PilePanel({
-  pile,
+  zone,
   cards,
   onClose,
   onCardClick,
   hidden = false,
 }: {
-  pile: MissionPileName;
+  zone: PanelZone;
   cards: CardInstance[];
   onClose: () => void;
   onCardClick: (id: string) => void;
@@ -86,10 +101,10 @@ export default function PilePanel({
         type="button"
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
-        aria-label={`Close ${PILE_LABEL[pile].toLowerCase()} pile`}
+        aria-label={closeLabel(zone)}
       />
       <div
-        data-zone={`pile-panel-${pile}`}
+        data-zone={`pile-panel-${zone}`}
         className="absolute left-1/2 top-8 -translate-x-1/2 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 max-w-[90%]"
       >
         {cards.map((instance) => (

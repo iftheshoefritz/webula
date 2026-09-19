@@ -8,6 +8,11 @@
 // with `overlapOffset.ts`) rather than the discard pile's single-card-plus-count-badge shape,
 // since (unlike the discard pile) every card here needs to stay individually visible and
 // reachable.
+//
+// A tap on any card here opens `PilePanel` for the whole zone (#640), showing every card at a
+// larger size, rather than that one card's own preview directly — the small size here makes a
+// card hard to read in place. A tap on a card inside that panel opens its own preview instead,
+// the same two-level tap pattern a mission's personnel/event/dilemma piles already use.
 
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
@@ -23,14 +28,14 @@ export default function FlatCardRow({
   cards,
   maxWidth,
   maxOffset,
-  onCardClick,
+  onOpen,
 }: {
   zone: 'core' | 'brig';
   label: string;
   cards: CardInstance[];
   maxWidth: number;
   maxOffset: number;
-  onCardClick: (id: string) => void;
+  onOpen: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: zone });
   const draggedType = useDraggedCardType();
@@ -73,7 +78,7 @@ export default function FlatCardRow({
         <div key={instance.id} className="absolute top-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
           <TableCard
             instance={instance}
-            onClick={() => onCardClick(instance.id)}
+            onClick={onOpen}
             width={SHIP_CARD_WIDTH}
             artHeight={SHIP_CARD_ART_HEIGHT}
             draggable
