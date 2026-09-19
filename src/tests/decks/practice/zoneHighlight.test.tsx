@@ -232,4 +232,51 @@ describe('Practice table: valid-zone highlight during a drag (#608)', () => {
     shipRowZoneIds.forEach((id) => expect(highlightOf(id)).toBeNull());
     expect(highlightOf('brig')).toBeNull();
   });
+
+  // Issue #644: the hand accepts any card type (advisory, like the core and the discard pile);
+  // the dilemma hand only accepts dilemmas (like the dilemma pile).
+  it('highlights the hand while dragging a personnel card, but not the dilemma hand', async () => {
+    await setupOpenHand([mockPersonnelCard]);
+    const [personnelId] = mockDraggableIds;
+
+    // Draw the deck's dilemma into the dilemma hand, so its closed row (a drop target) exists.
+    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
+    await act(async () => {
+      fireEvent.click(drawDilemmaButton);
+    });
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: personnelId } });
+    });
+
+    expect(highlightOf('hand')).toBe('valid');
+    expect(highlightOf('dilemmaHand')).toBeNull();
+  });
+
+  it('highlights the dilemma hand while dragging a dilemma out of it', async () => {
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue([]);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
+    await act(async () => {
+      fireEvent.click(drawDilemmaButton);
+    });
+    const closedDilemmaHandButton = screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(closedDilemmaHandButton);
+    });
+    const [dilemmaId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: dilemmaId } });
+    });
+
+    expect(highlightOf('dilemmaHand')).toBe('valid');
+    expect(highlightOf('hand')).toBe('valid');
+  });
 });
