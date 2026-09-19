@@ -24,14 +24,19 @@ import CountBadge from './CountBadge';
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
 
+// Issue #642: the open fan's cards are 30% larger than the closed row's, so they are easier to
+// read. The width drives the height too, since the card images scale with `h-auto`.
+const OPEN_CARD_WIDTH = Math.round(CARD_WIDTH * 1.3);
+const OPEN_CARD_HEIGHT = Math.round(CARD_HEIGHT * 1.3);
+
 // Both the closed row and the open fan bound their total width regardless of card count, by
 // shrinking the offset between overlapping card edges as the hand grows, rather than letting
 // the row grow without bound. This keeps the bottom row (discard, draw pile, hand, core, brig,
 // dilemma pile) inside a 568 x 320 viewport.
 const CLOSED_MAX_WIDTH = 80;
 const CLOSED_MAX_OFFSET = 10;
-const OPEN_MAX_WIDTH = 460;
-const OPEN_MAX_OFFSET = 60;
+const OPEN_MAX_WIDTH = Math.round(460 * 1.3);
+const OPEN_MAX_OFFSET = Math.round(60 * 1.3);
 const OPEN_BOTTOM = 16; // px above the viewport's bottom edge, so the fan covers the zones
 
 function DraggableFanCard({
@@ -69,7 +74,8 @@ function DraggableFanCard({
         width={120}
         height={167}
         alt={card.name}
-        className="rounded-lg shadow-md w-14 h-auto"
+        className="rounded-lg shadow-md h-auto"
+        style={{ width: OPEN_CARD_WIDTH }}
       />
     </button>
   );
@@ -108,8 +114,8 @@ export default function CardHand({
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
-  const openOffset = offsetFor(instances.length, CARD_WIDTH, OPEN_MAX_WIDTH, OPEN_MAX_OFFSET);
-  const openWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + openOffset * (instances.length - 1);
+  const openOffset = offsetFor(instances.length, OPEN_CARD_WIDTH, OPEN_MAX_WIDTH, OPEN_MAX_OFFSET);
+  const openWidth = instances.length === 0 ? OPEN_CARD_WIDTH : OPEN_CARD_WIDTH + openOffset * (instances.length - 1);
   const count = instances.length;
   const showFan = open || dragging;
 
@@ -187,7 +193,7 @@ export default function CardHand({
               className="fixed left-1/2 -translate-x-1/2 z-40 flex"
               style={{
                 bottom: OPEN_BOTTOM,
-                height: CARD_HEIGHT + 10,
+                height: OPEN_CARD_HEIGHT + 10,
                 width: openWidth,
                 visibility: open ? 'visible' : 'hidden',
                 // The fan's own bounding box can overlap the passthrough zone (issue #638's
