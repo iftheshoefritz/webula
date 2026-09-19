@@ -293,6 +293,9 @@ function PracticeDrawContent() {
   const [draggingInstance, setDraggingInstance] = useState<CardInstance | null>(null);
   const [gameLayer, setGameLayer] = useState<HTMLDivElement | null>(null);
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
+  // Which of the core's/the brig's own pile panel (#640) is open, if either. Tracked the same
+  // way `openPile` tracks a mission's open pile: a piece of UI state with no effect on the table.
+  const [openFlatZone, setOpenFlatZone] = useState<'core' | 'brig' | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -383,10 +386,11 @@ function PracticeDrawContent() {
     // Any drag closing clears the open preview: a crew card's drag begins while its own ship's
     // preview is still open (the crew row is the only place a crew card appears), and the
     // acceptance check for #600 requires that drag ending (dropped or not) to close the preview.
-    // The same applies to an open pile panel (#602): a card dragged out of it begins its drag
-    // while the panel is still open.
+    // The same applies to an open pile panel (#602), including the core's and the brig's own
+    // panel (#640): a card dragged out of one begins its drag while the panel is still open.
     setFocusedCardId(null);
     setOpenPile(null);
+    setOpenFlatZone(null);
     if (over && FLAT_DROP_ZONES.includes(String(over.id) as Zone)) {
       dispatch({ type: 'move', id: String(active.id), to: over.id as Zone });
       return;
@@ -444,6 +448,7 @@ function PracticeDrawContent() {
     setDraggingInstance(null);
     setFocusedCardId(null);
     setOpenPile(null);
+    setOpenFlatZone(null);
   };
 
   const isEmpty = deckEmpty;
@@ -574,25 +579,28 @@ function PracticeDrawContent() {
                 </div>
 
                 {/* Core: any card, usually events (#603). No push-below-the-viewport offset
-                    (#636): stays fully on the table. */}
+                    (#636): stays fully on the table. A tap on a card opens the core's own pile
+                    panel (#640) rather than that one card's preview directly. */}
                 <FlatCardRow
                   zone="core"
                   label="Core"
                   cards={core}
                   maxWidth={CORE_ROW_MAX_WIDTH}
                   maxOffset={FLAT_ROW_MAX_OFFSET}
-                  onCardClick={(id) => setFocusedCardId(id)}
+                  onOpen={() => setOpenFlatZone('core')}
                 />
 
                 {/* Brig: captured personnel, though the zone accepts any card type (#603). No
-                    push-below-the-viewport offset (#636): stays fully on the table. */}
+                    push-below-the-viewport offset (#636): stays fully on the table. A tap on a
+                    card opens the brig's own pile panel (#640) rather than that one card's
+                    preview directly. */}
                 <FlatCardRow
                   zone="brig"
                   label="Brig"
                   cards={brig}
                   maxWidth={BRIG_ROW_MAX_WIDTH}
                   maxOffset={FLAT_ROW_MAX_OFFSET}
-                  onCardClick={(id) => setFocusedCardId(id)}
+                  onOpen={() => setOpenFlatZone('brig')}
                 />
 
                 {/* The dilemma pile stays the rightmost zone, with the closed dilemma hand
@@ -646,9 +654,21 @@ function PracticeDrawContent() {
               {/* A mission's personnel or event pile panel (#602), opened by tapping its badge. */}
               {openPile && (
                 <PilePanel
-                  pile={openPile.pile}
+                  zone={openPile.pile}
                   cards={missions[openPile.missionIndex][openPile.pile]}
                   onClose={() => setOpenPile(null)}
+                  onCardClick={(id) => setFocusedCardId(id)}
+                  hidden={draggingInstance !== null}
+                />
+              )}
+
+              {/* The core's or the brig's own pile panel (#640), opened by tapping a card
+                  already sitting in that zone. */}
+              {openFlatZone && (
+                <PilePanel
+                  zone={openFlatZone}
+                  cards={openFlatZone === 'core' ? core : brig}
+                  onClose={() => setOpenFlatZone(null)}
                   onCardClick={(id) => setFocusedCardId(id)}
                   hidden={draggingInstance !== null}
                 />
