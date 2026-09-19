@@ -569,6 +569,7 @@ function PracticeDrawContent() {
                     onCardClick={(id) => setFocusedCardId(id)}
                     dragging={draggingInstance !== null}
                     portalContainer={gameLayer}
+                    passthroughZone="pile"
                   />
                 </div>
 
@@ -609,6 +610,7 @@ function PracticeDrawContent() {
                       portalContainer={gameLayer}
                       zone="dilemmaHand"
                       label="dilemma hand"
+                      passthroughZone="pile"
                     />
                   )}
 

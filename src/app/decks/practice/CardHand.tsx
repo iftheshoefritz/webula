@@ -10,7 +10,9 @@
 // keeps sending the touch's events to the element where the touch started. If that element
 // leaves the document, the events no longer bubble to the document, where dnd-kit listens,
 // so the drop never happens. Chromium retargets the events, but WebKit (iOS Safari) does not.
-// Issue #604 reuses this component for the dilemma hand.
+// Issue #604 reuses this component for the dilemma hand. Issue #638: a tap on the draw pile
+// still draws a card while a hand is open, rather than only closing the hand — see
+// `passthroughZone` below.
 
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -83,6 +85,7 @@ export default function CardHand({
   portalContainer,
   zone = 'hand',
   label = 'hand',
+  passthroughZone,
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -93,6 +96,15 @@ export default function CardHand({
   onCardClick: (id: string) => void;
   zone?: string;
   label?: string;
+  // The `data-zone` of another control that stays tappable through the full-screen backdrop
+  // while this hand is open (issue #638: the draw pile, so the player can draw without closing
+  // an open hand first). The backdrop covers the whole screen, including that control, so a
+  // real tap always lands on the backdrop's own element, not the control underneath it. Rather
+  // than reworking the table's stacking contexts so the control paints above the backdrop, the
+  // backdrop hit-tests the tap's coordinates against that control's current bounding box and,
+  // on a hit, forwards the tap to it (`.click()`) instead of closing the hand — the control
+  // keeps its own click handling (including its own `disabled` state) unchanged.
+  passthroughZone?: string;
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
@@ -100,6 +112,27 @@ export default function CardHand({
   const openWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + openOffset * (instances.length - 1);
   const count = instances.length;
   const showFan = open || dragging;
+
+  const handleBackdropClick = (event: React.MouseEvent) => {
+    if (passthroughZone) {
+      const target = document.querySelector<HTMLElement>(`[data-zone="${passthroughZone}"]`);
+      if (target) {
+        const rect = target.getBoundingClientRect();
+        if (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom
+        ) {
+          target.click();
+          return;
+        }
+      }
+    }
+    onClose();
+  };
 
   return (
     <>
@@ -142,7 +175,7 @@ export default function CardHand({
               <button
                 type="button"
                 className="fixed inset-0 z-30 bg-black/30"
-                onClick={onClose}
+                onClick={handleBackdropClick}
                 aria-label={`Close ${label}`}
               />
             )}
