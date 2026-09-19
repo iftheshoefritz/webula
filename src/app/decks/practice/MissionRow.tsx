@@ -6,9 +6,13 @@
 //
 // Every column, filled or empty, reserves fixed space for its controls, so the column layout
 // does not shift as a mission's piles fill up:
-//   - A badge strip along the top edge: personnel/event pile badges (#602), dilemma stack badge
-//     (#605).
-//   - A card-edge strip below the bottom edge: dilemmas placed under the mission (#606).
+//   - A badge strip below the mission card: personnel/event pile badges (#602), dilemma stack
+//     badge (#605), moved there from above the mission card by #641 to make room for the
+//     dilemmas placed under the mission (below), which now poke out above the mission card
+//     instead.
+//   - Dilemmas placed under the mission (#606) render face up, stacked behind the mission card
+//     in z-order, with a small sliver of each poking out above the mission card's top edge
+//     (#641). They are absolutely positioned, so an empty pile reserves no space at all.
 //
 // The mission card and its ship row (#599) are both drop targets: dropping a ship on either one
 // puts it in that mission's ship row, face up. A ship row shows up to 2 ships side by side; a
@@ -28,7 +32,7 @@
 // stack in a third pile (#605), in drop order — the first dilemma dropped is the first revealed.
 // A dilemma dropped on a mission from anywhere else — including that mission's own dilemma
 // stack — goes under the mission instead (#606), face up, permanently out of the stack. Each
-// non-empty personnel/event/dilemma pile shows a small badge on the badge strip, above (and as a
+// non-empty personnel/event/dilemma pile shows a small badge on the badge strip, below (and as a
 // sibling of, not nested inside) the mission card's own `<button>` — nesting a badge button
 // inside it would be invalid HTML and would let the mission's own tap handler fire first, the
 // same conflict already avoided for the ship's own drop target. A badge is a drop target of its
@@ -38,8 +42,8 @@
 // nested badge over the mission card beneath it, the same reasoning that already lets a ship's
 // crew zone win over its enclosing ship row. A tap on a badge opens that pile's panel
 // (`PilePanel`); a tap on the mission card elsewhere still opens the mission's own preview. The
-// under-the-mission pile has no badge of its own — its control is the card-edge strip below the
-// mission card (`UnderMissionStrip` below), not a drop target, since the drop happens on the
+// under-the-mission pile has no badge of its own — its control is the tap target layered over its
+// stack of slivers (`UnderMissionStack` below), not a drop target, since the drop happens on the
 // mission card's own drop target like every other pile that has no badge under the pointer.
 
 import { useDroppable } from '@dnd-kit/core';
@@ -117,10 +121,6 @@ function ShipCard({
   );
 }
 
-function ReservedStrip({ height }: { height: number }) {
-  return <div className="w-full rounded border border-dashed border-white/15" style={{ height }} />;
-}
-
 // The badge strip's fixed height (#602): tall enough to fit an icon+count badge, reserved on
 // every mission column regardless of how many badges that mission actually shows, so a mission
 // with 0, 1, or 2 badges keeps the same column layout as its neighbours. Two badges sit side by
@@ -157,7 +157,7 @@ function DilemmaIcon() {
 }
 
 // Stacked bars, for the under-the-mission pile. Unused by `BadgeStrip` — that pile's control is
-// the card-edge strip below the mission card, not a top badge — but required to satisfy
+// the sliver stack behind the mission card, not a top badge — but required to satisfy
 // `PILE_ICON`'s `Record<MissionPileName, ...>` type (#606).
 function UnderMissionIcon() {
   return (
@@ -241,20 +241,30 @@ function BadgeStrip({
   );
 }
 
-// The card-edge strip's fixed height (#606): reserved on every mission column regardless of how
-// many dilemmas sit under that mission, so the ship row below it never moves. A `CountBadge` (the
-// usual count control, 24x24px, absolutely positioned) does not fit the 6px strip #597 first
-// reserved without covering the mission card above and the ship row below, so this strip is
-// double that instead, and its count is an inline, sized-to-fit number, `PileBadge`'s own pattern
-// (#602), not `CountBadge`.
-const UNDER_MISSION_STRIP_HEIGHT = 12; // px
+// The dilemma sliver stack's total height budget (#641): the space the badge strip freed up by
+// moving below the mission card, so poking the slivers out above it does not grow the column's
+// total height relative to before.
+const UNDER_MISSION_STACK_HEIGHT = BADGE_STRIP_HEIGHT; // px
+// A pile can grow arbitrarily large; this caps how many cards actually render in the stack (the
+// old strip capped visible edges the same way), while the tap target's aria-label keeps the true
+// count.
+const UNDER_MISSION_MAX_VISIBLE = 6;
+// The vertical gap between stacked slivers, shrinking as more cards share the fixed height
+// budget above — the same idea `overlapOffset.ts` already applies horizontally to the ship row.
+const UNDER_MISSION_MAX_OFFSET = 4; // px
+const UNDER_MISSION_MIN_SLIVER = 2; // px, the smallest sliver a single card pokes out
 
-// The card-edge strip (#606): a row of small edges standing in for the dilemmas placed under the
-// mission, with an inline count, below the mission card in the space `MissionColumn` reserves.
-// Empty, it keeps the dashed placeholder outline #597 first reserved. A tap opens that pile's
-// panel (`PilePanel`), the same callback `PileBadge` already uses; it is not a drop target of its
-// own — the drop happens on the mission card's own drop target (`missionDropId`).
-function UnderMissionStrip({
+// The dilemmas placed under the mission (#606), rendered face up and stacked directly behind the
+// mission card in z-order, each poking a small sliver out above the mission card's top edge
+// (#641) rather than as a strip of plain edges below it. Absolutely positioned within the
+// mission's own relatively positioned drop target (`MissionColumn` below), so an empty pile
+// renders nothing and reserves no space — no dashed placeholder box. A single tap target, sized
+// to the sliver band, opens that pile's panel (`PilePanel`), the same callback `PileBadge`
+// already uses; it is not a drop target of its own — the drop happens on the mission card's own
+// drop target (`missionDropId`). The individual card images underneath have no click handling of
+// their own (`pointer-events-none`) so only the tap target responds, and the sliver band sits
+// entirely above the mission card's own drop target, so the two never overlap.
+function UnderMissionStack({
   missionIndex,
   cards,
   onOpen,
@@ -263,26 +273,36 @@ function UnderMissionStrip({
   cards: CardInstance[];
   onOpen: (missionIndex: number, pile: MissionPileName) => void;
 }) {
-  if (cards.length === 0) {
-    return <ReservedStrip height={UNDER_MISSION_STRIP_HEIGHT} />;
-  }
-  const edgeCount = Math.min(cards.length, 6);
+  if (cards.length === 0) return null;
+  const shown = cards.slice(-UNDER_MISSION_MAX_VISIBLE);
+  const offset = offsetFor(shown.length, UNDER_MISSION_MIN_SLIVER, UNDER_MISSION_STACK_HEIGHT, UNDER_MISSION_MAX_OFFSET);
+  const stackHeight = UNDER_MISSION_MIN_SLIVER + offset * (shown.length - 1);
 
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(missionIndex, 'underMission')}
-      aria-label={`${PILE_LABEL.underMission} pile, ${cards.length} card${
-        cards.length === 1 ? '' : 's'
-      }, tap to open`}
-      className="relative w-full flex items-center justify-center gap-[1px] rounded bg-black/50"
-      style={{ height: UNDER_MISSION_STRIP_HEIGHT }}
-    >
-      {Array.from({ length: edgeCount }, (_, i) => (
-        <div key={i} className="w-2 rounded-sm bg-white/50" style={{ height: UNDER_MISSION_STRIP_HEIGHT - 4 }} />
+    <div className="absolute inset-x-0" style={{ top: -stackHeight, height: stackHeight }}>
+      {shown.map((card, i) => (
+        <div
+          key={card.id}
+          className="absolute inset-x-0 flex items-center justify-center pointer-events-none"
+          style={{ top: i * offset, zIndex: i + 1 }}
+        >
+          <TableCard instance={card} onClick={() => {}} />
+        </div>
       ))}
-      <span className="absolute right-1 text-[8px] font-bold leading-none text-text-primary">{cards.length}</span>
-    </button>
+      <button
+        type="button"
+        onClick={() => onOpen(missionIndex, 'underMission')}
+        aria-label={`${PILE_LABEL.underMission} pile, ${cards.length} card${
+          cards.length === 1 ? '' : 's'
+        }, tap to open`}
+        className="absolute inset-0"
+        style={{ zIndex: shown.length + 1 }}
+      >
+        <span className="absolute bottom-0 right-1 text-[8px] font-bold leading-none text-text-primary">
+          {cards.length}
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -342,6 +362,29 @@ function MissionColumn({
 
   return (
     <div className="flex flex-col items-center gap-1" style={{ width: TABLE_CARD_WIDTH }}>
+      <div
+        ref={setNodeRef}
+        data-zone={missionDropId(missionIndex)}
+        data-highlight={highlight}
+        className={`relative w-full flex items-center justify-center rounded ${highlightClassName(highlight)}`}
+      >
+        {/* Dilemmas under the mission (#606), stacked behind it and poking out above (#641) */}
+        <UnderMissionStack missionIndex={missionIndex} cards={underMission} onOpen={onOpenPile} />
+
+        <div className="relative z-10 w-full flex items-center justify-center">
+          {mission ? (
+            <TableCard instance={mission} onClick={() => onCardClick(mission.id)} />
+          ) : (
+            <div
+              className="w-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[9px]"
+              style={{ height: MISSION_SLOT_HEIGHT }}
+            >
+              Mission
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Badge strip: personnel/event pile badges (#602), dilemma stack badge (#605). */}
       <BadgeStrip
         missionIndex={missionIndex}
@@ -350,27 +393,6 @@ function MissionColumn({
         dilemmaCount={dilemma.length}
         onOpenPile={onOpenPile}
       />
-
-      <div
-        ref={setNodeRef}
-        data-zone={missionDropId(missionIndex)}
-        data-highlight={highlight}
-        className={`w-full flex items-center justify-center rounded ${highlightClassName(highlight)}`}
-      >
-        {mission ? (
-          <TableCard instance={mission} onClick={() => onCardClick(mission.id)} />
-        ) : (
-          <div
-            className="w-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[9px]"
-            style={{ height: MISSION_SLOT_HEIGHT }}
-          >
-            Mission
-          </div>
-        )}
-      </div>
-
-      {/* Card-edge strip: dilemmas placed under the mission (#606) */}
-      <UnderMissionStrip missionIndex={missionIndex} cards={underMission} onOpen={onOpenPile} />
 
       <ShipRow missionIndex={missionIndex} ships={ships} onCardClick={onCardClick} />
     </div>
