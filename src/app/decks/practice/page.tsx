@@ -506,61 +506,74 @@ function PracticeDrawContent() {
                 onOpenPile={(missionIndex, pile) => setOpenPile({ missionIndex, pile })}
               />
 
-              {/* Bottom row, anchored to the bottom, offset partially below the viewport. From left
-                  to right: discard pile, draw pile, closed hand, core, brig. The dilemma pile is the
-                  rightmost zone, at the right edge. */}
-              <div className="mt-auto flex flex-row items-end gap-4" style={{ transform: 'translateY(30%)' }}>
-                {/* Discard */}
-                <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
+              {/* Bottom row, anchored to the bottom. From left to right: discard pile, draw pile,
+                  closed hand, core, brig. The dilemma pile is the rightmost zone, at the right
+                  edge. The push-below-the-viewport offset (#130) is no longer on this outer row
+                  itself: `items-end` aligns every zone's bottom edge to this row's own bottom
+                  before any transform runs, so one shared transform on the row used to push every
+                  zone down by the same pixel amount regardless of that zone's own height, cutting
+                  the same slice off the bottom of every zone. Core and the brig are short — the
+                  short `TableCard` art crop the ship row also uses, once cards sit in them (#603)
+                  — so that shared, fixed-pixel cut hid most or all of a short zone even though a
+                  taller zone (draw pile, hand) only lost its bottom sliver (#636). The offset now
+                  sits on the two zone groups that still want it, each keyed to its own natural
+                  height, so core and the brig, with no offset of their own, keep their natural
+                  position at the row's own bottom edge and stay fully on the table. */}
+              <div className="mt-auto flex flex-row items-end gap-4">
+                <div className="flex flex-row items-end gap-4" style={{ transform: 'translateY(30%)' }}>
+                  {/* Discard */}
+                  <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
 
-                {/* Pile */}
-                <div className="flex items-start gap-4">
-                  <div className="flex flex-col items-center gap-1">
-                    <button
-                      className="btn-icon btn-icon-sm"
-                      onClick={reset}
-                      aria-label="Reset"
-                    >
-                      <FaRedo />
-                    </button>
-                    <button
-                      data-zone="pile"
-                      onClick={drawOne}
-                      disabled={pile.length === 0}
-                      className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {pile.length > 0 ? (
-                        <>
-                          <img
-                            src="/cardimages/cardback.jpg"
-                            width={120}
-                            height={167}
-                            alt="Face-down draw pile"
-                            className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
-                          />
-                          <CountBadge count={pile.length} />
-                        </>
-                      ) : (
-                        <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
-                          Empty
-                        </div>
-                      )}
-                    </button>
+                  {/* Pile */}
+                  <div className="flex items-start gap-4">
+                    <div className="flex flex-col items-center gap-1">
+                      <button
+                        className="btn-icon btn-icon-sm"
+                        onClick={reset}
+                        aria-label="Reset"
+                      >
+                        <FaRedo />
+                      </button>
+                      <button
+                        data-zone="pile"
+                        onClick={drawOne}
+                        disabled={pile.length === 0}
+                        className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {pile.length > 0 ? (
+                          <>
+                            <img
+                              src="/cardimages/cardback.jpg"
+                              width={120}
+                              height={167}
+                              alt="Face-down draw pile"
+                              className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
+                            />
+                            <CountBadge count={pile.length} />
+                          </>
+                        ) : (
+                          <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
+                            Empty
+                          </div>
+                        )}
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Hand */}
+                  <CardHand
+                    instances={hand}
+                    open={openHand === 'hand'}
+                    onOpen={() => setOpenHand('hand')}
+                    onClose={() => setOpenHand(null)}
+                    onCardClick={(id) => setFocusedCardId(id)}
+                    dragging={draggingInstance !== null}
+                    portalContainer={gameLayer}
+                  />
                 </div>
 
-                {/* Hand */}
-                <CardHand
-                  instances={hand}
-                  open={openHand === 'hand'}
-                  onOpen={() => setOpenHand('hand')}
-                  onClose={() => setOpenHand(null)}
-                  onCardClick={(id) => setFocusedCardId(id)}
-                  dragging={draggingInstance !== null}
-                  portalContainer={gameLayer}
-                />
-
-                {/* Core: any card, usually events (#603) */}
+                {/* Core: any card, usually events (#603). No push-below-the-viewport offset
+                    (#636): stays fully on the table. */}
                 <FlatCardRow
                   zone="core"
                   label="Core"
@@ -570,7 +583,8 @@ function PracticeDrawContent() {
                   onCardClick={(id) => setFocusedCardId(id)}
                 />
 
-                {/* Brig: captured personnel, though the zone accepts any card type (#603) */}
+                {/* Brig: captured personnel, though the zone accepts any card type (#603). No
+                    push-below-the-viewport offset (#636): stays fully on the table. */}
                 <FlatCardRow
                   zone="brig"
                   label="Brig"
@@ -583,7 +597,7 @@ function PracticeDrawContent() {
                 {/* The dilemma pile stays the rightmost zone, with the closed dilemma hand
                     immediately to its left, on the inside of the row (#604). The dilemma hand
                     shows only when it holds cards. */}
-                <div className="ml-auto flex flex-row items-end gap-4">
+                <div className="ml-auto flex flex-row items-end gap-4" style={{ transform: 'translateY(30%)' }}>
                   {dilemmaHand.length > 0 && (
                     <CardHand
                       instances={dilemmaHand}
