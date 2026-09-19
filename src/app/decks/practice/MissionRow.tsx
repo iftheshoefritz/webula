@@ -46,6 +46,8 @@ import { useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName, MissionSlot } from './tableReducer';
 import TableCard, { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 import { offsetFor } from './overlapOffset';
+import { useDraggedCardType } from './DraggedCardTypeContext';
+import { highlightClassName, highlightState } from './zoneAccepts';
 
 const MISSION_SLOT_HEIGHT = TABLE_CARD_ART_HEIGHT + 14; // art + the title line below it
 
@@ -93,9 +95,16 @@ function ShipCard({
   onCardClick: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: crewDropId(ship.id) });
+  const draggedType = useDraggedCardType();
+  const highlight = highlightState('crew', draggedType, isOver);
 
   return (
-    <div ref={setNodeRef} data-zone={crewDropId(ship.id)} className={`rounded ${isOver ? 'ring-2 ring-accent' : ''}`}>
+    <div
+      ref={setNodeRef}
+      data-zone={crewDropId(ship.id)}
+      data-highlight={highlight}
+      className={`rounded ${highlightClassName(highlight)}`}
+    >
       <TableCard
         instance={ship}
         onClick={() => onCardClick(ship.id)}
@@ -287,6 +296,8 @@ function ShipRow({
   onCardClick: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: shipRowDropId(missionIndex) });
+  const draggedType = useDraggedCardType();
+  const highlight = highlightState('shipRow', draggedType, isOver);
   const offset = offsetFor(ships.length, SHIP_CARD_WIDTH, SHIP_ROW_MAX_WIDTH, SHIP_MAX_OFFSET);
   const rowWidth = ships.length === 0 ? SHIP_ROW_MAX_WIDTH : SHIP_CARD_WIDTH + offset * (ships.length - 1);
 
@@ -294,7 +305,8 @@ function ShipRow({
     <div
       ref={setNodeRef}
       data-zone={shipRowDropId(missionIndex)}
-      className={`relative w-full flex items-center justify-center rounded ${isOver ? 'ring-2 ring-accent' : ''}`}
+      data-highlight={highlight}
+      className={`relative w-full flex items-center justify-center rounded ${highlightClassName(highlight)}`}
       style={{ height: SHIP_ROW_HEIGHT }}
     >
       {ships.length === 0 ? (
@@ -324,6 +336,8 @@ function MissionColumn({
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
+  const draggedType = useDraggedCardType();
+  const highlight = highlightState('mission', draggedType, isOver);
   const { mission, ships, personnel, event, dilemma, underMission } = slot;
 
   return (
@@ -340,7 +354,8 @@ function MissionColumn({
       <div
         ref={setNodeRef}
         data-zone={missionDropId(missionIndex)}
-        className={`w-full flex items-center justify-center rounded ${isOver ? 'ring-2 ring-accent' : ''}`}
+        data-highlight={highlight}
+        className={`w-full flex items-center justify-center rounded ${highlightClassName(highlight)}`}
       >
         {mission ? (
           <TableCard instance={mission} onClick={() => onCardClick(mission.id)} />

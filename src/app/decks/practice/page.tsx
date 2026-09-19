@@ -42,6 +42,8 @@ import CardPreview from './CardPreview';
 import CountBadge from './CountBadge';
 import PilePanel from './PilePanel';
 import FlatCardRow from './FlatCardRow';
+import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
+import { highlightClassName, highlightState } from './zoneAccepts';
 
 // A dropped card's type chooses its mission pile (#602): personnel and equipment go to the
 // personnel pile, event/mission/interrupt go to the event pile. A ship, and a dilemma (routed
@@ -150,13 +152,17 @@ function DiscardPileCard({ topCard, count }: { topCard: CardInstance; count: num
 
 function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; count: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: DISCARD_DROPPABLE_ID });
+  const draggedType = useDraggedCardType();
+  const highlight = highlightState('discard', draggedType, isOver);
 
-  // A ring shows that the discard pile accepts the card under the pointer.
+  // A ring shows that the discard pile accepts the card under the pointer (`isOver`), or accepts
+  // the dragged card's type generally (`valid`, #608).
   return (
     <div
       ref={setNodeRef}
       data-zone="discard"
-      className={`flex flex-col items-center gap-1 rounded-lg ${isOver ? 'ring-2 ring-accent' : ''}`}
+      data-highlight={highlight}
+      className={`flex flex-col items-center gap-1 rounded-lg ${highlightClassName(highlight)}`}
     >
       {topCard ? (
         <DiscardPileCard topCard={topCard} count={count} />
@@ -194,17 +200,20 @@ function DilemmaPileHalf({
   showLabel: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dropId });
+  const draggedType = useDraggedCardType();
+  const highlight = highlightState('dilemmaPile', draggedType, isOver);
 
   return (
     <button
       ref={setNodeRef}
       data-zone={dropId}
+      data-highlight={highlight}
       onClick={onDraw}
       disabled={count === 0}
       aria-label={`Dilemma pile ${position}, tap to draw`}
-      className={`absolute inset-x-0 ${position === 'top' ? 'top-0' : 'bottom-0'} h-1/2 focus:outline-none disabled:cursor-not-allowed ${
-        isOver ? 'ring-2 ring-accent' : ''
-      } ${position === 'top' ? 'rounded-t-lg' : 'rounded-b-lg'}`}
+      className={`absolute inset-x-0 ${position === 'top' ? 'top-0' : 'bottom-0'} h-1/2 focus:outline-none disabled:cursor-not-allowed ${highlightClassName(
+        highlight
+      )} ${position === 'top' ? 'rounded-t-lg' : 'rounded-b-lg'}`}
     >
       {showLabel && isOver && (
         <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white bg-black/60 rounded">
@@ -485,6 +494,10 @@ function PracticeDrawContent() {
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >
+            {/* The dragged card's type, shared with every drop zone so each one can show its own
+                highlight during a drag (#608). `draggingInstance` already tracks it for the drag
+                overlay below. */}
+            <DraggedCardTypeProvider value={draggingInstance?.card.type ?? null}>
             <div className="flex flex-col flex-1 p-4">
               {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597) */}
               <MissionRow
@@ -625,6 +638,7 @@ function PracticeDrawContent() {
                 />
               )}
             </div>
+            </DraggedCardTypeProvider>
 
             <DragOverlay>
               {draggingInstance && (

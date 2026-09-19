@@ -1,0 +1,55 @@
+// Advisory highlight lookup for a drag on the practice table (#608). Presentation only: it
+// never touches how a drop resolves — `handleDragEnd` (page.tsx) keeps its own per-type routing
+// (`MISSION_PILE_BY_TYPE`, the ship/dilemma special cases, `shipIdFromCrewDropId`,
+// `missionPileFromDropId`) exactly as it is today, so a drop the lookup marks invalid for a zone
+// still succeeds exactly as it does now (an event dropped on the brig still lands in the brig,
+// `coreBrigDrop.test.tsx`).
+//
+// Keyed by zone kind, not by a concrete drop id: a mission's ship row and its mission card exist
+// once per mission index, and the dilemma pile has two physical drop targets, but conceptually
+// there is one lookup entry each. The mission card accepts every type in practice —
+// `MISSION_PILE_BY_TYPE` (page.tsx) already routes personnel/equipment to the personnel pile and
+// event/mission/interrupt to the event pile, and a ship or a dilemma dropped there is handled
+// directly in `handleDragEnd` — so `mission` (like `core` and `discard`) accepts any type here.
+export type ZoneKind = 'shipRow' | 'mission' | 'crew' | 'core' | 'brig' | 'discard' | 'dilemmaPile';
+
+// `null` means every card type highlights this zone kind.
+const ZONE_ACCEPTS: Record<ZoneKind, readonly string[] | null> = {
+  shipRow: ['ship'],
+  mission: null,
+  crew: ['personnel', 'equipment'],
+  core: null,
+  brig: ['personnel'],
+  discard: null,
+  dilemmaPile: ['dilemma'],
+};
+
+function zoneAccepts(kind: ZoneKind, cardType: string): boolean {
+  const accepted = ZONE_ACCEPTS[kind];
+  return accepted === null || accepted.includes(cardType);
+}
+
+// The two highlight strengths a droppable can show during a drag, exposed as a `data-highlight`
+// attribute so a test can assert on what the highlight means rather than on a class string that
+// changes with the shade: `'over'` when the pointer is over this zone, `'valid'` when the zone
+// accepts the dragged card's type and the pointer is elsewhere. `isOver` wins over "accepts", so
+// a valid zone under the pointer shows only the stronger state, never both.
+export type HighlightState = 'over' | 'valid' | undefined;
+
+export function highlightState(kind: ZoneKind, draggedType: string | null, isOver: boolean): HighlightState {
+  if (isOver) return 'over';
+  if (draggedType !== null && zoneAccepts(kind, draggedType)) return 'valid';
+  return undefined;
+}
+
+// A ring is a box-shadow, so unlike a border or padding it never affects layout. `over` keeps
+// today's `ring-2 ring-accent`, unconditioned on the dragged type, unchanged; `valid` is new and
+// visibly weaker.
+export const HIGHLIGHT_RING_CLASS: Record<'over' | 'valid', string> = {
+  over: 'ring-2 ring-accent',
+  valid: 'ring-1 ring-accent/40',
+};
+
+export function highlightClassName(highlight: HighlightState): string {
+  return highlight ? HIGHLIGHT_RING_CLASS[highlight] : '';
+}
