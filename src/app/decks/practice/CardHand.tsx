@@ -137,7 +137,9 @@ export default function CardHand({
   return (
     <>
       {/* Closed row. Stays in the layout (as a hidden, inert placeholder) while open, so the
-          bottom row keeps its width and nothing else shifts. */}
+          bottom row keeps its width and nothing else shifts. Every card shows as a face-down
+          back (issue #639): one visible card face in the closed row would give the player an
+          advantage the closed hand should not. The open fan below still shows the card faces. */}
       <button
         type="button"
         data-zone={open ? undefined : zone}
@@ -150,7 +152,7 @@ export default function CardHand({
         {instances.map((instance, idx) => (
           <img
             key={instance.id}
-            src={`/cardimages/${instance.card.imagefile}.jpg`}
+            src="/cardimages/cardback.jpg"
             width={120}
             height={167}
             alt=""
