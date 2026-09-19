@@ -1,12 +1,13 @@
 'use client';
 
 // Compact "table card" presentation (see the parent design in issue #130): shows only a
-// centered slice of the card image (the art) with the title in small text below, rather than the
-// full card art+frame used in the hand and the piles. Centering the crop (rather than aligning it
-// to the top) cuts the same amount off the top and the bottom, so both edges look the same (#633).
-// The title stays separate from the cropped art, which would be illegible at this width. Reused
-// by later slices for any card that sits on the table rather than in a hand or a pile (#598 tap
-// preview and flip, #599 ships).
+// centered slice of the card image (the art), rather than the full card art+frame used in the
+// hand and the piles. Centering the crop (rather than aligning it to the top) cuts the same
+// amount off the top and the bottom, so both edges look the same (#633). The card's name is not
+// shown as text below the art — the art already carries the card's title, and the player
+// recognises the image (#634) — but it stays on the button's `aria-label`, so a screen reader
+// still reads it. Reused by later slices for any card that sits on the table rather than in a
+// hand or a pile (#598 tap preview and flip, #599 ships).
 //
 // A face-down card shows the card back instead of the art, and its title is blank: the face-down
 // state is exactly what must not be visible on the table (the preview is the only place the
@@ -60,7 +61,7 @@ export default function TableCard({
       onClick={onClick}
       {...attributes}
       {...listeners}
-      className={`flex flex-col items-center gap-0.5 focus:outline-none ${draggable ? 'touch-none' : ''}`}
+      className={`flex flex-col items-center focus:outline-none ${draggable ? 'touch-none' : ''}`}
       style={{
         width,
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
@@ -78,9 +79,6 @@ export default function TableCard({
         </div>
         {!!badge && <CountBadge count={badge} />}
       </div>
-      <span className="w-full text-[8px] leading-tight text-center text-text-primary truncate">
-        {isFaceDown ? '' : card.name}
-      </span>
     </button>
   );
 }

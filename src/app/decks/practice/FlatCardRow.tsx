@@ -60,7 +60,7 @@ export default function FlatCardRow({
       data-zone={zone}
       data-highlight={highlight}
       className={`relative rounded ${highlightClassName(highlight)}`}
-      style={{ width: rowWidth, height: SHIP_CARD_ART_HEIGHT + 14 }}
+      style={{ width: rowWidth, height: SHIP_CARD_ART_HEIGHT }}
     >
       {cards.map((instance, idx) => (
         <div key={instance.id} className="absolute top-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
