@@ -38,7 +38,7 @@ import MissionRow, {
   missionPileFromDropId,
   shipIdFromCrewDropId,
 } from './MissionRow';
-import CardPreview from './CardPreview';
+import CardPreview, { cardIdFromDraggableId } from './CardPreview';
 import CountBadge from './CountBadge';
 import PilePanel from './PilePanel';
 import FlatCardRow from './FlatCardRow';
@@ -366,7 +366,12 @@ function PracticeDrawContent() {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    const id = String(event.active.id);
+    // The enlarged card preview (#643) registers under its own draggable id, distinct from the
+    // card's plain instance id, since the card's home draggable (in the hand, a ship row, or an
+    // open pile panel) can be mounted, and registered with dnd-kit, at the same time. Normalizing
+    // it back to the real card id here, before anything else runs, means nothing past this line
+    // needs to know a prefix ever existed.
+    const id = cardIdFromDraggableId(String(event.active.id));
     // A drag can start from the open hand or from a ship already on a mission's ship row
     // (#599); `findInstanceAnywhere` locates a card regardless of which one it is.
     const found = findInstanceAnywhere(table, id);
@@ -382,6 +387,10 @@ function PracticeDrawContent() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    // See `handleDragStart`: normalized once, at the top, so every branch below already keys off
+    // the real card id regardless of whether the drag came from the card's home draggable or its
+    // enlarged preview (#643).
+    const id = cardIdFromDraggableId(String(active.id));
     setDraggingInstance(null);
     // Any drag closing clears the open preview: a crew card's drag begins while its own ship's
     // preview is still open (the crew row is the only place a crew card appears), and the
@@ -392,7 +401,7 @@ function PracticeDrawContent() {
     setOpenPile(null);
     setOpenFlatZone(null);
     if (over && FLAT_DROP_ZONES.includes(String(over.id) as Zone)) {
-      dispatch({ type: 'move', id: String(active.id), to: over.id as Zone });
+      dispatch({ type: 'move', id, to: over.id as Zone });
       return;
     }
     // A drop on either half of the dilemma pile (#607): the top half puts the card first in the
@@ -400,7 +409,7 @@ function PracticeDrawContent() {
     // advisory-zone convention every other flat zone follows.
     const dilemmaPilePosition = over ? dilemmaPileHalfFromDropId(String(over.id)) : null;
     if (dilemmaPilePosition) {
-      dispatch({ type: 'move', id: String(active.id), to: 'dilemmaPile', position: dilemmaPilePosition });
+      dispatch({ type: 'move', id, to: 'dilemmaPile', position: dilemmaPilePosition });
       return;
     }
     // A drop on a ship already in a ship row puts a personnel or equipment card aboard as crew
@@ -408,14 +417,14 @@ function PracticeDrawContent() {
     // the card returns to its source zone.
     const shipId = over ? shipIdFromCrewDropId(String(over.id)) : null;
     if (shipId && (draggingInstance?.card.type === 'personnel' || draggingInstance?.card.type === 'equipment')) {
-      dispatch({ type: 'move', id: String(active.id), to: { zone: 'crew', shipId } });
+      dispatch({ type: 'move', id, to: { zone: 'crew', shipId } });
       return;
     }
     // A drop directly on a pile's badge always goes to that pile, regardless of card type: the
     // player's way to override the type-based routing below (#602).
     const badgeTarget = over ? missionPileFromDropId(String(over.id)) : null;
     if (badgeTarget) {
-      dispatch({ type: 'move', id: String(active.id), to: { zone: 'missionPile', ...badgeTarget } });
+      dispatch({ type: 'move', id, to: { zone: 'missionPile', ...badgeTarget } });
       return;
     }
     // A drop on a mission card or its ship row both resolve to the same mission index. A ship
@@ -427,18 +436,18 @@ function PracticeDrawContent() {
     const missionIndex = over ? missionIndexFromDropId(String(over.id)) : null;
     if (missionIndex !== null && draggingInstance) {
       if (draggingInstance.card.type === 'ship') {
-        dispatch({ type: 'move', id: String(active.id), to: { zone: 'shipRow', missionIndex } });
+        dispatch({ type: 'move', id, to: { zone: 'shipRow', missionIndex } });
         return;
       }
       if (draggingInstance.card.type === 'dilemma') {
-        const source = findInstanceAnywhere(table, String(active.id));
+        const source = findInstanceAnywhere(table, id);
         const pile = source?.zone === 'dilemmaHand' ? 'dilemma' : 'underMission';
-        dispatch({ type: 'move', id: String(active.id), to: { zone: 'missionPile', missionIndex, pile } });
+        dispatch({ type: 'move', id, to: { zone: 'missionPile', missionIndex, pile } });
         return;
       }
       const pile = MISSION_PILE_BY_TYPE[draggingInstance.card.type];
       if (pile) {
-        dispatch({ type: 'move', id: String(active.id), to: { zone: 'missionPile', missionIndex, pile } });
+        dispatch({ type: 'move', id, to: { zone: 'missionPile', missionIndex, pile } });
       }
     }
   };
@@ -635,7 +644,9 @@ function PracticeDrawContent() {
                   mission, or a card in one of its piles, #602) gets a "Flip" button; a hand card
                   does not (#598). A ship's preview also shows its crew in a row below the art
                   (#600); `hidden` visually closes the preview for the duration of any drag
-                  without unmounting that row. */}
+                  without unmounting that row. The enlarged card is itself draggable to another
+                  zone (#643) unless it previews a mission — a mission card has no on-table
+                  draggable of its own either (`MissionRow.tsx`). */}
               {focused && (
                 <CardPreview
                   instance={focused.instance}
@@ -645,6 +656,7 @@ function PracticeDrawContent() {
                       ? () => dispatch({ type: 'flip', id: focused.instance.id })
                       : undefined
                   }
+                  draggable={focused.zone !== 'missions'}
                   crew={focused.instance.card.type === 'ship' ? focused.instance.crew ?? [] : undefined}
                   onCardClick={(id) => setFocusedCardId(id)}
                   hidden={draggingInstance !== null}
