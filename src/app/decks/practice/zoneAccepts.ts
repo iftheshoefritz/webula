@@ -11,7 +11,18 @@
 // `MISSION_PILE_BY_TYPE` (page.tsx) already routes personnel/equipment to the personnel pile and
 // event/mission/interrupt to the event pile, and a ship or a dilemma dropped there is handled
 // directly in `handleDragEnd` — so `mission` (like `core` and `discard`) accepts any type here.
-export type ZoneKind = 'shipRow' | 'mission' | 'crew' | 'core' | 'brig' | 'discard' | 'dilemmaPile';
+// Issue #644: the hand and the dilemma hand are two more zone kinds — the hand accepts any card
+// type (advisory, like `core`/`discard`), the dilemma hand only dilemmas (like `dilemmaPile`).
+export type ZoneKind =
+  | 'shipRow'
+  | 'mission'
+  | 'crew'
+  | 'core'
+  | 'brig'
+  | 'discard'
+  | 'dilemmaPile'
+  | 'hand'
+  | 'dilemmaHand';
 
 // `null` means every card type highlights this zone kind.
 const ZONE_ACCEPTS: Record<ZoneKind, readonly string[] | null> = {
@@ -22,6 +33,8 @@ const ZONE_ACCEPTS: Record<ZoneKind, readonly string[] | null> = {
   brig: ['personnel'],
   discard: null,
   dilemmaPile: ['dilemma'],
+  hand: null,
+  dilemmaHand: ['dilemma'],
 };
 
 function zoneAccepts(kind: ZoneKind, cardType: string): boolean {
