@@ -152,6 +152,27 @@ npx agent-browser drag '[data-zone="hand"] [data-card-id]' '[data-zone="discard"
 
 The Jest tests call `onDragEnd` directly, so only the browser drag checks the pointer sensor and the drop targets on the real layout. When you add a zone or a draggable card on `/decks/practice`, give it a `data-zone` or `data-card-id` attribute. A zone name is a value of `Zone` in `tableReducer.ts`.
 
+Only give `data-zone` to a real drop target. A `data-zone` on an element that is not a droppable makes a drag aim at a place that accepts nothing. Use `data-testid` for an element a test must find but a drag must not target.
+
+### To check a state that exists only during a drag
+
+`agent-browser drag` finishes the whole drag in one call, so it shows nothing in the middle. To read a mid-drag state, such as a drop zone highlight, hold the drag open with a manual mouse sequence:
+
+```bash
+npx agent-browser mouse move <x> <y>      # over the card to drag
+npx agent-browser mouse down
+npx agent-browser mouse move <x+4> <y-8>  # small move first
+npx agent-browser mouse move <tx> <ty>    # then move to the target zone
+npx agent-browser eval "..."              # read the DOM here, mid-drag
+npx agent-browser mouse up
+```
+
+The small first move is the part that matters. The `PointerSensor` in `page.tsx` has an `activationConstraint` of 8 px, so a single large move does not start the drag, and the page shows no drag state at all. Two runs lost their turn limit before somebody found this.
+
+Use `npx agent-browser get box '[data-zone="..."]'` to get the coordinates.
+
+Do not run `yarn build` while the dev server runs. It overwrites the `.next` cache the dev server uses, and the server then needs a restart.
+
 ## Fixing bugs
 When asked to fix a bug do your best to write a test that fails without the bug fix. Weigh up the cost and brittleness of writing the test and comment in the PR with the circumstances that made you feel like you couldn't write a useful test. 
 
