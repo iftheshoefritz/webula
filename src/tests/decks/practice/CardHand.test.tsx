@@ -129,4 +129,19 @@ describe('CardHand', () => {
     render(<Harness instances={[]} />);
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeDisabled();
   });
+
+  it('shows a count badge on the closed hand, and none when it is empty', () => {
+    const { rerender } = render(<Harness instances={makeInstances(3)} />);
+    expect(screen.getByRole('button', { name: /^hand, 3 cards, tap to open$/i })).toHaveTextContent('3');
+
+    rerender(<Harness instances={[]} />);
+    expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toHaveTextContent('');
+  });
+
+  it('hides the count badge while the hand is open', () => {
+    const { container } = render(<Harness instances={makeInstances(3)} initialOpen />);
+    expect(container.querySelector('[aria-label="hand, 3 cards, tap to open"]')).toHaveStyle({
+      visibility: 'hidden',
+    });
+  });
 });

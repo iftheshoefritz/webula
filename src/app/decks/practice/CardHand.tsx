@@ -17,6 +17,7 @@ import { createPortal } from 'react-dom';
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { offsetFor } from './overlapOffset';
+import CountBadge from './CountBadge';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -124,6 +125,7 @@ export default function CardHand({
             style={{ left: idx * closedOffset, zIndex: idx + 1 }}
           />
         ))}
+        {count > 0 && <CountBadge count={count} />}
       </button>
 
       {/* Open fan. It goes in a portal (the page's game layer, or else document.body): the
