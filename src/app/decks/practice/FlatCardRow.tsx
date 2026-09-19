@@ -35,6 +35,7 @@ export default function FlatCardRow({
   const { setNodeRef, isOver } = useDroppable({ id: zone });
   const draggedType = useDraggedCardType();
   const highlight = highlightState(zone, draggedType, isOver);
+  const dragging = draggedType !== null;
 
   if (cards.length === 0) {
     return (
@@ -54,13 +55,19 @@ export default function FlatCardRow({
   const offset = offsetFor(cards.length, SHIP_CARD_WIDTH, maxWidth, maxOffset);
   const rowWidth = SHIP_CARD_WIDTH + offset * (cards.length - 1);
 
+  // During a drag, keep the dashed outline and the full box size the empty zone uses (56x80,
+  // "w-14 h-20" above), rather than shrinking to the card row's own size, so the drop target
+  // does not shrink out from under the pointer (#635).
   return (
     <div
       ref={setNodeRef}
       data-zone={zone}
       data-highlight={highlight}
-      className={`relative rounded ${highlightClassName(highlight)}`}
-      style={{ width: rowWidth, height: SHIP_CARD_ART_HEIGHT }}
+      className={`relative rounded ${dragging ? 'rounded-lg border-2 border-dashed border-white/20' : ''} ${highlightClassName(highlight)}`}
+      style={{
+        width: dragging ? Math.max(rowWidth, 56) : rowWidth,
+        height: dragging ? Math.max(SHIP_CARD_ART_HEIGHT, 80) : SHIP_CARD_ART_HEIGHT,
+      }}
     >
       {cards.map((instance, idx) => (
         <div key={instance.id} className="absolute top-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
