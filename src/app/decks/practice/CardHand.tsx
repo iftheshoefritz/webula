@@ -54,7 +54,7 @@ function DraggableFanCard({
       {...listeners}
       {...attributes}
       data-card-id={instance.id}
-      className="absolute focus:outline-none touch-none"
+      className="absolute focus:outline-none touch-none pointer-events-auto"
       style={{
         left,
         zIndex: isDragging ? 100 : zIndex,
@@ -188,7 +188,14 @@ export default function CardHand({
                 height: CARD_HEIGHT + 10,
                 width: openWidth,
                 visibility: open ? 'visible' : 'hidden',
-                pointerEvents: open ? undefined : 'none',
+                // The fan's own bounding box can overlap the passthrough zone (issue #638's
+                // draw pile) even in the gaps between the fanned cards, in the narrow 568 px
+                // acceptance-check viewport. `pointer-events: none` here lets a tap that misses
+                // every card fall through this whole container to the backdrop beneath it, so
+                // the backdrop's own hit-test (`handleBackdropClick`) still runs. Each
+                // `DraggableFanCard` re-enables its own pointer events (`pointer-events-auto`),
+                // so the cards themselves stay clickable and draggable.
+                pointerEvents: 'none',
               }}
             >
               {instances.map((instance, idx) => (
