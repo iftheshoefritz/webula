@@ -102,6 +102,27 @@ Vercel runs both in one chain. The `buildCommand` in `vercel.json` is
 `NODE_ENV=test yarn test --ci && yarn build`, so a test failure stops the
 deployment before the build starts.
 
+### To read why a workflow run failed
+
+Do not use `gh run view --log`. It truncates a long log and gives no warning
+that it did. A run of a Claude workflow writes a large log, and the record that
+says why it stopped is the last thing in it, so truncation removes exactly the
+part you need. A truncated log looks like a run that died with no message.
+
+Download the log zip from the API instead, the same way
+`scripts/classify_agent_failure.sh` does:
+
+```bash
+gh api "repos/$REPO/actions/runs/$RUN_ID/logs" > logs.zip
+unzip -q -o logs.zip -d logs
+find logs -maxdepth 1 -type f -name '*.txt' -print0 | xargs -0 cat > all.log
+grep -A4 '"type": "result"' all.log
+```
+
+The `subtype` of that result record says why the run stopped, for example
+`error_max_turns`. The top-level files in the zip hold the complete log of one
+job each. The per-step files in the subdirectories repeat the same lines.
+
 ## Labels an agent must not apply
 
 Never add the `ready-for-dev` label to an issue. This applies to issues you create,
