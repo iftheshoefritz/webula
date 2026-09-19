@@ -102,6 +102,27 @@ Vercel runs both in one chain. The `buildCommand` in `vercel.json` is
 `NODE_ENV=test yarn test --ci && yarn build`, so a test failure stops the
 deployment before the build starts.
 
+### To read why a workflow run failed
+
+Do not use `gh run view --log`. It truncates a long log and gives no warning
+that it did. A run of a Claude workflow writes a large log, and the record that
+says why it stopped is the last thing in it, so truncation removes exactly the
+part you need. A truncated log looks like a run that died with no message.
+
+Download the log zip from the API instead, the same way
+`scripts/classify_agent_failure.sh` does:
+
+```bash
+gh api "repos/$REPO/actions/runs/$RUN_ID/logs" > logs.zip
+unzip -q -o logs.zip -d logs
+find logs -maxdepth 1 -type f -name '*.txt' -print0 | xargs -0 cat > all.log
+grep -A4 '"type": "result"' all.log
+```
+
+The `subtype` of that result record says why the run stopped, for example
+`error_max_turns`. The top-level files in the zip hold the complete log of one
+job each. The per-step files in the subdirectories repeat the same lines.
+
 ## Labels an agent must not apply
 
 Never add the `ready-for-dev` label to an issue. This applies to issues you create,
@@ -151,6 +172,27 @@ npx agent-browser drag '[data-zone="hand"] [data-card-id]' '[data-zone="discard"
 ```
 
 The Jest tests call `onDragEnd` directly, so only the browser drag checks the pointer sensor and the drop targets on the real layout. When you add a zone or a draggable card on `/decks/practice`, give it a `data-zone` or `data-card-id` attribute. A zone name is a value of `Zone` in `tableReducer.ts`.
+
+Only give `data-zone` to a real drop target. A `data-zone` on an element that is not a droppable makes a drag aim at a place that accepts nothing. Use `data-testid` for an element a test must find but a drag must not target.
+
+### To check a state that exists only during a drag
+
+`agent-browser drag` finishes the whole drag in one call, so it shows nothing in the middle. To read a mid-drag state, such as a drop zone highlight, hold the drag open with a manual mouse sequence:
+
+```bash
+npx agent-browser mouse move <x> <y>      # over the card to drag
+npx agent-browser mouse down
+npx agent-browser mouse move <x+4> <y-8>  # small move first
+npx agent-browser mouse move <tx> <ty>    # then move to the target zone
+npx agent-browser eval "..."              # read the DOM here, mid-drag
+npx agent-browser mouse up
+```
+
+The small first move is the part that matters. The `PointerSensor` in `page.tsx` has an `activationConstraint` of 8 px, so a single large move does not start the drag, and the page shows no drag state at all. Two runs lost their turn limit before somebody found this.
+
+Use `npx agent-browser get box '[data-zone="..."]'` to get the coordinates.
+
+Do not run `yarn build` while the dev server runs. It overwrites the `.next` cache the dev server uses, and the server then needs a restart.
 
 ## Fixing bugs
 When asked to fix a bug do your best to write a test that fails without the bug fix. Weigh up the cost and brittleness of writing the test and comment in the PR with the circumstances that made you feel like you couldn't write a useful test. 
