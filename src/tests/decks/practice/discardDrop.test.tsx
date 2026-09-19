@@ -152,8 +152,9 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     });
 
     expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
-    expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
-    expect(screen.getByText('1')).toBeInTheDocument();
+    const discardCard = screen.getByAltText('Discard pile');
+    expect(discardCard).toBeInTheDocument();
+    expect(discardCard.parentElement).toHaveTextContent('1');
   });
 
   it('moves only the dropped copy when the hand has two copies of the same card', async () => {
@@ -176,7 +177,8 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     });
 
     expect(screen.getAllByRole('button', { name: 'card 1' })).toHaveLength(1);
-    expect(screen.getByText('1')).toBeInTheDocument();
+    const discardCard = screen.getByAltText('Discard pile');
+    expect(discardCard.parentElement).toHaveTextContent('1');
   });
 
   // Browser checks drag with `agent-browser drag '[data-zone="hand"] [data-card-id]' '[data-zone="discard"]'`
