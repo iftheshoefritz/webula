@@ -144,4 +144,70 @@ describe('CardHand', () => {
       visibility: 'hidden',
     });
   });
+
+  // #638: the backdrop covers the whole screen, including the draw pile, so a tap there still
+  // draws a card instead of only closing the hand.
+  describe('passthroughZone', () => {
+    function renderWithPassthroughTarget(onPassthroughClick: () => void) {
+      const target = document.createElement('button');
+      target.setAttribute('data-zone', 'pile');
+      target.getBoundingClientRect = () => ({
+        left: 100,
+        right: 150,
+        top: 100,
+        bottom: 150,
+        width: 50,
+        height: 50,
+        x: 100,
+        y: 100,
+        toJSON: () => {},
+      });
+      target.addEventListener('click', onPassthroughClick);
+      document.body.appendChild(target);
+      return target;
+    }
+
+    it('forwards a tap on the passthrough zone to it, instead of closing the hand', () => {
+      const onPassthroughClick = jest.fn();
+      const target = renderWithPassthroughTarget(onPassthroughClick);
+      render(
+        <CardHand
+          instances={makeInstances(3)}
+          open
+          onOpen={() => {}}
+          onClose={() => {}}
+          onCardClick={() => {}}
+          passthroughZone="pile"
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /^close hand$/i }), { clientX: 120, clientY: 120 });
+
+      expect(onPassthroughClick).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
+      target.remove();
+    });
+
+    it('still closes the hand when a tap misses the passthrough zone', () => {
+      const onPassthroughClick = jest.fn();
+      const onClose = jest.fn();
+      const target = renderWithPassthroughTarget(onPassthroughClick);
+      render(
+        <CardHand
+          instances={makeInstances(3)}
+          open
+          onOpen={() => {}}
+          onClose={onClose}
+          onCardClick={() => {}}
+          passthroughZone="pile"
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /^close hand$/i }), { clientX: 0, clientY: 0 });
+
+      expect(onPassthroughClick).not.toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalledTimes(1);
+      target.remove();
+    });
+  });
 });

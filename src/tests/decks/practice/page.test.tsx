@@ -309,6 +309,45 @@ describe('PracticeDrawPage', () => {
     expect(screen.getByRole('button', { name: /^hand, 8 cards, tap to open$/i })).toBeInTheDocument();
   });
 
+  // #638: a tap on the draw pile draws a card and leaves the hand open, rather than only
+  // closing the hand's full-screen backdrop.
+  it('drawOne: a tap on the draw pile through an open hand draws a card and keeps the hand open', async () => {
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
+    drawPileButton.getBoundingClientRect = () => ({
+      left: 0,
+      right: 60,
+      top: 0,
+      bottom: 80,
+      width: 60,
+      height: 80,
+      x: 0,
+      y: 0,
+      toJSON: () => {},
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i }));
+    });
+    expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^close hand$/i }), { clientX: 20, clientY: 20 });
+    });
+
+    // The hand stayed open, and it now shows the drawn card.
+    expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
   // Draw Mechanics: pile count badge shows remaining count
   it('pile count badge shows correct count as cards are drawn', async () => {
     mockSearchParamsValue = new URLSearchParams();
