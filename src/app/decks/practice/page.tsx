@@ -8,15 +8,13 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  CollisionDetection,
   PointerSensor,
-  pointerWithin,
-  rectIntersection,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { collisionDetection } from './collisionDetection';
 import { FaRedo, FaLayerGroup, FaMobileAlt } from 'react-icons/fa';
 import { deckFromTsv, expandDeck, extractDilemmas, extractMissions, isDeckEmpty, shuffleArray } from '../deckBuilderUtils';
 import { Deck } from '../../../types';
@@ -107,16 +105,6 @@ function dilemmaPileHalfFromDropId(id: string): 'top' | 'bottom' | null {
 const CORE_ROW_MAX_WIDTH = 92; // px, fits 4 overlapping ship-sized cards
 const BRIG_ROW_MAX_WIDTH = 58; // px, fits 2 overlapping ship-sized cards
 const FLAT_ROW_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
-
-// Picks the drop zone under the pointer, and falls back to the zone the dragged card overlaps
-// most when the pointer is inside no zone. `pointerWithin` on its own lets a small zone nested
-// inside a larger one win (a ship's crew zone inside its ship row, #600), which the area-based
-// `rectIntersection` never does; the fallback keeps a drop working when the pointer leaves every
-// zone, as it can at the bottom row, which sits partly below the bottom edge of the viewport.
-const collisionDetection: CollisionDetection = (args) => {
-  const withinPointer = pointerWithin(args);
-  return withinPointer.length > 0 ? withinPointer : rectIntersection(args);
-};
 
 // The discard pile's top card, draggable off the pile (#606 review): a dilemma dragged from here
 // onto a mission card lands under that mission, since its source is not the dilemma hand (see
@@ -491,19 +479,14 @@ function PracticeDrawContent() {
           <DndContext
             sensors={sensors}
             // A ship's own crew drop zone (`crew-<shipId>`) sits nested inside its ship row's
-            // drop zone (`ship-row-<idx>`), which is larger. dnd-kit's default collision
-            // detection (`rectIntersection`) picks the droppable with the greatest overlap area,
-            // so the ship row would always win over the smaller zone nested inside it, and a
-            // personnel or equipment card dropped on a ship would return to its source instead
-            // of boarding (#600 review). `pointerWithin` instead picks among only the droppables
-            // that contain the pointer, ordered by distance from the pointer to each one's
-            // corners, so the smaller nested zone (whose corners sit closer to the pointer) wins.
-            //
-            // `pointerWithin` alone is stricter than the old behaviour for every other zone: it
-            // finds nothing unless the pointer itself sits inside a zone, and the bottom row sits
-            // partly below the bottom edge of the viewport. So it falls back to
-            // `rectIntersection` when the pointer is inside no zone, which keeps the older, more
-            // forgiving drops (a card that only overlaps the discard pile) working.
+            // drop zone (`ship-row-<idx>`), which is larger, which itself sits inside its
+            // mission column. dnd-kit's default collision detection (`rectIntersection`) ranks
+            // the droppable with the greatest overlap ratio first, which is usually one of the
+            // bigger enclosing zones, not the smaller one nested inside it — so a personnel or
+            // equipment card dropped on a ship would file into the mission's personnel pile
+            // instead of boarding (#645). `collisionDetection` re-ranks the same overlap set by
+            // area instead, smallest first, so the most-nested zone the dragged card touches
+            // always wins.
             collisionDetection={collisionDetection}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
