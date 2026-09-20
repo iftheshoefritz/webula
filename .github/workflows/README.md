@@ -87,6 +87,17 @@ If an acceptance check fails on a bug, Claude fixes the bug, runs `yarn test` an
 
 A PR that stays a draft with "Pending." in its `## Visual Verification` section is from a visual check that never ran or never finished.
 
+The report goes into the body with `scripts/replace_pr_section.sh`, not with `gh pr edit --body`. `--body` replaces the whole body, so the agent has to write every other part again, and twice it left the `Closes #<issue>` line out. PR #651 and PR #653 merged, and issues #638 and #640 stayed open. The script reads the current body, swaps the text of one section, and writes the body back with `--body-file`, so every other part stays as it was. It also fails if the new body drops a `Closes #<number>` line.
+
+```bash
+bash scripts/replace_pr_section.sh <pr-number> "## Visual Verification" report.md
+bash scripts/replace_pr_section.sh --add-if-missing <pr-number> "## Dev Server Issues" errors.md
+```
+
+`--add-if-missing` adds the section at the end of the body when the body holds no such heading. Without the flag, a missing heading is a failure and the script writes nothing.
+
+The attribution footer that starts with 🤖 `Generated with` is not part of any section. The script holds it back and puts it at the end again, so a swap of the last section keeps it.
+
 ---
 
 ## Agent Review (`agent-review.yml`)
