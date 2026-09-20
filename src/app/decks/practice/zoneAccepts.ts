@@ -44,15 +44,18 @@ function zoneAccepts(kind: ZoneKind, cardType: string): boolean {
 
 // The two highlight strengths a droppable can show during a drag, exposed as a `data-highlight`
 // attribute so a test can assert on what the highlight means rather than on a class string that
-// changes with the shade: `'over'` when the pointer is over this zone, `'valid'` when the zone
-// accepts the dragged card's type and the pointer is elsewhere. `isOver` wins over "accepts", so
-// a valid zone under the pointer shows only the stronger state, never both.
+// changes with the shade: `'over'` when the pointer is over this zone and the zone accepts the
+// dragged card's type, `'valid'` when the zone accepts that type and the pointer is elsewhere.
+// `isOver` alone does not win: dnd-kit's collision detection (`page.tsx`) is purely geometric, so
+// the pointer can sit over a zone that rejects the dragged type (issue #644's acceptance check —
+// a personnel card dragged over the closed dilemma hand, which only accepts dilemmas). Neither
+// state applies then, so the zone shows no highlight at all.
 export type HighlightState = 'over' | 'valid' | undefined;
 
 export function highlightState(kind: ZoneKind, draggedType: string | null, isOver: boolean): HighlightState {
-  if (isOver) return 'over';
-  if (draggedType !== null && zoneAccepts(kind, draggedType)) return 'valid';
-  return undefined;
+  const accepts = draggedType !== null && zoneAccepts(kind, draggedType);
+  if (isOver) return accepts ? 'over' : undefined;
+  return accepts ? 'valid' : undefined;
 }
 
 // A ring is a box-shadow, so unlike a border or padding it never affects layout. `over` keeps
