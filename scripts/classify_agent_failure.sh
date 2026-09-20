@@ -13,6 +13,10 @@
 #                            job, in the $GITHUB_OUTPUT heredoc format
 #
 # Needs: gh (authenticated), unzip.
+#
+# To classify a log file that you already hold, set CLASSIFY_LOG_FILE to its
+# path. The script then downloads nothing and asks the Jobs API for nothing.
+# The tests use this.
 
 set -euo pipefail
 
@@ -27,26 +31,37 @@ fi
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
-# The per-job endpoint returns terminal escape sequences that gh refuses to
-# write. The run-level endpoint returns a zip, so use that one.
-if ! gh api "repos/$REPO/actions/runs/$RUN_ID/logs" > "$workdir/logs.zip" 2>"$workdir/gh.err"; then
-  echo "classify_agent_failure.sh: cannot download logs for run $RUN_ID" >&2
-  cat "$workdir/gh.err" >&2
-  echo "reason=logs-unavailable"
-  echo "target="
-  echo "target_type="
-  echo "failed_jobs<<AGENT_FAILURE_JOBS_EOF"
-  echo "AGENT_FAILURE_JOBS_EOF"
-  exit 0
+log="$workdir/all.log"
+
+if [ -n "${CLASSIFY_LOG_FILE:-}" ]; then
+  cat "$CLASSIFY_LOG_FILE" > "$log"
+else
+  # The per-job endpoint returns terminal escape sequences that gh refuses to
+  # write. The run-level endpoint returns a zip, so use that one.
+  if ! gh api "repos/$REPO/actions/runs/$RUN_ID/logs" > "$workdir/logs.zip" 2>"$workdir/gh.err"; then
+    echo "classify_agent_failure.sh: cannot download logs for run $RUN_ID" >&2
+    cat "$workdir/gh.err" >&2
+    echo "reason=logs-unavailable"
+    echo "target="
+    echo "target_type="
+    echo "failed_jobs<<AGENT_FAILURE_JOBS_EOF"
+    echo "AGENT_FAILURE_JOBS_EOF"
+    exit 0
+  fi
+
+  unzip -q -o "$workdir/logs.zip" -d "$workdir/logs"
+  # Top-level files hold the complete log of one job each. The per-step files in
+  # the subdirectories repeat the same lines, so skip them.
+  find "$workdir/logs" -maxdepth 1 -type f -name '*.txt' -print0 | xargs -0 cat > "$log"
 fi
 
-unzip -q -o "$workdir/logs.zip" -d "$workdir/logs"
-log="$workdir/all.log"
-# Top-level files hold the complete log of one job each. The per-step files in
-# the subdirectories repeat the same lines, so skip them.
-find "$workdir/logs" -maxdepth 1 -type f -name '*.txt' -print0 | xargs -0 cat > "$log"
-
 has() { grep -qiF -- "$1" "$log"; }
+
+# The result record is pretty-printed JSON, and its "is_error" field is two
+# lines after its "type" field. A tool result carries an "is_error" field as
+# well, so read the field of the result record only, and of the last one.
+last_result_is_error="$(grep -A3 -F '"type": "result"' "$log" \
+  | grep -oE '"is_error": (true|false)' | tail -1 || true)"
 
 # Reasons, in priority order. The first match wins.
 if has '"subtype": "error_max_turns"'; then
@@ -55,7 +70,9 @@ elif has '"subtype": "error_during_execution"'; then
   reason="execution-error"
 elif has 'Credit balance is too low'; then
   reason="credit-balance"
-elif has 'usage limit reached' || has '"type": "rate_limit"' || has 'rate_limit_error'; then
+elif has 'usage limit reached' || has '"type": "rate_limit"' \
+  || has '"error": "rate_limit"' || has 'rate_limit_error' \
+  || has "You've hit your limit"; then
   reason="rate-limit"
 elif has 'prompt is too long' || has 'context_length_exceeded'; then
   reason="context-overflow"
@@ -67,9 +84,10 @@ elif has 'overloaded_error' || has '"type": "api_error"' || has 'Internal server
   reason="api-error"
 elif has 'Could not fetch an OIDC token' || has 'ACTIONS_ID_TOKEN_REQUEST_URL'; then
   reason="oidc-token"
-elif has '"type": "result"'; then
-  # Claude finished, so something after it failed: a push, a gh call, a later
-  # step in the workflow.
+elif [ "$last_result_is_error" = '"is_error": false' ]; then
+  # Claude finished with no error, so something after it failed: a push, a gh
+  # call, a later step in the workflow. A result record with "is_error": true
+  # is a Claude failure that no test above matched, so it is not this reason.
   reason="post-run-step"
 elif ! has '"subtype": "init"'; then
   # Claude never started, so the failure is in the workflow setup.
@@ -107,9 +125,12 @@ fi
 # Name and page link of every job that failed in this run. The run URL points
 # at the run overview only, so an agent has to guess which job failed. The Jobs
 # API gives a link straight to the log of the job.
-failed_jobs="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
-  --jq '.jobs[] | select(.conclusion == "failure") | "- [\(.name)](\(.html_url))"' \
-  2>/dev/null || true)"
+failed_jobs=""
+if [ -z "${CLASSIFY_LOG_FILE:-}" ]; then
+  failed_jobs="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
+    --jq '.jobs[] | select(.conclusion == "failure") | "- [\(.name)](\(.html_url))"' \
+    2>/dev/null || true)"
+fi
 
 echo "reason=$reason"
 echo "target=$target"
