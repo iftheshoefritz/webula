@@ -19,15 +19,19 @@ const rect = (left: number, top: number, width: number, height: number): ClientR
 
 const droppableContainer = (id: string): DroppableContainer => ({ id } as DroppableContainer);
 
+// `pointerCoordinates` defaults to null, which is the drag state where the pointer sits inside no
+// zone at all — the gaps between a mission's zone, its ship row, and the bottom row below the
+// viewport's edge. Pass a coordinate to exercise the `pointerWithin` stage instead.
 const argsFor = (
   collisionRect: ClientRect,
-  rects: Record<string, ClientRect>
+  rects: Record<string, ClientRect>,
+  pointerCoordinates: { x: number; y: number } | null = null
 ): Parameters<typeof collisionDetection>[0] => ({
   active: { id: 'dragged-card' } as never,
   collisionRect,
   droppableContainers: Object.keys(rects).map(droppableContainer),
   droppableRects: new Map(Object.entries(rects)) as never,
-  pointerCoordinates: null,
+  pointerCoordinates,
 });
 
 describe('collisionDetection', () => {
@@ -59,6 +63,33 @@ describe('collisionDetection', () => {
 
     const result = collisionDetection(argsFor(collisionRect, rects));
     expect(result[0].id).toBe('ship-row-0');
+  });
+
+  // The two tests below cover the `pointerWithin` stage. Without it, area ranking alone boards the
+  // ship for any drop in the row, because a ship is only 34x26 px inside a 72x26 px row and the
+  // dragged card's rect touches it almost anywhere (#645's third acceptance check).
+  it('keeps a drop aimed at the ship row, off any ship, on the ship row', () => {
+    const rects = {
+      'crew-ship-1': rect(107, 90, 34, 26), // the ship, inside the row
+      'ship-row-0': rect(88, 90, 72, 26),
+    };
+    // The dragged card is far wider than the row's 19 px of clear space, so its rect covers the
+    // ship as well. Only the pointer says where the player aimed: x=96, left of the ship's x=107.
+    const collisionRect = rect(68, 64, 56, 78);
+
+    const result = collisionDetection(argsFor(collisionRect, rects, { x: 96, y: 103 }));
+    expect(result[0].id).toBe('ship-row-0');
+  });
+
+  it('boards the ship when the pointer is inside the ship itself', () => {
+    const rects = {
+      'crew-ship-1': rect(107, 90, 34, 26),
+      'ship-row-0': rect(88, 90, 72, 26),
+    };
+    const collisionRect = rect(96, 64, 56, 78);
+
+    const result = collisionDetection(argsFor(collisionRect, rects, { x: 124, y: 103 }));
+    expect(result[0].id).toBe('crew-ship-1');
   });
 
   it('breaks a tie between equal-area zones by the greater overlap ratio', () => {
