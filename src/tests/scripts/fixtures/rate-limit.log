@@ -1,0 +1,25 @@
+2026-09-19T14:21:35Z Run anthropics/claude-code-action@v1
+2026-09-19T14:21:35Z   Pull request #657 needs a visual check.
+2026-09-19T14:22:01Z {
+2026-09-19T14:22:01Z   "type": "system",
+2026-09-19T14:22:01Z   "subtype": "init",
+2026-09-19T14:22:01Z   "session_id": "aaaa"
+2026-09-19T14:22:01Z }
+2026-09-19T14:49:50Z {
+2026-09-19T14:49:50Z   "type": "assistant",
+2026-09-19T14:49:50Z   "message": {
+2026-09-19T14:49:50Z     "content": [
+2026-09-19T14:49:50Z       { "type": "text", "text": "You've hit your limit · resets 3:50pm (UTC)" }
+2026-09-19T14:49:50Z     ]
+2026-09-19T14:49:50Z   },
+2026-09-19T14:49:50Z   "error": "rate_limit"
+2026-09-19T14:49:50Z }
+2026-09-19T14:49:51Z {
+2026-09-19T14:49:51Z   "type": "result",
+2026-09-19T14:49:51Z   "subtype": "success",
+2026-09-19T14:49:51Z   "is_error": true,
+2026-09-19T14:49:51Z   "num_turns": 56,
+2026-09-19T14:49:51Z   "result": "You've hit your limit · resets 3:50pm (UTC)"
+2026-09-19T14:49:51Z }
+2026-09-19T14:49:52Z error: Claude Code process exited with code 1
+2026-09-19T14:49:52Z ##[error]Action failed with error: SDK execution error: Error: Claude Code process exited with code 1

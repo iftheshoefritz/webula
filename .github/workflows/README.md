@@ -131,18 +131,21 @@ Reasons, in the order the script tests them:
 | `agent-error:max-turns` | `"subtype": "error_max_turns"` — Claude hit `--max-turns` |
 | `agent-error:execution-error` | `"subtype": "error_during_execution"` |
 | `agent-error:credit-balance` | `Credit balance is too low` |
-| `agent-error:rate-limit` | `usage limit reached` or a rate limit error |
+| `agent-error:rate-limit` | `usage limit reached`, `You've hit your limit`, `"error": "rate_limit"`, or another rate limit error |
 | `agent-error:context-overflow` | `prompt is too long` |
 | `agent-error:auth` | An expired OAuth token or an invalid API key |
 | `agent-error:job-timeout` | The runner stopped the job, or the job was cancelled |
 | `agent-error:api-error` | An overloaded or internal API error |
 | `agent-error:oidc-token` | `Could not fetch an OIDC token` — the job needs `id-token: write` |
-| `agent-error:post-run-step` | Claude finished, but a later step failed |
+| `agent-error:post-run-step` | The result record has `"is_error": false`, so Claude finished with no error and a later step failed |
 | `agent-error:startup-failure` | Claude never started |
 | `agent-error:logs-unavailable` | The logs could not be downloaded |
 | `agent-error:unknown` | None of the above matched |
 
 The script asks the Jobs API for the name and the page link of every job with the `failure` conclusion, and writes them as the multi-line `failed_jobs` output.
+
+A result record with `"is_error": true` is a Claude failure. If no test above
+matched it, the reason is `unknown`, not `post-run-step`.
 
 To classify a run by hand, run the script with the run ID:
 
