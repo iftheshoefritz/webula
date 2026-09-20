@@ -75,14 +75,15 @@ function RotateDeviceOverlay() {
 
 const DISCARD_DROPPABLE_ID = 'discard';
 
-// Three flat, top-level drop zones (#603 adds the core and the brig alongside the discard pile):
-// each one's `useDroppable` id is just its own zone name (`FlatCardRow`, `DiscardPile`), so a
-// drop on any of them dispatches the same `move` straight to that zone, for any card type. The
-// dilemma pile is a flat zone too, but not one of these: it has two drop targets of its own, the
-// top half and the bottom half of `DilemmaPileButton`, handled separately below (#607) — it
-// replaces the single whole-card `dilemmaPile` droppable #605 added, which only ever appended to
-// the bottom.
-const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig'];
+// Flat, top-level drop zones (#603 adds the core and the brig alongside the discard pile; #644
+// adds the hand and the dilemma hand): each one's `useDroppable` id is just its own zone name
+// (`FlatCardRow`, `DiscardPile`, `CardHand`'s closed row), so a drop on any of them dispatches
+// the same `move` straight to that zone, for any card type — the zone rules in `zoneAccepts.ts`
+// are advisory highlights only, same as every other flat zone here. The dilemma pile is a flat
+// zone too, but not one of these: it has two drop targets of its own, the top half and the
+// bottom half of `DilemmaPileButton`, handled separately below (#607) — it replaces the single
+// whole-card `dilemmaPile` droppable #605 added, which only ever appended to the bottom.
+const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig', 'hand', 'dilemmaHand'];
 
 // The dilemma pile's two drop targets (#607): a drop on the top half puts the card first in
 // `dilemmaPile` (drawn next); a drop on the bottom half puts it last, matching the pile's older,

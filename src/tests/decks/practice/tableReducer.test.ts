@@ -518,6 +518,24 @@ describe('tableReducer', () => {
       expect(state.missions[2].underMission).toEqual([{ ...moved, face: 'up' }]);
     });
 
+    it("moves a personnel card from a mission's personnel pile back into the hand, face up (#644)", () => {
+      const moved = instance('p0', card('Data'), 'down');
+      const start = { ...initialTableState, missions: missionSlots([], {}, { 0: [moved] }) };
+      const state = tableReducer(start, { type: 'move', id: 'p0', to: 'hand' });
+
+      expect(state.missions[0].personnel).toEqual([]);
+      expect(state.hand).toEqual([{ ...moved, face: 'up' }]);
+    });
+
+    it('moves a dilemma from under a mission back into the dilemma hand, face up (#644)', () => {
+      const moved = instance('d0', card('Chula The Chandra'), 'up');
+      const start = { ...initialTableState, missions: missionSlots([], {}, {}, {}, {}, { 0: [moved] }) };
+      const state = tableReducer(start, { type: 'move', id: 'd0', to: 'dilemmaHand' });
+
+      expect(state.missions[0].underMission).toEqual([]);
+      expect(state.dilemmaHand).toEqual([{ ...moved, face: 'up' }]);
+    });
+
     it("puts a card first in the destination when position is 'top' (#607)", () => {
       const existing = instance('d0', card('Cardassian Trap'), 'down');
       const moved = instance('d1', card('Chula The Chandra'), 'up');

@@ -12,14 +12,17 @@
 // so the drop never happens. Chromium retargets the events, but WebKit (iOS Safari) does not.
 // Issue #604 reuses this component for the dilemma hand. Issue #638: a tap on the draw pile
 // still draws a card while a hand is open, rather than only closing the hand — see
-// `passthroughZone` below.
+// `passthroughZone` below. Issue #644: the closed row is also a real `useDroppable` drop target,
+// so a card dragged from anywhere on the table can land back in the hand.
 
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { useDraggable } from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { offsetFor } from './overlapOffset';
 import CountBadge from './CountBadge';
+import { useDraggedCardType } from './DraggedCardTypeContext';
+import { highlightClassName, highlightState } from './zoneAccepts';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -100,7 +103,7 @@ export default function CardHand({
   onOpen: () => void;
   onClose: () => void;
   onCardClick: (id: string) => void;
-  zone?: string;
+  zone?: 'hand' | 'dilemmaHand';
   label?: string;
   // The `data-zone` of another control that stays tappable through the full-screen backdrop
   // while this hand is open (issue #638: the draw pile, so the player can draw without closing
@@ -118,6 +121,14 @@ export default function CardHand({
   const openWidth = instances.length === 0 ? OPEN_CARD_WIDTH : OPEN_CARD_WIDTH + openOffset * (instances.length - 1);
   const count = instances.length;
   const showFan = open || dragging;
+
+  // Issue #644: the closed row is a real drop target — a card dragged from anywhere on the
+  // table lands in this hand. The open fan is not a drop target: a drag always closes its own
+  // hand at once (`page.tsx`'s `handleDragStart`), so only the closed row is ever visible during
+  // a drag.
+  const { setNodeRef, isOver } = useDroppable({ id: zone });
+  const draggedType = useDraggedCardType();
+  const highlight = highlightState(zone, draggedType, isOver);
 
   const handleBackdropClick = (event: React.MouseEvent) => {
     if (passthroughZone) {
@@ -147,12 +158,14 @@ export default function CardHand({
           back (issue #639): one visible card face in the closed row would give the player an
           advantage the closed hand should not. The open fan below still shows the card faces. */}
       <button
+        ref={setNodeRef}
         type="button"
         data-zone={open ? undefined : zone}
+        data-highlight={open ? undefined : highlight}
         onClick={onOpen}
         disabled={open || count === 0}
         aria-label={`${label}, ${count} card${count === 1 ? '' : 's'}, tap to open`}
-        className="relative focus:outline-none disabled:cursor-default"
+        className={`relative focus:outline-none disabled:cursor-default ${open ? '' : highlightClassName(highlight)}`}
         style={{ width: closedWidth, height: CARD_HEIGHT, visibility: open ? 'hidden' : 'visible' }}
       >
         {instances.map((instance, idx) => (

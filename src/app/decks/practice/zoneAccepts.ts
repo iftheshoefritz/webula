@@ -11,7 +11,18 @@
 // `MISSION_PILE_BY_TYPE` (page.tsx) already routes personnel/equipment to the personnel pile and
 // event/mission/interrupt to the event pile, and a ship or a dilemma dropped there is handled
 // directly in `handleDragEnd` — so `mission` (like `core` and `discard`) accepts any type here.
-export type ZoneKind = 'shipRow' | 'mission' | 'crew' | 'core' | 'brig' | 'discard' | 'dilemmaPile';
+// Issue #644: the hand and the dilemma hand are two more zone kinds — the hand accepts any card
+// type (advisory, like `core`/`discard`), the dilemma hand only dilemmas (like `dilemmaPile`).
+export type ZoneKind =
+  | 'shipRow'
+  | 'mission'
+  | 'crew'
+  | 'core'
+  | 'brig'
+  | 'discard'
+  | 'dilemmaPile'
+  | 'hand'
+  | 'dilemmaHand';
 
 // `null` means every card type highlights this zone kind.
 const ZONE_ACCEPTS: Record<ZoneKind, readonly string[] | null> = {
@@ -22,6 +33,8 @@ const ZONE_ACCEPTS: Record<ZoneKind, readonly string[] | null> = {
   brig: ['personnel'],
   discard: null,
   dilemmaPile: ['dilemma'],
+  hand: null,
+  dilemmaHand: ['dilemma'],
 };
 
 function zoneAccepts(kind: ZoneKind, cardType: string): boolean {
@@ -31,15 +44,18 @@ function zoneAccepts(kind: ZoneKind, cardType: string): boolean {
 
 // The two highlight strengths a droppable can show during a drag, exposed as a `data-highlight`
 // attribute so a test can assert on what the highlight means rather than on a class string that
-// changes with the shade: `'over'` when the pointer is over this zone, `'valid'` when the zone
-// accepts the dragged card's type and the pointer is elsewhere. `isOver` wins over "accepts", so
-// a valid zone under the pointer shows only the stronger state, never both.
+// changes with the shade: `'over'` when the pointer is over this zone and the zone accepts the
+// dragged card's type, `'valid'` when the zone accepts that type and the pointer is elsewhere.
+// `isOver` alone does not win: dnd-kit's collision detection (`page.tsx`) is purely geometric, so
+// the pointer can sit over a zone that rejects the dragged type (issue #644's acceptance check —
+// a personnel card dragged over the closed dilemma hand, which only accepts dilemmas). Neither
+// state applies then, so the zone shows no highlight at all.
 export type HighlightState = 'over' | 'valid' | undefined;
 
 export function highlightState(kind: ZoneKind, draggedType: string | null, isOver: boolean): HighlightState {
-  if (isOver) return 'over';
-  if (draggedType !== null && zoneAccepts(kind, draggedType)) return 'valid';
-  return undefined;
+  const accepts = draggedType !== null && zoneAccepts(kind, draggedType);
+  if (isOver) return accepts ? 'over' : undefined;
+  return accepts ? 'valid' : undefined;
 }
 
 // A ring is a box-shadow, so unlike a border or padding it never affects layout. `over` keeps
