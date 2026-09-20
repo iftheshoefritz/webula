@@ -143,6 +143,14 @@ All PRs from automated agents MUST include:
 - A `## Visual Verification` section in the PR body describing which pages were visited and what was confirmed
 - If the dev server or browser fails, a `## Dev Server Issues` section with the full error output (do NOT skip or omit this step)
 
+To write a section into the body of a pull request, use `scripts/replace_pr_section.sh`.
+Never use `gh pr edit --body`. `--body` replaces the whole body, and an agent that writes
+the body again drops parts of it, such as the `Closes #<issue>` line.
+
+```bash
+bash scripts/replace_pr_section.sh <pr-number> "## Visual Verification" report.md
+```
+
 The smoke check and the full check are two runs. The agent that writes the code does the
 smoke check, opens the draft PR with "Pending." in the `## Visual Verification` section,
 and adds the `visual-check` label. The `visual-check` label starts

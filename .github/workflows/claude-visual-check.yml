@@ -83,9 +83,14 @@ jobs:
                d. Run the failed check again.
 
             7. Write the report:
-               a. Replace "Pending." in the "## Visual Verification" section of the pull request body with your report. Use `gh pr edit ${{ github.event.pull_request.number }} --body`. Keep the rest of the body as it is.
+               a. Write your report to a file, for example `/tmp/visual-verification.md`. Write the text of the section only, with no "## Visual Verification" heading line.
                   Name each page you visited, each viewport, each acceptance check, and its result. A reader must be able to tell a check you ran from a check you could not run.
-               b. If the dev server or `agent-browser` failed, add a "## Dev Server Issues" section with the full error output. Do NOT omit this.
+                  Then put the file into the pull request body with this script:
+                  `bash scripts/replace_pr_section.sh ${{ github.event.pull_request.number }} "## Visual Verification" /tmp/visual-verification.md`
+                  The script reads the current body, swaps the text of that one section, and writes the body back with `--body-file`.
+                  Never call `gh pr edit --body`. That replaces the whole body, and it drops the `Closes #<issue>` line. A merge then closes no issue.
+               b. If the dev server or `agent-browser` failed, write the full error output to a second file and add it the same way. Do NOT omit this.
+                  `bash scripts/replace_pr_section.sh --add-if-missing ${{ github.event.pull_request.number }} "## Dev Server Issues" /tmp/dev-server-issues.md`
                c. Mark the pull request ready for review: `gh pr ready ${{ github.event.pull_request.number }}`.
                   Leave it as a draft if an acceptance check failed and you could not fix it. Say why in the report, and add the `needs-human-input` label.
 
