@@ -38,9 +38,10 @@
 // same conflict already avoided for the ship's own drop target. A badge is a drop target of its
 // own: dropping a card of any type directly on a badge overrides the type-based routing above and
 // puts it in that pile regardless. A badge sits geometrically on top of the mission card's larger
-// drop target, so `pointerWithin` collision detection (`page.tsx`) already picks the smaller,
-// nested badge over the mission card beneath it, the same reasoning that already lets a ship's
-// crew zone win over its enclosing ship row. A tap on a badge opens that pile's panel
+// drop target, so `collisionDetection` (`page.tsx`), which ranks every zone the dragged card
+// overlaps by area, smallest first, already picks the smaller, nested badge over the mission
+// card beneath it, the same reasoning that lets a ship's crew zone win over its enclosing ship
+// row (#645). A tap on a badge opens that pile's panel
 // (`PilePanel`); a tap on the mission card elsewhere still opens the mission's own preview. The
 // under-the-mission pile has no badge of its own — its control is the tap target layered over its
 // stack of slivers (`UnderMissionStack` below), not a drop target, since the drop happens on the
