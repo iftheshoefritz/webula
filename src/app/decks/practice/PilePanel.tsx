@@ -4,12 +4,12 @@
 // #606), and, since #640, the core's and the brig's own panel too: a tap on a pile's badge (or,
 // for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
 // already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
-// cards face up regardless of their stored face, with a "Face down" label on any card whose
-// stored face is actually down (the same true-face-to-owner convention `CardPreview` already
-// uses for the enlarged preview). A tap on a card opens that card's own full preview via
-// `onCardClick`, reusing `findInstanceAnywhere` + the existing preview state in `page.tsx`. Each
-// card is draggable out via the same `useDraggable` + `DragOverlay` mechanism the hand and the
-// crew row already use.
+// cards face up regardless of their stored face (the same true-face-to-owner convention
+// `CardPreview` already uses for the enlarged preview). A tap on a card opens that card's own
+// full preview via `onCardClick`, reusing `findInstanceAnywhere` + the existing preview state in
+// `page.tsx`. Each card is draggable out via the same `useDraggable` + `DragOverlay` mechanism
+// the hand and the crew row already use. The card name stays off the panel as visible text (#674);
+// it is still on the image's `alt` and the card button's `aria-label`, for a screen reader.
 //
 // Follows the same `hidden` convention as `CardPreview`'s crew row: the panel stays mounted (not
 // unmounted) for the rest of a drag that started from a card inside it, so a touch drag begun
@@ -47,7 +47,7 @@ const closeLabel = (zone: PanelZone): string =>
 
 function PilePanelCard({ instance, onClick }: { instance: CardInstance; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
-  const { card, face } = instance;
+  const { card } = instance;
 
   return (
     <button
@@ -74,10 +74,6 @@ function PilePanelCard({ instance, onClick }: { instance: CardInstance; onClick:
           />
         </div>
       </div>
-      <span className="w-full text-[8px] leading-tight text-center text-text-primary truncate">{card.name}</span>
-      {face === 'down' && (
-        <span className="text-[7px] bg-black/70 text-text-primary px-1 rounded leading-tight">Face down</span>
-      )}
     </button>
   );
 }

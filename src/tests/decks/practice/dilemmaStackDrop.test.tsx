@@ -274,6 +274,8 @@ describe('Practice table: building and revealing a dilemma stack at a mission (#
     expect(panelCards).toHaveLength(2);
     expect(panelCards[0].getAttribute('data-card-id')).toBe(firstId);
     expect(panelCards[1].getAttribute('data-card-id')).toBe(secondId);
-    expect(panel!.textContent).toContain('Face down');
+    // The stack's cards are stored face down, but the panel shows them face up (#674): no
+    // "Face down" label, and the card's real name on the aria-label and the image's alt.
+    expect(panel!.textContent).not.toContain('Face down');
   });
 });
