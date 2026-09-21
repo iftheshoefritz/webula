@@ -657,6 +657,7 @@ function PracticeDrawContent() {
                   cards={core}
                   maxWidth={CORE_ROW_MAX_WIDTH}
                   maxOffset={FLAT_ROW_MAX_OFFSET}
+                  fixedWidth
                   onOpen={() => setOpenFlatZone('core')}
                 />
 
