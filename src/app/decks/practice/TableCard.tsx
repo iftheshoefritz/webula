@@ -2,10 +2,12 @@
 
 // Compact "table card" presentation (see the parent design in issue #130): shows only a
 // slice of the card image (the art), rather than the full card art+frame used in the hand and
-// the piles. The vertical crop sits between the top and the center of the image, not at the very
-// top and not centered: centering (#633) cut too much off the top and left too much of the
-// bottom, and the very top edge shows the frame/header above the art, not the art itself (#665).
-// The card's name is not
+// the piles. The vertical crop starts at the top of the image (`object-top`) and runs down far
+// enough to keep the same bottom edge #665 set: centering (#633) cut too much off the top and
+// left too much of the bottom, #665 moved the crop window down to fix the bottom edge but then
+// cut off the top of the art itself, and #673 grows the crop window upward, to the top of the
+// image, instead of moving it, so the bottom edge stays exactly where #665 left it. The card's
+// name is not
 // shown as text below the art — the art already carries the card's title, and the player
 // recognises the image (#634) — but it stays on the button's `aria-label`, so a screen reader
 // still reads it. Reused by later slices for any card that sits on the table rather than in a
@@ -26,7 +28,10 @@ import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 
 export const TABLE_CARD_WIDTH = 72; // px
-export const TABLE_CARD_ART_HEIGHT = 52; // px, crops the card image down to roughly its art box
+// px, crops the card image down to roughly its art box. At this width the full card image is
+// about 100px high; the crop starts at its top edge (`object-top` below) and runs to the same
+// bottom edge #665 set (12px down from the top, so 64px tall keeps that same bottom edge, #673).
+export const TABLE_CARD_ART_HEIGHT = 64; // px
 
 export default function TableCard({
   instance,
@@ -69,7 +74,7 @@ export default function TableCard({
           <img
             src={isFaceDown ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
             alt={isFaceDown ? 'Face-down card' : card.name}
-            className="w-full h-full object-cover object-[center_25%]"
+            className="w-full h-full object-cover object-top"
           />
         </div>
       </div>
