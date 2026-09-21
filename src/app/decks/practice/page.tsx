@@ -100,9 +100,10 @@ function dilemmaPileHalfFromDropId(id: string): 'top' | 'bottom' | null {
 // each one's row is bounded to a width that keeps the whole bottom row (discard pile, draw pile,
 // closed hand, core, brig, dilemma placeholder) inside the 568 px acceptance-check viewport: the
 // other four zones and their gaps take a little over 300 px, leaving roughly 250 px for the core
-// and the brig combined. A core row bounded to fit 4 overlapping cards and a brig row bounded to
-// fit 2 together stay well inside that budget.
-const CORE_ROW_MAX_WIDTH = 92; // px, fits 4 overlapping ship-sized cards
+// and the brig combined. The player uses the core more than the brig (#666), so the core is
+// bounded to fit 3 cards side by side with no overlap, and the brig stays bounded to fit 2
+// overlapping cards; together they stay well inside that budget.
+const CORE_ROW_MAX_WIDTH = 106; // px, fits 3 ship-sized cards side by side with no overlap
 const BRIG_ROW_MAX_WIDTH = 58; // px, fits 2 overlapping ship-sized cards
 const FLAT_ROW_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
 
