@@ -39,6 +39,7 @@ jest.mock('next/link', () => {
 const mockDraggableIds: string[] = [];
 let mockOnDragStart: ((event: { active: { id: string } }) => void) | null = null;
 let mockOnDragEnd: ((event: { active: { id: string }; over: { id: string } | null }) => void) | null = null;
+let mockOnDragCancel: (() => void) | null = null;
 jest.mock('@dnd-kit/core', () => {
   const actual = jest.requireActual('@dnd-kit/core');
   return {
@@ -46,7 +47,7 @@ jest.mock('@dnd-kit/core', () => {
     DndContext: ({ children, onDragStart, onDragEnd, onDragCancel }: any) => {
       mockOnDragStart = onDragStart;
       mockOnDragEnd = onDragEnd;
-      void onDragCancel;
+      mockOnDragCancel = onDragCancel;
       return children;
     },
     DragOverlay: ({ children }: any) => <div data-testid="drag-overlay">{children}</div>,
@@ -117,6 +118,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
     mockDraggableIds.length = 0;
     mockOnDragStart = null;
     mockOnDragEnd = null;
+    mockOnDragCancel = null;
     mockSearchParamsValue = new URLSearchParams();
     localStorage.clear();
 
@@ -296,6 +298,87 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
     });
 
     expect(screen.getByRole('button', { name: /data, tap to shrink/i })).toBeInTheDocument();
+  });
+
+  it("keeps the ship's crew panel open, showing the remaining crew member, after one is dragged out of it (#675)", async () => {
+    await setupOpenHand([mockShipCard, mockPersonnelCard, mockEquipmentCard]);
+    const [shipId, personnelId, equipmentId] = mockDraggableIds;
+    await placeShipOnMission(shipId, 0, 2);
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: personnelId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+    });
+    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(closedHandButton);
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: equipmentId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: equipmentId }, over: { id: `crew-${shipId}` } });
+    });
+
+    // Open the ship's crew panel: it lists both crew members.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /u\.s\.s\. relativity crew, 2 cards, tap to open/i }));
+    });
+    let panel = document.body.querySelector('[data-zone="pile-panel-crew"]') as HTMLElement;
+    expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(2);
+
+    // Drag one crew member out to the discard pile.
+    await act(async () => {
+      mockOnDragStart!({ active: { id: personnelId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'discard' } });
+    });
+
+    // The panel is still open, now showing only the crew member still aboard.
+    panel = document.body.querySelector('[data-zone="pile-panel-crew"]') as HTMLElement;
+    expect(panel).not.toBeNull();
+    expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(1);
+    expect(panel.querySelector(`[data-card-id="${equipmentId}"]`)).not.toBeNull();
+
+    // Drag the last crew member out too: now the panel closes, since the crew is empty.
+    await act(async () => {
+      mockOnDragStart!({ active: { id: equipmentId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: equipmentId }, over: { id: 'discard' } });
+    });
+    expect(document.body.querySelector('[data-zone="pile-panel-crew"]')).toBeNull();
+  });
+
+  it("keeps the ship's crew panel open after a drag out of it is cancelled (#675)", async () => {
+    await setupOpenHand([mockShipCard, mockPersonnelCard]);
+    const [shipId, personnelId] = mockDraggableIds;
+    await placeShipOnMission(shipId, 0, 1);
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: personnelId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /u\.s\.s\. relativity crew, 1 card, tap to open/i }));
+    });
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: personnelId } });
+    });
+    await act(async () => {
+      mockOnDragCancel!();
+    });
+
+    const panel = document.body.querySelector('[data-zone="pile-panel-crew"]');
+    expect(panel).not.toBeNull();
+    expect(panel!.querySelectorAll('[data-card-id]')).toHaveLength(1);
   });
 
   it("tapping the ship's art, away from the badge, opens the ship's own preview with no crew content", async () => {

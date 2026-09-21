@@ -23,6 +23,10 @@ import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import {
   CardInstance,
   MissionPileName,
+  MoveTarget,
+  TableAction,
+  TableState,
+  TableZone,
   Zone,
   createCardInstances,
   findInstanceAnywhere,
@@ -380,79 +384,144 @@ function PracticeDrawContent() {
     setDraggingInstance(found.instance);
   };
 
+  // Closes a pile panel after a drag ends, unless the drag started from a card inside that very
+  // panel and the panel still holds a card after the drop (#675): the player can then drag the
+  // next card out with no extra tap. A drag that did not start from a given panel still closes
+  // it, the same as before this change — including a panel that merely happened to be open while
+  // a drag started somewhere else entirely. `dragOrigin` is the dragged card's zone before the
+  // drop (found while `table` still holds its pre-drop state, in `handleDragEnd`/
+  // `handleDragCancel` below); `nextTable` is `table` after the drop's move applies (or `table`
+  // itself, unchanged, for a drag that dispatched no move at all, including a cancelled drag).
+  const closePanelsAfterDrag = (
+    dragOrigin: { instance: CardInstance; zone: TableZone } | null,
+    nextTable: TableState
+  ) => {
+    const zone = dragOrigin?.zone;
+
+    if (openPile) {
+      const isDragOrigin =
+        typeof zone === 'object' &&
+        zone.zone === 'missionPile' &&
+        zone.missionIndex === openPile.missionIndex &&
+        zone.pile === openPile.pile;
+      const stillHasCards = nextTable.missions[openPile.missionIndex][openPile.pile].length > 0;
+      if (!isDragOrigin || !stillHasCards) setOpenPile(null);
+    }
+
+    if (openFlatZone) {
+      const isDragOrigin = zone === openFlatZone;
+      const stillHasCards = nextTable[openFlatZone].length > 0;
+      if (!isDragOrigin || !stillHasCards) setOpenFlatZone(null);
+    }
+
+    if (openCrewShipId) {
+      const isDragOrigin = typeof zone === 'object' && zone.zone === 'crew' && zone.shipId === openCrewShipId;
+      const stillHasCards = !!findInstanceAnywhere(nextTable, openCrewShipId)?.instance.crew?.length;
+      if (!isDragOrigin || !stillHasCards) setOpenCrewShipId(null);
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     // See `handleDragStart`: normalized once, at the top, so every branch below already keys off
     // the real card id regardless of whether the drag came from the card's home draggable or its
     // enlarged preview (#643).
     const id = cardIdFromDraggableId(String(active.id));
+    // The dragged card's zone before the drop, read while `table` still holds its pre-drop
+    // state — used below both for the dilemma pile's from-hand routing and to decide, in
+    // `closePanelsAfterDrag`, whether this drag started from an open panel (#675).
+    const dragOrigin = findInstanceAnywhere(table, id);
     setDraggingInstance(null);
-    // Any drag closing clears the open preview and any open pile panel (#602), including the
-    // core's and the brig's own panel (#640) and a ship's crew panel (#664): a card dragged out
-    // of one begins its drag while the panel is still open.
+    // Any drag closing clears the open preview (#602); an open pile panel (#602), including the
+    // core's/the brig's own panel (#640) and a ship's crew panel (#664), closes too, unless the
+    // drag started from a card inside it and it still holds a card after the drop (#675).
     setFocusedCardId(null);
-    setOpenPile(null);
-    setOpenFlatZone(null);
-    setOpenCrewShipId(null);
+
+    // Each branch below only builds the move to dispatch; the dispatch itself, and the pile
+    // panel bookkeeping that needs to know the move's outcome, both happen once, after every
+    // branch has had its turn (#675) — this mirrors the same drop-target precedence order the
+    // branches followed before, just without an early `return` from each one.
+    let moveTarget: MoveTarget | null = null;
+    let movePosition: 'top' | 'bottom' | undefined;
+
     if (over && FLAT_DROP_ZONES.includes(String(over.id) as Zone)) {
-      dispatch({ type: 'move', id, to: over.id as Zone });
-      return;
+      moveTarget = over.id as Zone;
     }
+
     // A drop on either half of the dilemma pile (#607): the top half puts the card first in the
     // pile (drawn next), the bottom half puts it last. Accepted for any card type, the same
     // advisory-zone convention every other flat zone follows.
-    const dilemmaPilePosition = over ? dilemmaPileHalfFromDropId(String(over.id)) : null;
-    if (dilemmaPilePosition) {
-      dispatch({ type: 'move', id, to: 'dilemmaPile', position: dilemmaPilePosition });
-      return;
+    if (!moveTarget) {
+      const dilemmaPilePosition = over ? dilemmaPileHalfFromDropId(String(over.id)) : null;
+      if (dilemmaPilePosition) {
+        moveTarget = 'dilemmaPile';
+        movePosition = dilemmaPilePosition;
+      }
     }
+
     // A drop on a ship already in a ship row puts a personnel or equipment card aboard as crew
     // (#600). A drop of any other card type on it is not supported, so it is not dispatched and
     // the card returns to its source zone.
-    const shipId = over ? shipIdFromCrewDropId(String(over.id)) : null;
-    if (shipId && (draggingInstance?.card.type === 'personnel' || draggingInstance?.card.type === 'equipment')) {
-      dispatch({ type: 'move', id, to: { zone: 'crew', shipId } });
-      return;
+    if (!moveTarget) {
+      const shipId = over ? shipIdFromCrewDropId(String(over.id)) : null;
+      if (shipId && (draggingInstance?.card.type === 'personnel' || draggingInstance?.card.type === 'equipment')) {
+        moveTarget = { zone: 'crew', shipId };
+      }
     }
+
     // A drop directly on a pile's badge always goes to that pile, regardless of card type: the
     // player's way to override the type-based routing below (#602).
-    const badgeTarget = over ? missionPileFromDropId(String(over.id)) : null;
-    if (badgeTarget) {
-      dispatch({ type: 'move', id, to: { zone: 'missionPile', ...badgeTarget } });
-      return;
+    if (!moveTarget) {
+      const badgeTarget = over ? missionPileFromDropId(String(over.id)) : null;
+      if (badgeTarget) {
+        moveTarget = { zone: 'missionPile', ...badgeTarget };
+      }
     }
+
     // A drop on a mission card or its ship row both resolve to the same mission index. A ship
     // goes to that mission's ship row (#599); personnel/equipment/event/mission/interrupt file
     // into one of the mission's piles by type (#602). A dilemma dropped there from the open
     // dilemma hand builds the mission's dilemma stack instead (#605); a dilemma dropped there
     // from anywhere else — including that mission's own dilemma stack — goes under the mission
     // instead, face up, permanently out of the stack (#606).
-    const missionIndex = over ? missionIndexFromDropId(String(over.id)) : null;
-    if (missionIndex !== null && draggingInstance) {
-      if (draggingInstance.card.type === 'ship') {
-        dispatch({ type: 'move', id, to: { zone: 'shipRow', missionIndex } });
-        return;
-      }
-      if (draggingInstance.card.type === 'dilemma') {
-        const source = findInstanceAnywhere(table, id);
-        const pile = source?.zone === 'dilemmaHand' ? 'dilemma' : 'underMission';
-        dispatch({ type: 'move', id, to: { zone: 'missionPile', missionIndex, pile } });
-        return;
-      }
-      const pile = MISSION_PILE_BY_TYPE[draggingInstance.card.type];
-      if (pile) {
-        dispatch({ type: 'move', id, to: { zone: 'missionPile', missionIndex, pile } });
+    if (!moveTarget) {
+      const missionIndex = over ? missionIndexFromDropId(String(over.id)) : null;
+      if (missionIndex !== null && draggingInstance) {
+        if (draggingInstance.card.type === 'ship') {
+          moveTarget = { zone: 'shipRow', missionIndex };
+        } else if (draggingInstance.card.type === 'dilemma') {
+          const pile = dragOrigin?.zone === 'dilemmaHand' ? 'dilemma' : 'underMission';
+          moveTarget = { zone: 'missionPile', missionIndex, pile };
+        } else {
+          const pile = MISSION_PILE_BY_TYPE[draggingInstance.card.type];
+          if (pile) moveTarget = { zone: 'missionPile', missionIndex, pile };
+        }
       }
     }
+
+    const action: TableAction | null = moveTarget ? { type: 'move', id, to: moveTarget, position: movePosition } : null;
+    if (action) {
+      dispatch(action);
+    }
+    // `tableReducer` is a pure function (#675): calling it here, on the side, with the same
+    // action just dispatched, predicts the drop's outcome without waiting for the dispatch to
+    // reach the next render — `closePanelsAfterDrag` needs that outcome now, to decide whether
+    // an open panel still holds a card. A drag that dispatched no move (nothing was over a valid
+    // drop target) leaves `table` itself as the outcome: nothing moved, so nothing in any panel
+    // changed either.
+    const nextTable = action ? tableReducer(table, action) : table;
+    closePanelsAfterDrag(dragOrigin, nextTable);
   };
 
-  // The browser can cancel a touch drag (a pointercancel or a resize). Clear the overlay then too.
+  // The browser can cancel a touch drag (a pointercancel or a resize). Clear the overlay then
+  // too. No move ever dispatches for a cancelled drag, so `table` itself is already the outcome
+  // `closePanelsAfterDrag` needs (#675): the panel the drag started from, if any, still holds
+  // every card it held before the drag, so it stays open.
   const handleDragCancel = () => {
+    const dragOrigin = draggingInstance ? findInstanceAnywhere(table, draggingInstance.id) : null;
     setDraggingInstance(null);
     setFocusedCardId(null);
-    setOpenPile(null);
-    setOpenFlatZone(null);
-    setOpenCrewShipId(null);
+    closePanelsAfterDrag(dragOrigin, table);
   };
 
   const isEmpty = deckEmpty;
