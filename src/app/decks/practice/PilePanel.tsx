@@ -16,6 +16,14 @@
 // there survives the panel closing (the #611 WebKit hazard: an element removed from the document
 // mid-touch-drag stops receiving further touch events). `page.tsx`'s existing "any drag closing
 // clears the open preview" logic (`handleDragEnd`) extends to close this panel too.
+//
+// Each card also carries a small select checkbox (#677), a sibling of the card's own draggable
+// button rather than nested inside it — the same "control and drop/drag target sit side by
+// side, not nested" pattern `PileBadge`/`ShipCrewBadge` (`MissionRow.tsx`) already use, since a
+// `<button>` cannot nest inside another `<button>`. A tap on the checkbox toggles that card in
+// or out of `selectedIds`, owned by `page.tsx` (not this component), so a drag started from a
+// selected card can pick up the whole selection in `handleDragStart`. A tap on the card itself
+// still opens its preview, unaffected by selection.
 
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
@@ -45,36 +53,60 @@ const closeLabel = (zone: PanelZone): string =>
     ? `Close ${PANEL_LABEL[zone].toLowerCase()}`
     : `Close ${PANEL_LABEL[zone].toLowerCase()} pile`;
 
-function PilePanelCard({ instance, onClick }: { instance: CardInstance; onClick: () => void }) {
+function PilePanelCard({
+  instance,
+  onClick,
+  selected,
+  onToggleSelect,
+}: {
+  instance: CardInstance;
+  onClick: () => void;
+  selected: boolean;
+  onToggleSelect: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
   const { card } = instance;
 
   return (
-    <button
-      ref={setNodeRef}
-      type="button"
-      data-card-id={instance.id}
-      onClick={onClick}
-      {...attributes}
-      {...listeners}
-      className="flex flex-col items-center gap-0.5 focus:outline-none touch-none"
-      style={{
-        width: TABLE_CARD_WIDTH,
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-        opacity: isDragging ? 0.5 : 1,
-      }}
-      aria-label={card.name}
-    >
-      <div className="relative w-full" style={{ height: TABLE_CARD_ART_HEIGHT }}>
-        <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
-          <img
-            src={`/cardimages/${card.imagefile}.jpg`}
-            alt={card.name}
-            className="w-full h-full object-cover object-top"
-          />
+    <div className="relative" style={{ width: TABLE_CARD_WIDTH }}>
+      <button
+        ref={setNodeRef}
+        type="button"
+        data-card-id={instance.id}
+        onClick={onClick}
+        {...attributes}
+        {...listeners}
+        className={`flex flex-col items-center gap-0.5 focus:outline-none touch-none w-full rounded-md ${
+          selected ? 'ring-2 ring-accent' : ''
+        }`}
+        style={{
+          transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+          opacity: isDragging ? 0.5 : 1,
+        }}
+        aria-label={card.name}
+      >
+        <div className="relative w-full" style={{ height: TABLE_CARD_ART_HEIGHT }}>
+          <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
+            <img
+              src={`/cardimages/${card.imagefile}.jpg`}
+              alt={card.name}
+              className="w-full h-full object-cover object-top"
+            />
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+      <button
+        type="button"
+        onClick={onToggleSelect}
+        aria-pressed={selected}
+        aria-label={selected ? `Deselect ${card.name}` : `Select ${card.name}`}
+        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none ${
+          selected ? 'bg-accent border-accent text-white' : 'bg-black/50 border-white/50 text-transparent'
+        }`}
+      >
+        ✓
+      </button>
+    </div>
   );
 }
 
@@ -83,12 +115,16 @@ export default function PilePanel({
   cards,
   onClose,
   onCardClick,
+  selectedIds,
+  onToggleSelect,
   hidden = false,
 }: {
   zone: PanelZone;
   cards: CardInstance[];
   onClose: () => void;
   onCardClick: (id: string) => void;
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
   hidden?: boolean;
 }) {
   return (
@@ -107,7 +143,13 @@ export default function PilePanel({
         className="absolute left-1/2 top-8 -translate-x-1/2 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 max-w-[90%]"
       >
         {cards.map((instance) => (
-          <PilePanelCard key={instance.id} instance={instance} onClick={() => onCardClick(instance.id)} />
+          <PilePanelCard
+            key={instance.id}
+            instance={instance}
+            onClick={() => onCardClick(instance.id)}
+            selected={selectedIds.includes(instance.id)}
+            onToggleSelect={() => onToggleSelect(instance.id)}
+          />
         ))}
       </div>
     </div>
