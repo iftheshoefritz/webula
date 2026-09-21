@@ -285,6 +285,11 @@ function PracticeDrawContent() {
   // Which of the core's/the brig's own pile panel (#640) is open, if either. Tracked the same
   // way `openPile` tracks a mission's open pile: a piece of UI state with no effect on the table.
   const [openFlatZone, setOpenFlatZone] = useState<'core' | 'brig' | null>(null);
+  // Which ship's crew panel (#664) is open, if any, named by the ship's own instance id (not a
+  // mission index, since a ship stays reachable by its own id regardless of which mission's ship
+  // row currently holds it — the same reasoning `crewDropId` already follows). Tracked the same
+  // way as `openPile`/`openFlatZone`: a piece of UI state with no effect on the table.
+  const [openCrewShipId, setOpenCrewShipId] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -381,14 +386,13 @@ function PracticeDrawContent() {
     // enlarged preview (#643).
     const id = cardIdFromDraggableId(String(active.id));
     setDraggingInstance(null);
-    // Any drag closing clears the open preview: a crew card's drag begins while its own ship's
-    // preview is still open (the crew row is the only place a crew card appears), and the
-    // acceptance check for #600 requires that drag ending (dropped or not) to close the preview.
-    // The same applies to an open pile panel (#602), including the core's and the brig's own
-    // panel (#640): a card dragged out of one begins its drag while the panel is still open.
+    // Any drag closing clears the open preview and any open pile panel (#602), including the
+    // core's and the brig's own panel (#640) and a ship's crew panel (#664): a card dragged out
+    // of one begins its drag while the panel is still open.
     setFocusedCardId(null);
     setOpenPile(null);
     setOpenFlatZone(null);
+    setOpenCrewShipId(null);
     if (over && FLAT_DROP_ZONES.includes(String(over.id) as Zone)) {
       dispatch({ type: 'move', id, to: over.id as Zone });
       return;
@@ -447,10 +451,12 @@ function PracticeDrawContent() {
     setFocusedCardId(null);
     setOpenPile(null);
     setOpenFlatZone(null);
+    setOpenCrewShipId(null);
   };
 
   const isEmpty = deckEmpty;
   const focused = focusedCardId ? findInstanceAnywhere(table, focusedCardId) : null;
+  const openCrewShip = openCrewShipId ? findInstanceAnywhere(table, openCrewShipId)?.instance : null;
 
   if (isPortrait) {
     return <RotateDeviceOverlay />;
@@ -502,6 +508,7 @@ function PracticeDrawContent() {
                 missions={missions}
                 onCardClick={(id) => setFocusedCardId(id)}
                 onOpenPile={(missionIndex, pile) => setOpenPile({ missionIndex, pile })}
+                onOpenCrew={(shipId) => setOpenCrewShipId(shipId)}
               />
 
               {/* Bottom row, anchored to the bottom. From left to right: discard pile, draw pile,
@@ -626,11 +633,10 @@ function PracticeDrawContent() {
               {/* Enlarged card preview, anchored to the right edge at full screen height so its
                   position never shifts regardless of which card is previewed. A table card (a
                   mission, or a card in one of its piles, #602) gets a "Flip" button; a hand card
-                  does not (#598). A ship's preview also shows its crew in a row below the art
-                  (#600); `hidden` visually closes the preview for the duration of any drag
-                  without unmounting that row. The enlarged card is itself draggable to another
-                  zone (#643) unless it previews a mission — a mission card has no on-table
-                  draggable of its own either (`MissionRow.tsx`). */}
+                  does not (#598). `hidden` visually closes the preview for the duration of any
+                  drag. The enlarged card is itself draggable to another zone (#643) unless it
+                  previews a mission — a mission card has no on-table draggable of its own either
+                  (`MissionRow.tsx`). */}
               {focused && (
                 <CardPreview
                   instance={focused.instance}
@@ -641,8 +647,6 @@ function PracticeDrawContent() {
                       : undefined
                   }
                   draggable={focused.zone !== 'missions'}
-                  crew={focused.instance.card.type === 'ship' ? focused.instance.crew ?? [] : undefined}
-                  onCardClick={(id) => setFocusedCardId(id)}
                   hidden={draggingInstance !== null}
                 />
               )}
@@ -665,6 +669,17 @@ function PracticeDrawContent() {
                   zone={openFlatZone}
                   cards={openFlatZone === 'core' ? core : brig}
                   onClose={() => setOpenFlatZone(null)}
+                  onCardClick={(id) => setFocusedCardId(id)}
+                  hidden={draggingInstance !== null}
+                />
+              )}
+
+              {/* A ship's crew panel (#664), opened by tapping its personnel badge. */}
+              {openCrewShip && (
+                <PilePanel
+                  zone="crew"
+                  cards={openCrewShip.crew ?? []}
+                  onClose={() => setOpenCrewShipId(null)}
                   onCardClick={(id) => setFocusedCardId(id)}
                   hidden={draggingInstance !== null}
                 />
