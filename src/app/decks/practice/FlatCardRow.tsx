@@ -28,6 +28,7 @@ export default function FlatCardRow({
   cards,
   maxWidth,
   maxOffset,
+  fixedWidth = false,
   onOpen,
 }: {
   zone: 'core' | 'brig';
@@ -35,6 +36,10 @@ export default function FlatCardRow({
   cards: CardInstance[];
   maxWidth: number;
   maxOffset: number;
+  // Keeps the zone at maxWidth at every card count, instead of shrinking to fit the cards it
+  // holds (#676). Used by the core, so the zone does not grow or shrink as cards are added or
+  // removed. The brig keeps its existing width-to-cards behaviour.
+  fixedWidth?: boolean;
   onOpen: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: zone });
@@ -48,9 +53,10 @@ export default function FlatCardRow({
         ref={setNodeRef}
         data-zone={zone}
         data-highlight={highlight}
-        className={`w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1 ${highlightClassName(
+        className={`${fixedWidth ? '' : 'w-14'} h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1 ${highlightClassName(
           highlight
         )}`}
+        style={fixedWidth ? { width: maxWidth } : undefined}
       >
         {label}
       </div>
@@ -70,7 +76,7 @@ export default function FlatCardRow({
       data-highlight={highlight}
       className={`relative rounded ${dragging ? 'rounded-lg border-2 border-dashed border-white/20' : ''} ${highlightClassName(highlight)}`}
       style={{
-        width: dragging ? Math.max(rowWidth, 56) : rowWidth,
+        width: fixedWidth ? maxWidth : dragging ? Math.max(rowWidth, 56) : rowWidth,
         height: dragging ? Math.max(SHIP_CARD_ART_HEIGHT, 80) : SHIP_CARD_ART_HEIGHT,
       }}
     >

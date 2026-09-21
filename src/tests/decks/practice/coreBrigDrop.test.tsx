@@ -528,7 +528,9 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     });
 
     expect(coreZone().className).toEqual(expect.stringContaining('border-dashed'));
-    expect(coreZone().style.width).toBe('56px');
+    // Unlike the brig, the core keeps its fixed CORE_ROW_MAX_WIDTH at every card count (#676),
+    // rather than shrinking to the 56px minimum box size the brig uses.
+    expect(coreZone().style.width).toBe('106px');
     expect(coreZone().style.height).toBe('80px');
   });
 
@@ -558,5 +560,64 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     expect(brigZone().className).toEqual(expect.stringContaining('border-dashed'));
     expect(brigZone().style.width).toBe('56px');
     expect(brigZone().style.height).toBe('80px');
+  });
+
+  // #676: the core previously shrank to fit its cards (one card made it 34px wide), instead of
+  // keeping a fixed width sized for three cards. This checks the zone's own width stays the same
+  // as cards are added, unlike the brig, which is still allowed to grow with its cards.
+  it('keeps the core at the same fixed width at 0, 1, and 4 cards, while the brig grows with its cards (#676)', async () => {
+    const mockEventCards = [1, 2, 3, 4].map((n) => ({
+      collectorsinfo: `1U10${n}`,
+      originalName: `Event ${n}`,
+      type: 'event',
+      name: `event ${n}`,
+      imagefile: `event${n}`,
+      pile: 'draw',
+      count: 1,
+    }));
+
+    await setupOpenHand(mockEventCards);
+    // Capture each card's stable instance id right after the hand first renders, before any
+    // further renders can push duplicate entries onto the mocked useDraggable id list.
+    const cardIds = Array.from(new Set(mockDraggableIds));
+
+    const coreZone = () => document.body.querySelector('[data-zone="core"]') as HTMLElement;
+    const brigZone = () => document.body.querySelector('[data-zone="brig"]') as HTMLElement;
+    const emptyCoreWidth = coreZone().style.width;
+    const emptyBrigWidth = brigZone().style.width;
+
+    for (let i = 0; i < cardIds.length; i++) {
+      // Each drag start closes the hand (except the first, which setupOpenHand already opened),
+      // so it must be reopened before the next drag.
+      if (i > 0) {
+        const remaining = cardIds.length - i;
+        const closedHandButton = screen.getByRole('button', {
+          name: new RegExp(`^hand, ${remaining} cards?, tap to open$`, 'i'),
+        });
+        await act(async () => {
+          fireEvent.click(closedHandButton);
+        });
+      }
+      await act(async () => {
+        mockOnDragStart!({ active: { id: cardIds[i] } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: cardIds[i] }, over: { id: 'core' } });
+      });
+
+      expect(coreZone().style.width).toBe(emptyCoreWidth);
+    }
+
+    // The brig, unaffected by #676, still grows with the cards it holds: drag two of the same
+    // cards back out of the core and into the brig instead.
+    for (let i = 0; i < 2; i++) {
+      await act(async () => {
+        mockOnDragStart!({ active: { id: cardIds[i] } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: cardIds[i] }, over: { id: 'brig' } });
+      });
+    }
+    expect(brigZone().style.width).not.toBe(emptyBrigWidth);
   });
 });
