@@ -28,7 +28,7 @@ describe('MissionRow', () => {
   // stack absolutely positioned behind it, rather than a strip of edges reserved below it.
   it('shows no under-mission tap target when the pile is empty', () => {
     render(
-      <MissionRow missions={[emptySlot()]} onCardClick={() => {}} onOpenPile={() => {}} onOpenCrew={() => {}} />
+      <MissionRow missions={[emptySlot()]} onCardClick={() => {}} onOpenPile={() => {}} onShipClick={() => {}} />
     );
 
     expect(screen.queryByRole('button', { name: /under the mission pile/i })).not.toBeInTheDocument();
@@ -40,7 +40,7 @@ describe('MissionRow', () => {
       ...emptySlot(),
       underMission: [card('d1', 'Dilemma One'), card('d2', 'Dilemma Two')],
     };
-    render(<MissionRow missions={[slot]} onCardClick={() => {}} onOpenPile={onOpenPile} onOpenCrew={() => {}} />);
+    render(<MissionRow missions={[slot]} onCardClick={() => {}} onOpenPile={onOpenPile} onShipClick={() => {}} />);
 
     expect(document.body.querySelector('[data-card-id="d1"] img')).toHaveAttribute('src', '/cardimages/d1.jpg');
     expect(document.body.querySelector('[data-card-id="d2"] img')).toHaveAttribute('src', '/cardimages/d2.jpg');
@@ -53,7 +53,7 @@ describe('MissionRow', () => {
   // it for the dilemma slivers.
   it('renders the badge strip after (below) the mission card, not above it', () => {
     const slot: MissionSlot = { ...emptySlot(), personnel: [card('p1', 'Personnel One')] };
-    render(<MissionRow missions={[slot]} onCardClick={() => {}} onOpenPile={() => {}} onOpenCrew={() => {}} />);
+    render(<MissionRow missions={[slot]} onCardClick={() => {}} onOpenPile={() => {}} onShipClick={() => {}} />);
 
     const missionZone = document.body.querySelector('[data-zone="mission-0"]')!;
     const badge = screen.getByRole('button', { name: /personnel pile, 1 card/i });
