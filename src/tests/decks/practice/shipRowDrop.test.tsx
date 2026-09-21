@@ -276,7 +276,9 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     await act(async () => {
       mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
     });
-    expect(screen.getByRole('button', { name: 'u.s.s. relativity' }).textContent).toContain('1');
+    expect(
+      screen.getByRole('button', { name: /u\.s\.s\. relativity crew, 1 card, tap to open/i })
+    ).toBeInTheDocument();
 
     // Drag the crewed ship to mission 4's ship row, crossing over the missions in between.
     await act(async () => {
@@ -290,10 +292,11 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     const destinationRow = document.body.querySelector('[data-zone="ship-row-4"]');
     expect(sourceRow!.querySelector('[data-card-id]')).toBeNull();
     expect(destinationRow!.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
-    expect(screen.getByRole('button', { name: 'u.s.s. relativity' }).textContent).toContain('1');
+    const badge = screen.getByRole('button', { name: /u\.s\.s\. relativity crew, 1 card, tap to open/i });
+    expect(destinationRow!.contains(badge)).toBe(true);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(badge);
     });
     expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
   });

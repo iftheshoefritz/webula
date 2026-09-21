@@ -22,8 +22,10 @@ import { CardInstance, MissionPileName } from './tableReducer';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 
 // A mission pile is one of `MissionPileName`; the core and the brig (#640) are two more flat
-// zones this same panel now lists, alongside a mission's piles.
-export type PanelZone = MissionPileName | 'core' | 'brig';
+// zones this same panel now lists, alongside a mission's piles. A ship's crew (#664) is a third:
+// like the core and the brig, it is not addressed by mission index, so it is named the same way,
+// by its own zone string rather than a `MissionPileName`.
+export type PanelZone = MissionPileName | 'core' | 'brig' | 'crew';
 
 const PANEL_LABEL: Record<PanelZone, string> = {
   personnel: 'Personnel',
@@ -32,13 +34,14 @@ const PANEL_LABEL: Record<PanelZone, string> = {
   underMission: 'Under the mission',
   core: 'Core',
   brig: 'Brig',
+  crew: 'Crew',
 };
 
-// The core and the brig are not "piles" the way a mission's personnel/event/dilemma piles are,
-// so their close button's label drops that word; a mission pile's label keeps it, unchanged from
-// before #640.
+// The core, the brig, and a ship's crew (#664) are not "piles" the way a mission's
+// personnel/event/dilemma piles are, so their close button's label drops that word; a mission
+// pile's label keeps it, unchanged from before #640.
 const closeLabel = (zone: PanelZone): string =>
-  zone === 'core' || zone === 'brig'
+  zone === 'core' || zone === 'brig' || zone === 'crew'
     ? `Close ${PANEL_LABEL[zone].toLowerCase()}`
     : `Close ${PANEL_LABEL[zone].toLowerCase()} pile`;
 

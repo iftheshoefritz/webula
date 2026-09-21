@@ -23,7 +23,12 @@
 // equipment card dropped on it goes aboard as crew, leaving the table (see `ShipCard` below).
 // The ship stays draggable at the same time; a `useDroppable` wrapper around the already
 // draggable `TableCard`, the same nesting pattern used for the mission card's own drop target,
-// keeps the two roles apart as two different DOM nodes.
+// keeps the two roles apart as two different DOM nodes. A non-empty crew shows a badge in that
+// wrapper (#664): the same `PersonnelIcon`-and-count pill a mission's personnel pile shows
+// (`PileBadge` below), not the plain `CountBadge` circle the draw and discard piles use. A tap on
+// the badge opens every crew card in a panel (`PilePanel`, zone `'crew'`, wired up in `page.tsx`);
+// a tap on the ship's art elsewhere still opens the ship's own preview, with no crew content in
+// it (`CardPreview` no longer renders a crew row).
 //
 // Dropping a personnel, equipment, event, mission, or interrupt card on the mission card or its
 // ship row (#602) files it into one of that mission's piles, chosen by card type: personnel and
@@ -95,20 +100,23 @@ export function shipIdFromCrewDropId(id: string): string | null {
 function ShipCard({
   ship,
   onCardClick,
+  onOpenCrew,
 }: {
   ship: CardInstance;
   onCardClick: (id: string) => void;
+  onOpenCrew: (shipId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: crewDropId(ship.id) });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('crew', draggedType, isOver);
+  const crewCount = ship.crew?.length ?? 0;
 
   return (
     <div
       ref={setNodeRef}
       data-zone={crewDropId(ship.id)}
       data-highlight={highlight}
-      className={`rounded ${highlightClassName(highlight)}`}
+      className={`relative rounded ${highlightClassName(highlight)}`}
     >
       <TableCard
         instance={ship}
@@ -116,8 +124,8 @@ function ShipCard({
         width={SHIP_CARD_WIDTH}
         artHeight={SHIP_CARD_ART_HEIGHT}
         draggable
-        badge={ship.crew?.length}
       />
+      <ShipCrewBadge shipName={ship.card.name} count={crewCount} onOpen={() => onOpenCrew(ship.id)} />
     </div>
   );
 }
@@ -220,6 +228,40 @@ function PileBadge({
   );
 }
 
+// A ship's crew badge (#664): the same `PersonnelIcon`-and-count pill style `PileBadge` uses for
+// a mission's personnel pile, so the same kind of thing — personnel in a pile — always gets the
+// same badge. It sits as a sibling of the ship's own `TableCard` button, inside `ShipCard`'s
+// `crewDropId` wrapper, since a `<button>` cannot nest inside another `<button>` (the ship's own
+// tap-to-preview button) — the same reasoning `PileBadge` documents above for the mission's own
+// badges. It is not a drop target of its own: it sits geometrically inside the ship's existing
+// `crewDropId` drop target, so a drop that lands on the badge already resolves there. A tap opens
+// the crew panel (`PilePanel`, zone `'crew'`); a tap on the ship's art elsewhere still opens the
+// ship's own preview via `ShipCard`'s `TableCard`.
+function ShipCrewBadge({
+  shipName,
+  count,
+  onOpen,
+}: {
+  shipName: string;
+  count: number;
+  onOpen: () => void;
+}) {
+  if (count === 0) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`${shipName} crew, ${count} card${count === 1 ? '' : 's'}, tap to open`}
+      className="absolute -top-1 -right-1 z-10 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none"
+      style={{ height: BADGE_STRIP_HEIGHT - 2 }}
+    >
+      <PersonnelIcon />
+      <span className="text-[8px] font-bold">{count}</span>
+    </button>
+  );
+}
+
 function BadgeStrip({
   missionIndex,
   personnelCount,
@@ -311,10 +353,12 @@ function ShipRow({
   missionIndex,
   ships,
   onCardClick,
+  onOpenCrew,
 }: {
   missionIndex: number;
   ships: CardInstance[];
   onCardClick: (id: string) => void;
+  onOpenCrew: (shipId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: shipRowDropId(missionIndex) });
   const draggedType = useDraggedCardType();
@@ -336,7 +380,7 @@ function ShipRow({
         <div className="relative" style={{ width: rowWidth, height: SHIP_ROW_HEIGHT }}>
           {ships.map((ship, idx) => (
             <div key={ship.id} className="absolute top-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
-              <ShipCard ship={ship} onCardClick={onCardClick} />
+              <ShipCard ship={ship} onCardClick={onCardClick} onOpenCrew={onOpenCrew} />
             </div>
           ))}
         </div>
@@ -350,11 +394,13 @@ function MissionColumn({
   slot,
   onCardClick,
   onOpenPile,
+  onOpenCrew,
 }: {
   missionIndex: number;
   slot: MissionSlot;
   onCardClick: (id: string) => void;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
+  onOpenCrew: (shipId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
   const draggedType = useDraggedCardType();
@@ -395,7 +441,7 @@ function MissionColumn({
         onOpenPile={onOpenPile}
       />
 
-      <ShipRow missionIndex={missionIndex} ships={ships} onCardClick={onCardClick} />
+      <ShipRow missionIndex={missionIndex} ships={ships} onCardClick={onCardClick} onOpenCrew={onOpenCrew} />
     </div>
   );
 }
@@ -404,15 +450,24 @@ export default function MissionRow({
   missions,
   onCardClick,
   onOpenPile,
+  onOpenCrew,
 }: {
   missions: MissionSlot[];
   onCardClick: (id: string) => void;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
+  onOpenCrew: (shipId: string) => void;
 }) {
   return (
     <div className="flex flex-row gap-2 justify-center">
       {missions.map((slot, idx) => (
-        <MissionColumn key={idx} missionIndex={idx} slot={slot} onCardClick={onCardClick} onOpenPile={onOpenPile} />
+        <MissionColumn
+          key={idx}
+          missionIndex={idx}
+          slot={slot}
+          onCardClick={onCardClick}
+          onOpenPile={onOpenPile}
+          onOpenCrew={onOpenCrew}
+        />
       ))}
     </div>
   );
