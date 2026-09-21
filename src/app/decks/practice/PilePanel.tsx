@@ -11,6 +11,13 @@
 // the hand and the crew row already use. The card name stays off the panel as visible text (#674);
 // it is still on the image's `alt` and the card button's `aria-label`, for a screen reader.
 //
+// The `'crew'` zone (#664) is opened by a tap on a ship, alongside that ship's own preview
+// (#678), rather than on its own — so it can never cover the screen's right half, where the
+// preview sits. Its backdrop and its box of cards both stay within the left half instead of the
+// centered, up-to-90%-wide box every other zone uses, so the two never overlap; that gives it
+// about the size the core's or the brig's own panel reaches once it holds enough cards to wrap
+// past one row.
+//
 // Follows the same `hidden` convention as `CardPreview`'s crew row: the panel stays mounted (not
 // unmounted) for the rest of a drag that started from a card inside it, so a touch drag begun
 // there survives the panel closing (the #611 WebKit hazard: an element removed from the document
@@ -127,6 +134,16 @@ export default function PilePanel({
   onToggleSelect: (id: string) => void;
   hidden?: boolean;
 }) {
+  // The crew zone opens alongside the ship's own preview, anchored to the right (#678): its
+  // backdrop and its box of cards both stay within the left half of the screen so neither ever
+  // sits under the preview. Every other zone keeps the centered, up-to-90%-wide layout it always
+  // had.
+  const isCrew = zone === 'crew';
+  const backdropClassName = isCrew ? 'absolute inset-y-0 left-0 right-1/2' : 'absolute inset-0';
+  const boxClassName = isCrew
+    ? 'absolute left-4 right-[calc(50%+0.5rem)] top-8 flex flex-wrap items-start justify-start gap-2 rounded-lg bg-black/70 p-2'
+    : 'absolute left-1/2 top-8 -translate-x-1/2 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 max-w-[90%]';
+
   return (
     <div
       className="fixed inset-0 z-[150]"
@@ -134,14 +151,11 @@ export default function PilePanel({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/40"
+        className={`${backdropClassName} bg-black/40`}
         onClick={onClose}
         aria-label={closeLabel(zone)}
       />
-      <div
-        data-zone={`pile-panel-${zone}`}
-        className="absolute left-1/2 top-8 -translate-x-1/2 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 max-w-[90%]"
-      >
+      <div data-zone={`pile-panel-${zone}`} className={boxClassName}>
         {cards.map((instance) => (
           <PilePanelCard
             key={instance.id}

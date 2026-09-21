@@ -9,8 +9,15 @@
 //
 // This same component drives the hand card preview (#598) and the pile panel previews (#602),
 // including a ship's crew panel (#664; a ship's own preview used to also show a crew row below
-// the enlarged art, but that panel replaced it — a tap on the ship's art still opens this same
-// preview, just with no crew content in it).
+// the enlarged art, but that panel replaced it).
+//
+// Since #678, a tap on a ship opens its own preview and its crew panel together, side by side —
+// this preview stays anchored to the right, and the crew panel takes the left half of the
+// screen. `reserveLeft` shrinks this preview's own full-screen tap-to-close backdrop and enlarged
+// card button down to the right half too (`page.tsx` sets it whenever a crew panel is open, not
+// just for a ship's own preview, since the crew panel can stay open while a tap on one of its
+// cards swaps the preview to show that card instead), so this preview never sits on top of the
+// crew panel's own cards and swallows taps meant for them.
 //
 // The enlarged card is itself draggable to another zone (#643), following the same
 // `useDraggable` + shared-node pattern every other table card already uses (`TableCard`,
@@ -47,12 +54,14 @@ export default function CardPreview({
   onFlip,
   hidden = false,
   draggable = false,
+  reserveLeft = false,
 }: {
   instance: CardInstance;
   onClose: () => void;
   onFlip?: () => void;
   hidden?: boolean;
   draggable?: boolean;
+  reserveLeft?: boolean;
 }) {
   const { card, face } = instance;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -62,6 +71,10 @@ export default function CardPreview({
   // Hidden by the same rule as the rest of the preview, except while this card is itself being
   // dragged: a drag it started stays visible for its own whole duration.
   const cardHidden = hidden && !isDragging;
+  // The backdrop and the enlarged card button are normally the whole screen, so a tap anywhere
+  // closes the preview; `reserveLeft` (#678) pulls their left edge in to the middle, leaving the
+  // left half free for a crew panel open alongside this preview.
+  const tapAreaClassName = reserveLeft ? 'absolute inset-y-0 left-1/2 right-0' : 'absolute inset-0';
 
   return (
     <div
@@ -70,7 +83,7 @@ export default function CardPreview({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/50"
+        className={`${tapAreaClassName} bg-black/50`}
         onClick={onClose}
         aria-label="Close preview"
       />
@@ -79,7 +92,7 @@ export default function CardPreview({
         ref={setNodeRef}
         type="button"
         data-testid="card-preview-enlarged"
-        className={`absolute inset-0 ${draggable ? 'touch-none' : ''}`}
+        className={`${tapAreaClassName} ${draggable ? 'touch-none' : ''}`}
         style={{
           visibility: cardHidden ? 'hidden' : 'visible',
           pointerEvents: cardHidden ? 'none' : undefined,

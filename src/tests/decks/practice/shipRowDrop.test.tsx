@@ -276,9 +276,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     await act(async () => {
       mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
     });
-    expect(
-      screen.getByRole('button', { name: /u\.s\.s\. relativity crew, 1 card, tap to open/i })
-    ).toBeInTheDocument();
+    expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).not.toBeNull();
 
     // Drag the crewed ship to mission 4's ship row, crossing over the missions in between.
     await act(async () => {
@@ -291,12 +289,13 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     const sourceRow = document.body.querySelector('[data-zone="ship-row-0"]');
     const destinationRow = document.body.querySelector('[data-zone="ship-row-4"]');
     expect(sourceRow!.querySelector('[data-card-id]')).toBeNull();
-    expect(destinationRow!.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
-    const badge = screen.getByRole('button', { name: /u\.s\.s\. relativity crew, 1 card, tap to open/i });
-    expect(destinationRow!.contains(badge)).toBe(true);
+    const shipButton = screen.getByRole('button', { name: 'u.s.s. relativity' });
+    expect(destinationRow!.contains(shipButton)).toBe(true);
+    expect(destinationRow!.querySelector('[aria-label*="crew"]')).not.toBeNull();
 
+    // A tap on the ship (#678) opens both its own preview and its crew panel.
     await act(async () => {
-      fireEvent.click(badge);
+      fireEvent.click(shipButton);
     });
     expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
   });

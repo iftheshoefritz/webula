@@ -24,11 +24,13 @@
 // The ship stays draggable at the same time; a `useDroppable` wrapper around the already
 // draggable `TableCard`, the same nesting pattern used for the mission card's own drop target,
 // keeps the two roles apart as two different DOM nodes. A non-empty crew shows a badge in that
-// wrapper (#664): the same `PersonnelIcon`-and-count pill a mission's personnel pile shows
-// (`PileBadge` below), not the plain `CountBadge` circle the draw and discard piles use. A tap on
-// the badge opens every crew card in a panel (`PilePanel`, zone `'crew'`, wired up in `page.tsx`);
-// a tap on the ship's art elsewhere still opens the ship's own preview, with no crew content in
-// it (`CardPreview` no longer renders a crew row).
+// wrapper: the same `PersonnelIcon`-and-count pill a mission's personnel pile shows (`PileBadge`
+// below), not the plain `CountBadge` circle the draw and discard piles use. A tap anywhere on the
+// ship (`onShipClick`, #678) opens both the ship's own preview and, if it has crew, every crew
+// card in a panel (`PilePanel`, zone `'crew'`, wired up in `page.tsx`) — the two open and close
+// together, so the badge itself is no longer a tap target of its own (it was, in #664): it is now
+// a plain, non-interactive `<span>` with `pointer-events-none`, so a tap that lands on it falls
+// through to the ship's own `TableCard` button beneath.
 //
 // Dropping a personnel, equipment, event, mission, or interrupt card on the mission card or its
 // ship row (#602) files it into one of that mission's piles, chosen by card type: personnel and
@@ -99,12 +101,10 @@ export function shipIdFromCrewDropId(id: string): string | null {
 
 function ShipCard({
   ship,
-  onCardClick,
-  onOpenCrew,
+  onShipClick,
 }: {
   ship: CardInstance;
-  onCardClick: (id: string) => void;
-  onOpenCrew: (shipId: string) => void;
+  onShipClick: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: crewDropId(ship.id) });
   const draggedType = useDraggedCardType();
@@ -120,12 +120,12 @@ function ShipCard({
     >
       <TableCard
         instance={ship}
-        onClick={() => onCardClick(ship.id)}
+        onClick={() => onShipClick(ship.id)}
         width={SHIP_CARD_WIDTH}
         artHeight={SHIP_CARD_ART_HEIGHT}
         draggable
       />
-      <ShipCrewBadge shipName={ship.card.name} count={crewCount} onOpen={() => onOpenCrew(ship.id)} />
+      <ShipCrewBadge shipName={ship.card.name} count={crewCount} />
     </div>
   );
 }
@@ -228,37 +228,27 @@ function PileBadge({
   );
 }
 
-// A ship's crew badge (#664): the same `PersonnelIcon`-and-count pill style `PileBadge` uses for
-// a mission's personnel pile, so the same kind of thing — personnel in a pile — always gets the
+// A ship's crew badge: the same `PersonnelIcon`-and-count pill style `PileBadge` uses for a
+// mission's personnel pile, so the same kind of thing — personnel in a pile — always gets the
 // same badge. It sits as a sibling of the ship's own `TableCard` button, inside `ShipCard`'s
 // `crewDropId` wrapper, since a `<button>` cannot nest inside another `<button>` (the ship's own
 // tap-to-preview button) — the same reasoning `PileBadge` documents above for the mission's own
-// badges. It is not a drop target of its own: it sits geometrically inside the ship's existing
-// `crewDropId` drop target, so a drop that lands on the badge already resolves there. A tap opens
-// the crew panel (`PilePanel`, zone `'crew'`); a tap on the ship's art elsewhere still opens the
-// ship's own preview via `ShipCard`'s `TableCard`.
-function ShipCrewBadge({
-  shipName,
-  count,
-  onOpen,
-}: {
-  shipName: string;
-  count: number;
-  onOpen: () => void;
-}) {
+// badges. Since #678, a tap on the ship opens both its own preview and its crew panel together
+// (`onShipClick`), so the badge itself is purely informational: a non-interactive `<span>` with
+// `pointer-events-none`, so a tap that lands on it falls through to the ship's `TableCard` button
+// underneath rather than being swallowed here.
+function ShipCrewBadge({ shipName, count }: { shipName: string; count: number }) {
   if (count === 0) return null;
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label={`${shipName} crew, ${count} card${count === 1 ? '' : 's'}, tap to open`}
-      className="absolute -top-1 -right-1 z-10 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none"
+    <span
+      aria-label={`${shipName} crew, ${count} card${count === 1 ? '' : 's'}`}
+      className="absolute -top-1 -right-1 z-10 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none"
       style={{ height: BADGE_STRIP_HEIGHT - 2 }}
     >
       <PersonnelIcon />
       <span className="text-[8px] font-bold">{count}</span>
-    </button>
+    </span>
   );
 }
 
@@ -352,13 +342,11 @@ function UnderMissionStack({
 function ShipRow({
   missionIndex,
   ships,
-  onCardClick,
-  onOpenCrew,
+  onShipClick,
 }: {
   missionIndex: number;
   ships: CardInstance[];
-  onCardClick: (id: string) => void;
-  onOpenCrew: (shipId: string) => void;
+  onShipClick: (shipId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: shipRowDropId(missionIndex) });
   const draggedType = useDraggedCardType();
@@ -380,7 +368,7 @@ function ShipRow({
         <div className="relative" style={{ width: rowWidth, height: SHIP_ROW_HEIGHT }}>
           {ships.map((ship, idx) => (
             <div key={ship.id} className="absolute top-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
-              <ShipCard ship={ship} onCardClick={onCardClick} onOpenCrew={onOpenCrew} />
+              <ShipCard ship={ship} onShipClick={onShipClick} />
             </div>
           ))}
         </div>
@@ -394,13 +382,13 @@ function MissionColumn({
   slot,
   onCardClick,
   onOpenPile,
-  onOpenCrew,
+  onShipClick,
 }: {
   missionIndex: number;
   slot: MissionSlot;
   onCardClick: (id: string) => void;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
-  onOpenCrew: (shipId: string) => void;
+  onShipClick: (shipId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
   const draggedType = useDraggedCardType();
@@ -441,7 +429,7 @@ function MissionColumn({
         onOpenPile={onOpenPile}
       />
 
-      <ShipRow missionIndex={missionIndex} ships={ships} onCardClick={onCardClick} onOpenCrew={onOpenCrew} />
+      <ShipRow missionIndex={missionIndex} ships={ships} onShipClick={onShipClick} />
     </div>
   );
 }
@@ -450,12 +438,12 @@ export default function MissionRow({
   missions,
   onCardClick,
   onOpenPile,
-  onOpenCrew,
+  onShipClick,
 }: {
   missions: MissionSlot[];
   onCardClick: (id: string) => void;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
-  onOpenCrew: (shipId: string) => void;
+  onShipClick: (shipId: string) => void;
 }) {
   return (
     <div className="flex flex-row gap-2 justify-center">
@@ -466,7 +454,7 @@ export default function MissionRow({
           slot={slot}
           onCardClick={onCardClick}
           onOpenPile={onOpenPile}
-          onOpenCrew={onOpenCrew}
+          onShipClick={onShipClick}
         />
       ))}
     </div>
