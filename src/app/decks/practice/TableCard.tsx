@@ -1,9 +1,11 @@
 'use client';
 
 // Compact "table card" presentation (see the parent design in issue #130): shows only a
-// centered slice of the card image (the art), rather than the full card art+frame used in the
-// hand and the piles. Centering the crop (rather than aligning it to the top) cuts the same
-// amount off the top and the bottom, so both edges look the same (#633). The card's name is not
+// slice of the card image (the art), rather than the full card art+frame used in the hand and
+// the piles. The vertical crop sits between the top and the center of the image, not at the very
+// top and not centered: centering (#633) cut too much off the top and left too much of the
+// bottom, and the very top edge shows the frame/header above the art, not the art itself (#665).
+// The card's name is not
 // shown as text below the art — the art already carries the card's title, and the player
 // recognises the image (#634) — but it stays on the button's `aria-label`, so a screen reader
 // still reads it. Reused by later slices for any card that sits on the table rather than in a
@@ -74,7 +76,7 @@ export default function TableCard({
           <img
             src={isFaceDown ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
             alt={isFaceDown ? 'Face-down card' : card.name}
-            className="w-full h-full object-cover object-center"
+            className="w-full h-full object-cover object-[center_25%]"
           />
         </div>
         {!!badge && <CountBadge count={badge} />}
