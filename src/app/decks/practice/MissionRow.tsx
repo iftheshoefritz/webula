@@ -65,7 +65,7 @@ const MISSION_SLOT_HEIGHT = TABLE_CARD_ART_HEIGHT; // no title line below the ar
 // the same TABLE_CARD_WIDTH column the mission card above them occupies. Exported so the ship
 // preview's crew row (#600) can size its own crew cards to match.
 export const SHIP_CARD_WIDTH = 34; // px
-export const SHIP_CARD_ART_HEIGHT = 26; // px, scaled down from TABLE_CARD_ART_HEIGHT to match
+export const SHIP_CARD_ART_HEIGHT = 32; // px, scaled down from TABLE_CARD_ART_HEIGHT to match
 const SHIP_ROW_HEIGHT = SHIP_CARD_ART_HEIGHT; // no title line below the art (#634)
 const SHIP_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // 2 ships sit edge to edge with a small gap
 const SHIP_ROW_MAX_WIDTH = TABLE_CARD_WIDTH; // bounds the row to the column's width
