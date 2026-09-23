@@ -44,6 +44,8 @@ import CardPreview, { cardIdFromDraggableId } from './CardPreview';
 import CountBadge from './CountBadge';
 import PilePanel from './PilePanel';
 import FlatCardRow from './FlatCardRow';
+import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
+import { useTableScale } from './tableScale';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 
@@ -399,6 +401,14 @@ function PracticeDrawContent() {
   // the overlay's card count.
   const [draggingGroup, setDraggingGroup] = useState<CardInstance[]>([]);
   const [gameLayer, setGameLayer] = useState<HTMLDivElement | null>(null);
+  // Issue #717: grows the mission cards, the ship cards, and every pile-panel card grid past
+  // their base pixel size once the game layer (which already tracks the browser's toolbar
+  // showing/hiding, `fixed inset-0`) measures more room than the baseline they were tuned
+  // against. `tableCardWidth`/`tableCardArtHeight` feed every `PilePanel` below; `MissionRow`
+  // derives its own ship-row sizes from the same `scale`.
+  const scale = useTableScale(gameLayer);
+  const tableCardWidth = Math.round(TABLE_CARD_WIDTH * scale);
+  const tableCardArtHeight = Math.round(TABLE_CARD_ART_HEIGHT * scale);
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
   // Which of the core's/the brig's own pile panel (#640), or the draw pile's/the dilemma pile's
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
@@ -802,6 +812,7 @@ function PracticeDrawContent() {
                 onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
                 onShipClick={handleShipClick}
                 onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
+                scale={scale}
               />
 
               {/* Bottom row, anchored to the bottom. From left to right: discard pile, draw pile,
@@ -1005,6 +1016,8 @@ function PracticeDrawContent() {
                   }
                   onSetStopped={setStoppedForSelection}
                   hidden={draggingInstance !== null}
+                  cardWidth={tableCardWidth}
+                  cardArtHeight={tableCardArtHeight}
                 />
               )}
 
@@ -1025,6 +1038,8 @@ function PracticeDrawContent() {
                   onShuffle={() => dispatch({ type: 'shuffle', location: openFlatZone })}
                   onSetStopped={setStoppedForSelection}
                   hidden={draggingInstance !== null}
+                  cardWidth={tableCardWidth}
+                  cardArtHeight={tableCardArtHeight}
                 />
               )}
 
@@ -1046,6 +1061,8 @@ function PracticeDrawContent() {
                   onShuffle={() => dispatch({ type: 'shuffle', location: { zone: 'crew', shipId: openCrewShip.id } })}
                   onSetStopped={setStoppedForSelection}
                   hidden={draggingInstance !== null}
+                  cardWidth={tableCardWidth}
+                  cardArtHeight={tableCardArtHeight}
                 />
               )}
 
@@ -1071,6 +1088,8 @@ function PracticeDrawContent() {
                   }
                   onSetStopped={setStoppedForSelection}
                   hidden={draggingInstance !== null}
+                  cardWidth={tableCardWidth}
+                  cardArtHeight={tableCardArtHeight}
                 />
               )}
             </div>
