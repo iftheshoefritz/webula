@@ -107,12 +107,19 @@ jobs:
             JOBS="- No failed job was reported. Open the run and read every job."
           fi
 
-          # A max-turns failure needs more than the log link: the next agent
-          # must make the work smaller before it tries again.
+          # Two reasons need more than the log link. A max-turns failure means
+          # the next agent must make the work smaller before it tries again. A
+          # rate-limit failure means nothing was wrong with the work at all, so
+          # reading the log teaches nothing: the run needs starting again.
           ADVICE="Read the log of the failed job before you work on this again."
-          if [ "$REASON" = "max-turns" ]; then
-            ADVICE="Read the log of the failed job, identify the parts of this work that consumed the most turns, and recommend how to reduce them or what work to extract into sub-issues."
-          fi
+          case "$REASON" in
+            max-turns)
+              ADVICE="Read the log of the failed job, identify the parts of this work that consumed the most turns, and recommend how to reduce them or what work to extract into sub-issues."
+              ;;
+            rate-limit)
+              ADVICE="The run stopped on a usage limit, so nothing here says the work was wrong. The log says when the limit resets. Start the run again after that, and check first whether the last run pushed a branch: work it never pushed is gone, and the new run starts from the beginning."
+              ;;
+          esac
 
           BODY="$(cat <<EOF
           The **$WORKFLOW** workflow failed, so I added the \`agent-error:$REASON\` label.

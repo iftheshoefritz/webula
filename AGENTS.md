@@ -123,6 +123,10 @@ The `subtype` of that result record says why the run stopped, for example
 `error_max_turns`. The top-level files in the zip hold the complete log of one
 job each. The per-step files in the subdirectories repeat the same lines.
 
+A run that shows no result record never started. `.github/workflows/README.md`
+lists every reason, and a common one is a pull request branch that holds an old
+copy of the workflow file.
+
 ## Labels an agent must not apply
 
 Never add the `ready-for-dev` label to an issue. This applies to issues you create,

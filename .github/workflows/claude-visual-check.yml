@@ -44,6 +44,21 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      # A re-run means the last reason is no longer current. Clearing the label
+      # here keeps an `agent-error:` label on a pull request only while it is true, so a
+      # stale one never outlives the failure it described.
+      - name: Clear any agent-error label
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" --jq '.[].name' \
+            | grep '^agent-error:' \
+            | while read -r label; do
+                gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/$label" -X DELETE >/dev/null
+                echo "removed $label"
+              done || true
+
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1.0.70
         with:
@@ -82,9 +97,13 @@ jobs:
 
                ```
                npx agent-browser click 'ref=e8'
-               npx agent-browser click 'button:has-text("Stop")'
+               npx agent-browser eval "(()=>{const b=Array.from(document.querySelectorAll('button')).find(x=>x.textContent.trim()==='Stop');b.click();return 'clicked'})()"
                npx agent-browser eval "document.querySelector('[data-card-id]').className"
                ```
+
+               The middle line clicks through the DOM on purpose. `click 'button:has-text("...")'`
+               reports success on this page and the button does not fire. See "A click that does
+               not click" in AGENTS.md.
 
                Do not take a snapshot after every click. Take one at the end of the sequence, and read
                the state you need with one `eval` instead of a full snapshot where you can.

@@ -37,6 +37,21 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      # A re-run means the last reason is no longer current. Clearing the label
+      # here keeps an `agent-error:` label on an issue only while it is true, so a
+      # stale one never outlives the failure it described.
+      - name: Clear any agent-error label
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/labels" --jq '.[].name' \
+            | grep '^agent-error:' \
+            | while read -r label; do
+                gh api "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/labels/$label" -X DELETE >/dev/null
+                echo "removed $label"
+              done || true
+
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1.0.70
         with:
@@ -48,9 +63,8 @@ jobs:
 
             1. Implement the feature or fix described in the issue, following the implementation plan if one exists.
             2. Make all necessary code changes, following existing code style and conventions in the codebase.
-            3. Run `yarn test` and then `yarn build`. Both must pass. `yarn build` also checks types, runs ESLint, and pre-renders the static pages, which is what the Vercel deployment does. Fix every test failure, type error, lint error, and pre-render error caused by your changes.
-               The dependencies are installed already, and `agent-browser` is one of them, so `npx agent-browser` runs the local copy and downloads nothing. Do not run `yarn install`.
-            4. Save the work and open the pull request before the browser check. The run can stop at the turn limit, and an unpushed change is lost. An early pull request also gives Vercel time to build the preview, and lets other agents work on the pull request.
+            3. Save the work as soon as the code change is written, before you validate it. A run can stop on any turn: the turn limit, or a rate limit that gives no warning. An unpushed change is lost, and the next run starts again from nothing. Run 35851291387 on issue #690 stopped at turn 40 with the work unpushed, and all of it was lost.
+               A branch whose tests still fail is worth far more than no branch. The pull request is a draft, and step 4 fixes the failures.
                a. Create a new branch named `issue-${{ github.event.issue.number }}-<short-description>` from the current HEAD.
                b. Commit your changes to that branch with a descriptive commit message referencing the issue number.
                c. Push the branch to the remote repository.
@@ -59,6 +73,9 @@ jobs:
                   - Body that closes issue #${{ github.event.issue.number }} (include "Closes #${{ github.event.issue.number }}" in the PR body)
                   - A brief summary of what was changed and why
                   - A "## Visual Verification" section that contains only the word "Pending."
+               An early pull request also gives Vercel time to build the preview, and lets other agents work on the pull request.
+            4. Run `yarn test` and then `yarn build`. Both must pass. `yarn build` also checks types, runs ESLint, and pre-renders the static pages, which is what the Vercel deployment does. Fix every test failure, type error, lint error, and pre-render error caused by your changes. Then commit and push to the same branch.
+               The dependencies are installed already, and `agent-browser` is one of them, so `npx agent-browser` runs the local copy and downloads nothing. Do not run `yarn install`.
             5. Do a smoke check in the browser. This is a short check that the page runs, not the full check of the acceptance checks. The "Claude Visual Check" workflow does that one, with its own turn limit. Keep this step to about five commands.
                a. Start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`. It runs at http://localhost:3000.
                b. Open the page your change affects, and take one snapshot:
@@ -72,7 +89,7 @@ jobs:
                e. Stop the dev server.
                A smoke check finds the errors that only appear at run time: a crash on render, a component that throws, a missing `data-zone` or `data-card-id` attribute. Fix every error you find here.
                If `yarn dev` fails to start or `agent-browser` fails, put the full error output in the PR body under a "## Dev Server Issues" section. Do NOT skip this step if errors occur — report them.
-            6. If the smoke check made you change code, run `yarn test` and `yarn build` again, then commit and push to the same branch. Other workflows can push to the branch too (for example, the merge conflict workflow rebases it). So before each push, run `git pull --rebase`, and never force-push.
+            6. If the smoke check made you change code, run `yarn test` and `yarn build` again, then commit and push to the same branch. Other workflows can push to the branch too (for example, the merge conflict workflow rebases it). So before each push, run `git pull --rebase`, and never force-push. This applies to every push, including the ones in steps 3 and 4.
             7. Hand the pull request to the visual check. Leave "Pending." in the "## Visual Verification" section, leave the pull request as a draft, and add the label:
                `gh pr edit <pr-number> --add-label visual-check`
                This starts the "Claude Visual Check" workflow. That workflow runs the acceptance checks of the issue in the browser, writes the "## Visual Verification" section, and marks the pull request ready for review.
