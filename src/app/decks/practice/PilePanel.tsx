@@ -121,17 +121,21 @@ function PilePanelCard({
   onClick,
   selected,
   onToggleSelect,
+  cardWidth,
+  cardArtHeight,
 }: {
   instance: CardInstance;
   onClick: () => void;
   selected: boolean;
   onToggleSelect: () => void;
+  cardWidth: number;
+  cardArtHeight: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
   const { card } = instance;
 
   return (
-    <div className="relative" style={{ width: TABLE_CARD_WIDTH }}>
+    <div className="relative" style={{ width: cardWidth }}>
       <button
         ref={setNodeRef}
         type="button"
@@ -148,7 +152,7 @@ function PilePanelCard({
         }}
         aria-label={card.name}
       >
-        <div className="relative w-full" style={{ height: TABLE_CARD_ART_HEIGHT }}>
+        <div className="relative w-full" style={{ height: cardArtHeight }}>
           <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
             <img
               src={`/cardimages/${card.imagefile}.jpg`}
@@ -183,6 +187,8 @@ export default function PilePanel({
   onShuffle,
   onSetStopped,
   hidden = false,
+  cardWidth = TABLE_CARD_WIDTH,
+  cardArtHeight = TABLE_CARD_ART_HEIGHT,
 }: {
   zone: PanelZone;
   cards: CardInstance[];
@@ -196,6 +202,12 @@ export default function PilePanel({
   // rather than toggling each selected card on its own.
   onSetStopped: (ids: string[], stopped: boolean) => void;
   hidden?: boolean;
+  // Issue #717: this panel is one of "the modals" the issue names, so its own card grid grows
+  // the same way the table's mission cards do — `page.tsx` computes both from the same `scale`
+  // (`tableScale.ts`) and passes the result down here. Defaults to the fixed base size for
+  // callers, including this component's own tests, that don't care about the grown state.
+  cardWidth?: number;
+  cardArtHeight?: number;
 }) {
   // The crew zone opens alongside the ship's own preview, anchored to the right (#678): its
   // backdrop and its box of cards both stay within the left half of the screen so neither ever
@@ -256,6 +268,8 @@ export default function PilePanel({
               onClick={() => onCardClick(instance.id)}
               selected={selectedIds.includes(instance.id)}
               onToggleSelect={() => onToggleSelect(instance.id)}
+              cardWidth={cardWidth}
+              cardArtHeight={cardArtHeight}
             />
           ))}
         </div>

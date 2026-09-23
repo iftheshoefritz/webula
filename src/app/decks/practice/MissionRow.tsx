@@ -32,10 +32,11 @@
 // a plain, non-interactive `<span>` with `pointer-events-none`, so a tap that lands on it falls
 // through to the ship's own `TableCard` button beneath.
 //
-// A row of 2 or fewer ships fits every ship side by side within `SHIP_ROW_MAX_WIDTH` with no
-// overlap (see `SHIP_MAX_OFFSET` below); a third ship (or later) overlaps the earlier ones almost
-// completely, since the row's width stays bounded and `offsetFor` shrinks the per-card offset as
-// the count grows past what fits without overlap (#713). Once a row is in that overlapping
+// A row of 2 or fewer ships fits every ship side by side within the mission column's own width
+// with no overlap (see `ShipRow`'s `shipMaxOffset` below); a third ship (or later) overlaps the
+// earlier ones almost completely, since the row's width stays bounded and `offsetFor` shrinks the
+// per-card offset as the count grows past what fits without overlap (#713). Once a row is in that
+// overlapping
 // state, every ship's tap opens a panel listing every ship on that row individually instead
 // (`PilePanel`, zone `'shipRow'`, the same list-view pattern the core, the brig, and a ship's
 // crew already use) rather than going straight to `onShipClick` — the ship underneath an
@@ -72,16 +73,22 @@ import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 
-const MISSION_SLOT_HEIGHT = TABLE_CARD_ART_HEIGHT; // no title line below the art (#634)
+// Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
+// `BADGE_STRIP_HEIGHT_BASE`'s comment describes. `page.tsx` passes down a `scale`, computed by
+// `useTableScale` (`tableScale.ts`) from the live size of the game layer, that grows past 1 once
+// there's more room than that — e.g. once scrolling up hides the browser's own toolbar. `scaled`
+// rounds every derived pixel value the same way, so two elements whose base sizes matched still
+// match once scaled.
+const scaled = (px: number, scale: number): number => Math.round(px * scale);
 
 // A ship row card is smaller than a mission's table card, so 2 ships fit side by side within
-// the same TABLE_CARD_WIDTH column the mission card above them occupies. Exported so the ship
-// preview's crew row (#600) can size its own crew cards to match.
+// the same TABLE_CARD_WIDTH column the mission card above them occupies. Exported at their base
+// (scale-1) size: the ship preview's crew row (#600) sizes its own crew cards to match, and the
+// core's/the brig's own row (`FlatCardRow.tsx`) sizes its cards to match too — that row, unlike
+// the mission's own ship row, does not grow with `scale` (#717).
 export const SHIP_CARD_WIDTH = 34; // px
 export const SHIP_CARD_ART_HEIGHT = 32; // px, scaled down from TABLE_CARD_ART_HEIGHT to match
-const SHIP_ROW_HEIGHT = SHIP_CARD_ART_HEIGHT; // no title line below the art (#634)
-const SHIP_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // 2 ships sit edge to edge with a small gap
-const SHIP_ROW_MAX_WIDTH = TABLE_CARD_WIDTH; // bounds the row to the column's width
+const SHIP_MAX_OFFSET_BASE = SHIP_CARD_WIDTH + 2; // 2 ships sit edge to edge with a small gap
 
 export const missionDropId = (missionIndex: number): string => `mission-${missionIndex}`;
 export const shipRowDropId = (missionIndex: number): string => `ship-row-${missionIndex}`;
@@ -113,9 +120,15 @@ export function shipIdFromCrewDropId(id: string): string | null {
 function ShipCard({
   ship,
   onShipClick,
+  width,
+  artHeight,
+  badgeHeight,
 }: {
   ship: CardInstance;
   onShipClick: (id: string) => void;
+  width: number;
+  artHeight: number;
+  badgeHeight: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: crewDropId(ship.id) });
   const draggedType = useDraggedCardType();
@@ -129,24 +142,19 @@ function ShipCard({
       data-highlight={highlight}
       className={`relative rounded ${highlightClassName(highlight)}`}
     >
-      <TableCard
-        instance={ship}
-        onClick={() => onShipClick(ship.id)}
-        width={SHIP_CARD_WIDTH}
-        artHeight={SHIP_CARD_ART_HEIGHT}
-        draggable
-      />
-      <ShipCrewBadge shipName={ship.card.name} count={crewCount} />
+      <TableCard instance={ship} onClick={() => onShipClick(ship.id)} width={width} artHeight={artHeight} draggable />
+      <ShipCrewBadge shipName={ship.card.name} count={crewCount} height={badgeHeight} />
     </div>
   );
 }
 
-// The badge strip's fixed height (#602): tall enough to fit an icon+count badge, reserved on
-// every mission column regardless of how many badges that mission actually shows, so a mission
-// with 0, 1, or 2 badges keeps the same column layout as its neighbours. Two badges sit side by
-// side within TABLE_CARD_WIDTH; at 568x320 (the acceptance check's viewport) they still leave
-// the mission's own title, below the art, fully visible.
-const BADGE_STRIP_HEIGHT = 14; // px
+// The badge strip's fixed (scale-1) height (#602): tall enough to fit an icon+count badge,
+// reserved on every mission column regardless of how many badges that mission actually shows, so
+// a mission with 0, 1, or 2 badges keeps the same column layout as its neighbours. Two badges sit
+// side by side within a scale-1 TABLE_CARD_WIDTH; at 568x320 (the acceptance check's viewport,
+// scale 1) they still leave the mission's own title, below the art, fully visible. Grows with
+// `scale` (#717) along with the mission column's other chrome.
+const BADGE_STRIP_HEIGHT_BASE = 14; // px
 
 // Small inline icons (not react-icons) so the three badges are visually distinct at this size.
 function PersonnelIcon() {
@@ -211,11 +219,13 @@ function PileBadge({
   pile,
   count,
   onOpen,
+  height,
 }: {
   missionIndex: number;
   pile: MissionPileName;
   count: number;
   onOpen: (missionIndex: number, pile: MissionPileName) => void;
+  height: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: missionPileDropId(missionIndex, pile) });
   if (count === 0) return null;
@@ -231,7 +241,7 @@ function PileBadge({
       className={`flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none ${
         isOver ? 'ring-2 ring-accent' : ''
       }`}
-      style={{ height: BADGE_STRIP_HEIGHT - 2 }}
+      style={{ height: height - 2 }}
     >
       <Icon />
       <span className="text-[8px] font-bold">{count}</span>
@@ -248,14 +258,14 @@ function PileBadge({
 // (`onShipClick`), so the badge itself is purely informational: a non-interactive `<span>` with
 // `pointer-events-none`, so a tap that lands on it falls through to the ship's `TableCard` button
 // underneath rather than being swallowed here.
-function ShipCrewBadge({ shipName, count }: { shipName: string; count: number }) {
+function ShipCrewBadge({ shipName, count, height }: { shipName: string; count: number; height: number }) {
   if (count === 0) return null;
 
   return (
     <span
       aria-label={`${shipName} crew, ${count} card${count === 1 ? '' : 's'}`}
       className="absolute -top-1 -right-1 z-10 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none"
-      style={{ height: BADGE_STRIP_HEIGHT - 2 }}
+      style={{ height: height - 2 }}
     >
       <PersonnelIcon />
       <span className="text-[8px] font-bold">{count}</span>
@@ -269,34 +279,37 @@ function BadgeStrip({
   eventCount,
   dilemmaCount,
   onOpenPile,
+  height,
 }: {
   missionIndex: number;
   personnelCount: number;
   eventCount: number;
   dilemmaCount: number;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
+  height: number;
 }) {
   return (
-    <div className="w-full flex items-center justify-center gap-1" style={{ height: BADGE_STRIP_HEIGHT }}>
-      <PileBadge missionIndex={missionIndex} pile="personnel" count={personnelCount} onOpen={onOpenPile} />
-      <PileBadge missionIndex={missionIndex} pile="event" count={eventCount} onOpen={onOpenPile} />
-      <PileBadge missionIndex={missionIndex} pile="dilemma" count={dilemmaCount} onOpen={onOpenPile} />
+    <div className="w-full flex items-center justify-center gap-1" style={{ height }}>
+      <PileBadge missionIndex={missionIndex} pile="personnel" count={personnelCount} onOpen={onOpenPile} height={height} />
+      <PileBadge missionIndex={missionIndex} pile="event" count={eventCount} onOpen={onOpenPile} height={height} />
+      <PileBadge missionIndex={missionIndex} pile="dilemma" count={dilemmaCount} onOpen={onOpenPile} height={height} />
     </div>
   );
 }
 
-// The dilemma sliver stack's total height budget (#641): the space the badge strip freed up by
-// moving below the mission card, so poking the slivers out above it does not grow the column's
-// total height relative to before.
-const UNDER_MISSION_STACK_HEIGHT = BADGE_STRIP_HEIGHT; // px
+// The dilemma sliver stack's total (scale-1) height budget (#641): the space the badge strip
+// freed up by moving below the mission card, so poking the slivers out above it does not grow
+// the column's total height relative to before. Grows with `scale` (#717) along with the badge
+// strip it matches.
+const UNDER_MISSION_STACK_HEIGHT_BASE = BADGE_STRIP_HEIGHT_BASE; // px
 // A pile can grow arbitrarily large; this caps how many cards actually render in the stack (the
 // old strip capped visible edges the same way), while the tap target's aria-label keeps the true
 // count.
 const UNDER_MISSION_MAX_VISIBLE = 6;
 // The vertical gap between stacked slivers, shrinking as more cards share the fixed height
 // budget above — the same idea `overlapOffset.ts` already applies horizontally to the ship row.
-const UNDER_MISSION_MAX_OFFSET = 4; // px
-const UNDER_MISSION_MIN_SLIVER = 2; // px, the smallest sliver a single card pokes out
+const UNDER_MISSION_MAX_OFFSET_BASE = 4; // px
+const UNDER_MISSION_MIN_SLIVER_BASE = 2; // px, the smallest sliver a single card pokes out
 
 // The dilemmas placed under the mission (#606), rendered face up and stacked directly behind the
 // mission card in z-order, each poking a small sliver out above the mission card's top edge
@@ -312,15 +325,24 @@ function UnderMissionStack({
   missionIndex,
   cards,
   onOpen,
+  cardWidth,
+  cardArtHeight,
+  scale,
 }: {
   missionIndex: number;
   cards: CardInstance[];
   onOpen: (missionIndex: number, pile: MissionPileName) => void;
+  cardWidth: number;
+  cardArtHeight: number;
+  scale: number;
 }) {
   if (cards.length === 0) return null;
+  const stackHeightBudget = scaled(UNDER_MISSION_STACK_HEIGHT_BASE, scale);
+  const maxOffset = scaled(UNDER_MISSION_MAX_OFFSET_BASE, scale);
+  const minSliver = scaled(UNDER_MISSION_MIN_SLIVER_BASE, scale);
   const shown = cards.slice(-UNDER_MISSION_MAX_VISIBLE);
-  const offset = offsetFor(shown.length, UNDER_MISSION_MIN_SLIVER, UNDER_MISSION_STACK_HEIGHT, UNDER_MISSION_MAX_OFFSET);
-  const stackHeight = UNDER_MISSION_MIN_SLIVER + offset * (shown.length - 1);
+  const offset = offsetFor(shown.length, minSliver, stackHeightBudget, maxOffset);
+  const stackHeight = minSliver + offset * (shown.length - 1);
 
   return (
     <div className="absolute inset-x-0" style={{ top: -stackHeight, height: stackHeight }}>
@@ -330,7 +352,7 @@ function UnderMissionStack({
           className="absolute inset-x-0 flex items-center justify-center pointer-events-none"
           style={{ top: i * offset, zIndex: i + 1 }}
         >
-          <TableCard instance={card} onClick={() => {}} />
+          <TableCard instance={card} onClick={() => {}} width={cardWidth} artHeight={cardArtHeight} />
         </div>
       ))}
       <button
@@ -355,23 +377,33 @@ function ShipRow({
   ships,
   onShipClick,
   onOpenShipRow,
+  columnWidth,
+  scale,
 }: {
   missionIndex: number;
   ships: CardInstance[];
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
+  columnWidth: number;
+  scale: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: shipRowDropId(missionIndex) });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('shipRow', draggedType, isOver);
-  const offset = offsetFor(ships.length, SHIP_CARD_WIDTH, SHIP_ROW_MAX_WIDTH, SHIP_MAX_OFFSET);
-  const rowWidth = ships.length === 0 ? SHIP_ROW_MAX_WIDTH : SHIP_CARD_WIDTH + offset * (ships.length - 1);
+  const shipCardWidth = scaled(SHIP_CARD_WIDTH, scale);
+  const shipCardArtHeight = scaled(SHIP_CARD_ART_HEIGHT, scale);
+  const shipRowHeight = shipCardArtHeight; // no title line below the art (#634)
+  const shipMaxOffset = scaled(SHIP_MAX_OFFSET_BASE, scale);
+  const shipRowMaxWidth = columnWidth; // bounds the row to the column's own (scaled) width
+  const offset = offsetFor(ships.length, shipCardWidth, shipRowMaxWidth, shipMaxOffset);
+  const rowWidth = ships.length === 0 ? shipRowMaxWidth : shipCardWidth + offset * (ships.length - 1);
   // True once the row holds more ships than fit without overlap (#713): the same condition
-  // `offset` already encodes for layout — 2 ships fit at `SHIP_MAX_OFFSET` with a gap and no
+  // `offset` already encodes for layout — 2 ships fit at `shipMaxOffset` with a gap and no
   // overlap, 3 or more shrink the offset below that. `ships.length > 1` excludes the trivial
   // single-ship row, where `offsetFor` returns 0 (unused) with nothing behind it to overlap.
-  const overlapping = ships.length > 1 && offset < SHIP_MAX_OFFSET;
+  const overlapping = ships.length > 1 && offset < shipMaxOffset;
   const handleShipTap = overlapping ? () => onOpenShipRow(missionIndex) : onShipClick;
+  const badgeHeight = scaled(BADGE_STRIP_HEIGHT_BASE, scale);
 
   return (
     <div
@@ -379,15 +411,21 @@ function ShipRow({
       data-zone={shipRowDropId(missionIndex)}
       data-highlight={highlight}
       className={`relative w-full flex items-center justify-center rounded ${highlightClassName(highlight)}`}
-      style={{ height: SHIP_ROW_HEIGHT }}
+      style={{ height: shipRowHeight }}
     >
       {ships.length === 0 ? (
         <div className="w-full h-full rounded border border-dashed border-white/15" />
       ) : (
-        <div className="relative" style={{ width: rowWidth, height: SHIP_ROW_HEIGHT }}>
+        <div className="relative" style={{ width: rowWidth, height: shipRowHeight }}>
           {ships.map((ship, idx) => (
             <div key={ship.id} className="absolute top-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
-              <ShipCard ship={ship} onShipClick={handleShipTap} />
+              <ShipCard
+                ship={ship}
+                onShipClick={handleShipTap}
+                width={shipCardWidth}
+                artHeight={shipCardArtHeight}
+                badgeHeight={badgeHeight}
+              />
             </div>
           ))}
         </div>
@@ -403,6 +441,7 @@ function MissionColumn({
   onOpenPile,
   onShipClick,
   onOpenShipRow,
+  scale,
 }: {
   missionIndex: number;
   slot: MissionSlot;
@@ -410,14 +449,18 @@ function MissionColumn({
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
+  scale: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('mission', draggedType, isOver);
   const { mission, ships, personnel, event, dilemma, underMission } = slot;
+  const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
+  const cardArtHeight = scaled(TABLE_CARD_ART_HEIGHT, scale);
+  const badgeHeight = scaled(BADGE_STRIP_HEIGHT_BASE, scale);
 
   return (
-    <div className="flex flex-col items-center gap-1" style={{ width: TABLE_CARD_WIDTH }}>
+    <div className="flex flex-col items-center gap-1" style={{ width: cardWidth }}>
       <div
         ref={setNodeRef}
         data-zone={missionDropId(missionIndex)}
@@ -425,15 +468,22 @@ function MissionColumn({
         className={`relative w-full flex items-center justify-center rounded ${highlightClassName(highlight)}`}
       >
         {/* Dilemmas under the mission (#606), stacked behind it and poking out above (#641) */}
-        <UnderMissionStack missionIndex={missionIndex} cards={underMission} onOpen={onOpenPile} />
+        <UnderMissionStack
+          missionIndex={missionIndex}
+          cards={underMission}
+          onOpen={onOpenPile}
+          cardWidth={cardWidth}
+          cardArtHeight={cardArtHeight}
+          scale={scale}
+        />
 
         <div className="relative z-10 w-full flex items-center justify-center">
           {mission ? (
-            <TableCard instance={mission} onClick={() => onCardClick(mission.id)} />
+            <TableCard instance={mission} onClick={() => onCardClick(mission.id)} width={cardWidth} artHeight={cardArtHeight} />
           ) : (
             <div
               className="w-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[9px]"
-              style={{ height: MISSION_SLOT_HEIGHT }}
+              style={{ height: cardArtHeight }}
             >
               Mission
             </div>
@@ -448,9 +498,17 @@ function MissionColumn({
         eventCount={event.length}
         dilemmaCount={dilemma.length}
         onOpenPile={onOpenPile}
+        height={badgeHeight}
       />
 
-      <ShipRow missionIndex={missionIndex} ships={ships} onShipClick={onShipClick} onOpenShipRow={onOpenShipRow} />
+      <ShipRow
+        missionIndex={missionIndex}
+        ships={ships}
+        onShipClick={onShipClick}
+        onOpenShipRow={onOpenShipRow}
+        columnWidth={cardWidth}
+        scale={scale}
+      />
     </div>
   );
 }
@@ -461,12 +519,18 @@ export default function MissionRow({
   onOpenPile,
   onShipClick,
   onOpenShipRow,
+  scale = 1,
 }: {
   missions: MissionSlot[];
   onCardClick: (id: string) => void;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
+  // Issue #717: grows the mission cards, the ship cards, and the under-mission pile stack past
+  // their base pixel size, computed by `useTableScale` (`tableScale.ts`) from the live size of
+  // the game layer. Defaults to 1 (today's fixed sizes) for callers — including this
+  // component's own tests — that don't care about the grown state.
+  scale?: number;
 }) {
   return (
     <div className="flex flex-row gap-2 justify-center">
@@ -474,6 +538,7 @@ export default function MissionRow({
         <MissionColumn
           key={idx}
           missionIndex={idx}
+          scale={scale}
           slot={slot}
           onCardClick={onCardClick}
           onOpenPile={onOpenPile}
