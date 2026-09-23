@@ -78,6 +78,16 @@ const mockShipCard = {
   count: 1,
 };
 
+const mockOtherShipCard = {
+  collectorsinfo: '1R901',
+  originalName: 'I.K.S. Somraw',
+  type: 'ship',
+  name: 'i.k.s. somraw',
+  imagefile: 'somraw',
+  pile: 'draw',
+  count: 1,
+};
+
 const mockEquipmentCard = {
   collectorsinfo: '1U001',
   originalName: 'Tricorder',
@@ -298,6 +308,100 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       fireEvent.click(shipButton);
     });
     expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
+  });
+
+  it('drops a second, different ship on a mission that already holds one, over the first ship\'s crew zone, keeping both reachable (#668)', async () => {
+    await setupOpenHand([mockShipCard, mockOtherShipCard]);
+    const [firstShipId, secondShipId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstShipId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstShipId }, over: { id: 'mission-1' } });
+    });
+
+    const reopenHand = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(reopenHand);
+    });
+
+    // The pointer lands on the first ship's own crew zone (it covers almost the whole row,
+    // #668) rather than the row itself.
+    await act(async () => {
+      mockOnDragStart!({ active: { id: secondShipId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: secondShipId }, over: { id: `crew-${firstShipId}` } });
+    });
+
+    const shipRow = document.body.querySelector('[data-zone="ship-row-1"]') as HTMLElement;
+    expect(shipRow.querySelector(`[data-card-id="${firstShipId}"]`)).not.toBeNull();
+    expect(shipRow.querySelector(`[data-card-id="${secondShipId}"]`)).not.toBeNull();
+  });
+
+  it('drops two copies of the same ship card on the same mission as two separate cards, each with its own crew (#668)', async () => {
+    await setupOpenHand([mockShipCard, mockShipCard, mockPersonnelCard]);
+    const [firstCopyId, secondCopyId, personnelId] = mockDraggableIds;
+    expect(firstCopyId).not.toBe(secondCopyId);
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstCopyId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstCopyId }, over: { id: 'mission-0' } });
+    });
+    const reopenHand = screen.getByRole('button', { name: /^hand, 2 cards, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(reopenHand);
+    });
+
+    // The second copy's drop lands on the first copy's crew zone, same as dropping on a
+    // different ship above; it must land on the row as its own card, not aboard the first.
+    await act(async () => {
+      mockOnDragStart!({ active: { id: secondCopyId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: secondCopyId }, over: { id: `crew-${firstCopyId}` } });
+    });
+
+    const shipRow = document.body.querySelector('[data-zone="ship-row-0"]') as HTMLElement;
+    expect(shipRow.querySelectorAll('[data-card-id]')).toHaveLength(2);
+    expect(shipRow.querySelector(`[data-card-id="${firstCopyId}"]`)).not.toBeNull();
+    expect(shipRow.querySelector(`[data-card-id="${secondCopyId}"]`)).not.toBeNull();
+
+    // Board the personnel card onto the first copy specifically: its crew badge goes to 1, and
+    // the second copy's crew stays at 0 (no badge).
+    const reopenHand2 = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(reopenHand2);
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: personnelId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${firstCopyId}` } });
+    });
+
+    expect(document.body.querySelector(`[data-zone="crew-${firstCopyId}"] [aria-label*="crew, 1 card"]`)).not.toBeNull();
+    expect(document.body.querySelector(`[data-zone="crew-${secondCopyId}"] [aria-label*="crew"]`)).toBeNull();
+
+    // Drag the first copy (with its crew) to a different mission: its crew goes with it, and
+    // the second copy, still on mission 0, is unaffected.
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstCopyId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstCopyId }, over: { id: 'mission-3' } });
+    });
+
+    const originRow = document.body.querySelector('[data-zone="ship-row-0"]') as HTMLElement;
+    const destinationRow = document.body.querySelector('[data-zone="ship-row-3"]') as HTMLElement;
+    expect(originRow.querySelector(`[data-card-id="${firstCopyId}"]`)).toBeNull();
+    expect(originRow.querySelector(`[data-card-id="${secondCopyId}"]`)).not.toBeNull();
+    expect(destinationRow.querySelector(`[data-card-id="${firstCopyId}"]`)).not.toBeNull();
+    expect(destinationRow.querySelector('[aria-label*="crew, 1 card"]')).not.toBeNull();
+    expect(document.body.querySelector(`[data-zone="crew-${secondCopyId}"] [aria-label*="crew"]`)).toBeNull();
   });
 
   it('does not change the ship row when a ship is dropped back on the mission it already occupies (#601)', async () => {

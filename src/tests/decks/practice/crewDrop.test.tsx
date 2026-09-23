@@ -223,11 +223,13 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
     expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).not.toBeNull();
   });
 
-  it('leaves a ship in the hand when dropped on another ship\'s crew slot (unsupported drop)', async () => {
+  it("routes a ship dropped on another ship's crew slot onto that ship's own row instead of aboard it (#668)", async () => {
     await setupOpenHand([mockShipCard, mockOtherShipCard]);
     const [shipId, otherShipId] = mockDraggableIds;
     await placeShipOnMission(shipId, 0, 1);
 
+    // The pointer lands on the first ship's crew zone (it covers almost the whole row, #668),
+    // not on the row or the mission card itself, but the dropped card is a ship, not crew.
     await act(async () => {
       mockOnDragStart!({ active: { id: otherShipId } });
     });
@@ -235,13 +237,12 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
       mockOnDragEnd!({ active: { id: otherShipId }, over: { id: `crew-${shipId}` } });
     });
 
-    // The dropped ship is still in the hand, not aboard the other ship.
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
-    expect(closedHandButton).toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
-    expect(screen.getByRole('button', { name: 'i.k.s. somraw' })).toBeInTheDocument();
+    // Gone from the hand, and now on mission 0's ship row alongside the first ship, not aboard
+    // it as crew.
+    expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
+    const shipRow = document.body.querySelector('[data-zone="ship-row-0"]') as HTMLElement;
+    expect(shipRow.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
+    expect(shipRow.contains(screen.getByRole('button', { name: 'i.k.s. somraw' }))).toBe(true);
     expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).toBeNull();
   });
 
