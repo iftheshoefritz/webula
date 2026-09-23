@@ -649,6 +649,75 @@ describe('tableReducer', () => {
       expect(state.missions[0].dilemma).toEqual([{ ...revealed, face: 'up' }, stillDown]);
     });
   });
+
+  describe('stop (#679)', () => {
+    it('sets `stopped` on a hand card that is not yet stopped', () => {
+      const personnelCard = instance('p0', card('Data'), 'up');
+      const start = { ...initialTableState, hand: [personnelCard] };
+      const state = tableReducer(start, { type: 'stop', id: 'p0' });
+
+      expect(state.hand).toEqual([{ ...personnelCard, stopped: true }]);
+    });
+
+    it('clears `stopped` on a card that is already stopped', () => {
+      const stoppedCard = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const start = { ...initialTableState, hand: [stoppedCard] };
+      const state = tableReducer(start, { type: 'stop', id: 'p0' });
+
+      expect(state.hand).toEqual([{ ...stoppedCard, stopped: false }]);
+    });
+
+    it('leaves other cards in the same zone untouched', () => {
+      const toggled = instance('p0', card('Data'), 'up');
+      const untouched = instance('p1', card('Worf'), 'up');
+      const start = { ...initialTableState, hand: [toggled, untouched] };
+      const state = tableReducer(start, { type: 'stop', id: 'p0' });
+
+      expect(state.hand).toEqual([{ ...toggled, stopped: true }, untouched]);
+    });
+
+    it('toggles a mission card in place', () => {
+      const mission = instance('m0', card('Moab IV'), 'up');
+      const start = { ...initialTableState, missions: missionSlots([mission]) };
+      const state = tableReducer(start, { type: 'stop', id: 'm0' });
+
+      expect(state.missions[0].mission).toEqual({ ...mission, stopped: true });
+    });
+
+    it("toggles a card in a mission's personnel pile", () => {
+      const personnelCard = instance('p0', card('Data'), 'down');
+      const start = { ...initialTableState, missions: missionSlots([], {}, { 1: [personnelCard] }) };
+      const state = tableReducer(start, { type: 'stop', id: 'p0' });
+
+      expect(state.missions[1].personnel).toEqual([{ ...personnelCard, stopped: true }]);
+    });
+
+    it("toggles a personnel card aboard a ship, as crew, keeping the rest of the crew untouched", () => {
+      const staying = instance('p0', card('Worf'), 'up');
+      const toggled = instance('p1', card('Data'), 'up');
+      const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), crew: [staying, toggled] };
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
+      const state = tableReducer(start, { type: 'stop', id: 'p1' });
+
+      expect(state.missions[0].ships[0].crew).toEqual([staying, { ...toggled, stopped: true }]);
+    });
+
+    it('keeps the flag through a later move (#679: a move only ever changes `face`)', () => {
+      const personnelCard = instance('p0', card('Data'), 'up');
+      const start = { ...initialTableState, hand: [personnelCard] };
+      const stopped = tableReducer(start, { type: 'stop', id: 'p0' });
+      const moved = tableReducer(stopped, { type: 'move', id: 'p0', to: 'discard' });
+
+      expect(moved.discard).toEqual([{ ...personnelCard, stopped: true, face: 'up' }]);
+    });
+
+    it('is a no-op for an id that is not on the table', () => {
+      const start = { ...initialTableState, hand: [instance('p0', card('Data'))] };
+      const state = tableReducer(start, { type: 'stop', id: 'missing' });
+
+      expect(state).toBe(start);
+    });
+  });
 });
 
 describe('createCardInstances', () => {

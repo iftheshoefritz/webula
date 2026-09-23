@@ -34,7 +34,7 @@
 
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
-import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
+import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, STOPPED_IMAGE_CLASSNAME } from './TableCard';
 
 // A mission pile is one of `MissionPileName`; the core and the brig (#640) are two more flat
 // zones this same panel now lists, alongside a mission's piles. A ship's crew (#664) is a third:
@@ -97,7 +97,7 @@ function PilePanelCard({
             <img
               src={`/cardimages/${card.imagefile}.jpg`}
               alt={card.name}
-              className="w-full h-full object-cover object-top"
+              className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
             />
           </div>
         </div>

@@ -33,6 +33,13 @@ export const TABLE_CARD_WIDTH = 72; // px
 // bottom edge #665 set (12px down from the top, so 64px tall keeps that same bottom edge, #673).
 export const TABLE_CARD_ART_HEIGHT = 64; // px
 
+// The shared "stopped" look (#679): a stopped personnel card's image shows greyed out, like a
+// disabled UI element, everywhere it appears — here, in a pile panel (`PilePanel.tsx`, which
+// also covers a ship's crew panel), and in the large preview (`CardPreview.tsx`). A face-down
+// stopped card shows the card back with this same style, since it applies to the `<img>`
+// regardless of which image it renders.
+export const STOPPED_IMAGE_CLASSNAME = 'grayscale opacity-50';
+
 export default function TableCard({
   instance,
   onClick,
@@ -74,7 +81,7 @@ export default function TableCard({
           <img
             src={isFaceDown ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
             alt={isFaceDown ? 'Face-down card' : card.name}
-            className="w-full h-full object-cover object-top"
+            className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
           />
         </div>
       </div>

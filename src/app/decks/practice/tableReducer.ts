@@ -21,6 +21,11 @@ export interface CardInstance {
   // in the ship's preview instead. Only meaningful on a ship instance, and only set once a ship
   // has at least one crew member (absent, not an empty array, otherwise).
   crew?: CardInstance[];
+  // Whether a personnel card is stopped (#679): shown with a greyed-out image everywhere it
+  // appears. Absent on a card that is not stopped, the same as `crew`. A move keeps this flag
+  // (see `move` below, which only ever touches `face`), so stopping a card, then dragging it
+  // elsewhere, leaves it stopped in its new home too.
+  stopped?: boolean;
 }
 
 // A mission slot holds the mission card dealt into that position (#597), the ships placed on
@@ -96,6 +101,11 @@ export type TableAction =
   // unordered from the player's point of view, so nothing else needs it.
   | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom' }
   | { type: 'flip'; id: string }
+  // Toggles a personnel card's `stopped` flag (#679), wherever it currently sits — including
+  // aboard a ship as crew, unlike `flip`, which has no meaning there. Modeled on `flip`, but
+  // reuses `cardsAt`/`withCardsAt` (the same helpers `move` uses) instead of `flip`'s own
+  // per-zone branches, since toggling `stopped` has no zone-dependent behaviour to encode.
+  | { type: 'stop'; id: string }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
 
 export const ZONE_FACE: Record<Zone, Face> = {
@@ -389,6 +399,23 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         ...state,
         [zone]: state[zone].map((c) => (c.id === action.id ? { ...c, face: flipFace(c.face) } : c)),
       };
+    }
+
+    case 'stop': {
+      const found = findInstanceAnywhere(state, action.id);
+      if (!found) return state;
+      const { zone, instance } = found;
+      const toggled = { ...instance, stopped: !instance.stopped };
+      if (zone === 'missions') {
+        const idx = state.missions.findIndex((slot) => slot.mission?.id === action.id);
+        const missions = state.missions.map((slot, i) => (i === idx ? { ...slot, mission: toggled } : slot));
+        return { ...state, missions };
+      }
+      // Every other zone `findInstanceAnywhere` reports (the flat zones, a ship row, a ship's
+      // crew, a mission pile) is a `MoveTarget`, so `cardsAt`/`withCardsAt` read and write it the
+      // same way `move` does.
+      const cards = cardsAt(state, zone);
+      return withCardsAt(state, zone, cards.map((c) => (c.id === action.id ? toggled : c)));
     }
 
     case 'reset': {

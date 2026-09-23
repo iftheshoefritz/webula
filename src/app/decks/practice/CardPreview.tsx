@@ -33,6 +33,7 @@
 
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
+import { STOPPED_IMAGE_CLASSNAME } from './TableCard';
 
 // The enlarged card's own draggable id is distinct from the card's home draggable id (its plain
 // `instance.id`), since both can be mounted, and registered with dnd-kit, at the same time.
@@ -52,6 +53,7 @@ export default function CardPreview({
   instance,
   onClose,
   onFlip,
+  onStop,
   hidden = false,
   draggable = false,
   reserveLeft = false,
@@ -59,6 +61,10 @@ export default function CardPreview({
   instance: CardInstance;
   onClose: () => void;
   onFlip?: () => void;
+  // Toggles a personnel card's `stopped` flag (#679); shown as a "Stop"/"Unstop" button next to
+  // "Flip", for a personnel card only (the caller passes it only then, the same convention
+  // `onFlip` already follows for the zones that get a "Flip" button).
+  onStop?: () => void;
   hidden?: boolean;
   draggable?: boolean;
   reserveLeft?: boolean;
@@ -107,7 +113,9 @@ export default function CardPreview({
         <img
           src={`/cardimages/${card.imagefile}.jpg`}
           alt={card.name}
-          className="absolute right-4 top-1/2 -translate-y-1/2 h-[90%] w-auto rounded-lg shadow-2xl"
+          className={`absolute right-4 top-1/2 -translate-y-1/2 h-[90%] w-auto rounded-lg shadow-2xl ${
+            instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''
+          }`}
         />
       </button>
 
@@ -117,14 +125,19 @@ export default function CardPreview({
         </span>
       )}
 
-      {onFlip && (
-        <button
-          type="button"
-          onClick={onFlip}
-          className="btn-primary absolute right-4 bottom-[6%]"
-        >
-          Flip
-        </button>
+      {(onFlip || onStop) && (
+        <div className="absolute right-4 bottom-[6%] flex gap-2">
+          {onFlip && (
+            <button type="button" onClick={onFlip} className="btn-primary">
+              Flip
+            </button>
+          )}
+          {onStop && (
+            <button type="button" onClick={onStop} className="btn-primary">
+              {instance.stopped ? 'Unstop' : 'Stop'}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
