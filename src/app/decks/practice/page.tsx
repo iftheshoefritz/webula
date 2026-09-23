@@ -810,6 +810,11 @@ function PracticeDrawContent() {
                       ? () => dispatch({ type: 'flip', id: focused.instance.id })
                       : undefined
                   }
+                  onStop={
+                    focused.instance.card.type === 'personnel'
+                      ? () => dispatch({ type: 'stop', id: focused.instance.id })
+                      : undefined
+                  }
                   draggable={focused.zone !== 'missions'}
                   hidden={draggingInstance !== null}
                   reserveLeft={openCrewShipId !== null}
