@@ -626,6 +626,67 @@ describe('tableReducer', () => {
 
       expect(state.core).toEqual([]);
     });
+
+    // A download (#690) shows the player the whole pile, so they shuffle it afterwards. That
+    // shuffle must reach the draw pile alone: a hand that changed with it would undo the draws
+    // the player already made.
+    it('shuffles the draw pile without touching the hand or any other zone', () => {
+      const pile = Array.from({ length: 10 }, (_, i) => instance(`p${i}`, card(`Card ${i}`), 'down'));
+      const hand = Array.from({ length: 3 }, (_, i) => instance(`h${i}`, card(`Hand ${i}`), 'up'));
+      const discard = [instance('d0', card('Discarded'), 'up')];
+      const start = { ...initialTableState, pile, hand, discard, dilemmaPile: [instance('x0', card('Dilemma'), 'down')] };
+
+      const state = tableReducer(start, { type: 'shuffle', location: 'pile' });
+
+      expect(new Set(state.pile.map((c) => c.id))).toEqual(new Set(pile.map((c) => c.id)));
+      expect(state.pile).toHaveLength(pile.length);
+      expect(state.pile.every((c) => c.face === 'down')).toBe(true);
+      expect(state.hand).toEqual(hand);
+      expect(state.discard).toEqual(discard);
+      expect(state.dilemmaPile).toEqual(start.dilemmaPile);
+      expect(state.missions).toEqual(initialTableState.missions);
+    });
+
+    it('shuffles the dilemma pile without touching the dilemma hand or the draw pile', () => {
+      const dilemmaPile = Array.from({ length: 8 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
+      const dilemmaHand = [instance('dh0', card('Held dilemma'), 'up')];
+      const pile = [instance('p0', card('Draw card'), 'down')];
+      const start = { ...initialTableState, dilemmaPile, dilemmaHand, pile };
+
+      const state = tableReducer(start, { type: 'shuffle', location: 'dilemmaPile' });
+
+      expect(new Set(state.dilemmaPile.map((c) => c.id))).toEqual(new Set(dilemmaPile.map((c) => c.id)));
+      expect(state.dilemmaPile.every((c) => c.face === 'down')).toBe(true);
+      expect(state.dilemmaHand).toEqual(dilemmaHand);
+      expect(state.pile).toEqual(pile);
+    });
+  });
+
+  // A download (#690) opens a pile panel to look through the draw pile or the dilemma pile. The
+  // look itself must change nothing, and taking one card must take exactly that card and leave
+  // the order of the rest alone.
+  describe('download from a pile (#690)', () => {
+    it('moves one card from the draw pile to the hand, keeping the order of the rest', () => {
+      const pile = Array.from({ length: 6 }, (_, i) => instance(`p${i}`, card(`Card ${i}`), 'down'));
+      const start = { ...initialTableState, pile, hand: [instance('h0', card('Held'), 'up')] };
+
+      const state = tableReducer(start, { type: 'move', id: 'p3', to: 'hand' });
+
+      expect(state.pile.map((c) => c.id)).toEqual(['p0', 'p1', 'p2', 'p4', 'p5']);
+      expect(state.hand.map((c) => c.id)).toEqual(['h0', 'p3']);
+      expect(state.hand[1].face).toBe('up');
+    });
+
+    it('moves one card from the dilemma pile to the dilemma hand, keeping the order of the rest', () => {
+      const dilemmaPile = Array.from({ length: 5 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
+      const start = { ...initialTableState, dilemmaPile };
+
+      const state = tableReducer(start, { type: 'move', id: 'd1', to: 'dilemmaHand' });
+
+      expect(state.dilemmaPile.map((c) => c.id)).toEqual(['d0', 'd2', 'd3', 'd4']);
+      expect(state.dilemmaHand.map((c) => c.id)).toEqual(['d1']);
+      expect(state.dilemmaHand[0].face).toBe('up');
+    });
   });
 
   describe('flip', () => {

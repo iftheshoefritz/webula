@@ -80,9 +80,10 @@ function ShuffleIcon() {
 // zones this same panel now lists, alongside a mission's piles. A ship's crew (#664) is a third:
 // like the core and the brig, it is not addressed by mission index, so it is named the same way,
 // by its own zone string rather than a `MissionPileName`. The draw pile and the dilemma pile
-// (#690) are a fourth and fifth: opening this panel for either one lets the player search it —
-// look through every card without drawing — while the rest of the pile stays exactly where it
-// was, in its existing order.
+// (#690) are a fourth and fifth: opening this panel for either one lets the player download from
+// it — the game's term for a look through every card without drawing — while the rest of the pile
+// stays exactly where it was, in its existing order. The player normally shuffles afterwards,
+// with the panel's own Shuffle button, because the download showed them the whole pile.
 export type PanelZone = MissionPileName | 'core' | 'brig' | 'crew' | 'pile' | 'dilemmaPile';
 
 const PANEL_LABEL: Record<PanelZone, string> = {

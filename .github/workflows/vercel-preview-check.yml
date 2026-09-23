@@ -115,6 +115,8 @@ jobs:
 
                Note: appending `?fixture=1` preloads a hardcoded demo deck so a reviewer does not need their own saved account or saved deck. It is supported on `/decks` and `/decks/practice`.
 
+               Always link `/decks/practice?fixture=1` when the change touches anything under `src/app/decks/practice/`. The practice table has no other way in: `/decks/practice` on its own shows an empty table, so a reviewer who follows a bare link sees none of the change.
+
             7. Construct full clickable URLs by appending each relevant path to the Vercel preview base URL from step 3.
 
                Example: if the base URL is `https://webula-abc123.vercel.app` and the route is `/decks?fixture=1`,
@@ -139,6 +141,7 @@ jobs:
                Changed files affect these routes:
 
                - [/decks?fixture=1](https://webula-abc123.vercel.app/decks?fixture=1) — deck builder (fixture deck preloaded)
+               - [/decks/practice?fixture=1](https://webula-abc123.vercel.app/decks/practice?fixture=1) — practice table (fixture deck preloaded)
                - [/](https://webula-abc123.vercel.app/) — card search
 
                ## Verification Assessment
