@@ -5,11 +5,12 @@
 #   bash scripts/practice_drag.sh card-5 core
 #
 # It prints the zone the card is in after the drag. A mission pile, a closed
-# hand, and a closed dilemma hand all keep their cards out of the DOM (a badge
-# with a count stands in for the cards), so for those the script cannot find
-# the card by id afterward. Instead it reads the `aria-label` of every badge
-# on the table, before and after the drag, and reports whichever one gained a
-# card. If none did (or more than one did), it says so rather than guessing.
+# hand, a closed dilemma hand, and a ship's crew all keep their cards out of
+# the DOM (a badge with a count stands in for the cards), so for those the
+# script cannot find the card by id afterward. Instead it reads the
+# `aria-label` of every badge on the table, before and after the drag, and
+# reports whichever one gained a card. If none did (or more than one did), it
+# says so rather than guessing.
 #
 # Two things make a hand drag fail, and both cost an agent many turns to find
 # again. This script handles both.
@@ -83,8 +84,17 @@ bx=$1; by=$2
 # only one card moves per run of this script, so at most one badge anywhere
 # on the table ever gains a card, and this fallback key never has to tell two
 # missions' stacks apart.
+#
+# A ship's crew badge reads "<Ship name> crew, N cards" instead - no ", tap to
+# open" suffix, since it's a non-interactive span (#678), not a button. It
+# never carries its own data-zone either: it's a sibling of the ship's own
+# TableCard button, so it can't be the drop target itself (a `<button>` can't
+# nest inside another `<button>`). Its data-zone lives one level up, on the
+# div MissionRow.tsx wraps around both the ship and its badge (`crewDropId`).
+# So this key comes from the closest ancestor's data-zone, not the element's
+# own, falling back to the ship name if somehow neither is set (#715).
 snapshot() {
-  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const m=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(!m)return;const k=el.getAttribute('data-zone')||m[1];parts.push(k+'='+m[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
+  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const k=el.getAttribute('data-zone')||pile[1];parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
 }
 
 before=$(snapshot)
