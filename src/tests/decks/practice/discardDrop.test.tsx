@@ -21,7 +21,6 @@ jest.mock('../../../app/decks/deckBuilderUtils', () => ({
 
 // Mock react-icons to avoid jsdom noise
 jest.mock('react-icons/fa', () => ({
-  FaRedo: () => null,
   FaLayerGroup: () => null,
   FaMobileAlt: () => null,
   FaForward: () => null,
@@ -246,7 +245,9 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     expect(screen.queryByAltText('Discard pile')).not.toBeInTheDocument();
   });
 
-  it('reset clears the discard pile along with the pile and hand', async () => {
+  // #721: the button above the draw pile shuffles it in place; it no longer resets the game,
+  // so a discarded card stays in the discard pile.
+  it('the button above the draw pile leaves the discard pile untouched', async () => {
     await setupOpenHand([mockManyCards[0]]);
     const [draggedId] = mockDraggableIds;
 
@@ -258,13 +259,11 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     });
     expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
 
-    const resetButton = screen.getByRole('button', { name: /^reset$/i });
+    const shuffleButton = screen.getByRole('button', { name: /^shuffle$/i });
     await act(async () => {
-      fireEvent.click(resetButton);
+      fireEvent.click(shuffleButton);
     });
 
-    // A single-card deck is dealt straight back into a closed hand; the discard pile clears.
-    expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
-    expect(screen.queryByAltText('Discard pile')).not.toBeInTheDocument();
+    expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
   });
 });

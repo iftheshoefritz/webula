@@ -21,7 +21,6 @@ jest.mock('../../../app/decks/deckBuilderUtils', () => ({
 
 // Mock react-icons to avoid jsdom noise
 jest.mock('react-icons/fa', () => ({
-  FaRedo: () => null,
   FaLayerGroup: () => null,
   FaMobileAlt: () => null,
   FaForward: () => null,
@@ -752,8 +751,10 @@ describe('PracticeDrawPage', () => {
     });
   });
 
-  // Reset: redeals an opening hand of 7 and closes the hand
-  it('clicking reset after drawing cards redeals an opening hand of 7 and closes the hand', async () => {
+  // Shuffle (#721): the button above the draw pile shuffles it in place instead of resetting
+  // the game — the cards already on the table (here, the drawn card sitting in the hand) stay
+  // exactly where they are, and only the order of the remaining draw pile changes.
+  it('clicking the button above the draw pile shuffles it without resetting the game', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -763,34 +764,46 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // Draw the remaining 3 cards and open the hand
+    // Draw one card, leaving cards on the table beyond the initial opening hand.
     const drawPileButton = screen.getByRole('button', { name: /face-down draw pile/i });
-    for (let i = 0; i < 3; i++) {
-      await act(async () => {
-        fireEvent.click(drawPileButton);
-      });
-    }
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 10 cards, tap to open$/i });
     await act(async () => {
-      fireEvent.click(closedHandButton);
+      fireEvent.click(drawPileButton);
     });
+    expect(screen.getByRole('button', { name: /^hand, 8 cards, tap to open$/i })).toBeInTheDocument();
+
+    // Record the draw pile's card order before shuffling.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'card 1' }));
+      fireEvent.click(screen.getByRole('button', { name: /^download from the draw pile$/i }));
     });
-    expect(screen.getByRole('button', { name: /tap to shrink/i })).toBeInTheDocument();
-
-    // Click reset (the small button directly above the draw pile)
-    const resetButton = screen.getByRole('button', { name: /^reset$/i });
-
+    const idsBefore = Array.from(
+      document.querySelectorAll('[data-zone="pile-panel-pile"] [data-card-id]')
+    ).map((el) => el.getAttribute('data-card-id'));
     await act(async () => {
-      fireEvent.click(resetButton!);
+      fireEvent.click(screen.getByRole('button', { name: /^close draw pile$/i }));
     });
 
-    // Pile is back to 3, hand is a fresh opening hand of 7 and is closed, and the preview clears
-    expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
+    // The initial deal uses the same shuffleArray mocked as identity in beforeEach; make the
+    // shuffle button's own call actually reorder, so the test can tell the two apart.
+    (shuffleArray as jest.Mock).mockImplementation((arr) => [...arr].reverse());
+
+    const shuffleButton = screen.getByRole('button', { name: /^shuffle$/i });
+    await act(async () => {
+      fireEvent.click(shuffleButton);
+    });
+
+    // The hand still holds the drawn card: the button did not reset the game.
+    expect(screen.getByRole('button', { name: /^hand, 8 cards, tap to open$/i })).toBeInTheDocument();
+
+    // The draw pile holds the same cards, in a different order.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^download from the draw pile$/i }));
+    });
+    const idsAfter = Array.from(
+      document.querySelectorAll('[data-zone="pile-panel-pile"] [data-card-id]')
+    ).map((el) => el.getAttribute('data-card-id'));
+
+    expect(new Set(idsAfter)).toEqual(new Set(idsBefore));
+    expect(idsAfter).not.toEqual(idsBefore);
   });
 
   // Viewport sizing (issue #592): the game UI is a fixed layer that fills the visible area,

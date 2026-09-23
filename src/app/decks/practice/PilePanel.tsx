@@ -55,7 +55,7 @@ import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, STOPPED_IMAGE_CLASSNAME } from
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
 // the icons `page.tsx` itself imports, so a new react-icons import here would need every one of
 // those mocks updated too, for a component this small.
-function ShuffleIcon() {
+export function ShuffleIcon() {
   return (
     <svg
       viewBox="0 0 24 24"

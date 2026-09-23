@@ -15,7 +15,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { collisionDetection } from './collisionDetection';
-import { FaRedo, FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
+import { FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
 import { deckFromTsv, expandDeck, extractDilemmas, extractMissions, isDeckEmpty, shuffleArray } from '../deckBuilderUtils';
 import { Deck } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
@@ -45,7 +45,7 @@ import MissionRow, {
 } from './MissionRow';
 import CardPreview, { cardIdFromDraggableId } from './CardPreview';
 import CountBadge from './CountBadge';
-import PilePanel from './PilePanel';
+import PilePanel, { ShuffleIcon } from './PilePanel';
 import FlatCardRow from './FlatCardRow';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 import { useTableScale } from './tableScale';
@@ -499,10 +499,6 @@ function PracticeDrawContent() {
     dispatch({ type: 'draw', from: 'dilemmaPile', to: 'dilemmaHand' });
   };
 
-  const reset = () => {
-    initDeck();
-  };
-
   // Raises the turn counter by one and unstops every stopped personnel card on the table (#718).
   const nextTurn = () => {
     dispatch({ type: 'nextTurn' });
@@ -886,10 +882,10 @@ function PracticeDrawContent() {
                     <div className="flex flex-col items-center gap-1">
                       <button
                         className="btn-icon btn-icon-sm"
-                        onClick={reset}
-                        aria-label="Reset"
+                        onClick={() => dispatch({ type: 'shuffle', location: 'pile' })}
+                        aria-label="Shuffle"
                       >
-                        <FaRedo />
+                        <ShuffleIcon />
                       </button>
                       <div className="flex items-end gap-1">
                         <button
