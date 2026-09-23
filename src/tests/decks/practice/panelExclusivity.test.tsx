@@ -24,6 +24,7 @@ jest.mock('react-icons/fa', () => ({
   FaRedo: () => null,
   FaLayerGroup: () => null,
   FaMobileAlt: () => null,
+  FaForward: () => null,
 }));
 
 // Mock next/link
