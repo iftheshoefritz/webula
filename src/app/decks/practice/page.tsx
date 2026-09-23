@@ -52,6 +52,58 @@ import { useTableScale } from './tableScale';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 
+// A plain inline hamburger icon (#722), not react-icons: see `DownloadIcon`'s comment below for
+// why a react-icons import here would need every test mock of `react-icons/fa` in this file's own
+// tests, and every other test that renders this page, updated too.
+function MenuIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      className="w-4 h-4"
+      aria-hidden="true"
+    >
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
+
+// A home for the controls that act on the whole game rather than one zone (#722), starting with
+// Reset. A small menu button opens it; it does not cover the table while closed, and a tap
+// outside the open menu (the backdrop below, the same "tap outside closes it" convention
+// `CardHand`'s own fan backdrop already follows) closes it without acting. Reset throws away the
+// current game, so it confirms first via `window.confirm`, the same confirm-before-destroy
+// pattern `DrivePickerModal`'s own delete already uses elsewhere in the app, rather than a
+// custom dialog built just for this one destructive action.
+function GameMenu({ open, onToggle, onClose, onReset }: { open: boolean; onToggle: () => void; onClose: () => void; onReset: () => void }) {
+  return (
+    <div className="absolute top-2 left-2 z-40">
+      <button type="button" onClick={onToggle} aria-label="Game menu" aria-expanded={open} className="btn-icon btn-icon-sm">
+        <MenuIcon />
+      </button>
+      {open && (
+        <>
+          <button type="button" className="fixed inset-0 z-30" onClick={onClose} aria-label="Close game menu" />
+          <div className="absolute left-0 top-full mt-1 z-40 min-w-[8rem] rounded-md border border-white/10 bg-bg-secondary py-1 shadow-lg">
+            <button
+              type="button"
+              onClick={onReset}
+              className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
+            >
+              Reset
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // A dropped card's type chooses its mission pile (#602): personnel and equipment go to the
 // personnel pile, event/mission/interrupt go to the event pile. A ship, and a dilemma (routed
 // separately below, since a dilemma's pile depends on its source zone too, #605/#606), are
@@ -392,6 +444,8 @@ function PracticeDrawContent() {
   const [deckEmpty, setDeckEmpty] = useState(true);
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [isPortrait, setIsPortrait] = useState(false);
+  // The game menu (#722): closed by default, so it never covers the table.
+  const [gameMenuOpen, setGameMenuOpen] = useState(false);
   // Only one hand opens at a time (#604), so one value names the open hand rather than one
   // boolean per hand.
   const [openHand, setOpenHand] = useState<'hand' | 'dilemmaHand' | null>(null);
@@ -490,6 +544,15 @@ function PracticeDrawContent() {
       (screen.orientation as ScreenOrientationWithLock)?.unlock?.();
     };
   }, []);
+
+  // The game menu's Reset item (#722): closes the menu, confirms since it throws away the
+  // current game, and starts a new one the same way a fresh page load does.
+  const handleResetClick = () => {
+    setGameMenuOpen(false);
+    if (window.confirm('Reset the game? This will throw away the current game.')) {
+      initDeck();
+    }
+  };
 
   const drawOne = () => {
     dispatch({ type: 'draw', from: 'pile', to: 'hand' });
@@ -782,6 +845,15 @@ function PracticeDrawContent() {
 
       {/* Game layer: fixed inset-0 always fills the visible area as the toolbar shows and hides */}
       <div ref={setGameLayer} data-testid="practice-game-layer" className="fixed inset-0 bg-gradient-page font-body text-text-primary flex flex-col">
+        {/* The home for whole-game controls (#722), starting with Reset. Rendered outside the
+            isEmpty/!isEmpty split below so it's there in both states. */}
+        <GameMenu
+          open={gameMenuOpen}
+          onToggle={() => setGameMenuOpen((open) => !open)}
+          onClose={() => setGameMenuOpen(false)}
+          onReset={handleResetClick}
+        />
+
         {isEmpty && (
           <div className="flex flex-col items-center justify-center flex-1 text-text-muted gap-2 p-8">
             <FaLayerGroup className="text-4xl" />
