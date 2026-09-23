@@ -106,7 +106,15 @@ export interface TableState {
   // The turn counter (#718): starts at 1 on a new game and on reset, and only ever changes via
   // `nextTurn` below.
   turn: number;
+  // The score counter (#719): starts at 0 on a new game and on reset, and only ever changes via
+  // `adjustScore` below, which clamps it to the 0-140 range.
+  score: number;
 }
+
+// The score counter's range (#719) and the amount each button press changes it by.
+export const SCORE_MIN = 0;
+export const SCORE_MAX = 140;
+export const SCORE_STEP = 5;
 
 export type TableAction =
   // A tap on a face-down pile moves its top card to a hand. The draw pile and the hand are one
@@ -137,6 +145,9 @@ export type TableAction =
   // Raises the turn counter by one and unstops every stopped personnel card, in every zone
   // (#718): the flat zones, every mission's piles, every ship row, and every ship's crew.
   | { type: 'nextTurn' }
+  // Changes the score counter by `delta` (#719), clamped to SCORE_MIN..SCORE_MAX: a delta that
+  // would take the score past either limit stops there instead.
+  | { type: 'adjustScore'; delta: number }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
 
 export const ZONE_FACE: Record<Zone, Face> = {
@@ -185,6 +196,7 @@ export const initialTableState: TableState = {
     underMission: [],
   })),
   turn: 1,
+  score: 0,
 };
 
 let nextInstanceId = 0;
@@ -497,6 +509,11 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       };
     }
 
+    case 'adjustScore': {
+      const score = Math.min(SCORE_MAX, Math.max(SCORE_MIN, state.score + action.delta));
+      return { ...state, score };
+    }
+
     case 'reset': {
       // A new game (and the reset button) deals an opening hand of 7 cards, face up, and
       // leaves the rest in the draw pile. A deck with fewer than 7 cards deals all of it.
@@ -526,6 +543,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         dilemmaHand: [],
         missions,
         turn: 1,
+        score: 0,
       };
     }
 

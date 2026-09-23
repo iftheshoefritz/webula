@@ -24,6 +24,9 @@ import {
   CardInstance,
   MissionPileName,
   MoveTarget,
+  SCORE_MAX,
+  SCORE_MIN,
+  SCORE_STEP,
   TableAction,
   TableState,
   TableZone,
@@ -385,7 +388,7 @@ function PracticeDrawContent() {
   const isFixture = searchParams.get('fixture') === '1';
   const { data, loading } = useDataFetching();
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
-  const { pile, hand, discard, core, brig, dilemmaPile, dilemmaHand, missions, turn } = table;
+  const { pile, hand, discard, core, brig, dilemmaPile, dilemmaHand, missions, turn, score } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [isPortrait, setIsPortrait] = useState(false);
@@ -503,6 +506,12 @@ function PracticeDrawContent() {
   // Raises the turn counter by one and unstops every stopped personnel card on the table (#718).
   const nextTurn = () => {
     dispatch({ type: 'nextTurn' });
+  };
+
+  // Changes the score counter by SCORE_STEP points (#719), clamped by the reducer to the
+  // 0-140 range.
+  const adjustScore = (delta: number) => {
+    dispatch({ type: 'adjustScore', delta });
   };
 
   const toggleCardSelection = (id: string) => {
@@ -844,6 +853,32 @@ function PracticeDrawContent() {
                     >
                       <FaForward />
                     </button>
+                  </div>
+
+                  {/* Score counter (#719): shows the current score, and plus/minus buttons that
+                      change it by SCORE_STEP points, clamped by the reducer to 0-140. */}
+                  <div className="flex flex-col items-center gap-1">
+                    <span data-testid="score-counter" className="text-xs text-text-muted">
+                      Score {score}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => adjustScore(-SCORE_STEP)}
+                        disabled={score <= SCORE_MIN}
+                        aria-label="Decrease score"
+                      >
+                        -
+                      </button>
+                      <button
+                        className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => adjustScore(SCORE_STEP)}
+                        disabled={score >= SCORE_MAX}
+                        aria-label="Increase score"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
 
                   {/* Pile */}
