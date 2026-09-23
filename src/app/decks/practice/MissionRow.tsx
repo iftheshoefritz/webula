@@ -32,6 +32,17 @@
 // a plain, non-interactive `<span>` with `pointer-events-none`, so a tap that lands on it falls
 // through to the ship's own `TableCard` button beneath.
 //
+// A row of 2 or fewer ships fits every ship side by side within `SHIP_ROW_MAX_WIDTH` with no
+// overlap (see `SHIP_MAX_OFFSET` below); a third ship (or later) overlaps the earlier ones almost
+// completely, since the row's width stays bounded and `offsetFor` shrinks the per-card offset as
+// the count grows past what fits without overlap (#713). Once a row is in that overlapping
+// state, every ship's tap opens a panel listing every ship on that row individually instead
+// (`PilePanel`, zone `'shipRow'`, the same list-view pattern the core, the brig, and a ship's
+// crew already use) rather than going straight to `onShipClick` — the ship underneath an
+// overlapping one is otherwise unreachable for both a tap and a drag. A tap on a ship inside that
+// panel reuses `onShipClick` unchanged, the same two-level tap pattern the core/brig/crew panels
+// already follow.
+//
 // Dropping a personnel, equipment, event, mission, or interrupt card on the mission card or its
 // ship row (#602) files it into one of that mission's piles, chosen by card type: personnel and
 // equipment go to the personnel pile face down; event, mission, and interrupt go to the event
@@ -343,16 +354,24 @@ function ShipRow({
   missionIndex,
   ships,
   onShipClick,
+  onOpenShipRow,
 }: {
   missionIndex: number;
   ships: CardInstance[];
   onShipClick: (shipId: string) => void;
+  onOpenShipRow: (missionIndex: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: shipRowDropId(missionIndex) });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('shipRow', draggedType, isOver);
   const offset = offsetFor(ships.length, SHIP_CARD_WIDTH, SHIP_ROW_MAX_WIDTH, SHIP_MAX_OFFSET);
   const rowWidth = ships.length === 0 ? SHIP_ROW_MAX_WIDTH : SHIP_CARD_WIDTH + offset * (ships.length - 1);
+  // True once the row holds more ships than fit without overlap (#713): the same condition
+  // `offset` already encodes for layout — 2 ships fit at `SHIP_MAX_OFFSET` with a gap and no
+  // overlap, 3 or more shrink the offset below that. `ships.length > 1` excludes the trivial
+  // single-ship row, where `offsetFor` returns 0 (unused) with nothing behind it to overlap.
+  const overlapping = ships.length > 1 && offset < SHIP_MAX_OFFSET;
+  const handleShipTap = overlapping ? () => onOpenShipRow(missionIndex) : onShipClick;
 
   return (
     <div
@@ -368,7 +387,7 @@ function ShipRow({
         <div className="relative" style={{ width: rowWidth, height: SHIP_ROW_HEIGHT }}>
           {ships.map((ship, idx) => (
             <div key={ship.id} className="absolute top-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
-              <ShipCard ship={ship} onShipClick={onShipClick} />
+              <ShipCard ship={ship} onShipClick={handleShipTap} />
             </div>
           ))}
         </div>
@@ -383,12 +402,14 @@ function MissionColumn({
   onCardClick,
   onOpenPile,
   onShipClick,
+  onOpenShipRow,
 }: {
   missionIndex: number;
   slot: MissionSlot;
   onCardClick: (id: string) => void;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
+  onOpenShipRow: (missionIndex: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
   const draggedType = useDraggedCardType();
@@ -429,7 +450,7 @@ function MissionColumn({
         onOpenPile={onOpenPile}
       />
 
-      <ShipRow missionIndex={missionIndex} ships={ships} onShipClick={onShipClick} />
+      <ShipRow missionIndex={missionIndex} ships={ships} onShipClick={onShipClick} onOpenShipRow={onOpenShipRow} />
     </div>
   );
 }
@@ -439,11 +460,13 @@ export default function MissionRow({
   onCardClick,
   onOpenPile,
   onShipClick,
+  onOpenShipRow,
 }: {
   missions: MissionSlot[];
   onCardClick: (id: string) => void;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
+  onOpenShipRow: (missionIndex: number) => void;
 }) {
   return (
     <div className="flex flex-row gap-2 justify-center">
@@ -455,6 +478,7 @@ export default function MissionRow({
           onCardClick={onCardClick}
           onOpenPile={onOpenPile}
           onShipClick={onShipClick}
+          onOpenShipRow={onOpenShipRow}
         />
       ))}
     </div>

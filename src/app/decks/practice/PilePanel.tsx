@@ -84,7 +84,10 @@ function ShuffleIcon() {
 // it — the game's term for a look through every card without drawing — while the rest of the pile
 // stays exactly where it was, in its existing order. The player normally shuffles afterwards,
 // with the panel's own Shuffle button, because the download showed them the whole pile.
-export type PanelZone = MissionPileName | 'core' | 'brig' | 'crew' | 'pile' | 'dilemmaPile';
+// A mission's own ship row (#713) is a sixth: once it holds more ships than fit without overlap,
+// a tap on any of them opens this panel listing every ship on that row individually, the same
+// way the core and the brig already list their own cards.
+export type PanelZone = MissionPileName | 'core' | 'brig' | 'crew' | 'pile' | 'dilemmaPile' | 'shipRow';
 
 const PANEL_LABEL: Record<PanelZone, string> = {
   personnel: 'Personnel',
@@ -96,14 +99,20 @@ const PANEL_LABEL: Record<PanelZone, string> = {
   crew: 'Crew',
   pile: 'Draw pile',
   dilemmaPile: 'Dilemma pile',
+  shipRow: 'Ships',
 };
 
-// The core, the brig, a ship's crew (#664), the draw pile, and the dilemma pile (#690) already
-// say "pile" (or need no such word at all) in their own label, so their close button's label
-// does not repeat it; a mission pile's label keeps the trailing "pile", unchanged from before
-// #640.
+// The core, the brig, a ship's crew (#664), the draw pile, the dilemma pile (#690), and a
+// mission's own ship row (#713) already say "pile" (or need no such word at all) in their own
+// label, so their close button's label does not repeat it; a mission pile's label keeps the
+// trailing "pile", unchanged from before #640.
 const closeLabel = (zone: PanelZone): string =>
-  zone === 'core' || zone === 'brig' || zone === 'crew' || zone === 'pile' || zone === 'dilemmaPile'
+  zone === 'core' ||
+  zone === 'brig' ||
+  zone === 'crew' ||
+  zone === 'pile' ||
+  zone === 'dilemmaPile' ||
+  zone === 'shipRow'
     ? `Close ${PANEL_LABEL[zone].toLowerCase()}`
     : `Close ${PANEL_LABEL[zone].toLowerCase()} pile`;
 

@@ -411,6 +411,12 @@ function PracticeDrawContent() {
   // #678, a tap on a ship (`handleShipClick` below) opens this alongside the ship's own preview,
   // and the two close together, rather than the badge opening this on its own.
   const [openCrewShipId, setOpenCrewShipId] = useState<string | null>(null);
+  // Which mission's ship-row list panel (#713) is open, if any, named by mission index the same
+  // way `openPile` is — only one at a time, tracked the same way as the other three panels
+  // below. Opened once a mission's ship row holds more ships than fit without overlap
+  // (`MissionRow.tsx`'s `ShipRow`), so every ship on that row stays reachable for a tap and a
+  // drag, not just the one on top.
+  const [openShipRowMissionIndex, setOpenShipRowMissionIndex] = useState<number | null>(null);
   // The cards checked in the currently open pile panel (#677), by id. UI state, scoped to
   // whichever panel is open — only one panel is ever open at a time — and cleared whenever a
   // panel closes, the same as the panels themselves.
@@ -505,20 +511,27 @@ function PracticeDrawContent() {
       openOnlyCrewPanel(shipId);
     } else {
       setOpenCrewShipId(null);
+      // A tap on a ship inside its row's own list panel (#713) reuses this function unchanged;
+      // clearing the panel here too, not just the crew panel, closes it the same way opening any
+      // other panel does, keeping the one-panel-at-a-time invariant below intact even on this
+      // crewless branch, which otherwise never calls one of the `openOnly*` helpers.
+      setOpenShipRowMissionIndex(null);
     }
   };
 
-  // #711: `openPile`, `openFlatZone`, and `openCrewShipId` each open a panel, but none of them
-  // used to clear the other two, so tapping a second panel open (e.g. a core/brig card while a
-  // mission's pile panel is still open) left two of these set at once. `openPanelCards`, below,
-  // only reads one of them at a time — whichever this file checks first — so the second panel
-  // rendered showed the first panel's cards until it was closed and reopened. These three
-  // helpers are the only way any of the three states is ever set to a non-null value, so routing
-  // every "open a panel" call through one of them, each clearing the other two first, restores
-  // the invariant the comments elsewhere in this file already claimed.
+  // #711: `openPile`, `openFlatZone`, `openCrewShipId`, and, since #713, `openShipRowMissionIndex`
+  // each open a panel, but none of them used to clear the others, so tapping a second panel open
+  // (e.g. a core/brig card while a mission's pile panel is still open) left two of these set at
+  // once. `openPanelCards`, below, only reads one of them at a time — whichever this file checks
+  // first — so the second panel rendered showed the first panel's cards until it was closed and
+  // reopened. These four helpers are the only way any of the four states is ever set to a
+  // non-null value, so routing every "open a panel" call through one of them, each clearing the
+  // other three first, restores the invariant the comments elsewhere in this file already
+  // claimed.
   const openOnlyMissionPile = (missionIndex: number, pile: MissionPileName) => {
     setOpenFlatZone(null);
     setOpenCrewShipId(null);
+    setOpenShipRowMissionIndex(null);
     setSelectedCardIds([]);
     setOpenPile({ missionIndex, pile });
   };
@@ -526,6 +539,7 @@ function PracticeDrawContent() {
   const openOnlyFlatZone = (zone: 'core' | 'brig' | 'pile' | 'dilemmaPile') => {
     setOpenPile(null);
     setOpenCrewShipId(null);
+    setOpenShipRowMissionIndex(null);
     setSelectedCardIds([]);
     setOpenFlatZone(zone);
   };
@@ -533,8 +547,17 @@ function PracticeDrawContent() {
   const openOnlyCrewPanel = (shipId: string) => {
     setOpenPile(null);
     setOpenFlatZone(null);
+    setOpenShipRowMissionIndex(null);
     setSelectedCardIds([]);
     setOpenCrewShipId(shipId);
+  };
+
+  const openOnlyShipRowPanel = (missionIndex: number) => {
+    setOpenPile(null);
+    setOpenFlatZone(null);
+    setOpenCrewShipId(null);
+    setSelectedCardIds([]);
+    setOpenShipRowMissionIndex(missionIndex);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -614,6 +637,16 @@ function PracticeDrawContent() {
       const stillHasCards = !!findInstanceAnywhere(nextTable, openCrewShipId)?.instance.crew?.length;
       if (!isDragOrigin || !stillHasCards) {
         setOpenCrewShipId(null);
+        closedAPanel = true;
+      }
+    }
+
+    if (openShipRowMissionIndex !== null) {
+      const isDragOrigin =
+        typeof zone === 'object' && zone.zone === 'shipRow' && zone.missionIndex === openShipRowMissionIndex;
+      const stillHasCards = nextTable.missions[openShipRowMissionIndex].ships.length > 0;
+      if (!isDragOrigin || !stillHasCards) {
+        setOpenShipRowMissionIndex(null);
         closedAPanel = true;
       }
     }
@@ -718,6 +751,8 @@ function PracticeDrawContent() {
       : dilemmaPile
     : openCrewShip
     ? openCrewShip.crew ?? []
+    : openShipRowMissionIndex !== null
+    ? missions[openShipRowMissionIndex].ships
     : null;
 
   if (isPortrait) {
@@ -771,6 +806,7 @@ function PracticeDrawContent() {
                 onCardClick={(id) => setFocusedCardId(id)}
                 onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
                 onShipClick={handleShipClick}
+                onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
               />
 
               {/* Bottom row, anchored to the bottom. From left to right: discard pile, draw pile,
@@ -1013,6 +1049,31 @@ function PracticeDrawContent() {
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() => dispatch({ type: 'shuffle', location: { zone: 'crew', shipId: openCrewShip.id } })}
+                  onSetStopped={setStoppedForSelection}
+                  hidden={draggingInstance !== null}
+                />
+              )}
+
+              {/* A mission's ship-row list panel (#713): opened by a tap on any ship once that
+                  row holds more ships than fit without overlap (`ShipRow`), listing every ship on
+                  it individually. A tap on a ship here reuses `onShipClick` unchanged, opening
+                  that ship's own preview (and its crew panel too, if it has crew) and closing
+                  this panel in the process, the same two-level tap pattern the core/brig/crew
+                  panels already follow. */}
+              {openShipRowMissionIndex !== null && (
+                <PilePanel
+                  zone="shipRow"
+                  cards={openPanelCards ?? []}
+                  onClose={() => {
+                    setOpenShipRowMissionIndex(null);
+                    setSelectedCardIds([]);
+                  }}
+                  onCardClick={handleShipClick}
+                  selectedIds={selectedCardIds}
+                  onToggleSelect={toggleCardSelection}
+                  onShuffle={() =>
+                    dispatch({ type: 'shuffle', location: { zone: 'shipRow', missionIndex: openShipRowMissionIndex } })
+                  }
                   onSetStopped={setStoppedForSelection}
                   hidden={draggingInstance !== null}
                 />
