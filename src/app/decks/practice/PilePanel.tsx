@@ -38,10 +38,18 @@
 // (`page.tsx` picks the right `location` per call site); the reducer puts that zone's cards in a
 // random order in the table state itself, so the panel, the table, and the next time the panel
 // opens all agree on the new order. A tap on Shuffle does not close the panel.
+// A "Stop"/"Unstop" button (#681) shows above the card grid whenever the selection holds one or
+// more personnel cards; a selection with no personnel card at all shows no button, and a
+// non-personnel card in the selection just never changes. The label reads "Stop" once any
+// selected personnel card is not yet stopped, and "Unstop" only once every one of them already
+// is — a tap then sets every selected personnel card's `stopped` flag to that single value in
+// one `onSetStopped` call (owned by `page.tsx`, like the selection itself), never a per-card
+// toggle, so a mixed selection cannot go out of step with itself. The selection stays after the
+// tap, so the player can still drag the same cards next.
 
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
-import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
+import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, STOPPED_IMAGE_CLASSNAME } from './TableCard';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -129,7 +137,7 @@ function PilePanelCard({
             <img
               src={`/cardimages/${card.imagefile}.jpg`}
               alt={card.name}
-              className="w-full h-full object-cover object-top"
+              className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
             />
           </div>
         </div>
@@ -157,6 +165,7 @@ export default function PilePanel({
   selectedIds,
   onToggleSelect,
   onShuffle,
+  onSetStopped,
   hidden = false,
 }: {
   zone: PanelZone;
@@ -166,6 +175,10 @@ export default function PilePanel({
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
   onShuffle: () => void;
+  // Sets `stopped` to one explicit value on a list of ids (#681): the same reducer action
+  // `page.tsx`'s single-card preview button uses, so the "Stop"/"Unstop" button below shares it
+  // rather than toggling each selected card on its own.
+  onSetStopped: (ids: string[], stopped: boolean) => void;
   hidden?: boolean;
 }) {
   // The crew zone opens alongside the ship's own preview, anchored to the right (#678): its
@@ -174,9 +187,21 @@ export default function PilePanel({
   // had.
   const isCrew = zone === 'crew';
   const backdropClassName = isCrew ? 'absolute inset-y-0 left-0 right-1/2' : 'absolute inset-0';
-  const boxClassName = isCrew
-    ? 'absolute left-4 right-[calc(50%+0.5rem)] top-8 flex flex-wrap items-start justify-start gap-2 rounded-lg bg-black/70 p-2'
-    : 'absolute left-1/2 top-8 -translate-x-1/2 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 max-w-[90%]';
+  // Positioning only; the visible card grid itself is `gridClassName` below, now a sibling of
+  // the "Stop"/"Unstop" button rather than carrying that button's own styling.
+  const layoutClassName = isCrew
+    ? 'absolute left-4 right-[calc(50%+0.5rem)] top-8 flex flex-col items-start gap-2'
+    : 'absolute left-1/2 top-8 -translate-x-1/2 flex flex-col items-center gap-2 max-w-[90%]';
+  const gridClassName = isCrew
+    ? 'flex flex-wrap items-start justify-start gap-2 rounded-lg bg-black/70 p-2'
+    : 'flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2';
+
+  const selectedPersonnel = cards.filter(
+    (instance) => selectedIds.includes(instance.id) && instance.card.type === 'personnel'
+  );
+  const showStopButton = selectedPersonnel.length > 0;
+  const allSelectedStopped = showStopButton && selectedPersonnel.every((instance) => instance.stopped);
+  const handleStopTap = () => onSetStopped(selectedPersonnel.map((instance) => instance.id), !allSelectedStopped);
 
   return (
     <div
@@ -189,29 +214,35 @@ export default function PilePanel({
         onClick={onClose}
         aria-label={closeLabel(zone)}
       />
-      <div data-zone={`pile-panel-${zone}`} className={boxClassName}>
-        {/* The Shuffle button (#680) sits inside the box, next to the cards, not on the
-            backdrop — a tap on the backdrop still closes the panel. `w-full` on a flex-wrap item
-            makes it as wide as the box, which forces every card after it onto its own line,
-            without changing how the box itself sizes and wraps the cards (still driven by their
-            own combined width, as before this button existed). */}
+      <div className={layoutClassName}>
+        {showStopButton && (
+          <button type="button" onClick={handleStopTap} className="btn-primary">
+            {allSelectedStopped ? 'Unstop' : 'Stop'}
+          </button>
+        )}
+        {/* The Shuffle button (#680) sits inside the panel, next to the cards, not on the
+            backdrop — a tap on the backdrop still closes the panel, and a tap here does not.
+            It is a sibling of the card grid, the same place the "Stop"/"Unstop" button (#681)
+            sits, so both panel controls stack above the cards. */}
         <button
           type="button"
           onClick={onShuffle}
-          className="w-full flex items-center justify-center gap-1 rounded-md bg-white/[0.05] border border-white/10 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors duration-150"
+          className="flex items-center justify-center gap-1 rounded-md bg-white/[0.05] border border-white/10 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors duration-150"
         >
           <ShuffleIcon />
           Shuffle
         </button>
-        {cards.map((instance) => (
-          <PilePanelCard
-            key={instance.id}
-            instance={instance}
-            onClick={() => onCardClick(instance.id)}
-            selected={selectedIds.includes(instance.id)}
-            onToggleSelect={() => onToggleSelect(instance.id)}
-          />
-        ))}
+        <div data-zone={`pile-panel-${zone}`} className={gridClassName}>
+          {cards.map((instance) => (
+            <PilePanelCard
+              key={instance.id}
+              instance={instance}
+              onClick={() => onCardClick(instance.id)}
+              selected={selectedIds.includes(instance.id)}
+              onToggleSelect={() => onToggleSelect(instance.id)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

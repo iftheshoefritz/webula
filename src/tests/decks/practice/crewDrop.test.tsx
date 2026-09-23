@@ -440,10 +440,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
       fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
     });
 
-    const panel = document.body.querySelector('[data-zone="pile-panel-crew"]') as HTMLElement;
-    const closeButton = panel.parentElement!.querySelector(
-      'button[aria-label="Close crew"]'
-    ) as HTMLElement;
+    const closeButton = document.body.querySelector('button[aria-label="Close crew"]') as HTMLElement;
     await act(async () => {
       fireEvent.click(closeButton);
     });

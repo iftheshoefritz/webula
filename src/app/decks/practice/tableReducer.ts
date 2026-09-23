@@ -23,6 +23,11 @@ export interface CardInstance {
   // in the ship's preview instead. Only meaningful on a ship instance, and only set once a ship
   // has at least one crew member (absent, not an empty array, otherwise).
   crew?: CardInstance[];
+  // Whether a personnel card is stopped (#679): shown with a greyed-out image everywhere it
+  // appears. Absent on a card that is not stopped, the same as `crew`. A move keeps this flag
+  // (see `move` below, which only ever touches `face`), so stopping a card, then dragging it
+  // elsewhere, leaves it stopped in its new home too.
+  stopped?: boolean;
 }
 
 // A mission slot holds the mission card dealt into that position (#597), the ships placed on
@@ -108,6 +113,15 @@ export type TableAction =
   // opens both show the same shuffled order. Never changes a card's face, a ship's crew, or any
   // other field of a card instance — only the order of the array at that location.
   | { type: 'shuffle'; location: ShuffleLocation }
+  // Sets one or more personnel cards' `stopped` flag to a single value (#681), wherever each
+  // currently sits — including aboard a ship as crew, the same reach `flip` lacks. `ids` lets
+  // the pile panel's "Stop"/"Unstop" button (a selection of more than one card) and the card
+  // preview's own single-card button (#679) share one action; a per-card toggle would go out of
+  // step on a mixed selection (some stopped, some not), so this always sets the same explicit
+  // value on every id, rather than flipping each one's current value. Reuses `cardsAt`/
+  // `withCardsAt` (the same helpers `move` uses) instead of per-zone branches, since setting
+  // `stopped` has no zone-dependent behaviour to encode.
+  | { type: 'setStopped'; ids: string[]; stopped: boolean }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
 
 export const ZONE_FACE: Record<Zone, Face> = {
@@ -408,6 +422,28 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // `MoveTarget`, so `cardsAt`/`withCardsAt` already read and write the right array for it.
       const cards = cardsAt(state, action.location);
       return withCardsAt(state, action.location, shuffleArray(cards));
+    }
+
+    case 'setStopped': {
+      // Each id applies to whatever state the previous id's update left behind, so multiple ids
+      // in different zones (say, one card in the core and another in a mission's personnel pile)
+      // all update correctly off one action.
+      return action.ids.reduce((currentState, id) => {
+        const found = findInstanceAnywhere(currentState, id);
+        if (!found) return currentState;
+        const { zone, instance } = found;
+        const updated = { ...instance, stopped: action.stopped };
+        if (zone === 'missions') {
+          const idx = currentState.missions.findIndex((slot) => slot.mission?.id === id);
+          const missions = currentState.missions.map((slot, i) => (i === idx ? { ...slot, mission: updated } : slot));
+          return { ...currentState, missions };
+        }
+        // Every other zone `findInstanceAnywhere` reports (the flat zones, a ship row, a ship's
+        // crew, a mission pile) is a `MoveTarget`, so `cardsAt`/`withCardsAt` read and write it
+        // the same way `move` does.
+        const cards = cardsAt(currentState, zone);
+        return withCardsAt(currentState, zone, cards.map((c) => (c.id === id ? updated : c)));
+      }, state);
     }
 
     case 'reset': {
