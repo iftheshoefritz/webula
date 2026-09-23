@@ -110,7 +110,8 @@ function dilemmaPileHalfFromDropId(id: string): 'top' | 'bottom' | null {
 function computeMoveTargetForInstance(
   over: DragEndEvent['over'],
   instance: CardInstance,
-  originZone: TableZone | undefined
+  originZone: TableZone | undefined,
+  table: TableState
 ): MoveTarget | null {
   if (!over) return null;
 
@@ -123,8 +124,20 @@ function computeMoveTargetForInstance(
   }
 
   const shipId = shipIdFromCrewDropId(String(over.id));
-  if (shipId && (instance.card.type === 'personnel' || instance.card.type === 'equipment')) {
-    return { zone: 'crew', shipId };
+  if (shipId) {
+    if (instance.card.type === 'personnel' || instance.card.type === 'equipment') {
+      return { zone: 'crew', shipId };
+    }
+    // A ship dropped on a crew zone is not crew (#668): the crew zone of the ship already on
+    // the row covers almost the whole row, so a second ship's drop lands here instead of on the
+    // row itself. Route it to that same ship's own row, the row the drop was clearly aimed at,
+    // instead of falling through to null and leaving the dragged ship stuck where it started.
+    if (instance.card.type === 'ship') {
+      const shipLocation = findInstanceAnywhere(table, shipId);
+      if (shipLocation && typeof shipLocation.zone === 'object' && shipLocation.zone.zone === 'shipRow') {
+        return { zone: 'shipRow', missionIndex: shipLocation.zone.missionIndex };
+      }
+    }
   }
 
   const badgeTarget = missionPileFromDropId(String(over.id));
@@ -610,7 +623,7 @@ function PracticeDrawContent() {
     const actions: Extract<TableAction, { type: 'move' }>[] = [];
     orderedGroup.forEach((instance) => {
       const origin = instance.id === dragOrigin?.instance.id ? dragOrigin : findInstanceAnywhere(table, instance.id);
-      const target = computeMoveTargetForInstance(over, instance, origin?.zone);
+      const target = computeMoveTargetForInstance(over, instance, origin?.zone, table);
       if (target) actions.push({ type: 'move', id: instance.id, to: target, position });
     });
 
