@@ -103,6 +103,9 @@ export interface TableState {
   dilemmaPile: CardInstance[];
   dilemmaHand: CardInstance[];
   missions: MissionSlot[];
+  // The turn counter (#718): starts at 1 on a new game and on reset, and only ever changes via
+  // `nextTurn` below.
+  turn: number;
 }
 
 export type TableAction =
@@ -131,6 +134,9 @@ export type TableAction =
   // `withCardsAt` (the same helpers `move` uses) instead of per-zone branches, since setting
   // `stopped` has no zone-dependent behaviour to encode.
   | { type: 'setStopped'; ids: string[]; stopped: boolean }
+  // Raises the turn counter by one and unstops every stopped personnel card, in every zone
+  // (#718): the flat zones, every mission's piles, every ship row, and every ship's crew.
+  | { type: 'nextTurn' }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
 
 export const ZONE_FACE: Record<Zone, Face> = {
@@ -178,6 +184,7 @@ export const initialTableState: TableState = {
     dilemma: [],
     underMission: [],
   })),
+  turn: 1,
 };
 
 let nextInstanceId = 0;
@@ -455,6 +462,41 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       }, state);
     }
 
+    case 'nextTurn': {
+      // Unstops every card in one of the flat zones/piles, leaving an already-unstopped card
+      // untouched (and so `===` to the old one, same as every other zone-wide update here).
+      const unstopCards = (cards: CardInstance[]): CardInstance[] =>
+        cards.map((c) => (c.stopped ? { ...c, stopped: false } : c));
+      // A ship's crew unstops alongside the ship itself; a ship on a ship row can carry the flag
+      // too (`stopped` is generic on `CardInstance`, not personnel-only), so both are cleared.
+      const unstopShips = (ships: CardInstance[]): CardInstance[] =>
+        ships.map((ship) => {
+          const unstoppedShip = ship.stopped ? { ...ship, stopped: false } : ship;
+          return ship.crew ? { ...unstoppedShip, crew: unstopCards(ship.crew) } : unstoppedShip;
+        });
+      const missions = state.missions.map((slot) => ({
+        ...slot,
+        mission: slot.mission?.stopped ? { ...slot.mission, stopped: false } : slot.mission,
+        ships: unstopShips(slot.ships),
+        personnel: unstopCards(slot.personnel),
+        event: unstopCards(slot.event),
+        dilemma: unstopCards(slot.dilemma),
+        underMission: unstopCards(slot.underMission),
+      }));
+      return {
+        ...state,
+        turn: state.turn + 1,
+        pile: unstopCards(state.pile),
+        hand: unstopCards(state.hand),
+        discard: unstopCards(state.discard),
+        core: unstopCards(state.core),
+        brig: unstopCards(state.brig),
+        dilemmaPile: unstopCards(state.dilemmaPile),
+        dilemmaHand: unstopCards(state.dilemmaHand),
+        missions,
+      };
+    }
+
     case 'reset': {
       // A new game (and the reset button) deals an opening hand of 7 cards, face up, and
       // leaves the rest in the draw pile. A deck with fewer than 7 cards deals all of it.
@@ -483,6 +525,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         dilemmaPile: action.dilemmas,
         dilemmaHand: [],
         missions,
+        turn: 1,
       };
     }
 

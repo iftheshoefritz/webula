@@ -15,7 +15,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { collisionDetection } from './collisionDetection';
-import { FaRedo, FaLayerGroup, FaMobileAlt } from 'react-icons/fa';
+import { FaRedo, FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
 import { deckFromTsv, expandDeck, extractDilemmas, extractMissions, isDeckEmpty, shuffleArray } from '../deckBuilderUtils';
 import { Deck } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
@@ -385,7 +385,7 @@ function PracticeDrawContent() {
   const isFixture = searchParams.get('fixture') === '1';
   const { data, loading } = useDataFetching();
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
-  const { pile, hand, discard, core, brig, dilemmaPile, dilemmaHand, missions } = table;
+  const { pile, hand, discard, core, brig, dilemmaPile, dilemmaHand, missions, turn } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [isPortrait, setIsPortrait] = useState(false);
@@ -498,6 +498,11 @@ function PracticeDrawContent() {
 
   const reset = () => {
     initDeck();
+  };
+
+  // Raises the turn counter by one and unstops every stopped personnel card on the table (#718).
+  const nextTurn = () => {
+    dispatch({ type: 'nextTurn' });
   };
 
   const toggleCardSelection = (id: string) => {
@@ -825,6 +830,21 @@ function PracticeDrawContent() {
                 <div className="flex flex-row items-end gap-4">
                   {/* Discard */}
                   <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
+
+                  {/* Turn counter (#718): shows the current turn, and a button that raises it by
+                      one and unstops every stopped personnel card on the table. */}
+                  <div className="flex flex-col items-center gap-1">
+                    <span data-testid="turn-counter" className="text-xs text-text-muted">
+                      Turn {turn}
+                    </span>
+                    <button
+                      className="btn-icon btn-icon-sm"
+                      onClick={nextTurn}
+                      aria-label="Next turn"
+                    >
+                      <FaForward />
+                    </button>
+                  </div>
 
                   {/* Pile */}
                   <div className="flex items-start gap-4">
