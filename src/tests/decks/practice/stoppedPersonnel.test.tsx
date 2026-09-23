@@ -58,7 +58,7 @@ jest.mock('@dnd-kit/core', () => {
 });
 
 import React from 'react';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, within, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
@@ -208,5 +208,192 @@ describe('Practice draw: stopping a personnel card (#679)', () => {
     });
     const panelCardImg = document.body.querySelector('[data-zone="pile-panel-brig"] img');
     expect(panelCardImg).toHaveClass('grayscale', 'opacity-50');
+  });
+});
+
+const makePersonnel = (n: number) => ({
+  collectorsinfo: `2C20${n}`,
+  originalName: `Personnel ${n}`,
+  type: 'personnel',
+  name: `personnel ${n}`,
+  imagefile: `personnel_${n}`,
+  pile: 'draw',
+  count: 1,
+});
+
+const mockMultiPersonnelCards = [1, 2, 3].map(makePersonnel);
+const mockMultiCardData = [...mockMultiPersonnelCards, mockEquipmentCard];
+const mockMultiDeck = deckOf(...mockMultiPersonnelCards, mockEquipmentCard);
+
+describe('Practice draw: stopping or unstopping more than one selected personnel card (#681)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockDraggableIds.length = 0;
+    mockOnDragStart = null;
+    mockOnDragEnd = null;
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.clear();
+
+    (deckFromTsv as jest.Mock).mockReturnValue({});
+    (shuffleArray as jest.Mock).mockImplementation((arr) => arr);
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
+
+    Object.defineProperty(screen, 'orientation', {
+      value: { lock: jest.fn().mockResolvedValue(undefined), unlock: jest.fn() },
+      writable: true,
+      configurable: true,
+    });
+
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    });
+  });
+
+  // Renders the page with the given cards in the draw pile/hand, so they end up in the hand and
+  // can be dragged to the core (see `dealIntoCore` below) — the same setup `multiSelectDrop.test.tsx`
+  // uses to get more than one card into a flat zone's pile panel.
+  const setupOpenHand = async (cards: any[]) => {
+    localStorage.setItem('currentDeck', JSON.stringify(mockMultiDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockMultiCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue(cards);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const closedHandButton = screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+    await act(async () => {
+      fireEvent.click(closedHandButton);
+    });
+  };
+
+  // See multiSelectDrop.test.tsx: reads a rendered card's own instance id off its `data-card-id`
+  // attribute, scoped to the open pile panel once one is open (both the panel and the flat row
+  // underneath it render a button with the same accessible name).
+  const cardIdFor = (name: string): string => {
+    const panel = document.body.querySelector('[data-zone^="pile-panel-"]');
+    const scope = panel ? within(panel as HTMLElement) : screen;
+    return scope.getByRole('button', { name }).getAttribute('data-card-id')!;
+  };
+
+  const dealIntoCore = async (names: string[]) => {
+    for (let i = 0; i < names.length; i++) {
+      if (i > 0) {
+        const remaining = names.length - i;
+        const closedHandButton = screen.getByRole('button', {
+          name: new RegExp(`^hand, ${remaining} cards?, tap to open$`, 'i'),
+        });
+        await act(async () => {
+          fireEvent.click(closedHandButton);
+        });
+      }
+      const id = cardIdFor(names[i]);
+      await act(async () => {
+        mockOnDragStart!({ active: { id } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id }, over: { id: 'core' } });
+      });
+    }
+  };
+
+  const openCorePanel = async (nameOfCardInCore: string) => {
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: nameOfCardInCore }));
+    });
+  };
+
+  const selectCard = async (name: string) => {
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: `Select ${name}` }));
+    });
+  };
+
+  it('shows a "Stop" button once two personnel cards are selected, stops only those two, and flips to "Unstop"', async () => {
+    await setupOpenHand([...mockMultiPersonnelCards, mockEquipmentCard]);
+    await dealIntoCore(['personnel 1', 'personnel 2', 'personnel 3', 'tricorder']);
+    await openCorePanel('personnel 1');
+
+    expect(screen.queryByRole('button', { name: /^stop$/i })).not.toBeInTheDocument();
+
+    await selectCard('personnel 1');
+    await selectCard('personnel 2');
+
+    expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
+
+    const panel = document.body.querySelector('[data-zone="pile-panel-core"]') as HTMLElement;
+    const img1 = within(panel).getByRole('button', { name: 'personnel 1' }).querySelector('img')!;
+    const img2 = within(panel).getByRole('button', { name: 'personnel 2' }).querySelector('img')!;
+    const img3 = within(panel).getByRole('button', { name: 'personnel 3' }).querySelector('img')!;
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
+    });
+
+    expect(img1).toHaveClass('grayscale', 'opacity-50');
+    expect(img2).toHaveClass('grayscale', 'opacity-50');
+    expect(img3).not.toHaveClass('grayscale');
+    expect(screen.getByRole('button', { name: /^unstop$/i })).toBeInTheDocument();
+
+    // The selection stays after the tap, so the player can drag the same cards next.
+    expect(screen.getByRole('button', { name: 'Deselect personnel 1' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Deselect personnel 2' })).toHaveAttribute('aria-pressed', 'true');
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^unstop$/i }));
+    });
+
+    expect(img1).not.toHaveClass('grayscale');
+    expect(img2).not.toHaveClass('grayscale');
+  });
+
+  it('shows "Stop" (not "Unstop") for a mixed selection of an already-stopped card and an unstopped one, and a tap stops both', async () => {
+    await setupOpenHand([...mockMultiPersonnelCards, mockEquipmentCard]);
+    await dealIntoCore(['personnel 1', 'personnel 2', 'personnel 3', 'tricorder']);
+    await openCorePanel('personnel 1');
+
+    // Stop "personnel 1" by itself first, then deselect it.
+    await selectCard('personnel 1');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Deselect personnel 1' }));
+    });
+
+    // Select it together with an unstopped card.
+    await selectCard('personnel 1');
+    await selectCard('personnel 2');
+
+    expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
+
+    const panel = document.body.querySelector('[data-zone="pile-panel-core"]') as HTMLElement;
+    const img2 = within(panel).getByRole('button', { name: 'personnel 2' }).querySelector('img')!;
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
+    });
+
+    expect(img2).toHaveClass('grayscale', 'opacity-50');
+  });
+
+  it('shows no "Stop" button when only a non-personnel card is selected', async () => {
+    await setupOpenHand([mockMultiPersonnelCards[0], mockEquipmentCard]);
+    await dealIntoCore(['personnel 1', 'tricorder']);
+    await openCorePanel('personnel 1');
+
+    await selectCard('tricorder');
+
+    expect(screen.queryByRole('button', { name: /^stop$/i })).not.toBeInTheDocument();
   });
 });

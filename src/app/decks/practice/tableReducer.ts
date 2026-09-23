@@ -101,11 +101,15 @@ export type TableAction =
   // unordered from the player's point of view, so nothing else needs it.
   | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom' }
   | { type: 'flip'; id: string }
-  // Toggles a personnel card's `stopped` flag (#679), wherever it currently sits — including
-  // aboard a ship as crew, unlike `flip`, which has no meaning there. Modeled on `flip`, but
-  // reuses `cardsAt`/`withCardsAt` (the same helpers `move` uses) instead of `flip`'s own
-  // per-zone branches, since toggling `stopped` has no zone-dependent behaviour to encode.
-  | { type: 'stop'; id: string }
+  // Sets one or more personnel cards' `stopped` flag to a single value (#681), wherever each
+  // currently sits — including aboard a ship as crew, the same reach `flip` lacks. `ids` lets
+  // the pile panel's "Stop"/"Unstop" button (a selection of more than one card) and the card
+  // preview's own single-card button (#679) share one action; a per-card toggle would go out of
+  // step on a mixed selection (some stopped, some not), so this always sets the same explicit
+  // value on every id, rather than flipping each one's current value. Reuses `cardsAt`/
+  // `withCardsAt` (the same helpers `move` uses) instead of per-zone branches, since setting
+  // `stopped` has no zone-dependent behaviour to encode.
+  | { type: 'setStopped'; ids: string[]; stopped: boolean }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
 
 export const ZONE_FACE: Record<Zone, Face> = {
@@ -401,21 +405,26 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       };
     }
 
-    case 'stop': {
-      const found = findInstanceAnywhere(state, action.id);
-      if (!found) return state;
-      const { zone, instance } = found;
-      const toggled = { ...instance, stopped: !instance.stopped };
-      if (zone === 'missions') {
-        const idx = state.missions.findIndex((slot) => slot.mission?.id === action.id);
-        const missions = state.missions.map((slot, i) => (i === idx ? { ...slot, mission: toggled } : slot));
-        return { ...state, missions };
-      }
-      // Every other zone `findInstanceAnywhere` reports (the flat zones, a ship row, a ship's
-      // crew, a mission pile) is a `MoveTarget`, so `cardsAt`/`withCardsAt` read and write it the
-      // same way `move` does.
-      const cards = cardsAt(state, zone);
-      return withCardsAt(state, zone, cards.map((c) => (c.id === action.id ? toggled : c)));
+    case 'setStopped': {
+      // Each id applies to whatever state the previous id's update left behind, so multiple ids
+      // in different zones (say, one card in the core and another in a mission's personnel pile)
+      // all update correctly off one action.
+      return action.ids.reduce((currentState, id) => {
+        const found = findInstanceAnywhere(currentState, id);
+        if (!found) return currentState;
+        const { zone, instance } = found;
+        const updated = { ...instance, stopped: action.stopped };
+        if (zone === 'missions') {
+          const idx = currentState.missions.findIndex((slot) => slot.mission?.id === id);
+          const missions = currentState.missions.map((slot, i) => (i === idx ? { ...slot, mission: updated } : slot));
+          return { ...currentState, missions };
+        }
+        // Every other zone `findInstanceAnywhere` reports (the flat zones, a ship row, a ship's
+        // crew, a mission pile) is a `MoveTarget`, so `cardsAt`/`withCardsAt` read and write it
+        // the same way `move` does.
+        const cards = cardsAt(currentState, zone);
+        return withCardsAt(currentState, zone, cards.map((c) => (c.id === id ? updated : c)));
+      }, state);
     }
 
     case 'reset': {
