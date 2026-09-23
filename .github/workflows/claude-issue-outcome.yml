@@ -15,6 +15,11 @@ jobs:
       contents: read
       issues: write
       pull-requests: read
+      # `claude-code-action` asks for an OIDC token to exchange for its app token.
+      # Without this the job fails at once with "Could not fetch an OIDC token", and
+      # `agent-failure-label.yml` then puts `agent-error:oidc-token` on the issue that
+      # just closed. Every other Claude workflow already grants it.
+      id-token: write
 
     steps:
       - name: Checkout repository

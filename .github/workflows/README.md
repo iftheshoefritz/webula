@@ -125,7 +125,8 @@ The check needs both a ready preview and a PR that is not a draft. These can com
 ## Claude Issue Outcome (`claude-issue-outcome.yml`)
 **Event:** Issue closed
 **Action:** Claude finds all merged PRs linked to the issue, summarizes what was implemented (files changed, merge date), and prepends an `## Outcome` section to the issue body.
-(currently broken)
+
+The job needs `id-token: write`. Without it the run fails at once with "Could not fetch an OIDC token", and `agent-failure-label.yml` puts `agent-error:oidc-token` on an issue whose work is already merged. That was the cause of the long-standing breakage, fixed in #703.
 
 ---
 
