@@ -523,12 +523,15 @@ function PracticeDrawContent() {
     }
     setDraggingInstance(found.instance);
 
-    // A drag of a card selected in the open pile panel moves the whole selection together, in
-    // the panel's own display order (#677); a drag of a card that is not selected moves only
-    // that one card, as before, even while the panel holds an unrelated selection.
+    // A drag of a card selected in the open pile panel, or in the open hand it started from
+    // (#691), moves the whole selection together, in that zone's own display order (#677); a
+    // drag of a card that is not selected moves only that one card, as before, even while the
+    // zone holds an unrelated selection. Only one of these can ever apply to a given drag: a
+    // drag starts either from an open hand or from an open panel, never both.
+    const groupSource = found.zone === 'hand' ? hand : found.zone === 'dilemmaHand' ? dilemmaHand : openPanelCards;
     setDraggingGroup(
-      openPanelCards && selectedCardIds.includes(id)
-        ? openPanelCards.filter((c) => selectedCardIds.includes(c.id))
+      groupSource && selectedCardIds.includes(id)
+        ? groupSource.filter((c) => selectedCardIds.includes(c.id))
         : [found.instance]
     );
   };
@@ -790,16 +793,23 @@ function PracticeDrawContent() {
                     </div>
                   </div>
 
-                  {/* Hand */}
+                  {/* Hand. `selectedIds`/`onToggleSelect` let the player select more than one
+                      card here and drag them together (#691), the same as a pile panel (#677);
+                      closing the hand clears the selection. */}
                   <CardHand
                     instances={hand}
                     open={openHand === 'hand'}
                     onOpen={() => setOpenHand('hand')}
-                    onClose={() => setOpenHand(null)}
+                    onClose={() => {
+                      setOpenHand(null);
+                      setSelectedCardIds([]);
+                    }}
                     onCardClick={(id) => setFocusedCardId(id)}
                     dragging={draggingInstance !== null}
                     portalContainer={gameLayer}
                     passthroughZone="pile"
+                    selectedIds={selectedCardIds}
+                    onToggleSelect={toggleCardSelection}
                   />
                 </div>
 
@@ -836,13 +846,18 @@ function PracticeDrawContent() {
                       instances={dilemmaHand}
                       open={openHand === 'dilemmaHand'}
                       onOpen={() => setOpenHand('dilemmaHand')}
-                      onClose={() => setOpenHand(null)}
+                      onClose={() => {
+                        setOpenHand(null);
+                        setSelectedCardIds([]);
+                      }}
                       onCardClick={(id) => setFocusedCardId(id)}
                       dragging={draggingInstance !== null}
                       portalContainer={gameLayer}
                       zone="dilemmaHand"
                       label="dilemma hand"
                       passthroughZone="pile"
+                      selectedIds={selectedCardIds}
+                      onToggleSelect={toggleCardSelection}
                     />
                   )}
 

@@ -28,6 +28,7 @@ function Harness({
 }) {
   const [open, setOpen] = React.useState(initialOpen);
   const [previewed, setPreviewed] = React.useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   return (
     <>
       <CardHand
@@ -36,8 +37,15 @@ function Harness({
         dragging={dragging}
         portalContainer={portalContainer}
         onOpen={() => setOpen(true)}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false);
+          setSelectedIds([]);
+        }}
         onCardClick={(id) => setPreviewed(id)}
+        selectedIds={selectedIds}
+        onToggleSelect={(id) =>
+          setSelectedIds((ids) => (ids.includes(id) ? ids.filter((cardId) => cardId !== id) : [...ids, id]))
+        }
       />
       {previewed && <div data-testid="previewed">{previewed}</div>}
     </>
@@ -142,6 +150,39 @@ describe('CardHand', () => {
     expect(portalContainer.querySelector('[data-zone="hand"] [data-card-id]')).not.toBeNull();
     expect(container.querySelector('[data-card-id]')).toBeNull();
     portalContainer.remove();
+  });
+
+  // #691: each card in the open fan carries the same select checkbox a pile panel's cards do
+  // (#677), so several cards can be checked and dragged together.
+  it('shows a card as selected once its checkbox is tapped', () => {
+    const instances = makeInstances(3);
+    render(<Harness instances={instances} initialOpen />);
+
+    expect(screen.getByRole('button', { name: 'Select Card 1' })).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Card 1' }));
+
+    expect(screen.getByRole('button', { name: 'Deselect Card 1' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('a tap on the checkbox does not open the card preview', () => {
+    const instances = makeInstances(3);
+    render(<Harness instances={instances} initialOpen />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Card 1' }));
+
+    expect(screen.queryByTestId('previewed')).not.toBeInTheDocument();
+  });
+
+  it('clears the selection when the hand is closed', () => {
+    const instances = makeInstances(3);
+    render(<Harness instances={instances} initialOpen />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Card 1' }));
+    fireEvent.click(screen.getByRole('button', { name: /^close hand$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^hand, 3 cards, tap to open$/i }));
+
+    expect(screen.getByRole('button', { name: 'Select Card 1' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('disables the closed hand when it has no cards', () => {
