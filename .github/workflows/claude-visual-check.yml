@@ -69,8 +69,11 @@ jobs:
                Use the viewport the issue names. If the issue names none, use the default viewport.
 
             4. Run every acceptance check of the issue, one at a time. Record the result of each one.
-               For a drag, use a real drag and the `data-zone` and `data-card-id` attributes:
-               `npx agent-browser drag '[data-zone="hand"] [data-card-id]' '[data-zone="discard"]'`
+               For a drag on the practice table, use the script. Do not build the drag by hand, and do not
+               debug a drag that does not land — the script already handles the two reasons it fails:
+               `bash scripts/practice_drag.sh <card-id> <data-zone>`
+               It prints the zone the card ended in, or `pile` for a mission pile, whose cards are not in
+               the DOM. Read "Browser checks" in AGENTS.md before you use it.
                If your commands do not build the state a check needs, say so in the report. Do not report a check as passed when you did not run it.
 
                You have a turn limit, and one Bash call is one turn. To stay inside it, put the whole
@@ -114,5 +117,5 @@ jobs:
             Never add the "ready-for-dev" label to an issue or a pull request. Only a person applies that label.
 
             Report what you saw. Do not change code except to fix a bug that an acceptance check found. Reference AGENTS.md for project conventions and commands.
-          claude_args: "--model claude-sonnet-5 --max-turns 80 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 150 --dangerously-skip-permissions"
           show_full_output: "true"
