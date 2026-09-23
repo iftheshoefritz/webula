@@ -8,9 +8,8 @@
 # hand, and a closed dilemma hand all keep their cards out of the DOM (a badge
 # with a count stands in for the cards), so for those the script cannot find
 # the card by id afterward. Instead it reads the `aria-label` of every badge
-# under the target zone, before and after the drag, and reports whichever one
-# gained a card. If none did (or more than one did), it says so rather than
-# guessing.
+# on the table, before and after the drag, and reports whichever one gained a
+# card. If none did (or more than one did), it says so rather than guessing.
 #
 # Two things make a hand drag fail, and both cost an agent many turns to find
 # again. This script handles both.
@@ -77,13 +76,15 @@ bx=$1; by=$2
 # to open". Everything else, including the aria-labels the draw and download
 # piles use, misses the regex and is ignored. The key is the badge's own
 # data-zone if it has one (the closed hand and dilemma hand are their own drop
-# target, so this is $ZONE itself for those); a mission pile's badge is a
-# separate drop target nested inside $ZONE's own drop target, so it has its
-# own data-zone too. The one badge with no data-zone of its own, the dilemmas
-# stacked under a mission, falls back to its label text - unambiguous here
-# because the search is scoped to the single target zone.
+# target, and so is a mission pile's badge - a separate drop target from the
+# mission card's own, and not nested inside it, so scoping the search to the
+# target zone's own subtree would miss it). The one badge with no data-zone of
+# its own, the dilemmas stacked under a mission, falls back to its label text;
+# only one card moves per run of this script, so at most one badge anywhere
+# on the table ever gains a card, and this fallback key never has to tell two
+# missions' stacks apart.
 snapshot() {
-  ev "(()=>{const root=document.querySelector('[data-zone=\"$ZONE\"]');if(!root)return '';const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const m=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(!m)return;const k=el.getAttribute('data-zone')||m[1];parts.push(k+'='+m[2])};add(root);root.querySelectorAll('*').forEach(add);return parts.join(';')})()"
+  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const m=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(!m)return;const k=el.getAttribute('data-zone')||m[1];parts.push(k+'='+m[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
 }
 
 before=$(snapshot)
@@ -101,7 +102,7 @@ if [ "$found" != "MISSING" ]; then
   exit 0
 fi
 
-# The card left the DOM. Find which badge under $ZONE gained a card, rather
+# The card left the DOM. Find which badge on the table gained a card, rather
 # than guessing it was a mission pile - a closed hand or dilemma hand also
 # takes its cards out of the DOM.
 after=$(snapshot)
@@ -131,6 +132,6 @@ done
 
 case "${#increased[@]}" in
   1) echo "${increased[0]}" ;;
-  0) echo "card $CARD left the DOM, but no badge under $ZONE gained a card. Could not tell where it went." ;;
-  *) echo "card $CARD left the DOM, and more than one badge under $ZONE gained a card (${increased[*]}). Could not tell which one it went to." ;;
+  0) echo "card $CARD left the DOM, but no badge on the table gained a card. Could not tell where it went." ;;
+  *) echo "card $CARD left the DOM, and more than one badge gained a card (${increased[*]}). Could not tell which one it went to." ;;
 esac
