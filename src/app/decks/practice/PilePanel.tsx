@@ -32,6 +32,12 @@
 // selected card can pick up the whole selection in `handleDragStart`. A tap on the card itself
 // still opens its preview, unaffected by selection.
 //
+// A Shuffle button (#680) sits in every panel, as the first item in the box, next to the cards
+// rather than on the backdrop — a tap on the backdrop still just closes the panel. `onShuffle`
+// dispatches the `shuffle` table action for whichever zone this panel is currently open for
+// (`page.tsx` picks the right `location` per call site); the reducer puts that zone's cards in a
+// random order in the table state itself, so the panel, the table, and the next time the panel
+// opens all agree on the new order. A tap on Shuffle does not close the panel.
 // A "Stop"/"Unstop" button (#681) shows above the card grid whenever the selection holds one or
 // more personnel cards; a selection with no personnel card at all shows no button, and a
 // non-personnel card in the selection just never changes. The label reads "Stop" once any
@@ -44,6 +50,31 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, STOPPED_IMAGE_CLASSNAME } from './TableCard';
+
+// A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
+// document): every test that renders this page mocks `react-icons/fa` with an explicit list of
+// the icons `page.tsx` itself imports, so a new react-icons import here would need every one of
+// those mocks updated too, for a component this small.
+function ShuffleIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-3 h-3"
+      aria-hidden="true"
+    >
+      <polyline points="16 3 21 3 21 8" />
+      <line x1="4" y1="20" x2="21" y2="3" />
+      <polyline points="21 16 21 21 16 21" />
+      <line x1="15" y1="15" x2="21" y2="21" />
+      <line x1="4" y1="4" x2="9" y2="9" />
+    </svg>
+  );
+}
 
 // A mission pile is one of `MissionPileName`; the core and the brig (#640) are two more flat
 // zones this same panel now lists, alongside a mission's piles. A ship's crew (#664) is a third:
@@ -133,6 +164,7 @@ export default function PilePanel({
   onCardClick,
   selectedIds,
   onToggleSelect,
+  onShuffle,
   onSetStopped,
   hidden = false,
 }: {
@@ -142,6 +174,7 @@ export default function PilePanel({
   onCardClick: (id: string) => void;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
+  onShuffle: () => void;
   // Sets `stopped` to one explicit value on a list of ids (#681): the same reducer action
   // `page.tsx`'s single-card preview button uses, so the "Stop"/"Unstop" button below shares it
   // rather than toggling each selected card on its own.
@@ -187,6 +220,18 @@ export default function PilePanel({
             {allSelectedStopped ? 'Unstop' : 'Stop'}
           </button>
         )}
+        {/* The Shuffle button (#680) sits inside the panel, next to the cards, not on the
+            backdrop — a tap on the backdrop still closes the panel, and a tap here does not.
+            It is a sibling of the card grid, the same place the "Stop"/"Unstop" button (#681)
+            sits, so both panel controls stack above the cards. */}
+        <button
+          type="button"
+          onClick={onShuffle}
+          className="flex items-center justify-center gap-1 rounded-md bg-white/[0.05] border border-white/10 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors duration-150"
+        >
+          <ShuffleIcon />
+          Shuffle
+        </button>
         <div data-zone={`pile-panel-${zone}`} className={gridClassName}>
           {cards.map((instance) => (
             <PilePanelCard

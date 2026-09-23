@@ -564,6 +564,70 @@ describe('tableReducer', () => {
     });
   });
 
+  describe('shuffle (#680)', () => {
+    it('keeps the same cards in the core, in some order, and touches no other zone', () => {
+      const cards = Array.from({ length: 8 }, (_, i) => instance(`c${i}`, card(`Card ${i}`), 'up'));
+      const untouched = instance('b0', card('Brig card'), 'up');
+      const start = { ...initialTableState, core: cards, brig: [untouched] };
+
+      const state = tableReducer(start, { type: 'shuffle', location: 'core' });
+
+      expect(state.core).toHaveLength(cards.length);
+      expect(new Set(state.core.map((c) => c.id))).toEqual(new Set(cards.map((c) => c.id)));
+      expect(state.core.every((c) => cards.some((orig) => orig.id === c.id && orig.card === c.card && orig.face === c.face))).toBe(
+        true
+      );
+      expect(state.brig).toEqual([untouched]);
+    });
+
+    it('shuffles the brig, leaving the core untouched', () => {
+      const cards = Array.from({ length: 6 }, (_, i) => instance(`p${i}`, card(`Personnel ${i}`), 'up'));
+      const untouched = instance('e0', card('Core card'), 'up');
+      const start = { ...initialTableState, brig: cards, core: [untouched] };
+
+      const state = tableReducer(start, { type: 'shuffle', location: 'brig' });
+
+      expect(new Set(state.brig.map((c) => c.id))).toEqual(new Set(cards.map((c) => c.id)));
+      expect(state.core).toEqual([untouched]);
+    });
+
+    it("shuffles a mission's dilemma stack, keeping every card face down", () => {
+      const dilemmas = Array.from({ length: 5 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
+      const start = { ...initialTableState, missions: missionSlots([], {}, {}, {}, { 0: dilemmas }) };
+
+      const state = tableReducer(start, {
+        type: 'shuffle',
+        location: { zone: 'missionPile', missionIndex: 0, pile: 'dilemma' },
+      });
+
+      expect(new Set(state.missions[0].dilemma.map((c) => c.id))).toEqual(new Set(dilemmas.map((c) => c.id)));
+      expect(state.missions[0].dilemma.every((c) => c.face === 'down')).toBe(true);
+      expect(state.missions[1]).toEqual(missionSlots([])[1]);
+    });
+
+    it("shuffles a ship's crew, leaving the ship's other fields and the rest of the table untouched", () => {
+      const crew = Array.from({ length: 4 }, (_, i) => instance(`p${i}`, card(`Crew ${i}`), 'up'));
+      const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), crew };
+      const untouchedHand = instance('h0', card('Hand card'), 'up');
+      const start = { ...initialTableState, hand: [untouchedHand], missions: missionSlots([], { 0: [ship] }) };
+
+      const state = tableReducer(start, { type: 'shuffle', location: { zone: 'crew', shipId: 's0' } });
+
+      const shuffledShip = state.missions[0].ships[0];
+      expect(shuffledShip.id).toBe('s0');
+      expect(shuffledShip.face).toBe('up');
+      expect(new Set(shuffledShip.crew!.map((c) => c.id))).toEqual(new Set(crew.map((c) => c.id)));
+      expect(state.hand).toEqual([untouchedHand]);
+    });
+
+    it('is a no-op on an empty zone', () => {
+      const start = { ...initialTableState, core: [] };
+      const state = tableReducer(start, { type: 'shuffle', location: 'core' });
+
+      expect(state.core).toEqual([]);
+    });
+  });
+
   describe('flip', () => {
     it('turns a face-up mission face down in place', () => {
       const mission = instance('m0', card('Moab IV'), 'up');

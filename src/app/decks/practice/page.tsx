@@ -847,6 +847,12 @@ function PracticeDrawContent() {
                   onCardClick={(id) => setFocusedCardId(id)}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
+                  onShuffle={() =>
+                    dispatch({
+                      type: 'shuffle',
+                      location: { zone: 'missionPile', missionIndex: openPile.missionIndex, pile: openPile.pile },
+                    })
+                  }
                   onSetStopped={setStoppedForSelection}
                   hidden={draggingInstance !== null}
                 />
@@ -865,6 +871,7 @@ function PracticeDrawContent() {
                   onCardClick={(id) => setFocusedCardId(id)}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
+                  onShuffle={() => dispatch({ type: 'shuffle', location: openFlatZone })}
                   onSetStopped={setStoppedForSelection}
                   hidden={draggingInstance !== null}
                 />
@@ -885,6 +892,7 @@ function PracticeDrawContent() {
                   onCardClick={(id) => setFocusedCardId(id)}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
+                  onShuffle={() => dispatch({ type: 'shuffle', location: { zone: 'crew', shipId: openCrewShip.id } })}
                   onSetStopped={setStoppedForSelection}
                   hidden={draggingInstance !== null}
                 />
