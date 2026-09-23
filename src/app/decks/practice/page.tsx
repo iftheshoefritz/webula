@@ -429,6 +429,13 @@ function PracticeDrawContent() {
     setSelectedCardIds((ids) => (ids.includes(id) ? ids.filter((cardId) => cardId !== id) : [...ids, id]));
   };
 
+  // Sets `stopped` to one explicit value on every id in `ids` (#681's pile panel button; also
+  // the preview's own single-card "Stop"/"Unstop" button, above). Keeps the selection afterward,
+  // so the player can drag the same cards next, same as any other tap on the panel's checkboxes.
+  const setStoppedForSelection = (ids: string[], stopped: boolean) => {
+    dispatch({ type: 'setStopped', ids, stopped });
+  };
+
   // A tap on a ship (#678): opens the ship's own preview, same as a tap on any other table card,
   // and — since a ship with no crew shows nothing new — opens its crew panel alongside the
   // preview only when it actually has crew aboard.
@@ -812,7 +819,12 @@ function PracticeDrawContent() {
                   }
                   onStop={
                     focused.instance.card.type === 'personnel'
-                      ? () => dispatch({ type: 'stop', id: focused.instance.id })
+                      ? () =>
+                          dispatch({
+                            type: 'setStopped',
+                            ids: [focused.instance.id],
+                            stopped: !focused.instance.stopped,
+                          })
                       : undefined
                   }
                   draggable={focused.zone !== 'missions'}
@@ -835,6 +847,7 @@ function PracticeDrawContent() {
                   onCardClick={(id) => setFocusedCardId(id)}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
+                  onSetStopped={setStoppedForSelection}
                   hidden={draggingInstance !== null}
                 />
               )}
@@ -852,6 +865,7 @@ function PracticeDrawContent() {
                   onCardClick={(id) => setFocusedCardId(id)}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
+                  onSetStopped={setStoppedForSelection}
                   hidden={draggingInstance !== null}
                 />
               )}
@@ -871,6 +885,7 @@ function PracticeDrawContent() {
                   onCardClick={(id) => setFocusedCardId(id)}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
+                  onSetStopped={setStoppedForSelection}
                   hidden={draggingInstance !== null}
                 />
               )}

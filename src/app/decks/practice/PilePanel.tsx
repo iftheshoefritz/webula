@@ -31,6 +31,15 @@
 // or out of `selectedIds`, owned by `page.tsx` (not this component), so a drag started from a
 // selected card can pick up the whole selection in `handleDragStart`. A tap on the card itself
 // still opens its preview, unaffected by selection.
+//
+// A "Stop"/"Unstop" button (#681) shows above the card grid whenever the selection holds one or
+// more personnel cards; a selection with no personnel card at all shows no button, and a
+// non-personnel card in the selection just never changes. The label reads "Stop" once any
+// selected personnel card is not yet stopped, and "Unstop" only once every one of them already
+// is — a tap then sets every selected personnel card's `stopped` flag to that single value in
+// one `onSetStopped` call (owned by `page.tsx`, like the selection itself), never a per-card
+// toggle, so a mixed selection cannot go out of step with itself. The selection stays after the
+// tap, so the player can still drag the same cards next.
 
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
@@ -124,6 +133,7 @@ export default function PilePanel({
   onCardClick,
   selectedIds,
   onToggleSelect,
+  onSetStopped,
   hidden = false,
 }: {
   zone: PanelZone;
@@ -132,6 +142,10 @@ export default function PilePanel({
   onCardClick: (id: string) => void;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
+  // Sets `stopped` to one explicit value on a list of ids (#681): the same reducer action
+  // `page.tsx`'s single-card preview button uses, so the "Stop"/"Unstop" button below shares it
+  // rather than toggling each selected card on its own.
+  onSetStopped: (ids: string[], stopped: boolean) => void;
   hidden?: boolean;
 }) {
   // The crew zone opens alongside the ship's own preview, anchored to the right (#678): its
@@ -140,9 +154,21 @@ export default function PilePanel({
   // had.
   const isCrew = zone === 'crew';
   const backdropClassName = isCrew ? 'absolute inset-y-0 left-0 right-1/2' : 'absolute inset-0';
-  const boxClassName = isCrew
-    ? 'absolute left-4 right-[calc(50%+0.5rem)] top-8 flex flex-wrap items-start justify-start gap-2 rounded-lg bg-black/70 p-2'
-    : 'absolute left-1/2 top-8 -translate-x-1/2 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 max-w-[90%]';
+  // Positioning only; the visible card grid itself is `gridClassName` below, now a sibling of
+  // the "Stop"/"Unstop" button rather than carrying that button's own styling.
+  const layoutClassName = isCrew
+    ? 'absolute left-4 right-[calc(50%+0.5rem)] top-8 flex flex-col items-start gap-2'
+    : 'absolute left-1/2 top-8 -translate-x-1/2 flex flex-col items-center gap-2 max-w-[90%]';
+  const gridClassName = isCrew
+    ? 'flex flex-wrap items-start justify-start gap-2 rounded-lg bg-black/70 p-2'
+    : 'flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2';
+
+  const selectedPersonnel = cards.filter(
+    (instance) => selectedIds.includes(instance.id) && instance.card.type === 'personnel'
+  );
+  const showStopButton = selectedPersonnel.length > 0;
+  const allSelectedStopped = showStopButton && selectedPersonnel.every((instance) => instance.stopped);
+  const handleStopTap = () => onSetStopped(selectedPersonnel.map((instance) => instance.id), !allSelectedStopped);
 
   return (
     <div
@@ -155,16 +181,23 @@ export default function PilePanel({
         onClick={onClose}
         aria-label={closeLabel(zone)}
       />
-      <div data-zone={`pile-panel-${zone}`} className={boxClassName}>
-        {cards.map((instance) => (
-          <PilePanelCard
-            key={instance.id}
-            instance={instance}
-            onClick={() => onCardClick(instance.id)}
-            selected={selectedIds.includes(instance.id)}
-            onToggleSelect={() => onToggleSelect(instance.id)}
-          />
-        ))}
+      <div className={layoutClassName}>
+        {showStopButton && (
+          <button type="button" onClick={handleStopTap} className="btn-primary">
+            {allSelectedStopped ? 'Unstop' : 'Stop'}
+          </button>
+        )}
+        <div data-zone={`pile-panel-${zone}`} className={gridClassName}>
+          {cards.map((instance) => (
+            <PilePanelCard
+              key={instance.id}
+              instance={instance}
+              onClick={() => onCardClick(instance.id)}
+              selected={selectedIds.includes(instance.id)}
+              onToggleSelect={() => onToggleSelect(instance.id)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

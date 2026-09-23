@@ -650,11 +650,11 @@ describe('tableReducer', () => {
     });
   });
 
-  describe('stop (#679)', () => {
+  describe('setStopped (#679, #681)', () => {
     it('sets `stopped` on a hand card that is not yet stopped', () => {
       const personnelCard = instance('p0', card('Data'), 'up');
       const start = { ...initialTableState, hand: [personnelCard] };
-      const state = tableReducer(start, { type: 'stop', id: 'p0' });
+      const state = tableReducer(start, { type: 'setStopped', ids: ['p0'], stopped: true });
 
       expect(state.hand).toEqual([{ ...personnelCard, stopped: true }]);
     });
@@ -662,50 +662,50 @@ describe('tableReducer', () => {
     it('clears `stopped` on a card that is already stopped', () => {
       const stoppedCard = { ...instance('p0', card('Data'), 'up'), stopped: true };
       const start = { ...initialTableState, hand: [stoppedCard] };
-      const state = tableReducer(start, { type: 'stop', id: 'p0' });
+      const state = tableReducer(start, { type: 'setStopped', ids: ['p0'], stopped: false });
 
       expect(state.hand).toEqual([{ ...stoppedCard, stopped: false }]);
     });
 
     it('leaves other cards in the same zone untouched', () => {
-      const toggled = instance('p0', card('Data'), 'up');
+      const changed = instance('p0', card('Data'), 'up');
       const untouched = instance('p1', card('Worf'), 'up');
-      const start = { ...initialTableState, hand: [toggled, untouched] };
-      const state = tableReducer(start, { type: 'stop', id: 'p0' });
+      const start = { ...initialTableState, hand: [changed, untouched] };
+      const state = tableReducer(start, { type: 'setStopped', ids: ['p0'], stopped: true });
 
-      expect(state.hand).toEqual([{ ...toggled, stopped: true }, untouched]);
+      expect(state.hand).toEqual([{ ...changed, stopped: true }, untouched]);
     });
 
-    it('toggles a mission card in place', () => {
+    it('sets a mission card in place', () => {
       const mission = instance('m0', card('Moab IV'), 'up');
       const start = { ...initialTableState, missions: missionSlots([mission]) };
-      const state = tableReducer(start, { type: 'stop', id: 'm0' });
+      const state = tableReducer(start, { type: 'setStopped', ids: ['m0'], stopped: true });
 
       expect(state.missions[0].mission).toEqual({ ...mission, stopped: true });
     });
 
-    it("toggles a card in a mission's personnel pile", () => {
+    it("sets a card in a mission's personnel pile", () => {
       const personnelCard = instance('p0', card('Data'), 'down');
       const start = { ...initialTableState, missions: missionSlots([], {}, { 1: [personnelCard] }) };
-      const state = tableReducer(start, { type: 'stop', id: 'p0' });
+      const state = tableReducer(start, { type: 'setStopped', ids: ['p0'], stopped: true });
 
       expect(state.missions[1].personnel).toEqual([{ ...personnelCard, stopped: true }]);
     });
 
-    it("toggles a personnel card aboard a ship, as crew, keeping the rest of the crew untouched", () => {
+    it('sets a personnel card aboard a ship, as crew, keeping the rest of the crew untouched', () => {
       const staying = instance('p0', card('Worf'), 'up');
-      const toggled = instance('p1', card('Data'), 'up');
-      const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), crew: [staying, toggled] };
+      const changed = instance('p1', card('Data'), 'up');
+      const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), crew: [staying, changed] };
       const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
-      const state = tableReducer(start, { type: 'stop', id: 'p1' });
+      const state = tableReducer(start, { type: 'setStopped', ids: ['p1'], stopped: true });
 
-      expect(state.missions[0].ships[0].crew).toEqual([staying, { ...toggled, stopped: true }]);
+      expect(state.missions[0].ships[0].crew).toEqual([staying, { ...changed, stopped: true }]);
     });
 
-    it('keeps the flag through a later move (#679: a move only ever changes `face`)', () => {
+    it('keeps the flag through a later move (a move only ever changes `face`)', () => {
       const personnelCard = instance('p0', card('Data'), 'up');
       const start = { ...initialTableState, hand: [personnelCard] };
-      const stopped = tableReducer(start, { type: 'stop', id: 'p0' });
+      const stopped = tableReducer(start, { type: 'setStopped', ids: ['p0'], stopped: true });
       const moved = tableReducer(stopped, { type: 'move', id: 'p0', to: 'discard' });
 
       expect(moved.discard).toEqual([{ ...personnelCard, stopped: true, face: 'up' }]);
@@ -713,9 +713,34 @@ describe('tableReducer', () => {
 
     it('is a no-op for an id that is not on the table', () => {
       const start = { ...initialTableState, hand: [instance('p0', card('Data'))] };
-      const state = tableReducer(start, { type: 'stop', id: 'missing' });
+      const state = tableReducer(start, { type: 'setStopped', ids: ['missing'], stopped: true });
 
       expect(state).toBe(start);
+    });
+
+    it('sets the flag on a list of ids spanning different zones, leaving every other card untouched (#681)', () => {
+      const inHand = instance('p0', card('Data'), 'up');
+      const inCore = instance('p1', card('Worf'), 'up');
+      const untouchedInHand = instance('p2', card('Picard'), 'up');
+      const untouchedInCore = instance('p3', card('Riker'), 'up');
+      const start = {
+        ...initialTableState,
+        hand: [inHand, untouchedInHand],
+        core: [inCore, untouchedInCore],
+      };
+      const state = tableReducer(start, { type: 'setStopped', ids: ['p0', 'p1'], stopped: true });
+
+      expect(state.hand).toEqual([{ ...inHand, stopped: true }, untouchedInHand]);
+      expect(state.core).toEqual([{ ...inCore, stopped: true }, untouchedInCore]);
+    });
+
+    it('sets `stopped` to false on every id in the list, even one already unstopped', () => {
+      const stopped = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const alreadyUnstopped = instance('p1', card('Worf'), 'up');
+      const start = { ...initialTableState, hand: [stopped, alreadyUnstopped] };
+      const state = tableReducer(start, { type: 'setStopped', ids: ['p0', 'p1'], stopped: false });
+
+      expect(state.hand).toEqual([{ ...stopped, stopped: false }, { ...alreadyUnstopped, stopped: false }]);
     });
   });
 });
