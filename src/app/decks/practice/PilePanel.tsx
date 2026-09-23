@@ -220,9 +220,16 @@ export default function PilePanel({
   const layoutClassName = isCrew
     ? 'absolute left-4 right-[calc(50%+0.5rem)] top-8 flex flex-col items-start gap-2'
     : 'absolute left-1/2 top-8 -translate-x-1/2 flex flex-col items-center gap-2 max-w-[90%]';
+  // #720: a pile with many cards used to grow this box past the bottom of the screen, with no
+  // way to scroll down to the cards that fell off. `max-h` caps the grid's own height to the
+  // viewport (leaving room above for `top-8` plus the Stop/Shuffle buttons that sit above the
+  // grid as its siblings, and some room below so the box doesn't touch the screen's edge), and
+  // `overflow-y-auto` scrolls the cards inside it once they no longer fit. The buttons above stay
+  // outside this scrolling element, so they never scroll out of view with the cards. `dvh`, not
+  // `vh`, so a phone's address bar showing or hiding doesn't leave the cap wrong either way.
   const gridClassName = isCrew
-    ? 'flex flex-wrap items-start justify-start gap-2 rounded-lg bg-black/70 p-2'
-    : 'flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2';
+    ? 'flex flex-wrap items-start justify-start gap-2 rounded-lg bg-black/70 p-2 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain'
+    : 'flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain';
 
   const selectedPersonnel = cards.filter(
     (instance) => selectedIds.includes(instance.id) && instance.card.type === 'personnel'
