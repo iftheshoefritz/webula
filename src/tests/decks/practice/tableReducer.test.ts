@@ -868,6 +868,68 @@ describe('tableReducer', () => {
       expect(state.hand).toEqual([{ ...stopped, stopped: false }, { ...alreadyUnstopped, stopped: false }]);
     });
   });
+
+  describe('nextTurn (#718)', () => {
+    it('starts at turn 1', () => {
+      expect(initialTableState.turn).toBe(1);
+    });
+
+    it('raises the turn number by one', () => {
+      const state = tableReducer(initialTableState, { type: 'nextTurn' });
+
+      expect(state.turn).toBe(2);
+    });
+
+    it('raises the turn number again on a later call', () => {
+      const first = tableReducer(initialTableState, { type: 'nextTurn' });
+      const second = tableReducer(first, { type: 'nextTurn' });
+
+      expect(second.turn).toBe(3);
+    });
+
+    it('unstops a stopped card in the hand', () => {
+      const stopped = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const start = { ...initialTableState, hand: [stopped] };
+      const state = tableReducer(start, { type: 'nextTurn' });
+
+      expect(state.hand).toEqual([{ ...stopped, stopped: false }]);
+    });
+
+    it('unstops a stopped card aboard a ship, as crew', () => {
+      const stoppedCrew = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), crew: [stoppedCrew] };
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
+      const state = tableReducer(start, { type: 'nextTurn' });
+
+      expect(state.missions[0].ships[0].crew).toEqual([{ ...stoppedCrew, stopped: false }]);
+    });
+
+    it("unstops a stopped card in a mission's personnel pile", () => {
+      const stoppedCard = { ...instance('p0', card('Data'), 'down'), stopped: true };
+      const start = { ...initialTableState, missions: missionSlots([], {}, { 1: [stoppedCard] }) };
+      const state = tableReducer(start, { type: 'nextTurn' });
+
+      expect(state.missions[1].personnel).toEqual([{ ...stoppedCard, stopped: false }]);
+    });
+
+    it('unstops stopped cards in the core and the brig', () => {
+      const stoppedInCore = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const stoppedInBrig = { ...instance('p1', card('Worf'), 'up'), stopped: true };
+      const start = { ...initialTableState, core: [stoppedInCore], brig: [stoppedInBrig] };
+      const state = tableReducer(start, { type: 'nextTurn' });
+
+      expect(state.core).toEqual([{ ...stoppedInCore, stopped: false }]);
+      expect(state.brig).toEqual([{ ...stoppedInBrig, stopped: false }]);
+    });
+
+    it('leaves an already-unstopped card untouched, keeping the same object reference', () => {
+      const untouched = instance('p0', card('Data'), 'up');
+      const start = { ...initialTableState, hand: [untouched] };
+      const state = tableReducer(start, { type: 'nextTurn' });
+
+      expect(state.hand[0]).toBe(untouched);
+    });
+  });
 });
 
 describe('createCardInstances', () => {
