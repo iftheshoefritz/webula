@@ -191,6 +191,18 @@ Do not build the drag by hand. Two things make a hand drag fail, and each one ha
 
 `npx agent-browser drag '<from>' '<to>'` works for a card that no other card covers and a target that does not move, such as a drag out of a pile panel. It fails silently on a hand card: it reports `Done` and moves nothing.
 
+A drag onto a ship's crew zone does not land. See #701. Until that issue closes, check a crew through a drag out of a mission's pile panel, or through a reducer test.
+
+### A click that does not click
+
+`npx agent-browser click 'button:has-text("<label>")'` also fails silently on this page. It reports success and the button does not fire. Use the DOM instead, and read the result in the same call:
+
+```bash
+npx agent-browser eval "(()=>{const b=Array.from(document.querySelectorAll('button')).find(x=>x.textContent.trim()==='Shuffle');b.click();return 'clicked'})()"
+```
+
+A click by `ref=eN` from a snapshot does work. Take a snapshot first, then click the ref.
+
 The Jest tests call `onDragEnd` directly, so only the browser drag checks the pointer sensor and the drop targets on the real layout. When you add a zone or a draggable card on `/decks/practice`, give it a `data-zone` or `data-card-id` attribute. A zone name is a value of `Zone` in `tableReducer.ts`.
 
 Only give `data-zone` to a real drop target. A `data-zone` on an element that is not a droppable makes a drag aim at a place that accepts nothing. Use `data-testid` for an element a test must find but a drag must not target.
