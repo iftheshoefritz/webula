@@ -676,19 +676,12 @@ function PracticeDrawContent() {
 
               {/* Bottom row, anchored to the bottom. From left to right: discard pile, draw pile,
                   closed hand, core, brig. The dilemma pile is the rightmost zone, at the right
-                  edge. The push-below-the-viewport offset (#130) is no longer on this outer row
-                  itself: `items-end` aligns every zone's bottom edge to this row's own bottom
-                  before any transform runs, so one shared transform on the row used to push every
-                  zone down by the same pixel amount regardless of that zone's own height, cutting
-                  the same slice off the bottom of every zone. Core and the brig are short — the
-                  short `TableCard` art crop the ship row also uses, once cards sit in them (#603)
-                  — so that shared, fixed-pixel cut hid most or all of a short zone even though a
-                  taller zone (draw pile, hand) only lost its bottom sliver (#636). The offset now
-                  sits on the two zone groups that still want it, each keyed to its own natural
-                  height, so core and the brig, with no offset of their own, keep their natural
-                  position at the row's own bottom edge and stay fully on the table. */}
+                  edge. The push-below-the-viewport offset (#130, #636) is gone entirely now
+                  (#682): every zone here fits the table's own height, so `items-end` alone
+                  aligns every zone's bottom edge to this row's own bottom edge, the same edge
+                  core and the brig already used. */}
               <div className="mt-auto flex flex-row items-end gap-4">
-                <div className="flex flex-row items-end gap-4" style={{ transform: 'translateY(30%)' }}>
+                <div className="flex flex-row items-end gap-4">
                   {/* Discard */}
                   <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
 
@@ -741,9 +734,8 @@ function PracticeDrawContent() {
                   />
                 </div>
 
-                {/* Core: any card, usually events (#603). No push-below-the-viewport offset
-                    (#636): stays fully on the table. A tap on a card opens the core's own pile
-                    panel (#640) rather than that one card's preview directly. */}
+                {/* Core: any card, usually events (#603). A tap on a card opens the core's own
+                    pile panel (#640) rather than that one card's preview directly. */}
                 <FlatCardRow
                   zone="core"
                   label="Core"
@@ -754,9 +746,8 @@ function PracticeDrawContent() {
                   onOpen={() => setOpenFlatZone('core')}
                 />
 
-                {/* Brig: captured personnel, though the zone accepts any card type (#603). No
-                    push-below-the-viewport offset (#636): stays fully on the table. A tap on a
-                    card opens the brig's own pile panel (#640) rather than that one card's
+                {/* Brig: captured personnel, though the zone accepts any card type (#603). A tap
+                    on a card opens the brig's own pile panel (#640) rather than that one card's
                     preview directly. */}
                 <FlatCardRow
                   zone="brig"
@@ -770,7 +761,7 @@ function PracticeDrawContent() {
                 {/* The dilemma pile stays the rightmost zone, with the closed dilemma hand
                     immediately to its left, on the inside of the row (#604). The dilemma hand
                     shows only when it holds cards. */}
-                <div className="ml-auto flex flex-row items-end gap-4" style={{ transform: 'translateY(30%)' }}>
+                <div className="ml-auto flex flex-row items-end gap-4">
                   {dilemmaHand.length > 0 && (
                     <CardHand
                       instances={dilemmaHand}
