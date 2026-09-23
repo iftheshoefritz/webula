@@ -4,9 +4,13 @@
 #   bash scripts/practice_drag.sh <card-id> <data-zone>
 #   bash scripts/practice_drag.sh card-5 core
 #
-# It prints the zone the card is in after the drag, or `pile` when the card
-# went into a mission pile, because a mission pile shows a badge and keeps its
-# cards out of the DOM.
+# It prints the zone the card is in after the drag. A mission pile, a closed
+# hand, and a closed dilemma hand all keep their cards out of the DOM (a badge
+# with a count stands in for the cards), so for those the script cannot find
+# the card by id afterward. Instead it reads the `aria-label` of every badge
+# under the target zone, before and after the drag, and reports whichever one
+# gained a card. If none did (or more than one did), it says so rather than
+# guessing.
 #
 # Two things make a hand drag fail, and both cost an agent many turns to find
 # again. This script handles both.
@@ -69,10 +73,64 @@ fi
 set -- $target
 bx=$1; by=$2
 
+# A badge (hand, dilemma hand, or a mission pile) reads "<Label>, N cards, tap
+# to open". Everything else, including the aria-labels the draw and download
+# piles use, misses the regex and is ignored. The key is the badge's own
+# data-zone if it has one (the closed hand and dilemma hand are their own drop
+# target, so this is $ZONE itself for those); a mission pile's badge is a
+# separate drop target nested inside $ZONE's own drop target, so it has its
+# own data-zone too. The one badge with no data-zone of its own, the dilemmas
+# stacked under a mission, falls back to its label text - unambiguous here
+# because the search is scoped to the single target zone.
+snapshot() {
+  ev "(()=>{const root=document.querySelector('[data-zone=\"$ZONE\"]');if(!root)return '';const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const m=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(!m)return;const k=el.getAttribute('data-zone')||m[1];parts.push(k+'='+m[2])};add(root);root.querySelectorAll('*').forEach(add);return parts.join(';')})()"
+}
+
+before=$(snapshot)
+
 ab mouse move "$bx" "$by"
 # A second move at the same point. dnd-kit reads the last pointer event, and one
 # move can arrive before the reflow settles.
 ab mouse move "$bx" "$by"
 ab mouse up
 
-ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'pile';const z=e.closest('[data-zone]');return z?z.getAttribute('data-zone'):'no zone'})()"
+found=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const z=e.closest('[data-zone]');return z?z.getAttribute('data-zone'):'no zone'})()")
+
+if [ "$found" != "MISSING" ]; then
+  echo "$found"
+  exit 0
+fi
+
+# The card left the DOM. Find which badge under $ZONE gained a card, rather
+# than guessing it was a mission pile - a closed hand or dilemma hand also
+# takes its cards out of the DOM.
+after=$(snapshot)
+
+declare -A beforeCounts afterCounts
+if [ -n "$before" ]; then
+  IFS=';' read -ra parts <<< "$before"
+  for p in "${parts[@]}"; do
+    beforeCounts["${p%=*}"]="${p##*=}"
+  done
+fi
+if [ -n "$after" ]; then
+  IFS=';' read -ra parts <<< "$after"
+  for p in "${parts[@]}"; do
+    afterCounts["${p%=*}"]="${p##*=}"
+  done
+fi
+
+increased=()
+for k in "${!afterCounts[@]}"; do
+  b="${beforeCounts[$k]:-0}"
+  a="${afterCounts[$k]}"
+  if [ "$a" -gt "$b" ]; then
+    increased+=("$k")
+  fi
+done
+
+case "${#increased[@]}" in
+  1) echo "${increased[0]}" ;;
+  0) echo "card $CARD left the DOM, but no badge under $ZONE gained a card. Could not tell where it went." ;;
+  *) echo "card $CARD left the DOM, and more than one badge under $ZONE gained a card (${increased[*]}). Could not tell which one it went to." ;;
+esac

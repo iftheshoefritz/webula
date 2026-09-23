@@ -184,7 +184,7 @@ bash scripts/practice_drag.sh card-5 core
 bash scripts/practice_drag.sh card-8 brig
 ```
 
-The script prints `pile` when the card went into a mission pile, because a mission pile shows a badge and keeps its cards out of the DOM. To check such a drop, read the count in the `aria-label` of the pile badge.
+A mission pile, a closed hand, and a closed dilemma hand all keep their cards out of the DOM (a badge with a count stands in for the cards). When the dragged card leaves the DOM, the script reads the `aria-label` of every badge under the target zone, before and after the drag, and prints whichever one gained a card - the mission pile, `hand`, or `dilemmaHand`. If none did, or more than one did, it says so instead of guessing.
 
 Do not build the drag by hand. Two things make a hand drag fail, and each one has cost a run its whole turn limit:
 
