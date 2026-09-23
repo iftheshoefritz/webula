@@ -2,6 +2,8 @@
 // issue #130) rather than several `useState` calls so every zone move goes through one place
 // and later slices can add zones/actions without touching how existing zones behave.
 
+import { shuffleArray } from '../deckBuilderUtils';
+
 export type Face = 'up' | 'down';
 // The core and the brig (#603) are two more flat, top-level zones: the core for any card not at
 // a mission (usually events), the brig for captured personnel, though the zone rules are
@@ -71,6 +73,11 @@ export interface MissionPileLocation {
 
 export type MoveTarget = Zone | ShipRowLocation | CrewLocation | MissionPileLocation;
 
+// A `shuffle` action (#680) only ever targets one of the zones a `PilePanel` shows: the core,
+// the brig, a ship's crew, or one of a mission's four piles — never a ship row, and never one of
+// the other flat zones (pile/hand/discard/dilemmaPile/dilemmaHand) a `PilePanel` never opens for.
+export type ShuffleLocation = 'core' | 'brig' | CrewLocation | MissionPileLocation;
+
 export interface TableState {
   pile: CardInstance[];
   hand: CardInstance[];
@@ -96,6 +103,11 @@ export type TableAction =
   // unordered from the player's point of view, so nothing else needs it.
   | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom' }
   | { type: 'flip'; id: string }
+  // Puts the cards of one pile panel's zone in a random order (#680): the order in the table
+  // state itself, not just the panel's display order, so the table and the next time the panel
+  // opens both show the same shuffled order. Never changes a card's face, a ship's crew, or any
+  // other field of a card instance — only the order of the array at that location.
+  | { type: 'shuffle'; location: ShuffleLocation }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
 
 export const ZONE_FACE: Record<Zone, Face> = {
@@ -389,6 +401,13 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         ...state,
         [zone]: state[zone].map((c) => (c.id === action.id ? { ...c, face: flipFace(c.face) } : c)),
       };
+    }
+
+    case 'shuffle': {
+      // `ShuffleLocation` ('core' | 'brig' | CrewLocation | MissionPileLocation) is a subset of
+      // `MoveTarget`, so `cardsAt`/`withCardsAt` already read and write the right array for it.
+      const cards = cardsAt(state, action.location);
+      return withCardsAt(state, action.location, shuffleArray(cards));
     }
 
     case 'reset': {
