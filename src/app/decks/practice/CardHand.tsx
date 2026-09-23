@@ -13,7 +13,10 @@
 // Issue #604 reuses this component for the dilemma hand. Issue #638: a tap on the draw pile
 // still draws a card while a hand is open, rather than only closing the hand — see
 // `passthroughZone` below. Issue #644: the closed row is also a real `useDroppable` drop target,
-// so a card dragged from anywhere on the table can land back in the hand.
+// so a card dragged from anywhere on the table can land back in the hand. Issue #691: the open
+// fan's cards carry the same select checkbox a pile panel's cards do (#677, `PilePanel.tsx`), so
+// a drag started from a selected card picks up the rest of the hand's own selection too — see
+// `DraggableFanCard` below.
 
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -42,45 +45,69 @@ const OPEN_MAX_WIDTH = Math.round(460 * 1.3);
 const OPEN_MAX_OFFSET = Math.round(60 * 1.3);
 const OPEN_BOTTOM = 16; // px above the viewport's bottom edge, so the fan covers the zones
 
+// Issue #691: carries the same select checkbox `PilePanelCard` (`PilePanel.tsx`) already has, as
+// a sibling of the card's own draggable button rather than nested inside it, for the same reason
+// `PilePanelCard` gives — a `<button>` cannot nest inside another `<button>`. A tap on the
+// checkbox toggles this card in or out of `selectedIds`, owned by the page (`page.tsx`), not this
+// component, so a drag started from a selected card can pick up the rest of the hand's selection
+// (`handleDragStart`). A tap on the card itself still opens its preview, unaffected by selection.
 function DraggableFanCard({
   instance,
   left,
   zIndex,
   onClick,
+  selected,
+  onToggleSelect,
 }: {
   instance: CardInstance;
   left: number;
   zIndex: number;
   onClick: () => void;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
   const { card } = instance;
 
   return (
-    <button
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      data-card-id={instance.id}
-      className="absolute focus:outline-none touch-none pointer-events-auto"
-      style={{
-        left,
-        zIndex: isDragging ? 100 : zIndex,
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-        opacity: isDragging ? 0.5 : 1,
-      }}
-      onClick={onClick}
-      aria-label={card.name}
+    <div
+      className="absolute pointer-events-auto"
+      style={{ left, zIndex: isDragging ? 100 : zIndex }}
     >
-      <img
-        src={`/cardimages/${card.imagefile}.jpg`}
-        width={120}
-        height={167}
-        alt={card.name}
-        className="rounded-lg shadow-md h-auto"
-        style={{ width: OPEN_CARD_WIDTH }}
-      />
-    </button>
+      <button
+        ref={setNodeRef}
+        {...listeners}
+        {...attributes}
+        data-card-id={instance.id}
+        className={`block focus:outline-none touch-none rounded-lg ${selected ? 'ring-2 ring-accent' : ''}`}
+        style={{
+          transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+          opacity: isDragging ? 0.5 : 1,
+        }}
+        onClick={onClick}
+        aria-label={card.name}
+      >
+        <img
+          src={`/cardimages/${card.imagefile}.jpg`}
+          width={120}
+          height={167}
+          alt={card.name}
+          className="rounded-lg shadow-md h-auto"
+          style={{ width: OPEN_CARD_WIDTH }}
+        />
+      </button>
+      <button
+        type="button"
+        onClick={onToggleSelect}
+        aria-pressed={selected}
+        aria-label={selected ? `Deselect ${card.name}` : `Select ${card.name}`}
+        className={`absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none ${
+          selected ? 'bg-accent border-accent text-white' : 'bg-black/50 border-white/50 text-transparent'
+        }`}
+      >
+        ✓
+      </button>
+    </div>
   );
 }
 
@@ -94,6 +121,8 @@ export default function CardHand({
   portalContainer,
   zone = 'hand',
   label = 'hand',
+  selectedIds = [],
+  onToggleSelect = () => {},
   passthroughZone,
 }: {
   instances: CardInstance[];
@@ -105,6 +134,12 @@ export default function CardHand({
   onCardClick: (id: string) => void;
   zone?: 'hand' | 'dilemmaHand';
   label?: string;
+  // The cards checked in this hand (#691), owned by the page (`page.tsx`), the same as a pile
+  // panel's own `selectedIds`/`onToggleSelect` (`PilePanel.tsx`). Default to "nothing selected"
+  // and a no-op toggle so a caller that does not care about multi-select (existing tests) does
+  // not have to pass them.
+  selectedIds?: string[];
+  onToggleSelect?: (id: string) => void;
   // The `data-zone` of another control that stays tappable through the full-screen backdrop
   // while this hand is open (issue #638: the draw pile, so the player can draw without closing
   // an open hand first). The backdrop covers the whole screen, including that control, so a
@@ -226,6 +261,8 @@ export default function CardHand({
                   left={idx * openOffset}
                   zIndex={idx + 1}
                   onClick={() => onCardClick(instance.id)}
+                  selected={selectedIds.includes(instance.id)}
+                  onToggleSelect={() => onToggleSelect(instance.id)}
                 />
               ))}
             </div>
