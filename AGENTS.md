@@ -173,11 +173,23 @@ run `yarn install`.
 The version is pinned to `0.27.0`, the last release with no `engines` field. Every release
 from `0.27.1` needs Node 24, and CI runs Node 20. Do not raise the version on its own.
 
-To check drag and drop, do a real drag with `agent-browser drag`, and select elements by their `data-zone` and `data-card-id` attributes:
+To check drag and drop on the practice table, use the script. It takes a card ID and a zone name, and it prints the zone the card is in after the drag:
 
 ```bash
-npx agent-browser drag '[data-zone="hand"] [data-card-id]' '[data-zone="discard"]'
+bash scripts/practice_drag.sh card-5 core
+bash scripts/practice_drag.sh card-8 brig
 ```
+
+The script prints `pile` when the card went into a mission pile, because a mission pile shows a badge and keeps its cards out of the DOM. To check such a drop, read the count in the `aria-label` of the pile badge.
+
+Do not build the drag by hand. Two things make a hand drag fail, and each one has cost a run its whole turn limit:
+
+1. A mouse down on a card of the open hand closes the fan, and the table then reflows. Coordinates read before the drag point at the old layout, so the drop lands in the wrong zone. Read the rect of the target zone **after** the drag starts.
+2. The cards of the fan overlap, and the later card is on top. The centre of a card is often under its neighbour, so the drag moves the wrong card. Find a point where `document.elementFromPoint` returns the card you want.
+
+`collisionDetection.ts` ranks a drop by `pointerWithin` first, so the pointer must stop inside the rect of the target zone.
+
+`npx agent-browser drag '<from>' '<to>'` works for a card that no other card covers and a target that does not move, such as a drag out of a pile panel. It fails silently on a hand card: it reports `Done` and moves nothing.
 
 The Jest tests call `onDragEnd` directly, so only the browser drag checks the pointer sensor and the drop targets on the real layout. When you add a zone or a draggable card on `/decks/practice`, give it a `data-zone` or `data-card-id` attribute. A zone name is a value of `Zone` in `tableReducer.ts`.
 
