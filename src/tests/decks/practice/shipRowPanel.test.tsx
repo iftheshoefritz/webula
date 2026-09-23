@@ -255,7 +255,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(2);
   });
 
-  it("tapping a ship inside the row panel opens that ship's own preview, closing the row panel", async () => {
+  it("tapping a ship inside the row panel opens that ship's own preview and keeps the row panel open", async () => {
     await setupOpenHand([mockShipCard, mockOtherShipCard, mockThirdShipCard]);
     const [firstId, secondId, thirdId] = mockDraggableIds;
     await dropOnMission(firstId, 2, 2);
@@ -272,11 +272,11 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
       fireEvent.click(panel.querySelector(`[data-card-id="${firstId}"]`) as HTMLElement);
     });
 
-    expect(document.body.querySelector('[data-zone="pile-panel-shipRow"]')).toBeNull();
+    expect(document.body.querySelector('[data-zone="pile-panel-shipRow"]')).not.toBeNull();
     expect(screen.getByRole('button', { name: /relativity, tap to shrink/i })).toBeInTheDocument();
   });
 
-  it('tapping a crewed ship inside the row panel opens both its own preview and its crew panel, closing the row panel', async () => {
+  it('tapping a crewed ship inside the row panel opens only its own preview, not its crew panel, and keeps the row panel open', async () => {
     await setupOpenHand([mockShipCard, mockOtherShipCard, mockThirdShipCard, mockPersonnelCard]);
     const [firstId, secondId, thirdId, personnelId] = mockDraggableIds;
     await dropOnMission(firstId, 3, 3);
@@ -301,10 +301,9 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
       fireEvent.click(panel.querySelector(`[data-card-id="${firstId}"]`) as HTMLElement);
     });
 
-    expect(document.body.querySelector('[data-zone="pile-panel-shipRow"]')).toBeNull();
+    expect(document.body.querySelector('[data-zone="pile-panel-shipRow"]')).not.toBeNull();
     expect(screen.getByRole('button', { name: /relativity, tap to shrink/i })).toBeInTheDocument();
-    expect(document.body.querySelector('[data-zone="pile-panel-crew"]')).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
+    expect(document.body.querySelector('[data-zone="pile-panel-crew"]')).toBeNull();
   });
 
   it('still reaches the row when a fourth ship is dropped on it while its list panel is open', async () => {

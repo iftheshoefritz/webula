@@ -40,8 +40,8 @@
 // (`PilePanel`, zone `'shipRow'`, the same list-view pattern the core, the brig, and a ship's
 // crew already use) rather than going straight to `onShipClick` — the ship underneath an
 // overlapping one is otherwise unreachable for both a tap and a drag. A tap on a ship inside that
-// panel reuses `onShipClick` unchanged, the same two-level tap pattern the core/brig/crew panels
-// already follow.
+// panel opens only that ship's own preview, the same as a tap inside the core/brig/crew panels —
+// not its crew panel too — and the row panel itself stays open underneath, unlike `onShipClick`.
 //
 // Dropping a personnel, equipment, event, mission, or interrupt card on the mission card or its
 // ship row (#602) files it into one of that mission's piles, chosen by card type: personnel and

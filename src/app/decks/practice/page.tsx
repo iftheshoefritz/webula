@@ -511,11 +511,6 @@ function PracticeDrawContent() {
       openOnlyCrewPanel(shipId);
     } else {
       setOpenCrewShipId(null);
-      // A tap on a ship inside its row's own list panel (#713) reuses this function unchanged;
-      // clearing the panel here too, not just the crew panel, closes it the same way opening any
-      // other panel does, keeping the one-panel-at-a-time invariant below intact even on this
-      // crewless branch, which otherwise never calls one of the `openOnly*` helpers.
-      setOpenShipRowMissionIndex(null);
     }
   };
 
@@ -1056,10 +1051,10 @@ function PracticeDrawContent() {
 
               {/* A mission's ship-row list panel (#713): opened by a tap on any ship once that
                   row holds more ships than fit without overlap (`ShipRow`), listing every ship on
-                  it individually. A tap on a ship here reuses `onShipClick` unchanged, opening
-                  that ship's own preview (and its crew panel too, if it has crew) and closing
-                  this panel in the process, the same two-level tap pattern the core/brig/crew
-                  panels already follow. */}
+                  it individually. A tap on a ship here only opens that ship's own preview, the
+                  same as a tap inside the core/brig/crew panels — it does not also open a crew
+                  panel, since a second panel would break the one-panel-at-a-time invariant of
+                  #711, and this panel itself stays open underneath the preview. */}
               {openShipRowMissionIndex !== null && (
                 <PilePanel
                   zone="shipRow"
@@ -1068,7 +1063,7 @@ function PracticeDrawContent() {
                     setOpenShipRowMissionIndex(null);
                     setSelectedCardIds([]);
                   }}
-                  onCardClick={handleShipClick}
+                  onCardClick={(id) => setFocusedCardId(id)}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() =>
