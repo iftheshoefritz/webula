@@ -71,8 +71,22 @@ jobs:
             4. Run every acceptance check of the issue, one at a time. Record the result of each one.
                For a drag, use a real drag and the `data-zone` and `data-card-id` attributes:
                `npx agent-browser drag '[data-zone="hand"] [data-card-id]' '[data-zone="discard"]'`
-               Read a snapshot after each step to confirm the result. Do not assume a command worked.
                If your commands do not build the state a check needs, say so in the report. Do not report a check as passed when you did not run it.
+
+               You have a turn limit, and one Bash call is one turn. To stay inside it, put the whole
+               command sequence of one acceptance check in ONE Bash call, one command per line, and
+               end the call with the `snapshot` or `eval` that reads the result. For example:
+
+               ```
+               npx agent-browser click 'ref=e8'
+               npx agent-browser click 'button:has-text("Stop")'
+               npx agent-browser eval "document.querySelector('[data-card-id]').className"
+               ```
+
+               Do not take a snapshot after every click. Take one at the end of the sequence, and read
+               the state you need with one `eval` instead of a full snapshot where you can.
+               Do not run `npx agent-browser --help`. The commands you need are in AGENTS.md.
+               A run that ends at the turn limit writes no report, so budget the turns from the start.
 
             5. Read the browser console and the dev server log for errors before you stop the server.
 
