@@ -79,8 +79,12 @@ function ShuffleIcon() {
 // A mission pile is one of `MissionPileName`; the core and the brig (#640) are two more flat
 // zones this same panel now lists, alongside a mission's piles. A ship's crew (#664) is a third:
 // like the core and the brig, it is not addressed by mission index, so it is named the same way,
-// by its own zone string rather than a `MissionPileName`.
-export type PanelZone = MissionPileName | 'core' | 'brig' | 'crew';
+// by its own zone string rather than a `MissionPileName`. The draw pile and the dilemma pile
+// (#690) are a fourth and fifth: opening this panel for either one lets the player download from
+// it — the game's term for a look through every card without drawing — while the rest of the pile
+// stays exactly where it was, in its existing order. The player normally shuffles afterwards,
+// with the panel's own Shuffle button, because the download showed them the whole pile.
+export type PanelZone = MissionPileName | 'core' | 'brig' | 'crew' | 'pile' | 'dilemmaPile';
 
 const PANEL_LABEL: Record<PanelZone, string> = {
   personnel: 'Personnel',
@@ -90,13 +94,16 @@ const PANEL_LABEL: Record<PanelZone, string> = {
   core: 'Core',
   brig: 'Brig',
   crew: 'Crew',
+  pile: 'Draw pile',
+  dilemmaPile: 'Dilemma pile',
 };
 
-// The core, the brig, and a ship's crew (#664) are not "piles" the way a mission's
-// personnel/event/dilemma piles are, so their close button's label drops that word; a mission
-// pile's label keeps it, unchanged from before #640.
+// The core, the brig, a ship's crew (#664), the draw pile, and the dilemma pile (#690) already
+// say "pile" (or need no such word at all) in their own label, so their close button's label
+// does not repeat it; a mission pile's label keeps the trailing "pile", unchanged from before
+// #640.
 const closeLabel = (zone: PanelZone): string =>
-  zone === 'core' || zone === 'brig' || zone === 'crew'
+  zone === 'core' || zone === 'brig' || zone === 'crew' || zone === 'pile' || zone === 'dilemmaPile'
     ? `Close ${PANEL_LABEL[zone].toLowerCase()}`
     : `Close ${PANEL_LABEL[zone].toLowerCase()} pile`;
 

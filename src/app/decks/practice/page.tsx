@@ -266,6 +266,51 @@ function DilemmaPileHalf({
   );
 }
 
+// A plain inline magnifying-glass icon (#690), not react-icons: every test that renders this
+// page mocks `react-icons/fa` with an explicit list of the icons this file imports, so a new
+// react-icons import here would need every one of those mocks updated too — the same reasoning
+// `PilePanel.tsx`'s own `ShuffleIcon` documents.
+function DownloadIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-3 h-3"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
+// A download trigger for the draw pile or the dilemma pile (#690): opens that pile's own
+// `PilePanel` so the player can look through every card in it — face up, in its existing order —
+// and drag one straight into hand, without drawing through the rest of the pile. Kept apart from
+// the pile's own tap-to-draw click (`onClick` on the draw-pile button, `DilemmaPileButton`'s two
+// drop/draw halves), rather than layered on top of the pile art, so it never steals a tap meant
+// for drawing, or a drop meant for the dilemma pile's top/bottom halves — the same
+// "control sits beside the card, not nested on top of it" reasoning `PileBadge`/`ShipCrewBadge`
+// (`MissionRow.tsx`) already follow. Disabled, like the pile's own draw control, once the pile is
+// empty: there is nothing left to download.
+function DownloadPileButton({ label, count, onOpen }: { label: string; count: number; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={count === 0}
+      aria-label={`Download from the ${label}`}
+      className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <DownloadIcon />
+    </button>
+  );
+}
+
 // The dilemma pile (#604): a tap draws its top card into the dilemma hand. It is also a drop
 // target: dropping any card on its top half puts it first in the pile (drawn next), dropping on
 // its bottom half puts it last (#607, replacing #605's single whole-card droppable, which only
@@ -342,9 +387,10 @@ function PracticeDrawContent() {
   const [draggingGroup, setDraggingGroup] = useState<CardInstance[]>([]);
   const [gameLayer, setGameLayer] = useState<HTMLDivElement | null>(null);
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
-  // Which of the core's/the brig's own pile panel (#640) is open, if either. Tracked the same
-  // way `openPile` tracks a mission's open pile: a piece of UI state with no effect on the table.
-  const [openFlatZone, setOpenFlatZone] = useState<'core' | 'brig' | null>(null);
+  // Which of the core's/the brig's own pile panel (#640), or the draw pile's/the dilemma pile's
+  // own download panel (#690), is open, if any — only one at a time. Tracked the same way
+  // `openPile` tracks a mission's open pile: a piece of UI state with no effect on the table.
+  const [openFlatZone, setOpenFlatZone] = useState<'core' | 'brig' | 'pile' | 'dilemmaPile' | null>(null);
   // Which ship's crew panel (#664) is open, if any, named by the ship's own instance id (not a
   // mission index, since a ship stays reachable by its own id regardless of which mission's ship
   // row currently holds it — the same reasoning `crewDropId` already follows). Tracked the same
@@ -616,7 +662,11 @@ function PracticeDrawContent() {
     : openFlatZone
     ? openFlatZone === 'core'
       ? core
-      : brig
+      : openFlatZone === 'brig'
+      ? brig
+      : openFlatZone === 'pile'
+      ? pile
+      : dilemmaPile
     : openCrewShip
     ? openCrewShip.crew ?? []
     : null;
@@ -695,29 +745,35 @@ function PracticeDrawContent() {
                       >
                         <FaRedo />
                       </button>
-                      <button
-                        data-zone="pile"
-                        onClick={drawOne}
-                        disabled={pile.length === 0}
-                        className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {pile.length > 0 ? (
-                          <>
-                            <img
-                              src="/cardimages/cardback.jpg"
-                              width={120}
-                              height={167}
-                              alt="Face-down draw pile"
-                              className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
-                            />
-                            <CountBadge count={pile.length} />
-                          </>
-                        ) : (
-                          <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
-                            Empty
-                          </div>
-                        )}
-                      </button>
+                      <div className="flex items-end gap-1">
+                        <button
+                          data-zone="pile"
+                          onClick={drawOne}
+                          disabled={pile.length === 0}
+                          className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {pile.length > 0 ? (
+                            <>
+                              <img
+                                src="/cardimages/cardback.jpg"
+                                width={120}
+                                height={167}
+                                alt="Face-down draw pile"
+                                className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
+                              />
+                              <CountBadge count={pile.length} />
+                            </>
+                          ) : (
+                            <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
+                              Empty
+                            </div>
+                          )}
+                        </button>
+                        {/* Download from the draw pile without drawing (#690): a separate control,
+                            beside the draw-pile button rather than layered on it, so it never
+                            steals the button's own tap-to-draw click. */}
+                        <DownloadPileButton label="draw pile" count={pile.length} onOpen={() => setOpenFlatZone('pile')} />
+                      </div>
                     </div>
                   </div>
 
@@ -777,11 +833,22 @@ function PracticeDrawContent() {
                     />
                   )}
 
-                  <DilemmaPileButton
-                    count={dilemmaPile.length}
-                    onDraw={drawDilemma}
-                    showPositionLabel={draggingInstance?.card.type === 'dilemma'}
-                  />
+                  <div className="flex items-end gap-1">
+                    <DilemmaPileButton
+                      count={dilemmaPile.length}
+                      onDraw={drawDilemma}
+                      showPositionLabel={draggingInstance?.card.type === 'dilemma'}
+                    />
+                    {/* Download from the dilemma pile without drawing (#690): a separate control,
+                        beside the dilemma-pile button rather than layered on it, so it never
+                        steals the button's own tap-to-draw click or its top/bottom drop
+                        halves. */}
+                    <DownloadPileButton
+                      label="dilemma pile"
+                      count={dilemmaPile.length}
+                      onOpen={() => setOpenFlatZone('dilemmaPile')}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -850,7 +917,8 @@ function PracticeDrawContent() {
               )}
 
               {/* The core's or the brig's own pile panel (#640), opened by tapping a card
-                  already sitting in that zone. */}
+                  already sitting in that zone; or the draw pile's/the dilemma pile's own download
+                  panel (#690), opened by the new download control beside each one. */}
               {openFlatZone && (
                 <PilePanel
                   zone={openFlatZone}
