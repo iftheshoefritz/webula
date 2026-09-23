@@ -501,7 +501,40 @@ function PracticeDrawContent() {
   const handleShipClick = (shipId: string) => {
     setFocusedCardId(shipId);
     const ship = findInstanceAnywhere(table, shipId)?.instance;
-    setOpenCrewShipId(ship?.crew && ship.crew.length > 0 ? shipId : null);
+    if (ship?.crew && ship.crew.length > 0) {
+      openOnlyCrewPanel(shipId);
+    } else {
+      setOpenCrewShipId(null);
+    }
+  };
+
+  // #711: `openPile`, `openFlatZone`, and `openCrewShipId` each open a panel, but none of them
+  // used to clear the other two, so tapping a second panel open (e.g. a core/brig card while a
+  // mission's pile panel is still open) left two of these set at once. `openPanelCards`, below,
+  // only reads one of them at a time — whichever this file checks first — so the second panel
+  // rendered showed the first panel's cards until it was closed and reopened. These three
+  // helpers are the only way any of the three states is ever set to a non-null value, so routing
+  // every "open a panel" call through one of them, each clearing the other two first, restores
+  // the invariant the comments elsewhere in this file already claimed.
+  const openOnlyMissionPile = (missionIndex: number, pile: MissionPileName) => {
+    setOpenFlatZone(null);
+    setOpenCrewShipId(null);
+    setSelectedCardIds([]);
+    setOpenPile({ missionIndex, pile });
+  };
+
+  const openOnlyFlatZone = (zone: 'core' | 'brig' | 'pile' | 'dilemmaPile') => {
+    setOpenPile(null);
+    setOpenCrewShipId(null);
+    setSelectedCardIds([]);
+    setOpenFlatZone(zone);
+  };
+
+  const openOnlyCrewPanel = (shipId: string) => {
+    setOpenPile(null);
+    setOpenFlatZone(null);
+    setSelectedCardIds([]);
+    setOpenCrewShipId(shipId);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -736,7 +769,7 @@ function PracticeDrawContent() {
               <MissionRow
                 missions={missions}
                 onCardClick={(id) => setFocusedCardId(id)}
-                onOpenPile={(missionIndex, pile) => setOpenPile({ missionIndex, pile })}
+                onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
                 onShipClick={handleShipClick}
               />
 
@@ -788,7 +821,7 @@ function PracticeDrawContent() {
                         {/* Download from the draw pile without drawing (#690): a separate control,
                             beside the draw-pile button rather than layered on it, so it never
                             steals the button's own tap-to-draw click. */}
-                        <DownloadPileButton label="draw pile" count={pile.length} onOpen={() => setOpenFlatZone('pile')} />
+                        <DownloadPileButton label="draw pile" count={pile.length} onOpen={() => openOnlyFlatZone('pile')} />
                       </div>
                     </div>
                   </div>
@@ -822,7 +855,7 @@ function PracticeDrawContent() {
                   maxWidth={CORE_ROW_MAX_WIDTH}
                   maxOffset={FLAT_ROW_MAX_OFFSET}
                   fixedWidth
-                  onOpen={() => setOpenFlatZone('core')}
+                  onOpen={() => openOnlyFlatZone('core')}
                 />
 
                 {/* Brig: captured personnel, though the zone accepts any card type (#603). A tap
@@ -834,7 +867,7 @@ function PracticeDrawContent() {
                   cards={brig}
                   maxWidth={BRIG_ROW_MAX_WIDTH}
                   maxOffset={FLAT_ROW_MAX_OFFSET}
-                  onOpen={() => setOpenFlatZone('brig')}
+                  onOpen={() => openOnlyFlatZone('brig')}
                 />
 
                 {/* The dilemma pile stays the rightmost zone, with the closed dilemma hand
@@ -874,7 +907,7 @@ function PracticeDrawContent() {
                     <DownloadPileButton
                       label="dilemma pile"
                       count={dilemmaPile.length}
-                      onOpen={() => setOpenFlatZone('dilemmaPile')}
+                      onOpen={() => openOnlyFlatZone('dilemmaPile')}
                     />
                   </div>
                 </div>
