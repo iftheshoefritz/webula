@@ -19,6 +19,12 @@
 // cards swaps the preview to show that card instead), so this preview never sits on top of the
 // crew panel's own cards and swallows taps meant for them.
 //
+// #696: `reserveLeft` shrinks the two tap-target buttons, but the outer `fixed inset-0` container
+// they sit in keeps the whole screen, and a transparent element still takes a tap. That container
+// carries `pointer-events-none`, and each interactive child (the backdrop button, the enlarged
+// card button, the Flip/Stop row) carries `pointer-events-auto` back, so a tap on the left half —
+// where the crew panel sits — now falls through to the panel instead of hitting the container.
+//
 // The enlarged card is itself draggable to another zone (#643), following the same
 // `useDraggable` + shared-node pattern every other table card already uses (`TableCard`,
 // `PilePanelCard`, `DraggableFanCard`): its `<button>` carries both the tap-to-close `onClick`
@@ -84,12 +90,12 @@ export default function CardPreview({
 
   return (
     <div
-      className="fixed inset-0 z-[200]"
-      style={{ visibility: hidden ? 'hidden' : 'visible', pointerEvents: hidden ? 'none' : undefined }}
+      className="fixed inset-0 z-[200] pointer-events-none"
+      style={{ visibility: hidden ? 'hidden' : 'visible' }}
     >
       <button
         type="button"
-        className={`${tapAreaClassName} bg-black/50`}
+        className={`${tapAreaClassName} bg-black/50 pointer-events-auto`}
         onClick={onClose}
         aria-label="Close preview"
       />
@@ -98,7 +104,7 @@ export default function CardPreview({
         ref={setNodeRef}
         type="button"
         data-testid="card-preview-enlarged"
-        className={`${tapAreaClassName} ${draggable ? 'touch-none' : ''}`}
+        className={`${tapAreaClassName} pointer-events-auto ${draggable ? 'touch-none' : ''}`}
         style={{
           visibility: cardHidden ? 'hidden' : 'visible',
           pointerEvents: cardHidden ? 'none' : undefined,
@@ -126,7 +132,7 @@ export default function CardPreview({
       )}
 
       {(onFlip || onStop) && (
-        <div className="absolute right-4 bottom-[6%] flex gap-2">
+        <div className="absolute right-4 bottom-[6%] flex gap-2 pointer-events-auto">
           {onFlip && (
             <button type="button" onClick={onFlip} className="btn-primary">
               Flip
