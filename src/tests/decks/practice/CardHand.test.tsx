@@ -6,6 +6,7 @@ jest.mock('@dnd-kit/core', () => ({
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import CardHand from '../../../app/decks/practice/CardHand';
+import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 
 const makeInstances = (n: number): CardInstance[] =>
@@ -196,6 +197,30 @@ describe('CardHand', () => {
 
     rerender(<Harness instances={[]} />);
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toHaveTextContent('Empty');
+  });
+
+  // #750: a pile's `CountBadge` used to draw on top of the open hand and dilemma hand, because
+  // the badge's z-index outranked the fan's and the backdrop's. Rather than pin this to the
+  // exact pair of literal values, assert the relationship that has to hold: the open fan and its
+  // backdrop must both outrank the highest z-index a `CountBadge` can render.
+  it('draws the open fan and its backdrop above a pile count badge (#750)', () => {
+    const parseZIndex = (className: string) => {
+      const match = className.match(/z-\[(\d+)\]/);
+      return match ? Number(match[1]) : null;
+    };
+
+    const { container: badgeContainer } = render(<CountBadge count={3} />);
+    const badgeZIndex = parseZIndex(badgeContainer.querySelector('span')!.className);
+    expect(badgeZIndex).not.toBeNull();
+
+    render(<Harness instances={makeInstances(3)} initialOpen />);
+    const backdropZIndex = parseZIndex(screen.getByRole('button', { name: /^close hand$/i }).className);
+    const fanZIndex = parseZIndex(document.body.querySelector('[data-zone="hand"]')!.className);
+
+    expect(backdropZIndex).not.toBeNull();
+    expect(fanZIndex).not.toBeNull();
+    expect(backdropZIndex!).toBeGreaterThan(badgeZIndex!);
+    expect(fanZIndex!).toBeGreaterThan(badgeZIndex!);
   });
 
   it('hides the count badge while the hand is open', () => {

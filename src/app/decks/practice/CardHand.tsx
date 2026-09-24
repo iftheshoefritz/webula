@@ -235,7 +235,12 @@ export default function CardHand({
           the fan's z-index in the row. In the game layer, the large preview stays on top.
           A full-screen backdrop sits behind the cards, so a tap outside the fan closes it, but
           a tap on a card (on top of the backdrop) opens the large preview instead. The fan is
-          centred at the bottom of the screen, on top of the bottom row, over the core and the brig. */}
+          centred at the bottom of the screen, on top of the bottom row, over the core and the brig.
+          Issue #750: the backdrop's and the fan's z-index sit in the gap between a pile
+          `CountBadge`'s `z-[140]` and the pile panel's `z-[150]`, so the open hand draws above
+          every pile's count badge (the draw pile, the discard pile, the dilemma pile, and the
+          drag-group badge in the page's `DragOverlay`), including the other hand's closed badge,
+          while staying below the pile panel and the card preview. */}
       {showFan &&
         typeof document !== 'undefined' &&
         createPortal(
@@ -243,7 +248,7 @@ export default function CardHand({
             {open && (
               <button
                 type="button"
-                className="fixed inset-0 z-30 bg-black/30"
+                className="fixed inset-0 z-[145] bg-black/30"
                 onClick={handleBackdropClick}
                 aria-label={`Close ${label}`}
               />
@@ -251,7 +256,7 @@ export default function CardHand({
             <div
               data-zone={open ? zone : undefined}
               aria-hidden={open ? undefined : true}
-              className="fixed left-1/2 -translate-x-1/2 z-40 flex"
+              className="fixed left-1/2 -translate-x-1/2 z-[146] flex"
               style={{
                 bottom: OPEN_BOTTOM,
                 height: OPEN_CARD_HEIGHT + 10,
