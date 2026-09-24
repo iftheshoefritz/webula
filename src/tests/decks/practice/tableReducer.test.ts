@@ -624,6 +624,73 @@ describe('tableReducer', () => {
     });
   });
 
+  describe('reorderDilemmaStack (#632)', () => {
+    it('moves the last card to the first position, leaving the rest in order', () => {
+      const cards = Array.from({ length: 4 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
+      const start = { ...initialTableState, dilemmaStack: cards };
+
+      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd3', overId: 'd0' });
+
+      expect(state.dilemmaStack.map((c) => c.id)).toEqual(['d3', 'd0', 'd1', 'd2']);
+    });
+
+    it('moves the first card back to the last position', () => {
+      const cards = Array.from({ length: 4 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
+      const start = { ...initialTableState, dilemmaStack: cards };
+
+      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd0', overId: 'd3' });
+
+      expect(state.dilemmaStack.map((c) => c.id)).toEqual(['d1', 'd2', 'd3', 'd0']);
+    });
+
+    it('moves a card between two interior positions', () => {
+      const cards = Array.from({ length: 5 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
+      const start = { ...initialTableState, dilemmaStack: cards };
+
+      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd1', overId: 'd3' });
+
+      expect(state.dilemmaStack.map((c) => c.id)).toEqual(['d0', 'd2', 'd3', 'd1', 'd4']);
+    });
+
+    it('keeps every card face and other fields untouched, only reordering the array', () => {
+      const stopped = { ...instance('d0', card('Dilemma 0'), 'down'), stopped: true };
+      const cards = [stopped, instance('d1', card('Dilemma 1'), 'down'), instance('d2', card('Dilemma 2'), 'down')];
+      const start = { ...initialTableState, dilemmaStack: cards };
+
+      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd2', overId: 'd0' });
+
+      expect(state.dilemmaStack).toEqual([cards[2], cards[0], cards[1]]);
+    });
+
+    it('is a no-op when dropped on its own current position', () => {
+      const cards = Array.from({ length: 3 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
+      const start = { ...initialTableState, dilemmaStack: cards };
+
+      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd1', overId: 'd1' });
+
+      expect(state).toBe(start);
+    });
+
+    it('is a no-op when either card is no longer in the stack', () => {
+      const cards = Array.from({ length: 3 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
+      const start = { ...initialTableState, dilemmaStack: cards };
+
+      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'gone', overId: 'd1' });
+
+      expect(state).toBe(start);
+    });
+
+    it('touches no other zone', () => {
+      const cards = Array.from({ length: 3 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
+      const untouched = instance('h0', card('Hand card'), 'up');
+      const start = { ...initialTableState, dilemmaStack: cards, hand: [untouched] };
+
+      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd2', overId: 'd0' });
+
+      expect(state.hand).toEqual([untouched]);
+    });
+  });
+
   // A download (#690) opens a pile panel to look through the draw pile or the dilemma pile. The
   // look itself must change nothing, and taking one card must take exactly that card and leave
   // the order of the rest alone.
