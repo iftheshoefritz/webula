@@ -522,6 +522,74 @@ function DrawPileButton({
   );
 }
 
+// A plain inline eye icon (#751), not react-icons: see `DownloadIcon`'s comment above for why a
+// react-icons import here would need every test mock of `react-icons/fa` in this file's own
+// tests, and every other test that renders this page, updated too.
+function RevealIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-2.5 h-2.5"
+      aria-hidden="true"
+    >
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+// The dilemma stack's own top card, revealed one at a time (#751): once its own `flip` (the
+// existing per-card action, unchanged) turns it face up, it shows its own art in place of the
+// generic card back, right there on the table, and becomes draggable straight off the stack —
+// the same "the pile's top card is a small component of its own, mounted only while a top card
+// exists" pattern `DiscardPileCard` above already uses, so `useDraggable`'s own registration (and
+// so the mock `@dnd-kit/core` the test suite relies on) only happens while a revealed card is
+// actually there to drag. The button also keeps the zone's own tap-to-open working, the same
+// `onClick` alongside `useDraggable`'s own listeners `PilePanelCard` (`PilePanel.tsx`) already
+// combines on one element — a plain tap still opens the full stack panel; a drag pulls just this
+// one card out.
+function DilemmaStackTopCard({
+  topCard,
+  count,
+  onOpen,
+}: {
+  topCard: CardInstance;
+  count: number;
+  onOpen: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
+
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      data-card-id={topCard.id}
+      onClick={onOpen}
+      aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
+      style={{
+        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+        opacity: isDragging ? 0.5 : 1,
+      }}
+      {...attributes}
+      {...listeners}
+      className="absolute inset-0 w-full h-full rounded-lg focus:outline-none touch-none"
+    >
+      <img
+        src={`/cardimages/${topCard.card.imagefile}.jpg`}
+        width={120}
+        height={167}
+        alt={topCard.card.name}
+        className="pointer-events-none rounded-lg shadow-lg w-full h-full object-cover"
+      />
+    </button>
+  );
+}
+
 // The dilemma stack (#630): a single flat drop target — no top/bottom split, since a drop always
 // appends at the bottom, and the first dilemma dropped (index 0) is the first revealed. Sits in
 // its own reserved column to the right of the mission row (`computeTableScale`,
@@ -529,6 +597,18 @@ function DrawPileButton({
 // `DilemmaIcon` badge (`MissionRow.tsx`, exported for exactly this once #733 took the stack out
 // of the mission slots) marks it apart from the flat dilemma pile, which looks the same otherwise
 // (a face-down cardback with a count).
+//
+// #751: a separate "reveal" control, a small corner overlay sibling of the tap-to-open button —
+// the same "a control sits beside the card, not nested inside its own button" convention
+// `PilePanelCard`'s selection checkbox (`PilePanel.tsx`) already follows for a corner overlay
+// specifically — turns the top card face up in place via the existing `flip` action, one card at
+// a time; the card below stays face down until revealed in its own turn. Only shown while there
+// is a face-down top card to reveal; once revealed, `DilemmaStackTopCard` above takes over the
+// zone's own art and becomes the drag source, and the button hides since there's nothing left for
+// it to do until the next card needs revealing. Do not confuse this with the whole-stack
+// `PilePanel` open above: that already shows every card in the stack face up, unconditionally,
+// for a reorder — this reveals only the current top card, on the table itself, unchanged from
+// this issue's own scope.
 //
 // #742: hidden (kept in the DOM, `visibility: hidden`, so the reserved column's width never
 // moves the mission row beside it) whenever it isn't useful — the stack is empty, the dilemma
@@ -540,12 +620,16 @@ function DrawPileButton({
 // pieces scale with `scale` the same way `MissionRow.tsx` scales the mission column beside it.
 function DilemmaStackPile({
   count,
+  topCard,
   onOpen,
+  onReveal,
   visible,
   scale,
 }: {
   count: number;
+  topCard: CardInstance | undefined;
   onOpen: () => void;
+  onReveal: () => void;
   visible: boolean;
   scale: number;
 }) {
@@ -553,36 +637,55 @@ function DilemmaStackPile({
   const draggedType = useDraggedCardType();
   const highlight = highlightState('dilemmaStack', draggedType, isOver);
   const height = Math.round((TABLE_CARD_ART_HEIGHT + SHIP_CARD_ART_HEIGHT) * scale);
+  const revealed = topCard?.face === 'up';
 
   return (
-    <button
-      type="button"
+    <div
       ref={setNodeRef}
       data-zone="dilemmaStack"
       data-highlight={highlight}
-      onClick={onOpen}
-      aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
       style={{ height, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}
       className={`relative w-14 rounded-lg ${highlightClassName(highlight)}`}
     >
-      {count > 0 ? (
-        <img
-          src="/cardimages/cardback.jpg"
-          width={120}
-          height={167}
-          alt="Face-down dilemma stack"
-          className="pointer-events-none rounded-lg shadow-lg w-full h-full object-cover"
-        />
+      {revealed && topCard ? (
+        <DilemmaStackTopCard topCard={topCard} count={count} onOpen={onOpen} />
       ) : (
-        <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
-          Dilemma stack
-        </div>
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
+          className="absolute inset-0 w-full h-full rounded-lg focus:outline-none"
+        >
+          {count > 0 ? (
+            <img
+              src="/cardimages/cardback.jpg"
+              width={120}
+              height={167}
+              alt="Face-down dilemma stack"
+              className="pointer-events-none rounded-lg shadow-lg w-full h-full object-cover"
+            />
+          ) : (
+            <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
+              Dilemma stack
+            </div>
+          )}
+        </button>
       )}
       <span className="absolute -top-1 -right-1 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none" style={{ height: 14 }}>
         <DilemmaIcon />
         {count > 0 && <span className="text-[8px] font-bold">{count}</span>}
       </span>
-    </button>
+      {count > 0 && !revealed && (
+        <button
+          type="button"
+          onClick={onReveal}
+          aria-label="Reveal top dilemma"
+          className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-black/50 border border-white/50 flex items-center justify-center text-text-primary focus:outline-none"
+        >
+          <RevealIcon />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -1142,7 +1245,9 @@ function PracticeDrawContent() {
                 />
                 <DilemmaStackPile
                   count={dilemmaStack.length}
+                  topCard={dilemmaStack[0]}
                   onOpen={() => openOnlyFlatZone('dilemmaStack')}
+                  onReveal={() => dispatch({ type: 'flip', id: dilemmaStack[0].id })}
                   visible={dilemmaStackVisible}
                   scale={scale}
                 />
