@@ -190,12 +190,12 @@ describe('CardHand', () => {
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeDisabled();
   });
 
-  it('shows a count badge on the closed hand, and none when it is empty', () => {
+  it('shows a count badge on the closed hand, and an empty placeholder instead when it is empty', () => {
     const { rerender } = render(<Harness instances={makeInstances(3)} />);
     expect(screen.getByRole('button', { name: /^hand, 3 cards, tap to open$/i })).toHaveTextContent('3');
 
     rerender(<Harness instances={[]} />);
-    expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toHaveTextContent('');
+    expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toHaveTextContent('Empty');
   });
 
   it('hides the count badge while the hand is open', () => {

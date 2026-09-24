@@ -258,4 +258,71 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
     expect(screen.queryByText('Face down')).not.toBeInTheDocument();
   });
+
+  // #631: the dilemma hand is now a drop target even with no cards in it, so a dilemma dragged
+  // from the stack popup always has somewhere to land.
+  it('moves a dilemma dropped on the (empty) dilemma hand from the stack popup, face up, without reordering the rest of the stack', async () => {
+    await setupOpenDilemmaHand();
+    const [firstId, secondId] = mockDraggableIds;
+
+    // Move both dilemmas onto the stack, leaving the dilemma hand empty.
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: secondId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: secondId }, over: { id: 'dilemmaStack' } });
+    });
+
+    const emptyDilemmaHandButton = screen.getByRole('button', { name: /^dilemma hand, 0 cards, tap to open$/i });
+    expect(emptyDilemmaHandButton).toBeInTheDocument();
+    expect(document.body.querySelector('[data-zone="dilemmaHand"]')).not.toBeNull();
+
+    // Open the stack popup and drag the first card dropped (now at the bottom of the stack, see
+    // the appending test above) back onto the empty dilemma hand.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 2 cards, tap to open' }));
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaHand' } });
+    });
+
+    expect(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' })).toBeInTheDocument();
+
+    // The card that stayed behind in the stack keeps its place; only firstId left.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' }));
+    });
+    const stackPanel = document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]');
+    const cardIds = Array.from(stackPanel!.querySelectorAll('[data-card-id]')).map((el) =>
+      el.getAttribute('data-card-id')
+    );
+    expect(cardIds).toEqual([secondId]);
+
+    // Close the stack popup so its own "cardassian trap" card button doesn't also match below.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close dilemma stack' }));
+    });
+
+    // The moved card is face up in the dilemma hand (dilemmaHand's ZONE_FACE), unlike the stack.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'cardassian trap' }));
+    });
+    expect(screen.queryByText('Face down')).not.toBeInTheDocument();
+  });
 });
