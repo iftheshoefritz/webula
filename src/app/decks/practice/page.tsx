@@ -1091,27 +1091,27 @@ function PracticeDrawContent() {
 
                 {/* The dilemma pile stays the rightmost zone, with the closed dilemma hand
                     immediately to its left, on the inside of the row (#604). The dilemma hand
-                    shows only when it holds cards. */}
+                    renders even with no cards (#631), as a drop target for a dilemma dragged back
+                    from the stack popup — `CardHand`'s closed row shows an empty placeholder in
+                    that state, the same as the draw pile and the dilemma stack. */}
                 <div className="ml-auto flex flex-row items-end gap-4">
-                  {dilemmaHand.length > 0 && (
-                    <CardHand
-                      instances={dilemmaHand}
-                      open={openHand === 'dilemmaHand'}
-                      onOpen={() => setOpenHand('dilemmaHand')}
-                      onClose={() => {
-                        setOpenHand(null);
-                        setSelectedCardIds([]);
-                      }}
-                      onCardClick={(id) => setFocusedCardId(id)}
-                      dragging={draggingInstance !== null}
-                      portalContainer={gameLayer}
-                      zone="dilemmaHand"
-                      label="dilemma hand"
-                      passthroughZone="pile"
-                      selectedIds={selectedCardIds}
-                      onToggleSelect={toggleCardSelection}
-                    />
-                  )}
+                  <CardHand
+                    instances={dilemmaHand}
+                    open={openHand === 'dilemmaHand'}
+                    onOpen={() => setOpenHand('dilemmaHand')}
+                    onClose={() => {
+                      setOpenHand(null);
+                      setSelectedCardIds([]);
+                    }}
+                    onCardClick={(id) => setFocusedCardId(id)}
+                    dragging={draggingInstance !== null}
+                    portalContainer={gameLayer}
+                    zone="dilemmaHand"
+                    label="dilemma hand"
+                    passthroughZone="pile"
+                    selectedIds={selectedCardIds}
+                    onToggleSelect={toggleCardSelection}
+                  />
 
                   <div className="flex items-end gap-1">
                     <DilemmaPileButton
