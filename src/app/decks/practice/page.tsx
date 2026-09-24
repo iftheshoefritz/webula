@@ -1171,7 +1171,7 @@ function PracticeDrawContent() {
                     onCardClick={(id) => setFocusedCardId(id)}
                     dragging={draggingInstance !== null}
                     portalContainer={gameLayer}
-                    passthroughZone="pile"
+                    passthroughZone={['pile', DILEMMA_PILE_TOP_DROPPABLE_ID, DILEMMA_PILE_BOTTOM_DROPPABLE_ID]}
                     selectedIds={selectedCardIds}
                     onToggleSelect={toggleCardSelection}
                   />
@@ -1220,7 +1220,7 @@ function PracticeDrawContent() {
                     portalContainer={gameLayer}
                     zone="dilemmaHand"
                     label="dilemma hand"
-                    passthroughZone="pile"
+                    passthroughZone={['pile', DILEMMA_PILE_TOP_DROPPABLE_ID, DILEMMA_PILE_BOTTOM_DROPPABLE_ID]}
                     selectedIds={selectedCardIds}
                     onToggleSelect={toggleCardSelection}
                   />
