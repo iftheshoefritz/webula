@@ -142,10 +142,14 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
     const [personnelId] = mockDraggableIds;
 
     // Drop the card from the hand onto a mission, filing it into that mission's personnel pile.
@@ -191,10 +195,14 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
       fireEvent.click(drawDilemmaButton);
     });
 
-    const closedDilemmaHandButton = screen.getByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedDilemmaHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedDilemmaHandButton = screen.queryByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i });
+    if (closedDilemmaHandButton) {
+      await act(async () => {
+        fireEvent.click(closedDilemmaHandButton);
+      });
+    }
     const [firstId] = mockDraggableIds;
 
     // Put one dilemma under mission-0 (#733: a dilemma dropped on a mission always goes under
@@ -205,7 +213,9 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
     await act(async () => {
       mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
     });
-    expect(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i })).toBeInTheDocument();
+    // #740: the dilemma hand stays open after the drag, so its closed row is hidden. A hidden
+    // element has no accessible name, so read its `aria-label` straight off the DOM.
+    expect(document.body.querySelector('[aria-label="dilemma hand, 1 card, tap to open"]')).not.toBeNull();
 
     // Open that mission's under-the-mission panel and drag the card back into the dilemma hand.
     await act(async () => {

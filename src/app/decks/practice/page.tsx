@@ -800,6 +800,25 @@ function PracticeDrawContent() {
       }
     }
 
+    // The open hand and the open dilemma hand (#740). Unlike the four panels above,
+    // `handleDragStart` already closes whichever hand a drag starts from, before the drop, so
+    // the `DragOverlay` can carry the card without the fan jumping underneath it — by the time
+    // this function runs, `openHand` already reads `null` for that case. So the reopen check
+    // below reads `zone` (the drag's pre-drop origin) rather than `openHand`, and reopens the
+    // hand the drag came from if it still holds a card. A hand left open through a drag that
+    // started elsewhere (e.g. an open pile panel, per the issue's acceptance check) still
+    // closes, the same as the four panels above.
+    if (zone === 'hand' || zone === 'dilemmaHand') {
+      if (nextTable[zone].length > 0) {
+        setOpenHand(zone);
+      } else {
+        closedAPanel = true;
+      }
+    } else if (openHand) {
+      setOpenHand(null);
+      closedAPanel = true;
+    }
+
     if (closedAPanel) setSelectedCardIds([]);
   };
 

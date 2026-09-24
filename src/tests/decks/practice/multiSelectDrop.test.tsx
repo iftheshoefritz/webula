@@ -129,10 +129,14 @@ describe('Practice draw: selecting more than one card in a pile panel and draggi
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
   };
 
   // Reads a rendered card's own instance id straight off its `data-card-id` attribute, found by
@@ -152,12 +156,16 @@ describe('Practice draw: selecting more than one card in a pile panel and draggi
     for (let i = 0; i < names.length; i++) {
       if (i > 0) {
         const remaining = names.length - i;
-        const closedHandButton = screen.getByRole('button', {
+        // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+        // hand is closed.
+        const closedHandButton = screen.queryByRole('button', {
           name: new RegExp(`^hand, ${remaining} cards?, tap to open$`, 'i'),
         });
-        await act(async () => {
-          fireEvent.click(closedHandButton);
-        });
+        if (closedHandButton) {
+          await act(async () => {
+            fireEvent.click(closedHandButton);
+          });
+        }
       }
       const id = cardIdFor(names[i]);
       await act(async () => {

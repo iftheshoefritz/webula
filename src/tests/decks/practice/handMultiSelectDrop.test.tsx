@@ -130,10 +130,14 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
   };
 
   // Reads a card's own instance id straight off its `data-card-id` attribute, found by its
@@ -166,7 +170,9 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
     });
 
-    expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
+    // #740: the hand stays open after the drag, so its closed row is hidden. The row still
+    // carries the count.
+    expect(document.body.querySelector('[aria-label="hand, 1 card, tap to open"]')).not.toBeNull();
     const coreZone = document.body.querySelector('[data-zone="core"]') as HTMLElement;
     expect(coreZone.querySelectorAll('[data-card-id]')).toHaveLength(3);
   });
@@ -186,7 +192,9 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
     });
 
-    expect(screen.getByRole('button', { name: /^hand, 2 cards, tap to open$/i })).toBeInTheDocument();
+    // #740: the hand stays open after the drag, so its closed row is hidden. The row still
+    // carries the count.
+    expect(document.body.querySelector('[aria-label="hand, 2 cards, tap to open"]')).not.toBeNull();
     const coreZone = document.body.querySelector('[data-zone="core"]') as HTMLElement;
     expect(coreZone.querySelectorAll('[data-card-id]')).toHaveLength(1);
   });
@@ -213,9 +221,14 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^close hand$/i }));
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^hand, 2 cards, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand = screen.queryByRole('button', { name: /^hand, 2 cards, tap to open$/i });
+    if (closedHand) {
+      await act(async () => {
+        fireEvent.click(closedHand);
+      });
+    }
 
     expect(screen.getByRole('button', { name: 'Select personnel 1' })).toHaveAttribute('aria-pressed', 'false');
   });

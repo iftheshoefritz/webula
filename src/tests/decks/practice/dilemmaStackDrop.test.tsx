@@ -60,7 +60,7 @@ jest.mock('@dnd-kit/core', () => {
 });
 
 import React from 'react';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { expandDeck } from '../../../app/decks/deckBuilderUtils';
@@ -149,10 +149,14 @@ describe('Practice table: the dilemma stack (#630)', () => {
       fireEvent.click(drawDilemmaButton);
     });
 
-    const closedDilemmaHandButton = screen.getByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedDilemmaHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedDilemmaHandButton = screen.queryByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i });
+    if (closedDilemmaHandButton) {
+      await act(async () => {
+        fireEvent.click(closedDilemmaHandButton);
+      });
+    }
   };
 
   it('moves a dropped dilemma onto the stack, appending a second drop after the first', async () => {
@@ -169,9 +173,14 @@ describe('Practice table: the dilemma stack (#630)', () => {
     expect(screen.getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' })).toBeInTheDocument();
 
     // Reopen the dilemma hand (a drag closes it) to drag the second card too.
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
+    if (closedHand) {
+      await act(async () => {
+        fireEvent.click(closedHand);
+      });
+    }
     await act(async () => {
       mockOnDragStart!({ active: { id: secondId } });
     });
@@ -206,9 +215,14 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
     // Open the regular hand (the drag above already closed the dilemma hand), so the event
     // card's own draggable registers, and drag it into the core.
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand2 = screen.queryByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    if (closedHand2) {
+      await act(async () => {
+        fireEvent.click(closedHand2);
+      });
+    }
     const eventDraggableId = mockDraggableIds[mockDraggableIds.length - 1];
     await act(async () => {
       mockOnDragStart!({ active: { id: eventDraggableId } });
@@ -246,8 +260,11 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' }));
     });
+    // #740 leaves the dilemma hand open behind the stack panel, so the same card name matches
+    // both the fan's card and the panel's card. Scope the tap to the panel.
+    const stackPanel = document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]') as HTMLElement;
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'cardassian trap' }));
+      fireEvent.click(within(stackPanel).getByRole('button', { name: 'cardassian trap' }));
     });
 
     expect(screen.getByText('Face down')).toBeInTheDocument();
@@ -272,9 +289,14 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await act(async () => {
       mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand3 = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
+    if (closedHand3) {
+      await act(async () => {
+        fireEvent.click(closedHand3);
+      });
+    }
     await act(async () => {
       mockOnDragStart!({ active: { id: secondId } });
     });
@@ -317,9 +339,14 @@ describe('Practice table: the dilemma stack (#630)', () => {
     });
 
     // The moved card is face up in the dilemma hand (dilemmaHand's ZONE_FACE), unlike the stack.
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand4 = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
+    if (closedHand4) {
+      await act(async () => {
+        fireEvent.click(closedHand4);
+      });
+    }
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'cardassian trap' }));
     });
@@ -340,9 +367,14 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await act(async () => {
       mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand5 = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
+    if (closedHand5) {
+      await act(async () => {
+        fireEvent.click(closedHand5);
+      });
+    }
     await act(async () => {
       mockOnDragStart!({ active: { id: secondId } });
     });
@@ -435,9 +467,14 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await act(async () => {
       fireEvent.click(drawDilemmaButton);
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand6 = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
+    if (closedHand6) {
+      await act(async () => {
+        fireEvent.click(closedHand6);
+      });
+    }
     expect(stackZone()).toHaveStyle({ visibility: 'visible' });
 
     // Dragging that dilemma closes the hand (`handleDragStart`), but the zone stays visible for
