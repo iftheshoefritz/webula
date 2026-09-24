@@ -492,4 +492,162 @@ describe('Practice table: the dilemma stack (#630)', () => {
     });
     expect(stackZone()).toHaveStyle({ visibility: 'visible' });
   });
+
+  // #751: a separate reveal control turns the stack's own top card face up in place, one card at
+  // a time, so the player can drag it straight off the table without opening the full reorder
+  // panel.
+  describe('revealing the stack top card (#751)', () => {
+    // Draws both dilemma copies, drops the first one onto the (now empty) stack, and reveals it —
+    // the shared starting point for the drag-off-the-stack tests below.
+    const setupRevealedTopCard = async () => {
+      await setupOpenDilemmaHand();
+      const [firstId, secondId] = mockDraggableIds;
+
+      await act(async () => {
+        mockOnDragStart!({ active: { id: firstId } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Reveal top dilemma' }));
+      });
+
+      return { firstId, secondId };
+    };
+
+    it('shows its own art in place of the card back, and the tap-to-open panel still works unchanged', async () => {
+      await setupOpenDilemmaHand();
+      const [firstId] = mockDraggableIds;
+      // The second dilemma copy stays in the open hand throughout, showing its own art there
+      // too (`ZONE_FACE.dilemmaHand` is face up) — scope every query below to the stack's own
+      // zone so that card's art is never mistaken for the stack's.
+      const stackZone = () => document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+
+      await act(async () => {
+        mockOnDragStart!({ active: { id: firstId } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+      });
+
+      // Face down by default: a reveal control is there, and the card's own art is not yet shown.
+      expect(within(stackZone()).getByRole('button', { name: 'Reveal top dilemma' })).toBeInTheDocument();
+      expect(within(stackZone()).queryByAltText('cardassian trap')).not.toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(within(stackZone()).getByRole('button', { name: 'Reveal top dilemma' }));
+      });
+
+      // Revealed: its own art replaces the generic card back, and the reveal control disappears —
+      // there is nothing left to reveal until the next card takes its place.
+      expect(within(stackZone()).getByAltText('cardassian trap')).toBeInTheDocument();
+      expect(within(stackZone()).queryByRole('button', { name: 'Reveal top dilemma' })).not.toBeInTheDocument();
+
+      // A tap still opens the full reorder panel, exactly as before.
+      await act(async () => {
+        fireEvent.click(within(stackZone()).getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' }));
+      });
+      expect(document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]')).not.toBeNull();
+    });
+
+    it('drags to a mission, landing under it like any other dilemma (#606/#733)', async () => {
+      const { firstId } = await setupRevealedTopCard();
+
+      await act(async () => {
+        mockOnDragStart!({ active: { id: firstId } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
+      });
+
+      expect(screen.getByRole('button', { name: /Under the mission pile, 1 card, tap to open/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Dilemma stack, 1 card, tap to open/i })).not.toBeInTheDocument();
+    });
+
+    it('drags to the dilemma hand', async () => {
+      const { firstId } = await setupRevealedTopCard();
+
+      await act(async () => {
+        mockOnDragStart!({ active: { id: firstId } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaHand' } });
+      });
+
+      // The second dilemma copy is already sitting in the dilemma hand (drawn alongside the
+      // first, #630's own setup), so the hand now holds both.
+      expect(screen.getByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Dilemma stack, 1 card, tap to open/i })).not.toBeInTheDocument();
+    });
+
+    it('drags to the dilemma pile', async () => {
+      const { firstId } = await setupRevealedTopCard();
+
+      await act(async () => {
+        mockOnDragStart!({ active: { id: firstId } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemma-pile-bottom' } });
+      });
+
+      expect(screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Dilemma stack, 1 card, tap to open/i })).not.toBeInTheDocument();
+    });
+
+    it('drags to the discard pile', async () => {
+      const { firstId } = await setupRevealedTopCard();
+
+      await act(async () => {
+        mockOnDragStart!({ active: { id: firstId } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'discard' } });
+      });
+
+      expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Dilemma stack, 1 card, tap to open/i })).not.toBeInTheDocument();
+    });
+
+    it('leaves the stack with one fewer card and its new top card still face down', async () => {
+      await setupOpenDilemmaHand();
+      const [firstId, secondId] = mockDraggableIds;
+
+      // Both copies onto the stack: [firstId, secondId] (appending to the bottom, #630), so
+      // firstId is the top, revealed and dragged off; secondId, never flipped, is left behind.
+      await act(async () => {
+        mockOnDragStart!({ active: { id: firstId } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+      });
+      const closedHand = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
+      if (closedHand) {
+        await act(async () => {
+          fireEvent.click(closedHand);
+        });
+      }
+      await act(async () => {
+        mockOnDragStart!({ active: { id: secondId } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: secondId }, over: { id: 'dilemmaStack' } });
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Reveal top dilemma' }));
+      });
+      await act(async () => {
+        mockOnDragStart!({ active: { id: firstId } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'discard' } });
+      });
+
+      expect(screen.getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Reveal top dilemma' })).toBeInTheDocument();
+      expect(screen.queryByAltText('cardassian trap')).not.toBeInTheDocument();
+    });
+  });
 });
