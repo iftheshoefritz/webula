@@ -684,6 +684,7 @@ function DilemmaStackPile({
         ) : (
           <img
             key={card.id}
+            data-card-id={card.id}
             src="/cardimages/cardback.jpg"
             width={120}
             height={167}
