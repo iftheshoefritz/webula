@@ -2,6 +2,7 @@
 // issue #130) rather than several `useState` calls so every zone move goes through one place
 // and later slices can add zones/actions without touching how existing zones behave.
 
+import { arrayMove } from '@dnd-kit/sortable';
 import { shuffleArray } from '../deckBuilderUtils';
 
 export type Face = 'up' | 'down';
@@ -141,6 +142,15 @@ export type TableAction =
   // opens both show the same shuffled order. Never changes a card's face, a ship's crew, or any
   // other field of a card instance — only the order of the array at that location.
   | { type: 'shuffle'; location: ShuffleLocation }
+  // Moves one card of the dilemma stack to sit where another card of the same stack currently
+  // sits (#632): a drag inside the stack's own popup, dropped on top of a neighbour, reorders the
+  // stack in the table state itself — the popup's array order, closing and reopening the popup
+  // keeps the new order, and the reveal order (#630/#733's index-0-is-first-revealed convention)
+  // changes with it. `overId` names the card being dropped on, rather than a raw index, since
+  // that is what a drop event on the popup naturally resolves to; a no-op (dropping a card on
+  // itself, or on a card no longer in the stack) leaves the state unchanged. Only ever targets
+  // `dilemmaStack`, so it needs no `location` the way `shuffle` does.
+  | { type: 'reorderDilemmaStack'; id: string; overId: string }
   // Sets one or more personnel cards' `stopped` flag to a single value (#681), wherever each
   // currently sits — including aboard a ship as crew, the same reach `flip` lacks. `ids` lets
   // the pile panel's "Stop"/"Unstop" button (a selection of more than one card) and the card
@@ -457,6 +467,13 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // `MoveTarget`, so `cardsAt`/`withCardsAt` already read and write the right array for it.
       const cards = cardsAt(state, action.location);
       return withCardsAt(state, action.location, shuffleArray(cards));
+    }
+
+    case 'reorderDilemmaStack': {
+      const fromIndex = state.dilemmaStack.findIndex((c) => c.id === action.id);
+      const toIndex = state.dilemmaStack.findIndex((c) => c.id === action.overId);
+      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return state;
+      return { ...state, dilemmaStack: arrayMove(state.dilemmaStack, fromIndex, toIndex) };
     }
 
     case 'setStopped': {

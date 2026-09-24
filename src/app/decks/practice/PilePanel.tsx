@@ -47,7 +47,7 @@
 // toggle, so a mixed selection cannot go out of step with itself. The selection stays after the
 // tap, so the player can still drag the same cards next.
 
-import { useDraggable } from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, STOPPED_IMAGE_CLASSNAME } from './TableCard';
 
@@ -133,6 +133,7 @@ function PilePanelCard({
   onToggleSelect,
   cardWidth,
   cardArtHeight,
+  reorderable = false,
 }: {
   instance: CardInstance;
   onClick: () => void;
@@ -140,12 +141,24 @@ function PilePanelCard({
   onToggleSelect: () => void;
   cardWidth: number;
   cardArtHeight: number;
+  // The dilemma stack's own popup only (#632): registers this card's own instance id as a drop
+  // target too, alongside the draggable identity every card already has, so a drop that lands on
+  // top of this card resolves to something (`handleDragEnd` in `page.tsx` then reads it as "move
+  // this stack card next to that one" rather than a move out of the zone). Every other `PilePanel`
+  // zone leaves this card a plain, non-droppable `useDraggable`, unchanged.
+  reorderable?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
+  const { setNodeRef: setDropRef } = useDroppable({ id: instance.id, disabled: !reorderable });
   const { card } = instance;
 
   return (
-    <div className="relative" style={{ width: cardWidth }}>
+    <div
+      ref={reorderable ? setDropRef : undefined}
+      data-zone={reorderable ? instance.id : undefined}
+      className="relative"
+      style={{ width: cardWidth }}
+    >
       <button
         ref={setNodeRef}
         type="button"
@@ -224,6 +237,14 @@ export default function PilePanel({
   // sits under the preview. Every other zone keeps the centered, up-to-90%-wide layout it always
   // had.
   const isCrew = zone === 'crew';
+  // The dilemma stack's own popup only (#632): a wrapped, multi-per-row grid — every other
+  // `PilePanel` zone's layout — has no single top or bottom once it wraps past one row, so this
+  // one zone instead lays its cards out as a single ordered column, top-to-bottom mapped to
+  // first-revealed-to-last-revealed (#630/#733's index-0-is-first-revealed convention), with a
+  // label at each end saying so. Each card also becomes a drop target of its own (`reorderable`
+  // on `PilePanelCard`), so a drop on top of a neighbour reorders the stack instead of leaving the
+  // zone.
+  const isDilemmaStack = zone === 'dilemmaStack';
   const backdropClassName = isCrew ? 'absolute inset-y-0 left-0 right-1/2' : 'absolute inset-0';
   // Positioning only; the visible card grid itself is `gridClassName` below, now a sibling of
   // the "Stop"/"Unstop" button rather than carrying that button's own styling.
@@ -239,7 +260,12 @@ export default function PilePanel({
   // `vh`, so a phone's address bar showing or hiding doesn't leave the cap wrong either way.
   const gridClassName = isCrew
     ? 'flex flex-wrap items-start justify-start gap-2 rounded-lg bg-black/70 p-2 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain'
+    : isDilemmaStack
+    ? 'flex flex-col items-center gap-2 rounded-lg bg-black/70 p-2 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain'
     : 'flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain';
+  // Sits inside the same scrolling element as the cards (#720's cap on this panel), so a long
+  // stack still keeps both labels reachable by scrolling, not pinned outside the scrolled area.
+  const stackEndLabelClassName = 'text-[10px] font-bold uppercase tracking-wide text-text-secondary';
 
   const selectedPersonnel = cards.filter(
     (instance) => selectedIds.includes(instance.id) && instance.card.type === 'personnel'
@@ -278,6 +304,7 @@ export default function PilePanel({
           Shuffle
         </button>
         <div data-zone={`pile-panel-${zone}`} className={gridClassName}>
+          {isDilemmaStack && <span className={stackEndLabelClassName}>Top (revealed first)</span>}
           {cards.map((instance) => (
             <PilePanelCard
               key={instance.id}
@@ -287,8 +314,10 @@ export default function PilePanel({
               onToggleSelect={() => onToggleSelect(instance.id)}
               cardWidth={cardWidth}
               cardArtHeight={cardArtHeight}
+              reorderable={isDilemmaStack}
             />
           ))}
+          {isDilemmaStack && <span className={stackEndLabelClassName}>Bottom (revealed last)</span>}
         </div>
       </div>
     </div>

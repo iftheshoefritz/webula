@@ -802,6 +802,22 @@ function PracticeDrawContent() {
     // drag started from a card inside it and it still holds a card after the drop (#675).
     setFocusedCardId(null);
 
+    // A drop inside the dilemma stack's own popup, on top of another card still in the stack,
+    // reorders the stack instead of moving the card out of its zone (#632). The dragged card's
+    // origin has to be the stack itself, and the drop has to land on another card that is still
+    // in the stack — only a drag that started from this same open popup can ever land on a stack
+    // card's own id (`PilePanelCard`'s `reorderable` droppable), so this cannot misfire against
+    // an unrelated drag. Returning here skips the "card left its panel" side effects a real
+    // move-out triggers below (`closePanelsAfterDrag`, clearing `selectedCardIds`), since the
+    // card never leaves the zone it was selected in.
+    if (over && dragOrigin?.zone === 'dilemmaStack') {
+      const overId = String(over.id);
+      if (overId !== id && dilemmaStack.some((c) => c.id === overId)) {
+        dispatch({ type: 'reorderDilemmaStack', id, overId });
+        return;
+      }
+    }
+
     // A drop on the dilemma pile's top half (#607) puts the group first in the pile, in front of
     // its existing cards; the bottom half (the default, `position` undefined) puts it last. This
     // branch does not depend on a dragged card's type (`computeMoveTargetForInstance`), so it
