@@ -451,9 +451,10 @@ function DilemmaPileButton({
 // #742: hidden (kept in the DOM, `visibility: hidden`, so the reserved column's width never
 // moves the mission row beside it) whenever it isn't useful — the stack is empty, the dilemma
 // hand is closed, and no dilemma is being dragged — and shown again the moment any one of those
-// stops being true, the same `visibility`/`pointerEvents`/`aria-hidden` pattern the closed hand's
-// own fan uses (`CardHand.tsx`). Its height is a mission card's own art height plus its ship
-// row's height, not one card's height, so a dragged dilemma has a bigger target to hit; both
+// stops being true, the same `visibility`/`pointerEvents` pattern the closed hand's own fan uses
+// (`CardHand.tsx`). `visibility: hidden` alone already keeps it out of the accessibility tree, so
+// no separate `aria-hidden` is needed. Its height is a mission card's own art height plus its
+// ship row's height, not one card's height, so a dragged dilemma has a bigger target to hit; both
 // pieces scale with `scale` the same way `MissionRow.tsx` scales the mission column beside it.
 function DilemmaStackPile({
   count,
@@ -479,7 +480,6 @@ function DilemmaStackPile({
       data-highlight={highlight}
       onClick={onOpen}
       aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
-      aria-hidden={visible ? undefined : true}
       style={{ height, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}
       className={`relative w-14 rounded-lg ${highlightClassName(highlight)}`}
     >
