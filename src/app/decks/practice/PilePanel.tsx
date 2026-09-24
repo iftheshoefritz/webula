@@ -1,7 +1,7 @@
 'use client';
 
-// A mission's personnel, event, dilemma stack, or under-the-mission pile panel (#602, #605,
-// #606), and, since #640, the core's and the brig's own panel too: a tap on a pile's badge (or,
+// A mission's personnel, event, or under-the-mission pile panel (#602, #606), and, since #640,
+// the core's and the brig's own panel too: a tap on a pile's badge (or,
 // for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
 // already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
 // cards face up regardless of their stored face (the same true-face-to-owner convention
@@ -92,7 +92,6 @@ export type PanelZone = MissionPileName | 'core' | 'brig' | 'crew' | 'pile' | 'd
 const PANEL_LABEL: Record<PanelZone, string> = {
   personnel: 'Personnel',
   event: 'Event',
-  dilemma: 'Dilemma',
   underMission: 'Under the mission',
   core: 'Core',
   brig: 'Brig',

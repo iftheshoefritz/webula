@@ -83,15 +83,16 @@ export interface MissionPileLocation {
 export type MoveTarget = Zone | ShipRowLocation | CrewLocation | MissionPileLocation;
 
 // A `shuffle` action (#680) only ever targets one of the zones a `PilePanel` shows: the core,
-// the brig, the draw pile, the dilemma pile (#690), a ship's crew, one of a mission's three
-// piles, or a mission's own ship row (#713, once it holds enough ships to open its own list
-// panel) — never one of the other flat zones (hand/discard/dilemmaHand) a `PilePanel` never
-// opens for.
+// the brig, the draw pile, the dilemma pile (#690), the dilemma stack (#733), a ship's crew, one
+// of a mission's three piles, or a mission's own ship row (#713, once it holds enough ships to
+// open its own list panel) — never one of the other flat zones (hand/discard/dilemmaHand) a
+// `PilePanel` never opens for.
 export type ShuffleLocation =
   | 'core'
   | 'brig'
   | 'pile'
   | 'dilemmaPile'
+  | 'dilemmaStack'
   | CrewLocation
   | MissionPileLocation
   | ShipRowLocation;

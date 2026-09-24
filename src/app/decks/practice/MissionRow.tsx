@@ -6,10 +6,9 @@
 //
 // Every column, filled or empty, reserves fixed space for its controls, so the column layout
 // does not shift as a mission's piles fill up:
-//   - A badge strip below the mission card: personnel/event pile badges (#602), dilemma stack
-//     badge (#605), moved there from above the mission card by #641 to make room for the
-//     dilemmas placed under the mission (below), which now poke out above the mission card
-//     instead.
+//   - A badge strip below the mission card: personnel/event pile badges (#602), moved there from
+//     above the mission card by #641 to make room for the dilemmas placed under the mission
+//     (below), which now poke out above the mission card instead.
 //   - Dilemmas placed under the mission (#606) render face up, stacked behind the mission card
 //     in z-order, with a small sliver of each poking out above the mission card's top edge
 //     (#641). They are absolutely positioned, so an empty pile reserves no space at all.
@@ -47,17 +46,15 @@
 // Dropping a personnel, equipment, event, mission, or interrupt card on the mission card or its
 // ship row (#602) files it into one of that mission's piles, chosen by card type: personnel and
 // equipment go to the personnel pile face down; event, mission, and interrupt go to the event
-// pile face up. A dilemma dropped there from the open dilemma hand instead builds a face-down
-// stack in a third pile (#605), in drop order — the first dilemma dropped is the first revealed.
-// A dilemma dropped on a mission from anywhere else — including that mission's own dilemma
-// stack — goes under the mission instead (#606), face up, permanently out of the stack. Each
-// non-empty personnel/event/dilemma pile shows a small badge on the badge strip, below (and as a
-// sibling of, not nested inside) the mission card's own `<button>` — nesting a badge button
-// inside it would be invalid HTML and would let the mission's own tap handler fire first, the
-// same conflict already avoided for the ship's own drop target. A badge is a drop target of its
-// own: dropping a card of any type directly on a badge overrides the type-based routing above and
-// puts it in that pile regardless. A badge sits geometrically on top of the mission card's larger
-// drop target, so `collisionDetection` (`page.tsx`), which ranks every zone the dragged card
+// pile face up. A dilemma dropped on a mission, from anywhere, goes under the mission instead
+// (#606, #733), face up, permanently. Each non-empty personnel/event pile shows a small badge on
+// the badge strip, below (and as a sibling of, not nested inside) the mission card's own
+// `<button>` — nesting a badge button inside it would be invalid HTML and would let the mission's
+// own tap handler fire first, the same conflict already avoided for the ship's own drop target. A
+// badge is a drop target of its own: dropping a card of any type directly on a badge overrides
+// the type-based routing above and puts it in that pile regardless. A badge sits geometrically on
+// top of the mission card's larger drop target, so `collisionDetection` (`page.tsx`), which ranks
+// every zone the dragged card
 // overlaps by area, smallest first, already picks the smaller, nested badge over the mission
 // card beneath it, the same reasoning that lets a ship's crew zone win over its enclosing ship
 // row (#645). A tap on a badge opens that pile's panel
@@ -100,7 +97,7 @@ export const missionPileDropId = (missionIndex: number, pile: MissionPileName): 
   `mission-pile-${pile}-${missionIndex}`;
 
 export function missionPileFromDropId(id: string): { missionIndex: number; pile: MissionPileName } | null {
-  const match = /^mission-pile-(personnel|event|dilemma)-(\d+)$/.exec(id);
+  const match = /^mission-pile-(personnel|event)-(\d+)$/.exec(id);
   return match ? { pile: match[1] as MissionPileName, missionIndex: Number(match[2]) } : null;
 }
 
@@ -174,8 +171,9 @@ function EventIcon() {
   );
 }
 
-// A stack of face-down cards, for the dilemma stack badge (#605).
-function DilemmaIcon() {
+// A stack of face-down cards. Unused in this file since the dilemma stack moved out of the
+// mission slots (#733); exported for #630, which uses it for the new stack's own badge.
+export function DilemmaIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-2 h-2" aria-hidden="true">
       <rect x="3" y="9" width="14" height="10" rx="1.5" />
@@ -200,14 +198,12 @@ function UnderMissionIcon() {
 const PILE_ICON: Record<MissionPileName, () => JSX.Element> = {
   personnel: PersonnelIcon,
   event: EventIcon,
-  dilemma: DilemmaIcon,
   underMission: UnderMissionIcon,
 };
 
 const PILE_LABEL: Record<MissionPileName, string> = {
   personnel: 'Personnel',
   event: 'Event',
-  dilemma: 'Dilemma',
   underMission: 'Under the mission',
 };
 
@@ -277,14 +273,12 @@ function BadgeStrip({
   missionIndex,
   personnelCount,
   eventCount,
-  dilemmaCount,
   onOpenPile,
   height,
 }: {
   missionIndex: number;
   personnelCount: number;
   eventCount: number;
-  dilemmaCount: number;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   height: number;
 }) {
@@ -292,7 +286,6 @@ function BadgeStrip({
     <div className="w-full flex items-center justify-center gap-1" style={{ height }}>
       <PileBadge missionIndex={missionIndex} pile="personnel" count={personnelCount} onOpen={onOpenPile} height={height} />
       <PileBadge missionIndex={missionIndex} pile="event" count={eventCount} onOpen={onOpenPile} height={height} />
-      <PileBadge missionIndex={missionIndex} pile="dilemma" count={dilemmaCount} onOpen={onOpenPile} height={height} />
     </div>
   );
 }
@@ -454,7 +447,7 @@ function MissionColumn({
   const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('mission', draggedType, isOver);
-  const { mission, ships, personnel, event, dilemma, underMission } = slot;
+  const { mission, ships, personnel, event, underMission } = slot;
   const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
   const cardArtHeight = scaled(TABLE_CARD_ART_HEIGHT, scale);
   const badgeHeight = scaled(BADGE_STRIP_HEIGHT_BASE, scale);
@@ -491,12 +484,11 @@ function MissionColumn({
         </div>
       </div>
 
-      {/* Badge strip: personnel/event pile badges (#602), dilemma stack badge (#605). */}
+      {/* Badge strip: personnel/event pile badges (#602). */}
       <BadgeStrip
         missionIndex={missionIndex}
         personnelCount={personnel.length}
         eventCount={event.length}
-        dilemmaCount={dilemma.length}
         onOpenPile={onOpenPile}
         height={badgeHeight}
       />

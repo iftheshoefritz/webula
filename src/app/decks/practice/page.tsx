@@ -159,15 +159,14 @@ function dilemmaPileHalfFromDropId(id: string): 'top' | 'bottom' | null {
 
 // Resolves a single dropped card's destination, the same routing `handleDragEnd` always used,
 // pulled out into its own function so a multi-card drag (#677) can run it once per card in the
-// dragged group, each keyed off that card's own type and own pre-drop zone rather than one
-// shared "the dragged card" — a mixed-type group (say, a ship dropped on a mission alongside
-// personnel) still sends the ship to the ship row and the personnel to the personnel pile, same
-// as dragging each one on its own. Returns null for a card the drop target does not accept
-// (matching the old early-return-less fallthrough): that card stays where it was.
+// dragged group, each keyed off that card's own type rather than one shared "the dragged card" —
+// a mixed-type group (say, a ship dropped on a mission alongside personnel) still sends the ship
+// to the ship row and the personnel to the personnel pile, same as dragging each one on its own.
+// Returns null for a card the drop target does not accept (matching the old early-return-less
+// fallthrough): that card stays where it was.
 function computeMoveTargetForInstance(
   over: DragEndEvent['over'],
   instance: CardInstance,
-  originZone: TableZone | undefined,
   table: TableState
 ): MoveTarget | null {
   if (!over) return null;
@@ -208,8 +207,9 @@ function computeMoveTargetForInstance(
       return { zone: 'shipRow', missionIndex };
     }
     if (instance.card.type === 'dilemma') {
-      const pile = originZone === 'dilemmaHand' ? 'dilemma' : 'underMission';
-      return { zone: 'missionPile', missionIndex, pile };
+      // A dilemma dropped on a mission card always lands under that mission (#606, #733),
+      // whatever zone it came from.
+      return { zone: 'missionPile', missionIndex, pile: 'underMission' };
     }
     const pile = MISSION_PILE_BY_TYPE[instance.card.type];
     if (pile) return { zone: 'missionPile', missionIndex, pile };
@@ -470,7 +470,9 @@ function PracticeDrawContent() {
   // Which of the core's/the brig's own pile panel (#640), or the draw pile's/the dilemma pile's
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
   // `openPile` tracks a mission's open pile: a piece of UI state with no effect on the table.
-  const [openFlatZone, setOpenFlatZone] = useState<'core' | 'brig' | 'pile' | 'dilemmaPile' | null>(null);
+  const [openFlatZone, setOpenFlatZone] = useState<'core' | 'brig' | 'pile' | 'dilemmaPile' | 'dilemmaStack' | null>(
+    null
+  );
   // Which ship's crew panel (#664) is open, if any, named by the ship's own instance id (not a
   // mission index, since a ship stays reachable by its own id regardless of which mission's ship
   // row currently holds it — the same reasoning `crewDropId` already follows). Tracked the same
@@ -769,8 +771,7 @@ function PracticeDrawContent() {
     // card dropped somewhere it does not fit already did.
     const actions: Extract<TableAction, { type: 'move' }>[] = [];
     orderedGroup.forEach((instance) => {
-      const origin = instance.id === dragOrigin?.instance.id ? dragOrigin : findInstanceAnywhere(table, instance.id);
-      const target = computeMoveTargetForInstance(over, instance, origin?.zone, table);
+      const target = computeMoveTargetForInstance(over, instance, table);
       if (target) actions.push({ type: 'move', id: instance.id, to: target, position });
     });
 
