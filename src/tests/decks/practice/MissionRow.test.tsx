@@ -19,7 +19,6 @@ const emptySlot = (): MissionSlot => ({
   ships: [],
   personnel: [],
   event: [],
-  dilemma: [],
   underMission: [],
 });
 
