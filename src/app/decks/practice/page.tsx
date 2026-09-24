@@ -666,10 +666,17 @@ function DilemmaStackPile({
       style={{ height, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}
       className={`relative w-14 rounded-lg ${highlightClassName(highlight)}`}
     >
+      {/* Covers the whole box underneath the fan (below), so a tap anywhere the fan doesn't
+          cover still opens the panel. Once the top card is revealed, `DilemmaStackTopCard`
+          below carries the same label as the control the player actually sees and taps, so this
+          one is hidden from the accessibility tree — it stays clickable for the fan's own
+          non-interactive back-card area, just not separately announced. */}
       <button
         type="button"
         onClick={onOpen}
         aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
+        aria-hidden={revealed || undefined}
+        tabIndex={revealed ? -1 : undefined}
         className="absolute inset-0 w-full h-full rounded-lg focus:outline-none"
       >
         {count === 0 && (
