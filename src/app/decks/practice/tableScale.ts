@@ -41,10 +41,13 @@ const MISSION_ROW_GAP = 8; // px
 // its height ratio alone would allow more. The result never drops below 1: a shorter-than-
 // baseline game layer (the toolbar showing) keeps today's fixed sizes rather than shrinking them
 // further.
+// Issue #630: the dilemma stack sits in a reserved column to the right of the five mission
+// columns, so the width budget reserves one more column and one more gap for it — 6 columns and
+// 5 gaps, not 5 and 4.
 export function computeTableScale(gameLayerWidth: number, gameLayerHeight: number): number {
   const heightScale = gameLayerHeight / BASELINE_HEIGHT;
-  const availableWidth = gameLayerWidth - CONTENT_PADDING - MISSION_ROW_GAP * (MISSION_SLOTS - 1);
-  const widthScale = availableWidth / (TABLE_CARD_WIDTH * MISSION_SLOTS);
+  const availableWidth = gameLayerWidth - CONTENT_PADDING - MISSION_ROW_GAP * MISSION_SLOTS;
+  const widthScale = availableWidth / (TABLE_CARD_WIDTH * (MISSION_SLOTS + 1));
   return Math.max(1, Math.min(heightScale, widthScale));
 }
 

@@ -38,6 +38,7 @@ import {
 } from './tableReducer';
 import CardHand from './CardHand';
 import MissionRow, {
+  DilemmaIcon,
   SHIP_CARD_WIDTH,
   missionIndexFromDropId,
   missionPileFromDropId,
@@ -142,7 +143,9 @@ const DISCARD_DROPPABLE_ID = 'discard';
 // zone too, but not one of these: it has two drop targets of its own, the top half and the
 // bottom half of `DilemmaPileButton`, handled separately below (#607) — it replaces the single
 // whole-card `dilemmaPile` droppable #605 added, which only ever appended to the bottom.
-const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig', 'hand', 'dilemmaHand'];
+// #630: the dilemma stack joins this list too — a single whole-card droppable, appending to the
+// bottom, the same as the other zones here, unlike the dilemma pile's own top/bottom halves.
+const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig', 'hand', 'dilemmaHand', 'dilemmaStack'];
 
 // The dilemma pile's two drop targets (#607): a drop on the top half puts the card first in
 // `dilemmaPile` (drawn next); a drop on the bottom half puts it last, matching the pile's older,
@@ -435,12 +438,55 @@ function DilemmaPileButton({
   );
 }
 
+// The dilemma stack (#630): a single flat drop target — no top/bottom split, since a drop always
+// appends at the bottom, and the first dilemma dropped (index 0) is the first revealed. Sits in
+// its own reserved column to the right of the mission row (`computeTableScale`,
+// `tableScale.ts`); a tap opens its own `PilePanel`, listing the stack in that same order. Its
+// `DilemmaIcon` badge (`MissionRow.tsx`, exported for exactly this once #733 took the stack out
+// of the mission slots) marks it apart from the flat dilemma pile, which looks the same otherwise
+// (a face-down cardback with a count).
+function DilemmaStackPile({ count, onOpen }: { count: number; onOpen: () => void }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'dilemmaStack' });
+  const draggedType = useDraggedCardType();
+  const highlight = highlightState('dilemmaStack', draggedType, isOver);
+
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      data-zone="dilemmaStack"
+      data-highlight={highlight}
+      onClick={onOpen}
+      aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
+      className={`relative w-14 h-20 rounded-lg ${highlightClassName(highlight)}`}
+    >
+      {count > 0 ? (
+        <img
+          src="/cardimages/cardback.jpg"
+          width={120}
+          height={167}
+          alt="Face-down dilemma stack"
+          className="pointer-events-none rounded-lg shadow-lg w-full h-full object-cover"
+        />
+      ) : (
+        <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
+          Dilemma stack
+        </div>
+      )}
+      <span className="absolute -top-1 -right-1 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none" style={{ height: 14 }}>
+        <DilemmaIcon />
+        {count > 0 && <span className="text-[8px] font-bold">{count}</span>}
+      </span>
+    </button>
+  );
+}
+
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
   const isFixture = searchParams.get('fixture') === '1';
   const { data, loading } = useDataFetching();
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
-  const { pile, hand, discard, core, brig, dilemmaPile, dilemmaHand, missions, turn, score } = table;
+  const { pile, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [isPortrait, setIsPortrait] = useState(false);
@@ -616,7 +662,7 @@ function PracticeDrawContent() {
     setOpenPile({ missionIndex, pile });
   };
 
-  const openOnlyFlatZone = (zone: 'core' | 'brig' | 'pile' | 'dilemmaPile') => {
+  const openOnlyFlatZone = (zone: 'core' | 'brig' | 'pile' | 'dilemmaPile' | 'dilemmaStack') => {
     setOpenPile(null);
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
@@ -827,7 +873,9 @@ function PracticeDrawContent() {
       ? brig
       : openFlatZone === 'pile'
       ? pile
-      : dilemmaPile
+      : openFlatZone === 'dilemmaPile'
+      ? dilemmaPile
+      : dilemmaStack
     : openCrewShip
     ? openCrewShip.crew ?? []
     : openShipRowMissionIndex !== null
@@ -888,15 +936,20 @@ function PracticeDrawContent() {
                 overlay below. */}
             <DraggedCardTypeProvider value={draggingInstance?.card.type ?? null}>
             <div className="flex flex-col flex-1 p-4">
-              {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597) */}
-              <MissionRow
-                missions={missions}
-                onCardClick={(id) => setFocusedCardId(id)}
-                onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
-                onShipClick={handleShipClick}
-                onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
-                scale={scale}
-              />
+              {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597),
+                  plus the dilemma stack (#630) in its own reserved column to the right, in the
+                  same row so it lines up with the missions and shares their gap. */}
+              <div className="flex flex-row gap-2 justify-center items-start">
+                <MissionRow
+                  missions={missions}
+                  onCardClick={(id) => setFocusedCardId(id)}
+                  onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
+                  onShipClick={handleShipClick}
+                  onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
+                  scale={scale}
+                />
+                <DilemmaStackPile count={dilemmaStack.length} onOpen={() => openOnlyFlatZone('dilemmaStack')} />
+              </div>
 
               {/* Bottom row, anchored to the bottom. From left to right: discard pile, draw pile,
                   closed hand, core, brig. The dilemma pile is the rightmost zone, at the right
@@ -1098,7 +1151,9 @@ function PracticeDrawContent() {
                     setOpenCrewShipId(null);
                   }}
                   onFlip={
-                    focused.zone === 'missions' || (typeof focused.zone === 'object' && focused.zone.zone === 'missionPile')
+                    focused.zone === 'missions' ||
+                    focused.zone === 'dilemmaStack' ||
+                    (typeof focused.zone === 'object' && focused.zone.zone === 'missionPile')
                       ? () => dispatch({ type: 'flip', id: focused.instance.id })
                       : undefined
                   }
