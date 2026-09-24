@@ -67,16 +67,16 @@ The acceptance checks of the issue are a separate run. See `claude-visual-check.
 
 ### The turn limit
 
-The limit is 160 turns. It was 80. Two runs stopped at 80 with the edits part done and nothing
-pushed: run 35967322676 on issue #630, and run 35968374324 on issue #733. Both spent about half
-their turns on a search of the codebase before the first edit, then made one small edit per turn.
+The limit is 80 turns, and it stays at 80. Do not raise it. An issue that hits the limit is too
+big: split it into two issues, as #630 was split into #733 (the state change) and #630 (the page
+change).
 
-The prompt now tells the agent to make the branch and the draft pull request while it edits,
-to push every few edits, and to trust the file names and the function names in the
-`## Implementation Plan` comment instead of searching for them again.
-
-An issue that still hits 160 turns is too big. Split it into two issues, as #630 was split into
-#733 (the state change) and #630 (the page change).
+Two runs stopped at the limit with the edits part done and nothing pushed: run 35967322676 on
+issue #630, and run 35968374324 on issue #733. Both spent about half their turns on a search of
+the codebase before the first edit, then made one small edit per turn. The prompt now tells the
+agent to make the branch and the draft pull request while it edits, to push every few edits, and
+to trust the file names and the function names in the `## Implementation Plan` comment instead of
+searching for them again.
 
 ### The install runs before Claude
 
