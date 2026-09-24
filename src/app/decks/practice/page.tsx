@@ -40,6 +40,7 @@ import {
 import CardHand from './CardHand';
 import MissionRow, {
   DilemmaIcon,
+  SHIP_CARD_ART_HEIGHT,
   SHIP_CARD_WIDTH,
   missionIndexFromDropId,
   missionPileFromDropId,
@@ -446,10 +447,29 @@ function DilemmaPileButton({
 // `DilemmaIcon` badge (`MissionRow.tsx`, exported for exactly this once #733 took the stack out
 // of the mission slots) marks it apart from the flat dilemma pile, which looks the same otherwise
 // (a face-down cardback with a count).
-function DilemmaStackPile({ count, onOpen }: { count: number; onOpen: () => void }) {
+//
+// #742: hidden (kept in the DOM, `visibility: hidden`, so the reserved column's width never
+// moves the mission row beside it) whenever it isn't useful — the stack is empty, the dilemma
+// hand is closed, and no dilemma is being dragged — and shown again the moment any one of those
+// stops being true, the same `visibility`/`pointerEvents`/`aria-hidden` pattern the closed hand's
+// own fan uses (`CardHand.tsx`). Its height is a mission card's own art height plus its ship
+// row's height, not one card's height, so a dragged dilemma has a bigger target to hit; both
+// pieces scale with `scale` the same way `MissionRow.tsx` scales the mission column beside it.
+function DilemmaStackPile({
+  count,
+  onOpen,
+  visible,
+  scale,
+}: {
+  count: number;
+  onOpen: () => void;
+  visible: boolean;
+  scale: number;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: 'dilemmaStack' });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('dilemmaStack', draggedType, isOver);
+  const height = Math.round((TABLE_CARD_ART_HEIGHT + SHIP_CARD_ART_HEIGHT) * scale);
 
   return (
     <button
@@ -459,7 +479,9 @@ function DilemmaStackPile({ count, onOpen }: { count: number; onOpen: () => void
       data-highlight={highlight}
       onClick={onOpen}
       aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
-      className={`relative w-14 h-20 rounded-lg ${highlightClassName(highlight)}`}
+      aria-hidden={visible ? undefined : true}
+      style={{ height, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}
+      className={`relative w-14 rounded-lg ${highlightClassName(highlight)}`}
     >
       {count > 0 ? (
         <img
@@ -876,6 +898,12 @@ function PracticeDrawContent() {
   };
 
   const isEmpty = deckEmpty;
+  // #742: the dilemma stack zone is only useful once one of these is true — it holds a card, its
+  // own hand is open (so there's somewhere to drag a dilemma from), or a dilemma is being dragged
+  // right now (so it's a valid drop target mid-drag, the same `draggingInstance` check the
+  // dilemma pile's own top/bottom split already uses for `showPositionLabel`).
+  const dilemmaStackVisible =
+    dilemmaStack.length > 0 || openHand === 'dilemmaHand' || draggingInstance?.card.type === 'dilemma';
   const focused = focusedCardId ? findInstanceAnywhere(table, focusedCardId) : null;
   const openCrewShip = openCrewShipId ? findInstanceAnywhere(table, openCrewShipId)?.instance : null;
   // The cards of whichever pile panel is currently open, if any — only one panel is ever open
@@ -1008,7 +1036,12 @@ function PracticeDrawContent() {
                   onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
                   scale={scale}
                 />
-                <DilemmaStackPile count={dilemmaStack.length} onOpen={() => openOnlyFlatZone('dilemmaStack')} />
+                <DilemmaStackPile
+                  count={dilemmaStack.length}
+                  onOpen={() => openOnlyFlatZone('dilemmaStack')}
+                  visible={dilemmaStackVisible}
+                  scale={scale}
+                />
               </div>
 
               {/* Bottom row, anchored to the bottom. From left to right: discard pile, draw pile,
