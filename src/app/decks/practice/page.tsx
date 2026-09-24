@@ -1291,53 +1291,59 @@ function PracticeDrawContent() {
                   core and the brig already used. */}
               <div className="mt-auto flex flex-row items-end gap-4">
                 <div className="flex flex-row items-end gap-4">
-                  {/* Discard */}
-                  <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
-
-                  {/* Turn counter (#718): shows the current turn, and a button that raises it by
-                      one and unstops every stopped personnel card on the table. */}
+                  {/* Discard, with the turn counter and score counter above it (#753) rather
+                      than beside it. */}
                   <div className="flex flex-col items-center gap-1">
-                    <span data-testid="turn-counter" className="text-xs text-text-muted">
-                      Turn {turn}
-                    </span>
-                    <button
-                      className="btn-icon btn-icon-sm"
-                      onClick={nextTurn}
-                      aria-label="Next turn"
-                    >
-                      <FaForward />
-                    </button>
-                  </div>
+                    <div className="flex flex-row items-end gap-4">
+                      {/* Turn counter (#718): shows the current turn, and a button that raises it
+                          by one and unstops every stopped personnel card on the table. */}
+                      <div className="flex flex-col items-center gap-1">
+                        <span data-testid="turn-counter" className="text-xs text-text-muted">
+                          Turn {turn}
+                        </span>
+                        <button
+                          className="btn-icon btn-icon-sm"
+                          onClick={nextTurn}
+                          aria-label="Next turn"
+                        >
+                          <FaForward />
+                        </button>
+                      </div>
 
-                  {/* Score counter (#719): shows the current score, and plus/minus buttons that
-                      change it by SCORE_STEP points, clamped by the reducer to 0-140. */}
-                  <div className="flex flex-col items-center gap-1">
-                    <span data-testid="score-counter" className="text-xs text-text-muted">
-                      Score {score}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        onClick={() => adjustScore(-SCORE_STEP)}
-                        disabled={score <= SCORE_MIN}
-                        aria-label="Decrease score"
-                      >
-                        -
-                      </button>
-                      <button
-                        className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        onClick={() => adjustScore(SCORE_STEP)}
-                        disabled={score >= SCORE_MAX}
-                        aria-label="Increase score"
-                      >
-                        +
-                      </button>
+                      {/* Score counter (#719): shows the current score, and plus/minus buttons
+                          that change it by SCORE_STEP points, clamped by the reducer to 0-140. */}
+                      <div className="flex flex-col items-center gap-1">
+                        <span data-testid="score-counter" className="text-xs text-text-muted">
+                          Score {score}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => adjustScore(-SCORE_STEP)}
+                            disabled={score <= SCORE_MIN}
+                            aria-label="Decrease score"
+                          >
+                            -
+                          </button>
+                          <button
+                            className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => adjustScore(SCORE_STEP)}
+                            disabled={score >= SCORE_MAX}
+                            aria-label="Increase score"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     </div>
+
+                    <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
                   </div>
 
-                  {/* Pile */}
-                  <div className="flex items-start gap-4">
-                    <div className="flex flex-col items-center gap-1">
+                  {/* Pile, with the shuffle button and the draw-pile search button above it
+                      (#753) rather than beside it. */}
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex items-center gap-1">
                       <button
                         className="btn-icon btn-icon-sm"
                         onClick={() => dispatch({ type: 'shuffle', location: 'pile' })}
@@ -1345,22 +1351,19 @@ function PracticeDrawContent() {
                       >
                         <ShuffleIcon />
                       </button>
-                      <div className="flex items-end gap-1">
-                        {/* Draw pile (#743): the same top/bottom drop-half split as the dilemma
-                            pile, so a card dragged from any zone can be filed back in at either
-                            end of the pile, not only drawn from the top. */}
-                        <DrawPileButton
-                          count={pile.length}
-                          onDraw={drawOne}
-                          showPositionLabel={draggingInstance !== null}
-                        />
-                        {/* Download from the draw pile without drawing (#690): a separate control,
-                            beside the draw-pile button rather than layered on it, so it never
-                            steals the button's own tap-to-draw click or its top/bottom drop
-                            halves. */}
-                        <DownloadPileButton label="draw pile" count={pile.length} onOpen={() => openOnlyFlatZone('pile')} />
-                      </div>
+                      {/* Download from the draw pile without drawing (#690): a separate control,
+                          rather than layered on the draw-pile button, so it never steals the
+                          button's own tap-to-draw click or its top/bottom drop halves. */}
+                      <DownloadPileButton label="draw pile" count={pile.length} onOpen={() => openOnlyFlatZone('pile')} />
                     </div>
+                    {/* Draw pile (#743): the same top/bottom drop-half split as the dilemma
+                        pile, so a card dragged from any zone can be filed back in at either
+                        end of the pile, not only drawn from the top. */}
+                    <DrawPileButton
+                      count={pile.length}
+                      onDraw={drawOne}
+                      showPositionLabel={draggingInstance !== null}
+                    />
                   </div>
 
                   {/* Hand. `selectedIds`/`onToggleSelect` let the player select more than one
@@ -1441,20 +1444,21 @@ function PracticeDrawContent() {
                     onToggleSelect={toggleCardSelection}
                   />
 
-                  <div className="flex items-end gap-1">
-                    <DilemmaPileButton
-                      count={dilemmaPile.length}
-                      onDraw={drawDilemma}
-                      showPositionLabel={draggingInstance?.card.type === 'dilemma'}
-                    />
+                  {/* Dilemma pile, with the search button above it (#753) rather than beside
+                      it. */}
+                  <div className="flex flex-col items-center gap-1">
                     {/* Download from the dilemma pile without drawing (#690): a separate control,
-                        beside the dilemma-pile button rather than layered on it, so it never
-                        steals the button's own tap-to-draw click or its top/bottom drop
-                        halves. */}
+                        rather than layered on the dilemma-pile button, so it never steals the
+                        button's own tap-to-draw click or its top/bottom drop halves. */}
                     <DownloadPileButton
                       label="dilemma pile"
                       count={dilemmaPile.length}
                       onOpen={() => openOnlyFlatZone('dilemmaPile')}
+                    />
+                    <DilemmaPileButton
+                      count={dilemmaPile.length}
+                      onDraw={drawDilemma}
+                      showPositionLabel={draggingInstance?.card.type === 'dilemma'}
                     />
                   </div>
                 </div>
