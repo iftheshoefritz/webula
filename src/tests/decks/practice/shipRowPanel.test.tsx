@@ -168,10 +168,14 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
   };
 
   // Drops a ship (already dealt into the open hand) onto a mission, then re-opens the
@@ -185,10 +189,14 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     });
     if (remainingCount > 0) {
       const label = new RegExp(`^hand, ${remainingCount} cards?, tap to open$`, 'i');
-      const closedHandButton = screen.getByRole('button', { name: label });
-      await act(async () => {
-        fireEvent.click(closedHandButton);
-      });
+      // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+      // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+      const closedHandButton = screen.queryByRole('button', { name: label });
+      if (closedHandButton) {
+        await act(async () => {
+          fireEvent.click(closedHandButton);
+        });
+      }
     }
   };
 

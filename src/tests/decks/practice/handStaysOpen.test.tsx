@@ -147,9 +147,14 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
       render(<PracticeDrawPage />);
     });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^hand, 3 cards, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand = screen.queryByRole('button', { name: /^hand, 3 cards, tap to open$/i });
+    if (closedHand) {
+      await act(async () => {
+        fireEvent.click(closedHand);
+      });
+    }
     const [firstId] = mockDraggableIds;
 
     await act(async () => {
@@ -179,9 +184,14 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
       render(<PracticeDrawPage />);
     });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand2 = screen.queryByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    if (closedHand2) {
+      await act(async () => {
+        fireEvent.click(closedHand2);
+      });
+    }
     const [firstId] = mockDraggableIds;
 
     await act(async () => {
@@ -213,9 +223,14 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
       fireEvent.click(drawDilemmaButton);
     });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand3 = screen.queryByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i });
+    if (closedHand3) {
+      await act(async () => {
+        fireEvent.click(closedHand3);
+      });
+    }
     const [firstId] = mockDraggableIds;
 
     await act(async () => {
@@ -245,9 +260,14 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     });
 
     // Open the hand and drag the event card to the core (a drag from the hand closes it).
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^hand, 2 cards, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand4 = screen.queryByRole('button', { name: /^hand, 2 cards, tap to open$/i });
+    if (closedHand4) {
+      await act(async () => {
+        fireEvent.click(closedHand4);
+      });
+    }
     const [, eventId] = mockDraggableIds;
     await act(async () => {
       mockOnDragStart!({ active: { id: eventId } });
@@ -257,9 +277,14 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     });
 
     // Reopen the hand — it still holds the personnel card.
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand5 = screen.queryByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    if (closedHand5) {
+      await act(async () => {
+        fireEvent.click(closedHand5);
+      });
+    }
     expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
 
     // Open the core's own pile panel, and drag out of it — this drag starts from the panel, not

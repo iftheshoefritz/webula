@@ -131,10 +131,14 @@ describe('Practice draw: stopping a personnel card (#679)', () => {
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
   };
 
   it('shows a "Stop" button only for a personnel card\'s preview', async () => {
@@ -272,10 +276,14 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
   };
 
   // See multiSelectDrop.test.tsx: reads a rendered card's own instance id off its `data-card-id`
@@ -291,12 +299,16 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
     for (let i = 0; i < names.length; i++) {
       if (i > 0) {
         const remaining = names.length - i;
-        const closedHandButton = screen.getByRole('button', {
+        // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+        // hand is closed.
+        const closedHandButton = screen.queryByRole('button', {
           name: new RegExp(`^hand, ${remaining} cards?, tap to open$`, 'i'),
         });
-        await act(async () => {
-          fireEvent.click(closedHandButton);
-        });
+        if (closedHandButton) {
+          await act(async () => {
+            fireEvent.click(closedHandButton);
+          });
+        }
       }
       const id = cardIdFor(names[i]);
       await act(async () => {

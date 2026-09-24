@@ -153,10 +153,14 @@ describe('Practice draw: dragging the enlarged card preview to another zone (#64
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
   };
 
   it("drags a hand card's enlarged preview onto a mission, moving the card and closing the preview", async () => {

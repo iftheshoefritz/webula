@@ -133,10 +133,14 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
   };
 
   it('moves the dropped card out of the hand and into the discard pile', async () => {
@@ -171,10 +175,14 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     });
 
     // The hand closed on drag start; re-open it to check the remaining copy.
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
 
     expect(screen.getAllByRole('button', { name: 'card 1' })).toHaveLength(1);
     const discardCard = screen.getByAltText('Discard pile');
@@ -226,8 +234,11 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     });
 
     expect(screen.getByTestId('drag-overlay').querySelector('img')).toBeNull();
-    expect(document.body.querySelector('[data-card-id]')).toBeNull();
-    expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
+    // #740: the cancelled drag puts the hand back on screen, because the hand still holds the
+    // card. Before #740 the hand stayed closed and the table held no card at all.
+    expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
+    expect(document.body.querySelectorAll('[data-card-id]')).toHaveLength(1);
+    expect(document.body.querySelector('[aria-label="hand, 1 card, tap to open"]')).not.toBeNull();
   });
 
   it('leaves the card in the hand when the drop misses the discard pile', async () => {
@@ -241,7 +252,9 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
       mockOnDragEnd!({ active: { id: draggedId }, over: null });
     });
 
-    expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
+    // #740: the hand is open again, so its closed row is hidden. The row still carries the
+    // count, which is what this check reads.
+    expect(document.body.querySelector('[aria-label="hand, 1 card, tap to open"]')).not.toBeNull();
     expect(screen.queryByAltText('Discard pile')).not.toBeInTheDocument();
   });
 

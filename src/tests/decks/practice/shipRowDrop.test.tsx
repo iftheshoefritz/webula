@@ -158,10 +158,14 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
   };
 
   it('moves a dragged ship out of the hand and into the target mission\'s ship row when dropped on the mission card', async () => {
@@ -277,10 +281,14 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     });
 
     // Re-open the hand (drag start closed it) and board the personnel card as crew.
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
     await act(async () => {
       mockOnDragStart!({ active: { id: personnelId } });
     });
@@ -322,10 +330,14 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragEnd!({ active: { id: firstShipId }, over: { id: 'mission-1' } });
     });
 
-    const reopenHand = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(reopenHand);
-    });
+    // #740 keeps the hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const reopenHand = screen.queryByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    if (reopenHand) {
+      await act(async () => {
+        fireEvent.click(reopenHand);
+      });
+    }
 
     // The pointer lands on the first ship's own crew zone (it covers almost the whole row,
     // #668) rather than the row itself.
@@ -352,10 +364,14 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     await act(async () => {
       mockOnDragEnd!({ active: { id: firstCopyId }, over: { id: 'mission-0' } });
     });
-    const reopenHand = screen.getByRole('button', { name: /^hand, 2 cards, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(reopenHand);
-    });
+    // #740 keeps the hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const reopenHand = screen.queryByRole('button', { name: /^hand, 2 cards, tap to open$/i });
+    if (reopenHand) {
+      await act(async () => {
+        fireEvent.click(reopenHand);
+      });
+    }
 
     // The second copy's drop lands on the first copy's crew zone, same as dropping on a
     // different ship above; it must land on the row as its own card, not aboard the first.
@@ -373,10 +389,14 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
 
     // Board the personnel card onto the first copy specifically: its crew badge goes to 1, and
     // the second copy's crew stays at 0 (no badge).
-    const reopenHand2 = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(reopenHand2);
-    });
+    // #740 keeps the hand open after a drag out of it, so this tap only runs when the hand is
+    // closed.
+    const reopenHand2 = screen.queryByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    if (reopenHand2) {
+      await act(async () => {
+        fireEvent.click(reopenHand2);
+      });
+    }
     await act(async () => {
       mockOnDragStart!({ active: { id: personnelId } });
     });

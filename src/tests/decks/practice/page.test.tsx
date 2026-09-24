@@ -334,9 +334,14 @@ describe('PracticeDrawPage', () => {
       toJSON: () => {},
     });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i }));
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed.
+    const closedHand = screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i });
+    if (closedHand) {
+      await act(async () => {
+        fireEvent.click(closedHand);
+      });
+    }
     expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
 
     await act(async () => {
@@ -477,10 +482,14 @@ describe('PracticeDrawPage', () => {
 
     // A new game already dealt 7 cards, including "card 1", into the (closed) hand. Open it
     // to reach the individual card buttons.
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
 
     const cardButton = screen.getByRole('button', { name: 'card 1' });
     expect(cardButton).toBeInTheDocument();
@@ -501,10 +510,14 @@ describe('PracticeDrawPage', () => {
 
     expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
     expect(screen.getByRole('button', { name: 'card 1' })).toBeInTheDocument();
 
     const backdrop = screen.getByRole('button', { name: /^close hand$/i });
@@ -525,10 +538,14 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
 
     // No enlarged preview shown yet
     expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
@@ -565,10 +582,14 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
 
     const expectedClasses = ['absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90%]', 'w-auto'];
 
@@ -671,10 +692,14 @@ describe('PracticeDrawPage', () => {
     it('the hand-card preview has no "Flip" button', async () => {
       await renderWithMission();
 
-      const closedHandButton = screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i });
-      await act(async () => {
-        fireEvent.click(closedHandButton);
-      });
+      // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+      // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+      const closedHandButton = screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i });
+      if (closedHandButton) {
+        await act(async () => {
+          fireEvent.click(closedHandButton);
+        });
+      }
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: 'card 1' }));
       });
@@ -743,14 +768,24 @@ describe('PracticeDrawPage', () => {
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /dilemma pile top, tap to draw/i }));
       });
-      await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i }));
-      });
+      // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+      // hand is closed.
+      const closedHand2 = screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i });
+      if (closedHand2) {
+        await act(async () => {
+          fireEvent.click(closedHand2);
+        });
+      }
       expect(screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i })).not.toBeInTheDocument();
 
-      await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
-      });
+      // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+      // hand is closed.
+      const closedHand3 = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
+      if (closedHand3) {
+        await act(async () => {
+          fireEvent.click(closedHand3);
+        });
+      }
 
       // The ordinary hand is closed again, so its closed button is back.
       expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();

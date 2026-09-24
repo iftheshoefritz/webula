@@ -139,9 +139,12 @@ describe('Practice draw: only one pile panel is ever open at a time (#711)', () 
       render(<PracticeDrawPage />);
     });
 
+    // #740 keeps the hand open after a drag out of it, so this helper taps the closed row only
+    // when the hand is closed.
     const openHand = () =>
       act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i }));
+        const closed = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+        if (closed) fireEvent.click(closed);
       });
 
     // Drag the personnel card into mission 0's personnel pile.

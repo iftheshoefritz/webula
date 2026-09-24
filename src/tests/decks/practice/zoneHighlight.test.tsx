@@ -157,10 +157,14 @@ describe('Practice table: valid-zone highlight during a drag (#608)', () => {
       render(<PracticeDrawPage />);
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
   };
 
   it('highlights the ship rows, the mission cards, the core, and the discard pile while dragging a ship', async () => {
@@ -197,10 +201,14 @@ describe('Practice table: valid-zone highlight during a drag (#608)', () => {
     });
 
     // Re-open the hand (the ship's drag start closed it) and drag the personnel card.
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedHandButton = screen.queryByRole('button', { name: /^hand, 1 card, tap to open$/i });
+    if (closedHandButton) {
+      await act(async () => {
+        fireEvent.click(closedHandButton);
+      });
+    }
     await act(async () => {
       mockOnDragStart!({ active: { id: personnelId } });
     });
@@ -267,10 +275,14 @@ describe('Practice table: valid-zone highlight during a drag (#608)', () => {
     await act(async () => {
       fireEvent.click(drawDilemmaButton);
     });
-    const closedDilemmaHandButton = screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedDilemmaHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedDilemmaHandButton = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
+    if (closedDilemmaHandButton) {
+      await act(async () => {
+        fireEvent.click(closedDilemmaHandButton);
+      });
+    }
     const [dilemmaId] = mockDraggableIds;
 
     await act(async () => {

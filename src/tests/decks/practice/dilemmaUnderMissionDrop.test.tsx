@@ -137,10 +137,14 @@ describe('Practice table: a dilemma dropped on a mission goes under it (#606, #7
       fireEvent.click(drawDilemmaButton);
     });
 
-    const closedDilemmaHandButton = screen.getByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i });
-    await act(async () => {
-      fireEvent.click(closedDilemmaHandButton);
-    });
+    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
+    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
+    const closedDilemmaHandButton = screen.queryByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i });
+    if (closedDilemmaHandButton) {
+      await act(async () => {
+        fireEvent.click(closedDilemmaHandButton);
+      });
+    }
   };
 
   it('puts a dilemma dragged out of the dilemma hand under the mission, not in a stack', async () => {
