@@ -34,7 +34,7 @@ jest.mock('next/link', () => {
 });
 
 import React from 'react';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
@@ -384,7 +384,10 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       fireEvent.click(drawPileButton);
     });
-    expect(screen.getByText('Empty')).toBeInTheDocument();
+    // The empty dilemma hand carries its own "Empty" placeholder (#631), so scope this check to
+    // the draw pile's own box — the parent of its two drop halves (#743).
+    const drawPileBox = document.body.querySelector('[data-zone="draw-pile-top"]')!.parentElement!;
+    expect(within(drawPileBox).getByText('Empty')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Draw pile top, tap to draw' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' })).toBeDisabled();
   });
@@ -414,8 +417,10 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    const emptyButton = screen.getByRole('button', { name: /^empty$/i });
-    expect(emptyButton).toBeDisabled();
+    // #743: the draw pile's two drop halves are its tap controls now, in place of the single
+    // button that used to carry the "Empty" placeholder's own accessible name.
+    expect(screen.getByRole('button', { name: 'Draw pile top, tap to draw' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' })).toBeDisabled();
   });
 
   // Bottom row layout (issue #596): discard pile, draw pile, closed hand, core, brig, and the
@@ -446,7 +451,8 @@ describe('PracticeDrawPage', () => {
       'ship-row-4',
       'dilemmaStack',
       'discard',
-      'pile',
+      'draw-pile-top',
+      'draw-pile-bottom',
       'hand',
       'core',
       'brig',

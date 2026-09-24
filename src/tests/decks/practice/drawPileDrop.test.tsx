@@ -150,7 +150,9 @@ describe('Practice draw: dropping a card on the draw pile (#743)', () => {
     });
 
     // The hand holds one card less, and the draw pile holds one card more (2, up from 1).
-    expect(screen.getByRole('button', { name: /^hand, 6 cards, tap to open$/i })).toBeInTheDocument();
+    // #740 keeps the hand open after a drag out of it, and a hidden element has no
+    // accessible name, so read the closed row's `aria-label` from the DOM.
+    expect(document.body.querySelector('[aria-label="hand, 6 cards, tap to open"]')).not.toBeNull();
     expect(screen.getByText('2')).toBeInTheDocument();
 
     // Tap the draw pile: the hand gets the same card ("card 1") back.
@@ -171,7 +173,9 @@ describe('Practice draw: dropping a card on the draw pile (#743)', () => {
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'draw-pile-bottom' } });
     });
 
-    expect(screen.getByRole('button', { name: /^hand, 6 cards, tap to open$/i })).toBeInTheDocument();
+    // #740 keeps the hand open after a drag out of it, and a hidden element has no
+    // accessible name, so read the closed row's `aria-label` from the DOM.
+    expect(document.body.querySelector('[aria-label="hand, 6 cards, tap to open"]')).not.toBeNull();
     expect(screen.getByText('2')).toBeInTheDocument();
 
     // Tap the draw pile: the hand gets "card 8" (the pile's original sole card) back, not the
@@ -217,7 +221,9 @@ describe('Practice draw: dropping a card on the draw pile (#743)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Draw pile top, tap to draw' }));
     });
 
-    expect(screen.getByRole('button', { name: /^hand, 8 cards, tap to open$/i })).toBeInTheDocument();
+    // #740 keeps the hand open after a drag out of it, and a hidden element has no
+    // accessible name, so read the closed row's `aria-label` from the DOM.
+    expect(document.body.querySelector('[aria-label="hand, 8 cards, tap to open"]')).not.toBeNull();
   });
 
   // Browser checks drag with `scripts/practice_drag.sh` (see AGENTS.md), so these selectors are
