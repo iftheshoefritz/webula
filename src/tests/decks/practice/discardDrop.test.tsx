@@ -198,7 +198,9 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     const handZone = document.body.querySelector('[data-zone="hand"]');
     expect(handZone).not.toBeNull();
     expect(handZone!.querySelector(`[data-card-id="${draggedId}"]`)).not.toBeNull();
-    expect(document.body.querySelector('[data-zone="pile"]')).not.toBeNull();
+    // #743: the draw pile is now two drop-half zones (top/bottom), same as the dilemma pile.
+    expect(document.body.querySelector('[data-zone="draw-pile-top"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="draw-pile-bottom"]')).not.toBeNull();
     expect(document.body.querySelector('[data-zone="discard"]')).not.toBeNull();
   });
 

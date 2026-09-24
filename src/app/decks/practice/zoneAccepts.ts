@@ -13,6 +13,8 @@
 // directly in `handleDragEnd` — so `mission` (like `core` and `discard`) accepts any type here.
 // Issue #644: the hand and the dilemma hand are two more zone kinds — the hand accepts any card
 // type (advisory, like `core`/`discard`), the dilemma hand only dilemmas (like `dilemmaPile`).
+// Issue #743: `pile`, the draw pile, joins them — it accepts any card type, like `core`/
+// `discard`/`hand`, matching its two top/bottom drop halves (`page.tsx`'s `DrawPileButton`).
 export type ZoneKind =
   | 'shipRow'
   | 'mission'
@@ -23,7 +25,8 @@ export type ZoneKind =
   | 'dilemmaPile'
   | 'hand'
   | 'dilemmaHand'
-  | 'dilemmaStack';
+  | 'dilemmaStack'
+  | 'pile';
 
 // `null` means every card type highlights this zone kind.
 const ZONE_ACCEPTS: Record<ZoneKind, readonly string[] | null> = {
@@ -37,6 +40,7 @@ const ZONE_ACCEPTS: Record<ZoneKind, readonly string[] | null> = {
   hand: null,
   dilemmaHand: ['dilemma'],
   dilemmaStack: ['dilemma'],
+  pile: null,
 };
 
 function zoneAccepts(kind: ZoneKind, cardType: string): boolean {
