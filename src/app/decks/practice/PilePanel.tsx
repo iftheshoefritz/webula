@@ -50,6 +50,7 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, STOPPED_IMAGE_CLASSNAME } from './TableCard';
+import { offsetFor } from './overlapOffset';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -239,12 +240,29 @@ export default function PilePanel({
   const isCrew = zone === 'crew';
   // The dilemma stack's own popup only (#632): a wrapped, multi-per-row grid — every other
   // `PilePanel` zone's layout — has no single top or bottom once it wraps past one row, so this
-  // one zone instead lays its cards out as a single ordered column, top-to-bottom mapped to
+  // one zone instead lays its cards out in a single ordered row, left-to-right mapped to
   // first-revealed-to-last-revealed (#630/#733's index-0-is-first-revealed convention), with a
-  // label at each end saying so. Each card also becomes a drop target of its own (`reorderable`
-  // on `PilePanelCard`), so a drop on top of a neighbour reorders the stack instead of leaving the
-  // zone.
+  // label at each end saying so. A single column of cards (this popup's original #632 layout)
+  // overflows a short, wide viewport (568x320) after only two or three cards, clipping the rest
+  // below the panel's own `max-h` cap — the clipped card is still in the DOM, at a real but
+  // off-screen position, so a tap there hits whatever paints underneath instead (the panel's own
+  // backdrop, closing it) rather than picking the card up. A row, like the open hand's own fan
+  // (`CardHand.tsx`, `offsetFor` in `overlapOffset.ts`), instead overlaps the cards' edges to fit
+  // many of them into the same bounded width every other bottom-row zone already fits into, so
+  // every card stays reachable at that viewport. Each card also becomes a drop target of its own
+  // (`reorderable` on `PilePanelCard`), so a drop on top of a neighbour reorders the stack instead
+  // of leaving the zone.
   const isDilemmaStack = zone === 'dilemmaStack';
+  // The overlap offset for the stack's row (#632's browser-check follow-up): scaled off this
+  // panel's own `cardWidth`, itself already grown by the table's scale (#717), rather than a
+  // fixed pixel budget, so the row keeps roughly the same number of edge-to-edge (non-overlapping)
+  // cards regardless of scale — about six, matching the room this panel's `max-w-[90%]` box
+  // leaves at the 568px acceptance viewport — before `offsetFor` starts overlapping them to fit
+  // more. `maxOffset` is `cardWidth` itself: never space cards out further than their own width,
+  // only ever pull them closer together as the count grows past what the row width allows.
+  const stackRowMaxWidth = cardWidth * 6;
+  const stackOffset = isDilemmaStack ? offsetFor(cards.length, cardWidth, stackRowMaxWidth, cardWidth) : 0;
+  const stackRowWidth = cards.length === 0 ? cardWidth : cardWidth + stackOffset * (cards.length - 1);
   const backdropClassName = isCrew ? 'absolute inset-y-0 left-0 right-1/2' : 'absolute inset-0';
   // Positioning only; the visible card grid itself is `gridClassName` below, now a sibling of
   // the "Stop"/"Unstop" button rather than carrying that button's own styling.
@@ -261,11 +279,14 @@ export default function PilePanel({
   const gridClassName = isCrew
     ? 'flex flex-wrap items-start justify-start gap-2 rounded-lg bg-black/70 p-2 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain'
     : isDilemmaStack
-    ? 'flex flex-col items-center gap-2 rounded-lg bg-black/70 p-2 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain'
+    ? 'flex flex-row items-center gap-2 rounded-lg bg-black/70 p-2 max-w-full overflow-x-auto overscroll-contain'
     : 'flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain';
-  // Sits inside the same scrolling element as the cards (#720's cap on this panel), so a long
-  // stack still keeps both labels reachable by scrolling, not pinned outside the scrolled area.
-  const stackEndLabelClassName = 'text-[10px] font-bold uppercase tracking-wide text-text-secondary';
+  // Sits inside the same scrolling element as the cards (#720's cap on this panel, kept here as a
+  // horizontal `overflow-x-auto` instead, once the stack's own row (above) grows past its bounded
+  // width), so a long stack still keeps both labels reachable by scrolling, not pinned outside the
+  // scrolled area. `shrink-0` keeps a label from losing space to the row next to it as the flex
+  // container's content overflows.
+  const stackEndLabelClassName = 'shrink-0 text-[10px] font-bold uppercase tracking-wide text-text-secondary';
 
   const selectedPersonnel = cards.filter(
     (instance) => selectedIds.includes(instance.id) && instance.card.type === 'personnel'
@@ -305,18 +326,41 @@ export default function PilePanel({
         </button>
         <div data-zone={`pile-panel-${zone}`} className={gridClassName}>
           {isDilemmaStack && <span className={stackEndLabelClassName}>Top (revealed first)</span>}
-          {cards.map((instance) => (
-            <PilePanelCard
-              key={instance.id}
-              instance={instance}
-              onClick={() => onCardClick(instance.id)}
-              selected={selectedIds.includes(instance.id)}
-              onToggleSelect={() => onToggleSelect(instance.id)}
-              cardWidth={cardWidth}
-              cardArtHeight={cardArtHeight}
-              reorderable={isDilemmaStack}
-            />
-          ))}
+          {isDilemmaStack ? (
+            // A relatively-positioned row, each card placed by its own `left`/`zIndex` (the same
+            // pattern `FlatCardRow.tsx` already uses for the core/the brig) rather than a plain
+            // `flex` row, since the cards must overlap (`stackOffset` above) rather than just sit
+            // side by side. `zIndex` rises left to right, so a later (further down the stack)
+            // card's edge sits on top of the one before it, the same reading order the labels at
+            // each end already describe.
+            <div className="relative shrink-0" style={{ width: stackRowWidth, height: cardArtHeight }}>
+              {cards.map((instance, idx) => (
+                <div key={instance.id} className="absolute top-0" style={{ left: idx * stackOffset, zIndex: idx + 1 }}>
+                  <PilePanelCard
+                    instance={instance}
+                    onClick={() => onCardClick(instance.id)}
+                    selected={selectedIds.includes(instance.id)}
+                    onToggleSelect={() => onToggleSelect(instance.id)}
+                    cardWidth={cardWidth}
+                    cardArtHeight={cardArtHeight}
+                    reorderable
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            cards.map((instance) => (
+              <PilePanelCard
+                key={instance.id}
+                instance={instance}
+                onClick={() => onCardClick(instance.id)}
+                selected={selectedIds.includes(instance.id)}
+                onToggleSelect={() => onToggleSelect(instance.id)}
+                cardWidth={cardWidth}
+                cardArtHeight={cardArtHeight}
+              />
+            ))
+          )}
           {isDilemmaStack && <span className={stackEndLabelClassName}>Bottom (revealed last)</span>}
         </div>
       </div>

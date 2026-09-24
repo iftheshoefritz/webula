@@ -897,6 +897,19 @@ function PracticeDrawContent() {
     : openShipRowMissionIndex !== null
     ? missions[openShipRowMissionIndex].ships
     : null;
+  // A drag that started from a card inside the dilemma stack's own popup (#632's reorder) needs
+  // that popup to stay on screen for the rest of the drag: the card the player is aiming at, a
+  // neighbour still in the stack, is inside the popup too, so hiding it (the same
+  // `hidden={draggingInstance !== null}` every other panel below still uses, `PilePanel`'s own
+  // #598/#611 convention) leaves nothing for the player to aim at. `table` still holds the
+  // dragged card in `dilemmaStack` for the whole drag — the reorder/move dispatch only runs at
+  // the drop, in `handleDragEnd` — so re-deriving the drag's origin zone here, the same way
+  // `dragOrigin` does inside `handleDragEnd` itself, reliably answers "did this drag start in the
+  // stack popup" for as long as the drag runs, including one that ends by dropping the card
+  // somewhere else entirely (the dilemma hand, a mission): that drop still moves the card, same
+  // as before this popup started staying visible for it.
+  const dragFromDilemmaStackPanel =
+    draggingInstance !== null && findInstanceAnywhere(table, draggingInstance.id)?.zone === 'dilemmaStack';
 
   if (isPortrait) {
     return <RotateDeviceOverlay />;
@@ -1232,7 +1245,7 @@ function PracticeDrawContent() {
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() => dispatch({ type: 'shuffle', location: openFlatZone })}
                   onSetStopped={setStoppedForSelection}
-                  hidden={draggingInstance !== null}
+                  hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
                 />
