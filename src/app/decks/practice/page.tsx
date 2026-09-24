@@ -52,6 +52,7 @@ import PilePanel, { ShuffleIcon } from './PilePanel';
 import FlatCardRow from './FlatCardRow';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 import { useTableScale } from './tableScale';
+import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 
@@ -557,10 +558,12 @@ function DilemmaStackTopCard({
   topCard,
   count,
   onOpen,
+  zIndex,
 }: {
   topCard: CardInstance;
   count: number;
   onOpen: () => void;
+  zIndex: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
 
@@ -574,17 +577,19 @@ function DilemmaStackTopCard({
       style={{
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         opacity: isDragging ? 0.5 : 1,
+        bottom: 0,
+        zIndex,
       }}
       {...attributes}
       {...listeners}
-      className="absolute inset-0 w-full h-full rounded-lg focus:outline-none touch-none"
+      className="absolute left-0 rounded-lg focus:outline-none touch-none"
     >
       <img
         src={`/cardimages/${topCard.card.imagefile}.jpg`}
         width={120}
         height={167}
         alt={topCard.card.name}
-        className="pointer-events-none rounded-lg shadow-lg w-full h-full object-cover"
+        className="pointer-events-none rounded-lg shadow-lg w-14 h-auto"
       />
     </button>
   );
@@ -618,16 +623,27 @@ function DilemmaStackTopCard({
 // no separate `aria-hidden` is needed. Its height is a mission card's own art height plus its
 // ship row's height, not one card's height, so a dragged dilemma has a bigger target to hit; both
 // pieces scale with `scale` the same way `MissionRow.tsx` scales the mission column beside it.
+//
+// #752: drawn as a vertical fan of normal-sized cards rather than one card-back stretched over
+// the whole zone. Each card keeps its own 120x167 art's true aspect ratio — the same fixed-width,
+// `h-auto` treatment `DiscardPileCard` above already uses — instead of `object-cover` against a
+// forced height. `dilemmaStack[0]`, the top of the physical stack, sits lowest in the zone and
+// frontmost; each later index sits `offset` px higher and one layer further back, so the bottom
+// of the physical stack sits highest — the reverse of `UnderMissionStack`'s own stacking order
+// (`MissionRow.tsx`), which fans its last-added card lowest instead. `offsetFor` (`overlapOffset.ts`)
+// bounds that offset so any number of cards still fits inside the zone's own (unscaled) height.
+const DILEMMA_STACK_CARD_WIDTH = 56; // px, matches the zone's own `w-14`
+const DILEMMA_STACK_CARD_HEIGHT = Math.round((DILEMMA_STACK_CARD_WIDTH * 167) / 120); // px, the card's own aspect ratio
+const DILEMMA_STACK_MAX_OFFSET = 24; // px, the largest gap between fanned cards
+
 function DilemmaStackPile({
-  count,
-  topCard,
+  stack,
   onOpen,
   onReveal,
   visible,
   scale,
 }: {
-  count: number;
-  topCard: CardInstance | undefined;
+  stack: CardInstance[];
   onOpen: () => void;
   onReveal: () => void;
   visible: boolean;
@@ -637,7 +653,10 @@ function DilemmaStackPile({
   const draggedType = useDraggedCardType();
   const highlight = highlightState('dilemmaStack', draggedType, isOver);
   const height = Math.round((TABLE_CARD_ART_HEIGHT + SHIP_CARD_ART_HEIGHT) * scale);
+  const count = stack.length;
+  const topCard = stack[0];
   const revealed = topCard?.face === 'up';
+  const offset = offsetFor(count, DILEMMA_STACK_CARD_HEIGHT, height, DILEMMA_STACK_MAX_OFFSET);
 
   return (
     <div
@@ -647,31 +666,42 @@ function DilemmaStackPile({
       style={{ height, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}
       className={`relative w-14 rounded-lg ${highlightClassName(highlight)}`}
     >
-      {revealed && topCard ? (
-        <DilemmaStackTopCard topCard={topCard} count={count} onOpen={onOpen} />
-      ) : (
-        <button
-          type="button"
-          onClick={onOpen}
-          aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
-          className="absolute inset-0 w-full h-full rounded-lg focus:outline-none"
-        >
-          {count > 0 ? (
-            <img
-              src="/cardimages/cardback.jpg"
-              width={120}
-              height={167}
-              alt="Face-down dilemma stack"
-              className="pointer-events-none rounded-lg shadow-lg w-full h-full object-cover"
-            />
-          ) : (
-            <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
-              Dilemma stack
-            </div>
-          )}
-        </button>
+      {/* Covers the whole box underneath the fan (below), so a tap anywhere the fan doesn't
+          cover still opens the panel. Once the top card is revealed, `DilemmaStackTopCard`
+          below carries the same label as the control the player actually sees and taps, so this
+          one is hidden from the accessibility tree — it stays clickable for the fan's own
+          non-interactive back-card area, just not separately announced. */}
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
+        aria-hidden={revealed || undefined}
+        tabIndex={revealed ? -1 : undefined}
+        className="absolute inset-0 w-full h-full rounded-lg focus:outline-none"
+      >
+        {count === 0 && (
+          <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
+            Dilemma stack
+          </div>
+        )}
+      </button>
+      {stack.map((card, i) =>
+        i === 0 && revealed ? (
+          <DilemmaStackTopCard key={card.id} topCard={card} count={count} onOpen={onOpen} zIndex={count - i} />
+        ) : (
+          <img
+            key={card.id}
+            data-card-id={card.id}
+            src="/cardimages/cardback.jpg"
+            width={120}
+            height={167}
+            alt={i === 0 ? 'Face-down dilemma stack' : ''}
+            className="pointer-events-none absolute left-0 rounded-lg shadow-lg w-14 h-auto"
+            style={{ bottom: i * offset, zIndex: count - i }}
+          />
+        )
       )}
-      <span className="absolute -top-1 -right-1 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none" style={{ height: 14 }}>
+      <span className="absolute -top-1 -right-1 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none" style={{ height: 14, zIndex: count + 1 }}>
         <DilemmaIcon />
         {count > 0 && <span className="text-[8px] font-bold">{count}</span>}
       </span>
@@ -681,6 +711,7 @@ function DilemmaStackPile({
           onClick={onReveal}
           aria-label="Reveal top dilemma"
           className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-black/50 border border-white/50 flex items-center justify-center text-text-primary focus:outline-none"
+          style={{ zIndex: count + 1 }}
         >
           <RevealIcon />
         </button>
@@ -1244,8 +1275,7 @@ function PracticeDrawContent() {
                   scale={scale}
                 />
                 <DilemmaStackPile
-                  count={dilemmaStack.length}
-                  topCard={dilemmaStack[0]}
+                  stack={dilemmaStack}
                   onOpen={() => openOnlyFlatZone('dilemmaStack')}
                   onReveal={() => dispatch({ type: 'flip', id: dilemmaStack[0].id })}
                   visible={dilemmaStackVisible}

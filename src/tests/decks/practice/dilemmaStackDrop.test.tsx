@@ -202,6 +202,93 @@ describe('Practice table: the dilemma stack (#630)', () => {
     expect(cardIds).toEqual([firstId, secondId]);
   });
 
+  // #752: the stack draws every card at its own normal, unstretched shape, fanned vertically —
+  // the top of the physical stack (index 0) lowest and frontmost, each later card higher and
+  // further back — rather than one card back stretched over the whole zone.
+  it('draws the stack as a fan of normal-sized, unstretched cards with the top card frontmost', async () => {
+    const fanDeck = {
+      [mockDilemmaCard.collectorsinfo]: { count: 4, row: mockDilemmaCard },
+      [mockEventCard.collectorsinfo]: { count: 1, row: mockEventCard },
+    };
+    localStorage.setItem('currentDeck', JSON.stringify(fanDeck));
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
+    for (let i = 0; i < 4; i++) {
+      await act(async () => {
+        fireEvent.click(drawDilemmaButton);
+      });
+    }
+
+    const closedDilemmaHandButton = screen.queryByRole('button', { name: /^dilemma hand, 4 cards, tap to open$/i });
+    if (closedDilemmaHandButton) {
+      await act(async () => {
+        fireEvent.click(closedDilemmaHandButton);
+      });
+    }
+
+    const ids = [...mockDraggableIds];
+    expect(ids).toHaveLength(4);
+
+    // Drop all 4 dilemmas onto the stack, in order, so it ends up as `ids` itself (a drop always
+    // appends to the bottom, #630): `ids[0]` is the top of the stack, `ids[3]` the bottom.
+    for (let i = 0; i < ids.length; i++) {
+      await act(async () => {
+        mockOnDragStart!({ active: { id: ids[i] } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: ids[i] }, over: { id: 'dilemmaStack' } });
+      });
+      const remaining = ids.length - 1 - i;
+      const closedHand = screen.queryByRole('button', {
+        name: new RegExp(`^dilemma hand, ${remaining} cards?, tap to open$`, 'i'),
+      });
+      if (closedHand) {
+        await act(async () => {
+          fireEvent.click(closedHand);
+        });
+      }
+    }
+
+    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+    expect(stackZone).not.toBeNull();
+    const images = ids.map((id) => stackZone.querySelector(`img[data-card-id="${id}"]`) as HTMLImageElement);
+
+    // Every card keeps its own normal shape: a fixed width with `h-auto`, not `object-cover`
+    // against a forced height.
+    images.forEach((img) => {
+      expect(img).not.toBeNull();
+      expect(img.className).toContain('w-14');
+      expect(img.className).toContain('h-auto');
+      expect(img.className).not.toContain('object-cover');
+    });
+
+    // `ids[0]`, the top of the physical stack, is the only one with an accessible name; the rest
+    // are decorative, sitting behind it in the fan.
+    expect(images[0].alt).toBe('Face-down dilemma stack');
+    images.slice(1).forEach((img) => expect(img.alt).toBe(''));
+
+    // Front-to-back order: `ids[0]` sits lowest (smallest offset from the zone's bottom) and
+    // frontmost (highest z-index); each later card sits higher and further back.
+    for (let i = 0; i < images.length - 1; i++) {
+      const bottomA = parseInt(images[i].style.bottom, 10);
+      const bottomB = parseInt(images[i + 1].style.bottom, 10);
+      expect(bottomB).toBeGreaterThan(bottomA);
+
+      const zA = Number(images[i].style.zIndex);
+      const zB = Number(images[i + 1].style.zIndex);
+      expect(zA).toBeGreaterThan(zB);
+    }
+
+    // The whole fan still fits inside the zone's own height.
+    const zoneHeight = parseInt(stackZone.style.height, 10);
+    const lastBottom = parseInt(images[images.length - 1].style.bottom, 10);
+    expect(lastBottom).toBeLessThan(zoneHeight);
+  });
+
   it('a tap on the stack opens its panel and closes another open panel (#711)', async () => {
     await setupOpenDilemmaHand();
     const [firstId] = mockDraggableIds;
