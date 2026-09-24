@@ -407,6 +407,52 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
     expect(screen.getByRole('button', { name: /Under the mission pile, 1 card, tap to open/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Dilemma stack, 1 card, tap to open/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Dilemma stack, 0 cards, tap to open/i })).toBeInTheDocument();
+    // The stack is empty again and the drag closed the dilemma hand (#742): the zone hides, but
+    // stays in the DOM (`visibility: hidden`, not removed) so the mission row's column layout
+    // doesn't shift. A `visibility: hidden` element drops out of the accessible-name-based role
+    // query, so read it by its `data-zone` instead.
+    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]');
+    expect(stackZone).not.toBeNull();
+    expect(stackZone).toHaveStyle({ visibility: 'hidden' });
+  });
+
+  // #742: the zone hides once it isn't useful — the stack is empty, the dilemma hand is closed,
+  // and no dilemma is being dragged — and shows again as soon as any one of those changes.
+  it('hides the empty stack zone until the dilemma hand opens or a dilemma is dragged, and stays visible after a drop', async () => {
+    localStorage.setItem('currentDeck', JSON.stringify(mockDeck));
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    // A fresh game: no dilemmas drawn, the dilemma hand closed. The zone stays in the DOM (its
+    // reserved column keeps the mission row in place) but is hidden.
+    const stackZone = () => document.body.querySelector('[data-zone="dilemmaStack"]');
+    expect(stackZone()).not.toBeNull();
+    expect(stackZone()).toHaveStyle({ visibility: 'hidden' });
+
+    // Opening the (still empty) dilemma hand shows the zone.
+    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
+    await act(async () => {
+      fireEvent.click(drawDilemmaButton);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
+    });
+    expect(stackZone()).toHaveStyle({ visibility: 'visible' });
+
+    // Dragging that dilemma closes the hand (`handleDragStart`), but the zone stays visible for
+    // the rest of the drag.
+    const [firstId] = mockDraggableIds;
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    expect(stackZone()).toHaveStyle({ visibility: 'visible' });
+
+    // Dropping it on the stack: the zone stays visible afterward, now that the stack holds a
+    // card.
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+    });
+    expect(stackZone()).toHaveStyle({ visibility: 'visible' });
   });
 });
