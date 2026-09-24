@@ -16,6 +16,11 @@
 // element: the card preview (`z-[200]` in `CardPreview.tsx`) and the pile panel
 // (`z-[150]` in `PilePanel.tsx`). `z-[140]` is comfortably above any hand's card count and
 // comfortably below both overlays.
+//
+// Issue #750: an open hand's backdrop (`z-[145]`) and card fan (`z-[146]`) also sit above this
+// badge — both are portalled into the same stacking context as every pile's badge, so without a
+// higher z-index of their own a badge belonging to a pile, or to the other hand, would draw on
+// top of them (`CardHand.tsx`).
 export default function CountBadge({ count }: { count: number }) {
   return (
     <span className="absolute -top-2 -right-2 z-[140] bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
