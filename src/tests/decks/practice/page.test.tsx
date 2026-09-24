@@ -433,6 +433,7 @@ describe('PracticeDrawPage', () => {
       'ship-row-3',
       'mission-4',
       'ship-row-4',
+      'dilemmaStack',
       'discard',
       'pile',
       'hand',
