@@ -1,7 +1,7 @@
 'use client';
 
-// A mission's personnel, event, dilemma stack, or under-the-mission pile panel (#602, #605,
-// #606), and, since #640, the core's and the brig's own panel too: a tap on a pile's badge (or,
+// A mission's personnel, event, or under-the-mission pile panel (#602, #606), and, since #640,
+// the core's and the brig's own panel too: a tap on a pile's badge (or,
 // for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
 // already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
 // cards face up regardless of their stored face (the same true-face-to-owner convention
@@ -86,25 +86,34 @@ export function ShuffleIcon() {
 // with the panel's own Shuffle button, because the download showed them the whole pile.
 // A mission's own ship row (#713) is a sixth: once it holds more ships than fit without overlap,
 // a tap on any of them opens this panel listing every ship on that row individually, the same
-// way the core and the brig already list their own cards.
-export type PanelZone = MissionPileName | 'core' | 'brig' | 'crew' | 'pile' | 'dilemmaPile' | 'shipRow';
+// way the core and the brig already list their own cards. The dilemma stack (#733) is a seventh;
+// #630 gives it the tap target on the table that opens this panel.
+export type PanelZone =
+  | MissionPileName
+  | 'core'
+  | 'brig'
+  | 'crew'
+  | 'pile'
+  | 'dilemmaPile'
+  | 'dilemmaStack'
+  | 'shipRow';
 
 const PANEL_LABEL: Record<PanelZone, string> = {
   personnel: 'Personnel',
   event: 'Event',
-  dilemma: 'Dilemma',
   underMission: 'Under the mission',
   core: 'Core',
   brig: 'Brig',
   crew: 'Crew',
   pile: 'Draw pile',
   dilemmaPile: 'Dilemma pile',
+  dilemmaStack: 'Dilemma stack',
   shipRow: 'Ships',
 };
 
-// The core, the brig, a ship's crew (#664), the draw pile, the dilemma pile (#690), and a
-// mission's own ship row (#713) already say "pile" (or need no such word at all) in their own
-// label, so their close button's label does not repeat it; a mission pile's label keeps the
+// The core, the brig, a ship's crew (#664), the draw pile, the dilemma pile (#690), the dilemma
+// stack (#733), and a mission's own ship row (#713) already say "pile" or "stack" (or need no
+// such word at all) in their own label, so their close button's label does not repeat it; a mission pile's label keeps the
 // trailing "pile", unchanged from before #640.
 const closeLabel = (zone: PanelZone): string =>
   zone === 'core' ||
@@ -112,6 +121,7 @@ const closeLabel = (zone: PanelZone): string =>
   zone === 'crew' ||
   zone === 'pile' ||
   zone === 'dilemmaPile' ||
+  zone === 'dilemmaStack' ||
   zone === 'shipRow'
     ? `Close ${PANEL_LABEL[zone].toLowerCase()}`
     : `Close ${PANEL_LABEL[zone].toLowerCase()} pile`;

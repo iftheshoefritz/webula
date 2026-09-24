@@ -174,7 +174,7 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
     expect(document.body.querySelector('[data-zone="pile-panel-personnel"]')).toBeNull();
   });
 
-  it('moves a dilemma dragged from a mission\'s dilemma stack back into the dilemma hand', async () => {
+  it('moves a dilemma dragged from under a mission back into the dilemma hand', async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockDilemmaDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
     (expandDeck as jest.Mock).mockReturnValue([]);
@@ -197,7 +197,8 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
     });
     const [firstId] = mockDraggableIds;
 
-    // Build a one-card dilemma stack at mission-0, leaving one dilemma in the dilemma hand.
+    // Put one dilemma under mission-0 (#733: a dilemma dropped on a mission always goes under
+    // it), leaving one dilemma in the dilemma hand.
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
     });
@@ -206,9 +207,9 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
     });
     expect(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i })).toBeInTheDocument();
 
-    // Open the mission's dilemma stack panel and drag the stacked card back into the dilemma hand.
+    // Open that mission's under-the-mission panel and drag the card back into the dilemma hand.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^dilemma pile, 1 card, tap to open$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^under the mission pile, 1 card, tap to open$/i }));
     });
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });

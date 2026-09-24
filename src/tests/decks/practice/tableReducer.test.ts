@@ -17,14 +17,13 @@ const instance = (id: string, cardData: any, face: 'up' | 'down' = 'down'): Card
 });
 
 // Builds a 5-slot missions array, each slot holding the given mission card (or null) and an
-// empty ship row and empty piles, unless a slot's ships/personnel/event/dilemma/underMission are
+// empty ship row and empty piles, unless a slot's ships/personnel/event/underMission are
 // overridden explicitly by index.
 const missionSlots = (
   missions: (CardInstance | null)[],
   shipsByIndex: Record<number, CardInstance[]> = {},
   personnelByIndex: Record<number, CardInstance[]> = {},
   eventByIndex: Record<number, CardInstance[]> = {},
-  dilemmaByIndex: Record<number, CardInstance[]> = {},
   underMissionByIndex: Record<number, CardInstance[]> = {}
 ): MissionSlot[] =>
   Array.from({ length: MISSION_SLOTS }, (_, i) => ({
@@ -32,7 +31,6 @@ const missionSlots = (
     ships: shipsByIndex[i] ?? [],
     personnel: personnelByIndex[i] ?? [],
     event: eventByIndex[i] ?? [],
-    dilemma: dilemmaByIndex[i] ?? [],
     underMission: underMissionByIndex[i] ?? [],
   }));
 
@@ -113,6 +111,13 @@ describe('tableReducer', () => {
 
       expect(state.core).toEqual([]);
       expect(state.brig).toEqual([]);
+    });
+
+    it('empties the dilemma stack even when it held cards before the reset (#733)', () => {
+      const start = { ...initialTableState, dilemmaStack: [instance('d0', card('Chula The Chandra'), 'down')] };
+      const state = tableReducer(start, { type: 'reset', cards: [], missions: [], dilemmas: [] });
+
+      expect(state.dilemmaStack).toEqual([]);
     });
   });
 
@@ -454,55 +459,17 @@ describe('tableReducer', () => {
       expect(state.missions[0].personnel).toEqual([moved]);
     });
 
-    it('builds a face-down dilemma stack at a mission, in drop order (#605)', () => {
-      const first = instance('d1', card('Chula The Chandra'), 'up');
-      const second = instance('d2', card('Kevin Uxbridge'), 'up');
-      const start = { ...initialTableState, dilemmaHand: [first, second], missions: missionSlots([]) };
-      const afterFirst = tableReducer(start, {
-        type: 'move',
-        id: 'd1',
-        to: { zone: 'missionPile', missionIndex: 0, pile: 'dilemma' },
-      });
-      const afterSecond = tableReducer(afterFirst, {
-        type: 'move',
-        id: 'd2',
-        to: { zone: 'missionPile', missionIndex: 0, pile: 'dilemma' },
-      });
-
-      expect(afterSecond.dilemmaHand).toEqual([]);
-      expect(afterSecond.missions[0].dilemma).toEqual([
-        { ...first, face: 'down' },
-        { ...second, face: 'down' },
-      ]);
-    });
-
-    it("moves a revealed dilemma from a mission's stack to the bottom of the dilemma pile, face down (#605)", () => {
-      const stayingOnStack = instance('d1', card('Chula The Chandra'), 'down');
-      const revealed = instance('d2', card('Kevin Uxbridge'), 'up');
-      const bottomOfPile = instance('d3', card('Q Net'), 'down');
-      const start = {
-        ...initialTableState,
-        dilemmaPile: [bottomOfPile],
-        missions: missionSlots([], {}, {}, {}, { 0: [stayingOnStack, revealed] }),
-      };
-      const state = tableReducer(start, { type: 'move', id: 'd2', to: 'dilemmaPile' });
-
-      expect(state.missions[0].dilemma).toEqual([stayingOnStack]);
-      expect(state.dilemmaPile).toEqual([bottomOfPile, { ...revealed, face: 'down' }]);
-    });
-
-    it("moves a revealed dilemma from a mission's stack to under that mission, face up (#606)", () => {
-      const stayingOnStack = instance('d1', card('Chula The Chandra'), 'down');
-      const revealed = instance('d2', card('Kevin Uxbridge'), 'up');
-      const start = { ...initialTableState, missions: missionSlots([], {}, {}, {}, { 0: [stayingOnStack, revealed] }) };
+    it('moves a dilemma dropped on a mission under that mission, whatever its source (#606, #733)', () => {
+      const moved = instance('d1', card('Chula The Chandra'), 'up');
+      const start = { ...initialTableState, dilemmaHand: [moved], missions: missionSlots([]) };
       const state = tableReducer(start, {
         type: 'move',
-        id: 'd2',
+        id: 'd1',
         to: { zone: 'missionPile', missionIndex: 0, pile: 'underMission' },
       });
 
-      expect(state.missions[0].dilemma).toEqual([stayingOnStack]);
-      expect(state.missions[0].underMission).toEqual([{ ...revealed, face: 'up' }]);
+      expect(state.dilemmaHand).toEqual([]);
+      expect(state.missions[0].underMission).toEqual([{ ...moved, face: 'up' }]);
     });
 
     it('moves a dilemma from the discard pile under a mission, face up (#606)', () => {
@@ -529,7 +496,7 @@ describe('tableReducer', () => {
 
     it('moves a dilemma from under a mission back into the dilemma hand, face up (#644)', () => {
       const moved = instance('d0', card('Chula The Chandra'), 'up');
-      const start = { ...initialTableState, missions: missionSlots([], {}, {}, {}, {}, { 0: [moved] }) };
+      const start = { ...initialTableState, missions: missionSlots([], {}, {}, {}, { 0: [moved] }) };
       const state = tableReducer(start, { type: 'move', id: 'd0', to: 'dilemmaHand' });
 
       expect(state.missions[0].underMission).toEqual([]);
@@ -562,6 +529,15 @@ describe('tableReducer', () => {
 
       expect(state.dilemmaPile).toEqual([existing, { ...moved, face: 'down' }]);
     });
+
+    it('moves a card into the dilemma stack face down (#733)', () => {
+      const moved = instance('d1', card('Chula The Chandra'), 'up');
+      const start = { ...initialTableState, discard: [moved] };
+      const state = tableReducer(start, { type: 'move', id: 'd1', to: 'dilemmaStack' });
+
+      expect(state.discard).toEqual([]);
+      expect(state.dilemmaStack).toEqual([{ ...moved, face: 'down' }]);
+    });
   });
 
   describe('shuffle (#680)', () => {
@@ -589,20 +565,6 @@ describe('tableReducer', () => {
 
       expect(new Set(state.brig.map((c) => c.id))).toEqual(new Set(cards.map((c) => c.id)));
       expect(state.core).toEqual([untouched]);
-    });
-
-    it("shuffles a mission's dilemma stack, keeping every card face down", () => {
-      const dilemmas = Array.from({ length: 5 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
-      const start = { ...initialTableState, missions: missionSlots([], {}, {}, {}, { 0: dilemmas }) };
-
-      const state = tableReducer(start, {
-        type: 'shuffle',
-        location: { zone: 'missionPile', missionIndex: 0, pile: 'dilemma' },
-      });
-
-      expect(new Set(state.missions[0].dilemma.map((c) => c.id))).toEqual(new Set(dilemmas.map((c) => c.id)));
-      expect(state.missions[0].dilemma.every((c) => c.face === 'down')).toBe(true);
-      expect(state.missions[1]).toEqual(missionSlots([])[1]);
     });
 
     it("shuffles a ship's crew, leaving the ship's other fields and the rest of the table untouched", () => {
@@ -765,14 +727,6 @@ describe('tableReducer', () => {
       expect(state.missions[0].personnel).toEqual([{ ...flipped, face: 'up' }, untouched]);
     });
 
-    it('reveals a face-down dilemma stacked at a mission, leaving the rest of the stack untouched (#605)', () => {
-      const revealed = instance('d1', card('Chula The Chandra'), 'down');
-      const stillDown = instance('d2', card('Kevin Uxbridge'), 'down');
-      const start = { ...initialTableState, missions: missionSlots([], {}, {}, {}, { 0: [revealed, stillDown] }) };
-      const state = tableReducer(start, { type: 'flip', id: 'd1' });
-
-      expect(state.missions[0].dilemma).toEqual([{ ...revealed, face: 'up' }, stillDown]);
-    });
   });
 
   describe('setStopped (#679, #681)', () => {
@@ -1025,19 +979,9 @@ describe('findInstanceAnywhere', () => {
     });
   });
 
-  it("finds a card in a mission's dilemma stack and reports its mission index and pile (#605)", () => {
-    const dilemma = instance('d0', card('Chula The Chandra'), 'down');
-    const state = { ...initialTableState, missions: missionSlots([], {}, {}, {}, { 2: [dilemma] }) };
-
-    expect(findInstanceAnywhere(state, 'd0')).toEqual({
-      instance: dilemma,
-      zone: { zone: 'missionPile', missionIndex: 2, pile: 'dilemma' },
-    });
-  });
-
   it("finds a card in a mission's under-the-mission pile and reports its mission index and pile (#606)", () => {
     const dilemma = instance('d0', card('Chula The Chandra'), 'up');
-    const state = { ...initialTableState, missions: missionSlots([], {}, {}, {}, {}, { 4: [dilemma] }) };
+    const state = { ...initialTableState, missions: missionSlots([], {}, {}, {}, { 4: [dilemma] }) };
 
     expect(findInstanceAnywhere(state, 'd0')).toEqual({
       instance: dilemma,
