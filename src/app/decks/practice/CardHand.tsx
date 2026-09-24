@@ -203,17 +203,23 @@ export default function CardHand({
         className={`relative focus:outline-none disabled:cursor-default ${open ? '' : highlightClassName(highlight)}`}
         style={{ width: closedWidth, height: CARD_HEIGHT, visibility: open ? 'hidden' : 'visible' }}
       >
-        {instances.map((instance, idx) => (
-          <img
-            key={instance.id}
-            src="/cardimages/cardback.jpg"
-            width={120}
-            height={167}
-            alt=""
-            className="absolute top-0 rounded-lg shadow-md w-14 h-auto"
-            style={{ left: idx * closedOffset, zIndex: idx + 1 }}
-          />
-        ))}
+        {count === 0 ? (
+          <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
+            Empty
+          </div>
+        ) : (
+          instances.map((instance, idx) => (
+            <img
+              key={instance.id}
+              src="/cardimages/cardback.jpg"
+              width={120}
+              height={167}
+              alt=""
+              className="absolute top-0 rounded-lg shadow-md w-14 h-auto"
+              style={{ left: idx * closedOffset, zIndex: idx + 1 }}
+            />
+          ))
+        )}
         {count > 0 && <CountBadge count={count} />}
       </button>
 

@@ -439,6 +439,7 @@ describe('PracticeDrawPage', () => {
       'hand',
       'core',
       'brig',
+      'dilemmaHand',
       'dilemma-pile-top',
       'dilemma-pile-bottom',
     ]);
@@ -456,8 +457,9 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // The empty draw pile shows "Empty"; the still-empty discard pile shows its "Discard" label.
-    expect(screen.getAllByText('Empty').length).toBe(1);
+    // The empty draw pile and the empty dilemma hand (#631) both show "Empty"; the still-empty
+    // discard pile shows its own "Discard" label.
+    expect(screen.getAllByText('Empty').length).toBe(2);
     expect(screen.getByText('Discard')).toBeInTheDocument();
     expect(screen.queryByAltText('Face-down draw pile')).not.toBeInTheDocument();
   });
@@ -711,14 +713,17 @@ describe('PracticeDrawPage', () => {
       });
     };
 
-    it('starts with every dilemma in the dilemma pile and no dilemma hand', async () => {
+    it('starts with every dilemma in the dilemma pile and an empty dilemma hand', async () => {
       await renderWithDilemmas();
 
       // The two drop halves (#607) split the old single button; the count now sits in their
       // shared, non-interactive wrapper instead of either button's own text.
       const dilemmaPile = document.body.querySelector('[data-testid="dilemma-pile"]');
       expect(dilemmaPile!.textContent).toContain('3');
-      expect(screen.queryByRole('button', { name: /dilemma hand/i })).not.toBeInTheDocument();
+      // The dilemma hand renders even at zero cards (#631), as a drop target for a dilemma
+      // dragged back from the stack popup, so it shows disabled with a "0 cards" label instead
+      // of not rendering at all.
+      expect(screen.getByRole('button', { name: /^dilemma hand, 0 cards, tap to open$/i })).toBeDisabled();
     });
 
     it('draws one dilemma into the dilemma hand on a tap', async () => {

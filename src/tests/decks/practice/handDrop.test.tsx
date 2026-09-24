@@ -234,4 +234,20 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
 
     expect(document.body.querySelector('[data-zone="hand"]')).not.toBeNull();
   });
+
+  // #631: the dilemma hand used to render nothing at zero cards, so it had no drop target for a
+  // dilemma dragged back from the stack popup until the player drew one. A fresh table, before
+  // any dilemma is drawn, already puts the dilemma hand in that state.
+  it('marks the (empty) dilemma hand with the data-zone selector even before any dilemma is drawn', async () => {
+    localStorage.setItem('currentDeck', JSON.stringify(mockPersonnelDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (expandDeck as jest.Mock).mockReturnValue([mockPersonnelCard]);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    expect(screen.getByRole('button', { name: /^dilemma hand, 0 cards, tap to open$/i })).toBeInTheDocument();
+    expect(document.body.querySelector('[data-zone="dilemmaHand"]')).not.toBeNull();
+  });
 });
