@@ -53,7 +53,7 @@ import FlatCardRow from './FlatCardRow';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 import { useTableScale } from './tableScale';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
-import { highlightClassName, highlightState } from './zoneAccepts';
+import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 
 // A plain inline hamburger icon (#722), not react-icons: see `DownloadIcon`'s comment below for
 // why a react-icons import here would need every test mock of `react-icons/fa` in this file's own
@@ -156,9 +156,21 @@ const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig', 
 const DILEMMA_PILE_TOP_DROPPABLE_ID = 'dilemma-pile-top';
 const DILEMMA_PILE_BOTTOM_DROPPABLE_ID = 'dilemma-pile-bottom';
 
+// The draw pile's own two drop targets (#743), the same top/bottom split as the dilemma pile
+// above: a drop on the top half puts the card first in `pile` (drawn next), the bottom half
+// puts it last. Unlike the dilemma pile, the draw pile accepts every card type, not only one.
+const DRAW_PILE_TOP_DROPPABLE_ID = 'draw-pile-top';
+const DRAW_PILE_BOTTOM_DROPPABLE_ID = 'draw-pile-bottom';
+
 function dilemmaPileHalfFromDropId(id: string): 'top' | 'bottom' | null {
   if (id === DILEMMA_PILE_TOP_DROPPABLE_ID) return 'top';
   if (id === DILEMMA_PILE_BOTTOM_DROPPABLE_ID) return 'bottom';
+  return null;
+}
+
+function drawPileHalfFromDropId(id: string): 'top' | 'bottom' | null {
+  if (id === DRAW_PILE_TOP_DROPPABLE_ID) return 'top';
+  if (id === DRAW_PILE_BOTTOM_DROPPABLE_ID) return 'bottom';
   return null;
 }
 
@@ -182,6 +194,10 @@ function computeMoveTargetForInstance(
 
   if (dilemmaPileHalfFromDropId(String(over.id))) {
     return 'dilemmaPile';
+  }
+
+  if (drawPileHalfFromDropId(String(over.id))) {
+    return 'pile';
   }
 
   const shipId = shipIdFromCrewDropId(String(over.id));
@@ -292,22 +308,25 @@ function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; co
   );
 }
 
-// One half of the dilemma pile's two drop targets (#607): the top half puts a dropped card first
-// in the pile (drawn next), the bottom half puts it last. Each half is its own `<button>`, the
-// same sibling-not-nested pattern `PileBadge` (`MissionRow.tsx`) already uses to combine a tap
-// control and a droppable without nesting one button inside another — here the two halves sit as
-// absolutely positioned siblings over the shared, non-interactive card art in `DilemmaPileButton`
-// below, each covering exactly half its height and the full width, so both halves together cover
-// the whole card and neither changes the card's footprint. A tap on either half draws, same as
-// tapping anywhere on the old single button; `disabled` here only stops the tap (`useDroppable`'s
-// geometry, and so a drop, works on a disabled button same as an enabled one, #607 review).
-function DilemmaPileHalf({
+// One half of a pile's two drop targets — the dilemma pile's (#607) or the draw pile's (#743):
+// the top half puts a dropped card first in the pile (drawn next), the bottom half puts it last.
+// Each half is its own `<button>`, the same sibling-not-nested pattern `PileBadge`
+// (`MissionRow.tsx`) already uses to combine a tap control and a droppable without nesting one
+// button inside another — here the two halves sit as absolutely positioned siblings over the
+// shared, non-interactive card art in `DilemmaPileButton`/`DrawPileButton` below, each covering
+// exactly half its height and the full width, so both halves together cover the whole card and
+// neither changes the card's footprint. A tap on either half draws, same as tapping anywhere on
+// the old single button; `disabled` here only stops the tap (`useDroppable`'s geometry, and so a
+// drop, works on a disabled button same as an enabled one, #607 review).
+function PileHalf({
   dropId,
   label,
   position,
   count,
   onDraw,
   showLabel,
+  zoneKind,
+  pileName,
 }: {
   dropId: string;
   label: string;
@@ -315,10 +334,12 @@ function DilemmaPileHalf({
   count: number;
   onDraw: () => void;
   showLabel: boolean;
+  zoneKind: ZoneKind;
+  pileName: string;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dropId });
   const draggedType = useDraggedCardType();
-  const highlight = highlightState('dilemmaPile', draggedType, isOver);
+  const highlight = highlightState(zoneKind, draggedType, isOver);
 
   return (
     <button
@@ -327,7 +348,7 @@ function DilemmaPileHalf({
       data-highlight={highlight}
       onClick={onDraw}
       disabled={count === 0}
-      aria-label={`Dilemma pile ${position}, tap to draw`}
+      aria-label={`${pileName} ${position}, tap to draw`}
       className={`absolute inset-x-0 ${position === 'top' ? 'top-0' : 'bottom-0'} h-1/2 focus:outline-none disabled:cursor-not-allowed ${highlightClassName(
         highlight
       )} ${position === 'top' ? 'rounded-t-lg' : 'rounded-b-lg'}`}
@@ -420,21 +441,82 @@ function DilemmaPileButton({
         </div>
       )}
 
-      <DilemmaPileHalf
+      <PileHalf
         dropId={DILEMMA_PILE_TOP_DROPPABLE_ID}
         label="Top"
         position="top"
         count={count}
         onDraw={onDraw}
         showLabel={showPositionLabel}
+        zoneKind="dilemmaPile"
+        pileName="Dilemma pile"
       />
-      <DilemmaPileHalf
+      <PileHalf
         dropId={DILEMMA_PILE_BOTTOM_DROPPABLE_ID}
         label="Bottom"
         position="bottom"
         count={count}
         onDraw={onDraw}
         showLabel={showPositionLabel}
+        zoneKind="dilemmaPile"
+        pileName="Dilemma pile"
+      />
+    </div>
+  );
+}
+
+// The draw pile (#743): the same top/bottom drop-half split the dilemma pile above uses, wired
+// to the `pile` zone rather than `dilemmaPile`. Unlike the dilemma pile, the draw pile accepts
+// every card type — so `showPositionLabel` gates only on whether any drag is in progress at all,
+// not on the dragged card's type, and the halves' zone kind (`zoneAccepts.ts`) accepts every
+// type too. A tap on either half still draws, same as the single button this replaces.
+function DrawPileButton({
+  count,
+  onDraw,
+  showPositionLabel,
+}: {
+  count: number;
+  onDraw: () => void;
+  showPositionLabel: boolean;
+}) {
+  return (
+    <div className={`relative w-14 h-20 group ${count === 0 ? 'opacity-50' : ''}`}>
+      {count > 0 ? (
+        <>
+          <img
+            src="/cardimages/cardback.jpg"
+            width={120}
+            height={167}
+            alt="Face-down draw pile"
+            className="pointer-events-none rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-full h-full object-cover"
+          />
+          <CountBadge count={count} />
+        </>
+      ) : (
+        <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
+          Empty
+        </div>
+      )}
+
+      <PileHalf
+        dropId={DRAW_PILE_TOP_DROPPABLE_ID}
+        label="Top"
+        position="top"
+        count={count}
+        onDraw={onDraw}
+        showLabel={showPositionLabel}
+        zoneKind="pile"
+        pileName="Draw pile"
+      />
+      <PileHalf
+        dropId={DRAW_PILE_BOTTOM_DROPPABLE_ID}
+        label="Bottom"
+        position="bottom"
+        count={count}
+        onDraw={onDraw}
+        showLabel={showPositionLabel}
+        zoneKind="pile"
+        pileName="Draw pile"
       />
     </div>
   );
@@ -860,14 +942,17 @@ function PracticeDrawContent() {
       }
     }
 
-    // A drop on the dilemma pile's top half (#607) puts the group first in the pile, in front of
-    // its existing cards; the bottom half (the default, `position` undefined) puts it last. This
-    // branch does not depend on a dragged card's type (`computeMoveTargetForInstance`), so it
-    // resolves the same way for every card in the group. Dispatching one `move` per card, in the
-    // group's own order, keeps that order in the destination for the default, appending case:
-    // each dispatch adds its card after the ones already there. A 'top' drop reverses the
-    // dispatch order instead, since a repeated prepend would otherwise reverse the group (#677).
-    const position = over ? dilemmaPileHalfFromDropId(String(over.id)) ?? undefined : undefined;
+    // A drop on the dilemma pile's or the draw pile's top half (#607, #743) puts the group first
+    // in the pile, in front of its existing cards; the bottom half (the default, `position`
+    // undefined) puts it last. This branch does not depend on a dragged card's type
+    // (`computeMoveTargetForInstance`), so it resolves the same way for every card in the group.
+    // Dispatching one `move` per card, in the group's own order, keeps that order in the
+    // destination for the default, appending case: each dispatch adds its card after the ones
+    // already there. A 'top' drop reverses the dispatch order instead, since a repeated prepend
+    // would otherwise reverse the group (#677).
+    const position = over
+      ? dilemmaPileHalfFromDropId(String(over.id)) ?? drawPileHalfFromDropId(String(over.id)) ?? undefined
+      : undefined;
     const orderedGroup = position === 'top' ? [...group].reverse() : group;
 
     // Each card in the group resolves its own target and, per #677's spec, a card the drop
@@ -1126,32 +1211,18 @@ function PracticeDrawContent() {
                         <ShuffleIcon />
                       </button>
                       <div className="flex items-end gap-1">
-                        <button
-                          data-zone="pile"
-                          onClick={drawOne}
-                          disabled={pile.length === 0}
-                          className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {pile.length > 0 ? (
-                            <>
-                              <img
-                                src="/cardimages/cardback.jpg"
-                                width={120}
-                                height={167}
-                                alt="Face-down draw pile"
-                                className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-14 h-auto"
-                              />
-                              <CountBadge count={pile.length} />
-                            </>
-                          ) : (
-                            <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
-                              Empty
-                            </div>
-                          )}
-                        </button>
+                        {/* Draw pile (#743): the same top/bottom drop-half split as the dilemma
+                            pile, so a card dragged from any zone can be filed back in at either
+                            end of the pile, not only drawn from the top. */}
+                        <DrawPileButton
+                          count={pile.length}
+                          onDraw={drawOne}
+                          showPositionLabel={draggingInstance !== null}
+                        />
                         {/* Download from the draw pile without drawing (#690): a separate control,
                             beside the draw-pile button rather than layered on it, so it never
-                            steals the button's own tap-to-draw click. */}
+                            steals the button's own tap-to-draw click or its top/bottom drop
+                            halves. */}
                         <DownloadPileButton label="draw pile" count={pile.length} onOpen={() => openOnlyFlatZone('pile')} />
                       </div>
                     </div>
@@ -1171,7 +1242,12 @@ function PracticeDrawContent() {
                     onCardClick={(id) => setFocusedCardId(id)}
                     dragging={draggingInstance !== null}
                     portalContainer={gameLayer}
-                    passthroughZone={['pile', DILEMMA_PILE_TOP_DROPPABLE_ID, DILEMMA_PILE_BOTTOM_DROPPABLE_ID]}
+                    passthroughZone={[
+                      DRAW_PILE_TOP_DROPPABLE_ID,
+                      DRAW_PILE_BOTTOM_DROPPABLE_ID,
+                      DILEMMA_PILE_TOP_DROPPABLE_ID,
+                      DILEMMA_PILE_BOTTOM_DROPPABLE_ID,
+                    ]}
                     selectedIds={selectedCardIds}
                     onToggleSelect={toggleCardSelection}
                   />
@@ -1220,7 +1296,12 @@ function PracticeDrawContent() {
                     portalContainer={gameLayer}
                     zone="dilemmaHand"
                     label="dilemma hand"
-                    passthroughZone={['pile', DILEMMA_PILE_TOP_DROPPABLE_ID, DILEMMA_PILE_BOTTOM_DROPPABLE_ID]}
+                    passthroughZone={[
+                      DRAW_PILE_TOP_DROPPABLE_ID,
+                      DRAW_PILE_BOTTOM_DROPPABLE_ID,
+                      DILEMMA_PILE_TOP_DROPPABLE_ID,
+                      DILEMMA_PILE_BOTTOM_DROPPABLE_ID,
+                    ]}
                     selectedIds={selectedCardIds}
                     onToggleSelect={toggleCardSelection}
                   />
