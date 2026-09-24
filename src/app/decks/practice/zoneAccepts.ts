@@ -22,7 +22,8 @@ export type ZoneKind =
   | 'discard'
   | 'dilemmaPile'
   | 'hand'
-  | 'dilemmaHand';
+  | 'dilemmaHand'
+  | 'dilemmaStack';
 
 // `null` means every card type highlights this zone kind.
 const ZONE_ACCEPTS: Record<ZoneKind, readonly string[] | null> = {
@@ -35,6 +36,7 @@ const ZONE_ACCEPTS: Record<ZoneKind, readonly string[] | null> = {
   dilemmaPile: ['dilemma'],
   hand: null,
   dilemmaHand: ['dilemma'],
+  dilemmaStack: ['dilemma'],
 };
 
 function zoneAccepts(kind: ZoneKind, cardType: string): boolean {
