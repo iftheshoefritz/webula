@@ -65,9 +65,11 @@ jobs:
             2. Make all necessary code changes, following existing code style and conventions in the codebase.
             3. Save the work as soon as the code change is written, before you validate it. A run can stop on any turn: the turn limit, or a rate limit that gives no warning. An unpushed change is lost, and the next run starts again from nothing. Run 35851291387 on issue #690 stopped at turn 40 with the work unpushed, and all of it was lost. Runs 35967322676 (issue #630) and 35968374324 (issue #733) each stopped at the turn limit part of the way through the edits, again with nothing pushed.
                A branch whose tests still fail is worth far more than no branch. The pull request is a draft, and step 4 fixes the failures.
-               Make the branch and the draft pull request BEFORE you finish the edits, not after. Create the branch as soon as you start to edit, and commit and push every few edits, whether or not the code compiles yet. Keep exploration short: read the "## Implementation Plan" comment on the issue and trust the file names and the function names it gives you, instead of searching the codebase again to find them.
+               Make the branch and the draft pull request BEFORE you finish the edits, not after. Create the branch as soon as you start to edit, and commit and push every few edits, whether or not the code compiles yet.
+               Start the message of every commit in this step with `wip:`, for example `wip: add the reducer action`. `vercel.json` has an `ignoreCommand` that skips the Vercel build for a commit whose message starts with `wip:`, so an unfinished push does not fail a deployment. Steps 4 and 6 push a finished change, so their commit messages must NOT start with `wip:`.
+               Keep exploration short: read the "## Implementation Plan" comment on the issue and trust the file names and the function names it gives you, instead of searching the codebase again to find them.
                a. Create a new branch named `issue-${{ github.event.issue.number }}-<short-description>` from the current HEAD.
-               b. Commit your changes to that branch with a descriptive commit message referencing the issue number.
+               b. Commit your changes to that branch with a `wip:` message referencing the issue number.
                c. Push the branch to the remote repository.
                d. Open a draft pull request (`gh pr create --draft`) targeting the main branch with:
                   - Title summarizing the change

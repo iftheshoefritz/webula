@@ -102,6 +102,12 @@ Vercel runs both in one chain. The `buildCommand` in `vercel.json` is
 `NODE_ENV=test yarn test --ci && yarn build`, so a test failure stops the
 deployment before the build starts.
 
+Start the message of an unfinished commit with `wip:`. The `ignoreCommand` in
+`vercel.json` skips the Vercel build for such a commit, so a push of work in
+progress does not report a failed deployment. The implementation workflow pushes
+every few edits, before the tests pass, for the reason
+`.github/workflows/README.md` gives. Give a finished commit a normal message.
+
 ### To read why a workflow run failed
 
 Do not use `gh run view --log`. It truncates a long log and gives no warning

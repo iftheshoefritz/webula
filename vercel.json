@@ -1,4 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "NODE_ENV=test yarn test --ci && yarn build"
+  "buildCommand": "NODE_ENV=test yarn test --ci && yarn build",
+  "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_MESSAGE\" in wip:*) exit 0;; *) exit 1;; esac"
 }
