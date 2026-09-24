@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useReducer, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
+  CollisionDetection,
   DndContext,
   DragEndEvent,
   DragOverlay,
@@ -911,6 +912,36 @@ function PracticeDrawContent() {
   const dragFromDilemmaStackPanel =
     draggingInstance !== null && findInstanceAnywhere(table, draggingInstance.id)?.zone === 'dilemmaStack';
 
+  // Keeping the popup visible mid-drag (above) is not enough on its own: dnd-kit's collision
+  // detection ranks droppables purely by their on-screen rects, oblivious to which element paints
+  // on top, so a stack card's own reorder droppable can lose to a mission's `ship-row-<n>` zone
+  // that happens to overlap it at a short viewport (#632's review, 568x320). Restricting the
+  // candidate droppables by whether the pointer is inside the popup's own row fixes this without
+  // touching every other drag on the table: inside the popup, only the stack cards' reorder
+  // droppables can win, so a drop there always reorders; outside it, the stack cards are excluded
+  // so a drop still reaches whatever zone is under the pointer, same as before this popup started
+  // staying open (dnd-kit only reports a stack card as a candidate at all when the pointer is
+  // already over its own rect, which only happens inside the popup, so this exclusion never hides
+  // a legitimate target elsewhere on the table).
+  const dilemmaStackPopupCollisionDetection: CollisionDetection = (args) => {
+    if (!dragFromDilemmaStackPanel) return collisionDetection(args);
+    const panelEl = document.querySelector('[data-zone="pile-panel-dilemmaStack"]');
+    const panelRect = panelEl?.getBoundingClientRect();
+    const pointer = args.pointerCoordinates;
+    const insidePanel =
+      !!panelRect &&
+      !!pointer &&
+      pointer.x >= panelRect.left &&
+      pointer.x <= panelRect.right &&
+      pointer.y >= panelRect.top &&
+      pointer.y <= panelRect.bottom;
+    const stackCardIds = new Set(dilemmaStack.map((c) => c.id));
+    const droppableContainers = args.droppableContainers.filter((container) =>
+      insidePanel ? stackCardIds.has(String(container.id)) : !stackCardIds.has(String(container.id))
+    );
+    return collisionDetection({ ...args, droppableContainers });
+  };
+
   if (isPortrait) {
     return <RotateDeviceOverlay />;
   }
@@ -955,7 +986,7 @@ function PracticeDrawContent() {
             // instead of boarding (#645). `collisionDetection` re-ranks the same overlap set by
             // area instead, smallest first, so the most-nested zone the dragged card touches
             // always wins.
-            collisionDetection={collisionDetection}
+            collisionDetection={dilemmaStackPopupCollisionDetection}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
