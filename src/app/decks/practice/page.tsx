@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useReducer, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
+  CollisionDetection,
   DndContext,
   DragEndEvent,
   DragOverlay,
@@ -802,6 +803,22 @@ function PracticeDrawContent() {
     // drag started from a card inside it and it still holds a card after the drop (#675).
     setFocusedCardId(null);
 
+    // A drop inside the dilemma stack's own popup, on top of another card still in the stack,
+    // reorders the stack instead of moving the card out of its zone (#632). The dragged card's
+    // origin has to be the stack itself, and the drop has to land on another card that is still
+    // in the stack — only a drag that started from this same open popup can ever land on a stack
+    // card's own id (`PilePanelCard`'s `reorderable` droppable), so this cannot misfire against
+    // an unrelated drag. Returning here skips the "card left its panel" side effects a real
+    // move-out triggers below (`closePanelsAfterDrag`, clearing `selectedCardIds`), since the
+    // card never leaves the zone it was selected in.
+    if (over && dragOrigin?.zone === 'dilemmaStack') {
+      const overId = String(over.id);
+      if (overId !== id && dilemmaStack.some((c) => c.id === overId)) {
+        dispatch({ type: 'reorderDilemmaStack', id, overId });
+        return;
+      }
+    }
+
     // A drop on the dilemma pile's top half (#607) puts the group first in the pile, in front of
     // its existing cards; the bottom half (the default, `position` undefined) puts it last. This
     // branch does not depend on a dragged card's type (`computeMoveTargetForInstance`), so it
@@ -881,6 +898,49 @@ function PracticeDrawContent() {
     : openShipRowMissionIndex !== null
     ? missions[openShipRowMissionIndex].ships
     : null;
+  // A drag that started from a card inside the dilemma stack's own popup (#632's reorder) needs
+  // that popup to stay on screen for the rest of the drag: the card the player is aiming at, a
+  // neighbour still in the stack, is inside the popup too, so hiding it (the same
+  // `hidden={draggingInstance !== null}` every other panel below still uses, `PilePanel`'s own
+  // #598/#611 convention) leaves nothing for the player to aim at. `table` still holds the
+  // dragged card in `dilemmaStack` for the whole drag — the reorder/move dispatch only runs at
+  // the drop, in `handleDragEnd` — so re-deriving the drag's origin zone here, the same way
+  // `dragOrigin` does inside `handleDragEnd` itself, reliably answers "did this drag start in the
+  // stack popup" for as long as the drag runs, including one that ends by dropping the card
+  // somewhere else entirely (the dilemma hand, a mission): that drop still moves the card, same
+  // as before this popup started staying visible for it.
+  const dragFromDilemmaStackPanel =
+    draggingInstance !== null && findInstanceAnywhere(table, draggingInstance.id)?.zone === 'dilemmaStack';
+
+  // Keeping the popup visible mid-drag (above) is not enough on its own: dnd-kit's collision
+  // detection ranks droppables purely by their on-screen rects, oblivious to which element paints
+  // on top, so a stack card's own reorder droppable can lose to a mission's `ship-row-<n>` zone
+  // that happens to overlap it at a short viewport (#632's review, 568x320). Restricting the
+  // candidate droppables by whether the pointer is inside the popup's own row fixes this without
+  // touching every other drag on the table: inside the popup, only the stack cards' reorder
+  // droppables can win, so a drop there always reorders; outside it, the stack cards are excluded
+  // so a drop still reaches whatever zone is under the pointer, same as before this popup started
+  // staying open (dnd-kit only reports a stack card as a candidate at all when the pointer is
+  // already over its own rect, which only happens inside the popup, so this exclusion never hides
+  // a legitimate target elsewhere on the table).
+  const dilemmaStackPopupCollisionDetection: CollisionDetection = (args) => {
+    if (!dragFromDilemmaStackPanel) return collisionDetection(args);
+    const panelEl = document.querySelector('[data-zone="pile-panel-dilemmaStack"]');
+    const panelRect = panelEl?.getBoundingClientRect();
+    const pointer = args.pointerCoordinates;
+    const insidePanel =
+      !!panelRect &&
+      !!pointer &&
+      pointer.x >= panelRect.left &&
+      pointer.x <= panelRect.right &&
+      pointer.y >= panelRect.top &&
+      pointer.y <= panelRect.bottom;
+    const stackCardIds = new Set(dilemmaStack.map((c) => c.id));
+    const droppableContainers = args.droppableContainers.filter((container) =>
+      insidePanel ? stackCardIds.has(String(container.id)) : !stackCardIds.has(String(container.id))
+    );
+    return collisionDetection({ ...args, droppableContainers });
+  };
 
   if (isPortrait) {
     return <RotateDeviceOverlay />;
@@ -926,7 +986,7 @@ function PracticeDrawContent() {
             // instead of boarding (#645). `collisionDetection` re-ranks the same overlap set by
             // area instead, smallest first, so the most-nested zone the dragged card touches
             // always wins.
-            collisionDetection={collisionDetection}
+            collisionDetection={dilemmaStackPopupCollisionDetection}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
@@ -1216,7 +1276,7 @@ function PracticeDrawContent() {
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() => dispatch({ type: 'shuffle', location: openFlatZone })}
                   onSetStopped={setStoppedForSelection}
-                  hidden={draggingInstance !== null}
+                  hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
                 />

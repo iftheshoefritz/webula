@@ -325,4 +325,88 @@ describe('Practice table: the dilemma stack (#630)', () => {
     });
     expect(screen.queryByText('Face down')).not.toBeInTheDocument();
   });
+
+  // #632: a drop inside the stack popup, on top of another card still in the stack, reorders the
+  // stack rather than moving the dropped card out of it.
+  it('reorders the stack when one card is dropped on another inside the popup, and the order survives closing and reopening it', async () => {
+    await setupOpenDilemmaHand();
+    const [firstId, secondId] = mockDraggableIds;
+
+    // Move both dilemmas onto the stack, in order: the stack starts as [firstId, secondId]
+    // (appending to the bottom, #630).
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: secondId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: secondId }, over: { id: 'dilemmaStack' } });
+    });
+
+    // Open the stack popup and drag secondId onto firstId, moving it ahead of firstId.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 2 cards, tap to open' }));
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: secondId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: secondId }, over: { id: firstId } });
+    });
+
+    // The card never left the stack, so the popup stays open and shows the new order at once.
+    let stackPanel = document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]');
+    expect(stackPanel).not.toBeNull();
+    let cardIds = Array.from(stackPanel!.querySelectorAll('[data-card-id]')).map((el) =>
+      el.getAttribute('data-card-id')
+    );
+    expect(cardIds).toEqual([secondId, firstId]);
+
+    // Close and reopen the popup: the new order lives in the table state itself, not only in the
+    // popup's own rendering.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close dilemma stack' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 2 cards, tap to open' }));
+    });
+    stackPanel = document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]');
+    cardIds = Array.from(stackPanel!.querySelectorAll('[data-card-id]')).map((el) => el.getAttribute('data-card-id'));
+    expect(cardIds).toEqual([secondId, firstId]);
+  });
+
+  // #632: the reorder detection must not swallow an ordinary drag out of the popup onto a real
+  // zone — here, under a mission, same as a dilemma dragged from anywhere else (#606, #733).
+  it('still moves a dilemma dragged from the stack popup onto a mission card, not a reorder', async () => {
+    await setupOpenDilemmaHand();
+    const [firstId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' }));
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
+    });
+
+    expect(screen.getByRole('button', { name: /Under the mission pile, 1 card, tap to open/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Dilemma stack, 1 card, tap to open/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Dilemma stack, 0 cards, tap to open/i })).toBeInTheDocument();
+  });
 });

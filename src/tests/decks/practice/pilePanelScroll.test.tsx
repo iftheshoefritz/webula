@@ -5,6 +5,7 @@
 // controls sit outside that scrolling element so they never scroll away with the cards.
 jest.mock('@dnd-kit/core', () => ({
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false }),
+  useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
 }));
 
 import React from 'react';
