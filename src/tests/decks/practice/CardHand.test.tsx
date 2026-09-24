@@ -269,5 +269,52 @@ describe('CardHand', () => {
       expect(onClose).toHaveBeenCalledTimes(1);
       target.remove();
     });
+
+    // #741: a hand also passes a tap through to the dilemma pile's two halves, so either hand
+    // can stay open while the player draws from either pile.
+    it('forwards a tap to whichever of several named passthrough zones it lands on', () => {
+      const onPassthroughClick = jest.fn();
+      const target = renderWithPassthroughTarget(onPassthroughClick);
+      target.setAttribute('data-zone', 'dilemma-pile-top');
+      render(
+        <CardHand
+          instances={makeInstances(3)}
+          open
+          onOpen={() => {}}
+          onClose={() => {}}
+          onCardClick={() => {}}
+          passthroughZone={['pile', 'dilemma-pile-top', 'dilemma-pile-bottom']}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /^close hand$/i }), { clientX: 120, clientY: 120 });
+
+      expect(onPassthroughClick).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
+      target.remove();
+    });
+
+    it('still closes the hand when a tap misses every named passthrough zone', () => {
+      const onPassthroughClick = jest.fn();
+      const onClose = jest.fn();
+      const target = renderWithPassthroughTarget(onPassthroughClick);
+      target.setAttribute('data-zone', 'dilemma-pile-top');
+      render(
+        <CardHand
+          instances={makeInstances(3)}
+          open
+          onOpen={() => {}}
+          onClose={onClose}
+          onCardClick={() => {}}
+          passthroughZone={['pile', 'dilemma-pile-top', 'dilemma-pile-bottom']}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /^close hand$/i }), { clientX: 0, clientY: 0 });
+
+      expect(onPassthroughClick).not.toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalledTimes(1);
+      target.remove();
+    });
   });
 });

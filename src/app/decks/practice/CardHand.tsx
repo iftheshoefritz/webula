@@ -140,15 +140,18 @@ export default function CardHand({
   // not have to pass them.
   selectedIds?: string[];
   onToggleSelect?: (id: string) => void;
-  // The `data-zone` of another control that stays tappable through the full-screen backdrop
+  // The `data-zone`(s) of other controls that stay tappable through the full-screen backdrop
   // while this hand is open (issue #638: the draw pile, so the player can draw without closing
-  // an open hand first). The backdrop covers the whole screen, including that control, so a
-  // real tap always lands on the backdrop's own element, not the control underneath it. Rather
-  // than reworking the table's stacking contexts so the control paints above the backdrop, the
-  // backdrop hit-tests the tap's coordinates against that control's current bounding box and,
-  // on a hit, forwards the tap to it (`.click()`) instead of closing the hand — the control
-  // keeps its own click handling (including its own `disabled` state) unchanged.
-  passthroughZone?: string;
+  // an open hand first; issue #741: also the dilemma pile's two halves, so a tap there behaves
+  // the same way, whichever hand is open). The backdrop covers the whole screen, including
+  // those controls, so a real tap always lands on the backdrop's own element, not the control
+  // underneath it. Rather than reworking the table's stacking contexts so the control paints
+  // above the backdrop, the backdrop hit-tests the tap's coordinates against each named
+  // control's current bounding box, in order, and on the first hit forwards the tap to it
+  // (`.click()`) instead of closing the hand — the control keeps its own click handling
+  // (including its own `disabled` state) unchanged. A single string is also accepted for a
+  // caller with only one passthrough target.
+  passthroughZone?: string | string[];
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
@@ -166,21 +169,25 @@ export default function CardHand({
   const highlight = highlightState(zone, draggedType, isOver);
 
   const handleBackdropClick = (event: React.MouseEvent) => {
-    if (passthroughZone) {
-      const target = document.querySelector<HTMLElement>(`[data-zone="${passthroughZone}"]`);
-      if (target) {
-        const rect = target.getBoundingClientRect();
-        if (
-          rect.width > 0 &&
-          rect.height > 0 &&
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom
-        ) {
-          target.click();
-          return;
-        }
+    const passthroughZones = passthroughZone
+      ? Array.isArray(passthroughZone)
+        ? passthroughZone
+        : [passthroughZone]
+      : [];
+    for (const zoneName of passthroughZones) {
+      const target = document.querySelector<HTMLElement>(`[data-zone="${zoneName}"]`);
+      if (!target) continue;
+      const rect = target.getBoundingClientRect();
+      if (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom
+      ) {
+        target.click();
+        return;
       }
     }
     onClose();
