@@ -6,6 +6,8 @@
 
 Vercel chains the two through the `buildCommand` in `vercel.json`, so a test failure stops the deployment.
 
+The implementation workflow pushes every few edits, before the tests pass, so the work survives a run that hits the turn limit. Such a push would report a failed deployment, so the `ignoreCommand` in `vercel.json` skips the Vercel build for a commit whose message starts with `wip:`. Step 3 of `claude-implement.yml` uses that prefix; steps 4 and 6, which push a finished change, do not.
+
 ---
 
 ## Claude Issue Triage (`claude-triage.yml`)
