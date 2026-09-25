@@ -949,12 +949,17 @@ function PracticeDrawContent() {
     setOpenShipRowMissionIndex(missionIndex);
   };
 
+  // A drag ends a press and hold (#763), and hides a hover preview (#766). Called at the drag's
+  // start and again at its end, on every branch (#776): a preview that came back during the drag
+  // (a hold whose release never reached `window`) must not outlive it.
+  const closePreviews = () => {
+    setHeldCardId(null);
+    setHoveredCardId(null);
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const id = String(event.active.id);
-    // A drag ends a press and hold (#763): the hold's preview closes.
-    setHeldCardId(null);
-    // A drag hides a hover preview too (#766).
-    setHoveredCardId(null);
+    closePreviews();
     draggingRef.current = true;
     // Measured now, before `setOpenHand(null)` commits, so the rectangle is the card in the open
     // fan, not the card in the closed hand (#774).
@@ -1067,6 +1072,7 @@ function PracticeDrawContent() {
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    closePreviews();
     const { active, over } = event;
     const id = String(active.id);
     // The dragged card's zone before the drop, read while `table` still holds its pre-drop
@@ -1168,6 +1174,7 @@ function PracticeDrawContent() {
   };
 
   const handleDragCancel = () => {
+    closePreviews();
     pressRef.current = null;
     cancelDrag(draggingInstance ? findInstanceAnywhere(table, draggingInstance.id) : null);
   };
