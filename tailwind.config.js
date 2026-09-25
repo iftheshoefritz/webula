@@ -93,6 +93,17 @@ module.exports = {
         'slow': '200ms',
         'expand': '300ms',
       },
+
+      // The large card preview fades in when it opens (#763).
+      keyframes: {
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+      },
+      animation: {
+        'fade-in': 'fade-in 100ms ease-out',
+      },
     },
   },
   plugins: [],

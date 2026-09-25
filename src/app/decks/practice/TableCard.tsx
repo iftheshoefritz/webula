@@ -26,6 +26,7 @@
 
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
+import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 
 export const TABLE_CARD_WIDTH = 72; // px
 // px, crops the card image down to roughly its art box. At this width the full card image is
@@ -46,12 +47,16 @@ export default function TableCard({
   width = TABLE_CARD_WIDTH,
   artHeight = TABLE_CARD_ART_HEIGHT,
   draggable = false,
+  holdable = true,
 }: {
   instance: CardInstance;
   onClick: () => void;
   width?: number;
   artHeight?: number;
   draggable?: boolean;
+  // Press and hold opens the preview (#763). Off for a card that has no tap preview either, such
+  // as the dilemma under a mission.
+  holdable?: boolean;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down';
@@ -59,6 +64,7 @@ export default function TableCard({
     id: instance.id,
     disabled: !draggable,
   });
+  const holdListeners = useCardHold(instance.id, listeners);
 
   return (
     <button
@@ -67,9 +73,10 @@ export default function TableCard({
       data-card-id={instance.id}
       onClick={onClick}
       {...attributes}
-      {...listeners}
-      className={`flex flex-col items-center focus:outline-none ${draggable ? 'touch-none' : ''}`}
+      {...(holdable ? holdListeners : listeners)}
+      className={`flex flex-col items-center focus:outline-none ${draggable ? 'touch-none' : 'touch-manipulation'}`}
       style={{
+        ...NO_CALLOUT_STYLE,
         width,
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         opacity: isDragging ? 0.5 : 1,
@@ -82,6 +89,7 @@ export default function TableCard({
             src={isFaceDown ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
             alt={isFaceDown ? 'Face-down card' : card.name}
             className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+            style={NO_CALLOUT_STYLE}
           />
         </div>
       </div>

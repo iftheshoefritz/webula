@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect, useReducer, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useReducer, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -47,6 +47,7 @@ import MissionRow, {
   shipIdFromCrewDropId,
 } from './MissionRow';
 import CardPreview, { cardIdFromDraggableId } from './CardPreview';
+import { CardHoldProvider, DRAG_ACTIVATION_DISTANCE } from './useCardHold';
 import CountBadge from './CountBadge';
 import PilePanel, { ShuffleIcon } from './PilePanel';
 import FlatCardRow from './FlatCardRow';
@@ -728,6 +729,15 @@ function PracticeDrawContent() {
   const { pile, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
+  // The card a press and hold shows in the preview (#763), while the pointer stays down. It
+  // takes the place of `focusedCardId` only for the hold, so a release puts back whatever a tap
+  // had opened before the hold (or nothing), and never touches `openCrewShipId`: a hold on a
+  // ship does not open its crew panel, and a hold on a crew card leaves that panel open.
+  const [heldCardId, setHeldCardId] = useState<string | null>(null);
+  const cardHold = useMemo(
+    () => ({ startHold: (id: string) => setHeldCardId(id), endHold: () => setHeldCardId(null) }),
+    []
+  );
   const [isPortrait, setIsPortrait] = useState(false);
   // The game menu (#722): closed by default, so it never covers the table.
   const [gameMenuOpen, setGameMenuOpen] = useState(false);
@@ -776,7 +786,7 @@ function PracticeDrawContent() {
   // panel closes, the same as the panels themselves.
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } }));
 
   const initDeck = () => {
     if (isFixture) {
@@ -938,6 +948,9 @@ function PracticeDrawContent() {
     // it back to the real card id here, before anything else runs, means nothing past this line
     // needs to know a prefix ever existed.
     const id = cardIdFromDraggableId(String(event.active.id));
+    // A drag ends a press and hold (#763): the hold's preview closes. A preview a tap opened is
+    // only hidden during the drag, as before.
+    setHeldCardId(null);
     // A drag can start from the open hand or from a ship already on a mission's ship row
     // (#599); `findInstanceAnywhere` locates a card regardless of which one it is.
     const found = findInstanceAnywhere(table, id);
@@ -1148,7 +1161,8 @@ function PracticeDrawContent() {
   // dilemma pile's own top/bottom split already uses for `showPositionLabel`).
   const dilemmaStackVisible =
     dilemmaStack.length > 0 || openHand === 'dilemmaHand' || draggingInstance?.card.type === 'dilemma';
-  const focused = focusedCardId ? findInstanceAnywhere(table, focusedCardId) : null;
+  const previewCardId = heldCardId ?? focusedCardId;
+  const focused = previewCardId ? findInstanceAnywhere(table, previewCardId) : null;
   const openCrewShip = openCrewShipId ? findInstanceAnywhere(table, openCrewShipId)?.instance : null;
   // The cards of whichever pile panel is currently open, if any — only one panel is ever open
   // at a time. Used both to build a multi-select drag's group (`handleDragStart`) and to pass
@@ -1267,6 +1281,7 @@ function PracticeDrawContent() {
                 highlight during a drag (#608). `draggingInstance` already tracks it for the drag
                 overlay below. */}
             <DraggedCardTypeProvider value={draggingInstance?.card.type ?? null}>
+            <CardHoldProvider value={cardHold}>
             <div className="flex flex-col flex-1 p-4">
               {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597),
                   plus the dilemma stack (#630) in its own reserved column to the right, in the
@@ -1612,6 +1627,7 @@ function PracticeDrawContent() {
                 />
               )}
             </div>
+            </CardHoldProvider>
             </DraggedCardTypeProvider>
 
             <DragOverlay>

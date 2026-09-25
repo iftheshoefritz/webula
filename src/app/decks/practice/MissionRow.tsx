@@ -345,7 +345,7 @@ function UnderMissionStack({
           className="absolute inset-x-0 flex items-center justify-center pointer-events-none"
           style={{ top: i * offset, zIndex: i + 1 }}
         >
-          <TableCard instance={card} onClick={() => {}} width={cardWidth} artHeight={cardArtHeight} />
+          <TableCard instance={card} onClick={() => {}} width={cardWidth} artHeight={cardArtHeight} holdable={false} />
         </div>
       ))}
       <button

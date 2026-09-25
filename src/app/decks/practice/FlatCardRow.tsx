@@ -88,6 +88,7 @@ export default function FlatCardRow({
             width={SHIP_CARD_WIDTH}
             artHeight={SHIP_CARD_ART_HEIGHT}
             draggable
+            holdable={false}
           />
         </div>
       ))}
