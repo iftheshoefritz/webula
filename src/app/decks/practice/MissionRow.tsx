@@ -56,7 +56,7 @@
 // overlaps by area, smallest first, already picks the smaller, nested badge over the mission
 // card beneath it, the same reasoning that lets a ship's crew zone win over its enclosing ship
 // row (#645). A tap on a badge opens that pile's panel
-// (`PilePanel`); a tap on the mission card elsewhere still opens the mission's own preview. The
+// (`PilePanel`); a tap on the mission card itself does nothing (a hold previews it). The
 // under-the-mission pile has no badge of its own — its control is the tap target layered over its
 // stack of slivers (`UnderMissionStack` below), not a drop target, since the drop happens on the
 // mission card's own drop target like every other pile that has no badge under the pointer.
@@ -247,9 +247,8 @@ function PileBadge({
 // mission's personnel pile, so the same kind of thing — personnel in a pile — always gets the
 // same badge. It sits as a sibling of the ship's own `TableCard` button, inside `ShipCard`'s
 // `crewDropId` wrapper, since a `<button>` cannot nest inside another `<button>` (the ship's own
-// tap-to-preview button) — the same reasoning `PileBadge` documents above for the mission's own
-// badges. Since #678, a tap on the ship opens both its own preview and its crew panel together
-// (`onShipClick`), so the badge itself is purely informational: a non-interactive `<span>` with
+// button) — the same reasoning `PileBadge` documents above for the mission's own badges. A tap
+// on the ship opens its crew panel (`onShipClick`), so the badge itself is purely informational: a non-interactive `<span>` with
 // `pointer-events-none`, so a tap that lands on it falls through to the ship's `TableCard` button
 // underneath rather than being swallowed here.
 function ShipCrewBadge({ shipName, count, height }: { shipName: string; count: number; height: number }) {

@@ -540,7 +540,6 @@ describe('PracticeDrawPage', () => {
     expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
   });
 
-  // Tap-to-enlarge: tapping a hand card shows an enlarged preview, tapping it again shrinks it back
   // The tap acts, the hold looks (#764): a tap never opens the preview, a press and hold does,
   // and the preview is read-only.
   describe('hold-only, read-only preview', () => {

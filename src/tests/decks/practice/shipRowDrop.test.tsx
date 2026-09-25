@@ -312,7 +312,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     expect(destinationRow!.contains(shipButton)).toBe(true);
     expect(destinationRow!.querySelector('[aria-label*="crew"]')).not.toBeNull();
 
-    // A tap on the ship (#678) opens both its own preview and its crew panel.
+    // A tap on the ship opens its crew panel.
     await act(async () => {
       fireEvent.click(shipButton);
     });
