@@ -72,7 +72,7 @@ jobs:
 
       - name: Run Claude Code
         if: steps.context.outputs.run == 'true'
-        uses: anthropics/claude-code-action@v1.0.70
+        uses: anthropics/claude-code-action@v1.0.234
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # vercel[bot] posts the Ready comment. claude[bot] marks the PR ready for review at the end
