@@ -17,6 +17,12 @@
 // `DraggedCardTypeContext` uses, so no prop is threaded through `MissionRow` -> `MissionColumn`
 // -> `ShipRow` and the others. With no provider (a component rendered on its own in a test),
 // a press does nothing new.
+//
+// A mouse also previews a card by hover (#766): the pointer rests on the card for 300 ms, and
+// the page shows it until the pointer leaves. The hover has its own state on the page, apart
+// from the hold, so the release of a mouse hold on a hovered card leaves the hover's preview up.
+// A touch or a pen ignores the hover, and so does a pointer that enters with a button held (a
+// drag passing over the card).
 
 import { createContext, useContext, useEffect, useRef } from 'react';
 import type { useDraggable } from '@dnd-kit/core';
@@ -24,6 +30,8 @@ import type { useDraggable } from '@dnd-kit/core';
 type DraggableListeners = ReturnType<typeof useDraggable>['listeners'];
 
 export const HOLD_DELAY_MS = 500;
+// Long enough that a mouse crossing the mission row does not flash every card it passes.
+export const HOVER_DELAY_MS = 300;
 // Shared with the `PointerSensor`'s `activationConstraint` in `page.tsx`, so the point where a
 // hold gives way to a drag and the point where the drag starts cannot drift apart.
 export const DRAG_ACTIVATION_DISTANCE = 8; // px
@@ -31,6 +39,9 @@ export const DRAG_ACTIVATION_DISTANCE = 8; // px
 export type CardHoldCallbacks = {
   startHold: (id: string) => void;
   endHold: () => void;
+  startHover: (id: string) => void;
+  // Ends the hover only if it is on this card.
+  endHover: (id: string) => void;
 };
 
 const CardHoldContext = createContext<CardHoldCallbacks | null>(null);
@@ -52,13 +63,41 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
   // card's tap handler (a selection toggle, or a crew panel). Cleared on the next press.
   const swallowClickRef = useRef(false);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const hoverTimerRef = useRef<number | null>(null);
+  const hoveredRef = useRef(false);
+  const idRef = useRef(id);
+  idRef.current = id;
 
-  useEffect(() => () => cleanupRef.current?.(), []);
+  const cancelHoverTimer = () => {
+    if (hoverTimerRef.current === null) return;
+    window.clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = null;
+  };
+
+  // A card that unmounts under the pointer (a card dropped out of a panel) sends no
+  // `pointerleave`, so it ends its own hover here.
+  const endHover = () => {
+    cancelHoverTimer();
+    if (!hoveredRef.current) return;
+    hoveredRef.current = false;
+    callbacksRef.current?.endHover(idRef.current);
+  };
+
+  useEffect(
+    () => () => {
+      cleanupRef.current?.();
+      endHover();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   const dndPointerDown = listeners?.onPointerDown as PointerHandler | undefined;
 
   const onPointerDown: PointerHandler = (event) => {
     dndPointerDown?.(event);
+    // A press is a tap, a hold or a drag, so a hover still pending on the card does not fire.
+    cancelHoverTimer();
     swallowClickRef.current = false;
     cleanupRef.current?.();
     if (!callbacksRef.current) return;
@@ -135,5 +174,18 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     if (callbacksRef.current) event.preventDefault();
   };
 
-  return { ...listeners, onPointerDown, onClickCapture, onContextMenu };
+  const onPointerEnter: PointerHandler = (event) => {
+    if (event.pointerType !== 'mouse' || event.buttons !== 0) return;
+    if (!callbacksRef.current) return;
+    cancelHoverTimer();
+    hoverTimerRef.current = window.setTimeout(() => {
+      hoverTimerRef.current = null;
+      hoveredRef.current = true;
+      callbacksRef.current?.startHover(idRef.current);
+    }, HOVER_DELAY_MS);
+  };
+
+  const onPointerLeave: PointerHandler = () => endHover();
+
+  return { ...listeners, onPointerDown, onPointerEnter, onPointerLeave, onClickCapture, onContextMenu };
 }

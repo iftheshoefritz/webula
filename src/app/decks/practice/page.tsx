@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect, useMemo, useReducer, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -732,8 +732,21 @@ function PracticeDrawContent() {
   // exists only for a hold: a tap never opens it. A hold never touches `openCrewShipId`: a hold
   // on a ship does not open its crew panel, and a hold on a crew card leaves that panel open.
   const [heldCardId, setHeldCardId] = useState<string | null>(null);
+  // The card a mouse rests on (#766), after `HOVER_DELAY_MS`. Kept apart from `heldCardId`, so
+  // the release of a mouse hold on a hovered card leaves the preview up until the pointer leaves.
+  // The preview shows the held card first, and the hovered card otherwise.
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
+  // Read by `startHover`, which is memoized: a hover never starts during a drag.
+  const draggingRef = useRef(false);
   const cardHold = useMemo(
-    () => ({ startHold: (id: string) => setHeldCardId(id), endHold: () => setHeldCardId(null) }),
+    () => ({
+      startHold: (id: string) => setHeldCardId(id),
+      endHold: () => setHeldCardId(null),
+      startHover: (id: string) => {
+        if (!draggingRef.current) setHoveredCardId(id);
+      },
+      endHover: (id: string) => setHoveredCardId((current) => (current === id ? null : current)),
+    }),
     []
   );
   const [isPortrait, setIsPortrait] = useState(false);
@@ -936,6 +949,9 @@ function PracticeDrawContent() {
     const id = String(event.active.id);
     // A drag ends a press and hold (#763): the hold's preview closes.
     setHeldCardId(null);
+    // A drag hides a hover preview too (#766).
+    setHoveredCardId(null);
+    draggingRef.current = true;
     // A drag can start from the open hand or from a ship already on a mission's ship row
     // (#599); `findInstanceAnywhere` locates a card regardless of which one it is.
     const found = findInstanceAnywhere(table, id);
@@ -1141,7 +1157,9 @@ function PracticeDrawContent() {
   // dilemma pile's own top/bottom split already uses for `showPositionLabel`).
   const dilemmaStackVisible =
     dilemmaStack.length > 0 || openHand === 'dilemmaHand' || draggingInstance?.card.type === 'dilemma';
-  const held = heldCardId ? findInstanceAnywhere(table, heldCardId) : null;
+  draggingRef.current = draggingInstance !== null;
+  const previewCardId = heldCardId ?? hoveredCardId;
+  const held = previewCardId ? findInstanceAnywhere(table, previewCardId) : null;
   const openCrewShip = openCrewShipId ? findInstanceAnywhere(table, openCrewShipId)?.instance : null;
   // The cards of whichever pile panel is currently open, if any — only one panel is ever open
   // at a time. Used both to build a multi-select drag's group (`handleDragStart`) and to pass

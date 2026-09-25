@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
-import { CardHoldProvider, useCardHold, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
+import { CardHoldProvider, useCardHold, HOLD_DELAY_MS, HOVER_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 
 // jsdom has no PointerEvent, so `fireEvent.pointerMove` would drop `clientX`/`clientY`.
 if (typeof window.PointerEvent === 'undefined') {
@@ -17,14 +17,32 @@ if (typeof window.PointerEvent === 'undefined') {
 }
 
 // A card with the hold on it, and a readout of the page state the hold drives (#763).
-function Harness({ dndPointerDown = () => {}, onTap = () => {} }: { dndPointerDown?: () => void; onTap?: () => void }) {
+function Harness({
+  dndPointerDown = () => {},
+  onTap = () => {},
+  showCard = true,
+}: {
+  dndPointerDown?: () => void;
+  onTap?: () => void;
+  showCard?: boolean;
+}) {
   const [held, setHeld] = useState<string | null>(null);
-  const callbacks = React.useMemo(() => ({ startHold: (id: string) => setHeld(id), endHold: () => setHeld(null) }), []);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const callbacks = React.useMemo(
+    () => ({
+      startHold: (id: string) => setHeld(id),
+      endHold: () => setHeld(null),
+      startHover: (id: string) => setHovered(id),
+      endHover: (id: string) => setHovered((current) => (current === id ? null : current)),
+    }),
+    []
+  );
   return (
     <CardHoldProvider value={callbacks}>
-      <Card id="card-1" dndPointerDown={dndPointerDown} onTap={onTap} />
+      {showCard && <Card id="card-1" dndPointerDown={dndPointerDown} onTap={onTap} />}
       <div data-testid="elsewhere" />
       <span data-testid="held">{held ?? 'none'}</span>
+      <span data-testid="hovered">{hovered ?? 'none'}</span>
     </CardHoldProvider>
   );
 }
@@ -152,5 +170,81 @@ describe('useCardHold', () => {
     render(<Harness />);
     const notCancelled = fireEvent.contextMenu(card());
     expect(notCancelled).toBe(false);
+  });
+});
+
+describe('useCardHold: a mouse hover (#766)', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const hovered = () => screen.getByTestId('hovered').textContent;
+  const enter = (init: PointerEventInit = {}) => fireEvent.pointerEnter(card(), { pointerType: 'mouse', buttons: 0, ...init });
+  const leave = () => fireEvent.pointerLeave(card(), { pointerType: 'mouse' });
+
+  it('shows the card after 300 ms of rest, and a leave hides it', () => {
+    render(<Harness />);
+    enter();
+    act(() => jest.advanceTimersByTime(HOVER_DELAY_MS - 1));
+    expect(hovered()).toBe('none');
+    act(() => jest.advanceTimersByTime(1));
+    expect(hovered()).toBe('card-1');
+    leave();
+    expect(hovered()).toBe('none');
+  });
+
+  it('a leave before 300 ms shows nothing', () => {
+    render(<Harness />);
+    enter();
+    act(() => jest.advanceTimersByTime(HOVER_DELAY_MS - 1));
+    leave();
+    act(() => jest.advanceTimersByTime(HOVER_DELAY_MS));
+    expect(hovered()).toBe('none');
+  });
+
+  it('a touch or a pen does not hover', () => {
+    render(<Harness />);
+    enter({ pointerType: 'touch' });
+    act(() => jest.advanceTimersByTime(HOVER_DELAY_MS));
+    expect(hovered()).toBe('none');
+    enter({ pointerType: 'pen' });
+    act(() => jest.advanceTimersByTime(HOVER_DELAY_MS));
+    expect(hovered()).toBe('none');
+  });
+
+  it('an enter with a button held (a drag passing over) does not hover', () => {
+    render(<Harness />);
+    enter({ buttons: 1 });
+    act(() => jest.advanceTimersByTime(HOVER_DELAY_MS));
+    expect(hovered()).toBe('none');
+  });
+
+  it('a press cancels a pending hover', () => {
+    render(<Harness />);
+    enter();
+    press();
+    fireEvent.pointerUp(window);
+    act(() => jest.advanceTimersByTime(HOVER_DELAY_MS));
+    expect(hovered()).toBe('none');
+  });
+
+  it('an unmount while hovered ends the hover', () => {
+    const { rerender } = render(<Harness />);
+    enter();
+    act(() => jest.advanceTimersByTime(HOVER_DELAY_MS));
+    expect(hovered()).toBe('card-1');
+    rerender(<Harness showCard={false} />);
+    expect(hovered()).toBe('none');
+  });
+
+  it('the release of a mouse hold on a hovered card keeps the hover', () => {
+    render(<Harness />);
+    enter();
+    act(() => jest.advanceTimersByTime(HOVER_DELAY_MS));
+    press();
+    act(() => jest.advanceTimersByTime(HOLD_DELAY_MS));
+    expect(held()).toBe('card-1');
+    fireEvent.pointerUp(window);
+    expect(held()).toBe('none');
+    expect(hovered()).toBe('card-1');
   });
 });
