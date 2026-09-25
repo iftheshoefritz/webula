@@ -5,7 +5,12 @@
 // for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
 // already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
 // cards face up regardless of their stored face (the same true-face-to-owner convention
-// `CardPreview` already uses for the enlarged preview). A tap on a card opens that card's own
+// `CardPreview` already uses for the enlarged preview). Since #762, a panel that has a Flip button
+// (below) no longer follows that convention: it draws the card back for a card whose stored
+// `face` is `down`, and the art for a card whose `face` is `up`, so a Flip shows in the panel.
+// `CardPreview` keeps the true-face-to-owner convention. The panels with no Flip button (the
+// core, the brig, a crew, a ship row, and the draw and dilemma piles, which the player opens to
+// download, #690) still list every card face up. A tap on a card opens that card's own
 // full preview via `onCardClick`, reusing `findInstanceAnywhere` + the existing preview state in
 // `page.tsx`. Each card is draggable out via the same `useDraggable` + `DragOverlay` mechanism
 // the hand and the crew row already use. The card name stays off the panel as visible text (#674);
@@ -46,6 +51,12 @@
 // one `onSetStopped` call (owned by `page.tsx`, like the selection itself), never a per-card
 // toggle, so a mixed selection cannot go out of step with itself. The selection stays after the
 // tap, so the player can still drag the same cards next.
+// A "Flip" button (#762) sits beside it, in the panels whose cards the preview can flip: a
+// mission's personnel, event, and under-the-mission piles, and the dilemma stack. `page.tsx`
+// passes `onFlip` only for those zones, the same way it gives `CardPreview` an `onFlip`. It shows
+// once the selection holds one or more of this panel's cards, and a tap dispatches the existing
+// `flip` action once per selected card, so each card turns over on its own: a mixed selection
+// stays mixed, inverted. The selection stays after the tap, as with Stop.
 
 import { useEffect, useRef, useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
@@ -136,6 +147,7 @@ function PilePanelCard({
   cardWidth,
   cardArtHeight,
   reorderable = false,
+  showBackWhenFaceDown = false,
 }: {
   instance: CardInstance;
   onClick: () => void;
@@ -149,10 +161,13 @@ function PilePanelCard({
   // this stack card next to that one" rather than a move out of the zone). Every other `PilePanel`
   // zone leaves this card a plain, non-droppable `useDraggable`, unchanged.
   reorderable?: boolean;
+  // A panel with a Flip button (#762) draws a face-down card as the card back.
+  showBackWhenFaceDown?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
   const { setNodeRef: setDropRef } = useDroppable({ id: instance.id, disabled: !reorderable });
   const { card } = instance;
+  const showBack = showBackWhenFaceDown && instance.face === 'down';
 
   return (
     <div
@@ -180,7 +195,7 @@ function PilePanelCard({
         <div className="relative w-full" style={{ height: cardArtHeight }}>
           <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
             <img
-              src={`/cardimages/${card.imagefile}.jpg`}
+              src={showBack ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
               alt={card.name}
               className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
             />
@@ -211,6 +226,7 @@ export default function PilePanel({
   onToggleSelect,
   onShuffle,
   onSetStopped,
+  onFlip,
   hidden = false,
   cardWidth = TABLE_CARD_WIDTH,
   cardArtHeight = TABLE_CARD_ART_HEIGHT,
@@ -226,6 +242,9 @@ export default function PilePanel({
   // `page.tsx`'s single-card preview button uses, so the "Stop"/"Unstop" button below shares it
   // rather than toggling each selected card on its own.
   onSetStopped: (ids: string[], stopped: boolean) => void;
+  // Turns each id over on its own (#762). Given only for the zones whose cards can be flipped;
+  // its presence is what shows the "Flip" button and draws face-down cards as the card back.
+  onFlip?: (ids: string[]) => void;
   hidden?: boolean;
   // Issue #717: this panel is one of "the modals" the issue names, so its own card grid grows
   // the same way the table's mission cards do — `page.tsx` computes both from the same `scale`
@@ -308,6 +327,9 @@ export default function PilePanel({
   const showStopButton = selectedPersonnel.length > 0;
   const allSelectedStopped = showStopButton && selectedPersonnel.every((instance) => instance.stopped);
   const handleStopTap = () => onSetStopped(selectedPersonnel.map((instance) => instance.id), !allSelectedStopped);
+  const selectedInPanel = cards.filter((instance) => selectedIds.includes(instance.id));
+  const showFlipButton = onFlip !== undefined && selectedInPanel.length > 0;
+  const handleFlipTap = () => onFlip?.(selectedInPanel.map((instance) => instance.id));
 
   return (
     <div
@@ -321,10 +343,19 @@ export default function PilePanel({
         aria-label={closeLabel(zone)}
       />
       <div className={layoutClassName}>
-        {showStopButton && (
-          <button type="button" onClick={handleStopTap} className="btn-primary">
-            {allSelectedStopped ? 'Unstop' : 'Stop'}
-          </button>
+        {(showStopButton || showFlipButton) && (
+          <div className="flex flex-row items-center gap-2">
+            {showStopButton && (
+              <button type="button" onClick={handleStopTap} className="btn-primary">
+                {allSelectedStopped ? 'Unstop' : 'Stop'}
+              </button>
+            )}
+            {showFlipButton && (
+              <button type="button" onClick={handleFlipTap} className="btn-primary">
+                Flip
+              </button>
+            )}
+          </div>
         )}
         {/* The Shuffle button (#680) sits inside the panel, next to the cards, not on the
             backdrop — a tap on the backdrop still closes the panel, and a tap here does not.
@@ -363,6 +394,7 @@ export default function PilePanel({
                     cardWidth={cardWidth}
                     cardArtHeight={cardArtHeight}
                     reorderable
+                    showBackWhenFaceDown={onFlip !== undefined}
                   />
                 </div>
               ))}
@@ -377,6 +409,7 @@ export default function PilePanel({
                 onToggleSelect={() => onToggleSelect(instance.id)}
                 cardWidth={cardWidth}
                 cardArtHeight={cardArtHeight}
+                showBackWhenFaceDown={onFlip !== undefined}
               />
             ))
           )}

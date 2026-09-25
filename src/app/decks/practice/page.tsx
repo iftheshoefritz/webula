@@ -871,6 +871,12 @@ function PracticeDrawContent() {
     dispatch({ type: 'setStopped', ids, stopped });
   };
 
+  // Turns each id over on its own (#762's pile panel Flip button): one `flip` per card, so a
+  // mixed selection stays mixed, inverted. Keeps the selection afterward, as with Stop.
+  const flipSelection = (ids: string[]) => {
+    ids.forEach((id) => dispatch({ type: 'flip', id }));
+  };
+
   // A tap on a ship (#678): opens the ship's own preview, same as a tap on any other table card,
   // and — since a ship with no crew shows nothing new — opens its crew panel alongside the
   // preview only when it actually has crew aboard.
@@ -1526,6 +1532,7 @@ function PracticeDrawContent() {
                     })
                   }
                   onSetStopped={setStoppedForSelection}
+                  onFlip={flipSelection}
                   hidden={draggingInstance !== null}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
@@ -1548,6 +1555,7 @@ function PracticeDrawContent() {
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() => dispatch({ type: 'shuffle', location: openFlatZone })}
                   onSetStopped={setStoppedForSelection}
+                  onFlip={openFlatZone === 'dilemmaStack' ? flipSelection : undefined}
                   hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
