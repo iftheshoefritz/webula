@@ -96,7 +96,9 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
   // Set once a hold has fired, so the `click` that can follow its release does not also run the
   // card's tap handler (a selection toggle, or a crew panel). Cleared on the next press.
   const swallowClickRef = useRef(false);
-  const cleanupRef = useRef<(() => void) | null>(null);
+  // Ends the hold in progress, if any. Given the press that ends it, it swallows that press's
+  // click when the hold has fired (#776).
+  const cleanupRef = useRef<((press?: PointerEvent) => void) | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
   const hoveredRef = useRef(false);
   const idRef = useRef(id);
@@ -133,7 +135,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     // A press is a tap, a hold or a drag, so a hover still pending on the card does not fire.
     cancelHoverTimer();
     swallowClickRef.current = false;
-    cleanupRef.current?.();
+    cleanupRef.current?.(event.nativeEvent);
     if (!callbacksRef.current) return;
     // A secondary mouse button is not a press.
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -169,8 +171,10 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     // The press's own `pointerdown` bubbles on to `window` after this handler adds the listener,
     // so only a different event, a second finger or a press after a lost release, ends the hold.
     const onOtherPointerDown = (e: PointerEvent) => {
-      if (e === downEvent) return;
-      if (fired) swallowClickOf(e);
+      if (e !== downEvent) endBy(e);
+    };
+    const endBy = (press?: PointerEvent) => {
+      if (press && fired) swallowClickOf(press);
       end();
     };
     const onVisibilityChange = () => {
@@ -207,11 +211,11 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
       window.removeEventListener('touchcancel', end);
       window.removeEventListener('lostpointercapture', onLostCapture);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      if (cleanupRef.current === endOnUnmount) cleanupRef.current = null;
+      if (cleanupRef.current === endBy) cleanupRef.current = null;
     }
-    // A card that unmounts mid-hold must not leave the preview stuck on the screen.
-    const endOnUnmount = end;
-    cleanupRef.current = endOnUnmount;
+    // A card that unmounts mid-hold must not leave the preview stuck on the screen, and a new
+    // press on the same card ends the old hold before its own listeners would hear it.
+    cleanupRef.current = endBy;
   };
 
   const onClickCapture = (event: React.MouseEvent) => {

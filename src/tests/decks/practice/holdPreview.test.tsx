@@ -285,8 +285,8 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     // that the drag's end clears it.
     const holdDuringDrag = async (endDrag: (id: string) => void) => {
       await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
-      const [id] = mockDraggableIds;
-      const element = document.body.querySelector(`[data-card-id="${id}"]`) as HTMLElement;
+      const element = screen.getByRole('button', { name: 'tricorder' });
+      const id = element.getAttribute('data-card-id')!;
       element.getBoundingClientRect = () =>
         ({ left: 370, top: 503, right: 443, bottom: 607, width: 73, height: 104, x: 370, y: 503, toJSON: () => ({}) }) as DOMRect;
       act(() => {
@@ -320,13 +320,14 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
   });
 
   it('a press that closes a stuck hold preview does not act on the table (#776)', async () => {
-    await setupOpenHand([mockShipCard], [mockMissionCard]);
-    const [shipId] = mockDraggableIds;
+    await setupOpenHand([mockShipCard, mockPersonnelCard]);
+    const [shipId, personnelId] = mockDraggableIds;
     drag(shipId, 'mission-2');
+    drag(personnelId, `crew-${shipId}`);
     const ship = screen.getByRole('button', { name: 'u.s.s. relativity' });
     // A hold whose release the page never sees.
-    hold(screen.getByRole('button', { name: 'first contact' }));
-    expect(preview('first contact')).toBeInTheDocument();
+    hold(ship);
+    expect(preview('u.s.s. relativity')).toBeInTheDocument();
     // The next tap, on the ship, closes the preview and opens no crew panel.
     tap(ship);
     act(() => {
