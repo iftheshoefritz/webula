@@ -72,7 +72,13 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
 
     const end = () => {
       cleanup();
-      if (fired) callbacksRef.current?.endHold();
+      if (!fired) return;
+      callbacksRef.current?.endHold();
+      // A release off the card (a mouse lets go over the preview's backdrop) sends no click to
+      // the card, so stop waiting for one once this release's own events are done.
+      window.setTimeout(() => {
+        swallowClickRef.current = false;
+      }, 0);
     };
     const onMove = (e: PointerEvent) => {
       if (fired) return;
