@@ -63,6 +63,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, STOPPED_IMAGE_CLASSNAME } from './TableCard';
 import { offsetFor } from './overlapOffset';
+import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -166,6 +167,7 @@ function PilePanelCard({
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
   const { setNodeRef: setDropRef } = useDroppable({ id: instance.id, disabled: !reorderable });
+  const holdListeners = useCardHold(instance.id, listeners);
   const { card } = instance;
   const showBack = showBackWhenFaceDown && instance.face === 'down';
 
@@ -182,11 +184,12 @@ function PilePanelCard({
         data-card-id={instance.id}
         onClick={onClick}
         {...attributes}
-        {...listeners}
+        {...holdListeners}
         className={`flex flex-col items-center gap-0.5 focus:outline-none touch-none w-full rounded-md ${
           selected ? 'ring-2 ring-accent' : ''
         }`}
         style={{
+          ...NO_CALLOUT_STYLE,
           transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
           opacity: isDragging ? 0.5 : 1,
         }}
@@ -198,6 +201,7 @@ function PilePanelCard({
               src={showBack ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
               alt={card.name}
               className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+              style={NO_CALLOUT_STYLE}
             />
           </div>
         </div>

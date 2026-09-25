@@ -90,7 +90,7 @@ export default function CardPreview({
 
   return (
     <div
-      className="fixed inset-0 z-[200] pointer-events-none"
+      className="fixed inset-0 z-[200] pointer-events-none animate-fade-in"
       style={{ visibility: hidden ? 'hidden' : 'visible' }}
     >
       <button

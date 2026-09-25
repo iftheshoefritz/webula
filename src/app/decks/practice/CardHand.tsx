@@ -26,6 +26,7 @@ import { offsetFor } from './overlapOffset';
 import CountBadge from './CountBadge';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
+import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -67,6 +68,7 @@ function DraggableFanCard({
   onToggleSelect: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
+  const holdListeners = useCardHold(instance.id, listeners);
   const { card } = instance;
 
   return (
@@ -76,11 +78,12 @@ function DraggableFanCard({
     >
       <button
         ref={setNodeRef}
-        {...listeners}
+        {...holdListeners}
         {...attributes}
         data-card-id={instance.id}
         className={`block focus:outline-none touch-none rounded-lg ${selected ? 'ring-2 ring-accent' : ''}`}
         style={{
+          ...NO_CALLOUT_STYLE,
           transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
           opacity: isDragging ? 0.5 : 1,
         }}
@@ -93,7 +96,7 @@ function DraggableFanCard({
           height={167}
           alt={card.name}
           className="rounded-lg shadow-md h-auto"
-          style={{ width: OPEN_CARD_WIDTH }}
+          style={{ ...NO_CALLOUT_STYLE, width: OPEN_CARD_WIDTH }}
         />
       </button>
       <button
