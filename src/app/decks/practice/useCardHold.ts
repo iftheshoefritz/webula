@@ -10,8 +10,14 @@
 //
 // The events that end a hold are listened to on `window`/`document`, not on the card, so the
 // hold ends wherever the pointer is released. The preview takes no pointer events, so it never
-// stands between the release and the page. A drag start ends a hold too, but `page.tsx`
-// handles that one in `handleDragStart`.
+// stands between the release and the page. A drag start and a drag end end a hold too, but
+// `page.tsx` handles those in `handleDragStart` and `handleDragEnd`.
+//
+// A touch device can lose the release of a press (#776): the system takes the gesture, and the
+// page never sees the `pointerup`. So a hold also ends on the other signs that its pointer has
+// gone (`touchend`, `touchcancel`, `lostpointercapture`, a `pointermove` with no button down).
+// If none of them comes, the next press ends the hold, and the click of that press is swallowed
+// wherever it lands: a press that dismisses a preview is a dismiss, not an action.
 //
 // The page supplies the two callbacks through `CardHoldProvider`, the same pattern
 // `DraggedCardTypeContext` uses, so no prop is threaded through `MissionRow` -> `MissionColumn`
@@ -52,6 +58,34 @@ export const CardHoldProvider = CardHoldContext.Provider;
 export const NO_CALLOUT_STYLE = { WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' } as const;
 
 type PointerHandler = (event: React.PointerEvent) => void;
+
+// Swallows the one `click` the press `down` produces, wherever it lands (#776). The listener is
+// on `window` in the capture phase, so it runs before any handler on the table. It is dropped
+// once the press's release has sent its events (the same `setTimeout(..., 0)` as a hold's own
+// release uses), or at the next press, so it never eats a later tap.
+function swallowClickOf(down: PointerEvent) {
+  const onClick = (e: MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    drop();
+  };
+  const onRelease = (e: PointerEvent) => {
+    if (e.pointerId === down.pointerId) window.setTimeout(drop, 0);
+  };
+  const onNextPress = (e: PointerEvent) => {
+    if (e !== down) drop();
+  };
+  function drop() {
+    window.removeEventListener('click', onClick, true);
+    window.removeEventListener('pointerup', onRelease, true);
+    window.removeEventListener('pointercancel', onRelease, true);
+    window.removeEventListener('pointerdown', onNextPress, true);
+  }
+  window.addEventListener('click', onClick, true);
+  window.addEventListener('pointerup', onRelease, true);
+  window.addEventListener('pointercancel', onRelease, true);
+  window.addEventListener('pointerdown', onNextPress, true);
+}
 
 // Returns the handlers to spread on the card's element in place of dnd-kit's `listeners`. The
 // hold's `onPointerDown` calls dnd-kit's own `onPointerDown` too, so neither replaces the other.
@@ -120,13 +154,24 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
       }, 0);
     };
     const onMove = (e: PointerEvent) => {
+      // A mouse or a pen that moves with no button down was released where the page did not see
+      // it. A touch `pointermove` always has a button down, so this never ends a touch hold.
+      if (e.buttons === 0) {
+        end();
+        return;
+      }
       if (fired) return;
       if (Math.hypot(e.clientX - originX, e.clientY - originY) > DRAG_ACTIVATION_DISTANCE) cleanup();
     };
+    const onLostCapture = (e: PointerEvent) => {
+      if (e.pointerId === downEvent.pointerId) end();
+    };
     // The press's own `pointerdown` bubbles on to `window` after this handler adds the listener,
-    // so only a different event, a second finger, ends the hold.
+    // so only a different event, a second finger or a press after a lost release, ends the hold.
     const onOtherPointerDown = (e: PointerEvent) => {
-      if (e !== downEvent) end();
+      if (e === downEvent) return;
+      if (fired) swallowClickOf(e);
+      end();
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') end();
@@ -146,6 +191,9 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     window.addEventListener('pointercancel', end);
     window.addEventListener('pointerdown', onOtherPointerDown);
     window.addEventListener('blur', end);
+    window.addEventListener('touchend', end);
+    window.addEventListener('touchcancel', end);
+    window.addEventListener('lostpointercapture', onLostCapture);
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     function cleanup() {
@@ -155,6 +203,9 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
       window.removeEventListener('pointercancel', end);
       window.removeEventListener('pointerdown', onOtherPointerDown);
       window.removeEventListener('blur', end);
+      window.removeEventListener('touchend', end);
+      window.removeEventListener('touchcancel', end);
+      window.removeEventListener('lostpointercapture', onLostCapture);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       if (cleanupRef.current === endOnUnmount) cleanupRef.current = null;
     }
