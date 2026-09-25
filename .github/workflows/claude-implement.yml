@@ -72,7 +72,7 @@ jobs:
                b. Commit your changes to that branch with a `wip:` message referencing the issue number.
                c. Push the branch to the remote repository.
                d. Open a draft pull request (`gh pr create --draft`) targeting the main branch with:
-                  - Title summarizing the change
+                  - Title summarizing the change. The title must NOT start with `wip:`. A squash merge takes the title of the pull request as the message of the commit on `main`, and a `wip:` prefix there stops the deployment of `main`.
                   - Body that closes issue #${{ github.event.issue.number }} (include "Closes #${{ github.event.issue.number }}" in the PR body)
                   - A brief summary of what was changed and why
                   - A "## Visual Verification" section that contains only the word "Pending."

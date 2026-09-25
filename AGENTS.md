@@ -108,6 +108,17 @@ progress does not report a failed deployment. The implementation workflow pushes
 every few edits, before the tests pass, for the reason
 `.github/workflows/README.md` gives. Give a finished commit a normal message.
 
+### The merge method
+
+Merge a pull request with a squash merge. The repository setting
+`squash_merge_commit_title` is `PR_TITLE`, so the squash commit on `main` always
+takes the title of the pull request. A `wip:` commit on the branch cannot put its
+prefix on `main`, so the production deployment runs for every merge.
+
+To keep this true, never start the title of a pull request with `wip:`. A rebase
+merge puts every `wip:` commit on `main` and skips the deployment for each one,
+so do not use it.
+
 ### To read why a workflow run failed
 
 Do not use `gh run view --log`. It truncates a long log and gives no warning
