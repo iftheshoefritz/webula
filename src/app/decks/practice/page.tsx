@@ -991,8 +991,8 @@ function PracticeDrawContent() {
   // a drag started somewhere else entirely. `dragOrigin` is the dragged card's zone before the
   // drop (found while `table` still holds its pre-drop state, in `handleDragEnd`/
   // `handleDragCancel` below); `nextTable` is `table` after the drop's move applies (or `table`
-  // itself, unchanged, for a drag that dispatched no move at all, including a cancelled drag and a release
-  // inside the dead rectangle around the press point, #774).
+  // itself, unchanged, for a drag that dispatched no move at all, including a cancelled drag and a
+  // release inside the dead rectangle around the press point, #774).
   const closePanelsAfterDrag = (
     dragOrigin: { instance: CardInstance; zone: TableZone } | null,
     nextTable: TableState
