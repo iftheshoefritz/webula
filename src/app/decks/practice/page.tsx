@@ -46,7 +46,7 @@ import MissionRow, {
   missionPileFromDropId,
   shipIdFromCrewDropId,
 } from './MissionRow';
-import CardPreview, { cardIdFromDraggableId } from './CardPreview';
+import CardPreview from './CardPreview';
 import { CardHoldProvider, DRAG_ACTIVATION_DISTANCE } from './useCardHold';
 import CountBadge from './CountBadge';
 import PilePanel, { ShuffleIcon } from './PilePanel';
@@ -728,11 +728,9 @@ function PracticeDrawContent() {
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
   const { pile, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
-  const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
-  // The card a press and hold shows in the preview (#763), while the pointer stays down. It
-  // takes the place of `focusedCardId` only for the hold, so a release puts back whatever a tap
-  // had opened before the hold (or nothing), and never touches `openCrewShipId`: a hold on a
-  // ship does not open its crew panel, and a hold on a crew card leaves that panel open.
+  // The card a press and hold shows in the preview, while the pointer stays down. The preview
+  // exists only for a hold: a tap never opens it. A hold never touches `openCrewShipId`: a hold
+  // on a ship does not open its crew panel, and a hold on a crew card leaves that panel open.
   const [heldCardId, setHeldCardId] = useState<string | null>(null);
   const cardHold = useMemo(
     () => ({ startHold: (id: string) => setHeldCardId(id), endHold: () => setHeldCardId(null) }),
@@ -771,9 +769,8 @@ function PracticeDrawContent() {
   // Which ship's crew panel (#664) is open, if any, named by the ship's own instance id (not a
   // mission index, since a ship stays reachable by its own id regardless of which mission's ship
   // row currently holds it — the same reasoning `crewDropId` already follows). Tracked the same
-  // way as `openPile`/`openFlatZone`: a piece of UI state with no effect on the table. Since
-  // #678, a tap on a ship (`handleShipClick` below) opens this alongside the ship's own preview,
-  // and the two close together, rather than the badge opening this on its own.
+  // way as `openPile`/`openFlatZone`: a piece of UI state with no effect on the table. A tap on a
+  // ship with crew aboard (`handleShipClick` below) opens it.
   const [openCrewShipId, setOpenCrewShipId] = useState<string | null>(null);
   // Which mission's ship-row list panel (#713) is open, if any, named by mission index the same
   // way `openPile` is — only one at a time, tracked the same way as the other three panels
@@ -800,7 +797,6 @@ function PracticeDrawContent() {
         dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
       });
       setDeckEmpty(isDeckEmpty(deck));
-      setFocusedCardId(null);
       setOpenHand(null);
       return;
     }
@@ -817,7 +813,6 @@ function PracticeDrawContent() {
         dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
       });
       setDeckEmpty(isDeckEmpty(deck));
-      setFocusedCardId(null);
       setOpenHand(null);
     } catch {
       // silently ignore parse errors
@@ -874,8 +869,7 @@ function PracticeDrawContent() {
     setSelectedCardIds((ids) => (ids.includes(id) ? ids.filter((cardId) => cardId !== id) : [...ids, id]));
   };
 
-  // Sets `stopped` to one explicit value on every id in `ids` (#681's pile panel button; also
-  // the preview's own single-card "Stop"/"Unstop" button, above). Keeps the selection afterward,
+  // Sets `stopped` to one explicit value on every id in `ids` (#681's pile panel button). Keeps the selection afterward,
   // so the player can drag the same cards next, same as any other tap on the panel's checkboxes.
   const setStoppedForSelection = (ids: string[], stopped: boolean) => {
     dispatch({ type: 'setStopped', ids, stopped });
@@ -887,11 +881,8 @@ function PracticeDrawContent() {
     ids.forEach((id) => dispatch({ type: 'flip', id }));
   };
 
-  // A tap on a ship (#678): opens the ship's own preview, same as a tap on any other table card,
-  // and — since a ship with no crew shows nothing new — opens its crew panel alongside the
-  // preview only when it actually has crew aboard.
+  // A tap on a ship opens its crew panel when it has crew aboard, and does nothing otherwise.
   const handleShipClick = (shipId: string) => {
-    setFocusedCardId(shipId);
     const ship = findInstanceAnywhere(table, shipId)?.instance;
     if (ship?.crew && ship.crew.length > 0) {
       openOnlyCrewPanel(shipId);
@@ -942,14 +933,8 @@ function PracticeDrawContent() {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    // The enlarged card preview (#643) registers under its own draggable id, distinct from the
-    // card's plain instance id, since the card's home draggable (in the hand, a ship row, or an
-    // open pile panel) can be mounted, and registered with dnd-kit, at the same time. Normalizing
-    // it back to the real card id here, before anything else runs, means nothing past this line
-    // needs to know a prefix ever existed.
-    const id = cardIdFromDraggableId(String(event.active.id));
-    // A drag ends a press and hold (#763): the hold's preview closes. A preview a tap opened is
-    // only hidden during the drag, as before.
+    const id = String(event.active.id);
+    // A drag ends a press and hold (#763): the hold's preview closes.
     setHeldCardId(null);
     // A drag can start from the open hand or from a ship already on a mission's ship row
     // (#599); `findInstanceAnywhere` locates a card regardless of which one it is.
@@ -1059,10 +1044,7 @@ function PracticeDrawContent() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    // See `handleDragStart`: normalized once, at the top, so every branch below already keys off
-    // the real card id regardless of whether the drag came from the card's home draggable or its
-    // enlarged preview (#643).
-    const id = cardIdFromDraggableId(String(active.id));
+    const id = String(active.id);
     // The dragged card's zone before the drop, read while `table` still holds its pre-drop
     // state — used below both for the dilemma pile's from-hand routing and to decide, in
     // `closePanelsAfterDrag`, whether this drag started from an open panel (#675).
@@ -1074,10 +1056,9 @@ function PracticeDrawContent() {
     const group = draggingGroup.length > 0 ? draggingGroup : dragOrigin ? [dragOrigin.instance] : [];
     setDraggingInstance(null);
     setDraggingGroup([]);
-    // Any drag closing clears the open preview (#602); an open pile panel (#602), including the
-    // core's/the brig's own panel (#640) and a ship's crew panel (#664), closes too, unless the
-    // drag started from a card inside it and it still holds a card after the drop (#675).
-    setFocusedCardId(null);
+    // An open pile panel (#602), including the core's/the brig's own panel (#640) and a ship's
+    // crew panel (#664), closes after a drag, unless the drag started from a card inside it and
+    // it still holds a card after the drop (#675).
 
     // A drop inside the dilemma stack's own popup, on top of another card still in the stack,
     // reorders the stack instead of moving the card out of its zone (#632). The dragged card's
@@ -1150,7 +1131,6 @@ function PracticeDrawContent() {
     const dragOrigin = draggingInstance ? findInstanceAnywhere(table, draggingInstance.id) : null;
     setDraggingInstance(null);
     setDraggingGroup([]);
-    setFocusedCardId(null);
     closePanelsAfterDrag(dragOrigin, table);
   };
 
@@ -1161,8 +1141,7 @@ function PracticeDrawContent() {
   // dilemma pile's own top/bottom split already uses for `showPositionLabel`).
   const dilemmaStackVisible =
     dilemmaStack.length > 0 || openHand === 'dilemmaHand' || draggingInstance?.card.type === 'dilemma';
-  const previewCardId = heldCardId ?? focusedCardId;
-  const focused = previewCardId ? findInstanceAnywhere(table, previewCardId) : null;
+  const held = heldCardId ? findInstanceAnywhere(table, heldCardId) : null;
   const openCrewShip = openCrewShipId ? findInstanceAnywhere(table, openCrewShipId)?.instance : null;
   // The cards of whichever pile panel is currently open, if any — only one panel is ever open
   // at a time. Used both to build a multi-select drag's group (`handleDragStart`) and to pass
@@ -1289,7 +1268,6 @@ function PracticeDrawContent() {
               <div className="flex flex-row gap-2 justify-center items-start">
                 <MissionRow
                   missions={missions}
-                  onCardClick={(id) => setFocusedCardId(id)}
                   onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
                   onShipClick={handleShipClick}
                   onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
@@ -1398,7 +1376,6 @@ function PracticeDrawContent() {
                       setOpenHand(null);
                       setSelectedCardIds([]);
                     }}
-                    onCardClick={(id) => setFocusedCardId(id)}
                     dragging={draggingInstance !== null}
                     portalContainer={gameLayer}
                     passthroughZone={[
@@ -1413,7 +1390,7 @@ function PracticeDrawContent() {
                 </div>
 
                 {/* Core: any card, usually events (#603). A tap on a card opens the core's own
-                    pile panel (#640) rather than that one card's preview directly. */}
+                    pile panel (#640). */}
                 <FlatCardRow
                   zone="core"
                   label="Core"
@@ -1425,8 +1402,7 @@ function PracticeDrawContent() {
                 />
 
                 {/* Brig: captured personnel, though the zone accepts any card type (#603). A tap
-                    on a card opens the brig's own pile panel (#640) rather than that one card's
-                    preview directly. */}
+                    on a card opens the brig's own pile panel (#640). */}
                 <FlatCardRow
                   zone="brig"
                   label="Brig"
@@ -1450,7 +1426,6 @@ function PracticeDrawContent() {
                       setOpenHand(null);
                       setSelectedCardIds([]);
                     }}
-                    onCardClick={(id) => setFocusedCardId(id)}
                     dragging={draggingInstance !== null}
                     portalContainer={gameLayer}
                     zone="dilemmaHand"
@@ -1485,46 +1460,9 @@ function PracticeDrawContent() {
                 </div>
               </div>
 
-              {/* Enlarged card preview, anchored to the right edge at full screen height so its
-                  position never shifts regardless of which card is previewed. A table card (a
-                  mission, or a card in one of its piles, #602) gets a "Flip" button; a hand card
-                  does not (#598). `hidden` visually closes the preview for the duration of any
-                  drag. The enlarged card is itself draggable to another zone (#643) unless it
-                  previews a mission — a mission card has no on-table draggable of its own either
-                  (`MissionRow.tsx`). Since #678, closing this preview also closes an open crew
-                  panel (they always open and close together, from a tap on a ship); when a crew
-                  panel is open, `reserveLeft` shrinks this preview's own full-screen tap-to-close
-                  area down to the screen's right half, so it does not sit on top of — and swallow
-                  taps meant for — the crew panel's cards in the left half. */}
-              {focused && (
-                <CardPreview
-                  instance={focused.instance}
-                  onClose={() => {
-                    setFocusedCardId(null);
-                    setOpenCrewShipId(null);
-                  }}
-                  onFlip={
-                    focused.zone === 'missions' ||
-                    focused.zone === 'dilemmaStack' ||
-                    (typeof focused.zone === 'object' && focused.zone.zone === 'missionPile')
-                      ? () => dispatch({ type: 'flip', id: focused.instance.id })
-                      : undefined
-                  }
-                  onStop={
-                    focused.instance.card.type === 'personnel'
-                      ? () =>
-                          dispatch({
-                            type: 'setStopped',
-                            ids: [focused.instance.id],
-                            stopped: !focused.instance.stopped,
-                          })
-                      : undefined
-                  }
-                  draggable={focused.zone !== 'missions'}
-                  hidden={draggingInstance !== null}
-                  reserveLeft={openCrewShipId !== null}
-                />
-              )}
+              {/* The large card preview, shown only while a card is held (`useCardHold`). It is
+                  read-only and takes no pointer events. `hidden` hides it during a drag. */}
+              {held && <CardPreview instance={held.instance} hidden={draggingInstance !== null} />}
 
               {/* A mission's personnel or event pile panel (#602), opened by tapping its badge.
                   `selectedIds`/`onToggleSelect` let the player select more than one card here and
@@ -1537,7 +1475,6 @@ function PracticeDrawContent() {
                     setOpenPile(null);
                     setSelectedCardIds([]);
                   }}
-                  onCardClick={(id) => setFocusedCardId(id)}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() =>
@@ -1565,7 +1502,6 @@ function PracticeDrawContent() {
                     setOpenFlatZone(null);
                     setSelectedCardIds([]);
                   }}
-                  onCardClick={(id) => setFocusedCardId(id)}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() => dispatch({ type: 'shuffle', location: openFlatZone })}
@@ -1577,9 +1513,8 @@ function PracticeDrawContent() {
                 />
               )}
 
-              {/* A ship's crew panel: opened by a tap on the ship itself, alongside its own
-                  preview (`handleShipClick`, #678), so closing this panel closes that preview
-                  too. */}
+              {/* A ship's crew panel: opened by a tap on a ship with crew aboard
+                  (`handleShipClick`). */}
               {openCrewShip && (
                 <PilePanel
                   zone="crew"
@@ -1587,9 +1522,7 @@ function PracticeDrawContent() {
                   onClose={() => {
                     setOpenCrewShipId(null);
                     setSelectedCardIds([]);
-                    setFocusedCardId(null);
                   }}
-                  onCardClick={(id) => setFocusedCardId(id)}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() => dispatch({ type: 'shuffle', location: { zone: 'crew', shipId: openCrewShip.id } })}
@@ -1602,10 +1535,9 @@ function PracticeDrawContent() {
 
               {/* A mission's ship-row list panel (#713): opened by a tap on any ship once that
                   row holds more ships than fit without overlap (`ShipRow`), listing every ship on
-                  it individually. A tap on a ship here only opens that ship's own preview, the
-                  same as a tap inside the core/brig/crew panels — it does not also open a crew
-                  panel, since a second panel would break the one-panel-at-a-time invariant of
-                  #711, and this panel itself stays open underneath the preview. */}
+                  it individually. A tap on a ship here selects it, the same as a tap inside any
+                  other panel — it does not open a crew panel, since a second panel would break
+                  the one-panel-at-a-time invariant of #711. */}
               {openShipRowMissionIndex !== null && (
                 <PilePanel
                   zone="shipRow"
@@ -1614,7 +1546,6 @@ function PracticeDrawContent() {
                     setOpenShipRowMissionIndex(null);
                     setSelectedCardIds([]);
                   }}
-                  onCardClick={(id) => setFocusedCardId(id)}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() =>

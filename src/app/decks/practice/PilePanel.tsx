@@ -5,25 +5,21 @@
 // for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
 // already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
 // cards face up regardless of their stored face (the same true-face-to-owner convention
-// `CardPreview` already uses for the enlarged preview). Since #762, a panel that has a Flip button
-// (below) no longer follows that convention: it draws the card back for a card whose stored
+// `CardPreview` uses for the enlarged preview). A panel that has a Flip button (#762, below) does
+// not follow that convention: it draws the card back for a card whose stored
 // `face` is `down`, and the art for a card whose `face` is `up`, so a Flip shows in the panel.
 // `CardPreview` keeps the true-face-to-owner convention. The panels with no Flip button (the
 // core, the brig, a crew, a ship row, and the draw and dilemma piles, which the player opens to
-// download, #690) still list every card face up. A tap on a card opens that card's own
-// full preview via `onCardClick`, reusing `findInstanceAnywhere` + the existing preview state in
-// `page.tsx`. Each card is draggable out via the same `useDraggable` + `DragOverlay` mechanism
+// download, #690) still list every card face up. The tap acts, the hold looks: a tap on a card
+// toggles it in or out of the selection, and a press and hold shows its preview (`useCardHold`).
+// Each card is draggable out via the same `useDraggable` + `DragOverlay` mechanism
 // the hand and the crew row already use. The card name stays off the panel as visible text (#674);
 // it is still on the image's `alt` and the card button's `aria-label`, for a screen reader.
 //
-// The `'crew'` zone (#664) is opened by a tap on a ship, alongside that ship's own preview
-// (#678), rather than on its own — so it can never cover the screen's right half, where the
-// preview sits. Its backdrop and its box of cards both stay within the left half instead of the
-// centered, up-to-90%-wide box every other zone uses, so the two never overlap; that gives it
-// about the size the core's or the brig's own panel reaches once it holds enough cards to wrap
-// past one row.
+// The `'crew'` zone (#664) is opened by a tap on a ship with crew aboard, and uses the same
+// centered, up-to-90%-wide box every other zone uses.
 //
-// Follows the same `hidden` convention as `CardPreview`'s crew row: the panel stays mounted (not
+// Follows a `hidden` convention: the panel stays mounted (not
 // unmounted) for the rest of a drag that started from a card inside it, so a touch drag begun
 // there survives the panel closing (the #611 WebKit hazard: an element removed from the document
 // mid-touch-drag stops receiving further touch events). `page.tsx`'s existing "any drag closing
@@ -35,7 +31,7 @@
 // `<button>` cannot nest inside another `<button>`. A tap on the checkbox toggles that card in
 // or out of `selectedIds`, owned by `page.tsx` (not this component), so a drag started from a
 // selected card can pick up the whole selection in `handleDragStart`. A tap on the card itself
-// still opens its preview, unaffected by selection.
+// toggles it the same way; the checkbox stays as a second, smaller way to do it.
 //
 // A Shuffle button (#680) sits in every panel, as the first item in the box, next to the cards
 // rather than on the backdrop — a tap on the backdrop still just closes the panel. `onShuffle`
@@ -53,7 +49,7 @@
 // tap, so the player can still drag the same cards next.
 // A "Flip" button (#762) sits beside it, in the panels whose cards the preview can flip: a
 // mission's personnel, event, and under-the-mission piles, and the dilemma stack. `page.tsx`
-// passes `onFlip` only for those zones, the same way it gives `CardPreview` an `onFlip`. It shows
+// passes `onFlip` only for those zones. It shows
 // once the selection holds one or more of this panel's cards, and a tap dispatches the existing
 // `flip` action once per selected card, so each card turns over on its own: a mixed selection
 // stays mixed, inverted. The selection stays after the tap, as with Stop.
@@ -142,7 +138,6 @@ const closeLabel = (zone: PanelZone): string =>
 
 function PilePanelCard({
   instance,
-  onClick,
   selected,
   onToggleSelect,
   cardWidth,
@@ -151,7 +146,6 @@ function PilePanelCard({
   showBackWhenFaceDown = false,
 }: {
   instance: CardInstance;
-  onClick: () => void;
   selected: boolean;
   onToggleSelect: () => void;
   cardWidth: number;
@@ -182,7 +176,7 @@ function PilePanelCard({
         ref={setNodeRef}
         type="button"
         data-card-id={instance.id}
-        onClick={onClick}
+        onClick={onToggleSelect}
         {...attributes}
         {...holdListeners}
         className={`flex flex-col items-center gap-0.5 focus:outline-none touch-none w-full rounded-md ${
@@ -225,7 +219,6 @@ export default function PilePanel({
   zone,
   cards,
   onClose,
-  onCardClick,
   selectedIds,
   onToggleSelect,
   onShuffle,
@@ -238,13 +231,11 @@ export default function PilePanel({
   zone: PanelZone;
   cards: CardInstance[];
   onClose: () => void;
-  onCardClick: (id: string) => void;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
   onShuffle: () => void;
-  // Sets `stopped` to one explicit value on a list of ids (#681): the same reducer action
-  // `page.tsx`'s single-card preview button uses, so the "Stop"/"Unstop" button below shares it
-  // rather than toggling each selected card on its own.
+  // Sets `stopped` to one explicit value on a list of ids (#681), so the "Stop"/"Unstop" button
+  // below sets every selected card the same way rather than toggling each one on its own.
   onSetStopped: (ids: string[], stopped: boolean) => void;
   // Turns each id over on its own (#762). Given only for the zones whose cards can be flipped;
   // its presence is what shows the "Flip" button and draws face-down cards as the card back.
@@ -257,11 +248,6 @@ export default function PilePanel({
   cardWidth?: number;
   cardArtHeight?: number;
 }) {
-  // The crew zone opens alongside the ship's own preview, anchored to the right (#678): its
-  // backdrop and its box of cards both stay within the left half of the screen so neither ever
-  // sits under the preview. Every other zone keeps the centered, up-to-90%-wide layout it always
-  // had.
-  const isCrew = zone === 'crew';
   // The dilemma stack's own popup only (#632): a wrapped, multi-per-row grid — every other
   // `PilePanel` zone's layout — has no single top or bottom once it wraps past one row, so this
   // one zone instead lays its cards out in a single ordered row, left-to-right mapped to
@@ -301,12 +287,9 @@ export default function PilePanel({
   }, [isDilemmaStack]);
   const stackRowMaxWidth = rowWidth > 0 ? rowWidth : cardWidth * Math.max(cards.length, 1);
   const stackOffset = isDilemmaStack ? offsetFor(cards.length, cardWidth, stackRowMaxWidth, cardWidth) : 0;
-  const backdropClassName = isCrew ? 'absolute inset-y-0 left-0 right-1/2' : 'absolute inset-0';
   // Positioning only; the visible card grid itself is `gridClassName` below, now a sibling of
   // the "Stop"/"Unstop" button rather than carrying that button's own styling.
-  const layoutClassName = isCrew
-    ? 'absolute left-4 right-[calc(50%+0.5rem)] top-8 flex flex-col items-start gap-2'
-    : 'absolute left-1/2 top-8 -translate-x-1/2 flex flex-col items-center gap-2 max-w-[90%]';
+  const layoutClassName = 'absolute left-1/2 top-8 -translate-x-1/2 flex flex-col items-center gap-2 max-w-[90%]';
   // #720: a pile with many cards used to grow this box past the bottom of the screen, with no
   // way to scroll down to the cards that fell off. `max-h` caps the grid's own height to the
   // viewport (leaving room above for `top-8` plus the Stop/Shuffle buttons that sit above the
@@ -314,9 +297,7 @@ export default function PilePanel({
   // `overflow-y-auto` scrolls the cards inside it once they no longer fit. The buttons above stay
   // outside this scrolling element, so they never scroll out of view with the cards. `dvh`, not
   // `vh`, so a phone's address bar showing or hiding doesn't leave the cap wrong either way.
-  const gridClassName = isCrew
-    ? 'flex flex-wrap items-start justify-start gap-2 rounded-lg bg-black/70 p-2 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain'
-    : isDilemmaStack
+  const gridClassName = isDilemmaStack
     ? 'flex flex-col items-stretch gap-1 rounded-lg bg-black/70 p-2 w-[86vw] overflow-hidden'
     : 'flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain';
   // The two end labels sit on their own line above the cards, not at the two ends of the card
@@ -342,7 +323,7 @@ export default function PilePanel({
     >
       <button
         type="button"
-        className={`${backdropClassName} bg-black/40`}
+        className="absolute inset-0 bg-black/40"
         onClick={onClose}
         aria-label={closeLabel(zone)}
       />
@@ -392,7 +373,6 @@ export default function PilePanel({
                 <div key={instance.id} className="absolute top-0" style={{ left: idx * stackOffset, zIndex: idx + 1 }}>
                   <PilePanelCard
                     instance={instance}
-                    onClick={() => onCardClick(instance.id)}
                     selected={selectedIds.includes(instance.id)}
                     onToggleSelect={() => onToggleSelect(instance.id)}
                     cardWidth={cardWidth}
@@ -408,7 +388,6 @@ export default function PilePanel({
               <PilePanelCard
                 key={instance.id}
                 instance={instance}
-                onClick={() => onCardClick(instance.id)}
                 selected={selectedIds.includes(instance.id)}
                 onToggleSelect={() => onToggleSelect(instance.id)}
                 cardWidth={cardWidth}

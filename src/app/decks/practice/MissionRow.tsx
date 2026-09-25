@@ -25,10 +25,9 @@
 // keeps the two roles apart as two different DOM nodes. A non-empty crew shows a badge in that
 // wrapper: the same `PersonnelIcon`-and-count pill a mission's personnel pile shows (`PileBadge`
 // below), not the plain `CountBadge` circle the draw and discard piles use. A tap anywhere on the
-// ship (`onShipClick`, #678) opens both the ship's own preview and, if it has crew, every crew
-// card in a panel (`PilePanel`, zone `'crew'`, wired up in `page.tsx`) — the two open and close
-// together, so the badge itself is no longer a tap target of its own (it was, in #664): it is now
-// a plain, non-interactive `<span>` with `pointer-events-none`, so a tap that lands on it falls
+// ship (`onShipClick`) opens, if it has crew, every crew card in a panel (`PilePanel`, zone
+// `'crew'`, wired up in `page.tsx`), so the badge itself is not a tap target of its own: it is a
+// plain, non-interactive `<span>` with `pointer-events-none`, so a tap that lands on it falls
 // through to the ship's own `TableCard` button beneath.
 //
 // A row of 2 or fewer ships fits every ship side by side within the mission column's own width
@@ -40,8 +39,7 @@
 // (`PilePanel`, zone `'shipRow'`, the same list-view pattern the core, the brig, and a ship's
 // crew already use) rather than going straight to `onShipClick` — the ship underneath an
 // overlapping one is otherwise unreachable for both a tap and a drag. A tap on a ship inside that
-// panel opens only that ship's own preview, the same as a tap inside the core/brig/crew panels —
-// not its crew panel too — and the row panel itself stays open underneath, unlike `onShipClick`.
+// panel selects it, the same as a tap inside any other panel, and does not open its crew panel.
 //
 // Dropping a personnel, equipment, event, mission, or interrupt card on the mission card or its
 // ship row (#602) files it into one of that mission's piles, chosen by card type: personnel and
@@ -430,7 +428,6 @@ function ShipRow({
 function MissionColumn({
   missionIndex,
   slot,
-  onCardClick,
   onOpenPile,
   onShipClick,
   onOpenShipRow,
@@ -438,7 +435,6 @@ function MissionColumn({
 }: {
   missionIndex: number;
   slot: MissionSlot;
-  onCardClick: (id: string) => void;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
@@ -472,7 +468,7 @@ function MissionColumn({
 
         <div className="relative z-10 w-full flex items-center justify-center">
           {mission ? (
-            <TableCard instance={mission} onClick={() => onCardClick(mission.id)} width={cardWidth} artHeight={cardArtHeight} />
+            <TableCard instance={mission} width={cardWidth} artHeight={cardArtHeight} />
           ) : (
             <div
               className="w-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[9px]"
@@ -507,14 +503,12 @@ function MissionColumn({
 
 export default function MissionRow({
   missions,
-  onCardClick,
   onOpenPile,
   onShipClick,
   onOpenShipRow,
   scale = 1,
 }: {
   missions: MissionSlot[];
-  onCardClick: (id: string) => void;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
@@ -532,7 +526,6 @@ export default function MissionRow({
           missionIndex={idx}
           scale={scale}
           slot={slot}
-          onCardClick={onCardClick}
           onOpenPile={onOpenPile}
           onShipClick={onShipClick}
           onOpenShipRow={onOpenShipRow}
