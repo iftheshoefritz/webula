@@ -56,6 +56,7 @@ import { useTableScale } from './tableScale';
 import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
+import { isReleaseInDeadRect, PressGeometry, pressGeometryFrom } from './releaseCancel';
 
 // A plain inline hamburger icon (#722), not react-icons: see `DownloadIcon`'s comment below for
 // why a react-icons import here would need every test mock of `react-icons/fa` in this file's own
@@ -738,6 +739,9 @@ function PracticeDrawContent() {
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   // Read by `startHover`, which is memoized: a hover never starts during a drag.
   const draggingRef = useRef(false);
+  // The press point and the pressed card's rectangle, recorded at drag start (#774). Read only by
+  // `handleDragEnd`, so a ref: it must not cause a render.
+  const pressRef = useRef<PressGeometry | null>(null);
   const cardHold = useMemo(
     () => ({
       startHold: (id: string) => setHeldCardId(id),
@@ -952,6 +956,9 @@ function PracticeDrawContent() {
     // A drag hides a hover preview too (#766).
     setHoveredCardId(null);
     draggingRef.current = true;
+    // Measured now, before `setOpenHand(null)` commits, so the rectangle is the card in the open
+    // fan, not the card in the closed hand (#774).
+    pressRef.current = pressGeometryFrom(event.activatorEvent);
     // A drag can start from the open hand or from a ship already on a mission's ship row
     // (#599); `findInstanceAnywhere` locates a card regardless of which one it is.
     const found = findInstanceAnywhere(table, id);
@@ -984,7 +991,8 @@ function PracticeDrawContent() {
   // a drag started somewhere else entirely. `dragOrigin` is the dragged card's zone before the
   // drop (found while `table` still holds its pre-drop state, in `handleDragEnd`/
   // `handleDragCancel` below); `nextTable` is `table` after the drop's move applies (or `table`
-  // itself, unchanged, for a drag that dispatched no move at all, including a cancelled drag).
+  // itself, unchanged, for a drag that dispatched no move at all, including a cancelled drag and a
+  // release inside the dead rectangle around the press point, #774).
   const closePanelsAfterDrag = (
     dragOrigin: { instance: CardInstance; zone: TableZone } | null,
     nextTable: TableState
@@ -1065,6 +1073,15 @@ function PracticeDrawContent() {
     // state — used below both for the dilemma pile's from-hand routing and to decide, in
     // `closePanelsAfterDrag`, whether this drag started from an open panel (#675).
     const dragOrigin = findInstanceAnywhere(table, id);
+    const press = pressRef.current;
+    pressRef.current = null;
+    // A release still inside the dead rectangle around the press point is not a choice of a
+    // target (#774): the drag cancels before anything else runs, so no card moves, and the hand
+    // or the panel it started from opens again.
+    if (isReleaseInDeadRect(press, event.delta)) {
+      cancelDrag(dragOrigin);
+      return;
+    }
     // The full group this drag moves (#677): `draggingGroup` if `handleDragStart` built one
     // (it always does, for any drag that found a card), falling back to just the touched card
     // for a drag that somehow never set it (defensive only; `dragOrigin` covers the same case
@@ -1139,15 +1156,20 @@ function PracticeDrawContent() {
     closePanelsAfterDrag(dragOrigin, nextTable);
   };
 
-  // The browser can cancel a touch drag (a pointercancel or a resize). Clear the overlay then
-  // too. No move ever dispatches for a cancelled drag, so `table` itself is already the outcome
+  // The browser can cancel a touch drag (a pointercancel or a resize), and a release inside the
+  // dead rectangle around the press point cancels one too (#774). Clear the overlay then. No move
+  // ever dispatches for a cancelled drag, so `table` itself is already the outcome
   // `closePanelsAfterDrag` needs (#675): the panel the drag started from, if any, still holds
-  // every card it held before the drag, so it stays open.
-  const handleDragCancel = () => {
-    const dragOrigin = draggingInstance ? findInstanceAnywhere(table, draggingInstance.id) : null;
+  // every card it held before the drag, so it stays open, and the hand it started from reopens.
+  const cancelDrag = (dragOrigin: { instance: CardInstance; zone: TableZone } | null) => {
     setDraggingInstance(null);
     setDraggingGroup([]);
     closePanelsAfterDrag(dragOrigin, table);
+  };
+
+  const handleDragCancel = () => {
+    pressRef.current = null;
+    cancelDrag(draggingInstance ? findInstanceAnywhere(table, draggingInstance.id) : null);
   };
 
   const isEmpty = deckEmpty;
