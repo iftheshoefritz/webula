@@ -167,7 +167,7 @@ Reasons, in the order the script tests them:
 | `agent-error:api-error` | An overloaded or internal API error |
 | `agent-error:oidc-token` | `Could not fetch an OIDC token` — the job needs `id-token: write` |
 | `agent-error:post-run-step` | The result record has `"is_error": false`, so Claude finished with no error and a later step failed |
-| `agent-error:startup-failure` | Claude never started. See "A workflow file change stops the runs on every open PR" below |
+| `agent-error:startup-failure` | Claude never started. See "A workflow file that differs from the default branch stops the run" below |
 | `agent-error:logs-unavailable` | The logs could not be downloaded |
 | `agent-error:unknown` | None of the above matched |
 
@@ -176,25 +176,68 @@ The script asks the Jobs API for the name and the page link of every job with th
 A result record with `"is_error": true` is a Claude failure. If no test above
 matched it, the reason is `unknown`, not `post-run-step`.
 
-## A workflow file change stops the runs on every open PR
+## A workflow file that differs from the default branch stops the run
 
 `claude-code-action` refuses to start when the branch it checks out holds a copy of the
-workflow file that differs from the copy on the default branch. The run fails at the token
-exchange:
+workflow file that differs from the copy on the default branch.
+
+The rule is any difference, in either direction. An old copy of the workflow file stops the
+run, and so does a new copy. The Action compares the content and does not ask which copy is
+newer.
+
+This hits `claude-visual-check.yml` and `agent-review.yml`, because both check out the
+branch of the pull request rather than the default branch.
+
+### How the stop looks in the log
+
+The shape changed with the version of the Action.
+
+`v1.0.234` writes a warning, skips its work, and ends the step with `outcome=success`:
+
+```
+##[warning]Skipping action due to workflow validation: Workflow validation failed.
+Exiting due to workflow validation skip
+```
+
+`v1.0.70` failed the token exchange instead:
 
 ```
 App token exchange failed: 401 Unauthorized - Workflow validation failed. The workflow file
 must exist and have identical content to the version on the repository's default branch.
 ```
 
-`agent-failure-label.yml` then labels it `agent-error:startup-failure`, which reads like a
-run that died for no reason.
+After the failure of `v1.0.70`, `agent-failure-label.yml` labels the run
+`agent-error:startup-failure`, which reads like a run that died for no reason. The skip of
+`v1.0.234` gets no label, because the job passes.
 
-This hits `claude-visual-check.yml` and `agent-review.yml`, because both check out the
-branch of the pull request rather than the default branch.
+### A green check can mean a skip
 
-So after a change to any workflow file merges, every pull request opened before that merge
-carries the old copy. Bring each one up to date before you start its check again:
+Because `v1.0.234` ends the step with success, `gh pr checks` shows a pass for a run that
+did no work.
+
+To tell a skip from a real run, look for the result record. Only a run that did the work
+holds one. Read the log the way the section above describes, then:
+
+```bash
+grep -c '"type": "result"' all.log
+```
+
+A count of `0` with a green check is a skip.
+
+### A pull request that changes a workflow file cannot check itself
+
+The change is the difference that the Action rejects, so no Claude workflow can run on such
+a branch. To check the change, merge it and then start a workflow on `main`.
+
+Pull request #768, which raised the version of the Action, showed this on 2026-09-25. The
+`agent-review` run on the branch loaded the new version of the Action from the branch, which
+proves that the version comes from the pull request branch. It then stopped itself on the
+validation rule. The run on `main` after the merge did the work.
+
+### Every pull request opened before the merge holds the old copy
+
+After a change to any workflow file merges, bring each open pull request up to date before
+you start its check again:
 
 ```bash
 gh pr update-branch <number>
