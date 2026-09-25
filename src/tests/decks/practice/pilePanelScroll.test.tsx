@@ -35,7 +35,6 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
         zone="pile"
         cards={manyCards}
         onClose={() => {}}
-        onCardClick={() => {}}
         selectedIds={[]}
         onToggleSelect={() => {}}
         onShuffle={() => {}}
@@ -59,7 +58,6 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
         zone="pile"
         cards={manyCards}
         onClose={onClose}
-        onCardClick={() => {}}
         selectedIds={[]}
         onToggleSelect={() => {}}
         onShuffle={() => {}}

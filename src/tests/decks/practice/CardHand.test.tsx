@@ -28,7 +28,6 @@ function Harness({
   portalContainer?: HTMLElement | null;
 }) {
   const [open, setOpen] = React.useState(initialOpen);
-  const [previewed, setPreviewed] = React.useState<string | null>(null);
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   return (
     <>
@@ -42,13 +41,11 @@ function Harness({
           setOpen(false);
           setSelectedIds([]);
         }}
-        onCardClick={(id) => setPreviewed(id)}
         selectedIds={selectedIds}
         onToggleSelect={(id) =>
           setSelectedIds((ids) => (ids.includes(id) ? ids.filter((cardId) => cardId !== id) : [...ids, id]))
         }
       />
-      {previewed && <div data-testid="previewed">{previewed}</div>}
     </>
   );
 }
@@ -69,12 +66,17 @@ describe('CardHand', () => {
     expect(screen.queryByRole('button', { name: /^close hand$/i })).not.toBeInTheDocument();
   });
 
-  it('opens the preview on a tap of a card in the open fan', () => {
+  it('a tap on a card in the open fan toggles its selection, the same as its checkbox (#764)', () => {
     const instances = makeInstances(3);
     render(<Harness instances={instances} initialOpen />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Card 1' }));
-    expect(screen.getByTestId('previewed')).toHaveTextContent(instances[1].id);
+    const card = screen.getByRole('button', { name: 'Card 1' });
+    fireEvent.click(card);
+    expect(screen.getByRole('button', { name: 'Deselect Card 1' })).toHaveAttribute('aria-pressed', 'true');
+    expect(card).toHaveClass('ring-2');
+    fireEvent.click(card);
+    expect(screen.getByRole('button', { name: 'Select Card 1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(card).not.toHaveClass('ring-2');
   });
 
   it('shows the closed row as card backs, and the open fan as card faces', () => {
@@ -117,7 +119,7 @@ describe('CardHand', () => {
   // bubbling to the document, where dnd-kit listens, and the drop never happens.
   it('keeps the dragged card in the document after a drag closes the hand', () => {
     const instances = makeInstances(3);
-    const props = { instances, onOpen: () => {}, onClose: () => {}, onCardClick: () => {} };
+    const props = { instances, onOpen: () => {}, onClose: () => {} };
     const { rerender } = render(<CardHand {...props} open />);
     const draggedCard = document.body.querySelector(`[data-card-id="${instances[1].id}"]`);
     expect(draggedCard).not.toBeNull();
@@ -261,7 +263,6 @@ describe('CardHand', () => {
           open
           onOpen={() => {}}
           onClose={() => {}}
-          onCardClick={() => {}}
           passthroughZone="pile"
         />
       );
@@ -283,7 +284,6 @@ describe('CardHand', () => {
           open
           onOpen={() => {}}
           onClose={onClose}
-          onCardClick={() => {}}
           passthroughZone="pile"
         />
       );
@@ -307,7 +307,6 @@ describe('CardHand', () => {
           open
           onOpen={() => {}}
           onClose={() => {}}
-          onCardClick={() => {}}
           passthroughZone={['pile', 'dilemma-pile-top', 'dilemma-pile-bottom']}
         />
       );
@@ -330,7 +329,6 @@ describe('CardHand', () => {
           open
           onOpen={() => {}}
           onClose={onClose}
-          onCardClick={() => {}}
           passthroughZone={['pile', 'dilemma-pile-top', 'dilemma-pile-bottom']}
         />
       );

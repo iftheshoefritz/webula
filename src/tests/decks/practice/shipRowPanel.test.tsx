@@ -217,11 +217,11 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     expect(panel.querySelector(`[data-card-id="${firstId}"]`)).not.toBeNull();
     expect(panel.querySelector(`[data-card-id="${secondId}"]`)).not.toBeNull();
     expect(panel.querySelector(`[data-card-id="${thirdId}"]`)).not.toBeNull();
-    // A tap on an overlapping row opens the list panel, not that ship's own preview directly.
-    expect(screen.queryByRole('button', { name: /voyager, tap to shrink/i })).not.toBeInTheDocument();
+    // A tap on an overlapping row opens the list panel, and no preview.
+    expect(screen.queryByTestId('card-preview')).toBeNull();
   });
 
-  it("still opens each ship's own preview directly on a row of two (no overlap)", async () => {
+  it('a tap on a ship with no crew on a row of two (no overlap) opens nothing (#764)', async () => {
     await setupOpenHand([mockShipCard, mockOtherShipCard]);
     const [firstId, secondId] = mockDraggableIds;
     await dropOnMission(firstId, 0, 1);
@@ -232,7 +232,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     });
 
     expect(document.body.querySelector('[data-zone="pile-panel-shipRow"]')).toBeNull();
-    expect(screen.getByRole('button', { name: /somraw, tap to shrink/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('card-preview')).toBeNull();
   });
 
   it('drags a ship out of the row panel to the discard pile, the same as a direct drag off the row, and keeps the panel open (#675)', async () => {
@@ -264,7 +264,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(2);
   });
 
-  it("tapping a ship inside the row panel opens that ship's own preview and keeps the row panel open", async () => {
+  it('tapping a ship inside the row panel selects it and keeps the row panel open (#764)', async () => {
     await setupOpenHand([mockShipCard, mockOtherShipCard, mockThirdShipCard]);
     const [firstId, secondId, thirdId] = mockDraggableIds;
     await dropOnMission(firstId, 2, 2);
@@ -282,10 +282,11 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     });
 
     expect(document.body.querySelector('[data-zone="pile-panel-shipRow"]')).not.toBeNull();
-    expect(screen.getByRole('button', { name: /relativity, tap to shrink/i })).toBeInTheDocument();
+    expect(panel.querySelector(`[data-card-id="${firstId}"]`)).toHaveClass('ring-2');
+    expect(screen.queryByTestId('card-preview')).toBeNull();
   });
 
-  it('tapping a crewed ship inside the row panel opens only its own preview, not its crew panel, and keeps the row panel open', async () => {
+  it('tapping a crewed ship inside the row panel selects it, does not open its crew panel, and keeps the row panel open', async () => {
     await setupOpenHand([mockShipCard, mockOtherShipCard, mockThirdShipCard, mockPersonnelCard]);
     const [firstId, secondId, thirdId, personnelId] = mockDraggableIds;
     await dropOnMission(firstId, 3, 3);
@@ -311,7 +312,8 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     });
 
     expect(document.body.querySelector('[data-zone="pile-panel-shipRow"]')).not.toBeNull();
-    expect(screen.getByRole('button', { name: /relativity, tap to shrink/i })).toBeInTheDocument();
+    expect(panel.querySelector(`[data-card-id="${firstId}"]`)).toHaveClass('ring-2');
+    expect(screen.queryByTestId('card-preview')).toBeNull();
     expect(document.body.querySelector('[data-zone="pile-panel-crew"]')).toBeNull();
   });
 

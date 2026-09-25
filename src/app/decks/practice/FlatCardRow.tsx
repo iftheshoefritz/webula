@@ -10,9 +10,8 @@
 // reachable.
 //
 // A tap on any card here opens `PilePanel` for the whole zone (#640), showing every card at a
-// larger size, rather than that one card's own preview directly — the small size here makes a
-// card hard to read in place. A tap on a card inside that panel opens its own preview instead,
-// the same two-level tap pattern a mission's personnel/event/dilemma piles already use.
+// larger size — the small size here makes a card hard to read in place. A tap on a card inside
+// that panel selects it, the same as in a mission's personnel/event/dilemma piles.
 
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';

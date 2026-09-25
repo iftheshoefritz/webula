@@ -98,8 +98,8 @@ const mockDeck = {
 // on `TableState`, was already added by #733). A drop onto it appends to the bottom, so the
 // first card dropped stays first in stack order (index 0), the first revealed. A tap opens its
 // own `PilePanel`, under the same one-panel-at-a-time rule as every other flat zone (#711), and a
-// tap on a card inside that panel gets a working Flip button (the `flip` reducer case already
-// handles any plain string zone).
+// tap on a card inside that panel selects it and shows a working Flip button (the `flip` reducer
+// case already handles any plain string zone).
 describe('Practice table: the dilemma stack (#630)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -333,7 +333,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     expect(document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]')).not.toBeNull();
   });
 
-  it('a tap on a card in the stack panel opens a preview with a working Flip button', async () => {
+  it('a tap on a card in the stack panel selects it and shows a working Flip button', async () => {
     await setupOpenDilemmaHand();
     const [firstId] = mockDraggableIds;
 
@@ -354,13 +354,15 @@ describe('Practice table: the dilemma stack (#630)', () => {
       fireEvent.click(within(stackPanel).getByRole('button', { name: 'cardassian trap' }));
     });
 
-    expect(screen.getByText('Face down')).toBeInTheDocument();
+    const panelImage = () => within(stackPanel).getByAltText('cardassian trap');
+    expect(screen.queryByTestId('card-preview')).toBeNull();
+    expect(panelImage()).toHaveAttribute('src', '/cardimages/cardback.jpg');
     const flipButton = screen.getByRole('button', { name: 'Flip' });
     await act(async () => {
       fireEvent.click(flipButton);
     });
 
-    expect(screen.queryByText('Face down')).not.toBeInTheDocument();
+    expect(panelImage()).not.toHaveAttribute('src', '/cardimages/cardback.jpg');
   });
 
   // #631: the dilemma hand is now a drop target even with no cards in it, so a dilemma dragged

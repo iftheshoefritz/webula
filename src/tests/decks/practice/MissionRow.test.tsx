@@ -29,7 +29,6 @@ describe('MissionRow', () => {
     render(
       <MissionRow
         missions={[emptySlot()]}
-        onCardClick={() => {}}
         onOpenPile={() => {}}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
@@ -48,7 +47,6 @@ describe('MissionRow', () => {
     render(
       <MissionRow
         missions={[slot]}
-        onCardClick={() => {}}
         onOpenPile={onOpenPile}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
@@ -69,7 +67,6 @@ describe('MissionRow', () => {
     render(
       <MissionRow
         missions={[slot]}
-        onCardClick={() => {}}
         onOpenPile={() => {}}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}

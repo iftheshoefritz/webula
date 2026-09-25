@@ -293,10 +293,10 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     const panel = document.body.querySelector('[data-zone="pile-panel-core"]');
     expect(panel).not.toBeNull();
     expect(panel!.querySelectorAll('[data-card-id]')).toHaveLength(2);
-    expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-preview')).toBeNull();
   });
 
-  it('opens a card\'s own preview when tapped inside the core pile panel (#640)', async () => {
+  it('selects a card tapped inside the core pile panel, and a second tap clears it (#764)', async () => {
     await setupOpenHand([mockEventCard]);
     const [draggedId] = mockDraggableIds;
 
@@ -311,11 +311,20 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     });
 
     const panel = document.body.querySelector('[data-zone="pile-panel-core"]') as HTMLElement;
+    const card = within(panel).getByRole('button', { name: 'distress call' });
     await act(async () => {
-      fireEvent.click(within(panel).getByRole('button', { name: 'distress call' }));
+      fireEvent.click(card);
     });
 
-    expect(screen.getByRole('button', { name: /distress call, tap to shrink/i })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Deselect distress call' })).toHaveAttribute('aria-pressed', 'true');
+    expect(card).toHaveClass('ring-2');
+    expect(screen.queryByTestId('card-preview')).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(card);
+    });
+    expect(within(panel).getByRole('button', { name: 'Select distress call' })).toHaveAttribute('aria-pressed', 'false');
+    expect(card).not.toHaveClass('ring-2');
   });
 
   it('closes the core pile panel when its backdrop is tapped (#640)', async () => {

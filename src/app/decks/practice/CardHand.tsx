@@ -51,19 +51,18 @@ const OPEN_BOTTOM = 16; // px above the viewport's bottom edge, so the fan cover
 // `PilePanelCard` gives — a `<button>` cannot nest inside another `<button>`. A tap on the
 // checkbox toggles this card in or out of `selectedIds`, owned by the page (`page.tsx`), not this
 // component, so a drag started from a selected card can pick up the rest of the hand's selection
-// (`handleDragStart`). A tap on the card itself still opens its preview, unaffected by selection.
+// (`handleDragStart`). A tap on the card itself toggles it the same way; a press and hold
+// previews it (`useCardHold`).
 function DraggableFanCard({
   instance,
   left,
   zIndex,
-  onClick,
   selected,
   onToggleSelect,
 }: {
   instance: CardInstance;
   left: number;
   zIndex: number;
-  onClick: () => void;
   selected: boolean;
   onToggleSelect: () => void;
 }) {
@@ -87,7 +86,7 @@ function DraggableFanCard({
           transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
           opacity: isDragging ? 0.5 : 1,
         }}
-        onClick={onClick}
+        onClick={onToggleSelect}
         aria-label={card.name}
       >
         <img
@@ -119,7 +118,6 @@ export default function CardHand({
   open,
   onOpen,
   onClose,
-  onCardClick,
   dragging = false,
   portalContainer,
   zone = 'hand',
@@ -134,7 +132,6 @@ export default function CardHand({
   portalContainer?: HTMLElement | null;
   onOpen: () => void;
   onClose: () => void;
-  onCardClick: (id: string) => void;
   zone?: 'hand' | 'dilemmaHand';
   label?: string;
   // The cards checked in this hand (#691), owned by the page (`page.tsx`), the same as a pile
@@ -237,7 +234,7 @@ export default function CardHand({
           bottom row has a CSS transform, which would make `fixed` relative to the row and trap
           the fan's z-index in the row. In the game layer, the large preview stays on top.
           A full-screen backdrop sits behind the cards, so a tap outside the fan closes it, but
-          a tap on a card (on top of the backdrop) opens the large preview instead. The fan is
+          a tap on a card (on top of the backdrop) selects that card instead. The fan is
           centred at the bottom of the screen, on top of the bottom row, over the core and the brig.
           Issue #750: the backdrop's and the fan's z-index sit in the gap between a pile
           `CountBadge`'s `z-[140]` and the pile panel's `z-[150]`, so the open hand draws above
@@ -281,7 +278,6 @@ export default function CardHand({
                   instance={instance}
                   left={idx * openOffset}
                   zIndex={idx + 1}
-                  onClick={() => onCardClick(instance.id)}
                   selected={selectedIds.includes(instance.id)}
                   onToggleSelect={() => onToggleSelect(instance.id)}
                 />

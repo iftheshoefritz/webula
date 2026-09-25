@@ -67,8 +67,8 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 
-// Press and hold a card to preview it (#763), on the whole page: the hold drives the same
-// preview a tap opens, and a drag start, a release, or a tap-opened preview all interact with it.
+// Press and hold a card to preview it (#763), on the whole page. Since #764 the hold is the only
+// way to open the preview: the tap acts, the hold looks, and the preview is read-only.
 
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
@@ -117,7 +117,11 @@ const mockMissionCard = {
 const deckOf = (...cards: any[]) =>
   Object.fromEntries(cards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
-const preview = (name: string) => screen.queryByRole('button', { name: new RegExp(`^${name}, tap to shrink$`, 'i') });
+// The enlarged image of the preview, if the preview shows the named card.
+const preview = (name: string) => {
+  const image = screen.queryByTestId('card-preview-enlarged');
+  return image && image.getAttribute('alt')?.toLowerCase() === name.toLowerCase() ? image : null;
+};
 
 const hold = (element: Element) => {
   fireEvent.pointerDown(element, { button: 0 });
@@ -273,18 +277,27 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     release();
     expect(preview('u.s.s. relativity')).toBeNull();
 
-    // A tap on the ship opens its preview and its crew panel. A hold on the crew card swaps the
-    // preview to that card; the release puts the ship's preview back, and the panel stays open.
+    // A tap on the ship opens its crew panel and no preview. A hold on the crew card shows that
+    // card; the release hides it, the panel stays open, and the card's selection is unchanged.
     tap(ship);
     expect(document.body.querySelector('[data-zone="pile-panel-crew"]')).not.toBeNull();
+    expect(screen.queryByTestId('card-preview')).toBeNull();
     const crewCard = screen.getByRole('button', { name: 'data' });
     hold(crewCard);
     expect(preview('data')).toBeInTheDocument();
-    expect(preview('u.s.s. relativity')).toBeNull();
     release();
     fireEvent.click(crewCard);
-    expect(preview('data')).toBeNull();
-    expect(preview('u.s.s. relativity')).toBeInTheDocument();
+    expect(screen.queryByTestId('card-preview')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Select data' })).toHaveAttribute('aria-pressed', 'false');
     expect(document.body.querySelector('[data-zone="pile-panel-crew"]')).not.toBeNull();
+  });
+
+  it('the preview holds no button and takes no pointer events (#764)', async () => {
+    await setupOpenHand([mockEquipmentCard]);
+    hold(screen.getByRole('button', { name: 'tricorder' }));
+    const layer = screen.getByTestId('card-preview');
+    expect(layer).toHaveClass('pointer-events-none');
+    expect(layer.querySelector('button')).toBeNull();
+    release();
   });
 });

@@ -8,9 +8,9 @@
 // Before the timer fires, a move past `DRAG_ACTIVATION_DISTANCE` cancels it: that press is a
 // drag, and dnd-kit's `PointerSensor` (which uses the same distance, in `page.tsx`) takes it.
 //
-// The events that end a hold are listened to on `window`/`document`, not on the card: with a
-// mouse, the preview's full-screen backdrop sits under the pointer at release, so a `pointerup`
-// listener on the card itself would never fire. A drag start ends a hold too, but `page.tsx`
+// The events that end a hold are listened to on `window`/`document`, not on the card, so the
+// hold ends wherever the pointer is released. The preview takes no pointer events, so it never
+// stands between the release and the page. A drag start ends a hold too, but `page.tsx`
 // handles that one in `handleDragStart`.
 //
 // The page supplies the two callbacks through `CardHoldProvider`, the same pattern
@@ -48,8 +48,8 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
   const callbacks = useContext(CardHoldContext);
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
-  // Set once a hold has fired, so the `click` that can follow its release does not reopen the
-  // preview through the card's tap handler. Cleared on the next press.
+  // Set once a hold has fired, so the `click` that can follow its release does not also run the
+  // card's tap handler (a selection toggle, or a crew panel). Cleared on the next press.
   const swallowClickRef = useRef(false);
   const cleanupRef = useRef<(() => void) | null>(null);
 
