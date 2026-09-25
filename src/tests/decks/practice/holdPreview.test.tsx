@@ -65,7 +65,7 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
-import { HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
+import { HOLD_DELAY_MS, HOVER_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 
 // Press and hold a card to preview it (#763), on the whole page. Since #764 the hold is the only
 // way to open the preview: the tap acts, the hold looks, and the preview is read-only.
@@ -299,5 +299,69 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     expect(layer).toHaveClass('pointer-events-none');
     expect(layer.querySelector('button')).toBeNull();
     release();
+  });
+
+  describe('a mouse hover (#766)', () => {
+    const enter = (element: Element, init: PointerEventInit = {}) =>
+      fireEvent.pointerEnter(element, { pointerType: 'mouse', buttons: 0, ...init });
+    const leave = (element: Element) => fireEvent.pointerLeave(element, { pointerType: 'mouse' });
+    const wait = (ms: number) =>
+      act(() => {
+        jest.advanceTimersByTime(ms);
+      });
+
+    it('a hover on a mission card shows its preview after 300 ms, and a leave hides it', async () => {
+      await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
+      const mission = screen.getByRole('button', { name: 'first contact' });
+      enter(mission);
+      wait(HOVER_DELAY_MS - 1);
+      expect(preview('first contact')).toBeNull();
+      wait(1);
+      expect(preview('first contact')).toBeInTheDocument();
+      act(() => {
+        leave(mission);
+      });
+      expect(preview('first contact')).toBeNull();
+    });
+
+    it('a drag start closes a hover preview', async () => {
+      await setupOpenHand([mockEquipmentCard]);
+      const [id] = mockDraggableIds;
+      enter(screen.getByRole('button', { name: 'tricorder' }));
+      wait(HOVER_DELAY_MS);
+      expect(preview('tricorder')).toBeInTheDocument();
+      act(() => {
+        mockOnDragStart!({ active: { id } });
+      });
+      expect(preview('tricorder')).toBeNull();
+    });
+
+    it('a hover that starts during a drag shows nothing', async () => {
+      await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
+      const [id] = mockDraggableIds;
+      act(() => {
+        mockOnDragStart!({ active: { id } });
+      });
+      enter(screen.getByRole('button', { name: 'first contact' }));
+      wait(HOVER_DELAY_MS);
+      act(() => {
+        mockOnDragCancel!();
+      });
+      expect(preview('first contact')).toBeNull();
+    });
+
+    it('a mouse hold on a hovered card, then a release, leaves the preview up until the leave', async () => {
+      await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
+      const mission = screen.getByRole('button', { name: 'first contact' });
+      enter(mission);
+      wait(HOVER_DELAY_MS);
+      hold(mission);
+      release();
+      expect(preview('first contact')).toBeInTheDocument();
+      act(() => {
+        leave(mission);
+      });
+      expect(preview('first contact')).toBeNull();
+    });
   });
 });
