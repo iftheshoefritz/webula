@@ -136,5 +136,5 @@ jobs:
             Never add the "ready-for-dev" label to an issue or a pull request. Only a person applies that label.
 
             Report what you saw. Do not change code except to fix a bug that an acceptance check found. Reference AGENTS.md for project conventions and commands.
-          claude_args: "--model claude-sonnet-5 --max-turns 150 --dangerously-skip-permissions"
+          claude_args: "--model claude-opus-5-5 --max-turns 150 --dangerously-skip-permissions"
           show_full_output: "true"
