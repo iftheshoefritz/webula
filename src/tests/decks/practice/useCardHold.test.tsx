@@ -100,7 +100,7 @@ describe('useCardHold', () => {
   it('a move of more than 8 px before the timer fires cancels the hold', () => {
     render(<Harness />);
     press();
-    fireEvent.pointerMove(window, { clientX: 19, clientY: 10 });
+    fireEvent.pointerMove(window, { clientX: 19, clientY: 10, buttons: 1 });
     act(() => jest.advanceTimersByTime(HOLD_DELAY_MS));
     expect(held()).toBe('none');
   });
@@ -108,9 +108,9 @@ describe('useCardHold', () => {
   it('a small move, even off the card, keeps the same card in the preview', () => {
     render(<Harness />);
     press();
-    fireEvent.pointerMove(window, { clientX: 14, clientY: 14 });
+    fireEvent.pointerMove(window, { clientX: 14, clientY: 14, buttons: 1 });
     act(() => jest.advanceTimersByTime(HOLD_DELAY_MS));
-    fireEvent.pointerMove(screen.getByTestId('elsewhere'), { clientX: 16, clientY: 10 });
+    fireEvent.pointerMove(screen.getByTestId('elsewhere'), { clientX: 16, clientY: 10, buttons: 1 });
     expect(held()).toBe('card-1');
   });
 
@@ -118,6 +118,11 @@ describe('useCardHold', () => {
     ['pointercancel', () => fireEvent.pointerCancel(window)],
     ['a second pointer going down', () => fireEvent.pointerDown(screen.getByTestId('elsewhere'), { pointerId: 2 })],
     ['the window losing focus', () => fireEvent.blur(window)],
+    // The signs of a release the page never saw (#776).
+    ['touchend', () => fireEvent.touchEnd(window)],
+    ['touchcancel', () => fireEvent.touchCancel(window)],
+    ['the press losing its pointer capture', () => fireEvent(window, new PointerEvent('lostpointercapture', { pointerId: 1 }))],
+    ['a pointermove with no button down', () => fireEvent.pointerMove(window, { clientX: 10, clientY: 10, buttons: 0 })],
     [
       'the tab becoming hidden',
       () => {
@@ -133,6 +138,50 @@ describe('useCardHold', () => {
     expect(held()).toBe('card-1');
     act(() => endIt());
     expect(held()).toBe('none');
+  });
+
+  it('a lost pointer capture for another pointer does not end the hold', () => {
+    render(<Harness />);
+    press();
+    act(() => jest.advanceTimersByTime(HOLD_DELAY_MS));
+    act(() => {
+      fireEvent(window, new PointerEvent('lostpointercapture', { pointerId: 2 }));
+    });
+    expect(held()).toBe('card-1');
+  });
+
+  it('the press that ends a fired hold has its click swallowed, and only that one (#776)', () => {
+    const onElsewhere = jest.fn();
+    render(<Harness />);
+    const elsewhere = screen.getByTestId('elsewhere');
+    elsewhere.addEventListener('click', onElsewhere);
+    press();
+    act(() => jest.advanceTimersByTime(HOLD_DELAY_MS));
+    // The release is lost. The next press closes the preview and does nothing else.
+    fireEvent.pointerDown(elsewhere, { pointerId: 2 });
+    expect(held()).toBe('none');
+    fireEvent.pointerUp(elsewhere, { pointerId: 2 });
+    fireEvent.click(elsewhere);
+    act(() => jest.advanceTimersByTime(0));
+    expect(onElsewhere).not.toHaveBeenCalled();
+    // The tap after that acts.
+    fireEvent.pointerDown(elsewhere, { pointerId: 3 });
+    fireEvent.pointerUp(elsewhere, { pointerId: 3 });
+    fireEvent.click(elsewhere);
+    expect(onElsewhere).toHaveBeenCalledTimes(1);
+  });
+
+  it('a press while the hold timer is still pending is an ordinary tap', () => {
+    const onElsewhere = jest.fn();
+    render(<Harness />);
+    const elsewhere = screen.getByTestId('elsewhere');
+    elsewhere.addEventListener('click', onElsewhere);
+    press();
+    act(() => jest.advanceTimersByTime(HOLD_DELAY_MS - 1));
+    fireEvent.pointerDown(elsewhere, { pointerId: 2 });
+    fireEvent.pointerUp(elsewhere, { pointerId: 2 });
+    fireEvent.click(elsewhere);
+    expect(onElsewhere).toHaveBeenCalledTimes(1);
   });
 
   it('swallows the click that follows a hold\'s release', () => {

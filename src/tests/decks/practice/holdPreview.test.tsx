@@ -279,6 +279,66 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     expect(preview('tricorder')).toBeNull();
   });
 
+  describe('a drag end closes a hold-opened preview (#776)', () => {
+    // `handleDragStart` already closes a preview, so each test opens one again during the drag,
+    // with a hold on the mission card. Only a preview that comes back during the drag can show
+    // that the drag's end clears it.
+    const holdDuringDrag = async (endDrag: (id: string) => void) => {
+      await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
+      const [id] = mockDraggableIds;
+      const element = document.body.querySelector(`[data-card-id="${id}"]`) as HTMLElement;
+      element.getBoundingClientRect = () =>
+        ({ left: 370, top: 503, right: 443, bottom: 607, width: 73, height: 104, x: 370, y: 503, toJSON: () => ({}) }) as DOMRect;
+      act(() => {
+        mockOnDragStart!({ active: { id }, activatorEvent: { clientX: 406.5, clientY: 555, target: element } } as any);
+      });
+      hold(screen.getByRole('button', { name: 'first contact' }));
+      expect(preview('first contact')).toBeInTheDocument();
+      act(() => endDrag(id));
+      expect(screen.queryByTestId('card-preview')).toBeNull();
+      return id;
+    };
+
+    it('a release inside the dead rectangle (the #774 cancel)', async () => {
+      const id = await holdDuringDrag((id) =>
+        mockOnDragEnd!({ active: { id }, over: { id: 'core' }, delta: { x: 9, y: 0 } } as any)
+      );
+      // The card did not move, and the hand is open again.
+      expect(document.body.querySelector(`[data-zone="core"] [data-card-id="${id}"]`)).toBeNull();
+    });
+
+    it('a drop onto the core', async () => {
+      const id = await holdDuringDrag((id) =>
+        mockOnDragEnd!({ active: { id }, over: { id: 'core' }, delta: { x: 0, y: -300 } } as any)
+      );
+      expect(document.body.querySelector(`[data-zone="core"] [data-card-id="${id}"]`)).not.toBeNull();
+    });
+
+    it('onDragCancel', async () => {
+      await holdDuringDrag(() => mockOnDragCancel!());
+    });
+  });
+
+  it('a press that closes a stuck hold preview does not act on the table (#776)', async () => {
+    await setupOpenHand([mockShipCard], [mockMissionCard]);
+    const [shipId] = mockDraggableIds;
+    drag(shipId, 'mission-2');
+    const ship = screen.getByRole('button', { name: 'u.s.s. relativity' });
+    // A hold whose release the page never sees.
+    hold(screen.getByRole('button', { name: 'first contact' }));
+    expect(preview('first contact')).toBeInTheDocument();
+    // The next tap, on the ship, closes the preview and opens no crew panel.
+    tap(ship);
+    act(() => {
+      jest.advanceTimersByTime(0);
+    });
+    expect(screen.queryByTestId('card-preview')).toBeNull();
+    expect(document.body.querySelector('[data-zone="pile-panel-crew"]')).toBeNull();
+    // The tap after that acts as usual.
+    tap(ship);
+    expect(document.body.querySelector('[data-zone="pile-panel-crew"]')).not.toBeNull();
+  });
+
   it('a hold on a ship shows its preview only, without its crew panel; a hold on a crew card keeps the panel open', async () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
