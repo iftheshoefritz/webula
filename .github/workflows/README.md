@@ -8,6 +8,8 @@ Vercel chains the two through the `buildCommand` in `vercel.json`, so a test fai
 
 The implementation workflow pushes every few edits, before the tests pass, so the work survives a run that hits the turn limit. Such a push would report a failed deployment, so the `ignoreCommand` in `vercel.json` skips the Vercel build for a commit whose message starts with `wip:`. Step 3 of `claude-implement.yml` uses that prefix; steps 4 and 6, which push a finished change, do not.
 
+A pull request merges into `main` with a squash merge. The repository setting `squash_merge_commit_title` is `PR_TITLE`, so the squash commit takes the title of the pull request and never a `wip:` commit headline from the branch. Before this setting the value was `COMMIT_OR_PR_TITLE`, which gives a pull request of one commit the message of that commit, and a `wip:` commit then stopped the deployment of `main` (#758). Do not start the title of a pull request with `wip:`, and do not merge with a rebase, which puts every `wip:` commit on `main`.
+
 ---
 
 ## Claude Issue Triage (`claude-triage.yml`)
