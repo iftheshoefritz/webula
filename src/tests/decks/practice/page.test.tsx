@@ -39,6 +39,7 @@ import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
+import { HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
@@ -540,91 +541,9 @@ describe('PracticeDrawPage', () => {
   });
 
   // Tap-to-enlarge: tapping a hand card shows an enlarged preview, tapping it again shrinks it back
-  it('tapping a hand card shows an enlarged preview and tapping again shrinks it back', async () => {
-    mockSearchParamsValue = new URLSearchParams();
-    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
-    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
-
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
-
-    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
-    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
-    const closedHandButton = screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i });
-    if (closedHandButton) {
-      await act(async () => {
-        fireEvent.click(closedHandButton);
-      });
-    }
-
-    // No enlarged preview shown yet
-    expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
-
-    const cardButton = screen.getByRole('button', { name: 'card 1' });
-    await act(async () => {
-      fireEvent.click(cardButton);
-    });
-
-    // The hand card stays visible in the open fan while its preview shows
-    expect(screen.getByRole('button', { name: 'card 1' })).toBeVisible();
-
-    // Enlarged preview now shown, anchored to the right edge at full screen height
-    const enlargedPreview = screen.getByRole('button', { name: /card 1, tap to shrink/i });
-    expect(enlargedPreview).toBeInTheDocument();
-    const enlargedImg = enlargedPreview.querySelector('img');
-    expect(enlargedImg).toHaveClass('absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90%]');
-
-    // Tapping the enlarged preview shrinks it back
-    await act(async () => {
-      fireEvent.click(enlargedPreview);
-    });
-    expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
-  });
-
-  // Enlarged preview: position and size are identical regardless of which card is previewed
-  it('enlarged preview appears in the same right-anchored, full-height position for any card', async () => {
-    mockSearchParamsValue = new URLSearchParams();
-    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
-    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
-
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
-
-    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
-    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
-    const closedHandButton = screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i });
-    if (closedHandButton) {
-      await act(async () => {
-        fireEvent.click(closedHandButton);
-      });
-    }
-
-    const expectedClasses = ['absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90%]', 'w-auto'];
-
-    // Preview card 1
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'card 1' }));
-    });
-    const firstPreview = screen.getByRole('button', { name: /card 1, tap to shrink/i });
-    expect(firstPreview.querySelector('img')).toHaveClass(...expectedClasses);
-    await act(async () => {
-      fireEvent.click(firstPreview);
-    });
-
-    // Preview card 2 — same position/size classes
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'card 2' }));
-    });
-    const secondPreview = screen.getByRole('button', { name: /card 2, tap to shrink/i });
-    expect(secondPreview.querySelector('img')).toHaveClass(...expectedClasses);
-  });
-
-  // Tap preview and Flip for table cards (issue #598)
-  describe('table card preview and flip', () => {
+  // The tap acts, the hold looks (#764): a tap never opens the preview, a press and hold does,
+  // and the preview is read-only.
+  describe('hold-only, read-only preview', () => {
     const missionCard = {
       collectorsinfo: '1R100',
       originalName: 'First Contact',
@@ -639,7 +558,12 @@ describe('PracticeDrawPage', () => {
       '1R100': { count: 1, row: missionCard },
     };
 
-    const renderWithMission = async () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    // Renders the page with a mission and seven hand cards, and opens the hand.
+    const renderWithOpenHand = async () => {
       mockSearchParamsValue = new URLSearchParams();
       localStorage.setItem('currentDeck', JSON.stringify(mockDeckWithMission));
       (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -648,61 +572,6 @@ describe('PracticeDrawPage', () => {
       await act(async () => {
         render(<PracticeDrawPage />);
       });
-    };
-
-    it('tapping a filled mission slot opens the preview with the mission\'s image', async () => {
-      await renderWithMission();
-
-      const missionButton = screen.getByRole('button', { name: 'first contact' });
-      await act(async () => {
-        fireEvent.click(missionButton);
-      });
-
-      const preview = screen.getByRole('button', { name: /first contact, tap to shrink/i });
-      expect(preview.querySelector('img')).toHaveAttribute('src', '/cardimages/first_contact.jpg');
-    });
-
-    it('the preview for a mission shows a "Flip" button; tapping it toggles the face and the preview stays open', async () => {
-      await renderWithMission();
-
-      await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: 'first contact' }));
-      });
-
-      expect(screen.queryByText('Face down')).not.toBeInTheDocument();
-      const flipButton = screen.getByRole('button', { name: /^flip$/i });
-
-      await act(async () => {
-        fireEvent.click(flipButton);
-      });
-
-      // The preview stays open and now shows the "Face down" label
-      expect(screen.getByRole('button', { name: /first contact, tap to shrink/i })).toBeInTheDocument();
-      expect(screen.getByText('Face down')).toBeInTheDocument();
-
-      await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /^flip$/i }));
-      });
-
-      expect(screen.queryByText('Face down')).not.toBeInTheDocument();
-    });
-
-    it('tapping outside the preview (the backdrop) closes it', async () => {
-      await renderWithMission();
-
-      await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: 'first contact' }));
-      });
-      expect(screen.getByRole('button', { name: /first contact, tap to shrink/i })).toBeInTheDocument();
-
-      await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /first contact, tap to shrink/i }));
-      });
-      expect(screen.queryByRole('button', { name: /tap to shrink/i })).not.toBeInTheDocument();
-    });
-
-    it('the hand-card preview has no "Flip" button', async () => {
-      await renderWithMission();
 
       // #740 keeps a hand open after a drag out of it, so this tap only runs when the
       // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
@@ -712,12 +581,75 @@ describe('PracticeDrawPage', () => {
           fireEvent.click(closedHandButton);
         });
       }
-      await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: 'card 1' }));
-      });
+      jest.useFakeTimers();
+    };
 
-      expect(screen.getByRole('button', { name: /card 1, tap to shrink/i })).toBeInTheDocument();
+    const hold = (element: Element) => {
+      fireEvent.pointerDown(element, { button: 0 });
+      act(() => {
+        jest.advanceTimersByTime(HOLD_DELAY_MS);
+      });
+    };
+
+    const release = () => {
+      act(() => {
+        fireEvent.pointerUp(window);
+      });
+    };
+
+    it('a tap on a mission card opens no preview', async () => {
+      await renderWithOpenHand();
+      act(() => {
+        fireEvent.click(screen.getByRole('button', { name: 'first contact' }));
+      });
+      expect(screen.queryByTestId('card-preview-enlarged')).toBeNull();
+    });
+
+    it('a tap on a hand card opens no preview, and selects the card', async () => {
+      await renderWithOpenHand();
+      const card = screen.getByRole('button', { name: 'card 1' });
+      act(() => {
+        fireEvent.click(card);
+      });
+      expect(screen.queryByTestId('card-preview-enlarged')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Deselect card 1' })).toHaveAttribute('aria-pressed', 'true');
+      expect(card).toHaveClass('ring-2');
+
+      act(() => {
+        fireEvent.click(card);
+      });
+      expect(screen.getByRole('button', { name: 'Select card 1' })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('a hold on a mission shows its image in a read-only preview, with no Flip button', async () => {
+      await renderWithOpenHand();
+      hold(screen.getByRole('button', { name: 'first contact' }));
+
+      const layer = screen.getByTestId('card-preview');
+      expect(screen.getByTestId('card-preview-enlarged')).toHaveAttribute('src', '/cardimages/first_contact.jpg');
+      expect(layer).toHaveClass('pointer-events-none');
+      expect(layer.querySelector('button')).toBeNull();
       expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
+
+      release();
+      expect(screen.queryByTestId('card-preview')).toBeNull();
+    });
+
+    it('the preview appears in the same right-anchored, full-height position for any card', async () => {
+      await renderWithOpenHand();
+      const expectedClasses = ['absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90%]', 'w-auto'];
+
+      hold(screen.getByRole('button', { name: 'card 1' }));
+      expect(screen.getByTestId('card-preview-enlarged')).toHaveAttribute('alt', 'card 1');
+      expect(screen.getByTestId('card-preview-enlarged')).toHaveClass(...expectedClasses);
+      // The hand card stays visible in the open fan while its preview shows.
+      expect(screen.getByRole('button', { name: 'card 1' })).toBeVisible();
+      release();
+
+      hold(screen.getByRole('button', { name: 'card 2' }));
+      expect(screen.getByTestId('card-preview-enlarged')).toHaveAttribute('alt', 'card 2');
+      expect(screen.getByTestId('card-preview-enlarged')).toHaveClass(...expectedClasses);
+      release();
     });
   });
 

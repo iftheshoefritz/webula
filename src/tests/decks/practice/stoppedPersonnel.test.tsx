@@ -63,6 +63,7 @@ import { render, screen, within, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
+import { HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 
 const mockPersonnelCard = {
   collectorsinfo: '2C002',
@@ -141,78 +142,98 @@ describe('Practice draw: stopping a personnel card (#679)', () => {
     }
   };
 
-  it('shows a "Stop" button only for a personnel card\'s preview', async () => {
-    await setupOpenHand([mockPersonnelCard, mockEquipmentCard]);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'data' }));
-    });
-    expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /data, tap to shrink/i }));
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'tricorder' }));
-    });
-    expect(screen.queryByRole('button', { name: /^stop$/i })).not.toBeInTheDocument();
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
-  it('tapping "Stop" greys the previewed image and flips the button to "Unstop"; tapping it again restores both', async () => {
-    await setupOpenHand([mockPersonnelCard]);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'data' }));
-    });
-    const preview = screen.getByRole('button', { name: /data, tap to shrink/i });
-    expect(preview.querySelector('img')).not.toHaveClass('grayscale');
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
-    });
-    expect(preview.querySelector('img')).toHaveClass('grayscale', 'opacity-50');
-    expect(screen.getByRole('button', { name: /^unstop$/i })).toBeInTheDocument();
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^unstop$/i }));
-    });
-    expect(preview.querySelector('img')).not.toHaveClass('grayscale');
-    expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
-  });
-
-  it('shows a stopped personnel card greyed out on the table, in its pile panel, and after moving to a new zone', async () => {
+  // Moves the hand's only personnel card to the brig and opens the brig's own pile panel (#640).
+  const personnelInBrigPanel = async () => {
     await setupOpenHand([mockPersonnelCard]);
     const [personnelId] = mockDraggableIds;
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'data' }));
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /data, tap to shrink/i }));
-    });
-
-    // Drag the (now stopped) card from the hand to the brig (#603's flat zone, `FlatCardRow`
-    // -> `TableCard`).
     await act(async () => {
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
       mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'brig' } });
     });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'data' }));
+    });
+    const panel = document.body.querySelector('[data-zone="pile-panel-brig"]') as HTMLElement;
+    return { personnelId, panel };
+  };
+
+  it('stops a personnel card from its panel: a tap selects it, and "Stop" greys it and flips to "Unstop" (#764)', async () => {
+    const { panel } = await personnelInBrigPanel();
+    const panelCardImg = () => panel.querySelector('img');
+    expect(screen.queryByRole('button', { name: /^stop$/i })).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(within(panel).getByRole('button', { name: 'data' }));
+    });
+    expect(panelCardImg()).not.toHaveClass('grayscale');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
+    });
+    expect(panelCardImg()).toHaveClass('grayscale', 'opacity-50');
+    expect(screen.getByRole('button', { name: /^unstop$/i })).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^unstop$/i }));
+    });
+    expect(panelCardImg()).not.toHaveClass('grayscale');
+    expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
+  });
+
+  it('a hold on a stopped personnel card shows it greyed out in the preview, which has no Stop button (#764)', async () => {
+    const { panel } = await personnelInBrigPanel();
+    const card = within(panel).getByRole('button', { name: 'data' });
+    await act(async () => {
+      fireEvent.click(card);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
+    });
+
+    jest.useFakeTimers();
+    fireEvent.pointerDown(card, { button: 0 });
+    act(() => {
+      jest.advanceTimersByTime(HOLD_DELAY_MS);
+    });
+    const preview = screen.getByTestId('card-preview');
+    expect(screen.getByTestId('card-preview-enlarged')).toHaveClass('grayscale', 'opacity-50');
+    expect(within(preview).queryByRole('button')).toBeNull();
+    act(() => {
+      fireEvent.pointerUp(window);
+    });
+    expect(screen.queryByTestId('card-preview')).toBeNull();
+  });
+
+  it('shows a stopped personnel card greyed out on the table, in its pile panel, and after moving to a new zone', async () => {
+    const { personnelId, panel } = await personnelInBrigPanel();
+    await act(async () => {
+      fireEvent.click(within(panel).getByRole('button', { name: 'data' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
+    });
+    expect(panel.querySelector('img')).toHaveClass('grayscale', 'opacity-50');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close brig' }));
+    });
 
     const brigCardImg = document.body.querySelector(`[data-card-id="${personnelId}"] img`);
     expect(brigCardImg).toHaveClass('grayscale', 'opacity-50');
 
-    // Tapping the card in the brig opens the brig's own pile panel (#640); the card there shows
-    // the same greyed-out style.
+    // Drag the (now stopped) card from the brig to the core: it stays greyed out there too.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'data' }));
+      mockOnDragStart!({ active: { id: personnelId } });
     });
-    const panelCardImg = document.body.querySelector('[data-zone="pile-panel-brig"] img');
-    expect(panelCardImg).toHaveClass('grayscale', 'opacity-50');
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'core' } });
+    });
+    const coreCardImg = document.body.querySelector(`[data-card-id="${personnelId}"] img`);
+    expect(coreCardImg).toHaveClass('grayscale', 'opacity-50');
   });
 });
 
