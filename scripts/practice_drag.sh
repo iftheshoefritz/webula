@@ -12,8 +12,8 @@
 # reports whichever one gained a card. If none did (or more than one did), it
 # says so rather than guessing.
 #
-# Two things make a hand drag fail, and both cost an agent many turns to find
-# again. This script handles both.
+# Three things make a hand drag fail, and each one cost an agent many turns to
+# find again. This script handles all three.
 #
 # 1. The coordinates of the target move while the drag runs. A mouse down on a
 #    card of the open hand closes the fan, and the rest of the table then
@@ -26,9 +26,22 @@
 #    card. This script scans the box of the card for a point where
 #    `elementFromPoint` returns that card, and grabs it there.
 #
+# 3. A release near the press point cancels the drag (#774, `releaseCancel.ts`).
+#    The page keeps a "dead" rectangle around the press point: the pressed
+#    card's rect, shrunk to half its width and half its height about the press
+#    point, and never less than 24 px each way. A release inside it puts the
+#    card back where it was, so a hand card goes back to the hand and the script
+#    prints `hand`. The open fan sits over the mission row, so the centre of a
+#    mission card is often inside the dead rectangle of the fan card above it
+#    (#818: at 1280 x 720, `card-2` onto `mission-0` failed every time, and
+#    `card-3` landed). Which card fails depends on the viewport and on how many
+#    cards the hand holds, so it looked random. This script keeps the pressed
+#    card's rect from the press, and releases at the point of the target rect
+#    nearest its centre that lies outside the dead rectangle.
+#
 # `collisionDetection.ts` ranks a drop by `pointerWithin` first, so the pointer
 # must stop inside the rect of the target zone. The script moves to the centre
-# of that rect.
+# of that rect when the centre is outside the dead rectangle, as above.
 #
 # The first move is 4 px right and 8 px up. The `PointerSensor` in `page.tsx`
 # needs 8 px of movement before a drag starts, so one large move alone does
@@ -47,7 +60,7 @@ ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 
 # Every eval shares one scope, so each one is an arrow function called at once.
 # A bare `const` fails the second time with "Identifier has already been declared".
-grab=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();for(let fx=0.05;fx<=0.95;fx+=0.05){for(let fy=0.2;fy<=0.8;fy+=0.1){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);const t=document.elementFromPoint(x,y);if(t&&t.closest('[data-card-id]')===e)return x+' '+y}}return 'COVERED'})()")
+grab=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();for(let fx=0.05;fx<=0.95;fx+=0.05){for(let fy=0.2;fy<=0.8;fy+=0.1){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);const t=document.elementFromPoint(x,y);if(t&&t.closest('[data-card-id]')===e)return [x,y,r.left,r.top,r.right,r.bottom].map(Math.round).join(' ')}}return 'COVERED'})()")
 
 case "$grab" in
   MISSING) echo "card $CARD is not in the DOM. Open the hand or the panel that holds it first." >&2; exit 1 ;;
@@ -56,17 +69,29 @@ esac
 
 set -- $grab
 ax=$1; ay=$2
+# The pressed card's rect at the press, which is what the dead rectangle of
+# trap 3 is built from. The card hides once the drag starts, so read it now.
+cl=$3; ct=$4; cr=$5; cb=$6
 
 ab mouse move "$ax" "$ay"
 ab mouse down
 ab mouse move "$((ax + 4))" "$((ay - 8))"
 
 # The layout reflowed when the drag started, so read the target now, not before.
-target=$(ev "(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();return Math.round(r.x+r.width/2)+' '+Math.round(r.y+r.height/2)})()")
+# Of a grid of points inside the target rect, take the one nearest its centre
+# that is outside the dead rectangle (trap 3). The same sums as
+# `isReleaseInDeadRect` in `releaseCancel.ts`.
+target=$(ev "(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const reach=d=>Math.max(d*0.5,24);const px=$ax,py=$ay,L=($cl),T=($ct),R=($cr),B=($cb);const dead=(x,y)=>x>=px-reach(px-L)&&x<=px+reach(R-px)&&y>=py-reach(py-T)&&y<=py+reach(B-py);let best=null,bd=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}}}return best||'DEAD'})()")
 
 if [ "$target" = "MISSING" ]; then
   ab mouse up
   echo "no element has data-zone=\"$ZONE\"." >&2
+  exit 1
+fi
+
+if [ "$target" = "DEAD" ]; then
+  ab mouse up
+  echo "every point of $ZONE is inside the dead rectangle around the press point on $CARD, so any release there cancels the drag (#774). Drag the card out of a pile panel instead, or pick another card." >&2
   exit 1
 fi
 
