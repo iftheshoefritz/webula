@@ -9,11 +9,8 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  PointerSensor,
   useDraggable,
   useDroppable,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core';
 import { collisionDetection } from './collisionDetection';
 import { FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
@@ -47,8 +44,8 @@ import MissionRow, {
   shipIdFromCrewDropId,
 } from './MissionRow';
 import CardPreview from './CardPreview';
-import { CardHoldProvider, DRAG_ACTIVATION_DISTANCE } from './useCardHold';
-import { PanelScrollSensor } from './panelScrollSensor';
+import { CardHoldProvider } from './useCardHold';
+import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import PilePanel, { ShuffleIcon } from './PilePanel';
 import FlatCardRow from './FlatCardRow';
@@ -801,12 +798,9 @@ function PracticeDrawContent() {
   // panel closes, the same as the panels themselves.
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
 
-  // `PanelScrollSensor` comes first, so it takes a touch or pen press in a scrolling pile panel
-  // (#788); every other press falls through to the ordinary `PointerSensor`.
-  const sensors = useSensors(
-    useSensor(PanelScrollSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } }),
-    useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } })
-  );
+  // A touch or pen press in a scrolling pile panel splits a scroll from a drag (#788); every
+  // other press drags as before. `panelScrollSensor.ts` explains why it is one sensor.
+  const sensors = useTableSensors();
 
   const initDeck = () => {
     if (isFixture) {

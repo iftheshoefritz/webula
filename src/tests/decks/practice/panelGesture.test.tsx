@@ -1,8 +1,7 @@
 // #788: inside a pile panel whose grid scrolls, a touch that moved up or down picked the card up,
 // because the sensor started a drag after 8 px in any direction. The direction rule decides at
-// the same 8 px: mostly vertical scrolls, mostly sideways drags. The Jest tests do not run the
-// pointer sensor itself, so this checks the rule, the sensor's activator, and the `touch-action`
-// the panel gives its cards.
+// the same 8 px: mostly vertical scrolls, mostly sideways drags. This file checks the rule and the
+// `touch-action` the panel gives its cards; `panelScrollSensor.test.tsx` runs the sensor itself.
 jest.mock('@dnd-kit/core', () => {
   const actual = jest.requireActual('@dnd-kit/core');
   return {
@@ -13,12 +12,10 @@ jest.mock('@dnd-kit/core', () => {
 });
 
 import React from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
 import { render, screen } from '@testing-library/react';
 import PilePanel from '../../../app/decks/practice/PilePanel';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import { PANEL_SCROLLS_ATTRIBUTE, panelGestureFor } from '../../../app/decks/practice/panelGesture';
-import { PanelScrollSensor } from '../../../app/decks/practice/panelScrollSensor';
 
 const makeCard = (n: number): CardInstance =>
   ({
@@ -88,35 +85,5 @@ describe('PilePanel touch-action (#788)', () => {
     const card = screen.getByRole('button', { name: 'card 0' });
     expect(card.className).toMatch(/touch-pan-y/);
     expect(card.className).not.toMatch(/touch-none/);
-  });
-});
-
-describe('PanelScrollSensor activator (#788)', () => {
-  const activator = PanelScrollSensor.activators[0].handler;
-
-  const press = (target: Element, pointerType: string) =>
-    ({ nativeEvent: { isPrimary: true, button: 0, pointerType, target } }) as unknown as ReactPointerEvent;
-
-  const setUp = (scrolls: boolean) => {
-    const grid = document.createElement('div');
-    if (scrolls) grid.setAttribute(PANEL_SCROLLS_ATTRIBUTE, 'true');
-    const card = document.createElement('button');
-    grid.appendChild(card);
-    document.body.appendChild(grid);
-    return card;
-  };
-
-  it('claims a touch or pen press in a scrolling grid', () => {
-    const card = setUp(true);
-    expect(activator(press(card, 'touch'), {})).toBe(true);
-    expect(activator(press(card, 'pen'), {})).toBe(true);
-  });
-
-  it('leaves a mouse press to the ordinary sensor', () => {
-    expect(activator(press(setUp(true), 'mouse'), {})).toBe(false);
-  });
-
-  it('leaves a press outside a scrolling grid to the ordinary sensor', () => {
-    expect(activator(press(setUp(false), 'touch'), {})).toBe(false);
   });
 });
