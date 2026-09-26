@@ -46,6 +46,7 @@ import MissionRow, {
   shipIdFromCrewDropId,
 } from './MissionRow';
 import CardPreview from './CardPreview';
+import DecklistPanel from './DecklistPanel';
 import { CardHoldProvider, swallowClickOf } from './useCardHold';
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
@@ -98,12 +99,14 @@ function GameMenu({
   onClose,
   onReset,
   onLoadDeck,
+  onDecklist,
 }: {
   open: boolean;
   onToggle: () => void;
   onClose: () => void;
   onReset: () => void;
   onLoadDeck: () => void;
+  onDecklist: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -162,6 +165,13 @@ function GameMenu({
       </button>
       {open && (
         <div className="absolute left-0 top-full mt-1 z-40 min-w-[8rem] rounded-md border border-white/10 bg-bg-secondary py-1 shadow-lg">
+          <button
+            type="button"
+            onClick={onDecklist}
+            className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
+          >
+            Decklist
+          </button>
           <button
             type="button"
             onClick={onReset}
@@ -958,6 +968,11 @@ function PracticeDrawContent() {
   // currentDeck. It is kept in page state only: localStorage.currentDeck is the deck builder's
   // working copy and may hold unsaved edits.
   const [loadedDeck, setLoadedDeck] = useState<Deck | null>(null);
+  // The deck as it was dealt (#779), for the game menu's read-only Decklist panel. Every deal
+  // goes through `dealDeck`, so this holds the fixture deck, the builder's deck, or a deck loaded
+  // from Drive, whichever the table plays now.
+  const [dealtDeck, setDealtDeck] = useState<Deck>({});
+  const [decklistOpen, setDecklistOpen] = useState(false);
   const drive = usePracticeDrive();
 
   // Deals a new game from a deck. The fixture, currentDeck, and Drive loads all go through here.
@@ -969,6 +984,7 @@ function PracticeDrawContent() {
       dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
     });
     setDeckEmpty(isDeckEmpty(deck));
+    setDealtDeck(deck);
     setOpenHand(null);
   };
 
@@ -1019,6 +1035,12 @@ function PracticeDrawContent() {
     if (window.confirm('Reset the game? This will throw away the current game.')) {
       initDeck();
     }
+  };
+
+  // The game menu's Decklist item (#779): closes the menu and opens the read-only deck list.
+  const handleDecklistClick = () => {
+    setGameMenuOpen(false);
+    setDecklistOpen(true);
   };
 
   // The game menu's Load deck item (#780): closes the menu and opens the Drive picker.
@@ -1514,7 +1536,9 @@ function PracticeDrawContent() {
           onClose={() => setGameMenuOpen(false)}
           onReset={handleResetClick}
           onLoadDeck={handleLoadDeckClick}
+          onDecklist={handleDecklistClick}
         />
+        {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
 
         {drive.showPicker && (
           <DrivePickerModal
