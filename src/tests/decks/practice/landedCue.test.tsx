@@ -86,9 +86,20 @@ const mockEventCard = {
   count: 1,
 };
 
+const mockMissionCard = {
+  collectorsinfo: '1R100',
+  originalName: 'First Contact',
+  type: 'mission',
+  name: 'first contact',
+  imagefile: 'first_contact',
+  pile: 'mission',
+  count: 1,
+};
+
 const mockDeck = {
   [mockEquipmentCard.collectorsinfo]: { count: 1, row: mockEquipmentCard },
   [mockEventCard.collectorsinfo]: { count: 1, row: mockEventCard },
+  [mockMissionCard.collectorsinfo]: { count: 1, row: mockMissionCard },
 };
 
 describe('landedZoneKey (#778)', () => {
@@ -103,7 +114,6 @@ describe('landedZoneKey (#778)', () => {
     expect(landedZoneKey({ zone: 'shipRow', missionIndex: 2 })).toBe('ship-row-2');
     expect(landedZoneKey({ zone: 'crew', shipId: 'card-4' })).toBe('crew-card-4');
     expect(landedZoneKey({ zone: 'missionPile', missionIndex: 1, pile: 'personnel' })).toBe('mission-pile-personnel-1');
-    expect(landedZoneKey({ zone: 'missionPile', missionIndex: 1, pile: 'event' })).toBe('mission-pile-event-1');
     expect(landedZoneKey({ zone: 'missionPile', missionIndex: 0, pile: 'underMission' })).toBe(
       'mission-pile-underMission-0'
     );
@@ -184,33 +194,34 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
   const landedElements = () => Array.from(document.body.querySelectorAll('[data-landed]'));
   const zone = (name: string) => document.body.querySelector(`[data-zone="${name}"]`);
 
-  it('marks the personnel badge a personnel-pile card creates on a mission, and not the event badge', async () => {
+  it('marks the mission card for a card placed on it, and no pile badge (#813)', async () => {
     await setup();
     await drop(handCardId('tricorder'), 'mission-0');
 
-    const badge = zone('mission-pile-personnel-0');
-    expect(badge).not.toBeNull();
-    expect(badge).toHaveAttribute('data-landed');
-    expect(badge!.querySelector('[data-testid="landed-ring"]')).not.toBeNull();
+    const mission = zone('mission-0');
+    expect(mission).toHaveAttribute('data-landed');
+    expect(mission!.querySelector('[data-testid="landed-ring"]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
+    expect(zone('mission-pile-personnel-0')).not.toHaveAttribute('data-landed');
     expect(zone('mission-pile-event-0')).toBeNull();
-    expect(zone('mission-0')).not.toHaveAttribute('data-landed');
     expect(landedElements()).toHaveLength(1);
   });
 
-  it('marks the event badge for an event dropped on a mission', async () => {
+  it('marks the mission card for an event placed on it (#813)', async () => {
     await setup();
     await drop(handCardId('distress call'), 'mission-0');
 
-    expect(zone('mission-pile-event-0')).toHaveAttribute('data-landed');
-    expect(zone('mission-pile-personnel-0')).toBeNull();
+    expect(zone('mission-0')).toHaveAttribute('data-landed');
+    expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
   });
 
-  it('marks the badge a card is dropped on directly, overriding the mission routing', async () => {
+  it('marks the personnel badge a card is dropped on directly', async () => {
     await setup();
-    await drop(handCardId('tricorder'), 'mission-pile-event-0');
+    await drop(handCardId('distress call'), 'mission-pile-personnel-0');
 
-    expect(zone('mission-pile-event-0')).toHaveAttribute('data-landed');
-    expect(zone('mission-pile-personnel-0')).toBeNull();
+    expect(zone('mission-pile-personnel-0')).toHaveAttribute('data-landed');
+    expect(zone('mission-0')).not.toHaveAttribute('data-landed');
+    expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
   });
 
   it.each(['discard', 'core', 'draw-pile-top', 'draw-pile-bottom'])('marks the zone for a drop on %s', async (overId) => {

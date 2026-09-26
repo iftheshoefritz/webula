@@ -206,21 +206,21 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     await openHand();
     const [id] = mockDraggableIds;
 
-    // File the event into mission 0's event pile, then open that pile's panel.
+    // File the event into mission 0's personnel pile, then open that pile's panel.
     await act(async () => {
       mockOnDragStart!({ active: { id } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id }, over: { id: 'mission-pile-personnel-0' } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^event pile, 1 card, tap to open$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^personnel pile, 1 card, tap to open$/i }));
     });
-    expect(document.body.querySelector('[data-zone="pile-panel-event"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="pile-panel-personnel"]')).not.toBeNull();
 
     await drag(id, { x: 5, y: -8 }, 'core');
 
     expect(cardInCore(id)).toBeNull();
-    expect(document.body.querySelector(`[data-zone="pile-panel-event"] [data-card-id="${id}"]`)).not.toBeNull();
+    expect(document.body.querySelector(`[data-zone="pile-panel-personnel"] [data-card-id="${id}"]`)).not.toBeNull();
   });
 });

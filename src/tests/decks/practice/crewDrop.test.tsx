@@ -487,7 +487,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     });
 
     expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 2 cards"]')).not.toBeNull();
-    expect(screen.queryByRole('button', { name: /personnel pile/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /personnel pile, [1-9]/i })).toBeNull();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
     });
@@ -524,7 +524,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
     expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'u.s.s. relativity, 1 card on it' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /personnel pile/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /personnel pile, [1-9]/i })).toBeNull();
   });
 
   it('opens the cards on a ship from its counter, and its crew from the ship (#812)', async () => {
