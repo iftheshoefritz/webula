@@ -51,7 +51,7 @@ import { CardHoldProvider, swallowClickOf } from './useCardHold';
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import PilePanel, { ShuffleIcon } from './PilePanel';
-import FlatCardRow from './FlatCardRow';
+import FlatCardRow, { hostIdFromOnDropId } from './FlatCardRow';
 import { TABLE_CARD_ART_HEIGHT } from './TableCard';
 import { useTableScale } from './tableScale';
 import { viewerCardSize } from './viewerCardSize';
@@ -284,6 +284,20 @@ function computeMoveTargetForInstance(
 
   if (drawPileHalfFromDropId(String(over.id))) {
     return 'pile';
+  }
+
+  // A drop on a card in the core or the brig places the card on it (#810). A card dropped on its
+  // own droppable, such as one the pointer barely moved, stays in the zone it sits in, the same
+  // reorder a drop on that zone gives.
+  const hostId = hostIdFromOnDropId(String(over.id));
+  if (hostId) {
+    if (hostId === instance.id) {
+      const hostLocation = findInstanceAnywhere(table, hostId);
+      return hostLocation && typeof hostLocation.zone === 'string' && hostLocation.zone !== 'missions'
+        ? hostLocation.zone
+        : null;
+    }
+    return { zone: 'on', hostId };
   }
 
   const shipId = shipIdFromCrewDropId(String(over.id));
@@ -988,6 +1002,9 @@ function PracticeDrawContent() {
   // way as `openPile`/`openFlatZone`: a piece of UI state with no effect on the table. A tap on a
   // ship with crew aboard (`handleShipClick` below) opens it.
   const [openCrewShipId, setOpenCrewShipId] = useState<string | null>(null);
+  // Which host's panel (#810) is open, if any, named by the host's own instance id, the same way
+  // `openCrewShipId` names a ship. A tap on a card in the core or the brig with cards on it opens it.
+  const [openHostId, setOpenHostId] = useState<string | null>(null);
   // Which mission's ship-row list panel (#713) is open, if any, named by mission index the same
   // way `openPile` is — only one at a time, tracked the same way as the other three panels
   // below. Opened once a mission's ship row holds more ships than fit without overlap
@@ -1177,6 +1194,7 @@ function PracticeDrawContent() {
     setOpenFlatZone(null);
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
+    setOpenHostId(null);
     setSelectedCardIds([]);
     setOpenPile({ missionIndex, pile });
   };
@@ -1185,6 +1203,7 @@ function PracticeDrawContent() {
     setOpenPile(null);
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
+    setOpenHostId(null);
     setSelectedCardIds([]);
     setOpenFlatZone(zone);
   };
@@ -1193,6 +1212,7 @@ function PracticeDrawContent() {
     setOpenPile(null);
     setOpenFlatZone(null);
     setOpenShipRowMissionIndex(null);
+    setOpenHostId(null);
     setSelectedCardIds([]);
     setOpenCrewShipId(shipId);
   };
@@ -1201,8 +1221,18 @@ function PracticeDrawContent() {
     setOpenPile(null);
     setOpenFlatZone(null);
     setOpenCrewShipId(null);
+    setOpenHostId(null);
     setSelectedCardIds([]);
     setOpenShipRowMissionIndex(missionIndex);
+  };
+
+  const openOnlyHostPanel = (hostId: string) => {
+    setOpenPile(null);
+    setOpenFlatZone(null);
+    setOpenCrewShipId(null);
+    setOpenShipRowMissionIndex(null);
+    setSelectedCardIds([]);
+    setOpenHostId(hostId);
   };
 
   // A drag ends a press and hold (#763), and hides a hover preview (#766). Called at the drag's
@@ -1293,6 +1323,15 @@ function PracticeDrawContent() {
       const stillHasCards = !!findInstanceAnywhere(nextTable, openCrewShipId)?.instance.crew?.length;
       if (!isDragOrigin || !stillHasCards) {
         setOpenCrewShipId(null);
+        closedAPanel = true;
+      }
+    }
+
+    if (openHostId) {
+      const isDragOrigin = typeof zone === 'object' && zone.zone === 'on' && zone.hostId === openHostId;
+      const stillHasCards = !!findInstanceAnywhere(nextTable, openHostId)?.instance.on?.length;
+      if (!isDragOrigin || !stillHasCards) {
+        setOpenHostId(null);
         closedAPanel = true;
       }
     }
@@ -1497,6 +1536,7 @@ function PracticeDrawContent() {
     return () => window.removeEventListener('pointerdown', onPress, true);
   }, [previewCardId, heldCardId, hoveredCardId, draggingInstance]);
   const openCrewShip = openCrewShipId ? findInstanceAnywhere(table, openCrewShipId)?.instance : null;
+  const openHost = openHostId ? findInstanceAnywhere(table, openHostId)?.instance : null;
   // The cards of whichever pile panel is currently open, if any — only one panel is ever open
   // at a time. Used both to build a multi-select drag's group (`handleDragStart`) and to pass
   // the right card list to whichever `<PilePanel>` below is rendered.
@@ -1516,6 +1556,8 @@ function PracticeDrawContent() {
       : dilemmaStack
     : openCrewShip
     ? openCrewShip.crew ?? []
+    : openHost
+    ? openHost.on ?? []
     : openShipRowMissionIndex !== null
     ? missions[openShipRowMissionIndex].ships
     : null;
@@ -1782,6 +1824,7 @@ function PracticeDrawContent() {
                   maxOffset={FLAT_ROW_MAX_OFFSET}
                   fixedWidth
                   onOpen={() => openOnlyFlatZone('core')}
+                  onOpenHost={openOnlyHostPanel}
                 />
 
                 {/* Brig: captured personnel, though the zone accepts any card type (#603). A tap
@@ -1793,6 +1836,7 @@ function PracticeDrawContent() {
                   maxWidth={BRIG_ROW_MAX_WIDTH}
                   maxOffset={FLAT_ROW_MAX_OFFSET}
                   onOpen={() => openOnlyFlatZone('brig')}
+                  onOpenHost={openOnlyHostPanel}
                 />
 
                 {/* The dilemma pile stays the rightmost zone, with the closed dilemma hand
@@ -1927,6 +1971,27 @@ function PracticeDrawContent() {
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() => dispatch({ type: 'shuffle', location: { zone: 'crew', shipId: openCrewShip.id } })}
+                  onSetStopped={setStoppedForSelection}
+                  onDiscard={discardSelection}
+                  hidden={draggingInstance !== null}
+                  cardWidth={viewerCardWidth}
+                  cardHeight={viewerCardHeight}
+                />
+              )}
+
+              {/* The cards on a host (#810): opened by a tap on a card in the core or the brig
+                  with cards on it. The only way to take a card off a host is a drag out of here.
+                  No Shuffle: `shuffle` has no location for a host's cards. */}
+              {openHost && (
+                <PilePanel
+                  zone="on"
+                  cards={openPanelCards ?? []}
+                  onClose={() => {
+                    setOpenHostId(null);
+                    setSelectedCardIds([]);
+                  }}
+                  selectedIds={selectedCardIds}
+                  onToggleSelect={toggleCardSelection}
                   onSetStopped={setStoppedForSelection}
                   onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
