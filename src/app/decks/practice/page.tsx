@@ -804,7 +804,7 @@ function PracticeDrawContent() {
   // `PanelScrollSensor` comes first, so it takes a touch or pen press in a scrolling pile panel
   // (#788); every other press falls through to the ordinary `PointerSensor`.
   const sensors = useSensors(
-    useSensor(PanelScrollSensor),
+    useSensor(PanelScrollSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } }),
     useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } })
   );
 

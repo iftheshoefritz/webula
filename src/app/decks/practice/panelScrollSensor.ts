@@ -9,7 +9,8 @@
 // first sensor whose activator returns true. This one claims only a touch or pen press on a card
 // inside a marked grid. A mouse keeps the ordinary sensor and a drag in any direction, since it
 // scrolls with the wheel. A panel that fits, and every other zone on the table, keep the ordinary
-// sensor too.
+// sensor too. It takes the same `activationConstraint` as the ordinary sensor, so a press waits
+// for the first move instead of starting the drag at once.
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { PointerSensor, type PointerSensorOptions } from '@dnd-kit/core';
 import { DRAG_ACTIVATION_DISTANCE } from './useCardHold';
