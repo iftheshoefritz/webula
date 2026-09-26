@@ -228,7 +228,7 @@ describe('Practice draw: a card in the core or the brig is a host (#810)', () =>
 
     const panel = document.body.querySelector('[data-zone="pile-panel-on"]');
     expect(panel).not.toBeNull();
-    expect(within(panel as HTMLElement).getByRole('button', { name: /data/i })).toBeInTheDocument();
+    expect(within(panel as HTMLElement).getByRole('button', { name: 'data' })).toBeInTheDocument();
 
     await drag(personnelId, 'core');
 
