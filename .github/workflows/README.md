@@ -176,6 +176,41 @@ The script asks the Jobs API for the name and the page link of every job with th
 A result record with `"is_error": true` is a Claude failure. If no test above
 matched it, the reason is `unknown`, not `post-run-step`.
 
+## A pull request with conflicts starts no run at all
+
+A label on a pull request that GitHub reports as `CONFLICTING` starts nothing. Every
+`pull_request` event needs the merge ref `refs/pull/<number>/merge`, and GitHub cannot
+build that ref while the branch conflicts with the base. So no run is created, and the
+run list holds no failure either. This looks the same as a label that never arrived.
+
+This hit `claude-visual-check.yml` on pull requests #793 and #795 on 2026-09-26. Each one
+took the `visual-check` label three times, and the API showed no run for either branch.
+Both were `CONFLICTING`, because several other pull requests had merged in the meantime.
+
+So check the state before you look anywhere else:
+
+```bash
+gh pr view <number> --json mergeable
+```
+
+On `CONFLICTING`, do not add the label again. Bring the branch up to date first, then
+start the check:
+
+```bash
+gh pr update-branch <number>   # or merge main into the branch by hand and push
+gh pr edit <number> --remove-label visual-check
+gh pr edit <number> --add-label visual-check
+```
+
+Note that the remove must work before the add. A label that is already on the pull
+request fires no `labeled` event, so an add on top of an add does nothing. Read the
+labels back between the two commands.
+
+This is not the same as the next section. There the run **does** start, and then it fails
+at the token exchange. Here no run exists.
+
+---
+
 ## A workflow file that differs from the default branch stops the run
 
 `claude-code-action` refuses to start when the branch it checks out holds a copy of the
