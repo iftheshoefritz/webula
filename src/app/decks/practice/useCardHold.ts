@@ -26,7 +26,8 @@
 //
 // A mouse also previews a card by hover (#766): the pointer rests on the card for 300 ms, and
 // the page shows it until the pointer leaves. The hover has its own state on the page, apart
-// from the hold, so the release of a mouse hold on a hovered card leaves the hover's preview up.
+// from the hold. The end of a hold ends the hover on the same card too (#784): a pointer that
+// never moves again sends no `pointerleave`, and the hover's preview would stay up for good.
 // A touch or a pen ignores the hover, and so does a pointer that enters with a button held (a
 // drag passing over the card).
 
@@ -63,7 +64,7 @@ type PointerHandler = (event: React.PointerEvent) => void;
 // on `window` in the capture phase, so it runs before any handler on the table. It is dropped
 // once the press's release has sent its events (the same `setTimeout(..., 0)` as a hold's own
 // release uses), or at the next press, so it never eats a later tap.
-function swallowClickOf(down: PointerEvent) {
+export function swallowClickOf(down: PointerEvent) {
   const onClick = (e: MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -149,6 +150,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
       cleanup();
       if (!fired) return;
       callbacksRef.current?.endHold();
+      endHover();
       // A release off the card (a mouse lets go over the preview's backdrop) sends no click to
       // the card, so stop waiting for one once this release's own events are done.
       window.setTimeout(() => {
