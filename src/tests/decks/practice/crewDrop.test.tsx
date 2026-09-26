@@ -113,7 +113,7 @@ const mockEquipmentCard = {
 const deckOf = (...cards: any[]) =>
   Object.fromEntries(cards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
-describe('Practice draw: dropping a personnel or equipment card on a ship', () => {
+describe('Practice draw: dropping a card on a ship or its crew badge', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDraggableIds.length = 0;
@@ -188,7 +188,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
     }
   };
 
-  it('moves a dragged personnel card off the hand and aboard a ship when dropped on it', async () => {
+  it("moves a dragged personnel card off the hand and aboard a ship when dropped on its crew badge", async () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
     await placeShipOnMission(shipId, 2, 1);
@@ -197,7 +197,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
     });
 
     // Gone from the hand...
@@ -205,7 +205,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
 
     // ...and now shown as crew: the ship's own personnel badge shows 1. A tap on the ship itself
     // (not the badge, which is not interactive) opens a panel listing its crew, and no preview.
-    expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).not.toBeNull();
+    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 1 card"]')).not.toBeNull();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
     });
@@ -215,7 +215,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
     expect(screen.queryByTestId('card-preview')).toBeNull();
   });
 
-  it('moves a dragged equipment card off the hand and aboard a ship when dropped on it', async () => {
+  it("moves a dragged equipment card off the hand and aboard a ship when dropped on its crew badge", async () => {
     await setupOpenHand([mockShipCard, mockEquipmentCard]);
     const [shipId, equipmentId] = mockDraggableIds;
     await placeShipOnMission(shipId, 1, 1);
@@ -224,11 +224,11 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
       mockOnDragStart!({ active: { id: equipmentId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: equipmentId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: equipmentId }, over: { id: `crew-badge-${shipId}` } });
     });
 
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
-    expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).not.toBeNull();
+    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 1 card"]')).not.toBeNull();
   });
 
   it("routes a ship dropped on another ship's crew slot onto that ship's own row instead of aboard it (#668)", async () => {
@@ -251,7 +251,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
     const shipRow = document.body.querySelector('[data-zone="ship-row-0"]') as HTMLElement;
     expect(shipRow.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
     expect(shipRow.contains(screen.getByRole('button', { name: 'i.k.s. somraw' }))).toBe(true);
-    expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).toBeNull();
+    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
   });
 
   it("drags a crew card from the ship's crew panel to the discard pile, removing it from the crew and closing the panel", async () => {
@@ -263,7 +263,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
     });
 
     // Tap the ship: it opens the crew panel, listing the crew member.
@@ -284,7 +284,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
     expect(document.body.querySelector('[data-zone="pile-panel-crew"]')).toBeNull();
     expect(screen.queryByRole('button', { name: 'data' })).not.toBeInTheDocument();
     expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
-    expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).toBeNull();
+    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
   });
 
   it("tapping a crew card in the ship's crew panel selects it, keeping the panel open (#764)", async () => {
@@ -296,7 +296,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
     });
 
     await act(async () => {
@@ -328,7 +328,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
     });
     // #740 keeps a hand open after a drag out of it, so this tap only runs when the
     // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
@@ -342,7 +342,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
       mockOnDragStart!({ active: { id: equipmentId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: equipmentId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: equipmentId }, over: { id: `crew-badge-${shipId}` } });
     });
 
     // Tap the ship: it opens the crew panel, listing both crew members.
@@ -385,7 +385,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
     });
 
     await act(async () => {
@@ -413,7 +413,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
     });
 
     await act(async () => {
@@ -448,7 +448,7 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
     });
 
     await act(async () => {
@@ -469,12 +469,13 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
     const [shipId, personnelId, secondId] = mockDraggableIds;
     await placeShipOnMission(shipId, 2, 2);
 
-    // The badge only shows once the ship has crew, so board one card through the ship's art first.
+    // The badge shows with an empty crew too (#812), so the first card boards through it.
+    expect(document.body.querySelector(`[data-zone="crew-badge-${shipId}"]`)).not.toBeNull();
     await act(async () => {
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
     });
     expect(document.body.querySelector(`[data-zone="crew-badge-${shipId}"]`)).not.toBeNull();
 
@@ -506,6 +507,95 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
     });
 
     expect(screen.getByRole('button', { name: /personnel pile, 1 card/i })).toBeInTheDocument();
-    expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).toBeNull();
+    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
+  });
+  it("places a card dropped on a ship's art on the ship, and leaves its crew alone (#812)", async () => {
+    await setupOpenHand([mockShipCard, mockPersonnelCard]);
+    const [shipId, personnelId] = mockDraggableIds;
+    await placeShipOnMission(shipId, 0, 1);
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: personnelId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+    });
+
+    expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
+    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'u.s.s. relativity, 1 card on it' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /personnel pile/i })).toBeNull();
+  });
+
+  it('opens the cards on a ship from its counter, and its crew from the ship (#812)', async () => {
+    const secondPersonnel = { ...mockPersonnelCard, collectorsinfo: '2C003', originalName: 'Worf', name: 'worf', imagefile: 'worf' };
+    await setupOpenHand([mockShipCard, mockPersonnelCard, secondPersonnel]);
+    const [shipId, onId, crewId] = mockDraggableIds;
+    await placeShipOnMission(shipId, 0, 2);
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: onId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: onId }, over: { id: `crew-${shipId}` } });
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: crewId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: crewId }, over: { id: `crew-badge-${shipId}` } });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity, 1 card on it' }));
+    });
+    const onPanel = document.body.querySelector('[data-zone="pile-panel-on"]') as HTMLElement;
+    expect(onPanel).not.toBeNull();
+    expect(onPanel.querySelector(`[data-card-id="${onId}"]`)).not.toBeNull();
+    expect(onPanel.querySelector(`[data-card-id="${crewId}"]`)).toBeNull();
+    expect(document.body.querySelector('[data-zone="pile-panel-crew"]')).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+    });
+    const crewPanel = document.body.querySelector('[data-zone="pile-panel-crew"]') as HTMLElement;
+    expect(crewPanel).not.toBeNull();
+    expect(crewPanel.querySelector(`[data-card-id="${crewId}"]`)).not.toBeNull();
+    expect(crewPanel.querySelector(`[data-card-id="${onId}"]`)).toBeNull();
+    expect(document.body.querySelector('[data-zone="pile-panel-on"]')).toBeNull();
+  });
+
+  it('carries the crew of a ship moved to another mission, and discards the cards on it (#809, #812)', async () => {
+    const secondPersonnel = { ...mockPersonnelCard, collectorsinfo: '2C003', originalName: 'Worf', name: 'worf', imagefile: 'worf' };
+    await setupOpenHand([mockShipCard, mockPersonnelCard, secondPersonnel]);
+    const [shipId, onId, crewId] = mockDraggableIds;
+    await placeShipOnMission(shipId, 0, 2);
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: onId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: onId }, over: { id: `crew-${shipId}` } });
+    });
+    await act(async () => {
+      mockOnDragStart!({ active: { id: crewId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: crewId }, over: { id: `crew-badge-${shipId}` } });
+    });
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: shipId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'ship-row-3' } });
+    });
+
+    const shipRow = document.body.querySelector('[data-zone="ship-row-3"]') as HTMLElement;
+    expect(shipRow.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
+    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 1 card"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /u\.s\.s\. relativity, \d+ cards? on it/ })).toBeNull();
+    const discardTop = screen.getByAltText('Discard pile').closest('[data-card-id]') as HTMLElement;
+    expect(discardTop.getAttribute('data-card-id')).toBe(onId);
   });
 });

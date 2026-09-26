@@ -87,16 +87,16 @@ bx=$1; by=$2
 #
 # A ship's crew badge reads "<Ship name> crew, N cards" instead - no ", tap to
 # open" suffix, since it's a non-interactive span (#678), not a button. It
-# never carries its own data-zone either: it's a sibling of the ship's own
-# TableCard button, so it can't be the drop target itself (a `<button>` can't
-# nest inside another `<button>`). Its data-zone lives one level up, on the
-# div MissionRow.tsx wraps around both the ship and its badge (`crewDropId`).
-# So this key comes from the closest ancestor's data-zone, not the element's
-# own, falling back to the ship name if somehow neither is set (#715).
+# carries its own data-zone, `crew-badge-<the ship's card id>` (#811), and
+# shows with an empty crew too (#812), so a drag that boards a card prints that
+# zone. The key comes from the closest data-zone, which is the badge's own,
+# falling back to the ship name if somehow none is set (#715).
 #
 # A host's badge (#810), on a card in the core or the brig, reads "<Card
 # name>, N cards on it". It sits inside the host's own wrapper, so its key is
-# the host's drop zone, `on-<the host's card id>`, the same way as a crew badge.
+# the host's drop zone, `on-<the host's card id>`. A ship's counter of the
+# cards on it (#812) reads the same way, and sits inside the ship's own
+# wrapper, so its key is the ship's drop zone, `crew-<the ship's card id>`.
 snapshot() {
   ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const k=el.getAttribute('data-zone')||pile[1];parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
 }

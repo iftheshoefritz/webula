@@ -43,6 +43,7 @@ import MissionRow, {
   SHIP_CARD_WIDTH,
   missionIndexFromDropId,
   missionPileFromDropId,
+  shipIdFromCrewBadgeDropId,
   shipIdFromCrewDropId,
 } from './MissionRow';
 import CardPreview from './CardPreview';
@@ -300,21 +301,28 @@ function computeMoveTargetForInstance(
     return { zone: 'on', hostId };
   }
 
-  const shipId = shipIdFromCrewDropId(String(over.id));
+  // A drop on a ship's crew badge (#811) boards the card. Since #812 it is the only drop that
+  // does: a drop on the ship's art places the card on the ship, the same as a drop on a card in
+  // the core or the brig (#810).
+  const crewBadgeShipId = shipIdFromCrewBadgeDropId(String(over.id));
+  const shipId = crewBadgeShipId ?? shipIdFromCrewDropId(String(over.id));
   if (shipId) {
-    if (instance.card.type === 'personnel' || instance.card.type === 'equipment') {
-      return { zone: 'crew', shipId };
-    }
-    // A ship dropped on a crew zone is not crew (#668): the crew zone of the ship already on
-    // the row covers almost the whole row, so a second ship's drop lands here instead of on the
-    // row itself. Route it to that same ship's own row, the row the drop was clearly aimed at,
-    // instead of falling through to null and leaving the dragged ship stuck where it started.
     if (instance.card.type === 'ship') {
+      // A ship dropped on a ship is neither crew nor placed on it (#668): the ship already on the
+      // row covers almost the whole row, so a second ship's drop lands here instead of on the row
+      // itself. Route it to that same ship's own row, the row the drop was clearly aimed at,
+      // instead of leaving the dragged ship stuck where it started.
       const shipLocation = findInstanceAnywhere(table, shipId);
       if (shipLocation && typeof shipLocation.zone === 'object' && shipLocation.zone.zone === 'shipRow') {
         return { zone: 'shipRow', missionIndex: shipLocation.zone.missionIndex };
       }
+      return null;
     }
+    if (!crewBadgeShipId) return { zone: 'on', hostId: shipId };
+    if (instance.card.type === 'personnel' || instance.card.type === 'equipment') {
+      return { zone: 'crew', shipId };
+    }
+    return null;
   }
 
   const badgeTarget = missionPileFromDropId(String(over.id));
@@ -1689,6 +1697,7 @@ function PracticeDrawContent() {
                   onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
                   onShipClick={handleShipClick}
                   onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
+                  onOpenHost={openOnlyHostPanel}
                   scale={scale}
                 />
                 <DilemmaStackPile
@@ -1980,7 +1989,7 @@ function PracticeDrawContent() {
               )}
 
               {/* The cards on a host (#810): opened by a tap on a card in the core or the brig
-                  with cards on it. The only way to take a card off a host is a drag out of here.
+                  with cards on it, or by a tap on a ship's counter of the cards on it (#812). The only way to take a card off a host is a drag out of here.
                   No Shuffle: `shuffle` has no location for a host's cards. */}
               {openHost && (
                 <PilePanel

@@ -18,17 +18,20 @@
 // third or later ship overlaps the others rather than growing the row, reusing the same
 // overlap-offset calculation as the hand (`overlapOffset.ts`, originally #596).
 //
-// Each ship already sitting in a ship row is itself a drop target too (#600): a personnel or
-// equipment card dropped on it goes aboard as crew, leaving the table (see `ShipCard` below).
-// The ship stays draggable at the same time; a `useDroppable` wrapper around the already
-// draggable `TableCard`, the same nesting pattern used for the mission card's own drop target,
-// keeps the two roles apart as two different DOM nodes. A non-empty crew shows a badge in that
-// wrapper: the same `PersonnelIcon`-and-count pill a mission's personnel pile shows (`PileBadge`
-// below), not the plain `CountBadge` circle the draw and discard piles use. A tap anywhere on the
-// ship (`onShipClick`) opens, if it has crew, every crew card in a panel (`PilePanel`, zone
-// `'crew'`, wired up in `page.tsx`), so the badge itself is not a tap target of its own: it is a
-// plain, non-interactive `<span>` with `pointer-events-none`, so a tap that lands on it falls
-// through to the ship's own `TableCard` button beneath.
+// Each ship already sitting in a ship row is itself a drop target too, and a host (#812): a card
+// dropped on its art is placed on the ship (see `ShipCard` below), the same as a card dropped on a
+// card in the core or the brig (#810). The ship stays draggable at the same time; a `useDroppable`
+// wrapper around the already draggable `TableCard`, the same nesting pattern used for the mission
+// card's own drop target, keeps the two roles apart as two different DOM nodes. The ship's crew
+// badge (#811) is the only way to board a card by a drag: the same `PersonnelIcon`-and-count pill
+// a mission's personnel pile shows (`PileBadge` below), not the plain `CountBadge` circle the draw
+// and discard piles use, and shown even with no crew, so the first crew card has somewhere to
+// land. A tap anywhere on the ship (`onShipClick`) opens, if it has crew, every crew card in a
+// panel (`PilePanel`, zone `'crew'`, wired up in `page.tsx`), so the badge itself is not a tap
+// target of its own: it is a plain, non-interactive `<span>` with `pointer-events-none`, so a tap
+// that lands on it falls through to the ship's own `TableCard` button beneath. A ship with cards on
+// it shows a second counter, at the other corner, and that one is a button: a tap on it opens the
+// cards on the ship (`onOpenHost`), apart from the ship's own tap.
 //
 // A row of 2 or fewer ships fits every ship side by side within the mission column's own width
 // with no overlap (see `ShipRow`'s `shipMaxOffset` below); a third ship (or later) overlaps the
@@ -88,9 +91,11 @@ const SHIP_MAX_OFFSET_BASE = SHIP_CARD_WIDTH + 2; // 2 ships sit edge to edge wi
 
 export const missionDropId = (missionIndex: number): string => `mission-${missionIndex}`;
 export const shipRowDropId = (missionIndex: number): string => `ship-row-${missionIndex}`;
+// A ship's own droppable, over its art. A drop here places the card on the ship (#812); the name
+// is older than that, from when a drop on the art boarded the card as crew (#600).
 export const crewDropId = (shipId: string): string => `crew-${shipId}`;
 // A ship's crew badge is a drop target of its own (#811), distinct from `crewDropId` so each has
-// its own `data-zone` to aim at. Both file the dropped card into the same ship's crew.
+// its own `data-zone` to aim at. A drop on it files the dropped card into the ship's crew.
 export const crewBadgeDropId = (shipId: string): string => `crew-badge-${shipId}`;
 
 // A mission pile's badge is its own drop target (#602), distinct from `missionDropId` so a drop
@@ -110,31 +115,44 @@ export function missionIndexFromDropId(id: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
-// Parses a ship's own crew droppable id, or its crew badge's (#811), back to that ship's
-// instance id (#600's plan).
+// Parses a ship's own droppable id back to that ship's instance id (#600's plan). A crew badge's id
+// (#811) does not match: `shipIdFromCrewBadgeDropId` parses that one.
 export function shipIdFromCrewDropId(id: string): string | null {
-  const match = /^crew-(?:badge-)?(.+)$/.exec(id);
+  if (shipIdFromCrewBadgeDropId(id)) return null;
+  const match = /^crew-(.+)$/.exec(id);
+  return match ? match[1] : null;
+}
+
+export function shipIdFromCrewBadgeDropId(id: string): string | null {
+  const match = /^crew-badge-(.+)$/.exec(id);
   return match ? match[1] : null;
 }
 
 function ShipCard({
   ship,
   onShipClick,
+  onOpenHost,
   width,
   artHeight,
   badgeHeight,
 }: {
   ship: CardInstance;
   onShipClick: (id: string) => void;
+  onOpenHost: (hostId: string) => void;
   width: number;
   artHeight: number;
   badgeHeight: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: crewDropId(ship.id) });
   const draggedType = useDraggedCardType();
-  const highlight = highlightState('crew', draggedType, isOver);
-  const landedNonce = useLandedNonce(crewDropId(ship.id));
+  const highlight = highlightState('ship', draggedType, isOver);
+  // A move into the crew and a move onto the ship each have their own landed key
+  // (`landedZoneKey.ts`), and both play their cue on this ship.
+  const crewLandedNonce = useLandedNonce(crewDropId(ship.id));
+  const onLandedNonce = useLandedNonce(`on-${ship.id}`);
+  const landedNonce = onLandedNonce ?? crewLandedNonce;
   const crewCount = ship.crew?.length ?? 0;
+  const onCount = ship.on?.length ?? 0;
 
   return (
     <div
@@ -150,10 +168,52 @@ function ShipCard({
         shipName={ship.card.name}
         count={crewCount}
         height={badgeHeight}
-        landedNonce={landedNonce}
+        landedNonce={crewLandedNonce}
       />
+      {onCount > 0 && (
+        <ShipOnCounter
+          shipName={ship.card.name}
+          count={onCount}
+          height={badgeHeight}
+          landedNonce={onLandedNonce}
+          onOpen={() => onOpenHost(ship.id)}
+        />
+      )}
       <LandedRing nonce={landedNonce} />
     </div>
+  );
+}
+
+// The count of the cards on a ship (#812), the same plain count pill as a host in the core or the
+// brig (`HostBadge`, `FlatCardRow.tsx`), at the corner opposite the crew badge. Unlike the crew
+// badge it is a tap target of its own: a sibling `<button>` of the ship's own button, so a tap here
+// opens the cards on the ship and a tap on the ship still opens its crew. It is not a droppable, so
+// a drop on it lands on the ship's own droppable beneath.
+function ShipOnCounter({
+  shipName,
+  count,
+  height,
+  landedNonce,
+  onOpen,
+}: {
+  shipName: string;
+  count: number;
+  height: number;
+  landedNonce: number | null;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`${shipName}, ${count} card${count === 1 ? '' : 's'} on it`}
+      className="absolute -top-1 -left-1 z-10 flex items-center rounded-full bg-black/50 px-1 text-text-primary leading-none"
+      style={{ height: height - 2 }}
+    >
+      <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
+        {count}
+      </span>
+    </button>
   );
 }
 
@@ -273,7 +333,9 @@ function PileBadge({
 // `pointer-events-none`, so a tap that lands on it falls through to the ship's `TableCard` button
 // underneath rather than being swallowed here. It is a drop target of its own, though (#811):
 // dnd-kit measures a droppable's rect, not its pointer events, so `pointer-events-none` does not
-// stop a drop landing on it, and a drop on it boards the card the same as a drop on the ship.
+// stop a drop landing on it. A drop on it boards the card, and since a drop on the ship places the
+// card on the ship instead (#812), it is the only way to board by a drag, so it shows with an empty
+// crew too: the icon alone, with no count.
 function ShipCrewBadge({
   shipId,
   shipName,
@@ -287,21 +349,27 @@ function ShipCrewBadge({
   height: number;
   landedNonce: number | null;
 }) {
-  const { setNodeRef } = useDroppable({ id: crewBadgeDropId(shipId), disabled: count === 0 });
-  if (count === 0) return null;
+  const { setNodeRef, isOver } = useDroppable({ id: crewBadgeDropId(shipId) });
+  const draggedType = useDraggedCardType();
+  const highlight = highlightState('crew', draggedType, isOver);
 
   return (
     <span
       ref={setNodeRef}
       data-zone={crewBadgeDropId(shipId)}
+      data-highlight={highlight}
       aria-label={`${shipName} crew, ${count} card${count === 1 ? '' : 's'}`}
-      className="absolute -top-1 -right-1 z-10 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none"
+      className={`absolute -top-1 -right-1 z-10 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none ${
+        count === 0 ? 'opacity-60' : ''
+      } ${highlightClassName(highlight)}`}
       style={{ height: height - 2 }}
     >
       <PersonnelIcon />
-      <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
-        {count}
-      </span>
+      {count > 0 && (
+        <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
+          {count}
+        </span>
+      )}
     </span>
   );
 }
@@ -415,6 +483,7 @@ function ShipRow({
   ships,
   onShipClick,
   onOpenShipRow,
+  onOpenHost,
   columnWidth,
   scale,
 }: {
@@ -422,6 +491,7 @@ function ShipRow({
   ships: CardInstance[];
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
+  onOpenHost: (hostId: string) => void;
   columnWidth: number;
   scale: number;
 }) {
@@ -462,6 +532,7 @@ function ShipRow({
               <ShipCard
                 ship={ship}
                 onShipClick={handleShipTap}
+                onOpenHost={onOpenHost}
                 width={shipCardWidth}
                 artHeight={shipCardArtHeight}
                 badgeHeight={badgeHeight}
@@ -481,6 +552,7 @@ function MissionColumn({
   onOpenPile,
   onShipClick,
   onOpenShipRow,
+  onOpenHost,
   scale,
 }: {
   missionIndex: number;
@@ -488,6 +560,7 @@ function MissionColumn({
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
+  onOpenHost: (hostId: string) => void;
   scale: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
@@ -544,6 +617,7 @@ function MissionColumn({
         ships={ships}
         onShipClick={onShipClick}
         onOpenShipRow={onOpenShipRow}
+        onOpenHost={onOpenHost}
         columnWidth={cardWidth}
         scale={scale}
       />
@@ -556,12 +630,15 @@ export default function MissionRow({
   onOpenPile,
   onShipClick,
   onOpenShipRow,
+  onOpenHost,
   scale = 1,
 }: {
   missions: MissionSlot[];
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
+  // A tap on the counter of the cards on a ship (#812) opens them.
+  onOpenHost: (hostId: string) => void;
   // Issue #717: grows the mission cards, the ship cards, and the under-mission pile stack past
   // their base pixel size, computed by `useTableScale` (`tableScale.ts`) from the live size of
   // the game layer. Defaults to 1 (today's fixed sizes) for callers — including this
@@ -579,6 +656,7 @@ export default function MissionRow({
           onOpenPile={onOpenPile}
           onShipClick={onShipClick}
           onOpenShipRow={onOpenShipRow}
+          onOpenHost={onOpenHost}
         />
       ))}
     </div>
