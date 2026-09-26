@@ -547,6 +547,24 @@ function PileArt({ alt, shuffleCount }: { alt: string; shuffleCount: number }) {
   );
 }
 
+// The top card of the draw pile or the dilemma pile, draggable off the pile art (#814), the same
+// "mounted only while a top card exists" pattern `DiscardPileCard` above uses. The two `PileHalf`
+// buttons cover the whole art, so this component wraps them rather than sitting under them: a
+// press on either half bubbles up to the drag listeners here, while the half still gets its own
+// tap (the `PointerSensor`'s 8 px activation constraint starts no drag for a tap) and its own drop
+// (dnd-kit finds a droppable by its rect, not by a pointer event). The node takes no transform:
+// the `DragOverlay` carries the pile's card back under the pointer instead (`showBack`), since
+// the card is face down.
+function PileTopCardDrag({ topCard, children }: { topCard: CardInstance; children: React.ReactNode }) {
+  const { listeners, setNodeRef } = useDraggable({ id: topCard.id, data: { showBack: true } });
+
+  return (
+    <div ref={setNodeRef} data-card-id={topCard.id} className="absolute inset-0 touch-none" {...listeners}>
+      {children}
+    </div>
+  );
+}
+
 // The dilemma pile (#604): a tap draws its top card into the dilemma hand. It is also a drop
 // target: dropping any card on its top half puts it first in the pile (drawn next), dropping on
 // its bottom half puts it last (#607, replacing #605's single whole-card droppable, which only
@@ -555,33 +573,20 @@ function PileArt({ alt, shuffleCount }: { alt: string; shuffleCount: number }) {
 // other flat zone follows), with only the generic `isOver` ring.
 function DilemmaPileButton({
   count,
+  topCard,
   onDraw,
   showPositionLabel,
   shuffleCount,
 }: {
   count: number;
+  topCard: CardInstance | undefined;
   onDraw: () => void;
   showPositionLabel: boolean;
   shuffleCount: number;
 }) {
   const landedNonce = useLandedNonce('dilemmaPile');
-  return (
-    <div
-      className={`relative w-14 h-20 rounded-lg group ${count === 0 ? 'opacity-50' : ''}`} data-testid="dilemma-pile"
-      data-landed={landedNonce !== null || undefined}
-    >
-      <LandedRing nonce={landedNonce} />
-      {count > 0 ? (
-        <>
-          <PileArt alt="Face-down dilemma pile" shuffleCount={shuffleCount} />
-          <CountBadge count={count} landedNonce={landedNonce} />
-        </>
-      ) : (
-        <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
-          Dilemma
-        </div>
-      )}
-
+  const halves = (
+    <>
       <PileHalf
         dropId={DILEMMA_PILE_TOP_DROPPABLE_ID}
         label="Top"
@@ -602,6 +607,26 @@ function DilemmaPileButton({
         zoneKind="dilemmaPile"
         pileName="Dilemma pile"
       />
+    </>
+  );
+  return (
+    <div
+      className={`relative w-14 h-20 rounded-lg group ${count === 0 ? 'opacity-50' : ''}`} data-testid="dilemma-pile"
+      data-landed={landedNonce !== null || undefined}
+    >
+      <LandedRing nonce={landedNonce} />
+      {count > 0 ? (
+        <>
+          <PileArt alt="Face-down dilemma pile" shuffleCount={shuffleCount} />
+          <CountBadge count={count} landedNonce={landedNonce} />
+        </>
+      ) : (
+        <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
+          Dilemma
+        </div>
+      )}
+
+      {topCard ? <PileTopCardDrag topCard={topCard}>{halves}</PileTopCardDrag> : halves}
     </div>
   );
 }
@@ -613,33 +638,20 @@ function DilemmaPileButton({
 // type too. A tap on either half still draws, same as the single button this replaces.
 function DrawPileButton({
   count,
+  topCard,
   onDraw,
   showPositionLabel,
   shuffleCount,
 }: {
   count: number;
+  topCard: CardInstance | undefined;
   onDraw: () => void;
   showPositionLabel: boolean;
   shuffleCount: number;
 }) {
   const landedNonce = useLandedNonce('pile');
-  return (
-    <div
-      className={`relative w-14 h-20 rounded-lg group ${count === 0 ? 'opacity-50' : ''}`}
-      data-landed={landedNonce !== null || undefined}
-    >
-      <LandedRing nonce={landedNonce} />
-      {count > 0 ? (
-        <>
-          <PileArt alt="Face-down draw pile" shuffleCount={shuffleCount} />
-          <CountBadge count={count} landedNonce={landedNonce} />
-        </>
-      ) : (
-        <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
-          Empty
-        </div>
-      )}
-
+  const halves = (
+    <>
       <PileHalf
         dropId={DRAW_PILE_TOP_DROPPABLE_ID}
         label="Top"
@@ -660,6 +672,26 @@ function DrawPileButton({
         zoneKind="pile"
         pileName="Draw pile"
       />
+    </>
+  );
+  return (
+    <div
+      className={`relative w-14 h-20 rounded-lg group ${count === 0 ? 'opacity-50' : ''}`}
+      data-landed={landedNonce !== null || undefined}
+    >
+      <LandedRing nonce={landedNonce} />
+      {count > 0 ? (
+        <>
+          <PileArt alt="Face-down draw pile" shuffleCount={shuffleCount} />
+          <CountBadge count={count} landedNonce={landedNonce} />
+        </>
+      ) : (
+        <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
+          Empty
+        </div>
+      )}
+
+      {topCard ? <PileTopCardDrag topCard={topCard}>{halves}</PileTopCardDrag> : halves}
     </div>
   );
 }
@@ -922,6 +954,8 @@ function PracticeDrawContent() {
     setShuffleCounts((counts) => ({ ...counts, [location]: counts[location] + 1 }));
   };
   const [draggingInstance, setDraggingInstance] = useState<CardInstance | null>(null);
+  // Whether the `DragOverlay` shows the card back rather than the card (#814).
+  const [draggingShowsBack, setDraggingShowsBack] = useState(false);
   // The full set of cards this drag moves together (#677): normally just `draggingInstance`
   // itself, but the whole current selection, in the open panel's own order, when the touched
   // card is part of it. `draggingInstance` stays the single card the pointer actually touched —
@@ -1197,6 +1231,8 @@ function PracticeDrawContent() {
       setOpenHand(null);
     }
     setDraggingInstance(found.instance);
+    // A drag off the draw pile's or the dilemma pile's art (#814) carries the card face down.
+    setDraggingShowsBack(event.active.data?.current?.showBack === true);
 
     // A drag of a card selected in the open pile panel, or in the open hand it started from
     // (#691), moves the whole selection together, in that zone's own display order (#677); a
@@ -1704,6 +1740,7 @@ function PracticeDrawContent() {
                         end of the pile, not only drawn from the top. */}
                     <DrawPileButton
                       count={pile.length}
+                      topCard={pile[0]}
                       onDraw={drawOne}
                       showPositionLabel={draggingInstance !== null}
                       shuffleCount={shuffleCounts.pile}
@@ -1811,6 +1848,7 @@ function PracticeDrawContent() {
                     </div>
                     <DilemmaPileButton
                       count={dilemmaPile.length}
+                      topCard={dilemmaPile[0]}
                       onDraw={drawDilemma}
                       showPositionLabel={draggingInstance?.card.type === 'dilemma'}
                       shuffleCount={shuffleCounts.dilemmaPile}
@@ -1931,10 +1969,10 @@ function PracticeDrawContent() {
               {draggingInstance && (
                 <div className="relative">
                   <img
-                    src={`/cardimages/${draggingInstance.card.imagefile}.jpg`}
+                    src={draggingShowsBack ? '/cardimages/cardback.jpg' : `/cardimages/${draggingInstance.card.imagefile}.jpg`}
                     width={120}
                     height={167}
-                    alt={draggingInstance.card.name}
+                    alt={draggingShowsBack ? 'Face-down card' : draggingInstance.card.name}
                     className="rounded-lg shadow-md w-14 h-auto"
                   />
                   {/* Shows how many cards this drag carries (#677), for a multi-select drag. */}
