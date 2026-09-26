@@ -7,6 +7,9 @@
 //
 // Before the timer fires, a move past `DRAG_ACTIVATION_DISTANCE` cancels it: that press is a
 // drag, and dnd-kit's `PointerSensor` (which uses the same distance, in `page.tsx`) takes it.
+// Inside a pile panel whose grid scrolls, a touch or pen press goes to `PanelScrollSensor`
+// instead (#788), which decides at the same distance: a vertical first move scrolls the grid,
+// and the browser's `pointercancel` ends the hold.
 //
 // The events that end a hold are listened to on `window`/`document`, not on the card, so the
 // hold ends wherever the pointer is released. The preview takes no pointer events, so it never
@@ -39,8 +42,9 @@ type DraggableListeners = ReturnType<typeof useDraggable>['listeners'];
 export const HOLD_DELAY_MS = 500;
 // Long enough that a mouse crossing the mission row does not flash every card it passes.
 export const HOVER_DELAY_MS = 300;
-// Shared with the `PointerSensor`'s `activationConstraint` in `page.tsx`, so the point where a
-// hold gives way to a drag and the point where the drag starts cannot drift apart.
+// Shared with the `PointerSensor`'s `activationConstraint` in `page.tsx` and with
+// `PanelScrollSensor`'s direction rule, so the point where a hold gives way to a drag and the
+// point where the drag starts cannot drift apart.
 export const DRAG_ACTIVATION_DISTANCE = 8; // px
 
 export type CardHoldCallbacks = {

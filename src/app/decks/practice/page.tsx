@@ -9,11 +9,8 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  PointerSensor,
   useDraggable,
   useDroppable,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core';
 import { collisionDetection } from './collisionDetection';
 import { FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
@@ -49,7 +46,8 @@ import MissionRow, {
   shipIdFromCrewDropId,
 } from './MissionRow';
 import CardPreview from './CardPreview';
-import { CardHoldProvider, DRAG_ACTIVATION_DISTANCE, swallowClickOf } from './useCardHold';
+import { CardHoldProvider, swallowClickOf } from './useCardHold';
+import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import PilePanel, { ShuffleIcon } from './PilePanel';
 import FlatCardRow from './FlatCardRow';
@@ -919,7 +917,9 @@ function PracticeDrawContent() {
   // panel closes, the same as the panels themselves.
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } }));
+  // A touch or pen press in a scrolling pile panel splits a scroll from a drag (#788); every
+  // other press drags as before. `panelScrollSensor.ts` explains why it is one sensor.
+  const sensors = useTableSensors();
 
   // A deck loaded from Drive (#780). Once set, Reset deals it again instead of the builder's
   // currentDeck. It is kept in page state only: localStorage.currentDeck is the deck builder's

@@ -53,6 +53,14 @@
 // once the selection holds one or more of this panel's cards, and a tap dispatches the existing
 // `flip` action once per selected card, so each card turns over on its own: a mixed selection
 // stays mixed, inverted. The selection stays after the tap, as with Stop.
+//
+// A card sets `touch-none`, so the browser does not pan the table under a touch drag. Inside a
+// card grid that scrolls (#720) that also stopped the grid from scrolling under a finger, and a
+// scroll picked the card up instead (#788). So once the grid overflows, its cards take
+// `touch-action: pan-y` and the grid carries `PANEL_SCROLLS_ATTRIBUTE`, which hands a touch or
+// pen press there to `PanelScrollSensor` (`panelScrollSensor.ts`): a first move mostly up or down
+// scrolls, a first move mostly sideways drags. A grid that fits keeps `touch-none` and a drag in
+// any direction.
 
 import { useEffect, useRef, useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
@@ -60,6 +68,7 @@ import { CardInstance, MissionPileName } from './tableReducer';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, STOPPED_IMAGE_CLASSNAME } from './TableCard';
 import { offsetFor } from './overlapOffset';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
+import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -149,6 +158,7 @@ function PilePanelCard({
   cardArtHeight,
   reorderable = false,
   showBackWhenFaceDown = false,
+  gridScrolls = false,
 }: {
   instance: CardInstance;
   selected: boolean;
@@ -163,6 +173,8 @@ function PilePanelCard({
   reorderable?: boolean;
   // A panel with a Flip button (#762) draws a face-down card as the card back.
   showBackWhenFaceDown?: boolean;
+  // The panel's card grid overflows (#788): let the browser pan it vertically under a touch.
+  gridScrolls?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
   const { setNodeRef: setDropRef } = useDroppable({ id: instance.id, disabled: !reorderable });
@@ -184,7 +196,9 @@ function PilePanelCard({
         onClick={onToggleSelect}
         {...attributes}
         {...holdListeners}
-        className={`flex flex-col items-center gap-0.5 focus:outline-none touch-none w-full rounded-md ${
+        className={`flex flex-col items-center gap-0.5 focus:outline-none ${
+          gridScrolls ? 'touch-pan-y' : 'touch-none'
+        } w-full rounded-md ${
           selected ? 'ring-2 ring-accent' : ''
         }`}
         style={{
@@ -296,6 +310,24 @@ export default function PilePanel({
     observer.observe(el);
     return () => observer.disconnect();
   }, [isDilemmaStack]);
+  // Whether the card grid scrolls (#788), from the grid element itself. Re-measured when the
+  // grid resizes (the viewport changes its `max-h`) and when the card count or size changes (the
+  // grid keeps its capped height while its content grows). jsdom reports 0 for both heights, so
+  // the Jest tests see a grid that fits, and today's `touch-none`.
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [gridScrolls, setGridScrolls] = useState(false);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el || isDilemmaStack) {
+      setGridScrolls(false);
+      return;
+    }
+    const measure = () => setGridScrolls(el.scrollHeight > el.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isDilemmaStack, cards.length, cardWidth, cardArtHeight]);
   const stackRowMaxWidth = rowWidth > 0 ? rowWidth : cardWidth * Math.max(cards.length, 1);
   const stackOffset = isDilemmaStack ? offsetFor(cards.length, cardWidth, stackRowMaxWidth, cardWidth) : 0;
   // Positioning only; the visible card grid itself is `gridClassName` below, now a sibling of
@@ -374,7 +406,12 @@ export default function PilePanel({
             Shuffle
           </button>
         )}
-        <div data-zone={`pile-panel-${zone}`} className={gridClassName}>
+        <div
+          ref={gridRef}
+          data-zone={`pile-panel-${zone}`}
+          {...{ [PANEL_SCROLLS_ATTRIBUTE]: gridScrolls ? 'true' : undefined }}
+          className={gridClassName}
+        >
           {isDilemmaStack && (
             <div className="flex flex-row justify-between">
               <span className={stackEndLabelClassName}>Top (revealed first)</span>
@@ -413,6 +450,7 @@ export default function PilePanel({
                 cardWidth={cardWidth}
                 cardArtHeight={cardArtHeight}
                 showBackWhenFaceDown={onFlip !== undefined}
+                gridScrolls={gridScrolls}
               />
             ))
           )}
