@@ -298,7 +298,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${firstId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${firstId}` } });
     });
 
     await act(async () => {

@@ -293,7 +293,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
     });
     expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).not.toBeNull();
 
@@ -310,7 +310,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     expect(sourceRow!.querySelector('[data-card-id]')).toBeNull();
     const shipButton = screen.getByRole('button', { name: 'u.s.s. relativity' });
     expect(destinationRow!.contains(shipButton)).toBe(true);
-    expect(destinationRow!.querySelector('[aria-label*="crew"]')).not.toBeNull();
+    expect(destinationRow!.querySelector('[aria-label*="crew, 1 card"]')).not.toBeNull();
 
     // A tap on the ship opens its crew panel.
     await act(async () => {
@@ -401,11 +401,11 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${firstCopyId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${firstCopyId}` } });
     });
 
     expect(document.body.querySelector(`[data-zone="crew-${firstCopyId}"] [aria-label*="crew, 1 card"]`)).not.toBeNull();
-    expect(document.body.querySelector(`[data-zone="crew-${secondCopyId}"] [aria-label*="crew"]`)).toBeNull();
+    expect(document.body.querySelector(`[data-zone="crew-${secondCopyId}"] [aria-label*="crew, 0 cards"]`)).not.toBeNull();
 
     // Drag the first copy (with its crew) to a different mission: its crew goes with it, and
     // the second copy, still on mission 0, is unaffected.
@@ -422,7 +422,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     expect(originRow.querySelector(`[data-card-id="${secondCopyId}"]`)).not.toBeNull();
     expect(destinationRow.querySelector(`[data-card-id="${firstCopyId}"]`)).not.toBeNull();
     expect(destinationRow.querySelector('[aria-label*="crew, 1 card"]')).not.toBeNull();
-    expect(document.body.querySelector(`[data-zone="crew-${secondCopyId}"] [aria-label*="crew"]`)).toBeNull();
+    expect(document.body.querySelector(`[data-zone="crew-${secondCopyId}"] [aria-label*="crew, 0 cards"]`)).not.toBeNull();
   });
 
   it('does not change the ship row when a ship is dropped back on the mission it already occupies (#601)', async () => {

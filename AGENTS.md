@@ -232,16 +232,21 @@ Do not build the drag by hand. Two things make a hand drag fail, and each one ha
 
 `npx agent-browser drag '<from>' '<to>'` works for a card that no other card covers and a target that does not move, such as a drag out of a pile panel. It fails silently on a hand card: it reports `Done` and moves nothing.
 
-To put a card into a ship's crew, drag it out of a mission's pile panel. That drag lands. A ship's crew zone is named `crew-<the ship's card id>`, which the drag onto its ship row prints:
+A ship has two drop targets. A drop on the ship's art, `crew-<the ship's card id>`, places the card on the ship, and the ship shows a counter of the cards on it. A drop on the ship's crew badge, `crew-badge-<the ship's card id>`, boards the card into the crew. The badge shows even when the crew is empty, so it is the only way to board a card by a drag.
+
+To put a card into a ship's crew, drag it out of a mission's pile panel onto the crew badge. That drag lands. The drag of a ship onto its ship row prints the ship's own zone, and the badge's zone is the same name with `badge-` added:
 
 ```bash
-bash scripts/practice_drag.sh card-10 ship-row-0   # prints crew-card-10
-bash scripts/practice_drag.sh card-1 mission-0     # files the card into the personnel pile
+bash scripts/practice_drag.sh card-10 ship-row-0         # prints crew-card-10
+bash scripts/practice_drag.sh card-1 mission-0           # files the card into the personnel pile
 # open that pile panel, then:
-bash scripts/practice_drag.sh card-1 crew-card-10
+bash scripts/practice_drag.sh card-1 crew-badge-card-10  # boards card-1, prints crew-badge-card-10
+bash scripts/practice_drag.sh card-2 crew-card-10        # places card-2 on the ship, prints crew-card-10
 ```
 
-A drag out of the core onto a crew zone has failed once. See #701.
+A tap on the ship opens its crew panel. A tap on the counter of the cards on the ship opens those cards in their own panel.
+
+A drag out of the core onto a ship has failed once. See #701.
 
 ### A click that does not click
 

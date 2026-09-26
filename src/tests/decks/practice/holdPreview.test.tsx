@@ -335,7 +335,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
     drag(shipId, 'mission-2');
-    drag(personnelId, `crew-${shipId}`);
+    drag(personnelId, `crew-badge-${shipId}`);
     const ship = screen.getByRole('button', { name: 'u.s.s. relativity' });
     // A hold whose release the page never sees.
     hold(ship);
@@ -356,7 +356,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
     drag(shipId, 'mission-2');
-    drag(personnelId, `crew-${shipId}`);
+    drag(personnelId, `crew-badge-${shipId}`);
 
     const ship = screen.getByRole('button', { name: 'u.s.s. relativity' });
     hold(ship);
