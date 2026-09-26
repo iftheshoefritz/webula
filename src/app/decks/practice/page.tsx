@@ -981,11 +981,16 @@ function PracticeDrawContent() {
   const drive = usePracticeDrive();
 
   // Deals a new game from a deck. The fixture, currentDeck, and Drive loads all go through here.
-  // The seeded fixture (#802) keeps the deck order, so it seeds the same cards every time.
+  // The seeded fixture (#802) keeps the deck order, so it seeds the same cards every time. The
+  // fixture deck holds 27 personnel, fewer than the 20 + 12 the seed places, so it deals a second
+  // copy of the deck's personnel too, each copy its own instance.
   const dealDeck = (deck: Deck, seedPiles = false) => {
+    const cards = expandDeck(deck);
     dispatch({
       type: seedPiles ? 'resetWithPiles' : 'reset',
-      cards: createCardInstances(seedPiles ? expandDeck(deck) : shuffleArray(expandDeck(deck))),
+      cards: createCardInstances(
+        seedPiles ? [...cards, ...cards.filter((c: any) => c.type === 'personnel')] : shuffleArray(cards)
+      ),
       missions: createCardInstances(extractMissions(deck), 'up'),
       dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
     });
