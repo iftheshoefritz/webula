@@ -463,4 +463,49 @@ describe('Practice draw: dropping a personnel or equipment card on a ship', () =
     expect(document.body.querySelector('[data-zone="pile-panel-crew"]')).toBeNull();
     expect(screen.queryByTestId('card-preview')).toBeNull();
   });
+  it("boards a card dropped on the ship's crew badge into that ship's crew (#811)", async () => {
+    const secondPersonnel = { ...mockPersonnelCard, collectorsinfo: '2C003', originalName: 'Worf', name: 'worf', imagefile: 'worf' };
+    await setupOpenHand([mockShipCard, mockPersonnelCard, secondPersonnel]);
+    const [shipId, personnelId, secondId] = mockDraggableIds;
+    await placeShipOnMission(shipId, 2, 2);
+
+    // The badge only shows once the ship has crew, so board one card through the ship's art first.
+    await act(async () => {
+      mockOnDragStart!({ active: { id: personnelId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+    });
+    expect(document.body.querySelector(`[data-zone="crew-badge-${shipId}"]`)).not.toBeNull();
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: secondId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: secondId }, over: { id: `crew-badge-${shipId}` } });
+    });
+
+    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 2 cards"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /personnel pile/i })).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+    });
+    expect(screen.getByRole('button', { name: 'worf' })).toBeInTheDocument();
+  });
+
+  it("files a card dropped on a ship row, off any ship, into the mission's personnel pile, not the crew (#645, #811)", async () => {
+    await setupOpenHand([mockShipCard, mockPersonnelCard]);
+    const [shipId, personnelId] = mockDraggableIds;
+    await placeShipOnMission(shipId, 0, 1);
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: personnelId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'ship-row-0' } });
+    });
+
+    expect(screen.getByRole('button', { name: /personnel pile, 1 card/i })).toBeInTheDocument();
+    expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).toBeNull();
+  });
 });
