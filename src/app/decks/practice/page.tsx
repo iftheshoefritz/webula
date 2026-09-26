@@ -48,6 +48,7 @@ import MissionRow, {
 } from './MissionRow';
 import CardPreview from './CardPreview';
 import { CardHoldProvider, DRAG_ACTIVATION_DISTANCE } from './useCardHold';
+import { PanelScrollSensor } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import PilePanel, { ShuffleIcon } from './PilePanel';
 import FlatCardRow from './FlatCardRow';
@@ -800,7 +801,12 @@ function PracticeDrawContent() {
   // panel closes, the same as the panels themselves.
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } }));
+  // `PanelScrollSensor` comes first, so it takes a touch or pen press in a scrolling pile panel
+  // (#788); every other press falls through to the ordinary `PointerSensor`.
+  const sensors = useSensors(
+    useSensor(PanelScrollSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } })
+  );
 
   const initDeck = () => {
     if (isFixture) {
