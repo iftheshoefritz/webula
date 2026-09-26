@@ -32,7 +32,7 @@ interface UseDriveSyncParams {
   clearDirty: () => void;
 }
 
-const DRIVE_SCOPE_AUTH_PARAMS = {
+export const DRIVE_SCOPE_AUTH_PARAMS = {
   scope: 'openid profile email https://www.googleapis.com/auth/drive.appdata',
   include_granted_scopes: 'true',
 };

@@ -21,6 +21,8 @@ import { deckFromTsv, expandDeck, extractDilemmas, extractMissions, isDeckEmpty,
 import { Deck } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
+import { DrivePickerModal } from '../../../components/DrivePickerModal';
+import { usePracticeDrive } from './usePracticeDrive';
 import {
   CardInstance,
   MissionPileName,
@@ -79,8 +81,8 @@ function MenuIcon() {
   );
 }
 
-// A home for the controls that act on the whole game rather than one zone (#722), starting with
-// Reset. A small menu button opens it. Reset throws away the current game, so it confirms first
+// A home for the controls that act on the whole game rather than one zone (#722): Reset, and
+// Load deck (#780), which opens the Drive picker. A small menu button opens it. Reset throws away the current game, so it confirms first
 // via `window.confirm`, the same confirm-before-destroy pattern `DrivePickerModal`'s own delete
 // already uses elsewhere in the app, rather than a custom dialog built just for this one
 // destructive action.
@@ -90,7 +92,19 @@ function MenuIcon() {
 // backdrop over the table, so a press on a card still reaches the card and can start a drag: the
 // menu never blocks the first drag. A tap (a press with no drag) closes the menu without acting,
 // the same as the old backdrop did: the click that follows the press is swallowed.
-function GameMenu({ open, onToggle, onClose, onReset }: { open: boolean; onToggle: () => void; onClose: () => void; onReset: () => void }) {
+function GameMenu({
+  open,
+  onToggle,
+  onClose,
+  onReset,
+  onLoadDeck,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onReset: () => void;
+  onLoadDeck: () => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -154,6 +168,13 @@ function GameMenu({ open, onToggle, onClose, onReset }: { open: boolean; onToggl
             className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
           >
             Reset
+          </button>
+          <button
+            type="button"
+            onClick={onLoadDeck}
+            className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
+          >
+            Load deck
           </button>
         </div>
       )}
@@ -891,19 +912,33 @@ function PracticeDrawContent() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } }));
 
+  // A deck loaded from Drive (#780). Once set, Reset deals it again instead of the builder's
+  // currentDeck. It is kept in page state only: localStorage.currentDeck is the deck builder's
+  // working copy and may hold unsaved edits.
+  const [loadedDeck, setLoadedDeck] = useState<Deck | null>(null);
+  const drive = usePracticeDrive();
+
+  // Deals a new game from a deck. The fixture, currentDeck, and Drive loads all go through here.
+  const dealDeck = (deck: Deck) => {
+    dispatch({
+      type: 'reset',
+      cards: createCardInstances(shuffleArray(expandDeck(deck))),
+      missions: createCardInstances(extractMissions(deck), 'up'),
+      dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
+    });
+    setDeckEmpty(isDeckEmpty(deck));
+    setOpenHand(null);
+  };
+
   const initDeck = () => {
+    if (loadedDeck) {
+      dealDeck(loadedDeck);
+      return;
+    }
+
     if (isFixture) {
       if (loading || data.length === 0) return;
-      const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
-      const expanded = expandDeck(deck);
-      dispatch({
-        type: 'reset',
-        cards: createCardInstances(shuffleArray(expanded)),
-        missions: createCardInstances(extractMissions(deck), 'up'),
-        dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
-      });
-      setDeckEmpty(isDeckEmpty(deck));
-      setOpenHand(null);
+      dealDeck(deckFromTsv(PRACTICE_DECK_TSV, data));
       return;
     }
 
@@ -911,15 +946,7 @@ function PracticeDrawContent() {
       const raw = localStorage.getItem('currentDeck');
       if (!raw) return;
       const deck: Deck = JSON.parse(raw);
-      const expanded = expandDeck(deck);
-      dispatch({
-        type: 'reset',
-        cards: createCardInstances(shuffleArray(expanded)),
-        missions: createCardInstances(extractMissions(deck), 'up'),
-        dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
-      });
-      setDeckEmpty(isDeckEmpty(deck));
-      setOpenHand(null);
+      dealDeck(deck);
     } catch {
       // silently ignore parse errors
     }
@@ -950,6 +977,24 @@ function PracticeDrawContent() {
     if (window.confirm('Reset the game? This will throw away the current game.')) {
       initDeck();
     }
+  };
+
+  // The game menu's Load deck item (#780): closes the menu and opens the Drive picker.
+  const handleLoadDeckClick = () => {
+    setGameMenuOpen(false);
+    drive.openPicker();
+  };
+
+  // The picker's choice of deck. Confirms first, since a load throws away the current game. The
+  // pile choice of the picker is ignored: a practice game always deals the full deck.
+  const loadDriveDeck = async (file: { id: string }) => {
+    if (!window.confirm('Load this deck? This will throw away the current game.')) return;
+    const tsv = await drive.fetchDeckTsv(file);
+    if (tsv === null) return;
+    const deck = deckFromTsv(tsv, data);
+    setLoadedDeck(deck);
+    dealDeck(deck);
+    drive.closePicker();
   };
 
   const drawOne = () => {
@@ -1370,14 +1415,31 @@ function PracticeDrawContent() {
 
       {/* Game layer: fixed inset-0 always fills the visible area as the toolbar shows and hides */}
       <div ref={setGameLayer} data-testid="practice-game-layer" className="fixed inset-0 bg-gradient-page font-body text-text-primary flex flex-col">
-        {/* The home for whole-game controls (#722), starting with Reset. Rendered outside the
+        {/* The home for whole-game controls (#722): Reset and Load deck (#780). Rendered outside the
             isEmpty/!isEmpty split below so it's there in both states. */}
         <GameMenu
           open={gameMenuOpen}
           onToggle={() => setGameMenuOpen((open) => !open)}
           onClose={() => setGameMenuOpen(false)}
           onReset={handleResetClick}
+          onLoadDeck={handleLoadDeckClick}
         />
+
+        {drive.showPicker && (
+          <DrivePickerModal
+            mode="load"
+            driveFiles={drive.driveFiles}
+            loadDriveFile={loadDriveDeck}
+            deleteDriveFile={drive.deleteDriveFile}
+            inProgress={drive.loading}
+            onClose={drive.closePicker}
+            isSignedIn={!!drive.session}
+            hasDriveScope={drive.session?.hasDriveScope ?? false}
+            onSignIn={drive.signInToDrive}
+            browsedFolder={drive.browsedFolder}
+            onBrowseFolder={drive.setBrowsedFolder}
+          />
+        )}
 
         {isEmpty && (
           <div className="flex flex-col items-center justify-center flex-1 text-text-muted gap-2 p-8">
