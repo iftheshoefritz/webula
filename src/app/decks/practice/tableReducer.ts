@@ -166,7 +166,15 @@ export type TableAction =
   // Changes the score counter by `delta` (#719), clamped to SCORE_MIN..SCORE_MAX: a delta that
   // would take the score past either limit stops there instead.
   | { type: 'adjustScore'; delta: number }
-  | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
+  | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] }
+  // The seeded fixture of `/decks/practice?fixture=piles` (#802): deals like `reset`, then puts
+  // `SEED_PILE_PERSONNEL` personnel into the first mission's personnel pile, and a ship with
+  // `SEED_CREW` personnel aboard into the second mission's ship row. The cards come from the deck
+  // itself, taken in deck order, so a deck in a fixed order seeds the same cards every time.
+  | { type: 'resetWithPiles'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
+
+export const SEED_PILE_PERSONNEL = 20;
+export const SEED_CREW = 12;
 
 export const ZONE_FACE: Record<Zone, Face> = {
   pile: 'down',
@@ -569,6 +577,26 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         turn: 1,
         score: 0,
       };
+    }
+
+    case 'resetWithPiles': {
+      const personnel = action.cards.filter((c) => c.card.type === 'personnel');
+      const pileCards = personnel.slice(0, SEED_PILE_PERSONNEL);
+      const crew = personnel.slice(SEED_PILE_PERSONNEL, SEED_PILE_PERSONNEL + SEED_CREW);
+      const ship = action.cards.find((c) => c.card.type === 'ship');
+      const seeded = new Set([...pileCards, ...crew, ...(ship ? [ship] : [])].map((c) => c.id));
+      const dealt = tableReducer(state, { ...action, type: 'reset', cards: action.cards.filter((c) => !seeded.has(c.id)) });
+      const missions = dealt.missions.map((slot, i) => {
+        if (i === 0) {
+          return { ...slot, personnel: pileCards.map((c) => ({ ...c, face: MISSION_PILE_FACE.personnel })) };
+        }
+        if (i === 1 && ship) {
+          const crewed = { ...ship, face: SHIP_ROW_FACE, crew: crew.map((c) => ({ ...c, face: CREW_FACE })) };
+          return { ...slot, ships: [crewed] };
+        }
+        return slot;
+      });
+      return { ...dealt, missions };
     }
 
     default:

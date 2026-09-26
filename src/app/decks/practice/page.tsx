@@ -53,7 +53,7 @@ import CountBadge from './CountBadge';
 import PilePanel, { ShuffleIcon } from './PilePanel';
 import FlatCardRow from './FlatCardRow';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
-import { useTableScale } from './tableScale';
+import { useTableScale, viewerCardSize } from './tableScale';
 import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
@@ -865,7 +865,11 @@ function DilemmaStackPile({
 
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
-  const isFixture = searchParams.get('fixture') === '1';
+  const fixture = searchParams.get('fixture');
+  // `?fixture=piles` (#802) deals the same fixture deck as `?fixture=1`, then seeds a big
+  // personnel pile and a crewed ship, for the pile panel checks.
+  const isPilesFixture = fixture === 'piles';
+  const isFixture = fixture === '1' || isPilesFixture;
   const { data, loading } = useDataFetching();
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
   const { pile, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
@@ -933,11 +937,11 @@ function PracticeDrawContent() {
   // Issue #717: grows the mission cards, the ship cards, and every pile-panel card grid past
   // their base pixel size once the game layer (which already tracks the browser's toolbar
   // showing/hiding, `fixed inset-0`) measures more room than the baseline they were tuned
-  // against. `tableCardWidth`/`tableCardArtHeight` feed every `PilePanel` below; `MissionRow`
+  // against. `viewerCardWidth`/`viewerCardArtHeight` feed every `PilePanel` and `CardHand` below; `MissionRow`
   // derives its own ship-row sizes from the same `scale`.
   const scale = useTableScale(gameLayer);
-  const tableCardWidth = Math.round(TABLE_CARD_WIDTH * scale);
-  const tableCardArtHeight = Math.round(TABLE_CARD_ART_HEIGHT * scale);
+  // Every viewer (a pile panel, the open fan) draws its card at 1.5x the table card (#802).
+  const { width: viewerCardWidth, artHeight: viewerCardArtHeight } = viewerCardSize(scale);
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
   // Which of the core's/the brig's own pile panel (#640), or the draw pile's/the dilemma pile's
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
@@ -976,10 +980,11 @@ function PracticeDrawContent() {
   const drive = usePracticeDrive();
 
   // Deals a new game from a deck. The fixture, currentDeck, and Drive loads all go through here.
-  const dealDeck = (deck: Deck) => {
+  // The seeded fixture (#802) keeps the deck order, so it seeds the same cards every time.
+  const dealDeck = (deck: Deck, seedPiles = false) => {
     dispatch({
-      type: 'reset',
-      cards: createCardInstances(shuffleArray(expandDeck(deck))),
+      type: seedPiles ? 'resetWithPiles' : 'reset',
+      cards: createCardInstances(seedPiles ? expandDeck(deck) : shuffleArray(expandDeck(deck))),
       missions: createCardInstances(extractMissions(deck), 'up'),
       dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
     });
@@ -996,7 +1001,7 @@ function PracticeDrawContent() {
 
     if (isFixture) {
       if (loading || data.length === 0) return;
-      dealDeck(deckFromTsv(PRACTICE_DECK_TSV, data));
+      dealDeck(deckFromTsv(PRACTICE_DECK_TSV, data), isPilesFixture);
       return;
     }
 
@@ -1720,6 +1725,7 @@ function PracticeDrawContent() {
                     ]}
                     selectedIds={selectedCardIds}
                     onToggleSelect={toggleCardSelection}
+                    openCardWidth={viewerCardWidth}
                   />
                 </div>
 
@@ -1764,6 +1770,7 @@ function PracticeDrawContent() {
                     portalContainer={gameLayer}
                     zone="dilemmaHand"
                     label="dilemma hand"
+                    openCardWidth={viewerCardWidth}
                     passthroughZone={[
                       DRAW_PILE_TOP_DROPPABLE_ID,
                       DRAW_PILE_BOTTOM_DROPPABLE_ID,
@@ -1833,8 +1840,8 @@ function PracticeDrawContent() {
                   onFlip={flipSelection}
                   onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
-                  cardWidth={tableCardWidth}
-                  cardArtHeight={tableCardArtHeight}
+                  cardWidth={viewerCardWidth}
+                  cardArtHeight={viewerCardArtHeight}
                 />
               )}
 
@@ -1858,8 +1865,8 @@ function PracticeDrawContent() {
                   onFlip={openFlatZone === 'dilemmaStack' ? flipSelection : undefined}
                   onDiscard={openFlatZone === 'discard' ? undefined : discardSelection}
                   hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
-                  cardWidth={tableCardWidth}
-                  cardArtHeight={tableCardArtHeight}
+                  cardWidth={viewerCardWidth}
+                  cardArtHeight={viewerCardArtHeight}
                 />
               )}
 
@@ -1879,8 +1886,8 @@ function PracticeDrawContent() {
                   onSetStopped={setStoppedForSelection}
                   onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
-                  cardWidth={tableCardWidth}
-                  cardArtHeight={tableCardArtHeight}
+                  cardWidth={viewerCardWidth}
+                  cardArtHeight={viewerCardArtHeight}
                 />
               )}
 
@@ -1905,8 +1912,8 @@ function PracticeDrawContent() {
                   onSetStopped={setStoppedForSelection}
                   onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
-                  cardWidth={tableCardWidth}
-                  cardArtHeight={tableCardArtHeight}
+                  cardWidth={viewerCardWidth}
+                  cardArtHeight={viewerCardArtHeight}
                 />
               )}
             </div>

@@ -23,6 +23,8 @@ import { createPortal } from 'react-dom';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { offsetFor } from './overlapOffset';
+import OverlapRow from './OverlapRow';
+import { viewerCardSize } from './tableScale';
 import CountBadge from './CountBadge';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
@@ -32,19 +34,20 @@ import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
 
-// Issue #642: the open fan's cards are 30% larger than the closed row's, so they are easier to
-// read. The width drives the height too, since the card images scale with `h-auto`.
-const OPEN_CARD_WIDTH = Math.round(CARD_WIDTH * 1.3);
-const OPEN_CARD_HEIGHT = Math.round(CARD_HEIGHT * 1.3);
+// Issue #802: the open fan's cards are the viewer size every pile panel uses, 1.5x the shared
+// table card (`viewerCardSize`, `tableScale.ts`), not a size of the fan's own. The fan draws the
+// full card image, so its height follows its width at the image's own 120 x 167.
+const fullCardHeight = (width: number) => Math.round((width * 167) / 120);
 
 // Both the closed row and the open fan bound their total width regardless of card count, by
 // shrinking the offset between overlapping card edges as the hand grows, rather than letting
-// the row grow without bound. This keeps the bottom row (discard, draw pile, hand, core, brig,
-// dilemma pile) inside a 568 x 320 viewport.
+// the row grow without bound. The closed row keeps the bottom row (discard, draw pile, hand,
+// core, brig, dilemma pile) inside a 568 x 320 viewport. The open fan measures its own width
+// (`OverlapRow`), so a long hand never hangs off the screen (#802).
 const CLOSED_MAX_WIDTH = 80;
 const CLOSED_MAX_OFFSET = 10;
-const OPEN_MAX_WIDTH = Math.round(460 * 1.3);
-const OPEN_MAX_OFFSET = Math.round(60 * 1.3);
+// The fan may leave a small gap between two cards, at the ratio #642 set (60 px for a 56 px card).
+const openMaxOffset = (width: number) => Math.round((width * 60) / 56);
 const OPEN_BOTTOM = 16; // px above the viewport's bottom edge, so the fan covers the zones
 
 // Issue #691: carries the same select checkbox `PilePanelCard` (`PilePanel.tsx`) already has, as
@@ -56,14 +59,12 @@ const OPEN_BOTTOM = 16; // px above the viewport's bottom edge, so the fan cover
 // previews it (`useCardHold`).
 function DraggableFanCard({
   instance,
-  left,
-  zIndex,
+  width,
   selected,
   onToggleSelect,
 }: {
   instance: CardInstance;
-  left: number;
-  zIndex: number;
+  width: number;
   selected: boolean;
   onToggleSelect: () => void;
 }) {
@@ -72,10 +73,7 @@ function DraggableFanCard({
   const { card } = instance;
 
   return (
-    <div
-      className="absolute pointer-events-auto"
-      style={{ left, zIndex: isDragging ? 100 : zIndex }}
-    >
+    <div className="relative pointer-events-auto">
       <button
         ref={setNodeRef}
         {...holdListeners}
@@ -96,7 +94,7 @@ function DraggableFanCard({
           height={167}
           alt={card.name}
           className="rounded-lg shadow-md h-auto"
-          style={{ ...NO_CALLOUT_STYLE, width: OPEN_CARD_WIDTH }}
+          style={{ ...NO_CALLOUT_STYLE, width }}
         />
       </button>
       <button
@@ -126,6 +124,7 @@ export default function CardHand({
   selectedIds = [],
   onToggleSelect = () => {},
   passthroughZone,
+  openCardWidth = viewerCardSize(1).width,
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -153,11 +152,13 @@ export default function CardHand({
   // (including its own `disabled` state) unchanged. A single string is also accepted for a
   // caller with only one passthrough target.
   passthroughZone?: string | string[];
+  // The width of an open fan card (#802), the viewer size `page.tsx` derives from the shared
+  // `scale`. Defaults to that size at scale 1.
+  openCardWidth?: number;
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
-  const openOffset = offsetFor(instances.length, OPEN_CARD_WIDTH, OPEN_MAX_WIDTH, OPEN_MAX_OFFSET);
-  const openWidth = instances.length === 0 ? OPEN_CARD_WIDTH : OPEN_CARD_WIDTH + openOffset * (instances.length - 1);
+  const openCardHeight = fullCardHeight(openCardWidth);
   const count = instances.length;
   const showFan = open || dragging;
 
@@ -242,6 +243,8 @@ export default function CardHand({
           A full-screen backdrop sits behind the cards, so a tap outside the fan closes it, but
           a tap on a card (on top of the backdrop) selects that card instead. The fan is
           centred at the bottom of the screen, on top of the bottom row, over the core and the brig.
+          The fan's container spans the screen, less a small inset at each side, and `OverlapRow`
+          packs the cards into that measured width (#802).
           Issue #750: the backdrop's and the fan's z-index sit in the gap between a pile
           `CountBadge`'s `z-[140]` and the pile panel's `z-[150]`, so the open hand draws above
           every pile's count badge (the draw pile, the discard pile, the dilemma pile, and the
@@ -262,11 +265,10 @@ export default function CardHand({
             <div
               data-zone={open ? zone : undefined}
               aria-hidden={open ? undefined : true}
-              className="fixed left-1/2 -translate-x-1/2 z-[146] flex"
+              className="fixed inset-x-2 z-[146] flex"
               style={{
                 bottom: OPEN_BOTTOM,
-                height: OPEN_CARD_HEIGHT + 10,
-                width: openWidth,
+                height: openCardHeight,
                 visibility: open ? 'visible' : 'hidden',
                 // The fan's own bounding box can overlap the passthrough zone (issue #638's
                 // draw pile) even in the gaps between the fanned cards, in the narrow 568 px
@@ -278,16 +280,22 @@ export default function CardHand({
                 pointerEvents: 'none',
               }}
             >
-              {instances.map((instance, idx) => (
-                <DraggableFanCard
-                  key={instance.id}
-                  instance={instance}
-                  left={idx * openOffset}
-                  zIndex={idx + 1}
-                  selected={selectedIds.includes(instance.id)}
-                  onToggleSelect={() => onToggleSelect(instance.id)}
-                />
-              ))}
+              <OverlapRow
+                items={instances}
+                keyFor={(instance) => instance.id}
+                cardWidth={openCardWidth}
+                height={openCardHeight}
+                maxOffset={openMaxOffset(openCardWidth)}
+                centered
+                renderCard={(instance) => (
+                  <DraggableFanCard
+                    instance={instance}
+                    width={openCardWidth}
+                    selected={selectedIds.includes(instance.id)}
+                    onToggleSelect={() => onToggleSelect(instance.id)}
+                  />
+                )}
+              />
             </div>
           </>,
           portalContainer ?? document.body,
