@@ -68,7 +68,7 @@ import { CardInstance, MissionPileName } from './tableReducer';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, STOPPED_IMAGE_CLASSNAME } from './TableCard';
 import { offsetFor } from './overlapOffset';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
-import { PANEL_SCROLLS_ATTRIBUTE } from './panelScrollSensor';
+import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
