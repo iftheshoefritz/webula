@@ -47,7 +47,7 @@ import MissionRow, {
 } from './MissionRow';
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
-import { CardHoldProvider } from './useCardHold';
+import { CardHoldProvider, swallowClickOf } from './useCardHold';
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import PilePanel, { ShuffleIcon } from './PilePanel';
@@ -855,6 +855,15 @@ function PracticeDrawContent() {
   // The press point and the pressed card's rectangle, recorded at drag start (#774). Read only by
   // `handleDragEnd`, so a ref: it must not cause a render.
   const pressRef = useRef<PressGeometry | null>(null);
+  // The last place the pointer was seen, for the check that a hovered card is still under it.
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    const onMove = (event: PointerEvent) => {
+      pointerRef.current = { x: event.clientX, y: event.clientY };
+    };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    return () => window.removeEventListener('pointermove', onMove);
+  }, []);
   const cardHold = useMemo(
     () => ({
       startHold: (id: string) => setHeldCardId(id),
@@ -1358,6 +1367,34 @@ function PracticeDrawContent() {
   draggingRef.current = draggingInstance !== null;
   const previewCardId = heldCardId ?? hoveredCardId;
   const held = previewCardId ? findInstanceAnywhere(table, previewCardId) : null;
+  // A hover ends when its card moves away from the pointer (#784): a card that a table change
+  // moves out from under a still pointer sends no `pointerleave`. Checked after every render, so
+  // after every move of a card, against the last place the pointer was seen. The preview takes
+  // no pointer events, so `elementFromPoint` sees the table under it.
+  useEffect(() => {
+    const point = pointerRef.current;
+    if (!hoveredCardId || !point || typeof document.elementFromPoint !== 'function') return;
+    const under = document.elementFromPoint(point.x, point.y);
+    if (!under?.closest(`[data-card-id="${hoveredCardId}"]`)) setHoveredCardId(null);
+  });
+  // A press anywhere closes the preview, and does nothing else (#784): it does not select a card,
+  // open a panel, start a hold or start a drag, and its click is swallowed. The listener is on
+  // `window` in the capture phase, so it runs before the table's own handlers and dnd-kit's. A
+  // press on the card a mouse hovers is the exception: that press acts on the card it previews.
+  useEffect(() => {
+    if (!previewCardId || draggingInstance) return;
+    const onPress = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!heldCardId && target?.closest(`[data-card-id="${hoveredCardId}"]`)) return;
+      event.stopPropagation();
+      event.preventDefault();
+      swallowClickOf(event);
+      setHeldCardId(null);
+      setHoveredCardId(null);
+    };
+    window.addEventListener('pointerdown', onPress, true);
+    return () => window.removeEventListener('pointerdown', onPress, true);
+  }, [previewCardId, heldCardId, hoveredCardId, draggingInstance]);
   const openCrewShip = openCrewShipId ? findInstanceAnywhere(table, openCrewShipId)?.instance : null;
   // The cards of whichever pile panel is currently open, if any — only one panel is ever open
   // at a time. Used both to build a multi-select drag's group (`handleDragStart`) and to pass
