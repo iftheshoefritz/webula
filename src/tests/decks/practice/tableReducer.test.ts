@@ -17,20 +17,18 @@ const instance = (id: string, cardData: any, face: 'up' | 'down' = 'down'): Card
 });
 
 // Builds a 5-slot missions array, each slot holding the given mission card (or null) and an
-// empty ship row and empty piles, unless a slot's ships/personnel/event/underMission are
+// empty ship row and empty piles, unless a slot's ships/personnel/underMission are
 // overridden explicitly by index.
 const missionSlots = (
   missions: (CardInstance | null)[],
   shipsByIndex: Record<number, CardInstance[]> = {},
   personnelByIndex: Record<number, CardInstance[]> = {},
-  eventByIndex: Record<number, CardInstance[]> = {},
   underMissionByIndex: Record<number, CardInstance[]> = {}
 ): MissionSlot[] =>
   Array.from({ length: MISSION_SLOTS }, (_, i) => ({
     mission: missions[i] ?? null,
     ships: shipsByIndex[i] ?? [],
     personnel: personnelByIndex[i] ?? [],
-    event: eventByIndex[i] ?? [],
     underMission: underMissionByIndex[i] ?? [],
   }));
 
@@ -83,6 +81,14 @@ describe('tableReducer', () => {
       const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions: [], dilemmas: [] });
 
       expect(state.missions).toEqual(missionSlots([]));
+    });
+
+    it('deals no mission slot an event pile (#813)', () => {
+      const missions = [instance('m0', card('Mission 0'), 'up')];
+      const state = tableReducer(initialTableState, { type: 'reset', cards: [], missions, dilemmas: [] });
+
+      expect(initialTableState.missions.every((slot) => !('event' in slot))).toBe(true);
+      expect(state.missions.every((slot) => !('event' in slot))).toBe(true);
     });
 
     it('re-deals the identical mission set on every reset, unlike the reshuffled draw pile', () => {
@@ -411,19 +417,6 @@ describe('tableReducer', () => {
       expect(state.missions[1].personnel).toEqual([{ ...moved, face: 'down' }]);
     });
 
-    it('files a hand card into a mission\'s event pile, face up (#602)', () => {
-      const moved = instance('e0', card('Q Net'), 'down');
-      const start = { ...initialTableState, hand: [moved], missions: missionSlots([]) };
-      const state = tableReducer(start, {
-        type: 'move',
-        id: 'e0',
-        to: { zone: 'missionPile', missionIndex: 1, pile: 'event' },
-      });
-
-      expect(state.hand).toEqual([]);
-      expect(state.missions[1].event).toEqual([{ ...moved, face: 'up' }]);
-    });
-
     it('moves a card from one mission\'s pile to another mission\'s pile', () => {
       const moved = instance('p0', card('Data'), 'down');
       const start = { ...initialTableState, missions: missionSlots([], {}, { 0: [moved] }) };
@@ -496,7 +489,7 @@ describe('tableReducer', () => {
 
     it('moves a dilemma from under a mission back into the dilemma hand, face up (#644)', () => {
       const moved = instance('d0', card('Chula The Chandra'), 'up');
-      const start = { ...initialTableState, missions: missionSlots([], {}, {}, {}, { 0: [moved] }) };
+      const start = { ...initialTableState, missions: missionSlots([], {}, {}, { 0: [moved] }) };
       const state = tableReducer(start, { type: 'move', id: 'd0', to: 'dilemmaHand' });
 
       expect(state.missions[0].underMission).toEqual([]);
@@ -777,14 +770,6 @@ describe('tableReducer', () => {
       expect(state.missions[1].personnel).toEqual([{ ...personnelCard, face: 'up' }]);
     });
 
-    it('turns a face-up event pile card face down in place (#602)', () => {
-      const eventCard = instance('e0', card('Q Net'), 'up');
-      const start = { ...initialTableState, missions: missionSlots([], {}, {}, { 2: [eventCard] }) };
-      const state = tableReducer(start, { type: 'flip', id: 'e0' });
-
-      expect(state.missions[2].event).toEqual([{ ...eventCard, face: 'down' }]);
-    });
-
     it('leaves other cards in the same mission pile untouched', () => {
       const flipped = instance('p0', card('Data'), 'down');
       const untouched = instance('p1', card('Worf'), 'down');
@@ -1036,19 +1021,9 @@ describe('findInstanceAnywhere', () => {
     });
   });
 
-  it("finds a card in a mission's event pile and reports its mission index and pile (#602)", () => {
-    const eventCard = instance('e0', card('Q Net'), 'up');
-    const state = { ...initialTableState, missions: missionSlots([], {}, {}, { 3: [eventCard] }) };
-
-    expect(findInstanceAnywhere(state, 'e0')).toEqual({
-      instance: eventCard,
-      zone: { zone: 'missionPile', missionIndex: 3, pile: 'event' },
-    });
-  });
-
   it("finds a card in a mission's under-the-mission pile and reports its mission index and pile (#606)", () => {
     const dilemma = instance('d0', card('Chula The Chandra'), 'up');
-    const state = { ...initialTableState, missions: missionSlots([], {}, {}, {}, { 4: [dilemma] }) };
+    const state = { ...initialTableState, missions: missionSlots([], {}, {}, { 4: [dilemma] }) };
 
     expect(findInstanceAnywhere(state, 'd0')).toEqual({
       instance: dilemma,
@@ -1164,12 +1139,12 @@ describe('cards placed on a host (#809)', () => {
     const host = { ...instance('host', card('Host'), 'up'), on: [placed] };
     const state = tableReducer(
       { ...initialTableState, core: [host], missions: missionSlots([]) },
-      { type: 'move', id: 'host', to: { zone: 'missionPile', missionIndex: 0, pile: 'event' } }
+      { type: 'move', id: 'host', to: { zone: 'missionPile', missionIndex: 0, pile: 'personnel' } }
     );
 
     expect(state.core).toEqual([]);
-    expect(state.missions[0].event.map((c) => c.id)).toEqual(['host']);
-    expect(state.missions[0].event[0].on).toBeUndefined();
+    expect(state.missions[0].personnel.map((c) => c.id)).toEqual(['host']);
+    expect(state.missions[0].personnel[0].on).toBeUndefined();
     expect(state.discard).toEqual([placed]);
   });
 
