@@ -24,7 +24,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { offsetFor } from './overlapOffset';
 import OverlapRow from './OverlapRow';
-import { viewerCardSize } from './tableScale';
+import { viewerCardSize } from './viewerCardSize';
 import CountBadge from './CountBadge';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
@@ -35,7 +35,7 @@ const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
 
 // Issue #802: the open fan's cards are the viewer size every pile panel uses, 1.5x the shared
-// table card (`viewerCardSize`, `tableScale.ts`), not a size of the fan's own. The fan draws the
+// table card (`viewerCardSize.ts`), not a size of the fan's own. The fan draws the
 // full card image, so its height follows its width at the image's own 120 x 167.
 const fullCardHeight = (width: number) => Math.round((width * 167) / 120);
 

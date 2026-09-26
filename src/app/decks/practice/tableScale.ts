@@ -11,7 +11,7 @@
 // that. Every constant this issue grows (`TableCard.tsx`'s `TABLE_CARD_WIDTH`/
 // `TABLE_CARD_ART_HEIGHT`, `MissionRow.tsx`'s ship-row sizes, `PilePanel.tsx`'s card grid) is
 // multiplied by this same scale, so they all grow in proportion to each other. The viewers (a pile
-// panel and the open fan) draw their cards at `VIEWER_CARD_SCALE` times that (#802).
+// panel and the open fan) draw their cards at `VIEWER_CARD_SCALE` times that (#802, `viewerCardSize.ts`).
 //
 // A `ResizeObserver` on the game layer, the same pattern `CardSearchClient.tsx` already uses for
 // a live element size, catches a toolbar hide/show; neither a `matchMedia` query nor a one-off
@@ -19,7 +19,7 @@
 
 import { useEffect, useState } from 'react';
 import { MISSION_SLOTS } from './tableReducer';
-import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
+import { TABLE_CARD_WIDTH } from './TableCard';
 
 // The 568x320 viewport the fixed pixel card sizes below were tuned against (see
 // `MissionRow.tsx`'s `BADGE_STRIP_HEIGHT_BASE` comment) — scale 1 at this height, larger once the
@@ -50,20 +50,6 @@ export function computeTableScale(gameLayerWidth: number, gameLayerHeight: numbe
   const availableWidth = gameLayerWidth - CONTENT_PADDING - MISSION_ROW_GAP * MISSION_SLOTS;
   const widthScale = availableWidth / (TABLE_CARD_WIDTH * (MISSION_SLOTS + 1));
   return Math.max(1, Math.min(heightScale, widthScale));
-}
-
-// Issue #802: every viewer — a pile panel's grid, the dilemma stack's row, and the open fan of
-// the hand and of the dilemma hand — draws its card at this multiple of the shared table card.
-// The size is fixed: it does not depend on the card count and does not shrink to fit. The extra
-// height of a full-height panel only adds rows, and a pile that still does not fit scrolls.
-export const VIEWER_CARD_SCALE = 1.5;
-
-// The viewer card's width and cropped-art height at a given table `scale`: 108 x 96 at scale 1.
-export function viewerCardSize(scale: number): { width: number; artHeight: number } {
-  return {
-    width: Math.round(TABLE_CARD_WIDTH * scale * VIEWER_CARD_SCALE),
-    artHeight: Math.round(TABLE_CARD_ART_HEIGHT * scale * VIEWER_CARD_SCALE),
-  };
 }
 
 export function useTableScale(gameLayer: HTMLElement | null): number {
