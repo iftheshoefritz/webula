@@ -229,6 +229,7 @@ export default function PilePanel({
   onShuffle,
   onSetStopped,
   onFlip,
+  onDiscard,
   hidden = false,
   cardWidth = TABLE_CARD_WIDTH,
   cardArtHeight = TABLE_CARD_ART_HEIGHT,
@@ -247,6 +248,9 @@ export default function PilePanel({
   // Turns each id over on its own (#762). Given only for the zones whose cards can be flipped;
   // its presence is what shows the "Flip" button and draws face-down cards as the card back.
   onFlip?: (ids: string[]) => void;
+  // Moves each id to the discard pile, in the panel's order (#787). Left out for the discard
+  // pile's own panel, whose cards are already there.
+  onDiscard?: (ids: string[]) => void;
   hidden?: boolean;
   // Issue #717: this panel is one of "the modals" the issue names, so its own card grid grows
   // the same way the table's mission cards do — `page.tsx` computes both from the same `scale`
@@ -322,6 +326,8 @@ export default function PilePanel({
   const selectedInPanel = cards.filter((instance) => selectedIds.includes(instance.id));
   const showFlipButton = onFlip !== undefined && selectedInPanel.length > 0;
   const handleFlipTap = () => onFlip?.(selectedInPanel.map((instance) => instance.id));
+  const showDiscardButton = onDiscard !== undefined && selectedInPanel.length > 0;
+  const handleDiscardTap = () => onDiscard?.(selectedInPanel.map((instance) => instance.id));
 
   return (
     <div
@@ -335,7 +341,7 @@ export default function PilePanel({
         aria-label={closeLabel(zone)}
       />
       <div className={layoutClassName}>
-        {(showStopButton || showFlipButton) && (
+        {(showStopButton || showFlipButton || showDiscardButton) && (
           <div className="flex flex-row items-center gap-2">
             {showStopButton && (
               <button type="button" onClick={handleStopTap} className="btn-primary">
@@ -345,6 +351,11 @@ export default function PilePanel({
             {showFlipButton && (
               <button type="button" onClick={handleFlipTap} className="btn-primary">
                 Flip
+              </button>
+            )}
+            {showDiscardButton && (
+              <button type="button" onClick={handleDiscardTap} className="btn-primary">
+                Discard
               </button>
             )}
           </div>
