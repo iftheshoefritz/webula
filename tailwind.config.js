@@ -94,10 +94,11 @@ module.exports = {
         'expand': '300ms',
       },
 
-      // The large card preview fades in when it opens (#763). A zone of the practice table that
-      // receives a dropped card rings, and its count bumps (#778); both last `LANDED_CUE_MS`
-      // (`LandedZoneContext.tsx`), and use only box-shadow, opacity and transform, so nothing
-      // reflows.
+      // The large card preview fades in when it opens (#763). A face-down pile riffles when
+      // its Shuffle button runs, or shows a still ring under `prefers-reduced-motion` (#786).
+      // A zone of the practice table that receives a dropped card rings, and its count bumps
+      // (#778); both last `LANDED_CUE_MS` (`LandedZoneContext.tsx`). Every one of these uses
+      // only box-shadow, opacity and transform, so nothing reflows.
       keyframes: {
         'fade-in': {
           from: { opacity: '0' },
@@ -112,11 +113,23 @@ module.exports = {
           '35%': { transform: 'scale(1.4)' },
           '100%': { transform: 'scale(1)' },
         },
+        'pile-shuffle': {
+          '0%, 100%': { transform: 'translateX(0) rotate(0deg)' },
+          '20%': { transform: 'translateX(-4px) rotate(-6deg)' },
+          '45%': { transform: 'translateX(4px) rotate(6deg)' },
+          '70%': { transform: 'translateX(-2px) rotate(-3deg)' },
+        },
+        'pile-shuffle-ring': {
+          '0%, 99%': { boxShadow: '0 0 0 2px #9cb89c' },
+          '100%': { boxShadow: '0 0 0 0 transparent' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 100ms ease-out',
         'landed-ring': 'landed-ring 450ms ease-out forwards',
         'landed-bump': 'landed-bump 450ms ease-out',
+        'pile-shuffle': 'pile-shuffle 400ms ease-in-out',
+        'pile-shuffle-ring': 'pile-shuffle-ring 400ms step-end',
       },
     },
   },

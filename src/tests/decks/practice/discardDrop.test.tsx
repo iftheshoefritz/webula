@@ -281,4 +281,45 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
 
     expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
   });
+  // #782: a tap on the discard pile opens a panel that lists every discarded card, with no
+  // Shuffle and no Stop control.
+  it('a tap on the discard pile opens a panel listing every discarded card', async () => {
+    await setupOpenHand([mockManyCards[0], mockManyCards[1]]);
+    const [firstId, secondId] = mockDraggableIds;
+
+    for (const id of [firstId, secondId]) {
+      await act(async () => {
+        mockOnDragStart!({ active: { id } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id }, over: { id: 'discard' } });
+      });
+    }
+    expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
+    const shuffleCountBefore = screen.queryAllByRole('button', { name: /shuffle/i }).length;
+
+    await act(async () => {
+      fireEvent.click(screen.getByAltText('Discard pile').parentElement!);
+    });
+
+    expect(screen.getByRole('button', { name: /^close discard pile$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'card 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'card 2' })).toBeInTheDocument();
+    expect(document.body.querySelector('[data-zone="pile-panel-discard"]')).not.toBeNull();
+    expect(screen.queryAllByRole('button', { name: /shuffle/i })).toHaveLength(shuffleCountBefore);
+
+    // Selecting a card shows no Stop control either.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Select card 1' }));
+    });
+    expect(screen.queryByRole('button', { name: /^(stop|unstop)$/i })).not.toBeInTheDocument();
+  });
+
+  it('a tap on an empty discard pile opens no panel', async () => {
+    await setupOpenHand([mockManyCards[0]]);
+    await act(async () => {
+      fireEvent.click(document.body.querySelector('[data-zone="discard"]')!);
+    });
+    expect(screen.queryByRole('button', { name: /^close discard pile$/i })).not.toBeInTheDocument();
+  });
 });

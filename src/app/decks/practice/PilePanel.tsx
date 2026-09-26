@@ -53,6 +53,14 @@
 // once the selection holds one or more of this panel's cards, and a tap dispatches the existing
 // `flip` action once per selected card, so each card turns over on its own: a mixed selection
 // stays mixed, inverted. The selection stays after the tap, as with Stop.
+//
+// A card sets `touch-none`, so the browser does not pan the table under a touch drag. Inside a
+// card grid that scrolls (#720) that also stopped the grid from scrolling under a finger, and a
+// scroll picked the card up instead (#788). So once the grid overflows, its cards take
+// `touch-action: pan-y` and the grid carries `PANEL_SCROLLS_ATTRIBUTE`, which hands a touch or
+// pen press there to `PanelScrollSensor` (`panelScrollSensor.ts`): a first move mostly up or down
+// scrolls, a first move mostly sideways drags. A grid that fits keeps `touch-none` and a drag in
+// any direction.
 
 import { useEffect, useRef, useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
@@ -60,6 +68,7 @@ import { CardInstance, MissionPileName } from './tableReducer';
 import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, STOPPED_IMAGE_CLASSNAME } from './TableCard';
 import { offsetFor } from './overlapOffset';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
+import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -97,7 +106,9 @@ export function ShuffleIcon() {
 // A mission's own ship row (#713) is a sixth: once it holds more ships than fit without overlap,
 // a tap on any of them opens this panel listing every ship on that row individually, the same
 // way the core and the brig already list their own cards. The dilemma stack (#733) is a seventh;
-// #630 gives it the tap target on the table that opens this panel.
+// #630 gives it the tap target on the table that opens this panel. The discard pile (#782) is an
+// eighth: a tap on it lists every discarded card, not just the top one the table shows. It has no
+// Shuffle and no Stop control: its order comes from play, and a discarded card is never stopped.
 export type PanelZone =
   | MissionPileName
   | 'core'
@@ -106,7 +117,8 @@ export type PanelZone =
   | 'pile'
   | 'dilemmaPile'
   | 'dilemmaStack'
-  | 'shipRow';
+  | 'shipRow'
+  | 'discard';
 
 const PANEL_LABEL: Record<PanelZone, string> = {
   personnel: 'Personnel',
@@ -119,6 +131,7 @@ const PANEL_LABEL: Record<PanelZone, string> = {
   dilemmaPile: 'Dilemma pile',
   dilemmaStack: 'Dilemma stack',
   shipRow: 'Ships',
+  discard: 'Discard pile',
 };
 
 // The core, the brig, a ship's crew (#664), the draw pile, the dilemma pile (#690), the dilemma
@@ -132,7 +145,8 @@ const closeLabel = (zone: PanelZone): string =>
   zone === 'pile' ||
   zone === 'dilemmaPile' ||
   zone === 'dilemmaStack' ||
-  zone === 'shipRow'
+  zone === 'shipRow' ||
+  zone === 'discard'
     ? `Close ${PANEL_LABEL[zone].toLowerCase()}`
     : `Close ${PANEL_LABEL[zone].toLowerCase()} pile`;
 
@@ -144,6 +158,7 @@ function PilePanelCard({
   cardArtHeight,
   reorderable = false,
   showBackWhenFaceDown = false,
+  gridScrolls = false,
 }: {
   instance: CardInstance;
   selected: boolean;
@@ -158,6 +173,8 @@ function PilePanelCard({
   reorderable?: boolean;
   // A panel with a Flip button (#762) draws a face-down card as the card back.
   showBackWhenFaceDown?: boolean;
+  // The panel's card grid overflows (#788): let the browser pan it vertically under a touch.
+  gridScrolls?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
   const { setNodeRef: setDropRef } = useDroppable({ id: instance.id, disabled: !reorderable });
@@ -179,7 +196,9 @@ function PilePanelCard({
         onClick={onToggleSelect}
         {...attributes}
         {...holdListeners}
-        className={`flex flex-col items-center gap-0.5 focus:outline-none touch-none w-full rounded-md ${
+        className={`flex flex-col items-center gap-0.5 focus:outline-none ${
+          gridScrolls ? 'touch-pan-y' : 'touch-none'
+        } w-full rounded-md ${
           selected ? 'ring-2 ring-accent' : ''
         }`}
         style={{
@@ -224,6 +243,7 @@ export default function PilePanel({
   onShuffle,
   onSetStopped,
   onFlip,
+  onDiscard,
   hidden = false,
   cardWidth = TABLE_CARD_WIDTH,
   cardArtHeight = TABLE_CARD_ART_HEIGHT,
@@ -233,13 +253,18 @@ export default function PilePanel({
   onClose: () => void;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
-  onShuffle: () => void;
+  // Left out for the discard pile (#782), whose panel shows no Shuffle button.
+  onShuffle?: () => void;
   // Sets `stopped` to one explicit value on a list of ids (#681), so the "Stop"/"Unstop" button
   // below sets every selected card the same way rather than toggling each one on its own.
-  onSetStopped: (ids: string[], stopped: boolean) => void;
+  // Left out for the discard pile (#782), whose panel shows no Stop button.
+  onSetStopped?: (ids: string[], stopped: boolean) => void;
   // Turns each id over on its own (#762). Given only for the zones whose cards can be flipped;
   // its presence is what shows the "Flip" button and draws face-down cards as the card back.
   onFlip?: (ids: string[]) => void;
+  // Moves each id to the discard pile, in the panel's order (#787). Left out for the discard
+  // pile's own panel, whose cards are already there.
+  onDiscard?: (ids: string[]) => void;
   hidden?: boolean;
   // Issue #717: this panel is one of "the modals" the issue names, so its own card grid grows
   // the same way the table's mission cards do — `page.tsx` computes both from the same `scale`
@@ -285,6 +310,24 @@ export default function PilePanel({
     observer.observe(el);
     return () => observer.disconnect();
   }, [isDilemmaStack]);
+  // Whether the card grid scrolls (#788), from the grid element itself. Re-measured when the
+  // grid resizes (the viewport changes its `max-h`) and when the card count or size changes (the
+  // grid keeps its capped height while its content grows). jsdom reports 0 for both heights, so
+  // the Jest tests see a grid that fits, and today's `touch-none`.
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [gridScrolls, setGridScrolls] = useState(false);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el || isDilemmaStack) {
+      setGridScrolls(false);
+      return;
+    }
+    const measure = () => setGridScrolls(el.scrollHeight > el.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isDilemmaStack, cards.length, cardWidth, cardArtHeight]);
   const stackRowMaxWidth = rowWidth > 0 ? rowWidth : cardWidth * Math.max(cards.length, 1);
   const stackOffset = isDilemmaStack ? offsetFor(cards.length, cardWidth, stackRowMaxWidth, cardWidth) : 0;
   // Positioning only; the visible card grid itself is `gridClassName` below, now a sibling of
@@ -309,12 +352,14 @@ export default function PilePanel({
   const selectedPersonnel = cards.filter(
     (instance) => selectedIds.includes(instance.id) && instance.card.type === 'personnel'
   );
-  const showStopButton = selectedPersonnel.length > 0;
+  const showStopButton = onSetStopped !== undefined && selectedPersonnel.length > 0;
   const allSelectedStopped = showStopButton && selectedPersonnel.every((instance) => instance.stopped);
-  const handleStopTap = () => onSetStopped(selectedPersonnel.map((instance) => instance.id), !allSelectedStopped);
+  const handleStopTap = () => onSetStopped?.(selectedPersonnel.map((instance) => instance.id), !allSelectedStopped);
   const selectedInPanel = cards.filter((instance) => selectedIds.includes(instance.id));
   const showFlipButton = onFlip !== undefined && selectedInPanel.length > 0;
   const handleFlipTap = () => onFlip?.(selectedInPanel.map((instance) => instance.id));
+  const showDiscardButton = onDiscard !== undefined && selectedInPanel.length > 0;
+  const handleDiscardTap = () => onDiscard?.(selectedInPanel.map((instance) => instance.id));
 
   return (
     <div
@@ -328,7 +373,7 @@ export default function PilePanel({
         aria-label={closeLabel(zone)}
       />
       <div className={layoutClassName}>
-        {(showStopButton || showFlipButton) && (
+        {(showStopButton || showFlipButton || showDiscardButton) && (
           <div className="flex flex-row items-center gap-2">
             {showStopButton && (
               <button type="button" onClick={handleStopTap} className="btn-primary">
@@ -340,21 +385,33 @@ export default function PilePanel({
                 Flip
               </button>
             )}
+            {showDiscardButton && (
+              <button type="button" onClick={handleDiscardTap} className="btn-primary">
+                Discard
+              </button>
+            )}
           </div>
         )}
         {/* The Shuffle button (#680) sits inside the panel, next to the cards, not on the
             backdrop — a tap on the backdrop still closes the panel, and a tap here does not.
             It is a sibling of the card grid, the same place the "Stop"/"Unstop" button (#681)
             sits, so both panel controls stack above the cards. */}
-        <button
-          type="button"
-          onClick={onShuffle}
-          className="flex items-center justify-center gap-1 rounded-md bg-white/[0.05] border border-white/10 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors duration-150"
+        {onShuffle && (
+          <button
+            type="button"
+            onClick={onShuffle}
+            className="flex items-center justify-center gap-1 rounded-md bg-white/[0.05] border border-white/10 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors duration-150"
+          >
+            <ShuffleIcon />
+            Shuffle
+          </button>
+        )}
+        <div
+          ref={gridRef}
+          data-zone={`pile-panel-${zone}`}
+          {...{ [PANEL_SCROLLS_ATTRIBUTE]: gridScrolls ? 'true' : undefined }}
+          className={gridClassName}
         >
-          <ShuffleIcon />
-          Shuffle
-        </button>
-        <div data-zone={`pile-panel-${zone}`} className={gridClassName}>
           {isDilemmaStack && (
             <div className="flex flex-row justify-between">
               <span className={stackEndLabelClassName}>Top (revealed first)</span>
@@ -393,6 +450,7 @@ export default function PilePanel({
                 cardWidth={cardWidth}
                 cardArtHeight={cardArtHeight}
                 showBackWhenFaceDown={onFlip !== undefined}
+                gridScrolls={gridScrolls}
               />
             ))
           )}
