@@ -51,8 +51,10 @@ jest.mock('@dnd-kit/core', () => {
       return children;
     },
     DragOverlay: ({ children }: any) => <div data-testid="drag-overlay">{children}</div>,
-    useDraggable: ({ id }: { id: string }) => {
-      mockDraggableIds.push(id);
+    useDraggable: ({ id, data }: { id: string; data?: { showBack?: boolean } }) => {
+      // The top card of the draw pile and the dilemma pile (#814) is left out, so the ids here
+      // stay the table cards' ids, in the order these tests expect.
+      if (!data?.showBack) mockDraggableIds.push(id);
       return { attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false };
     },
     useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
