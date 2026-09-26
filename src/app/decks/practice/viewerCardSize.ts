@@ -1,6 +1,6 @@
 // Kept apart from `tableScale.ts`, which imports the reducer: `PilePanel` and `CardHand` read this
 // size, and their tests mock `@dnd-kit/core` too thinly for the reducer's imports to load.
-import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
+import { TABLE_CARD_WIDTH } from './TableCard';
 
 // Issue #802: every viewer — a pile panel's grid, the dilemma stack's row, and the open fan of
 // the hand and of the dilemma hand — draws its card at this multiple of the shared table card.
@@ -8,10 +8,19 @@ import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 // height of a full-height panel only adds rows, and a pile that still does not fit scrolls.
 export const VIEWER_CARD_SCALE = 1.5;
 
-// The viewer card's width and cropped-art height at a given table `scale`: 108 x 96 at scale 1.
-export function viewerCardSize(scale: number): { width: number; artHeight: number } {
-  return {
-    width: Math.round(TABLE_CARD_WIDTH * scale * VIEWER_CARD_SCALE),
-    artHeight: Math.round(TABLE_CARD_ART_HEIGHT * scale * VIEWER_CARD_SCALE),
-  };
+// The card image is 120 x 167. A viewer draws the whole image, frame and text included, so its
+// height follows its width at that ratio.
+export const CARD_IMAGE_WIDTH = 120;
+export const CARD_IMAGE_HEIGHT = 167;
+
+export function fullCardHeight(width: number): number {
+  return Math.round((width * CARD_IMAGE_HEIGHT) / CARD_IMAGE_WIDTH);
+}
+
+// The viewer card's width and height at a given table `scale`: 108 x 150 at scale 1. Every
+// viewer shows the full card, not the cropped art the table card shows, so a player who opens a
+// panel reads the card's own text there (#806).
+export function viewerCardSize(scale: number): { width: number; height: number } {
+  const width = Math.round(TABLE_CARD_WIDTH * scale * VIEWER_CARD_SCALE);
+  return { width, height: fullCardHeight(width) };
 }

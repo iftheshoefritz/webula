@@ -4,7 +4,9 @@
 // the core's and the brig's own panel too: a tap on a pile's badge (or,
 // for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
 // already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
-// cards face up regardless of their stored face (the same true-face-to-owner convention
+// cards face up regardless of their stored face. Each card shows as the whole card image (#806),
+// frame and text included, not as the cropped art of the table card (`TableCard.tsx`): the panel
+// is where the player reads a card, so the text on it must be there (the same true-face-to-owner convention
 // `CardPreview` uses for the enlarged preview). A panel that has a Flip button (#762, below) does
 // not follow that convention: it draws the card back for a card whose stored
 // `face` is `down`, and the art for a card whose `face` is `up`, so a Flip shows in the panel.
@@ -67,7 +69,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
 import { STOPPED_IMAGE_CLASSNAME } from './TableCard';
 import OverlapRow from './OverlapRow';
-import { viewerCardSize } from './viewerCardSize';
+import { CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, viewerCardSize } from './viewerCardSize';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 
@@ -156,7 +158,7 @@ function PilePanelCard({
   selected,
   onToggleSelect,
   cardWidth,
-  cardArtHeight,
+  cardHeight,
   reorderable = false,
   showBackWhenFaceDown = false,
   gridScrolls = false,
@@ -165,7 +167,7 @@ function PilePanelCard({
   selected: boolean;
   onToggleSelect: () => void;
   cardWidth: number;
-  cardArtHeight: number;
+  cardHeight: number;
   // The dilemma stack's own popup only (#632): registers this card's own instance id as a drop
   // target too, alongside the draggable identity every card already has, so a drop that lands on
   // top of this card resolves to something (`handleDragEnd` in `page.tsx` then reads it as "move
@@ -209,16 +211,17 @@ function PilePanelCard({
         }}
         aria-label={card.name}
       >
-        <div className="relative w-full" style={{ height: cardArtHeight }}>
-          <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
-            <img
-              src={showBack ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
-              alt={card.name}
-              className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
-              style={NO_CALLOUT_STYLE}
-            />
-          </div>
-        </div>
+        {/* The whole card image, frame and text included (#806), not the cropped art the table
+            card shows: the panel is where the player reads the card. The height comes from the
+            image's own ratio (`fullCardHeight`), so the image is never squashed. */}
+        <img
+          src={showBack ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
+          width={CARD_IMAGE_WIDTH}
+          height={CARD_IMAGE_HEIGHT}
+          alt={card.name}
+          className={`rounded-md shadow-md h-auto ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+          style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
+        />
       </button>
       <button
         type="button"
@@ -247,7 +250,7 @@ export default function PilePanel({
   onDiscard,
   hidden = false,
   cardWidth = viewerCardSize(1).width,
-  cardArtHeight = viewerCardSize(1).artHeight,
+  cardHeight = viewerCardSize(1).height,
 }: {
   zone: PanelZone;
   cards: CardInstance[];
@@ -270,10 +273,11 @@ export default function PilePanel({
   // Issue #717: this panel is one of "the modals" the issue names, so its own card grid grows
   // the same way the table's mission cards do — `page.tsx` computes both from the same `scale`
   // (`tableScale.ts`) and passes the result down here, at the viewer's 1.5x (`viewerCardSize`,
-  // #802). Defaults to that size at scale 1 for callers, including this component's own tests,
-  // that don't care about the grown state.
+  // #802). `cardHeight` is the height of the whole card image at that width (#806), not the
+  // height of the cropped art the table card shows. Defaults to that size at scale 1 for
+  // callers, including this component's own tests, that don't care about the grown state.
   cardWidth?: number;
-  cardArtHeight?: number;
+  cardHeight?: number;
 }) {
   // The dilemma stack's own popup only (#632): a wrapped, multi-per-row grid — every other
   // `PilePanel` zone's layout — has no single top or bottom once it wraps past one row, so this
@@ -312,7 +316,7 @@ export default function PilePanel({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [isDilemmaStack, cards.length, cardWidth, cardArtHeight]);
+  }, [isDilemmaStack, cards.length, cardWidth, cardHeight]);
   // #802: the panel may use the full height of the game layer. `insetClassName` is a box inset
   // a little from each edge of this component's own `fixed inset-0` box (the same box as the game
   // layer), so the panel follows the layer's height without any `dvh` arithmetic. It lets taps
@@ -415,14 +419,14 @@ export default function PilePanel({
               items={cards}
               keyFor={(instance) => instance.id}
               cardWidth={cardWidth}
-              height={cardArtHeight}
+              height={cardHeight}
               renderCard={(instance) => (
                 <PilePanelCard
                   instance={instance}
                   selected={selectedIds.includes(instance.id)}
                   onToggleSelect={() => onToggleSelect(instance.id)}
                   cardWidth={cardWidth}
-                  cardArtHeight={cardArtHeight}
+                  cardHeight={cardHeight}
                   reorderable
                   showBackWhenFaceDown={onFlip !== undefined}
                 />
@@ -436,7 +440,7 @@ export default function PilePanel({
                 selected={selectedIds.includes(instance.id)}
                 onToggleSelect={() => onToggleSelect(instance.id)}
                 cardWidth={cardWidth}
-                cardArtHeight={cardArtHeight}
+                cardHeight={cardHeight}
                 showBackWhenFaceDown={onFlip !== undefined}
                 gridScrolls={gridScrolls}
               />
