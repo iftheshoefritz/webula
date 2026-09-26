@@ -10,7 +10,8 @@
 // size those fixed pixel constants were tuned against, and larger once there's more room than
 // that. Every constant this issue grows (`TableCard.tsx`'s `TABLE_CARD_WIDTH`/
 // `TABLE_CARD_ART_HEIGHT`, `MissionRow.tsx`'s ship-row sizes, `PilePanel.tsx`'s card grid) is
-// multiplied by this same scale, so they all grow in proportion to each other.
+// multiplied by this same scale, so they all grow in proportion to each other. The viewers (a pile
+// panel and the open fan) draw their cards at `VIEWER_CARD_SCALE` times that (#802, `viewerCardSize.ts`).
 //
 // A `ResizeObserver` on the game layer, the same pattern `CardSearchClient.tsx` already uses for
 // a live element size, catches a toolbar hide/show; neither a `matchMedia` query nor a one-off
