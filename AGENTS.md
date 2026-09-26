@@ -144,18 +144,38 @@ A run that shows no result record never started. `.github/workflows/README.md`
 lists every reason, and a common one is a pull request branch that holds an old
 copy of the workflow file.
 
-## Labels an agent must not apply
+## A label can start a workflow run
 
-Never add the `ready-for-dev` label to an issue. This applies to issues you create,
-such as sub-issues of the issue you work on, and to issues you update.
+A label on an issue or a pull request can start a Claude workflow run. Add a label only
+when that run is the thing you want. To describe an issue, write in the body instead.
 
-Only a person applies `ready-for-dev`. The label starts the Claude Issue Implementation
-workflow (`.github/workflows/claude-implement.yml`). When a bot applies it, the run starts
-and then stops at once with "Workflow initiated by non-human actor", and the repository
-gets an `agent-error:startup-failure` label for work that never ran.
+Before you add a label, find out what it starts:
 
-When you make an issue that is ready to implement, say so in the issue body and leave the
-label to the owner.
+```bash
+grep -rn "github.event.label.name" .github/workflows/
+```
+
+Read the workflow that matches your label. The list below holds the trigger labels of
+today.
+
+| Label | Target | Workflow | The run removes the label |
+|---|---|---|---|
+| `ready-for-dev` | issue | `.github/workflows/claude-implement.yml` | no |
+| `needs-plan` | issue | `.github/workflows/claude-plan.yml` | yes |
+| `needs-elaboration` | issue | `.github/workflows/claude-triage.yml` | yes |
+| `architecture-discussion` | issue | `.github/workflows/claude-architecture.yml` | no |
+| `agent-review` | pull request | `.github/workflows/agent-review.yml` | yes |
+| `visual-check` | pull request | `.github/workflows/claude-visual-check.yml` | yes |
+
+A label that the run does not remove starts the run again when somebody removes it and
+adds it back.
+
+`ready-for-dev` is the one exception: only a person applies it. Leave it off the issues you
+create, such as the sub-issues of the issue you work on, and off the issues you update.
+A run that a bot starts stops at once with "Workflow initiated by non-human actor", and the
+repository gets an `agent-error:startup-failure` label for work that never ran. When you
+make an issue that is ready to implement, say so in the issue body and leave the label to
+the owner.
 
 ## PR Requirements
 
