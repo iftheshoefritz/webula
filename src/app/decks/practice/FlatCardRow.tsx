@@ -20,6 +20,7 @@ import { SHIP_CARD_WIDTH, SHIP_CARD_ART_HEIGHT } from './MissionRow';
 import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
+import { LandedRing, useLandedNonce } from './LandedZoneContext';
 
 export default function FlatCardRow({
   zone,
@@ -45,6 +46,7 @@ export default function FlatCardRow({
   const draggedType = useDraggedCardType();
   const highlight = highlightState(zone, draggedType, isOver);
   const dragging = draggedType !== null;
+  const landedNonce = useLandedNonce(zone);
 
   if (cards.length === 0) {
     return (
@@ -52,11 +54,13 @@ export default function FlatCardRow({
         ref={setNodeRef}
         data-zone={zone}
         data-highlight={highlight}
-        className={`${fixedWidth ? '' : 'w-14'} h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1 ${highlightClassName(
+        data-landed={landedNonce !== null || undefined}
+        className={`relative ${fixedWidth ? '' : 'w-14'} h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1 ${highlightClassName(
           highlight
         )}`}
         style={fixedWidth ? { width: maxWidth } : undefined}
       >
+        <LandedRing nonce={landedNonce} />
         {label}
       </div>
     );
@@ -73,6 +77,7 @@ export default function FlatCardRow({
       ref={setNodeRef}
       data-zone={zone}
       data-highlight={highlight}
+      data-landed={landedNonce !== null || undefined}
       className={`relative rounded ${dragging ? 'rounded-lg border-2 border-dashed border-white/20' : ''} ${highlightClassName(highlight)}`}
       style={{
         width: fixedWidth ? maxWidth : dragging ? Math.max(rowWidth, 56) : rowWidth,
@@ -91,6 +96,7 @@ export default function FlatCardRow({
           />
         </div>
       ))}
+      <LandedRing nonce={landedNonce} />
     </div>
   );
 }

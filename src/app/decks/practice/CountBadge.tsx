@@ -1,5 +1,7 @@
 'use client';
 
+import { landedBumpClassName } from './LandedZoneContext';
+
 // A small circular count badge (see the parent design in issue #130), shared by every table
 // element that shows a count on its top-right corner: the draw pile, the discard pile, and a
 // ship's crew count (#600). The caller positions it (each needs a `relative` ancestor of its
@@ -21,10 +23,16 @@
 // badge — both are portalled into the same stacking context as every pile's badge, so without a
 // higher z-index of their own a badge belonging to a pile, or to the other hand, would draw on
 // top of them (`CardHand.tsx`).
-export default function CountBadge({ count }: { count: number }) {
+//
+// Issue #778: `landedNonce` bumps the count when its pile has just received a dropped card
+// (`LandedZoneContext.tsx`). It is opt-in, so the drag overlay's group count never animates. The
+// nonce keys the count, so a second drop restarts the bump.
+export default function CountBadge({ count, landedNonce = null }: { count: number; landedNonce?: number | null }) {
   return (
     <span className="absolute -top-2 -right-2 z-[140] bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
-      {count}
+      <span key={landedNonce ?? undefined} className={landedBumpClassName(landedNonce)}>
+        {count}
+      </span>
     </span>
   );
 }

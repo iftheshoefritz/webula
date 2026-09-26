@@ -94,15 +94,29 @@ module.exports = {
         'expand': '300ms',
       },
 
-      // The large card preview fades in when it opens (#763).
+      // The large card preview fades in when it opens (#763). A zone of the practice table that
+      // receives a dropped card rings, and its count bumps (#778); both last `LANDED_CUE_MS`
+      // (`LandedZoneContext.tsx`), and use only box-shadow, opacity and transform, so nothing
+      // reflows.
       keyframes: {
         'fade-in': {
           from: { opacity: '0' },
           to: { opacity: '1' },
         },
+        'landed-ring': {
+          '0%': { boxShadow: '0 0 0 2px rgba(122, 158, 122, 1)', opacity: '1' },
+          '100%': { boxShadow: '0 0 0 8px rgba(122, 158, 122, 0)', opacity: '0' },
+        },
+        'landed-bump': {
+          '0%': { transform: 'scale(1)' },
+          '35%': { transform: 'scale(1.4)' },
+          '100%': { transform: 'scale(1)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 100ms ease-out',
+        'landed-ring': 'landed-ring 450ms ease-out forwards',
+        'landed-bump': 'landed-bump 450ms ease-out',
       },
     },
   },

@@ -26,6 +26,7 @@ import { offsetFor } from './overlapOffset';
 import CountBadge from './CountBadge';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
+import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
@@ -167,6 +168,9 @@ export default function CardHand({
   const { setNodeRef, isOver } = useDroppable({ id: zone });
   const draggedType = useDraggedCardType();
   const highlight = highlightState(zone, draggedType, isOver);
+  // The open fan is not the drop target, so only the closed row shows the landed cue (#778).
+  const zoneLandedNonce = useLandedNonce(zone);
+  const landedNonce = open ? null : zoneLandedNonce;
 
   const handleBackdropClick = (event: React.MouseEvent) => {
     const passthroughZones = passthroughZone
@@ -204,6 +208,7 @@ export default function CardHand({
         type="button"
         data-zone={open ? undefined : zone}
         data-highlight={open ? undefined : highlight}
+        data-landed={landedNonce !== null || undefined}
         onClick={onOpen}
         disabled={open || count === 0}
         aria-label={`${label}, ${count} card${count === 1 ? '' : 's'}, tap to open`}
@@ -227,7 +232,8 @@ export default function CardHand({
             />
           ))
         )}
-        {count > 0 && <CountBadge count={count} />}
+        {count > 0 && <CountBadge count={count} landedNonce={landedNonce} />}
+        <LandedRing nonce={landedNonce} />
       </button>
 
       {/* Open fan. It goes in a portal (the page's game layer, or else document.body): the
