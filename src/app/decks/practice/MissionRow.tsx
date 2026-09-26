@@ -171,8 +171,8 @@ function ShipCard({
         landedNonce={crewLandedNonce}
       />
       {onCount > 0 && (
-        <ShipOnCounter
-          shipName={ship.card.name}
+        <HostOnCounter
+          name={ship.card.name}
           count={onCount}
           height={badgeHeight}
           landedNonce={onLandedNonce}
@@ -184,19 +184,19 @@ function ShipCard({
   );
 }
 
-// The count of the cards on a ship (#812), the same plain count pill as a host in the core or the
-// brig (`HostBadge`, `FlatCardRow.tsx`), at the corner opposite the crew badge. Unlike the crew
-// badge it is a tap target of its own: a sibling `<button>` of the ship's own button, so a tap here
-// opens the cards on the ship and a tap on the ship still opens its crew. It is not a droppable, so
-// a drop on it lands on the ship's own droppable beneath.
-function ShipOnCounter({
-  shipName,
+// The count of the cards on a ship (#812) or a mission card (#813), the same plain count pill as a
+// host in the core or the brig (`HostBadge`, `FlatCardRow.tsx`), at the corner opposite a ship's
+// crew badge. Unlike the crew badge it is a tap target of its own: a sibling `<button>` of the
+// host's own button, so a tap here opens the cards on the host and a tap on a ship still opens its
+// crew. It is not a droppable, so a drop on it lands on the host's own droppable beneath.
+function HostOnCounter({
+  name,
   count,
   height,
   landedNonce,
   onOpen,
 }: {
-  shipName: string;
+  name: string;
   count: number;
   height: number;
   landedNonce: number | null;
@@ -206,7 +206,7 @@ function ShipOnCounter({
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`${shipName}, ${count} card${count === 1 ? '' : 's'} on it`}
+      aria-label={`${name}, ${count} card${count === 1 ? '' : 's'} on it`}
       className="absolute -top-1 -left-1 z-10 flex items-center rounded-full bg-black/50 px-1 text-text-primary leading-none"
       style={{ height: height - 2 }}
     >
@@ -235,14 +235,6 @@ function PersonnelIcon() {
   );
 }
 
-// The repository's Star Trek CCG event icon (#783), the same one `SearchResults` shows for the
-// event card type. A 24x24 GIF with its own colours, so it does not follow `currentColor`. Sized
-// at 10 px rather than the other icons' 8 px, the most the scale-1 badge (12 px tall) allows, so
-// the GIF stays legible.
-function EventIcon() {
-  return <img src="/icons/icon_event.gif" alt="" className="w-2.5 h-2.5" aria-hidden="true" />;
-}
-
 // A stack of face-down cards. Unused in this file since the dilemma stack moved out of the
 // mission slots (#733); exported for #630, which uses it for the new stack's own badge.
 export function DilemmaIcon() {
@@ -269,19 +261,19 @@ function UnderMissionIcon() {
 
 const PILE_ICON: Record<MissionPileName, () => JSX.Element> = {
   personnel: PersonnelIcon,
-  event: EventIcon,
   underMission: UnderMissionIcon,
 };
 
 const PILE_LABEL: Record<MissionPileName, string> = {
   personnel: 'Personnel',
-  event: 'Event',
   underMission: 'Under the mission',
 };
 
-// A mission pile's badge (#602): shown only when the pile is non-empty, it is a drop target of
-// its own (dropping any card type directly on it puts the card in that pile, overriding the
-// type-based routing on the mission card itself) and a tap opens that pile's panel.
+// A mission pile's badge (#602): a drop target of its own (dropping any card type directly on it
+// puts the card in that pile) and a tap opens that pile's panel. Since a drop on the mission card
+// places the card on it (#813), the badge is the only way to file a card into the pile by a drag,
+// so it shows with an empty pile too, the same as a ship's crew badge (#811): the icon alone, with
+// no count, and nothing to open.
 function PileBadge({
   missionIndex,
   pile,
@@ -299,7 +291,6 @@ function PileBadge({
   // A badge the drop itself creates (count 0 -> 1) reads the landed zones on its first render,
   // so the cue plays as it mounts (#778).
   const landedNonce = useLandedNonce(missionPileDropId(missionIndex, pile));
-  if (count === 0) return null;
   const Icon = PILE_ICON[pile];
 
   return (
@@ -308,17 +299,19 @@ function PileBadge({
       ref={setNodeRef}
       data-zone={missionPileDropId(missionIndex, pile)}
       data-landed={landedNonce !== null || undefined}
-      onClick={() => onOpen(missionIndex, pile)}
-      aria-label={`${PILE_LABEL[pile]} pile, ${count} card${count === 1 ? '' : 's'}, tap to open`}
+      onClick={count > 0 ? () => onOpen(missionIndex, pile) : undefined}
+      aria-label={`${PILE_LABEL[pile]} pile, ${count} card${count === 1 ? '' : 's'}${count > 0 ? ', tap to open' : ''}`}
       className={`relative flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none ${
-        isOver ? 'ring-2 ring-accent' : ''
-      }`}
+        count === 0 ? 'opacity-60' : ''
+      } ${isOver ? 'ring-2 ring-accent' : ''}`}
       style={{ height: height - 2 }}
     >
       <Icon />
-      <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
-        {count}
-      </span>
+      {count > 0 && (
+        <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
+          {count}
+        </span>
+      )}
       <LandedRing nonce={landedNonce} />
     </button>
   );
@@ -377,20 +370,17 @@ function ShipCrewBadge({
 function BadgeStrip({
   missionIndex,
   personnelCount,
-  eventCount,
   onOpenPile,
   height,
 }: {
   missionIndex: number;
   personnelCount: number;
-  eventCount: number;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   height: number;
 }) {
   return (
     <div className="w-full flex items-center justify-center gap-1" style={{ height }}>
       <PileBadge missionIndex={missionIndex} pile="personnel" count={personnelCount} onOpen={onOpenPile} height={height} />
-      <PileBadge missionIndex={missionIndex} pile="event" count={eventCount} onOpen={onOpenPile} height={height} />
     </div>
   );
 }
@@ -566,7 +556,10 @@ function MissionColumn({
   const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('mission', draggedType, isOver);
-  const { mission, ships, personnel, event, underMission } = slot;
+  const { mission, ships, personnel, underMission } = slot;
+  // The cards placed on the mission card (#813), such as the events at the mission.
+  const onLandedNonce = useLandedNonce(mission ? `on-${mission.id}` : '');
+  const onCount = mission?.on?.length ?? 0;
   const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
   const cardArtHeight = scaled(TABLE_CARD_ART_HEIGHT, scale);
   const badgeHeight = scaled(BADGE_STRIP_HEIGHT_BASE, scale);
@@ -577,6 +570,7 @@ function MissionColumn({
         ref={setNodeRef}
         data-zone={missionDropId(missionIndex)}
         data-highlight={highlight}
+        data-landed={onLandedNonce !== null || undefined}
         className={`relative w-full flex items-center justify-center rounded ${highlightClassName(highlight)}`}
       >
         {/* Dilemmas under the mission (#606), stacked behind it and poking out above (#641) */}
@@ -591,7 +585,18 @@ function MissionColumn({
 
         <div className="relative z-10 w-full flex items-center justify-center">
           {mission ? (
-            <TableCard instance={mission} width={cardWidth} artHeight={cardArtHeight} />
+            <>
+              <TableCard instance={mission} width={cardWidth} artHeight={cardArtHeight} />
+              {onCount > 0 && (
+                <HostOnCounter
+                  name={mission.card.name}
+                  count={onCount}
+                  height={badgeHeight}
+                  landedNonce={onLandedNonce}
+                  onOpen={() => onOpenHost(mission.id)}
+                />
+              )}
+            </>
           ) : (
             <div
               className="w-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[9px]"
@@ -601,13 +606,13 @@ function MissionColumn({
             </div>
           )}
         </div>
+        <LandedRing nonce={onLandedNonce} />
       </div>
 
-      {/* Badge strip: personnel/event pile badges (#602). */}
+      {/* Badge strip: the personnel pile badge (#602). */}
       <BadgeStrip
         missionIndex={missionIndex}
         personnelCount={personnel.length}
-        eventCount={event.length}
         onOpenPile={onOpenPile}
         height={badgeHeight}
       />
