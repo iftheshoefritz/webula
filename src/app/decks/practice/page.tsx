@@ -1958,7 +1958,6 @@ function PracticeDrawContent() {
                     openFlatZone === 'discard' ? undefined : () => dispatch({ type: 'shuffle', location: openFlatZone })
                   }
                   onSetStopped={openFlatZone === 'discard' ? undefined : setStoppedForSelection}
-                  onFlip={openFlatZone === 'dilemmaStack' ? flipSelection : undefined}
                   onDiscard={openFlatZone === 'discard' ? undefined : discardSelection}
                   hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
                   cardWidth={viewerCardWidth}

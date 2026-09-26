@@ -335,7 +335,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     expect(document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]')).not.toBeNull();
   });
 
-  it('a tap on a card in the stack panel selects it and shows a working Flip button', async () => {
+  it('a tap on a card in the stack panel shows it face up, with no Flip button (#819)', async () => {
     await setupOpenDilemmaHand();
     const [firstId] = mockDraggableIds;
 
@@ -358,13 +358,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
     const panelImage = () => within(stackPanel).getByAltText('cardassian trap');
     expect(screen.queryByTestId('card-preview')).toBeNull();
-    expect(panelImage()).toHaveAttribute('src', '/cardimages/cardback.jpg');
-    const flipButton = screen.getByRole('button', { name: 'Flip' });
-    await act(async () => {
-      fireEvent.click(flipButton);
-    });
-
-    expect(panelImage()).not.toHaveAttribute('src', '/cardimages/cardback.jpg');
+    expect(panelImage()).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
+    expect(screen.queryByRole('button', { name: 'Flip' })).toBeNull();
   });
 
   // #631: the dilemma hand is now a drop target even with no cards in it, so a dilemma dragged
