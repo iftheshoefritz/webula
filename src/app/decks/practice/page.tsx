@@ -78,31 +78,82 @@ function MenuIcon() {
 }
 
 // A home for the controls that act on the whole game rather than one zone (#722), starting with
-// Reset. A small menu button opens it; it does not cover the table while closed, and a tap
-// outside the open menu (the backdrop below, the same "tap outside closes it" convention
-// `CardHand`'s own fan backdrop already follows) closes it without acting. Reset throws away the
-// current game, so it confirms first via `window.confirm`, the same confirm-before-destroy
-// pattern `DrivePickerModal`'s own delete already uses elsewhere in the app, rather than a
-// custom dialog built just for this one destructive action.
+// Reset. A small menu button opens it. Reset throws away the current game, so it confirms first
+// via `window.confirm`, the same confirm-before-destroy pattern `DrivePickerModal`'s own delete
+// already uses elsewhere in the app, rather than a custom dialog built just for this one
+// destructive action.
+//
+// The menu opens on every load of the table (#781), so a new player sees it. The first press
+// outside the open menu closes it. That press is watched on the window rather than caught by a
+// backdrop over the table, so a press on a card still reaches the card and can start a drag: the
+// menu never blocks the first drag. A tap (a press with no drag) closes the menu without acting,
+// the same as the old backdrop did: the click that follows the press is swallowed.
 function GameMenu({ open, onToggle, onClose, onReset }: { open: boolean; onToggle: () => void; onClose: () => void; onReset: () => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  // Stops the current swallow of a tap's click, if one is on. Held in a ref so the unmount below
+  // and the next press can both stop it, whether or not a pointerup ever came.
+  const stopSwallowRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => stopSwallowRef.current?.(), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (containerRef.current?.contains(event.target as Node)) return;
+      const swallowClick = (clickEvent: MouseEvent) => {
+        clickEvent.stopPropagation();
+        clickEvent.preventDefault();
+      };
+      // The click of a tap fires right after its pointerup, so a timeout set on pointerup runs
+      // after it. A drag may end with no click at all; the timeout stops the swallow either way,
+      // and so does the next press.
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      const stop = () => {
+        clearTimeout(timeout);
+        window.removeEventListener('click', swallowClick, true);
+        window.removeEventListener('pointerup', stopSoon, true);
+        window.removeEventListener('pointercancel', stopSoon, true);
+        window.removeEventListener('pointerdown', stop, true);
+        if (stopSwallowRef.current === stop) stopSwallowRef.current = null;
+      };
+      const stopSoon = () => {
+        timeout = setTimeout(stop, 0);
+      };
+      window.addEventListener('click', swallowClick, true);
+      window.addEventListener('pointerup', stopSoon, true);
+      window.addEventListener('pointercancel', stopSoon, true);
+      window.addEventListener('pointerdown', stop, true);
+      stopSwallowRef.current = stop;
+      onCloseRef.current();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCloseRef.current();
+    };
+    window.addEventListener('pointerdown', handlePointerDown, true);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown, true);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
   return (
-    <div className="absolute top-2 left-2 z-40">
+    <div ref={containerRef} className="absolute top-2 left-2 z-40">
       <button type="button" onClick={onToggle} aria-label="Game menu" aria-expanded={open} className="btn-icon btn-icon-sm">
         <MenuIcon />
       </button>
       {open && (
-        <>
-          <button type="button" className="fixed inset-0 z-30" onClick={onClose} aria-label="Close game menu" />
-          <div className="absolute left-0 top-full mt-1 z-40 min-w-[8rem] rounded-md border border-white/10 bg-bg-secondary py-1 shadow-lg">
-            <button
-              type="button"
-              onClick={onReset}
-              className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
-            >
-              Reset
-            </button>
-          </div>
-        </>
+        <div className="absolute left-0 top-full mt-1 z-40 min-w-[8rem] rounded-md border border-white/10 bg-bg-secondary py-1 shadow-lg">
+          <button
+            type="button"
+            onClick={onReset}
+            className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
+          >
+            Reset
+          </button>
+        </div>
       )}
     </div>
   );
@@ -251,13 +302,18 @@ const CORE_ROW_MAX_WIDTH = 106; // px, fits 3 ship-sized cards side by side with
 const BRIG_ROW_MAX_WIDTH = 58; // px, fits 2 overlapping ship-sized cards
 const FLAT_ROW_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
 
+// The zones whose panel `openFlatZone` tracks: the core and the brig (#640), the draw pile and the
+// dilemma pile (#690), the dilemma stack (#733), and the discard pile (#782).
+type FlatPanelZone = 'core' | 'brig' | 'pile' | 'dilemmaPile' | 'dilemmaStack' | 'discard';
+
 // The discard pile's top card, draggable off the pile (#606 review): a dilemma dragged from here
 // onto a mission card lands under that mission, since its source is not the dilemma hand (see
 // `handleDragEnd`'s dilemma routing below). A separate component, mounted only while a top card
 // exists, keeps `useDraggable`'s hook call (and so its registration order, which the mock
 // `@dnd-kit/core` in the test suite relies on) tied to the card's own presence, the same as
 // `PilePanelCard` and `CardHand`'s cards.
-function DiscardPileCard({ topCard, count }: { topCard: CardInstance; count: number }) {
+// A tap on it opens the discard pile's own panel (#782), which lists every card in the pile.
+function DiscardPileCard({ topCard, count, onOpen }: { topCard: CardInstance; count: number; onOpen: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
 
   return (
@@ -269,6 +325,7 @@ function DiscardPileCard({ topCard, count }: { topCard: CardInstance; count: num
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         opacity: isDragging ? 0.5 : 1,
       }}
+      onClick={onOpen}
       {...attributes}
       {...listeners}
     >
@@ -284,7 +341,15 @@ function DiscardPileCard({ topCard, count }: { topCard: CardInstance; count: num
   );
 }
 
-function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; count: number }) {
+function DiscardPile({
+  topCard,
+  count,
+  onOpen,
+}: {
+  topCard: CardInstance | undefined;
+  count: number;
+  onOpen: () => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: DISCARD_DROPPABLE_ID });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('discard', draggedType, isOver);
@@ -299,7 +364,7 @@ function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; co
       className={`flex flex-col items-center gap-1 rounded-lg ${highlightClassName(highlight)}`}
     >
       {topCard ? (
-        <DiscardPileCard topCard={topCard} count={count} />
+        <DiscardPileCard topCard={topCard} count={count} onOpen={onOpen} />
       ) : (
         <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
           Discard
@@ -408,6 +473,33 @@ function DownloadPileButton({ label, count, onOpen }: { label: string; count: nu
   );
 }
 
+// The face-down card art of the draw pile or the dilemma pile, animated when the pile's Shuffle
+// button runs (#786): a shuffle changes nothing visible, so without it the player cannot tell
+// the tap did anything. `shuffleCount` is the `key`, so each tap remounts the wrapper and
+// restarts the animation rather than queueing one. The wrapper is absolutely positioned and
+// animates only `transform` (or, under `prefers-reduced-motion`, a still ring), so the pile keeps
+// its size and position, and `pointer-events-none` leaves every tap and drop to the `PileHalf`s.
+function PileArt({ alt, shuffleCount }: { alt: string; shuffleCount: number }) {
+  return (
+    <div
+      key={shuffleCount}
+      data-testid="pile-art"
+      data-shuffled={shuffleCount > 0 ? 'true' : undefined}
+      className={`pointer-events-none absolute inset-0 rounded-lg ${
+        shuffleCount > 0 ? 'motion-safe:animate-pile-shuffle motion-reduce:animate-pile-shuffle-ring' : ''
+      }`}
+    >
+      <img
+        src="/cardimages/cardback.jpg"
+        width={120}
+        height={167}
+        alt={alt}
+        className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-full h-full object-cover"
+      />
+    </div>
+  );
+}
+
 // The dilemma pile (#604): a tap draws its top card into the dilemma hand. It is also a drop
 // target: dropping any card on its top half puts it first in the pile (drawn next), dropping on
 // its bottom half puts it last (#607, replacing #605's single whole-card droppable, which only
@@ -418,22 +510,18 @@ function DilemmaPileButton({
   count,
   onDraw,
   showPositionLabel,
+  shuffleCount,
 }: {
   count: number;
   onDraw: () => void;
   showPositionLabel: boolean;
+  shuffleCount: number;
 }) {
   return (
     <div className={`relative w-14 h-20 group ${count === 0 ? 'opacity-50' : ''}`} data-testid="dilemma-pile">
       {count > 0 ? (
         <>
-          <img
-            src="/cardimages/cardback.jpg"
-            width={120}
-            height={167}
-            alt="Face-down dilemma pile"
-            className="pointer-events-none rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-full h-full object-cover"
-          />
+          <PileArt alt="Face-down dilemma pile" shuffleCount={shuffleCount} />
           <CountBadge count={count} />
         </>
       ) : (
@@ -475,22 +563,18 @@ function DrawPileButton({
   count,
   onDraw,
   showPositionLabel,
+  shuffleCount,
 }: {
   count: number;
   onDraw: () => void;
   showPositionLabel: boolean;
+  shuffleCount: number;
 }) {
   return (
     <div className={`relative w-14 h-20 group ${count === 0 ? 'opacity-50' : ''}`}>
       {count > 0 ? (
         <>
-          <img
-            src="/cardimages/cardback.jpg"
-            width={120}
-            height={167}
-            alt="Face-down draw pile"
-            className="pointer-events-none rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-full h-full object-cover"
-          />
+          <PileArt alt="Face-down draw pile" shuffleCount={shuffleCount} />
           <CountBadge count={count} />
         </>
       ) : (
@@ -752,11 +836,18 @@ function PracticeDrawContent() {
     []
   );
   const [isPortrait, setIsPortrait] = useState(false);
-  // The game menu (#722): closed by default, so it never covers the table.
-  const [gameMenuOpen, setGameMenuOpen] = useState(false);
+  // The game menu (#722): open on every load (#781), so a new player finds the game controls.
+  // Nothing is stored; the first press outside the menu closes it.
+  const [gameMenuOpen, setGameMenuOpen] = useState(true);
   // Only one hand opens at a time (#604), so one value names the open hand rather than one
   // boolean per hand.
   const [openHand, setOpenHand] = useState<'hand' | 'dilemmaHand' | null>(null);
+  // How many times each pile's Shuffle button has run, the `key` that restarts its animation (#786).
+  const [shuffleCounts, setShuffleCounts] = useState({ pile: 0, dilemmaPile: 0 });
+  const shufflePile = (location: 'pile' | 'dilemmaPile') => {
+    dispatch({ type: 'shuffle', location });
+    setShuffleCounts((counts) => ({ ...counts, [location]: counts[location] + 1 }));
+  };
   const [draggingInstance, setDraggingInstance] = useState<CardInstance | null>(null);
   // The full set of cards this drag moves together (#677): normally just `draggingInstance`
   // itself, but the whole current selection, in the open panel's own order, when the touched
@@ -778,9 +869,7 @@ function PracticeDrawContent() {
   // Which of the core's/the brig's own pile panel (#640), or the draw pile's/the dilemma pile's
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
   // `openPile` tracks a mission's open pile: a piece of UI state with no effect on the table.
-  const [openFlatZone, setOpenFlatZone] = useState<'core' | 'brig' | 'pile' | 'dilemmaPile' | 'dilemmaStack' | null>(
-    null
-  );
+  const [openFlatZone, setOpenFlatZone] = useState<FlatPanelZone | null>(null);
   // Which ship's crew panel (#664) is open, if any, named by the ship's own instance id (not a
   // mission index, since a ship stays reachable by its own id regardless of which mission's ship
   // row currently holds it — the same reasoning `crewDropId` already follows). Tracked the same
@@ -898,6 +987,19 @@ function PracticeDrawContent() {
     ids.forEach((id) => dispatch({ type: 'flip', id }));
   };
 
+  // Moves every id to the discard pile, in the given order (#787's pile panel Discard button), with
+  // the same `move` action a drop on the discard pile dispatches, so each card takes the discard
+  // pile's face. The panel stays open, or closes when its zone runs empty, by the same rule a drag
+  // out of it follows (`closePanelsAfterDrag`). The selection clears either way.
+  const discardSelection = (ids: string[]) => {
+    const origin = ids.length > 0 ? findInstanceAnywhere(table, ids[0]) : null;
+    const actions: TableAction[] = ids.map((id) => ({ type: 'move', id, to: 'discard' }));
+    actions.forEach((action) => dispatch(action));
+    const nextTable = actions.reduce((state, action) => tableReducer(state, action), table);
+    closePanelsAfterDrag(origin, nextTable);
+    setSelectedCardIds([]);
+  };
+
   // A tap on a ship opens its crew panel when it has crew aboard, and does nothing otherwise.
   const handleShipClick = (shipId: string) => {
     const ship = findInstanceAnywhere(table, shipId)?.instance;
@@ -925,7 +1027,7 @@ function PracticeDrawContent() {
     setOpenPile({ missionIndex, pile });
   };
 
-  const openOnlyFlatZone = (zone: 'core' | 'brig' | 'pile' | 'dilemmaPile' | 'dilemmaStack') => {
+  const openOnlyFlatZone = (zone: FlatPanelZone) => {
     setOpenPile(null);
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
@@ -1204,6 +1306,8 @@ function PracticeDrawContent() {
       ? pile
       : openFlatZone === 'dilemmaPile'
       ? dilemmaPile
+      : openFlatZone === 'discard'
+      ? discard
       : dilemmaStack
     : openCrewShip
     ? openCrewShip.crew ?? []
@@ -1383,7 +1487,11 @@ function PracticeDrawContent() {
                       </div>
                     </div>
 
-                    <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
+                    <DiscardPile
+                      topCard={discard[discard.length - 1]}
+                      count={discard.length}
+                      onOpen={() => openOnlyFlatZone('discard')}
+                    />
                   </div>
 
                   {/* Pile, with the shuffle button and the draw-pile search button above it
@@ -1392,7 +1500,7 @@ function PracticeDrawContent() {
                     <div className="flex items-center gap-1">
                       <button
                         className="btn-icon btn-icon-sm"
-                        onClick={() => dispatch({ type: 'shuffle', location: 'pile' })}
+                        onClick={() => shufflePile('pile')}
                         aria-label="Shuffle"
                       >
                         <ShuffleIcon />
@@ -1409,6 +1517,7 @@ function PracticeDrawContent() {
                       count={pile.length}
                       onDraw={drawOne}
                       showPositionLabel={draggingInstance !== null}
+                      shuffleCount={shuffleCounts.pile}
                     />
                   </div>
 
@@ -1487,21 +1596,33 @@ function PracticeDrawContent() {
                     onToggleSelect={toggleCardSelection}
                   />
 
-                  {/* Dilemma pile, with the search button above it (#753) rather than beside
-                      it. */}
+                  {/* Dilemma pile, with the shuffle button and the search button above it
+                      (#753, #785) rather than beside it, the same layout as the draw pile. */}
                   <div className="flex flex-col items-center gap-1">
-                    {/* Download from the dilemma pile without drawing (#690): a separate control,
-                        rather than layered on the dilemma-pile button, so it never steals the
-                        button's own tap-to-draw click or its top/bottom drop halves. */}
-                    <DownloadPileButton
-                      label="dilemma pile"
-                      count={dilemmaPile.length}
-                      onOpen={() => openOnlyFlatZone('dilemmaPile')}
-                    />
+                    <div className="flex items-center gap-1">
+                      {/* Its own accessible name, so it is told apart from the draw pile's
+                          "Shuffle" button (#785). */}
+                      <button
+                        className="btn-icon btn-icon-sm"
+                        onClick={() => shufflePile('dilemmaPile')}
+                        aria-label="Shuffle dilemma pile"
+                      >
+                        <ShuffleIcon />
+                      </button>
+                      {/* Download from the dilemma pile without drawing (#690): a separate control,
+                          rather than layered on the dilemma-pile button, so it never steals the
+                          button's own tap-to-draw click or its top/bottom drop halves. */}
+                      <DownloadPileButton
+                        label="dilemma pile"
+                        count={dilemmaPile.length}
+                        onOpen={() => openOnlyFlatZone('dilemmaPile')}
+                      />
+                    </div>
                     <DilemmaPileButton
                       count={dilemmaPile.length}
                       onDraw={drawDilemma}
                       showPositionLabel={draggingInstance?.card.type === 'dilemma'}
+                      shuffleCount={shuffleCounts.dilemmaPile}
                     />
                   </div>
                 </div>
@@ -1532,6 +1653,7 @@ function PracticeDrawContent() {
                   }
                   onSetStopped={setStoppedForSelection}
                   onFlip={flipSelection}
+                  onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
@@ -1551,9 +1673,12 @@ function PracticeDrawContent() {
                   }}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
-                  onShuffle={() => dispatch({ type: 'shuffle', location: openFlatZone })}
-                  onSetStopped={setStoppedForSelection}
+                  onShuffle={
+                    openFlatZone === 'discard' ? undefined : () => dispatch({ type: 'shuffle', location: openFlatZone })
+                  }
+                  onSetStopped={openFlatZone === 'discard' ? undefined : setStoppedForSelection}
                   onFlip={openFlatZone === 'dilemmaStack' ? flipSelection : undefined}
+                  onDiscard={openFlatZone === 'discard' ? undefined : discardSelection}
                   hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
@@ -1574,6 +1699,7 @@ function PracticeDrawContent() {
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() => dispatch({ type: 'shuffle', location: { zone: 'crew', shipId: openCrewShip.id } })}
                   onSetStopped={setStoppedForSelection}
+                  onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
@@ -1599,6 +1725,7 @@ function PracticeDrawContent() {
                     dispatch({ type: 'shuffle', location: { zone: 'shipRow', missionIndex: openShipRowMissionIndex } })
                   }
                   onSetStopped={setStoppedForSelection}
+                  onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
