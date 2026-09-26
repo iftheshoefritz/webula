@@ -443,6 +443,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                           ) : (
                             <button
                               type="button"
+                              aria-label={`Load ${file.name}`}
                               className="btn-icon btn-icon-sm"
                               onClick={() => handleDriveFileSelect(file)}
                             >
