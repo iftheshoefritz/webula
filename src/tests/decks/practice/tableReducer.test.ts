@@ -1097,3 +1097,129 @@ describe('resetWithPiles (#802)', () => {
     expect(seeded).toHaveLength(plain.length);
   });
 });
+
+describe('cards placed on a host (#809)', () => {
+  const on = (hostId: string) => ({ zone: 'on' as const, hostId });
+
+  it('moves a card onto a card in the core, out of its old place', () => {
+    const host = instance('host', card('Host'), 'up');
+    const moved = instance('m', card('Moved'), 'up');
+    const state = tableReducer(
+      { ...initialTableState, core: [host], hand: [moved] },
+      { type: 'move', id: 'm', to: on('host') }
+    );
+
+    expect(state.hand).toEqual([]);
+    expect(state.core).toEqual([{ ...host, on: [{ ...moved, face: 'up' }] }]);
+  });
+
+  it('moves a card onto a mission card, and onto a ship', () => {
+    const mission = instance('mission', card('Mission'), 'up');
+    const ship = instance('ship', card('Ship'), 'up');
+    const first = instance('a', card('A'));
+    const second = instance('b', card('B'));
+    let state = tableReducer(
+      { ...initialTableState, pile: [first, second], missions: missionSlots([mission], { 1: [ship] }) },
+      { type: 'move', id: 'a', to: on('mission') }
+    );
+    state = tableReducer(state, { type: 'move', id: 'b', to: on('ship') });
+
+    expect(state.pile).toEqual([]);
+    expect(state.missions[0].mission!.on).toEqual([{ ...first, face: 'up' }]);
+    expect(state.missions[1].ships[0].on).toEqual([{ ...second, face: 'up' }]);
+  });
+
+  it('refuses a move onto a card that is already on a host, so the stack stays one level deep', () => {
+    const placed = instance('placed', card('Placed'), 'up');
+    const host = { ...instance('host', card('Host'), 'up'), on: [placed] };
+    const moved = instance('m', card('Moved'), 'up');
+    const before = { ...initialTableState, core: [host], hand: [moved] };
+
+    expect(tableReducer(before, { type: 'move', id: 'm', to: on('placed') })).toBe(before);
+  });
+
+  it('refuses a move onto a card that is not a host', () => {
+    const inHand = instance('h', card('In hand'), 'up');
+    const moved = instance('m', card('Moved'), 'up');
+    const before = { ...initialTableState, hand: [inHand, moved] };
+
+    expect(tableReducer(before, { type: 'move', id: 'm', to: on('h') })).toBe(before);
+  });
+
+  it('carries the cards on a host when the host moves from the core to a ship row', () => {
+    const placed = instance('placed', card('Placed'), 'up');
+    const host = { ...instance('host', card('Host'), 'up'), on: [placed] };
+    const state = tableReducer(
+      { ...initialTableState, core: [host], missions: missionSlots([]) },
+      { type: 'move', id: 'host', to: { zone: 'shipRow', missionIndex: 2 } }
+    );
+
+    expect(state.core).toEqual([]);
+    expect(state.missions[2].ships).toEqual([{ ...host, on: [placed] }]);
+  });
+
+  it('carries the cards on a host when the host moves from the core to a mission', () => {
+    const placed = instance('placed', card('Placed'), 'up');
+    const host = { ...instance('host', card('Host'), 'up'), on: [placed] };
+    const state = tableReducer(
+      { ...initialTableState, core: [host], missions: missionSlots([]) },
+      { type: 'move', id: 'host', to: { zone: 'missionPile', missionIndex: 0, pile: 'event' } }
+    );
+
+    // A card in a mission's pile is not a host, so its cards leave it for the same pile.
+    expect(state.core).toEqual([]);
+    expect(state.missions[0].event.map((c) => c.id)).toEqual(['host', 'placed']);
+    expect(state.missions[0].event[0].on).toBeUndefined();
+  });
+
+  it('sends a host and the cards on it to the discard pile', () => {
+    const placed = instance('placed', card('Placed'), 'up');
+    const host = { ...instance('host', card('Host'), 'up'), on: [placed] };
+    const state = tableReducer({ ...initialTableState, brig: [host] }, { type: 'move', id: 'host', to: 'discard' });
+
+    expect(state.brig).toEqual([]);
+    expect(state.discard).toEqual([{ ...host, on: undefined }, placed]);
+  });
+
+  it('moves a card off a host into the core, emptying the host', () => {
+    const placed = instance('placed', card('Placed'), 'up');
+    const ship = { ...instance('ship', card('Ship'), 'up'), on: [placed] };
+    const state = tableReducer(
+      { ...initialTableState, missions: missionSlots([], { 3: [ship] }) },
+      { type: 'move', id: 'placed', to: 'core' }
+    );
+
+    expect(state.missions[3].ships[0].on).toBeUndefined();
+    expect(state.core).toEqual([placed]);
+  });
+
+  it('puts the cards on a host beside it when the host goes on another host', () => {
+    const placed = instance('placed', card('Placed'), 'up');
+    const host = { ...instance('host', card('Host'), 'up'), on: [placed] };
+    const other = instance('other', card('Other'), 'up');
+    const state = tableReducer({ ...initialTableState, core: [host, other] }, { type: 'move', id: 'host', to: on('other') });
+
+    expect(state.core).toEqual([{ ...other, on: [{ ...host, on: undefined }, placed] }]);
+  });
+
+  it('findInstanceAnywhere finds a card on a host, wherever the host sits', () => {
+    const inCore = instance('p1', card('P1'), 'up');
+    const onMission = instance('p2', card('P2'), 'up');
+    const onShip = instance('p3', card('P3'), 'up');
+    const inBrig = instance('p4', card('P4'), 'up');
+    const state = {
+      ...initialTableState,
+      core: [{ ...instance('c', card('C'), 'up'), on: [inCore] }],
+      brig: [{ ...instance('b', card('B'), 'up'), on: [inBrig] }],
+      missions: missionSlots(
+        [{ ...instance('m', card('M'), 'up'), on: [onMission] }],
+        { 4: [{ ...instance('s', card('S'), 'up'), on: [onShip] }] }
+      ),
+    };
+
+    expect(findInstanceAnywhere(state, 'p1')).toEqual({ instance: inCore, zone: on('c') });
+    expect(findInstanceAnywhere(state, 'p2')).toEqual({ instance: onMission, zone: on('m') });
+    expect(findInstanceAnywhere(state, 'p3')).toEqual({ instance: onShip, zone: on('s') });
+    expect(findInstanceAnywhere(state, 'p4')).toEqual({ instance: inBrig, zone: on('b') });
+  });
+});
