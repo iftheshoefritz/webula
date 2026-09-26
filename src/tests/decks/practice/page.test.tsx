@@ -738,6 +738,85 @@ describe('PracticeDrawPage', () => {
   // Shuffle (#721): the button above the draw pile shuffles it in place instead of resetting
   // the game — the cards already on the table (here, the drawn card sitting in the hand) stay
   // exactly where they are, and only the order of the remaining draw pile changes.
+  describe('game menu on load (#781)', () => {
+    const renderManyCards = async () => {
+      localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+      (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+      (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+      await act(async () => {
+        render(<PracticeDrawPage />);
+      });
+    };
+
+    const tap = async (element: Element) => {
+      await act(async () => {
+        fireEvent.pointerDown(element, { button: 0 });
+        fireEvent.pointerUp(element);
+        fireEvent.click(element);
+      });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    };
+
+    it('opens the game menu as soon as the table shows', async () => {
+      await renderManyCards();
+
+      expect(screen.getByRole('button', { name: 'Game menu' })).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
+    });
+
+    it('closes the menu on the first tap outside it, without acting on the table', async () => {
+      await renderManyCards();
+      const drawPileButton = screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' });
+
+      await tap(drawPileButton);
+
+      expect(screen.getByRole('button', { name: 'Game menu' })).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByRole('button', { name: 'Reset' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
+
+      // The next tap acts as usual.
+      await tap(drawPileButton);
+      expect(screen.getByRole('button', { name: /^hand, 8 cards, tap to open$/i })).toBeInTheDocument();
+    });
+
+    it('lets the press that closes the menu reach the table, so a drag can start', async () => {
+      await renderManyCards();
+      const drawPileButton = screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' });
+      const onPointerDown = jest.fn();
+      drawPileButton.addEventListener('pointerdown', onPointerDown);
+
+      await act(async () => {
+        fireEvent.pointerDown(drawPileButton, { button: 0 });
+      });
+
+      expect(onPointerDown).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole('button', { name: 'Game menu' })).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('keeps the menu open for a tap inside it, and the menu button still closes it', async () => {
+      await renderManyCards();
+      const menuButton = screen.getByRole('button', { name: 'Game menu' });
+
+      await tap(menuButton);
+
+      expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+      await tap(menuButton);
+      expect(menuButton).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('closes the menu on Escape', async () => {
+      await renderManyCards();
+
+      await act(async () => {
+        fireEvent.keyDown(window, { key: 'Escape' });
+      });
+
+      expect(screen.getByRole('button', { name: 'Game menu' })).toHaveAttribute('aria-expanded', 'false');
+    });
+  });
+
   it('clicking the button above the draw pile shuffles it without resetting the game', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));

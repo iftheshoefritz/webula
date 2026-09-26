@@ -61,8 +61,13 @@ describe('the Decklist item of the game menu (#779)', () => {
     });
   });
 
+  // The game menu opens on every load of the table (#781), so the menu button is a toggle: click
+  // it only when the menu is closed.
   const openDecklist = () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Game menu' }));
+    const menuButton = screen.getByRole('button', { name: 'Game menu' });
+    if (menuButton.getAttribute('aria-expanded') !== 'true') {
+      fireEvent.click(menuButton);
+    }
     fireEvent.click(screen.getByRole('button', { name: 'Decklist' }));
   };
 
@@ -93,7 +98,12 @@ describe('the Decklist item of the game menu (#779)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    // The game menu is open on load (#781), and opening the Decklist closes it. So settle the
+    // menu first, and only then snapshot the table, or the snapshot holds the open menu.
+    openDecklist();
+    fireEvent.click(screen.getByRole('button', { name: 'Close decklist' }));
     const pileBefore = screen.getByTestId('practice-game-layer').innerHTML;
+
     openDecklist();
 
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Decklist' })).getByText('Test Personnel'));
@@ -108,7 +118,8 @@ describe('the Decklist item of the game menu (#779)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Game menu' }));
+    // The menu is open on load (#781), so both items are there with no click.
+    expect(screen.getByRole('button', { name: 'Game menu' })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('button', { name: 'Decklist' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
   });

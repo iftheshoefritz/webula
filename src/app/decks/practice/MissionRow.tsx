@@ -161,12 +161,12 @@ function PersonnelIcon() {
   );
 }
 
+// The repository's Star Trek CCG event icon (#783), the same one `SearchResults` shows for the
+// event card type. A 24x24 GIF with its own colours, so it does not follow `currentColor`. Sized
+// at 10 px rather than the other icons' 8 px, the most the scale-1 badge (12 px tall) allows, so
+// the GIF stays legible.
 function EventIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-2 h-2" aria-hidden="true">
-      <path d="M13 2 3 14h7l-1 8 11-14h-7z" />
-    </svg>
-  );
+  return <img src="/icons/icon_event.gif" alt="" className="w-2.5 h-2.5" aria-hidden="true" />;
 }
 
 // A stack of face-down cards. Unused in this file since the dilemma stack moved out of the
