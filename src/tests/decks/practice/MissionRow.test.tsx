@@ -18,31 +18,85 @@ const emptySlot = (): MissionSlot => ({
   mission: card('mission-0', 'A Mission'),
   ships: [],
   personnel: [],
-  event: [],
   underMission: [],
 });
 
 describe('MissionRow', () => {
-  // #783: the event pile badge shows the repository's event icon, not a hand-drawn SVG.
-  it('shows the repository event icon on the event pile badge', () => {
+  // #813: the event pile is gone, so the mission shows no event badge, and the personnel badge is
+  // the only way to file a card into the personnel pile by a drag, so it shows with an empty pile.
+  it('shows no event badge, and shows the personnel badge with an empty pile', () => {
     const onOpenPile = jest.fn();
-    const slot: MissionSlot = { ...emptySlot(), event: [card('e1', 'An Event')] };
+    render(
+      <MissionRow
+        missions={[emptySlot()]}
+        onOpenPile={onOpenPile}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenHost={() => {}}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /event pile/i })).not.toBeInTheDocument();
+    expect(document.body.querySelector('[data-zone="mission-pile-event-0"]')).toBeNull();
+    const badge = screen.getByRole('button', { name: /^personnel pile, 0 cards$/i });
+    expect(badge).toHaveAttribute('data-zone', 'mission-pile-personnel-0');
+    fireEvent.click(badge);
+    expect(onOpenPile).not.toHaveBeenCalled();
+  });
+
+  it('opens the personnel pile from its badge once it holds a card', () => {
+    const onOpenPile = jest.fn();
+    const slot: MissionSlot = { ...emptySlot(), personnel: [card('p1', 'Data')] };
     render(
       <MissionRow
         missions={[slot]}
         onOpenPile={onOpenPile}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
+        onOpenHost={() => {}}
       />
     );
 
-    const badge = screen.getByRole('button', { name: /event pile, 1 card, tap to open/i });
-    expect(badge.querySelector('img')).toHaveAttribute('src', '/icons/icon_event.gif');
-    expect(badge.querySelector('svg')).not.toBeInTheDocument();
-    expect(badge).toHaveTextContent('1');
+    fireEvent.click(screen.getByRole('button', { name: /^personnel pile, 1 card, tap to open$/i }));
+    expect(onOpenPile).toHaveBeenCalledWith(0, 'personnel');
+  });
 
-    fireEvent.click(badge);
-    expect(onOpenPile).toHaveBeenCalledWith(0, 'event');
+  // #813: a mission card is a host. It shows a counter of the cards on it, and a tap on the
+  // counter opens them.
+  it('shows a counter of the cards on the mission card, and a tap on it opens them', () => {
+    const onOpenHost = jest.fn();
+    const slot: MissionSlot = {
+      ...emptySlot(),
+      mission: { ...card('mission-0', 'A Mission'), on: [card('e1', 'An Event')] },
+    };
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenHost={onOpenHost}
+      />
+    );
+
+    const counter = screen.getByRole('button', { name: /^A Mission, 1 card on it$/ });
+    expect(counter).toHaveTextContent('1');
+    fireEvent.click(counter);
+    expect(onOpenHost).toHaveBeenCalledWith('mission-0');
+  });
+
+  it('shows no counter on a mission card with nothing on it', () => {
+    render(
+      <MissionRow
+        missions={[emptySlot()]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenHost={() => {}}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /on it$/ })).not.toBeInTheDocument();
   });
 
   // #641: dilemmas placed under the mission poke out above the mission card's top edge, in a

@@ -1,6 +1,6 @@
 'use client';
 
-// A mission's personnel, event, or under-the-mission pile panel (#602, #606), and, since #640,
+// A mission's personnel or under-the-mission pile panel (#602, #606), and, since #640,
 // the core's and the brig's own panel too: a tap on a pile's badge (or,
 // for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
 // already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
@@ -50,7 +50,7 @@
 // toggle, so a mixed selection cannot go out of step with itself. The selection stays after the
 // tap, so the player can still drag the same cards next.
 // A "Flip" button (#762) sits beside it, in the panels whose cards the preview can flip: a
-// mission's personnel, event, and under-the-mission piles, and the dilemma stack. `page.tsx`
+// mission's personnel and under-the-mission piles, and the dilemma stack. `page.tsx`
 // passes `onFlip` only for those zones. It shows
 // once the selection holds one or more of this panel's cards, and a tap dispatches the existing
 // `flip` action once per selected card, so each card turns over on its own: a mixed selection
@@ -127,7 +127,6 @@ export type PanelZone =
 
 const PANEL_LABEL: Record<PanelZone, string> = {
   personnel: 'Personnel',
-  event: 'Event',
   underMission: 'Under the mission',
   core: 'Core',
   brig: 'Brig',

@@ -241,6 +241,125 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     expect(screen.getByRole('button', { name: /personnel pile, 1 card/i })).toBeInTheDocument();
   });
 
+  describe('with a mission card dealt (#813)', () => {
+    const mockMissionCard = {
+      collectorsinfo: '1R100',
+      originalName: 'First Contact',
+      type: 'mission',
+      name: 'first contact',
+      imagefile: 'first_contact',
+      pile: 'mission',
+      count: 1,
+    };
+    const mockEventCard = {
+      collectorsinfo: '1U002',
+      originalName: 'Distress Call',
+      type: 'event',
+      name: 'distress call',
+      imagefile: 'distress_call',
+      pile: 'draw',
+      count: 1,
+    };
+    const mockDilemmaCard = {
+      collectorsinfo: '1C300',
+      originalName: 'Chula The Chandra',
+      type: 'dilemma',
+      name: 'chula the chandra',
+      imagefile: 'chula',
+      pile: 'draw',
+      count: 1,
+    };
+
+    // Deals mission 0 a mission card, and puts the given cards in the hand.
+    const setupWithMission = async (cards: any[]) => {
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({
+          ...mockManyDeck,
+          [mockMissionCard.collectorsinfo]: { count: 1, row: mockMissionCard },
+        })
+      );
+      (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+      (expandDeck as jest.Mock).mockReturnValue(cards);
+
+      await act(async () => {
+        render(<PracticeDrawPage />);
+      });
+      const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
+      if (closedHandButton) {
+        await act(async () => {
+          fireEvent.click(closedHandButton);
+        });
+      }
+    };
+
+    // The id of the open hand's card with this name.
+    const handCardId = (name: string) =>
+      screen.getByRole('button', { name }).closest('[data-card-id]')!.getAttribute('data-card-id')!;
+
+    const drop = async (id: string, overId: string) => {
+      await act(async () => {
+        mockOnDragStart!({ active: { id } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id }, over: { id: overId } });
+      });
+    };
+
+    it.each([
+      ['personnel', mockPersonnelCard],
+      ['event', mockEventCard],
+    ])("places a %s dropped on a mission card's art on the mission card", async (_type, card) => {
+      await setupWithMission([card]);
+      const draggedId = handCardId(card.name);
+
+      await drop(draggedId, 'mission-0');
+
+      expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /personnel pile, 1 card/i })).toBeNull();
+      expect(document.body.querySelector('[data-zone^="mission-pile-event"]')).toBeNull();
+
+      // A tap on the counter opens the cards on the mission card.
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'first contact, 1 card on it' }));
+      });
+      expect(document.body.querySelector(`[data-zone="pile-panel-on"] [data-card-id="${draggedId}"]`)).not.toBeNull();
+    });
+
+    it('files a card dropped on the personnel badge into the personnel pile', async () => {
+      await setupWithMission([mockEventCard]);
+      const draggedId = handCardId(mockEventCard.name);
+
+      await drop(draggedId, 'mission-pile-personnel-0');
+
+      expect(screen.getByRole('button', { name: /^personnel pile, 1 card, tap to open$/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
+    });
+
+    // The under-mission pile has no badge of its own: its stack sits inside the mission card's drop
+    // target, so a dilemma dropped there goes under the mission (#606), not on the mission card.
+    it('files a dilemma dropped on the mission under the mission, not on the mission card', async () => {
+      await setupWithMission([mockDilemmaCard]);
+      const draggedId = handCardId(mockDilemmaCard.name);
+
+      await drop(draggedId, 'mission-0');
+
+      expect(screen.getByRole('button', { name: /^under the mission pile, 1 card/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
+    });
+
+    it('still files a personnel dropped on a ship row, off any ship, into the personnel pile (#645)', async () => {
+      await setupWithMission([mockPersonnelCard]);
+      const draggedId = handCardId(mockPersonnelCard.name);
+
+      await drop(draggedId, 'ship-row-0');
+
+      expect(screen.getByRole('button', { name: /^personnel pile, 1 card, tap to open$/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
+    });
+  });
+
   it('drags a ship out of a ship row to the discard pile', async () => {
     await setupOpenHand([mockShipCard]);
     // A card's instance id stays the same across a move (only its face changes), so the id the

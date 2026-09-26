@@ -44,6 +44,7 @@ import MissionRow, {
   missionIndexFromDropId,
   missionPileFromDropId,
   shipIdFromCrewBadgeDropId,
+  shipRowDropId,
   shipIdFromCrewDropId,
 } from './MissionRow';
 import CardPreview from './CardPreview';
@@ -194,18 +195,6 @@ function GameMenu({
   );
 }
 
-// A dropped card's type chooses its mission pile (#602): personnel and equipment go to the
-// personnel pile, event/mission/interrupt go to the event pile. A ship, and a dilemma (routed
-// separately below, since a dilemma's pile depends on its source zone too, #605/#606), are
-// handled elsewhere.
-const MISSION_PILE_BY_TYPE: Record<string, MissionPileName> = {
-  personnel: 'personnel',
-  equipment: 'personnel',
-  event: 'event',
-  mission: 'event',
-  interrupt: 'event',
-};
-
 interface ScreenOrientationWithLock extends ScreenOrientation {
   lock?(orientation: string): Promise<void>;
 }
@@ -340,8 +329,18 @@ function computeMoveTargetForInstance(
       // whatever zone it came from.
       return { zone: 'missionPile', missionIndex, pile: 'underMission' };
     }
-    const pile = MISSION_PILE_BY_TYPE[instance.card.type];
-    if (pile) return { zone: 'missionPile', missionIndex, pile };
+    const isPersonnel = instance.card.type === 'personnel' || instance.card.type === 'equipment';
+    // A personnel dropped on a ship row, off any ship, files into the mission's personnel pile
+    // (#645).
+    if (String(over.id) === shipRowDropId(missionIndex) && isPersonnel) {
+      return { zone: 'missionPile', missionIndex, pile: 'personnel' };
+    }
+    // Any other card dropped on the mission is placed on the mission card (#813): the cards on it
+    // are the events at that mission, so a slot has no event pile. A slot with no mission card has
+    // no host, so there a personnel still files into the personnel pile.
+    const mission = table.missions[missionIndex]?.mission;
+    if (mission) return { zone: 'on', hostId: mission.id };
+    if (isPersonnel) return { zone: 'missionPile', missionIndex, pile: 'personnel' };
   }
 
   return null;

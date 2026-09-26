@@ -1,16 +1,15 @@
 // Advisory highlight lookup for a drag on the practice table (#608). Presentation only: it
 // never touches how a drop resolves — `handleDragEnd` (page.tsx) keeps its own per-type routing
-// (`MISSION_PILE_BY_TYPE`, the ship/dilemma special cases, `shipIdFromCrewDropId`,
+// (the ship/dilemma special cases, `shipIdFromCrewDropId`,
 // `missionPileFromDropId`) exactly as it is today, so a drop the lookup marks invalid for a zone
 // still succeeds exactly as it does now (an event dropped on the brig still lands in the brig,
 // `coreBrigDrop.test.tsx`).
 //
 // Keyed by zone kind, not by a concrete drop id: a mission's ship row and its mission card exist
 // once per mission index, and the dilemma pile has two physical drop targets, but conceptually
-// there is one lookup entry each. The mission card accepts every type in practice —
-// `MISSION_PILE_BY_TYPE` (page.tsx) already routes personnel/equipment to the personnel pile and
-// event/mission/interrupt to the event pile, and a ship or a dilemma dropped there is handled
-// directly in `handleDragEnd` — so `mission` (like `core` and `discard`) accepts any type here.
+// there is one lookup entry each. The mission card accepts every type in practice — any card
+// dropped there is placed on it (#813), and a ship or a dilemma dropped there is handled directly
+// in `handleDragEnd` — so `mission` (like `core` and `discard`) accepts any type here.
 // Issue #644: the hand and the dilemma hand are two more zone kinds — the hand accepts any card
 // type (advisory, like `core`/`discard`), the dilemma hand only dilemmas (like `dilemmaPile`).
 // Issue #743: `pile`, the draw pile, joins them — it accepts any card type, like `core`/
