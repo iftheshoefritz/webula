@@ -55,6 +55,8 @@ import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 import { useTableScale } from './tableScale';
 import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
+import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
+import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 import { isReleaseInDeadRect, PressGeometry, pressGeometryFrom } from './releaseCancel';
 
@@ -334,7 +336,17 @@ type FlatPanelZone = 'core' | 'brig' | 'pile' | 'dilemmaPile' | 'dilemmaStack' |
 // `@dnd-kit/core` in the test suite relies on) tied to the card's own presence, the same as
 // `PilePanelCard` and `CardHand`'s cards.
 // A tap on it opens the discard pile's own panel (#782), which lists every card in the pile.
-function DiscardPileCard({ topCard, count, onOpen }: { topCard: CardInstance; count: number; onOpen: () => void }) {
+function DiscardPileCard({
+  topCard,
+  count,
+  landedNonce,
+  onOpen,
+}: {
+  topCard: CardInstance;
+  count: number;
+  landedNonce: number | null;
+  onOpen: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
 
   return (
@@ -357,7 +369,7 @@ function DiscardPileCard({ topCard, count, onOpen }: { topCard: CardInstance; co
         alt="Discard pile"
         className="rounded-lg shadow-lg w-14 h-auto"
       />
-      <CountBadge count={count} />
+      <CountBadge count={count} landedNonce={landedNonce} />
     </div>
   );
 }
@@ -374,6 +386,7 @@ function DiscardPile({
   const { setNodeRef, isOver } = useDroppable({ id: DISCARD_DROPPABLE_ID });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('discard', draggedType, isOver);
+  const landedNonce = useLandedNonce('discard');
 
   // A ring shows that the discard pile accepts the card under the pointer (`isOver`), or accepts
   // the dragged card's type generally (`valid`, #608).
@@ -382,10 +395,12 @@ function DiscardPile({
       ref={setNodeRef}
       data-zone="discard"
       data-highlight={highlight}
-      className={`flex flex-col items-center gap-1 rounded-lg ${highlightClassName(highlight)}`}
+      data-landed={landedNonce !== null || undefined}
+      className={`relative flex flex-col items-center gap-1 rounded-lg ${highlightClassName(highlight)}`}
     >
+      <LandedRing nonce={landedNonce} />
       {topCard ? (
-        <DiscardPileCard topCard={topCard} count={count} onOpen={onOpen} />
+        <DiscardPileCard topCard={topCard} count={count} landedNonce={landedNonce} onOpen={onOpen} />
       ) : (
         <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
           Discard
@@ -538,12 +553,17 @@ function DilemmaPileButton({
   showPositionLabel: boolean;
   shuffleCount: number;
 }) {
+  const landedNonce = useLandedNonce('dilemmaPile');
   return (
-    <div className={`relative w-14 h-20 group ${count === 0 ? 'opacity-50' : ''}`} data-testid="dilemma-pile">
+    <div
+      className={`relative w-14 h-20 rounded-lg group ${count === 0 ? 'opacity-50' : ''}`} data-testid="dilemma-pile"
+      data-landed={landedNonce !== null || undefined}
+    >
+      <LandedRing nonce={landedNonce} />
       {count > 0 ? (
         <>
           <PileArt alt="Face-down dilemma pile" shuffleCount={shuffleCount} />
-          <CountBadge count={count} />
+          <CountBadge count={count} landedNonce={landedNonce} />
         </>
       ) : (
         <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
@@ -591,12 +611,17 @@ function DrawPileButton({
   showPositionLabel: boolean;
   shuffleCount: number;
 }) {
+  const landedNonce = useLandedNonce('pile');
   return (
-    <div className={`relative w-14 h-20 group ${count === 0 ? 'opacity-50' : ''}`}>
+    <div
+      className={`relative w-14 h-20 rounded-lg group ${count === 0 ? 'opacity-50' : ''}`}
+      data-landed={landedNonce !== null || undefined}
+    >
+      <LandedRing nonce={landedNonce} />
       {count > 0 ? (
         <>
           <PileArt alt="Face-down draw pile" shuffleCount={shuffleCount} />
-          <CountBadge count={count} />
+          <CountBadge count={count} landedNonce={landedNonce} />
         </>
       ) : (
         <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
@@ -757,6 +782,7 @@ function DilemmaStackPile({
   const { setNodeRef, isOver } = useDroppable({ id: 'dilemmaStack' });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('dilemmaStack', draggedType, isOver);
+  const landedNonce = useLandedNonce('dilemmaStack');
   const height = Math.round((TABLE_CARD_ART_HEIGHT + SHIP_CARD_ART_HEIGHT) * scale);
   const count = stack.length;
   const topCard = stack[0];
@@ -768,9 +794,11 @@ function DilemmaStackPile({
       ref={setNodeRef}
       data-zone="dilemmaStack"
       data-highlight={highlight}
+      data-landed={landedNonce !== null || undefined}
       style={{ height, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}
       className={`relative w-14 rounded-lg ${highlightClassName(highlight)}`}
     >
+      <LandedRing nonce={landedNonce} />
       {/* Covers the whole box underneath the fan (below), so a tap anywhere the fan doesn't
           cover still opens the panel. Once the top card is revealed, `DilemmaStackTopCard`
           below carries the same label as the control the player actually sees and taps, so this
@@ -886,6 +914,11 @@ function PracticeDrawContent() {
   // unchanged from before — while this array drives `handleDragEnd`'s per-card move dispatch and
   // the overlay's card count.
   const [draggingGroup, setDraggingGroup] = useState<CardInstance[]>([]);
+  // The zones the last drop moved a card into (#778), each of which plays the landed cue until a
+  // timer clears them. A newer drop replaces them at once, with a new nonce to restart the cue.
+  const [landedZones, setLandedZones] = useState<LandedZones | null>(null);
+  const landedNonceRef = useRef(0);
+  const landedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [gameLayer, setGameLayer] = useState<HTMLDivElement | null>(null);
   // Issue #717: grows the mission cards, the ship cards, and every pile-panel card grid past
   // their base pixel size once the game layer (which already tracks the browser's toolbar
@@ -1297,6 +1330,7 @@ function PracticeDrawContent() {
     // called, each built on the previous one's result, so dispatching every card's own action in
     // sequence here reaches the same end state `tableReducer`, replayed below, predicts.
     actions.forEach((action) => dispatch(action));
+    markLanded(actions);
 
     // `tableReducer` is a pure function (#675): replaying the same actions here, on the side,
     // predicts the drop's outcome without waiting for the dispatches to reach the next render —
@@ -1317,6 +1351,26 @@ function PracticeDrawContent() {
 
     closePanelsAfterDrag(dragOrigin, nextTable);
   };
+
+  // Plays the landed cue (#778) on every distinct zone the drop moved a card into. A drop that
+  // moved nothing leaves the current cue alone.
+  const markLanded = (actions: Extract<TableAction, { type: 'move' }>[]) => {
+    if (actions.length === 0) return;
+    landedNonceRef.current += 1;
+    setLandedZones({ keys: new Set(actions.map((action) => landedZoneKey(action.to))), nonce: landedNonceRef.current });
+    if (landedTimerRef.current) clearTimeout(landedTimerRef.current);
+    landedTimerRef.current = setTimeout(() => {
+      landedTimerRef.current = null;
+      setLandedZones(null);
+    }, LANDED_CUE_MS);
+  };
+
+  useEffect(
+    () => () => {
+      if (landedTimerRef.current) clearTimeout(landedTimerRef.current);
+    },
+    []
+  );
 
   // The browser can cancel a touch drag (a pointercancel or a resize), and a release inside the
   // dead rectangle around the press point cancels one too (#774). Clear the overlay then. No move
@@ -1510,6 +1564,7 @@ function PracticeDrawContent() {
                 highlight during a drag (#608). `draggingInstance` already tracks it for the drag
                 overlay below. */}
             <DraggedCardTypeProvider value={draggingInstance?.card.type ?? null}>
+            <LandedZoneProvider value={landedZones}>
             <CardHoldProvider value={cardHold}>
             <div className="flex flex-col flex-1 p-4">
               {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597),
@@ -1832,6 +1887,7 @@ function PracticeDrawContent() {
               )}
             </div>
             </CardHoldProvider>
+            </LandedZoneProvider>
             </DraggedCardTypeProvider>
 
             <DragOverlay>
