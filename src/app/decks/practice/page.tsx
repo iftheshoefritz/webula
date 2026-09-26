@@ -304,13 +304,18 @@ const CORE_ROW_MAX_WIDTH = 106; // px, fits 3 ship-sized cards side by side with
 const BRIG_ROW_MAX_WIDTH = 58; // px, fits 2 overlapping ship-sized cards
 const FLAT_ROW_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
 
+// The zones whose panel `openFlatZone` tracks: the core and the brig (#640), the draw pile and the
+// dilemma pile (#690), the dilemma stack (#733), and the discard pile (#782).
+type FlatPanelZone = 'core' | 'brig' | 'pile' | 'dilemmaPile' | 'dilemmaStack' | 'discard';
+
 // The discard pile's top card, draggable off the pile (#606 review): a dilemma dragged from here
 // onto a mission card lands under that mission, since its source is not the dilemma hand (see
 // `handleDragEnd`'s dilemma routing below). A separate component, mounted only while a top card
 // exists, keeps `useDraggable`'s hook call (and so its registration order, which the mock
 // `@dnd-kit/core` in the test suite relies on) tied to the card's own presence, the same as
 // `PilePanelCard` and `CardHand`'s cards.
-function DiscardPileCard({ topCard, count }: { topCard: CardInstance; count: number }) {
+// A tap on it opens the discard pile's own panel (#782), which lists every card in the pile.
+function DiscardPileCard({ topCard, count, onOpen }: { topCard: CardInstance; count: number; onOpen: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
 
   return (
@@ -322,6 +327,7 @@ function DiscardPileCard({ topCard, count }: { topCard: CardInstance; count: num
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         opacity: isDragging ? 0.5 : 1,
       }}
+      onClick={onOpen}
       {...attributes}
       {...listeners}
     >
@@ -337,7 +343,15 @@ function DiscardPileCard({ topCard, count }: { topCard: CardInstance; count: num
   );
 }
 
-function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; count: number }) {
+function DiscardPile({
+  topCard,
+  count,
+  onOpen,
+}: {
+  topCard: CardInstance | undefined;
+  count: number;
+  onOpen: () => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: DISCARD_DROPPABLE_ID });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('discard', draggedType, isOver);
@@ -352,7 +366,7 @@ function DiscardPile({ topCard, count }: { topCard: CardInstance | undefined; co
       className={`flex flex-col items-center gap-1 rounded-lg ${highlightClassName(highlight)}`}
     >
       {topCard ? (
-        <DiscardPileCard topCard={topCard} count={count} />
+        <DiscardPileCard topCard={topCard} count={count} onOpen={onOpen} />
       ) : (
         <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
           Discard
@@ -832,9 +846,7 @@ function PracticeDrawContent() {
   // Which of the core's/the brig's own pile panel (#640), or the draw pile's/the dilemma pile's
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
   // `openPile` tracks a mission's open pile: a piece of UI state with no effect on the table.
-  const [openFlatZone, setOpenFlatZone] = useState<'core' | 'brig' | 'pile' | 'dilemmaPile' | 'dilemmaStack' | null>(
-    null
-  );
+  const [openFlatZone, setOpenFlatZone] = useState<FlatPanelZone | null>(null);
   // Which ship's crew panel (#664) is open, if any, named by the ship's own instance id (not a
   // mission index, since a ship stays reachable by its own id regardless of which mission's ship
   // row currently holds it — the same reasoning `crewDropId` already follows). Tracked the same
@@ -977,7 +989,7 @@ function PracticeDrawContent() {
     setOpenPile({ missionIndex, pile });
   };
 
-  const openOnlyFlatZone = (zone: 'core' | 'brig' | 'pile' | 'dilemmaPile' | 'dilemmaStack') => {
+  const openOnlyFlatZone = (zone: FlatPanelZone) => {
     setOpenPile(null);
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
@@ -1256,6 +1268,8 @@ function PracticeDrawContent() {
       ? pile
       : openFlatZone === 'dilemmaPile'
       ? dilemmaPile
+      : openFlatZone === 'discard'
+      ? discard
       : dilemmaStack
     : openCrewShip
     ? openCrewShip.crew ?? []
@@ -1435,7 +1449,11 @@ function PracticeDrawContent() {
                       </div>
                     </div>
 
-                    <DiscardPile topCard={discard[discard.length - 1]} count={discard.length} />
+                    <DiscardPile
+                      topCard={discard[discard.length - 1]}
+                      count={discard.length}
+                      onOpen={() => openOnlyFlatZone('discard')}
+                    />
                   </div>
 
                   {/* Pile, with the shuffle button and the draw-pile search button above it
@@ -1614,8 +1632,10 @@ function PracticeDrawContent() {
                   }}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
-                  onShuffle={() => dispatch({ type: 'shuffle', location: openFlatZone })}
-                  onSetStopped={setStoppedForSelection}
+                  onShuffle={
+                    openFlatZone === 'discard' ? undefined : () => dispatch({ type: 'shuffle', location: openFlatZone })
+                  }
+                  onSetStopped={openFlatZone === 'discard' ? undefined : setStoppedForSelection}
                   onFlip={openFlatZone === 'dilemmaStack' ? flipSelection : undefined}
                   hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
                   cardWidth={tableCardWidth}
