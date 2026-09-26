@@ -89,6 +89,9 @@ const SHIP_MAX_OFFSET_BASE = SHIP_CARD_WIDTH + 2; // 2 ships sit edge to edge wi
 export const missionDropId = (missionIndex: number): string => `mission-${missionIndex}`;
 export const shipRowDropId = (missionIndex: number): string => `ship-row-${missionIndex}`;
 export const crewDropId = (shipId: string): string => `crew-${shipId}`;
+// A ship's crew badge is a drop target of its own (#811), distinct from `crewDropId` so each has
+// its own `data-zone` to aim at. Both file the dropped card into the same ship's crew.
+export const crewBadgeDropId = (shipId: string): string => `crew-badge-${shipId}`;
 
 // A mission pile's badge is its own drop target (#602), distinct from `missionDropId` so a drop
 // on the badge itself can bypass the card-type routing and always target that specific pile.
@@ -107,9 +110,10 @@ export function missionIndexFromDropId(id: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
-// Parses a ship's own crew droppable id back to that ship's instance id (#600's plan).
+// Parses a ship's own crew droppable id, or its crew badge's (#811), back to that ship's
+// instance id (#600's plan).
 export function shipIdFromCrewDropId(id: string): string | null {
-  const match = /^crew-(.+)$/.exec(id);
+  const match = /^crew-(?:badge-)?(.+)$/.exec(id);
   return match ? match[1] : null;
 }
 
@@ -141,7 +145,13 @@ function ShipCard({
       className={`relative rounded ${highlightClassName(highlight)}`}
     >
       <TableCard instance={ship} onClick={() => onShipClick(ship.id)} width={width} artHeight={artHeight} draggable />
-      <ShipCrewBadge shipName={ship.card.name} count={crewCount} height={badgeHeight} landedNonce={landedNonce} />
+      <ShipCrewBadge
+        shipId={ship.id}
+        shipName={ship.card.name}
+        count={crewCount}
+        height={badgeHeight}
+        landedNonce={landedNonce}
+      />
       <LandedRing nonce={landedNonce} />
     </div>
   );
@@ -259,24 +269,31 @@ function PileBadge({
 // same badge. It sits as a sibling of the ship's own `TableCard` button, inside `ShipCard`'s
 // `crewDropId` wrapper, since a `<button>` cannot nest inside another `<button>` (the ship's own
 // button) — the same reasoning `PileBadge` documents above for the mission's own badges. A tap
-// on the ship opens its crew panel (`onShipClick`), so the badge itself is purely informational: a non-interactive `<span>` with
+// on the ship opens its crew panel (`onShipClick`), so the badge itself is not a tap target: a non-interactive `<span>` with
 // `pointer-events-none`, so a tap that lands on it falls through to the ship's `TableCard` button
-// underneath rather than being swallowed here.
+// underneath rather than being swallowed here. It is a drop target of its own, though (#811):
+// dnd-kit measures a droppable's rect, not its pointer events, so `pointer-events-none` does not
+// stop a drop landing on it, and a drop on it boards the card the same as a drop on the ship.
 function ShipCrewBadge({
+  shipId,
   shipName,
   count,
   height,
   landedNonce,
 }: {
+  shipId: string;
   shipName: string;
   count: number;
   height: number;
   landedNonce: number | null;
 }) {
+  const { setNodeRef } = useDroppable({ id: crewBadgeDropId(shipId), disabled: count === 0 });
   if (count === 0) return null;
 
   return (
     <span
+      ref={setNodeRef}
+      data-zone={crewBadgeDropId(shipId)}
       aria-label={`${shipName} crew, ${count} card${count === 1 ? '' : 's'}`}
       className="absolute -top-1 -right-1 z-10 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none"
       style={{ height: height - 2 }}
