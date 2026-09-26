@@ -1487,17 +1487,28 @@ function PracticeDrawContent() {
                     onToggleSelect={toggleCardSelection}
                   />
 
-                  {/* Dilemma pile, with the search button above it (#753) rather than beside
-                      it. */}
+                  {/* Dilemma pile, with the shuffle button and the search button above it
+                      (#753, #785) rather than beside it, the same layout as the draw pile. */}
                   <div className="flex flex-col items-center gap-1">
-                    {/* Download from the dilemma pile without drawing (#690): a separate control,
-                        rather than layered on the dilemma-pile button, so it never steals the
-                        button's own tap-to-draw click or its top/bottom drop halves. */}
-                    <DownloadPileButton
-                      label="dilemma pile"
-                      count={dilemmaPile.length}
-                      onOpen={() => openOnlyFlatZone('dilemmaPile')}
-                    />
+                    <div className="flex items-center gap-1">
+                      {/* Its own accessible name, so it is told apart from the draw pile's
+                          "Shuffle" button (#785). */}
+                      <button
+                        className="btn-icon btn-icon-sm"
+                        onClick={() => dispatch({ type: 'shuffle', location: 'dilemmaPile' })}
+                        aria-label="Shuffle dilemma pile"
+                      >
+                        <ShuffleIcon />
+                      </button>
+                      {/* Download from the dilemma pile without drawing (#690): a separate control,
+                          rather than layered on the dilemma-pile button, so it never steals the
+                          button's own tap-to-draw click or its top/bottom drop halves. */}
+                      <DownloadPileButton
+                        label="dilemma pile"
+                        count={dilemmaPile.length}
+                        onOpen={() => openOnlyFlatZone('dilemmaPile')}
+                      />
+                    </div>
                     <DilemmaPileButton
                       count={dilemmaPile.length}
                       onDraw={drawDilemma}
