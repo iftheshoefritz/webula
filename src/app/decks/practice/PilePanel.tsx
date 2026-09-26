@@ -50,8 +50,10 @@
 // toggle, so a mixed selection cannot go out of step with itself. The selection stays after the
 // tap, so the player can still drag the same cards next.
 // A "Flip" button (#762) sits beside it, in the panels whose cards the preview can flip: a
-// mission's personnel and under-the-mission piles, and the dilemma stack. `page.tsx`
-// passes `onFlip` only for those zones. It shows
+// mission's personnel and under-the-mission piles. `page.tsx` passes `onFlip` only for those
+// zones. The dilemma stack's panel gets none (#819): its cards stay face down on the table, but
+// the panel lists them face up so the player can read them to order the stack, and the table's
+// own Reveal control turns the top one over. It shows
 // once the selection holds one or more of this panel's cards, and a tap dispatches the existing
 // `flip` action once per selected card, so each card turns over on its own: a mixed selection
 // stays mixed, inverted. The selection stays after the tap, as with Stop.

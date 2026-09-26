@@ -230,22 +230,29 @@ describe('Practice table: the pile panel Flip button (#762)', () => {
     expect(panelImage('core', 'personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
   });
 
-  it('flips the dilemma stack top card face up from its panel, and the table shows it face up', async () => {
+  // #819: the stack's panel lists its cards face up so the player can read them to order the
+  // stack, while the stack stays face down on the table. The panel has no Flip button; the
+  // table's Reveal control turns the top card over.
+  it('draws a face-down dilemma stack card face up in its panel, shows no Flip, and keeps it face down on the table', async () => {
     await renderWithDeck([], [mockDilemmaCard]);
     await click('Dilemma pile top, tap to draw');
     await openClosedHand(/^dilemma hand, 1 card, tap to open$/i);
     await drop(cardIdFor('cardassian trap'), 'dilemmaStack');
 
+    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+    expect(stackZone.querySelector('img')).toHaveAttribute('src', CARD_BACK);
+
     await click('Dilemma stack, 1 card, tap to open');
-    expect(panelImage('dilemmaStack', 'cardassian trap')).toHaveAttribute('src', CARD_BACK);
+    expect(panelImage('dilemmaStack', 'cardassian trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
+    expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
 
     await click('Select cardassian trap');
-    await click(/^flip$/i);
+    expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
     expect(panelImage('dilemmaStack', 'cardassian trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
 
     await click('Close dilemma stack');
 
-    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
-    expect(stackZone.querySelector('img')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
+    const stackAfter = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+    expect(stackAfter.querySelector('img')).toHaveAttribute('src', CARD_BACK);
   });
 });
