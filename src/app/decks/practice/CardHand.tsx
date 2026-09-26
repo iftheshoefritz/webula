@@ -24,7 +24,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { offsetFor } from './overlapOffset';
 import OverlapRow from './OverlapRow';
-import { fullCardHeight, viewerCardSize } from './viewerCardSize';
+import { fullCardHeight, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
 import CountBadge from './CountBadge';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
@@ -48,7 +48,6 @@ const CLOSED_MAX_WIDTH = 80;
 const CLOSED_MAX_OFFSET = 10;
 // The fan may leave a small gap between two cards, at the ratio #642 set (60 px for a 56 px card).
 const openMaxOffset = (width: number) => Math.round((width * 60) / 56);
-const OPEN_BOTTOM = 16; // px above the viewport's bottom edge, so the fan covers the zones
 
 // Issue #691: carries the same select checkbox `PilePanelCard` (`PilePanel.tsx`) already has, as
 // a sibling of the card's own draggable button rather than nested inside it, for the same reason
@@ -241,8 +240,10 @@ export default function CardHand({
           bottom row has a CSS transform, which would make `fixed` relative to the row and trap
           the fan's z-index in the row. In the game layer, the large preview stays on top.
           A full-screen backdrop sits behind the cards, so a tap outside the fan closes it, but
-          a tap on a card (on top of the backdrop) selects that card instead. The fan is
-          centred at the bottom of the screen, on top of the bottom row, over the core and the brig.
+          a tap on a card (on top of the backdrop) selects that card instead. The fan sits at the
+          top of the screen, level with a pile panel's own box (`VIEWER_TOP_INSET`): at the bottom
+          it covered the draw pile and the dilemma pile, the two taps the player needs while a
+          hand is open.
           The fan's container spans the screen, less a small inset at each side, and `OverlapRow`
           packs the cards into that measured width (#802).
           Issue #750: the backdrop's and the fan's z-index sit in the gap between a pile
@@ -267,12 +268,13 @@ export default function CardHand({
               aria-hidden={open ? undefined : true}
               className="fixed inset-x-2 z-[146] flex"
               style={{
-                bottom: OPEN_BOTTOM,
+                top: VIEWER_TOP_INSET,
                 height: openCardHeight,
                 visibility: open ? 'visible' : 'hidden',
-                // The fan's own bounding box can overlap the passthrough zone (issue #638's
-                // draw pile) even in the gaps between the fanned cards, in the narrow 568 px
-                // acceptance-check viewport. `pointer-events: none` here lets a tap that misses
+                // The fan's own bounding box no longer reaches the bottom row, but a tap that
+                // misses every card must still reach the backdrop, and the backdrop's own
+                // hit-test still forwards a tap on a passthrough zone (issue #638's draw pile,
+                // issue #741's dilemma pile). `pointer-events: none` here lets a tap that misses
                 // every card fall through this whole container to the backdrop beneath it, so
                 // the backdrop's own hit-test (`handleBackdropClick`) still runs. Each
                 // `DraggableFanCard` re-enables its own pointer events (`pointer-events-auto`),

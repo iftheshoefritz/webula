@@ -8,6 +8,13 @@ import { TABLE_CARD_WIDTH } from './TableCard';
 // height of a full-height panel only adds rows, and a pile that still does not fit scrolls.
 export const VIEWER_CARD_SCALE = 1.5;
 
+// How far a viewer sits from the top of the game layer. A pile panel's own box is `inset-2`
+// (`PilePanel.tsx`), which is this many pixels, and the open fan (`CardHand.tsx`) takes the same
+// top, so a fan and a panel start at the same height. The fan sat at the bottom of the screen
+// before, where it covered the draw pile and the dilemma pile, the two taps the player needs
+// while a hand is open.
+export const VIEWER_TOP_INSET = 8; // px, Tailwind's `inset-2`
+
 // The card image is 120 x 167. A viewer draws the whole image, frame and text included, so its
 // height follows its width at that ratio.
 export const CARD_IMAGE_WIDTH = 120;
