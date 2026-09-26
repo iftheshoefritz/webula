@@ -80,31 +80,82 @@ function MenuIcon() {
 }
 
 // A home for the controls that act on the whole game rather than one zone (#722), starting with
-// Reset. A small menu button opens it; it does not cover the table while closed, and a tap
-// outside the open menu (the backdrop below, the same "tap outside closes it" convention
-// `CardHand`'s own fan backdrop already follows) closes it without acting. Reset throws away the
-// current game, so it confirms first via `window.confirm`, the same confirm-before-destroy
-// pattern `DrivePickerModal`'s own delete already uses elsewhere in the app, rather than a
-// custom dialog built just for this one destructive action.
+// Reset. A small menu button opens it. Reset throws away the current game, so it confirms first
+// via `window.confirm`, the same confirm-before-destroy pattern `DrivePickerModal`'s own delete
+// already uses elsewhere in the app, rather than a custom dialog built just for this one
+// destructive action.
+//
+// The menu opens on every load of the table (#781), so a new player sees it. The first press
+// outside the open menu closes it. That press is watched on the window rather than caught by a
+// backdrop over the table, so a press on a card still reaches the card and can start a drag: the
+// menu never blocks the first drag. A tap (a press with no drag) closes the menu without acting,
+// the same as the old backdrop did: the click that follows the press is swallowed.
 function GameMenu({ open, onToggle, onClose, onReset }: { open: boolean; onToggle: () => void; onClose: () => void; onReset: () => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  // Stops the current swallow of a tap's click, if one is on. Held in a ref so the unmount below
+  // and the next press can both stop it, whether or not a pointerup ever came.
+  const stopSwallowRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => stopSwallowRef.current?.(), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (containerRef.current?.contains(event.target as Node)) return;
+      const swallowClick = (clickEvent: MouseEvent) => {
+        clickEvent.stopPropagation();
+        clickEvent.preventDefault();
+      };
+      // The click of a tap fires right after its pointerup, so a timeout set on pointerup runs
+      // after it. A drag may end with no click at all; the timeout stops the swallow either way,
+      // and so does the next press.
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      const stop = () => {
+        clearTimeout(timeout);
+        window.removeEventListener('click', swallowClick, true);
+        window.removeEventListener('pointerup', stopSoon, true);
+        window.removeEventListener('pointercancel', stopSoon, true);
+        window.removeEventListener('pointerdown', stop, true);
+        if (stopSwallowRef.current === stop) stopSwallowRef.current = null;
+      };
+      const stopSoon = () => {
+        timeout = setTimeout(stop, 0);
+      };
+      window.addEventListener('click', swallowClick, true);
+      window.addEventListener('pointerup', stopSoon, true);
+      window.addEventListener('pointercancel', stopSoon, true);
+      window.addEventListener('pointerdown', stop, true);
+      stopSwallowRef.current = stop;
+      onCloseRef.current();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCloseRef.current();
+    };
+    window.addEventListener('pointerdown', handlePointerDown, true);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown, true);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
   return (
-    <div className="absolute top-2 left-2 z-40">
+    <div ref={containerRef} className="absolute top-2 left-2 z-40">
       <button type="button" onClick={onToggle} aria-label="Game menu" aria-expanded={open} className="btn-icon btn-icon-sm">
         <MenuIcon />
       </button>
       {open && (
-        <>
-          <button type="button" className="fixed inset-0 z-30" onClick={onClose} aria-label="Close game menu" />
-          <div className="absolute left-0 top-full mt-1 z-40 min-w-[8rem] rounded-md border border-white/10 bg-bg-secondary py-1 shadow-lg">
-            <button
-              type="button"
-              onClick={onReset}
-              className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
-            >
-              Reset
-            </button>
-          </div>
-        </>
+        <div className="absolute left-0 top-full mt-1 z-40 min-w-[8rem] rounded-md border border-white/10 bg-bg-secondary py-1 shadow-lg">
+          <button
+            type="button"
+            onClick={onReset}
+            className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
+          >
+            Reset
+          </button>
+        </div>
       )}
     </div>
   );
@@ -754,8 +805,9 @@ function PracticeDrawContent() {
     []
   );
   const [isPortrait, setIsPortrait] = useState(false);
-  // The game menu (#722): closed by default, so it never covers the table.
-  const [gameMenuOpen, setGameMenuOpen] = useState(false);
+  // The game menu (#722): open on every load (#781), so a new player finds the game controls.
+  // Nothing is stored; the first press outside the menu closes it.
+  const [gameMenuOpen, setGameMenuOpen] = useState(true);
   // Only one hand opens at a time (#604), so one value names the open hand rather than one
   // boolean per hand.
   const [openHand, setOpenHand] = useState<'hand' | 'dilemmaHand' | null>(null);
