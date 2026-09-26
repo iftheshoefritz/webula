@@ -209,6 +209,18 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
       render(<PracticeDrawPage />);
     });
 
+    // The game menu opens on every load (#781), and the first press outside it closes it and
+    // swallows that press's click. A tap on the menu button itself closes it instead, so every
+    // test below starts with a table that acts on the first tap.
+    const menuButton = screen.queryByRole('button', { name: 'Game menu' });
+    if (menuButton?.getAttribute('aria-expanded') === 'true') {
+      await act(async () => {
+        fireEvent.pointerDown(menuButton, { button: 0 });
+        fireEvent.pointerUp(menuButton);
+        fireEvent.click(menuButton);
+      });
+    }
+
     const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
     if (closedHandButton) {
       await act(async () => {
