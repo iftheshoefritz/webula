@@ -3,7 +3,7 @@
 // The after-drop counterpart of the drag-time highlight (#778): once a drop moves at least one
 // card, every zone that received a card plays a short "landed" cue, so a card dropped into a pile
 // that shows only a count is not lost from sight. `page.tsx`'s `handleDragEnd` records the keys
-// of those zones (`landedZoneKey`, below) and shares them through this context, the same way
+// of those zones (`landedZoneKey.ts`) and shares them through this context, the same way
 // `DraggedCardTypeContext` shares the dragged card's type, so no prop is threaded through
 // `MissionRow`'s nested components or `CardHand`.
 //
@@ -12,8 +12,6 @@
 // and so restarts its CSS animation.
 
 import { createContext, useContext } from 'react';
-import type { MoveTarget } from './tableReducer';
-import { crewDropId, missionPileDropId, shipRowDropId } from './MissionRow';
 
 // How long the cue shows. Matches the `landed-ring` and `landed-bump` animations in
 // `tailwind.config.js`; under reduced motion the static ring shows for this long instead.
@@ -22,17 +20,6 @@ export const LANDED_CUE_MS = 450;
 export interface LandedZones {
   keys: ReadonlySet<string>;
   nonce: number;
-}
-
-// One stable key per destination, the key of the element that shows it. The drop ids fit: a flat
-// zone's own name, which also covers the draw pile and the dilemma pile as a whole (not their
-// top/bottom drop halves), a mission pile's badge id, which also covers the under-the-mission
-// stack (it has no droppable of its own), a ship row's id, and a ship's crew id.
-export function landedZoneKey(target: MoveTarget): string {
-  if (typeof target === 'string') return target;
-  if (target.zone === 'shipRow') return shipRowDropId(target.missionIndex);
-  if (target.zone === 'crew') return crewDropId(target.shipId);
-  return missionPileDropId(target.missionIndex, target.pile);
 }
 
 const LandedZoneContext = createContext<LandedZones | null>(null);
