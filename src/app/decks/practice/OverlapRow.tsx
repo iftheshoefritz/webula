@@ -5,7 +5,8 @@
 // measures its own width, packs the cards into that width with `offsetFor` (`overlapOffset.ts`),
 // and places each card by its own `left`, with a `zIndex` that rises left to right, so a later
 // card's edge sits on top of the one before it. The card itself is the caller's: the stack draws
-// the cropped art with a per-card drop target, the fan draws the full card image.
+// the full card image with a per-card drop target, the fan draws the same image with no drop
+// target of its own.
 //
 // jsdom reports 0 for every measurement and stubs `ResizeObserver` out, and a fan measures 0
 // before its first layout, so a width of 0 falls back to a bound of `cardWidth x count`: the

@@ -938,11 +938,11 @@ function PracticeDrawContent() {
   // Issue #717: grows the mission cards, the ship cards, and every pile-panel card grid past
   // their base pixel size once the game layer (which already tracks the browser's toolbar
   // showing/hiding, `fixed inset-0`) measures more room than the baseline they were tuned
-  // against. `viewerCardWidth`/`viewerCardArtHeight` feed every `PilePanel` and `CardHand` below; `MissionRow`
+  // against. `viewerCardWidth`/`viewerCardHeight` feed every `PilePanel` and `CardHand` below; `MissionRow`
   // derives its own ship-row sizes from the same `scale`.
   const scale = useTableScale(gameLayer);
   // Every viewer (a pile panel, the open fan) draws its card at 1.5x the table card (#802).
-  const { width: viewerCardWidth, artHeight: viewerCardArtHeight } = viewerCardSize(scale);
+  const { width: viewerCardWidth, height: viewerCardHeight } = viewerCardSize(scale);
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
   // Which of the core's/the brig's own pile panel (#640), or the draw pile's/the dilemma pile's
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
@@ -1847,7 +1847,7 @@ function PracticeDrawContent() {
                   onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
-                  cardArtHeight={viewerCardArtHeight}
+                  cardHeight={viewerCardHeight}
                 />
               )}
 
@@ -1872,7 +1872,7 @@ function PracticeDrawContent() {
                   onDiscard={openFlatZone === 'discard' ? undefined : discardSelection}
                   hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
                   cardWidth={viewerCardWidth}
-                  cardArtHeight={viewerCardArtHeight}
+                  cardHeight={viewerCardHeight}
                 />
               )}
 
@@ -1893,7 +1893,7 @@ function PracticeDrawContent() {
                   onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
-                  cardArtHeight={viewerCardArtHeight}
+                  cardHeight={viewerCardHeight}
                 />
               )}
 
@@ -1919,7 +1919,7 @@ function PracticeDrawContent() {
                   onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
-                  cardArtHeight={viewerCardArtHeight}
+                  cardHeight={viewerCardHeight}
                 />
               )}
             </div>
