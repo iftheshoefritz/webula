@@ -45,10 +45,24 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
     const grid = document.body.querySelector('[data-zone="pile-panel-pile"]') as HTMLElement;
     expect(grid).not.toBeNull();
     expect(grid.className).toMatch(/overflow-y-auto/);
-    expect(grid.className).toMatch(/max-h-/);
+    // #802: the grid no longer carries a `max-h` of its own. The panel around it is bounded by
+    // the full height of the game layer (`max-h-full` inside an inset box), and the grid is the
+    // one child that shrinks (`min-h-0`) and scrolls once the panel reaches that bound.
+    expect(grid.className).toMatch(/min-h-0/);
+    expect(grid.parentElement!.className).toMatch(/max-h-full/);
+    expect(grid.parentElement!.parentElement!.className).toMatch(/inset-2/);
 
     const shuffleButton = screen.getByRole('button', { name: /shuffle/i });
     expect(grid.contains(shuffleButton)).toBe(false);
+    expect(shuffleButton.className).toMatch(/shrink-0/);
+  });
+
+  it('draws each card at 1.5x the table card by default (#802)', () => {
+    render(
+      <PilePanel zone="pile" cards={manyCards.slice(0, 2)} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />
+    );
+    const card = document.body.querySelector('[data-card-id="card-0"]')!.parentElement as HTMLElement;
+    expect(card.style.width).toBe('108px');
   });
 
   it('closes on a tap on the backdrop', () => {

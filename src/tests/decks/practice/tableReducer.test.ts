@@ -1056,3 +1056,44 @@ describe('findInstanceAnywhere', () => {
     });
   });
 });
+
+describe('resetWithPiles (#802)', () => {
+  const deck = [
+    ...Array.from({ length: 40 }, (_, i) => ({ collectorsinfo: `p${i}`, name: `p${i}`, type: 'personnel' })),
+    ...Array.from({ length: 2 }, (_, i) => ({ collectorsinfo: `s${i}`, name: `s${i}`, type: 'ship' })),
+    ...Array.from({ length: 5 }, (_, i) => ({ collectorsinfo: `e${i}`, name: `e${i}`, type: 'event' })),
+  ];
+  const payload = () => ({
+    cards: createCardInstances(deck),
+    missions: createCardInstances([card('m0'), card('m1')], 'up'),
+    dilemmas: createCardInstances([card('d0')]),
+  });
+  const allIds = (state: ReturnType<typeof tableReducer>) => [
+    ...state.pile,
+    ...state.hand,
+    ...state.dilemmaPile,
+    ...state.missions.flatMap((slot) => [
+      ...(slot.mission ? [slot.mission] : []),
+      ...slot.personnel,
+      ...slot.ships.flatMap((ship) => [ship, ...(ship.crew ?? [])]),
+    ]),
+  ].map((c) => c.id);
+
+  it('seeds twenty personnel on one mission and a ship with twelve crew on another', () => {
+    const state = tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() });
+    expect(state.missions[0].personnel).toHaveLength(20);
+    expect(state.missions[0].personnel.every((c) => c.card.type === 'personnel')).toBe(true);
+    expect(state.missions[1].ships).toHaveLength(1);
+    expect(state.missions[1].ships[0].card.type).toBe('ship');
+    expect(state.missions[1].ships[0].crew).toHaveLength(12);
+    expect(state.missions[1].ships[0].crew!.every((c) => c.face === 'up')).toBe(true);
+    expect(state.hand).toHaveLength(7);
+  });
+
+  it('uses every card once, the same total as a plain reset', () => {
+    const seeded = allIds(tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() }));
+    const plain = allIds(tableReducer(initialTableState, { type: 'reset', ...payload() }));
+    expect(new Set(seeded).size).toBe(seeded.length);
+    expect(seeded).toHaveLength(plain.length);
+  });
+});

@@ -65,8 +65,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
-import { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, STOPPED_IMAGE_CLASSNAME } from './TableCard';
-import { offsetFor } from './overlapOffset';
+import { STOPPED_IMAGE_CLASSNAME } from './TableCard';
+import OverlapRow from './OverlapRow';
+import { viewerCardSize } from './viewerCardSize';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 
@@ -245,8 +246,8 @@ export default function PilePanel({
   onFlip,
   onDiscard,
   hidden = false,
-  cardWidth = TABLE_CARD_WIDTH,
-  cardArtHeight = TABLE_CARD_ART_HEIGHT,
+  cardWidth = viewerCardSize(1).width,
+  cardArtHeight = viewerCardSize(1).artHeight,
 }: {
   zone: PanelZone;
   cards: CardInstance[];
@@ -268,8 +269,9 @@ export default function PilePanel({
   hidden?: boolean;
   // Issue #717: this panel is one of "the modals" the issue names, so its own card grid grows
   // the same way the table's mission cards do — `page.tsx` computes both from the same `scale`
-  // (`tableScale.ts`) and passes the result down here. Defaults to the fixed base size for
-  // callers, including this component's own tests, that don't care about the grown state.
+  // (`tableScale.ts`) and passes the result down here, at the viewer's 1.5x (`viewerCardSize`,
+  // #802). Defaults to that size at scale 1 for callers, including this component's own tests,
+  // that don't care about the grown state.
   cardWidth?: number;
   cardArtHeight?: number;
 }) {
@@ -288,30 +290,13 @@ export default function PilePanel({
   // (`reorderable` on `PilePanelCard`), so a drop on top of a neighbour reorders the stack instead
   // of leaving the zone.
   const isDilemmaStack = zone === 'dilemmaStack';
-  // The overlap offset for the stack's row (#632's browser-check follow-up). The budget is the
-  // row's own measured width, not a card-count guess: a guess of six cards still let the sixth
-  // card fall outside the panel at 568 x 320, where the panel measures 511 px and the two end
-  // labels take their own share of it. A card outside the panel is clipped, and a tap there hits
-  // whatever paints underneath, so the player cannot pick that card up — the same defect the
-  // single column had, turned on its side. `rowWidth` comes from the row element itself, which
-  // CSS sizes (`w-full` inside the stack's own `w-[86vw]` grid), so every card always sits
-  // inside the panel, however many the stack holds. `maxOffset` is `cardWidth` itself: never
-  // space the cards out further than their own width, only ever pull them closer together.
-  // jsdom reports 0 for every measurement and stubs `ResizeObserver` out, so the fallback keeps
-  // the cards edge to edge there, which is what the Jest tests read.
-  const rowRef = useRef<HTMLDivElement | null>(null);
-  const [rowWidth, setRowWidth] = useState(0);
-  useEffect(() => {
-    const el = rowRef.current;
-    if (!el) return;
-    const measure = () => setRowWidth(el.clientWidth);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [isDilemmaStack]);
+  // The stack's row is `OverlapRow` (#802), the same component the open fan uses. Its width
+  // bound is the row's own measured width, not a card-count guess (#632's browser-check
+  // follow-up): a guess of six cards let the sixth card fall outside the panel at 568 x 320, and a
+  // card outside the panel is clipped, so a tap there hits whatever paints underneath. The row
+  // sits inside the stack's own `w-[86vw]` box, so every card stays inside the panel.
   // Whether the card grid scrolls (#788), from the grid element itself. Re-measured when the
-  // grid resizes (the viewport changes its `max-h`) and when the card count or size changes (the
+  // grid resizes (the viewport changes the panel's height bound) and when the card count or size changes (the
   // grid keeps its capped height while its content grows). jsdom reports 0 for both heights, so
   // the Jest tests see a grid that fits, and today's `touch-none`.
   const gridRef = useRef<HTMLDivElement | null>(null);
@@ -328,24 +313,27 @@ export default function PilePanel({
     observer.observe(el);
     return () => observer.disconnect();
   }, [isDilemmaStack, cards.length, cardWidth, cardArtHeight]);
-  const stackRowMaxWidth = rowWidth > 0 ? rowWidth : cardWidth * Math.max(cards.length, 1);
-  const stackOffset = isDilemmaStack ? offsetFor(cards.length, cardWidth, stackRowMaxWidth, cardWidth) : 0;
-  // Positioning only; the visible card grid itself is `gridClassName` below, now a sibling of
-  // the "Stop"/"Unstop" button rather than carrying that button's own styling.
-  const layoutClassName = 'absolute left-1/2 top-8 -translate-x-1/2 flex flex-col items-center gap-2 max-w-[90%]';
+  // #802: the panel may use the full height of the game layer. `insetClassName` is a box inset
+  // a little from each edge of this component's own `fixed inset-0` box (the same box as the game
+  // layer), so the panel follows the layer's height without any `dvh` arithmetic. It lets taps
+  // through (`pointer-events-none`) to the backdrop, and only the panel inside it takes them.
+  const insetClassName = 'absolute inset-2 flex flex-col items-center pointer-events-none';
+  // Positioning only; the visible card grid itself is `gridClassName` below, a sibling of the
+  // button row. `max-h-full` bounds the panel by the inset box but sets no height, so a pile of
+  // two cards keeps a small box that hugs its cards.
+  const layoutClassName = 'flex flex-col items-center gap-2 max-w-[90%] max-h-full min-h-0 pointer-events-auto';
   // #720: a pile with many cards used to grow this box past the bottom of the screen, with no
-  // way to scroll down to the cards that fell off. `max-h` caps the grid's own height to the
-  // viewport (leaving room above for `top-8` plus the Stop/Shuffle buttons that sit above the
-  // grid as its siblings, and some room below so the box doesn't touch the screen's edge), and
-  // `overflow-y-auto` scrolls the cards inside it once they no longer fit. The buttons above stay
-  // outside this scrolling element, so they never scroll out of view with the cards. `dvh`, not
-  // `vh`, so a phone's address bar showing or hiding doesn't leave the cap wrong either way.
+  // way to scroll down to the cards that fell off. The grid is the one child of the panel that
+  // shrinks (`min-h-0`) once the panel reaches `max-h-full`, and `overflow-y-auto` scrolls the
+  // cards inside it once they no longer fit. The buttons above stay outside this scrolling
+  // element (`shrink-0`), so they never scroll out of view with the cards. The stack's box hugs
+  // its one row: `dilemmaStackPopupCollisionDetection` reads its rectangle as "reorder only".
   const gridClassName = isDilemmaStack
-    ? 'flex flex-col items-stretch gap-1 rounded-lg bg-black/70 p-2 w-[86vw] overflow-hidden'
-    : 'flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain';
+    ? 'shrink-0 flex flex-col items-stretch gap-1 rounded-lg bg-black/70 p-2 w-[86vw] overflow-hidden'
+    : 'min-h-0 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 overflow-y-auto overscroll-contain';
   // The two end labels sit on their own line above the cards, not at the two ends of the card
   // row: a label in the row takes width from the cards, and the row must keep all of its width
-  // for them (see `stackRowMaxWidth` above). The line reads left to right, the same order the
+  // for them. The line reads left to right, the same order the
   // cards below it do.
   const stackEndLabelClassName = 'shrink-0 text-[10px] font-bold uppercase tracking-wide text-text-secondary';
 
@@ -372,9 +360,10 @@ export default function PilePanel({
         onClick={onClose}
         aria-label={closeLabel(zone)}
       />
+      <div className={insetClassName}>
       <div className={layoutClassName}>
         {(showStopButton || showFlipButton || showDiscardButton) && (
-          <div className="flex flex-row items-center gap-2">
+          <div className="shrink-0 flex flex-row items-center gap-2">
             {showStopButton && (
               <button type="button" onClick={handleStopTap} className="btn-primary">
                 {allSelectedStopped ? 'Unstop' : 'Stop'}
@@ -400,7 +389,7 @@ export default function PilePanel({
           <button
             type="button"
             onClick={onShuffle}
-            className="flex items-center justify-center gap-1 rounded-md bg-white/[0.05] border border-white/10 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors duration-150"
+            className="shrink-0 flex items-center justify-center gap-1 rounded-md bg-white/[0.05] border border-white/10 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors duration-150"
           >
             <ShuffleIcon />
             Shuffle
@@ -419,27 +408,26 @@ export default function PilePanel({
             </div>
           )}
           {isDilemmaStack ? (
-            // A relatively-positioned row, each card placed by its own `left`/`zIndex` (the same
-            // pattern `FlatCardRow.tsx` already uses for the core/the brig) rather than a plain
-            // `flex` row, since the cards must overlap (`stackOffset` above) rather than just sit
-            // side by side. `zIndex` rises left to right, so a later (further down the stack)
-            // card's edge sits on top of the one before it, the same reading order the labels at
-            // each end already describe.
-            <div ref={rowRef} className="relative w-full" style={{ height: cardArtHeight }}>
-              {cards.map((instance, idx) => (
-                <div key={instance.id} className="absolute top-0" style={{ left: idx * stackOffset, zIndex: idx + 1 }}>
-                  <PilePanelCard
-                    instance={instance}
-                    selected={selectedIds.includes(instance.id)}
-                    onToggleSelect={() => onToggleSelect(instance.id)}
-                    cardWidth={cardWidth}
-                    cardArtHeight={cardArtHeight}
-                    reorderable
-                    showBackWhenFaceDown={onFlip !== undefined}
-                  />
-                </div>
-              ))}
-            </div>
+            // The cards overlap rather than sit side by side (`OverlapRow`), with `zIndex` rising
+            // left to right, so a later (further down the stack) card's edge sits on top of the
+            // one before it, the same reading order the labels at each end describe.
+            <OverlapRow
+              items={cards}
+              keyFor={(instance) => instance.id}
+              cardWidth={cardWidth}
+              height={cardArtHeight}
+              renderCard={(instance) => (
+                <PilePanelCard
+                  instance={instance}
+                  selected={selectedIds.includes(instance.id)}
+                  onToggleSelect={() => onToggleSelect(instance.id)}
+                  cardWidth={cardWidth}
+                  cardArtHeight={cardArtHeight}
+                  reorderable
+                  showBackWhenFaceDown={onFlip !== undefined}
+                />
+              )}
+            />
           ) : (
             cards.map((instance) => (
               <PilePanelCard
@@ -455,6 +443,7 @@ export default function PilePanel({
             ))
           )}
         </div>
+      </div>
       </div>
     </div>
   );

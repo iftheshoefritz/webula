@@ -9,8 +9,9 @@
 // The dead rectangle is the pressed card's rectangle, as it stood at the press, shrunk to half its
 // width and half its height about the press point. The full card would leave only a 10 px strip
 // of the brig below the second card of the open fan, and a 10 px target is not a target. Half the
-// card still covers every accidental slip (a fan card is 73 x 104 px, so the pointer leaves the
-// dead rectangle after about 26 px downwards).
+// card still covers every accidental slip. Since #802 a fan card is the viewer size, 108 x 150 px at
+// 568 x 320; its bottom edge still sits 16 px above the screen's, so the strip of the brig below
+// it is the same, and a press at its centre leaves the dead rectangle after about 38 px downwards.
 export const DEAD_RECT_SCALE = 0.5;
 // The floor, in each direction from the press point, keeps the rule useful for a small card, or
 // a press near a card's edge.
