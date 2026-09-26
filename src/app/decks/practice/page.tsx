@@ -410,6 +410,33 @@ function DownloadPileButton({ label, count, onOpen }: { label: string; count: nu
   );
 }
 
+// The face-down card art of the draw pile or the dilemma pile, animated when the pile's Shuffle
+// button runs (#786): a shuffle changes nothing visible, so without it the player cannot tell
+// the tap did anything. `shuffleCount` is the `key`, so each tap remounts the wrapper and
+// restarts the animation rather than queueing one. The wrapper is absolutely positioned and
+// animates only `transform` (or, under `prefers-reduced-motion`, a still ring), so the pile keeps
+// its size and position, and `pointer-events-none` leaves every tap and drop to the `PileHalf`s.
+function PileArt({ alt, shuffleCount }: { alt: string; shuffleCount: number }) {
+  return (
+    <div
+      key={shuffleCount}
+      data-testid="pile-art"
+      data-shuffled={shuffleCount > 0 ? 'true' : undefined}
+      className={`pointer-events-none absolute inset-0 rounded-lg ${
+        shuffleCount > 0 ? 'motion-safe:animate-pile-shuffle motion-reduce:animate-pile-shuffle-ring' : ''
+      }`}
+    >
+      <img
+        src="/cardimages/cardback.jpg"
+        width={120}
+        height={167}
+        alt={alt}
+        className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-full h-full object-cover"
+      />
+    </div>
+  );
+}
+
 // The dilemma pile (#604): a tap draws its top card into the dilemma hand. It is also a drop
 // target: dropping any card on its top half puts it first in the pile (drawn next), dropping on
 // its bottom half puts it last (#607, replacing #605's single whole-card droppable, which only
@@ -420,22 +447,18 @@ function DilemmaPileButton({
   count,
   onDraw,
   showPositionLabel,
+  shuffleCount,
 }: {
   count: number;
   onDraw: () => void;
   showPositionLabel: boolean;
+  shuffleCount: number;
 }) {
   return (
     <div className={`relative w-14 h-20 group ${count === 0 ? 'opacity-50' : ''}`} data-testid="dilemma-pile">
       {count > 0 ? (
         <>
-          <img
-            src="/cardimages/cardback.jpg"
-            width={120}
-            height={167}
-            alt="Face-down dilemma pile"
-            className="pointer-events-none rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-full h-full object-cover"
-          />
+          <PileArt alt="Face-down dilemma pile" shuffleCount={shuffleCount} />
           <CountBadge count={count} />
         </>
       ) : (
@@ -477,22 +500,18 @@ function DrawPileButton({
   count,
   onDraw,
   showPositionLabel,
+  shuffleCount,
 }: {
   count: number;
   onDraw: () => void;
   showPositionLabel: boolean;
+  shuffleCount: number;
 }) {
   return (
     <div className={`relative w-14 h-20 group ${count === 0 ? 'opacity-50' : ''}`}>
       {count > 0 ? (
         <>
-          <img
-            src="/cardimages/cardback.jpg"
-            width={120}
-            height={167}
-            alt="Face-down draw pile"
-            className="pointer-events-none rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-full h-full object-cover"
-          />
+          <PileArt alt="Face-down draw pile" shuffleCount={shuffleCount} />
           <CountBadge count={count} />
         </>
       ) : (
@@ -759,6 +778,12 @@ function PracticeDrawContent() {
   // Only one hand opens at a time (#604), so one value names the open hand rather than one
   // boolean per hand.
   const [openHand, setOpenHand] = useState<'hand' | 'dilemmaHand' | null>(null);
+  // How many times each pile's Shuffle button has run, the `key` that restarts its animation (#786).
+  const [shuffleCounts, setShuffleCounts] = useState({ pile: 0, dilemmaPile: 0 });
+  const shufflePile = (location: 'pile' | 'dilemmaPile') => {
+    dispatch({ type: 'shuffle', location });
+    setShuffleCounts((counts) => ({ ...counts, [location]: counts[location] + 1 }));
+  };
   const [draggingInstance, setDraggingInstance] = useState<CardInstance | null>(null);
   // The full set of cards this drag moves together (#677): normally just `draggingInstance`
   // itself, but the whole current selection, in the open panel's own order, when the touched
@@ -1392,7 +1417,7 @@ function PracticeDrawContent() {
                     <div className="flex items-center gap-1">
                       <button
                         className="btn-icon btn-icon-sm"
-                        onClick={() => dispatch({ type: 'shuffle', location: 'pile' })}
+                        onClick={() => shufflePile('pile')}
                         aria-label="Shuffle"
                       >
                         <ShuffleIcon />
@@ -1409,6 +1434,7 @@ function PracticeDrawContent() {
                       count={pile.length}
                       onDraw={drawOne}
                       showPositionLabel={draggingInstance !== null}
+                      shuffleCount={shuffleCounts.pile}
                     />
                   </div>
 
@@ -1495,7 +1521,7 @@ function PracticeDrawContent() {
                           "Shuffle" button (#785). */}
                       <button
                         className="btn-icon btn-icon-sm"
-                        onClick={() => dispatch({ type: 'shuffle', location: 'dilemmaPile' })}
+                        onClick={() => shufflePile('dilemmaPile')}
                         aria-label="Shuffle dilemma pile"
                       >
                         <ShuffleIcon />
@@ -1513,6 +1539,7 @@ function PracticeDrawContent() {
                       count={dilemmaPile.length}
                       onDraw={drawDilemma}
                       showPositionLabel={draggingInstance?.card.type === 'dilemma'}
+                      shuffleCount={shuffleCounts.dilemmaPile}
                     />
                   </div>
                 </div>
