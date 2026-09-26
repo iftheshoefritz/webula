@@ -223,10 +223,11 @@ bash scripts/practice_drag.sh card-8 brig
 
 A mission pile, a closed hand, and a closed dilemma hand all keep their cards out of the DOM (a badge with a count stands in for the cards). When the dragged card leaves the DOM, the script reads the `aria-label` of every badge on the table, before and after the drag, and prints whichever one gained a card - the mission pile, `hand`, or `dilemmaHand`. If none did, or more than one did, it says so instead of guessing.
 
-Do not build the drag by hand. Two things make a hand drag fail, and each one has cost a run its whole turn limit:
+Do not build the drag by hand. Three things make a hand drag fail, and each one has cost a run its whole turn limit:
 
 1. A mouse down on a card of the open hand closes the fan, and the table then reflows. Coordinates read before the drag point at the old layout, so the drop lands in the wrong zone. Read the rect of the target zone **after** the drag starts.
 2. The cards of the fan overlap, and the later card is on top. The centre of a card is often under its neighbour, so the drag moves the wrong card. Find a point where `document.elementFromPoint` returns the card you want.
+3. A release near the press point cancels the drag (#774, `releaseCancel.ts`). The open fan sits over the mission row, so the centre of a mission card is often inside the dead rectangle of the fan card above it, and the card goes back to the hand (#818). Release at a point of the target that is outside the dead rectangle. When the whole target is inside it, the script says so rather than printing `hand`.
 
 `collisionDetection.ts` ranks a drop by `pointerWithin` first, so the pointer must stop inside the rect of the target zone.
 
