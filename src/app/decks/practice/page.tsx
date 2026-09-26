@@ -94,23 +94,40 @@ function GameMenu({ open, onToggle, onClose, onReset }: { open: boolean; onToggl
   const containerRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  // Stops the current swallow of a tap's click, if one is on. Held in a ref so the unmount below
+  // and the next press can both stop it, whether or not a pointerup ever came.
+  const stopSwallowRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => stopSwallowRef.current?.(), []);
 
   useEffect(() => {
     if (!open) return;
-    const swallowClick = (event: MouseEvent) => {
-      event.stopPropagation();
-      event.preventDefault();
-    };
-    // The click of a tap fires right after its pointerup, so a timeout set on pointerup runs
-    // after it. A drag may end with no click at all; the timeout stops the swallow either way.
-    const stopSwallowing = () => {
-      setTimeout(() => window.removeEventListener('click', swallowClick, true), 0);
-    };
     const handlePointerDown = (event: PointerEvent) => {
       if (containerRef.current?.contains(event.target as Node)) return;
+      const swallowClick = (clickEvent: MouseEvent) => {
+        clickEvent.stopPropagation();
+        clickEvent.preventDefault();
+      };
+      // The click of a tap fires right after its pointerup, so a timeout set on pointerup runs
+      // after it. A drag may end with no click at all; the timeout stops the swallow either way,
+      // and so does the next press.
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      const stop = () => {
+        clearTimeout(timeout);
+        window.removeEventListener('click', swallowClick, true);
+        window.removeEventListener('pointerup', stopSoon, true);
+        window.removeEventListener('pointercancel', stopSoon, true);
+        window.removeEventListener('pointerdown', stop, true);
+        if (stopSwallowRef.current === stop) stopSwallowRef.current = null;
+      };
+      const stopSoon = () => {
+        timeout = setTimeout(stop, 0);
+      };
       window.addEventListener('click', swallowClick, true);
-      window.addEventListener('pointerup', stopSwallowing, { capture: true, once: true });
-      window.addEventListener('pointercancel', stopSwallowing, { capture: true, once: true });
+      window.addEventListener('pointerup', stopSoon, true);
+      window.addEventListener('pointercancel', stopSoon, true);
+      window.addEventListener('pointerdown', stop, true);
+      stopSwallowRef.current = stop;
       onCloseRef.current();
     };
     const handleKeyDown = (event: KeyboardEvent) => {
