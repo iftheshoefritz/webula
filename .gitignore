@@ -26,7 +26,17 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # local env files
+# `.env` itself, not only `.env*.local`: it holds the Google OAuth client id and
+# secret, and GitHub push protection blocked a commit of it on 2026-09-26.
+.env
 .env*.local
+
+# local Google Drive credentials
+drive.json
+
+# local agent and browser artefacts
+.claude-code-mcp.log
+.playwright-mcp/
 
 # vercel
 .vercel
