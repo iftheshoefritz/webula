@@ -69,7 +69,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
 import { STOPPED_IMAGE_CLASSNAME } from './TableCard';
 import OverlapRow from './OverlapRow';
-import { CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, viewerCardSize } from './viewerCardSize';
+import { CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 
@@ -321,7 +321,9 @@ export default function PilePanel({
   // a little from each edge of this component's own `fixed inset-0` box (the same box as the game
   // layer), so the panel follows the layer's height without any `dvh` arithmetic. It lets taps
   // through (`pointer-events-none`) to the backdrop, and only the panel inside it takes them.
-  const insetClassName = 'absolute inset-2 flex flex-col items-center pointer-events-none';
+  // The inset is `VIEWER_TOP_INSET` on every side, the same number the open fan takes for its
+  // own top (`CardHand.tsx`), so a panel and a fan start at the same height.
+  const insetClassName = 'absolute flex flex-col items-center pointer-events-none';
   // Positioning only; the visible card grid itself is `gridClassName` below, a sibling of the
   // button row. `max-h-full` bounds the panel by the inset box but sets no height, so a pile of
   // two cards keeps a small box that hugs its cards.
@@ -364,7 +366,7 @@ export default function PilePanel({
         onClick={onClose}
         aria-label={closeLabel(zone)}
       />
-      <div className={insetClassName}>
+      <div className={insetClassName} style={{ inset: VIEWER_TOP_INSET }}>
       <div className={layoutClassName}>
         {(showStopButton || showFlipButton || showDiscardButton) && (
           <div className="shrink-0 flex flex-row items-center gap-2">

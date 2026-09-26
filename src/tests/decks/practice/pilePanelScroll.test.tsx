@@ -50,7 +50,7 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
     // one child that shrinks (`min-h-0`) and scrolls once the panel reaches that bound.
     expect(grid.className).toMatch(/min-h-0/);
     expect(grid.parentElement!.className).toMatch(/max-h-full/);
-    expect(grid.parentElement!.parentElement!.className).toMatch(/inset-2/);
+    expect((grid.parentElement!.parentElement as HTMLElement).style.inset).toBe('8px');
 
     const shuffleButton = screen.getByRole('button', { name: /shuffle/i });
     expect(grid.contains(shuffleButton)).toBe(false);

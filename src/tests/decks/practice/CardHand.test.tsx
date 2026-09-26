@@ -8,6 +8,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import CardHand from '../../../app/decks/practice/CardHand';
 import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
+import { VIEWER_TOP_INSET } from '../../../app/decks/practice/viewerCardSize';
 
 const makeInstances = (n: number): CardInstance[] =>
   Array.from({ length: n }, (_, i) => ({
@@ -57,6 +58,17 @@ describe('CardHand', () => {
     expect(screen.queryByRole('button', { name: /^close hand$/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^hand, 3 cards, tap to open$/i }));
     expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
+  });
+
+  // The fan used to sit 16 px above the bottom of the screen, where it covered the draw pile and
+  // the dilemma pile — the taps the player needs to draw a card into the open hand. It now starts
+  // at the top, level with a pile panel's own box (`VIEWER_TOP_INSET`).
+  it('puts the open fan at the top of the screen, level with a pile panel (#806)', () => {
+    render(<Harness instances={makeInstances(3)} initialOpen />);
+
+    const fan = document.body.querySelector('[data-zone="hand"]') as HTMLElement;
+    expect(fan.style.top).toBe(`${VIEWER_TOP_INSET}px`);
+    expect(fan.style.bottom).toBe('');
   });
 
   it('closes on a tap outside the open fan', () => {
