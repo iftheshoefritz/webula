@@ -1146,7 +1146,7 @@ describe('cards placed on a host (#809)', () => {
     expect(tableReducer(before, { type: 'move', id: 'm', to: on('h') })).toBe(before);
   });
 
-  it('carries the cards on a host when the host moves from the core to a ship row', () => {
+  it('discards the cards on a host when the host moves from the core to a ship row', () => {
     const placed = instance('placed', card('Placed'), 'up');
     const host = { ...instance('host', card('Host'), 'up'), on: [placed] };
     const state = tableReducer(
@@ -1155,10 +1155,11 @@ describe('cards placed on a host (#809)', () => {
     );
 
     expect(state.core).toEqual([]);
-    expect(state.missions[2].ships).toEqual([{ ...host, on: [placed] }]);
+    expect(state.missions[2].ships).toEqual([{ ...host, on: undefined }]);
+    expect(state.discard).toEqual([placed]);
   });
 
-  it('carries the cards on a host when the host moves from the core to a mission', () => {
+  it('discards the cards on a host when the host moves into a mission pile', () => {
     const placed = instance('placed', card('Placed'), 'up');
     const host = { ...instance('host', card('Host'), 'up'), on: [placed] };
     const state = tableReducer(
@@ -1166,10 +1167,19 @@ describe('cards placed on a host (#809)', () => {
       { type: 'move', id: 'host', to: { zone: 'missionPile', missionIndex: 0, pile: 'event' } }
     );
 
-    // A card in a mission's pile is not a host, so its cards leave it for the same pile.
     expect(state.core).toEqual([]);
-    expect(state.missions[0].event.map((c) => c.id)).toEqual(['host', 'placed']);
+    expect(state.missions[0].event.map((c) => c.id)).toEqual(['host']);
     expect(state.missions[0].event[0].on).toBeUndefined();
+    expect(state.discard).toEqual([placed]);
+  });
+
+  it('keeps the cards on a host when the host is dropped back in the zone it already sits in', () => {
+    const placed = instance('placed', card('Placed'), 'up');
+    const host = { ...instance('host', card('Host'), 'up'), on: [placed] };
+    const state = tableReducer({ ...initialTableState, core: [host] }, { type: 'move', id: 'host', to: 'core' });
+
+    expect(state.core).toEqual([{ ...host, on: [placed] }]);
+    expect(state.discard).toEqual([]);
   });
 
   it('sends a host and the cards on it to the discard pile', () => {
@@ -1193,13 +1203,14 @@ describe('cards placed on a host (#809)', () => {
     expect(state.core).toEqual([placed]);
   });
 
-  it('puts the cards on a host beside it when the host goes on another host', () => {
+  it('discards the cards on a host when the host goes on another host', () => {
     const placed = instance('placed', card('Placed'), 'up');
     const host = { ...instance('host', card('Host'), 'up'), on: [placed] };
     const other = instance('other', card('Other'), 'up');
     const state = tableReducer({ ...initialTableState, core: [host, other] }, { type: 'move', id: 'host', to: on('other') });
 
-    expect(state.core).toEqual([{ ...other, on: [{ ...host, on: undefined }, placed] }]);
+    expect(state.core).toEqual([{ ...other, on: [{ ...host, on: undefined }] }]);
+    expect(state.discard).toEqual([placed]);
   });
 
   it('findInstanceAnywhere finds a card on a host, wherever the host sits', () => {

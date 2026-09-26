@@ -266,10 +266,6 @@ const isMissionPileLocation = (value: MoveTarget): value is MissionPileLocation 
 const isOnLocation = (value: MoveTarget): value is OnLocation =>
   typeof value === 'object' && value !== null && value.zone === 'on';
 
-// The move targets where a card is a host (#809): the core, the brig, and a ship row. A mission
-// card is a host too, but it never moves, so it is never a move target.
-const isHostLocation = (value: MoveTarget): boolean =>
-  value === 'core' || value === 'brig' || isShipRowLocation(value);
 
 const findZone = (state: TableState, id: string): Zone | null => {
   if (state.pile.some((c) => c.id === id)) return 'pile';
@@ -505,27 +501,31 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // taking the destination's face, and the ship's own `crew` field clears. A ship moving
       // between two ship rows (#601) keeps its crew attached unchanged instead.
       const releasesCrew = isShipRowLocation(from) && !isShipRowLocation(action.to) && !!card.crew?.length;
-      // A host's `on` cards (#809) travel with it to another host location (the core, the brig, or
-      // a ship row). Anywhere else the card is no longer a host, so they are released into the
-      // destination the same way a crew is: to the discard pile with it, or, for a host placed on
-      // another host, onto that host beside it, which keeps the stack one level deep.
-      const releasesOn = !isHostLocation(action.to) && !!card.on?.length;
+      // A host's `on` cards (#809) do not travel with it. Any move of the host sends them to the
+      // discard pile, whatever the destination, and a move of the host to the discard pile is the
+      // plain case of the same rule. A drop back in the same location is not a move of the host,
+      // so it keeps its stack: the flat zones treat a same-zone drop as a reorder, and losing the
+      // stack to a reorder would surprise the player.
+      const discardsOn = !toSameLocation && !!card.on?.length;
       const movedCard = {
         ...card,
         face,
         ...(releasesCrew ? { crew: undefined } : {}),
-        ...(releasesOn ? { on: undefined } : {}),
+        ...(discardsOn ? { on: undefined } : {}),
       };
       const releasedCrew = releasesCrew
         ? card.crew!.map((c) => ({ ...c, face: faceForLocation(action.to) }))
         : [];
-      const releasedOn = releasesOn ? card.on!.map((c) => ({ ...c, face: faceForLocation(action.to) })) : [];
+      const discardedOn = discardsOn ? card.on!.map((c) => ({ ...c, face: ZONE_FACE.discard })) : [];
 
       const destination = toSameLocation ? withoutCard : cardsAt(afterRemoval, action.to);
-      const movedCards = [movedCard, ...releasedCrew, ...releasedOn];
+      const movedCards = [movedCard, ...releasedCrew];
       const orderedDestination =
         action.position === 'top' ? [...movedCards, ...destination] : [...destination, ...movedCards];
-      return withCardsAt(afterRemoval, action.to, orderedDestination);
+      const moved = withCardsAt(afterRemoval, action.to, orderedDestination);
+      // The discarded stack is appended after the move, so a host that goes to the discard pile
+      // itself lands there first and its cards follow it.
+      return discardedOn.length ? { ...moved, discard: [...moved.discard, ...discardedOn] } : moved;
     }
 
     case 'flip': {
