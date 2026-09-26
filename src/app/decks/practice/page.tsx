@@ -962,6 +962,19 @@ function PracticeDrawContent() {
     ids.forEach((id) => dispatch({ type: 'flip', id }));
   };
 
+  // Moves every id to the discard pile, in the given order (#787's pile panel Discard button), with
+  // the same `move` action a drop on the discard pile dispatches, so each card takes the discard
+  // pile's face. The panel stays open, or closes when its zone runs empty, by the same rule a drag
+  // out of it follows (`closePanelsAfterDrag`). The selection clears either way.
+  const discardSelection = (ids: string[]) => {
+    const origin = ids.length > 0 ? findInstanceAnywhere(table, ids[0]) : null;
+    const actions: TableAction[] = ids.map((id) => ({ type: 'move', id, to: 'discard' }));
+    actions.forEach((action) => dispatch(action));
+    const nextTable = actions.reduce((state, action) => tableReducer(state, action), table);
+    closePanelsAfterDrag(origin, nextTable);
+    setSelectedCardIds([]);
+  };
+
   // A tap on a ship opens its crew panel when it has crew aboard, and does nothing otherwise.
   const handleShipClick = (shipId: string) => {
     const ship = findInstanceAnywhere(table, shipId)?.instance;
@@ -1613,6 +1626,7 @@ function PracticeDrawContent() {
                   }
                   onSetStopped={setStoppedForSelection}
                   onFlip={flipSelection}
+                  onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
@@ -1637,6 +1651,7 @@ function PracticeDrawContent() {
                   }
                   onSetStopped={openFlatZone === 'discard' ? undefined : setStoppedForSelection}
                   onFlip={openFlatZone === 'dilemmaStack' ? flipSelection : undefined}
+                  onDiscard={openFlatZone === 'discard' ? undefined : discardSelection}
                   hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
@@ -1657,6 +1672,7 @@ function PracticeDrawContent() {
                   onToggleSelect={toggleCardSelection}
                   onShuffle={() => dispatch({ type: 'shuffle', location: { zone: 'crew', shipId: openCrewShip.id } })}
                   onSetStopped={setStoppedForSelection}
+                  onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
@@ -1682,6 +1698,7 @@ function PracticeDrawContent() {
                     dispatch({ type: 'shuffle', location: { zone: 'shipRow', missionIndex: openShipRowMissionIndex } })
                   }
                   onSetStopped={setStoppedForSelection}
+                  onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
                   cardWidth={tableCardWidth}
                   cardArtHeight={tableCardArtHeight}
