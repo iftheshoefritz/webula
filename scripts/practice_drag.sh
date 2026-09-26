@@ -93,8 +93,12 @@ bx=$1; by=$2
 # div MissionRow.tsx wraps around both the ship and its badge (`crewDropId`).
 # So this key comes from the closest ancestor's data-zone, not the element's
 # own, falling back to the ship name if somehow neither is set (#715).
+#
+# A host's badge (#810), on a card in the core or the brig, reads "<Card
+# name>, N cards on it". It sits inside the host's own wrapper, so its key is
+# the host's drop zone, `on-<the host's card id>`, the same way as a crew badge.
 snapshot() {
-  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const k=el.getAttribute('data-zone')||pile[1];parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
+  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const k=el.getAttribute('data-zone')||pile[1];parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
 }
 
 before=$(snapshot)
@@ -105,7 +109,9 @@ ab mouse move "$bx" "$by"
 ab mouse move "$bx" "$by"
 ab mouse up
 
-found=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const z=e.closest('[data-zone]');return z?z.getAttribute('data-zone'):'no zone'})()")
+# A card in the core or the brig sits inside its own host droppable (#810),
+# `on-<its id>`, so the zone it is in is the next data-zone up.
+found=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';let z=e.closest('[data-zone]');if(z&&z.getAttribute('data-zone')==='on-$CARD')z=z.parentElement.closest('[data-zone]');return z?z.getAttribute('data-zone'):'no zone'})()")
 
 if [ "$found" != "MISSING" ]; then
   echo "$found"
