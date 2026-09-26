@@ -426,18 +426,65 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
       expect(preview('first contact')).toBeNull();
     });
 
-    it('a mouse hold on a hovered card, then a release, leaves the preview up until the leave', async () => {
+    it('a hover, then a hold on the same card, then a release with no move closes the preview (#784)', async () => {
       await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
       const mission = screen.getByRole('button', { name: 'first contact' });
       enter(mission);
       wait(HOVER_DELAY_MS);
       hold(mission);
-      release();
       expect(preview('first contact')).toBeInTheDocument();
-      act(() => {
-        leave(mission);
-      });
+      release();
       expect(preview('first contact')).toBeNull();
+    });
+  });
+
+  describe('a press closes the preview (#784)', () => {
+    it('a press on the table closes a stuck preview, and its click does nothing else', async () => {
+      await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
+      const mission = screen.getByRole('button', { name: 'first contact' });
+      const tricorder = screen.getByRole('button', { name: 'tricorder' });
+      hold(mission);
+      expect(preview('first contact')).toBeInTheDocument();
+      // The release never reaches the page, so the preview stays up.
+      const onClick = jest.fn();
+      tricorder.addEventListener('click', onClick);
+      tap(tricorder);
+      expect(preview('first contact')).toBeNull();
+      expect(onClick).not.toHaveBeenCalled();
+      // The next tap acts as normal.
+      tap(tricorder);
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+
+    it('a press off the hovered card closes a hover preview whose card moved away, and does nothing else', async () => {
+      await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
+      const mission = screen.getByRole('button', { name: 'first contact' });
+      const tricorder = screen.getByRole('button', { name: 'tricorder' });
+      fireEvent.pointerEnter(mission, { pointerType: 'mouse', buttons: 0 });
+      act(() => {
+        jest.advanceTimersByTime(HOVER_DELAY_MS);
+      });
+      expect(preview('first contact')).toBeInTheDocument();
+      // No `pointerleave` arrives: the card moved out from under a still pointer.
+      const onClick = jest.fn();
+      tricorder.addEventListener('click', onClick);
+      tap(tricorder);
+      expect(preview('first contact')).toBeNull();
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it('a click on the hovered card itself still acts', async () => {
+      await setupOpenHand([mockEquipmentCard]);
+      const tricorder = screen.getByRole('button', { name: 'tricorder' });
+      fireEvent.pointerEnter(tricorder, { pointerType: 'mouse', buttons: 0 });
+      act(() => {
+        jest.advanceTimersByTime(HOVER_DELAY_MS);
+      });
+      expect(preview('tricorder')).toBeInTheDocument();
+      const onClick = jest.fn();
+      tricorder.addEventListener('click', onClick);
+      tap(tricorder);
+      expect(onClick).toHaveBeenCalledTimes(1);
     });
   });
 });

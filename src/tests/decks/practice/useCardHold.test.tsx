@@ -285,7 +285,7 @@ describe('useCardHold: a mouse hover (#766)', () => {
     expect(hovered()).toBe('none');
   });
 
-  it('the release of a mouse hold on a hovered card keeps the hover', () => {
+  it('the release of a mouse hold on a hovered card ends the hover too (#784)', () => {
     render(<Harness />);
     enter();
     act(() => jest.advanceTimersByTime(HOVER_DELAY_MS));
@@ -294,6 +294,6 @@ describe('useCardHold: a mouse hover (#766)', () => {
     expect(held()).toBe('card-1');
     fireEvent.pointerUp(window);
     expect(held()).toBe('none');
-    expect(hovered()).toBe('card-1');
+    expect(hovered()).toBe('none');
   });
 });
