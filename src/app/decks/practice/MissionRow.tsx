@@ -98,14 +98,16 @@ export const crewDropId = (shipId: string): string => `crew-${shipId}`;
 // its own `data-zone` to aim at. A drop on it files the dropped card into the ship's crew.
 export const crewBadgeDropId = (shipId: string): string => `crew-badge-${shipId}`;
 
-// A mission pile's badge is its own drop target (#602), distinct from `missionDropId` so a drop
-// on the badge itself can bypass the card-type routing and always target that specific pile.
+// A mission pile's badge is its own drop target (#602), distinct from `missionDropId`, since a drop
+// on the mission card places the card on it (#813). Only the personnel pile has a badge: the
+// under-mission pile's stack sits inside the mission card's drop target, and a dilemma dropped
+// there goes under the mission.
 export const missionPileDropId = (missionIndex: number, pile: MissionPileName): string =>
   `mission-pile-${pile}-${missionIndex}`;
 
 export function missionPileFromDropId(id: string): { missionIndex: number; pile: MissionPileName } | null {
-  const match = /^mission-pile-(personnel|event)-(\d+)$/.exec(id);
-  return match ? { pile: match[1] as MissionPileName, missionIndex: Number(match[2]) } : null;
+  const match = /^mission-pile-personnel-(\d+)$/.exec(id);
+  return match ? { pile: 'personnel', missionIndex: Number(match[1]) } : null;
 }
 
 // Both a drop on the mission card and a drop on its ship row resolve to the same mission index
