@@ -3,9 +3,11 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+// One stable array: a fresh `data` each render would rerun the page's deck load forever.
+const mockData: unknown[] = [];
 jest.mock('../../../hooks/useDataFetching', () => ({
   __esModule: true,
-  default: () => ({ data: [], loading: false }),
+  default: () => ({ data: mockData, loading: false }),
 }));
 
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
