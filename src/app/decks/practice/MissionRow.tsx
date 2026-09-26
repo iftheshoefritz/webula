@@ -67,6 +67,7 @@ import TableCard, { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard'
 import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
+import { LandedRing, landedBumpClassName, useLandedNonce } from './LandedZoneContext';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
 // `BADGE_STRIP_HEIGHT_BASE`'s comment describes. `page.tsx` passes down a `scale`, computed by
@@ -128,6 +129,7 @@ function ShipCard({
   const { setNodeRef, isOver } = useDroppable({ id: crewDropId(ship.id) });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('crew', draggedType, isOver);
+  const landedNonce = useLandedNonce(crewDropId(ship.id));
   const crewCount = ship.crew?.length ?? 0;
 
   return (
@@ -135,10 +137,12 @@ function ShipCard({
       ref={setNodeRef}
       data-zone={crewDropId(ship.id)}
       data-highlight={highlight}
+      data-landed={landedNonce !== null || undefined}
       className={`relative rounded ${highlightClassName(highlight)}`}
     >
       <TableCard instance={ship} onClick={() => onShipClick(ship.id)} width={width} artHeight={artHeight} draggable />
-      <ShipCrewBadge shipName={ship.card.name} count={crewCount} height={badgeHeight} />
+      <ShipCrewBadge shipName={ship.card.name} count={crewCount} height={badgeHeight} landedNonce={landedNonce} />
+      <LandedRing nonce={landedNonce} />
     </div>
   );
 }
@@ -222,6 +226,9 @@ function PileBadge({
   height: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: missionPileDropId(missionIndex, pile) });
+  // A badge the drop itself creates (count 0 -> 1) reads the landed zones on its first render,
+  // so the cue plays as it mounts (#778).
+  const landedNonce = useLandedNonce(missionPileDropId(missionIndex, pile));
   if (count === 0) return null;
   const Icon = PILE_ICON[pile];
 
@@ -230,15 +237,19 @@ function PileBadge({
       type="button"
       ref={setNodeRef}
       data-zone={missionPileDropId(missionIndex, pile)}
+      data-landed={landedNonce !== null || undefined}
       onClick={() => onOpen(missionIndex, pile)}
       aria-label={`${PILE_LABEL[pile]} pile, ${count} card${count === 1 ? '' : 's'}, tap to open`}
-      className={`flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none ${
+      className={`relative flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none ${
         isOver ? 'ring-2 ring-accent' : ''
       }`}
       style={{ height: height - 2 }}
     >
       <Icon />
-      <span className="text-[8px] font-bold">{count}</span>
+      <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
+        {count}
+      </span>
+      <LandedRing nonce={landedNonce} />
     </button>
   );
 }
@@ -251,7 +262,17 @@ function PileBadge({
 // on the ship opens its crew panel (`onShipClick`), so the badge itself is purely informational: a non-interactive `<span>` with
 // `pointer-events-none`, so a tap that lands on it falls through to the ship's `TableCard` button
 // underneath rather than being swallowed here.
-function ShipCrewBadge({ shipName, count, height }: { shipName: string; count: number; height: number }) {
+function ShipCrewBadge({
+  shipName,
+  count,
+  height,
+  landedNonce,
+}: {
+  shipName: string;
+  count: number;
+  height: number;
+  landedNonce: number | null;
+}) {
   if (count === 0) return null;
 
   return (
@@ -261,7 +282,9 @@ function ShipCrewBadge({ shipName, count, height }: { shipName: string; count: n
       style={{ height: height - 2 }}
     >
       <PersonnelIcon />
-      <span className="text-[8px] font-bold">{count}</span>
+      <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
+        {count}
+      </span>
     </span>
   );
 }
@@ -326,6 +349,7 @@ function UnderMissionStack({
   cardArtHeight: number;
   scale: number;
 }) {
+  const landedNonce = useLandedNonce(missionPileDropId(missionIndex, 'underMission'));
   if (cards.length === 0) return null;
   const stackHeightBudget = scaled(UNDER_MISSION_STACK_HEIGHT_BASE, scale);
   const maxOffset = scaled(UNDER_MISSION_MAX_OFFSET_BASE, scale);
@@ -335,7 +359,11 @@ function UnderMissionStack({
   const stackHeight = minSliver + offset * (shown.length - 1);
 
   return (
-    <div className="absolute inset-x-0" style={{ top: -stackHeight, height: stackHeight }}>
+    <div
+      className="absolute inset-x-0"
+      style={{ top: -stackHeight, height: stackHeight }}
+      data-landed={landedNonce !== null || undefined}
+    >
       {shown.map((card, i) => (
         <div
           key={card.id}
@@ -355,9 +383,12 @@ function UnderMissionStack({
         style={{ zIndex: shown.length + 1 }}
       >
         <span className="absolute bottom-0 right-1 text-[8px] font-bold leading-none text-text-primary">
-          {cards.length}
+          <span key={landedNonce ?? undefined} className={landedBumpClassName(landedNonce)}>
+            {cards.length}
+          </span>
         </span>
       </button>
+      <LandedRing nonce={landedNonce} />
     </div>
   );
 }
@@ -380,6 +411,7 @@ function ShipRow({
   const { setNodeRef, isOver } = useDroppable({ id: shipRowDropId(missionIndex) });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('shipRow', draggedType, isOver);
+  const landedNonce = useLandedNonce(shipRowDropId(missionIndex));
   const shipCardWidth = scaled(SHIP_CARD_WIDTH, scale);
   const shipCardArtHeight = scaled(SHIP_CARD_ART_HEIGHT, scale);
   const shipRowHeight = shipCardArtHeight; // no title line below the art (#634)
@@ -400,6 +432,7 @@ function ShipRow({
       ref={setNodeRef}
       data-zone={shipRowDropId(missionIndex)}
       data-highlight={highlight}
+      data-landed={landedNonce !== null || undefined}
       className={`relative w-full flex items-center justify-center rounded ${highlightClassName(highlight)}`}
       style={{ height: shipRowHeight }}
     >
@@ -420,6 +453,7 @@ function ShipRow({
           ))}
         </div>
       )}
+      <LandedRing nonce={landedNonce} />
     </div>
   );
 }
