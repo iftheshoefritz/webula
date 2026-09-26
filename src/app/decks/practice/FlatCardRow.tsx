@@ -12,15 +12,82 @@
 // A tap on any card here opens `PilePanel` for the whole zone (#640), showing every card at a
 // larger size — the small size here makes a card hard to read in place. A tap on a card inside
 // that panel selects it, the same as in a mission's personnel/event/dilemma piles.
+//
+// Each card here is also a host (#810): it has a droppable of its own, `onDropId`, so a drop on a
+// card's art places the dragged card on that card, while a drop on the zone off any card still
+// lands in the flat zone. `collisionDetection.ts` ranks the card above the zone the same way it
+// ranks a ship above its ship row. A host shows a count of the cards on it, and a tap on a host
+// opens those cards in their own panel (`onOpenHost`) instead of the zone's.
 
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
+import { landedBumpClassName } from './LandedZoneContext';
 import TableCard from './TableCard';
 import { SHIP_CARD_WIDTH, SHIP_CARD_ART_HEIGHT } from './MissionRow';
 import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
+
+// A host's own droppable id (#810), named after the host's card id. `landedZoneKey.ts` makes the
+// same key for a move onto a host, so the landed cue plays on the host that received the card.
+export const onDropId = (hostId: string): string => `on-${hostId}`;
+
+export function hostIdFromOnDropId(id: string): string | null {
+  const match = /^on-(.+)$/.exec(id);
+  return match ? match[1] : null;
+}
+
+// The count of the cards on a host (#810), in the same pill style as a ship's crew badge and a
+// mission's pile badges (`MissionRow.tsx`), so the same kind of thing gets the same badge. Like the
+// crew badge, it takes no pointer events, so a tap on it falls through to the host's own button.
+function HostBadge({ name, count, landedNonce }: { name: string; count: number; landedNonce: number | null }) {
+  return (
+    <span
+      aria-label={`${name}, ${count} card${count === 1 ? '' : 's'} on it`}
+      className="absolute -top-1 -right-1 z-10 flex items-center rounded-full bg-black/50 px-1 h-3 text-text-primary leading-none pointer-events-none"
+    >
+      <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
+        {count}
+      </span>
+    </span>
+  );
+}
+
+// One card of the row, and the host droppable over its art (#810).
+function HostCard({
+  instance,
+  onOpen,
+  onOpenHost,
+}: {
+  instance: CardInstance;
+  onOpen: () => void;
+  onOpenHost: (hostId: string) => void;
+}) {
+  const { setNodeRef } = useDroppable({ id: onDropId(instance.id) });
+  const landedNonce = useLandedNonce(onDropId(instance.id));
+  const onCount = instance.on?.length ?? 0;
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-zone={onDropId(instance.id)}
+      data-landed={landedNonce !== null || undefined}
+      className="relative rounded"
+    >
+      <TableCard
+        instance={instance}
+        onClick={onCount > 0 ? () => onOpenHost(instance.id) : onOpen}
+        width={SHIP_CARD_WIDTH}
+        artHeight={SHIP_CARD_ART_HEIGHT}
+        draggable
+        holdable={false}
+      />
+      {onCount > 0 && <HostBadge name={instance.card.name} count={onCount} landedNonce={landedNonce} />}
+      <LandedRing nonce={landedNonce} />
+    </div>
+  );
+}
 
 export default function FlatCardRow({
   zone,
@@ -30,6 +97,7 @@ export default function FlatCardRow({
   maxOffset,
   fixedWidth = false,
   onOpen,
+  onOpenHost,
 }: {
   zone: 'core' | 'brig';
   label: string;
@@ -41,6 +109,8 @@ export default function FlatCardRow({
   // removed. The brig keeps its existing width-to-cards behaviour.
   fixedWidth?: boolean;
   onOpen: () => void;
+  // A tap on a card with cards on it (#810) opens those cards, not the zone's panel.
+  onOpenHost: (hostId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: zone });
   const draggedType = useDraggedCardType();
@@ -86,14 +156,7 @@ export default function FlatCardRow({
     >
       {cards.map((instance, idx) => (
         <div key={instance.id} className="absolute top-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
-          <TableCard
-            instance={instance}
-            onClick={onOpen}
-            width={SHIP_CARD_WIDTH}
-            artHeight={SHIP_CARD_ART_HEIGHT}
-            draggable
-            holdable={false}
-          />
+          <HostCard instance={instance} onOpen={onOpen} onOpenHost={onOpenHost} />
         </div>
       ))}
       <LandedRing nonce={landedNonce} />

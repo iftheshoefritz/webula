@@ -112,6 +112,7 @@ export function ShuffleIcon() {
 // #630 gives it the tap target on the table that opens this panel. The discard pile (#782) is an
 // eighth: a tap on it lists every discarded card, not just the top one the table shows. It has no
 // Shuffle and no Stop control: its order comes from play, and a discarded card is never stopped.
+// The cards on a host (#810), a card in the core or the brig, are a ninth.
 export type PanelZone =
   | MissionPileName
   | 'core'
@@ -121,7 +122,8 @@ export type PanelZone =
   | 'dilemmaPile'
   | 'dilemmaStack'
   | 'shipRow'
-  | 'discard';
+  | 'discard'
+  | 'on';
 
 const PANEL_LABEL: Record<PanelZone, string> = {
   personnel: 'Personnel',
@@ -135,6 +137,7 @@ const PANEL_LABEL: Record<PanelZone, string> = {
   dilemmaStack: 'Dilemma stack',
   shipRow: 'Ships',
   discard: 'Discard pile',
+  on: 'On the card',
 };
 
 // The core, the brig, a ship's crew (#664), the draw pile, the dilemma pile (#690), the dilemma
@@ -149,7 +152,8 @@ const closeLabel = (zone: PanelZone): string =>
   zone === 'dilemmaPile' ||
   zone === 'dilemmaStack' ||
   zone === 'shipRow' ||
-  zone === 'discard'
+  zone === 'discard' ||
+  zone === 'on'
     ? `Close ${PANEL_LABEL[zone].toLowerCase()}`
     : `Close ${PANEL_LABEL[zone].toLowerCase()} pile`;
 
