@@ -47,6 +47,7 @@ import MissionRow, {
   shipIdFromCrewDropId,
 } from './MissionRow';
 import CardPreview from './CardPreview';
+import DecklistPanel from './DecklistPanel';
 import { CardHoldProvider, DRAG_ACTIVATION_DISTANCE } from './useCardHold';
 import CountBadge from './CountBadge';
 import PilePanel, { ShuffleIcon } from './PilePanel';
@@ -85,8 +86,21 @@ function MenuIcon() {
 // `CardHand`'s own fan backdrop already follows) closes it without acting. Reset throws away the
 // current game, so it confirms first via `window.confirm`, the same confirm-before-destroy
 // pattern `DrivePickerModal`'s own delete already uses elsewhere in the app, rather than a
-// custom dialog built just for this one destructive action.
-function GameMenu({ open, onToggle, onClose, onReset }: { open: boolean; onToggle: () => void; onClose: () => void; onReset: () => void }) {
+// custom dialog built just for this one destructive action. Decklist (#779) opens a read-only
+// list of the loaded deck.
+function GameMenu({
+  open,
+  onToggle,
+  onClose,
+  onReset,
+  onDecklist,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onReset: () => void;
+  onDecklist: () => void;
+}) {
   return (
     <div className="absolute top-2 left-2 z-40">
       <button type="button" onClick={onToggle} aria-label="Game menu" aria-expanded={open} className="btn-icon btn-icon-sm">
@@ -96,6 +110,13 @@ function GameMenu({ open, onToggle, onClose, onReset }: { open: boolean; onToggl
         <>
           <button type="button" className="fixed inset-0 z-30" onClick={onClose} aria-label="Close game menu" />
           <div className="absolute left-0 top-full mt-1 z-40 min-w-[8rem] rounded-md border border-white/10 bg-bg-secondary py-1 shadow-lg">
+            <button
+              type="button"
+              onClick={onDecklist}
+              className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
+            >
+              Decklist
+            </button>
             <button
               type="button"
               onClick={onReset}
@@ -756,6 +777,9 @@ function PracticeDrawContent() {
   const [isPortrait, setIsPortrait] = useState(false);
   // The game menu (#722): closed by default, so it never covers the table.
   const [gameMenuOpen, setGameMenuOpen] = useState(false);
+  // The deck as loaded (#779), for the game menu's read-only Decklist panel.
+  const [loadedDeck, setLoadedDeck] = useState<Deck>({});
+  const [decklistOpen, setDecklistOpen] = useState(false);
   // Only one hand opens at a time (#604), so one value names the open hand rather than one
   // boolean per hand.
   const [openHand, setOpenHand] = useState<'hand' | 'dilemmaHand' | null>(null);
@@ -814,6 +838,7 @@ function PracticeDrawContent() {
         dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
       });
       setDeckEmpty(isDeckEmpty(deck));
+      setLoadedDeck(deck);
       setOpenHand(null);
       return;
     }
@@ -830,6 +855,7 @@ function PracticeDrawContent() {
         dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
       });
       setDeckEmpty(isDeckEmpty(deck));
+      setLoadedDeck(deck);
       setOpenHand(null);
     } catch {
       // silently ignore parse errors
@@ -861,6 +887,11 @@ function PracticeDrawContent() {
     if (window.confirm('Reset the game? This will throw away the current game.')) {
       initDeck();
     }
+  };
+
+  const handleDecklistClick = () => {
+    setGameMenuOpen(false);
+    setDecklistOpen(true);
   };
 
   const drawOne = () => {
@@ -1273,7 +1304,9 @@ function PracticeDrawContent() {
           onToggle={() => setGameMenuOpen((open) => !open)}
           onClose={() => setGameMenuOpen(false)}
           onReset={handleResetClick}
+          onDecklist={handleDecklistClick}
         />
+        {decklistOpen && <DecklistPanel deck={loadedDeck} onClose={() => setDecklistOpen(false)} />}
 
         {isEmpty && (
           <div className="flex flex-col items-center justify-center flex-1 text-text-muted gap-2 p-8">
