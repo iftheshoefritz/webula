@@ -23,6 +23,28 @@ const emptySlot = (): MissionSlot => ({
 });
 
 describe('MissionRow', () => {
+  // #783: the event pile badge shows the repository's event icon, not a hand-drawn SVG.
+  it('shows the repository event icon on the event pile badge', () => {
+    const onOpenPile = jest.fn();
+    const slot: MissionSlot = { ...emptySlot(), event: [card('e1', 'An Event')] };
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={onOpenPile}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+      />
+    );
+
+    const badge = screen.getByRole('button', { name: /event pile, 1 card, tap to open/i });
+    expect(badge.querySelector('img')).toHaveAttribute('src', '/icons/icon_event.gif');
+    expect(badge.querySelector('svg')).not.toBeInTheDocument();
+    expect(badge).toHaveTextContent('1');
+
+    fireEvent.click(badge);
+    expect(onOpenPile).toHaveBeenCalledWith(0, 'event');
+  });
+
   // #641: dilemmas placed under the mission poke out above the mission card's top edge, in a
   // stack absolutely positioned behind it, rather than a strip of edges reserved below it.
   it('shows no under-mission tap target when the pile is empty', () => {
