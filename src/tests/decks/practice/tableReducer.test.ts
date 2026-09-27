@@ -39,7 +39,7 @@ describe('tableReducer', () => {
       const state = tableReducer(
         {
           ...initialTableState,
-          pile: [],
+          drawDeck: [],
           hand: [instance('x', card('old'))],
           discard: [instance('y', card('old2'))],
           missions: missionSlots([]),
@@ -48,7 +48,7 @@ describe('tableReducer', () => {
       );
 
       expect(state.hand).toEqual(cards.slice(0, 7).map((c) => ({ ...c, face: 'up' })));
-      expect(state.pile).toEqual(cards.slice(7));
+      expect(state.drawDeck).toEqual(cards.slice(7));
       expect(state.discard).toEqual([]);
     });
 
@@ -57,7 +57,7 @@ describe('tableReducer', () => {
       const state = tableReducer(initialTableState, { type: 'reset', cards, missions: [], dilemmas: [] });
 
       expect(state.hand).toEqual(cards.map((c) => ({ ...c, face: 'up' })));
-      expect(state.pile).toEqual([]);
+      expect(state.drawDeck).toEqual([]);
       expect(state.discard).toEqual([]);
     });
 
@@ -139,14 +139,14 @@ describe('tableReducer', () => {
       expect(state.dilemmaHand).toEqual([{ ...top, face: 'up' }]);
     });
 
-    it('leaves the draw pile and the hand alone', () => {
+    it('leaves the draw deck and the hand alone', () => {
       const dilemma = instance('d1', card('Chula The Chandra'), 'down');
       const drawCard = instance('a', card('Tricorder'), 'down');
-      const start = { ...initialTableState, dilemmaPile: [dilemma], pile: [drawCard] };
+      const start = { ...initialTableState, dilemmaPile: [dilemma], drawDeck: [drawCard] };
 
       const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
 
-      expect(state.pile).toEqual([drawCard]);
+      expect(state.drawDeck).toEqual([drawCard]);
       expect(state.hand).toEqual([]);
     });
 
@@ -195,17 +195,17 @@ describe('tableReducer', () => {
       const top = instance('a', card('Tricorder'), 'down');
       const rest = instance('b', card('Phaser'), 'down');
       const state = tableReducer(
-        { ...initialTableState, pile: [top, rest] },
-        { type: 'drawCard', from: 'pile', to: 'hand' }
+        { ...initialTableState, drawDeck: [top, rest] },
+        { type: 'drawCard', from: 'drawDeck', to: 'hand' }
       );
 
-      expect(state.pile).toEqual([rest]);
+      expect(state.drawDeck).toEqual([rest]);
       expect(state.hand).toEqual([{ ...top, face: 'up' }]);
     });
 
     it('is a no-op when the pile is empty', () => {
       const start = { ...initialTableState, hand: [instance('a', card('Tricorder'))] };
-      const state = tableReducer(start, { type: 'drawCard', from: 'pile', to: 'hand' });
+      const state = tableReducer(start, { type: 'drawCard', from: 'drawDeck', to: 'hand' });
 
       expect(state).toBe(start);
     });
@@ -261,9 +261,9 @@ describe('tableReducer', () => {
     it('sets the face from the destination zone convention (face down for the pile)', () => {
       const moved = instance('a', card('Tricorder'), 'up');
       const start = { ...initialTableState, hand: [moved] };
-      const state = tableReducer(start, { type: 'move', id: 'a', to: 'pile' });
+      const state = tableReducer(start, { type: 'move', id: 'a', to: 'drawDeck' });
 
-      expect(state.pile).toEqual([{ ...moved, face: 'down' }]);
+      expect(state.drawDeck).toEqual([{ ...moved, face: 'down' }]);
     });
 
     it('keeps the current face on a move within the same zone', () => {
@@ -583,37 +583,37 @@ describe('tableReducer', () => {
     });
 
     // A download (#690) shows the player the whole pile, so they shuffle it afterwards. That
-    // shuffle must reach the draw pile alone: a hand that changed with it would undo the draws
+    // shuffle must reach the draw deck alone: a hand that changed with it would undo the draws
     // the player already made.
-    it('shuffles the draw pile without touching the hand or any other zone', () => {
-      const pile = Array.from({ length: 10 }, (_, i) => instance(`p${i}`, card(`Card ${i}`), 'down'));
+    it('shuffles the draw deck without touching the hand or any other zone', () => {
+      const drawDeck = Array.from({ length: 10 }, (_, i) => instance(`p${i}`, card(`Card ${i}`), 'down'));
       const hand = Array.from({ length: 3 }, (_, i) => instance(`h${i}`, card(`Hand ${i}`), 'up'));
       const discard = [instance('d0', card('Discarded'), 'up')];
-      const start = { ...initialTableState, pile, hand, discard, dilemmaPile: [instance('x0', card('Dilemma'), 'down')] };
+      const start = { ...initialTableState, drawDeck, hand, discard, dilemmaPile: [instance('x0', card('Dilemma'), 'down')] };
 
-      const state = tableReducer(start, { type: 'shuffle', location: 'pile' });
+      const state = tableReducer(start, { type: 'shuffle', location: 'drawDeck' });
 
-      expect(new Set(state.pile.map((c) => c.id))).toEqual(new Set(pile.map((c) => c.id)));
-      expect(state.pile).toHaveLength(pile.length);
-      expect(state.pile.every((c) => c.face === 'down')).toBe(true);
+      expect(new Set(state.drawDeck.map((c) => c.id))).toEqual(new Set(drawDeck.map((c) => c.id)));
+      expect(state.drawDeck).toHaveLength(drawDeck.length);
+      expect(state.drawDeck.every((c) => c.face === 'down')).toBe(true);
       expect(state.hand).toEqual(hand);
       expect(state.discard).toEqual(discard);
       expect(state.dilemmaPile).toEqual(start.dilemmaPile);
       expect(state.missions).toEqual(initialTableState.missions);
     });
 
-    it('shuffles the dilemma pile without touching the dilemma hand or the draw pile', () => {
+    it('shuffles the dilemma pile without touching the dilemma hand or the draw deck', () => {
       const dilemmaPile = Array.from({ length: 8 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
       const dilemmaHand = [instance('dh0', card('Held dilemma'), 'up')];
-      const pile = [instance('p0', card('Draw card'), 'down')];
-      const start = { ...initialTableState, dilemmaPile, dilemmaHand, pile };
+      const drawDeck = [instance('p0', card('Draw card'), 'down')];
+      const start = { ...initialTableState, dilemmaPile, dilemmaHand, drawDeck };
 
       const state = tableReducer(start, { type: 'shuffle', location: 'dilemmaPile' });
 
       expect(new Set(state.dilemmaPile.map((c) => c.id))).toEqual(new Set(dilemmaPile.map((c) => c.id)));
       expect(state.dilemmaPile.every((c) => c.face === 'down')).toBe(true);
       expect(state.dilemmaHand).toEqual(dilemmaHand);
-      expect(state.pile).toEqual(pile);
+      expect(state.drawDeck).toEqual(drawDeck);
     });
   });
 
@@ -684,17 +684,17 @@ describe('tableReducer', () => {
     });
   });
 
-  // A download (#690) opens a pile panel to look through the draw pile or the dilemma pile. The
+  // A download (#690) opens a pile panel to look through the draw deck or the dilemma pile. The
   // look itself must change nothing, and taking one card must take exactly that card and leave
   // the order of the rest alone.
   describe('download from a pile (#690)', () => {
-    it('moves one card from the draw pile to the hand, keeping the order of the rest', () => {
-      const pile = Array.from({ length: 6 }, (_, i) => instance(`p${i}`, card(`Card ${i}`), 'down'));
-      const start = { ...initialTableState, pile, hand: [instance('h0', card('Held'), 'up')] };
+    it('moves one card from the draw deck to the hand, keeping the order of the rest', () => {
+      const drawDeck = Array.from({ length: 6 }, (_, i) => instance(`p${i}`, card(`Card ${i}`), 'down'));
+      const start = { ...initialTableState, drawDeck, hand: [instance('h0', card('Held'), 'up')] };
 
       const state = tableReducer(start, { type: 'move', id: 'p3', to: 'hand' });
 
-      expect(state.pile.map((c) => c.id)).toEqual(['p0', 'p1', 'p2', 'p4', 'p5']);
+      expect(state.drawDeck.map((c) => c.id)).toEqual(['p0', 'p1', 'p2', 'p4', 'p5']);
       expect(state.hand.map((c) => c.id)).toEqual(['h0', 'p3']);
       expect(state.hand[1].face).toBe('up');
     });
@@ -1044,7 +1044,7 @@ describe('resetWithPiles (#802)', () => {
     dilemmas: createCardInstances([card('d0')]),
   });
   const allIds = (state: ReturnType<typeof tableReducer>) => [
-    ...state.pile,
+    ...state.drawDeck,
     ...state.hand,
     ...state.dilemmaPile,
     ...state.missions.flatMap((slot) => [
@@ -1094,12 +1094,12 @@ describe('cards placed on a host (#809)', () => {
     const first = instance('a', card('A'));
     const second = instance('b', card('B'));
     let state = tableReducer(
-      { ...initialTableState, pile: [first, second], missions: missionSlots([mission], { 1: [ship] }) },
+      { ...initialTableState, drawDeck: [first, second], missions: missionSlots([mission], { 1: [ship] }) },
       { type: 'move', id: 'a', to: on('mission') }
     );
     state = tableReducer(state, { type: 'move', id: 'b', to: on('ship') });
 
-    expect(state.pile).toEqual([]);
+    expect(state.drawDeck).toEqual([]);
     expect(state.missions[0].mission!.on).toEqual([{ ...first, face: 'up' }]);
     expect(state.missions[1].ships[0].on).toEqual([{ ...second, face: 'up' }]);
   });

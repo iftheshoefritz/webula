@@ -35,7 +35,7 @@ jest.mock('next/link', () => {
 });
 
 // See dilemmaPileLabel.test.tsx: same mock dnd-kit setup, used to drive `onDragStart` directly.
-// Here `useDroppable` is stubbed so only the draw pile's top half reports `isOver: true`, which
+// Here `useDroppable` is stubbed so only the draw deck's top half reports `isOver: true`, which
 // is the one thing no browser drag can hold still for long enough to check (#607 review): the
 // "Top"/"Bottom" position label only appears while `isOver` is true for that half, and a CLI
 // drag completes in a single call with no lingering hover state.
@@ -94,7 +94,7 @@ const mockManyDeck = {
   [mockPersonnelCard.collectorsinfo]: { count: 1, row: mockPersonnelCard },
 };
 
-describe('Practice table: draw pile position label during a drag (#743)', () => {
+describe('Practice table: draw deck position label during a drag (#743)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDraggableIds.length = 0;
@@ -146,7 +146,7 @@ describe('Practice table: draw pile position label during a drag (#743)', () => 
   };
 
   // Unlike the dilemma pile (`dilemmaPileLabel.test.tsx`), which only shows its label for a
-  // dragged dilemma, the draw pile accepts every card type, so it shows the label for any drag.
+  // dragged dilemma, the draw deck accepts every card type, so it shows the label for any drag.
   it('shows "Top" and not "Bottom" while dragging a personnel card over the pile', async () => {
     await setupOpenHand([mockPersonnelCard]);
     const [draggedId] = mockDraggableIds;

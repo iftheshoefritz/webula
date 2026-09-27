@@ -285,7 +285,7 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
     });
   });
 
-  // Renders the page with the given cards in the draw pile/hand, so they end up in the hand and
+  // Renders the page with the given cards in the draw deck/hand, so they end up in the hand and
   // can be dragged to the core (see `dealIntoCore` below) — the same setup `multiSelectDrop.test.tsx`
   // uses to get more than one card into a flat zone's pile panel.
   const setupOpenHand = async (cards: any[]) => {

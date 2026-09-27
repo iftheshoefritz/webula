@@ -32,7 +32,7 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
   it("caps the card grid's height and makes it scroll, keeping the Shuffle button outside the scrolling area", () => {
     render(
       <PilePanel
-        zone="pile"
+        zone="drawDeck"
         cards={manyCards}
         onClose={() => {}}
         selectedIds={[]}
@@ -42,7 +42,7 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
       />
     );
 
-    const grid = document.body.querySelector('[data-zone="pile-panel-pile"]') as HTMLElement;
+    const grid = document.body.querySelector('[data-zone="pile-panel-drawDeck"]') as HTMLElement;
     expect(grid).not.toBeNull();
     expect(grid.className).toMatch(/overflow-y-auto/);
     // #802: the grid no longer carries a `max-h` of its own. The panel around it is bounded by
@@ -59,7 +59,7 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
 
   it('draws each card at 1.5x the table card by default (#802)', () => {
     render(
-      <PilePanel zone="pile" cards={manyCards.slice(0, 2)} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />
+      <PilePanel zone="drawDeck" cards={manyCards.slice(0, 2)} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />
     );
     const card = document.body.querySelector('[data-card-id="card-0"]')!.parentElement as HTMLElement;
     expect(card.style.width).toBe('108px');
@@ -69,7 +69,7 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
     const onClose = jest.fn();
     render(
       <PilePanel
-        zone="pile"
+        zone="drawDeck"
         cards={manyCards}
         onClose={onClose}
         selectedIds={[]}
@@ -79,7 +79,7 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
       />
     );
 
-    screen.getByRole('button', { name: 'Close draw pile' }).click();
+    screen.getByRole('button', { name: 'Close draw deck' }).click();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

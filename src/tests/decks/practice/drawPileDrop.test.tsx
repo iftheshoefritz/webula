@@ -34,7 +34,7 @@ jest.mock('next/link', () => {
   };
 });
 
-// Issue #743: gives the draw pile the same two drop halves the dilemma pile already has
+// Issue #743: gives the draw deck the same two drop halves the dilemma pile already has
 // (#607). See discardDrop.test.tsx: mocks just enough of dnd-kit to drive `onDragStart`/
 // `onDragEnd` directly and to capture the ids each draggable table card registers, since jsdom
 // has no real pointer geometry for dnd-kit to detect drop targets with.
@@ -53,7 +53,7 @@ jest.mock('@dnd-kit/core', () => {
     },
     DragOverlay: ({ children }: any) => <div data-testid="drag-overlay">{children}</div>,
     useDraggable: ({ id, data }: { id: string; data?: { showBack?: boolean } }) => {
-      // The top card of the draw pile and the dilemma pile (#814) is left out, so the ids here
+      // The top card of the draw deck and the dilemma pile (#814) is left out, so the ids here
       // stay the table cards' ids, in the order these tests expect.
       if (!data?.showBack) mockDraggableIds.push(id);
       return { attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false };
@@ -72,7 +72,7 @@ const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
 ];
 
-// 8 cards: a new game deals 7 into the hand, leaving exactly one ("card 8") in the draw pile,
+// 8 cards: a new game deals 7 into the hand, leaving exactly one ("card 8") in the draw deck,
 // so a drop onto either half has a single pile card to reorder around.
 const makeManyCards = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
@@ -88,7 +88,7 @@ const makeManyCards = (n: number) =>
 const mockManyCards = makeManyCards(8);
 const mockManyDeck = Object.fromEntries(mockManyCards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
-describe('Practice draw: dropping a card on the draw pile (#743)', () => {
+describe('Practice draw: dropping a card on the draw deck (#743)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDraggableIds.length = 0;
@@ -140,7 +140,7 @@ describe('Practice draw: dropping a card on the draw pile (#743)', () => {
     }
   };
 
-  it("drops a card from the hand onto the draw pile's top half, so the next draw returns that same card", async () => {
+  it("drops a card from the hand onto the draw deck's top half, so the next draw returns that same card", async () => {
     await setupOpenHand();
     const [draggedId] = mockDraggableIds; // "card 1", the first card dealt into the hand
 
@@ -151,20 +151,20 @@ describe('Practice draw: dropping a card on the draw pile (#743)', () => {
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'draw-pile-top' } });
     });
 
-    // The hand holds one card less, and the draw pile holds one card more (2, up from 1).
+    // The hand holds one card less, and the draw deck holds one card more (2, up from 1).
     // #740 keeps the hand open after a drag out of it, and a hidden element has no
     // accessible name, so read the closed row's `aria-label` from the DOM.
     expect(document.body.querySelector('[aria-label="hand, 6 cards, tap to open"]')).not.toBeNull();
     expect(screen.getByText('2')).toBeInTheDocument();
 
-    // Tap the draw pile: the hand gets the same card ("card 1") back.
+    // Tap the draw deck: the hand gets the same card ("card 1") back.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' }));
     });
     expect(screen.getByRole('button', { name: 'card 1' })).toBeInTheDocument();
   });
 
-  it("drops a card from the hand onto the draw pile's bottom half, so the next draw returns a different card", async () => {
+  it("drops a card from the hand onto the draw deck's bottom half, so the next draw returns a different card", async () => {
     await setupOpenHand();
     const [draggedId] = mockDraggableIds; // "card 1"
 
@@ -180,16 +180,16 @@ describe('Practice draw: dropping a card on the draw pile (#743)', () => {
     expect(document.body.querySelector('[aria-label="hand, 6 cards, tap to open"]')).not.toBeNull();
     expect(screen.getByText('2')).toBeInTheDocument();
 
-    // Tap the draw pile: the hand gets "card 8" (the pile's original sole card) back, not the
+    // Tap the draw deck: the hand gets "card 8" (the pile's original sole card) back, not the
     // card just dropped onto the bottom.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Draw pile top, tap to draw' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
     });
     expect(screen.getByRole('button', { name: 'card 8' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
   });
 
-  it('drags a card from the core onto the draw pile, leaving the core', async () => {
+  it('drags a card from the core onto the draw deck, leaving the core', async () => {
     await setupOpenHand();
     const [draggedId] = mockDraggableIds; // "card 1"
 
@@ -204,7 +204,7 @@ describe('Practice draw: dropping a card on the draw pile (#743)', () => {
     expect(coreZone).not.toBeNull();
     expect(coreZone!.querySelector(`[data-card-id="${draggedId}"]`)).not.toBeNull();
 
-    // Then drag it from the core onto the draw pile's bottom half.
+    // Then drag it from the core onto the draw deck's bottom half.
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
     });
@@ -220,7 +220,7 @@ describe('Practice draw: dropping a card on the draw pile (#743)', () => {
     await setupOpenHand();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Draw pile top, tap to draw' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
     });
 
     // #740 keeps the hand open after a drag out of it, and a hidden element has no

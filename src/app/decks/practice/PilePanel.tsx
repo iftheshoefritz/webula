@@ -120,7 +120,7 @@ export type PanelZone =
   | 'core'
   | 'brig'
   | 'crew'
-  | 'pile'
+  | 'drawDeck'
   | 'dilemmaPile'
   | 'dilemmaStack'
   | 'shipRow'
@@ -133,7 +133,7 @@ const PANEL_LABEL: Record<PanelZone, string> = {
   core: 'Core',
   brig: 'Brig',
   crew: 'Crew',
-  pile: 'Draw pile',
+  drawDeck: 'Draw deck',
   dilemmaPile: 'Dilemma pile',
   dilemmaStack: 'Dilemma stack',
   shipRow: 'Ships',
@@ -141,15 +141,15 @@ const PANEL_LABEL: Record<PanelZone, string> = {
   on: 'On the card',
 };
 
-// The core, the brig, a ship's crew (#664), the draw pile, the dilemma pile (#690), the dilemma
-// stack (#733), and a mission's own ship row (#713) already say "pile" or "stack" (or need no
+// The core, the brig, a ship's crew (#664), the draw deck, the dilemma pile (#690), the dilemma
+// stack (#733), and a mission's own ship row (#713) already say "deck", "pile" or "stack" (or need no
 // such word at all) in their own label, so their close button's label does not repeat it; a mission pile's label keeps the
 // trailing "pile", unchanged from before #640.
 const closeLabel = (zone: PanelZone): string =>
   zone === 'core' ||
   zone === 'brig' ||
   zone === 'crew' ||
-  zone === 'pile' ||
+  zone === 'drawDeck' ||
   zone === 'dilemmaPile' ||
   zone === 'dilemmaStack' ||
   zone === 'shipRow' ||
