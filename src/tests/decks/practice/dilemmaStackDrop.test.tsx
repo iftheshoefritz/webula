@@ -68,7 +68,7 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { expandDeck } from '../../../app/decks/deckBuilderUtils';
 
 const mockCardData = [
-  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
+  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
 const mockDilemmaCard = {
@@ -77,7 +77,7 @@ const mockDilemmaCard = {
   type: 'dilemma',
   name: 'cardassian trap',
   imagefile: 'cardassian_trap',
-  pile: 'dilemma',
+  pile: 'dilemmaPile',
   count: 2,
 };
 
@@ -87,7 +87,7 @@ const mockEventCard = {
   type: 'event',
   name: 'distress call',
   imagefile: 'distress_call',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 

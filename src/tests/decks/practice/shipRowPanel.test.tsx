@@ -66,7 +66,7 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
 const mockCardData = [
-  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
+  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
 const mockShipCard = {
@@ -75,7 +75,7 @@ const mockShipCard = {
   type: 'ship',
   name: 'u.s.s. relativity',
   imagefile: 'relativity',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -85,7 +85,7 @@ const mockOtherShipCard = {
   type: 'ship',
   name: 'i.k.s. somraw',
   imagefile: 'somraw',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -95,7 +95,7 @@ const mockThirdShipCard = {
   type: 'ship',
   name: 'u.s.s. voyager',
   imagefile: 'voyager',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -105,7 +105,7 @@ const mockFourthShipCard = {
   type: 'ship',
   name: 'i.r.w. khazara',
   imagefile: 'khazara',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -115,7 +115,7 @@ const mockPersonnelCard = {
   type: 'personnel',
   name: 'data',
   imagefile: 'data',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 

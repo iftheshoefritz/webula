@@ -79,8 +79,8 @@ describe('the Decklist item of the game menu (#779)', () => {
 
     const panel = screen.getByRole('dialog', { name: 'Decklist' });
     const mission = within(panel).getByTestId('decklist-mission');
-    const dilemma = within(panel).getByTestId('decklist-dilemma');
-    const draw = within(panel).getByTestId('decklist-draw');
+    const dilemma = within(panel).getByTestId('decklist-dilemmaPile');
+    const draw = within(panel).getByTestId('decklist-drawDeck');
 
     expect(within(mission).getByText('Test Mission')).toBeInTheDocument();
     expect(within(mission).getByText('×1')).toBeInTheDocument();

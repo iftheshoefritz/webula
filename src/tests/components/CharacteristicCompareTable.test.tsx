@@ -3,7 +3,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import CharacteristicCompareTable from '../../components/CharacteristicCompareTable';
 
 const makeRow = (overrides = {}) => ({
-  pile: 'draw',
+  pile: 'drawDeck',
   type: 'personnel',
   keywords: '',
   count: 1,
@@ -13,7 +13,7 @@ const makeRow = (overrides = {}) => ({
 const keywordProps = {
   label: 'Keyword',
   characteristicName: 'keywords',
-  filterFunction: (row: any) => row.pile === 'draw' && row.type === 'personnel',
+  filterFunction: (row: any) => row.pile === 'drawDeck' && row.type === 'personnel',
   splitFunction: (keywords: string) =>
     keywords
       .split('.')

@@ -28,10 +28,10 @@ export function getReportsToOptions(deckRows: CardRow[]): ReportsToOption[] {
   const hasCaretakers = missions.some((row) => row.name.startsWith("caretaker's array"));
   if (hasCaretakers) {
     const hasEquinox = deckRows.some(
-      (row) => row.pile === 'draw' && row.type === 'ship' && row.name.includes('equinox')
+      (row) => row.pile === 'drawDeck' && row.type === 'ship' && row.name.includes('equinox')
     );
     const hasVoyager = deckRows.some(
-      (row) => row.pile === 'draw' && row.type === 'ship' && (
+      (row) => row.pile === 'drawDeck' && row.type === 'ship' && (
         row.name.includes('u.s.s. voyager') || (row.keywords || '').includes('commander: uss voyager')
       )
     );
@@ -47,7 +47,7 @@ export function getReportsToOptions(deckRows: CardRow[]): ReportsToOption[] {
   const hasPreventHistorical = missions.some((row) => row.name.includes('prevent historical disruption'));
   if (hasPreventHistorical) {
     const hasRelativity = deckRows.some(
-      (row) => row.pile === 'draw' && row.type === 'ship' && row.name.includes('relativity')
+      (row) => row.pile === 'drawDeck' && row.type === 'ship' && row.name.includes('relativity')
     );
     if (hasRelativity) {
       options.push({ label: 'Prevent Historical Disruption (Relativity)', value: 'prevent historical disruption relativity' });
@@ -57,7 +57,7 @@ export function getReportsToOptions(deckRows: CardRow[]): ReportsToOption[] {
   // No-HQ: To Rule In Hell (event in draw pile) + Ceti Alpha V (any version in missions)
   const hasCetiAlphaV = missions.some((row) => row.name.startsWith('ceti alpha v'));
   const hasToRuleInHell = deckRows.some(
-    (row) => row.pile === 'draw' && row.name.includes('to rule in hell')
+    (row) => row.pile === 'drawDeck' && row.name.includes('to rule in hell')
   );
   if (hasCetiAlphaV && hasToRuleInHell) {
     options.push({ label: 'Ceti Alpha V (Khan)', value: 'ceti alpha v khan' });

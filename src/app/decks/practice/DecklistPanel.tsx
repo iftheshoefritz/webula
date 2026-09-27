@@ -4,15 +4,15 @@ import { cardPileFor, DeckPile } from '../deckBuilderUtils';
 
 const PILES: { pile: DeckPile; title: string }[] = [
   { pile: 'mission', title: 'Missions' },
-  { pile: 'dilemma', title: 'Dilemmas' },
-  { pile: 'draw', title: 'Draw' },
+  { pile: 'dilemmaPile', title: 'Dilemmas' },
+  { pile: 'drawDeck', title: 'Draw' },
 ];
 
 type DecklistEntry = { key: string; name: string; count: number };
 
 // The deck as loaded, grouped by pile (#779), sorted by name within each pile.
 export function decklistByPile(deck: DeckList): Record<DeckPile, DecklistEntry[]> {
-  const result: Record<DeckPile, DecklistEntry[]> = { mission: [], dilemma: [], draw: [] };
+  const result: Record<DeckPile, DecklistEntry[]> = { mission: [], dilemmaPile: [], drawDeck: [] };
   for (const [key, entry] of Object.entries(deck)) {
     if (!entry?.row || !(entry.count > 0)) continue;
     result[cardPileFor(entry.row)].push({ key, name: entry.row.originalName ?? entry.row.name, count: entry.count });

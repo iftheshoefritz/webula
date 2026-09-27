@@ -14,7 +14,7 @@ beforeEach(() => {
 });
 
 const makeRow = (overrides = {}) => ({
-  pile: 'dilemma',
+  pile: 'dilemmaPile',
   dilemmatype: 'p',
   count: 1,
   ...overrides,
@@ -52,7 +52,7 @@ describe('PileAggregateDilemmaTypeChart', () => {
       render(
         <PileAggregateDilemmaTypeChart
           currentDeckRows={[
-            makeRow({ pile: 'draw', dilemmatype: '', count: 5 }),
+            makeRow({ pile: 'drawDeck', dilemmatype: '', count: 5 }),
             makeRow({ dilemmatype: 'p', count: 2 }),
           ]}
         />

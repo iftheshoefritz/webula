@@ -27,7 +27,7 @@ interface SkillsChartProps {
 
 export function countDrawPileCards(rows: any[]): number {
   return rows
-    .filter((row) => row.pile === 'draw')
+    .filter((row) => row.pile === 'drawDeck')
     .reduce((total, row) => total + row.count, 0);
 }
 
@@ -35,7 +35,7 @@ export function countSkills(rows: any[]): Record<string, number> {
   const counts: Record<string, number> = {};
 
   rows
-    .filter((row) => row.pile === 'draw' && row.type === 'personnel')
+    .filter((row) => row.pile === 'drawDeck' && row.type === 'personnel')
     .forEach((row) => {
       const skills: string[] = (row.skills || '').match(/(?:\d+ \w+|\w+)/g) || [];
       skills.forEach((skillItem: string) => {

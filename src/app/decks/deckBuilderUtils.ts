@@ -13,11 +13,11 @@ export const findExistingOrUseRow = (deck, row) => (
   findExisting(deck, row) ?? row
 )
 
-export const cardPileFor = (card: CardDef) => {
+export const cardPileFor = (card: CardDef): DeckPile => {
   switch(card.type) {
     case "mission": return "mission";
-    case "dilemma": return "dilemma";
-    default: return "draw";
+    case "dilemma": return "dilemmaPile";
+    default: return "drawDeck";
   }
 }
 
@@ -61,7 +61,7 @@ const expandPile = (deck: DeckList, pile: DeckPile): any[] => {
   return result;
 }
 
-export const expandDeck = (deck: DeckList): any[] => expandPile(deck, 'draw')
+export const expandDeck = (deck: DeckList): any[] => expandPile(deck, 'drawDeck')
 
 // Pulls the deck's mission-pile entries in the same deck-iteration order expandDeck uses, kept
 // un-shuffled: the mission row deals a fixed set in deck order, not a random draw (practice
@@ -71,7 +71,7 @@ export const extractMissions = (deck: DeckList): any[] => expandPile(deck, 'miss
 // The dilemmas of the deck, one entry per copy (#604). Unlike a mission, a deck holds several
 // copies of one dilemma, and `expandPile` already repeats an entry `count` times. The caller
 // shuffles this list, because the dilemma pile starts shuffled like the draw pile.
-export const extractDilemmas = (deck: DeckList): any[] => expandPile(deck, 'dilemma')
+export const extractDilemmas = (deck: DeckList): any[] => expandPile(deck, 'dilemmaPile')
 
 // True when the loaded deck has no cards at all, across missions, dilemmas and draw combined —
 // used for the practice page's empty state, which must stay hidden for a deck that has only
@@ -80,14 +80,26 @@ export const isDeckEmpty = (deck: DeckList): boolean => (
   Object.values(deck).every((entry) => numericCount(entry) === 0)
 )
 
-export type DeckPile = 'mission' | 'dilemma' | 'draw';
+export type DeckPile = 'mission' | 'dilemmaPile' | 'drawDeck';
+
+// A deck saved before #837 holds `pile: 'dilemma'` or `pile: 'draw'` on its rows. The pile
+// depends only on the card type, so the loader computes it again and ignores the saved value.
+export const withCurrentPiles = (deck: DeckList): DeckList => {
+  if (Object.values(deck).every((entry) => entry?.row?.pile === cardPileFor(entry.row))) return deck;
+  return Object.fromEntries(
+    Object.entries(deck).map(([key, entry]) => [
+      key,
+      entry?.row ? { ...entry, row: { ...entry.row, pile: cardPileFor(entry.row) } } : entry,
+    ])
+  );
+}
 
 export function mergeDeckPiles(current: DeckList, incoming: DeckList, piles: DeckPile[]): DeckList {
   const kept = Object.fromEntries(
-    Object.entries(current).filter(([, v]) => !piles.includes(cardPileFor(v.row) as DeckPile))
+    Object.entries(current).filter(([, v]) => !piles.includes(cardPileFor(v.row)))
   );
   const added = Object.fromEntries(
-    Object.entries(incoming).filter(([, v]) => piles.includes(cardPileFor(v.row) as DeckPile))
+    Object.entries(incoming).filter(([, v]) => piles.includes(cardPileFor(v.row)))
   );
   return { ...kept, ...added };
 }

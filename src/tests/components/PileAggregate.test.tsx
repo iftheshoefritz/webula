@@ -9,7 +9,7 @@ const assembleCounts = (counts: Record<string, number>, item: string, count: num
 };
 
 const makeRow = (overrides = {}) => ({
-  pile: 'draw',
+  pile: 'drawDeck',
   keywords: 'Officer',
   count: 1,
   ...overrides,

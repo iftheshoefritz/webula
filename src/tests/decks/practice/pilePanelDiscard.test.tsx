@@ -72,7 +72,7 @@ const makePersonnel = (n: number) => ({
   type: 'personnel',
   name: `personnel ${n}`,
   imagefile: `personnel_${n}`,
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 });
 

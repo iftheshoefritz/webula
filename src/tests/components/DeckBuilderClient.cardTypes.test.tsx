@@ -63,7 +63,7 @@ const makeRow = (collectorsinfo: string, name: string, type: string, count: numb
   originalName: name,
   type,
   name,
-  pile: 'draw',
+  pile: 'drawDeck',
   icons: '',
   keywords: '',
   count,

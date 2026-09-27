@@ -1,4 +1,4 @@
-import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, cardPileFor, deckFromTsv, decrementedRow, expandDeck, extractMissions, findExisting, findExistingOrUseRow, incrementedRow, isDeckEmpty, mergeDeckPiles, numericCount, parsedDeck, shuffleArray } from '../../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, cardPileFor, deckFromTsv, decrementedRow, expandDeck, extractMissions, findExisting, findExistingOrUseRow, incrementedRow, isDeckEmpty, mergeDeckPiles, numericCount, parsedDeck, shuffleArray, withCurrentPiles } from '../../app/decks/deckBuilderUtils';
 import { CardDef } from '../../types';
 
 describe('constructing a deck object based on TSV text and a list of all card data', () => {
@@ -10,7 +10,7 @@ describe('constructing a deck object based on TSV text and a list of all card da
     ]
     const deck = deckFromTsv(tsv, data)
     expect(deck['1R000'].row.pile).toEqual('mission')
-    expect(deck['2C001'].row.pile).toEqual('draw')
+    expect(deck['2C001'].row.pile).toEqual('drawDeck')
     expect(deck['1R000'].row.count).toEqual(1)
     expect(deck['1R000'].count).toEqual(1)
     expect(deck['2C001'].row.count).toEqual(2)
@@ -58,7 +58,7 @@ describe('constructing a deck object based on TSV lines and a list of all card d
     ]
     const deck = parsedDeck(lines, data)
     expect(deck['1R000'].row.pile).toEqual('mission')
-    expect(deck['2C001'].row.pile).toEqual('dilemma')
+    expect(deck['2C001'].row.pile).toEqual('dilemmaPile')
   })
 
   it('returns the right number of rows', () => {
@@ -90,7 +90,7 @@ describe('incrementedRow', () => {
   it('includes a pile property based on the input row', () => {
     const row = {count: 2, type: 'event'}
     const incremented = incrementedRow(row)
-    expect(incremented.pile).toEqual('draw')
+    expect(incremented.pile).toEqual('drawDeck')
   })
 
   it('returns a row with 1 if the input row has no count', () => {
@@ -126,14 +126,14 @@ describe('cardPileFor', () => {
     expect(cardPileFor(card)).toEqual('mission')
   })
 
-  it('returns "dilemma" for a dilemma card', () => {
+  it('returns "dilemmaPile" for a dilemma card', () => {
     const card = cardFixture({type: 'dilemma'})
-    expect(cardPileFor(card)).toEqual('dilemma')
+    expect(cardPileFor(card)).toEqual('dilemmaPile')
   })
 
-  it('returns "draw" for any other card type', () => {
+  it('returns "drawDeck" for any other card type', () => {
     const card = cardFixture({type: 'event'})
-    expect(cardPileFor(card)).toEqual('draw')
+    expect(cardPileFor(card)).toEqual('drawDeck')
   })
 })
 
@@ -223,7 +223,7 @@ describe('findExistingOrUseRow', () => {
 describe('expandDeck', () => {
   it('expands draw cards by their count', () => {
     const deck = {
-      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw' }, count: 2 },
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'drawDeck' }, count: 2 },
     }
     expect(expandDeck(deck).length).toEqual(2)
   })
@@ -237,7 +237,7 @@ describe('expandDeck', () => {
 
   it('excludes dilemma cards', () => {
     const deck = {
-      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemma' }, count: 3 },
+      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemmaPile' }, count: 3 },
     }
     expect(expandDeck(deck).length).toEqual(0)
   })
@@ -270,7 +270,7 @@ describe('extractMissions', () => {
   it('extracts mission cards in deck order', () => {
     const deck = {
       '1R000': { row: { collectorsinfo: '1R000', type: 'mission', pile: 'mission', name: 'Mission A' }, count: 1 },
-      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw', name: 'Event' }, count: 2 },
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'drawDeck', name: 'Event' }, count: 2 },
       '1R001': { row: { collectorsinfo: '1R001', type: 'mission', pile: 'mission', name: 'Mission B' }, count: 1 },
     }
     expect(extractMissions(deck).map((c) => c.name)).toEqual(['Mission A', 'Mission B'])
@@ -278,8 +278,8 @@ describe('extractMissions', () => {
 
   it('excludes dilemma and draw cards', () => {
     const deck = {
-      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw' }, count: 2 },
-      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemma' }, count: 3 },
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'drawDeck' }, count: 2 },
+      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemmaPile' }, count: 3 },
     }
     expect(extractMissions(deck)).toEqual([])
   })
@@ -297,14 +297,14 @@ describe('isDeckEmpty', () => {
   it('returns false for a deck with only mission and dilemma entries (no draw cards)', () => {
     const deck = {
       '1R000': { row: { collectorsinfo: '1R000', type: 'mission', pile: 'mission' }, count: 1 },
-      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemma' }, count: 2 },
+      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemmaPile' }, count: 2 },
     }
     expect(isDeckEmpty(deck)).toEqual(false)
   })
 
   it('returns false for a deck with only draw cards', () => {
     const deck = {
-      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw' }, count: 2 },
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'drawDeck' }, count: 2 },
     }
     expect(isDeckEmpty(deck)).toEqual(false)
   })
@@ -334,8 +334,8 @@ describe('shuffleArray', () => {
 
 describe('mergeDeckPiles', () => {
   const missionCard = { collectorsinfo: 'M1', type: 'mission', originalName: 'Mission 1', pile: 'mission', count: 1, name: 'Mission 1', dilemmatype: '', imagefile: '', unique: 'n', mission: 'S' };
-  const dilemmaCard = { collectorsinfo: 'D1', type: 'dilemma', originalName: 'Dilemma 1', pile: 'dilemma', count: 2, name: 'Dilemma 1', dilemmatype: 'planet', imagefile: '', unique: 'n', mission: '' };
-  const drawCard = { collectorsinfo: 'P1', type: 'personnel', originalName: 'Personnel 1', pile: 'draw', count: 3, name: 'Personnel 1', dilemmatype: '', imagefile: '', unique: 'n', mission: '' };
+  const dilemmaCard = { collectorsinfo: 'D1', type: 'dilemma', originalName: 'Dilemma 1', pile: 'dilemmaPile', count: 2, name: 'Dilemma 1', dilemmatype: 'planet', imagefile: '', unique: 'n', mission: '' };
+  const drawCard = { collectorsinfo: 'P1', type: 'personnel', originalName: 'Personnel 1', pile: 'drawDeck', count: 3, name: 'Personnel 1', dilemmatype: '', imagefile: '', unique: 'n', mission: '' };
 
   const currentDeck = {
     M1: { count: 1, row: missionCard },
@@ -354,7 +354,7 @@ describe('mergeDeckPiles', () => {
   };
 
   it('loading only dilemmas replaces dilemmas and keeps missions + draw', () => {
-    const result = mergeDeckPiles(currentDeck, incomingDeck, ['dilemma']);
+    const result = mergeDeckPiles(currentDeck, incomingDeck, ['dilemmaPile']);
     expect(result['M1']).toBeDefined();
     expect(result['P1']).toBeDefined();
     expect(result['D2']).toBeDefined();
@@ -364,7 +364,7 @@ describe('mergeDeckPiles', () => {
   });
 
   it('loading only draw replaces draw and keeps missions + dilemmas', () => {
-    const result = mergeDeckPiles(currentDeck, incomingDeck, ['draw']);
+    const result = mergeDeckPiles(currentDeck, incomingDeck, ['drawDeck']);
     expect(result['M1']).toBeDefined();
     expect(result['D1']).toBeDefined();
     expect(result['P2']).toBeDefined();
@@ -384,7 +384,7 @@ describe('mergeDeckPiles', () => {
   });
 
   it('loading multiple piles replaces those piles and keeps the rest', () => {
-    const result = mergeDeckPiles(currentDeck, incomingDeck, ['mission', 'dilemma']);
+    const result = mergeDeckPiles(currentDeck, incomingDeck, ['mission', 'dilemmaPile']);
     expect(result['P1']).toBeDefined();
     expect(result['M2']).toBeDefined();
     expect(result['D2']).toBeDefined();
@@ -448,3 +448,25 @@ describe('building bulk-import payloads from locally selected LackeyCCG files', 
     expect(payloads.map((p) => p.title)).toEqual(['Deck A', 'Deck A (2)']);
   });
 })
+
+describe('withCurrentPiles', () => {
+  it('computes the pile again for a deck saved with the old values "draw" and "dilemma" (#837)', () => {
+    const saved = {
+      '1R000': { row: { collectorsinfo: '1R000', type: 'mission', pile: 'mission' }, count: 1 },
+      '2C001': { row: { collectorsinfo: '2C001', type: 'dilemma', pile: 'dilemma' }, count: 2 },
+      '3C002': { row: { collectorsinfo: '3C002', type: 'personnel', pile: 'draw' }, count: 3 },
+    };
+    const deck = withCurrentPiles(saved);
+    expect(deck['1R000'].row.pile).toEqual('mission');
+    expect(deck['2C001'].row.pile).toEqual('dilemmaPile');
+    expect(deck['3C002'].row.pile).toEqual('drawDeck');
+    expect(deck['2C001'].count).toEqual(2);
+  });
+
+  it('returns the same deck when every pile is current', () => {
+    const current = {
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'drawDeck' }, count: 2 },
+    };
+    expect(withCurrentPiles(current)).toBe(current);
+  });
+});
