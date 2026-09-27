@@ -1,5 +1,5 @@
 import searchQueryParser from 'search-query-parser';
-import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from './constants';
+import { textColumns, textAbbreviations, numericColumns, numericAbbreviations } from './constants';
 import { AFFILIATION_ABBREVIATIONS } from './missionRequirements';
 import { reportsToMatches } from './hqPlayability';
 import { getReportsToOptions } from './reportsToOptions';
@@ -71,7 +71,7 @@ function toArray(item: string | string[]): string[] {
 const colInQuery = (col: string, parsedQuery: ParsedQuery): string => {
   if (parsedQuery[col]) return col;
   if (parsedQuery.exclude && parsedQuery.exclude[col]) return col;
-  return textAbbreviations[col] || rangeAbbreviations[col];
+  return textAbbreviations[col] || numericAbbreviations[col];
 }
 
 export function filterCards(data: CardRow[], columns: string[], searchQuery: string, deckRows?: CardRow[]): CardRow[] {
@@ -80,7 +80,7 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
 
   const parsedQuery: ParsedQuery = searchQueryParser.parse((searchQuery.toLowerCase() || '').replace(QUOTE_CHARS_REGEX, '"'), {
     keywords: textColumns.concat(Object.values(textAbbreviations)),
-    ranges: rangeColumns.concat(Object.values(rangeAbbreviations)),
+    ranges: numericColumns.concat(Object.values(numericAbbreviations)),
     offsets: false,
   }) as ParsedQuery;
 
@@ -103,7 +103,7 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
     });
 
     const withoutExcluded = data.filter((row) => {
-      return textColumns.concat(rangeColumns).every((column) => {
+      return textColumns.concat(numericColumns).every((column) => {
         const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery);
         if (parsedQuery.exclude && parsedQuery.exclude[fullOrAbbreviatedColumn]) {
           if (textColumns.includes(column)) {
@@ -131,7 +131,7 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
     });
 
     filtered = withoutExcluded.filter((row) => {
-      return textColumns.concat(rangeColumns).every((column) => {
+      return textColumns.concat(numericColumns).every((column) => {
         const fullOrAbbreviatedColumn = colInQuery(column, parsedQuery);
         if (parsedQuery[fullOrAbbreviatedColumn]) {
           if (textColumns.includes(column)) {
@@ -158,7 +158,7 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
               }
               return row[column].includes(match);
             });
-          } else if (rangeColumns.includes(column)) {
+          } else if (numericColumns.includes(column)) {
             const range = parsedQuery[fullOrAbbreviatedColumn] as RangeValue;
             const rowValue = parseFloat(row[column]);
             const fromValue = (range.from !== '' && range.from !== undefined) ? parseFloat(range.from) : -Infinity;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { textAbbreviations, rangeAbbreviations } from '../lib/constants';
+import { textAbbreviations, numericAbbreviations } from '../lib/constants';
 
 type HelpProps = {
   variant?: 'legacy' | 'styled';
@@ -54,7 +54,7 @@ const StyledHelp = (): JSX.Element => {
 
           <div className="syntax-panel-title">Numeric Fields</div>
           <div className="flex flex-wrap gap-1.5">
-            {Object.entries(rangeAbbreviations).map(([col, abbr]) => (
+            {Object.entries(numericAbbreviations).map(([col, abbr]) => (
               <span key={col} className="text-xs px-1.5 py-0.5 bg-white/[0.05] rounded text-text-secondary">
                 {col} <span className="text-text-muted">({abbr})</span>
               </span>
@@ -99,7 +99,7 @@ const LegacyHelp = (): JSX.Element => (
         <div className="flex flex-wrap">
           {
             Object
-              .entries( rangeAbbreviations )
+              .entries( numericAbbreviations )
               .map(([col,abbr]) => (
                 <div key={col} className="bg-gray-200 p-2 m-1">{col} ({abbr})</div>))
           }

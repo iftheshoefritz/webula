@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import searchQueryParser from 'search-query-parser';
-import { textColumns, textAbbreviations, rangeColumns, rangeAbbreviations } from '../lib/constants';
+import { textColumns, textAbbreviations, numericColumns, numericAbbreviations } from '../lib/constants';
 import { SKILLS, AFFILIATIONS, SETS, SET_ABBREVIATIONS_TO_NAMES, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES, ICONS, KEYWORDS, AFFILIATION_ICONS, CARD_ICON_IMAGES, DILEMMA_TYPE_ICONS, MISSION_TYPE_ICONS, SHIP_CLASSES, SPECIES } from '../lib/missionRequirements';
 import { HQ_NAMES } from '../lib/hqPlayability';
 
@@ -10,13 +10,13 @@ import { HQ_NAMES } from '../lib/hqPlayability';
 const textAbbreviationToFull: Record<string, string> = Object.fromEntries(
   Object.entries(textAbbreviations).map(([full, abbrev]) => [abbrev, full])
 );
-const rangeAbbreviationToFull: Record<string, string> = Object.fromEntries(
-  Object.entries(rangeAbbreviations).map(([full, abbrev]) => [abbrev, full])
+const numericAbbreviationToFull: Record<string, string> = Object.fromEntries(
+  Object.entries(numericAbbreviations).map(([full, abbrev]) => [abbrev, full])
 );
 
 // Expand an abbreviation to its full keyword, or return as-is if already full
 function expandKeyword(keyword: string): string {
-  return textAbbreviationToFull[keyword] || rangeAbbreviationToFull[keyword] || keyword;
+  return textAbbreviationToFull[keyword] || numericAbbreviationToFull[keyword] || keyword;
 }
 
 // Look up icon URL for a filter key+value (values are lowercase after parsing)
@@ -61,7 +61,7 @@ interface ParsedFilter {
   key: string;
   value: string;
   isExclude: boolean;
-  isRange: boolean;
+  isNumeric: boolean;
   rawText: string;
 }
 
@@ -96,7 +96,7 @@ const SIMPLE_TYPEAHEAD_CONFIGS: Record<string, SimpleTypeaheadConfig> = {
   species: { field: 'species', title: 'Select a Species', options: SPECIES, placeholder: 'Search species...', noMatchText: 'No species match' },
 };
 
-const RANGE_DEFAULTS: Record<string, number> = {
+const NUMERIC_DEFAULTS: Record<string, number> = {
   cost: 2,
   span: 3,
   points: 35,
@@ -117,7 +117,7 @@ export function parseFilters(searchQuery: string): ParsedFilter[] {
 
   const parsedQuery = searchQueryParser.parse(normalizedQuery, {
     keywords: textColumns.concat(Object.values(textAbbreviations)),
-    ranges: rangeColumns.concat(Object.values(rangeAbbreviations)),
+    ranges: numericColumns.concat(Object.values(numericAbbreviations)),
     offsets: false,
   });
 
@@ -130,7 +130,7 @@ export function parseFilters(searchQuery: string): ParsedFilter[] {
         key: '',
         value: parsedQuery.trim(),
         isExclude: false,
-        isRange: false,
+        isNumeric: false,
         rawText: parsedQuery.trim(),
       });
     }
@@ -145,7 +145,7 @@ export function parseFilters(searchQuery: string): ParsedFilter[] {
         key: '',
         value,
         isExclude: false,
-        isRange: false,
+        isNumeric: false,
         rawText: value,
       });
     });
@@ -164,19 +164,19 @@ export function parseFilters(searchQuery: string): ParsedFilter[] {
           key: keyword,
           value,
           isExclude: false,
-          isRange: false,
+          isNumeric: false,
           rawText: `${displayKey}:${displayValue}`,
         });
       });
     }
   });
 
-  // Handle range filters
-  const allRanges = [...rangeColumns, ...Object.values(rangeAbbreviations)];
-  allRanges.forEach((range) => {
-    if (parsedQuery[range]) {
-      const rangeValue = parsedQuery[range];
-      const displayKey = expandKeyword(range);
+  // Handle numeric filters
+  const allNumericFields = [...numericColumns, ...Object.values(numericAbbreviations)];
+  allNumericFields.forEach((field) => {
+    if (parsedQuery[field]) {
+      const rangeValue = parsedQuery[field];
+      const displayKey = expandKeyword(field);
       let displayValue = '';
       if (rangeValue.from !== undefined && rangeValue.to !== undefined) {
         displayValue = `${rangeValue.from}-${rangeValue.to}`;
@@ -187,10 +187,10 @@ export function parseFilters(searchQuery: string): ParsedFilter[] {
       }
       if (displayValue) {
         filters.push({
-          key: range,
+          key: field,
           value: displayValue,
           isExclude: false,
-          isRange: true,
+          isNumeric: true,
           rawText: `${displayKey}:${displayValue}`,
         });
       }
@@ -213,7 +213,7 @@ export function parseFilters(searchQuery: string): ParsedFilter[] {
             key: keyword,
             value,
             isExclude: true,
-            isRange: false,
+            isNumeric: false,
             rawText: `-${displayKey}:${displayValue}`,
           });
         });
@@ -243,7 +243,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
 
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [editingFilter, setEditingFilter] = useState<ParsedFilter | null>(null);
-  const [selectedRangeFilter, setSelectedRangeFilter] = useState<string | null>(null);
+  const [selectedNumericFilter, setSelectedNumericFilter] = useState<string | null>(null);
   const [rangeMin, setRangeMin] = useState(5);
   const [rangeMax, setRangeMax] = useState(5);
   const [showSkillsTypeahead, setShowSkillsTypeahead] = useState(false);
@@ -284,7 +284,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setIsPopoverOpen(true);
     setEditingFilter(null);
     onPopoverOpenChange?.(true);
-    setSelectedRangeFilter(null);
+    setSelectedNumericFilter(null);
     setFilterMode('include');
   };
 
@@ -292,7 +292,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setIsPopoverOpen(false);
     setEditingFilter(null);
     onPopoverOpenChange?.(false);
-    setSelectedRangeFilter(null);
+    setSelectedNumericFilter(null);
     setShowSkillsTypeahead(false);
     setSkillsSearch('');
     setShowAffiliationTypeahead(false);
@@ -312,7 +312,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
 
   const handleEditFilter = (filter: ParsedFilter) => {
     // Reset all popover states before opening in edit mode
-    setSelectedRangeFilter(null);
+    setSelectedNumericFilter(null);
     setShowSkillsTypeahead(false);
     setSkillsSearch('');
     setShowAffiliationTypeahead(false);
@@ -331,16 +331,16 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     setEditingFilter(filter);
     setFilterMode(filter.isExclude ? 'exclude' : 'include');
 
-    if (filter.isRange) {
+    if (filter.isNumeric) {
       const expandedKey = expandKeyword(filter.key);
-      setSelectedRangeFilter(expandedKey);
+      setSelectedNumericFilter(expandedKey);
       // Parse existing range values (e.g. "2-5", "3-", "-5")
       const dashIdx = filter.value.indexOf('-');
       if (dashIdx >= 0) {
         const minStr = filter.value.slice(0, dashIdx);
         const maxStr = filter.value.slice(dashIdx + 1);
-        setRangeMin(minStr ? parseInt(minStr, 10) : (RANGE_DEFAULTS[expandedKey] ?? 5));
-        setRangeMax(maxStr ? parseInt(maxStr, 10) : (RANGE_DEFAULTS[expandedKey] ?? 5));
+        setRangeMin(minStr ? parseInt(minStr, 10) : (NUMERIC_DEFAULTS[expandedKey] ?? 5));
+        setRangeMax(maxStr ? parseInt(maxStr, 10) : (NUMERIC_DEFAULTS[expandedKey] ?? 5));
       }
     } else {
       const fullKey = expandKeyword(filter.key);
@@ -453,17 +453,17 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
     closePopover();
   };
 
-  const handleSelectRangeFilter = (fieldName: string) => {
-    const defaultVal = RANGE_DEFAULTS[fieldName] ?? 5;
-    setSelectedRangeFilter(fieldName);
+  const handleSelectNumericFilter = (fieldName: string) => {
+    const defaultVal = NUMERIC_DEFAULTS[fieldName] ?? 5;
+    setSelectedNumericFilter(fieldName);
     setRangeMin(defaultVal);
     setRangeMax(defaultVal);
   };
 
-  const handleAddRangeFilter = () => {
+  const handleAddNumericFilter = () => {
     const base = getBaseQuery();
     const prefix = base.trim() ? `${base.trim()} ` : '';
-    setSearchQuery(`${prefix}${selectedRangeFilter}:${rangeMin}-${rangeMax}`);
+    setSearchQuery(`${prefix}${selectedNumericFilter}:${rangeMin}-${rangeMax}`);
     closePopover();
   };
 
@@ -484,7 +484,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
 
     // When editing an existing filter, immediately re-commit with the new mode
     // so the search query (and results) update right away.
-    if (editingFilter && !editingFilter.isRange) {
+    if (editingFilter && !editingFilter.isNumeric) {
       const base = removeFilter(searchQuery, editingFilter);
       const prefix = base.trim() ? `${base.trim()} ` : '';
       const excludePrefix = newMode === 'exclude' ? '-' : '';
@@ -631,9 +631,9 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
           className="syntax-panel absolute left-0 top-full mt-1 z-20 min-w-[240px] !bg-[#131713] border-white/[0.1]"
           style={popoverLeftOffset !== 0 ? { left: popoverLeftOffset } : undefined}
         >
-          {selectedRangeFilter ? (
+          {selectedNumericFilter ? (
             <>
-              <div className="syntax-panel-title">{selectedRangeFilter}</div>
+              <div className="syntax-panel-title">{selectedNumericFilter}</div>
               {renderIncludeExcludeToggle(true)}
               <div className="flex items-center gap-4 my-2">
                 <div className="flex flex-col items-center gap-1">
@@ -678,11 +678,11 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 </div>
               </div>
               <button
-                onClick={handleAddRangeFilter}
+                onClick={handleAddNumericFilter}
                 className="btn-primary mt-3 w-full"
-                aria-label={`Add ${selectedRangeFilter}:${rangeMin}-${rangeMax}`}
+                aria-label={`Add ${selectedNumericFilter}:${rangeMin}-${rangeMax}`}
               >
-                Add {selectedRangeFilter}:{rangeMin}-{rangeMax}
+                Add {selectedNumericFilter}:{rangeMin}-{rangeMax}
               </button>
             </>
           ) : showSkillsTypeahead ? (
@@ -975,12 +975,12 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
               </div>
 
               <div className="divider" />
-              <div className="syntax-panel-title">Range Filters</div>
+              <div className="syntax-panel-title">Numeric Filters</div>
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {Object.keys(RANGE_DEFAULTS).map((filter) => (
+                {Object.keys(NUMERIC_DEFAULTS).map((filter) => (
                   <button
                     key={filter}
-                    onClick={() => handleSelectRangeFilter(filter)}
+                    onClick={() => handleSelectNumericFilter(filter)}
                     className="text-xs px-2 py-1 bg-white/[0.05] border border-white/10
                                rounded-md text-text-secondary hover:text-text-primary
                                hover:bg-white/[0.08] transition-colors font-mono"
