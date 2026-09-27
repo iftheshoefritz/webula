@@ -44,7 +44,7 @@ export interface CardInstance {
 }
 
 // A mission slot holds the mission card dealt into that position (#597), the ships placed on
-// that mission's ship row (#599), the personnel pile (#602), and the permanent, face-up pile of
+// that mission's ship row (#599), the away team (#602), and the permanent, face-up pile of
 // dilemmas moved under the mission (#606). The events at a mission are placed on the mission card
 // itself (#813), in its `on` array, so a slot has no event pile of its own. The mission
 // row always has MISSION_SLOTS of these, regardless of how many missions the deck has; a slot
@@ -52,7 +52,7 @@ export interface CardInstance {
 export interface MissionSlot {
   mission: CardInstance | null;
   ships: CardInstance[];
-  personnel: CardInstance[];
+  awayTeam: CardInstance[];
   underMission: CardInstance[];
 }
 
@@ -72,11 +72,13 @@ export interface CrewLocation {
   shipId: string;
 }
 
-// A mission's personnel and under-mission piles, addressed by mission index like a ship row, plus
-// which pile. A card dropped on the personnel badge files into the personnel pile (#602, #813).
+// A mission's away team and under-mission piles, addressed by mission index like a ship row, plus
+// which pile. A card dropped on the away team badge files into the away team (#602, #813).
+// The rulebook away team is the personnel at a planet mission, and its pair is the crew aboard a
+// ship. This code uses the one name at every mission type; see docs/ubiquitous-language.md.
 // A dilemma dropped on a mission, from anywhere, goes under it instead, face up, permanently
 // (#606, #733). Any other card dropped on the mission card is placed on it (#813).
-export type MissionPileName = 'personnel' | 'underMission';
+export type MissionPileName = 'awayTeam' | 'underMission';
 
 export interface MissionPileLocation {
   zone: 'missionPile';
@@ -178,7 +180,7 @@ export type TableAction =
   | { type: 'adjustScore'; delta: number }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] }
   // The seeded fixture of `/decks/practice?fixture=piles` (#802): deals like `reset`, then puts
-  // `SEED_PILE_PERSONNEL` personnel into the first mission's personnel pile, and a ship with
+  // `SEED_PILE_PERSONNEL` personnel into the first mission's away team, and a ship with
   // `SEED_CREW` personnel aboard into the second mission's ship row. The cards come from the deck
   // itself, taken in deck order, so a deck in a fixed order seeds the same cards every time.
   | { type: 'resetWithPiles'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
@@ -207,11 +209,11 @@ const CREW_FACE: Face = 'up';
 // A card placed on a host is always face up (#809).
 const ON_FACE: Face = 'up';
 
-// A mission pile's face convention: personnel/equipment go into the personnel pile face down
+// A mission pile's face convention: personnel/equipment go into the away team face down
 // (matching the parent design's default for a personnel/equipment card in play). A dilemma moved
 // under the mission is always face up, matching the parent design's zone for it (#606).
 const MISSION_PILE_FACE: Record<MissionPileName, Face> = {
-  personnel: 'down',
+  awayTeam: 'down',
   underMission: 'up',
 };
 
@@ -227,7 +229,7 @@ export const initialTableState: TableState = {
   missions: Array.from({ length: MISSION_SLOTS }, () => ({
     mission: null,
     ships: [],
-    personnel: [],
+    awayTeam: [],
     underMission: [],
   })),
   turn: 1,
@@ -323,12 +325,12 @@ const findCrewLocation = (state: TableState, id: string): CrewLocation | null =>
   return null;
 };
 
-// Finds a card in any of a mission's piles (personnel, #602; under the mission, #606),
+// Finds a card in any of a mission's piles (the away team, #602; under the mission, #606),
 // across all mission slots.
 const findMissionPileLocation = (state: TableState, id: string): MissionPileLocation | null => {
   for (let i = 0; i < state.missions.length; i++) {
     const slot = state.missions[i];
-    if (slot.personnel.some((c) => c.id === id)) return { zone: 'missionPile', missionIndex: i, pile: 'personnel' };
+    if (slot.awayTeam.some((c) => c.id === id)) return { zone: 'missionPile', missionIndex: i, pile: 'awayTeam' };
     if (slot.underMission.some((c) => c.id === id))
       return { zone: 'missionPile', missionIndex: i, pile: 'underMission' };
   }
@@ -569,7 +571,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
 
     case 'setStopped': {
       // Each id applies to whatever state the previous id's update left behind, so multiple ids
-      // in different zones (say, one card in the core and another in a mission's personnel pile)
+      // in different zones (say, one card in the core and another in a mission's away team)
       // all update correctly off one action.
       return action.ids.reduce((currentState, id) => {
         const found = findInstanceAnywhere(currentState, id);
@@ -605,7 +607,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         ...slot,
         mission: slot.mission?.stopped ? { ...slot.mission, stopped: false } : slot.mission,
         ships: unstopShips(slot.ships),
-        personnel: unstopCards(slot.personnel),
+        awayTeam: unstopCards(slot.awayTeam),
         underMission: unstopCards(slot.underMission),
       }));
       return {
@@ -640,7 +642,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const missions: MissionSlot[] = Array.from({ length: MISSION_SLOTS }, (_, i) => ({
         mission: action.missions[i] ?? null,
         ships: [],
-        personnel: [],
+        awayTeam: [],
         underMission: [],
       }));
       // The dilemmas arrive already shuffled, and all of them start in the dilemma pile: a new
@@ -669,7 +671,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const dealt = tableReducer(state, { ...action, type: 'reset', cards: action.cards.filter((c) => !seeded.has(c.id)) });
       const missions = dealt.missions.map((slot, i) => {
         if (i === 0) {
-          return { ...slot, personnel: pileCards.map((c) => ({ ...c, face: MISSION_PILE_FACE.personnel })) };
+          return { ...slot, awayTeam: pileCards.map((c) => ({ ...c, face: MISSION_PILE_FACE.awayTeam })) };
         }
         if (i === 1 && ship) {
           const crewed = { ...ship, face: SHIP_ROW_FACE, crew: crew.map((c) => ({ ...c, face: CREW_FACE })) };

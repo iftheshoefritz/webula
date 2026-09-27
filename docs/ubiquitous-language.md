@@ -142,7 +142,7 @@ is "open" or "closed", never "stacked".
 | the five missions in a row | `MissionSlot`, `MISSION_SLOTS = 5` | The row always has five slots, even for a deck with fewer missions. See [section 7](#7-names-kept-and-why). |
 | a ship in line with a mission | `ShipRowLocation`, `zone: 'shipRow'` | Addressed by mission index. See [section 7](#7-names-kept-and-why). |
 | aboard a ship | `CrewLocation`, `zone: 'crew'`, `CardInstance.crew` | Addressed by the ship's own id, so a ship move keeps its crew. |
-| the stack of personnel on a mission | `MissionPileLocation`, pile `'personnel'` | The rulebook calls it a single stack on the mission. |
+| away team (personnel at a planet mission) | `MissionPileLocation`, pile `'awayTeam'`, `MissionSlot.awayTeam` | The pair of `crew`, the personnel aboard a ship. The drop target id is `mission-pile-awayTeam-<index>` and the label is "Away team". **The code uses the one name at every mission type**, so it reads wrong at a headquarters mission and at a space mission, where the rulebook has no away team. The owner accepts this: the pile is the same place at every mission, and one name is clearer than three. |
 | overcome dilemmas beneath the mission | `MissionPileLocation`, pile `'underMission'` | The UI label is "Under the mission". |
 | play and place (a card placed on another card) | `OnLocation`, `CardInstance.on`, "host" | "Host" is not a rulebook word. The stack is one level deep. |
 

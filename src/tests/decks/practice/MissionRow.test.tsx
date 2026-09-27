@@ -17,14 +17,14 @@ const card = (id: string, name: string): CardInstance => ({
 const emptySlot = (): MissionSlot => ({
   mission: card('mission-0', 'A Mission'),
   ships: [],
-  personnel: [],
+  awayTeam: [],
   underMission: [],
 });
 
 describe('MissionRow', () => {
-  // #813: the event pile is gone, so the mission shows no event badge, and the personnel badge is
-  // the only way to file a card into the personnel pile by a drag, so it shows with an empty pile.
-  it('shows no event badge, and shows the personnel badge with an empty pile', () => {
+  // #813: the event pile is gone, so the mission shows no event badge, and the away team badge is
+  // the only way to file a card into the away team by a drag, so it shows with an empty pile.
+  it('shows no event badge, and shows the away team badge with an empty pile', () => {
     const onOpenPile = jest.fn();
     render(
       <MissionRow
@@ -38,15 +38,15 @@ describe('MissionRow', () => {
 
     expect(screen.queryByRole('button', { name: /event pile/i })).not.toBeInTheDocument();
     expect(document.body.querySelector('[data-zone="mission-pile-event-0"]')).toBeNull();
-    const badge = screen.getByRole('button', { name: /^personnel pile, 0 cards$/i });
-    expect(badge).toHaveAttribute('data-zone', 'mission-pile-personnel-0');
+    const badge = screen.getByRole('button', { name: /^Away team, 0 cards$/i });
+    expect(badge).toHaveAttribute('data-zone', 'mission-pile-awayTeam-0');
     fireEvent.click(badge);
     expect(onOpenPile).not.toHaveBeenCalled();
   });
 
-  it('opens the personnel pile from its badge once it holds a card', () => {
+  it('opens the away team from its badge once it holds a card', () => {
     const onOpenPile = jest.fn();
-    const slot: MissionSlot = { ...emptySlot(), personnel: [card('p1', 'Data')] };
+    const slot: MissionSlot = { ...emptySlot(), awayTeam: [card('p1', 'Data')] };
     render(
       <MissionRow
         missions={[slot]}
@@ -57,8 +57,8 @@ describe('MissionRow', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^personnel pile, 1 card, tap to open$/i }));
-    expect(onOpenPile).toHaveBeenCalledWith(0, 'personnel');
+    fireEvent.click(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i }));
+    expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
   });
 
   // #813: a mission card is a host. It shows a counter of the cards on it, and a tap on the
@@ -139,7 +139,7 @@ describe('MissionRow', () => {
   // #641: the personnel/event badge strip moves below the mission card, freeing the space above
   // it for the dilemma slivers.
   it('renders the badge strip after (below) the mission card, not above it', () => {
-    const slot: MissionSlot = { ...emptySlot(), personnel: [card('p1', 'Personnel One')] };
+    const slot: MissionSlot = { ...emptySlot(), awayTeam: [card('p1', 'Personnel One')] };
     render(
       <MissionRow
         missions={[slot]}
@@ -150,7 +150,7 @@ describe('MissionRow', () => {
     );
 
     const missionZone = document.body.querySelector('[data-zone="mission-0"]')!;
-    const badge = screen.getByRole('button', { name: /personnel pile, 1 card/i });
+    const badge = screen.getByRole('button', { name: /Away team, 1 card/i });
     expect(missionZone.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(missionZone.contains(badge)).toBe(false);
   });

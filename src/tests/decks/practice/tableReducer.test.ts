@@ -17,18 +17,18 @@ const instance = (id: string, cardData: any, face: 'up' | 'down' = 'down'): Card
 });
 
 // Builds a 5-slot missions array, each slot holding the given mission card (or null) and an
-// empty ship row and empty piles, unless a slot's ships/personnel/underMission are
+// empty ship row and empty piles, unless a slot's ships/awayTeam/underMission are
 // overridden explicitly by index.
 const missionSlots = (
   missions: (CardInstance | null)[],
   shipsByIndex: Record<number, CardInstance[]> = {},
-  personnelByIndex: Record<number, CardInstance[]> = {},
+  awayTeamByIndex: Record<number, CardInstance[]> = {},
   underMissionByIndex: Record<number, CardInstance[]> = {}
 ): MissionSlot[] =>
   Array.from({ length: MISSION_SLOTS }, (_, i) => ({
     mission: missions[i] ?? null,
     ships: shipsByIndex[i] ?? [],
-    personnel: personnelByIndex[i] ?? [],
+    awayTeam: awayTeamByIndex[i] ?? [],
     underMission: underMissionByIndex[i] ?? [],
   }));
 
@@ -235,7 +235,7 @@ describe('tableReducer', () => {
       const start = { ...initialTableState, missions: missionSlots([], {}, { 0: [captured] }) };
       const state = tableReducer(start, { type: 'move', id: 'p0', to: 'brig' });
 
-      expect(state.missions[0].personnel).toEqual([]);
+      expect(state.missions[0].awayTeam).toEqual([]);
       expect(state.brig).toEqual([{ ...captured, face: 'up' }]);
     });
 
@@ -404,17 +404,17 @@ describe('tableReducer', () => {
       expect(state.missions[0].ships).toEqual([ship, other]);
     });
 
-    it('files a hand card into a mission\'s personnel pile, face down (#602)', () => {
+    it('files a hand card into a mission\'s Away team, face down (#602)', () => {
       const moved = instance('p0', card('Data'), 'up');
       const start = { ...initialTableState, hand: [moved], missions: missionSlots([]) };
       const state = tableReducer(start, {
         type: 'move',
         id: 'p0',
-        to: { zone: 'missionPile', missionIndex: 1, pile: 'personnel' },
+        to: { zone: 'missionPile', missionIndex: 1, pile: 'awayTeam' },
       });
 
       expect(state.hand).toEqual([]);
-      expect(state.missions[1].personnel).toEqual([{ ...moved, face: 'down' }]);
+      expect(state.missions[1].awayTeam).toEqual([{ ...moved, face: 'down' }]);
     });
 
     it('moves a card from one mission\'s pile to another mission\'s pile', () => {
@@ -423,11 +423,11 @@ describe('tableReducer', () => {
       const state = tableReducer(start, {
         type: 'move',
         id: 'p0',
-        to: { zone: 'missionPile', missionIndex: 3, pile: 'personnel' },
+        to: { zone: 'missionPile', missionIndex: 3, pile: 'awayTeam' },
       });
 
-      expect(state.missions[0].personnel).toEqual([]);
-      expect(state.missions[3].personnel).toEqual([moved]);
+      expect(state.missions[0].awayTeam).toEqual([]);
+      expect(state.missions[3].awayTeam).toEqual([moved]);
     });
 
     it('moves a mission pile card to the discard pile, removing it from that pile only', () => {
@@ -436,7 +436,7 @@ describe('tableReducer', () => {
       const start = { ...initialTableState, missions: missionSlots([], {}, { 0: [moving, staying] }) };
       const state = tableReducer(start, { type: 'move', id: 'p0', to: 'discard' });
 
-      expect(state.missions[0].personnel).toEqual([staying]);
+      expect(state.missions[0].awayTeam).toEqual([staying]);
       expect(state.discard).toEqual([{ ...moving, face: 'up' }]);
     });
 
@@ -446,10 +446,10 @@ describe('tableReducer', () => {
       const state = tableReducer(start, {
         type: 'move',
         id: 'p0',
-        to: { zone: 'missionPile', missionIndex: 0, pile: 'personnel' },
+        to: { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' },
       });
 
-      expect(state.missions[0].personnel).toEqual([moved]);
+      expect(state.missions[0].awayTeam).toEqual([moved]);
     });
 
     it('moves a dilemma dropped on a mission under that mission, whatever its source (#606, #733)', () => {
@@ -483,7 +483,7 @@ describe('tableReducer', () => {
       const start = { ...initialTableState, missions: missionSlots([], {}, { 0: [moved] }) };
       const state = tableReducer(start, { type: 'move', id: 'p0', to: 'hand' });
 
-      expect(state.missions[0].personnel).toEqual([]);
+      expect(state.missions[0].awayTeam).toEqual([]);
       expect(state.hand).toEqual([{ ...moved, face: 'up' }]);
     });
 
@@ -767,7 +767,7 @@ describe('tableReducer', () => {
       const start = { ...initialTableState, missions: missionSlots([], {}, { 1: [personnelCard] }) };
       const state = tableReducer(start, { type: 'flip', id: 'p0' });
 
-      expect(state.missions[1].personnel).toEqual([{ ...personnelCard, face: 'up' }]);
+      expect(state.missions[1].awayTeam).toEqual([{ ...personnelCard, face: 'up' }]);
     });
 
     it('leaves other cards in the same mission pile untouched', () => {
@@ -776,7 +776,7 @@ describe('tableReducer', () => {
       const start = { ...initialTableState, missions: missionSlots([], {}, { 0: [flipped, untouched] }) };
       const state = tableReducer(start, { type: 'flip', id: 'p0' });
 
-      expect(state.missions[0].personnel).toEqual([{ ...flipped, face: 'up' }, untouched]);
+      expect(state.missions[0].awayTeam).toEqual([{ ...flipped, face: 'up' }, untouched]);
     });
 
   });
@@ -820,7 +820,7 @@ describe('tableReducer', () => {
       const start = { ...initialTableState, missions: missionSlots([], {}, { 1: [personnelCard] }) };
       const state = tableReducer(start, { type: 'setStopped', ids: ['p0'], stopped: true });
 
-      expect(state.missions[1].personnel).toEqual([{ ...personnelCard, stopped: true }]);
+      expect(state.missions[1].awayTeam).toEqual([{ ...personnelCard, stopped: true }]);
     });
 
     it('sets a personnel card aboard a ship, as crew, keeping the rest of the crew untouched', () => {
@@ -915,7 +915,7 @@ describe('tableReducer', () => {
       const start = { ...initialTableState, missions: missionSlots([], {}, { 1: [stoppedCard] }) };
       const state = tableReducer(start, { type: 'nextTurn' });
 
-      expect(state.missions[1].personnel).toEqual([{ ...stoppedCard, stopped: false }]);
+      expect(state.missions[1].awayTeam).toEqual([{ ...stoppedCard, stopped: false }]);
     });
 
     it('unstops stopped cards in the core and the brig', () => {
@@ -1017,7 +1017,7 @@ describe('findInstanceAnywhere', () => {
 
     expect(findInstanceAnywhere(state, 'p0')).toEqual({
       instance: personnelCard,
-      zone: { zone: 'missionPile', missionIndex: 1, pile: 'personnel' },
+      zone: { zone: 'missionPile', missionIndex: 1, pile: 'awayTeam' },
     });
   });
 
@@ -1049,15 +1049,15 @@ describe('resetWithPiles (#802)', () => {
     ...state.dilemmaPile,
     ...state.missions.flatMap((slot) => [
       ...(slot.mission ? [slot.mission] : []),
-      ...slot.personnel,
+      ...slot.awayTeam,
       ...slot.ships.flatMap((ship) => [ship, ...(ship.crew ?? [])]),
     ]),
   ].map((c) => c.id);
 
   it('seeds twenty personnel on one mission and a ship with twelve crew on another', () => {
     const state = tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() });
-    expect(state.missions[0].personnel).toHaveLength(20);
-    expect(state.missions[0].personnel.every((c) => c.card.type === 'personnel')).toBe(true);
+    expect(state.missions[0].awayTeam).toHaveLength(20);
+    expect(state.missions[0].awayTeam.every((c) => c.card.type === 'personnel')).toBe(true);
     expect(state.missions[1].ships).toHaveLength(1);
     expect(state.missions[1].ships[0].card.type).toBe('ship');
     expect(state.missions[1].ships[0].crew).toHaveLength(12);
@@ -1139,12 +1139,12 @@ describe('cards placed on a host (#809)', () => {
     const host = { ...instance('host', card('Host'), 'up'), on: [placed] };
     const state = tableReducer(
       { ...initialTableState, core: [host], missions: missionSlots([]) },
-      { type: 'move', id: 'host', to: { zone: 'missionPile', missionIndex: 0, pile: 'personnel' } }
+      { type: 'move', id: 'host', to: { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } }
     );
 
     expect(state.core).toEqual([]);
-    expect(state.missions[0].personnel.map((c) => c.id)).toEqual(['host']);
-    expect(state.missions[0].personnel[0].on).toBeUndefined();
+    expect(state.missions[0].awayTeam.map((c) => c.id)).toEqual(['host']);
+    expect(state.missions[0].awayTeam[0].on).toBeUndefined();
     expect(state.discard).toEqual([placed]);
   });
 

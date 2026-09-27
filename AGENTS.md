@@ -250,13 +250,13 @@ Do not build the drag by hand. Three things make a hand drag fail, and each one 
 
 A ship has two drop targets. A drop on the ship's art, `crew-<the ship's card id>`, places the card on the ship, and the ship shows a counter of the cards on it. A drop on the ship's crew badge, `crew-badge-<the ship's card id>`, boards the card into the crew. The badge shows even when the crew is empty, so it is the only way to board a card by a drag.
 
-A mission card is a host too. A drop on its art, `mission-<index>`, places the card on the mission card, except a ship, which goes to the ship row, and a dilemma, which goes under the mission. The mission has no event pile. A drop on the personnel badge, `mission-pile-personnel-<index>`, files the card into the personnel pile. The badge shows even when the pile is empty, so it is the only way to file a card there by a drag.
+A mission card is a host too. A drop on its art, `mission-<index>`, places the card on the mission card, except a ship, which goes to the ship row, and a dilemma, which goes under the mission. The mission has no event pile. A drop on the away team badge, `mission-pile-awayTeam-<index>`, files the card into the away team. The badge shows even when the away team is empty, so it is the only way to file a card there by a drag.
 
 To put a card into a ship's crew, drag it out of a mission's pile panel onto the crew badge. That drag lands. The drag of a ship onto its ship row prints the ship's own zone, and the badge's zone is the same name with `badge-` added:
 
 ```bash
 bash scripts/practice_drag.sh card-10 ship-row-0         # prints crew-card-10
-bash scripts/practice_drag.sh card-1 mission-pile-personnel-0  # files the card into the personnel pile
+bash scripts/practice_drag.sh card-1 mission-pile-awayTeam-0  # files the card into the away team
 # open that pile panel, then:
 bash scripts/practice_drag.sh card-1 crew-badge-card-10  # boards card-1, prints crew-badge-card-10
 bash scripts/practice_drag.sh card-2 crew-card-10        # places card-2 on the ship, prints crew-card-10

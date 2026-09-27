@@ -154,14 +154,14 @@ describe('Practice table: the pile panel Discard button (#787)', () => {
   };
 
   // Drops both personnel cards from the hand onto the first mission, where they go face down into
-  // its personnel pile, and opens that pile's panel.
+  // its Away team, and opens that pile's panel.
   const openPersonnelPile = async () => {
     await renderWithDeck(mockPersonnelCards);
     for (const name of ['personnel 1', 'personnel 2']) {
       await openClosedHand(/^hand, \d+ cards?, tap to open$/i);
       await drop(cardIdFor(name), 'mission-0');
     }
-    await click(/personnel pile, 2 cards, tap to open/i);
+    await click(/Away team, 2 cards, tap to open/i);
   };
 
   const discardCount = () => screen.getByAltText('Discard pile').parentElement!.textContent;
@@ -177,8 +177,8 @@ describe('Practice table: the pile panel Discard button (#787)', () => {
     await click('Select personnel 1');
     await click(/^discard$/i);
 
-    expect(screen.getByRole('button', { name: /^close personnel pile$/i })).toBeInTheDocument();
-    const panel = document.body.querySelector('[data-zone="pile-panel-personnel"]') as HTMLElement;
+    expect(screen.getByRole('button', { name: /^close away team$/i })).toBeInTheDocument();
+    const panel = document.body.querySelector('[data-zone="pile-panel-awayTeam"]') as HTMLElement;
     expect(within(panel).queryByRole('button', { name: 'personnel 1' })).not.toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'Select personnel 2' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.queryByRole('button', { name: /^discard$/i })).not.toBeInTheDocument();
@@ -193,8 +193,8 @@ describe('Practice table: the pile panel Discard button (#787)', () => {
     await click('Select personnel 1');
     await click(/^discard$/i);
 
-    expect(screen.queryByRole('button', { name: /^close personnel pile$/i })).not.toBeInTheDocument();
-    expect(document.body.querySelector('[data-zone="pile-panel-personnel"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^close away team$/i })).not.toBeInTheDocument();
+    expect(document.body.querySelector('[data-zone="pile-panel-awayTeam"]')).toBeNull();
     expect(discardCount()).toContain('2');
     expect(screen.getByAltText('Discard pile')).toHaveAttribute('src', '/cardimages/personnel_2.jpg');
   });
@@ -204,7 +204,7 @@ describe('Practice table: the pile panel Discard button (#787)', () => {
     await click('Select personnel 1');
     await click(/^discard$/i);
 
-    await click('Close personnel pile');
+    await click('Close away team');
     await act(async () => {
       fireEvent.click(screen.getByAltText('Discard pile').parentElement!);
     });

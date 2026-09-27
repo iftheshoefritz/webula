@@ -368,11 +368,11 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragStart!({ active: { id: draggedId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-pile-personnel-0' } });
+      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-pile-awayTeam-0' } });
     });
 
     expect(document.body.querySelector('[data-zone="pile-panel-core"]')).toBeNull();
-    expect(screen.getByRole('button', { name: /^personnel pile, 1 card, tap to open$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i })).toBeInTheDocument();
   });
 
   it('keeps the core pile panel open, showing the remaining card, after a card dragged from it is dropped elsewhere (#675)', async () => {
@@ -412,7 +412,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragStart!({ active: { id: firstId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-pile-personnel-0' } });
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-pile-awayTeam-0' } });
     });
 
     // The panel is still open, now showing only the card that is still in the core.
@@ -426,7 +426,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragStart!({ active: { id: secondId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: secondId }, over: { id: 'mission-pile-personnel-0' } });
+      mockOnDragEnd!({ active: { id: secondId }, over: { id: 'mission-pile-awayTeam-0' } });
     });
     expect(document.body.querySelector('[data-zone="pile-panel-core"]')).toBeNull();
   });

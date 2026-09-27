@@ -487,14 +487,14 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     });
 
     expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 2 cards"]')).not.toBeNull();
-    expect(screen.queryByRole('button', { name: /personnel pile, [1-9]/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Away team, [1-9]/i })).toBeNull();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
     });
     expect(screen.getByRole('button', { name: 'worf' })).toBeInTheDocument();
   });
 
-  it("files a card dropped on a ship row, off any ship, into the mission's personnel pile, not the crew (#645, #811)", async () => {
+  it("files a card dropped on a ship row, off any ship, into the mission's Away team, not the crew (#645, #811)", async () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
     await placeShipOnMission(shipId, 0, 1);
@@ -506,7 +506,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
       mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'ship-row-0' } });
     });
 
-    expect(screen.getByRole('button', { name: /personnel pile, 1 card/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Away team, 1 card/i })).toBeInTheDocument();
     expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
   });
   it("places a card dropped on a ship's art on the ship, and leaves its crew alone (#812)", async () => {
@@ -524,7 +524,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
     expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'u.s.s. relativity, 1 card on it' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /personnel pile, [1-9]/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Away team, [1-9]/i })).toBeNull();
   });
 
   it('opens the cards on a ship from its counter, and its crew from the ship (#812)', async () => {
