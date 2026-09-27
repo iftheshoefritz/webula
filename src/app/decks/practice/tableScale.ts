@@ -3,13 +3,13 @@
 // Issue #717: when the player scrolls up on this page, the browser's own toolbar hides and the
 // game layer (`page.tsx`'s `gameLayer` ref, `fixed inset-0`) grows to fill the extra visible
 // height. Before this issue, only the enlarged card preview (`CardPreview.tsx`) used that extra
-// room; the mission cards, the ship cards, the under-mission pile stack, and every pile-panel
+// room; the mission cards, the ship cards, the under-mission pile stack, and every card-list-panel
 // card grid stayed at a fixed pixel size, leaving the freed-up space blank.
 //
 // `useTableScale` turns the game layer's own live size into a single number, 1 at the baseline
 // size those fixed pixel constants were tuned against, and larger once there's more room than
 // that. Every constant this issue grows (`TableCard.tsx`'s `TABLE_CARD_WIDTH`/
-// `TABLE_CARD_ART_HEIGHT`, `MissionRow.tsx`'s ship-row sizes, `PilePanel.tsx`'s card grid) is
+// `TABLE_CARD_ART_HEIGHT`, `MissionRow.tsx`'s ship-row sizes, `CardListPanel.tsx`'s card grid) is
 // multiplied by this same scale, so they all grow in proportion to each other. The viewers (a pile
 // panel and the open fan) draw their cards at `VIEWER_CARD_SCALE` times that (#802, `viewerCardSize.ts`).
 //

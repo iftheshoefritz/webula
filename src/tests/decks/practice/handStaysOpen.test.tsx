@@ -101,7 +101,7 @@ const mockDilemmaCard = {
 };
 
 // Issue #740: the open hand (and the open dilemma hand) used to close as soon as a drag started
-// from it (`handleDragStart`), and nothing ever reopened it — unlike the four pile panels, which
+// from it (`handleDragStart`), and nothing ever reopened it — unlike the four card list panels, which
 // #675 already taught to stay open after a drag out of them, if they still hold a card.
 describe('Practice draw: the open hand stays open after a drag out of it (#740)', () => {
   beforeEach(() => {
@@ -246,7 +246,7 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     expect(fan.querySelectorAll('[data-card-id]')).toHaveLength(1);
   });
 
-  it('closes if a drag starts from an open pile panel while the hand is open, unchanged from before #740', async () => {
+  it('closes if a drag starts from an open card list panel while the hand is open, unchanged from before #740', async () => {
     const deck = {
       [mockPersonnelCards[0].collectorsinfo]: { count: 1, row: mockPersonnelCards[0] },
       [mockEventCard.collectorsinfo]: { count: 1, row: mockEventCard },
@@ -287,12 +287,12 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     }
     expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
 
-    // Open the core's own pile panel, and drag out of it — this drag starts from the panel, not
+    // Open the core's own card list panel, and drag out of it — this drag starts from the panel, not
     // from the hand, even though the hand is still open.
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
-    expect(document.body.querySelector('[data-zone="pile-panel-core"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).not.toBeNull();
 
     await act(async () => {
       mockOnDragStart!({ active: { id: eventId } });

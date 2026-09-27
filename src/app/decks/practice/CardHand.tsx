@@ -14,7 +14,7 @@
 // still draws a card while a hand is open, rather than only closing the hand — see
 // `passthroughZone` below. Issue #644: the closed row is also a real `useDroppable` drop target,
 // so a card dragged from anywhere on the table can land back in the hand. Issue #691: the open
-// fan's cards carry the same select checkbox a pile panel's cards do (#677, `PilePanel.tsx`), so
+// fan's cards carry the same select checkbox a card list panel's cards do (#677, `CardListPanel.tsx`), so
 // a drag started from a selected card picks up the rest of the hand's own selection too — see
 // `DraggableFanCard` below.
 
@@ -34,9 +34,9 @@ import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
 
-// Issue #802: the open fan's cards are the viewer size every pile panel uses, 1.5x the shared
+// Issue #802: the open fan's cards are the viewer size every card list panel uses, 1.5x the shared
 // table card (`viewerCardSize.ts`), not a size of the fan's own. The fan draws the full card
-// image, and so does every pile panel since #806, so both take their height from the shared
+// image, and so does every card list panel since #806, so both take their height from the shared
 // `fullCardHeight`.
 
 // Both the closed row and the open fan bound their total width regardless of card count, by
@@ -49,9 +49,9 @@ const CLOSED_MAX_OFFSET = 10;
 // The fan may leave a small gap between two cards, at the ratio #642 set (60 px for a 56 px card).
 const openMaxOffset = (width: number) => Math.round((width * 60) / 56);
 
-// Issue #691: carries the same select checkbox `PilePanelCard` (`PilePanel.tsx`) already has, as
+// Issue #691: carries the same select checkbox `CardListPanelCard` (`CardListPanel.tsx`) already has, as
 // a sibling of the card's own draggable button rather than nested inside it, for the same reason
-// `PilePanelCard` gives — a `<button>` cannot nest inside another `<button>`. A tap on the
+// `CardListPanelCard` gives — a `<button>` cannot nest inside another `<button>`. A tap on the
 // checkbox toggles this card in or out of `selectedIds`, owned by the page (`page.tsx`), not this
 // component, so a drag started from a selected card can pick up the rest of the hand's selection
 // (`handleDragStart`). A tap on the card itself toggles it the same way; a press and hold
@@ -134,7 +134,7 @@ export default function CardHand({
   zone?: 'hand' | 'dilemmaHand';
   label?: string;
   // The cards checked in this hand (#691), owned by the page (`page.tsx`), the same as a pile
-  // panel's own `selectedIds`/`onToggleSelect` (`PilePanel.tsx`). Default to "nothing selected"
+  // panel's own `selectedIds`/`onToggleSelect` (`CardListPanel.tsx`). Default to "nothing selected"
   // and a no-op toggle so a caller that does not care about multi-select (existing tests) does
   // not have to pass them.
   selectedIds?: string[];
@@ -241,16 +241,16 @@ export default function CardHand({
           the fan's z-index in the row. In the game layer, the large preview stays on top.
           A full-screen backdrop sits behind the cards, so a tap outside the fan closes it, but
           a tap on a card (on top of the backdrop) selects that card instead. The fan sits at the
-          top of the screen, level with a pile panel's own box (`VIEWER_TOP_INSET`): at the bottom
+          top of the screen, level with a card list panel's own box (`VIEWER_TOP_INSET`): at the bottom
           it covered the draw pile and the dilemma pile, the two taps the player needs while a
           hand is open.
           The fan's container spans the screen, less a small inset at each side, and `OverlapRow`
           packs the cards into that measured width (#802).
           Issue #750: the backdrop's and the fan's z-index sit in the gap between a pile
-          `CountBadge`'s `z-[140]` and the pile panel's `z-[150]`, so the open hand draws above
+          `CountBadge`'s `z-[140]` and the card list panel's `z-[150]`, so the open hand draws above
           every pile's count badge (the draw pile, the discard pile, the dilemma pile, and the
           drag-group badge in the page's `DragOverlay`), including the other hand's closed badge,
-          while staying below the pile panel and the card preview. */}
+          while staying below the card list panel and the card preview. */}
       {showFan &&
         typeof document !== 'undefined' &&
         createPortal(

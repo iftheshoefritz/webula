@@ -99,11 +99,11 @@ export interface PlacedOnLocation {
 
 export type MoveTarget = Zone | ShipRowLocation | CrewLocation | MissionPileLocation | PlacedOnLocation;
 
-// A `shuffle` action (#680) only ever targets one of the zones a `PilePanel` shows: the core,
+// A `shuffle` action (#680) only ever targets one of the zones a `CardListPanel` shows: the core,
 // the brig, the draw deck, the dilemma pile (#690), the dilemma stack (#733), a ship's crew, one
 // of a mission's two piles, or a mission's own ship row (#713, once it holds enough ships to
 // open its own list panel) — never one of the other flat zones (hand/discard/dilemmaHand) a
-// `PilePanel` never opens for.
+// `CardListPanel` never opens for.
 export type ShuffleLocation =
   | 'core'
   | 'brig'
@@ -153,7 +153,7 @@ export type TableAction =
   // unordered from the player's point of view, so nothing else needs it.
   | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom' }
   | { type: 'flip'; id: string }
-  // Puts the cards of one pile panel's zone in a random order (#680): the order in the table
+  // Puts the cards of one card list panel's location in a random order (#680): the order in the table
   // state itself, not just the panel's display order, so the table and the next time the panel
   // opens both show the same shuffled order. Never changes a card's face, a ship's crew, or any
   // other field of a card instance — only the order of the array at that location.
@@ -169,7 +169,7 @@ export type TableAction =
   | { type: 'reorderDilemmaStack'; id: string; overId: string }
   // Sets one or more personnel cards' `stopped` flag to a single value (#681), wherever each
   // currently sits — including aboard a ship as crew, the same reach `flip` lacks. `ids` lets
-  // the pile panel's "Stop"/"Unstop" button (a selection of more than one card) and the card
+  // the card list panel's "Stop"/"Unstop" button (a selection of more than one card) and the card
   // preview's own single-card button (#679) share one action; a per-card toggle would go out of
   // step on a mixed selection (some stopped, some not), so this always sets the same explicit
   // value on every id, rather than flipping each one's current value. Reuses `cardsAt`/

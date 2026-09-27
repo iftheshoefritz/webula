@@ -35,7 +35,7 @@ export const TABLE_CARD_WIDTH = 72; // px
 export const TABLE_CARD_ART_HEIGHT = 64; // px
 
 // The shared "stopped" look (#679): a stopped personnel card's image shows greyed out, like a
-// disabled UI element, everywhere it appears — here, in a pile panel (`PilePanel.tsx`, which
+// disabled UI element, everywhere it appears — here, in a card list panel (`CardListPanel.tsx`, which
 // also covers a ship's crew panel), and in the large preview (`CardPreview.tsx`). A face-down
 // stopped card shows the card back with this same style, since it applies to the `<img>`
 // regardless of which image it renders.

@@ -324,7 +324,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: 'first contact, 1 card on it' }));
       });
-      expect(document.body.querySelector(`[data-zone="pile-panel-on"] [data-card-id="${draggedId}"]`)).not.toBeNull();
+      expect(document.body.querySelector(`[data-zone="card-list-panel-on"] [data-card-id="${draggedId}"]`)).not.toBeNull();
     });
 
     it('files a card dropped on the away team badge into the away team', async () => {

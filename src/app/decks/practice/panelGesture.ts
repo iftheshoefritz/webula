@@ -1,4 +1,4 @@
-// The direction rule of a scrolling pile panel (#788), apart from dnd-kit so `PilePanel` and the
+// The direction rule of a scrolling card list panel (#788), apart from dnd-kit so `CardListPanel` and the
 // tests can import it without the sensor. `panelScrollSensor.ts` explains the rule.
 import { DRAG_ACTIVATION_DISTANCE } from './useCardHold';
 

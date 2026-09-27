@@ -1,6 +1,6 @@
 'use client';
 
-// A mission's away team or under-the-mission pile panel (#602, #606), and, since #640,
+// A mission's away team or under-the-mission card list panel (#602, #606), and, since #640,
 // the core's and the brig's own panel too: a tap on a pile's badge (or,
 // for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
 // already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
@@ -115,7 +115,7 @@ export function ShuffleIcon() {
 // eighth: a tap on it lists every discarded card, not just the top one the table shows. It has no
 // Shuffle and no Stop control: its order comes from play, and a discarded card is never stopped.
 // The cards placed on a card (#810) in the core or the brig are a ninth.
-export type PanelZone =
+export type PanelLocation =
   | MissionPileName
   | 'core'
   | 'brig'
@@ -127,7 +127,7 @@ export type PanelZone =
   | 'discard'
   | 'on';
 
-const PANEL_LABEL: Record<PanelZone, string> = {
+const PANEL_LABEL: Record<PanelLocation, string> = {
   awayTeam: 'Away team',
   underMission: 'Under the mission',
   core: 'Core',
@@ -146,21 +146,21 @@ const PANEL_LABEL: Record<PanelZone, string> = {
 // "pile", "team" or "stack" (or need no
 // such word at all) in their own label, so their close button's label does not repeat it; a mission pile's label keeps the
 // trailing "pile", unchanged from before #640.
-const closeLabel = (zone: PanelZone): string =>
-  zone === 'core' ||
-  zone === 'brig' ||
-  zone === 'crew' ||
-  zone === 'awayTeam' ||
-  zone === 'drawDeck' ||
-  zone === 'dilemmaPile' ||
-  zone === 'dilemmaStack' ||
-  zone === 'shipRow' ||
-  zone === 'discard' ||
-  zone === 'on'
-    ? `Close ${PANEL_LABEL[zone].toLowerCase()}`
-    : `Close ${PANEL_LABEL[zone].toLowerCase()} pile`;
+const closeLabel = (location: PanelLocation): string =>
+  location === 'core' ||
+  location === 'brig' ||
+  location === 'crew' ||
+  location === 'awayTeam' ||
+  location === 'drawDeck' ||
+  location === 'dilemmaPile' ||
+  location === 'dilemmaStack' ||
+  location === 'shipRow' ||
+  location === 'discard' ||
+  location === 'on'
+    ? `Close ${PANEL_LABEL[location].toLowerCase()}`
+    : `Close ${PANEL_LABEL[location].toLowerCase()} pile`;
 
-function PilePanelCard({
+function CardListPanelCard({
   instance,
   selected,
   onToggleSelect,
@@ -178,7 +178,7 @@ function PilePanelCard({
   // The dilemma stack's own popup only (#632): registers this card's own instance id as a drop
   // target too, alongside the draggable identity every card already has, so a drop that lands on
   // top of this card resolves to something (`handleDragEnd` in `page.tsx` then reads it as "move
-  // this stack card next to that one" rather than a move out of the zone). Every other `PilePanel`
+  // this stack card next to that one" rather than a move out of the zone). Every other `CardListPanel`
   // zone leaves this card a plain, non-droppable `useDraggable`, unchanged.
   reorderable?: boolean;
   // A panel with a Flip button (#762) draws a face-down card as the card back.
@@ -245,8 +245,8 @@ function PilePanelCard({
   );
 }
 
-export default function PilePanel({
-  zone,
+export default function CardListPanel({
+  location,
   cards,
   onClose,
   selectedIds,
@@ -259,7 +259,7 @@ export default function PilePanel({
   cardWidth = viewerCardSize(1).width,
   cardHeight = viewerCardSize(1).height,
 }: {
-  zone: PanelZone;
+  location: PanelLocation;
   cards: CardInstance[];
   onClose: () => void;
   selectedIds: string[];
@@ -287,7 +287,7 @@ export default function PilePanel({
   cardHeight?: number;
 }) {
   // The dilemma stack's own popup only (#632): a wrapped, multi-per-row grid — every other
-  // `PilePanel` zone's layout — has no single top or bottom once it wraps past one row, so this
+  // `CardListPanel` zone's layout — has no single top or bottom once it wraps past one row, so this
   // one zone instead lays its cards out in a single ordered row, left-to-right mapped to
   // first-revealed-to-last-revealed (#630/#733's index-0-is-first-revealed convention), with a
   // label at each end saying so. A single column of cards (this popup's original #632 layout)
@@ -298,9 +298,9 @@ export default function PilePanel({
   // (`CardHand.tsx`, `offsetFor` in `overlapOffset.ts`), instead overlaps the cards' edges to fit
   // many of them into the same bounded width every other bottom-row zone already fits into, so
   // every card stays reachable at that viewport. Each card also becomes a drop target of its own
-  // (`reorderable` on `PilePanelCard`), so a drop on top of a neighbour reorders the stack instead
+  // (`reorderable` on `CardListPanelCard`), so a drop on top of a neighbour reorders the stack instead
   // of leaving the zone.
-  const isDilemmaStack = zone === 'dilemmaStack';
+  const isDilemmaStack = location === 'dilemmaStack';
   // The stack's row is `OverlapRow` (#802), the same component the open fan uses. Its width
   // bound is the row's own measured width, not a card-count guess (#632's browser-check
   // follow-up): a guess of six cards let the sixth card fall outside the panel at 568 x 320, and a
@@ -371,7 +371,7 @@ export default function PilePanel({
         type="button"
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
-        aria-label={closeLabel(zone)}
+        aria-label={closeLabel(location)}
       />
       <div className={insetClassName} style={{ inset: VIEWER_TOP_INSET }}>
       <div className={layoutClassName}>
@@ -410,7 +410,7 @@ export default function PilePanel({
         )}
         <div
           ref={gridRef}
-          data-zone={`pile-panel-${zone}`}
+          data-zone={`card-list-panel-${location}`}
           {...{ [PANEL_SCROLLS_ATTRIBUTE]: gridScrolls ? 'true' : undefined }}
           className={gridClassName}
         >
@@ -430,7 +430,7 @@ export default function PilePanel({
               cardWidth={cardWidth}
               height={cardHeight}
               renderCard={(instance) => (
-                <PilePanelCard
+                <CardListPanelCard
                   instance={instance}
                   selected={selectedIds.includes(instance.id)}
                   onToggleSelect={() => onToggleSelect(instance.id)}
@@ -443,7 +443,7 @@ export default function PilePanel({
             />
           ) : (
             cards.map((instance) => (
-              <PilePanelCard
+              <CardListPanelCard
                 key={instance.id}
                 instance={instance}
                 selected={selectedIds.includes(instance.id)}

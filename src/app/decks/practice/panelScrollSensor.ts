@@ -1,9 +1,9 @@
-// A pile panel whose card grid scrolls (#788) splits a touch into a scroll or a drag at the same
+// A card list panel whose card grid scrolls (#788) splits a touch into a scroll or a drag at the same
 // `DRAG_ACTIVATION_DISTANCE` the hold uses. The first 8 px decide: mostly up or down scrolls the
 // grid, mostly sideways starts the drag. Once a drag starts it follows the pointer in every
 // direction, so a card can still go up or down to any zone.
 //
-// `PilePanel` marks a grid that overflows with `PANEL_SCROLLS_ATTRIBUTE`, and gives its cards
+// `CardListPanel` marks a grid that overflows with `PANEL_SCROLLS_ATTRIBUTE`, and gives its cards
 // `touch-action: pan-y` there, so the browser can pan the grid at all. `PanelScrollSensor` is the
 // table's only pointer sensor (`page.tsx`'s `useSensors`), and it keeps `PointerSensor`'s own
 // activator. It cannot sit in front of a second `PointerSensor`: dnd-kit keys a draggable's

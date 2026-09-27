@@ -52,7 +52,7 @@ import DecklistPanel from './DecklistPanel';
 import { CardHoldProvider, swallowClickOf } from './useCardHold';
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
-import PilePanel, { ShuffleIcon } from './PilePanel';
+import CardListPanel, { ShuffleIcon } from './CardListPanel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
 import { TABLE_CARD_ART_HEIGHT } from './TableCard';
 import { useTableScale } from './tableScale';
@@ -357,16 +357,16 @@ const CORE_ROW_MAX_WIDTH = 106; // px, fits 3 ship-sized cards side by side with
 const BRIG_ROW_MAX_WIDTH = 58; // px, fits 2 overlapping ship-sized cards
 const FLAT_ROW_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
 
-// The zones whose panel `openFlatZone` tracks: the core and the brig (#640), the draw deck and the
+// The zones whose panel `openFlatLocation` tracks: the core and the brig (#640), the draw deck and the
 // dilemma pile (#690), the dilemma stack (#733), and the discard pile (#782).
-type FlatPanelZone = 'core' | 'brig' | 'drawDeck' | 'dilemmaPile' | 'dilemmaStack' | 'discard';
+type FlatPanelLocation = 'core' | 'brig' | 'drawDeck' | 'dilemmaPile' | 'dilemmaStack' | 'discard';
 
 // The discard pile's top card, draggable off the pile (#606 review): a dilemma dragged from here
 // onto a mission card lands under that mission, since its source is not the dilemma hand (see
 // `handleDragEnd`'s dilemma routing below). A separate component, mounted only while a top card
 // exists, keeps `useDraggable`'s hook call (and so its registration order, which the mock
 // `@dnd-kit/core` in the test suite relies on) tied to the card's own presence, the same as
-// `PilePanelCard` and `CardHand`'s cards.
+// `CardListPanelCard` and `CardHand`'s cards.
 // A tap on it opens the discard pile's own panel (#782), which lists every card in the pile.
 function DiscardPileCard({
   topCard,
@@ -499,7 +499,7 @@ function PileHalf({
 // A plain inline magnifying-glass icon (#690), not react-icons: every test that renders this
 // page mocks `react-icons/fa` with an explicit list of the icons this file imports, so a new
 // react-icons import here would need every one of those mocks updated too — the same reasoning
-// `PilePanel.tsx`'s own `ShuffleIcon` documents.
+// `CardListPanel.tsx`'s own `ShuffleIcon` documents.
 function DownloadIcon() {
   return (
     <svg
@@ -519,7 +519,7 @@ function DownloadIcon() {
 }
 
 // A download trigger for the draw pile or the dilemma pile (#690): opens that pile's own
-// `PilePanel` so the player can look through every card in it — face up, in its existing order —
+// `CardListPanel` so the player can look through every card in it — face up, in its existing order —
 // and drag one straight into hand, without drawing through the rest of the pile. Kept apart from
 // the pile's own tap-to-draw click (`onClick` on the draw-pile button, `DilemmaPileButton`'s two
 // drop/draw halves), rather than layered on top of the pile art, so it never steals a tap meant
@@ -745,7 +745,7 @@ function RevealIcon() {
 // exists" pattern `DiscardPileCard` above already uses, so `useDraggable`'s own registration (and
 // so the mock `@dnd-kit/core` the test suite relies on) only happens while a revealed card is
 // actually there to drag. The button also keeps the zone's own tap-to-open working, the same
-// `onClick` alongside `useDraggable`'s own listeners `PilePanelCard` (`PilePanel.tsx`) already
+// `onClick` alongside `useDraggable`'s own listeners `CardListPanelCard` (`CardListPanel.tsx`) already
 // combines on one element — a plain tap still opens the full stack panel; a drag pulls just this
 // one card out.
 function DilemmaStackTopCard({
@@ -792,20 +792,20 @@ function DilemmaStackTopCard({
 // The dilemma stack (#630): a single flat drop target — no top/bottom split, since a drop always
 // appends at the bottom, and the first dilemma dropped (index 0) is the first revealed. Sits in
 // its own reserved column to the right of the mission row (`computeTableScale`,
-// `tableScale.ts`); a tap opens its own `PilePanel`, listing the stack in that same order. Its
+// `tableScale.ts`); a tap opens its own `CardListPanel`, listing the stack in that same order. Its
 // `DilemmaIcon` badge (`MissionRow.tsx`, exported for exactly this once #733 took the stack out
 // of the mission slots) marks it apart from the flat dilemma pile, which looks the same otherwise
 // (a face-down cardback with a count).
 //
 // #751: a separate "reveal" control, a small corner overlay sibling of the tap-to-open button —
 // the same "a control sits beside the card, not nested inside its own button" convention
-// `PilePanelCard`'s selection checkbox (`PilePanel.tsx`) already follows for a corner overlay
+// `CardListPanelCard`'s selection checkbox (`CardListPanel.tsx`) already follows for a corner overlay
 // specifically — turns the top card face up in place via the existing `flip` action, one card at
 // a time; the card below stays face down until revealed in its own turn. Only shown while there
 // is a face-down top card to reveal; once revealed, `DilemmaStackTopCard` above takes over the
 // zone's own art and becomes the drag source, and the button hides since there's nothing left for
 // it to do until the next card needs revealing. Do not confuse this with the whole-stack
-// `PilePanel` open above: that already shows every card in the stack face up, unconditionally,
+// `CardListPanel` open above: that already shows every card in the stack face up, unconditionally,
 // for a reorder — this reveals only the current top card, on the table itself, unchanged from
 // this issue's own scope.
 //
@@ -921,7 +921,7 @@ function PracticeDrawContent() {
   const searchParams = useSearchParams();
   const fixture = searchParams.get('fixture');
   // `?fixture=piles` (#802) deals the same fixture deck as `?fixture=1`, then places a big
-  // away team and a crewed ship, for the pile panel checks.
+  // away team and a crewed ship, for the card list panel checks.
   const isPilesFixture = fixture === 'piles';
   const isFixture = fixture === '1' || isPilesFixture;
   const { data, loading } = useDataFetching();
@@ -990,23 +990,23 @@ function PracticeDrawContent() {
   const landedNonceRef = useRef(0);
   const landedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [gameLayer, setGameLayer] = useState<HTMLDivElement | null>(null);
-  // Issue #717: grows the mission cards, the ship cards, and every pile-panel card grid past
+  // Issue #717: grows the mission cards, the ship cards, and every card-list-panel card grid past
   // their base pixel size once the game layer (which already tracks the browser's toolbar
   // showing/hiding, `fixed inset-0`) measures more room than the baseline they were tuned
-  // against. `viewerCardWidth`/`viewerCardHeight` feed every `PilePanel` and `CardHand` below; `MissionRow`
+  // against. `viewerCardWidth`/`viewerCardHeight` feed every `CardListPanel` and `CardHand` below; `MissionRow`
   // derives its own ship-row sizes from the same `scale`.
   const scale = useTableScale(gameLayer);
-  // Every viewer (a pile panel, the open fan) draws its card at 1.5x the table card (#802).
+  // Every viewer (a card list panel, the open fan) draws its card at 1.5x the table card (#802).
   const { width: viewerCardWidth, height: viewerCardHeight } = viewerCardSize(scale);
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
-  // Which of the core's/the brig's own pile panel (#640), or the draw pile's/the dilemma pile's
+  // Which of the core's/the brig's own card list panel (#640), or the draw pile's/the dilemma pile's
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
   // `openPile` tracks a mission's open pile: a piece of UI state with no effect on the table.
-  const [openFlatZone, setOpenFlatZone] = useState<FlatPanelZone | null>(null);
+  const [openFlatLocation, setOpenFlatLocation] = useState<FlatPanelLocation | null>(null);
   // Which ship's crew panel (#664) is open, if any, named by the ship's own instance id (not a
   // mission index, since a ship stays reachable by its own id regardless of which mission's ship
   // row currently holds it — the same reasoning `crewDropId` already follows). Tracked the same
-  // way as `openPile`/`openFlatZone`: a piece of UI state with no effect on the table. A tap on a
+  // way as `openPile`/`openFlatLocation`: a piece of UI state with no effect on the table. A tap on a
   // ship with crew aboard (`handleShipClick` below) opens it.
   const [openCrewShipId, setOpenCrewShipId] = useState<string | null>(null);
   // Whose panel of placed cards (#810) is open, if any, named by that card's own instance id, the same way
@@ -1018,12 +1018,12 @@ function PracticeDrawContent() {
   // (`MissionRow.tsx`'s `ShipRow`), so every ship on that row stays reachable for a tap and a
   // drag, not just the one on top.
   const [openShipRowMissionIndex, setOpenShipRowMissionIndex] = useState<number | null>(null);
-  // The cards checked in the currently open pile panel (#677), by id. UI state, scoped to
+  // The cards checked in the currently open card list panel (#677), by id. UI state, scoped to
   // whichever panel is open — only one panel is ever open at a time — and cleared whenever a
   // panel closes, the same as the panels themselves.
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
 
-  // A touch or pen press in a scrolling pile panel splits a scroll from a drag (#788); every
+  // A touch or pen press in a scrolling card list panel splits a scroll from a drag (#788); every
   // other press drags as before. `panelScrollSensor.ts` explains why it is one sensor.
   const sensors = useTableSensors();
 
@@ -1153,19 +1153,19 @@ function PracticeDrawContent() {
     setSelectedCardIds((ids) => (ids.includes(id) ? ids.filter((cardId) => cardId !== id) : [...ids, id]));
   };
 
-  // Sets `stopped` to one explicit value on every id in `ids` (#681's pile panel button). Keeps the selection afterward,
+  // Sets `stopped` to one explicit value on every id in `ids` (#681's card list panel button). Keeps the selection afterward,
   // so the player can drag the same cards next, same as any other tap on the panel's checkboxes.
   const setStoppedForSelection = (ids: string[], stopped: boolean) => {
     dispatch({ type: 'setStopped', ids, stopped });
   };
 
-  // Turns each id over on its own (#762's pile panel Flip button): one `flip` per card, so a
+  // Turns each id over on its own (#762's card list panel Flip button): one `flip` per card, so a
   // mixed selection stays mixed, inverted. Keeps the selection afterward, as with Stop.
   const flipSelection = (ids: string[]) => {
     ids.forEach((id) => dispatch({ type: 'flip', id }));
   };
 
-  // Moves every id to the discard pile, in the given order (#787's pile panel Discard button), with
+  // Moves every id to the discard pile, in the given order (#787's card list panel Discard button), with
   // the same `move` action a drop on the discard pile dispatches, so each card takes the discard
   // pile's face. The panel stays open, or closes when its zone runs empty, by the same rule a drag
   // out of it follows (`closePanelsAfterDrag`). The selection clears either way.
@@ -1188,9 +1188,9 @@ function PracticeDrawContent() {
     }
   };
 
-  // #711: `openPile`, `openFlatZone`, `openCrewShipId`, and, since #713, `openShipRowMissionIndex`
+  // #711: `openPile`, `openFlatLocation`, `openCrewShipId`, and, since #713, `openShipRowMissionIndex`
   // each open a panel, but none of them used to clear the others, so tapping a second panel open
-  // (e.g. a core/brig card while a mission's pile panel is still open) left two of these set at
+  // (e.g. a core/brig card while a mission's card list panel is still open) left two of these set at
   // once. `openPanelCards`, below, only reads one of them at a time — whichever this file checks
   // first — so the second panel rendered showed the first panel's cards until it was closed and
   // reopened. These four helpers are the only way any of the four states is ever set to a
@@ -1198,7 +1198,7 @@ function PracticeDrawContent() {
   // other three first, restores the invariant the comments elsewhere in this file already
   // claimed.
   const openOnlyMissionPile = (missionIndex: number, pile: MissionPileName) => {
-    setOpenFlatZone(null);
+    setOpenFlatLocation(null);
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
     setOpenPlacedOnTargetId(null);
@@ -1206,18 +1206,18 @@ function PracticeDrawContent() {
     setOpenPile({ missionIndex, pile });
   };
 
-  const openOnlyFlatZone = (zone: FlatPanelZone) => {
+  const openOnlyFlatZone = (zone: FlatPanelLocation) => {
     setOpenPile(null);
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
     setOpenPlacedOnTargetId(null);
     setSelectedCardIds([]);
-    setOpenFlatZone(zone);
+    setOpenFlatLocation(zone);
   };
 
   const openOnlyCrewPanel = (shipId: string) => {
     setOpenPile(null);
-    setOpenFlatZone(null);
+    setOpenFlatLocation(null);
     setOpenShipRowMissionIndex(null);
     setOpenPlacedOnTargetId(null);
     setSelectedCardIds([]);
@@ -1226,7 +1226,7 @@ function PracticeDrawContent() {
 
   const openOnlyShipRowPanel = (missionIndex: number) => {
     setOpenPile(null);
-    setOpenFlatZone(null);
+    setOpenFlatLocation(null);
     setOpenCrewShipId(null);
     setOpenPlacedOnTargetId(null);
     setSelectedCardIds([]);
@@ -1235,7 +1235,7 @@ function PracticeDrawContent() {
 
   const openOnlyPlacedOnPanel = (targetId: string) => {
     setOpenPile(null);
-    setOpenFlatZone(null);
+    setOpenFlatLocation(null);
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
     setSelectedCardIds([]);
@@ -1271,7 +1271,7 @@ function PracticeDrawContent() {
     // A drag off the draw pile's or the dilemma pile's art (#814) carries the card face down.
     setDraggingShowsBack(event.active.data?.current?.showBack === true);
 
-    // A drag of a card selected in the open pile panel, or in the open hand it started from
+    // A drag of a card selected in the open card list panel, or in the open hand it started from
     // (#691), moves the whole selection together, in that zone's own display order (#677); a
     // drag of a card that is not selected moves only that one card, as before, even while the
     // zone holds an unrelated selection. Only one of these can ever apply to a given drag: a
@@ -1284,7 +1284,7 @@ function PracticeDrawContent() {
     );
   };
 
-  // Closes a pile panel after a drag ends, unless the drag started from a card inside that very
+  // Closes a card list panel after a drag ends, unless the drag started from a card inside that very
   // panel and the panel still holds a card after the drop (#675): the player can then drag the
   // next card out with no extra tap. A drag that did not start from a given panel still closes
   // it, the same as before this change — including a panel that merely happened to be open while
@@ -1316,11 +1316,11 @@ function PracticeDrawContent() {
       }
     }
 
-    if (openFlatZone) {
-      const isDragOrigin = zone === openFlatZone;
-      const stillHasCards = nextTable[openFlatZone].length > 0;
+    if (openFlatLocation) {
+      const isDragOrigin = zone === openFlatLocation;
+      const stillHasCards = nextTable[openFlatLocation].length > 0;
       if (!isDragOrigin || !stillHasCards) {
-        setOpenFlatZone(null);
+        setOpenFlatLocation(null);
         closedAPanel = true;
       }
     }
@@ -1359,7 +1359,7 @@ function PracticeDrawContent() {
     // this function runs, `openHand` already reads `null` for that case. So the reopen check
     // below reads `zone` (the drag's pre-drop origin) rather than `openHand`, and reopens the
     // hand the drag came from if it still holds a card. A hand left open through a drag that
-    // started elsewhere (e.g. an open pile panel, per the issue's acceptance check) still
+    // started elsewhere (e.g. an open card list panel, per the issue's acceptance check) still
     // closes, the same as the four panels above.
     if (zone === 'hand' || zone === 'dilemmaHand') {
       if (nextTable[zone].length > 0) {
@@ -1399,7 +1399,7 @@ function PracticeDrawContent() {
     const group = draggingGroup.length > 0 ? draggingGroup : dragOrigin ? [dragOrigin.instance] : [];
     setDraggingInstance(null);
     setDraggingGroup([]);
-    // An open pile panel (#602), including the core's/the brig's own panel (#640) and a ship's
+    // An open card list panel (#602), including the core's/the brig's own panel (#640) and a ship's
     // crew panel (#664), closes after a drag, unless the drag started from a card inside it and
     // it still holds a card after the drop (#675).
 
@@ -1407,7 +1407,7 @@ function PracticeDrawContent() {
     // reorders the stack instead of moving the card out of its zone (#632). The dragged card's
     // origin has to be the stack itself, and the drop has to land on another card that is still
     // in the stack — only a drag that started from this same open popup can ever land on a stack
-    // card's own id (`PilePanelCard`'s `reorderable` droppable), so this cannot misfire against
+    // card's own id (`CardListPanelCard`'s `reorderable` droppable), so this cannot misfire against
     // an unrelated drag. Returning here skips the "card left its panel" side effects a real
     // move-out triggers below (`closePanelsAfterDrag`, clearing `selectedCardIds`), since the
     // card never leaves the zone it was selected in.
@@ -1544,21 +1544,21 @@ function PracticeDrawContent() {
   }, [previewCardId, heldCardId, hoveredCardId, draggingInstance]);
   const openCrewShip = openCrewShipId ? findInstanceAnywhere(table, openCrewShipId)?.instance : null;
   const openPlacedOnTarget = openPlacedOnTargetId ? findInstanceAnywhere(table, openPlacedOnTargetId)?.instance : null;
-  // The cards of whichever pile panel is currently open, if any — only one panel is ever open
+  // The cards of whichever card list panel is currently open, if any — only one panel is ever open
   // at a time. Used both to build a multi-select drag's group (`handleDragStart`) and to pass
-  // the right card list to whichever `<PilePanel>` below is rendered.
+  // the right card list to whichever `<CardListPanel>` below is rendered.
   const openPanelCards: CardInstance[] | null = openPile
     ? missions[openPile.missionIndex][openPile.pile]
-    : openFlatZone
-    ? openFlatZone === 'core'
+    : openFlatLocation
+    ? openFlatLocation === 'core'
       ? core
-      : openFlatZone === 'brig'
+      : openFlatLocation === 'brig'
       ? brig
-      : openFlatZone === 'drawDeck'
+      : openFlatLocation === 'drawDeck'
       ? drawDeck
-      : openFlatZone === 'dilemmaPile'
+      : openFlatLocation === 'dilemmaPile'
       ? dilemmaPile
-      : openFlatZone === 'discard'
+      : openFlatLocation === 'discard'
       ? discard
       : dilemmaStack
     : openCrewShip
@@ -1571,7 +1571,7 @@ function PracticeDrawContent() {
   // A drag that started from a card inside the dilemma stack's own popup (#632's reorder) needs
   // that popup to stay on screen for the rest of the drag: the card the player is aiming at, a
   // neighbour still in the stack, is inside the popup too, so hiding it (the same
-  // `hidden={draggingInstance !== null}` every other panel below still uses, `PilePanel`'s own
+  // `hidden={draggingInstance !== null}` every other panel below still uses, `CardListPanel`'s own
   // #598/#611 convention) leaves nothing for the player to aim at. `table` still holds the
   // dragged card in `dilemmaStack` for the whole drag — the reorder/move dispatch only runs at
   // the drop, in `handleDragEnd` — so re-deriving the drag's origin zone here, the same way
@@ -1595,7 +1595,7 @@ function PracticeDrawContent() {
   // a legitimate target elsewhere on the table).
   const dilemmaStackPopupCollisionDetection: CollisionDetection = (args) => {
     if (!dragFromDilemmaStackPanel) return collisionDetection(args);
-    const panelEl = document.querySelector('[data-zone="pile-panel-dilemmaStack"]');
+    const panelEl = document.querySelector('[data-zone="card-list-panel-dilemmaStack"]');
     const panelRect = panelEl?.getBoundingClientRect();
     const pointer = args.pointerCoordinates;
     const insidePanel =
@@ -1798,7 +1798,7 @@ function PracticeDrawContent() {
                   </div>
 
                   {/* Hand. `selectedIds`/`onToggleSelect` let the player select more than one
-                      card here and drag them together (#691), the same as a pile panel (#677);
+                      card here and drag them together (#691), the same as a card list panel (#677);
                       closing the hand clears the selection. */}
                   <CardHand
                     instances={hand}
@@ -1823,7 +1823,7 @@ function PracticeDrawContent() {
                 </div>
 
                 {/* Core: any card, usually events (#603). A tap on a card opens the core's own
-                    pile panel (#640). */}
+                    card list panel (#640). */}
                 <FlatCardRow
                   zone="core"
                   label="Core"
@@ -1836,7 +1836,7 @@ function PracticeDrawContent() {
                 />
 
                 {/* Brig: captured personnel, though the zone accepts any card type (#603). A tap
-                    on a card opens the brig's own pile panel (#640). */}
+                    on a card opens the brig's own card list panel (#640). */}
                 <FlatCardRow
                   zone="brig"
                   label="Brig"
@@ -1913,12 +1913,12 @@ function PracticeDrawContent() {
                   read-only and takes no pointer events. `hidden` hides it during a drag. */}
               {held && <CardPreview instance={held.instance} hidden={draggingInstance !== null} />}
 
-              {/* A mission's personnel or event pile panel (#602), opened by tapping its badge.
+              {/* A mission's personnel or event card list panel (#602), opened by tapping its badge.
                   `selectedIds`/`onToggleSelect` let the player select more than one card here and
                   drag them together (#677); closing the panel clears the selection. */}
               {openPile && (
-                <PilePanel
-                  zone={openPile.pile}
+                <CardListPanel
+                  location={openPile.pile}
                   cards={openPanelCards ?? []}
                   onClose={() => {
                     setOpenPile(null);
@@ -1941,24 +1941,24 @@ function PracticeDrawContent() {
                 />
               )}
 
-              {/* The core's or the brig's own pile panel (#640), opened by tapping a card
+              {/* The core's or the brig's own card list panel (#640), opened by tapping a card
                   already sitting in that zone; or the draw pile's/the dilemma pile's own download
                   panel (#690), opened by the new download control beside each one. */}
-              {openFlatZone && (
-                <PilePanel
-                  zone={openFlatZone}
+              {openFlatLocation && (
+                <CardListPanel
+                  location={openFlatLocation}
                   cards={openPanelCards ?? []}
                   onClose={() => {
-                    setOpenFlatZone(null);
+                    setOpenFlatLocation(null);
                     setSelectedCardIds([]);
                   }}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onShuffle={
-                    openFlatZone === 'discard' ? undefined : () => dispatch({ type: 'shuffle', location: openFlatZone })
+                    openFlatLocation === 'discard' ? undefined : () => dispatch({ type: 'shuffle', location: openFlatLocation })
                   }
-                  onSetStopped={openFlatZone === 'discard' ? undefined : setStoppedForSelection}
-                  onDiscard={openFlatZone === 'discard' ? undefined : discardSelection}
+                  onSetStopped={openFlatLocation === 'discard' ? undefined : setStoppedForSelection}
+                  onDiscard={openFlatLocation === 'discard' ? undefined : discardSelection}
                   hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
@@ -1968,8 +1968,8 @@ function PracticeDrawContent() {
               {/* A ship's crew panel: opened by a tap on a ship with crew aboard
                   (`handleShipClick`). */}
               {openCrewShip && (
-                <PilePanel
-                  zone="crew"
+                <CardListPanel
+                  location="crew"
                   cards={openPanelCards ?? []}
                   onClose={() => {
                     setOpenCrewShipId(null);
@@ -1991,8 +1991,8 @@ function PracticeDrawContent() {
                   The only way to take a placed card off is a drag out of here.
                   No Shuffle: `shuffle` has no location for the placed cards. */}
               {openPlacedOnTarget && (
-                <PilePanel
-                  zone="on"
+                <CardListPanel
+                  location="on"
                   cards={openPanelCards ?? []}
                   onClose={() => {
                     setOpenPlacedOnTargetId(null);
@@ -2014,8 +2014,8 @@ function PracticeDrawContent() {
                   other panel — it does not open a crew panel, since a second panel would break
                   the one-panel-at-a-time invariant of #711. */}
               {openShipRowMissionIndex !== null && (
-                <PilePanel
-                  zone="shipRow"
+                <CardListPanel
+                  location="shipRow"
                   cards={openPanelCards ?? []}
                   onClose={() => {
                     setOpenShipRowMissionIndex(null);

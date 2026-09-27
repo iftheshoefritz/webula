@@ -62,8 +62,8 @@ describe('CardHand', () => {
 
   // The fan used to sit 16 px above the bottom of the screen, where it covered the draw deck and
   // the dilemma pile — the taps the player needs to draw a card into the open hand. It now starts
-  // at the top, level with a pile panel's own box (`VIEWER_TOP_INSET`).
-  it('puts the open fan at the top of the screen, level with a pile panel (#806)', () => {
+  // at the top, level with a card list panel's own box (`VIEWER_TOP_INSET`).
+  it('puts the open fan at the top of the screen, level with a card list panel (#806)', () => {
     render(<Harness instances={makeInstances(3)} initialOpen />);
 
     const fan = document.body.querySelector('[data-zone="hand"]') as HTMLElement;
@@ -167,7 +167,7 @@ describe('CardHand', () => {
     portalContainer.remove();
   });
 
-  // #691: each card in the open fan carries the same select checkbox a pile panel's cards do
+  // #691: each card in the open fan carries the same select checkbox a card list panel's cards do
   // (#677), so several cards can be checked and dragged together.
   it('shows a card as selected once its checkbox is tapped', () => {
     const instances = makeInstances(3);

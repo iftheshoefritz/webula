@@ -9,7 +9,7 @@
 // since (unlike the discard pile) every card here needs to stay individually visible and
 // reachable.
 //
-// A tap on any card here opens `PilePanel` for the whole zone (#640), showing every card at a
+// A tap on any card here opens `CardListPanel` for the whole zone (#640), showing every card at a
 // larger size — the small size here makes a card hard to read in place. A tap on a card inside
 // that panel selects it, the same as in a mission's personnel/event/dilemma piles.
 //

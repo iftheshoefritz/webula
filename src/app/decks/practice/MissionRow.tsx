@@ -27,7 +27,7 @@
 // a mission's away team shows (`PileBadge` below), not the plain `CountBadge` circle the draw
 // and discard piles use, and shown even with no crew, so the first crew card has somewhere to
 // land. A tap anywhere on the ship (`onShipClick`) opens, if it has crew, every crew card in a
-// panel (`PilePanel`, zone `'crew'`, wired up in `page.tsx`), so the badge itself is not a tap
+// panel (`CardListPanel`, zone `'crew'`, wired up in `page.tsx`), so the badge itself is not a tap
 // target of its own: it is a plain, non-interactive `<span>` with `pointer-events-none`, so a tap
 // that lands on it falls through to the ship's own `TableCard` button beneath. A ship with cards on
 // it shows a second counter, at the other corner, and that one is a button: a tap on it opens the
@@ -39,7 +39,7 @@
 // per-card offset as the count grows past what fits without overlap (#713). Once a row is in that
 // overlapping
 // state, every ship's tap opens a panel listing every ship on that row individually instead
-// (`PilePanel`, zone `'shipRow'`, the same list-view pattern the core, the brig, and a ship's
+// (`CardListPanel`, zone `'shipRow'`, the same list-view pattern the core, the brig, and a ship's
 // crew already use) rather than going straight to `onShipClick` — the ship underneath an
 // overlapping one is otherwise unreachable for both a tap and a drag. A tap on a ship inside that
 // panel selects it, the same as a tap inside any other panel, and does not open its crew panel.
@@ -59,7 +59,7 @@
 // overlaps by area, smallest first, already picks the smaller, nested badge over the mission
 // card beneath it, the same reasoning that lets a ship's crew zone win over its enclosing ship
 // row (#645). A tap on a badge opens that pile's panel
-// (`PilePanel`); a tap on the mission card itself does nothing (a hold previews it). The
+// (`CardListPanel`); a tap on the mission card itself does nothing (a hold previews it). The
 // under-the-mission pile has no badge of its own — its control is the tap target layered over its
 // stack of slivers (`UnderMissionStack` below), not a drop target, since the drop happens on the
 // mission card's own drop target like every other pile that has no badge under the pointer.
@@ -408,7 +408,7 @@ const UNDER_MISSION_MIN_SLIVER_BASE = 2; // px, the smallest sliver a single car
 // (#641) rather than as a strip of plain edges below it. Absolutely positioned within the
 // mission's own relatively positioned drop target (`MissionColumn` below), so an empty pile
 // renders nothing and reserves no space — no dashed placeholder box. A single tap target, sized
-// to the sliver band, opens that pile's panel (`PilePanel`), the same callback `PileBadge`
+// to the sliver band, opens that pile's panel (`CardListPanel`), the same callback `PileBadge`
 // already uses; it is not a drop target of its own — the drop happens on the mission card's own
 // drop target (`missionDropId`). The individual card images underneath have no click handling of
 // their own (`pointer-events-none`) so only the tap target responds, and the sliver band sits

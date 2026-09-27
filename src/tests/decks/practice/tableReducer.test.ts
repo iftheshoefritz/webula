@@ -685,7 +685,7 @@ describe('tableReducer', () => {
     });
   });
 
-  // A download (#690) opens a pile panel to look through the draw deck or the dilemma pile. The
+  // A download (#690) opens a card list panel to look through the draw deck or the dilemma pile. The
   // look itself must change nothing, and taking one card must take exactly that card and leave
   // the order of the rest alone.
   describe('download from a pile (#690)', () => {

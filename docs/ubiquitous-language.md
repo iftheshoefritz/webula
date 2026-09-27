@@ -137,10 +137,20 @@ missions, at least two of them not headquarters; at least 20 dilemmas; at least
 | dilemma stack | `'dilemmaStack'` | The face-down stack for one mission attempt. Index 0 is revealed first. |
 | — | `'dilemmaHand'` | No rulebook term. A face-up working area for dilemmas. See [section 7](#7-names-kept-and-why). |
 
-**Word "pile":** the `Zone` of the draw deck is `'drawDeck'`, so no zone is named
-`'pile'` any more (#838). In `deckBuilderUtils.ts`, a "pile" is one of the three
-deck-building categories, and `PilePanel` is the list panel of any place on the
-table. Read the file before you read the word.
+**Word "pile":** only one thing is a pile now. In `deckBuilderUtils.ts`, a "pile" is one
+of the three deck-building categories (`DeckPile`), and the dilemma pile, the discard pile
+and a mission's under-the-mission pile are piles of cards on the table. The `Zone` of the
+draw deck is `'drawDeck'`, so no zone is named `'pile'` (#838), and the popup that lists
+the cards of one place is the `CardListPanel`, not a "pile panel" (#856).
+
+**The popup that lists cards:** `CardListPanel` shows the cards of one place, and
+`PanelLocation` names that place. `PanelLocation` joins the `*Location` family above,
+because its values are the kinds of place a card can sit in: a mission pile, the core, the
+brig, a crew, a ship row, a flat zone, or the cards placed on a card. Its drop target id is
+`card-list-panel-<location>`. The word is not "zone", because "zone" already names three
+types with three meanings — `Zone`, `ZoneKind` and this one — and the `data-zone` attribute
+and `scripts/practice_drag.sh` depend on it. The word "panel" is right, because
+`DecklistPanel` uses it the same way and the two modals say Modal.
 
 **Word "stack":** in this codebase, "stack" means the dilemma stack only. A hand
 is "open" or "closed", never "stacked".
@@ -232,7 +242,8 @@ gives the reason, so that the next reader does not open the same issue again.
 ## 8. Cases found by the second search
 
 A second search of the code (#835) found these cases. The number is the number of the row
-in #833. Cases 1 to 11, and case 13, are the ones the sections above already describe.
+in #833. Cases 1 to 11, case 13 and case 17 are the ones the sections above already
+describe.
 
 The owner decided every case but one. A row goes away when its rename lands and the
 sections above hold the new name.
@@ -242,7 +253,6 @@ sections above hold the new name.
 | 12 | `expandDeck` returns the draw cards alone, so its "deck" is the rulebook deck. The `DeckList` it takes is the whole saved object. | **Pending.** The owner has not decided this one. |
 | 14 | "Download" is a rulebook word for an effect that takes a card from your deck and puts it into play. The UI uses it for opening the draw deck or the dilemma pile to take any card by hand. | **Deferred to #827.** That issue models the download more completely, so the word is right and only partly modeled today. When #827 lands, section 6 stops listing download as not modeled and section 4 gains a row for it. |
 | 16 | The limit of three copies counts one `collectorsinfo` value. The rulebook limit counts one card title, so two versions of one card let a deck hold six copies. | **Keep, and see "A rule the code does not enforce" below.** #834 blocks a fix, because no field holds the card title alone. |
-| 17 | "Pile" has a third meaning: `PilePanel` is the popup list of any place on the table, such as the core, the brig, a crew, a ship row or the cards placed on a card. None of these is a pile. | **Rename** (#856). `PilePanel` becomes `CardListPanel`, and `PanelZone` becomes `PanelLocation`, which joins the `*Location` family the code already uses for a place a card can be. Not "zone": "zone" already names three types with three meanings, and `data-zone` and the drag scripts depend on it. "Panel" stays, because `DecklistPanel` uses it the same way and the modals say Modal. |
 
 ### A rule the code does not enforce
 

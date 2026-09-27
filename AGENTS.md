@@ -231,7 +231,9 @@ bash scripts/practice_drag.sh card-5 core
 bash scripts/practice_drag.sh card-8 brig
 ```
 
-The draw deck is the zone `drawDeck` (#838), and its panel is `pile-panel-drawDeck`.
+The popup that lists the cards of one place is the `CardListPanel`, and its drop target id is
+`card-list-panel-<location>`, where the location is a value of `PanelLocation` (#856). The draw
+deck is the zone `drawDeck` (#838), so its panel is `card-list-panel-drawDeck`.
 Its two drop halves keep the older ids `draw-pile-top` and `draw-pile-bottom`, so a
 drop into the draw deck aims at one of those two, and the script then prints
 `draw-pile-top` or `draw-pile-bottom`.
@@ -246,18 +248,18 @@ Do not build the drag by hand. Three things make a hand drag fail, and each one 
 
 `collisionDetection.ts` ranks a drop by `pointerWithin` first, so the pointer must stop inside the rect of the target zone.
 
-`npx agent-browser drag '<from>' '<to>'` works for a card that no other card covers and a target that does not move, such as a drag out of a pile panel. It fails silently on a hand card: it reports `Done` and moves nothing.
+`npx agent-browser drag '<from>' '<to>'` works for a card that no other card covers and a target that does not move, such as a drag out of a card list panel. It fails silently on a hand card: it reports `Done` and moves nothing.
 
 A ship has two drop targets. A drop on the ship's art, `crew-<the ship's card id>`, places the card on the ship, and the ship shows a counter of the cards on it. A drop on the ship's crew badge, `crew-badge-<the ship's card id>`, boards the card into the crew. The badge shows even when the crew is empty, so it is the only way to board a card by a drag.
 
 A mission card takes a placed card too. A drop on its art, `mission-<index>`, places the card on the mission card, except a ship, which goes to the ship row, and a dilemma, which goes under the mission. The mission has no event pile. A drop on the away team badge, `mission-pile-awayTeam-<index>`, files the card into the away team. The badge shows even when the away team is empty, so it is the only way to file a card there by a drag.
 
-To put a card into a ship's crew, drag it out of a mission's pile panel onto the crew badge. That drag lands. The drag of a ship onto its ship row prints the ship's own zone, and the badge's zone is the same name with `badge-` added:
+To put a card into a ship's crew, drag it out of a mission's card list panel onto the crew badge. That drag lands. The drag of a ship onto its ship row prints the ship's own zone, and the badge's zone is the same name with `badge-` added:
 
 ```bash
 bash scripts/practice_drag.sh card-10 ship-row-0         # prints crew-card-10
 bash scripts/practice_drag.sh card-1 mission-pile-awayTeam-0  # files the card into the away team
-# open that pile panel, then:
+# open that card list panel, then:
 bash scripts/practice_drag.sh card-1 crew-badge-card-10  # boards card-1, prints crew-badge-card-10
 bash scripts/practice_drag.sh card-2 crew-card-10        # places card-2 on the ship, prints crew-card-10
 ```
