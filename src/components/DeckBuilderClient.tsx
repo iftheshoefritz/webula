@@ -112,12 +112,12 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const createLackeyTSV = (): string => {
     const lackeyPileNameFor: Record<string, string> = {
       mission: 'Missions:',
-      dilemma: 'Dilemmas:',
-      draw: 'Deck:',
+      dilemmaPile: 'Dilemmas:',
+      drawDeck: 'Deck:',
     };
     const lackeyPileOrder: Record<string, number> = {
-      draw: 0,
-      dilemma: 1,
+      drawDeck: 0,
+      dilemmaPile: 1,
       mission: 2,
     };
     const tsvArray: string[] = [];
