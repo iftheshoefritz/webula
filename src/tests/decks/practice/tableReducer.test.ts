@@ -133,7 +133,7 @@ describe('tableReducer', () => {
       const rest = instance('d2', card('Kevin Uxbridge'), 'down');
       const start = { ...initialTableState, dilemmaPile: [top, rest] };
 
-      const state = tableReducer(start, { type: 'draw', from: 'dilemmaPile', to: 'dilemmaHand' });
+      const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
 
       expect(state.dilemmaPile).toEqual([rest]);
       expect(state.dilemmaHand).toEqual([{ ...top, face: 'up' }]);
@@ -144,7 +144,7 @@ describe('tableReducer', () => {
       const drawCard = instance('a', card('Tricorder'), 'down');
       const start = { ...initialTableState, dilemmaPile: [dilemma], pile: [drawCard] };
 
-      const state = tableReducer(start, { type: 'draw', from: 'dilemmaPile', to: 'dilemmaHand' });
+      const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
 
       expect(state.pile).toEqual([drawCard]);
       expect(state.hand).toEqual([]);
@@ -152,7 +152,7 @@ describe('tableReducer', () => {
 
     it('is a no-op when the dilemma pile is empty', () => {
       const start = { ...initialTableState, dilemmaPile: [] };
-      const state = tableReducer(start, { type: 'draw', from: 'dilemmaPile', to: 'dilemmaHand' });
+      const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
       expect(state).toBe(start);
     });
   });
@@ -180,7 +180,7 @@ describe('tableReducer', () => {
     it('puts the dilemmas back in the dilemma pile on a second reset', () => {
       const dilemmas = [instance('d1', card('A')), instance('d2', card('B'))];
       const first = tableReducer(initialTableState, { type: 'reset', cards: [], missions: [], dilemmas });
-      const drawn = tableReducer(first, { type: 'draw', from: 'dilemmaPile', to: 'dilemmaHand' });
+      const drawn = tableReducer(first, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
       expect(drawn.dilemmaHand).toHaveLength(1);
 
       const second = tableReducer(drawn, { type: 'reset', cards: [], missions: [], dilemmas });
@@ -190,13 +190,13 @@ describe('tableReducer', () => {
     });
   });
 
-  describe('draw', () => {
+  describe('drawCard', () => {
     it('moves the top pile card into the hand and flips its face up', () => {
       const top = instance('a', card('Tricorder'), 'down');
       const rest = instance('b', card('Phaser'), 'down');
       const state = tableReducer(
         { ...initialTableState, pile: [top, rest] },
-        { type: 'draw', from: 'pile', to: 'hand' }
+        { type: 'drawCard', from: 'pile', to: 'hand' }
       );
 
       expect(state.pile).toEqual([rest]);
@@ -205,7 +205,7 @@ describe('tableReducer', () => {
 
     it('is a no-op when the pile is empty', () => {
       const start = { ...initialTableState, hand: [instance('a', card('Tricorder'))] };
-      const state = tableReducer(start, { type: 'draw', from: 'pile', to: 'hand' });
+      const state = tableReducer(start, { type: 'drawCard', from: 'pile', to: 'hand' });
 
       expect(state).toBe(start);
     });

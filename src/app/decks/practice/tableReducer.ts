@@ -138,7 +138,7 @@ export const SCORE_STEP = 5;
 export type TableAction =
   // A tap on a face-down pile moves its top card to a hand. The draw pile and the hand are one
   // pair (#596); the dilemma pile and the dilemma hand are the other (#604).
-  | { type: 'draw'; from: Zone; to: Zone }
+  | { type: 'drawCard'; from: Zone; to: Zone }
   // `position` chooses which end of the destination array the moved card lands on: 'bottom'
   // (the default, when omitted) keeps every existing call site's behaviour — the moved card (and
   // any crew it releases) goes after the destination's existing cards, same as always. 'top'
@@ -452,7 +452,7 @@ const sameLocation = (a: MoveTarget, b: MoveTarget): boolean => locationKey(a) =
 
 export function tableReducer(state: TableState, action: TableAction): TableState {
   switch (action.type) {
-    case 'draw': {
+    case 'drawCard': {
       const source = state[action.from];
       if (source.length === 0) return state;
       const [top, ...rest] = source;

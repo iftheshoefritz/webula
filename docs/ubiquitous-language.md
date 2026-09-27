@@ -149,6 +149,7 @@ is "open" or "closed", never "stacked".
 
 | Rulebook term | Code |
 |---|---|
+| draw (the top card of the deck into the hand) | action `drawCard`, from `'pile'` to `'hand'`; the same action moves the top dilemma from `'dilemmaPile'` to `'dilemmaHand'` |
 | stopped / unstopped | `CardInstance.stopped`, action `setStopped` |
 | face up / face down | `Face`, `ZONE_FACE`, action `flip` |
 | shuffle | action `shuffle`, `shuffleArray` |
