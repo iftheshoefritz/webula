@@ -65,7 +65,12 @@ function PlacedOnTargetCard({
   onOpen: () => void;
   onOpenPlacedOn: (targetId: string) => void;
 }) {
-  const { setNodeRef } = useDroppable({ id: onDropId(instance.id) });
+  const { setNodeRef, isOver } = useDroppable({ id: onDropId(instance.id) });
+  const draggedType = useDraggedCardType();
+  // The same highlight as a ship's art (#812), which also takes any placed card, so the player can
+  // tell a drop on this card from a drop on the zone around it before release (#831). dnd-kit
+  // reports one `over`, so the zone never shows `over` while this card does.
+  const highlight = highlightState('ship', draggedType, isOver);
   const landedNonce = useLandedNonce(onDropId(instance.id));
   const onCount = instance.placedOn?.length ?? 0;
 
@@ -73,8 +78,9 @@ function PlacedOnTargetCard({
     <div
       ref={setNodeRef}
       data-zone={onDropId(instance.id)}
+      data-highlight={highlight}
       data-landed={landedNonce !== null || undefined}
-      className="relative rounded"
+      className={`relative rounded ${highlightClassName(highlight)}`}
     >
       <TableCard
         instance={instance}
@@ -142,7 +148,10 @@ export default function FlatCardRow({
 
   // During a drag, keep the dashed outline and the full box size the empty zone uses (56x80,
   // "w-14 h-20" above), rather than shrinking to the card row's own size, so the drop target
-  // does not shrink out from under the pointer (#635).
+  // does not shrink out from under the pointer (#635). The cards sit at the row's bottom edge, and
+  // the table's bottom row is `items-end`, so the row grows upward away from them and each card
+  // stays under the pointer (or the finger) when the drag starts (#831). Anchored at the top, the
+  // cards jumped up by the growth, and the pointer that was on a card was then on the zone.
   return (
     <div
       ref={setNodeRef}
@@ -156,7 +165,7 @@ export default function FlatCardRow({
       }}
     >
       {cards.map((instance, idx) => (
-        <div key={instance.id} className="absolute top-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
+        <div key={instance.id} className="absolute bottom-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
           <PlacedOnTargetCard instance={instance} onOpen={onOpen} onOpenPlacedOn={onOpenPlacedOn} />
         </div>
       ))}

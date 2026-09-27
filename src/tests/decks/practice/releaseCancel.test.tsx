@@ -62,7 +62,7 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
-import { isReleaseInDeadRect, PressGeometry } from '../../../app/decks/practice/releaseCancel';
+import { isReleaseInCancelRadius, PressGeometry } from '../../../app/decks/practice/releaseCancel';
 
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
@@ -82,32 +82,47 @@ const mockDeck = {
   [mockEventCard.collectorsinfo]: { count: 1, row: mockEventCard },
 };
 
+const mockMissionCard = {
+  collectorsinfo: '1R100',
+  originalName: 'First Contact',
+  type: 'mission',
+  name: 'first contact',
+  imagefile: 'first_contact',
+  pile: 'mission',
+  count: 1,
+};
+
 // A card of the open fan, 73 x 104 px, the size the issue measured, pressed at its centre.
 const CARD_RECT = { left: 370, top: 503, right: 443, bottom: 607, width: 73, height: 104, x: 370, y: 503 };
 const PRESS = { x: 406.5, y: 555 };
+// The same card at the viewer size of the open fan (#802), 1.5 times as large, about the same
+// press point. The old half-card rectangle reached 39 px up from it.
+const VIEWER_CARD_RECT = { left: 351.5, top: 477, right: 461.5, bottom: 633, width: 110, height: 156, x: 351.5, y: 477 };
 
-describe('isReleaseInDeadRect (#774)', () => {
-  const press: PressGeometry = { ...PRESS, rect: CARD_RECT };
+describe('isReleaseInCancelRadius (#774, #825)', () => {
+  const press: PressGeometry = PRESS;
 
   it('cancels a release 9.4 px from the press point', () => {
-    expect(isReleaseInDeadRect(press, { x: 5, y: -8 })).toBe(true);
+    expect(isReleaseInCancelRadius(press, { x: 5, y: -8 })).toBe(true);
   });
 
-  it('keeps the 24 px floor in each direction from the press point', () => {
-    // Half the card's width is only 18 px each side of its centre; the floor widens it to 24 px.
-    expect(isReleaseInDeadRect(press, { x: 23, y: 0 })).toBe(true);
-    expect(isReleaseInDeadRect(press, { x: 25, y: 0 })).toBe(false);
+  it('cancels just inside the radius and drops just outside it, along each axis', () => {
+    expect(isReleaseInCancelRadius(press, { x: 23, y: 0 })).toBe(true);
+    expect(isReleaseInCancelRadius(press, { x: 25, y: 0 })).toBe(false);
+    expect(isReleaseInCancelRadius(press, { x: 0, y: -23 })).toBe(true);
+    expect(isReleaseInCancelRadius(press, { x: 0, y: -25 })).toBe(false);
   });
 
-  it('lets a release that leaves the half-size rectangle but stays on the card drop', () => {
-    // Half the card's height is 26 px below its centre; the card itself reaches 52 px.
-    expect(isReleaseInDeadRect(press, { x: 0, y: 25 })).toBe(true);
-    expect(isReleaseInDeadRect(press, { x: 0, y: 30 })).toBe(false);
+  it('measures a straight-line distance, not a distance per axis', () => {
+    // 16 px on each axis is 22.6 px away; 17 px on each axis is 24.04 px away.
+    expect(isReleaseInCancelRadius(press, { x: 16, y: 16 })).toBe(true);
+    expect(isReleaseInCancelRadius(press, { x: 17, y: 17 })).toBe(false);
+    expect(isReleaseInCancelRadius(press, { x: -17, y: -17 })).toBe(false);
   });
 
-  it('treats a drag with no press geometry or no delta as a normal drop', () => {
-    expect(isReleaseInDeadRect(null, { x: 0, y: 0 })).toBe(false);
-    expect(isReleaseInDeadRect(press, undefined)).toBe(false);
+  it('treats a drag with no press point or no delta as a normal drop', () => {
+    expect(isReleaseInCancelRadius(null, { x: 0, y: 0 })).toBe(false);
+    expect(isReleaseInCancelRadius(press, undefined)).toBe(false);
   });
 });
 
@@ -157,12 +172,12 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     }
   };
 
-  // Presses the card's rendered element at `PRESS`, with the element measured at `CARD_RECT`,
+  // Presses the card's rendered element at `PRESS`, with the element measured at `rect`,
   // then releases it `delta` away with `overId` under the release point.
-  const drag = async (id: string, delta: { x: number; y: number }, overId: string) => {
+  const drag = async (id: string, delta: { x: number; y: number }, overId: string, rect = CARD_RECT) => {
     const element = document.body.querySelector(`[data-card-id="${id}"]`) as HTMLElement;
     expect(element).not.toBeNull();
-    element.getBoundingClientRect = () => ({ ...CARD_RECT, toJSON: () => ({}) }) as DOMRect;
+    element.getBoundingClientRect = () => ({ ...rect, toJSON: () => ({}) }) as DOMRect;
     await act(async () => {
       mockOnDragStart!({ active: { id }, activatorEvent: { clientX: PRESS.x, clientY: PRESS.y, target: element } });
     });
@@ -187,7 +202,7 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     expect(screen.getByRole('button', { name: 'distress call' })).toBeInTheDocument();
   });
 
-  it('drops a card that leaves the half-size rectangle, though the release is still on the card', async () => {
+  it('drops a card released 30 px from the press point, though the release is still on the card', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
@@ -197,6 +212,27 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     await drag(id, { x: 0, y: 30 }, 'core');
 
     expect(cardInCore(id)).not.toBeNull();
+  });
+
+  // #825: the open fan sits over the mission row, so the centre of a mission card lies under
+  // a fan card. The old half-card rectangle reached 39 px up from this press on a viewer-size
+  // card and cancelled this drop; the 24 px radius lets it land.
+  it('lands a fan card released 30 px above the press point on the mission under the fan', async () => {
+    localStorage.setItem(
+      'currentDeck',
+      JSON.stringify({ ...mockDeck, [mockMissionCard.collectorsinfo]: { count: 1, row: mockMissionCard } })
+    );
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    await openHand();
+    // The mission card is draggable too, so find the event by its name.
+    const id = screen.getByRole('button', { name: 'distress call' }).closest('[data-card-id]')!.getAttribute('data-card-id')!;
+
+    await drag(id, { x: 0, y: -30 }, 'mission-0', VIEWER_CARD_RECT);
+
+    // #813 places an event dropped on a mission card on that card.
+    expect(screen.getByRole('button', { name: /^first contact, 1 card on it$/i })).toBeInTheDocument();
   });
 
   it("keeps a card in a mission's card list panel, and keeps the panel open, for a 9 px drag", async () => {

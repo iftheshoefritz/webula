@@ -311,7 +311,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
       return id;
     };
 
-    it('a release inside the dead rectangle (the #774 cancel)', async () => {
+    it('a release within the cancel radius (the #774 cancel)', async () => {
       const id = await holdDuringDrag((id) =>
         mockOnDragEnd!({ active: { id }, over: { id: 'core' }, delta: { x: 9, y: 0 } } as any)
       );
@@ -377,6 +377,21 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     fireEvent.click(crewCard);
     expect(screen.queryByTestId('card-preview')).toBeNull();
     expect(screen.getByRole('button', { name: 'Select data' })).toHaveAttribute('aria-pressed', 'false');
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
+  });
+
+  it("a hold on the ship in its crew panel shows the ship's preview and keeps the panel open (#832)", async () => {
+    await setupOpenHand([mockShipCard, mockPersonnelCard]);
+    const [shipId, personnelId] = mockDraggableIds;
+    drag(shipId, 'mission-2');
+    drag(personnelId, `crew-badge-${shipId}`);
+    tap(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+
+    const panelShip = screen.getByTestId('card-list-panel-crew-ship').querySelector('[aria-label="u.s.s. relativity"]')!;
+    hold(panelShip);
+    expect(preview('u.s.s. relativity')).toBeInTheDocument();
+    release();
+    expect(preview('u.s.s. relativity')).toBeNull();
     expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
   });
 

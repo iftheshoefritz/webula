@@ -221,7 +221,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     expect(screen.queryByTestId('card-preview')).toBeNull();
   });
 
-  it('a tap on a ship with no crew on a row of two (no overlap) opens nothing (#764)', async () => {
+  it('a tap on a ship with no crew on a row of two (no overlap) opens its crew panel, not the row panel (#764, #832)', async () => {
     await setupOpenHand([mockShipCard, mockOtherShipCard]);
     const [firstId, secondId] = mockDraggableIds;
     await dropOnMission(firstId, 0, 1);
@@ -232,6 +232,8 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     });
 
     expect(document.body.querySelector('[data-testid="card-list-panel-shipRow"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
+    expect(screen.getByTestId('card-list-panel-crew-ship').querySelector('img[alt="i.k.s. somraw"]')).not.toBeNull();
     expect(screen.queryByTestId('card-preview')).toBeNull();
   });
 

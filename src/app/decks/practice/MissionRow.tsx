@@ -26,8 +26,8 @@
 // badge (#811) is the only way to board a card by a drag: the same `PersonnelIcon`-and-count pill
 // a mission's away team shows (`PileBadge` below), not the plain `CountBadge` circle the draw
 // and discard piles use, and shown even with no crew, so the first crew card has somewhere to
-// land. A tap anywhere on the ship (`onShipClick`) opens, if it has crew, every crew card in a
-// panel (`CardListPanel`, zone `'crew'`, wired up in `page.tsx`), so the badge itself is not a tap
+// land. A tap anywhere on the ship (`onShipClick`) opens a panel with the ship in its own section
+// and every crew card below it (#832; `CardListPanel`, zone `'crew'`, wired up in `page.tsx`), so the badge itself is not a tap
 // target of its own: it is a plain, non-interactive `<span>` with `pointer-events-none`, so a tap
 // that lands on it falls through to the ship's own `TableCard` button beneath. A ship with cards on
 // it shows a second counter, at the other corner, and that one is a button: a tap on it opens the

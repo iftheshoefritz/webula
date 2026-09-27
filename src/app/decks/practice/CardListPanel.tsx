@@ -7,19 +7,23 @@
 // cards face up regardless of their stored face. Each card shows as the whole card image (#806),
 // frame and text included, not as the cropped art of the table card (`TableCard.tsx`): the panel
 // is where the player reads a card, so the text on it must be there (the same true-face-to-owner convention
-// `CardPreview` uses for the enlarged preview). A panel that has a Flip button (#762, below) does
-// not follow that convention: it draws the card back for a card whose stored
-// `face` is `down`, and the art for a card whose `face` is `up`, so a Flip shows in the panel.
-// `CardPreview` keeps the true-face-to-owner convention. The panels with no Flip button (the
-// core, the brig, a crew, a ship row, and the draw and dilemma piles, which the player opens to
-// download, #690) still list every card face up. The tap acts, the hold looks: a tap on a card
+// `CardPreview` uses for the enlarged preview). A panel that has a Flip button (#762, below) draws
+// the card face up too, and marks a card whose stored `face` is `down` with the same "Face down"
+// badge the preview shows (#826), so a Flip shows in the panel and the player can still read the
+// card. The mark is not the stopped look (`STOPPED_IMAGE_CLASSNAME`): a card can be both. The
+// panels with no Flip button (the core, the brig, a crew, a ship row, and the draw and dilemma
+// piles, which the player opens to download, #690) list every card face up with no mark. The tap acts, the hold looks: a tap on a card
 // toggles it in or out of the selection, and a press and hold shows its preview (`useCardHold`).
 // Each card is draggable out via the same `useDraggable` + `DragOverlay` mechanism
 // the hand and the crew row already use. The card name stays off the panel as visible text (#674);
 // it is still on the image's `alt` and the card button's `aria-label`, for a screen reader.
 //
-// The `'crew'` zone (#664) is opened by a tap on a ship with crew aboard, and uses the same
-// centered, up-to-90%-wide box every other zone uses.
+// The `'crew'` zone (#664) is opened by a tap on a ship, and uses the same
+// centered, up-to-90%-wide box every other zone uses. Since #832 it also shows the ship itself
+// (`ship`), in its own section above the crew grid and outside it (`PanelShip`), so a ship with no
+// crew opens the panel too. The ship is for display and a hold preview only: it registers no
+// draggable (the ship's `TableCard` already holds a draggable under the same id) and a tap on it
+// does not select it.
 //
 // Follows a `hidden` convention: the panel stays mounted (not
 // unmounted) for the rest of a drag that started from a card inside it, so a touch drag begun
@@ -70,6 +74,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
 import { STOPPED_IMAGE_CLASSNAME } from './TableCard';
+import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
 import OverlapRow from './OverlapRow';
 import { CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
@@ -167,7 +172,7 @@ function CardListPanelCard({
   cardWidth,
   cardHeight,
   reorderable = false,
-  showBackWhenFaceDown = false,
+  markFaceDown = false,
   gridScrolls = false,
 }: {
   instance: CardInstance;
@@ -181,8 +186,8 @@ function CardListPanelCard({
   // this stack card next to that one" rather than a move out of the zone). Every other `CardListPanel`
   // zone leaves this card a plain, non-droppable `useDraggable`, unchanged.
   reorderable?: boolean;
-  // A panel with a Flip button (#762) draws a face-down card as the card back.
-  showBackWhenFaceDown?: boolean;
+  // A panel with a Flip button (#762) marks a face-down card with a "Face down" badge (#826).
+  markFaceDown?: boolean;
   // The panel's card grid overflows (#788): let the browser pan it vertically under a touch.
   gridScrolls?: boolean;
 }) {
@@ -190,7 +195,7 @@ function CardListPanelCard({
   const { setNodeRef: setDropRef } = useDroppable({ id: instance.id, disabled: !reorderable });
   const holdListeners = useCardHold(instance.id, listeners);
   const { card } = instance;
-  const showBack = showBackWhenFaceDown && instance.face === 'down';
+  const showFaceDownMark = markFaceDown && instance.face === 'down';
 
   return (
     <div
@@ -206,7 +211,7 @@ function CardListPanelCard({
         onClick={onToggleSelect}
         {...attributes}
         {...holdListeners}
-        className={`flex flex-col items-center gap-0.5 focus:outline-none ${
+        className={`relative flex flex-col items-center gap-0.5 focus:outline-none ${
           gridScrolls ? 'touch-pan-y' : 'touch-none'
         } w-full rounded-md ${
           selected ? 'ring-2 ring-accent' : ''
@@ -222,13 +227,23 @@ function CardListPanelCard({
             card shows: the panel is where the player reads the card. The height comes from the
             image's own ratio (`fullCardHeight`), so the image is never squashed. */}
         <img
-          src={showBack ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
+          src={`/cardimages/${card.imagefile}.jpg`}
           width={CARD_IMAGE_WIDTH}
           height={CARD_IMAGE_HEIGHT}
           alt={card.name}
           className={`rounded-md shadow-md h-auto ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
           style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
         />
+        {/* Bottom left, clear of the select checkbox; it takes no tap, so the card still selects
+            and drags. */}
+        {showFaceDownMark && (
+          <span
+            data-testid="face-down-mark"
+            className={`absolute bottom-1 left-1 pointer-events-none whitespace-nowrap ${FACE_DOWN_BADGE_CLASSNAME}`}
+          >
+            {FACE_DOWN_LABEL}
+          </span>
+        )}
       </button>
       <button
         type="button"
@@ -245,9 +260,43 @@ function CardListPanelCard({
   );
 }
 
+// The ship whose crew the panel lists (#832), in its own section above the crew grid. The
+// whole card image at the size of a panel card, face up (`SHIP_ROW_FACE`), on a framed box of
+// its own so it does not read as a crew card. A hold shows its preview; a tap does nothing. No
+// `useDraggable` and no `data-zone`: it is neither a drag source nor a drop target.
+function PanelShip({ ship, cardWidth, cardHeight }: { ship: CardInstance; cardWidth: number; cardHeight: number }) {
+  const holdListeners = useCardHold(ship.id);
+  const { card } = ship;
+  return (
+    <div
+      data-testid="card-list-panel-crew-ship"
+      className="shrink-0 flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
+    >
+      <span className="text-[10px] font-bold uppercase tracking-wide text-text-secondary">Ship</span>
+      <div
+        role="img"
+        aria-label={card.name}
+        {...holdListeners}
+        className="touch-none"
+        style={{ ...NO_CALLOUT_STYLE, width: cardWidth }}
+      >
+        <img
+          src={`/cardimages/${card.imagefile}.jpg`}
+          width={CARD_IMAGE_WIDTH}
+          height={CARD_IMAGE_HEIGHT}
+          alt={card.name}
+          className={`rounded-md shadow-md h-auto ${ship.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+          style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function CardListPanel({
   location,
   cards,
+  ship,
   onClose,
   selectedIds,
   onToggleSelect,
@@ -262,6 +311,8 @@ export default function CardListPanel({
 }: {
   location: PanelLocation;
   cards: CardInstance[];
+  // The crew panel only (#832): the ship whose crew `cards` lists, shown in its own section.
+  ship?: CardInstance;
   onClose: () => void;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
@@ -427,6 +478,7 @@ export default function CardListPanel({
             Shuffle
           </button>
         )}
+        {ship && <PanelShip ship={ship} cardWidth={cardWidth} cardHeight={cardHeight} />}
         {/* Issue #861: the grid is a selector for the tests and for the scripts, not a drop
             target. It has no `useDroppable`, and no drag aims at it: the open panel covers the
             table, and a reorder inside the panel aims at another card's own droppable. So the
@@ -461,7 +513,7 @@ export default function CardListPanel({
                   cardWidth={cardWidth}
                   cardHeight={cardHeight}
                   reorderable
-                  showBackWhenFaceDown={onFlip !== undefined}
+                  markFaceDown={onFlip !== undefined}
                 />
               )}
             />
@@ -474,7 +526,7 @@ export default function CardListPanel({
                 onToggleSelect={() => onToggleSelect(instance.id)}
                 cardWidth={cardWidth}
                 cardHeight={cardHeight}
-                showBackWhenFaceDown={onFlip !== undefined}
+                markFaceDown={onFlip !== undefined}
                 gridScrolls={gridScrolls}
               />
             ))

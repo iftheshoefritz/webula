@@ -253,7 +253,7 @@ Do not build the drag by hand. Three things make a hand drag fail, and each one 
 
 1. A mouse down on a card of the open hand closes the fan, and the table then reflows. Coordinates read before the drag point at the old layout, so the drop lands in the wrong zone. Read the rect of the target zone **after** the drag starts.
 2. The cards of the fan overlap, and the later card is on top. The centre of a card is often under its neighbour, so the drag moves the wrong card. Find a point where `document.elementFromPoint` returns the card you want.
-3. A release near the press point cancels the drag (#774, `releaseCancel.ts`). The open fan sits over the mission row, so the centre of a mission card is often inside the dead rectangle of the fan card above it, and the card goes back to the hand (#818). Release at a point of the target that is outside the dead rectangle. When the whole target is inside it, the script says so rather than printing `hand`.
+3. A release near the press point cancels the drag (#774, `releaseCancel.ts`). A release less than 24 px, in a straight line, from the press point puts the card back where it was (#825). Release at a point of the target at least 24 px from the press point. When the whole target is closer than that, the script says so rather than printing `hand`.
 
 `collisionDetection.ts` ranks a drop by `pointerWithin` first, so the pointer must stop inside the rect of the target zone.
 

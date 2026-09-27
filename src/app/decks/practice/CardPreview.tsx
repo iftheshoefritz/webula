@@ -12,6 +12,10 @@
 import { CardInstance } from './tableReducer';
 import { STOPPED_IMAGE_CLASSNAME } from './TableCard';
 
+// The "Face down" badge, shared with the card list panel's mark on a face-down card (#826).
+export const FACE_DOWN_LABEL = 'Face down';
+export const FACE_DOWN_BADGE_CLASSNAME = 'bg-black/70 text-text-primary text-xs font-medium px-2 py-1 rounded';
+
 export default function CardPreview({
   instance,
   hidden = false,
@@ -37,8 +41,8 @@ export default function CardPreview({
       />
 
       {face === 'down' && (
-        <span className="absolute right-4 top-[6%] bg-black/70 text-text-primary text-xs font-medium px-2 py-1 rounded">
-          Face down
+        <span className={`absolute right-4 top-[6%] ${FACE_DOWN_BADGE_CLASSNAME}`}>
+          {FACE_DOWN_LABEL}
         </span>
       )}
     </div>
