@@ -117,9 +117,9 @@ bx=$1; by=$2
 # zone. The key comes from the closest data-zone, which is the badge's own,
 # falling back to the ship name if somehow none is set (#715).
 #
-# A host's badge (#810), on a card in the core or the brig, reads "<Card
-# name>, N cards on it". It sits inside the host's own wrapper, so its key is
-# the host's drop zone, `on-<the host's card id>`. A ship's counter of the
+# The badge of the placed cards (#810), on a card in the core or the brig, reads
+# "<Card name>, N cards on it". It sits inside that card's own wrapper, so its
+# key is that card's drop zone, `on-<its card id>`. A ship's counter of the
 # cards on it (#812) reads the same way, and sits inside the ship's own
 # wrapper, so its key is the ship's drop zone, `crew-<the ship's card id>`.
 # A mission card's counter (#813) reads the same way too, and its key is the
@@ -136,7 +136,7 @@ ab mouse move "$bx" "$by"
 ab mouse move "$bx" "$by"
 ab mouse up
 
-# A card in the core or the brig sits inside its own host droppable (#810),
+# A card in the core or the brig sits inside its own placed-card droppable (#810),
 # `on-<its id>`, so the zone it is in is the next data-zone up.
 found=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';let z=e.closest('[data-zone]');if(z&&z.getAttribute('data-zone')==='on-$CARD')z=z.parentElement.closest('[data-zone]');return z?z.getAttribute('data-zone'):'no zone'})()")
 

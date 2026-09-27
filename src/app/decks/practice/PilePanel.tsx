@@ -114,7 +114,7 @@ export function ShuffleIcon() {
 // #630 gives it the tap target on the table that opens this panel. The discard pile (#782) is an
 // eighth: a tap on it lists every discarded card, not just the top one the table shows. It has no
 // Shuffle and no Stop control: its order comes from play, and a discarded card is never stopped.
-// The cards on a host (#810), a card in the core or the brig, are a ninth.
+// The cards placed on a card (#810) in the core or the brig are a ninth.
 export type PanelZone =
   | MissionPileName
   | 'core'
