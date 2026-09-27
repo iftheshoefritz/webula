@@ -86,7 +86,7 @@ describe('DeckBuilderClient – Drive save deduplication', () => {
   it('uses PUT (not POST) when deckFile.id exists, even after a title change', async () => {
     mockSession();
 
-    // Pre-seed localStorage with an existing deckFile that has an id
+    // Pre-fill localStorage with an existing deckFile that has an id
     localStorage.setItem('deckFile', JSON.stringify({ id: 'existing-drive-id', name: 'Old Title' }));
     localStorage.setItem('deckTitle', JSON.stringify('New Title'));
 
