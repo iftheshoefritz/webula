@@ -11,11 +11,11 @@ jest.mock('../../../hooks/useDataFetching', () => ({
   default: jest.fn(),
 }));
 
-// Mock deckBuilderUtils to spy on deckFromTsv and expandDeck
+// Mock deckBuilderUtils to spy on deckFromTsv and extractDrawDeck
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   ...jest.requireActual('../../../app/decks/deckBuilderUtils'),
   deckFromTsv: jest.fn(),
-  expandDeck: jest.fn(),
+  extractDrawDeck: jest.fn(),
   shuffleArray: jest.fn((arr) => arr),
 }));
 
@@ -62,7 +62,7 @@ import React from 'react';
 import { render, screen, within, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 
 const mockPersonnelCard = {
@@ -126,7 +126,7 @@ describe('Practice draw: stopping a personnel card (#679)', () => {
   const setupOpenHand = async (cards: any[]) => {
     localStorage.setItem('currentDeck', JSON.stringify(deckOf(...cards)));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(cards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(cards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -291,7 +291,7 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
   const setupOpenHand = async (cards: any[]) => {
     localStorage.setItem('currentDeck', JSON.stringify(mockMultiDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockMultiCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(cards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(cards);
 
     await act(async () => {
       render(<PracticeDrawPage />);

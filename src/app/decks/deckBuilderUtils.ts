@@ -61,9 +61,9 @@ const expandPile = (deck: DeckList, pile: DeckPile): any[] => {
   return result;
 }
 
-export const expandDeck = (deck: DeckList): any[] => expandPile(deck, 'drawDeck')
+export const extractDrawDeck = (deck: DeckList): any[] => expandPile(deck, 'drawDeck')
 
-// Pulls the deck's mission-pile entries in the same deck-iteration order expandDeck uses, kept
+// Pulls the deck's mission-pile entries in the same deck-iteration order extractDrawDeck uses, kept
 // un-shuffled: the mission row deals a fixed set in deck order, not a random draw (practice
 // page, #597).
 export const extractMissions = (deck: DeckList): any[] => expandPile(deck, 'mission')

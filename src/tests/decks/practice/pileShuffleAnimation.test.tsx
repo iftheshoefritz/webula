@@ -11,11 +11,11 @@ jest.mock('../../../hooks/useDataFetching', () => ({
   default: jest.fn(),
 }));
 
-// Mock deckBuilderUtils so the test controls expandDeck and sees each shuffleArray call
+// Mock deckBuilderUtils so the test controls extractDrawDeck and sees each shuffleArray call
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   ...jest.requireActual('../../../app/decks/deckBuilderUtils'),
   deckFromTsv: jest.fn(),
-  expandDeck: jest.fn(),
+  extractDrawDeck: jest.fn(),
   shuffleArray: jest.fn((arr) => arr),
 }));
 
@@ -61,7 +61,7 @@ import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
 const card = (collectorsinfo: string, name: string, type: string, pile: string) => ({
   collectorsinfo,
@@ -103,7 +103,7 @@ describe('Practice draw: a pile animates when its Shuffle button runs (#786)', (
     (deckFromTsv as jest.Mock).mockReturnValue({});
     (shuffleArray as jest.Mock).mockImplementation((arr) => arr);
     (useDataFetching as jest.Mock).mockReturnValue({ data: allCards, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(allCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(allCards);
     localStorage.setItem('currentDeck', JSON.stringify(mockDeck));
 
     Object.defineProperty(screen, 'orientation', {

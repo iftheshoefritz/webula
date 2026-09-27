@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/core';
 import { collisionDetection } from './collisionDetection';
 import { FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
-import { deckFromTsv, expandDeck, extractDilemmas, extractMissions, isDeckEmpty, shuffleArray } from '../deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, extractDilemmas, extractMissions, isDeckEmpty, shuffleArray } from '../deckBuilderUtils';
 import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
@@ -1043,7 +1043,7 @@ function PracticeDrawContent() {
   // The fixture deck holds 27 personnel, fewer than the 20 + 12 that deal places, so it deals a second
   // copy of the deck's personnel too, each copy its own instance.
   const dealDeck = (deck: DeckList, fixturePiles = false) => {
-    const cards = expandDeck(deck);
+    const cards = extractDrawDeck(deck);
     dispatch({
       type: fixturePiles ? 'resetWithPiles' : 'reset',
       cards: createCardInstances(

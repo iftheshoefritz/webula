@@ -11,11 +11,11 @@ jest.mock('../../../hooks/useDataFetching', () => ({
   default: jest.fn(),
 }));
 
-// Mock deckBuilderUtils to spy on deckFromTsv and expandDeck
+// Mock deckBuilderUtils to spy on deckFromTsv and extractDrawDeck
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   ...jest.requireActual('../../../app/decks/deckBuilderUtils'),
   deckFromTsv: jest.fn(),
-  expandDeck: jest.fn(),
+  extractDrawDeck: jest.fn(),
   shuffleArray: jest.fn((arr) => arr),
 }));
 
@@ -63,7 +63,7 @@ import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
@@ -136,7 +136,7 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
   it("moves a personnel card dragged from a mission's personnel pile back into the hand, raising the hand count", async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockPersonnelDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue([mockPersonnelCard]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockPersonnelCard]);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -181,7 +181,7 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
   it('moves a dilemma dragged from under a mission back into the dilemma hand', async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockDilemmaDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue([]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([]);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -236,7 +236,7 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
   it('marks the closed hand with the data-zone selector browser checks use', async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockPersonnelDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue([mockPersonnelCard]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockPersonnelCard]);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -251,7 +251,7 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
   it('marks the (empty) dilemma hand with the data-zone selector even before any dilemma is drawn', async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockPersonnelDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue([mockPersonnelCard]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockPersonnelCard]);
 
     await act(async () => {
       render(<PracticeDrawPage />);

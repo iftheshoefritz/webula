@@ -13,7 +13,7 @@ jest.mock('../../../hooks/useDataFetching', () => ({
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   ...jest.requireActual('../../../app/decks/deckBuilderUtils'),
   deckFromTsv: jest.fn(),
-  expandDeck: jest.fn(),
+  extractDrawDeck: jest.fn(),
   shuffleArray: jest.fn((arr) => arr),
 }));
 
@@ -58,7 +58,7 @@ import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { LANDED_CUE_MS } from '../../../app/decks/practice/LandedZoneContext';
 import { landedZoneKey } from '../../../app/decks/practice/landedZoneKey';
 
@@ -155,7 +155,7 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
 
     localStorage.setItem('currentDeck', JSON.stringify(mockDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue([mockEquipmentCard, mockEventCard]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockEquipmentCard, mockEventCard]);
   });
 
   afterEach(() => {

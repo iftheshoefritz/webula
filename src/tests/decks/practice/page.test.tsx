@@ -11,11 +11,11 @@ jest.mock('../../../hooks/useDataFetching', () => ({
   default: jest.fn(),
 }));
 
-// Mock deckBuilderUtils to spy on deckFromTsv and expandDeck
+// Mock deckBuilderUtils to spy on deckFromTsv and extractDrawDeck
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   ...jest.requireActual('../../../app/decks/deckBuilderUtils'),
   deckFromTsv: jest.fn(),
-  expandDeck: jest.fn(),
+  extractDrawDeck: jest.fn(),
   shuffleArray: jest.fn((arr) => arr),
 }));
 
@@ -37,7 +37,7 @@ import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 
@@ -83,7 +83,7 @@ describe('PracticeDrawPage', () => {
 
     // Default mock implementations
     (deckFromTsv as jest.Mock).mockReturnValue(mockDeck);
-    (expandDeck as jest.Mock).mockReturnValue(mockExpandedCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockExpandedCards);
     (shuffleArray as jest.Mock).mockImplementation((arr) => arr);
 
     // Default: loaded, no data
@@ -137,7 +137,7 @@ describe('PracticeDrawPage', () => {
     });
 
     expect(deckFromTsv).toHaveBeenCalledWith(PRACTICE_DECK_TSV, mockCardData);
-    expect(expandDeck).toHaveBeenCalledWith(mockDeck);
+    expect(extractDrawDeck).toHaveBeenCalledWith(mockDeck);
   });
 
   // Behaviour 4: Correct arguments to deckFromTsv
@@ -163,7 +163,7 @@ describe('PracticeDrawPage', () => {
     });
 
     expect(deckFromTsv).not.toHaveBeenCalled();
-    expect(expandDeck).toHaveBeenCalledWith(mockDeck);
+    expect(extractDrawDeck).toHaveBeenCalledWith(mockDeck);
   });
 
   // Behaviour 5: Data dependency — no premature fire while loading
@@ -235,7 +235,7 @@ describe('PracticeDrawPage', () => {
   it('does not render the "Practice Draw" title or "Back to Deck Builder" link', async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -262,7 +262,7 @@ describe('PracticeDrawPage', () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -289,7 +289,7 @@ describe('PracticeDrawPage', () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -317,7 +317,7 @@ describe('PracticeDrawPage', () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -362,7 +362,7 @@ describe('PracticeDrawPage', () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -397,7 +397,7 @@ describe('PracticeDrawPage', () => {
   it('does not render a "Draw to 7" button', async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -412,7 +412,7 @@ describe('PracticeDrawPage', () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
     // A single-card deck is dealt entirely into the hand, so the pile starts empty.
-    (expandDeck as jest.Mock).mockReturnValue([mockManyCards[0]]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockManyCards[0]]);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -430,7 +430,7 @@ describe('PracticeDrawPage', () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -474,7 +474,7 @@ describe('PracticeDrawPage', () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
     // A single-card deck is dealt entirely into the hand, so the pile starts empty.
-    (expandDeck as jest.Mock).mockReturnValue([mockManyCards[0]]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockManyCards[0]]);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -492,7 +492,7 @@ describe('PracticeDrawPage', () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -520,7 +520,7 @@ describe('PracticeDrawPage', () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -571,7 +571,7 @@ describe('PracticeDrawPage', () => {
       mockSearchParamsValue = new URLSearchParams();
       localStorage.setItem('currentDeck', JSON.stringify(mockDeckWithMission));
       (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-      (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+      (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
       await act(async () => {
         render(<PracticeDrawPage />);
@@ -679,7 +679,7 @@ describe('PracticeDrawPage', () => {
         }),
       );
       (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-      (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+      (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
       await act(async () => {
         render(<PracticeDrawPage />);
@@ -747,7 +747,7 @@ describe('PracticeDrawPage', () => {
     const renderManyCards = async () => {
       localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
       (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-      (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+      (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
       await act(async () => {
         render(<PracticeDrawPage />);
       });
@@ -826,7 +826,7 @@ describe('PracticeDrawPage', () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockManyCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);

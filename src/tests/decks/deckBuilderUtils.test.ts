@@ -1,4 +1,4 @@
-import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, cardPileFor, deckFromTsv, decrementedRow, expandDeck, extractMissions, findExisting, findExistingOrUseRow, incrementedRow, isDeckEmpty, mergeDeckPiles, numericCount, parsedDeck, shuffleArray, withCurrentPiles } from '../../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, cardPileFor, deckFromTsv, decrementedRow, extractDrawDeck, extractMissions, findExisting, findExistingOrUseRow, incrementedRow, isDeckEmpty, mergeDeckPiles, numericCount, parsedDeck, shuffleArray, withCurrentPiles } from '../../app/decks/deckBuilderUtils';
 import { CardDef } from '../../types';
 
 describe('constructing a deck object based on TSV text and a list of all card data', () => {
@@ -220,26 +220,26 @@ describe('findExistingOrUseRow', () => {
   })
 })
 
-describe('expandDeck', () => {
+describe('extractDrawDeck', () => {
   it('expands draw cards by their count', () => {
     const deck = {
       '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'drawDeck' }, count: 2 },
     }
-    expect(expandDeck(deck).length).toEqual(2)
+    expect(extractDrawDeck(deck).length).toEqual(2)
   })
 
   it('excludes mission cards', () => {
     const deck = {
       '1R000': { row: { collectorsinfo: '1R000', type: 'mission', pile: 'mission' }, count: 1 },
     }
-    expect(expandDeck(deck).length).toEqual(0)
+    expect(extractDrawDeck(deck).length).toEqual(0)
   })
 
   it('excludes dilemma cards', () => {
     const deck = {
       '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemmaPile' }, count: 3 },
     }
-    expect(expandDeck(deck).length).toEqual(0)
+    expect(extractDrawDeck(deck).length).toEqual(0)
   })
 
   it('expands multiple draw cards', () => {
@@ -247,13 +247,13 @@ describe('expandDeck', () => {
       '2C001': { row: { collectorsinfo: '2C001', type: 'event' }, count: 2 },
       '2C002': { row: { collectorsinfo: '2C002', type: 'personnel' }, count: 3 },
     }
-    expect(expandDeck(deck).length).toEqual(5)
+    expect(extractDrawDeck(deck).length).toEqual(5)
   })
 
   it('returns each copy as an independent object with the same data', () => {
     const row = { collectorsinfo: '2C001', type: 'event', name: 'My Card' }
     const deck = { '2C001': { row, count: 2 } }
-    const result = expandDeck(deck)
+    const result = extractDrawDeck(deck)
     expect(result[0]).toEqual(row)
     expect(result[1]).toEqual(row)
     expect(result[0]).not.toBe(row)
@@ -262,7 +262,7 @@ describe('expandDeck', () => {
   })
 
   it('returns an empty array for an empty deck', () => {
-    expect(expandDeck({})).toEqual([])
+    expect(extractDrawDeck({})).toEqual([])
   })
 })
 
