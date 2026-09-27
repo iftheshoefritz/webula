@@ -38,14 +38,14 @@ comparisons in the code are lowercase.
 |---|---|---|
 | card title | — | See "card title and subtitle" below. |
 | subtitle | — | See "card title and subtitle" below. |
-| cost | `cost` | A range field. A card with no printed cost counts as cost zero. |
+| cost | `cost` | A numeric field. A card with no printed cost counts as cost zero. |
 | affiliation | `affiliation` | The rulebook shows an affiliation by an icon. The data holds the word. |
 | species | `species` | The rulebook shows a species by the word, never by an icon. |
 | skills | `skills` | One string of skill names. |
 | keywords | `keywords` | `useDataFetching` changes `U.S.S.` to `uss` and `I.K.S.` to `iks`. |
 | game text | `gametext` | Search abbreviation `t:`. |
-| attributes (personnel) | `integrity`, `cunning`, `strength` | Range fields. |
-| attributes (ship) | `range`, `weapons`, `shields` | Range fields. |
+| attributes (personnel) | `integrity`, `cunning`, `strength` | Numeric fields. |
+| attributes (ship) | `range`, `weapons`, `shields` | Numeric fields. |
 | staffing requirements | `staff` | Command and staff icons. |
 | other icons | `icons` | Era icons and series icons. |
 | class (ship) | `class` | `SHIP_CLASSES` in `src/lib/missionRequirements.ts`. |
@@ -55,6 +55,13 @@ comparisons in the code are lowercase.
 | span | `span` | The move cost of a mission. |
 | points | `points` | The score of a mission. |
 | unique | `unique` | `'y'` or `'n'`. The rulebook marks a unique card with a dot before the title. |
+
+A numeric field is a field that a search filters by a number or a range of numbers,
+such as `cost:2` or `range:3-5`. `numericColumns` and `numericAbbreviations` in
+`src/lib/constants.ts` list them. The code calls this class "numeric" and never
+"range", because `range` is one of its fields: the ship attribute, the move distance of
+a ship (#855). The `ranges:` option passed to `search-query-parser` keeps its name,
+because that key belongs to the library.
 
 ### Card title and subtitle
 
@@ -234,7 +241,6 @@ sections above hold the new name.
 | 12 | `expandDeck` returns the draw cards alone, so its "deck" is the rulebook deck. The `DeckList` it takes is the whole saved object. | **Pending.** The owner has not decided this one. |
 | 13 | "Seed" is a rulebook word for placing cards at the start of a game. The code uses it for the `?fixture=piles` test deal instead, and calls the start of a game "deal" and "reset". The opening hand of seven cards is the bare number `7` in `reset`. | **Rename the fixture constants** (#854). `SEED_PILE_PERSONNEL` becomes `FIXTURE_AWAY_TEAM`, `SEED_CREW` becomes `FIXTURE_CREW`, `seedPiles` becomes `fixturePiles`. The action `resetWithPiles` and the URL `?fixture=piles` stay, because a change of the URL breaks the browser checks of `AGENTS.md`. The same task gives the opening hand a constant, `OPENING_HAND_SIZE`. |
 | 14 | "Download" is a rulebook word for an effect that takes a card from your deck and puts it into play. The UI uses it for opening the draw deck or the dilemma pile to take any card by hand. | **Deferred to #827.** That issue models the download more completely, so the word is right and only partly modeled today. When #827 lands, section 6 stops listing download as not modeled and section 4 gains a row for it. |
-| 15 | `range` is a ship attribute, and it is also the name of the numeric search fields: `rangeColumns`, `rangeAbbreviations` and `selectedRangeFilter`. One word, two things. | **Rename to "numeric"** (#855): `numericColumns`, `numericAbbreviations`, `selectedNumericFilter`. The ship attribute `range` does not change, and a search of `range:3-5` still works, because a search field name comes from the card data column and not from the constant. So no saved search breaks. The `ranges:` option of `search-query-parser` belongs to that library and stays. |
 | 16 | The limit of three copies counts one `collectorsinfo` value. The rulebook limit counts one card title, so two versions of one card let a deck hold six copies. | **Keep, and see "A rule the code does not enforce" below.** #834 blocks a fix, because no field holds the card title alone. |
 | 17 | "Pile" has a third meaning: `PilePanel` is the popup list of any place on the table, such as the core, the brig, a crew, a ship row or the cards placed on a card. None of these is a pile. | **Rename** (#856). `PilePanel` becomes `CardListPanel`, and `PanelZone` becomes `PanelLocation`, which joins the `*Location` family the code already uses for a place a card can be. Not "zone": "zone" already names three types with three meanings, and `data-zone` and the drag scripts depend on it. "Panel" stays, because `DecklistPanel` uses it the same way and the modals say Modal. |
 

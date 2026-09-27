@@ -26,12 +26,12 @@ export const textAbbreviations: Record<string, string> = {
   'reportsto': 'rt'
 };
 
-export const rangeColumns: string[] = [
+export const numericColumns: string[] = [
   'cost', 'span', 'points', 'integrity', 'range', 'cunning', 'weapons', 'strength', 'shields'
 ];
 
 
-export const rangeAbbreviations: Record<string, string> = {
+export const numericAbbreviations: Record<string, string> = {
   'cost': 'c',
   'span': 's',
   'points': 'p',

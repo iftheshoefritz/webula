@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import searchQueryParser from 'search-query-parser';
-import { textColumns, rangeColumns, textAbbreviations, rangeAbbreviations } from '../lib/constants';
+import { textColumns, numericColumns, textAbbreviations, numericAbbreviations } from '../lib/constants';
 import { debounce } from 'lodash';
 
 interface SearchBarProps {
@@ -14,7 +14,7 @@ interface SearchBarProps {
 
 const PARSER_OPTIONS = {
   keywords: textColumns.concat(Object.values(textAbbreviations)),
-  ranges: rangeColumns.concat(Object.values(rangeAbbreviations)),
+  ranges: numericColumns.concat(Object.values(numericAbbreviations)),
   offsets: false,
 };
 
