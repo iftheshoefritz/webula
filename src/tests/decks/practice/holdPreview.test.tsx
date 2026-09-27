@@ -380,6 +380,21 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
   });
 
+  it("a hold on the ship in its crew panel shows the ship's preview and keeps the panel open (#832)", async () => {
+    await setupOpenHand([mockShipCard, mockPersonnelCard]);
+    const [shipId, personnelId] = mockDraggableIds;
+    drag(shipId, 'mission-2');
+    drag(personnelId, `crew-badge-${shipId}`);
+    tap(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+
+    const panelShip = screen.getByTestId('card-list-panel-crew-ship').querySelector('[aria-label="u.s.s. relativity"]')!;
+    hold(panelShip);
+    expect(preview('u.s.s. relativity')).toBeInTheDocument();
+    release();
+    expect(preview('u.s.s. relativity')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
+  });
+
   it('the preview holds no button and takes no pointer events (#764)', async () => {
     await setupOpenHand([mockEquipmentCard]);
     hold(screen.getByRole('button', { name: 'tricorder' }));
