@@ -11,11 +11,11 @@ jest.mock('../../../hooks/useDataFetching', () => ({
   default: jest.fn(),
 }));
 
-// Mock deckBuilderUtils to spy on deckFromTsv and expandDeck
+// Mock deckBuilderUtils to spy on deckFromTsv and extractDrawDeck
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   ...jest.requireActual('../../../app/decks/deckBuilderUtils'),
   deckFromTsv: jest.fn(),
-  expandDeck: jest.fn(),
+  extractDrawDeck: jest.fn(),
   shuffleArray: jest.fn((arr) => arr),
 }));
 
@@ -61,7 +61,7 @@ import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
@@ -133,7 +133,7 @@ describe('Practice draw: only one card list panel is ever open at a time (#711)'
   it('opening the core panel over an open mission card list panel closes the mission panel and shows the core\'s own cards', async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue([mockPersonnelCard, mockEventCard]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockPersonnelCard, mockEventCard]);
 
     await act(async () => {
       render(<PracticeDrawPage />);

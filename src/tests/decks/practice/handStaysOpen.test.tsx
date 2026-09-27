@@ -11,11 +11,11 @@ jest.mock('../../../hooks/useDataFetching', () => ({
   default: jest.fn(),
 }));
 
-// Mock deckBuilderUtils to spy on deckFromTsv and expandDeck
+// Mock deckBuilderUtils to spy on deckFromTsv and extractDrawDeck
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   ...jest.requireActual('../../../app/decks/deckBuilderUtils'),
   deckFromTsv: jest.fn(),
-  expandDeck: jest.fn(),
+  extractDrawDeck: jest.fn(),
   shuffleArray: jest.fn((arr) => arr),
 }));
 
@@ -62,7 +62,7 @@ import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
@@ -141,7 +141,7 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     const deck = Object.fromEntries(mockPersonnelCards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
     localStorage.setItem('currentDeck', JSON.stringify(deck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(mockPersonnelCards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockPersonnelCards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -178,7 +178,7 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     const deck = { [mockPersonnelCards[0].collectorsinfo]: { count: 1, row: mockPersonnelCards[0] } };
     localStorage.setItem('currentDeck', JSON.stringify(deck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue([mockPersonnelCards[0]]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockPersonnelCards[0]]);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -209,7 +209,7 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     const deck = { [mockDilemmaCard.collectorsinfo]: { count: 2, row: mockDilemmaCard } };
     localStorage.setItem('currentDeck', JSON.stringify(deck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue([]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([]);
 
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -253,7 +253,7 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     };
     localStorage.setItem('currentDeck', JSON.stringify(deck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue([mockPersonnelCards[0], mockEventCard]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockPersonnelCards[0], mockEventCard]);
 
     await act(async () => {
       render(<PracticeDrawPage />);

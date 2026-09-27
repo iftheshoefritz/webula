@@ -14,7 +14,7 @@ jest.mock('../../../hooks/useDataFetching', () => ({
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   ...jest.requireActual('../../../app/decks/deckBuilderUtils'),
   deckFromTsv: jest.fn(),
-  expandDeck: jest.fn(),
+  extractDrawDeck: jest.fn(),
   shuffleArray: jest.fn((arr) => arr),
 }));
 
@@ -52,7 +52,7 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import { getSession, signIn } from 'next-auth/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, expandDeck } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 
 const makeCards = (n: number, prefix: string) =>
@@ -112,7 +112,7 @@ describe('Load deck in the practice game menu (#780)', () => {
 
     (useDataFetching as jest.Mock).mockReturnValue({ data: builderCards, loading: false });
     (deckFromTsv as jest.Mock).mockReturnValue(driveDeck);
-    (expandDeck as jest.Mock).mockImplementation((deck) =>
+    (extractDrawDeck as jest.Mock).mockImplementation((deck) =>
       Object.values(deck).map((entry) => (entry as { row: unknown }).row),
     );
     (getSession as jest.Mock).mockResolvedValue(null);

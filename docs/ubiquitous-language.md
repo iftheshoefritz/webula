@@ -110,6 +110,9 @@ piles, named by `DeckPile`:
 | `'dilemmaPile'` | dilemma cards | the dilemma pile |
 | `'drawDeck'` | every other type | the deck |
 
+`extractDrawDeck` returns the draw deck of a `DeckList`, one entry per copy, and
+`extractMissions` and `extractDilemmas` return the other two piles (#863).
+
 The values match the practice table zones `'dilemmaPile'` and `'drawDeck'` (#837).
 A deck saved before #837 holds `pile: 'dilemma'` and `pile: 'draw'` on its rows.
 `withCurrentPiles` computes each pile again from the card type when the deck loads, so
@@ -242,15 +245,14 @@ gives the reason, so that the next reader does not open the same issue again.
 ## 8. Cases found by the second search
 
 A second search of the code (#835) found these cases. The number is the number of the row
-in #833. Cases 1 to 11, case 13 and case 17 are the ones the sections above already
+in #833. Cases 1 to 13 and case 17 are the ones the sections above already
 describe.
 
-The owner decided every case but one. A row goes away when its rename lands and the
+The owner decided every case. A row goes away when its rename lands and the
 sections above hold the new name.
 
 | # | The case | Decision |
 |---|---|---|
-| 12 | `expandDeck` returns the draw cards alone, so its "deck" is the rulebook deck. The `DeckList` it takes is the whole saved object. | **Pending.** The owner has not decided this one. |
 | 14 | "Download" is a rulebook word for an effect that takes a card from your deck and puts it into play. The UI uses it for opening the draw deck or the dilemma pile to take any card by hand. | **Deferred to #827.** That issue models the download more completely, so the word is right and only partly modeled today. When #827 lands, section 6 stops listing download as not modeled and section 4 gains a row for it. |
 | 16 | The limit of three copies counts one `collectorsinfo` value. The rulebook limit counts one card title, so two versions of one card let a deck hold six copies. | **Keep, and see "A rule the code does not enforce" below.** #834 blocks a fix, because no field holds the card title alone. |
 

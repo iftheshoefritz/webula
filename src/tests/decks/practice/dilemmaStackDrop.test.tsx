@@ -11,11 +11,11 @@ jest.mock('../../../hooks/useDataFetching', () => ({
   default: jest.fn(),
 }));
 
-// Mock deckBuilderUtils to spy on deckFromTsv and expandDeck
+// Mock deckBuilderUtils to spy on deckFromTsv and extractDrawDeck
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   ...jest.requireActual('../../../app/decks/deckBuilderUtils'),
   deckFromTsv: jest.fn(),
-  expandDeck: jest.fn(),
+  extractDrawDeck: jest.fn(),
   shuffleArray: jest.fn((arr) => arr),
 }));
 
@@ -65,7 +65,7 @@ import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { expandDeck } from '../../../app/decks/deckBuilderUtils';
+import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
@@ -111,7 +111,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.clear();
 
-    (expandDeck as jest.Mock).mockReturnValue([mockEventCard]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockEventCard]);
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
 
     Object.defineProperty(screen, 'orientation', {

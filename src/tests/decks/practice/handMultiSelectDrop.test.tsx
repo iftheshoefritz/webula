@@ -11,11 +11,11 @@ jest.mock('../../../hooks/useDataFetching', () => ({
   default: jest.fn(),
 }));
 
-// Mock deckBuilderUtils to spy on deckFromTsv and expandDeck
+// Mock deckBuilderUtils to spy on deckFromTsv and extractDrawDeck
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   ...jest.requireActual('../../../app/decks/deckBuilderUtils'),
   deckFromTsv: jest.fn(),
-  expandDeck: jest.fn(),
+  extractDrawDeck: jest.fn(),
   shuffleArray: jest.fn((arr) => arr),
 }));
 
@@ -64,7 +64,7 @@ import React from 'react';
 import { render, screen, within, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
@@ -124,7 +124,7 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
   const setupOpenHand = async (cards: any[]) => {
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(cards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(cards);
 
     await act(async () => {
       render(<PracticeDrawPage />);

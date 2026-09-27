@@ -11,11 +11,11 @@ jest.mock('../../../hooks/useDataFetching', () => ({
   default: jest.fn(),
 }));
 
-// Mock deckBuilderUtils to spy on deckFromTsv and expandDeck
+// Mock deckBuilderUtils to spy on deckFromTsv and extractDrawDeck
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
   ...jest.requireActual('../../../app/decks/deckBuilderUtils'),
   deckFromTsv: jest.fn(),
-  expandDeck: jest.fn(),
+  extractDrawDeck: jest.fn(),
   shuffleArray: jest.fn((arr) => arr),
 }));
 
@@ -64,7 +64,7 @@ import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { HOLD_DELAY_MS, HOVER_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 
 // jsdom has no PointerEvent, so `fireEvent.pointerEnter` would drop `pointerType` and `buttons`,
@@ -203,7 +203,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
   const setupOpenHand = async (cards: any[], missions: any[] = []) => {
     localStorage.setItem('currentDeck', JSON.stringify(deckOf(...cards, ...missions)));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (expandDeck as jest.Mock).mockReturnValue(cards);
+    (extractDrawDeck as jest.Mock).mockReturnValue(cards);
 
     await act(async () => {
       render(<PracticeDrawPage />);
