@@ -408,9 +408,14 @@ export default function CardListPanel({
             Shuffle
           </button>
         )}
+        {/* Issue #861: the grid is a selector for the tests and for the scripts, not a drop
+            target. It has no `useDroppable`, and no drag aims at it: the open panel covers the
+            table, and a reorder inside the panel aims at another card's own droppable. So the
+            name goes in `data-testid`. A `data-zone` here would make `practice_drag.sh` print
+            `card-list-panel-<location>` for a card that never moved (see #860). */}
         <div
           ref={gridRef}
-          data-zone={`card-list-panel-${location}`}
+          data-testid={`card-list-panel-${location}`}
           {...{ [PANEL_SCROLLS_ATTRIBUTE]: gridScrolls ? 'true' : undefined }}
           className={gridClassName}
         >

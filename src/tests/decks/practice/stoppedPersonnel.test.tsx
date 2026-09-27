@@ -159,7 +159,7 @@ describe('Practice draw: stopping a personnel card (#679)', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'data' }));
     });
-    const panel = document.body.querySelector('[data-zone="card-list-panel-brig"]') as HTMLElement;
+    const panel = document.body.querySelector('[data-testid="card-list-panel-brig"]') as HTMLElement;
     return { personnelId, panel };
   };
 
@@ -311,7 +311,7 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
   // attribute, scoped to the open card list panel once one is open (both the panel and the flat row
   // underneath it render a button with the same accessible name).
   const cardIdFor = (name: string): string => {
-    const panel = document.body.querySelector('[data-zone^="card-list-panel-"]');
+    const panel = document.body.querySelector('[data-testid^="card-list-panel-"]');
     const scope = panel ? within(panel as HTMLElement) : screen;
     return scope.getByRole('button', { name }).getAttribute('data-card-id')!;
   };
@@ -365,7 +365,7 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
 
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
 
-    const panel = document.body.querySelector('[data-zone="card-list-panel-core"]') as HTMLElement;
+    const panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
     const img1 = within(panel).getByRole('button', { name: 'personnel 1' }).querySelector('img')!;
     const img2 = within(panel).getByRole('button', { name: 'personnel 2' }).querySelector('img')!;
     const img3 = within(panel).getByRole('button', { name: 'personnel 3' }).querySelector('img')!;
@@ -411,7 +411,7 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
 
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
 
-    const panel = document.body.querySelector('[data-zone="card-list-panel-core"]') as HTMLElement;
+    const panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
     const img2 = within(panel).getByRole('button', { name: 'personnel 2' }).querySelector('img')!;
 
     await act(async () => {

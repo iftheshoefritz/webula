@@ -346,10 +346,10 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
       jest.advanceTimersByTime(0);
     });
     expect(screen.queryByTestId('card-preview')).toBeNull();
-    expect(document.body.querySelector('[data-zone="card-list-panel-crew"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
     // The tap after that acts as usual.
     tap(ship);
-    expect(document.body.querySelector('[data-zone="card-list-panel-crew"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
   });
 
   it('a hold on a ship shows its preview only, without its crew panel; a hold on a crew card keeps the panel open', async () => {
@@ -361,14 +361,14 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     const ship = screen.getByRole('button', { name: 'u.s.s. relativity' });
     hold(ship);
     expect(preview('u.s.s. relativity')).toBeInTheDocument();
-    expect(document.body.querySelector('[data-zone="card-list-panel-crew"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
     release();
     expect(preview('u.s.s. relativity')).toBeNull();
 
     // A tap on the ship opens its crew panel and no preview. A hold on the crew card shows that
     // card; the release hides it, the panel stays open, and the card's selection is unchanged.
     tap(ship);
-    expect(document.body.querySelector('[data-zone="card-list-panel-crew"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
     expect(screen.queryByTestId('card-preview')).toBeNull();
     const crewCard = screen.getByRole('button', { name: 'data' });
     hold(crewCard);
@@ -377,7 +377,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     fireEvent.click(crewCard);
     expect(screen.queryByTestId('card-preview')).toBeNull();
     expect(screen.getByRole('button', { name: 'Select data' })).toHaveAttribute('aria-pressed', 'false');
-    expect(document.body.querySelector('[data-zone="card-list-panel-crew"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
   });
 
   it('the preview holds no button and takes no pointer events (#764)', async () => {

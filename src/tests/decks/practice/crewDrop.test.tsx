@@ -209,7 +209,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
     });
-    const panel = document.body.querySelector('[data-zone="card-list-panel-crew"]') as HTMLElement;
+    const panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
     expect(panel).not.toBeNull();
     expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
     expect(screen.queryByTestId('card-preview')).toBeNull();
@@ -281,7 +281,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     });
 
     // The panel closed, and the crew member is gone from the crew (and now in the discard pile).
-    expect(document.body.querySelector('[data-zone="card-list-panel-crew"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
     expect(screen.queryByRole('button', { name: 'data' })).not.toBeInTheDocument();
     expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
     expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
@@ -310,7 +310,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     expect(screen.getByRole('button', { name: 'data' })).toHaveClass('ring-2');
     expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
     expect(screen.queryByTestId('card-preview')).toBeNull();
-    expect(document.body.querySelector('[data-zone="card-list-panel-crew"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'data' }));
@@ -349,7 +349,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
     });
-    let panel = document.body.querySelector('[data-zone="card-list-panel-crew"]') as HTMLElement;
+    let panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(2);
 
     // Drag one crew member out to the discard pile.
@@ -361,7 +361,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     });
 
     // The panel is still open, now showing only the crew member still aboard.
-    panel = document.body.querySelector('[data-zone="card-list-panel-crew"]') as HTMLElement;
+    panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
     expect(panel).not.toBeNull();
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(1);
     expect(panel.querySelector(`[data-card-id="${equipmentId}"]`)).not.toBeNull();
@@ -373,7 +373,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     await act(async () => {
       mockOnDragEnd!({ active: { id: equipmentId }, over: { id: 'discard' } });
     });
-    expect(document.body.querySelector('[data-zone="card-list-panel-crew"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
   });
 
   it("keeps the ship's crew panel open after a drag out of it is cancelled (#675)", async () => {
@@ -399,7 +399,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
       mockOnDragCancel!();
     });
 
-    const panel = document.body.querySelector('[data-zone="card-list-panel-crew"]');
+    const panel = document.body.querySelector('[data-testid="card-list-panel-crew"]');
     expect(panel).not.toBeNull();
     expect(panel!.querySelectorAll('[data-card-id]')).toHaveLength(1);
   });
@@ -421,7 +421,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     });
 
     expect(screen.queryByTestId('card-preview')).toBeNull();
-    const panel = document.body.querySelector('[data-zone="card-list-panel-crew"]') as HTMLElement;
+    const panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
     expect(panel).not.toBeNull();
     expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
   });
@@ -436,7 +436,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     });
 
     expect(screen.queryByTestId('card-preview')).toBeNull();
-    expect(document.body.querySelector('[data-zone="card-list-panel-crew"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
   });
 
   it("closing the ship's crew panel leaves no preview", async () => {
@@ -460,7 +460,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
       fireEvent.click(closeButton);
     });
 
-    expect(document.body.querySelector('[data-zone="card-list-panel-crew"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
     expect(screen.queryByTestId('card-preview')).toBeNull();
   });
   it("boards a card dropped on the ship's crew badge into that ship's crew (#811)", async () => {
@@ -549,20 +549,20 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity, 1 card on it' }));
     });
-    const onPanel = document.body.querySelector('[data-zone="card-list-panel-on"]') as HTMLElement;
+    const onPanel = document.body.querySelector('[data-testid="card-list-panel-on"]') as HTMLElement;
     expect(onPanel).not.toBeNull();
     expect(onPanel.querySelector(`[data-card-id="${onId}"]`)).not.toBeNull();
     expect(onPanel.querySelector(`[data-card-id="${crewId}"]`)).toBeNull();
-    expect(document.body.querySelector('[data-zone="card-list-panel-crew"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
     });
-    const crewPanel = document.body.querySelector('[data-zone="card-list-panel-crew"]') as HTMLElement;
+    const crewPanel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
     expect(crewPanel).not.toBeNull();
     expect(crewPanel.querySelector(`[data-card-id="${crewId}"]`)).not.toBeNull();
     expect(crewPanel.querySelector(`[data-card-id="${onId}"]`)).toBeNull();
-    expect(document.body.querySelector('[data-zone="card-list-panel-on"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-on"]')).toBeNull();
   });
 
   it('carries the crew of a ship moved to another mission, and discards the cards on it (#809, #812)', async () => {

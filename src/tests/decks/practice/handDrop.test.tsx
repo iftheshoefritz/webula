@@ -175,7 +175,7 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
     expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
     const handZone = document.body.querySelector('[data-zone="hand"]');
     expect(handZone).not.toBeNull();
-    expect(document.body.querySelector('[data-zone="card-list-panel-awayTeam"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-awayTeam"]')).toBeNull();
   });
 
   it('moves a dilemma dragged from under a mission back into the dilemma hand', async () => {

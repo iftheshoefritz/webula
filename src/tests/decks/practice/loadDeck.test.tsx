@@ -84,7 +84,7 @@ const drawPileIds = async () => {
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: /^download from the draw deck$/i }));
   });
-  const ids = Array.from(document.querySelectorAll('[data-zone="card-list-panel-drawDeck"] [data-card-id]'));
+  const ids = Array.from(document.querySelectorAll('[data-testid="card-list-panel-drawDeck"] [data-card-id]'));
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: /^close draw deck$/i }));
   });
