@@ -9,7 +9,7 @@ jest.mock('@dnd-kit/core', () => ({
 }));
 
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import CardListPanel from '../../../app/decks/practice/CardListPanel';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 
@@ -76,7 +76,7 @@ describe('Practice draw: a panel shows the whole card, not the cropped art (#806
     expect(cardImage('card-0').className).toMatch(/grayscale/);
   });
 
-  it('draws the card back for a face-down card in a panel that can flip (#762)', () => {
+  it('draws a face-down card as its own image with a mark in a panel that can flip (#762, #826)', () => {
     const down = { ...makeCard(0), face: 'down' } as CardInstance;
     render(
       <CardListPanel
@@ -90,7 +90,8 @@ describe('Practice draw: a panel shows the whole card, not the cropped art (#806
     );
 
     const image = cardImage('card-0');
-    expect(image.getAttribute('src')).toBe('/cardimages/cardback.jpg');
+    expect(image.getAttribute('src')).toBe('/cardimages/card_0.jpg');
+    expect(screen.getByTestId('face-down-mark')).toHaveTextContent('Face down');
     expect(image.style.height).toBe('150px');
   });
 });

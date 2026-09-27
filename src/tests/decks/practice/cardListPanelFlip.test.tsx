@@ -91,8 +91,9 @@ const mockDilemmaCard = {
 const CARD_BACK = '/cardimages/cardback.jpg';
 
 // #762: a "Flip" button beside "Stop"/"Unstop" in the panels whose cards the preview can flip (a
-// mission's personnel, event, and under-the-mission piles, and the dilemma stack). It turns each
-// selected card over on its own. In those panels a face-down card shows the card back.
+// mission's away team and under-the-mission piles). It turns each selected card over on its own.
+// #826: in those panels every card draws its own image, and a face-down card carries a "Face down"
+// mark, so the player can read the card and still see a Flip.
 describe('Practice table: the card list panel Flip button (#762)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -170,6 +171,9 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
     return within(panel).getByRole('button', { name }).querySelector('img')!;
   };
 
+  const hasMark = (zone: string, name: string) =>
+    panelImage(zone, name).parentElement!.querySelector('[data-testid="face-down-mark"]') !== null;
+
   // Drops both personnel cards from the hand onto the first mission, where they go face down into
   // its Away team, and opens that pile's panel.
   const openAwayTeam = async () => {
@@ -181,11 +185,15 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
     await click(/Away team, 2 cards, tap to open/i);
   };
 
-  it('draws face-down cards in an away team panel as the card back, and shows no Flip without a selection', async () => {
+  it('draws face-down cards in an away team panel as their own image with a mark, and shows no Flip without a selection', async () => {
     await openAwayTeam();
 
-    expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', CARD_BACK);
-    expect(panelImage('awayTeam', 'personnel 2')).toHaveAttribute('src', CARD_BACK);
+    expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
+    expect(panelImage('awayTeam', 'personnel 2')).toHaveAttribute('src', '/cardimages/personnel_2.jpg');
+    expect(hasMark('awayTeam', 'personnel 1')).toBe(true);
+    expect(hasMark('awayTeam', 'personnel 2')).toBe(true);
+    // The mark is not the stopped look.
+    expect(panelImage('awayTeam', 'personnel 1')).not.toHaveClass('grayscale');
     expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
   });
 
@@ -199,10 +207,14 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
     await click(/^flip$/i);
 
     expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
-    expect(panelImage('awayTeam', 'personnel 2')).toHaveAttribute('src', CARD_BACK);
+    expect(hasMark('awayTeam', 'personnel 1')).toBe(false);
+    expect(hasMark('awayTeam', 'personnel 2')).toBe(true);
     expect(screen.getByRole('button', { name: 'Deselect personnel 1' })).toHaveAttribute('aria-pressed', 'true');
     // Stop is unchanged by a flip.
     expect(panelImage('awayTeam', 'personnel 1')).not.toHaveClass('grayscale');
+
+    await click(/^flip$/i);
+    expect(hasMark('awayTeam', 'personnel 1')).toBe(true);
   });
 
   it('turns each card of a mixed selection over on its own', async () => {
@@ -213,8 +225,18 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
     await click('Select personnel 2');
     await click(/^flip$/i);
 
-    expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', CARD_BACK);
-    expect(panelImage('awayTeam', 'personnel 2')).toHaveAttribute('src', '/cardimages/personnel_2.jpg');
+    expect(hasMark('awayTeam', 'personnel 1')).toBe(true);
+    expect(hasMark('awayTeam', 'personnel 2')).toBe(false);
+  });
+
+  it('marks a card that is both stopped and face down with the stopped look and the mark', async () => {
+    await openAwayTeam();
+
+    await click('Select personnel 1');
+    await click(/^stop$/i);
+
+    expect(panelImage('awayTeam', 'personnel 1')).toHaveClass('grayscale');
+    expect(hasMark('awayTeam', 'personnel 1')).toBe(true);
   });
 
   it('shows no Flip button in the core panel, even with a selection, and keeps its cards face up', async () => {
@@ -228,6 +250,7 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
     expect(panelImage('core', 'personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
+    expect(document.body.querySelector('[data-testid="face-down-mark"]')).not.toBeInTheDocument();
   });
 
   // #819: the stack's panel lists its cards face up so the player can read them to order the
@@ -245,6 +268,8 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
     await click('Dilemma stack, 1 card, tap to open');
     expect(panelImage('dilemmaStack', 'cardassian trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
     expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
+
+    expect(document.body.querySelector('[data-testid="face-down-mark"]')).not.toBeInTheDocument();
 
     await click('Select cardassian trap');
     expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
