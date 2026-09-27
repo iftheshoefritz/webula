@@ -268,7 +268,7 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
     expect(landedElements()).toHaveLength(0);
   });
 
-  it('marks nothing for a release inside the dead rectangle', async () => {
+  it('marks nothing for a release within the cancel radius', async () => {
     await setup();
     const id = handCardId('tricorder');
     const element = document.body.querySelector(`[data-card-id="${id}"]`) as HTMLElement;

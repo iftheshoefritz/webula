@@ -311,7 +311,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
       return id;
     };
 
-    it('a release inside the dead rectangle (the #774 cancel)', async () => {
+    it('a release within the cancel radius (the #774 cancel)', async () => {
       const id = await holdDuringDrag((id) =>
         mockOnDragEnd!({ active: { id }, over: { id: 'core' }, delta: { x: 9, y: 0 } } as any)
       );
