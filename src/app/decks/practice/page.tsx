@@ -1007,7 +1007,7 @@ function PracticeDrawContent() {
   // mission index, since a ship stays reachable by its own id regardless of which mission's ship
   // row currently holds it — the same reasoning `crewDropId` already follows). Tracked the same
   // way as `openPile`/`openFlatLocation`: a piece of UI state with no effect on the table. A tap on a
-  // ship with crew aboard (`handleShipClick` below) opens it.
+  // ship (`handleShipClick` below) opens it.
   const [openCrewShipId, setOpenCrewShipId] = useState<string | null>(null);
   // Whose panel of placed cards (#810) is open, if any, named by that card's own instance id, the same way
   // `openCrewShipId` names a ship. A tap on a card in the core or the brig with cards on it opens it.
@@ -1178,10 +1178,10 @@ function PracticeDrawContent() {
     setSelectedCardIds([]);
   };
 
-  // A tap on a ship opens its crew panel when it has crew aboard, and does nothing otherwise.
+  // A tap on a ship opens its crew panel, which shows the ship in its own section above the
+  // crew (#832). A ship with no crew opens the panel too, with an empty crew area.
   const handleShipClick = (shipId: string) => {
-    const ship = findInstanceAnywhere(table, shipId)?.instance;
-    if (ship?.crew && ship.crew.length > 0) {
+    if (findInstanceAnywhere(table, shipId)) {
       openOnlyCrewPanel(shipId);
     } else {
       setOpenCrewShipId(null);
@@ -1327,8 +1327,10 @@ function PracticeDrawContent() {
 
     if (openCrewShipId) {
       const isDragOrigin = typeof zone === 'object' && zone.zone === 'crew' && zone.shipId === openCrewShipId;
-      const stillHasCards = !!findInstanceAnywhere(nextTable, openCrewShipId)?.instance.crew?.length;
-      if (!isDragOrigin || !stillHasCards) {
+      // The panel shows the ship too (#832), so it stays open after the last crew member
+      // leaves, as long as the ship itself is still on the table.
+      const shipStillThere = !!findInstanceAnywhere(nextTable, openCrewShipId);
+      if (!isDragOrigin || !shipStillThere) {
         setOpenCrewShipId(null);
         closedAPanel = true;
       }
@@ -1965,12 +1967,13 @@ function PracticeDrawContent() {
                 />
               )}
 
-              {/* A ship's crew panel: opened by a tap on a ship with crew aboard
-                  (`handleShipClick`). */}
+              {/* A ship's crew panel: opened by a tap on a ship (`handleShipClick`). It shows
+                  the ship in its own section above the crew (#832). */}
               {openCrewShip && (
                 <CardListPanel
                   location="crew"
                   cards={openPanelCards ?? []}
+                  ship={openCrewShip}
                   onClose={() => {
                     setOpenCrewShipId(null);
                     setSelectedCardIds([]);

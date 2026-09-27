@@ -18,8 +18,12 @@
 // the hand and the crew row already use. The card name stays off the panel as visible text (#674);
 // it is still on the image's `alt` and the card button's `aria-label`, for a screen reader.
 //
-// The `'crew'` zone (#664) is opened by a tap on a ship with crew aboard, and uses the same
-// centered, up-to-90%-wide box every other zone uses.
+// The `'crew'` zone (#664) is opened by a tap on a ship, and uses the same
+// centered, up-to-90%-wide box every other zone uses. Since #832 it also shows the ship itself
+// (`ship`), in its own section above the crew grid and outside it (`PanelShip`), so a ship with no
+// crew opens the panel too. The ship is for display and a hold preview only: it registers no
+// draggable (the ship's `TableCard` already holds a draggable under the same id) and a tap on it
+// does not select it.
 //
 // Follows a `hidden` convention: the panel stays mounted (not
 // unmounted) for the rest of a drag that started from a card inside it, so a touch drag begun
@@ -256,9 +260,43 @@ function CardListPanelCard({
   );
 }
 
+// The ship whose crew the panel lists (#832), in its own section above the crew grid. The
+// whole card image at the size of a panel card, face up (`SHIP_ROW_FACE`), on a framed box of
+// its own so it does not read as a crew card. A hold shows its preview; a tap does nothing. No
+// `useDraggable` and no `data-zone`: it is neither a drag source nor a drop target.
+function PanelShip({ ship, cardWidth, cardHeight }: { ship: CardInstance; cardWidth: number; cardHeight: number }) {
+  const holdListeners = useCardHold(ship.id);
+  const { card } = ship;
+  return (
+    <div
+      data-testid="card-list-panel-crew-ship"
+      className="shrink-0 flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
+    >
+      <span className="text-[10px] font-bold uppercase tracking-wide text-text-secondary">Ship</span>
+      <div
+        role="img"
+        aria-label={card.name}
+        {...holdListeners}
+        className="touch-none"
+        style={{ ...NO_CALLOUT_STYLE, width: cardWidth }}
+      >
+        <img
+          src={`/cardimages/${card.imagefile}.jpg`}
+          width={CARD_IMAGE_WIDTH}
+          height={CARD_IMAGE_HEIGHT}
+          alt={card.name}
+          className={`rounded-md shadow-md h-auto ${ship.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+          style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function CardListPanel({
   location,
   cards,
+  ship,
   onClose,
   selectedIds,
   onToggleSelect,
@@ -272,6 +310,8 @@ export default function CardListPanel({
 }: {
   location: PanelLocation;
   cards: CardInstance[];
+  // The crew panel only (#832): the ship whose crew `cards` lists, shown in its own section.
+  ship?: CardInstance;
   onClose: () => void;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
@@ -419,6 +459,7 @@ export default function CardListPanel({
             Shuffle
           </button>
         )}
+        {ship && <PanelShip ship={ship} cardWidth={cardWidth} cardHeight={cardHeight} />}
         {/* Issue #861: the grid is a selector for the tests and for the scripts, not a drop
             target. It has no `useDroppable`, and no drag aims at it: the open panel covers the
             table, and a reorder inside the panel aims at another card's own droppable. So the

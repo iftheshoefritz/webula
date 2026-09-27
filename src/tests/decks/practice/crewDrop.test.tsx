@@ -254,7 +254,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
   });
 
-  it("drags a crew card from the ship's crew panel to the discard pile, removing it from the crew and closing the panel", async () => {
+  it("drags a crew card from the ship's crew panel to the discard pile, removing it from the crew and keeping the panel on the ship (#832)", async () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
     await placeShipOnMission(shipId, 4, 1);
@@ -280,8 +280,12 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
       mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'discard' } });
     });
 
-    // The panel closed, and the crew member is gone from the crew (and now in the discard pile).
-    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
+    // The crew member is gone from the crew (and now in the discard pile). The panel stays open
+    // on the ship, with an empty crew (#832).
+    const panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
+    expect(panel).not.toBeNull();
+    expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(0);
+    expect(screen.getByTestId('card-list-panel-crew-ship')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'data' })).not.toBeInTheDocument();
     expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
     expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
@@ -366,14 +370,18 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(1);
     expect(panel.querySelector(`[data-card-id="${equipmentId}"]`)).not.toBeNull();
 
-    // Drag the last crew member out too: now the panel closes, since the crew is empty.
+    // Drag the last crew member out too: the panel stays open on the ship, with an empty crew
+    // (#832).
     await act(async () => {
       mockOnDragStart!({ active: { id: equipmentId } });
     });
     await act(async () => {
       mockOnDragEnd!({ active: { id: equipmentId }, over: { id: 'discard' } });
     });
-    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
+    panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
+    expect(panel).not.toBeNull();
+    expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(0);
+    expect(screen.getByTestId('card-list-panel-crew-ship')).toBeInTheDocument();
   });
 
   it("keeps the ship's crew panel open after a drag out of it is cancelled (#675)", async () => {
@@ -426,7 +434,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
   });
 
-  it('tapping a ship with no crew opens nothing: no preview and no crew panel (#764)', async () => {
+  it('tapping a ship with no crew opens its panel with the ship and an empty crew, and no preview (#764, #832)', async () => {
     await setupOpenHand([mockShipCard]);
     const [shipId] = mockDraggableIds;
     await placeShipOnMission(shipId, 2, 0);
@@ -436,7 +444,48 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     });
 
     expect(screen.queryByTestId('card-preview')).toBeNull();
-    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
+    const panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
+    expect(panel).not.toBeNull();
+    expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(0);
+    const shipSection = screen.getByTestId('card-list-panel-crew-ship');
+    expect(shipSection.querySelector('img[alt="u.s.s. relativity"]')).not.toBeNull();
+  });
+
+  it('shows the ship in its own section of the crew panel, outside the crew grid (#832)', async () => {
+    await setupOpenHand([mockShipCard, mockPersonnelCard]);
+    const [shipId, personnelId] = mockDraggableIds;
+    await placeShipOnMission(shipId, 2, 1);
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: personnelId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+    });
+
+    const panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
+    const shipSection = screen.getByTestId('card-list-panel-crew-ship');
+    // The ship's section shows the ship's whole card image, and sits outside the crew grid.
+    expect(shipSection.querySelector('img[alt="u.s.s. relativity"]')).not.toBeNull();
+    expect(panel.contains(shipSection)).toBe(false);
+    // The crew grid still holds exactly the crew.
+    expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(1);
+    expect(panel.querySelector(`[data-card-id="${personnelId}"]`)).not.toBeNull();
+    // The ship's section is not a drag source, not a drop target and not a card button.
+    expect(shipSection.querySelector('[data-card-id]')).toBeNull();
+    expect(shipSection.querySelector('[data-zone]')).toBeNull();
+    expect(shipSection.querySelector('button')).toBeNull();
+
+    // A tap on the ship in the panel selects nothing, and the panel stays open.
+    await act(async () => {
+      fireEvent.click(shipSection.querySelector('img[alt="u.s.s. relativity"]')!);
+    });
+    expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
   });
 
   it("closing the ship's crew panel leaves no preview", async () => {
