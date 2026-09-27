@@ -920,8 +920,8 @@ function DilemmaStackPile({
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
   const fixture = searchParams.get('fixture');
-  // `?fixture=piles` (#802) deals the same fixture deck as `?fixture=1`, then seeds a big
-  // personnel pile and a crewed ship, for the pile panel checks.
+  // `?fixture=piles` (#802) deals the same fixture deck as `?fixture=1`, then places a big
+  // away team and a crewed ship, for the pile panel checks.
   const isPilesFixture = fixture === 'piles';
   const isFixture = fixture === '1' || isPilesFixture;
   const { data, loading } = useDataFetching();
@@ -1039,15 +1039,15 @@ function PracticeDrawContent() {
   const drive = usePracticeDrive();
 
   // Deals a new game from a deck. The fixture, currentDeck, and Drive loads all go through here.
-  // The seeded fixture (#802) keeps the deck order, so it seeds the same cards every time. The
-  // fixture deck holds 27 personnel, fewer than the 20 + 12 the seed places, so it deals a second
+  // The `?fixture=piles` deal (#802) keeps the deck order, so it places the same cards every time.
+  // The fixture deck holds 27 personnel, fewer than the 20 + 12 that deal places, so it deals a second
   // copy of the deck's personnel too, each copy its own instance.
-  const dealDeck = (deck: DeckList, seedPiles = false) => {
+  const dealDeck = (deck: DeckList, fixturePiles = false) => {
     const cards = expandDeck(deck);
     dispatch({
-      type: seedPiles ? 'resetWithPiles' : 'reset',
+      type: fixturePiles ? 'resetWithPiles' : 'reset',
       cards: createCardInstances(
-        seedPiles ? [...cards, ...cards.filter((c: any) => c.type === 'personnel')] : shuffleArray(cards)
+        fixturePiles ? [...cards, ...cards.filter((c: any) => c.type === 'personnel')] : shuffleArray(cards)
       ),
       missions: createCardInstances(extractMissions(deck), 'up'),
       dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),

@@ -24,6 +24,9 @@ export type Zone =
 // CardInstance or, for a deck with fewer than 5 missions, null.
 export const MISSION_SLOTS = 5;
 
+// A new game deals an opening hand of this many cards (the rulebook's opening hand of seven).
+export const OPENING_HAND_SIZE = 7;
+
 export interface CardInstance {
   id: string;
   card: any;
@@ -180,14 +183,14 @@ export type TableAction =
   // would take the score past either limit stops there instead.
   | { type: 'adjustScore'; delta: number }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] }
-  // The seeded fixture of `/decks/practice?fixture=piles` (#802): deals like `reset`, then puts
-  // `SEED_PILE_PERSONNEL` personnel into the first mission's away team, and a ship with
-  // `SEED_CREW` personnel aboard into the second mission's ship row. The cards come from the deck
-  // itself, taken in deck order, so a deck in a fixed order seeds the same cards every time.
+  // The fixture deal of `/decks/practice?fixture=piles` (#802): deals like `reset`, then puts
+  // `FIXTURE_AWAY_TEAM` personnel into the first mission's away team, and a ship with
+  // `FIXTURE_CREW` personnel aboard into the second mission's ship row. The cards come from the
+  // deck itself, taken in deck order, so a deck in a fixed order places the same cards every time.
   | { type: 'resetWithPiles'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
 
-export const SEED_PILE_PERSONNEL = 20;
-export const SEED_CREW = 12;
+export const FIXTURE_AWAY_TEAM = 20;
+export const FIXTURE_CREW = 12;
 
 export const ZONE_FACE: Record<Zone, Face> = {
   drawDeck: 'down',
@@ -632,9 +635,9 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     }
 
     case 'reset': {
-      // A new game (and the reset button) deals an opening hand of 7 cards, face up, and
-      // leaves the rest in the draw deck. A deck with fewer than 7 cards deals all of it.
-      const handSize = Math.min(7, action.cards.length);
+      // A new game (and the reset button) deals an opening hand of OPENING_HAND_SIZE cards, face
+      // up, and leaves the rest in the draw deck. A smaller deck deals all of it.
+      const handSize = Math.min(OPENING_HAND_SIZE, action.cards.length);
       const hand = action.cards.slice(0, handSize).map((c) => ({ ...c, face: ZONE_FACE.hand }));
       const drawDeck = action.cards.slice(handSize);
       // The missions are dealt face up into the mission row in deck order, as a fixed set: no
@@ -665,14 +668,14 @@ export function tableReducer(state: TableState, action: TableAction): TableState
 
     case 'resetWithPiles': {
       const personnel = action.cards.filter((c) => c.card.type === 'personnel');
-      const pileCards = personnel.slice(0, SEED_PILE_PERSONNEL);
-      const crew = personnel.slice(SEED_PILE_PERSONNEL, SEED_PILE_PERSONNEL + SEED_CREW);
+      const awayTeam = personnel.slice(0, FIXTURE_AWAY_TEAM);
+      const crew = personnel.slice(FIXTURE_AWAY_TEAM, FIXTURE_AWAY_TEAM + FIXTURE_CREW);
       const ship = action.cards.find((c) => c.card.type === 'ship');
-      const seeded = new Set([...pileCards, ...crew, ...(ship ? [ship] : [])].map((c) => c.id));
-      const dealt = tableReducer(state, { ...action, type: 'reset', cards: action.cards.filter((c) => !seeded.has(c.id)) });
+      const placed = new Set([...awayTeam, ...crew, ...(ship ? [ship] : [])].map((c) => c.id));
+      const dealt = tableReducer(state, { ...action, type: 'reset', cards: action.cards.filter((c) => !placed.has(c.id)) });
       const missions = dealt.missions.map((slot, i) => {
         if (i === 0) {
-          return { ...slot, awayTeam: pileCards.map((c) => ({ ...c, face: MISSION_PILE_FACE.awayTeam })) };
+          return { ...slot, awayTeam: awayTeam.map((c) => ({ ...c, face: MISSION_PILE_FACE.awayTeam })) };
         }
         if (i === 1 && ship) {
           const crewed = { ...ship, face: SHIP_ROW_FACE, crew: crew.map((c) => ({ ...c, face: CREW_FACE })) };

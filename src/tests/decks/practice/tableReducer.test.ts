@@ -6,6 +6,7 @@ import {
   CardInstance,
   MissionSlot,
   MISSION_SLOTS,
+  OPENING_HAND_SIZE,
 } from '../../../app/decks/practice/tableReducer';
 
 const card = (name: string) => ({ collectorsinfo: name, name });
@@ -173,7 +174,7 @@ describe('tableReducer', () => {
 
       const state = tableReducer(initialTableState, { type: 'reset', cards, missions: [], dilemmas });
 
-      expect(state.hand).toHaveLength(7);
+      expect(state.hand).toHaveLength(OPENING_HAND_SIZE);
       expect(state.hand.every((c) => c.id.startsWith('c'))).toBe(true);
     });
 
@@ -1054,7 +1055,7 @@ describe('resetWithPiles (#802)', () => {
     ]),
   ].map((c) => c.id);
 
-  it('seeds twenty personnel on one mission and a ship with twelve crew on another', () => {
+  it('places twenty personnel on one mission and a ship with twelve crew on another', () => {
     const state = tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() });
     expect(state.missions[0].awayTeam).toHaveLength(20);
     expect(state.missions[0].awayTeam.every((c) => c.card.type === 'personnel')).toBe(true);
@@ -1062,14 +1063,14 @@ describe('resetWithPiles (#802)', () => {
     expect(state.missions[1].ships[0].card.type).toBe('ship');
     expect(state.missions[1].ships[0].crew).toHaveLength(12);
     expect(state.missions[1].ships[0].crew!.every((c) => c.face === 'up')).toBe(true);
-    expect(state.hand).toHaveLength(7);
+    expect(state.hand).toHaveLength(OPENING_HAND_SIZE);
   });
 
   it('uses every card once, the same total as a plain reset', () => {
-    const seeded = allIds(tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() }));
+    const fixtureIds = allIds(tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() }));
     const plain = allIds(tableReducer(initialTableState, { type: 'reset', ...payload() }));
-    expect(new Set(seeded).size).toBe(seeded.length);
-    expect(seeded).toHaveLength(plain.length);
+    expect(new Set(fixtureIds).size).toBe(fixtureIds.length);
+    expect(fixtureIds).toHaveLength(plain.length);
   });
 });
 
