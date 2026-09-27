@@ -90,10 +90,11 @@ The rulebook and the deck builder disagree about the word "deck".
 
 - The rulebook: a **deck** is the draw deck of at least 35 cards. The five
   **missions** and the **dilemma pile** of at least 20 dilemmas are separate.
-- The code: the `Deck` type in `src/types/index.ts` is the whole saved object. It
-  holds the missions, the dilemmas and the draw cards together.
+- The code: the `DeckList` type in `src/types/index.ts` is the whole saved object. It
+  holds the missions, the dilemmas and the draw cards together. The name is not
+  `Deck`, so the word "deck" keeps its rulebook meaning (#836).
 
-`cardPileFor` in `src/app/decks/deckBuilderUtils.ts` splits a `Deck` into three
+`cardPileFor` in `src/app/decks/deckBuilderUtils.ts` splits a `DeckList` into three
 piles, named by `DeckPile`:
 
 | `DeckPile` | Holds | Rulebook term |
@@ -225,7 +226,7 @@ in #833, where the owner gives the decision. The number is the number of the row
 
 | # | The case | Where |
 |---|---|---|
-| 12 | `expandDeck` returns the draw cards alone, so its "deck" is the rulebook deck. The `Deck` it takes is the whole saved object. One file uses the word in both senses. | `expandDeck` in `src/app/decks/deckBuilderUtils.ts` |
+| 12 | `expandDeck` returns the draw cards alone, so its "deck" is the rulebook deck. The `DeckList` it takes is the whole saved object. | `expandDeck` in `src/app/decks/deckBuilderUtils.ts` |
 | 13 | "Seed" is a rulebook word for placing cards at the start of a game. The code uses it for the `?fixture=piles` test deal instead, and calls the start of a game "deal" and "reset". The opening hand of seven cards is the bare number `7` in `reset`. | `SEED_PILE_PERSONNEL`, `SEED_CREW`, action `resetWithPiles` in `tableReducer.ts`, `seedPiles` in `page.tsx` |
 | 14 | "Download" is a rulebook word for an effect that takes a card from your deck and puts it into play. The UI uses it for opening the draw pile or the dilemma pile to take any card by hand. Section 6 lists download as not modeled. | `DownloadPileButton` and the `aria-label` "Download from the …" in `src/app/decks/practice/page.tsx` |
 | 15 | `range` is a ship attribute, and it is also the name of the numeric search fields: `rangeColumns`, `rangeAbbreviations` and `selectedRangeFilter`. One word, two things. | `src/lib/constants.ts`, `src/components/SearchPills.tsx` |
