@@ -26,7 +26,7 @@ yarn test:watch # Run tests in watch mode
 
 ### Tech Stack
 - Next.js 14 with App Router
-- React 18 with TypeScript and JavaScript (mixed codebase)
+- React 18 with TypeScript
 - Tailwind CSS for styling
 - NextAuth.js for Google OAuth authentication
 - Jest with React Testing Library for tests
@@ -42,9 +42,9 @@ yarn test:watch # Run tests in watch mode
 - `/decks` (`src/app/decks/page.tsx`) - Full deck builder with search, deck management, and analytics
 
 ### Search Query Syntax
-The search supports advanced query syntax defined in `src/lib/constants.js`:
+The search supports advanced query syntax defined in `src/lib/constants.ts`:
 - Text fields: name, type, affiliation, skills, keywords, gametext, etc.
-- Range fields: cost, span, points, integrity, cunning, strength, etc.
+- Numeric fields: cost, span, points, integrity, cunning, strength, etc. The code calls this class "numeric", never "range", because `range` is one of its fields (#855).
 - Abbreviations supported (e.g., `n:` for name, `a:` for affiliation, `sk:` for skills)
 
 ### Ubiquitous Language
