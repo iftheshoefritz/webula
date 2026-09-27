@@ -133,7 +133,7 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
   };
 
   const cardIdFor = (name: string): string => {
-    const panel = document.body.querySelector('[data-zone^="card-list-panel-"]');
+    const panel = document.body.querySelector('[data-testid^="card-list-panel-"]');
     const scope = panel ? within(panel as HTMLElement) : screen;
     return scope.getByRole('button', { name }).getAttribute('data-card-id')!;
   };
@@ -178,7 +178,7 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
     await click(/^discard$/i);
 
     expect(screen.getByRole('button', { name: /^close away team$/i })).toBeInTheDocument();
-    const panel = document.body.querySelector('[data-zone="card-list-panel-awayTeam"]') as HTMLElement;
+    const panel = document.body.querySelector('[data-testid="card-list-panel-awayTeam"]') as HTMLElement;
     expect(within(panel).queryByRole('button', { name: 'personnel 1' })).not.toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'Select personnel 2' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.queryByRole('button', { name: /^discard$/i })).not.toBeInTheDocument();
@@ -194,7 +194,7 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
     await click(/^discard$/i);
 
     expect(screen.queryByRole('button', { name: /^close away team$/i })).not.toBeInTheDocument();
-    expect(document.body.querySelector('[data-zone="card-list-panel-awayTeam"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-awayTeam"]')).toBeNull();
     expect(discardCount()).toContain('2');
     expect(screen.getByAltText('Discard pile')).toHaveAttribute('src', '/cardimages/personnel_2.jpg');
   });
@@ -210,7 +210,7 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
     });
     await click('Select personnel 1');
 
-    expect(document.body.querySelector('[data-zone="card-list-panel-discard"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-discard"]')).not.toBeNull();
     expect(screen.queryByRole('button', { name: /^discard$/i })).not.toBeInTheDocument();
   });
 });

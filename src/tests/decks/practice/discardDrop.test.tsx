@@ -305,7 +305,7 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     expect(screen.getByRole('button', { name: /^close discard pile$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'card 1' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'card 2' })).toBeInTheDocument();
-    expect(document.body.querySelector('[data-zone="card-list-panel-discard"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-discard"]')).not.toBeNull();
     expect(screen.queryAllByRole('button', { name: /shuffle/i })).toHaveLength(shuffleCountBefore);
 
     // Selecting a card shows no Stop control either.

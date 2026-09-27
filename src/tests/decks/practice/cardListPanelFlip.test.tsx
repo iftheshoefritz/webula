@@ -145,7 +145,7 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
   };
 
   const cardIdFor = (name: string): string => {
-    const panel = document.body.querySelector('[data-zone^="card-list-panel-"]');
+    const panel = document.body.querySelector('[data-testid^="card-list-panel-"]');
     const scope = panel ? within(panel as HTMLElement) : screen;
     return scope.getByRole('button', { name }).getAttribute('data-card-id')!;
   };
@@ -166,7 +166,7 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
   };
 
   const panelImage = (zone: string, name: string) => {
-    const panel = document.body.querySelector(`[data-zone="card-list-panel-${zone}"]`) as HTMLElement;
+    const panel = document.body.querySelector(`[data-testid="card-list-panel-${zone}"]`) as HTMLElement;
     return within(panel).getByRole('button', { name }).querySelector('img')!;
   };
 

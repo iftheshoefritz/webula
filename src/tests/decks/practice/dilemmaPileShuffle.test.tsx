@@ -121,7 +121,7 @@ describe('Practice draw: the dilemma pile has a Shuffle button (#785)', () => {
   });
 
   const panelNames = () => {
-    const panel = document.body.querySelector('[data-zone="card-list-panel-dilemmaPile"]') as HTMLElement;
+    const panel = document.body.querySelector('[data-testid="card-list-panel-dilemmaPile"]') as HTMLElement;
     expect(panel).not.toBeNull();
     return Array.from(panel.querySelectorAll('img')).map((img) => img.getAttribute('alt'));
   };

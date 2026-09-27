@@ -42,7 +42,7 @@ describe('Practice draw: a card list panel with many cards scrolls instead of ru
       />
     );
 
-    const grid = document.body.querySelector('[data-zone="card-list-panel-drawDeck"]') as HTMLElement;
+    const grid = document.body.querySelector('[data-testid="card-list-panel-drawDeck"]') as HTMLElement;
     expect(grid).not.toBeNull();
     expect(grid.className).toMatch(/overflow-y-auto/);
     // #802: the grid no longer carries a `max-h` of its own. The panel around it is bounded by

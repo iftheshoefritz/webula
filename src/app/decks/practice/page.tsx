@@ -1595,7 +1595,7 @@ function PracticeDrawContent() {
   // a legitimate target elsewhere on the table).
   const dilemmaStackPopupCollisionDetection: CollisionDetection = (args) => {
     if (!dragFromDilemmaStackPanel) return collisionDetection(args);
-    const panelEl = document.querySelector('[data-zone="card-list-panel-dilemmaStack"]');
+    const panelEl = document.querySelector('[data-testid="card-list-panel-dilemmaStack"]');
     const panelRect = panelEl?.getBoundingClientRect();
     const pointer = args.pointerCoordinates;
     const insidePanel =

@@ -844,7 +844,7 @@ describe('PracticeDrawPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /^download from the draw deck$/i }));
     });
     const idsBefore = Array.from(
-      document.querySelectorAll('[data-zone="card-list-panel-drawDeck"] [data-card-id]')
+      document.querySelectorAll('[data-testid="card-list-panel-drawDeck"] [data-card-id]')
     ).map((el) => el.getAttribute('data-card-id'));
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^close draw deck$/i }));
@@ -867,7 +867,7 @@ describe('PracticeDrawPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /^download from the draw deck$/i }));
     });
     const idsAfter = Array.from(
-      document.querySelectorAll('[data-zone="card-list-panel-drawDeck"] [data-card-id]')
+      document.querySelectorAll('[data-testid="card-list-panel-drawDeck"] [data-card-id]')
     ).map((el) => el.getAttribute('data-card-id'));
 
     expect(new Set(idsAfter)).toEqual(new Set(idsBefore));

@@ -292,7 +292,7 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
-    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
     await act(async () => {
       mockOnDragStart!({ active: { id: eventId } });

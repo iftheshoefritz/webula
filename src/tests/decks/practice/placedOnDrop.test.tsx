@@ -226,7 +226,7 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
 
-    const panel = document.body.querySelector('[data-zone="card-list-panel-on"]');
+    const panel = document.body.querySelector('[data-testid="card-list-panel-on"]');
     expect(panel).not.toBeNull();
     expect(within(panel as HTMLElement).getByRole('button', { name: 'data' })).toBeInTheDocument();
 
@@ -235,7 +235,7 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     const coreZone = document.body.querySelector('[data-zone="core"]')!;
     expect(coreZone.contains(screen.getByRole('button', { name: 'data' }))).toBe(true);
     expect(screen.queryByLabelText(/card on it$/)).toBeNull();
-    expect(document.body.querySelector('[data-zone="card-list-panel-on"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-on"]')).toBeNull();
   });
 
   it('opens the core panel, not a panel of placed cards, on a tap on a card with nothing on it', async () => {
@@ -245,7 +245,7 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
 
-    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).not.toBeNull();
-    expect(document.body.querySelector('[data-zone="card-list-panel-on"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-on"]')).toBeNull();
   });
 });

@@ -170,7 +170,7 @@ describe('Practice draw: only one card list panel is ever open at a time (#711)'
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i }));
     });
-    expect(document.body.querySelector('[data-zone="card-list-panel-awayTeam"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-awayTeam"]')).not.toBeNull();
 
     // Without closing it, tap the core card sitting behind it.
     await act(async () => {
@@ -178,8 +178,8 @@ describe('Practice draw: only one card list panel is ever open at a time (#711)'
     });
 
     // The mission's card list panel is gone; the core's own panel is open and shows the core's card.
-    expect(document.body.querySelector('[data-zone="card-list-panel-awayTeam"]')).toBeNull();
-    const corePanel = document.body.querySelector('[data-zone="card-list-panel-core"]');
+    expect(document.body.querySelector('[data-testid="card-list-panel-awayTeam"]')).toBeNull();
+    const corePanel = document.body.querySelector('[data-testid="card-list-panel-core"]');
     expect(corePanel).not.toBeNull();
     expect(corePanel!.querySelector('[data-card-id]')?.getAttribute('data-card-id')).toBe(eventId);
     expect(screen.queryByRole('button', { name: 'data' })).not.toBeInTheDocument();

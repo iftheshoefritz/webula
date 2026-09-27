@@ -231,12 +231,21 @@ bash scripts/practice_drag.sh card-5 core
 bash scripts/practice_drag.sh card-8 brig
 ```
 
-The popup that lists the cards of one place is the `CardListPanel`, and its drop target id is
-`card-list-panel-<location>`, where the location is a value of `PanelLocation` (#856). The draw
-deck is the zone `drawDeck` (#838), so its panel is `card-list-panel-drawDeck`.
-Its two drop halves keep the older ids `draw-pile-top` and `draw-pile-bottom`, so a
-drop into the draw deck aims at one of those two, and the script then prints
-`draw-pile-top` or `draw-pile-bottom`.
+The popup that lists the cards of one place is the `CardListPanel`. Its grid carries
+`data-testid="card-list-panel-<location>"`, where the location is a value of `PanelLocation`
+(#856). The draw deck is the zone `drawDeck` (#838), so its panel is
+`card-list-panel-drawDeck`.
+
+The panel grid is not a drop target (#861). It has no `useDroppable`, so a drag must not aim at
+it. Use the `data-testid` to find the panel, or to open it, and nothing more. If
+`practice_drag.sh` prints a `card-list-panel-` name, the card did not move: the script prints the
+nearest `data-zone` ancestor of the card, and a card inside the panel keeps the panel as its
+ancestor. A drag into an open panel is not possible from the table, because the open panel covers
+every card of the table.
+
+The draw deck card on the table has two drop halves, and they keep the older ids
+`draw-pile-top` and `draw-pile-bottom`, so a drop into the draw deck aims at one of those two,
+and the script then prints `draw-pile-top` or `draw-pile-bottom`.
 
 A mission pile, a closed hand, and a closed dilemma hand all keep their cards out of the DOM (a badge with a count stands in for the cards). When the dragged card leaves the DOM, the script reads the `aria-label` of every badge on the table, before and after the drag, and prints whichever one gained a card - the mission pile, `hand`, or `dilemmaHand`. If none did, or more than one did, it says so instead of guessing.
 

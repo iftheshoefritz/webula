@@ -69,7 +69,7 @@ describe('CardListPanel touch-action (#788)', () => {
 
   it('keeps touch-none and no marker when the grid fits', () => {
     renderPanel();
-    const grid = document.querySelector('[data-zone="card-list-panel-drawDeck"]') as HTMLElement;
+    const grid = document.querySelector('[data-testid="card-list-panel-drawDeck"]') as HTMLElement;
     expect(grid.hasAttribute(PANEL_SCROLLS_ATTRIBUTE)).toBe(false);
     const card = screen.getByRole('button', { name: 'card 0' });
     expect(card.className).toMatch(/touch-none/);
@@ -80,7 +80,7 @@ describe('CardListPanel touch-action (#788)', () => {
     jest.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(2000);
     jest.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500);
     renderPanel();
-    const grid = document.querySelector('[data-zone="card-list-panel-drawDeck"]') as HTMLElement;
+    const grid = document.querySelector('[data-testid="card-list-panel-drawDeck"]') as HTMLElement;
     expect(grid.getAttribute(PANEL_SCROLLS_ATTRIBUTE)).toBe('true');
     const card = screen.getByRole('button', { name: 'card 0' });
     expect(card.className).toMatch(/touch-pan-y/);

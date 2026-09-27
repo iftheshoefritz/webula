@@ -290,7 +290,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
 
-    const panel = document.body.querySelector('[data-zone="card-list-panel-core"]');
+    const panel = document.body.querySelector('[data-testid="card-list-panel-core"]');
     expect(panel).not.toBeNull();
     expect(panel!.querySelectorAll('[data-card-id]')).toHaveLength(2);
     expect(screen.queryByTestId('card-preview')).toBeNull();
@@ -310,7 +310,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
 
-    const panel = document.body.querySelector('[data-zone="card-list-panel-core"]') as HTMLElement;
+    const panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
     const card = within(panel).getByRole('button', { name: 'distress call' });
     await act(async () => {
       fireEvent.click(card);
@@ -340,13 +340,13 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
-    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Close core' }));
     });
 
-    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).toBeNull();
   });
 
   it('moves a card dragged out of the core card list panel onto a mission pile, and closes the panel (#640)', async () => {
@@ -362,7 +362,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
-    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
@@ -371,7 +371,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-pile-awayTeam-0' } });
     });
 
-    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).toBeNull();
     expect(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i })).toBeInTheDocument();
   });
 
@@ -404,7 +404,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
-    let panel = document.body.querySelector('[data-zone="card-list-panel-core"]') as HTMLElement;
+    let panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(2);
 
     // Drag one of the two cards out of the panel, onto a mission's personnel pile.
@@ -416,7 +416,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     });
 
     // The panel is still open, now showing only the card that is still in the core.
-    panel = document.body.querySelector('[data-zone="card-list-panel-core"]') as HTMLElement;
+    panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
     expect(panel).not.toBeNull();
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(1);
     expect(panel.querySelector(`[data-card-id="${secondId}"]`)).not.toBeNull();
@@ -428,7 +428,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     await act(async () => {
       mockOnDragEnd!({ active: { id: secondId }, over: { id: 'mission-pile-awayTeam-0' } });
     });
-    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).toBeNull();
   });
 
   it('keeps the core card list panel open after a drag out of it is cancelled (#675)', async () => {
@@ -467,7 +467,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragCancel!();
     });
 
-    const panel = document.body.querySelector('[data-zone="card-list-panel-core"]');
+    const panel = document.body.querySelector('[data-testid="card-list-panel-core"]');
     expect(panel).not.toBeNull();
     expect(panel!.querySelectorAll('[data-card-id]')).toHaveLength(2);
   });
@@ -495,7 +495,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
-    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
     // Drag a different card, straight from the hand, to the brig — not from the core panel.
     await act(async () => {
@@ -505,7 +505,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragEnd!({ active: { id: secondId }, over: { id: 'brig' } });
     });
 
-    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).toBeNull();
   });
 
   it('opens a card list panel for the brig when a card there is tapped, and closes it on backdrop tap (#640)', async () => {
@@ -522,7 +522,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       fireEvent.click(screen.getByRole('button', { name: 'data' }));
     });
 
-    const panel = document.body.querySelector('[data-zone="card-list-panel-brig"]');
+    const panel = document.body.querySelector('[data-testid="card-list-panel-brig"]');
     expect(panel).not.toBeNull();
     expect(panel!.querySelectorAll('[data-card-id]')).toHaveLength(1);
 
@@ -530,7 +530,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       fireEvent.click(screen.getByRole('button', { name: 'Close brig' }));
     });
 
-    expect(document.body.querySelector('[data-zone="card-list-panel-brig"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-brig"]')).toBeNull();
   });
 
   // #635: the dashed outline and the full 56x80 box (the same size the empty zone always shows,
