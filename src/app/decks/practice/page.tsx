@@ -361,6 +361,12 @@ const FLAT_ROW_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // cards sit edge to edge with 
 // dilemma pile (#690), the dilemma stack (#733), and the discard pile (#782).
 type FlatPanelLocation = 'core' | 'brig' | 'drawDeck' | 'dilemmaPile' | 'dilemmaStack' | 'discard';
 
+// The two piles whose panel has a Download button (#827), each with the hand its cards go to.
+// The same two piles are the ones the table's Shuffle buttons shuffle (`shufflePile`).
+const DOWNLOAD_HAND = { drawDeck: 'hand', dilemmaPile: 'dilemmaHand' } as const;
+type DownloadPile = keyof typeof DOWNLOAD_HAND;
+const isDownloadPile = (location: FlatPanelLocation): location is DownloadPile => location in DOWNLOAD_HAND;
+
 // The discard pile's top card, draggable off the pile (#606 review): a dilemma dragged from here
 // onto a mission card lands under that mission, since its source is not the dilemma hand (see
 // `handleDragEnd`'s dilemma routing below). A separate component, mounted only while a top card
@@ -520,7 +526,8 @@ function DownloadIcon() {
 
 // A download trigger for the draw pile or the dilemma pile (#690): opens that pile's own
 // `CardListPanel` so the player can look through every card in it — face up, in its existing order —
-// and drag one straight into hand, without drawing through the rest of the pile. Kept apart from
+// and drag one straight into hand, or select several and press the panel's Download button (#827),
+// without drawing through the rest of the pile. Kept apart from
 // the pile's own tap-to-draw click (`onClick` on the draw-pile button, `DilemmaPileButton`'s two
 // drop/draw halves), rather than layered on top of the pile art, so it never steals a tap meant
 // for drawing, or a drop meant for the dilemma pile's top/bottom halves — the same
@@ -970,7 +977,7 @@ function PracticeDrawContent() {
   const [openHand, setOpenHand] = useState<'hand' | 'dilemmaHand' | null>(null);
   // How many times each pile's Shuffle button has run, the `key` that restarts its animation (#786).
   const [shuffleCounts, setShuffleCounts] = useState({ drawDeck: 0, dilemmaPile: 0 });
-  const shufflePile = (location: 'drawDeck' | 'dilemmaPile') => {
+  const shufflePile = (location: DownloadPile) => {
     dispatch({ type: 'shuffle', location });
     setShuffleCounts((counts) => ({ ...counts, [location]: counts[location] + 1 }));
   };
@@ -1176,6 +1183,17 @@ function PracticeDrawContent() {
     const nextTable = actions.reduce((state, action) => tableReducer(state, action), table);
     closePanelsAfterDrag(origin, nextTable);
     setSelectedCardIds([]);
+  };
+
+  // Moves every id from a pile into its matching hand, in the given order (#827's card list panel
+  // Download button), then closes the panel, clears the selection, and shuffles the pile. The
+  // moves dispatch before the shuffle, so the shuffle covers only the cards left in the pile.
+  // `openHand` is not touched: the hand stays open or closed, and its badge count rises.
+  const downloadSelection = (pile: DownloadPile, ids: string[]) => {
+    ids.forEach((id) => dispatch({ type: 'move', id, to: DOWNLOAD_HAND[pile] }));
+    setOpenFlatLocation(null);
+    setSelectedCardIds([]);
+    shufflePile(pile);
   };
 
   // A tap on a ship opens its crew panel, which shows the ship in its own section above the
@@ -1961,6 +1979,11 @@ function PracticeDrawContent() {
                   }
                   onSetStopped={openFlatLocation === 'discard' ? undefined : setStoppedForSelection}
                   onDiscard={openFlatLocation === 'discard' ? undefined : discardSelection}
+                  onDownload={
+                    isDownloadPile(openFlatLocation)
+                      ? (ids) => downloadSelection(openFlatLocation, ids)
+                      : undefined
+                  }
                   hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}

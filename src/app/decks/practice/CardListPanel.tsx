@@ -110,9 +110,9 @@ export function ShuffleIcon() {
 // like the core and the brig, it is not addressed by mission index, so it is named the same way,
 // by its own zone string rather than a `MissionPileName`. The draw pile and the dilemma pile
 // (#690) are a fourth and fifth: opening this panel for either one lets the player download from
-// it — the game's term for a look through every card without drawing — while the rest of the pile
-// stays exactly where it was, in its existing order. The player normally shuffles afterwards,
-// with the panel's own Shuffle button, because the download showed them the whole pile.
+// it: the player selects cards and presses the panel's Download button (#827), which moves them
+// into the matching hand (the draw deck's into `hand`, the dilemma pile's into `dilemmaHand`),
+// closes the panel, and shuffles the rest of the pile, because the download showed it to them.
 // A mission's own ship row (#713) is a sixth: once it holds more ships than fit without overlap,
 // a tap on any of them opens this panel listing every ship on that row individually, the same
 // way the core and the brig already list their own cards. The dilemma stack (#733) is a seventh;
@@ -304,6 +304,7 @@ export default function CardListPanel({
   onSetStopped,
   onFlip,
   onDiscard,
+  onDownload,
   hidden = false,
   cardWidth = viewerCardSize(1).width,
   cardHeight = viewerCardSize(1).height,
@@ -327,6 +328,10 @@ export default function CardListPanel({
   // Moves each id to the discard pile, in the panel's order (#787). Left out for the discard
   // pile's own panel, whose cards are already there.
   onDiscard?: (ids: string[]) => void;
+  // Moves each id into the pile's hand, in the panel's order, then shuffles the pile (#827).
+  // Given only for the draw deck and the dilemma pile; `page.tsx` binds which pile and hand.
+  // Its presence shows the "Download" button, disabled while nothing is selected.
+  onDownload?: (ids: string[]) => void;
   hidden?: boolean;
   // Issue #717: this panel is one of "the modals" the issue names, so its own card grid grows
   // the same way the table's mission cards do — `page.tsx` computes both from the same `scale`
@@ -412,6 +417,8 @@ export default function CardListPanel({
   const handleFlipTap = () => onFlip?.(selectedInPanel.map((instance) => instance.id));
   const showDiscardButton = onDiscard !== undefined && selectedInPanel.length > 0;
   const handleDiscardTap = () => onDiscard?.(selectedInPanel.map((instance) => instance.id));
+  const showDownloadButton = onDownload !== undefined;
+  const handleDownloadTap = () => onDownload?.(selectedInPanel.map((instance) => instance.id));
 
   return (
     <div
@@ -426,8 +433,20 @@ export default function CardListPanel({
       />
       <div className={insetClassName} style={{ inset: VIEWER_TOP_INSET }}>
       <div className={layoutClassName}>
-        {(showStopButton || showFlipButton || showDiscardButton) && (
+        {(showDownloadButton || showStopButton || showFlipButton || showDiscardButton) && (
           <div className="shrink-0 flex flex-row items-center gap-2">
+            {/* The Download button (#827) shows whenever the panel is given `onDownload`, first in
+                the row, and stays disabled until a card is selected. */}
+            {showDownloadButton && (
+              <button
+                type="button"
+                onClick={handleDownloadTap}
+                disabled={selectedInPanel.length === 0}
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Download
+              </button>
+            )}
             {showStopButton && (
               <button type="button" onClick={handleStopTap} className="btn-primary">
                 {allSelectedStopped ? 'Unstop' : 'Stop'}
