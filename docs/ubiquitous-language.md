@@ -119,13 +119,13 @@ missions, at least two of them not headquarters; at least 20 dilemmas; at least
 | Rulebook term | `Zone` | Note |
 |---|---|---|
 | deck (the draw deck) | `'pile'` | The label on the table is "Draw pile". |
-| hand | `'hand'` | The rulebook limit of seven cards is not enforced. |
+| hand | `'hand'` | The rulebook limit of seven cards is not enforced. See [section 7](#7-names-kept-and-why). |
 | discard pile | `'discard'` | |
 | core | `'core'` | The rulebook puts events here. The zone takes any card type. |
 | brig | `'brig'` | The rulebook holds captives here. The highlight accepts personnel. |
 | dilemma pile | `'dilemmaPile'` | |
 | dilemma stack | `'dilemmaStack'` | The face-down stack for one mission attempt. Index 0 is revealed first. |
-| — | `'dilemmaHand'` | No rulebook term. A face-up working area for dilemmas. |
+| — | `'dilemmaHand'` | No rulebook term. A face-up working area for dilemmas. See [section 7](#7-names-kept-and-why). |
 
 **Word "pile":** in `tableReducer.ts`, `'pile'` is the draw deck. In
 `deckBuilderUtils.ts`, a "pile" is one of the three deck-building categories. The
@@ -138,8 +138,8 @@ is "open" or "closed", never "stacked".
 
 | Rulebook term | Code | Note |
 |---|---|---|
-| the five missions in a row | `MissionSlot`, `MISSION_SLOTS = 5` | The row always has five slots, even for a deck with fewer missions. |
-| a ship in line with a mission | `ShipRowLocation`, `zone: 'shipRow'` | Addressed by mission index. |
+| the five missions in a row | `MissionSlot`, `MISSION_SLOTS = 5` | The row always has five slots, even for a deck with fewer missions. See [section 7](#7-names-kept-and-why). |
+| a ship in line with a mission | `ShipRowLocation`, `zone: 'shipRow'` | Addressed by mission index. See [section 7](#7-names-kept-and-why). |
 | aboard a ship | `CrewLocation`, `zone: 'crew'`, `CardInstance.crew` | Addressed by the ship's own id, so a ship move keeps its crew. |
 | the stack of personnel on a mission | `MissionPileLocation`, pile `'personnel'` | The rulebook calls it a single stack on the mission. |
 | overcome dilemmas beneath the mission | `MissionPileLocation`, pile `'underMission'` | The UI label is "Under the mission". |
@@ -156,7 +156,7 @@ is "open" or "closed", never "stacked".
 | score | `TableState.score`, action `adjustScore`, clamped to `SCORE_MIN`..`SCORE_MAX` |
 
 The rulebook win score is 100 points. `SCORE_MAX` is 140, so the counter can show a
-score above the win score.
+score above the win score. See [section 7](#7-names-kept-and-why).
 
 ## 5. Headquarters and playability
 
@@ -165,6 +165,7 @@ headquarters mission, and that the mission's game text says which cards may be
 played there.
 
 The code says "reports to" for the same idea. "Reports to" is not a rulebook term.
+[Section 7](#7-names-kept-and-why) gives the reason the code keeps it.
 
 | Idea | Code |
 |---|---|
@@ -201,7 +202,21 @@ So the code has no name for these rulebook terms:
 Do not invent a name for one of these in a component. If you need one, add the
 rulebook term to this file first, then use it.
 
-## 7. Cases still open
+## 7. Names kept, and why
+
+The owner decided to keep each name below, though it differs from the rulebook (#833,
+#843). The sections above give the rulebook term beside each code name. This section
+gives the reason, so that the next reader does not open the same issue again.
+
+| Name | Reason to keep it |
+|---|---|
+| `reportsto`, the search fields `reportsto:` and `rt:` | The rulebook says that you play a card at a headquarters mission. But `reportsto:` is a search field that players type, and other *Star Trek* CCG tools use the same word. A rename breaks every saved search and every bookmark. |
+| `dilemmaHand` | The rulebook does not name the place, because in a game it exists only inside one mission attempt. This codebase does not model the phases of a turn, so the dilemma hand exists all the time and needs a name. |
+| `shipRow`, `MissionSlot` | They name a layout of the screen, not a game concept. The rulebook has no word because the table is a picture, not a rule. |
+| `SCORE_MAX = 140` | The win score is 100 in a normal game, but certain cards change it. This codebase does not model those cards. It only allows a higher maximum, so the counter can show a score above 100. |
+| The hand takes any number of cards | The rulebook applies the limit of seven at the discard step of a turn, and this codebase does not model the steps of a turn. The practice table never stops a drop. |
+
+## 8. Cases still open
 
 A second search of the code (#835) found these cases. Each one is a row of the table
 in #833, where the owner gives the decision. The number is the number of the row in
