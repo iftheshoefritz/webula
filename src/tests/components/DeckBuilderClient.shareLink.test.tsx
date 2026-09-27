@@ -70,7 +70,7 @@ function seedDeck() {
       row: {
         collectorsinfo: 'test-card-1',
         count: 1,
-        pile: 'draw',
+        pile: 'drawDeck',
         name: 'Test Card',
         originalName: 'Test Card',
         imagefile: 'test',

@@ -66,7 +66,7 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
 const mockCardData = [
-  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
+  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
 const mockShipCard = {
@@ -75,7 +75,7 @@ const mockShipCard = {
   type: 'ship',
   name: 'u.s.s. relativity',
   imagefile: 'relativity',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -85,7 +85,7 @@ const mockOtherShipCard = {
   type: 'ship',
   name: 'i.k.s. somraw',
   imagefile: 'somraw',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -95,7 +95,7 @@ const mockEquipmentCard = {
   type: 'equipment',
   name: 'tricorder',
   imagefile: 'tricorder',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -105,7 +105,7 @@ const mockPersonnelCard = {
   type: 'personnel',
   name: 'data',
   imagefile: 'data',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -257,7 +257,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       type: 'event',
       name: 'distress call',
       imagefile: 'distress_call',
-      pile: 'draw',
+      pile: 'drawDeck',
       count: 1,
     };
     const mockDilemmaCard = {
@@ -266,7 +266,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       type: 'dilemma',
       name: 'chula the chandra',
       imagefile: 'chula',
-      pile: 'draw',
+      pile: 'drawDeck',
       count: 1,
     };
 

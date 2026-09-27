@@ -223,7 +223,7 @@ describe('findExistingOrUseRow', () => {
 describe('expandDeck', () => {
   it('expands draw cards by their count', () => {
     const deck = {
-      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw' }, count: 2 },
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'drawDeck' }, count: 2 },
     }
     expect(expandDeck(deck).length).toEqual(2)
   })
@@ -237,7 +237,7 @@ describe('expandDeck', () => {
 
   it('excludes dilemma cards', () => {
     const deck = {
-      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemma' }, count: 3 },
+      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemmaPile' }, count: 3 },
     }
     expect(expandDeck(deck).length).toEqual(0)
   })
@@ -270,7 +270,7 @@ describe('extractMissions', () => {
   it('extracts mission cards in deck order', () => {
     const deck = {
       '1R000': { row: { collectorsinfo: '1R000', type: 'mission', pile: 'mission', name: 'Mission A' }, count: 1 },
-      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw', name: 'Event' }, count: 2 },
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'drawDeck', name: 'Event' }, count: 2 },
       '1R001': { row: { collectorsinfo: '1R001', type: 'mission', pile: 'mission', name: 'Mission B' }, count: 1 },
     }
     expect(extractMissions(deck).map((c) => c.name)).toEqual(['Mission A', 'Mission B'])
@@ -278,8 +278,8 @@ describe('extractMissions', () => {
 
   it('excludes dilemma and draw cards', () => {
     const deck = {
-      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw' }, count: 2 },
-      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemma' }, count: 3 },
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'drawDeck' }, count: 2 },
+      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemmaPile' }, count: 3 },
     }
     expect(extractMissions(deck)).toEqual([])
   })
@@ -297,14 +297,14 @@ describe('isDeckEmpty', () => {
   it('returns false for a deck with only mission and dilemma entries (no draw cards)', () => {
     const deck = {
       '1R000': { row: { collectorsinfo: '1R000', type: 'mission', pile: 'mission' }, count: 1 },
-      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemma' }, count: 2 },
+      '3R001': { row: { collectorsinfo: '3R001', type: 'dilemma', pile: 'dilemmaPile' }, count: 2 },
     }
     expect(isDeckEmpty(deck)).toEqual(false)
   })
 
   it('returns false for a deck with only draw cards', () => {
     const deck = {
-      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'draw' }, count: 2 },
+      '2C001': { row: { collectorsinfo: '2C001', type: 'event', pile: 'drawDeck' }, count: 2 },
     }
     expect(isDeckEmpty(deck)).toEqual(false)
   })
@@ -334,8 +334,8 @@ describe('shuffleArray', () => {
 
 describe('mergeDeckPiles', () => {
   const missionCard = { collectorsinfo: 'M1', type: 'mission', originalName: 'Mission 1', pile: 'mission', count: 1, name: 'Mission 1', dilemmatype: '', imagefile: '', unique: 'n', mission: 'S' };
-  const dilemmaCard = { collectorsinfo: 'D1', type: 'dilemma', originalName: 'Dilemma 1', pile: 'dilemma', count: 2, name: 'Dilemma 1', dilemmatype: 'planet', imagefile: '', unique: 'n', mission: '' };
-  const drawCard = { collectorsinfo: 'P1', type: 'personnel', originalName: 'Personnel 1', pile: 'draw', count: 3, name: 'Personnel 1', dilemmatype: '', imagefile: '', unique: 'n', mission: '' };
+  const dilemmaCard = { collectorsinfo: 'D1', type: 'dilemma', originalName: 'Dilemma 1', pile: 'dilemmaPile', count: 2, name: 'Dilemma 1', dilemmatype: 'planet', imagefile: '', unique: 'n', mission: '' };
+  const drawCard = { collectorsinfo: 'P1', type: 'personnel', originalName: 'Personnel 1', pile: 'drawDeck', count: 3, name: 'Personnel 1', dilemmatype: '', imagefile: '', unique: 'n', mission: '' };
 
   const currentDeck = {
     M1: { count: 1, row: missionCard },
@@ -354,7 +354,7 @@ describe('mergeDeckPiles', () => {
   };
 
   it('loading only dilemmas replaces dilemmas and keeps missions + draw', () => {
-    const result = mergeDeckPiles(currentDeck, incomingDeck, ['dilemma']);
+    const result = mergeDeckPiles(currentDeck, incomingDeck, ['dilemmaPile']);
     expect(result['M1']).toBeDefined();
     expect(result['P1']).toBeDefined();
     expect(result['D2']).toBeDefined();
@@ -364,7 +364,7 @@ describe('mergeDeckPiles', () => {
   });
 
   it('loading only draw replaces draw and keeps missions + dilemmas', () => {
-    const result = mergeDeckPiles(currentDeck, incomingDeck, ['draw']);
+    const result = mergeDeckPiles(currentDeck, incomingDeck, ['drawDeck']);
     expect(result['M1']).toBeDefined();
     expect(result['D1']).toBeDefined();
     expect(result['P2']).toBeDefined();
@@ -384,7 +384,7 @@ describe('mergeDeckPiles', () => {
   });
 
   it('loading multiple piles replaces those piles and keeps the rest', () => {
-    const result = mergeDeckPiles(currentDeck, incomingDeck, ['mission', 'dilemma']);
+    const result = mergeDeckPiles(currentDeck, incomingDeck, ['mission', 'dilemmaPile']);
     expect(result['P1']).toBeDefined();
     expect(result['M2']).toBeDefined();
     expect(result['D2']).toBeDefined();

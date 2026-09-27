@@ -14,10 +14,10 @@ beforeEach(() => {
 });
 
 const personnelFilter = (row: Record<string, any>) =>
-  row.pile === 'draw' && row.type === 'personnel';
+  row.pile === 'drawDeck' && row.type === 'personnel';
 
 const makeRow = (overrides = {}) => ({
-  pile: 'draw',
+  pile: 'drawDeck',
   type: 'personnel',
   integrity: '',
   cunning: '',

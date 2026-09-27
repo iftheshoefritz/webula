@@ -42,16 +42,16 @@ import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 
 const mockCardData = [
-  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
-  { collectorsinfo: '2C002', originalName: 'Test Personnel', type: 'personnel', name: 'test personnel', imagefile: 'test_personnel', pile: 'draw', count: 1 },
+  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
+  { collectorsinfo: '2C002', originalName: 'Test Personnel', type: 'personnel', name: 'test personnel', imagefile: 'test_personnel', pile: 'drawDeck', count: 1 },
 ];
 
 const mockDeck = {
-  '1U001': { count: 1, row: { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 } },
+  '1U001': { count: 1, row: { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 } },
 };
 
 const mockExpandedCards = [
-  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
+  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
 // A deck large enough to test draw mechanics (10 cards)
@@ -62,7 +62,7 @@ const makeManyCards = (n: number) =>
     type: 'equipment',
     name: `card ${i + 1}`,
     imagefile: `card_${i + 1}`,
-    pile: 'draw',
+    pile: 'drawDeck',
     count: 1,
   }));
 
@@ -665,7 +665,7 @@ describe('PracticeDrawPage', () => {
       type: 'dilemma',
       name: `dilemma ${n}`,
       imagefile: `dilemma_${n}`,
-      pile: 'dilemma',
+      pile: 'dilemmaPile',
       count: 1,
     }));
 

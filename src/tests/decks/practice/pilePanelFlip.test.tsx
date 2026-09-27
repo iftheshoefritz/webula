@@ -72,7 +72,7 @@ const makePersonnel = (n: number) => ({
   type: 'personnel',
   name: `personnel ${n}`,
   imagefile: `personnel_${n}`,
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 });
 
@@ -84,7 +84,7 @@ const mockDilemmaCard = {
   type: 'dilemma',
   name: 'cardassian trap',
   imagefile: 'cardassian_trap',
-  pile: 'dilemma',
+  pile: 'dilemmaPile',
   count: 1,
 };
 

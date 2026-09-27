@@ -86,7 +86,7 @@ if (typeof window.PointerEvent === 'undefined') {
 // way to open the preview: the tap acts, the hold looks, and the preview is read-only.
 
 const mockCardData = [
-  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
+  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
 const mockShipCard = {
@@ -95,7 +95,7 @@ const mockShipCard = {
   type: 'ship',
   name: 'u.s.s. relativity',
   imagefile: 'relativity',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -105,7 +105,7 @@ const mockPersonnelCard = {
   type: 'personnel',
   name: 'data',
   imagefile: 'data',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -115,7 +115,7 @@ const mockEquipmentCard = {
   type: 'equipment',
   name: 'tricorder',
   imagefile: 'tricorder',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 

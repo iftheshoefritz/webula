@@ -13,10 +13,10 @@ beforeEach(() => {
   capturedBarChartProps = null;
 });
 
-const drawFilter = (row: Record<string, any>) => row.pile === 'draw';
+const drawFilter = (row: Record<string, any>) => row.pile === 'drawDeck';
 
 const makeRow = (overrides = {}) => ({
-  pile: 'draw',
+  pile: 'drawDeck',
   cost: '3',
   count: 1,
   ...overrides,
@@ -65,7 +65,7 @@ describe('PileAggregateCostChart', () => {
     it('excludes rows that do not pass the filterFunction', () => {
       render(
         <PileAggregateCostChart
-          decks={[makeDeck('a', 'Deck A', [makeRow({ pile: 'dilemma', cost: '4', count: 5 }), makeRow({ cost: '4', count: 1 })])]}
+          decks={[makeDeck('a', 'Deck A', [makeRow({ pile: 'dilemmaPile', cost: '4', count: 5 }), makeRow({ cost: '4', count: 1 })])]}
           filterFunction={drawFilter}
         />
       );

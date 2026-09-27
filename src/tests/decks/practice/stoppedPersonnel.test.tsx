@@ -71,7 +71,7 @@ const mockPersonnelCard = {
   type: 'personnel',
   name: 'data',
   imagefile: 'data',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -81,7 +81,7 @@ const mockEquipmentCard = {
   type: 'equipment',
   name: 'tricorder',
   imagefile: 'tricorder',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -243,7 +243,7 @@ const makePersonnel = (n: number) => ({
   type: 'personnel',
   name: `personnel ${n}`,
   imagefile: `personnel_${n}`,
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 });
 

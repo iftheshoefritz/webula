@@ -267,7 +267,7 @@ describe('CardsInCommonTable', () => {
             id: 'a',
             name: 'Deck A',
             rows: [
-              makeRow({ name: 'Riker', count: 1, pile: 'draw' }),
+              makeRow({ name: 'Riker', count: 1, pile: 'drawDeck' }),
               makeRow({ name: 'Kobayashi Maru', count: 1, pile: 'mission' }),
             ],
           },
@@ -275,7 +275,7 @@ describe('CardsInCommonTable', () => {
             id: 'b',
             name: 'Deck B',
             rows: [
-              makeRow({ name: 'Riker', count: 1, pile: 'draw' }),
+              makeRow({ name: 'Riker', count: 1, pile: 'drawDeck' }),
               makeRow({ name: 'Kobayashi Maru', count: 1, pile: 'mission' }),
             ],
           },

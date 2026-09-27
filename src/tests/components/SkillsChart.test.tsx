@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import SkillsChart from '../../components/SkillsChart';
 
 const makeRow = (overrides = {}) => ({
-  pile: 'draw',
+  pile: 'drawDeck',
   type: 'personnel',
   skills: '',
   count: 1,
@@ -25,8 +25,8 @@ describe('SkillsChart', () => {
         <SkillsChart
           currentDeckRows={[
             makeRow({ pile: 'mission', type: 'mission', skills: 'diplomacy' }),
-            makeRow({ pile: 'dilemma', type: 'dilemma', skills: 'security' }),
-            makeRow({ pile: 'draw', type: 'ship', skills: 'navigation' }),
+            makeRow({ pile: 'dilemmaPile', type: 'dilemma', skills: 'security' }),
+            makeRow({ pile: 'drawDeck', type: 'ship', skills: 'navigation' }),
           ]}
         />
       );
@@ -156,7 +156,7 @@ describe('SkillsChart', () => {
         <SkillsChart
           currentDeckRows={[
             makeRow({ pile: 'mission', skills: 'diplomacy', count: 5 }),
-            makeRow({ pile: 'draw', skills: 'diplomacy', count: 1 }),
+            makeRow({ pile: 'drawDeck', skills: 'diplomacy', count: 1 }),
           ]}
         />
       );

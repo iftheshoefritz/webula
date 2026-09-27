@@ -67,7 +67,7 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, expandDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
 const mockCardData = [
-  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
+  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
 const mockEventCard = {
@@ -76,7 +76,7 @@ const mockEventCard = {
   type: 'event',
   name: 'distress call',
   imagefile: 'distress_call',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -86,7 +86,7 @@ const mockPersonnelCard = {
   type: 'personnel',
   name: 'data',
   imagefile: 'data',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -96,7 +96,7 @@ const mockShipCard = {
   type: 'ship',
   name: 'u.s.s. relativity',
   imagefile: 'relativity',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -614,7 +614,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       type: 'event',
       name: `event ${n}`,
       imagefile: `event${n}`,
-      pile: 'draw',
+      pile: 'drawDeck',
       count: 1,
     }));
 

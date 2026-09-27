@@ -63,7 +63,7 @@ import { LANDED_CUE_MS } from '../../../app/decks/practice/LandedZoneContext';
 import { landedZoneKey } from '../../../app/decks/practice/landedZoneKey';
 
 const mockCardData = [
-  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
+  { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
 const mockEquipmentCard = {
@@ -72,7 +72,7 @@ const mockEquipmentCard = {
   type: 'equipment',
   name: 'tricorder',
   imagefile: 'tricorder',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
@@ -82,7 +82,7 @@ const mockEventCard = {
   type: 'event',
   name: 'distress call',
   imagefile: 'distress_call',
-  pile: 'draw',
+  pile: 'drawDeck',
   count: 1,
 };
 
