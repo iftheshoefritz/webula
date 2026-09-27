@@ -62,7 +62,7 @@ import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeCo
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
 import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
-import { isReleaseInDeadRect, PressGeometry, pressGeometryFrom } from './releaseCancel';
+import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 
 // A plain inline hamburger icon (#722), not react-icons: see `DownloadIcon`'s comment below for
 // why a react-icons import here would need every test mock of `react-icons/fa` in this file's own
@@ -1254,8 +1254,8 @@ function PracticeDrawContent() {
     const id = String(event.active.id);
     closePreviews();
     draggingRef.current = true;
-    // Measured now, before `setOpenHand(null)` commits, so the rectangle is the card in the open
-    // fan, not the card in the closed hand (#774).
+    // The press point, read from the activator event, so the release can be measured against it
+    // (#774, #825).
     pressRef.current = pressGeometryFrom(event.activatorEvent);
     // A drag can start from the open hand or from a ship already on a mission's ship row
     // (#599); `findInstanceAnywhere` locates a card regardless of which one it is.
@@ -1292,7 +1292,7 @@ function PracticeDrawContent() {
   // drop (found while `table` still holds its pre-drop state, in `handleDragEnd`/
   // `handleDragCancel` below); `nextTable` is `table` after the drop's move applies (or `table`
   // itself, unchanged, for a drag that dispatched no move at all, including a cancelled drag and a
-  // release inside the dead rectangle around the press point, #774).
+  // release within the cancel radius of the press point, #774).
   const closePanelsAfterDrag = (
     dragOrigin: { instance: CardInstance; zone: TableZone } | null,
     nextTable: TableState
@@ -1385,10 +1385,10 @@ function PracticeDrawContent() {
     const dragOrigin = findInstanceAnywhere(table, id);
     const press = pressRef.current;
     pressRef.current = null;
-    // A release still inside the dead rectangle around the press point is not a choice of a
-    // target (#774): the drag cancels before anything else runs, so no card moves, and the hand
+    // A release still within the cancel radius of the press point is not a choice of a
+    // target (#774, #825): the drag cancels before anything else runs, so no card moves, and the hand
     // or the panel it started from opens again.
-    if (isReleaseInDeadRect(press, event.delta)) {
+    if (isReleaseInCancelRadius(press, event.delta)) {
       cancelDrag(dragOrigin);
       return;
     }
@@ -1488,7 +1488,7 @@ function PracticeDrawContent() {
   );
 
   // The browser can cancel a touch drag (a pointercancel or a resize), and a release inside the
-  // dead rectangle around the press point cancels one too (#774). Clear the overlay then. No move
+  // cancel radius of the press point cancels one too (#774). Clear the overlay then. No move
   // ever dispatches for a cancelled drag, so `table` itself is already the outcome
   // `closePanelsAfterDrag` needs (#675): the panel the drag started from, if any, still holds
   // every card it held before the drag, so it stays open, and the hand it started from reopens.
