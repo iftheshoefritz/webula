@@ -6,14 +6,14 @@ import { SKILLS } from '../lib/missionRequirements';
 
 const skillList = SKILLS.map((s) => s.toLowerCase());
 
-interface Deck {
+interface ComparedDeck {
   id: string;
   name: string;
   rows: any[];
 }
 
 interface SkillsCompareTableProps {
-  decks: Deck[];
+  decks: ComparedDeck[];
 }
 
 export default function SkillsCompareTable({ decks }: SkillsCompareTableProps) {

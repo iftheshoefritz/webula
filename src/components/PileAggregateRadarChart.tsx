@@ -1,14 +1,14 @@
 import RadarChart from './RadarChart';
 import { useMemo } from 'react';
 
-interface Deck {
+interface ComparedDeck {
   id: string;
   name: string;
   rows: Array<Record<string, any>>;
 }
 
 interface PileAggregateRadarChartProps {
-  decks: Deck[];
+  decks: ComparedDeck[];
 }
 
 const isDraw = (row: Record<string, any>) => row.pile === 'draw';

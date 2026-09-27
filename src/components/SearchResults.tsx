@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { VirtuosoGrid, Virtuoso } from "react-virtuoso";
-import { CardDef, Deck } from "../types";
+import { CardDef, DeckList } from "../types";
 import { AFFILIATION_ICONS } from "../lib/missionRequirements";
 
 const INLINE_ICON_MAP: Record<string, string> = {
@@ -102,7 +102,7 @@ type SearchResultsProps = {
   filteredData: any[];
   onCardSelected?: (row: CardDef) => void;
   onCardDeselected?: (event: any, row: CardDef) => void;
-  currentDeck?: Deck;
+  currentDeck?: DeckList;
   withHover?: boolean;
   useWindowScroll?: boolean;
   gridClassName?: string;

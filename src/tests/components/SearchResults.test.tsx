@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import SearchResults from '../../components/SearchResults';
-import { CardDef, Deck } from '../../types';
+import { CardDef, DeckList } from '../../types';
 
 // Mock react-virtuoso's VirtuosoGrid and Virtuoso to render items directly in jsdom
 jest.mock('react-virtuoso', () => ({
@@ -282,7 +282,7 @@ describe('SearchResults', () => {
   describe('card count badge displays on cards in deck', () => {
     it('shows the count from currentDeck for a card', () => {
       const card = cardFixture({ collectorsinfo: '1R010' });
-      const deck: Deck = {
+      const deck: DeckList = {
         '1R010': { row: { ...card, count: 2 }, count: 2 },
       };
 
@@ -298,7 +298,7 @@ describe('SearchResults', () => {
 
     it('does not show count control when card is not in currentDeck (count=0)', () => {
       const card = cardFixture({ collectorsinfo: '1R011' });
-      const deck: Deck = {};
+      const deck: DeckList = {};
 
       render(
         <SearchResults
@@ -324,7 +324,7 @@ describe('SearchResults', () => {
 
     it('shows minus and plus buttons when count > 0', () => {
       const card = cardFixture({ collectorsinfo: '1R012' });
-      const deck: Deck = {
+      const deck: DeckList = {
         '1R012': { row: { ...card, count: 1 }, count: 1 },
       };
 
@@ -342,7 +342,7 @@ describe('SearchResults', () => {
 
     it('calls onCardDeselected when minus button is clicked', () => {
       const card = cardFixture({ collectorsinfo: '1R013' });
-      const deck: Deck = {
+      const deck: DeckList = {
         '1R013': { row: { ...card, count: 2 }, count: 2 },
       };
       const onCardDeselected = jest.fn();
@@ -362,7 +362,7 @@ describe('SearchResults', () => {
 
     it('calls onCardSelected when plus button is clicked', () => {
       const card = cardFixture({ collectorsinfo: '1R014' });
-      const deck: Deck = {
+      const deck: DeckList = {
         '1R014': { row: { ...card, count: 1 }, count: 1 },
       };
       const onCardSelected = jest.fn();
@@ -381,7 +381,7 @@ describe('SearchResults', () => {
 
     it('disables plus button when count is at max (3)', () => {
       const card = cardFixture({ collectorsinfo: '1R015' });
-      const deck: Deck = {
+      const deck: DeckList = {
         '1R015': { row: { ...card, count: 3 }, count: 3 },
       };
 
@@ -459,7 +459,7 @@ describe('SearchResults', () => {
 
     it('shows deck count badge in list view', () => {
       const card = cardFixture({ collectorsinfo: '1R010' });
-      const deck: Deck = {
+      const deck: DeckList = {
         '1R010': { row: { ...card, count: 3 }, count: 3 },
       };
 
@@ -476,7 +476,7 @@ describe('SearchResults', () => {
 
     it('shows minus and plus buttons in list view when count > 0', () => {
       const card = cardFixture({ collectorsinfo: '1R020' });
-      const deck: Deck = {
+      const deck: DeckList = {
         '1R020': { row: { ...card, count: 2 }, count: 2 },
       };
 
@@ -495,7 +495,7 @@ describe('SearchResults', () => {
 
     it('does not show count control in list view when count is 0', () => {
       const card = cardFixture({ collectorsinfo: '1R021' });
-      const deck: Deck = {};
+      const deck: DeckList = {};
 
       render(
         <SearchResults
@@ -510,7 +510,7 @@ describe('SearchResults', () => {
 
     it('calls onCardDeselected when minus button is clicked in list view', () => {
       const card = cardFixture({ collectorsinfo: '1R022' });
-      const deck: Deck = {
+      const deck: DeckList = {
         '1R022': { row: { ...card, count: 1 }, count: 1 },
       };
       const onCardDeselected = jest.fn();
@@ -531,7 +531,7 @@ describe('SearchResults', () => {
 
     it('disables plus button at max count in list view', () => {
       const card = cardFixture({ collectorsinfo: '1R023' });
-      const deck: Deck = {
+      const deck: DeckList = {
         '1R023': { row: { ...card, count: 3 }, count: 3 },
       };
 
@@ -788,8 +788,8 @@ describe('SearchResults', () => {
 
     it('updates card count badges when deck changes', () => {
       const card = cardFixture({ collectorsinfo: '1R300' });
-      const emptyDeck: Deck = {};
-      const updatedDeck: Deck = {
+      const emptyDeck: DeckList = {};
+      const updatedDeck: DeckList = {
         '1R300': { row: { ...card, count: 3 }, count: 3 },
       };
 

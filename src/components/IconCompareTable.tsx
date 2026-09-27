@@ -5,14 +5,14 @@ import { useCharacteristicCompare } from '../hooks/useCharacteristicCompare';
 import { countDrawPileCards } from './SkillsChart';
 import IconGlyph from './IconGlyph';
 
-interface Deck {
+interface ComparedDeck {
   id: string;
   name: string;
   rows: any[];
 }
 
 interface IconCompareTableProps {
-  decks: Deck[];
+  decks: ComparedDeck[];
   label: string;
   characteristicName: string;
   filterFunction: (row: Record<string, any>) => boolean;

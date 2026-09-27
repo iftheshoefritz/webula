@@ -11,7 +11,7 @@ import {
   mergeDeckPiles,
 } from '../app/decks/deckBuilderUtils';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
-import { CardDef, Deck } from '../types';
+import { CardDef, DeckList } from '../types';
 import type { CardData } from '../lib/loadCards';
 import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
 
@@ -32,8 +32,8 @@ export function useDeckState({
   setPendingShareContent,
   setPendingShareWarning,
 }: UseDeckStateParams) {
-  const [localCurrentDeck, setLocalCurrentDeck] = useLocalStorage<Deck>('currentDeck', {});
-  const [fixtureCurrentDeck, setFixtureCurrentDeck] = useState<Deck>({});
+  const [localCurrentDeck, setLocalCurrentDeck] = useLocalStorage<DeckList>('currentDeck', {});
+  const [fixtureCurrentDeck, setFixtureCurrentDeck] = useState<DeckList>({});
   const currentDeck = isFixture ? fixtureCurrentDeck : localCurrentDeck;
   const setCurrentDeck = isFixture ? setFixtureCurrentDeck : setLocalCurrentDeck;
   const [deckTitle, setDeckTitle] = useLocalStorage<string>('deckTitle', '');

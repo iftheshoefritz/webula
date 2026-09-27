@@ -2,14 +2,14 @@ import BarChart from '../components/BarChart';
 import { useMemo } from 'react';
 import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 
-interface Deck {
+interface ComparedDeck {
   id: string;
   name: string;
   rows: Array<Record<string, any>>;
 }
 
 interface PileAggregateCostChartProps {
-  decks: Deck[];
+  decks: ComparedDeck[];
   filterFunction: (row: Record<string, any>) => boolean;
   type?: 'bar' | 'line';
 }

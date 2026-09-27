@@ -2,14 +2,14 @@
 
 import React, { useMemo, useState } from 'react';
 
-interface Deck {
+interface ComparedDeck {
   id: string;
   name: string;
   rows: any[];
 }
 
 interface CardsInCommonTableProps {
-  decks: Deck[];
+  decks: ComparedDeck[];
   filterFunction?: (row: any) => boolean;
 }
 
@@ -22,7 +22,7 @@ interface CardsInCommonRow {
 type SortKey = 'name' | 'numDecks' | string;
 
 export function aggregateCardsInCommon(
-  decks: Deck[],
+  decks: ComparedDeck[],
   filterFunction: (row: any) => boolean = () => true
 ): CardsInCommonRow[] {
   const countsByName = new Map<string, Record<string, number>>();

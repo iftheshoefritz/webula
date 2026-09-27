@@ -10,7 +10,7 @@ type CardDef = {
   unique: 'y'|'n',
 }
 
-export type Deck = Record<string, {row: any, count: number}>
+export type DeckList = Record<string, {row: any, count: number}>
 
 export type {
   CardDef

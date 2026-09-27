@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-interface Deck {
+interface ComparedDeck {
   id: string;
   name: string;
   rows: any[];
@@ -25,7 +25,7 @@ function aggregate(
 }
 
 export function useCharacteristicCompare(
-  decks: Deck[],
+  decks: ComparedDeck[],
   characteristicName: string,
   filterFunction: (row: Record<string, any>) => boolean,
   splitFunction: (value: any) => any[],
