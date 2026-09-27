@@ -82,6 +82,16 @@ const mockDeck = {
   [mockEventCard.collectorsinfo]: { count: 1, row: mockEventCard },
 };
 
+const mockMissionCard = {
+  collectorsinfo: '1R100',
+  originalName: 'First Contact',
+  type: 'mission',
+  name: 'first contact',
+  imagefile: 'first_contact',
+  pile: 'mission',
+  count: 1,
+};
+
 // A card of the open fan, 73 x 104 px, the size the issue measured, pressed at its centre.
 const CARD_RECT = { left: 370, top: 503, right: 443, bottom: 607, width: 73, height: 104, x: 370, y: 503 };
 const PRESS = { x: 406.5, y: 555 };
@@ -205,16 +215,21 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
   // a fan card. The old half-card rectangle reached 52 px up from this press point and
   // cancelled this drop; the 24 px radius lets it land.
   it('lands a fan card released 30 px above the press point on the mission under the fan', async () => {
+    localStorage.setItem(
+      'currentDeck',
+      JSON.stringify({ ...mockDeck, [mockMissionCard.collectorsinfo]: { count: 1, row: mockMissionCard } })
+    );
     await act(async () => {
       render(<PracticeDrawPage />);
     });
     await openHand();
-    const [id] = mockDraggableIds;
+    // The mission card is draggable too, so find the event by its name.
+    const id = screen.getByRole('button', { name: 'distress call' }).closest('[data-card-id]')!.getAttribute('data-card-id')!;
 
     await drag(id, { x: 0, y: -30 }, 'mission-0');
 
-    expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
-    expect(document.body.querySelector(`[data-zone="hand"] [data-card-id="${id}"]`)).toBeNull();
+    // #813 places an event dropped on a mission card on that card.
+    expect(screen.getByRole('button', { name: /^first contact, 1 card on it$/i })).toBeInTheDocument();
   });
 
   it("keeps a card in a mission's card list panel, and keeps the panel open, for a 9 px drag", async () => {
