@@ -95,6 +95,9 @@ const mockMissionCard = {
 // A card of the open fan, 73 x 104 px, the size the issue measured, pressed at its centre.
 const CARD_RECT = { left: 370, top: 503, right: 443, bottom: 607, width: 73, height: 104, x: 370, y: 503 };
 const PRESS = { x: 406.5, y: 555 };
+// The same card at the viewer size of the open fan (#802), 1.5 times as large, about the same
+// press point. The old half-card rectangle reached 39 px up from it.
+const VIEWER_CARD_RECT = { left: 351.5, top: 477, right: 461.5, bottom: 633, width: 110, height: 156, x: 351.5, y: 477 };
 
 describe('isReleaseInCancelRadius (#774, #825)', () => {
   const press: PressGeometry = PRESS;
@@ -169,12 +172,12 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     }
   };
 
-  // Presses the card's rendered element at `PRESS`, with the element measured at `CARD_RECT`,
+  // Presses the card's rendered element at `PRESS`, with the element measured at `rect`,
   // then releases it `delta` away with `overId` under the release point.
-  const drag = async (id: string, delta: { x: number; y: number }, overId: string) => {
+  const drag = async (id: string, delta: { x: number; y: number }, overId: string, rect = CARD_RECT) => {
     const element = document.body.querySelector(`[data-card-id="${id}"]`) as HTMLElement;
     expect(element).not.toBeNull();
-    element.getBoundingClientRect = () => ({ ...CARD_RECT, toJSON: () => ({}) }) as DOMRect;
+    element.getBoundingClientRect = () => ({ ...rect, toJSON: () => ({}) }) as DOMRect;
     await act(async () => {
       mockOnDragStart!({ active: { id }, activatorEvent: { clientX: PRESS.x, clientY: PRESS.y, target: element } });
     });
@@ -212,8 +215,8 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
   });
 
   // #825: the open fan sits over the mission row, so the centre of a mission card lies under
-  // a fan card. The old half-card rectangle reached 52 px up from this press point and
-  // cancelled this drop; the 24 px radius lets it land.
+  // a fan card. The old half-card rectangle reached 39 px up from this press on a viewer-size
+  // card and cancelled this drop; the 24 px radius lets it land.
   it('lands a fan card released 30 px above the press point on the mission under the fan', async () => {
     localStorage.setItem(
       'currentDeck',
@@ -226,7 +229,7 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     // The mission card is draggable too, so find the event by its name.
     const id = screen.getByRole('button', { name: 'distress call' }).closest('[data-card-id]')!.getAttribute('data-card-id')!;
 
-    await drag(id, { x: 0, y: -30 }, 'mission-0');
+    await drag(id, { x: 0, y: -30 }, 'mission-0', VIEWER_CARD_RECT);
 
     // #813 places an event dropped on a mission card on that card.
     expect(screen.getByRole('button', { name: /^first contact, 1 card on it$/i })).toBeInTheDocument();
