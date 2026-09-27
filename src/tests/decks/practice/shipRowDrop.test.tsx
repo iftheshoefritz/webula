@@ -206,7 +206,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     expect(shipRow!.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
   });
 
-  it('files a non-ship card into the personnel pile when dropped on a mission card (#602)', async () => {
+  it('files a non-ship card into the away team when dropped on a mission card (#602)', async () => {
     await setupOpenHand([mockEquipmentCard]);
     const [draggedId] = mockDraggableIds;
 
@@ -221,11 +221,11 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     const closedHandButton = screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i });
     expect(closedHandButton).toBeInTheDocument();
 
-    // ...and now filed into mission 0's personnel pile badge.
-    expect(screen.getByRole('button', { name: /personnel pile, 1 card/i })).toBeInTheDocument();
+    // ...and now filed into mission 0's away team badge.
+    expect(screen.getByRole('button', { name: /Away team, 1 card/i })).toBeInTheDocument();
   });
 
-  it('files a non-ship card into the personnel pile when dropped on a ship row (#602)', async () => {
+  it('files a non-ship card into the away team when dropped on a ship row (#602)', async () => {
     await setupOpenHand([mockEquipmentCard]);
     const [draggedId] = mockDraggableIds;
 
@@ -238,7 +238,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
 
     const closedHandButton = screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i });
     expect(closedHandButton).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /personnel pile, 1 card/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Away team, 1 card/i })).toBeInTheDocument();
   });
 
   describe('with a mission card dealt (#813)', () => {
@@ -317,7 +317,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
 
       expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /personnel pile, 1 card/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /Away team, 1 card/i })).toBeNull();
       expect(document.body.querySelector('[data-zone^="mission-pile-event"]')).toBeNull();
 
       // A tap on the counter opens the cards on the mission card.
@@ -327,13 +327,13 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       expect(document.body.querySelector(`[data-zone="pile-panel-on"] [data-card-id="${draggedId}"]`)).not.toBeNull();
     });
 
-    it('files a card dropped on the personnel badge into the personnel pile', async () => {
+    it('files a card dropped on the away team badge into the away team', async () => {
       await setupWithMission([mockEventCard]);
       const draggedId = handCardId(mockEventCard.name);
 
-      await drop(draggedId, 'mission-pile-personnel-0');
+      await drop(draggedId, 'mission-pile-awayTeam-0');
 
-      expect(screen.getByRole('button', { name: /^personnel pile, 1 card, tap to open$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
     });
 
@@ -349,13 +349,13 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
     });
 
-    it('still files a personnel dropped on a ship row, off any ship, into the personnel pile (#645)', async () => {
+    it('still files a personnel dropped on a ship row, off any ship, into the away team (#645)', async () => {
       await setupWithMission([mockPersonnelCard]);
       const draggedId = handCardId(mockPersonnelCard.name);
 
       await drop(draggedId, 'ship-row-0');
 
-      expect(screen.getByRole('button', { name: /^personnel pile, 1 card, tap to open$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
     });
   });

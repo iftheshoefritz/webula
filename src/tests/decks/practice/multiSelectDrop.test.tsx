@@ -295,12 +295,12 @@ describe('Practice draw: selecting more than one card in a pile panel and draggi
       mockOnDragEnd!({ active: { id: id2 }, over: { id: 'mission-0' } });
     });
 
-    const personnelBadge = screen.getByRole('button', { name: /personnel pile, 2 cards, tap to open/i });
+    const personnelBadge = screen.getByRole('button', { name: /Away team, 2 cards, tap to open/i });
     await act(async () => {
       fireEvent.click(personnelBadge);
     });
 
-    const panel = document.body.querySelector('[data-zone="pile-panel-personnel"]') as HTMLElement;
+    const panel = document.body.querySelector('[data-zone="pile-panel-awayTeam"]') as HTMLElement;
     const ids = Array.from(panel.querySelectorAll('[data-card-id]')).map((el) => el.getAttribute('data-card-id'));
     expect(ids).toEqual([id2, id3]);
   });

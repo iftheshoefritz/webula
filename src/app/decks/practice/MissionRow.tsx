@@ -6,7 +6,7 @@
 //
 // Every column, filled or empty, reserves fixed space for its controls, so the column layout
 // does not shift as a mission's piles fill up:
-//   - A badge strip below the mission card: personnel/event pile badges (#602), moved there from
+//   - A badge strip below the mission card: the away team badge (#602), moved there from
 //     above the mission card by #641 to make room for the dilemmas placed under the mission
 //     (below), which now poke out above the mission card instead.
 //   - Dilemmas placed under the mission (#606) render face up, stacked behind the mission card
@@ -24,7 +24,7 @@
 // wrapper around the already draggable `TableCard`, the same nesting pattern used for the mission
 // card's own drop target, keeps the two roles apart as two different DOM nodes. The ship's crew
 // badge (#811) is the only way to board a card by a drag: the same `PersonnelIcon`-and-count pill
-// a mission's personnel pile shows (`PileBadge` below), not the plain `CountBadge` circle the draw
+// a mission's away team shows (`PileBadge` below), not the plain `CountBadge` circle the draw
 // and discard piles use, and shown even with no crew, so the first crew card has somewhere to
 // land. A tap anywhere on the ship (`onShipClick`) opens, if it has crew, every crew card in a
 // panel (`PilePanel`, zone `'crew'`, wired up in `page.tsx`), so the badge itself is not a tap
@@ -46,9 +46,9 @@
 //
 // Dropping a personnel, equipment, event, mission, or interrupt card on the mission card or its
 // ship row (#602) files it into one of that mission's piles, chosen by card type: personnel and
-// equipment go to the personnel pile face down; event, mission, and interrupt go to the event
+// equipment go to the away team face down; event, mission, and interrupt go to the event
 // pile face up. A dilemma dropped on a mission, from anywhere, goes under the mission instead
-// (#606, #733), face up, permanently. Each non-empty personnel/event pile shows a small badge on
+// (#606, #733), face up, permanently. Each non-empty away team/event pile shows a small badge on
 // the badge strip, below (and as a sibling of, not nested inside) the mission card's own
 // `<button>` — nesting a badge button inside it would be invalid HTML and would let the mission's
 // own tap handler fire first, the same conflict already avoided for the ship's own drop target. A
@@ -99,15 +99,15 @@ export const crewDropId = (shipId: string): string => `crew-${shipId}`;
 export const crewBadgeDropId = (shipId: string): string => `crew-badge-${shipId}`;
 
 // A mission pile's badge is its own drop target (#602), distinct from `missionDropId`, since a drop
-// on the mission card places the card on it (#813). Only the personnel pile has a badge: the
+// on the mission card places the card on it (#813). Only the away team has a badge: the
 // under-mission pile's stack sits inside the mission card's drop target, and a dilemma dropped
 // there goes under the mission.
 export const missionPileDropId = (missionIndex: number, pile: MissionPileName): string =>
   `mission-pile-${pile}-${missionIndex}`;
 
 export function missionPileFromDropId(id: string): { missionIndex: number; pile: MissionPileName } | null {
-  const match = /^mission-pile-personnel-(\d+)$/.exec(id);
-  return match ? { pile: 'personnel', missionIndex: Number(match[1]) } : null;
+  const match = /^mission-pile-awayTeam-(\d+)$/.exec(id);
+  return match ? { pile: 'awayTeam', missionIndex: Number(match[1]) } : null;
 }
 
 // Both a drop on the mission card and a drop on its ship row resolve to the same mission index
@@ -262,13 +262,15 @@ function UnderMissionIcon() {
 }
 
 const PILE_ICON: Record<MissionPileName, () => JSX.Element> = {
-  personnel: PersonnelIcon,
+  awayTeam: PersonnelIcon,
   underMission: UnderMissionIcon,
 };
 
-const PILE_LABEL: Record<MissionPileName, string> = {
-  personnel: 'Personnel',
-  underMission: 'Under the mission',
+// The badge's own noun. An away team is not a pile, so its label carries no such word; the
+// under-mission pile is one, so its label keeps it.
+const PILE_NOUN: Record<MissionPileName, string> = {
+  awayTeam: 'Away team',
+  underMission: 'Under the mission pile',
 };
 
 // A mission pile's badge (#602): a drop target of its own (dropping any card type directly on it
@@ -302,7 +304,7 @@ function PileBadge({
       data-zone={missionPileDropId(missionIndex, pile)}
       data-landed={landedNonce !== null || undefined}
       onClick={count > 0 ? () => onOpen(missionIndex, pile) : undefined}
-      aria-label={`${PILE_LABEL[pile]} pile, ${count} card${count === 1 ? '' : 's'}${count > 0 ? ', tap to open' : ''}`}
+      aria-label={`${PILE_NOUN[pile]}, ${count} card${count === 1 ? '' : 's'}${count > 0 ? ', tap to open' : ''}`}
       className={`relative flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none ${
         count === 0 ? 'opacity-60' : ''
       } ${isOver ? 'ring-2 ring-accent' : ''}`}
@@ -320,7 +322,7 @@ function PileBadge({
 }
 
 // A ship's crew badge: the same `PersonnelIcon`-and-count pill style `PileBadge` uses for a
-// mission's personnel pile, so the same kind of thing — personnel in a pile — always gets the
+// mission's away team, so the same kind of thing — personnel in a pile — always gets the
 // same badge. It sits as a sibling of the ship's own `TableCard` button, inside `ShipCard`'s
 // `crewDropId` wrapper, since a `<button>` cannot nest inside another `<button>` (the ship's own
 // button) — the same reasoning `PileBadge` documents above for the mission's own badges. A tap
@@ -371,18 +373,18 @@ function ShipCrewBadge({
 
 function BadgeStrip({
   missionIndex,
-  personnelCount,
+  awayTeamCount,
   onOpenPile,
   height,
 }: {
   missionIndex: number;
-  personnelCount: number;
+  awayTeamCount: number;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   height: number;
 }) {
   return (
     <div className="w-full flex items-center justify-center gap-1" style={{ height }}>
-      <PileBadge missionIndex={missionIndex} pile="personnel" count={personnelCount} onOpen={onOpenPile} height={height} />
+      <PileBadge missionIndex={missionIndex} pile="awayTeam" count={awayTeamCount} onOpen={onOpenPile} height={height} />
     </div>
   );
 }
@@ -453,7 +455,7 @@ function UnderMissionStack({
       <button
         type="button"
         onClick={() => onOpen(missionIndex, 'underMission')}
-        aria-label={`${PILE_LABEL.underMission} pile, ${cards.length} card${
+        aria-label={`${PILE_NOUN.underMission}, ${cards.length} card${
           cards.length === 1 ? '' : 's'
         }, tap to open`}
         className="absolute inset-0"
@@ -558,7 +560,7 @@ function MissionColumn({
   const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('mission', draggedType, isOver);
-  const { mission, ships, personnel, underMission } = slot;
+  const { mission, ships, awayTeam, underMission } = slot;
   // The cards placed on the mission card (#813), such as the events at the mission.
   const onLandedNonce = useLandedNonce(mission ? `on-${mission.id}` : '');
   const onCount = mission?.on?.length ?? 0;
@@ -611,10 +613,10 @@ function MissionColumn({
         <LandedRing nonce={onLandedNonce} />
       </div>
 
-      {/* Badge strip: the personnel pile badge (#602). */}
+      {/* Badge strip: the away team badge (#602). */}
       <BadgeStrip
         missionIndex={missionIndex}
-        personnelCount={personnel.length}
+        awayTeamCount={awayTeam.length}
         onOpenPile={onOpenPile}
         height={badgeHeight}
       />

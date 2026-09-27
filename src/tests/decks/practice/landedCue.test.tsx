@@ -113,7 +113,7 @@ describe('landedZoneKey (#778)', () => {
   it('keys a ship row, a crew, and each mission pile by its drop id', () => {
     expect(landedZoneKey({ zone: 'shipRow', missionIndex: 2 })).toBe('ship-row-2');
     expect(landedZoneKey({ zone: 'crew', shipId: 'card-4' })).toBe('crew-card-4');
-    expect(landedZoneKey({ zone: 'missionPile', missionIndex: 1, pile: 'personnel' })).toBe('mission-pile-personnel-1');
+    expect(landedZoneKey({ zone: 'missionPile', missionIndex: 1, pile: 'awayTeam' })).toBe('mission-pile-awayTeam-1');
     expect(landedZoneKey({ zone: 'missionPile', missionIndex: 0, pile: 'underMission' })).toBe(
       'mission-pile-underMission-0'
     );
@@ -202,7 +202,7 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
     expect(mission).toHaveAttribute('data-landed');
     expect(mission!.querySelector('[data-testid="landed-ring"]')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
-    expect(zone('mission-pile-personnel-0')).not.toHaveAttribute('data-landed');
+    expect(zone('mission-pile-awayTeam-0')).not.toHaveAttribute('data-landed');
     expect(zone('mission-pile-event-0')).toBeNull();
     expect(landedElements()).toHaveLength(1);
   });
@@ -215,11 +215,11 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
     expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
   });
 
-  it('marks the personnel badge a card is dropped on directly', async () => {
+  it('marks the away team badge a card is dropped on directly', async () => {
     await setup();
-    await drop(handCardId('distress call'), 'mission-pile-personnel-0');
+    await drop(handCardId('distress call'), 'mission-pile-awayTeam-0');
 
-    expect(zone('mission-pile-personnel-0')).toHaveAttribute('data-landed');
+    expect(zone('mission-pile-awayTeam-0')).toHaveAttribute('data-landed');
     expect(zone('mission-0')).not.toHaveAttribute('data-landed');
     expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
   });

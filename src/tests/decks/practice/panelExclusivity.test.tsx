@@ -166,11 +166,11 @@ describe('Practice draw: only one pile panel is ever open at a time (#711)', () 
       mockOnDragEnd!({ active: { id: eventId }, over: { id: 'core' } });
     });
 
-    // Open the mission's personnel pile panel.
+    // Open the mission's away team panel.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^personnel pile, 1 card, tap to open$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i }));
     });
-    expect(document.body.querySelector('[data-zone="pile-panel-personnel"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="pile-panel-awayTeam"]')).not.toBeNull();
 
     // Without closing it, tap the core card sitting behind it.
     await act(async () => {
@@ -178,7 +178,7 @@ describe('Practice draw: only one pile panel is ever open at a time (#711)', () 
     });
 
     // The mission's pile panel is gone; the core's own panel is open and shows the core's card.
-    expect(document.body.querySelector('[data-zone="pile-panel-personnel"]')).toBeNull();
+    expect(document.body.querySelector('[data-zone="pile-panel-awayTeam"]')).toBeNull();
     const corePanel = document.body.querySelector('[data-zone="pile-panel-core"]');
     expect(corePanel).not.toBeNull();
     expect(corePanel!.querySelector('[data-card-id]')?.getAttribute('data-card-id')).toBe(eventId);

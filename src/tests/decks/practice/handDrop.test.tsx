@@ -161,9 +161,9 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
     });
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
 
-    // Open the mission's personnel pile panel and drag the card back into the hand.
+    // Open the mission's away team panel and drag the card back into the hand.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^personnel pile, 1 card, tap to open$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i }));
     });
     await act(async () => {
       mockOnDragStart!({ active: { id: personnelId } });
@@ -175,7 +175,7 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
     expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
     const handZone = document.body.querySelector('[data-zone="hand"]');
     expect(handZone).not.toBeNull();
-    expect(document.body.querySelector('[data-zone="pile-panel-personnel"]')).toBeNull();
+    expect(document.body.querySelector('[data-zone="pile-panel-awayTeam"]')).toBeNull();
   });
 
   it('moves a dilemma dragged from under a mission back into the dilemma hand', async () => {

@@ -1,6 +1,6 @@
 'use client';
 
-// A mission's personnel or under-the-mission pile panel (#602, #606), and, since #640,
+// A mission's away team or under-the-mission pile panel (#602, #606), and, since #640,
 // the core's and the brig's own panel too: a tap on a pile's badge (or,
 // for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
 // already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
@@ -50,7 +50,7 @@
 // toggle, so a mixed selection cannot go out of step with itself. The selection stays after the
 // tap, so the player can still drag the same cards next.
 // A "Flip" button (#762) sits beside it, in the panels whose cards the preview can flip: a
-// mission's personnel and under-the-mission piles. `page.tsx` passes `onFlip` only for those
+// mission's away team and under-the-mission piles. `page.tsx` passes `onFlip` only for those
 // zones. The dilemma stack's panel gets none (#819): its cards stay face down on the table, but
 // the panel lists them face up so the player can read them to order the stack, and the table's
 // own Reveal control turns the top one over. It shows
@@ -128,7 +128,7 @@ export type PanelZone =
   | 'on';
 
 const PANEL_LABEL: Record<PanelZone, string> = {
-  personnel: 'Personnel',
+  awayTeam: 'Away team',
   underMission: 'Under the mission',
   core: 'Core',
   brig: 'Brig',
@@ -142,13 +142,15 @@ const PANEL_LABEL: Record<PanelZone, string> = {
 };
 
 // The core, the brig, a ship's crew (#664), the draw deck, the dilemma pile (#690), the dilemma
-// stack (#733), and a mission's own ship row (#713) already say "deck", "pile" or "stack" (or need no
+// stack (#733), the away team (#841) and a mission's own ship row (#713) already say "deck",
+// "pile", "team" or "stack" (or need no
 // such word at all) in their own label, so their close button's label does not repeat it; a mission pile's label keeps the
 // trailing "pile", unchanged from before #640.
 const closeLabel = (zone: PanelZone): string =>
   zone === 'core' ||
   zone === 'brig' ||
   zone === 'crew' ||
+  zone === 'awayTeam' ||
   zone === 'drawDeck' ||
   zone === 'dilemmaPile' ||
   zone === 'dilemmaStack' ||

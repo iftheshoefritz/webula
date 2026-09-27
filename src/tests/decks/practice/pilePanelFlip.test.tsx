@@ -171,26 +171,26 @@ describe('Practice table: the pile panel Flip button (#762)', () => {
   };
 
   // Drops both personnel cards from the hand onto the first mission, where they go face down into
-  // its personnel pile, and opens that pile's panel.
-  const openPersonnelPile = async () => {
+  // its Away team, and opens that pile's panel.
+  const openAwayTeam = async () => {
     await renderWithDeck(mockPersonnelCards);
     for (const name of ['personnel 1', 'personnel 2']) {
       await openClosedHand(/^hand, \d+ cards?, tap to open$/i);
       await drop(cardIdFor(name), 'mission-0');
     }
-    await click(/personnel pile, 2 cards, tap to open/i);
+    await click(/Away team, 2 cards, tap to open/i);
   };
 
-  it('draws face-down cards in a personnel pile panel as the card back, and shows no Flip without a selection', async () => {
-    await openPersonnelPile();
+  it('draws face-down cards in an away team panel as the card back, and shows no Flip without a selection', async () => {
+    await openAwayTeam();
 
-    expect(panelImage('personnel', 'personnel 1')).toHaveAttribute('src', CARD_BACK);
-    expect(panelImage('personnel', 'personnel 2')).toHaveAttribute('src', CARD_BACK);
+    expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', CARD_BACK);
+    expect(panelImage('awayTeam', 'personnel 2')).toHaveAttribute('src', CARD_BACK);
     expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
   });
 
   it('flips a selected face-down card face up, beside the Stop button, and keeps the selection', async () => {
-    await openPersonnelPile();
+    await openAwayTeam();
 
     await click('Select personnel 1');
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
@@ -198,23 +198,23 @@ describe('Practice table: the pile panel Flip button (#762)', () => {
 
     await click(/^flip$/i);
 
-    expect(panelImage('personnel', 'personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
-    expect(panelImage('personnel', 'personnel 2')).toHaveAttribute('src', CARD_BACK);
+    expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
+    expect(panelImage('awayTeam', 'personnel 2')).toHaveAttribute('src', CARD_BACK);
     expect(screen.getByRole('button', { name: 'Deselect personnel 1' })).toHaveAttribute('aria-pressed', 'true');
     // Stop is unchanged by a flip.
-    expect(panelImage('personnel', 'personnel 1')).not.toHaveClass('grayscale');
+    expect(panelImage('awayTeam', 'personnel 1')).not.toHaveClass('grayscale');
   });
 
   it('turns each card of a mixed selection over on its own', async () => {
-    await openPersonnelPile();
+    await openAwayTeam();
 
     await click('Select personnel 1');
     await click(/^flip$/i);
     await click('Select personnel 2');
     await click(/^flip$/i);
 
-    expect(panelImage('personnel', 'personnel 1')).toHaveAttribute('src', CARD_BACK);
-    expect(panelImage('personnel', 'personnel 2')).toHaveAttribute('src', '/cardimages/personnel_2.jpg');
+    expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', CARD_BACK);
+    expect(panelImage('awayTeam', 'personnel 2')).toHaveAttribute('src', '/cardimages/personnel_2.jpg');
   });
 
   it('shows no Flip button in the core panel, even with a selection, and keeps its cards face up', async () => {

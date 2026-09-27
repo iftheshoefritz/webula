@@ -330,17 +330,17 @@ function computeMoveTargetForInstance(
       return { zone: 'missionPile', missionIndex, pile: 'underMission' };
     }
     const isPersonnel = instance.card.type === 'personnel' || instance.card.type === 'equipment';
-    // A personnel dropped on a ship row, off any ship, files into the mission's personnel pile
+    // A personnel dropped on a ship row, off any ship, files into the mission's away team
     // (#645).
     if (String(over.id) === shipRowDropId(missionIndex) && isPersonnel) {
-      return { zone: 'missionPile', missionIndex, pile: 'personnel' };
+      return { zone: 'missionPile', missionIndex, pile: 'awayTeam' };
     }
     // Any other card dropped on the mission is placed on the mission card (#813): the cards on it
     // are the events at that mission, so a slot has no event pile. A slot with no mission card has
-    // no host, so there a personnel still files into the personnel pile.
+    // no host, so there a personnel still files into the away team.
     const mission = table.missions[missionIndex]?.mission;
     if (mission) return { zone: 'on', hostId: mission.id };
-    if (isPersonnel) return { zone: 'missionPile', missionIndex, pile: 'personnel' };
+    if (isPersonnel) return { zone: 'missionPile', missionIndex, pile: 'awayTeam' };
   }
 
   return null;
