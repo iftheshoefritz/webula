@@ -7,7 +7,7 @@
 //
 // Before the timer fires, a move past `DRAG_ACTIVATION_DISTANCE` cancels it: that press is a
 // drag, and dnd-kit's `PointerSensor` (which uses the same distance, in `page.tsx`) takes it.
-// Inside a pile panel whose grid scrolls, a touch or pen press goes to `PanelScrollSensor`
+// Inside a card list panel whose grid scrolls, a touch or pen press goes to `PanelScrollSensor`
 // instead (#788), which decides at the same distance: a vertical first move scrolls the grid,
 // and the browser's `pointercancel` ends the hold.
 //

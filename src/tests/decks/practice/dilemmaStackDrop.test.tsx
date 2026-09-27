@@ -99,7 +99,7 @@ const mockDeck = {
 // #630: a face-down top-level zone to the right of the missions (the state side, `dilemmaStack`
 // on `TableState`, was already added by #733). A drop onto it appends to the bottom, so the
 // first card dropped stays first in stack order (index 0), the first revealed. A tap opens its
-// own `PilePanel`, under the same one-panel-at-a-time rule as every other flat zone (#711), and a
+// own `CardListPanel`, under the same one-panel-at-a-time rule as every other flat zone (#711), and a
 // tap on a card inside that panel selects it and shows a working Flip button (the `flip` reducer
 // case already handles any plain string zone).
 describe('Practice table: the dilemma stack (#630)', () => {
@@ -196,7 +196,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 2 cards, tap to open' }));
     });
 
-    const stackPanel = document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]');
+    const stackPanel = document.body.querySelector('[data-zone="card-list-panel-dilemmaStack"]');
     expect(stackPanel).not.toBeNull();
     const cardIds = Array.from(stackPanel!.querySelectorAll('[data-card-id]')).map((el) =>
       el.getAttribute('data-card-id')
@@ -320,19 +320,19 @@ describe('Practice table: the dilemma stack (#630)', () => {
       mockOnDragEnd!({ active: { id: eventDraggableId }, over: { id: 'core' } });
     });
 
-    // Open the core's own pile panel.
+    // Open the core's own card list panel.
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
-    expect(document.body.querySelector('[data-zone="pile-panel-core"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).not.toBeNull();
 
     // Without closing it, tap the dilemma stack.
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' }));
     });
 
-    expect(document.body.querySelector('[data-zone="pile-panel-core"]')).toBeNull();
-    expect(document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="card-list-panel-core"]')).toBeNull();
+    expect(document.body.querySelector('[data-zone="card-list-panel-dilemmaStack"]')).not.toBeNull();
   });
 
   it('a tap on a card in the stack panel shows it face up, with no Flip button (#819)', async () => {
@@ -351,7 +351,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     });
     // #740 leaves the dilemma hand open behind the stack panel, so the same card name matches
     // both the fan's card and the panel's card. Scope the tap to the panel.
-    const stackPanel = document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]') as HTMLElement;
+    const stackPanel = document.body.querySelector('[data-zone="card-list-panel-dilemmaStack"]') as HTMLElement;
     await act(async () => {
       fireEvent.click(within(stackPanel).getByRole('button', { name: 'cardassian trap' }));
     });
@@ -413,7 +413,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' }));
     });
-    const stackPanel = document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]');
+    const stackPanel = document.body.querySelector('[data-zone="card-list-panel-dilemmaStack"]');
     const cardIds = Array.from(stackPanel!.querySelectorAll('[data-card-id]')).map((el) =>
       el.getAttribute('data-card-id')
     );
@@ -480,7 +480,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     });
 
     // The card never left the stack, so the popup stays open and shows the new order at once.
-    let stackPanel = document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]');
+    let stackPanel = document.body.querySelector('[data-zone="card-list-panel-dilemmaStack"]');
     expect(stackPanel).not.toBeNull();
     let cardIds = Array.from(stackPanel!.querySelectorAll('[data-card-id]')).map((el) =>
       el.getAttribute('data-card-id')
@@ -495,7 +495,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 2 cards, tap to open' }));
     });
-    stackPanel = document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]');
+    stackPanel = document.body.querySelector('[data-zone="card-list-panel-dilemmaStack"]');
     cardIds = Array.from(stackPanel!.querySelectorAll('[data-card-id]')).map((el) => el.getAttribute('data-card-id'));
     expect(cardIds).toEqual([secondId, firstId]);
   });
@@ -635,7 +635,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
       await act(async () => {
         fireEvent.click(within(stackZone()).getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' }));
       });
-      expect(document.body.querySelector('[data-zone="pile-panel-dilemmaStack"]')).not.toBeNull();
+      expect(document.body.querySelector('[data-zone="card-list-panel-dilemmaStack"]')).not.toBeNull();
     });
 
     it('drags to a mission, landing under it like any other dilemma (#606/#733)', async () => {

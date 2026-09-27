@@ -1,15 +1,15 @@
-// Kept apart from `tableScale.ts`, which imports the reducer: `PilePanel` and `CardHand` read this
+// Kept apart from `tableScale.ts`, which imports the reducer: `CardListPanel` and `CardHand` read this
 // size, and their tests mock `@dnd-kit/core` too thinly for the reducer's imports to load.
 import { TABLE_CARD_WIDTH } from './TableCard';
 
-// Issue #802: every viewer — a pile panel's grid, the dilemma stack's row, and the open fan of
+// Issue #802: every viewer — a card list panel's grid, the dilemma stack's row, and the open fan of
 // the hand and of the dilemma hand — draws its card at this multiple of the shared table card.
 // The size is fixed: it does not depend on the card count and does not shrink to fit. The extra
 // height of a full-height panel only adds rows, and a pile that still does not fit scrolls.
 export const VIEWER_CARD_SCALE = 1.5;
 
-// How far a viewer sits from the top of the game layer. A pile panel's own box is `inset-2`
-// (`PilePanel.tsx`), which is this many pixels, and the open fan (`CardHand.tsx`) takes the same
+// How far a viewer sits from the top of the game layer. A card list panel's own box is `inset-2`
+// (`CardListPanel.tsx`), which is this many pixels, and the open fan (`CardHand.tsx`) takes the same
 // top, so a fan and a panel start at the same height. The fan sat at the bottom of the screen
 // before, where it covered the draw pile and the dilemma pile, the two taps the player needs
 // while a hand is open.

@@ -1,4 +1,4 @@
-// #788: inside a pile panel whose grid scrolls, a touch that moved up or down picked the card up,
+// #788: inside a card list panel whose grid scrolls, a touch that moved up or down picked the card up,
 // because the sensor started a drag after 8 px in any direction. The direction rule decides at
 // the same 8 px: mostly vertical scrolls, mostly sideways drags. This file checks the rule and the
 // `touch-action` the panel gives its cards; `panelScrollSensor.test.tsx` runs the sensor itself.
@@ -13,7 +13,7 @@ jest.mock('@dnd-kit/core', () => {
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import PilePanel from '../../../app/decks/practice/PilePanel';
+import CardListPanel from '../../../app/decks/practice/CardListPanel';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import { PANEL_SCROLLS_ATTRIBUTE, panelGestureFor } from '../../../app/decks/practice/panelGesture';
 
@@ -28,8 +28,8 @@ const cards = Array.from({ length: 30 }, (_, i) => makeCard(i));
 
 const renderPanel = () =>
   render(
-    <PilePanel
-      zone="drawDeck"
+    <CardListPanel
+      location="drawDeck"
       cards={cards}
       onClose={() => {}}
       selectedIds={[]}
@@ -64,12 +64,12 @@ describe('panelGestureFor (#788)', () => {
   });
 });
 
-describe('PilePanel touch-action (#788)', () => {
+describe('CardListPanel touch-action (#788)', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('keeps touch-none and no marker when the grid fits', () => {
     renderPanel();
-    const grid = document.querySelector('[data-zone="pile-panel-drawDeck"]') as HTMLElement;
+    const grid = document.querySelector('[data-zone="card-list-panel-drawDeck"]') as HTMLElement;
     expect(grid.hasAttribute(PANEL_SCROLLS_ATTRIBUTE)).toBe(false);
     const card = screen.getByRole('button', { name: 'card 0' });
     expect(card.className).toMatch(/touch-none/);
@@ -80,7 +80,7 @@ describe('PilePanel touch-action (#788)', () => {
     jest.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(2000);
     jest.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500);
     renderPanel();
-    const grid = document.querySelector('[data-zone="pile-panel-drawDeck"]') as HTMLElement;
+    const grid = document.querySelector('[data-zone="card-list-panel-drawDeck"]') as HTMLElement;
     expect(grid.getAttribute(PANEL_SCROLLS_ATTRIBUTE)).toBe('true');
     const card = screen.getByRole('button', { name: 'card 0' });
     expect(card.className).toMatch(/touch-pan-y/);

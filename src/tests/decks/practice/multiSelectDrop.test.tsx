@@ -84,7 +84,7 @@ const mockPersonnelCards = [1, 2, 3, 4].map(makePersonnel);
 
 const mockManyDeck = Object.fromEntries(mockPersonnelCards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
-describe('Practice draw: selecting more than one card in a pile panel and dragging them together (#677)', () => {
+describe('Practice draw: selecting more than one card in a card list panel and dragging them together (#677)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDraggableIds.length = 0;
@@ -142,10 +142,10 @@ describe('Practice draw: selecting more than one card in a pile panel and draggi
   // Reads a rendered card's own instance id straight off its `data-card-id` attribute, found by
   // its (distinct, in these tests) name, rather than relying on `mockDraggableIds`' push order,
   // which shifts across re-renders. The panel stays mounted over the flat zone it opened from (see
-  // PilePanel.tsx's header comment), so once a panel is open, the same card name matches both its
+  // CardListPanel.tsx's header comment), so once a panel is open, the same card name matches both its
   // panel button and its (hidden but still present) flat-row button; scope the query to the panel.
   const cardIdFor = (name: string): string => {
-    const panel = document.body.querySelector('[data-zone^="pile-panel-"]');
+    const panel = document.body.querySelector('[data-zone^="card-list-panel-"]');
     const scope = panel ? within(panel as HTMLElement) : screen;
     return scope.getByRole('button', { name }).getAttribute('data-card-id')!;
   };
@@ -300,7 +300,7 @@ describe('Practice draw: selecting more than one card in a pile panel and draggi
       fireEvent.click(personnelBadge);
     });
 
-    const panel = document.body.querySelector('[data-zone="pile-panel-awayTeam"]') as HTMLElement;
+    const panel = document.body.querySelector('[data-zone="card-list-panel-awayTeam"]') as HTMLElement;
     const ids = Array.from(panel.querySelectorAll('[data-card-id]')).map((el) => el.getAttribute('data-card-id'));
     expect(ids).toEqual([id2, id3]);
   });
@@ -337,7 +337,7 @@ describe('Practice draw: selecting more than one card in a pile panel and draggi
     // The core panel stays open (#675: the core still holds "personnel 2"). Re-selecting the
     // card that stayed behind should start from unselected, not carry over stale state from the
     // card that already left.
-    const panel = document.body.querySelector('[data-zone="pile-panel-core"]') as HTMLElement;
+    const panel = document.body.querySelector('[data-zone="card-list-panel-core"]') as HTMLElement;
     expect(panel).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Select personnel 2' })).toHaveAttribute('aria-pressed', 'false');
   });

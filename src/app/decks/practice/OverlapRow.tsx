@@ -1,6 +1,6 @@
 'use client';
 
-// One row of overlapping cards (#802), shared by the dilemma stack's panel (`PilePanel.tsx`) and
+// One row of overlapping cards (#802), shared by the dilemma stack's panel (`CardListPanel.tsx`) and
 // the open fan of the hand and of the dilemma hand (`CardHand.tsx`). It owns the layout only: it
 // measures its own width, packs the cards into that width with `offsetFor` (`overlapOffset.ts`),
 // and places each card by its own `left`, with a `zIndex` that rises left to right, so a later

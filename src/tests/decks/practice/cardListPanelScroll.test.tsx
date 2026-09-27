@@ -1,6 +1,6 @@
-// #720: a pile panel with many cards used to grow past the bottom of the screen with no way to
+// #720: a card list panel with many cards used to grow past the bottom of the screen with no way to
 // scroll down to the cards that fell off — the panel's grid had no maximum height and no
-// scrolling of its own. This renders `PilePanel` directly (no need for the full practice page)
+// scrolling of its own. This renders `CardListPanel` directly (no need for the full practice page)
 // and checks that the card grid itself is capped and scrollable, and that the Stop/Shuffle
 // controls sit outside that scrolling element so they never scroll away with the cards.
 jest.mock('@dnd-kit/core', () => ({
@@ -10,7 +10,7 @@ jest.mock('@dnd-kit/core', () => ({
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import PilePanel from '../../../app/decks/practice/PilePanel';
+import CardListPanel from '../../../app/decks/practice/CardListPanel';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 
 const makeCard = (n: number): CardInstance =>
@@ -28,11 +28,11 @@ const makeCard = (n: number): CardInstance =>
 
 const manyCards = Array.from({ length: 30 }, (_, i) => makeCard(i));
 
-describe('Practice draw: a pile panel with many cards scrolls instead of running off the screen (#720)', () => {
+describe('Practice draw: a card list panel with many cards scrolls instead of running off the screen (#720)', () => {
   it("caps the card grid's height and makes it scroll, keeping the Shuffle button outside the scrolling area", () => {
     render(
-      <PilePanel
-        zone="drawDeck"
+      <CardListPanel
+        location="drawDeck"
         cards={manyCards}
         onClose={() => {}}
         selectedIds={[]}
@@ -42,7 +42,7 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
       />
     );
 
-    const grid = document.body.querySelector('[data-zone="pile-panel-drawDeck"]') as HTMLElement;
+    const grid = document.body.querySelector('[data-zone="card-list-panel-drawDeck"]') as HTMLElement;
     expect(grid).not.toBeNull();
     expect(grid.className).toMatch(/overflow-y-auto/);
     // #802: the grid no longer carries a `max-h` of its own. The panel around it is bounded by
@@ -59,7 +59,7 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
 
   it('draws each card at 1.5x the table card by default (#802)', () => {
     render(
-      <PilePanel zone="drawDeck" cards={manyCards.slice(0, 2)} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />
+      <CardListPanel location="drawDeck" cards={manyCards.slice(0, 2)} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />
     );
     const card = document.body.querySelector('[data-card-id="card-0"]')!.parentElement as HTMLElement;
     expect(card.style.width).toBe('108px');
@@ -68,8 +68,8 @@ describe('Practice draw: a pile panel with many cards scrolls instead of running
   it('closes on a tap on the backdrop', () => {
     const onClose = jest.fn();
     render(
-      <PilePanel
-        zone="drawDeck"
+      <CardListPanel
+        location="drawDeck"
         cards={manyCards}
         onClose={onClose}
         selectedIds={[]}

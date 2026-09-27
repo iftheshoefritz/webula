@@ -1,4 +1,4 @@
-// #788: the table's sensors, in a real `DndContext`, split a touch in a scrolling pile panel into
+// #788: the table's sensors, in a real `DndContext`, split a touch in a scrolling card list panel into
 // a scroll or a drag. The first version put `PanelScrollSensor` before an ordinary
 // `PointerSensor`. dnd-kit keeps one `onPointerDown` per draggable, the last sensor's, so the
 // ordinary sensor took every press and a vertical touch still picked the card up.

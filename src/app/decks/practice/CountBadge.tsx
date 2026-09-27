@@ -15,8 +15,8 @@ import { landedBumpClassName } from './LandedZoneContext';
 // three callers have no competing sibling `z-index`, so they render unchanged.
 //
 // Issue #716: that `z-index` also has to stay below the overlays that can sit on top of a badge's
-// element: the card preview (`z-[200]` in `CardPreview.tsx`) and the pile panel
-// (`z-[150]` in `PilePanel.tsx`). `z-[140]` is comfortably above any hand's card count and
+// element: the card preview (`z-[200]` in `CardPreview.tsx`) and the card list panel
+// (`z-[150]` in `CardListPanel.tsx`). `z-[140]` is comfortably above any hand's card count and
 // comfortably below both overlays.
 //
 // Issue #750: an open hand's backdrop (`z-[145]`) and card fan (`z-[146]`) also sit above this

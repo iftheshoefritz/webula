@@ -91,7 +91,7 @@ fi
 
 if [ "$target" = "DEAD" ]; then
   ab mouse up
-  echo "every point of $ZONE is inside the dead rectangle around the press point on $CARD, so any release there cancels the drag (#774). Drag the card out of a pile panel instead, or pick another card." >&2
+  echo "every point of $ZONE is inside the dead rectangle around the press point on $CARD, so any release there cancels the drag (#774). Drag the card out of a card list panel instead, or pick another card." >&2
   exit 1
 fi
 

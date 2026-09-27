@@ -199,7 +199,7 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     expect(cardInCore(id)).not.toBeNull();
   });
 
-  it("keeps a card in a mission's pile panel, and keeps the panel open, for a 9 px drag", async () => {
+  it("keeps a card in a mission's card list panel, and keeps the panel open, for a 9 px drag", async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
@@ -216,11 +216,11 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i }));
     });
-    expect(document.body.querySelector('[data-zone="pile-panel-awayTeam"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="card-list-panel-awayTeam"]')).not.toBeNull();
 
     await drag(id, { x: 5, y: -8 }, 'core');
 
     expect(cardInCore(id)).toBeNull();
-    expect(document.body.querySelector(`[data-zone="pile-panel-awayTeam"] [data-card-id="${id}"]`)).not.toBeNull();
+    expect(document.body.querySelector(`[data-zone="card-list-panel-awayTeam"] [data-card-id="${id}"]`)).not.toBeNull();
   });
 });

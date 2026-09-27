@@ -84,7 +84,7 @@ const mockPersonnelCards = [1, 2, 3, 4].map(makePersonnel);
 
 const mockManyDeck = Object.fromEntries(mockPersonnelCards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
-// #691: the same multi-select-then-drag-together interaction a pile panel already has (#677),
+// #691: the same multi-select-then-drag-together interaction a card list panel already has (#677),
 // extended to the open draw-deck hand.
 describe('Practice draw: selecting more than one card in the open hand and dragging them together (#691)', () => {
   beforeEach(() => {

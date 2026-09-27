@@ -78,22 +78,10 @@ const makePersonnel = (n: number) => ({
 
 const mockPersonnelCards = [1, 2].map(makePersonnel);
 
-const mockDilemmaCard = {
-  collectorsinfo: '1R100',
-  originalName: 'Cardassian Trap',
-  type: 'dilemma',
-  name: 'cardassian trap',
-  imagefile: 'cardassian_trap',
-  pile: 'dilemmaPile',
-  count: 1,
-};
-
-const CARD_BACK = '/cardimages/cardback.jpg';
-
-// #762: a "Flip" button beside "Stop"/"Unstop" in the panels whose cards the preview can flip (a
-// mission's personnel, event, and under-the-mission piles, and the dilemma stack). It turns each
-// selected card over on its own. In those panels a face-down card shows the card back.
-describe('Practice table: the pile panel Flip button (#762)', () => {
+// #787: a "Discard" button beside "Stop" and "Flip" moves every selected card of a card list panel to
+// the discard pile, in the panel's order. The selection clears, and the panel stays open until its
+// zone runs empty.
+describe('Practice table: the card list panel Discard button (#787)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDraggableIds.length = 0;
@@ -145,7 +133,7 @@ describe('Practice table: the pile panel Flip button (#762)', () => {
   };
 
   const cardIdFor = (name: string): string => {
-    const panel = document.body.querySelector('[data-zone^="pile-panel-"]');
+    const panel = document.body.querySelector('[data-zone^="card-list-panel-"]');
     const scope = panel ? within(panel as HTMLElement) : screen;
     return scope.getByRole('button', { name }).getAttribute('data-card-id')!;
   };
@@ -165,14 +153,9 @@ describe('Practice table: the pile panel Flip button (#762)', () => {
     });
   };
 
-  const panelImage = (zone: string, name: string) => {
-    const panel = document.body.querySelector(`[data-zone="pile-panel-${zone}"]`) as HTMLElement;
-    return within(panel).getByRole('button', { name }).querySelector('img')!;
-  };
-
   // Drops both personnel cards from the hand onto the first mission, where they go face down into
   // its Away team, and opens that pile's panel.
-  const openAwayTeam = async () => {
+  const openPersonnelPile = async () => {
     await renderWithDeck(mockPersonnelCards);
     for (const name of ['personnel 1', 'personnel 2']) {
       await openClosedHand(/^hand, \d+ cards?, tap to open$/i);
@@ -181,78 +164,53 @@ describe('Practice table: the pile panel Flip button (#762)', () => {
     await click(/Away team, 2 cards, tap to open/i);
   };
 
-  it('draws face-down cards in an away team panel as the card back, and shows no Flip without a selection', async () => {
-    await openAwayTeam();
+  const discardCount = () => screen.getByAltText('Discard pile').parentElement!.textContent;
 
-    expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', CARD_BACK);
-    expect(panelImage('awayTeam', 'personnel 2')).toHaveAttribute('src', CARD_BACK);
-    expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
+  it('shows no Discard button without a selection', async () => {
+    await openPersonnelPile();
+    expect(screen.queryByRole('button', { name: /^discard$/i })).not.toBeInTheDocument();
   });
 
-  it('flips a selected face-down card face up, beside the Stop button, and keeps the selection', async () => {
-    await openAwayTeam();
+  it('discards one selected card, keeps the panel open, and clears the selection', async () => {
+    await openPersonnelPile();
 
     await click('Select personnel 1');
-    expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^flip$/i })).toBeInTheDocument();
+    await click(/^discard$/i);
 
-    await click(/^flip$/i);
-
-    expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
-    expect(panelImage('awayTeam', 'personnel 2')).toHaveAttribute('src', CARD_BACK);
-    expect(screen.getByRole('button', { name: 'Deselect personnel 1' })).toHaveAttribute('aria-pressed', 'true');
-    // Stop is unchanged by a flip.
-    expect(panelImage('awayTeam', 'personnel 1')).not.toHaveClass('grayscale');
+    expect(screen.getByRole('button', { name: /^close away team$/i })).toBeInTheDocument();
+    const panel = document.body.querySelector('[data-zone="card-list-panel-awayTeam"]') as HTMLElement;
+    expect(within(panel).queryByRole('button', { name: 'personnel 1' })).not.toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Select personnel 2' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: /^discard$/i })).not.toBeInTheDocument();
+    expect(discardCount()).toContain('1');
+    expect(screen.getByAltText('Discard pile')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
   });
 
-  it('turns each card of a mixed selection over on its own', async () => {
-    await openAwayTeam();
+  it('discards every selected card in the panel order, and closes the panel once it is empty', async () => {
+    await openPersonnelPile();
 
-    await click('Select personnel 1');
-    await click(/^flip$/i);
     await click('Select personnel 2');
-    await click(/^flip$/i);
+    await click('Select personnel 1');
+    await click(/^discard$/i);
 
-    expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', CARD_BACK);
-    expect(panelImage('awayTeam', 'personnel 2')).toHaveAttribute('src', '/cardimages/personnel_2.jpg');
+    expect(screen.queryByRole('button', { name: /^close away team$/i })).not.toBeInTheDocument();
+    expect(document.body.querySelector('[data-zone="card-list-panel-awayTeam"]')).toBeNull();
+    expect(discardCount()).toContain('2');
+    expect(screen.getByAltText('Discard pile')).toHaveAttribute('src', '/cardimages/personnel_2.jpg');
   });
 
-  it('shows no Flip button in the core panel, even with a selection, and keeps its cards face up', async () => {
-    await renderWithDeck(mockPersonnelCards);
-    await openClosedHand(/^hand, \d+ cards?, tap to open$/i);
-    await drop(cardIdFor('personnel 1'), 'core');
-    await click('personnel 1');
+  it("shows no Discard button in the panel of the discard pile", async () => {
+    await openPersonnelPile();
+    await click('Select personnel 1');
+    await click(/^discard$/i);
 
+    await click('Close away team');
+    await act(async () => {
+      fireEvent.click(screen.getByAltText('Discard pile').parentElement!);
+    });
     await click('Select personnel 1');
 
-    expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
-    expect(panelImage('core', 'personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
-  });
-
-  // #819: the stack's panel lists its cards face up so the player can read them to order the
-  // stack, while the stack stays face down on the table. The panel has no Flip button; the
-  // table's Reveal control turns the top card over.
-  it('draws a face-down dilemma stack card face up in its panel, shows no Flip, and keeps it face down on the table', async () => {
-    await renderWithDeck([], [mockDilemmaCard]);
-    await click('Dilemma pile top, tap to draw');
-    await openClosedHand(/^dilemma hand, 1 card, tap to open$/i);
-    await drop(cardIdFor('cardassian trap'), 'dilemmaStack');
-
-    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
-    expect(stackZone.querySelector('img')).toHaveAttribute('src', CARD_BACK);
-
-    await click('Dilemma stack, 1 card, tap to open');
-    expect(panelImage('dilemmaStack', 'cardassian trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
-    expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
-
-    await click('Select cardassian trap');
-    expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
-    expect(panelImage('dilemmaStack', 'cardassian trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
-
-    await click('Close dilemma stack');
-
-    const stackAfter = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
-    expect(stackAfter.querySelector('img')).toHaveAttribute('src', CARD_BACK);
+    expect(document.body.querySelector('[data-zone="card-list-panel-discard"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /^discard$/i })).not.toBeInTheDocument();
   });
 });

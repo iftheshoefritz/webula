@@ -92,11 +92,11 @@ const mockManyDeck = {
   [mockPersonnelCard.collectorsinfo]: { count: 1, row: mockPersonnelCard },
 };
 
-// #711: opening a mission's pile panel, then tapping a core (or brig) card behind it without
+// #711: opening a mission's card list panel, then tapping a core (or brig) card behind it without
 // closing it first, used to open a second panel that showed the first panel's cards until it was
-// closed and reopened — `openPile`/`openFlatZone`/`openCrewShipId` each opened a panel but none
+// closed and reopened — `openPile`/`openFlatLocation`/`openCrewShipId` each opened a panel but none
 // cleared the other two, so `openPanelCards` kept reading whichever one it checked first.
-describe('Practice draw: only one pile panel is ever open at a time (#711)', () => {
+describe('Practice draw: only one card list panel is ever open at a time (#711)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDraggableIds.length = 0;
@@ -130,7 +130,7 @@ describe('Practice draw: only one pile panel is ever open at a time (#711)', () 
     });
   });
 
-  it('opening the core panel over an open mission pile panel closes the mission panel and shows the core\'s own cards', async () => {
+  it('opening the core panel over an open mission card list panel closes the mission panel and shows the core\'s own cards', async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
     (expandDeck as jest.Mock).mockReturnValue([mockPersonnelCard, mockEventCard]);
@@ -170,16 +170,16 @@ describe('Practice draw: only one pile panel is ever open at a time (#711)', () 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i }));
     });
-    expect(document.body.querySelector('[data-zone="pile-panel-awayTeam"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="card-list-panel-awayTeam"]')).not.toBeNull();
 
     // Without closing it, tap the core card sitting behind it.
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
     });
 
-    // The mission's pile panel is gone; the core's own panel is open and shows the core's card.
-    expect(document.body.querySelector('[data-zone="pile-panel-awayTeam"]')).toBeNull();
-    const corePanel = document.body.querySelector('[data-zone="pile-panel-core"]');
+    // The mission's card list panel is gone; the core's own panel is open and shows the core's card.
+    expect(document.body.querySelector('[data-zone="card-list-panel-awayTeam"]')).toBeNull();
+    const corePanel = document.body.querySelector('[data-zone="card-list-panel-core"]');
     expect(corePanel).not.toBeNull();
     expect(corePanel!.querySelector('[data-card-id]')?.getAttribute('data-card-id')).toBe(eventId);
     expect(screen.queryByRole('button', { name: 'data' })).not.toBeInTheDocument();

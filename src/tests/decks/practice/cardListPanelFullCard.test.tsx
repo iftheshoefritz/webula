@@ -1,7 +1,7 @@
-// #806: a pile panel used to draw the same cropped art the table card draws (`object-cover
+// #806: a card list panel used to draw the same cropped art the table card draws (`object-cover
 // object-top` over a box shorter than the card's own width), so the panel showed the picture but
 // none of the card's text. Every panel now draws the whole card image, at the height the image's
-// own 120 x 167 ratio gives. This renders `PilePanel` directly, the same way
+// own 120 x 167 ratio gives. This renders `CardListPanel` directly, the same way
 // `pilePanelScroll.test.tsx` does.
 jest.mock('@dnd-kit/core', () => ({
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false }),
@@ -10,7 +10,7 @@ jest.mock('@dnd-kit/core', () => ({
 
 import React from 'react';
 import { render } from '@testing-library/react';
-import PilePanel from '../../../app/decks/practice/PilePanel';
+import CardListPanel from '../../../app/decks/practice/CardListPanel';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 
 const makeCard = (n: number, stopped = false): CardInstance =>
@@ -33,7 +33,7 @@ const cardImage = (id: string) =>
 describe('Practice draw: a panel shows the whole card, not the cropped art (#806)', () => {
   it('draws the full card image at the full-card height', () => {
     render(
-      <PilePanel zone="drawDeck" cards={[makeCard(0)]} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />
+      <CardListPanel location="drawDeck" cards={[makeCard(0)]} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />
     );
 
     const image = cardImage('card-0');
@@ -46,8 +46,8 @@ describe('Practice draw: a panel shows the whole card, not the cropped art (#806
 
   it('grows the card with the table scale', () => {
     render(
-      <PilePanel
-        zone="drawDeck"
+      <CardListPanel
+        location="drawDeck"
         cards={[makeCard(0)]}
         onClose={() => {}}
         selectedIds={[]}
@@ -64,8 +64,8 @@ describe('Practice draw: a panel shows the whole card, not the cropped art (#806
 
   it('keeps the stopped look on the full card', () => {
     render(
-      <PilePanel
-        zone="drawDeck"
+      <CardListPanel
+        location="drawDeck"
         cards={[makeCard(0, true)]}
         onClose={() => {}}
         selectedIds={[]}
@@ -79,8 +79,8 @@ describe('Practice draw: a panel shows the whole card, not the cropped art (#806
   it('draws the card back for a face-down card in a panel that can flip (#762)', () => {
     const down = { ...makeCard(0), face: 'down' } as CardInstance;
     render(
-      <PilePanel
-        zone="dilemmaStack"
+      <CardListPanel
+        location="dilemmaStack"
         cards={[down]}
         onClose={() => {}}
         selectedIds={[]}
