@@ -3,14 +3,14 @@
 import React from 'react';
 import { useCharacteristicCompare } from '../hooks/useCharacteristicCompare';
 
-interface Deck {
+interface ComparedDeck {
   id: string;
   name: string;
   rows: any[];
 }
 
 interface CharacteristicCompareTableProps {
-  decks: Deck[];
+  decks: ComparedDeck[];
   label: string;
   characteristicName: string;
   filterFunction: (row: Record<string, any>) => boolean;

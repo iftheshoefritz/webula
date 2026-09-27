@@ -1,5 +1,5 @@
 import React from 'react';
-import { Deck } from '../../../types';
+import { DeckList } from '../../../types';
 import { cardPileFor, DeckPile } from '../deckBuilderUtils';
 
 const PILES: { pile: DeckPile; title: string }[] = [
@@ -11,7 +11,7 @@ const PILES: { pile: DeckPile; title: string }[] = [
 type DecklistEntry = { key: string; name: string; count: number };
 
 // The deck as loaded, grouped by pile (#779), sorted by name within each pile.
-export function decklistByPile(deck: Deck): Record<DeckPile, DecklistEntry[]> {
+export function decklistByPile(deck: DeckList): Record<DeckPile, DecklistEntry[]> {
   const result: Record<DeckPile, DecklistEntry[]> = { mission: [], dilemma: [], draw: [] };
   for (const [key, entry] of Object.entries(deck)) {
     if (!entry?.row || !(entry.count > 0)) continue;
@@ -26,7 +26,7 @@ export function decklistByPile(deck: Deck): Record<DeckPile, DecklistEntry[]> {
 // A read-only list of every card of the loaded deck (#779), opened from the game menu. It shows
 // the deck as loaded, not where each card is now. A tap on a card does nothing; a tap outside
 // the panel (the backdrop) closes it, the same convention the game menu follows.
-export default function DecklistPanel({ deck, onClose }: { deck: Deck; onClose: () => void }) {
+export default function DecklistPanel({ deck, onClose }: { deck: DeckList; onClose: () => void }) {
   const byPile = decklistByPile(deck);
   return (
     <>

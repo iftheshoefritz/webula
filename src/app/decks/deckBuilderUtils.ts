@@ -1,5 +1,5 @@
 import posthog from 'posthog-js'
-import { CardDef } from "../../types"
+import { CardDef, DeckList } from "../../types"
 
 export const numericCount = (withPotentialCount?: {count?: number}): number => ( withPotentialCount?.count ?? 0 )
 
@@ -49,7 +49,7 @@ export const deckFromTsv = (tsv: string, data: Array<any>) => (
   parsedDeck(tsv.trim().split('\n'), data)
 )
 
-const expandPile = (deck: import('../../types').Deck, pile: DeckPile): any[] => {
+const expandPile = (deck: DeckList, pile: DeckPile): any[] => {
   const result: any[] = [];
   for (const entry of Object.values(deck)) {
     if (cardPileFor(entry.row) === pile) {
@@ -61,28 +61,28 @@ const expandPile = (deck: import('../../types').Deck, pile: DeckPile): any[] => 
   return result;
 }
 
-export const expandDeck = (deck: import('../../types').Deck): any[] => expandPile(deck, 'draw')
+export const expandDeck = (deck: DeckList): any[] => expandPile(deck, 'draw')
 
 // Pulls the deck's mission-pile entries in the same deck-iteration order expandDeck uses, kept
 // un-shuffled: the mission row deals a fixed set in deck order, not a random draw (practice
 // page, #597).
-export const extractMissions = (deck: import('../../types').Deck): any[] => expandPile(deck, 'mission')
+export const extractMissions = (deck: DeckList): any[] => expandPile(deck, 'mission')
 
 // The dilemmas of the deck, one entry per copy (#604). Unlike a mission, a deck holds several
 // copies of one dilemma, and `expandPile` already repeats an entry `count` times. The caller
 // shuffles this list, because the dilemma pile starts shuffled like the draw pile.
-export const extractDilemmas = (deck: import('../../types').Deck): any[] => expandPile(deck, 'dilemma')
+export const extractDilemmas = (deck: DeckList): any[] => expandPile(deck, 'dilemma')
 
 // True when the loaded deck has no cards at all, across missions, dilemmas and draw combined —
 // used for the practice page's empty state, which must stay hidden for a deck that has only
 // missions and/or dilemmas (#597).
-export const isDeckEmpty = (deck: import('../../types').Deck): boolean => (
+export const isDeckEmpty = (deck: DeckList): boolean => (
   Object.values(deck).every((entry) => numericCount(entry) === 0)
 )
 
 export type DeckPile = 'mission' | 'dilemma' | 'draw';
 
-export function mergeDeckPiles(current: import('../../types').Deck, incoming: import('../../types').Deck, piles: DeckPile[]): import('../../types').Deck {
+export function mergeDeckPiles(current: DeckList, incoming: DeckList, piles: DeckPile[]): DeckList {
   const kept = Object.fromEntries(
     Object.entries(current).filter(([, v]) => !piles.includes(cardPileFor(v.row) as DeckPile))
   );

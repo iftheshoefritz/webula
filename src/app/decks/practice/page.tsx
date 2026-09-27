@@ -15,7 +15,7 @@ import {
 import { collisionDetection } from './collisionDetection';
 import { FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
 import { deckFromTsv, expandDeck, extractDilemmas, extractMissions, isDeckEmpty, shuffleArray } from '../deckBuilderUtils';
-import { Deck } from '../../../types';
+import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { DrivePickerModal } from '../../../components/DrivePickerModal';
@@ -1030,11 +1030,11 @@ function PracticeDrawContent() {
   // A deck loaded from Drive (#780). Once set, Reset deals it again instead of the builder's
   // currentDeck. It is kept in page state only: localStorage.currentDeck is the deck builder's
   // working copy and may hold unsaved edits.
-  const [loadedDeck, setLoadedDeck] = useState<Deck | null>(null);
+  const [loadedDeck, setLoadedDeck] = useState<DeckList | null>(null);
   // The deck as it was dealt (#779), for the game menu's read-only Decklist panel. Every deal
   // goes through `dealDeck`, so this holds the fixture deck, the builder's deck, or a deck loaded
   // from Drive, whichever the table plays now.
-  const [dealtDeck, setDealtDeck] = useState<Deck>({});
+  const [dealtDeck, setDealtDeck] = useState<DeckList>({});
   const [decklistOpen, setDecklistOpen] = useState(false);
   const drive = usePracticeDrive();
 
@@ -1042,7 +1042,7 @@ function PracticeDrawContent() {
   // The seeded fixture (#802) keeps the deck order, so it seeds the same cards every time. The
   // fixture deck holds 27 personnel, fewer than the 20 + 12 the seed places, so it deals a second
   // copy of the deck's personnel too, each copy its own instance.
-  const dealDeck = (deck: Deck, seedPiles = false) => {
+  const dealDeck = (deck: DeckList, seedPiles = false) => {
     const cards = expandDeck(deck);
     dispatch({
       type: seedPiles ? 'resetWithPiles' : 'reset',
@@ -1072,7 +1072,7 @@ function PracticeDrawContent() {
     try {
       const raw = localStorage.getItem('currentDeck');
       if (!raw) return;
-      const deck: Deck = JSON.parse(raw);
+      const deck: DeckList = JSON.parse(raw);
       dealDeck(deck);
     } catch {
       // silently ignore parse errors
