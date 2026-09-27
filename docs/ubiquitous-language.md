@@ -200,3 +200,18 @@ So the code has no name for these rulebook terms:
 
 Do not invent a name for one of these in a component. If you need one, add the
 rulebook term to this file first, then use it.
+
+## 7. Cases still open
+
+A second search of the code (#835) found these cases. Each one is a row of the table
+in #833, where the owner gives the decision. The number is the number of the row in
+#833. Cases 1 to 11 are the ones the sections above already describe.
+
+| # | The case | Where |
+|---|---|---|
+| 12 | `expandDeck` returns the draw cards alone, so its "deck" is the rulebook deck. The `Deck` it takes is the whole saved object. One file uses the word in both senses. | `expandDeck` in `src/app/decks/deckBuilderUtils.ts` |
+| 13 | "Seed" is a rulebook word for placing cards at the start of a game. The code uses it for the `?fixture=piles` test deal instead, and calls the start of a game "deal" and "reset". The opening hand of seven cards is the bare number `7` in `reset`. | `SEED_PILE_PERSONNEL`, `SEED_CREW`, action `resetWithPiles` in `tableReducer.ts`, `seedPiles` in `page.tsx` |
+| 14 | "Download" is a rulebook word for an effect that takes a card from your deck and puts it into play. The UI uses it for opening the draw pile or the dilemma pile to take any card by hand. Section 6 lists download as not modeled. | `DownloadPileButton` and the `aria-label` "Download from the …" in `src/app/decks/practice/page.tsx` |
+| 15 | `range` is a ship attribute, and it is also the name of the numeric search fields: `rangeColumns`, `rangeAbbreviations` and `selectedRangeFilter`. One word, two things. | `src/lib/constants.ts`, `src/components/SearchPills.tsx` |
+| 16 | The limit of three copies counts one `collectorsinfo` value. The rulebook limit counts one card title, so two versions of one card let a deck hold six copies. #834 blocks a fix, because no field holds the title alone. | `belowMaximumCount` in `deckBuilderUtils.ts`, `useDeckState.ts` |
+| 17 | "Pile" has a third meaning: `PilePanel` is the list panel of any place on the table, such as the core, the brig, a crew, a ship row or the cards on a card. None of these is a pile. | `src/app/decks/practice/PilePanel.tsx`, `PanelZone` |
