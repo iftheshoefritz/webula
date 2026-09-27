@@ -102,8 +102,7 @@ piles, named by `DeckPile`:
 | `'dilemma'` | dilemma cards | the dilemma pile |
 | `'draw'` | every other type | the deck |
 
-**Caution: `'draw'` and `'pile'` have two meanings each in this codebase.** See
-section 4.
+**Caution: `'draw'` has two meanings in this codebase.** See section 4.
 
 The deck builder UI shows the three tabs as "Missions", "Dilemmas" and "Draw".
 
@@ -118,7 +117,7 @@ missions, at least two of them not headquarters; at least 20 dilemmas; at least
 
 | Rulebook term | `Zone` | Note |
 |---|---|---|
-| deck (the draw deck) | `'pile'` | The label on the table is "Draw pile". |
+| deck (the draw deck) | `'drawDeck'` | The label on the table is "Draw deck". |
 | hand | `'hand'` | The rulebook limit of seven cards is not enforced. See [section 7](#7-names-kept-and-why). |
 | discard pile | `'discard'` | |
 | core | `'core'` | The rulebook puts events here. The zone takes any card type. |
@@ -127,9 +126,10 @@ missions, at least two of them not headquarters; at least 20 dilemmas; at least
 | dilemma stack | `'dilemmaStack'` | The face-down stack for one mission attempt. Index 0 is revealed first. |
 | — | `'dilemmaHand'` | No rulebook term. A face-up working area for dilemmas. See [section 7](#7-names-kept-and-why). |
 
-**Word "pile":** in `tableReducer.ts`, `'pile'` is the draw deck. In
-`deckBuilderUtils.ts`, a "pile" is one of the three deck-building categories. The
-two are different things. Read the file before you read the word.
+**Word "pile":** the `Zone` of the draw deck is `'drawDeck'`, so no zone is named
+`'pile'` any more (#838). In `deckBuilderUtils.ts`, a "pile" is one of the three
+deck-building categories, and `PilePanel` is the list panel of any place on the
+table. Read the file before you read the word.
 
 **Word "stack":** in this codebase, "stack" means the dilemma stack only. A hand
 is "open" or "closed", never "stacked".
@@ -149,7 +149,7 @@ is "open" or "closed", never "stacked".
 
 | Rulebook term | Code |
 |---|---|
-| draw (the top card of the deck into the hand) | action `drawCard`, from `'pile'` to `'hand'`; the same action moves the top dilemma from `'dilemmaPile'` to `'dilemmaHand'` |
+| draw (the top card of the deck into the hand) | action `drawCard`, from `'drawDeck'` to `'hand'`; the same action moves the top dilemma from `'dilemmaPile'` to `'dilemmaHand'` |
 | stopped / unstopped | `CardInstance.stopped`, action `setStopped` |
 | face up / face down | `Face`, `ZONE_FACE`, action `flip` |
 | shuffle | action `shuffle`, `shuffleArray` |
@@ -227,7 +227,7 @@ in #833, where the owner gives the decision. The number is the number of the row
 |---|---|---|
 | 12 | `expandDeck` returns the draw cards alone, so its "deck" is the rulebook deck. The `Deck` it takes is the whole saved object. One file uses the word in both senses. | `expandDeck` in `src/app/decks/deckBuilderUtils.ts` |
 | 13 | "Seed" is a rulebook word for placing cards at the start of a game. The code uses it for the `?fixture=piles` test deal instead, and calls the start of a game "deal" and "reset". The opening hand of seven cards is the bare number `7` in `reset`. | `SEED_PILE_PERSONNEL`, `SEED_CREW`, action `resetWithPiles` in `tableReducer.ts`, `seedPiles` in `page.tsx` |
-| 14 | "Download" is a rulebook word for an effect that takes a card from your deck and puts it into play. The UI uses it for opening the draw pile or the dilemma pile to take any card by hand. Section 6 lists download as not modeled. | `DownloadPileButton` and the `aria-label` "Download from the …" in `src/app/decks/practice/page.tsx` |
+| 14 | "Download" is a rulebook word for an effect that takes a card from your deck and puts it into play. The UI uses it for opening the draw deck or the dilemma pile to take any card by hand. Section 6 lists download as not modeled. | `DownloadPileButton` and the `aria-label` "Download from the …" in `src/app/decks/practice/page.tsx` |
 | 15 | `range` is a ship attribute, and it is also the name of the numeric search fields: `rangeColumns`, `rangeAbbreviations` and `selectedRangeFilter`. One word, two things. | `src/lib/constants.ts`, `src/components/SearchPills.tsx` |
 | 16 | The limit of three copies counts one `collectorsinfo` value. The rulebook limit counts one card title, so two versions of one card let a deck hold six copies. #834 blocks a fix, because no field holds the title alone. | `belowMaximumCount` in `deckBuilderUtils.ts`, `useDeckState.ts` |
 | 17 | "Pile" has a third meaning: `PilePanel` is the list panel of any place on the table, such as the core, the brig, a crew, a ship row or the cards on a card. None of these is a pile. | `src/app/decks/practice/PilePanel.tsx`, `PanelZone` |

@@ -33,7 +33,7 @@ jest.mock('next/link', () => {
     return <a href={href}>{children}</a>;
   };
 });
-// Issue #814: the top card of the draw pile and of the dilemma pile is draggable off the pile
+// Issue #814: the top card of the draw deck and of the dilemma pile is draggable off the pile
 // art. See discardDrop.test.tsx: mocks just enough of dnd-kit to drive `onDragStart`/`onDragEnd`
 // directly. Only the pile-art draggables (`data.showBack`) are recorded here, keyed by id, so
 // each test can pick the top card of either pile.
@@ -69,7 +69,7 @@ const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'draw', count: 1 },
 ];
 
-// 8 draw cards: a new game deals 7 into the hand, leaving exactly one ("card 8") in the draw pile.
+// 8 draw cards: a new game deals 7 into the hand, leaving exactly one ("card 8") in the draw deck.
 const mockDrawCards = Array.from({ length: 8 }, (_, i) => ({
   collectorsinfo: `1U${String(i + 1).padStart(3, '0')}`,
   originalName: `Card ${i + 1}`,
@@ -95,7 +95,7 @@ const mockDeck = {
   [mockDilemmaCard.collectorsinfo]: { count: 1, row: mockDilemmaCard },
 };
 
-describe('Practice table: dragging the top card off the draw pile or the dilemma pile (#814)', () => {
+describe('Practice table: dragging the top card off the draw deck or the dilemma pile (#814)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPileDraggableIds.length = 0;
@@ -149,9 +149,9 @@ describe('Practice table: dragging the top card off the draw pile or the dilemma
 
   const coreZone = () => document.body.querySelector('[data-zone="core"]') as HTMLElement;
 
-  it("moves the draw pile's top card into the core, face up, and out of the draw pile", async () => {
+  it("moves the draw deck's top card into the core, face up, and out of the draw deck", async () => {
     await setup();
-    const drawTop = document.body.querySelector('[aria-label="Draw pile top, tap to draw"]')!;
+    const drawTop = document.body.querySelector('[aria-label="Draw deck top, tap to draw"]')!;
     const topId = drawTop.closest('[data-card-id]')!.getAttribute('data-card-id')!;
     expect(mockPileDraggableIds).toContain(topId);
 
@@ -159,8 +159,8 @@ describe('Practice table: dragging the top card off the draw pile or the dilemma
 
     // Face up in the core, by name.
     expect(within(coreZone()).getByRole('button', { name: 'card 8' })).toBeInTheDocument();
-    // The draw pile is empty now, so its top half is disabled and has no draggable around it.
-    expect(screen.getByRole('button', { name: 'Draw pile top, tap to draw' })).toBeDisabled();
+    // The draw deck is empty now, so its top half is disabled and has no draggable around it.
+    expect(screen.getByRole('button', { name: 'Draw deck top, tap to draw' })).toBeDisabled();
     expect(document.body.querySelector(`[data-card-id="${topId}"]`)?.closest('[data-zone="core"]')).not.toBeNull();
   });
 
@@ -176,9 +176,9 @@ describe('Practice table: dragging the top card off the draw pile or the dilemma
     expect(screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' })).toBeDisabled();
   });
 
-  it("keeps the draw pile's top card face down when it lands in a face-down zone", async () => {
+  it("keeps the draw deck's top card face down when it lands in a face-down zone", async () => {
     await setup();
-    const drawTop = document.body.querySelector('[aria-label="Draw pile top, tap to draw"]')!;
+    const drawTop = document.body.querySelector('[aria-label="Draw deck top, tap to draw"]')!;
     const topId = drawTop.closest('[data-card-id]')!.getAttribute('data-card-id')!;
 
     await drag(topId, 'dilemmaStack');
@@ -190,7 +190,7 @@ describe('Practice table: dragging the top card off the draw pile or the dilemma
 
   it('shows the card back in the drag overlay for a drag off the pile art', async () => {
     await setup();
-    const drawTop = document.body.querySelector('[aria-label="Draw pile top, tap to draw"]')!;
+    const drawTop = document.body.querySelector('[aria-label="Draw deck top, tap to draw"]')!;
     const topId = drawTop.closest('[data-card-id]')!.getAttribute('data-card-id')!;
 
     await act(async () => {

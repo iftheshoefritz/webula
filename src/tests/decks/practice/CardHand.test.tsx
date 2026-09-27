@@ -60,7 +60,7 @@ describe('CardHand', () => {
     expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
   });
 
-  // The fan used to sit 16 px above the bottom of the screen, where it covered the draw pile and
+  // The fan used to sit 16 px above the bottom of the screen, where it covered the draw deck and
   // the dilemma pile — the taps the player needs to draw a card into the open hand. It now starts
   // at the top, level with a pile panel's own box (`VIEWER_TOP_INSET`).
   it('puts the open fan at the top of the screen, level with a pile panel (#806)', () => {
@@ -244,12 +244,12 @@ describe('CardHand', () => {
     });
   });
 
-  // #638: the backdrop covers the whole screen, including the draw pile, so a tap there still
+  // #638: the backdrop covers the whole screen, including the draw deck, so a tap there still
   // draws a card instead of only closing the hand.
   describe('passthroughZone', () => {
     function renderWithPassthroughTarget(onPassthroughClick: () => void) {
       const target = document.createElement('button');
-      target.setAttribute('data-zone', 'pile');
+      target.setAttribute('data-zone', 'drawDeck');
       target.getBoundingClientRect = () => ({
         left: 100,
         right: 150,
@@ -275,7 +275,7 @@ describe('CardHand', () => {
           open
           onOpen={() => {}}
           onClose={() => {}}
-          passthroughZone="pile"
+          passthroughZone="drawDeck"
         />
       );
 
@@ -296,7 +296,7 @@ describe('CardHand', () => {
           open
           onOpen={() => {}}
           onClose={onClose}
-          passthroughZone="pile"
+          passthroughZone="drawDeck"
         />
       );
 
@@ -319,7 +319,7 @@ describe('CardHand', () => {
           open
           onOpen={() => {}}
           onClose={() => {}}
-          passthroughZone={['pile', 'dilemma-pile-top', 'dilemma-pile-bottom']}
+          passthroughZone={['drawDeck', 'dilemma-pile-top', 'dilemma-pile-bottom']}
         />
       );
 
@@ -341,7 +341,7 @@ describe('CardHand', () => {
           open
           onOpen={() => {}}
           onClose={onClose}
-          passthroughZone={['pile', 'dilemma-pile-top', 'dilemma-pile-bottom']}
+          passthroughZone={['drawDeck', 'dilemma-pile-top', 'dilemma-pile-bottom']}
         />
       );
 

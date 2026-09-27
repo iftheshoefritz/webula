@@ -232,9 +232,9 @@ const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig', 
 const DILEMMA_PILE_TOP_DROPPABLE_ID = 'dilemma-pile-top';
 const DILEMMA_PILE_BOTTOM_DROPPABLE_ID = 'dilemma-pile-bottom';
 
-// The draw pile's own two drop targets (#743), the same top/bottom split as the dilemma pile
-// above: a drop on the top half puts the card first in `pile` (drawn next), the bottom half
-// puts it last. Unlike the dilemma pile, the draw pile accepts every card type, not only one.
+// The draw deck's own two drop targets (#743), the same top/bottom split as the dilemma pile
+// above: a drop on the top half puts the card first in `drawDeck` (drawn next), the bottom half
+// puts it last. Unlike the dilemma pile, the draw deck accepts every card type, not only one.
 const DRAW_PILE_TOP_DROPPABLE_ID = 'draw-pile-top';
 const DRAW_PILE_BOTTOM_DROPPABLE_ID = 'draw-pile-bottom';
 
@@ -273,7 +273,7 @@ function computeMoveTargetForInstance(
   }
 
   if (drawPileHalfFromDropId(String(over.id))) {
-    return 'pile';
+    return 'drawDeck';
   }
 
   // A drop on a card in the core or the brig places the card on it (#810). A card dropped on its
@@ -357,9 +357,9 @@ const CORE_ROW_MAX_WIDTH = 106; // px, fits 3 ship-sized cards side by side with
 const BRIG_ROW_MAX_WIDTH = 58; // px, fits 2 overlapping ship-sized cards
 const FLAT_ROW_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
 
-// The zones whose panel `openFlatZone` tracks: the core and the brig (#640), the draw pile and the
+// The zones whose panel `openFlatZone` tracks: the core and the brig (#640), the draw deck and the
 // dilemma pile (#690), the dilemma stack (#733), and the discard pile (#782).
-type FlatPanelZone = 'core' | 'brig' | 'pile' | 'dilemmaPile' | 'dilemmaStack' | 'discard';
+type FlatPanelZone = 'core' | 'brig' | 'drawDeck' | 'dilemmaPile' | 'dilemmaStack' | 'discard';
 
 // The discard pile's top card, draggable off the pile (#606 review): a dilemma dragged from here
 // onto a mission card lands under that mission, since its source is not the dilemma hand (see
@@ -442,7 +442,7 @@ function DiscardPile({
   );
 }
 
-// One half of a pile's two drop targets — the dilemma pile's (#607) or the draw pile's (#743):
+// One half of a pile's two drop targets — the dilemma pile's (#607) or the draw deck's (#743):
 // the top half puts a dropped card first in the pile (drawn next), the bottom half puts it last.
 // Each half is its own `<button>`, the same sibling-not-nested pattern `PileBadge`
 // (`MissionRow.tsx`) already uses to combine a tap control and a droppable without nesting one
@@ -670,7 +670,7 @@ function DrawPileButton({
   showPositionLabel: boolean;
   shuffleCount: number;
 }) {
-  const landedNonce = useLandedNonce('pile');
+  const landedNonce = useLandedNonce('drawDeck');
   const halves = (
     <>
       <PileHalf
@@ -680,8 +680,8 @@ function DrawPileButton({
         count={count}
         onDraw={onDraw}
         showLabel={showPositionLabel}
-        zoneKind="pile"
-        pileName="Draw pile"
+        zoneKind="drawDeck"
+        pileName="Draw deck"
       />
       <PileHalf
         dropId={DRAW_PILE_BOTTOM_DROPPABLE_ID}
@@ -690,8 +690,8 @@ function DrawPileButton({
         count={count}
         onDraw={onDraw}
         showLabel={showPositionLabel}
-        zoneKind="pile"
-        pileName="Draw pile"
+        zoneKind="drawDeck"
+        pileName="Draw deck"
       />
     </>
   );
@@ -703,7 +703,7 @@ function DrawPileButton({
       <LandedRing nonce={landedNonce} />
       {count > 0 ? (
         <>
-          <PileArt alt="Face-down draw pile" shuffleCount={shuffleCount} />
+          <PileArt alt="Face-down draw deck" shuffleCount={shuffleCount} />
           <CountBadge count={count} landedNonce={landedNonce} />
         </>
       ) : (
@@ -926,7 +926,7 @@ function PracticeDrawContent() {
   const isFixture = fixture === '1' || isPilesFixture;
   const { data, loading } = useDataFetching();
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
-  const { pile, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
+  const { drawDeck, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
   // The card a press and hold shows in the preview, while the pointer stays down. The preview
   // exists only for a hold: a tap never opens it. A hold never touches `openCrewShipId`: a hold
@@ -969,8 +969,8 @@ function PracticeDrawContent() {
   // boolean per hand.
   const [openHand, setOpenHand] = useState<'hand' | 'dilemmaHand' | null>(null);
   // How many times each pile's Shuffle button has run, the `key` that restarts its animation (#786).
-  const [shuffleCounts, setShuffleCounts] = useState({ pile: 0, dilemmaPile: 0 });
-  const shufflePile = (location: 'pile' | 'dilemmaPile') => {
+  const [shuffleCounts, setShuffleCounts] = useState({ drawDeck: 0, dilemmaPile: 0 });
+  const shufflePile = (location: 'drawDeck' | 'dilemmaPile') => {
     dispatch({ type: 'shuffle', location });
     setShuffleCounts((counts) => ({ ...counts, [location]: counts[location] + 1 }));
   };
@@ -1131,7 +1131,7 @@ function PracticeDrawContent() {
   };
 
   const drawOne = () => {
-    dispatch({ type: 'drawCard', from: 'pile', to: 'hand' });
+    dispatch({ type: 'drawCard', from: 'drawDeck', to: 'hand' });
   };
 
   const drawDilemma = () => {
@@ -1554,8 +1554,8 @@ function PracticeDrawContent() {
       ? core
       : openFlatZone === 'brig'
       ? brig
-      : openFlatZone === 'pile'
-      ? pile
+      : openFlatZone === 'drawDeck'
+      ? drawDeck
       : openFlatZone === 'dilemmaPile'
       ? dilemmaPile
       : openFlatZone === 'discard'
@@ -1656,7 +1656,7 @@ function PracticeDrawContent() {
           <div className="flex flex-col items-center justify-center flex-1 text-text-muted gap-2 p-8">
             <FaLayerGroup className="text-4xl" />
             <p className="text-lg">No draw cards in deck.</p>
-            <p className="text-sm">Add cards to your draw pile in the deck builder, then come back here.</p>
+            <p className="text-sm">Add cards to your draw deck in the deck builder, then come back here.</p>
             <Link href="/decks" className="mt-4 btn-icon">
               Go to Deck Builder
             </Link>
@@ -1769,31 +1769,31 @@ function PracticeDrawContent() {
                     />
                   </div>
 
-                  {/* Pile, with the shuffle button and the draw-pile search button above it
+                  {/* The draw deck, with the shuffle button and the search button above it
                       (#753) rather than beside it. */}
                   <div className="flex flex-col items-center gap-1">
                     <div className="flex items-center gap-1">
                       <button
                         className="btn-icon btn-icon-sm"
-                        onClick={() => shufflePile('pile')}
+                        onClick={() => shufflePile('drawDeck')}
                         aria-label="Shuffle"
                       >
                         <ShuffleIcon />
                       </button>
-                      {/* Download from the draw pile without drawing (#690): a separate control,
-                          rather than layered on the draw-pile button, so it never steals the
+                      {/* Download from the draw deck without drawing (#690): a separate control,
+                          rather than layered on the draw-deck button, so it never steals the
                           button's own tap-to-draw click or its top/bottom drop halves. */}
-                      <DownloadPileButton label="draw pile" count={pile.length} onOpen={() => openOnlyFlatZone('pile')} />
+                      <DownloadPileButton label="draw deck" count={drawDeck.length} onOpen={() => openOnlyFlatZone('drawDeck')} />
                     </div>
-                    {/* Draw pile (#743): the same top/bottom drop-half split as the dilemma
+                    {/* The draw deck (#743): the same top/bottom drop-half split as the dilemma
                         pile, so a card dragged from any zone can be filed back in at either
-                        end of the pile, not only drawn from the top. */}
+                        end of the deck, not only drawn from the top. */}
                     <DrawPileButton
-                      count={pile.length}
-                      topCard={pile[0]}
+                      count={drawDeck.length}
+                      topCard={drawDeck[0]}
                       onDraw={drawOne}
                       showPositionLabel={draggingInstance !== null}
-                      shuffleCount={shuffleCounts.pile}
+                      shuffleCount={shuffleCounts.drawDeck}
                     />
                   </div>
 
@@ -1851,7 +1851,7 @@ function PracticeDrawContent() {
                     immediately to its left, on the inside of the row (#604). The dilemma hand
                     renders even with no cards (#631), as a drop target for a dilemma dragged back
                     from the stack popup — `CardHand`'s closed row shows an empty placeholder in
-                    that state, the same as the draw pile and the dilemma stack. */}
+                    that state, the same as the draw deck and the dilemma stack. */}
                 <div className="ml-auto flex flex-row items-end gap-4">
                   <CardHand
                     instances={dilemmaHand}
@@ -1877,10 +1877,10 @@ function PracticeDrawContent() {
                   />
 
                   {/* Dilemma pile, with the shuffle button and the search button above it
-                      (#753, #785) rather than beside it, the same layout as the draw pile. */}
+                      (#753, #785) rather than beside it, the same layout as the draw deck. */}
                   <div className="flex flex-col items-center gap-1">
                     <div className="flex items-center gap-1">
-                      {/* Its own accessible name, so it is told apart from the draw pile's
+                      {/* Its own accessible name, so it is told apart from the draw deck's
                           "Shuffle" button (#785). */}
                       <button
                         className="btn-icon btn-icon-sm"

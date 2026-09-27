@@ -69,7 +69,7 @@ const makeCards = (n: number, prefix: string) =>
 const deckOf = (cards: ReturnType<typeof makeCards>) =>
   Object.fromEntries(cards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
-// The builder's deck deals 3 cards to the draw pile (10 - a 7 card hand); the Drive deck deals 13.
+// The builder's deck deals 3 cards to the draw deck (10 - a 7 card hand); the Drive deck deals 13.
 const builderCards = makeCards(10, '1U');
 const builderDeck = deckOf(builderCards);
 const driveCards = makeCards(20, '9R');
@@ -82,11 +82,11 @@ let fetchMock: jest.Mock;
 
 const drawPileIds = async () => {
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: /^download from the draw pile$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^download from the draw deck$/i }));
   });
-  const ids = Array.from(document.querySelectorAll('[data-zone="pile-panel-pile"] [data-card-id]'));
+  const ids = Array.from(document.querySelectorAll('[data-zone="pile-panel-drawDeck"] [data-card-id]'));
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: /^close draw pile$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^close draw deck$/i }));
   });
   return ids;
 };

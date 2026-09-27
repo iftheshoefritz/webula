@@ -198,7 +198,7 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     const handZone = document.body.querySelector('[data-zone="hand"]');
     expect(handZone).not.toBeNull();
     expect(handZone!.querySelector(`[data-card-id="${draggedId}"]`)).not.toBeNull();
-    // #743: the draw pile is now two drop-half zones (top/bottom), same as the dilemma pile.
+    // #743: the draw deck is now two drop-half zones (top/bottom), same as the dilemma pile.
     expect(document.body.querySelector('[data-zone="draw-pile-top"]')).not.toBeNull();
     expect(document.body.querySelector('[data-zone="draw-pile-bottom"]')).not.toBeNull();
     expect(document.body.querySelector('[data-zone="discard"]')).not.toBeNull();
@@ -260,9 +260,9 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     expect(screen.queryByAltText('Discard pile')).not.toBeInTheDocument();
   });
 
-  // #721: the button above the draw pile shuffles it in place; it no longer resets the game,
+  // #721: the button above the draw deck shuffles it in place; it no longer resets the game,
   // so a discarded card stays in the discard pile.
-  it('the button above the draw pile leaves the discard pile untouched', async () => {
+  it('the button above the draw deck leaves the discard pile untouched', async () => {
     await setupOpenHand([mockManyCards[0]]);
     const [draggedId] = mockDraggableIds;
 

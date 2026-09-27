@@ -10,7 +10,7 @@ export type Face = 'up' | 'down';
 // a mission (usually events), the brig for captured personnel, though the zone rules are
 // advisory, so both accept any card type, the same as the discard pile.
 export type Zone =
-  | 'pile'
+  | 'drawDeck'
   | 'hand'
   | 'discard'
   | 'core'
@@ -57,7 +57,7 @@ export interface MissionSlot {
 }
 
 // A ship row is one of MISSION_SLOTS possible move destinations, not a single top-level zone
-// the way pile/hand/discard are, so a move into (or out of) one needs the mission index
+// the way drawDeck/hand/discard are, so a move into (or out of) one needs the mission index
 // alongside the zone name.
 export interface ShipRowLocation {
   zone: 'shipRow';
@@ -94,14 +94,14 @@ export interface OnLocation {
 export type MoveTarget = Zone | ShipRowLocation | CrewLocation | MissionPileLocation | OnLocation;
 
 // A `shuffle` action (#680) only ever targets one of the zones a `PilePanel` shows: the core,
-// the brig, the draw pile, the dilemma pile (#690), the dilemma stack (#733), a ship's crew, one
+// the brig, the draw deck, the dilemma pile (#690), the dilemma stack (#733), a ship's crew, one
 // of a mission's two piles, or a mission's own ship row (#713, once it holds enough ships to
 // open its own list panel) — never one of the other flat zones (hand/discard/dilemmaHand) a
 // `PilePanel` never opens for.
 export type ShuffleLocation =
   | 'core'
   | 'brig'
-  | 'pile'
+  | 'drawDeck'
   | 'dilemmaPile'
   | 'dilemmaStack'
   | CrewLocation
@@ -109,13 +109,13 @@ export type ShuffleLocation =
   | ShipRowLocation;
 
 export interface TableState {
-  pile: CardInstance[];
+  drawDeck: CardInstance[];
   hand: CardInstance[];
   discard: CardInstance[];
   core: CardInstance[];
   brig: CardInstance[];
   // The dilemma pile and the dilemma hand (#604) are two more flat zones: the pile starts
-  // shuffled and face down like the draw pile, and a tap moves one card to the hand, face up.
+  // shuffled and face down like the draw deck, and a tap moves one card to the hand, face up.
   dilemmaPile: CardInstance[];
   dilemmaHand: CardInstance[];
   // The dilemma stack (#733): a face-down stack of dilemmas, no longer tied to a mission slot.
@@ -136,7 +136,7 @@ export const SCORE_MAX = 140;
 export const SCORE_STEP = 5;
 
 export type TableAction =
-  // A tap on a face-down pile moves its top card to a hand. The draw pile and the hand are one
+  // A tap on a face-down pile moves its top card to a hand. The draw deck and the hand are one
   // pair (#596); the dilemma pile and the dilemma hand are the other (#604).
   | { type: 'drawCard'; from: Zone; to: Zone }
   // `position` chooses which end of the destination array the moved card lands on: 'bottom'
@@ -187,7 +187,7 @@ export const SEED_PILE_PERSONNEL = 20;
 export const SEED_CREW = 12;
 
 export const ZONE_FACE: Record<Zone, Face> = {
-  pile: 'down',
+  drawDeck: 'down',
   hand: 'up',
   discard: 'up',
   core: 'up',
@@ -216,7 +216,7 @@ const MISSION_PILE_FACE: Record<MissionPileName, Face> = {
 };
 
 export const initialTableState: TableState = {
-  pile: [],
+  drawDeck: [],
   hand: [],
   discard: [],
   core: [],
@@ -244,9 +244,9 @@ const generateInstanceId = (): string => {
 };
 
 // Gives each expanded deck row a stable, unique id so a specific copy of a duplicated card
-// can be moved on its own. Defaults to face down (the draw pile's convention); callers dealing
+// can be moved on its own. Defaults to face down (the draw deck's convention); callers dealing
 // straight to a face-up zone (the missions) pass 'up' explicitly.
-export function createCardInstances(cards: any[], face: Face = ZONE_FACE.pile): CardInstance[] {
+export function createCardInstances(cards: any[], face: Face = ZONE_FACE.drawDeck): CardInstance[] {
   return cards.map((card) => ({ id: generateInstanceId(), card, face }));
 }
 
@@ -264,7 +264,7 @@ const isOnLocation = (value: MoveTarget): value is OnLocation =>
 
 
 const findZone = (state: TableState, id: string): Zone | null => {
-  if (state.pile.some((c) => c.id === id)) return 'pile';
+  if (state.drawDeck.some((c) => c.id === id)) return 'drawDeck';
   if (state.hand.some((c) => c.id === id)) return 'hand';
   if (state.discard.some((c) => c.id === id)) return 'discard';
   if (state.core.some((c) => c.id === id)) return 'core';
@@ -381,7 +381,7 @@ export function findInstanceAnywhere(
 const flipFace = (face: Face): Face => (face === 'up' ? 'down' : 'up');
 
 // Reads the cards at a move source or destination, regardless of whether it is a top-level
-// zone (pile/hand/discard), a mission's ship row, or a ship's crew.
+// zone (drawDeck/hand/discard), a mission's ship row, or a ship's crew.
 const cardsAt = (state: TableState, location: MoveTarget): CardInstance[] => {
   if (isShipRowLocation(location)) return state.missions[location.missionIndex].ships;
   if (isCrewLocation(location)) return findShipInstance(state, location.shipId)?.crew ?? [];
@@ -478,7 +478,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         return state;
       }
       // A ship dropped back on the ship row it already occupies (#601) is a genuine no-op: unlike
-      // a same-zone move in the flat zones (hand/pile/discard), which already reorders the moved
+      // a same-zone move in the flat zones (hand/drawDeck/discard), which already reorders the moved
       // card to the end, a ship row has no concept of order the player can see, so nothing about
       // the ship row should change, not even its internal array order or the state reference.
       if (isShipRowLocation(from) && sameLocation(from, action.to)) return state;
@@ -545,7 +545,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       }
       // A ship on a ship row, and a crew card aboard a ship, are always face up (parent design,
       // issue #130) and have no Flip control (#599, #600), so flip only applies to the string
-      // zones (pile/hand/discard) and a mission's piles, handled above.
+      // zones (drawDeck/hand/discard) and a mission's piles, handled above.
       if (typeof zone !== 'string') return state;
       return {
         ...state,
@@ -611,7 +611,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       return {
         ...state,
         turn: state.turn + 1,
-        pile: unstopCards(state.pile),
+        drawDeck: unstopCards(state.drawDeck),
         hand: unstopCards(state.hand),
         discard: unstopCards(state.discard),
         core: unstopCards(state.core),
@@ -630,12 +630,12 @@ export function tableReducer(state: TableState, action: TableAction): TableState
 
     case 'reset': {
       // A new game (and the reset button) deals an opening hand of 7 cards, face up, and
-      // leaves the rest in the draw pile. A deck with fewer than 7 cards deals all of it.
+      // leaves the rest in the draw deck. A deck with fewer than 7 cards deals all of it.
       const handSize = Math.min(7, action.cards.length);
       const hand = action.cards.slice(0, handSize).map((c) => ({ ...c, face: ZONE_FACE.hand }));
-      const pile = action.cards.slice(handSize);
+      const drawDeck = action.cards.slice(handSize);
       // The missions are dealt face up into the mission row in deck order, as a fixed set: no
-      // shuffling, and reset re-deals the identical set every time (unlike the draw pile). No
+      // shuffling, and reset re-deals the identical set every time (unlike the draw deck). No
       // ships are dealt; a mission's ship row always starts empty.
       const missions: MissionSlot[] = Array.from({ length: MISSION_SLOTS }, (_, i) => ({
         mission: action.missions[i] ?? null,
@@ -646,7 +646,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // The dilemmas arrive already shuffled, and all of them start in the dilemma pile: a new
       // game and the reset button deal no dilemmas into the dilemma hand or the dilemma stack.
       return {
-        pile,
+        drawDeck,
         hand,
         discard: [],
         core: [],

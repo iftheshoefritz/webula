@@ -83,7 +83,7 @@ const allCards = [...drawCards, ...dilemmaCards];
 const mockDeck = Object.fromEntries(allCards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
 // #785: the dilemma pile has its own Shuffle button above it, beside its search button, the same
-// as the draw pile. Each button shuffles its own pile only.
+// as the draw deck. Each button shuffles its own pile only.
 describe('Practice draw: the dilemma pile has a Shuffle button (#785)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -126,7 +126,7 @@ describe('Practice draw: the dilemma pile has a Shuffle button (#785)', () => {
     return Array.from(panel.querySelectorAll('img')).map((img) => img.getAttribute('alt'));
   };
 
-  it('shuffles the dilemma pile, keeps its count, and leaves the draw pile alone', async () => {
+  it('shuffles the dilemma pile, keeps its count, and leaves the draw deck alone', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
@@ -164,7 +164,7 @@ describe('Practice draw: the dilemma pile has a Shuffle button (#785)', () => {
     expect(within(dilemmaPile).queryByRole('button', { name: /shuffle/i })).toBeNull();
   });
 
-  it('keeps the draw pile\'s own Shuffle button, which shuffles only the draw pile', async () => {
+  it('keeps the draw deck\'s own Shuffle button, which shuffles only the draw deck', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });

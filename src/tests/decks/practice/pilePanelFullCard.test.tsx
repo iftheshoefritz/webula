@@ -33,7 +33,7 @@ const cardImage = (id: string) =>
 describe('Practice draw: a panel shows the whole card, not the cropped art (#806)', () => {
   it('draws the full card image at the full-card height', () => {
     render(
-      <PilePanel zone="pile" cards={[makeCard(0)]} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />
+      <PilePanel zone="drawDeck" cards={[makeCard(0)]} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />
     );
 
     const image = cardImage('card-0');
@@ -47,7 +47,7 @@ describe('Practice draw: a panel shows the whole card, not the cropped art (#806
   it('grows the card with the table scale', () => {
     render(
       <PilePanel
-        zone="pile"
+        zone="drawDeck"
         cards={[makeCard(0)]}
         onClose={() => {}}
         selectedIds={[]}
@@ -65,7 +65,7 @@ describe('Practice draw: a panel shows the whole card, not the cropped art (#806
   it('keeps the stopped look on the full card', () => {
     render(
       <PilePanel
-        zone="pile"
+        zone="drawDeck"
         cards={[makeCard(0, true)]}
         onClose={() => {}}
         selectedIds={[]}

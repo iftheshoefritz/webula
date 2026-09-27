@@ -285,7 +285,7 @@ describe('PracticeDrawPage', () => {
   });
 
   // Draw Mechanics: drawOne — clicking the pile reduces pile by 1 and adds to hand
-  it('drawOne: clicking the draw pile button reduces pile by 1 and adds a card to hand', async () => {
+  it('drawOne: clicking the draw deck button reduces pile by 1 and adds a card to hand', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -299,9 +299,9 @@ describe('PracticeDrawPage', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
 
-    // Click the draw pile button (#743: the draw pile is now two drop-half buttons; either
+    // Click the draw deck button (#743: the draw deck is now two drop-half buttons; either
     // one draws, same as the old single button).
-    const drawPileButton = screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' });
+    const drawPileButton = screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' });
     await act(async () => {
       fireEvent.click(drawPileButton);
     });
@@ -311,9 +311,9 @@ describe('PracticeDrawPage', () => {
     expect(screen.getByRole('button', { name: /^hand, 8 cards, tap to open$/i })).toBeInTheDocument();
   });
 
-  // #638: a tap on the draw pile draws a card and leaves the hand open, rather than only
+  // #638: a tap on the draw deck draws a card and leaves the hand open, rather than only
   // closing the hand's full-screen backdrop.
-  it('drawOne: a tap on the draw pile through an open hand draws a card and keeps the hand open', async () => {
+  it('drawOne: a tap on the draw deck through an open hand draws a card and keeps the hand open', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -323,9 +323,9 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // #743: the draw pile is now two drop-half buttons; the passthrough only needs one of them
+    // #743: the draw deck is now two drop-half buttons; the passthrough only needs one of them
     // to cover the tap point below.
-    const drawPileButton = screen.getByRole('button', { name: 'Draw pile top, tap to draw' });
+    const drawPileButton = screen.getByRole('button', { name: 'Draw deck top, tap to draw' });
     drawPileButton.getBoundingClientRect = () => ({
       left: 0,
       right: 60,
@@ -371,7 +371,7 @@ describe('PracticeDrawPage', () => {
     // 10-card deck: 7 dealt into the hand, 3 left in the pile.
     expect(screen.getByText('3')).toBeInTheDocument();
 
-    const drawPileButton = screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' });
+    const drawPileButton = screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' });
 
     for (let remaining = 2; remaining >= 1; remaining--) {
       await act(async () => {
@@ -386,11 +386,11 @@ describe('PracticeDrawPage', () => {
       fireEvent.click(drawPileButton);
     });
     // The empty dilemma hand carries its own "Empty" placeholder (#631), so scope this check to
-    // the draw pile's own box — the parent of its two drop halves (#743).
+    // the draw deck's own box — the parent of its two drop halves (#743).
     const drawPileBox = document.body.querySelector('[data-zone="draw-pile-top"]')!.parentElement!;
     expect(within(drawPileBox).getByText('Empty')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Draw pile top, tap to draw' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Draw deck top, tap to draw' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' })).toBeDisabled();
   });
 
   // Controls: the "Draw to 7" control is gone
@@ -406,8 +406,8 @@ describe('PracticeDrawPage', () => {
     expect(screen.queryByRole('button', { name: /draw to 7/i })).not.toBeInTheDocument();
   });
 
-  // Draw Mechanics: draw pile button is disabled when pile is exhausted
-  it('draw pile button is disabled when pile is exhausted', async () => {
+  // Draw Mechanics: draw deck button is disabled when pile is exhausted
+  it('draw deck button is disabled when pile is exhausted', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -418,13 +418,13 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // #743: the draw pile's two drop halves are its tap controls now, in place of the single
+    // #743: the draw deck's two drop halves are its tap controls now, in place of the single
     // button that used to carry the "Empty" placeholder's own accessible name.
-    expect(screen.getByRole('button', { name: 'Draw pile top, tap to draw' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Draw deck top, tap to draw' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' })).toBeDisabled();
   });
 
-  // Bottom row layout (issue #596): discard pile, draw pile, closed hand, core, brig, and the
+  // Bottom row layout (issue #596): discard pile, draw deck, closed hand, core, brig, and the
   // dilemma pile at the right side.
   it('renders the bottom row zones in order: discard, pile, hand, core, brig, dilemma', async () => {
     mockSearchParamsValue = new URLSearchParams();
@@ -480,11 +480,11 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // The empty draw pile and the empty dilemma hand (#631) both show "Empty"; the still-empty
+    // The empty draw deck and the empty dilemma hand (#631) both show "Empty"; the still-empty
     // discard pile shows its own "Discard" label.
     expect(screen.getAllByText('Empty').length).toBe(2);
     expect(screen.getByText('Discard')).toBeInTheDocument();
-    expect(screen.queryByAltText('Face-down draw pile')).not.toBeInTheDocument();
+    expect(screen.queryByAltText('Face-down draw deck')).not.toBeInTheDocument();
   });
 
   // UI State: hand renders drawn cards with correct images and aria-labels
@@ -740,7 +740,7 @@ describe('PracticeDrawPage', () => {
     });
   });
 
-  // Shuffle (#721): the button above the draw pile shuffles it in place instead of resetting
+  // Shuffle (#721): the button above the draw deck shuffles it in place instead of resetting
   // the game — the cards already on the table (here, the drawn card sitting in the hand) stay
   // exactly where they are, and only the order of the remaining draw pile changes.
   describe('game menu on load (#781)', () => {
@@ -773,7 +773,7 @@ describe('PracticeDrawPage', () => {
 
     it('closes the menu on the first tap outside it, without acting on the table', async () => {
       await renderManyCards();
-      const drawPileButton = screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' });
+      const drawPileButton = screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' });
 
       await tap(drawPileButton);
 
@@ -788,7 +788,7 @@ describe('PracticeDrawPage', () => {
 
     it('lets the press that closes the menu reach the table, so a drag can start', async () => {
       await renderManyCards();
-      const drawPileButton = screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' });
+      const drawPileButton = screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' });
       const onPointerDown = jest.fn();
       drawPileButton.addEventListener('pointerdown', onPointerDown);
 
@@ -822,7 +822,7 @@ describe('PracticeDrawPage', () => {
     });
   });
 
-  it('clicking the button above the draw pile shuffles it without resetting the game', async () => {
+  it('clicking the button above the draw deck shuffles it without resetting the game', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -833,21 +833,21 @@ describe('PracticeDrawPage', () => {
     });
 
     // Draw one card, leaving cards on the table beyond the initial opening hand.
-    const drawPileButton = screen.getByRole('button', { name: 'Draw pile bottom, tap to draw' });
+    const drawPileButton = screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' });
     await act(async () => {
       fireEvent.click(drawPileButton);
     });
     expect(screen.getByRole('button', { name: /^hand, 8 cards, tap to open$/i })).toBeInTheDocument();
 
-    // Record the draw pile's card order before shuffling.
+    // Record the draw deck's card order before shuffling.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^download from the draw pile$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^download from the draw deck$/i }));
     });
     const idsBefore = Array.from(
-      document.querySelectorAll('[data-zone="pile-panel-pile"] [data-card-id]')
+      document.querySelectorAll('[data-zone="pile-panel-drawDeck"] [data-card-id]')
     ).map((el) => el.getAttribute('data-card-id'));
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^close draw pile$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^close draw deck$/i }));
     });
 
     // The initial deal uses the same shuffleArray mocked as identity in beforeEach; make the
@@ -864,10 +864,10 @@ describe('PracticeDrawPage', () => {
 
     // The draw pile holds the same cards, in a different order.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^download from the draw pile$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^download from the draw deck$/i }));
     });
     const idsAfter = Array.from(
-      document.querySelectorAll('[data-zone="pile-panel-pile"] [data-card-id]')
+      document.querySelectorAll('[data-zone="pile-panel-drawDeck"] [data-card-id]')
     ).map((el) => el.getAttribute('data-card-id'));
 
     expect(new Set(idsAfter)).toEqual(new Set(idsBefore));

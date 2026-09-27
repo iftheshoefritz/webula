@@ -73,7 +73,7 @@ const card = (collectorsinfo: string, name: string, type: string, pile: string) 
   count: 1,
 });
 
-// More than an opening hand, so the draw pile still has cards after the deal.
+// More than an opening hand, so the draw deck still has cards after the deal.
 const drawCards = Array.from({ length: 12 }, (_, i) =>
   card(`1U0${String(i + 10)}`, `draw card ${i}`, 'personnel', 'draw')
 );
@@ -86,7 +86,7 @@ const allCards = [...drawCards, ...dilemmaCards];
 const mockDeck = Object.fromEntries(allCards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
 const pileArt = (alt: string) => screen.getByAltText(alt).closest('[data-testid="pile-art"]') as HTMLElement;
-const drawArt = () => pileArt('Face-down draw pile');
+const drawArt = () => pileArt('Face-down draw deck');
 const dilemmaArt = () => pileArt('Face-down dilemma pile');
 
 // #786: a shuffle changes nothing visible, so the pile's own card art animates when its Shuffle
@@ -136,7 +136,7 @@ describe('Practice draw: a pile animates when its Shuffle button runs (#786)', (
     expect(dilemmaArt().className).not.toMatch(/animate-pile-shuffle/);
   });
 
-  it('animates only the draw pile when the draw pile Shuffle button runs', async () => {
+  it('animates only the draw deck when the draw deck Shuffle button runs', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
@@ -190,7 +190,7 @@ describe('Practice draw: a pile animates when its Shuffle button runs (#786)', (
 
     const countBefore = drawArt().parentElement!.textContent;
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Draw pile top, tap to draw' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
     });
     expect(drawArt().parentElement!.textContent).not.toBe(countBefore);
   });

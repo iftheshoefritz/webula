@@ -105,7 +105,7 @@ const mockDeck = {
 describe('landedZoneKey (#778)', () => {
   it('keys a flat zone by its own name', () => {
     expect(landedZoneKey('discard')).toBe('discard');
-    expect(landedZoneKey('pile')).toBe('pile');
+    expect(landedZoneKey('drawDeck')).toBe('drawDeck');
     expect(landedZoneKey('dilemmaPile')).toBe('dilemmaPile');
     expect(landedZoneKey('hand')).toBe('hand');
   });
