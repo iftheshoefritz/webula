@@ -1131,11 +1131,11 @@ function PracticeDrawContent() {
   };
 
   const drawOne = () => {
-    dispatch({ type: 'draw', from: 'pile', to: 'hand' });
+    dispatch({ type: 'drawCard', from: 'pile', to: 'hand' });
   };
 
   const drawDilemma = () => {
-    dispatch({ type: 'draw', from: 'dilemmaPile', to: 'dilemmaHand' });
+    dispatch({ type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
   };
 
   // Raises the turn counter by one and unstops every stopped personnel card on the table (#718).
