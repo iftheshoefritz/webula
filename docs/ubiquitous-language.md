@@ -221,17 +221,29 @@ gives the reason, so that the next reader does not open the same issue again.
 | `SCORE_MAX = 140` | The win score is 100 in a normal game, but certain cards change it. This codebase does not model those cards. It only allows a higher maximum, so the counter can show a score above 100. |
 | The hand takes any number of cards | The rulebook applies the limit of seven at the discard step of a turn, and this codebase does not model the steps of a turn. The practice table never stops a drop. |
 
-## 8. Cases still open
+## 8. Cases found by the second search
 
-A second search of the code (#835) found these cases. Each one is a row of the table
-in #833, where the owner gives the decision. The number is the number of the row in
-#833. Cases 1 to 11 are the ones the sections above already describe.
+A second search of the code (#835) found these cases. The number is the number of the row
+in #833. Cases 1 to 11 are the ones the sections above already describe.
 
-| # | The case | Where |
+The owner decided every case but one. A row goes away when its rename lands and the
+sections above hold the new name.
+
+| # | The case | Decision |
 |---|---|---|
-| 12 | `expandDeck` returns the draw cards alone, so its "deck" is the rulebook deck. The `DeckList` it takes is the whole saved object. | `expandDeck` in `src/app/decks/deckBuilderUtils.ts` |
-| 13 | "Seed" is a rulebook word for placing cards at the start of a game. The code uses it for the `?fixture=piles` test deal instead, and calls the start of a game "deal" and "reset". The opening hand of seven cards is the bare number `7` in `reset`. | `SEED_PILE_PERSONNEL`, `SEED_CREW`, action `resetWithPiles` in `tableReducer.ts`, `seedPiles` in `page.tsx` |
-| 14 | "Download" is a rulebook word for an effect that takes a card from your deck and puts it into play. The UI uses it for opening the draw deck or the dilemma pile to take any card by hand. Section 6 lists download as not modeled. | `DownloadPileButton` and the `aria-label` "Download from the …" in `src/app/decks/practice/page.tsx` |
-| 15 | `range` is a ship attribute, and it is also the name of the numeric search fields: `rangeColumns`, `rangeAbbreviations` and `selectedRangeFilter`. One word, two things. | `src/lib/constants.ts`, `src/components/SearchPills.tsx` |
-| 16 | The limit of three copies counts one `collectorsinfo` value. The rulebook limit counts one card title, so two versions of one card let a deck hold six copies. #834 blocks a fix, because no field holds the title alone. | `belowMaximumCount` in `deckBuilderUtils.ts`, `useDeckState.ts` |
-| 17 | "Pile" has a third meaning: `PilePanel` is the list panel of any place on the table, such as the core, the brig, a crew, a ship row or the cards on a card. None of these is a pile. | `src/app/decks/practice/PilePanel.tsx`, `PanelZone` |
+| 12 | `expandDeck` returns the draw cards alone, so its "deck" is the rulebook deck. The `DeckList` it takes is the whole saved object. | **Pending.** The owner has not decided this one. |
+| 13 | "Seed" is a rulebook word for placing cards at the start of a game. The code uses it for the `?fixture=piles` test deal instead, and calls the start of a game "deal" and "reset". The opening hand of seven cards is the bare number `7` in `reset`. | **Rename the fixture constants** (#854). `SEED_PILE_PERSONNEL` becomes `FIXTURE_AWAY_TEAM`, `SEED_CREW` becomes `FIXTURE_CREW`, `seedPiles` becomes `fixturePiles`. The action `resetWithPiles` and the URL `?fixture=piles` stay, because a change of the URL breaks the browser checks of `AGENTS.md`. The same task gives the opening hand a constant, `OPENING_HAND_SIZE`. |
+| 14 | "Download" is a rulebook word for an effect that takes a card from your deck and puts it into play. The UI uses it for opening the draw deck or the dilemma pile to take any card by hand. | **Deferred to #827.** That issue models the download more completely, so the word is right and only partly modeled today. When #827 lands, section 6 stops listing download as not modeled and section 4 gains a row for it. |
+| 15 | `range` is a ship attribute, and it is also the name of the numeric search fields: `rangeColumns`, `rangeAbbreviations` and `selectedRangeFilter`. One word, two things. | **Rename to "numeric"** (#855): `numericColumns`, `numericAbbreviations`, `selectedNumericFilter`. The ship attribute `range` does not change, and a search of `range:3-5` still works, because a search field name comes from the card data column and not from the constant. So no saved search breaks. The `ranges:` option of `search-query-parser` belongs to that library and stays. |
+| 16 | The limit of three copies counts one `collectorsinfo` value. The rulebook limit counts one card title, so two versions of one card let a deck hold six copies. | **Keep, and see "A rule the code does not enforce" below.** #834 blocks a fix, because no field holds the card title alone. |
+| 17 | "Pile" has a third meaning: `PilePanel` is the popup list of any place on the table, such as the core, the brig, a crew, a ship row or the cards placed on a card. None of these is a pile. | **Rename** (#856). `PilePanel` becomes `CardListPanel`, and `PanelZone` becomes `PanelLocation`, which joins the `*Location` family the code already uses for a place a card can be. Not "zone": "zone" already names three types with three meanings, and `data-zone` and the drag scripts depend on it. "Panel" stays, because `DecklistPanel` uses it the same way and the modals say Modal. |
+
+### A rule the code does not enforce
+
+The rulebook allows three copies of one card title in a deck. The deck builder counts by
+`collectorsinfo`: `findExisting` keys the deck by that value, and `belowMaximumCount` caps
+each key at 3. Two versions of one card, such as a card and its `*VP` reprint, hold two
+`collectorsinfo` values, so a deck can hold six copies and the builder allows it.
+
+A count by title needs a field that holds the title alone, and no field does. #834 tracks
+that. Until #834 lands, this stays a known gap, not a bug to fix.
