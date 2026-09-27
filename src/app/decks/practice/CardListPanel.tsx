@@ -308,6 +308,7 @@ export default function CardListPanel({
   hidden = false,
   cardWidth = viewerCardSize(1).width,
   cardHeight = viewerCardSize(1).height,
+  bottomInset = VIEWER_TOP_INSET,
 }: {
   location: PanelLocation;
   cards: CardInstance[];
@@ -341,6 +342,11 @@ export default function CardListPanel({
   // callers, including this component's own tests, that don't care about the grown state.
   cardWidth?: number;
   cardHeight?: number;
+  // Issue #828: how far the panel's area stops above the bottom of the game layer. `page.tsx`
+  // measures the bottom row and passes its height plus a small gap, so the panel's bottom sits
+  // just above the bottom row. Defaults to `VIEWER_TOP_INSET`, the old symmetric inset, for
+  // callers, including this component's own tests, that have no bottom row.
+  bottomInset?: number;
 }) {
   // The dilemma stack's own popup only (#632): a wrapped, multi-per-row grid — every other
   // `CardListPanel` zone's layout — has no single top or bottom once it wraps past one row, so this
@@ -384,9 +390,12 @@ export default function CardListPanel({
   // a little from each edge of this component's own `fixed inset-0` box (the same box as the game
   // layer), so the panel follows the layer's height without any `dvh` arithmetic. It lets taps
   // through (`pointer-events-none`) to the backdrop, and only the panel inside it takes them.
-  // The inset is `VIEWER_TOP_INSET` on every side, the same number the open fan takes for its
-  // own top (`CardHand.tsx`), so a panel and a fan start at the same height.
-  const insetClassName = 'absolute flex flex-col items-center pointer-events-none';
+  // The top and side insets are `VIEWER_TOP_INSET`, the same number the open fan takes for its
+  // own top (`CardHand.tsx`). The bottom inset is `bottomInset`, just above the bottom row (#828).
+  // `justify-end` anchors the panel's bottom edge there, so a panel grows upward as it gains cards
+  // and leaves no empty band above the bottom row. Only a panel that fills the area starts at the
+  // same height as the fan.
+  const insetClassName = 'absolute flex flex-col items-center justify-end pointer-events-none';
   // Positioning only; the visible card grid itself is `gridClassName` below, a sibling of the
   // button row. `max-h-full` bounds the panel by the inset box but sets no height, so a pile of
   // two cards keeps a small box that hugs its cards.
@@ -431,7 +440,13 @@ export default function CardListPanel({
         onClick={onClose}
         aria-label={closeLabel(location)}
       />
-      <div className={insetClassName} style={{ inset: VIEWER_TOP_INSET }}>
+      <div className={insetClassName} style={{
+          top: VIEWER_TOP_INSET,
+          left: VIEWER_TOP_INSET,
+          right: VIEWER_TOP_INSET,
+          bottom: bottomInset,
+        }}
+      >
       <div className={layoutClassName}>
         {(showDownloadButton || showStopButton || showFlipButton || showDiscardButton) && (
           <div className="shrink-0 flex flex-row items-center gap-2">
