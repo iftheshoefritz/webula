@@ -70,7 +70,7 @@ function seedDeck() {
       row: {
         collectorsinfo: 'test-card-1',
         count: 1,
-        pile: 'draw',
+        pile: 'drawDeck',
         name: 'Test Card',
         originalName: 'Test Card',
         imagefile: 'test',
@@ -138,6 +138,41 @@ describe('DeckBuilderClient – share link', () => {
     );
 
     expect(shareCalls.length).toBe(1);
+  });
+
+  it('exports a deck saved with the old pile values "draw" and "dilemma" in LackeyCCG format (#837)', async () => {
+    const savedRow = (collectorsinfo: string, type: string, pile: string) => ({
+      count: 1,
+      row: { collectorsinfo, count: 1, type, pile, name: collectorsinfo, originalName: collectorsinfo, imagefile: 'test' },
+    });
+    localStorage.setItem(
+      'currentDeck',
+      JSON.stringify({
+        Mission: savedRow('Mission', 'mission', 'mission'),
+        Dilemma: savedRow('Dilemma', 'dilemma', 'dilemma'),
+        Personnel: savedRow('Personnel', 'personnel', 'draw'),
+      })
+    );
+
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'paste-abc123' }),
+    });
+    global.fetch = mockFetch;
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[]} columns={[]} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(getShareButton());
+    });
+    await act(async () => {});
+
+    const [, init] = mockFetch.mock.calls.find(([url]: [string]) => url === '/api/share');
+    expect(JSON.parse(init.body).content).toBe(
+      'Deck:\n1\tPersonnel\nDilemmas:\n1\tDilemma\nMissions:\n1\tMission'
+    );
   });
 
   it('shows "Share failed" when /api/share returns an error', async () => {

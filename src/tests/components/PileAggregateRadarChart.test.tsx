@@ -14,7 +14,7 @@ beforeEach(() => {
 });
 
 const makeRow = (overrides = {}) => ({
-  pile: 'draw',
+  pile: 'drawDeck',
   type: 'personnel',
   cost: '',
   integrity: '',

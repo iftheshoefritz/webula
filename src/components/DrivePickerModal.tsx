@@ -45,18 +45,18 @@ type PickerProps = {
   onMoveFile?: (file: DriveFile, targetParentId: string) => void
 }
 
-type LoadMode = 'full' | 'mission' | 'dilemma' | 'draw';
+type LoadMode = 'full' | DeckPile;
 
 const PILE_OPTIONS: { value: LoadMode; label: string }[] = [
   { value: 'full', label: 'Full deck' },
   { value: 'mission', label: 'Missions only' },
-  { value: 'dilemma', label: 'Dilemmas only' },
-  { value: 'draw', label: 'Draw pile only' },
+  { value: 'dilemmaPile', label: 'Dilemmas only' },
+  { value: 'drawDeck', label: 'Draw pile only' },
 ];
 
 function pilesForMode(mode: LoadMode): DeckPile[] | undefined {
   if (mode === 'full') return undefined;
-  return [mode as DeckPile];
+  return [mode];
 }
 
 export const DrivePickerModal: React.FC<PickerProps> = ({

@@ -30,7 +30,7 @@ comparisons in the code are lowercase.
 | event | `'event'` | `card.type` |
 | interrupt | `'interrupt'` | `card.type` |
 | mission | `'mission'` | `card.type`, `cardPileFor` |
-| dilemma | `'dilemma'` | `card.type`, `cardPileFor` |
+| dilemma | `'dilemma'` | `card.type` |
 
 ## 2. Card fields
 
@@ -100,10 +100,13 @@ piles, named by `DeckPile`:
 | `DeckPile` | Holds | Rulebook term |
 |---|---|---|
 | `'mission'` | mission cards | the five missions |
-| `'dilemma'` | dilemma cards | the dilemma pile |
-| `'draw'` | every other type | the deck |
+| `'dilemmaPile'` | dilemma cards | the dilemma pile |
+| `'drawDeck'` | every other type | the deck |
 
-**Caution: `'draw'` has two meanings in this codebase.** See section 4.
+The values match the practice table zones `'dilemmaPile'` and `'drawDeck'` (#837).
+A deck saved before #837 holds `pile: 'dilemma'` and `pile: 'draw'` on its rows.
+`withCurrentPiles` computes each pile again from the card type when the deck loads, so
+the old values are never read.
 
 The deck builder UI shows the three tabs as "Missions", "Dilemmas" and "Draw".
 

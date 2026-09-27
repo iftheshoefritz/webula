@@ -4,7 +4,7 @@ import IconCompareTable from '../../components/IconCompareTable';
 import { CARD_ICON_IMAGES } from '../../lib/missionRequirements';
 
 const makeRow = (overrides = {}) => ({
-  pile: 'draw',
+  pile: 'drawDeck',
   type: 'personnel',
   icons: '',
   count: 1,
@@ -14,7 +14,7 @@ const makeRow = (overrides = {}) => ({
 const iconProps = {
   label: 'Icon',
   characteristicName: 'icons',
-  filterFunction: (row: any) => row.pile === 'draw' && row.type === 'personnel',
+  filterFunction: (row: any) => row.pile === 'drawDeck' && row.type === 'personnel',
   splitFunction: (icons: string) =>
     icons
       .split(/[[\]]/)
@@ -102,7 +102,7 @@ describe('IconCompareTable', () => {
             rows: [
               makeRow({ icons: '[cmd]', count: 2 }),
               makeRow({ icons: '[tng]', count: 3, type: 'ship' }),
-              makeRow({ icons: '[stf]', count: 10, pile: 'dilemma' }),
+              makeRow({ icons: '[stf]', count: 10, pile: 'dilemmaPile' }),
             ],
           },
         ]}

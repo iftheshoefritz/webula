@@ -347,11 +347,11 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
           <div className="flex flex-col lg:flex-row">
             <div className="w-full lg:w-1/2">
               <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary">Draw Deck</span>
-              <PileAggregateCostChart decks={decks} filterFunction={(row) => row.pile === 'draw'} type="line" />
+              <PileAggregateCostChart decks={decks} filterFunction={(row) => row.pile === 'drawDeck'} type="line" />
             </div>
             <div className="w-full lg:w-1/2">
               <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary">Dilemma Pile</span>
-              <PileAggregateCostChart decks={decks} filterFunction={(row) => row.pile === 'dilemma'} type="line" />
+              <PileAggregateCostChart decks={decks} filterFunction={(row) => row.pile === 'dilemmaPile'} type="line" />
             </div>
           </div>
         </section>
@@ -364,7 +364,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
                 <span className="text-lg font-semibold mt-4 mb-2 block text-text-secondary capitalize">{attr}</span>
                 <PileAggregateAttributeChart
                   decks={decks}
-                  filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+                  filterFunction={(row) => row.pile === 'drawDeck' && row.type === 'personnel'}
                   attribute={attr}
                   type="line"
                 />
@@ -381,7 +381,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
             decks={decks}
             label="Keyword"
             characteristicName="keywords"
-            filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+            filterFunction={(row) => row.pile === 'drawDeck' && row.type === 'personnel'}
             splitFunction={(keywords) =>
               keywords
                 .split('.')
@@ -401,7 +401,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
             decks={decks}
             label="Species"
             characteristicName="species"
-            filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+            filterFunction={(row) => row.pile === 'drawDeck' && row.type === 'personnel'}
             splitFunction={(species) =>
               species
                 .split('/')
@@ -421,7 +421,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
             decks={decks}
             label="Affiliation"
             characteristicName="affiliation"
-            filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+            filterFunction={(row) => row.pile === 'drawDeck' && row.type === 'personnel'}
             splitFunction={(affiliation) => [affiliation]}
             assembleCounts={(counts, affiliation, count) => {
               counts[affiliation] = (counts[affiliation] || 0) + count;
@@ -437,7 +437,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
             decks={decks}
             label="Icon"
             characteristicName="icons"
-            filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+            filterFunction={(row) => row.pile === 'drawDeck' && row.type === 'personnel'}
             splitFunction={(keywords) =>
               keywords
                 .split(/[[\]]/)
@@ -460,12 +460,12 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
 
         <section>
           <h2 className="text-xl font-bold mb-2 text-text-secondary">Draw deck cards in common</h2>
-          <CardsInCommonTable decks={decks} filterFunction={(row) => row.pile === 'draw'} />
+          <CardsInCommonTable decks={decks} filterFunction={(row) => row.pile === 'drawDeck'} />
         </section>
 
         <section>
           <h2 className="text-xl font-bold mb-2 text-text-secondary">Dilemma cards in common</h2>
-          <CardsInCommonTable decks={decks} filterFunction={(row) => row.pile === 'dilemma'} />
+          <CardsInCommonTable decks={decks} filterFunction={(row) => row.pile === 'dilemmaPile'} />
         </section>
       </div>
 

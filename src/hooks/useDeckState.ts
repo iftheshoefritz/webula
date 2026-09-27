@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import posthog from 'posthog-js';
 import useLocalStorage from './useLocalStorage';
 import {
@@ -9,6 +9,7 @@ import {
   findExistingOrUseRow,
   incrementedRow,
   mergeDeckPiles,
+  withCurrentPiles,
 } from '../app/decks/deckBuilderUtils';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import { CardDef, DeckList } from '../types';
@@ -34,7 +35,9 @@ export function useDeckState({
 }: UseDeckStateParams) {
   const [localCurrentDeck, setLocalCurrentDeck] = useLocalStorage<DeckList>('currentDeck', {});
   const [fixtureCurrentDeck, setFixtureCurrentDeck] = useState<DeckList>({});
-  const currentDeck = isFixture ? fixtureCurrentDeck : localCurrentDeck;
+  // A deck saved before #837 holds the old pile values, so compute each pile again on load.
+  const storedCurrentDeck = useMemo(() => withCurrentPiles(localCurrentDeck), [localCurrentDeck]);
+  const currentDeck = isFixture ? fixtureCurrentDeck : storedCurrentDeck;
   const setCurrentDeck = isFixture ? setFixtureCurrentDeck : setLocalCurrentDeck;
   const [deckTitle, setDeckTitle] = useLocalStorage<string>('deckTitle', '');
   // Per-mission chosen OR branch index (0-based). Absent = all branches included (conservative default).

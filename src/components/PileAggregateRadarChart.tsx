@@ -11,8 +11,8 @@ interface PileAggregateRadarChartProps {
   decks: ComparedDeck[];
 }
 
-const isDraw = (row: Record<string, any>) => row.pile === 'draw';
-const isDrawPersonnel = (row: Record<string, any>) => row.pile === 'draw' && row.type === 'personnel';
+const isDraw = (row: Record<string, any>) => row.pile === 'drawDeck';
+const isDrawPersonnel = (row: Record<string, any>) => row.pile === 'drawDeck' && row.type === 'personnel';
 
 /** Mean of `attribute` over rows passing `filterFunction`, weighted by `row.count`. */
 function weightedAverage(

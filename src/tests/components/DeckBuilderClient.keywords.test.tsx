@@ -56,7 +56,7 @@ const makePersonnel = (collectorsinfo: string, keywords: string) => ({
   originalName: `Person ${collectorsinfo}`,
   type: 'personnel',
   name: `person ${collectorsinfo}`,
-  pile: 'draw',
+  pile: 'drawDeck',
   icons: '',
   keywords,
   count: 1,

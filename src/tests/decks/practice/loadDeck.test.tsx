@@ -62,7 +62,7 @@ const makeCards = (n: number, prefix: string) =>
     type: 'equipment',
     name: `card ${prefix}${i + 1}`,
     imagefile: `card_${prefix}${i + 1}`,
-    pile: 'draw',
+    pile: 'drawDeck',
     count: 1,
   }));
 

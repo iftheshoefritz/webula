@@ -17,7 +17,7 @@ const DILEMMA_TYPE_LABELS: Record<string, string> = {
 function dilemmaTypeCounts(rows: Array<Record<string, any>>) {
   const counts: Record<string, number> = {};
   for (const row of rows) {
-    if (row.pile === 'dilemma' && row.dilemmatype) {
+    if (row.pile === 'dilemmaPile' && row.dilemmatype) {
       counts[row.dilemmatype] = (counts[row.dilemmatype] || 0) + row.count;
     }
   }

@@ -3,7 +3,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import SkillsCompareTable from '../../components/SkillsCompareTable';
 
 const makeRow = (overrides = {}) => ({
-  pile: 'draw',
+  pile: 'drawDeck',
   type: 'personnel',
   skills: '',
   count: 1,
