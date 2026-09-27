@@ -13,7 +13,7 @@ export function landedZoneKey(target: MoveTarget): string {
   if (typeof target === 'string') return target;
   if (target.zone === 'shipRow') return shipRowDropId(target.missionIndex);
   if (target.zone === 'crew') return crewDropId(target.shipId);
-  // The cards on a host (#809) show on the host's own droppable (#810, `onDropId`).
-  if (target.zone === 'on') return `on-${target.hostId}`;
+  // The placed cards (#809) show on the droppable of the card they sit on (#810, `onDropId`).
+  if (target.zone === 'on') return `on-${target.targetId}`;
   return missionPileDropId(target.missionIndex, target.pile);
 }

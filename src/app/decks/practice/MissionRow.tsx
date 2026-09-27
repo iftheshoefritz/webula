@@ -18,7 +18,7 @@
 // third or later ship overlaps the others rather than growing the row, reusing the same
 // overlap-offset calculation as the hand (`overlapOffset.ts`, originally #596).
 //
-// Each ship already sitting in a ship row is itself a drop target too, and a host (#812): a card
+// Each ship already sitting in a ship row is itself a drop target too, and takes a placed card (#812): a card
 // dropped on its art is placed on the ship (see `ShipCard` below), the same as a card dropped on a
 // card in the core or the brig (#810). The ship stays draggable at the same time; a `useDroppable`
 // wrapper around the already draggable `TableCard`, the same nesting pattern used for the mission
@@ -31,7 +31,7 @@
 // target of its own: it is a plain, non-interactive `<span>` with `pointer-events-none`, so a tap
 // that lands on it falls through to the ship's own `TableCard` button beneath. A ship with cards on
 // it shows a second counter, at the other corner, and that one is a button: a tap on it opens the
-// cards on the ship (`onOpenHost`), apart from the ship's own tap.
+// cards on the ship (`onOpenPlacedOn`), apart from the ship's own tap.
 //
 // A row of 2 or fewer ships fits every ship side by side within the mission column's own width
 // with no overlap (see `ShipRow`'s `shipMaxOffset` below); a third ship (or later) overlaps the
@@ -133,14 +133,14 @@ export function shipIdFromCrewBadgeDropId(id: string): string | null {
 function ShipCard({
   ship,
   onShipClick,
-  onOpenHost,
+  onOpenPlacedOn,
   width,
   artHeight,
   badgeHeight,
 }: {
   ship: CardInstance;
   onShipClick: (id: string) => void;
-  onOpenHost: (hostId: string) => void;
+  onOpenPlacedOn: (targetId: string) => void;
   width: number;
   artHeight: number;
   badgeHeight: number;
@@ -154,7 +154,7 @@ function ShipCard({
   const onLandedNonce = useLandedNonce(`on-${ship.id}`);
   const landedNonce = onLandedNonce ?? crewLandedNonce;
   const crewCount = ship.crew?.length ?? 0;
-  const onCount = ship.on?.length ?? 0;
+  const onCount = ship.placedOn?.length ?? 0;
 
   return (
     <div
@@ -173,12 +173,12 @@ function ShipCard({
         landedNonce={crewLandedNonce}
       />
       {onCount > 0 && (
-        <HostOnCounter
+        <PlacedOnCounter
           name={ship.card.name}
           count={onCount}
           height={badgeHeight}
           landedNonce={onLandedNonce}
-          onOpen={() => onOpenHost(ship.id)}
+          onOpen={() => onOpenPlacedOn(ship.id)}
         />
       )}
       <LandedRing nonce={landedNonce} />
@@ -187,11 +187,11 @@ function ShipCard({
 }
 
 // The count of the cards on a ship (#812) or a mission card (#813), the same plain count pill as a
-// host in the core or the brig (`HostBadge`, `FlatCardRow.tsx`), at the corner opposite a ship's
+// card in the core or the brig (`PlacedOnBadge`, `FlatCardRow.tsx`), at the corner opposite a ship's
 // crew badge. Unlike the crew badge it is a tap target of its own: a sibling `<button>` of the
-// host's own button, so a tap here opens the cards on the host and a tap on a ship still opens its
-// crew. It is not a droppable, so a drop on it lands on the host's own droppable beneath.
-function HostOnCounter({
+// card's own button, so a tap here opens the cards placed on that card and a tap on a ship still
+// opens its crew. It is not a droppable, so a drop on it lands on that card's own droppable beneath.
+function PlacedOnCounter({
   name,
   count,
   height,
@@ -477,7 +477,7 @@ function ShipRow({
   ships,
   onShipClick,
   onOpenShipRow,
-  onOpenHost,
+  onOpenPlacedOn,
   columnWidth,
   scale,
 }: {
@@ -485,7 +485,7 @@ function ShipRow({
   ships: CardInstance[];
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
-  onOpenHost: (hostId: string) => void;
+  onOpenPlacedOn: (targetId: string) => void;
   columnWidth: number;
   scale: number;
 }) {
@@ -526,7 +526,7 @@ function ShipRow({
               <ShipCard
                 ship={ship}
                 onShipClick={handleShipTap}
-                onOpenHost={onOpenHost}
+                onOpenPlacedOn={onOpenPlacedOn}
                 width={shipCardWidth}
                 artHeight={shipCardArtHeight}
                 badgeHeight={badgeHeight}
@@ -546,7 +546,7 @@ function MissionColumn({
   onOpenPile,
   onShipClick,
   onOpenShipRow,
-  onOpenHost,
+  onOpenPlacedOn,
   scale,
 }: {
   missionIndex: number;
@@ -554,7 +554,7 @@ function MissionColumn({
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
-  onOpenHost: (hostId: string) => void;
+  onOpenPlacedOn: (targetId: string) => void;
   scale: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
@@ -563,7 +563,7 @@ function MissionColumn({
   const { mission, ships, awayTeam, underMission } = slot;
   // The cards placed on the mission card (#813), such as the events at the mission.
   const onLandedNonce = useLandedNonce(mission ? `on-${mission.id}` : '');
-  const onCount = mission?.on?.length ?? 0;
+  const onCount = mission?.placedOn?.length ?? 0;
   const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
   const cardArtHeight = scaled(TABLE_CARD_ART_HEIGHT, scale);
   const badgeHeight = scaled(BADGE_STRIP_HEIGHT_BASE, scale);
@@ -592,12 +592,12 @@ function MissionColumn({
             <>
               <TableCard instance={mission} width={cardWidth} artHeight={cardArtHeight} />
               {onCount > 0 && (
-                <HostOnCounter
+                <PlacedOnCounter
                   name={mission.card.name}
                   count={onCount}
                   height={badgeHeight}
                   landedNonce={onLandedNonce}
-                  onOpen={() => onOpenHost(mission.id)}
+                  onOpen={() => onOpenPlacedOn(mission.id)}
                 />
               )}
             </>
@@ -626,7 +626,7 @@ function MissionColumn({
         ships={ships}
         onShipClick={onShipClick}
         onOpenShipRow={onOpenShipRow}
-        onOpenHost={onOpenHost}
+        onOpenPlacedOn={onOpenPlacedOn}
         columnWidth={cardWidth}
         scale={scale}
       />
@@ -639,7 +639,7 @@ export default function MissionRow({
   onOpenPile,
   onShipClick,
   onOpenShipRow,
-  onOpenHost,
+  onOpenPlacedOn,
   scale = 1,
 }: {
   missions: MissionSlot[];
@@ -647,7 +647,7 @@ export default function MissionRow({
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
   // A tap on the counter of the cards on a ship (#812) opens them.
-  onOpenHost: (hostId: string) => void;
+  onOpenPlacedOn: (targetId: string) => void;
   // Issue #717: grows the mission cards, the ship cards, and the under-mission pile stack past
   // their base pixel size, computed by `useTableScale` (`tableScale.ts`) from the live size of
   // the game layer. Defaults to 1 (today's fixed sizes) for callers — including this
@@ -665,7 +665,7 @@ export default function MissionRow({
           onOpenPile={onOpenPile}
           onShipClick={onShipClick}
           onOpenShipRow={onOpenShipRow}
-          onOpenHost={onOpenHost}
+          onOpenPlacedOn={onOpenPlacedOn}
         />
       ))}
     </div>

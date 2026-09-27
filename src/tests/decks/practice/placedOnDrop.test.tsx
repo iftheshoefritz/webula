@@ -106,10 +106,10 @@ const mockManyDeck = {
   [mockShipCard.collectorsinfo]: { count: 1, row: mockShipCard },
 };
 
-// Issue #810: a card in the core or the brig is a host. A drop on its own droppable places the
+// Issue #810: a card in the core or the brig takes a placed card. A drop on its own droppable places the
 // dragged card on it, a counter shows how many cards sit on it, and a tap on it opens those cards
-// in a panel, the only place a card comes off the host.
-describe('Practice draw: a card in the core or the brig is a host (#810)', () => {
+// in a panel, the only place a placed card comes off.
+describe('Practice draw: a card in the core or the brig takes a placed card (#810)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDraggableIds.length = 0;
@@ -165,7 +165,7 @@ describe('Practice draw: a card in the core or the brig is a host (#810)', () =>
     screen.getByRole('button', { name }).getAttribute('data-card-id')!;
 
   // Deals an event and a personnel card to the hand, and drags the event into the core.
-  const setupCoreHost = async () => {
+  const setupCorePlacedOn = async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
     (expandDeck as jest.Mock).mockReturnValue([mockEventCard, mockPersonnelCard]);
@@ -182,25 +182,25 @@ describe('Practice draw: a card in the core or the brig is a host (#810)', () =>
   };
 
   it('gives each card in the core a droppable named after its id', async () => {
-    const { eventId } = await setupCoreHost();
+    const { eventId } = await setupCorePlacedOn();
 
-    const host = document.body.querySelector(`[data-zone="on-${eventId}"]`);
-    expect(host).not.toBeNull();
-    expect(document.body.querySelector('[data-zone="core"]')!.contains(host)).toBe(true);
+    const target = document.body.querySelector(`[data-zone="on-${eventId}"]`);
+    expect(target).not.toBeNull();
+    expect(document.body.querySelector('[data-zone="core"]')!.contains(target)).toBe(true);
   });
 
   it('places a card dropped on a core card on that card, and counts it', async () => {
-    const { eventId, personnelId } = await setupCoreHost();
+    const { eventId, personnelId } = await setupCorePlacedOn();
 
     await drag(personnelId, `on-${eventId}`);
 
-    // The personnel card is on the host, not a card of its own in the core.
+    // The personnel card is placed on the event, not a card of its own in the core.
     expect(screen.queryByRole('button', { name: 'data' })).toBeNull();
     expect(screen.getByLabelText('distress call, 1 card on it')).toBeInTheDocument();
   });
 
   it('still puts a card dropped on the core, off any card, in the core', async () => {
-    const { personnelId } = await setupCoreHost();
+    const { personnelId } = await setupCorePlacedOn();
 
     await drag(personnelId, 'core');
 
@@ -210,7 +210,7 @@ describe('Practice draw: a card in the core or the brig is a host (#810)', () =>
   });
 
   it('keeps a core card dropped on its own droppable in the core', async () => {
-    const { eventId } = await setupCoreHost();
+    const { eventId } = await setupCorePlacedOn();
 
     await drag(eventId, `on-${eventId}`);
 
@@ -218,8 +218,8 @@ describe('Practice draw: a card in the core or the brig is a host (#810)', () =>
     expect(coreZone.contains(screen.getByRole('button', { name: 'distress call' }))).toBe(true);
   });
 
-  it('lists the cards on the host in a panel, and a drag out of the panel takes one off', async () => {
-    const { eventId, personnelId } = await setupCoreHost();
+  it('lists the placed cards in a panel, and a drag out of the panel takes one off', async () => {
+    const { eventId, personnelId } = await setupCorePlacedOn();
     await drag(personnelId, `on-${eventId}`);
 
     await act(async () => {
@@ -238,8 +238,8 @@ describe('Practice draw: a card in the core or the brig is a host (#810)', () =>
     expect(document.body.querySelector('[data-zone="pile-panel-on"]')).toBeNull();
   });
 
-  it('opens the core panel, not a host panel, on a tap on a card with nothing on it', async () => {
-    await setupCoreHost();
+  it('opens the core panel, not a panel of placed cards, on a tap on a card with nothing on it', async () => {
+    await setupCorePlacedOn();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));

@@ -37,10 +37,11 @@ export interface CardInstance {
   // (see `move` below, which only ever touches `face`), so stopping a card, then dragging it
   // elsewhere, leaves it stopped in its new home too.
   stopped?: boolean;
-  // The cards placed on this card (#809): any card, face up, on a host (a card in the core or
-  // the brig, a mission card, or a ship on a ship row). Absent when nothing is on it, the same as
-  // `crew`. The stack is one level deep, so a card placed on a host never carries `on` itself.
-  on?: CardInstance[];
+  // The cards placed on this card (#809): any card, face up. A card in the core or the brig, a
+  // mission card, or a ship on a ship row can take a placed card. Absent when nothing is on it,
+  // the same as `crew`. The stack is one level deep, so a placed card never carries `placedOn`
+  // itself.
+  placedOn?: CardInstance[];
 }
 
 // A mission slot holds the mission card dealt into that position (#597), the ships placed on
@@ -86,14 +87,14 @@ export interface MissionPileLocation {
   pile: MissionPileName;
 }
 
-// The cards placed on a host (#809), addressed by the host's own instance id the same way a crew
-// is addressed by its ship's, so the collection stays reachable wherever the host sits.
-export interface OnLocation {
+// The cards placed on a card (#809), addressed by that card's own instance id the same way a crew
+// is addressed by its ship's, so the collection stays reachable wherever that card sits.
+export interface PlacedOnLocation {
   zone: 'on';
-  hostId: string;
+  targetId: string;
 }
 
-export type MoveTarget = Zone | ShipRowLocation | CrewLocation | MissionPileLocation | OnLocation;
+export type MoveTarget = Zone | ShipRowLocation | CrewLocation | MissionPileLocation | PlacedOnLocation;
 
 // A `shuffle` action (#680) only ever targets one of the zones a `PilePanel` shows: the core,
 // the brig, the draw deck, the dilemma pile (#690), the dilemma stack (#733), a ship's crew, one
@@ -206,7 +207,7 @@ const SHIP_ROW_FACE: Face = 'up';
 // A crew card's face convention: always face up, shown face up in the ship's preview (#600).
 const CREW_FACE: Face = 'up';
 
-// A card placed on a host is always face up (#809).
+// A placed card is always face up (#809).
 const ON_FACE: Face = 'up';
 
 // A mission pile's face convention: personnel/equipment go into the away team face down
@@ -261,7 +262,7 @@ const isCrewLocation = (value: MoveTarget): value is CrewLocation =>
 const isMissionPileLocation = (value: MoveTarget): value is MissionPileLocation =>
   typeof value === 'object' && value !== null && value.zone === 'missionPile';
 
-const isOnLocation = (value: MoveTarget): value is OnLocation =>
+const isPlacedOnLocation = (value: MoveTarget): value is PlacedOnLocation =>
   typeof value === 'object' && value !== null && value.zone === 'on';
 
 
@@ -292,28 +293,28 @@ const findShipInstance = (state: TableState, shipId: string): CardInstance | nul
   return null;
 };
 
-// Finds the host with the given id (#809): a card in the core or the brig, a mission card, or a
-// ship on a ship row. A card anywhere else, including one already placed on a host, is not a
-// host, so this returns null for it.
-const findHostInstance = (state: TableState, hostId: string): CardInstance | null => {
-  const flat = state.core.find((c) => c.id === hostId) ?? state.brig.find((c) => c.id === hostId);
+// Finds the card with the given id that can take a placed card (#809): a card in the core or the
+// brig, a mission card, or a ship on a ship row. A card anywhere else, including one already
+// placed on another card, cannot take one, so this returns null for it.
+const findPlacedOnTarget = (state: TableState, targetId: string): CardInstance | null => {
+  const flat = state.core.find((c) => c.id === targetId) ?? state.brig.find((c) => c.id === targetId);
   if (flat) return flat;
-  const slot = state.missions.find((s) => s.mission?.id === hostId);
+  const slot = state.missions.find((s) => s.mission?.id === targetId);
   if (slot) return slot.mission;
-  return findShipInstance(state, hostId);
+  return findShipInstance(state, targetId);
 };
 
-// Every host on the table, wherever it sits, for the searches that need to look inside each
-// host's `on` array.
-const allHosts = (state: TableState): CardInstance[] => [
+// Every card on the table that can take a placed card, wherever it sits, for the searches that
+// need to look inside each one's `placedOn` array.
+const placedOnTargets = (state: TableState): CardInstance[] => [
   ...state.core,
   ...state.brig,
   ...state.missions.flatMap((slot) => [...(slot.mission ? [slot.mission] : []), ...slot.ships]),
 ];
 
-const findOnLocation = (state: TableState, id: string): OnLocation | null => {
-  const host = allHosts(state).find((h) => h.on?.some((c) => c.id === id));
-  return host ? { zone: 'on', hostId: host.id } : null;
+const findOnLocation = (state: TableState, id: string): PlacedOnLocation | null => {
+  const target = placedOnTargets(state).find((t) => t.placedOn?.some((c) => c.id === id));
+  return target ? { zone: 'on', targetId: target.id } : null;
 };
 
 const findCrewLocation = (state: TableState, id: string): CrewLocation | null => {
@@ -343,7 +344,7 @@ const findMissionPileLocation = (state: TableState, id: string): MissionPileLoca
 // positional array rather than a zone a card moves in and out of, so the mission card itself
 // stays outside the `MoveTarget` union that `move` targets; a ship in a ship row, and a crew
 // card aboard a ship, both do move, so their locations are a `ShipRowLocation`/`CrewLocation`.
-export type TableZone = Zone | 'missions' | ShipRowLocation | CrewLocation | MissionPileLocation | OnLocation;
+export type TableZone = Zone | 'missions' | ShipRowLocation | CrewLocation | MissionPileLocation | PlacedOnLocation;
 
 export function findInstanceAnywhere(
   state: TableState,
@@ -374,8 +375,8 @@ export function findInstanceAnywhere(
   }
   const onLocation = findOnLocation(state, id);
   if (onLocation) {
-    const host = findHostInstance(state, onLocation.hostId)!;
-    return { instance: host.on!.find((c) => c.id === id)!, zone: onLocation };
+    const target = findPlacedOnTarget(state, onLocation.targetId)!;
+    return { instance: target.placedOn!.find((c) => c.id === id)!, zone: onLocation };
   }
   return null;
 }
@@ -388,7 +389,7 @@ const cardsAt = (state: TableState, location: MoveTarget): CardInstance[] => {
   if (isShipRowLocation(location)) return state.missions[location.missionIndex].ships;
   if (isCrewLocation(location)) return findShipInstance(state, location.shipId)?.crew ?? [];
   if (isMissionPileLocation(location)) return state.missions[location.missionIndex][location.pile];
-  if (isOnLocation(location)) return findHostInstance(state, location.hostId)?.on ?? [];
+  if (isPlacedOnLocation(location)) return findPlacedOnTarget(state, location.targetId)?.placedOn ?? [];
   return state[location];
 };
 
@@ -413,11 +414,11 @@ const withCardsAt = (state: TableState, location: MoveTarget, cards: CardInstanc
     );
     return { ...state, missions };
   }
-  if (isOnLocation(location)) {
-    // The host can sit in the core, the brig, a mission slot, or a ship row, so every one of them
-    // is checked; an empty `on` goes back to absent.
-    const on = cards.length ? cards : undefined;
-    const update = (c: CardInstance): CardInstance => (c.id === location.hostId ? { ...c, on } : c);
+  if (isPlacedOnLocation(location)) {
+    // The card that takes the placed cards can sit in the core, the brig, a mission slot, or a
+    // ship row, so every one of them is checked; an empty `placedOn` goes back to absent.
+    const placedOn = cards.length ? cards : undefined;
+    const update = (c: CardInstance): CardInstance => (c.id === location.targetId ? { ...c, placedOn } : c);
     return {
       ...state,
       core: state.core.map(update),
@@ -436,7 +437,7 @@ const faceForLocation = (location: MoveTarget): Face => {
   if (isShipRowLocation(location)) return SHIP_ROW_FACE;
   if (isCrewLocation(location)) return CREW_FACE;
   if (isMissionPileLocation(location)) return MISSION_PILE_FACE[location.pile];
-  if (isOnLocation(location)) return ON_FACE;
+  if (isPlacedOnLocation(location)) return ON_FACE;
   return ZONE_FACE[location];
 };
 
@@ -446,7 +447,7 @@ const locationKey = (location: MoveTarget): string => {
   if (isShipRowLocation(location)) return `shipRow-${location.missionIndex}`;
   if (isCrewLocation(location)) return `crew-${location.shipId}`;
   if (isMissionPileLocation(location)) return `missionPile-${location.missionIndex}-${location.pile}`;
-  if (isOnLocation(location)) return `on-${location.hostId}`;
+  if (isPlacedOnLocation(location)) return `on-${location.targetId}`;
   return location;
 };
 
@@ -473,10 +474,10 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         findMissionPileLocation(state, action.id) ??
         findOnLocation(state, action.id);
       if (!from) return state;
-      // A card can only go on a host (#809). A move onto a card that is not a host, such as a
-      // card already placed on a host, is refused rather than redirected, and so is a move of a
-      // host onto itself.
-      if (isOnLocation(action.to) && (action.to.hostId === action.id || !findHostInstance(state, action.to.hostId))) {
+      // A card goes only on a card that can take one (#809). A move onto a card that cannot, such
+      // as a card already placed on another card, is refused rather than redirected, and so is a
+      // move of a card onto itself.
+      if (isPlacedOnLocation(action.to) && (action.to.targetId === action.id || !findPlacedOnTarget(state, action.to.targetId))) {
         return state;
       }
       // A ship dropped back on the ship row it already occupies (#601) is a genuine no-op: unlike
@@ -498,29 +499,29 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // taking the destination's face, and the ship's own `crew` field clears. A ship moving
       // between two ship rows (#601) keeps its crew attached unchanged instead.
       const releasesCrew = isShipRowLocation(from) && !isShipRowLocation(action.to) && !!card.crew?.length;
-      // A host's `on` cards (#809) do not travel with it. Any move of the host sends them to the
-      // discard pile, whatever the destination, and a move of the host to the discard pile is the
-      // plain case of the same rule. A drop back in the same location is not a move of the host,
+      // The `placedOn` cards (#809) do not travel with the card they sit on. Any move of that card
+      // sends them to the discard pile, whatever the destination, and a move to the discard pile is
+      // the plain case of the same rule. A drop back in the same location is not a move,
       // so it keeps its stack: the flat zones treat a same-zone drop as a reorder, and losing the
       // stack to a reorder would surprise the player.
-      const discardsOn = !toSameLocation && !!card.on?.length;
+      const discardsOn = !toSameLocation && !!card.placedOn?.length;
       const movedCard = {
         ...card,
         face,
         ...(releasesCrew ? { crew: undefined } : {}),
-        ...(discardsOn ? { on: undefined } : {}),
+        ...(discardsOn ? { placedOn: undefined } : {}),
       };
       const releasedCrew = releasesCrew
         ? card.crew!.map((c) => ({ ...c, face: faceForLocation(action.to) }))
         : [];
-      const discardedOn = discardsOn ? card.on!.map((c) => ({ ...c, face: ZONE_FACE.discard })) : [];
+      const discardedOn = discardsOn ? card.placedOn!.map((c) => ({ ...c, face: ZONE_FACE.discard })) : [];
 
       const destination = toSameLocation ? withoutCard : cardsAt(afterRemoval, action.to);
       const movedCards = [movedCard, ...releasedCrew];
       const orderedDestination =
         action.position === 'top' ? [...movedCards, ...destination] : [...destination, ...movedCards];
       const moved = withCardsAt(afterRemoval, action.to, orderedDestination);
-      // The discarded stack is appended after the move, so a host that goes to the discard pile
+      // The discarded stack is appended after the move, so a card that goes to the discard pile
       // itself lands there first and its cards follow it.
       return discardedOn.length ? { ...moved, discard: [...moved.discard, ...discardedOn] } : moved;
     }

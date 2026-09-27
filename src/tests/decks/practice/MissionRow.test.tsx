@@ -32,7 +32,7 @@ describe('MissionRow', () => {
         onOpenPile={onOpenPile}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
-        onOpenHost={() => {}}
+        onOpenPlacedOn={() => {}}
       />
     );
 
@@ -53,7 +53,7 @@ describe('MissionRow', () => {
         onOpenPile={onOpenPile}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
-        onOpenHost={() => {}}
+        onOpenPlacedOn={() => {}}
       />
     );
 
@@ -61,13 +61,13 @@ describe('MissionRow', () => {
     expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
   });
 
-  // #813: a mission card is a host. It shows a counter of the cards on it, and a tap on the
+  // #813: a mission card takes a placed card. It shows a counter of the cards on it, and a tap on the
   // counter opens them.
   it('shows a counter of the cards on the mission card, and a tap on it opens them', () => {
-    const onOpenHost = jest.fn();
+    const onOpenPlacedOn = jest.fn();
     const slot: MissionSlot = {
       ...emptySlot(),
-      mission: { ...card('mission-0', 'A Mission'), on: [card('e1', 'An Event')] },
+      mission: { ...card('mission-0', 'A Mission'), placedOn: [card('e1', 'An Event')] },
     };
     render(
       <MissionRow
@@ -75,14 +75,14 @@ describe('MissionRow', () => {
         onOpenPile={() => {}}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
-        onOpenHost={onOpenHost}
+        onOpenPlacedOn={onOpenPlacedOn}
       />
     );
 
     const counter = screen.getByRole('button', { name: /^A Mission, 1 card on it$/ });
     expect(counter).toHaveTextContent('1');
     fireEvent.click(counter);
-    expect(onOpenHost).toHaveBeenCalledWith('mission-0');
+    expect(onOpenPlacedOn).toHaveBeenCalledWith('mission-0');
   });
 
   it('shows no counter on a mission card with nothing on it', () => {
@@ -92,7 +92,7 @@ describe('MissionRow', () => {
         onOpenPile={() => {}}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
-        onOpenHost={() => {}}
+        onOpenPlacedOn={() => {}}
       />
     );
 
