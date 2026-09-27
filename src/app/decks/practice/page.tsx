@@ -56,6 +56,7 @@ import CardListPanel, { ShuffleIcon } from './CardListPanel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
 import { TABLE_CARD_ART_HEIGHT } from './TableCard';
 import { useTableScale } from './tableScale';
+import { usePanelBottomInset } from './panelBottomInset';
 import { viewerCardSize } from './viewerCardSize';
 import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
@@ -1005,6 +1006,9 @@ function PracticeDrawContent() {
   const scale = useTableScale(gameLayer);
   // Every viewer (a card list panel, the open fan) draws its card at 1.5x the table card (#802).
   const { width: viewerCardWidth, height: viewerCardHeight } = viewerCardSize(scale);
+  // Issue #828: every card list panel anchors its bottom just above the bottom row.
+  const [bottomRow, setBottomRow] = useState<HTMLDivElement | null>(null);
+  const panelBottom = usePanelBottomInset(gameLayer, bottomRow);
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
   // Which of the core's/the brig's own card list panel (#640), or the draw pile's/the dilemma pile's
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
@@ -1734,7 +1738,7 @@ function PracticeDrawContent() {
                   (#682): every zone here fits the table's own height, so `items-end` alone
                   aligns every zone's bottom edge to this row's own bottom edge, the same edge
                   core and the brig already used. */}
-              <div className="mt-auto flex flex-row items-end gap-4">
+              <div ref={setBottomRow} className="mt-auto flex flex-row items-end gap-4">
                 <div className="flex flex-row items-end gap-4">
                   {/* Discard, with the turn counter and score counter above it (#753) rather
                       than beside it. */}
@@ -1958,6 +1962,7 @@ function PracticeDrawContent() {
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
+                  bottomInset={panelBottom}
                 />
               )}
 
@@ -1987,6 +1992,7 @@ function PracticeDrawContent() {
                   hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
+                  bottomInset={panelBottom}
                 />
               )}
 
@@ -2009,6 +2015,7 @@ function PracticeDrawContent() {
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
+                  bottomInset={panelBottom}
                 />
               )}
 
@@ -2031,6 +2038,7 @@ function PracticeDrawContent() {
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
+                  bottomInset={panelBottom}
                 />
               )}
 
@@ -2057,6 +2065,7 @@ function PracticeDrawContent() {
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
+                  bottomInset={panelBottom}
                 />
               )}
             </div>
