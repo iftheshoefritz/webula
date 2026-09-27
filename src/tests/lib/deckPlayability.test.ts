@@ -47,7 +47,7 @@ describe('deckPlayabilityMatches', () => {
     expect(deckPlayabilityMatches(card, [makeShip('[tos]')])).toBe(true);
   });
 
-  it('matches a *VP variant of a [TOS]-gated personnel via the shared base name', () => {
+  it('matches a *VP version of a [TOS]-gated personnel via the shared base name', () => {
     const card = makeCard('benjamin sisko command staffer *vp');
     expect(deckPlayabilityMatches(card, [makeShip('[tos]')])).toBe(true);
   });

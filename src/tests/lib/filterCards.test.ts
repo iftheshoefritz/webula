@@ -127,7 +127,7 @@ describe('filterCards reportsto per-card HQ-location override', () => {
     expect(cardassiaResult.map(c => c.name)).toContain('kira nerys starfleet emissary');
   });
 
-  it('applies the override to *VP variants sharing the same base card name', () => {
+  it('applies the override to *VP versions sharing the same base card name', () => {
     const result = filterCards(CARDS, COLUMNS, 'reportsto:"bajor terok nor"');
     expect(result.map(c => c.name)).toContain('kira nerys starfleet emissary *vp');
   });

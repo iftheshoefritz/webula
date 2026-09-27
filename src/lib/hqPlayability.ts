@@ -8,7 +8,7 @@
 //   "[NA] cards"   = Non-Aligned affiliation
 //   "equipment"    = type === 'equipment'
 
-import { stripVariantSuffix } from './cardCount';
+import { stripVersionSuffix } from './cardCount';
 
 type CardRow = Record<string, any>;
 type HQPredicate = (card: CardRow) => boolean;
@@ -234,7 +234,7 @@ export const HQ_PLAYABILITY: Record<string, HQPredicate> = {
 
 // Cards whose own gametext grants playability at specific HQ locations,
 // independent of their affiliation/icons (e.g. "You may play this personnel
-// at [HQ]{Bajor}"). Keys are lowercased card names (shared across *VP variants
+// at [HQ]{Bajor}"). Keys are lowercased card names (shared across *VP versions
 // since gametext is identical), values are lowercased HQ-name substrings
 // matched against HQ_NAMES via startsWith.
 const CARD_SPECIFIC_HQ_LOCATIONS: Record<string, string[]> = {
@@ -251,6 +251,6 @@ const CARD_SPECIFIC_HQ_LOCATIONS: Record<string, string[]> = {
 export function reportsToMatches(card: CardRow, match: string): boolean {
   const predicate = HQ_PLAYABILITY[match];
   if (predicate && predicate(card)) return true;
-  const baseName = stripVariantSuffix(card.name);
+  const baseName = stripVersionSuffix(card.name);
   return !!CARD_SPECIFIC_HQ_LOCATIONS[baseName]?.some((loc) => match.startsWith(loc));
 }

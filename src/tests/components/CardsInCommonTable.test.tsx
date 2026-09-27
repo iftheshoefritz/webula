@@ -21,7 +21,7 @@ const increaseThreshold = (times = 1) => {
 const getThresholdValue = () => screen.getByLabelText('Appearing in more than').textContent;
 
 describe('CardsInCommonTable', () => {
-  it('groups rows by name across decks, summing print-variant copies', () => {
+  it('groups rows by name across decks, summing the copies of each version', () => {
     render(
       <CardsInCommonTable
         decks={[
@@ -30,7 +30,7 @@ describe('CardsInCommonTable', () => {
             name: 'Deck A',
             rows: [
               makeRow({ name: 'Riker', count: 1 }),
-              makeRow({ name: 'Riker', count: 1 }), // differing print variant, same name
+              makeRow({ name: 'Riker', count: 1 }), // another version, same name
             ],
           },
           { id: 'b', name: 'Deck B', rows: [makeRow({ name: 'Riker', count: 3 })] },
