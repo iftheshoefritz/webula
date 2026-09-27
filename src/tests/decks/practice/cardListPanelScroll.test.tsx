@@ -50,7 +50,8 @@ describe('Practice draw: a card list panel with many cards scrolls instead of ru
     // one child that shrinks (`min-h-0`) and scrolls once the panel reaches that bound.
     expect(grid.className).toMatch(/min-h-0/);
     expect(grid.parentElement!.className).toMatch(/max-h-full/);
-    expect((grid.parentElement!.parentElement as HTMLElement).style.inset).toBe('8px');
+    const insetBox = grid.parentElement!.parentElement as HTMLElement;
+    expect([insetBox.style.top, insetBox.style.right, insetBox.style.bottom, insetBox.style.left]).toEqual(['8px', '8px', '8px', '8px']);
 
     const shuffleButton = screen.getByRole('button', { name: /shuffle/i });
     expect(grid.contains(shuffleButton)).toBe(false);

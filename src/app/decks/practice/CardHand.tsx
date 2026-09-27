@@ -241,7 +241,8 @@ export default function CardHand({
           the fan's z-index in the row. In the game layer, the large preview stays on top.
           A full-screen backdrop sits behind the cards, so a tap outside the fan closes it, but
           a tap on a card (on top of the backdrop) selects that card instead. The fan sits at the
-          top of the screen, level with a card list panel's own box (`VIEWER_TOP_INSET`): at the bottom
+          top of the screen (`VIEWER_TOP_INSET`), the top of a card list panel's area; a panel anchors
+          its bottom above the bottom row (#828), so only a full panel reaches that top. At the bottom
           it covered the draw pile and the dilemma pile, the two taps the player needs while a
           hand is open.
           The fan's container spans the screen, less a small inset at each side, and `OverlapRow`
