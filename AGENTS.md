@@ -47,8 +47,18 @@ The search supports advanced query syntax defined in `src/lib/constants.js`:
 - Range fields: cost, span, points, integrity, cunning, strength, etc.
 - Abbreviations supported (e.g., `n:` for name, `a:` for affiliation, `sk:` for skills)
 
+### Ubiquitous Language
+
+`docs/ubiquitous-language.md` maps the terms of the *Star Trek* CCG Second Edition
+Rulebook to the identifiers in this codebase. Read it before you name a new type, a
+new zone, a new field, or a UI label, and add a row to it when you model a game
+concept the code does not model yet.
+
+The file also lists the places where the code uses a word differently from the
+rulebook, such as `pile`, `draw`, `deck` and `reportsto`.
+
 ### Deck Structure
-Decks are organized into three piles:
+Decks are organized into three piles (see `docs/ubiquitous-language.md`):
 - `mission` - Mission cards
 - `dilemma` - Dilemma cards
 - `draw` - All other cards (personnel, ships, events, etc.)
