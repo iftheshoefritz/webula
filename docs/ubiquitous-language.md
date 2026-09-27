@@ -73,10 +73,10 @@ code carries this string in two fields:
 There is no field that holds the title alone. A rule that needs the title alone
 cannot be written from this data.
 
-### Version and variant
+### Version
 
 `*VP`, `*A`, `*AP` and `*VAP` at the end of a name mark a reprint with other art.
-These are not rulebook terms. `stripVariantSuffix` in `src/lib/cardCount.ts` removes
+These are not rulebook terms. `stripVersionSuffix` in `src/lib/cardCount.ts` removes
 the suffix. `getCardCounts` then reports two numbers, and this codebase names them:
 
 - **card** — one game identity, after the suffix is removed.

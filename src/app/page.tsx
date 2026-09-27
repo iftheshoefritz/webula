@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { loadCards } from '../lib/loadCards';
 import { filterCards } from '../lib/filterCards';
-import { getCardCounts, stripVariantSuffix } from '../lib/cardCount';
+import { getCardCounts, stripVersionSuffix } from '../lib/cardCount';
 import CardSearchClient from '../components/CardSearchClient';
 
 // On Vercel preview deployments, NEXT_PUBLIC_BASE_URL (from .env.production) is always
@@ -21,7 +21,7 @@ export async function generateMetadata(
   const query = params.q ?? '';
   const { data, columns } = loadCards();
   const results = query ? filterCards(data, columns, query) : data;
-  const uniqueTitles = [...new Set(results.map((c: any) => stripVariantSuffix(c.originalName)))];
+  const uniqueTitles = [...new Set(results.map((c: any) => stripVersionSuffix(c.originalName)))];
   const uniqueCount = getCardCounts(results).unique;
 
   const title = query

@@ -1,4 +1,4 @@
-// Mapping from lowercased card names (with stripVariantSuffix applied) to
+// Mapping from lowercased card names (with stripVersionSuffix applied) to
 // predicates that determine whether that card's own gametext grants
 // playability aboard a ship elsewhere in the deck, e.g. "You may play this
 // personnel aboard your [TOS] ship."
@@ -11,7 +11,7 @@
 //
 // Card data is lowercased by useDataFetching, so all field comparisons are lowercase.
 
-import { stripVariantSuffix } from './cardCount';
+import { stripVersionSuffix } from './cardCount';
 
 type CardRow = Record<string, any>;
 type DeckPredicate = (card: CardRow, deckRows: CardRow[]) => boolean;
@@ -79,8 +79,8 @@ function hasNamedShip(deckRows: CardRow[], namePrefix: string): boolean {
 const withNamedShip = (namePrefix: string): DeckPredicate => (_card, deckRows) =>
   hasNamedShip(deckRows, namePrefix);
 
-// Keys are lowercased card names with stripVariantSuffix applied (shared
-// across *VP variants since gametext is identical).
+// Keys are lowercased card names with stripVersionSuffix applied (shared
+// across *VP versions since gametext is identical).
 export const DECK_PLAYABILITY: Record<string, DeckPredicate> = {
   // "You may play this personnel aboard your [Rom] ship."
   "telek r'mor astrophysical researcher": aboardShipWithAffiliation('[rom]'),
@@ -162,7 +162,7 @@ export const DECK_PLAYABILITY: Record<string, DeckPredicate> = {
 };
 
 export function deckPlayabilityMatches(card: CardRow, deckRows: CardRow[]): boolean {
-  const baseName = stripVariantSuffix(card.name);
+  const baseName = stripVersionSuffix(card.name);
   const predicate = DECK_PLAYABILITY[baseName];
   return !!predicate && predicate(card, deckRows);
 }
