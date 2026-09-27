@@ -63,7 +63,7 @@ function getShareButton(): HTMLElement {
 }
 
 /** A minimal non-empty deck stored in localStorage so shareDeck doesn't bail early. */
-function seedDeck() {
+function storeDeck() {
   const deck = {
     'test-card-1': {
       count: 1,
@@ -114,7 +114,7 @@ describe('DeckBuilderClient – share link', () => {
 
   it('calls /api/share when share button is clicked', async () => {
     localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
-    seedDeck();
+    storeDeck();
 
     const mockFetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -177,7 +177,7 @@ describe('DeckBuilderClient – share link', () => {
 
   it('shows "Share failed" when /api/share returns an error', async () => {
     localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
-    seedDeck();
+    storeDeck();
 
     const mockFetch = jest.fn().mockResolvedValue({
       ok: false,
@@ -200,7 +200,7 @@ describe('DeckBuilderClient – share link', () => {
   });
 
   it('shows "Deck is empty" and does not call /api/share when deck has no cards', async () => {
-    // No seedDeck() — deck stays empty
+    // No storeDeck() — deck stays empty
     const mockFetch = jest.fn();
     global.fetch = mockFetch;
 
@@ -223,7 +223,7 @@ describe('DeckBuilderClient – share link', () => {
 
   it('shows "Copied!" when /api/share succeeds and clipboard write succeeds', async () => {
     localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
-    seedDeck();
+    storeDeck();
 
     const mockFetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -246,7 +246,7 @@ describe('DeckBuilderClient – share link', () => {
 
   it('uses ClipboardItem with a Promise when available (preserves iOS user gesture)', async () => {
     localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
-    seedDeck();
+    storeDeck();
 
     // Mock ClipboardItem to simulate iOS Safari support
     class MockClipboardItem {
@@ -294,7 +294,7 @@ describe('DeckBuilderClient – share link', () => {
 
   it('does not show "Copied!" when clipboard write fails, but still shows the URL input', async () => {
     localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
-    seedDeck();
+    storeDeck();
 
     // Clipboard API throws (simulates iOS behaviour)
     Object.assign(navigator, {
@@ -378,7 +378,7 @@ describe('DeckBuilderClient – share link', () => {
   });
 
   it('shows warning modal when a non-empty deck exists and ?share= param is in URL', async () => {
-    seedDeck();
+    storeDeck();
 
     const tsvContent = 'Deck:\n1\tEnterprise-D';
     global.fetch = jest.fn().mockResolvedValue({
@@ -403,7 +403,7 @@ describe('DeckBuilderClient – share link', () => {
   });
 
   it('dismisses warning modal without loading deck when "Go back" is clicked', async () => {
-    seedDeck();
+    storeDeck();
 
     const tsvContent = 'Deck:\n1\tEnterprise-D';
     global.fetch = jest.fn().mockResolvedValue({
@@ -434,7 +434,7 @@ describe('DeckBuilderClient – share link', () => {
   });
 
   it('loads shared deck when "I\'m ready" is clicked in the warning modal', async () => {
-    seedDeck();
+    storeDeck();
 
     const tsvContent = 'Deck Title\ttitle\nDeck:\n1\tEnterprise-D';
     global.fetch = jest.fn().mockResolvedValue({
