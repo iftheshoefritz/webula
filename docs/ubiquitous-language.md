@@ -177,6 +177,7 @@ is "open" or "closed", never "stacked".
 | stopped / unstopped | `CardInstance.stopped`, action `setStopped` |
 | face up / face down | `Face`, `ZONE_FACE`, action `flip` |
 | shuffle | action `shuffle`, `shuffleArray` |
+| download (take a chosen card from the deck) | the "Download" button of a `CardListPanel`, callback `onDownload`, handler `downloadSelection` in `page.tsx`: one `move` per selected card from `'drawDeck'` to `'hand'`, or from `'dilemmaPile'` to `'dilemmaHand'` (`DOWNLOAD_HAND`), then `shuffle` of that pile (#827). `DownloadPileButton` opens the panel. The rulebook's download puts the card into play; this action puts it into the hand, and the player plays it from there. |
 | turn | `TableState.turn`, action `nextTurn`, which unstops every personnel |
 | score | `TableState.score`, action `adjustScore`, clamped to `SCORE_MIN`..`SCORE_MAX` |
 
@@ -221,7 +222,8 @@ So the code has no name for these rulebook terms:
 - a mission attempt, mission requirements, facing a dilemma, overcoming a dilemma
 - command and owner, "your" and "an opponent's"
 - combat, engagement, damage, captive
-- present, equipped with, download, response action, prevent, replace, exchange
+- present, equipped with, response action, prevent, replace, exchange
+- download as a card effect that puts a card into play (the practice table models only the part that takes a chosen card from a pile into the hand, see [section 4](#4-the-practice-table))
 - in play and not in play
 
 Do not invent a name for one of these in a component. If you need one, add the
@@ -253,7 +255,7 @@ sections above hold the new name.
 
 | # | The case | Decision |
 |---|---|---|
-| 14 | "Download" is a rulebook word for an effect that takes a card from your deck and puts it into play. The UI uses it for opening the draw deck or the dilemma pile to take any card by hand. | **Deferred to #827.** That issue models the download more completely, so the word is right and only partly modeled today. When #827 lands, section 6 stops listing download as not modeled and section 4 gains a row for it. |
+| 14 | "Download" is a rulebook word for an effect that takes a card from your deck and puts it into play. The UI uses it for opening the draw deck or the dilemma pile to take any card by hand. | **Resolved by #827.** The panel's Download button takes the chosen cards into the hand and shuffles the pile, so section 4 has a row for download and section 6 lists only the into-play part as not modeled. `DownloadPileButton` keeps its name. |
 | 16 | The limit of three copies counts one `collectorsinfo` value. The rulebook limit counts one card title, so two versions of one card let a deck hold six copies. | **Keep, and see "A rule the code does not enforce" below.** #834 blocks a fix, because no field holds the card title alone. |
 
 ### A rule the code does not enforce

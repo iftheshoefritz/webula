@@ -526,7 +526,8 @@ function DownloadIcon() {
 
 // A download trigger for the draw pile or the dilemma pile (#690): opens that pile's own
 // `CardListPanel` so the player can look through every card in it — face up, in its existing order —
-// and drag one straight into hand, without drawing through the rest of the pile. Kept apart from
+// and drag one straight into hand, or select several and press the panel's Download button (#827),
+// without drawing through the rest of the pile. Kept apart from
 // the pile's own tap-to-draw click (`onClick` on the draw-pile button, `DilemmaPileButton`'s two
 // drop/draw halves), rather than layered on top of the pile art, so it never steals a tap meant
 // for drawing, or a drop meant for the dilemma pile's top/bottom halves — the same
