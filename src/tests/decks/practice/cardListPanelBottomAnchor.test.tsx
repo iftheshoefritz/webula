@@ -8,10 +8,10 @@ jest.mock('@dnd-kit/core', () => ({
 }));
 
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render, renderHook } from '@testing-library/react';
 import CardListPanel, { PanelLocation } from '../../../app/decks/practice/CardListPanel';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
-import { panelBottomInset } from '../../../app/decks/practice/panelBottomInset';
+import { panelBottomInset, usePanelBottomInset } from '../../../app/decks/practice/panelBottomInset';
 
 const makeCard = (n: number): CardInstance =>
   ({
@@ -68,5 +68,34 @@ describe('panelBottomInset (#828)', () => {
 
   it('never drops below VIEWER_TOP_INSET', () => {
     expect(panelBottomInset(0, 0)).toBe(8);
+  });
+});
+
+describe('usePanelBottomInset (#828)', () => {
+  // A shrink of the viewport resizes the game layer first. The table above the bottom row shrinks
+  // a render later, with the new scale, and that moves the row up without resizing the row or the
+  // game layer. Only an observer on the table above the row sees that move (#876).
+  it('observes the table above the bottom row, not only the game layer and the row', () => {
+    const observed: Element[] = [];
+    const original = global.ResizeObserver;
+    global.ResizeObserver = jest.fn().mockImplementation(() => ({
+      observe: (el: Element) => observed.push(el),
+      unobserve: () => {},
+      disconnect: () => {},
+    }));
+    try {
+      const gameLayer = document.createElement('div');
+      const table = document.createElement('div');
+      const missions = document.createElement('div');
+      const bottomRow = document.createElement('div');
+      table.append(missions, bottomRow);
+      gameLayer.append(table);
+      renderHook(() => usePanelBottomInset(gameLayer, bottomRow));
+      expect(observed).toContain(gameLayer);
+      expect(observed).toContain(bottomRow);
+      expect(observed).toContain(missions);
+    } finally {
+      global.ResizeObserver = original;
+    }
   });
 });
