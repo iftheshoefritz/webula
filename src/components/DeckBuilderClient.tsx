@@ -36,6 +36,7 @@ import Link from 'next/link';
 import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
+import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import { isEarlyAccessUser } from '../lib/featureFlags';
 import useDriveSync from '../hooks/useDriveSync';
@@ -340,7 +341,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   // previousMobileView tracks where the user came from before entering search
   const [previousMobileView, setPreviousMobileView] = useState<'analysis' | 'deck'>('deck');
   // activePile controls which pile tab is shown in the deck panel
-  const [activePile, setActivePile] = useState<'mission' | 'dilemma' | 'draw'>('draw');
+  const [activePile, setActivePile] = useState<DeckPile>('drawDeck');
   const [deckActionsOpen, setDeckActionsOpen] = useState(false);
   const [mobileTitleEditing, setMobileTitleEditing] = useState(false);
   // missionIndex controls which mission is shown in the mobile carousel
@@ -432,14 +433,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   }, [setCurrentDeck]);
 
   const missionCount = currentDeckRows.filter(r => r.pile === 'mission').reduce((s, r) => s + r.count, 0);
-  const dilemmaCount = currentDeckRows.filter(r => r.pile === 'dilemma').reduce((s, r) => s + r.count, 0);
-  const drawCount = currentDeckRows.filter(r => r.pile === 'draw').reduce((s, r) => s + r.count, 0);
+  const dilemmaCount = currentDeckRows.filter(r => r.pile === 'dilemmaPile').reduce((s, r) => s + r.count, 0);
+  const drawCount = currentDeckRows.filter(r => r.pile === 'drawDeck').reduce((s, r) => s + r.count, 0);
 
   const drawTypeChart = useMemo(() => {
     const countByType = (rows: Array<Record<string, any>>) => {
       const counts: Record<string, number> = {};
       for (const row of rows) {
-        if (row.pile === 'draw') {
+        if (row.pile === 'drawDeck') {
           counts[row.type] = (counts[row.type] ?? 0) + (row.count ?? 0);
         }
       }
@@ -630,8 +631,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                   {isEarlyAccessUser(session?.user?.email) && (
                     <Link
                       href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
-                      className={`flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
-                      aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
+                      className={`flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 ${currentDeckRows.filter((row) => row.pile === 'drawDeck').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
+                      aria-disabled={currentDeckRows.filter((row) => row.pile === 'drawDeck').length === 0}
                     >
                       <FaPlayCircle className="shrink-0" />
                       <span>Practice draw</span>
@@ -714,10 +715,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             {isEarlyAccessUser(session?.user?.email) && (
               <Link
                 href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
-                className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'draw').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
+                className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'drawDeck').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
                 data-tooltip-id="button-tooltip"
                 data-tooltip-content="Practice drawing from your draw pile"
-                aria-disabled={currentDeckRows.filter((row) => row.pile === 'draw').length === 0}
+                aria-disabled={currentDeckRows.filter((row) => row.pile === 'drawDeck').length === 0}
               >
                 <FaPlayCircle />
               </Link>
@@ -751,8 +752,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       <div className="flex shrink-0 border-b border-white/[0.06] mt-2">
         {([
           { key: 'mission', label: 'Missions', count: missionCount },
-          { key: 'dilemma', label: 'Dilemmas', count: dilemmaCount },
-          { key: 'draw',    label: 'Draw',     count: drawCount    },
+          { key: 'dilemmaPile', label: 'Dilemmas', count: dilemmaCount },
+          { key: 'drawDeck',  label: 'Draw',     count: drawCount    },
         ] as const).map(({ key, label, count }) => (
           <button
             key={key}
@@ -773,11 +774,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         <button
           onClick={() => {
             if (activePile === 'mission') searchPile('type:mission');
-            else if (activePile === 'dilemma') searchPile('type:dilemma');
+            else if (activePile === 'dilemmaPile') searchPile('type:dilemma');
             else searchPile('-type:mission -type:dilemma');
           }}
           className="btn-icon text-sm absolute top-1 right-3 z-10"
-          title={`Search ${activePile === 'mission' ? 'Missions' : activePile === 'dilemma' ? 'Dilemmas' : 'Draw pile'}`}
+          title={`Search ${activePile === 'mission' ? 'Missions' : activePile === 'dilemmaPile' ? 'Dilemmas' : 'Draw pile'}`}
         >
           <FaPlus />
         </button>
@@ -792,10 +793,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             collapsed={false}
           />
         )}
-        {activePile === 'dilemma' && (
+        {activePile === 'dilemmaPile' && (
           <DeckListPile
             pileName="Dilemmas"
-            cardsForPile={currentDeckRows.filter((row) => row.pile === 'dilemma')}
+            cardsForPile={currentDeckRows.filter((row) => row.pile === 'dilemmaPile')}
             decrementIncluded={decrementIncluded}
             incrementIncluded={incrementIncluded}
             sortBy={(r1: CardDef, r2: CardDef) =>
@@ -804,10 +805,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             collapsed={false}
           />
         )}
-        {activePile === 'draw' && (
+        {activePile === 'drawDeck' && (
           <DeckListPile
             pileName="Draw"
-            cardsForPile={currentDeckRows.filter((row) => row.pile === 'draw')}
+            cardsForPile={currentDeckRows.filter((row) => row.pile === 'drawDeck')}
             sortBy={(r1: CardDef, r2: CardDef) =>
               r1.type === r2.type ? compare(r1.name, r2.name) : compare(r1.type, r2.type)
             }
@@ -1127,7 +1128,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <PileAggregate
               currentDeckRows={currentDeckRows}
               characteristicName="keywords"
-              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+              filterFunction={(row) => row.pile === 'drawDeck' && row.type === 'personnel'}
               splitFunction={(keywords) =>
                 keywords
                   .split('.')
@@ -1157,7 +1158,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <PileAggregate
               currentDeckRows={currentDeckRows}
               characteristicName="species"
-              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+              filterFunction={(row) => row.pile === 'drawDeck' && row.type === 'personnel'}
               splitFunction={(species) =>
                 species
                   .split('/')
@@ -1187,7 +1188,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <PileAggregate
               currentDeckRows={currentDeckRows}
               characteristicName="affiliation"
-              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+              filterFunction={(row) => row.pile === 'drawDeck' && row.type === 'personnel'}
               splitFunction={(affiliation) => [affiliation]}
               assembleCounts={(counts, affiliation, count) => {
                 counts[affiliation] = (counts[affiliation] || 0) + count;
@@ -1212,7 +1213,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <PileAggregate
               currentDeckRows={currentDeckRows}
               characteristicName="icons"
-              filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+              filterFunction={(row) => row.pile === 'drawDeck' && row.type === 'personnel'}
               splitFunction={(keywords) =>
                 keywords
                   .split(/[\[\]]/)
@@ -1235,11 +1236,11 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <div className="flex flex-col lg:flex-row">
               <div className="w-full lg:w-1/2 lg:flex-row">
                 <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Draw Deck</span>
-                <PileAggregateCostChart decks={costAttributeDecks} filterFunction={(row) => row.pile === 'draw'} />
+                <PileAggregateCostChart decks={costAttributeDecks} filterFunction={(row) => row.pile === 'drawDeck'} />
               </div>
               <div className="w-full lg:w-1/2 lg:flex-row">
                 <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary">Dilemma Pile</span>
-                <PileAggregateCostChart decks={costAttributeDecks} filterFunction={(row) => row.pile === 'dilemma'} />
+                <PileAggregateCostChart decks={costAttributeDecks} filterFunction={(row) => row.pile === 'dilemmaPile'} />
               </div>
             </div>
           </CollapsibleSection>
@@ -1251,7 +1252,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                   <span className="text-xl font-bold mt-4 mb-2 block text-text-secondary capitalize">{attr}</span>
                   <PileAggregateAttributeChart
                     decks={costAttributeDecks}
-                    filterFunction={(row) => row.pile === 'draw' && row.type === 'personnel'}
+                    filterFunction={(row) => row.pile === 'drawDeck' && row.type === 'personnel'}
                     attribute={attr}
                   />
                 </div>
