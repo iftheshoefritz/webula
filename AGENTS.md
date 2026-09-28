@@ -259,7 +259,7 @@ Do not build the drag by hand. Three things make a hand drag fail, and each one 
 
 `npx agent-browser drag '<from>' '<to>'` works for a card that no other card covers and a target that does not move, such as a drag out of a card list panel. It fails silently on a hand card: it reports `Done` and moves nothing.
 
-A ship has two drop targets. A drop on the ship's art, `crew-<the ship's card id>`, places the card on the ship, and the ship shows a counter of the cards on it. A drop on the ship's crew badge, `crew-badge-<the ship's card id>`, boards the card into the crew. The badge shows even when the crew is empty, so it is the only way to board a card by a drag.
+A ship has two drop targets: the ship's art, `crew-<the ship's card id>`, and the ship's crew badge, `crew-badge-<the ship's card id>`. A personnel or an equipment dropped on either one boards the crew (#893). Any other card dropped on the art is placed on the ship, and the ship shows a counter of the cards on it. The badge takes only a personnel or an equipment. The badge shows even when the crew is empty.
 
 A mission card takes a placed card too. Its art has two drop halves (#871), each the full width and half the height of the card: `mission-on-<index>` on top and `mission-under-<index>` below. They differ only for a dilemma: the top half places it on the mission card, and the bottom half puts it under the mission. For every other type both halves do the same thing: a ship goes to the ship row, a personnel or an equipment goes to the away team (#870), and any other card is placed on the mission card. A mission slot with no mission card sends a dilemma under the mission from either half. The mission has no event pile. The counter of the cards on the mission sits outside every `data-zone`, so `practice_drag.sh` prints it under the mission's name. A drop on the away team badge, `mission-pile-awayTeam-<index>`, files the card into the away team. The badge shows even when the away team is empty, so it is the only way to file a card there by a drag.
 
@@ -272,7 +272,7 @@ bash scripts/practice_drag.sh card-10 ship-row-0         # prints crew-card-10
 bash scripts/practice_drag.sh card-1 mission-pile-awayTeam-0  # files the card into the away team
 # open that card list panel, then:
 bash scripts/practice_drag.sh card-1 crew-badge-card-10  # boards card-1, prints crew-badge-card-10
-bash scripts/practice_drag.sh card-2 crew-card-10        # places card-2 on the ship, prints crew-card-10
+bash scripts/practice_drag.sh card-2 crew-card-10        # boards a personnel, places an event on the ship; prints crew-card-10
 ```
 
 A tap on the ship opens its crew panel. A tap on the counter of the cards on the ship opens those cards in their own panel.
