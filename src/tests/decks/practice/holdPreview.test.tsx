@@ -404,6 +404,48 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     release();
   });
 
+  describe('the preview takes the side away from the press point (#879)', () => {
+    // jsdom's viewport is 1024 px wide, so the middle is at 512.
+    const holdAt = (element: Element, clientX: number) => {
+      fireEvent.pointerDown(element, { button: 0, clientX, clientY: 100 });
+      act(() => {
+        jest.advanceTimersByTime(HOLD_DELAY_MS);
+      });
+    };
+
+    it('a press on the left half keeps the preview on the right edge', async () => {
+      await setupOpenHand([mockEquipmentCard]);
+      holdAt(screen.getByRole('button', { name: 'tricorder' }), 100);
+      const image = preview('tricorder');
+      expect(image).toHaveClass('right-4');
+      expect(image).not.toHaveClass('left-4');
+      release();
+    });
+
+    it('a press on the right half puts the preview on the left edge', async () => {
+      await setupOpenHand([mockEquipmentCard]);
+      holdAt(screen.getByRole('button', { name: 'tricorder' }), 900);
+      const image = preview('tricorder');
+      expect(image).toHaveClass('left-4');
+      expect(image).not.toHaveClass('right-4');
+      release();
+    });
+
+    it('a mouse hover on the right half puts the preview on the left edge', async () => {
+      await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
+      fireEvent.pointerEnter(screen.getByRole('button', { name: 'first contact' }), {
+        pointerType: 'mouse',
+        buttons: 0,
+        clientX: 900,
+        clientY: 100,
+      });
+      act(() => {
+        jest.advanceTimersByTime(HOVER_DELAY_MS);
+      });
+      expect(preview('first contact')).toHaveClass('left-4');
+    });
+  });
+
   describe('a mouse hover (#766)', () => {
     const enter = (element: Element, init: PointerEventInit = {}) =>
       fireEvent.pointerEnter(element, { pointerType: 'mouse', buttons: 0, ...init });
