@@ -26,7 +26,7 @@ describe('CardListPanel: one row of controls (#880)', () => {
         onDownload={() => {}}
       />
     );
-    const row = screen.getByTestId('card-list-panel-controls');
+    const row = screen.getByTestId('panel-controls');
     const download = within(row).getByRole('button', { name: 'Download' });
     const shuffle = within(row).getByRole('button', { name: 'Shuffle' });
     expect(download.parentElement).toBe(row);
@@ -50,7 +50,7 @@ describe('CardListPanel: one row of controls (#880)', () => {
         onFlip={() => {}}
       />
     );
-    const row = screen.getByTestId('card-list-panel-controls');
+    const row = screen.getByTestId('panel-controls');
     expect(within(row).getByRole('button', { name: 'Flip' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Shuffle' })).toBeNull();
   });
@@ -59,12 +59,12 @@ describe('CardListPanel: one row of controls (#880)', () => {
     render(
       <CardListPanel location="core" cards={cards} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} onShuffle={() => {}} />
     );
-    const row = screen.getByTestId('card-list-panel-controls');
+    const row = screen.getByTestId('panel-controls');
     expect(within(row).getAllByRole('button').map((b) => b.textContent)).toEqual(['Shuffle']);
   });
 
   it('shows no row when the panel has no control', () => {
     render(<CardListPanel location="core" cards={cards} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />);
-    expect(screen.queryByTestId('card-list-panel-controls')).toBeNull();
+    expect(screen.queryByTestId('panel-controls')).toBeNull();
   });
 });

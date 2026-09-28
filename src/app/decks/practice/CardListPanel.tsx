@@ -449,7 +449,7 @@ export default function CardListPanel({
       >
       <div className={layoutClassName}>
         {(showDownloadButton || showStopButton || showFlipButton || showDiscardButton || onShuffle) && (
-          <div data-testid="card-list-panel-controls" className="shrink-0 flex flex-row items-center gap-2">
+          <div data-testid="panel-controls" className="shrink-0 flex flex-row items-center gap-2">
             {/* The Download button (#827) shows whenever the panel is given `onDownload`, first in
                 the row, and stays disabled until a card is selected. */}
             {showDownloadButton && (
