@@ -863,13 +863,53 @@ describe('tableReducer', () => {
       expect(state.missions[0].ships[0].crew).toEqual([staying, { ...changed, stopped: true }]);
     });
 
-    it('keeps the flag through a later move (a move only ever changes `face`)', () => {
-      const personnelCard = instance('p0', card('Data'), 'up');
-      const start = { ...initialTableState, hand: [personnelCard] };
-      const stopped = tableReducer(start, { type: 'setStopped', ids: ['p0'], stopped: true });
-      const moved = tableReducer(stopped, { type: 'move', id: 'p0', to: 'discard' });
+    it('keeps the flag through a move between two places on the table (#903)', () => {
+      const personnelCard = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const start = { ...initialTableState, core: [personnelCard] };
+      const moved = tableReducer(start, { type: 'move', id: 'p0', to: 'brig' });
 
-      expect(moved.discard).toEqual([{ ...personnelCard, stopped: true, face: 'up' }]);
+      expect(moved.brig).toEqual([{ ...personnelCard, stopped: true, face: 'up' }]);
+    });
+
+    it.each(['discard', 'hand', 'dilemmaHand', 'drawDeck', 'dilemmaPile'] as const)(
+      'clears the flag on a card that moves off the table, into the %s (#903)',
+      (to) => {
+        const personnelCard = { ...instance('p0', card('Data'), 'up'), stopped: true };
+        const start = { ...initialTableState, core: [personnelCard] };
+        const moved = tableReducer(start, { type: 'move', id: 'p0', to });
+
+        expect(moved[to]).toHaveLength(1);
+        expect(moved[to][0].stopped).toBeFalsy();
+      }
+    );
+
+    it('leaves a card unstopped when it is played again from the hand (#903)', () => {
+      const personnelCard = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const start = { ...initialTableState, core: [personnelCard] };
+      const inHand = tableReducer(start, { type: 'move', id: 'p0', to: 'hand' });
+      const played = tableReducer(inHand, { type: 'move', id: 'p0', to: 'core' });
+
+      expect(played.core[0].stopped).toBeFalsy();
+    });
+
+    it('clears the flag on the crew a ship releases off the table (#903)', () => {
+      const crewMember = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const ship = { ...instance('s0', card('Enterprise'), 'up'), crew: [crewMember] };
+      const start = { ...initialTableState, missions: missionSlots([], { 0: [ship] }) };
+      const moved = tableReducer(start, { type: 'move', id: 's0', to: 'discard' });
+
+      expect(moved.discard.map((c) => c.id)).toEqual(['s0', 'p0']);
+      expect(moved.discard[1].stopped).toBeFalsy();
+    });
+
+    it('clears the flag on a placed card that goes to the discard with its stack (#903)', () => {
+      const placed = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const host = { ...instance('e0', card('Event'), 'up'), placedOn: [placed] };
+      const start = { ...initialTableState, core: [host] };
+      const moved = tableReducer(start, { type: 'move', id: 'e0', to: 'brig' });
+
+      expect(moved.discard.map((c) => c.id)).toEqual(['p0']);
+      expect(moved.discard[0].stopped).toBeFalsy();
     });
 
     it('is a no-op for an id that is not on the table', () => {
