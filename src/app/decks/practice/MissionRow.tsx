@@ -48,7 +48,8 @@
 // ship row (#602) files it into one of that mission's piles, chosen by card type: personnel and
 // equipment go to the away team face down; event, mission, and interrupt go to the event
 // pile face up. A dilemma dropped on a mission, from anywhere, goes under the mission instead
-// (#606, #733), face up, permanently. Each non-empty away team/event pile shows a small badge on
+// (#606, #733), face up, permanently, unless it lands on the top half of the mission card, which
+// places it on the mission card (#871, `missionHalfDropId`). Each non-empty away team/event pile shows a small badge on
 // the badge strip, below (and as a sibling of, not nested inside) the mission card's own
 // `<button>` — nesting a badge button inside it would be invalid HTML and would let the mission's
 // own tap handler fire first, the same conflict already avoided for the ship's own drop target. A

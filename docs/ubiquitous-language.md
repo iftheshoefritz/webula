@@ -166,8 +166,8 @@ is "open" or "closed", never "stacked".
 | a ship in line with a mission | `ShipRowLocation`, `zone: 'shipRow'` | Addressed by mission index. See [section 7](#7-names-kept-and-why). |
 | aboard a ship | `CrewLocation`, `zone: 'crew'`, `CardInstance.crew` | Addressed by the ship's own id, so a ship move keeps its crew. |
 | away team (personnel at a planet mission) | `MissionPileLocation`, pile `'awayTeam'`, `MissionSlot.awayTeam` | The pair of `crew`, the personnel aboard a ship. The drop target id is `mission-pile-awayTeam-<index>` and the label is "Away team". **The code uses the one name at every mission type**, so it reads wrong at a headquarters mission and at a space mission, where the rulebook has no away team. The owner accepts this: the pile is the same place at every mission, and one name is clearer than three. |
-| overcome dilemmas beneath the mission | `MissionPileLocation`, pile `'underMission'` | The UI label is "Under the mission". |
-| play and place (a card placed on another card) | `PlacedOnLocation`, `CardInstance.placedOn`, `findPlacedOnTarget`, `placedOnTargets`, `targetId` | The code held the noun "host" for the card underneath. "Host" is not a rulebook word, so #840 removed it: every comment and label says "the card it is placed on", and no new noun took its place. The stack is one level deep. |
+| overcome dilemmas beneath the mission | `MissionPileLocation`, pile `'underMission'` | The UI label is "Under the mission". On the table, a drop on the bottom half of the mission card, `mission-under-<index>` (#871), puts a dilemma here. |
+| play and place (a card placed on another card) | `PlacedOnLocation`, `CardInstance.placedOn`, `findPlacedOnTarget`, `placedOnTargets`, `targetId` | The code held the noun "host" for the card underneath. "Host" is not a rulebook word, so #840 removed it: every comment and label says "the card it is placed on", and no new noun took its place. The stack is one level deep. On the table, a drop on the top half of the mission card, `mission-on-<index>` (#871), places a dilemma on the mission. |
 
 ### Card state
 
