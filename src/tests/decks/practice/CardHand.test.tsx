@@ -22,11 +22,13 @@ function Harness({
   initialOpen = false,
   dragging = false,
   portalContainer,
+  bottomInset,
 }: {
   instances: CardInstance[];
   initialOpen?: boolean;
   dragging?: boolean;
   portalContainer?: HTMLElement | null;
+  bottomInset?: number;
 }) {
   const [open, setOpen] = React.useState(initialOpen);
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
@@ -37,6 +39,7 @@ function Harness({
         open={open}
         dragging={dragging}
         portalContainer={portalContainer}
+        bottomInset={bottomInset}
         onOpen={() => setOpen(true)}
         onClose={() => {
           setOpen(false);
@@ -60,15 +63,22 @@ describe('CardHand', () => {
     expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
   });
 
-  // The fan used to sit 16 px above the bottom of the screen, where it covered the draw deck and
-  // the dilemma pile — the taps the player needs to draw a card into the open hand. It now starts
-  // at the top, level with a card list panel's own box (`VIEWER_TOP_INSET`).
-  it('puts the open fan at the top of the screen, level with a card list panel (#806)', () => {
+  // The fan used to sit at the top of the screen (#806), where it covered the mission rows. It
+  // now anchors its bottom edge at the inset a card list panel takes (#895, #828), just above the
+  // bottom row, and grows upward.
+  it('anchors the open fan at the bottom inset it is given, not at the top (#895)', () => {
+    render(<Harness instances={makeInstances(3)} initialOpen bottomInset={210} />);
+
+    const fan = document.body.querySelector('[data-zone="hand"]') as HTMLElement;
+    expect(fan.style.bottom).toBe('210px');
+    expect(fan.style.top).toBe('');
+  });
+
+  it('defaults the bottom inset to a card list panel\'s default (#895)', () => {
     render(<Harness instances={makeInstances(3)} initialOpen />);
 
     const fan = document.body.querySelector('[data-zone="hand"]') as HTMLElement;
-    expect(fan.style.top).toBe(`${VIEWER_TOP_INSET}px`);
-    expect(fan.style.bottom).toBe('');
+    expect(fan.style.bottom).toBe(`${VIEWER_TOP_INSET}px`);
   });
 
   it('closes on a tap outside the open fan', () => {
