@@ -39,8 +39,8 @@
 // selected card can pick up the whole selection in `handleDragStart`. A tap on the card itself
 // toggles it the same way; the checkbox stays as a second, smaller way to do it.
 //
-// A Shuffle button (#680) sits in every panel, as the first item in the box, next to the cards
-// rather than on the backdrop — a tap on the backdrop still just closes the panel. `onShuffle`
+// A Shuffle button (#680) sits in every panel but the discard pile's, last in the row of
+// controls above the cards (#880), rather than on the backdrop — a tap on the backdrop still just closes the panel. `onShuffle`
 // dispatches the `shuffle` table action for whichever zone this panel is currently open for
 // (`page.tsx` picks the right `location` per call site); the reducer puts that zone's cards in a
 // random order in the table state itself, so the panel, the table, and the next time the panel
@@ -448,8 +448,8 @@ export default function CardListPanel({
         }}
       >
       <div className={layoutClassName}>
-        {(showDownloadButton || showStopButton || showFlipButton || showDiscardButton) && (
-          <div className="shrink-0 flex flex-row items-center gap-2">
+        {(showDownloadButton || showStopButton || showFlipButton || showDiscardButton || onShuffle) && (
+          <div data-testid="card-list-panel-controls" className="shrink-0 flex flex-row items-center gap-2">
             {/* The Download button (#827) shows whenever the panel is given `onDownload`, first in
                 the row, and stays disabled until a card is selected. */}
             {showDownloadButton && (
@@ -477,21 +477,22 @@ export default function CardListPanel({
                 Discard
               </button>
             )}
+            {/* The Shuffle button (#680) sits inside the panel, next to the cards, not on the
+                backdrop — a tap on the backdrop still closes the panel, and a tap here does not.
+                It shares this row with the other controls (#880), so the row takes the height of
+                one line from the card grid. It keeps its own small, quiet look: it acts on the
+                whole pile, not on the selection. */}
+            {onShuffle && (
+              <button
+                type="button"
+                onClick={onShuffle}
+                className="shrink-0 flex items-center justify-center gap-1 rounded-md bg-white/[0.05] border border-white/10 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors duration-150"
+              >
+                <ShuffleIcon />
+                Shuffle
+              </button>
+            )}
           </div>
-        )}
-        {/* The Shuffle button (#680) sits inside the panel, next to the cards, not on the
-            backdrop — a tap on the backdrop still closes the panel, and a tap here does not.
-            It is a sibling of the card grid, the same place the "Stop"/"Unstop" button (#681)
-            sits, so both panel controls stack above the cards. */}
-        {onShuffle && (
-          <button
-            type="button"
-            onClick={onShuffle}
-            className="shrink-0 flex items-center justify-center gap-1 rounded-md bg-white/[0.05] border border-white/10 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors duration-150"
-          >
-            <ShuffleIcon />
-            Shuffle
-          </button>
         )}
         {ship && <PanelShip ship={ship} cardWidth={cardWidth} cardHeight={cardHeight} />}
         {/* Issue #861: the grid is a selector for the tests and for the scripts, not a drop
