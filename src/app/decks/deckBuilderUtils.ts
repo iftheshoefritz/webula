@@ -68,6 +68,19 @@ export const extractDrawDeck = (deck: DeckList): any[] => expandPile(deck, 'draw
 // page, #597).
 export const extractMissions = (deck: DeckList): any[] => expandPile(deck, 'mission')
 
+// Fills in `backimagefile` (#765) on card rows saved before the loaders kept it, from the freshly
+// loaded card data. A row is matched by its front `imagefile`, which both rows of a double-sided
+// mission share with their back. A row that already has the field, or has no match, is unchanged.
+export const withBackImageFiles = (rows: any[], data: any[]): any[] => {
+  const backs = new Map<string, string>();
+  data.forEach((row) => {
+    if (row.backimagefile) backs.set(row.imagefile, row.backimagefile);
+  });
+  return rows.map((row) =>
+    row.backimagefile === undefined ? { ...row, backimagefile: backs.get(row.imagefile) ?? '' } : row
+  );
+}
+
 // The dilemmas of the deck, one entry per copy (#604). Unlike a mission, a deck holds several
 // copies of one dilemma, and `expandPile` already repeats an entry `count` times. The caller
 // shuffles this list, because the dilemma pile starts shuffled like the draw pile.

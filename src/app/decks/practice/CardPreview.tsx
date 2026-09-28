@@ -10,7 +10,7 @@
 // hides it for the duration of a drag.
 
 import { CardInstance } from './tableReducer';
-import { STOPPED_IMAGE_CLASSNAME } from './TableCard';
+import { STOPPED_IMAGE_CLASSNAME, faceUpImageSrc } from './TableCard';
 
 // The "Face down" badge, shared with the card list panel's mark on a face-down card (#826).
 export const FACE_DOWN_LABEL = 'Face down';
@@ -33,7 +33,7 @@ export default function CardPreview({
     >
       <img
         data-testid="card-preview-enlarged"
-        src={`/cardimages/${card.imagefile}.jpg`}
+        src={faceUpImageSrc(instance)}
         alt={card.name}
         className={`absolute right-4 top-1/2 -translate-y-1/2 h-[90%] w-auto rounded-lg shadow-2xl ${
           instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''

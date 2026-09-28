@@ -14,7 +14,15 @@ import {
 } from '@dnd-kit/core';
 import { collisionDetection } from './collisionDetection';
 import { FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
-import { deckFromTsv, extractDrawDeck, extractDilemmas, extractMissions, isDeckEmpty, shuffleArray } from '../deckBuilderUtils';
+import {
+  deckFromTsv,
+  extractDrawDeck,
+  extractDilemmas,
+  extractMissions,
+  isDeckEmpty,
+  shuffleArray,
+  withBackImageFiles,
+} from '../deckBuilderUtils';
 import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
@@ -1062,7 +1070,8 @@ function PracticeDrawContent() {
       cards: createCardInstances(
         fixturePiles ? [...cards, ...cards.filter((c: any) => c.type === 'personnel')] : shuffleArray(cards)
       ),
-      missions: createCardInstances(extractMissions(deck), 'up'),
+      // A deck saved before #765 has no `backimagefile` on its missions, so it comes from `data`.
+      missions: createCardInstances(withBackImageFiles(extractMissions(deck), data), 'up'),
       dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
     });
     setDeckEmpty(isDeckEmpty(deck));
@@ -1723,6 +1732,7 @@ function PracticeDrawContent() {
                   onShipClick={handleShipClick}
                   onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
                   onOpenPlacedOn={openOnlyPlacedOnPanel}
+                  onFlipMission={(id) => dispatch({ type: 'flipMission', id })}
                   scale={scale}
                 />
                 <DilemmaStackPile

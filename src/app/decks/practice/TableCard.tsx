@@ -41,6 +41,15 @@ export const TABLE_CARD_ART_HEIGHT = 64; // px
 // regardless of which image it renders.
 export const STOPPED_IMAGE_CLASSNAME = 'grayscale opacity-50';
 
+// The image of a card's face-up side (#765): the back face of a flipped double-sided mission, or
+// the front of every other card. This is never `cardback.jpg`; a caller that shows a face-down
+// card as face down checks `face` itself.
+export function faceUpImageSrc(instance: CardInstance): string {
+  const { card } = instance;
+  const imagefile = instance.flipped && card.backimagefile ? card.backimagefile : card.imagefile;
+  return `/cardimages/${imagefile}.jpg`;
+}
+
 export default function TableCard({
   instance,
   onClick,
@@ -86,7 +95,7 @@ export default function TableCard({
       <div className="relative w-full" style={{ height: artHeight }}>
         <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
           <img
-            src={isFaceDown ? '/cardimages/cardback.jpg' : `/cardimages/${card.imagefile}.jpg`}
+            src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
             alt={isFaceDown ? 'Face-down card' : card.name}
             className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
             style={NO_CALLOUT_STYLE}
