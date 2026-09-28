@@ -78,6 +78,8 @@ describe('the Decklist item of the game menu (#779)', () => {
     openDecklist();
 
     const panel = screen.getByRole('dialog', { name: 'Decklist' });
+    // No heading above the pile headings (#898); the dialog keeps its name through aria-label.
+    expect(within(panel).queryByRole('heading', { name: 'Decklist' })).not.toBeInTheDocument();
     const mission = within(panel).getByTestId('decklist-mission');
     const dilemma = within(panel).getByTestId('decklist-dilemmaPile');
     const draw = within(panel).getByTestId('decklist-drawDeck');

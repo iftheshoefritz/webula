@@ -37,7 +37,6 @@ export default function DecklistPanel({ deck, onClose }: { deck: DeckList; onClo
         aria-label="Decklist"
         className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} max-h-[85vh] w-[min(24rem,90vw)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
       >
-        <h2 className="mb-2 text-sm font-display font-medium text-text-primary">Decklist</h2>
         {PILES.map(({ pile, title }) => {
           const entries = byPile[pile];
           const total = entries.reduce((sum, e) => sum + e.count, 0);
