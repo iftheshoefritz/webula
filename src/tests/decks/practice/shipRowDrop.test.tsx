@@ -238,7 +238,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'ship-row-0' } });
     });
 
-    expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
+    expect(document.body.querySelector(`[data-zone="hand"] [data-card-id="${draggedId}"]`)).not.toBeNull();
     expect(screen.queryByRole('button', { name: /Away team, 1 card/i })).toBeNull();
   });
 
@@ -396,7 +396,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
 
       await drop(draggedId, 'ship-row-0');
 
-      expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
+      expect(document.body.querySelector(`[data-zone="hand"] [data-card-id="${draggedId}"]`)).not.toBeNull();
       expect(screen.queryByRole('button', { name: /Away team, 1 card/i })).toBeNull();
       expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
       expect(screen.queryByRole('button', { name: /^under the mission pile, 1 card/i })).toBeNull();
