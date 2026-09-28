@@ -57,7 +57,7 @@ import MissionRow, {
 } from './MissionRow';
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
-import { CardHoldProvider, swallowClickOf } from './useCardHold';
+import { CardHoldProvider, PreviewSide, swallowClickOf } from './useCardHold';
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { ShuffleIcon } from './CardListPanel';
@@ -954,6 +954,9 @@ function PracticeDrawContent() {
   // the release of a mouse hold on a hovered card leaves the preview up until the pointer leaves.
   // The preview shows the held card first, and the hovered card otherwise.
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
+  // The edge each preview takes, away from the press or hover point (#879).
+  const [heldSide, setHeldSide] = useState<PreviewSide>('right');
+  const [hoveredSide, setHoveredSide] = useState<PreviewSide>('right');
   // Read by `startHover`, which is memoized: a hover never starts during a drag.
   const draggingRef = useRef(false);
   // The press point and the pressed card's rectangle, recorded at drag start (#774). Read only by
@@ -970,10 +973,15 @@ function PracticeDrawContent() {
   }, []);
   const cardHold = useMemo(
     () => ({
-      startHold: (id: string) => setHeldCardId(id),
+      startHold: (id: string, side: PreviewSide) => {
+        setHeldCardId(id);
+        setHeldSide(side);
+      },
       endHold: () => setHeldCardId(null),
-      startHover: (id: string) => {
-        if (!draggingRef.current) setHoveredCardId(id);
+      startHover: (id: string, side: PreviewSide) => {
+        if (draggingRef.current) return;
+        setHoveredCardId(id);
+        setHoveredSide(side);
       },
       endHover: (id: string) => setHoveredCardId((current) => (current === id ? null : current)),
     }),
@@ -1947,7 +1955,13 @@ function PracticeDrawContent() {
 
               {/* The large card preview, shown only while a card is held (`useCardHold`). It is
                   read-only and takes no pointer events. `hidden` hides it during a drag. */}
-              {held && <CardPreview instance={held.instance} hidden={draggingInstance !== null} />}
+              {held && (
+                <CardPreview
+                  instance={held.instance}
+                  hidden={draggingInstance !== null}
+                  side={heldCardId ? heldSide : hoveredSide}
+                />
+              )}
 
               {/* A mission's personnel or event card list panel (#602), opened by tapping its badge.
                   `selectedIds`/`onToggleSelect` let the player select more than one card here and

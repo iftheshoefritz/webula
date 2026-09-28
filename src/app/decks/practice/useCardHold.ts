@@ -47,10 +47,18 @@ export const HOVER_DELAY_MS = 300;
 // point where the drag starts cannot drift apart.
 export const DRAG_ACTIVATION_DISTANCE = 8; // px
 
+// The side of the screen the preview takes: the one away from the press point (#879), so a
+// thumb on a card of the right half does not cover the preview it asked for.
+export type PreviewSide = 'left' | 'right';
+
+export function previewSideFor(clientX: number): PreviewSide {
+  return clientX > window.innerWidth / 2 ? 'left' : 'right';
+}
+
 export type CardHoldCallbacks = {
-  startHold: (id: string) => void;
+  startHold: (id: string, side: PreviewSide) => void;
   endHold: () => void;
-  startHover: (id: string) => void;
+  startHover: (id: string, side: PreviewSide) => void;
   // Ends the hover only if it is on this card.
   endHover: (id: string) => void;
 };
@@ -190,7 +198,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     const timer = window.setTimeout(() => {
       fired = true;
       swallowClickRef.current = true;
-      callbacksRef.current?.startHold(id);
+      callbacksRef.current?.startHold(id, previewSideFor(originX));
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
         navigator.vibrate(10);
       }
@@ -239,10 +247,11 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     if (event.pointerType !== 'mouse' || event.buttons !== 0) return;
     if (!callbacksRef.current) return;
     cancelHoverTimer();
+    const side = previewSideFor(event.clientX);
     hoverTimerRef.current = window.setTimeout(() => {
       hoverTimerRef.current = null;
       hoveredRef.current = true;
-      callbacksRef.current?.startHover(idRef.current);
+      callbacksRef.current?.startHover(idRef.current, side);
     }, HOVER_DELAY_MS);
   };
 
