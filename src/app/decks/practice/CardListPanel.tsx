@@ -447,7 +447,7 @@ export default function CardListPanel({
   const selectedInPanel = cards.filter((instance) => selectedIds.includes(instance.id));
   const showFlipButton = onFlip !== undefined && selectedInPanel.length > 0;
   const handleFlipTap = () => onFlip?.(selectedInPanel.map((instance) => instance.id));
-  const showDiscardButton = onDiscard !== undefined && selectedInPanel.length > 0;
+  const showDiscardButton = onDiscard !== undefined;
   const handleDiscardTap = () => onDiscard?.(selectedInPanel.map((instance) => instance.id));
   const showDownloadButton = onDownload !== undefined;
   const handleDownloadTap = () => onDownload?.(selectedInPanel.map((instance) => instance.id));
@@ -530,7 +530,7 @@ export default function CardListPanel({
         {(showDownloadButton || showStopButton || showFlipButton || showDiscardButton || onShuffle) && (
           <div data-testid="panel-controls" className="shrink-0 flex flex-row items-start gap-2">
             {/* The Download button (#827) shows whenever the panel is given `onDownload`, first in
-                the row, and stays disabled until a card is selected. */}
+                the row, and stays disabled until a card is selected. The Discard button does the same (#902). */}
             {showDownloadButton && (
               <button
                 type="button"
@@ -552,7 +552,12 @@ export default function CardListPanel({
               </button>
             )}
             {showDiscardButton && (
-              <button type="button" onClick={handleDiscardTap} className="btn-primary">
+              <button
+                type="button"
+                onClick={handleDiscardTap}
+                disabled={selectedInPanel.length === 0}
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 Discard
               </button>
             )}

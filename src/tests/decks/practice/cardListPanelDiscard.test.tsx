@@ -166,9 +166,20 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
 
   const discardCount = () => screen.getByAltText('Discard pile').parentElement!.textContent;
 
-  it('shows no Discard button without a selection', async () => {
+  // #902: the button shows without a selection too, disabled, like the Download button, and a
+  // press on it moves nothing.
+  it('shows a disabled Discard button without a selection, and a press on it does nothing', async () => {
     await openPersonnelPile();
-    expect(screen.queryByRole('button', { name: /^discard$/i })).not.toBeInTheDocument();
+    const button = screen.getByRole('button', { name: /^discard$/i });
+    expect(button).toBeDisabled();
+
+    await act(async () => {
+      fireEvent.click(button);
+    });
+
+    const panel = document.body.querySelector('[data-testid="card-list-panel-awayTeam"]') as HTMLElement;
+    expect(within(panel).getByRole('button', { name: 'personnel 1' })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'personnel 2' })).toBeInTheDocument();
   });
 
   it('discards one selected card, keeps the panel open, and clears the selection', async () => {
@@ -181,7 +192,7 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
     const panel = document.body.querySelector('[data-testid="card-list-panel-awayTeam"]') as HTMLElement;
     expect(within(panel).queryByRole('button', { name: 'personnel 1' })).not.toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'Select personnel 2' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByRole('button', { name: /^discard$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^discard$/i })).toBeDisabled();
     expect(discardCount()).toContain('1');
     expect(screen.getByAltText('Discard pile')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
   });
@@ -212,5 +223,29 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
 
     expect(document.body.querySelector('[data-testid="card-list-panel-discard"]')).not.toBeNull();
     expect(screen.queryByRole('button', { name: /^discard$/i })).not.toBeInTheDocument();
+  });
+
+  // #902: a card in a deck pile is never stopped, so the draw deck's panel has no Stop button,
+  // with a personnel selected or without. Its Discard button shows, disabled until a selection.
+  it('shows no Stop button in the panel of the draw deck', async () => {
+    await renderWithDeck(Array.from({ length: 10 }, (_, i) => makePersonnel(i + 1)));
+    await click('Download from the draw deck');
+
+    const panel = document.body.querySelector('[data-testid="card-list-panel-drawDeck"]') as HTMLElement;
+    expect(panel).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /^(un)?stop$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^discard$/i })).toBeDisabled();
+
+    const firstName = panel.querySelector('img')!.getAttribute('alt')!;
+    await click(`Select ${firstName}`);
+
+    expect(screen.queryByRole('button', { name: /^(un)?stop$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^discard$/i })).toBeEnabled();
+  });
+
+  it('still shows the Stop button in the panel of the away team', async () => {
+    await openPersonnelPile();
+    await click('Select personnel 1');
+    expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
   });
 });
