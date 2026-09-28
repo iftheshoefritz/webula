@@ -13,7 +13,7 @@
 // | Game menu button, menu open            | `z-[170]` | `practice/page.tsx`    |
 // | Modal backdrop (decklist, Drive picker)| `z-[180]` | `DecklistPanel.tsx`, `DrivePickerModal.tsx` |
 // | Modal dialog (decklist, Drive move)    | `z-[190]` | `DecklistPanel.tsx`, `DrivePickerModal.tsx` |
-// | Card preview                           | `z-[200]` | `CardPreview.tsx`      |
+// | Card preview (table, decklist image)   | `z-[200]` | `CardPreview.tsx`, `DecklistPanel.tsx` |
 //
 // Every pile count badge shares one stacking context with the table's overlays, so each overlay
 // that must hide the badges sits above `z-[140]`. The game menu closes before it opens a modal, so
