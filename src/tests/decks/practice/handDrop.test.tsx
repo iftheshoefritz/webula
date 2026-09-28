@@ -157,7 +157,7 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'mission-under-0' } });
     });
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
 
@@ -211,7 +211,7 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
       mockOnDragStart!({ active: { id: firstId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-under-0' } });
     });
     // #740: the dilemma hand stays open after the drag, so its closed row is hidden. A hidden
     // element has no accessible name, so read its `aria-label` straight off the DOM.

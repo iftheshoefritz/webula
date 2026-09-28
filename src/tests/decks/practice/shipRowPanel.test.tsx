@@ -335,7 +335,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
       mockOnDragStart!({ active: { id: fourthId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: fourthId }, over: { id: 'mission-4' } });
+      mockOnDragEnd!({ active: { id: fourthId }, over: { id: 'mission-under-4' } });
     });
 
     const shipRow = document.body.querySelector('[data-zone="ship-row-4"]') as HTMLElement;

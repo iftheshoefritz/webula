@@ -154,7 +154,7 @@ describe('Practice draw: only one card list panel is ever open at a time (#711)'
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'mission-under-0' } });
     });
 
     // Drag the event card into the core (a drag closes the hand, so reopen it first).

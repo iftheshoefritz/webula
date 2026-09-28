@@ -149,7 +149,7 @@ describe('MissionRow', () => {
       />
     );
 
-    const missionZone = document.body.querySelector('[data-zone="mission-0"]')!;
+    const missionZone = document.body.querySelector('[data-zone="mission-under-0"]')!;
     const badge = screen.getByRole('button', { name: /Away team, 1 card/i });
     expect(missionZone.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(missionZone.contains(badge)).toBe(false);

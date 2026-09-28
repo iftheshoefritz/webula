@@ -334,7 +334,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
   it('a press that closes a stuck hold preview does not act on the table (#776)', async () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
-    drag(shipId, 'mission-2');
+    drag(shipId, 'mission-under-2');
     drag(personnelId, `crew-badge-${shipId}`);
     const ship = screen.getByRole('button', { name: 'u.s.s. relativity' });
     // A hold whose release the page never sees.
@@ -355,7 +355,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
   it('a hold on a ship shows its preview only, without its crew panel; a hold on a crew card keeps the panel open', async () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
-    drag(shipId, 'mission-2');
+    drag(shipId, 'mission-under-2');
     drag(personnelId, `crew-badge-${shipId}`);
 
     const ship = screen.getByRole('button', { name: 'u.s.s. relativity' });
@@ -383,7 +383,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
   it("a hold on the ship in its crew panel shows the ship's preview and keeps the panel open (#832)", async () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
-    drag(shipId, 'mission-2');
+    drag(shipId, 'mission-under-2');
     drag(personnelId, `crew-badge-${shipId}`);
     tap(screen.getByRole('button', { name: 'u.s.s. relativity' }));
 

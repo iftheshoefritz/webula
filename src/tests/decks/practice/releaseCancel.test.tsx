@@ -229,7 +229,7 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     // The mission card is draggable too, so find the event by its name.
     const id = screen.getByRole('button', { name: 'distress call' }).closest('[data-card-id]')!.getAttribute('data-card-id')!;
 
-    await drag(id, { x: 0, y: -30 }, 'mission-0', VIEWER_CARD_RECT);
+    await drag(id, { x: 0, y: -30 }, 'mission-under-0', VIEWER_CARD_RECT);
 
     // #813 places an event dropped on a mission card on that card.
     expect(screen.getByRole('button', { name: /^first contact, 1 card on it$/i })).toBeInTheDocument();

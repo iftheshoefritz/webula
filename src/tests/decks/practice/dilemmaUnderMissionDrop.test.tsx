@@ -155,7 +155,7 @@ describe('Practice table: a dilemma dropped on a mission goes under it (#606, #7
       mockOnDragStart!({ active: { id: firstId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-under-0' } });
     });
 
     // No mission column has a dilemma pile or its badge any more (#733).
@@ -172,14 +172,14 @@ describe('Practice table: a dilemma dropped on a mission goes under it (#606, #7
       mockOnDragStart!({ active: { id: firstId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-under-0' } });
     });
 
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-1' } });
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-under-1' } });
     });
 
     // One under-the-mission pile of 1 card, now at mission-1 rather than mission-0.
@@ -206,7 +206,7 @@ describe('Practice table: a dilemma dropped on a mission goes under it (#606, #7
       mockOnDragStart!({ active: { id: firstId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-under-0' } });
     });
 
     expect(screen.getByRole('button', { name: /Under the mission pile, 1 card, tap to open/i })).toBeInTheDocument();

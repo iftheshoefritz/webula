@@ -237,7 +237,7 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
       mockOnDragStart!({ active: { id: firstId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-under-0' } });
     });
 
     expect(screen.getByRole('button', { name: /^close dilemma hand$/i })).toBeInTheDocument();

@@ -177,7 +177,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: draggedId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-1' } });
+      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-under-1' } });
     });
 
     // Gone from the (re-opened) hand fan...
@@ -214,7 +214,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: draggedId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-under-0' } });
     });
 
     // Gone from the (re-opened) hand...
@@ -315,7 +315,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       await setupWithMission([card]);
       const draggedId = handCardId(card.name);
 
-      await drop(draggedId, 'mission-0');
+      await drop(draggedId, 'mission-under-0');
 
       expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
@@ -336,7 +336,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       await setupWithMission([card]);
       const draggedId = handCardId(card.name);
 
-      await drop(draggedId, 'mission-0');
+      await drop(draggedId, 'mission-under-0');
 
       expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
@@ -366,7 +366,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       await setupWithMission([mockDilemmaCard]);
       const draggedId = handCardId(mockDilemmaCard.name);
 
-      await drop(draggedId, 'mission-0');
+      await drop(draggedId, 'mission-under-0');
 
       expect(screen.getByRole('button', { name: /^under the mission pile, 1 card/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
@@ -395,7 +395,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: shipId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-2' } });
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-under-2' } });
     });
 
     // Then drag it from the ship row to the discard pile.
@@ -419,7 +419,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: shipId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-under-0' } });
     });
 
     // Re-open the hand (drag start closed it) and board the personnel card as crew.
@@ -444,7 +444,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: shipId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-4' } });
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-under-4' } });
     });
 
     const sourceRow = document.body.querySelector('[data-zone="ship-row-0"]');
@@ -469,7 +469,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: firstShipId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstShipId }, over: { id: 'mission-1' } });
+      mockOnDragEnd!({ active: { id: firstShipId }, over: { id: 'mission-under-1' } });
     });
 
     // #740 keeps the hand open after a drag out of it, so this tap only runs when the
@@ -504,7 +504,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: firstCopyId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstCopyId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: firstCopyId }, over: { id: 'mission-under-0' } });
     });
     // #740 keeps the hand open after a drag out of it, so this tap only runs when the
     // hand is closed.
@@ -555,7 +555,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: firstCopyId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstCopyId }, over: { id: 'mission-3' } });
+      mockOnDragEnd!({ active: { id: firstCopyId }, over: { id: 'mission-under-3' } });
     });
 
     const originRow = document.body.querySelector('[data-zone="ship-row-0"]') as HTMLElement;
@@ -575,14 +575,14 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: shipId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-2' } });
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-under-2' } });
     });
 
     await act(async () => {
       mockOnDragStart!({ active: { id: shipId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-2' } });
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-under-2' } });
     });
 
     const shipRow = document.body.querySelector('[data-zone="ship-row-2"]');
