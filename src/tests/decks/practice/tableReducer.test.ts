@@ -1185,6 +1185,36 @@ describe('cards placed on a card (#809)', () => {
     expect(state.discard).toEqual([]);
   });
 
+  it('keeps the placed cards and the crew when a ship moves to the ship row of another mission (#872)', () => {
+    const first = instance('first', card('First'), 'up');
+    const second = instance('second', card('Second'), 'up');
+    const crewman = instance('crewman', card('Crewman'), 'up');
+    const ship = { ...instance('ship', card('Ship'), 'up'), placedOn: [first, second], crew: [crewman] };
+    const state = tableReducer(
+      { ...initialTableState, missions: missionSlots([], { 0: [ship] }) },
+      { type: 'move', id: 'ship', to: { zone: 'shipRow', missionIndex: 1 } }
+    );
+
+    expect(state.missions[0].ships).toEqual([]);
+    expect(state.missions[1].ships).toEqual([ship]);
+    expect(state.missions[1].ships[0].placedOn).toEqual([first, second]);
+    expect(state.missions[1].ships[0].crew).toEqual([crewman]);
+    expect(state.discard).toEqual([]);
+  });
+
+  it('discards the placed cards when a ship moves from a ship row to the discard pile', () => {
+    const placed = instance('placed', card('Placed'), 'up');
+    const ship = { ...instance('ship', card('Ship'), 'up'), placedOn: [placed] };
+    const state = tableReducer(
+      { ...initialTableState, missions: missionSlots([], { 0: [ship] }) },
+      { type: 'move', id: 'ship', to: 'discard' }
+    );
+
+    expect(state.missions[0].ships).toEqual([]);
+    expect(state.discard.map((c) => c.id)).toEqual(['ship', 'placed']);
+    expect(state.discard[0].placedOn).toBeUndefined();
+  });
+
   it('sends a card and the cards placed on it to the discard pile', () => {
     const placed = instance('placed', card('Placed'), 'up');
     const target = { ...instance('target', card('Target'), 'up'), placedOn: [placed] };

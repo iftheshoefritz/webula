@@ -504,10 +504,14 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const releasesCrew = isShipRowLocation(from) && !isShipRowLocation(action.to) && !!card.crew?.length;
       // The `placedOn` cards (#809) do not travel with the card they sit on. Any move of that card
       // sends them to the discard pile, whatever the destination, and a move to the discard pile is
-      // the plain case of the same rule. A drop back in the same location is not a move,
-      // so it keeps its stack: the flat zones treat a same-zone drop as a reorder, and losing the
-      // stack to a reorder would surprise the player.
-      const discardsOn = !toSameLocation && !!card.placedOn?.length;
+      // the plain case of the same rule. Two moves keep the stack:
+      // - A drop back in the same location is not a move: the flat zones treat a same-zone drop as
+      //   a reorder, and losing the stack to a reorder would surprise the player.
+      // - A ship that moves between two ship rows (#872) keeps its stack, the same way it keeps its
+      //   crew: the ship stays in play and only changes mission. A ship that leaves the ship rows,
+      //   and any card that moves between two other locations, still discards its stack.
+      const movesBetweenShipRows = isShipRowLocation(from) && isShipRowLocation(action.to);
+      const discardsOn = !toSameLocation && !movesBetweenShipRows && !!card.placedOn?.length;
       const movedCard = {
         ...card,
         face,
