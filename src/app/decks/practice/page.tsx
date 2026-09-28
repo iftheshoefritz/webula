@@ -1379,8 +1379,10 @@ function PracticeDrawContent() {
 
     if (openPlacedOnTargetId) {
       const isDragOrigin = typeof zone === 'object' && zone.zone === 'on' && zone.targetId === openPlacedOnTargetId;
-      const stillHasCards = !!findInstanceAnywhere(nextTable, openPlacedOnTargetId)?.instance.placedOn?.length;
-      if (!isDragOrigin || !stillHasCards) {
+      // The panel shows the host card too (#881), so it stays open after the last placed card
+      // leaves, as long as the host card itself is still on the table.
+      const hostStillThere = !!findInstanceAnywhere(nextTable, openPlacedOnTargetId);
+      if (!isDragOrigin || !hostStillThere) {
         setOpenPlacedOnTargetId(null);
         closedAPanel = true;
       }
@@ -2028,7 +2030,7 @@ function PracticeDrawContent() {
                 <CardListPanel
                   location="crew"
                   cards={openPanelCards ?? []}
-                  ship={openCrewShip}
+                  host={openCrewShip}
                   onClose={() => {
                     setOpenCrewShipId(null);
                     setSelectedCardIds([]);
@@ -2053,6 +2055,7 @@ function PracticeDrawContent() {
                 <CardListPanel
                   location="on"
                   cards={openPanelCards ?? []}
+                  host={openPlacedOnTarget}
                   onClose={() => {
                     setOpenPlacedOnTargetId(null);
                     setSelectedCardIds([]);

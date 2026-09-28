@@ -235,7 +235,53 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     const coreZone = document.body.querySelector('[data-zone="core"]')!;
     expect(coreZone.contains(screen.getByRole('button', { name: 'data' }))).toBe(true);
     expect(screen.queryByLabelText(/card on it$/)).toBeNull();
-    expect(document.body.querySelector('[data-testid="card-list-panel-on"]')).toBeNull();
+    // #881: the panel shows the host card too, so it stays open with an empty grid.
+    const emptyGrid = document.body.querySelector('[data-testid="card-list-panel-on"]');
+    expect(emptyGrid).not.toBeNull();
+    expect(within(emptyGrid as HTMLElement).queryAllByRole('button')).toHaveLength(0);
+    expect(document.body.querySelector('[data-testid="card-list-panel-on-host"]')).not.toBeNull();
+  });
+
+  it('shows the host card in its own section, outside the grid of the placed cards (#881)', async () => {
+    const { eventId, personnelId } = await setupCorePlacedOn();
+    await drag(personnelId, `on-${eventId}`);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+    });
+
+    const grid = document.body.querySelector('[data-testid="card-list-panel-on"]') as HTMLElement;
+    const hostSection = document.body.querySelector('[data-testid="card-list-panel-on-host"]') as HTMLElement;
+    expect(hostSection).not.toBeNull();
+    expect(hostSection.querySelector('img[alt="distress call"]')).not.toBeNull();
+    expect(grid.contains(hostSection)).toBe(false);
+    expect(hostSection.contains(grid)).toBe(false);
+    expect(within(grid).queryByRole('button', { name: 'distress call' })).toBeNull();
+
+    // Display only: neither a drop target nor a drag source.
+    expect(hostSection.querySelector('[data-zone]')).toBeNull();
+    expect(hostSection.querySelector('[data-card-id]')).toBeNull();
+    expect(hostSection.hasAttribute('data-zone')).toBe(false);
+    expect(hostSection.hasAttribute('data-card-id')).toBe(false);
+  });
+
+  it('keeps a placed card in the grid selectable and draggable (#881)', async () => {
+    const { eventId, personnelId } = await setupCorePlacedOn();
+    await drag(personnelId, `on-${eventId}`);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+    });
+
+    const grid = document.body.querySelector('[data-testid="card-list-panel-on"]') as HTMLElement;
+    const placed = within(grid).getByRole('button', { name: 'data' });
+    expect(placed.getAttribute('data-card-id')).toBe(personnelId);
+    expect(mockDraggableIds).toContain(personnelId);
+
+    await act(async () => {
+      fireEvent.click(placed);
+    });
+    expect(within(grid).getByRole('button', { name: 'Deselect data' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('opens the core panel, not a panel of placed cards, on a tap on a card with nothing on it', async () => {

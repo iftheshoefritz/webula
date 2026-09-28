@@ -20,8 +20,9 @@
 //
 // The `'crew'` zone (#664) is opened by a tap on a ship, and uses the same
 // centered, up-to-90%-wide box every other zone uses. Since #832 it also shows the ship itself
-// (`ship`), in its own section above the crew grid and outside it (`PanelShip`), so a ship with no
-// crew opens the panel too. The ship is for display and a hold preview only: it registers no
+// (`host`), in its own section above the crew grid and outside it (`PanelHost`), so a ship with no
+// crew opens the panel too. Since #881 the panel of the cards placed on a card shows that card the
+// same way. The ship is for display and a hold preview only: it registers no
 // draggable (the ship's `TableCard` already holds a draggable under the same id) and a tap on it
 // does not select it.
 //
@@ -260,33 +261,51 @@ function CardListPanelCard({
   );
 }
 
-// The ship whose crew the panel lists (#832), in its own section above the crew grid. The
-// whole card image at the size of a panel card, face up (`SHIP_ROW_FACE`), on a framed box of
-// its own so it does not read as a crew card. A hold shows its preview; a tap does nothing. No
-// `useDraggable` and no `data-zone`: it is neither a drag source nor a drop target.
-function PanelShip({ ship, cardWidth, cardHeight }: { ship: CardInstance; cardWidth: number; cardHeight: number }) {
-  const holdListeners = useCardHold(ship.id);
-  const { card } = ship;
+// The card the panel's cards belong to, in its own section above the grid: the ship whose crew
+// the panel lists (#832), or the card the listed cards are placed on (#881). The whole card image
+// at the size of a panel card, face up, on a framed box of its own so it does not read as one of
+// the listed cards. A hold shows its preview; a tap does nothing. No `useDraggable` and no
+// `data-zone`: it is neither a drag source nor a drop target (the card's `TableCard` already holds
+// a draggable under the same id).
+function PanelHost({
+  host,
+  label,
+  testId,
+  cardWidth,
+  cardHeight,
+}: {
+  host: CardInstance;
+  label: string;
+  testId: string;
+  cardWidth: number;
+  cardHeight: number;
+}) {
+  const holdListeners = useCardHold(host.id);
+  const { card } = host;
   return (
     <div
-      data-testid="card-list-panel-crew-ship"
-      className="shrink-0 flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
+      data-testid={testId}
+      className="min-h-0 flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
     >
-      <span className="text-[10px] font-bold uppercase tracking-wide text-text-secondary">Ship</span>
+      {/* The section shrinks with the grid below it on a short viewport (568 x 320), so the host
+          card does not push the grid down to a sliver. The image keeps its full size where there
+          is room; where there is not, its height follows the section and its width follows the
+          image's own aspect ratio. */}
+      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-text-secondary">{label}</span>
       <div
         role="img"
         aria-label={card.name}
         {...holdListeners}
-        className="touch-none"
-        style={{ ...NO_CALLOUT_STYLE, width: cardWidth }}
+        className="touch-none flex-1 min-h-0 flex justify-center"
+        style={NO_CALLOUT_STYLE}
       >
         <img
           src={`/cardimages/${card.imagefile}.jpg`}
           width={CARD_IMAGE_WIDTH}
           height={CARD_IMAGE_HEIGHT}
           alt={card.name}
-          className={`rounded-md shadow-md h-auto ${ship.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
-          style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
+          className={`rounded-md shadow-md ${host.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+          style={{ ...NO_CALLOUT_STYLE, width: 'auto', height: cardHeight, maxHeight: '100%' }}
         />
       </div>
     </div>
@@ -296,7 +315,7 @@ function PanelShip({ ship, cardWidth, cardHeight }: { ship: CardInstance; cardWi
 export default function CardListPanel({
   location,
   cards,
-  ship,
+  host,
   onClose,
   selectedIds,
   onToggleSelect,
@@ -312,8 +331,9 @@ export default function CardListPanel({
 }: {
   location: PanelLocation;
   cards: CardInstance[];
-  // The crew panel only (#832): the ship whose crew `cards` lists, shown in its own section.
-  ship?: CardInstance;
+  // The card `cards` belong to, shown in its own section above the grid: the ship of a crew panel
+  // (#832), or the card the cards of an `'on'` panel are placed on (#881).
+  host?: CardInstance;
   onClose: () => void;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
@@ -494,7 +514,15 @@ export default function CardListPanel({
             )}
           </div>
         )}
-        {ship && <PanelShip ship={ship} cardWidth={cardWidth} cardHeight={cardHeight} />}
+        {host && (
+          <PanelHost
+            host={host}
+            label={location === 'crew' ? 'Ship' : 'Placed on'}
+            testId={location === 'crew' ? 'card-list-panel-crew-ship' : `card-list-panel-${location}-host`}
+            cardWidth={cardWidth}
+            cardHeight={cardHeight}
+          />
+        )}
         {/* Issue #861: the grid is a selector for the tests and for the scripts, not a drop
             target. It has no `useDroppable`, and no drag aims at it: the open panel covers the
             table, and a reorder inside the panel aims at another card's own droppable. So the
