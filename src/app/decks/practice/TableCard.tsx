@@ -19,7 +19,7 @@
 //
 // The whole card is a `<button>`. The tap acts, the hold looks: a press and hold shows the large
 // preview (`useCardHold`), and a tap calls `onClick`, if the caller gives one (a ship opens its
-// crew panel; a mission has no tap action). A ship in a ship row is also draggable (#599), so the
+// crew panel; a tap on the top half of a mission opens the cards under it, #917). A ship in a ship row is also draggable (#599), so the
 // same `<button>` also joins `useDraggable`, following `CardHand`'s `DraggableFanCard` pattern:
 // `listeners`/`attributes`/`setNodeRef` on the same element that has the `onClick`. dnd-kit only returns `listeners` when the draggable is enabled, so a
 // non-draggable table card (a mission) can spread them unconditionally with no effect.
@@ -59,7 +59,7 @@ export default function TableCard({
   holdable = true,
 }: {
   instance: CardInstance;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   width?: number;
   artHeight?: number;
   draggable?: boolean;
