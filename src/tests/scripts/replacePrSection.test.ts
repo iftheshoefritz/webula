@@ -148,4 +148,42 @@ describe('replace_pr_section.sh', () => {
     expect(out).toContain('The dev server did not start.');
     expect(out.indexOf('## Dev Server Issues')).toBeGreaterThan(out.indexOf('## Test plan'));
   });
+
+  it('fails and writes nothing when the report file starts with the heading', () => {
+    const report = '## Visual Verification\n\nAll checks passed.\n';
+    expect(() => run(body, '## Visual Verification', report)).toThrow();
+    expect(() =>
+      run(body, '## Dev Server Issues', '## Dev Server Issues\n\ntext\n', ['--add-if-missing']),
+    ).toThrow();
+  });
+
+  it('fails and writes nothing when the body holds the heading twice', () => {
+    const twice = [
+      'Closes #644',
+      '',
+      '## Measurement',
+      '',
+      'One.',
+      '',
+      '## Measurement',
+      '',
+      'Two.',
+      '',
+    ].join('\n');
+    expect(() => run(twice, '## Measurement', 'Three.\n')).toThrow();
+  });
+
+  it('fails when the new body drops a Closes line', () => {
+    const inside = [
+      '## Summary',
+      '',
+      'Closes #644',
+      '',
+      '## Visual Verification',
+      '',
+      'Pending.',
+      '',
+    ].join('\n');
+    expect(() => run(inside, '## Summary', '- A new summary.\n')).toThrow();
+  });
 });

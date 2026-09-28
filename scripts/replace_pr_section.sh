@@ -22,6 +22,9 @@
 # this, a swap of the last section of the body would eat the footer.
 #
 # The script fails, and writes nothing, if:
+#   - the report file holds the heading line (it must hold only the text);
+#   - the body holds the heading more than once, so the script cannot know
+#     which section the caller means;
 #   - the body holds no such heading, and --add-if-missing is not given;
 #   - the new body drops a `Closes #<number>` line that the old body holds.
 #
@@ -47,6 +50,14 @@ if [ ! -f "$REPORT" ]; then
   exit 2
 fi
 
+# A report that holds its own heading makes a body with the heading twice
+# (#875). The usage says the report holds only the text, so this is a caller
+# mistake.
+if grep -qxF -- "$HEADING" "$REPORT"; then
+  echo "replace_pr_section.sh: the report file $REPORT holds the line '$HEADING'; give only the text of the section, without the heading" >&2
+  exit 1
+fi
+
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
@@ -69,7 +80,13 @@ if [ -n "$footer_line" ]; then
   mv "$old.main" "$old"
 fi
 
-if ! grep -qxF -- "$HEADING" "$old"; then
+heading_count="$(grep -cxF -- "$HEADING" "$old" || true)"
+if [ "$heading_count" -gt 1 ]; then
+  echo "replace_pr_section.sh: the body of pull request $PR holds the line '$HEADING' $heading_count times; fix the body by hand first" >&2
+  exit 1
+fi
+
+if [ "$heading_count" -eq 0 ]; then
   if [ "$add_if_missing" -eq 0 ]; then
     echo "replace_pr_section.sh: the body of pull request $PR holds no line '$HEADING'" >&2
     exit 1
