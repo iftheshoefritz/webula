@@ -26,6 +26,7 @@ import {
 import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
+import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { DrivePickerModal } from '../../../components/DrivePickerModal';
 import { usePracticeDrive } from './usePracticeDrive';
 import {
@@ -105,11 +106,10 @@ function MenuIcon() {
 // closes it. Continue (or Escape) closes it and shows the table. The menu button stays above the
 // splash, so the player can open the splash again during a game.
 //
-// The splash sits at `z-[160]`, above everything the table draws: the pile count badges
-// (`z-[140]`, `CountBadge.tsx`), the open hand (`z-[145]`/`z-[146]`, `CardHand.tsx`) and the card
-// list panel (`z-[150]`). At `z-40` the badges drew over the splash and took presses through it.
-// The menu button rises above the splash only while it is open, so a closed menu's button stays
-// under a card list panel as before.
+// The splash sits above everything the table draws: the pile count badges, the open hand and the
+// card list panel. At `z-40` the badges drew over the splash and took presses through it. The menu
+// button rises above the splash only while it is open, so a closed menu's button stays under a
+// card list panel as before. `src/lib/layers.ts` holds the order of every layer (#897).
 const SPLASH_ITEM_CLASS =
   'block w-full rounded-md border border-white/10 bg-bg-secondary px-6 py-2.5 text-center text-base text-text-secondary hover:bg-white/[0.1] hover:text-text-primary';
 
@@ -148,7 +148,7 @@ function GameMenu({
           aria-modal="true"
           aria-label="Game menu"
           data-testid="game-menu-splash"
-          className="fixed inset-0 z-[160] flex flex-col items-center justify-center bg-[#131713]/95 px-8"
+          className={`fixed inset-0 ${LAYER_MENU_SPLASH} flex flex-col items-center justify-center bg-[#131713]/95 px-8`}
         >
           <div className="flex w-full max-w-[16rem] flex-col gap-2">
             <button type="button" onClick={onClose} className={SPLASH_ITEM_CLASS}>
@@ -166,7 +166,7 @@ function GameMenu({
           </div>
         </div>
       )}
-      <div className={`absolute top-2 left-2 ${open ? 'z-[170]' : 'z-50'}`}>
+      <div className={`absolute top-2 left-2 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}>
         <button type="button" onClick={onToggle} aria-label="Game menu" aria-expanded={open} className="btn-icon btn-icon-sm">
           <MenuIcon />
         </button>

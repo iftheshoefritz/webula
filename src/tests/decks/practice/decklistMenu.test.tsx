@@ -114,6 +114,19 @@ describe('the Decklist item of the game menu (#779)', () => {
     expect(screen.getByTestId('practice-game-layer').innerHTML).toBe(pileBefore);
   });
 
+  // The pile count badges sit at `z-[140]` (#897), and the splash of the menu at `z-[160]`. At
+  // `z-40`/`z-50` the badges drew through the decklist.
+  it('stacks the decklist above the pile count badges and the menu splash (#897)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    openDecklist();
+
+    const zIndexOf = (element: HTMLElement) => Number(element.className.match(/\bz-\[(\d+)\]/)?.[1]);
+    expect(zIndexOf(screen.getByRole('button', { name: 'Close decklist' }))).toBeGreaterThan(160);
+    expect(zIndexOf(screen.getByRole('dialog', { name: 'Decklist' }))).toBeGreaterThan(160);
+  });
+
   it('keeps Reset in the same menu', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);

@@ -19,6 +19,7 @@
 // `DraggableFanCard` below.
 
 import React from 'react';
+import { LAYER_HAND_BACKDROP, LAYER_HAND_FAN } from '../../../lib/layers';
 import { createPortal } from 'react-dom';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
@@ -264,7 +265,7 @@ export default function CardHand({
             {open && (
               <button
                 type="button"
-                className="fixed inset-0 z-[145] bg-black/30"
+                className={`fixed inset-0 ${LAYER_HAND_BACKDROP} bg-black/30`}
                 onClick={handleBackdropClick}
                 aria-label={`Close ${label}`}
               />
@@ -272,7 +273,7 @@ export default function CardHand({
             <div
               data-zone={open ? zone : undefined}
               aria-hidden={open ? undefined : true}
-              className="fixed inset-x-2 z-[146] flex"
+              className={`fixed inset-x-2 ${LAYER_HAND_FAN} flex`}
               style={{
                 bottom: bottomInset,
                 height: openCardHeight,

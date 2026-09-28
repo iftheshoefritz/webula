@@ -1,6 +1,7 @@
 'use client';
 
 import { landedBumpClassName } from './LandedZoneContext';
+import { LAYER_COUNT_BADGE } from '../../../lib/layers';
 
 // A small circular count badge (see the parent design in issue #130), shared by every table
 // element that shows a count on its top-right corner: the draw pile, the discard pile, and a
@@ -29,7 +30,7 @@ import { landedBumpClassName } from './LandedZoneContext';
 // nonce keys the count, so a second drop restarts the bump.
 export default function CountBadge({ count, landedNonce = null }: { count: number; landedNonce?: number | null }) {
   return (
-    <span className="absolute -top-2 -right-2 z-[140] bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
+    <span className={`absolute -top-2 -right-2 ${LAYER_COUNT_BADGE} bg-accent text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow`}>
       <span key={landedNonce ?? undefined} className={landedBumpClassName(landedNonce)}>
         {count}
       </span>
