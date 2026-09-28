@@ -11,6 +11,7 @@
 // point (#879); the badge takes the same edge, so it stays over the image.
 
 import { CardInstance } from './tableReducer';
+import { LAYER_CARD_PREVIEW } from '../../../lib/layers';
 import { STOPPED_IMAGE_CLASSNAME, faceUpImageSrc } from './TableCard';
 import type { PreviewSide } from './useCardHold';
 
@@ -33,7 +34,7 @@ export default function CardPreview({
   return (
     <div
       data-testid="card-preview"
-      className="fixed inset-0 z-[200] pointer-events-none animate-fade-in bg-black/50"
+      className={`fixed inset-0 ${LAYER_CARD_PREVIEW} pointer-events-none animate-fade-in bg-black/50`}
       style={{ visibility: hidden ? 'hidden' : 'visible' }}
     >
       <img

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { FaTrash, FaFolder, FaFolderOpen, FaFolderPlus, FaSignInAlt, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaExchangeAlt } from 'react-icons/fa';
 import { DeckPile } from '../app/decks/deckBuilderUtils';
 import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
+import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../lib/layers';
 
 type DriveFile = { id: string; name: string };
 
@@ -191,7 +192,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
 
   return (
     <>
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className={`fixed inset-0 ${LAYER_MODAL_BACKDROP} overflow-y-auto`}>
       <div className="flex items-center justify-center min-h-screen">
         <div className="absolute inset-0 bg-black opacity-50" onClick={onClose}></div>
         <div className="bg-bg-secondary p-3 border border-white/10 rounded-lg shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
@@ -484,7 +485,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
       </div>
     </div>
     {movingFile && (
-      <div className="fixed inset-0 z-[60] overflow-y-auto">
+      <div className={`fixed inset-0 ${LAYER_MODAL} overflow-y-auto`}>
         <div className="flex items-center justify-center min-h-screen">
           <div className="absolute inset-0 bg-black opacity-50" onClick={cancelMoveFile}></div>
           <div className="bg-bg-secondary p-3 border border-white/10 rounded-lg shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">

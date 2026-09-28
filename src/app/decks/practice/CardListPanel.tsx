@@ -74,6 +74,7 @@
 // any direction.
 
 import { useEffect, useRef, useState } from 'react';
+import { LAYER_CARD_LIST_PANEL } from '../../../lib/layers';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName } from './tableReducer';
 import { STOPPED_IMAGE_CLASSNAME } from './TableCard';
@@ -509,7 +510,7 @@ export default function CardListPanel({
 
   return (
     <div
-      className="fixed inset-0 z-[150]"
+      className={`fixed inset-0 ${LAYER_CARD_LIST_PANEL}`}
       style={{ visibility: hidden ? 'hidden' : 'visible', pointerEvents: hidden ? 'none' : undefined }}
     >
       <button
