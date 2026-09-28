@@ -142,9 +142,8 @@ function GameMenu({
           aria-modal="true"
           aria-label="Game menu"
           data-testid="game-menu-splash"
-          className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-6 bg-[#131713]/95 px-8"
+          className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-[#131713]/95 px-8"
         >
-          <p className="text-2xl font-display font-medium text-text-primary">Practice Draw</p>
           <div className="flex w-full max-w-[16rem] flex-col gap-2">
             <button type="button" onClick={onClose} className={SPLASH_ITEM_CLASS}>
               Continue
