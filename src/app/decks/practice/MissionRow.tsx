@@ -60,10 +60,9 @@
 // picks the smaller, nested badge over the mission card beneath it, the same reasoning that lets
 // a ship's crew zone win over its enclosing ship row (#645). A tap on the badge opens the away
 // team's panel (`CardListPanel`); a tap on the mission card itself does nothing (a hold previews
-// it). The
-// under-the-mission pile has no badge of its own — its control is the tap target layered over its
-// stack of slivers (`UnderMissionStack` below), not a drop target, since the drop happens on the
-// mission card's own drop target like every other pile that has no badge under the pointer.
+// it). The under-the-mission pile has no badge of its own — its control is the tap target layered
+// over its stack of slivers (`UnderMissionStack` below), not a drop target, since the drop happens
+// on the mission card's own drop target.
 
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName, MissionSlot } from './tableReducer';
