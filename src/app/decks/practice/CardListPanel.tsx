@@ -287,16 +287,18 @@ function PanelHost({
   return (
     <div
       data-testid={testId}
-      className="shrink-0 self-start flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
+      className="shrink-0 self-start max-h-full overflow-y-auto overscroll-contain flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
     >
       {/* The section sits beside the grid (#894), so it takes no height from it: the image keeps
-          the size of a panel card at every viewport, and only the grid shrinks and scrolls. */}
+          the size of a panel card at every viewport. Where the row is shorter than the card (568 x
+          320), the section scrolls, the same way the grid beside it does, rather than run over
+          the bottom row. */}
       <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-text-secondary">{label}</span>
       <div
         role="img"
         aria-label={card.name}
         {...holdListeners}
-        className="touch-none flex justify-center"
+        className="touch-pan-y flex justify-center"
         style={NO_CALLOUT_STYLE}
       >
         <img
