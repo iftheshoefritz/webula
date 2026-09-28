@@ -20,9 +20,11 @@
 //
 // The `'crew'` zone (#664) is opened by a tap on a ship, and uses the same
 // centered, up-to-90%-wide box every other zone uses. Since #832 it also shows the ship itself
-// (`host`), in its own section above the crew grid and outside it (`PanelHost`), so a ship with no
+// (`host`), in its own section outside the crew grid (`PanelHost`), so a ship with no
 // crew opens the panel too. Since #881 the panel of the cards placed on a card shows that card the
-// same way. The ship is for display and a hold preview only: it registers no
+// same way. Since #894 that section sits to the right of the grid, not above it, and keeps the
+// size of a panel card: above the grid it shrank with the grid on a short viewport until the host
+// could not be read. The ship is for display and a hold preview only: it registers no
 // draggable (the ship's `TableCard` already holds a draggable under the same id) and a tap on it
 // does not select it.
 //
@@ -261,7 +263,7 @@ function CardListPanelCard({
   );
 }
 
-// The card the panel's cards belong to, in its own section above the grid: the ship whose crew
+// The card the panel's cards belong to, in its own section to the right of the grid (#894): the ship whose crew
 // the panel lists (#832), or the card the listed cards are placed on (#881). The whole card image
 // at the size of a panel card, face up, on a framed box of its own so it does not read as one of
 // the listed cards. A hold shows its preview; a tap does nothing. No `useDraggable` and no
@@ -285,18 +287,16 @@ function PanelHost({
   return (
     <div
       data-testid={testId}
-      className="min-h-0 flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
+      className="shrink-0 self-start flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
     >
-      {/* The section shrinks with the grid below it on a short viewport (568 x 320), so the host
-          card does not push the grid down to a sliver. The image keeps its full size where there
-          is room; where there is not, its height follows the section and its width follows the
-          image's own aspect ratio. */}
+      {/* The section sits beside the grid (#894), so it takes no height from it: the image keeps
+          the size of a panel card at every viewport, and only the grid shrinks and scrolls. */}
       <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-text-secondary">{label}</span>
       <div
         role="img"
         aria-label={card.name}
         {...holdListeners}
-        className="touch-none flex-1 min-h-0 flex justify-center"
+        className="touch-none flex justify-center"
         style={NO_CALLOUT_STYLE}
       >
         <img
@@ -305,7 +305,7 @@ function PanelHost({
           height={CARD_IMAGE_HEIGHT}
           alt={card.name}
           className={`rounded-md shadow-md ${host.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
-          style={{ ...NO_CALLOUT_STYLE, width: 'auto', height: cardHeight, maxHeight: '100%' }}
+          style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
         />
       </div>
     </div>
@@ -331,7 +331,7 @@ export default function CardListPanel({
 }: {
   location: PanelLocation;
   cards: CardInstance[];
-  // The card `cards` belong to, shown in its own section above the grid: the ship of a crew panel
+  // The card `cards` belong to, shown in its own section to the right of the grid (#894): the ship of a crew panel
   // (#832), or the card the cards of an `'on'` panel are placed on (#881).
   host?: CardInstance;
   onClose: () => void;
@@ -428,7 +428,7 @@ export default function CardListPanel({
   // its one row: `dilemmaStackPopupCollisionDetection` reads its rectangle as "reorder only".
   const gridClassName = isDilemmaStack
     ? 'shrink-0 flex flex-col items-stretch gap-1 rounded-lg bg-black/70 p-2 w-[86vw] overflow-hidden'
-    : 'min-h-0 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 overflow-y-auto overscroll-contain';
+    : 'min-h-0 min-w-0 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 overflow-y-auto overscroll-contain';
   // The two end labels sit on their own line above the cards, not at the two ends of the card
   // row: a label in the row takes width from the cards, and the row must keep all of its width
   // for them. The line reads left to right, the same order the
@@ -514,15 +514,11 @@ export default function CardListPanel({
             )}
           </div>
         )}
-        {host && (
-          <PanelHost
-            host={host}
-            label={location === 'crew' ? 'Ship' : 'Placed on'}
-            testId={location === 'crew' ? 'card-list-panel-crew-ship' : `card-list-panel-${location}-host`}
-            cardWidth={cardWidth}
-            cardHeight={cardHeight}
-          />
-        )}
+        {/* #894: the grid and the host sit side by side in one row. The row is the child of the
+            panel that shrinks (`min-h-0`), and the grid stretches to its height and scrolls, so
+            the host beside it keeps its own size. `min-w-0` lets the grid wrap its cards into
+            the width the host leaves it. */}
+        <div className="min-h-0 max-w-full flex flex-row gap-2">
         {/* Issue #861: the grid is a selector for the tests and for the scripts, not a drop
             target. It has no `useDroppable`, and no drag aims at it: the open panel covers the
             table, and a reorder inside the panel aims at another card's own droppable. So the
@@ -575,6 +571,16 @@ export default function CardListPanel({
               />
             ))
           )}
+        </div>
+        {host && (
+          <PanelHost
+            host={host}
+            label={location === 'crew' ? 'Ship' : 'Placed on'}
+            testId={location === 'crew' ? 'card-list-panel-crew-ship' : `card-list-panel-${location}-host`}
+            cardWidth={cardWidth}
+            cardHeight={cardHeight}
+          />
+        )}
         </div>
       </div>
       </div>
