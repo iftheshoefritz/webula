@@ -449,6 +449,62 @@ export default function CardListPanel({
   const showDownloadButton = onDownload !== undefined;
   const handleDownloadTap = () => onDownload?.(selectedInPanel.map((instance) => instance.id));
 
+  // Issue #861: the grid is a selector for the tests and for the scripts, not a drop target. It
+  // has no `useDroppable`, and no drag aims at it: the open panel covers the table, and a reorder
+  // inside the panel aims at another card's own droppable. So the name goes in `data-testid`. A
+  // `data-zone` here would make `practice_drag.sh` print `card-list-panel-<location>` for a card
+  // that never moved (see #860).
+  const gridElement = (
+    <div
+      ref={gridRef}
+      data-testid={`card-list-panel-${location}`}
+      {...{ [PANEL_SCROLLS_ATTRIBUTE]: gridScrolls ? 'true' : undefined }}
+      className={gridClassName}
+    >
+      {isDilemmaStack && (
+        <div className="flex flex-row justify-between">
+          <span className={stackEndLabelClassName}>Top (revealed first)</span>
+          <span className={stackEndLabelClassName}>Bottom (revealed last)</span>
+        </div>
+      )}
+      {isDilemmaStack ? (
+        // The cards overlap rather than sit side by side (`OverlapRow`), with `zIndex` rising
+        // left to right, so a later (further down the stack) card's edge sits on top of the
+        // one before it, the same reading order the labels at each end describe.
+        <OverlapRow
+          items={cards}
+          keyFor={(instance) => instance.id}
+          cardWidth={cardWidth}
+          height={cardHeight}
+          renderCard={(instance) => (
+            <CardListPanelCard
+              instance={instance}
+              selected={selectedIds.includes(instance.id)}
+              onToggleSelect={() => onToggleSelect(instance.id)}
+              cardWidth={cardWidth}
+              cardHeight={cardHeight}
+              reorderable
+              markFaceDown={onFlip !== undefined}
+            />
+          )}
+        />
+      ) : (
+        cards.map((instance) => (
+          <CardListPanelCard
+            key={instance.id}
+            instance={instance}
+            selected={selectedIds.includes(instance.id)}
+            onToggleSelect={() => onToggleSelect(instance.id)}
+            cardWidth={cardWidth}
+            cardHeight={cardHeight}
+            markFaceDown={onFlip !== undefined}
+            gridScrolls={gridScrolls}
+          />
+        ))
+      )}
+    </div>
+  );
+
   return (
     <div
       className="fixed inset-0 z-[150]"
@@ -514,74 +570,24 @@ export default function CardListPanel({
             )}
           </div>
         )}
-        {/* #894: the grid and the host sit side by side in one row. The row is the child of the
-            panel that shrinks (`min-h-0`), and the grid stretches to its height and scrolls, so
-            the host beside it keeps its own size. `min-w-0` lets the grid wrap its cards into
-            the width the host leaves it. */}
-        <div className="min-h-0 max-w-full flex flex-row gap-2">
-        {/* Issue #861: the grid is a selector for the tests and for the scripts, not a drop
-            target. It has no `useDroppable`, and no drag aims at it: the open panel covers the
-            table, and a reorder inside the panel aims at another card's own droppable. So the
-            name goes in `data-testid`. A `data-zone` here would make `practice_drag.sh` print
-            `card-list-panel-<location>` for a card that never moved (see #860). */}
-        <div
-          ref={gridRef}
-          data-testid={`card-list-panel-${location}`}
-          {...{ [PANEL_SCROLLS_ATTRIBUTE]: gridScrolls ? 'true' : undefined }}
-          className={gridClassName}
-        >
-          {isDilemmaStack && (
-            <div className="flex flex-row justify-between">
-              <span className={stackEndLabelClassName}>Top (revealed first)</span>
-              <span className={stackEndLabelClassName}>Bottom (revealed last)</span>
-            </div>
-          )}
-          {isDilemmaStack ? (
-            // The cards overlap rather than sit side by side (`OverlapRow`), with `zIndex` rising
-            // left to right, so a later (further down the stack) card's edge sits on top of the
-            // one before it, the same reading order the labels at each end describe.
-            <OverlapRow
-              items={cards}
-              keyFor={(instance) => instance.id}
+        {/* #894: a panel with a host puts the grid and the host side by side in one row. The row
+            is the child of the panel that shrinks (`min-h-0`), and the grid stretches to its
+            height and scrolls, so the host beside it keeps its own size. `min-w-0` lets the grid
+            wrap its cards into the width the host leaves it. */}
+        {host ? (
+          <div className="min-h-0 max-w-full flex flex-row gap-2">
+            {gridElement}
+            <PanelHost
+              host={host}
+              label={location === 'crew' ? 'Ship' : 'Placed on'}
+              testId={location === 'crew' ? 'card-list-panel-crew-ship' : `card-list-panel-${location}-host`}
               cardWidth={cardWidth}
-              height={cardHeight}
-              renderCard={(instance) => (
-                <CardListPanelCard
-                  instance={instance}
-                  selected={selectedIds.includes(instance.id)}
-                  onToggleSelect={() => onToggleSelect(instance.id)}
-                  cardWidth={cardWidth}
-                  cardHeight={cardHeight}
-                  reorderable
-                  markFaceDown={onFlip !== undefined}
-                />
-              )}
+              cardHeight={cardHeight}
             />
-          ) : (
-            cards.map((instance) => (
-              <CardListPanelCard
-                key={instance.id}
-                instance={instance}
-                selected={selectedIds.includes(instance.id)}
-                onToggleSelect={() => onToggleSelect(instance.id)}
-                cardWidth={cardWidth}
-                cardHeight={cardHeight}
-                markFaceDown={onFlip !== undefined}
-                gridScrolls={gridScrolls}
-              />
-            ))
-          )}
-        </div>
-        {host && (
-          <PanelHost
-            host={host}
-            label={location === 'crew' ? 'Ship' : 'Placed on'}
-            testId={location === 'crew' ? 'card-list-panel-crew-ship' : `card-list-panel-${location}-host`}
-            cardWidth={cardWidth}
-            cardHeight={cardHeight}
-          />
+          </div>
+        ) : (
+          gridElement
         )}
-        </div>
       </div>
       </div>
     </div>
