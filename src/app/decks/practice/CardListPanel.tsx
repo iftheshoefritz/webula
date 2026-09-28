@@ -268,18 +268,16 @@ function CardListPanelCard({
 // The card the panel's cards belong to, in its own section to the right of the grid (#894): the ship whose crew
 // the panel lists (#832), or the card the listed cards are placed on (#881). The whole card image
 // at the size of a panel card, face up, on a framed box of its own so it does not read as one of
-// the listed cards. A hold shows its preview; a tap does nothing. No `useDraggable` and no
+// the listed cards. No label above it (#916): the card speaks for itself. A hold shows its preview; a tap does nothing. No `useDraggable` and no
 // `data-zone`: it is neither a drag source nor a drop target (the card's `TableCard` already holds
 // a draggable under the same id).
 function PanelHost({
   host,
-  label,
   testId,
   cardWidth,
   cardHeight,
 }: {
   host: CardInstance;
-  label: string;
   testId: string;
   cardWidth: number;
   cardHeight: number;
@@ -295,7 +293,6 @@ function PanelHost({
           the size of a panel card at every viewport. Where the row is shorter than the card (568 x
           320), the section scrolls, the same way the grid beside it does, rather than run over
           the bottom row. */}
-      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-text-secondary">{label}</span>
       <div
         role="img"
         aria-label={card.name}
@@ -588,7 +585,6 @@ export default function CardListPanel({
             {gridElement}
             <PanelHost
               host={host}
-              label={location === 'crew' ? 'Ship' : 'Placed on'}
               testId={location === 'crew' ? 'card-list-panel-crew-ship' : `card-list-panel-${location}-host`}
               cardWidth={cardWidth}
               cardHeight={cardHeight}
