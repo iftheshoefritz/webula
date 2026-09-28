@@ -306,8 +306,31 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       });
     };
 
+    // A personnel or an equipment aimed at the mission card joins the away team, face down, the
+    // same as a drop on the away team badge (#870). Nothing is placed on the mission card.
     it.each([
       ['personnel', mockPersonnelCard],
+      ['equipment', mockEquipmentCard],
+    ])("files a %s dropped on a mission card's art into the away team, face down", async (_type, card) => {
+      await setupWithMission([card]);
+      const draggedId = handCardId(card.name);
+
+      await drop(draggedId, 'mission-0');
+
+      expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i }));
+      });
+      const panelCard = document.body.querySelector(
+        `[data-testid="card-list-panel-awayTeam"] [data-card-id="${draggedId}"]`
+      );
+      expect(panelCard).not.toBeNull();
+      expect(panelCard!.querySelector('[data-testid="face-down-mark"]')).not.toBeNull();
+    });
+
+    it.each([
       ['event', mockEventCard],
     ])("places a %s dropped on a mission card's art on the mission card", async (_type, card) => {
       await setupWithMission([card]);
