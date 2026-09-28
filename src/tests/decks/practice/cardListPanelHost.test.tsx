@@ -59,3 +59,27 @@ describe('Practice draw: a card list panel shows its host to the right of the gr
     expect(img.style.maxHeight).toBe('');
   });
 });
+
+describe('Practice draw: the host section of a card list panel has no label (#916)', () => {
+  it.each(cases)('shows the %s host card with no text above it', (location, hostTestId) => {
+    render(
+      <CardListPanel
+        location={location}
+        cards={[makeCard(1)]}
+        host={makeCard(9, 'ship')}
+        onClose={() => {}}
+        selectedIds={[]}
+        onToggleSelect={() => {}}
+        cardWidth={108}
+        cardHeight={150}
+      />
+    );
+
+    const host = screen.getByTestId(hostTestId);
+    expect(host.textContent).toBe('');
+    expect(screen.queryByText(/^Ship$/i)).toBeNull();
+    expect(screen.queryByText(/^Placed on$/i)).toBeNull();
+    // The framed box stays.
+    expect(host.className).toMatch(/border-accent\/60/);
+  });
+});
