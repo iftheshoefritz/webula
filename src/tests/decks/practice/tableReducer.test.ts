@@ -929,6 +929,33 @@ describe('tableReducer', () => {
       expect(state.brig).toEqual([{ ...stoppedInBrig, stopped: false }]);
     });
 
+    it('unstops a stopped card placed on a mission card (#873)', () => {
+      const placed = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const mission = { ...instance('m0', card('Mission'), 'up'), placedOn: [placed] };
+      const start = { ...initialTableState, missions: missionSlots([mission]) };
+      const state = tableReducer(start, { type: 'nextTurn' });
+
+      expect(state.missions[0].mission!.placedOn).toEqual([{ ...placed, stopped: false }]);
+    });
+
+    it('unstops a stopped card placed on a ship (#873)', () => {
+      const placed = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const ship = { ...instance('s0', card('U.S.S. Relativity'), 'up'), placedOn: [placed] };
+      const start = { ...initialTableState, missions: missionSlots([], { 2: [ship] }) };
+      const state = tableReducer(start, { type: 'nextTurn' });
+
+      expect(state.missions[2].ships[0].placedOn).toEqual([{ ...placed, stopped: false }]);
+    });
+
+    it('unstops a stopped card placed on a card in the core (#873)', () => {
+      const placed = { ...instance('p0', card('Data'), 'up'), stopped: true };
+      const target = { ...instance('c0', card('Target'), 'up'), placedOn: [placed] };
+      const start = { ...initialTableState, core: [target] };
+      const state = tableReducer(start, { type: 'nextTurn' });
+
+      expect(state.core[0].placedOn).toEqual([{ ...placed, stopped: false }]);
+    });
+
     it('leaves an already-unstopped card untouched, keeping the same object reference', () => {
       const untouched = instance('p0', card('Data'), 'up');
       const start = { ...initialTableState, hand: [untouched] };
