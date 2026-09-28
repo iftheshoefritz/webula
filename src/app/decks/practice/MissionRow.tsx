@@ -44,23 +44,23 @@
 // overlapping one is otherwise unreachable for both a tap and a drag. A tap on a ship inside that
 // panel selects it, the same as a tap inside any other panel, and does not open its crew panel.
 //
-// Dropping a personnel, equipment, event, mission, or interrupt card on the mission card or its
-// ship row (#602) files it into one of that mission's piles, chosen by card type: personnel and
-// equipment go to the away team face down; event, mission, and interrupt go to the event
-// pile face up. A dilemma dropped on a mission, from anywhere, goes under the mission instead
-// (#606, #733), face up, permanently, unless it lands on the top half of the mission card, which
-// places it on the mission card (#871, `missionHalfDropId`). Each non-empty away team/event pile shows a small badge on
+// Dropping a card on the mission card or its ship row (#602) routes it by card type. A personnel
+// or an equipment joins that mission's away team face down (#870). An event, a mission, or an
+// interrupt is placed on the mission card, face up, behind its count pill (#813,
+// `PlacedOnCounter`). A dilemma dropped on a mission, from anywhere, goes under the mission
+// instead (#606, #733), face up, permanently, unless it lands on the top half of the mission card,
+// which places it on the mission card (#871, `missionHalfDropId`). The away team badge sits on
 // the badge strip, below (and as a sibling of, not nested inside) the mission card's own
 // `<button>` — nesting a badge button inside it would be invalid HTML and would let the mission's
-// own tap handler fire first, the same conflict already avoided for the ship's own drop target. A
-// badge is a drop target of its own: dropping a card of any type directly on a badge overrides
-// the type-based routing above and puts it in that pile regardless. A badge sits geometrically on
-// top of the mission card's larger drop target, so `collisionDetection` (`page.tsx`), which ranks
-// every zone the dragged card
-// overlaps by area, smallest first, already picks the smaller, nested badge over the mission
-// card beneath it, the same reasoning that lets a ship's crew zone win over its enclosing ship
-// row (#645). A tap on a badge opens that pile's panel
-// (`CardListPanel`); a tap on the mission card itself does nothing (a hold previews it). The
+// own tap handler fire first, the same conflict already avoided for the ship's own drop target. The
+// badge is a drop target of its own: dropping a card of any type directly on it overrides the
+// type-based routing above and files the card into the away team regardless. The badge sits
+// geometrically on top of the mission card's larger drop target, so `collisionDetection`
+// (`page.tsx`), which ranks every zone the dragged card overlaps by area, smallest first, already
+// picks the smaller, nested badge over the mission card beneath it, the same reasoning that lets
+// a ship's crew zone win over its enclosing ship row (#645). A tap on the badge opens the away
+// team's panel (`CardListPanel`); a tap on the mission card itself does nothing (a hold previews
+// it). The
 // under-the-mission pile has no badge of its own — its control is the tap target layered over its
 // stack of slivers (`UnderMissionStack` below), not a drop target, since the drop happens on the
 // mission card's own drop target like every other pile that has no badge under the pointer.
