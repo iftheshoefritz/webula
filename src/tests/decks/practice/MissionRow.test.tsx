@@ -114,7 +114,7 @@ describe('MissionRow', () => {
     expect(screen.queryByRole('button', { name: /under the mission pile/i })).not.toBeInTheDocument();
   });
 
-  it('renders each under-mission dilemma face up, and opens that pile on a tap of the sliver', () => {
+  it('renders each under-mission dilemma face up, and opens that pile from its hidden button', () => {
     const onOpenPile = jest.fn();
     const slot: MissionSlot = {
       ...emptySlot(),
@@ -153,5 +153,69 @@ describe('MissionRow', () => {
     const badge = screen.getByRole('button', { name: /Away team, 1 card/i });
     expect(missionZone.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(missionZone.contains(badge)).toBe(false);
+  });
+
+  // #917: two slivers, the top half of the mission card takes the drop under the mission and the
+  // tap that opens the pile, and the bottom half places a card on the mission.
+  describe('the under-the-mission stack and the top half of the mission card (#917)', () => {
+    const renderRow = (slot: MissionSlot, onOpenPile = jest.fn()) => {
+      render(
+        <MissionRow
+          missions={[slot]}
+          onOpenPile={onOpenPile}
+          onShipClick={() => {}}
+          onOpenShipRow={() => {}}
+          onOpenPlacedOn={() => {}}
+        />
+      );
+      return onOpenPile;
+    };
+    const threeDilemmas = (): MissionSlot => ({
+      ...emptySlot(),
+      underMission: [card('d1', 'Dilemma One'), card('d2', 'Dilemma Two'), card('d3', 'Dilemma Three')],
+    });
+    // jsdom lays nothing out, so the mission card gets a 72x64 rect at the origin.
+    const tapMission = (clientY: number) => {
+      const button = document.body.querySelector('[data-card-id="mission-0"]') as HTMLElement;
+      button.getBoundingClientRect = () =>
+        ({ top: 0, left: 0, right: 72, bottom: 64, width: 72, height: 64, x: 0, y: 0, toJSON: () => {} }) as DOMRect;
+      fireEvent.click(button, { clientX: 10, clientY });
+    };
+
+    it('shows two slivers, each offset by about 5% of the card height, and the true count', () => {
+      renderRow(threeDilemmas());
+      expect(document.body.querySelector('[data-card-id="d1"]')).toBeNull();
+      const d2 = document.body.querySelector('[data-card-id="d2"]')!.parentElement!;
+      const d3 = document.body.querySelector('[data-card-id="d3"]')!.parentElement!;
+      expect(d2.style.top).toBe('0px');
+      expect(d3.style.top).toBe('3px'); // 5% of 64px, rounded
+      expect(d2.parentElement!.style.top).toBe('-6px');
+      expect(screen.getByRole('button', { name: /under the mission pile, 3 cards, tap to open/i })).toBeInTheDocument();
+      expect(d2.parentElement!.textContent).toBe('3');
+    });
+
+    it('puts the under drop on the top half and the on drop on the bottom half', () => {
+      renderRow(emptySlot());
+      expect(document.body.querySelector('[data-zone="mission-under-0"]')).toHaveClass('top-0');
+      expect(document.body.querySelector('[data-zone="mission-on-0"]')).toHaveClass('bottom-0');
+    });
+
+    it('opens the under-the-mission panel on a tap of the top half', () => {
+      const onOpenPile = renderRow(threeDilemmas());
+      tapMission(10);
+      expect(onOpenPile).toHaveBeenCalledWith(0, 'underMission');
+    });
+
+    it('opens nothing on a tap of the bottom half', () => {
+      const onOpenPile = renderRow(threeDilemmas());
+      tapMission(50);
+      expect(onOpenPile).not.toHaveBeenCalled();
+    });
+
+    it('opens nothing on a tap of the top half when no dilemma is under the mission', () => {
+      const onOpenPile = renderRow(emptySlot());
+      tapMission(10);
+      expect(onOpenPile).not.toHaveBeenCalled();
+    });
   });
 });
