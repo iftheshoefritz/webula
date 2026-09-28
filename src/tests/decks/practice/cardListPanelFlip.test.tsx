@@ -180,7 +180,7 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
     await renderWithDeck(mockPersonnelCards);
     for (const name of ['personnel 1', 'personnel 2']) {
       await openClosedHand(/^hand, \d+ cards?, tap to open$/i);
-      await drop(cardIdFor(name), 'mission-0');
+      await drop(cardIdFor(name), 'mission-under-0');
     }
     await click(/Away team, 2 cards, tap to open/i);
   };

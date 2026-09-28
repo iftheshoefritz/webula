@@ -48,7 +48,8 @@
 // ship row (#602) files it into one of that mission's piles, chosen by card type: personnel and
 // equipment go to the away team face down; event, mission, and interrupt go to the event
 // pile face up. A dilemma dropped on a mission, from anywhere, goes under the mission instead
-// (#606, #733), face up, permanently. Each non-empty away team/event pile shows a small badge on
+// (#606, #733), face up, permanently, unless it lands on the top half of the mission card, which
+// places it on the mission card (#871, `missionHalfDropId`). Each non-empty away team/event pile shows a small badge on
 // the badge strip, below (and as a sibling of, not nested inside) the mission card's own
 // `<button>` — nesting a badge button inside it would be invalid HTML and would let the mission's
 // own tap handler fire first, the same conflict already avoided for the ship's own drop target. A
@@ -89,7 +90,12 @@ export const SHIP_CARD_WIDTH = 34; // px
 export const SHIP_CARD_ART_HEIGHT = 32; // px, scaled down from TABLE_CARD_ART_HEIGHT to match
 const SHIP_MAX_OFFSET_BASE = SHIP_CARD_WIDTH + 2; // 2 ships sit edge to edge with a small gap
 
-export const missionDropId = (missionIndex: number): string => `mission-${missionIndex}`;
+// The mission card has two drop halves (#871), each the full width and half the height of the
+// card. They differ only for a dilemma: the top half places it on the mission card, the bottom
+// half puts it under the mission. Every other type routes the same way from either half.
+export type MissionHalf = 'on' | 'under';
+export const missionHalfDropId = (missionIndex: number, half: MissionHalf): string =>
+  `mission-${half}-${missionIndex}`;
 export const shipRowDropId = (missionIndex: number): string => `ship-row-${missionIndex}`;
 // A ship's own droppable, over its art. A drop here places the card on the ship (#812); the name
 // is older than that, from when a drop on the art boarded the card as crew (#600).
@@ -98,7 +104,7 @@ export const crewDropId = (shipId: string): string => `crew-${shipId}`;
 // its own `data-zone` to aim at. A drop on it files the dropped card into the ship's crew.
 export const crewBadgeDropId = (shipId: string): string => `crew-badge-${shipId}`;
 
-// A mission pile's badge is its own drop target (#602), distinct from `missionDropId`, since a drop
+// A mission pile's badge is its own drop target (#602), distinct from `missionHalfDropId`, since a drop
 // on the mission card places the card on it (#813). Only the away team has a badge: the
 // under-mission pile's stack sits inside the mission card's drop target, and a dilemma dropped
 // there goes under the mission.
@@ -113,8 +119,14 @@ export function missionPileFromDropId(id: string): { missionIndex: number; pile:
 // Both a drop on the mission card and a drop on its ship row resolve to the same mission index
 // (#599's plan); this parses either droppable id back to that index.
 export function missionIndexFromDropId(id: string): number | null {
-  const match = /^(?:mission|ship-row)-(\d+)$/.exec(id);
+  const match = /^(?:mission-on|mission-under|ship-row)-(\d+)$/.exec(id);
   return match ? Number(match[1]) : null;
+}
+
+// The half of the mission card a drop landed on (#871), or null for a ship row, which has none.
+export function missionHalfFromDropId(id: string): MissionHalf | null {
+  const match = /^mission-(on|under)-\d+$/.exec(id);
+  return match ? (match[1] as MissionHalf) : null;
 }
 
 // Parses a ship's own droppable id back to that ship's instance id (#600's plan). A crew badge's id
@@ -410,7 +422,7 @@ const UNDER_MISSION_MIN_SLIVER_BASE = 2; // px, the smallest sliver a single car
 // renders nothing and reserves no space — no dashed placeholder box. A single tap target, sized
 // to the sliver band, opens that pile's panel (`CardListPanel`), the same callback `PileBadge`
 // already uses; it is not a drop target of its own — the drop happens on the mission card's own
-// drop target (`missionDropId`). The individual card images underneath have no click handling of
+// drop halves (`missionHalfDropId`). The individual card images underneath have no click handling of
 // their own (`pointer-events-none`) so only the tap target responds, and the sliver band sits
 // entirely above the mission card's own drop target, so the two never overlap.
 function UnderMissionStack({
@@ -540,6 +552,47 @@ function ShipRow({
   );
 }
 
+// One of the mission card's two drop halves (#871), laid over the card like a `PileHalf`
+// (`page.tsx`), but with `pointer-events-none`: dnd-kit measures the rect, so a drop still lands,
+// while the hold preview on the mission's `TableCard` and the tap on `PlacedOnCounter` still work.
+// During a dilemma drag each half shows its own highlight and, under the pointer, its label; for
+// any other type both halves report the whole card's state and the card itself shows the ring.
+function MissionHalfTarget({
+  droppable,
+  dropId,
+  half,
+  label,
+  split,
+  draggedType,
+  eitherOver,
+}: {
+  droppable: ReturnType<typeof useDroppable>;
+  dropId: string;
+  half: MissionHalf;
+  label: string;
+  split: boolean;
+  draggedType: string | null;
+  eitherOver: boolean;
+}) {
+  const highlight = highlightState('mission', draggedType, split ? droppable.isOver : eitherOver);
+  return (
+    <div
+      ref={droppable.setNodeRef}
+      data-zone={dropId}
+      data-highlight={highlight}
+      className={`absolute inset-x-0 h-1/2 pointer-events-none ${half === 'on' ? 'top-0 rounded-t-lg' : 'bottom-0 rounded-b-lg'} ${
+        split ? highlightClassName(highlight) : ''
+      }`}
+    >
+      {split && droppable.isOver && (
+        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white bg-black/60 rounded">
+          {label}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function MissionColumn({
   missionIndex,
   slot,
@@ -557,9 +610,14 @@ function MissionColumn({
   onOpenPlacedOn: (targetId: string) => void;
   scale: number;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: missionDropId(missionIndex) });
+  const onDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
+  const underDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'under') });
   const draggedType = useDraggedCardType();
-  const highlight = highlightState('mission', draggedType, isOver);
+  // Only a dilemma tells the two halves apart (#871), so only a dilemma drag shows them apart.
+  // For any other type the whole card highlights while the pointer is over either half.
+  const split = draggedType === 'dilemma';
+  const eitherOver = onDrop.isOver || underDrop.isOver;
+  const highlight = highlightState('mission', draggedType, eitherOver);
   const { mission, ships, awayTeam, underMission } = slot;
   // The cards placed on the mission card (#813), such as the events at the mission.
   const onLandedNonce = useLandedNonce(mission ? `on-${mission.id}` : '');
@@ -571,11 +629,10 @@ function MissionColumn({
   return (
     <div className="flex flex-col items-center gap-1" style={{ width: cardWidth }}>
       <div
-        ref={setNodeRef}
-        data-zone={missionDropId(missionIndex)}
-        data-highlight={highlight}
         data-landed={onLandedNonce !== null || undefined}
-        className={`relative w-full flex items-center justify-center rounded ${highlightClassName(highlight)}`}
+        className={`relative w-full flex items-center justify-center rounded ${
+          split ? '' : highlightClassName(highlight)
+        }`}
       >
         {/* Dilemmas under the mission (#606), stacked behind it and poking out above (#641) */}
         <UnderMissionStack
@@ -591,6 +648,24 @@ function MissionColumn({
           {mission ? (
             <>
               <TableCard instance={mission} width={cardWidth} artHeight={cardArtHeight} />
+              <MissionHalfTarget
+                droppable={onDrop}
+                dropId={missionHalfDropId(missionIndex, 'on')}
+                half="on"
+                label="On"
+                split={split}
+                draggedType={draggedType}
+                eitherOver={eitherOver}
+              />
+              <MissionHalfTarget
+                droppable={underDrop}
+                dropId={missionHalfDropId(missionIndex, 'under')}
+                half="under"
+                label="Under"
+                split={split}
+                draggedType={draggedType}
+                eitherOver={eitherOver}
+              />
               {onCount > 0 && (
                 <PlacedOnCounter
                   name={mission.card.name}
@@ -603,10 +678,29 @@ function MissionColumn({
             </>
           ) : (
             <div
-              className="w-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[9px]"
+              className="relative w-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[9px]"
               style={{ height: cardArtHeight }}
             >
               Mission
+              {/* With no mission card to place on, a dilemma goes under the mission from either half. */}
+              <MissionHalfTarget
+                droppable={onDrop}
+                dropId={missionHalfDropId(missionIndex, 'on')}
+                half="on"
+                label="Under"
+                split={split}
+                draggedType={draggedType}
+                eitherOver={eitherOver}
+              />
+              <MissionHalfTarget
+                droppable={underDrop}
+                dropId={missionHalfDropId(missionIndex, 'under')}
+                half="under"
+                label="Under"
+                split={split}
+                draggedType={draggedType}
+                eitherOver={eitherOver}
+              />
             </div>
           )}
         </div>

@@ -196,7 +196,7 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
 
   it('marks the away team badge for an equipment dropped on the mission card (#870)', async () => {
     await setup();
-    await drop(handCardId('tricorder'), 'mission-0');
+    await drop(handCardId('tricorder'), 'mission-under-0');
 
     expect(zone('mission-pile-awayTeam-0')).toHaveAttribute('data-landed');
     expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
@@ -205,9 +205,9 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
 
   it('marks the mission card for an event placed on it (#813)', async () => {
     await setup();
-    await drop(handCardId('distress call'), 'mission-0');
+    await drop(handCardId('distress call'), 'mission-on-0');
 
-    expect(zone('mission-0')).toHaveAttribute('data-landed');
+    expect(zone('mission-on-0')!.closest('[data-landed]')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
   });
 
@@ -216,7 +216,7 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
     await drop(handCardId('distress call'), 'mission-pile-awayTeam-0');
 
     expect(zone('mission-pile-awayTeam-0')).toHaveAttribute('data-landed');
-    expect(zone('mission-0')).not.toHaveAttribute('data-landed');
+    expect(zone('mission-on-0')!.closest('[data-landed]')).toBeNull();
     expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
   });
 

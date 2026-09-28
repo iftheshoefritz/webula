@@ -113,8 +113,9 @@ bx=$1; by=$2
 # key is that card's drop zone, `on-<its card id>`. A ship's counter of the
 # cards on it (#812) reads the same way, and sits inside the ship's own
 # wrapper, so its key is the ship's drop zone, `crew-<the ship's card id>`.
-# A mission card's counter (#813) reads the same way too, and its key is the
-# mission's drop zone, `mission-<index>`.
+# A mission card's counter (#813) reads the same way too. It sits beside the
+# mission card's two drop halves (#871), not inside a data-zone, so its key is
+# the fallback, the mission's name.
 snapshot() {
   ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const k=el.getAttribute('data-zone')||pile[1];parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
 }

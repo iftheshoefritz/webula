@@ -520,7 +520,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
       mockOnDragStart!({ active: { id: firstId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-under-0' } });
     });
 
     expect(screen.getByRole('button', { name: /Under the mission pile, 1 card, tap to open/i })).toBeInTheDocument();
@@ -645,7 +645,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
         mockOnDragStart!({ active: { id: firstId } });
       });
       await act(async () => {
-        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-0' } });
+        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-under-0' } });
       });
 
       expect(screen.getByRole('button', { name: /Under the mission pile, 1 card, tap to open/i })).toBeInTheDocument();

@@ -42,6 +42,7 @@ import MissionRow, {
   SHIP_CARD_ART_HEIGHT,
   SHIP_CARD_WIDTH,
   missionIndexFromDropId,
+  missionHalfFromDropId,
   missionPileFromDropId,
   shipIdFromCrewBadgeDropId,
   shipIdFromCrewDropId,
@@ -325,8 +326,13 @@ function computeMoveTargetForInstance(
       return { zone: 'shipRow', missionIndex };
     }
     if (instance.card.type === 'dilemma') {
-      // A dilemma dropped on a mission card always lands under that mission (#606, #733),
-      // whatever zone it came from.
+      // A dilemma dropped on the top half of a mission card is placed on it (#871). Dropped on the
+      // bottom half, on the ship row, or on a slot with no mission card, it lands under that
+      // mission (#606, #733), whatever zone it came from.
+      const mission = table.missions[missionIndex]?.mission;
+      if (missionHalfFromDropId(String(over.id)) === 'on' && mission) {
+        return { zone: 'on', targetId: mission.id };
+      }
       return { zone: 'missionPile', missionIndex, pile: 'underMission' };
     }
     // A personnel or an equipment dropped on a ship row, off any ship (#645), or on the mission

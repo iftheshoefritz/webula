@@ -175,7 +175,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
       mockOnDragStart!({ active: { id: shipDraggableId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: shipDraggableId }, over: { id: `mission-${missionIndex}` } });
+      mockOnDragEnd!({ active: { id: shipDraggableId }, over: { id: `mission-on-${missionIndex}` } });
     });
     const label = new RegExp(`^hand, ${remainingCount} cards?, tap to open$`, 'i');
     // #740 keeps a hand open after a drag out of it, so this tap only runs when the

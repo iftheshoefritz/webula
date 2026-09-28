@@ -108,7 +108,7 @@ const mockManyDeck = {
   [mockDilemmaCard.collectorsinfo]: { count: 1, row: mockDilemmaCard },
 };
 
-const missionZoneIds = ['mission-0', 'mission-1', 'mission-2', 'mission-3', 'mission-4'];
+const missionZoneIds = ['mission-under-0', 'mission-under-1', 'mission-under-2', 'mission-under-3', 'mission-under-4'];
 const shipRowZoneIds = ['ship-row-0', 'ship-row-1', 'ship-row-2', 'ship-row-3', 'ship-row-4'];
 
 function highlightOf(zoneId: string): string | null {
@@ -199,7 +199,7 @@ describe('Practice table: valid-zone highlight during a drag (#608)', () => {
       mockOnDragStart!({ active: { id: shipId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-under-0' } });
     });
 
     // Re-open the hand (the ship's drag start closed it) and drag the personnel card.

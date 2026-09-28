@@ -292,7 +292,7 @@ describe('Practice draw: selecting more than one card in a card list panel and d
       mockOnDragStart!({ active: { id: id2 } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: id2 }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: id2 }, over: { id: 'mission-under-0' } });
     });
 
     const personnelBadge = screen.getByRole('button', { name: /Away team, 2 cards, tap to open/i });
@@ -331,7 +331,7 @@ describe('Practice draw: selecting more than one card in a card list panel and d
       mockOnDragStart!({ active: { id: draggedId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-under-0' } });
     });
 
     // The core panel stays open (#675: the core still holds "personnel 2"). Re-selecting the

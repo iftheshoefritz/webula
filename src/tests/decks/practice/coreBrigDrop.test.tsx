@@ -204,7 +204,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragStart!({ active: { id: shipId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-0' } });
+      mockOnDragEnd!({ active: { id: shipId }, over: { id: 'mission-under-0' } });
     });
 
     // Re-open the hand (drag start closed it) and board the personnel card as crew.
