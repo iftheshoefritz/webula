@@ -705,3 +705,14 @@ describe('DrivePickerModal – reports mode', () => {
     expect(screen.getByText('Report One')).toBeInTheDocument();
   });
 });
+
+describe('DrivePickerModal – layer (#897)', () => {
+  // The practice table's pile count badges sit at `z-[140]`, and the splash of its game menu at
+  // `z-[160]`. At `z-50` the badges drew through the picker.
+  it('stacks the picker above the pile count badges and the menu splash', () => {
+    const { container } = render(<DrivePickerModal {...baseProps} />);
+    const zIndex = (container.firstElementChild as HTMLElement).className.match(/\bz-\[(\d+)\]/);
+    expect(zIndex).not.toBeNull();
+    expect(Number(zIndex![1])).toBeGreaterThan(160);
+  });
+});
