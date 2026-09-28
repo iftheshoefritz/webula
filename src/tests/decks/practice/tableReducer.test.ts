@@ -713,29 +713,12 @@ describe('tableReducer', () => {
   });
 
   describe('flip', () => {
-    it('turns a face-up mission face down in place', () => {
+    it('leaves a mission card alone: a mission turns over with flipMission instead (#765)', () => {
       const mission = instance('m0', card('Moab IV'), 'up');
       const start = { ...initialTableState, missions: missionSlots([mission]) };
       const state = tableReducer(start, { type: 'flip', id: 'm0' });
 
-      expect(state.missions).toEqual(missionSlots([{ ...mission, face: 'down' }]));
-    });
-
-    it('turns a face-down mission face up again', () => {
-      const mission = instance('m0', card('Moab IV'), 'down');
-      const start = { ...initialTableState, missions: missionSlots([mission]) };
-      const state = tableReducer(start, { type: 'flip', id: 'm0' });
-
-      expect(state.missions).toEqual(missionSlots([{ ...mission, face: 'up' }]));
-    });
-
-    it('leaves the other mission slots untouched', () => {
-      const m0 = instance('m0', card('Moab IV'), 'up');
-      const m1 = instance('m1', card('Angel I'), 'up');
-      const start = { ...initialTableState, missions: missionSlots([m0, m1]) };
-      const state = tableReducer(start, { type: 'flip', id: 'm0' });
-
-      expect(state.missions[1].mission).toEqual(m1);
+      expect(state).toBe(start);
     });
 
     it('is a no-op for an id that is not on the table', () => {
@@ -780,6 +763,52 @@ describe('tableReducer', () => {
       expect(state.missions[0].awayTeam).toEqual([{ ...flipped, face: 'up' }, untouched]);
     });
 
+  });
+
+  describe('flipMission (#765)', () => {
+    const doubleSided = { ...card('Ceti Alpha V'), imagefile: 'STVE-EN29035ab', backimagefile: 'STVE-EN29035R' };
+
+    it('turns a double-sided mission to its back, and a second flip turns it back to the front', () => {
+      const mission = instance('m0', doubleSided, 'up');
+      const start = { ...initialTableState, missions: missionSlots([mission]) };
+
+      const flipped = tableReducer(start, { type: 'flipMission', id: 'm0' });
+      expect(flipped.missions[0].mission).toEqual({ ...mission, flipped: true });
+
+      const back = tableReducer(flipped, { type: 'flipMission', id: 'm0' });
+      expect(back.missions[0].mission?.flipped).toBeUndefined();
+      expect(back.missions[0].mission?.face).toBe('up');
+    });
+
+    it('never changes the face of the mission', () => {
+      const mission = instance('m0', doubleSided, 'up');
+      const start = { ...initialTableState, missions: missionSlots([mission]) };
+      const state = tableReducer(start, { type: 'flipMission', id: 'm0' });
+
+      expect(state.missions[0].mission?.face).toBe('up');
+    });
+
+    it('does nothing to a single-sided mission', () => {
+      const mission = instance('m0', { ...card('Moab IV'), imagefile: 'x', backimagefile: '' }, 'up');
+      const start = { ...initialTableState, missions: missionSlots([mission]) };
+
+      expect(tableReducer(start, { type: 'flipMission', id: 'm0' })).toBe(start);
+    });
+
+    it('does nothing to a card that is not a mission card in its slot', () => {
+      const other = instance('h0', doubleSided, 'up');
+      const start = { ...initialTableState, hand: [other] };
+
+      expect(tableReducer(start, { type: 'flipMission', id: 'h0' })).toBe(start);
+    });
+
+    it('a move clears `flipped`, so a card off the mission row shows its front', () => {
+      const flippedCard = { ...instance('h0', doubleSided, 'up'), flipped: true };
+      const start = { ...initialTableState, hand: [flippedCard] };
+      const state = tableReducer(start, { type: 'move', id: 'h0', to: 'discard' });
+
+      expect(state.discard[0].flipped).toBeUndefined();
+    });
   });
 
   describe('setStopped (#679, #681)', () => {
