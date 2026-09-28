@@ -117,7 +117,7 @@ describe('useDataFetching', () => {
     expect(result.current.data[0].keywords).not.toContain('I.K.S.');
   });
 
-  it('extracts only the first value from a comma-separated imagefile field', async () => {
+  it('keeps the first value as imagefile and the second as backimagefile (#765)', async () => {
     const tsv = buildTsv([{ ...baseRow, ImageFile: 'first_image,second_image' }]);
     global.fetch = jest.fn().mockResolvedValue({ text: async () => tsv } as any);
 
@@ -125,6 +125,17 @@ describe('useDataFetching', () => {
 
     await waitFor(() => expect(result.current.data.length).toBeGreaterThan(0));
     expect(result.current.data[0].imagefile).toBe('first_image');
+    expect(result.current.data[0].backimagefile).toBe('second_image');
+  });
+
+  it('gives a single-sided card an empty backimagefile (#765)', async () => {
+    const tsv = buildTsv([{ ...baseRow, ImageFile: 'only_image' }]);
+    global.fetch = jest.fn().mockResolvedValue({ text: async () => tsv } as any);
+
+    const { result } = renderHook(() => useDataFetching());
+
+    await waitFor(() => expect(result.current.data.length).toBeGreaterThan(0));
+    expect(result.current.data[0].backimagefile).toBe('');
   });
 
   it('preserves originalName as the un-lowercased card name', async () => {

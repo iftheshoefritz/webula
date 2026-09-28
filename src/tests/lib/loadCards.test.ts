@@ -56,3 +56,19 @@ describe('parseCardData mission/dilemmatype normalization', () => {
     expect(data[0].dilemmatype).toBe('planet');
   });
 });
+
+describe('parseCardData back image of a double-sided mission (#765)', () => {
+  it('keeps the front as imagefile and the back as backimagefile', () => {
+    const tsv = buildTsv([{ ...baseRow, Type: 'Mission', ImageFile: 'STVE-EN29035ab,STVE-EN29035R' }]);
+    const { data } = parseCardData(tsv);
+    expect(data[0].imagefile).toBe('STVE-EN29035ab');
+    expect(data[0].backimagefile).toBe('STVE-EN29035R');
+  });
+
+  it('gives a single-sided card an empty backimagefile, and keeps trailing letters in the name', () => {
+    const tsv = buildTsv([{ ...baseRow, ImageFile: 'ST2E-EN07052abc' }]);
+    const { data } = parseCardData(tsv);
+    expect(data[0].imagefile).toBe('ST2E-EN07052abc');
+    expect(data[0].backimagefile).toBe('');
+  });
+});

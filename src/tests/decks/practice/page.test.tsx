@@ -166,6 +166,27 @@ describe('PracticeDrawPage', () => {
     expect(extractDrawDeck).toHaveBeenCalledWith(mockDeck);
   });
 
+  // #765: a deck saved before the loaders kept the back image has no `backimagefile` on its
+  // missions. The page fills it in from the loaded card data when it deals the deck.
+  it('fills in the back image of a double-sided mission from a deck saved before #765', async () => {
+    const savedMission = { collectorsinfo: '29V35', originalName: 'Ceti Alpha V', type: 'mission', name: 'ceti alpha v', imagefile: 'STVE-EN29035ab', count: 1 };
+    const loadedMission = { ...savedMission, backimagefile: 'STVE-EN29035R' };
+    localStorage.setItem('currentDeck', JSON.stringify({ '29V35': { count: 1, row: savedMission } }));
+    (extractDrawDeck as jest.Mock).mockReturnValue([]);
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [loadedMission], loading: false });
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+
+    const missionImage = () => document.querySelector('[data-card-id] img[alt="ceti alpha v"]');
+    expect(missionImage()).toHaveAttribute('src', '/cardimages/STVE-EN29035ab.jpg');
+    fireEvent.click(screen.getByRole('button', { name: 'Flip ceti alpha v to its back' }));
+    expect(missionImage()).toHaveAttribute('src', '/cardimages/STVE-EN29035R.jpg');
+    fireEvent.click(screen.getByRole('button', { name: 'Flip ceti alpha v to its front' }));
+    expect(missionImage()).toHaveAttribute('src', '/cardimages/STVE-EN29035ab.jpg');
+  });
+
   // Behaviour 5: Data dependency — no premature fire while loading
   it('does not call deckFromTsv while loading is true', async () => {
     mockSearchParamsValue = new URLSearchParams('fixture=1');

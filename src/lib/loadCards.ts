@@ -47,7 +47,10 @@ export function parseCardData(text: string): { data: CardData[]; columns: string
 
   const dataWithSingleImageFile = dataWithDotlessCommanderKeywords.map((row) => {
     const imageFile = row.imagefile as string;
-    row.imagefile = imageFile.split(',')[0];
+    // A double-sided mission names two images (#765): the front first, then the back.
+    const [front, back] = imageFile.split(',');
+    row.imagefile = front;
+    row.backimagefile = back ?? '';
     return row;
   });
 

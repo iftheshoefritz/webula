@@ -231,6 +231,32 @@ function PlacedOnCounter({
   );
 }
 
+// The Flip button of a double-sided mission (#765), at the top-right corner of the mission card,
+// the corner opposite `PlacedOnCounter`. Like the counter it is a sibling `<button>` of the card's
+// own button, not a droppable, so a drop on it lands on the mission card's drop half beneath. It
+// shows only for a mission with a `backimagefile`.
+function MissionFlipButton({
+  mission,
+  height,
+  onFlip,
+}: {
+  mission: CardInstance;
+  height: number;
+  onFlip: (missionId: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onFlip(mission.id)}
+      aria-label={`Flip ${mission.card.name} to its ${mission.flipped ? 'front' : 'back'}`}
+      className="absolute -top-1 -right-1 z-10 flex items-center rounded-full bg-black/50 px-1 text-text-primary leading-none"
+      style={{ height: height - 2 }}
+    >
+      <span className="text-[8px] font-bold">Flip</span>
+    </button>
+  );
+}
+
 // The badge strip's fixed (scale-1) height (#602): tall enough to fit an icon+count badge,
 // reserved on every mission column regardless of how many badges that mission actually shows, so
 // a mission with 0, 1, or 2 badges keeps the same column layout as its neighbours. Two badges sit
@@ -600,6 +626,7 @@ function MissionColumn({
   onShipClick,
   onOpenShipRow,
   onOpenPlacedOn,
+  onFlipMission,
   scale,
 }: {
   missionIndex: number;
@@ -608,6 +635,7 @@ function MissionColumn({
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
   onOpenPlacedOn: (targetId: string) => void;
+  onFlipMission: (missionId: string) => void;
   scale: number;
 }) {
   const onDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
@@ -675,6 +703,9 @@ function MissionColumn({
                   onOpen={() => onOpenPlacedOn(mission.id)}
                 />
               )}
+              {mission.card.backimagefile && (
+                <MissionFlipButton mission={mission} height={badgeHeight} onFlip={onFlipMission} />
+              )}
             </>
           ) : (
             <div
@@ -734,6 +765,7 @@ export default function MissionRow({
   onShipClick,
   onOpenShipRow,
   onOpenPlacedOn,
+  onFlipMission = () => {},
   scale = 1,
 }: {
   missions: MissionSlot[];
@@ -742,6 +774,8 @@ export default function MissionRow({
   onOpenShipRow: (missionIndex: number) => void;
   // A tap on the counter of the cards on a ship (#812) opens them.
   onOpenPlacedOn: (targetId: string) => void;
+  // A tap on the Flip button of a double-sided mission (#765) turns it over.
+  onFlipMission?: (missionId: string) => void;
   // Issue #717: grows the mission cards, the ship cards, and the under-mission pile stack past
   // their base pixel size, computed by `useTableScale` (`tableScale.ts`) from the live size of
   // the game layer. Defaults to 1 (today's fixed sizes) for callers — including this
@@ -760,6 +794,7 @@ export default function MissionRow({
           onShipClick={onShipClick}
           onOpenShipRow={onOpenShipRow}
           onOpenPlacedOn={onOpenPlacedOn}
+          onFlipMission={onFlipMission}
         />
       ))}
     </div>

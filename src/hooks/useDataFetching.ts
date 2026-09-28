@@ -55,7 +55,10 @@ const useDataFetching = () => {
       });
       const dataWithSingleImageFile = dataWithDotlessCommanderKeywords.map((row) => {
         const imageFile = row.imagefile;
-        row.imagefile = imageFile.split(',')[0];
+        // A double-sided mission names two images (#765): the front first, then the back.
+        const [front, back] = imageFile.split(',');
+        row.imagefile = front;
+        row.backimagefile = back ?? '';
         return row
       })
       const dataWithSeparatedTypes = dataWithSingleImageFile.map((row) => {

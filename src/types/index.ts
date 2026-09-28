@@ -1,6 +1,8 @@
 type CardDef = {
   dilemmatype: string;
   imagefile: string,
+  // The back face of a double-sided mission (#765), or '' for a single-sided card.
+  backimagefile: string,
   name: string,
   collectorsinfo: string,
   type: string,
