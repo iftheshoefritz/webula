@@ -1869,6 +1869,7 @@ function PracticeDrawContent() {
                     selectedIds={selectedCardIds}
                     onToggleSelect={toggleCardSelection}
                     openCardWidth={viewerCardWidth}
+                    bottomInset={panelBottom}
                   />
                 </div>
 
@@ -1916,6 +1917,7 @@ function PracticeDrawContent() {
                     zone="dilemmaHand"
                     label="dilemma hand"
                     openCardWidth={viewerCardWidth}
+                    bottomInset={panelBottom}
                     passthroughZone={[
                       DRAW_PILE_TOP_DROPPABLE_ID,
                       DRAW_PILE_BOTTOM_DROPPABLE_ID,
