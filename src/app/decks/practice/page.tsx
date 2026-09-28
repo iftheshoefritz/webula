@@ -299,9 +299,10 @@ function computeMoveTargetForInstance(
     return { zone: 'on', targetId };
   }
 
-  // A drop on a ship's crew badge (#811) boards the card. Since #812 it is the only drop that
-  // does: a drop on the ship's art places the card on the ship, the same as a drop on a card in
-  // the core or the brig (#810).
+  // A personnel or an equipment dropped on a ship boards its crew, from the crew badge (#811) or
+  // from the ship's art (#893): the rules have no place "on a ship" for either. Any other card
+  // dropped on the art is placed on the ship (#812), the same as a drop on a card in the core or
+  // the brig (#810).
   const crewBadgeShipId = shipIdFromCrewBadgeDropId(String(over.id));
   const shipId = crewBadgeShipId ?? shipIdFromCrewDropId(String(over.id));
   if (shipId) {
@@ -316,11 +317,10 @@ function computeMoveTargetForInstance(
       }
       return null;
     }
-    if (!crewBadgeShipId) return { zone: 'on', targetId: shipId };
     if (instance.card.type === 'personnel' || instance.card.type === 'equipment') {
       return { zone: 'crew', shipId };
     }
-    return null;
+    return crewBadgeShipId ? null : { zone: 'on', targetId: shipId };
   }
 
   const badgeTarget = missionPileFromDropId(String(over.id));
