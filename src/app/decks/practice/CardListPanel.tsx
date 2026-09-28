@@ -285,23 +285,27 @@ function PanelHost({
   return (
     <div
       data-testid={testId}
-      className="shrink-0 flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
+      className="min-h-0 flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
     >
-      <span className="text-[10px] font-bold uppercase tracking-wide text-text-secondary">{label}</span>
+      {/* The section shrinks with the grid below it on a short viewport (568 x 320), so the host
+          card does not push the grid down to a sliver. The image keeps its full size where there
+          is room; where there is not, its height follows the section and its width follows the
+          image's own aspect ratio. */}
+      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-text-secondary">{label}</span>
       <div
         role="img"
         aria-label={card.name}
         {...holdListeners}
-        className="touch-none"
-        style={{ ...NO_CALLOUT_STYLE, width: cardWidth }}
+        className="touch-none flex-1 min-h-0 flex justify-center"
+        style={NO_CALLOUT_STYLE}
       >
         <img
           src={`/cardimages/${card.imagefile}.jpg`}
           width={CARD_IMAGE_WIDTH}
           height={CARD_IMAGE_HEIGHT}
           alt={card.name}
-          className={`rounded-md shadow-md h-auto ${host.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
-          style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
+          className={`rounded-md shadow-md ${host.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+          style={{ ...NO_CALLOUT_STYLE, width: 'auto', height: cardHeight, maxHeight: '100%' }}
         />
       </div>
     </div>
