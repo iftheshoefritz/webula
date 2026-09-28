@@ -614,7 +614,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     expect(document.body.querySelector('[data-testid="card-list-panel-on"]')).toBeNull();
   });
 
-  it('carries the crew of a ship moved to another mission, and discards the cards on it (#809, #812)', async () => {
+  it('carries the crew and the cards on it of a ship moved to another mission (#812, #872)', async () => {
     const secondPersonnel = { ...mockPersonnelCard, collectorsinfo: '2C003', originalName: 'Worf', name: 'worf', imagefile: 'worf' };
     await setupOpenHand([mockShipCard, mockPersonnelCard, secondPersonnel]);
     const [shipId, onId, crewId] = mockDraggableIds;
@@ -643,8 +643,8 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     const shipRow = document.body.querySelector('[data-zone="ship-row-3"]') as HTMLElement;
     expect(shipRow.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
     expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 1 card"]')).not.toBeNull();
-    expect(screen.queryByRole('button', { name: /u\.s\.s\. relativity, \d+ cards? on it/ })).toBeNull();
-    const discardTop = screen.getByAltText('Discard pile').closest('[data-card-id]') as HTMLElement;
-    expect(discardTop.getAttribute('data-card-id')).toBe(onId);
+    // The card placed on the ship travels with it (#872); before, it went to the discard pile.
+    expect(screen.getByRole('button', { name: 'u.s.s. relativity, 1 card on it' })).not.toBeNull();
+    expect(screen.queryByAltText('Discard pile')).toBeNull();
   });
 });
