@@ -85,11 +85,11 @@ describe('the Decklist item of the game menu (#779)', () => {
     const draw = within(panel).getByTestId('decklist-drawDeck');
 
     expect(within(mission).getByText('Test Mission')).toBeInTheDocument();
-    expect(within(mission).getByText('×1')).toBeInTheDocument();
+    expect(within(mission).getByText('1x')).toBeInTheDocument();
     expect(within(dilemma).getByText('Test Dilemma')).toBeInTheDocument();
-    expect(within(dilemma).getByText('×2')).toBeInTheDocument();
+    expect(within(dilemma).getByText('2x')).toBeInTheDocument();
     expect(within(draw).getByText('Test Personnel')).toBeInTheDocument();
-    expect(within(draw).getByText('×3')).toBeInTheDocument();
+    expect(within(draw).getByText('3x')).toBeInTheDocument();
     expect(within(draw).getByText('Tricorder')).toBeInTheDocument();
     expect(within(draw).queryByText('Test Mission')).not.toBeInTheDocument();
     // The menu closes when the panel opens.

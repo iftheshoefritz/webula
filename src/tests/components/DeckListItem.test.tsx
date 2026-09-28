@@ -37,3 +37,21 @@ describe('DeckListItem quantity controls', () => {
     expect(screen.getByText('3x')).toBeInTheDocument();
   });
 });
+
+describe('DeckListItem without handlers (#899)', () => {
+  const { incrementIncluded, decrementIncluded, ...readOnlyProps } = defaultProps;
+
+  it('shows the count with no quantity buttons', () => {
+    render(<DeckListItem {...readOnlyProps} count={3} />);
+    expect(screen.getByText('3x')).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('shows the card image above a modal on hover when given a preview layer', () => {
+    render(<DeckListItem {...readOnlyProps} previewLayer="z-[200]" />);
+    fireEvent.mouseEnter(screen.getByText('Jean-Luc Picard'));
+    const image = screen.getByAltText('Jean-Luc Picard');
+    expect(image.closest('.fixed')).toHaveClass('z-[200]');
+    expect(image.closest('li')).toBeNull();
+  });
+});
