@@ -185,7 +185,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
       mockOnDragStart!({ active: { id: draggableId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: draggableId }, over: { id: `mission-${missionIndex}` } });
+      mockOnDragEnd!({ active: { id: draggableId }, over: { id: `mission-on-${missionIndex}` } });
     });
     if (remainingCount > 0) {
       const label = new RegExp(`^hand, ${remainingCount} cards?, tap to open$`, 'i');
