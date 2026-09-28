@@ -263,6 +263,8 @@ A ship has two drop targets. A drop on the ship's art, `crew-<the ship's card id
 
 A mission card takes a placed card too. Its art has two drop halves (#871), each the full width and half the height of the card: `mission-on-<index>` on top and `mission-under-<index>` below. They differ only for a dilemma: the top half places it on the mission card, and the bottom half puts it under the mission. For every other type both halves do the same thing: a ship goes to the ship row, a personnel or an equipment goes to the away team (#870), and any other card is placed on the mission card. A mission slot with no mission card sends a dilemma under the mission from either half. The mission has no event pile. The counter of the cards on the mission sits outside every `data-zone`, so `practice_drag.sh` prints it under the mission's name. A drop on the away team badge, `mission-pile-awayTeam-<index>`, files the card into the away team. The badge shows even when the away team is empty, so it is the only way to file a card there by a drag.
 
+The bare ship row, `ship-row-<index>`, takes only a ship (#886). Any other card dropped there, off any ship, stays where it was, so `practice_drag.sh` prints the zone it came from.
+
 To put a card into a ship's crew, drag it out of a mission's card list panel onto the crew badge. That drag lands. The drag of a ship onto its ship row prints the ship's own zone, and the badge's zone is the same name with `badge-` added:
 
 ```bash

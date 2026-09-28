@@ -44,7 +44,8 @@
 // overlapping one is otherwise unreachable for both a tap and a drag. A tap on a ship inside that
 // panel selects it, the same as a tap inside any other panel, and does not open its crew panel.
 //
-// Dropping a card on the mission card or its ship row (#602) routes it by card type. A personnel
+// Dropping a card on the mission card routes it by card type. The ship row takes only a ship
+// (#886): any other card dropped on the bare row stays where it was. A personnel
 // or an equipment joins that mission's away team face down (#870). An event, a mission, or an
 // interrupt is placed on the mission card, face up, behind its count pill (#813,
 // `PlacedOnCounter`). A dilemma dropped on a mission, from anywhere, goes under the mission
@@ -58,7 +59,8 @@
 // geometrically on top of the mission card's larger drop target, so `collisionDetection`
 // (`page.tsx`), which ranks every zone the dragged card overlaps by area, smallest first, already
 // picks the smaller, nested badge over the mission card beneath it, the same reasoning that lets
-// a ship's crew zone win over its enclosing ship row (#645). A tap on the badge opens the away
+// a ship's own drop targets win over its enclosing ship row (#645), which would refuse any card
+// but a ship (#886). A tap on the badge opens the away
 // team's panel (`CardListPanel`); a tap on the mission card itself does nothing (a hold previews
 // it). The under-the-mission pile has no badge of its own — its control is the tap target layered
 // over its stack of slivers (`UnderMissionStack` below), not a drop target, since the drop happens
