@@ -543,7 +543,8 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     expect(screen.getByRole('button', { name: 'worf' })).toBeInTheDocument();
   });
 
-  it("files a card dropped on a ship row, off any ship, into the mission's Away team, not the crew (#645, #811)", async () => {
+  // #645 filed this card into the away team; #886 removed that route, and the ship row holds ships.
+  it('leaves a card dropped on a ship row, off any ship, out of both the away team and the crew (#645, #811, #886)', async () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
     await placeShipOnMission(shipId, 0, 1);
@@ -555,7 +556,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
       mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'ship-row-0' } });
     });
 
-    expect(screen.getByRole('button', { name: /Away team, 1 card/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Away team, 1 card/i })).toBeNull();
     expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
   });
   it("places a card dropped on a ship's art on the ship, and leaves its crew alone (#812)", async () => {
