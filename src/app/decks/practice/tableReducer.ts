@@ -596,20 +596,27 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     }
 
     case 'nextTurn': {
-      // Unstops every card in one of the flat zones/piles, leaving an already-unstopped card
-      // untouched (and so `===` to the old one, same as every other zone-wide update here).
-      const unstopCards = (cards: CardInstance[]): CardInstance[] =>
-        cards.map((c) => (c.stopped ? { ...c, stopped: false } : c));
+      // Unstops one card, leaving an already-unstopped card untouched (and so `===` to the old
+      // one, same as every other zone-wide update here).
+      const unstopOne = (c: CardInstance): CardInstance => (c.stopped ? { ...c, stopped: false } : c);
+      // The cards placed on a card (#873) are in play too, so they unstop with it. `placedOn` is
+      // one level deep, so one more step reaches every placed card.
+      const unstopCard = (c: CardInstance): CardInstance => {
+        const unstopped = unstopOne(c);
+        return c.placedOn?.some((p) => p.stopped) ? { ...unstopped, placedOn: c.placedOn.map(unstopOne) } : unstopped;
+      };
+      // Unstops every card in one of the flat zones/piles.
+      const unstopCards = (cards: CardInstance[]): CardInstance[] => cards.map(unstopCard);
       // A ship's crew unstops alongside the ship itself; a ship on a ship row can carry the flag
       // too (`stopped` is generic on `CardInstance`, not personnel-only), so both are cleared.
       const unstopShips = (ships: CardInstance[]): CardInstance[] =>
         ships.map((ship) => {
-          const unstoppedShip = ship.stopped ? { ...ship, stopped: false } : ship;
+          const unstoppedShip = unstopCard(ship);
           return ship.crew ? { ...unstoppedShip, crew: unstopCards(ship.crew) } : unstoppedShip;
         });
       const missions = state.missions.map((slot) => ({
         ...slot,
-        mission: slot.mission?.stopped ? { ...slot.mission, stopped: false } : slot.mission,
+        mission: slot.mission && unstopCard(slot.mission),
         ships: unstopShips(slot.ships),
         awayTeam: unstopCards(slot.awayTeam),
         underMission: unstopCards(slot.underMission),
