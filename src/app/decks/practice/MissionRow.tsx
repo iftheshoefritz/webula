@@ -98,8 +98,8 @@ export type MissionHalf = 'on' | 'under';
 export const missionHalfDropId = (missionIndex: number, half: MissionHalf): string =>
   `mission-${half}-${missionIndex}`;
 export const shipRowDropId = (missionIndex: number): string => `ship-row-${missionIndex}`;
-// A ship's own droppable, over its art. A drop here places the card on the ship (#812); the name
-// is older than that, from when a drop on the art boarded the card as crew (#600).
+// A ship's own droppable, over its art. A personnel or an equipment dropped here boards the crew
+// (#600, #893); any other card is placed on the ship (#812).
 export const crewDropId = (shipId: string): string => `crew-${shipId}`;
 // A ship's crew badge is a drop target of its own (#811), distinct from `crewDropId` so each has
 // its own `data-zone` to aim at. A drop on it files the dropped card into the ship's crew.

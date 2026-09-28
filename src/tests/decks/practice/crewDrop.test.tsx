@@ -110,6 +110,16 @@ const mockEquipmentCard = {
   count: 1,
 };
 
+const mockEventCard = {
+  collectorsinfo: '3C010',
+  originalName: 'Red Alert',
+  type: 'event',
+  name: 'red alert',
+  imagefile: 'redalert',
+  pile: 'drawDeck',
+  count: 1,
+};
+
 const deckOf = (...cards: any[]) =>
   Object.fromEntries(cards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
@@ -559,16 +569,16 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     expect(screen.queryByRole('button', { name: /Away team, 1 card/i })).toBeNull();
     expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
   });
-  it("places a card dropped on a ship's art on the ship, and leaves its crew alone (#812)", async () => {
-    await setupOpenHand([mockShipCard, mockPersonnelCard]);
-    const [shipId, personnelId] = mockDraggableIds;
+  it("places an event dropped on a ship's art on the ship, and leaves its crew alone (#812, #893)", async () => {
+    await setupOpenHand([mockShipCard, mockEventCard]);
+    const [shipId, eventId] = mockDraggableIds;
     await placeShipOnMission(shipId, 0, 1);
 
     await act(async () => {
-      mockOnDragStart!({ active: { id: personnelId } });
+      mockOnDragStart!({ active: { id: eventId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
+      mockOnDragEnd!({ active: { id: eventId }, over: { id: `crew-${shipId}` } });
     });
 
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
@@ -577,9 +587,45 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
     expect(screen.queryByRole('button', { name: /Away team, [1-9]/i })).toBeNull();
   });
 
+  it.each([
+    ['personnel', mockPersonnelCard],
+    ['equipment', mockEquipmentCard],
+  ])("boards a card of type %s dropped on a ship's art into the crew, not on the ship (#893)", async (_type, card) => {
+    await setupOpenHand([mockShipCard, card]);
+    const [shipId, cardId] = mockDraggableIds;
+    await placeShipOnMission(shipId, 0, 1);
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: cardId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: cardId }, over: { id: `crew-${shipId}` } });
+    });
+
+    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 1 card"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /u\.s\.s\. relativity, \d+ cards? on it/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Away team, [1-9]/i })).toBeNull();
+  });
+
+  it("leaves an event dropped on a ship's crew badge where it was (#811, #893)", async () => {
+    await setupOpenHand([mockShipCard, mockEventCard]);
+    const [shipId, eventId] = mockDraggableIds;
+    await placeShipOnMission(shipId, 0, 1);
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: eventId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: eventId }, over: { id: `crew-badge-${shipId}` } });
+    });
+
+    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /u\.s\.s\. relativity, \d+ cards? on it/ })).toBeNull();
+  });
+
   it('opens the cards on a ship from its counter, and its crew from the ship (#812)', async () => {
     const secondPersonnel = { ...mockPersonnelCard, collectorsinfo: '2C003', originalName: 'Worf', name: 'worf', imagefile: 'worf' };
-    await setupOpenHand([mockShipCard, mockPersonnelCard, secondPersonnel]);
+    await setupOpenHand([mockShipCard, mockEventCard, secondPersonnel]);
     const [shipId, onId, crewId] = mockDraggableIds;
     await placeShipOnMission(shipId, 0, 2);
 
@@ -617,7 +663,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
 
   it('carries the crew and the cards on it of a ship moved to another mission (#812, #872)', async () => {
     const secondPersonnel = { ...mockPersonnelCard, collectorsinfo: '2C003', originalName: 'Worf', name: 'worf', imagefile: 'worf' };
-    await setupOpenHand([mockShipCard, mockPersonnelCard, secondPersonnel]);
+    await setupOpenHand([mockShipCard, mockEventCard, secondPersonnel]);
     const [shipId, onId, crewId] = mockDraggableIds;
     await placeShipOnMission(shipId, 0, 2);
 
