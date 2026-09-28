@@ -8,10 +8,12 @@ describe('the double-sided missions in the card data', () => {
   const [header, ...lines] = readFileSync(join(root, 'public/cards_with_processed_columns.txt'), 'utf8')
     .split('\n')
     .filter(Boolean);
-  const columns = header.split('\t');
+  // The fields are quoted.
+  const fields = (line: string) => line.split('\t').map((f) => f.replace(/^"|"$/g, ''));
+  const columns = fields(header);
   const typeIdx = columns.indexOf('Type');
   const imageIdx = columns.indexOf('ImageFile');
-  const doubleSided = lines.map((l) => l.split('\t')).filter((row) => (row[imageIdx] ?? '').includes(','));
+  const doubleSided = lines.map(fields).filter((row) => (row[imageIdx] ?? '').includes(','));
 
   it('holds 13 rows, all missions, with both images in public/cardimages', () => {
     expect(doubleSided).toHaveLength(13);

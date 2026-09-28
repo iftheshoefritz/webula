@@ -176,6 +176,7 @@ is "open" or "closed", never "stacked".
 | draw (the top card of the deck into the hand) | action `drawCard`, from `'drawDeck'` to `'hand'`; the same action moves the top dilemma from `'dilemmaPile'` to `'dilemmaHand'` |
 | stopped / unstopped | `CardInstance.stopped`, action `setStopped` |
 | face up / face down | `Face`, `ZONE_FACE`, action `flip` |
+| flip a double-sided mission over ("flip this mission", "flip it over") | `CardInstance.flipped`, action `flipMission`, card field `backimagefile` (the second name of `ImageFile`), the Flip button of `MissionRow` (#765). **This is not `face`/`flip`.** `face: 'down'` shows `cardback.jpg` for every card, and `flip` never applies to a mission card. A flipped mission shows its back face image, and a move clears `flipped`. |
 | shuffle | action `shuffle`, `shuffleArray` |
 | download (take a chosen card from the deck) | the "Download" button of a `CardListPanel`, callback `onDownload`, handler `downloadSelection` in `page.tsx`: one `move` per selected card from `'drawDeck'` to `'hand'`, or from `'dilemmaPile'` to `'dilemmaHand'` (`DOWNLOAD_HAND`), then `shuffle` of that pile (#827). `DownloadPileButton` opens the panel. The rulebook's download puts the card into play; this action puts it into the hand, and the player plays it from there. |
 | turn | `TableState.turn`, action `nextTurn`, which unstops every personnel |
