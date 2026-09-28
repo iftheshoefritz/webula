@@ -1989,7 +1989,13 @@ function PracticeDrawContent() {
                   onShuffle={
                     openFlatLocation === 'discard' ? undefined : () => dispatch({ type: 'shuffle', location: openFlatLocation })
                   }
-                  onSetStopped={openFlatLocation === 'discard' ? undefined : setStoppedForSelection}
+                  // A card in a deck pile is never stopped (#902), so the draw deck's and the dilemma
+                  // pile's panels get no Stop button, and neither does the discard's.
+                  onSetStopped={
+                    openFlatLocation === 'discard' || isDownloadPile(openFlatLocation)
+                      ? undefined
+                      : setStoppedForSelection
+                  }
                   onDiscard={openFlatLocation === 'discard' ? undefined : discardSelection}
                   onDownload={
                     isDownloadPile(openFlatLocation)
