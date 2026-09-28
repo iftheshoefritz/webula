@@ -4,10 +4,12 @@ import ReactDOM from 'react-dom';
 type CardPreviewModalProps = {
   imagefile: string;
   name: string;
+  // A z-index class; the default `z-50` sits below a modal of the practice table (#899).
+  layer?: string;
   onClose: () => void;
 };
 
-const CardPreviewModal: React.FC<CardPreviewModalProps> = ({ imagefile, name, onClose }) => {
+const CardPreviewModal: React.FC<CardPreviewModalProps> = ({ imagefile, name, layer = 'z-50', onClose }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -17,7 +19,7 @@ const CardPreviewModal: React.FC<CardPreviewModalProps> = ({ imagefile, name, on
   }, [onClose]);
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+    <div className={`fixed inset-0 ${layer} flex items-end justify-center`} onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" />
       <div
         className="relative pb-6 px-4 flex justify-center"

@@ -1,6 +1,7 @@
 import React from 'react';
 import { DeckList } from '../../../types';
-import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
+import { LAYER_CARD_PREVIEW, LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
+import DeckListItem from '../../../components/DeckListItem';
 import { cardPileFor, DeckPile } from '../deckBuilderUtils';
 
 const PILES: { pile: DeckPile; title: string }[] = [
@@ -9,14 +10,20 @@ const PILES: { pile: DeckPile; title: string }[] = [
   { pile: 'drawDeck', title: 'Draw' },
 ];
 
-type DecklistEntry = { key: string; name: string; count: number };
+type DecklistEntry = { key: string; name: string; count: number; imagefile: string; unique: boolean };
 
 // The deck as loaded, grouped by pile (#779), sorted by name within each pile.
 export function decklistByPile(deck: DeckList): Record<DeckPile, DecklistEntry[]> {
   const result: Record<DeckPile, DecklistEntry[]> = { mission: [], dilemmaPile: [], drawDeck: [] };
   for (const [key, entry] of Object.entries(deck)) {
     if (!entry?.row || !(entry.count > 0)) continue;
-    result[cardPileFor(entry.row)].push({ key, name: entry.row.originalName ?? entry.row.name, count: entry.count });
+    result[cardPileFor(entry.row)].push({
+      key,
+      name: entry.row.originalName ?? entry.row.name,
+      count: entry.count,
+      imagefile: entry.row.imagefile,
+      unique: entry.row.unique === 'y',
+    });
   }
   for (const pile of Object.keys(result) as DeckPile[]) {
     result[pile].sort((a, b) => String(a.name).localeCompare(String(b.name)));
@@ -25,8 +32,10 @@ export function decklistByPile(deck: DeckList): Record<DeckPile, DecklistEntry[]
 }
 
 // A read-only list of every card of the loaded deck (#779), opened from the game menu. It shows
-// the deck as loaded, not where each card is now. A tap on a card does nothing; a tap outside
-// the panel (the backdrop) closes it, the same convention the game menu follows.
+// the deck as loaded, not where each card is now. Each row is the deck builder's `DeckListItem`
+// without its plus and minus buttons (#899), so a hover or a tap on a name shows the card image
+// and changes nothing; a tap outside the panel (the backdrop) closes it, the same convention the
+// game menu follows.
 export default function DecklistPanel({ deck, onClose }: { deck: DeckList; onClose: () => void }) {
   const byPile = decklistByPile(deck);
   return (
@@ -50,10 +59,15 @@ export default function DecklistPanel({ deck, onClose }: { deck: DeckList; onClo
               ) : (
                 <ul className="divide-y divide-solid divide-white/[0.06]">
                   {entries.map((e) => (
-                    <li key={e.key} className="flex justify-between gap-2 py-1 text-sm text-text-secondary">
-                      <span>{e.name}</span>
-                      <span className="text-text-muted">×{e.count}</span>
-                    </li>
+                    <DeckListItem
+                      key={e.key}
+                      collectorsinfo={e.key}
+                      count={e.count}
+                      name={e.name}
+                      imagefile={e.imagefile}
+                      unique={e.unique}
+                      previewLayer={LAYER_CARD_PREVIEW}
+                    />
                   ))}
                 </ul>
               )}
