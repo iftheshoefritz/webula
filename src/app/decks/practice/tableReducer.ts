@@ -36,9 +36,9 @@ export interface CardInstance {
   // has at least one crew member (absent, not an empty array, otherwise).
   crew?: CardInstance[];
   // Whether a personnel card is stopped (#679): shown with a greyed-out image everywhere it
-  // appears. Absent on a card that is not stopped, the same as `crew`. A move keeps this flag
-  // (see `move` below, which only ever touches `face`), so stopping a card, then dragging it
-  // elsewhere, leaves it stopped in its new home too.
+  // appears. Absent on a card that is not stopped, the same as `crew`. Only a card on the table
+  // is stopped (#903): a move into an off-table zone (see `OFF_TABLE_ZONES`) clears the flag, and
+  // a move between two places on the table keeps it.
   stopped?: boolean;
   // Whether a double-sided mission shows its back face (#765): the image named by the card's
   // `backimagefile`, not the generic card back. It is not `face`: `face: 'down'` means "show
@@ -465,6 +465,16 @@ const locationKey = (location: MoveTarget): string => {
 
 const sameLocation = (a: MoveTarget, b: MoveTarget): boolean => locationKey(a) === locationKey(b);
 
+// The zones off the table (#903): a card in one of them is never stopped, so a move into one
+// clears `stopped`. Every other location, the dilemma stack included, is on the table.
+const OFF_TABLE_ZONES: ReadonlySet<MoveTarget> = new Set<Zone>(['discard', 'hand', 'dilemmaHand', 'drawDeck', 'dilemmaPile']);
+
+const isOffTable = (location: MoveTarget): boolean => typeof location === 'string' && OFF_TABLE_ZONES.has(location);
+
+// Clears `stopped` on a card that leaves the table, and leaves any other card untouched.
+const unstopFor = (location: MoveTarget, c: CardInstance): CardInstance =>
+  c.stopped && isOffTable(location) ? { ...c, stopped: undefined } : c;
+
 export function tableReducer(state: TableState, action: TableAction): TableState {
   switch (action.type) {
     case 'drawCard': {
@@ -522,7 +532,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const movesBetweenShipRows = isShipRowLocation(from) && isShipRowLocation(action.to);
       const discardsOn = !toSameLocation && !movesBetweenShipRows && !!card.placedOn?.length;
       const movedCard = {
-        ...card,
+        ...unstopFor(action.to, card),
         face,
         ...(releasesCrew ? { crew: undefined } : {}),
         ...(discardsOn ? { placedOn: undefined } : {}),
@@ -530,9 +540,11 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         ...(card.flipped ? { flipped: undefined } : {}),
       };
       const releasedCrew = releasesCrew
-        ? card.crew!.map((c) => ({ ...c, face: faceForLocation(action.to) }))
+        ? card.crew!.map((c) => ({ ...unstopFor(action.to, c), face: faceForLocation(action.to) }))
         : [];
-      const discardedOn = discardsOn ? card.placedOn!.map((c) => ({ ...c, face: ZONE_FACE.discard })) : [];
+      const discardedOn = discardsOn
+        ? card.placedOn!.map((c) => ({ ...unstopFor('discard', c), face: ZONE_FACE.discard }))
+        : [];
 
       const destination = toSameLocation ? withoutCard : cardsAt(afterRemoval, action.to);
       const movedCards = [movedCard, ...releasedCrew];
