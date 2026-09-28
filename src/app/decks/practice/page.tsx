@@ -73,6 +73,7 @@ import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNo
 import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
+import { cardIdOfDraggable } from './panelDragId';
 
 // A plain inline hamburger icon (#722), not react-icons: see `DownloadIcon`'s comment below for
 // why a react-icons import here would need every test mock of `react-icons/fa` in this file's own
@@ -1269,7 +1270,7 @@ function PracticeDrawContent() {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    const id = String(event.active.id);
+    const id = cardIdOfDraggable(event.active.id);
     closePreviews();
     draggingRef.current = true;
     // The press point, read from the activator event, so the release can be measured against it
@@ -1400,7 +1401,7 @@ function PracticeDrawContent() {
   const handleDragEnd = (event: DragEndEvent) => {
     closePreviews();
     const { active, over } = event;
-    const id = String(active.id);
+    const id = cardIdOfDraggable(active.id);
     // The dragged card's zone before the drop, read while `table` still holds its pre-drop
     // state — used below both for the dilemma pile's from-hand routing and to decide, in
     // `closePanelsAfterDrag`, whether this drag started from an open panel (#675).

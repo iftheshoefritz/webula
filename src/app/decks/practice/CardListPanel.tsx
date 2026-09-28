@@ -76,6 +76,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LAYER_CARD_LIST_PANEL } from '../../../lib/layers';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { panelDraggableId } from './panelDragId';
 import { CardInstance, MissionPileName } from './tableReducer';
 import { STOPPED_IMAGE_CLASSNAME } from './TableCard';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
@@ -195,7 +196,7 @@ function CardListPanelCard({
   // The panel's card grid overflows (#788): let the browser pan it vertically under a touch.
   gridScrolls?: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: panelDraggableId(instance.id) });
   const { setNodeRef: setDropRef } = useDroppable({ id: instance.id, disabled: !reorderable });
   const holdListeners = useCardHold(instance.id, listeners);
   const { card } = instance;
