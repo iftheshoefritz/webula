@@ -494,7 +494,7 @@ describe('Practice draw: dropping a card on a ship or its crew badge', () => {
       fireEvent.click(shipSection.querySelector('img[alt="u.s.s. relativity"]')!);
     });
     expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeDisabled();
     expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
   });
 
