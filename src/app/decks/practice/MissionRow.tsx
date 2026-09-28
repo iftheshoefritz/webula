@@ -677,7 +677,7 @@ function MissionColumn({
             </>
           ) : (
             <div
-              className="w-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[9px]"
+              className="relative w-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[9px]"
               style={{ height: cardArtHeight }}
             >
               Mission
