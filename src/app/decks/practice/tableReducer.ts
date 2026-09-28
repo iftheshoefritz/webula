@@ -40,6 +40,12 @@ export interface CardInstance {
   // (see `move` below, which only ever touches `face`), so stopping a card, then dragging it
   // elsewhere, leaves it stopped in its new home too.
   stopped?: boolean;
+  // Whether a double-sided mission shows its back face (#765): the image named by the card's
+  // `backimagefile`, not the generic card back. It is not `face`: `face: 'down'` means "show
+  // cardback.jpg" for every card, and `flip` never applies to a mission. Absent when the front is
+  // up, the same as `stopped`. A card that leaves the mission row loses it, so a mission off its
+  // slot always shows its front.
+  flipped?: boolean;
   // The cards placed on this card (#809): any card, face up. A card in the core or the brig, a
   // mission card, or a ship on a ship row can take a placed card. Absent when nothing is on it,
   // the same as `crew`. The stack is one level deep, so a placed card never carries `placedOn`
@@ -153,6 +159,9 @@ export type TableAction =
   // unordered from the player's point of view, so nothing else needs it.
   | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom' }
   | { type: 'flip'; id: string }
+  // Turns a double-sided mission over (#765): toggles its `flipped` flag. Does nothing to a
+  // mission with no `backimagefile`, or to a card that is not a mission card in its slot.
+  | { type: 'flipMission'; id: string }
   // Puts the cards of one card list panel's location in a random order (#680): the order in the table
   // state itself, not just the panel's display order, so the table and the next time the panel
   // opens both show the same shuffled order. Never changes a card's face, a ship's crew, or any
@@ -517,6 +526,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         face,
         ...(releasesCrew ? { crew: undefined } : {}),
         ...(discardsOn ? { placedOn: undefined } : {}),
+        // Only a mission card in its slot shows its back face (#765).
+        ...(card.flipped ? { flipped: undefined } : {}),
       };
       const releasedCrew = releasesCrew
         ? card.crew!.map((c) => ({ ...c, face: faceForLocation(action.to) }))
@@ -536,14 +547,10 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     case 'flip': {
       const found = findInstanceAnywhere(state, action.id);
       if (!found) return state;
-      const { zone, instance } = found;
-      if (zone === 'missions') {
-        const idx = state.missions.findIndex((slot) => slot.mission?.id === action.id);
-        const missions = state.missions.map((slot, i) =>
-          i === idx ? { ...slot, mission: { ...instance, face: flipFace(instance.face) } } : slot
-        );
-        return { ...state, missions };
-      }
+      const { zone } = found;
+      // A mission card in its slot turns over with `flipMission` instead (#765), so `flip` never
+      // shows it face down.
+      if (zone === 'missions') return state;
       if (typeof zone === 'object' && zone.zone === 'missionPile') {
         const { missionIndex, pile } = zone;
         const missions = state.missions.map((slot, i) =>
@@ -561,6 +568,16 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         ...state,
         [zone]: state[zone].map((c) => (c.id === action.id ? { ...c, face: flipFace(c.face) } : c)),
       };
+    }
+
+    case 'flipMission': {
+      const idx = state.missions.findIndex((slot) => slot.mission?.id === action.id);
+      if (idx === -1) return state;
+      const mission = state.missions[idx].mission!;
+      if (!mission.card?.backimagefile) return state;
+      const turned = mission.flipped ? { ...mission, flipped: undefined } : { ...mission, flipped: true };
+      const missions = state.missions.map((slot, i) => (i === idx ? { ...slot, mission: turned } : slot));
+      return { ...state, missions };
     }
 
     case 'shuffle': {
