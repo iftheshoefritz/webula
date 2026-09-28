@@ -333,18 +333,22 @@ function computeMoveTargetForInstance(
     if (instance.card.type === 'ship') {
       return { zone: 'shipRow', missionIndex };
     }
+    // The ship row holds ships (#886), the same rule `ZONE_ACCEPTS` highlights: any other card
+    // dropped on the bare row, off any ship, stays where it was.
+    const half = missionHalfFromDropId(String(over.id));
+    if (!half) return null;
     if (instance.card.type === 'dilemma') {
       // A dilemma dropped on the top half of a mission card is placed on it (#871). Dropped on the
-      // bottom half, on the ship row, or on a slot with no mission card, it lands under that
-      // mission (#606, #733), whatever zone it came from.
+      // bottom half, or on a slot with no mission card, it lands under that mission (#606, #733),
+      // whatever zone it came from.
       const mission = table.missions[missionIndex]?.mission;
-      if (missionHalfFromDropId(String(over.id)) === 'on' && mission) {
+      if (half === 'on' && mission) {
         return { zone: 'on', targetId: mission.id };
       }
       return { zone: 'missionPile', missionIndex, pile: 'underMission' };
     }
-    // A personnel or an equipment dropped on a ship row, off any ship (#645), or on the mission
-    // card (#870), files into the mission's away team.
+    // A personnel or an equipment dropped on the mission card (#870) files into the mission's
+    // away team.
     if (instance.card.type === 'personnel' || instance.card.type === 'equipment') {
       return { zone: 'missionPile', missionIndex, pile: 'awayTeam' };
     }

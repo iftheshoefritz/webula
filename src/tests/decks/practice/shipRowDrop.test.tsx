@@ -225,7 +225,9 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     expect(screen.getByRole('button', { name: /Away team, 1 card/i })).toBeInTheDocument();
   });
 
-  it('files a non-ship card into the away team when dropped on a ship row (#602)', async () => {
+  // #602 filed a non-ship card dropped on a ship row into the away team. #886 removed that route:
+  // the ship row holds ships, so the card stays in the hand.
+  it('leaves a non-ship card where it was when dropped on a ship row (#602, #886)', async () => {
     await setupOpenHand([mockEquipmentCard]);
     const [draggedId] = mockDraggableIds;
 
@@ -236,9 +238,8 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'ship-row-0' } });
     });
 
-    const closedHandButton = screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i });
-    expect(closedHandButton).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Away team, 1 card/i })).toBeInTheDocument();
+    expect(document.body.querySelector(`[data-zone="hand"] [data-card-id="${draggedId}"]`)).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /Away team, 1 card/i })).toBeNull();
   });
 
   describe('with a mission card dealt (#813)', () => {
@@ -257,6 +258,15 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       type: 'event',
       name: 'distress call',
       imagefile: 'distress_call',
+      pile: 'drawDeck',
+      count: 1,
+    };
+    const mockInterruptCard = {
+      collectorsinfo: '1U003',
+      originalName: 'Adapt',
+      type: 'interrupt',
+      name: 'adapt',
+      imagefile: 'adapt',
       pile: 'drawDeck',
       count: 1,
     };
@@ -372,14 +382,25 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
     });
 
-    it('still files a personnel dropped on a ship row, off any ship, into the away team (#645)', async () => {
-      await setupWithMission([mockPersonnelCard]);
-      const draggedId = handCardId(mockPersonnelCard.name);
+    // #645 filed a personnel dropped on a ship row, off any ship, into the away team. #886 removed
+    // that route: the ship row holds ships, and any other card stays where it was.
+    it.each([
+      ['personnel', mockPersonnelCard],
+      ['equipment', mockEquipmentCard],
+      ['event', mockEventCard],
+      ['interrupt', mockInterruptCard],
+      ['dilemma', mockDilemmaCard],
+    ])('leaves a %s dropped on a ship row, off any ship, in the hand (#645, #886)', async (_type, card) => {
+      await setupWithMission([card]);
+      const draggedId = handCardId(card.name);
 
       await drop(draggedId, 'ship-row-0');
 
-      expect(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i })).toBeInTheDocument();
+      expect(document.body.querySelector(`[data-zone="hand"] [data-card-id="${draggedId}"]`)).not.toBeNull();
+      expect(screen.queryByRole('button', { name: /Away team, 1 card/i })).toBeNull();
       expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^under the mission pile, 1 card/i })).toBeNull();
+      expect(document.body.querySelector('[data-zone="ship-row-0"] [data-card-id]')).toBeNull();
     });
   });
 
