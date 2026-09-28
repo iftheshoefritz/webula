@@ -124,6 +124,7 @@ export default function CardHand({
   onToggleSelect = () => {},
   passthroughZone,
   openCardWidth = viewerCardSize(1).width,
+  bottomInset = VIEWER_TOP_INSET,
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -154,6 +155,10 @@ export default function CardHand({
   // The width of an open fan card (#802), the viewer size `page.tsx` derives from the shared
   // `scale`. Defaults to that size at scale 1.
   openCardWidth?: number;
+  // The fan's bottom inset (#895): the same inset a card list panel takes (`bottomInset`,
+  // `CardListPanel.tsx`), which `page.tsx` measures with `usePanelBottomInset` so the fan's bottom
+  // edge sits just above the bottom row (#828).
+  bottomInset?: number;
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
@@ -240,11 +245,11 @@ export default function CardHand({
           bottom row has a CSS transform, which would make `fixed` relative to the row and trap
           the fan's z-index in the row. In the game layer, the large preview stays on top.
           A full-screen backdrop sits behind the cards, so a tap outside the fan closes it, but
-          a tap on a card (on top of the backdrop) selects that card instead. The fan sits at the
-          top of the screen (`VIEWER_TOP_INSET`), the top of a card list panel's area; a panel anchors
-          its bottom above the bottom row (#828), so only a full panel reaches that top. At the bottom
-          it covered the draw pile and the dilemma pile, the two taps the player needs while a
-          hand is open.
+          a tap on a card (on top of the backdrop) selects that card instead. The fan anchors its
+          bottom edge just above the bottom row (#895), with the same gap a card list panel keeps
+          (`bottomInset`, #828), so it leaves the mission rows visible. At the top of the screen it
+          covered the missions; at the very bottom it covered the draw pile and the dilemma pile,
+          the two taps the player needs while a hand is open.
           The fan's container spans the screen, less a small inset at each side, and `OverlapRow`
           packs the cards into that measured width (#802).
           Issue #750: the backdrop's and the fan's z-index sit in the gap between a pile
@@ -269,7 +274,7 @@ export default function CardHand({
               aria-hidden={open ? undefined : true}
               className="fixed inset-x-2 z-[146] flex"
               style={{
-                top: VIEWER_TOP_INSET,
+                bottom: bottomInset,
                 height: openCardHeight,
                 visibility: open ? 'visible' : 'hidden',
                 // The fan's own bounding box no longer reaches the bottom row, but a tap that
