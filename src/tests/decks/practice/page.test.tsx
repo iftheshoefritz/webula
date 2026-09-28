@@ -807,6 +807,16 @@ describe('PracticeDrawPage', () => {
       }
     });
 
+    // The pile count badges sit at `z-[140]` (CountBadge.tsx), the open hand at `z-[145]`/`z-[146]`
+    // and the card list panel at `z-[150]`. At `z-40` the badges drew over the splash.
+    it('stacks the splash above the table overlays (follow-up for #907)', async () => {
+      await renderManyCards();
+
+      const zIndex = screen.getByTestId('game-menu-splash').className.match(/\bz-\[(\d+)\]/);
+      expect(zIndex).not.toBeNull();
+      expect(Number(zIndex![1])).toBeGreaterThan(150);
+    });
+
     it('closes the splash on Continue and shows the table (#896)', async () => {
       await renderManyCards();
 
