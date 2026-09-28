@@ -492,6 +492,8 @@ function PileHalf({
 // page mocks `react-icons/fa` with an explicit list of the icons this file imports, so a new
 // react-icons import here would need every one of those mocks updated too — the same reasoning
 // `CardListPanel.tsx`'s own `ShuffleIcon` documents.
+// The glyph fills the same 2–22 box, centred on 12, as `ShuffleIcon`'s (#901): the two sit side
+// by side above each pile, and a smaller, off-centre magnifier made the pair look unequal.
 function DownloadIcon() {
   return (
     <svg
@@ -504,8 +506,8 @@ function DownloadIcon() {
       className="w-3 h-3"
       aria-hidden="true"
     >
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      <circle cx="10" cy="10" r="7" />
+      <line x1="21" y1="21" x2="15" y2="15" />
     </svg>
   );
 }
