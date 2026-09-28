@@ -95,16 +95,24 @@ function MenuIcon() {
 }
 
 // A home for the controls that act on the whole game rather than one zone (#722): Reset, and
-// Load deck (#780), which opens the Drive picker. A small menu button opens it. Reset throws away the current game, so it confirms first
-// via `window.confirm`, the same confirm-before-destroy pattern `DrivePickerModal`'s own delete
-// already uses elsewhere in the app, rather than a custom dialog built just for this one
-// destructive action.
+// Load deck (#780), which opens the Drive picker. Reset throws away the current game, so it
+// confirms first via `window.confirm`, the same confirm-before-destroy pattern
+// `DrivePickerModal`'s own delete already uses elsewhere in the app, rather than a custom dialog
+// built just for this one destructive action.
 //
-// The menu opens on every load of the table (#781), so a new player sees it. The first press
-// outside the open menu closes it. That press is watched on the window rather than caught by a
-// backdrop over the table, so a press on a card still reaches the card and can start a drag: the
-// menu never blocks the first drag. A tap (a press with no drag) closes the menu without acting,
-// the same as the old backdrop did: the click that follows the press is swallowed.
+// The menu opens on every load of the table (#781), so a new player sees it. It is a splash
+// screen over the whole page (#896): it covers the table, so a press on the table no longer
+// closes it. Continue (or Escape) closes it and shows the table. The menu button stays above the
+// splash, so the player can open the splash again during a game.
+//
+// The splash sits at `z-[160]`, above everything the table draws: the pile count badges
+// (`z-[140]`, `CountBadge.tsx`), the open hand (`z-[145]`/`z-[146]`, `CardHand.tsx`) and the card
+// list panel (`z-[150]`). At `z-40` the badges drew over the splash and took presses through it.
+// The menu button rises above the splash only while it is open, so a closed menu's button stays
+// under a card list panel as before.
+const SPLASH_ITEM_CLASS =
+  'block w-full rounded-md border border-white/10 bg-bg-secondary px-6 py-2.5 text-center text-base text-text-secondary hover:bg-white/[0.1] hover:text-text-primary';
+
 function GameMenu({
   open,
   onToggle,
@@ -120,87 +128,50 @@ function GameMenu({
   onLoadDeck: () => void;
   onDecklist: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  // Stops the current swallow of a tap's click, if one is on. Held in a ref so the unmount below
-  // and the next press can both stop it, whether or not a pointerup ever came.
-  const stopSwallowRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => () => stopSwallowRef.current?.(), []);
 
   useEffect(() => {
     if (!open) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      if (containerRef.current?.contains(event.target as Node)) return;
-      const swallowClick = (clickEvent: MouseEvent) => {
-        clickEvent.stopPropagation();
-        clickEvent.preventDefault();
-      };
-      // The click of a tap fires right after its pointerup, so a timeout set on pointerup runs
-      // after it. A drag may end with no click at all; the timeout stops the swallow either way,
-      // and so does the next press.
-      let timeout: ReturnType<typeof setTimeout> | undefined;
-      const stop = () => {
-        clearTimeout(timeout);
-        window.removeEventListener('click', swallowClick, true);
-        window.removeEventListener('pointerup', stopSoon, true);
-        window.removeEventListener('pointercancel', stopSoon, true);
-        window.removeEventListener('pointerdown', stop, true);
-        if (stopSwallowRef.current === stop) stopSwallowRef.current = null;
-      };
-      const stopSoon = () => {
-        timeout = setTimeout(stop, 0);
-      };
-      window.addEventListener('click', swallowClick, true);
-      window.addEventListener('pointerup', stopSoon, true);
-      window.addEventListener('pointercancel', stopSoon, true);
-      window.addEventListener('pointerdown', stop, true);
-      stopSwallowRef.current = stop;
-      onCloseRef.current();
-    };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onCloseRef.current();
     };
-    window.addEventListener('pointerdown', handlePointerDown, true);
     window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', handlePointerDown, true);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open]);
 
   return (
-    <div ref={containerRef} className="absolute top-2 left-2 z-40">
-      <button type="button" onClick={onToggle} aria-label="Game menu" aria-expanded={open} className="btn-icon btn-icon-sm">
-        <MenuIcon />
-      </button>
+    <>
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-40 min-w-[8rem] rounded-md border border-white/10 bg-bg-secondary py-1 shadow-lg">
-          <button
-            type="button"
-            onClick={onDecklist}
-            className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
-          >
-            Decklist
-          </button>
-          <button
-            type="button"
-            onClick={onReset}
-            className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            onClick={onLoadDeck}
-            className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-white/[0.1] hover:text-text-primary"
-          >
-            Load deck
-          </button>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Game menu"
+          data-testid="game-menu-splash"
+          className="fixed inset-0 z-[160] flex flex-col items-center justify-center bg-[#131713]/95 px-8"
+        >
+          <div className="flex w-full max-w-[16rem] flex-col gap-2">
+            <button type="button" onClick={onClose} className={SPLASH_ITEM_CLASS}>
+              Continue
+            </button>
+            <button type="button" onClick={onDecklist} className={SPLASH_ITEM_CLASS}>
+              Decklist
+            </button>
+            <button type="button" onClick={onReset} className={SPLASH_ITEM_CLASS}>
+              Reset
+            </button>
+            <button type="button" onClick={onLoadDeck} className={SPLASH_ITEM_CLASS}>
+              Load deck
+            </button>
+          </div>
         </div>
       )}
-    </div>
+      <div className={`absolute top-2 left-2 ${open ? 'z-[170]' : 'z-50'}`}>
+        <button type="button" onClick={onToggle} aria-label="Game menu" aria-expanded={open} className="btn-icon btn-icon-sm">
+          <MenuIcon />
+        </button>
+      </div>
+    </>
   );
 }
 

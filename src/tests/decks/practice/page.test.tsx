@@ -797,33 +797,34 @@ describe('PracticeDrawPage', () => {
       expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
     });
 
-    it('closes the menu on the first tap outside it, without acting on the table', async () => {
+    it('covers the page with a splash that has a Continue item (#896)', async () => {
       await renderManyCards();
-      const drawPileButton = screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' });
 
-      await tap(drawPileButton);
-
-      expect(screen.getByRole('button', { name: 'Game menu' })).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByRole('button', { name: 'Reset' })).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
-
-      // The next tap acts as usual.
-      await tap(drawPileButton);
-      expect(screen.getByRole('button', { name: /^hand, 8 cards, tap to open$/i })).toBeInTheDocument();
+      expect(screen.getByTestId('game-menu-splash')).toHaveClass('fixed', 'inset-0');
+      expect(screen.getByRole('dialog', { name: 'Game menu' })).toBeInTheDocument();
+      for (const name of ['Continue', 'Decklist', 'Reset', 'Load deck']) {
+        expect(screen.getByRole('button', { name })).toBeInTheDocument();
+      }
     });
 
-    it('lets the press that closes the menu reach the table, so a drag can start', async () => {
+    // The pile count badges sit at `z-[140]` (CountBadge.tsx), the open hand at `z-[145]`/`z-[146]`
+    // and the card list panel at `z-[150]`. At `z-40` the badges drew over the splash.
+    it('stacks the splash above the table overlays (follow-up for #907)', async () => {
       await renderManyCards();
-      const drawPileButton = screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' });
-      const onPointerDown = jest.fn();
-      drawPileButton.addEventListener('pointerdown', onPointerDown);
 
-      await act(async () => {
-        fireEvent.pointerDown(drawPileButton, { button: 0 });
-      });
+      const zIndex = screen.getByTestId('game-menu-splash').className.match(/\bz-\[(\d+)\]/);
+      expect(zIndex).not.toBeNull();
+      expect(Number(zIndex![1])).toBeGreaterThan(150);
+    });
 
-      expect(onPointerDown).toHaveBeenCalledTimes(1);
+    it('closes the splash on Continue and shows the table (#896)', async () => {
+      await renderManyCards();
+
+      await tap(screen.getByRole('button', { name: 'Continue' }));
+
+      expect(screen.queryByTestId('game-menu-splash')).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Game menu' })).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
     });
 
     it('keeps the menu open for a tap inside it, and the menu button still closes it', async () => {
