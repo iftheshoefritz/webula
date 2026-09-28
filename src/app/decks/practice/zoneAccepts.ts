@@ -7,9 +7,10 @@
 //
 // Keyed by zone kind, not by a concrete drop id: a mission's ship row and its mission card exist
 // once per mission index, and the dilemma pile has two physical drop targets, but conceptually
-// there is one lookup entry each. The mission card accepts every type in practice — any card
-// dropped there is placed on it (#813), and a ship or a dilemma dropped there is handled directly
-// in `handleDragEnd` — so `mission` (like `core` and `discard`) accepts any type here.
+// there is one lookup entry each. The mission card accepts every type in practice — an event or
+// another card dropped there is placed on it (#813), a personnel or an equipment joins the away
+// team (#870), and a ship or a dilemma dropped there is handled directly in `handleDragEnd` — so
+// `mission` (like `core` and `discard`) accepts any type here.
 // Issue #644: the hand and the dilemma hand are two more zone kinds — the hand accepts any card
 // type (advisory, like `core`/`discard`), the dilemma hand only dilemmas (like `dilemmaPile`).
 // Issue #743: `pile`, the draw pile, joins them — it accepts any card type, like `core`/

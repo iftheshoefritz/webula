@@ -194,17 +194,13 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
   const landedElements = () => Array.from(document.body.querySelectorAll('[data-landed]'));
   const zone = (name: string) => document.body.querySelector(`[data-zone="${name}"]`);
 
-  it('marks the mission card for a card placed on it, and no pile badge (#813)', async () => {
+  it('marks the away team badge for an equipment dropped on the mission card (#870)', async () => {
     await setup();
     await drop(handCardId('tricorder'), 'mission-0');
 
-    const mission = zone('mission-0');
-    expect(mission).toHaveAttribute('data-landed');
-    expect(mission!.querySelector('[data-testid="landed-ring"]')).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
-    expect(zone('mission-pile-awayTeam-0')).not.toHaveAttribute('data-landed');
+    expect(zone('mission-pile-awayTeam-0')).toHaveAttribute('data-landed');
+    expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
     expect(zone('mission-pile-event-0')).toBeNull();
-    expect(landedElements()).toHaveLength(1);
   });
 
   it('marks the mission card for an event placed on it (#813)', async () => {
