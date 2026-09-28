@@ -49,8 +49,9 @@
 // or an equipment joins that mission's away team face down (#870). An event, a mission, or an
 // interrupt is placed on the mission card, face up, behind its count pill (#813,
 // `PlacedOnCounter`). A dilemma dropped on a mission, from anywhere, goes under the mission
-// instead (#606, #733), face up, permanently, unless it lands on the top half of the mission card,
-// which places it on the mission card (#871, `missionHalfDropId`). The away team badge sits on
+// instead (#606, #733), face up, permanently, unless it lands on the bottom half of the mission card,
+// which places it on the mission card (#871, `missionHalfDropId`). The top half, where the cards
+// under the mission poke out, puts it under the mission (#917). The away team badge sits on
 // the badge strip, below (and as a sibling of, not nested inside) the mission card's own
 // `<button>` — nesting a badge button inside it would be invalid HTML and would let the mission's
 // own tap handler fire first, the same conflict already avoided for the ship's own drop target. The
@@ -61,10 +62,11 @@
 // picks the smaller, nested badge over the mission card beneath it, the same reasoning that lets
 // a ship's own drop targets win over its enclosing ship row (#645), which would refuse any card
 // but a ship (#886). A tap on the badge opens the away
-// team's panel (`CardListPanel`); a tap on the mission card itself does nothing (a hold previews
-// it). The under-the-mission pile has no badge of its own — its control is the tap target layered
-// over its stack of slivers (`UnderMissionStack` below), not a drop target, since the drop happens
-// on the mission card's own drop target.
+// team's panel (`CardListPanel`). A tap on the top half of the mission card opens the
+// under-the-mission pile's panel (#917), and does nothing when no dilemma is under the mission; a
+// tap on the bottom half does nothing, and a hold on either half previews the mission. The
+// under-the-mission pile has no badge and no visible tap target of its own (`UnderMissionStack`
+// below), since the drop happens on the mission card's own drop target.
 
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName, MissionSlot } from './tableReducer';
@@ -92,8 +94,8 @@ export const SHIP_CARD_ART_HEIGHT = 32; // px, scaled down from TABLE_CARD_ART_H
 const SHIP_MAX_OFFSET_BASE = SHIP_CARD_WIDTH + 2; // 2 ships sit edge to edge with a small gap
 
 // The mission card has two drop halves (#871), each the full width and half the height of the
-// card. They differ only for a dilemma: the top half places it on the mission card, the bottom
-// half puts it under the mission. Every other type routes the same way from either half.
+// card. They differ only for a dilemma: the top half puts it under the mission (#917), the bottom
+// half places it on the mission card. Every other type routes the same way from either half.
 export type MissionHalf = 'on' | 'under';
 export const missionHalfDropId = (missionIndex: number, half: MissionHalf): string =>
   `mission-${half}-${missionIndex}`;
@@ -428,53 +430,38 @@ function BadgeStrip({
   );
 }
 
-// The dilemma sliver stack's total (scale-1) height budget (#641): the space the badge strip
-// freed up by moving below the mission card, so poking the slivers out above it does not grow
-// the column's total height relative to before. Grows with `scale` (#717) along with the badge
-// strip it matches.
-const UNDER_MISSION_STACK_HEIGHT_BASE = BADGE_STRIP_HEIGHT_BASE; // px
-// A pile can grow arbitrarily large; this caps how many cards actually render in the stack (the
-// old strip capped visible edges the same way), while the tap target's aria-label keeps the true
-// count.
-const UNDER_MISSION_MAX_VISIBLE = 6;
-// The vertical gap between stacked slivers, shrinking as more cards share the fixed height
-// budget above — the same idea `overlapOffset.ts` already applies horizontally to the ship row.
-const UNDER_MISSION_MAX_OFFSET_BASE = 4; // px
-const UNDER_MISSION_MIN_SLIVER_BASE = 2; // px, the smallest sliver a single card pokes out
+// The under-the-mission stack shows at most two slivers (#917); the count on the stack, and the
+// hidden button's aria-label, keep the true number.
+const UNDER_MISSION_MAX_VISIBLE = 2;
+// Each sliver pokes out by about 5% of the card height (#917).
+const UNDER_MISSION_SLIVER_FRACTION = 0.05;
 
 // The dilemmas placed under the mission (#606), rendered face up and stacked directly behind the
 // mission card in z-order, each poking a small sliver out above the mission card's top edge
-// (#641) rather than as a strip of plain edges below it. Absolutely positioned within the
-// mission's own relatively positioned drop target (`MissionColumn` below), so an empty pile
-// renders nothing and reserves no space — no dashed placeholder box. A single tap target, sized
-// to the sliver band, opens that pile's panel (`CardListPanel`), the same callback `PileBadge`
-// already uses; it is not a drop target of its own — the drop happens on the mission card's own
-// drop halves (`missionHalfDropId`). The individual card images underneath have no click handling of
-// their own (`pointer-events-none`) so only the tap target responds, and the sliver band sits
-// entirely above the mission card's own drop target, so the two never overlap.
+// (#641). Absolutely positioned within the mission's own relatively positioned drop target
+// (`MissionColumn` below), so an empty pile renders nothing and reserves no space. The sliver
+// band has no tap target of its own (#917): a tap on the top half of the mission card opens the
+// pile's panel (`CardListPanel`). A visually hidden button keeps the pile's name and count for a
+// screen reader and a keyboard, and `practice_drag.sh` reads its aria-label. The card images have
+// no click handling of their own (`pointer-events-none`).
 function UnderMissionStack({
   missionIndex,
   cards,
   onOpen,
   cardWidth,
   cardArtHeight,
-  scale,
 }: {
   missionIndex: number;
   cards: CardInstance[];
   onOpen: (missionIndex: number, pile: MissionPileName) => void;
   cardWidth: number;
   cardArtHeight: number;
-  scale: number;
 }) {
   const landedNonce = useLandedNonce(missionPileDropId(missionIndex, 'underMission'));
   if (cards.length === 0) return null;
-  const stackHeightBudget = scaled(UNDER_MISSION_STACK_HEIGHT_BASE, scale);
-  const maxOffset = scaled(UNDER_MISSION_MAX_OFFSET_BASE, scale);
-  const minSliver = scaled(UNDER_MISSION_MIN_SLIVER_BASE, scale);
+  const sliver = Math.max(1, Math.round(cardArtHeight * UNDER_MISSION_SLIVER_FRACTION));
   const shown = cards.slice(-UNDER_MISSION_MAX_VISIBLE);
-  const offset = offsetFor(shown.length, minSliver, stackHeightBudget, maxOffset);
-  const stackHeight = minSliver + offset * (shown.length - 1);
+  const stackHeight = sliver * shown.length;
 
   return (
     <div
@@ -486,7 +473,7 @@ function UnderMissionStack({
         <div
           key={card.id}
           className="absolute inset-x-0 flex items-center justify-center pointer-events-none"
-          style={{ top: i * offset, zIndex: i + 1 }}
+          style={{ top: i * sliver, zIndex: i + 1 }}
         >
           <TableCard instance={card} onClick={() => {}} width={cardWidth} artHeight={cardArtHeight} holdable={false} />
         </div>
@@ -497,15 +484,16 @@ function UnderMissionStack({
         aria-label={`${PILE_NOUN.underMission}, ${cards.length} card${
           cards.length === 1 ? '' : 's'
         }, tap to open`}
-        className="absolute inset-0"
-        style={{ zIndex: shown.length + 1 }}
+        className="sr-only"
+      />
+      <span
+        aria-hidden="true"
+        className="absolute bottom-0 right-1 z-20 pointer-events-none text-[8px] font-bold leading-none text-text-primary"
       >
-        <span className="absolute bottom-0 right-1 text-[8px] font-bold leading-none text-text-primary">
-          <span key={landedNonce ?? undefined} className={landedBumpClassName(landedNonce)}>
-            {cards.length}
-          </span>
+        <span key={landedNonce ?? undefined} className={landedBumpClassName(landedNonce)}>
+          {cards.length}
         </span>
-      </button>
+      </span>
       <LandedRing nonce={landedNonce} />
     </div>
   );
@@ -579,6 +567,13 @@ function ShipRow({
   );
 }
 
+// True when a tap on the mission card lands on its top half (#917), where the cards under the
+// mission poke out. A tap there opens the under-the-mission panel.
+function isTopHalfTap(event: React.MouseEvent<HTMLElement>): boolean {
+  const rect = event.currentTarget.getBoundingClientRect();
+  return event.clientY < rect.top + rect.height / 2;
+}
+
 // One of the mission card's two drop halves (#871), laid over the card like a `PileHalf`
 // (`page.tsx`), but with `pointer-events-none`: dnd-kit measures the rect, so a drop still lands,
 // while the hold preview on the mission's `TableCard` and the tap on `PlacedOnCounter` still work.
@@ -607,7 +602,7 @@ function MissionHalfTarget({
       ref={droppable.setNodeRef}
       data-zone={dropId}
       data-highlight={highlight}
-      className={`absolute inset-x-0 h-1/2 pointer-events-none ${half === 'on' ? 'top-0 rounded-t-lg' : 'bottom-0 rounded-b-lg'} ${
+      className={`absolute inset-x-0 h-1/2 pointer-events-none ${half === 'under' ? 'top-0 rounded-t-lg' : 'bottom-0 rounded-b-lg'} ${
         split ? highlightClassName(highlight) : ''
       }`}
     >
@@ -670,13 +665,19 @@ function MissionColumn({
           onOpen={onOpenPile}
           cardWidth={cardWidth}
           cardArtHeight={cardArtHeight}
-          scale={scale}
         />
 
         <div className="relative z-10 w-full flex items-center justify-center">
           {mission ? (
             <>
-              <TableCard instance={mission} width={cardWidth} artHeight={cardArtHeight} />
+              <TableCard
+                instance={mission}
+                width={cardWidth}
+                artHeight={cardArtHeight}
+                onClick={(event) => {
+                  if (underMission.length > 0 && isTopHalfTap(event)) onOpenPile(missionIndex, 'underMission');
+                }}
+              />
               <MissionHalfTarget
                 droppable={onDrop}
                 dropId={missionHalfDropId(missionIndex, 'on')}

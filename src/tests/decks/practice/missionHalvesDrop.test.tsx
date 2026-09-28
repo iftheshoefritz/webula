@@ -84,8 +84,8 @@ const mockDeck = Object.fromEntries(
   [mockPersonnel, mockEvent, mockShip, mockMission, mockDilemma].map((c) => [c.collectorsinfo, { count: 1, row: c }])
 );
 
-// Issue #871: the mission card has two drop halves. The top half (`mission-on-<i>`) places a
-// dilemma on the mission card, the bottom half (`mission-under-<i>`) puts it under the mission.
+// Issue #871: the mission card has two drop halves. Since #917 the bottom half (`mission-on-<i>`)
+// places a dilemma on the mission card, the top half (`mission-under-<i>`) puts it under the mission.
 // Every other type routes the same way from either half.
 describe('Practice table: the two drop halves of a mission card (#871)', () => {
   beforeEach(() => {
@@ -176,7 +176,7 @@ describe('Practice table: the two drop halves of a mission card (#871)', () => {
     expect(document.body.querySelector('[data-zone="mission-0"]')).toBeNull();
   });
 
-  it('places a dilemma dropped on the top half on the mission card, not under it', async () => {
+  it('places a dilemma dropped on the bottom half on the mission card, not under it', async () => {
     await setup();
     await drop(await drawDilemma(), 'mission-on-0');
 
@@ -184,7 +184,7 @@ describe('Practice table: the two drop halves of a mission card (#871)', () => {
     expect(underButton()).toBeNull();
   });
 
-  it('puts a dilemma dropped on the bottom half under the mission, face up', async () => {
+  it('puts a dilemma dropped on the top half under the mission, face up', async () => {
     await setup();
     await drop(await drawDilemma(), 'mission-under-0');
 
@@ -193,7 +193,7 @@ describe('Practice table: the two drop halves of a mission card (#871)', () => {
     expect(screen.getAllByAltText('cardassian trap').length).toBeGreaterThan(0);
   });
 
-  it('puts a dilemma dropped on the top half of a slot with no mission card under the mission', async () => {
+  it('puts a dilemma dropped on the bottom half of a slot with no mission card under the mission', async () => {
     await setup();
     await drop(await drawDilemma(), 'mission-on-1');
 
