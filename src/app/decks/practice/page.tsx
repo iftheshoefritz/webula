@@ -1735,49 +1735,33 @@ function PracticeDrawContent() {
                   core and the brig already used. */}
               <div ref={setBottomRow} className="mt-auto flex flex-row items-end gap-4">
                 <div className="flex flex-row items-end gap-4">
-                  {/* Discard, with the turn counter and score counter above it (#753) rather
-                      than beside it. */}
+                  {/* Discard, with the score counter above it (#753) rather than beside it. The
+                      turn counter sits above the hand instead (#927), so the discard pile is
+                      centred under the score buttons and the row fits a 568 px table. */}
                   <div className="flex flex-col items-center gap-1">
-                    <div className="flex flex-row items-end gap-4">
-                      {/* Turn counter (#718): shows the current turn, and a button that raises it
-                          by one and unstops every stopped personnel card on the table. */}
-                      <div className="flex flex-col items-center gap-1">
-                        <span data-testid="turn-counter" className="text-xs text-text-muted">
-                          Turn {turn}
-                        </span>
+                    {/* Score counter (#719): shows the current score, and plus/minus buttons
+                        that change it by SCORE_STEP points, clamped by the reducer to 0-140. */}
+                    <div className="flex flex-col items-center gap-1">
+                      <span data-testid="score-counter" className="text-xs text-text-muted">
+                        Score {score}
+                      </span>
+                      <div className="flex items-center gap-1">
                         <button
-                          className="btn-icon btn-icon-sm"
-                          onClick={nextTurn}
-                          aria-label="Next turn"
+                          className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => adjustScore(-SCORE_STEP)}
+                          disabled={score <= SCORE_MIN}
+                          aria-label="Decrease score"
                         >
-                          <FaForward />
+                          -
                         </button>
-                      </div>
-
-                      {/* Score counter (#719): shows the current score, and plus/minus buttons
-                          that change it by SCORE_STEP points, clamped by the reducer to 0-140. */}
-                      <div className="flex flex-col items-center gap-1">
-                        <span data-testid="score-counter" className="text-xs text-text-muted">
-                          Score {score}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                            onClick={() => adjustScore(-SCORE_STEP)}
-                            disabled={score <= SCORE_MIN}
-                            aria-label="Decrease score"
-                          >
-                            -
-                          </button>
-                          <button
-                            className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                            onClick={() => adjustScore(SCORE_STEP)}
-                            disabled={score >= SCORE_MAX}
-                            aria-label="Increase score"
-                          >
-                            +
-                          </button>
-                        </div>
+                        <button
+                          className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => adjustScore(SCORE_STEP)}
+                          disabled={score >= SCORE_MAX}
+                          aria-label="Increase score"
+                        >
+                          +
+                        </button>
                       </div>
                     </div>
 
@@ -1816,30 +1800,49 @@ function PracticeDrawContent() {
                     />
                   </div>
 
-                  {/* Hand. `selectedIds`/`onToggleSelect` let the player select more than one
-                      card here and drag them together (#691), the same as a card list panel (#677);
-                      closing the hand clears the selection. */}
-                  <CardHand
-                    instances={hand}
-                    open={openHand === 'hand'}
-                    onOpen={() => setOpenHand('hand')}
-                    onClose={() => {
-                      setOpenHand(null);
-                      setSelectedCardIds([]);
-                    }}
-                    dragging={draggingInstance !== null}
-                    portalContainer={gameLayer}
-                    passthroughZone={[
-                      DRAW_PILE_TOP_DROPPABLE_ID,
-                      DRAW_PILE_BOTTOM_DROPPABLE_ID,
-                      DILEMMA_PILE_TOP_DROPPABLE_ID,
-                      DILEMMA_PILE_BOTTOM_DROPPABLE_ID,
-                    ]}
-                    selectedIds={selectedCardIds}
-                    onToggleSelect={toggleCardSelection}
-                    openCardWidth={viewerCardWidth}
-                    bottomInset={panelBottom}
-                  />
+                  {/* The hand, with the turn counter above it (#927), the way the draw deck and
+                      the discard pile carry their controls above their card. */}
+                  <div className="flex flex-col items-center gap-1">
+                    {/* Turn counter (#718): shows the current turn, and a button that raises it
+                        by one and unstops every stopped personnel card on the table. */}
+                    <div className="flex flex-col items-center gap-1">
+                      <span data-testid="turn-counter" className="text-xs text-text-muted">
+                        Turn {turn}
+                      </span>
+                      <button
+                        className="btn-icon btn-icon-sm"
+                        onClick={nextTurn}
+                        aria-label="Next turn"
+                      >
+                        <FaForward />
+                      </button>
+                    </div>
+
+                    {/* Hand. `selectedIds`/`onToggleSelect` let the player select more than one
+                        card here and drag them together (#691), the same as a card list panel (#677);
+                        closing the hand clears the selection. */}
+                    <CardHand
+                      instances={hand}
+                      open={openHand === 'hand'}
+                      onOpen={() => setOpenHand('hand')}
+                      onClose={() => {
+                        setOpenHand(null);
+                        setSelectedCardIds([]);
+                      }}
+                      dragging={draggingInstance !== null}
+                      portalContainer={gameLayer}
+                      passthroughZone={[
+                        DRAW_PILE_TOP_DROPPABLE_ID,
+                        DRAW_PILE_BOTTOM_DROPPABLE_ID,
+                        DILEMMA_PILE_TOP_DROPPABLE_ID,
+                        DILEMMA_PILE_BOTTOM_DROPPABLE_ID,
+                      ]}
+                      selectedIds={selectedCardIds}
+                      onToggleSelect={toggleCardSelection}
+                      openCardWidth={viewerCardWidth}
+                      bottomInset={panelBottom}
+                    />
+                  </div>
                 </div>
 
                 {/* Core: any card, usually events (#603). A tap on a card opens the core's own
