@@ -501,9 +501,9 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // The empty draw deck and the empty dilemma hand (#631) both show "Empty"; the still-empty
-    // discard pile shows its own "Discard" label.
-    expect(screen.getAllByText('Empty').length).toBe(2);
+    // The empty draw deck shows "Empty"; the empty dilemma hand hides its marker while no drag
+    // runs (#929); the still-empty discard pile shows its own "Discard" label.
+    expect(screen.getAllByText('Empty').length).toBe(1);
     expect(screen.getByText('Discard')).toBeInTheDocument();
     expect(screen.queryByAltText('Face-down draw deck')).not.toBeInTheDocument();
   });

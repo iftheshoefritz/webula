@@ -215,12 +215,29 @@ describe('CardHand', () => {
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeDisabled();
   });
 
-  it('shows a count badge on the closed hand, and an empty placeholder instead when it is empty', () => {
+  it('shows a count badge on the closed hand, and an empty placeholder instead when it is empty during a drag', () => {
     const { rerender } = render(<Harness instances={makeInstances(3)} />);
     expect(screen.getByRole('button', { name: /^hand, 3 cards, tap to open$/i })).toHaveTextContent('3');
 
-    rerender(<Harness instances={[]} />);
+    rerender(<Harness instances={[]} dragging />);
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toHaveTextContent('Empty');
+  });
+
+  // #929: the empty marker only helps while a drag runs, so it hides the rest of the time. The
+  // closed row keeps its size, so nothing in the bottom row moves as the marker comes and goes.
+  it('hides the empty placeholder when no drag runs, and keeps the closed row its size (#929)', () => {
+    const { rerender } = render(<Harness instances={[]} />);
+    const hand = screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i });
+    expect(hand).not.toHaveTextContent('Empty');
+    expect(hand.querySelector('.border-dashed')).toBeNull();
+    const idleSize = { width: hand.style.width, height: hand.style.height };
+
+    rerender(<Harness instances={[]} dragging />);
+    expect(hand).toHaveTextContent('Empty');
+    expect({ width: hand.style.width, height: hand.style.height }).toEqual(idleSize);
+
+    rerender(<Harness instances={[]} />);
+    expect(hand).not.toHaveTextContent('Empty');
   });
 
   // #750: a pile's `CountBadge` used to draw on top of the open hand and dilemma hand, because
