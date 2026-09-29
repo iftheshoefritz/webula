@@ -70,6 +70,7 @@ import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
+import { useFullscreen } from './useFullscreen';
 
 // A plain inline hamburger icon (#722), not react-icons: see `DownloadIcon`'s comment below for
 // why a react-icons import here would need every test mock of `react-icons/fa` in this file's own
@@ -92,6 +93,28 @@ function MenuIcon() {
   );
 }
 
+// The four corners of a frame: pointing out to go into fullscreen, pointing in to leave it (#921).
+function FullscreenIcon({ exit }: { exit: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-4 h-4"
+      aria-hidden="true"
+    >
+      {exit ? (
+        <path d="M8 3v5H3M16 3v5h5M8 21v-5H3M16 21v-5h5" />
+      ) : (
+        <path d="M3 8V3h5M21 8V3h-5M3 16v5h5M21 16v5h-5" />
+      )}
+    </svg>
+  );
+}
+
 // A home for the controls that act on the whole game rather than one zone (#722): Reset, and
 // Load deck (#780), which opens the Drive picker. Reset throws away the current game, so it
 // confirms first via `window.confirm`, the same confirm-before-destroy pattern
@@ -107,6 +130,11 @@ function MenuIcon() {
 // card list panel. At `z-40` the badges drew over the splash and took presses through it. The menu
 // button rises above the splash only while it is open, so a closed menu's button stays under a
 // card list panel as before. `src/lib/layers.ts` holds the order of every layer (#897).
+//
+// The fullscreen button (#921) sits under the menu button, in the same corner, so it adds no width
+// to the bottom row. It puts the game layer into fullscreen, so every overlay above, which portals
+// into the game layer, still shows. It is hidden where the browser has no Fullscreen API for a
+// `<div>`, such as iPhone Safari.
 const SPLASH_ITEM_CLASS =
   'block w-full rounded-md border border-white/10 bg-bg-secondary px-6 py-2.5 text-center text-base text-text-secondary hover:bg-white/[0.1] hover:text-text-primary';
 
@@ -117,6 +145,7 @@ function GameMenu({
   onReset,
   onLoadDeck,
   onDecklist,
+  fullscreen,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -124,6 +153,7 @@ function GameMenu({
   onReset: () => void;
   onLoadDeck: () => void;
   onDecklist: () => void;
+  fullscreen: ReturnType<typeof useFullscreen>;
 }) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -163,10 +193,24 @@ function GameMenu({
           </div>
         </div>
       )}
-      <div className={`absolute top-2 left-2 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}>
+      <div
+        className={`absolute top-2 left-2 flex flex-col gap-1 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
+      >
         <button type="button" onClick={onToggle} aria-label="Game menu" aria-expanded={open} className="btn-icon btn-icon-sm">
           <MenuIcon />
         </button>
+        {fullscreen.enabled && (
+          <button
+            type="button"
+            onClick={fullscreen.toggle}
+            aria-label={fullscreen.isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            aria-pressed={fullscreen.isFullscreen}
+            data-testid="fullscreen-button"
+            className="btn-icon btn-icon-sm"
+          >
+            <FullscreenIcon exit={fullscreen.isFullscreen} />
+          </button>
+        )}
       </div>
     </>
   );
@@ -989,6 +1033,7 @@ function PracticeDrawContent() {
   // against. `viewerCardWidth`/`viewerCardHeight` feed every `CardListPanel` and `CardHand` below; `MissionRow`
   // derives its own ship-row sizes from the same `scale`.
   const scale = useTableScale(gameLayer);
+  const fullscreen = useFullscreen(gameLayer);
   // Every viewer (a card list panel, the open fan) draws its card at 1.5x the table card (#802).
   const { width: viewerCardWidth, height: viewerCardHeight } = viewerCardSize(scale);
   // Issue #828: every card list panel anchors its bottom just above the bottom row.
@@ -1645,6 +1690,7 @@ function PracticeDrawContent() {
           onReset={handleResetClick}
           onLoadDeck={handleLoadDeckClick}
           onDecklist={handleDecklistClick}
+          fullscreen={fullscreen}
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
 
