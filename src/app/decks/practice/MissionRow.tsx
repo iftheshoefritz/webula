@@ -16,7 +16,9 @@
 // The mission card and its ship row (#599) are both drop targets: dropping a ship on either one
 // puts it in that mission's ship row, face up. A ship row shows up to 2 ships side by side; a
 // third or later ship overlaps the others rather than growing the row, reusing the same
-// overlap-offset calculation as the hand (`overlapOffset.ts`, originally #596).
+// overlap-offset calculation as the hand (`overlapOffset.ts`, originally #596). When the table has
+// spare height, the ship row takes a second and a third row of 2 ships first (#930), and only the
+// last row overlaps.
 //
 // Each ship already sitting in a ship row is itself a drop target too, and takes a placed card (#812): a card
 // dropped on its art is placed on the ship (see `ShipCard` below), the same as a card dropped on a
@@ -478,6 +480,37 @@ function UnderMissionStack({
   );
 }
 
+// The gap between two rows of ships (#930), the same as the gap between the mission card, its
+// badge strip, and its ship row.
+export const SHIP_ROW_GAP = COLUMN_GAP;
+
+// The height of one row of ships (#930): a ship card's art, with no title line below it (#634).
+export const shipRowLineHeight = (scale: number): number => scaled(SMALL_CARD_ART_HEIGHT, scale);
+
+// How many ships one row holds with no overlap (#930): 2 at the column width of every scale.
+export function shipsPerRow(scale: number): number {
+  const cardWidth = scaled(SMALL_CARD_WIDTH, scale);
+  const maxOffset = scaled(SMALL_CARD_MAX_OFFSET_BASE, scale);
+  return Math.max(1, Math.floor((scaled(TABLE_CARD_WIDTH, scale) - cardWidth) / maxOffset) + 1);
+}
+
+// The rows a ship row fills (#930): as many as its ships need at `shipsPerRow` each, never more
+// than the table has room for (`useShipRowCount`, `tableScale.ts`), and always at least 1.
+export function shipRowsUsed(shipCount: number, availableRows: number, scale: number): number {
+  return Math.max(1, Math.min(availableRows, Math.ceil(shipCount / shipsPerRow(scale))));
+}
+
+// Fills the rows in order (#930): every row but the last holds `perRow` ships, and the last row
+// holds the rest, overlapping as the single row did before once it holds more than `perRow`.
+function splitIntoRows<T>(ships: T[], perRow: number, rows: number): T[][] {
+  const result: T[][] = [];
+  for (let row = 0; row < rows; row++) {
+    const last = row === rows - 1;
+    result.push(ships.slice(row * perRow, last ? undefined : (row + 1) * perRow));
+  }
+  return result;
+}
+
 function ShipRow({
   missionIndex,
   ships,
@@ -486,6 +519,7 @@ function ShipRow({
   onOpenPlacedOn,
   columnWidth,
   scale,
+  availableRows,
 }: {
   missionIndex: number;
   ships: CardInstance[];
@@ -494,23 +528,28 @@ function ShipRow({
   onOpenPlacedOn: (targetId: string) => void;
   columnWidth: number;
   scale: number;
+  availableRows: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: shipRowDropId(missionIndex) });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('shipRow', draggedType, isOver);
   const landedNonce = useLandedNonce(shipRowDropId(missionIndex));
   const shipCardWidth = scaled(SMALL_CARD_WIDTH, scale);
-  const shipCardArtHeight = scaled(SMALL_CARD_ART_HEIGHT, scale);
-  const shipRowHeight = shipCardArtHeight; // no title line below the art (#634)
+  const shipCardArtHeight = shipRowLineHeight(scale);
   const shipMaxOffset = scaled(SMALL_CARD_MAX_OFFSET_BASE, scale);
   const shipRowMaxWidth = columnWidth; // bounds the row to the column's own (scaled) width
-  const offset = offsetFor(ships.length, shipCardWidth, shipRowMaxWidth, shipMaxOffset);
-  const rowWidth = ships.length === 0 ? shipRowMaxWidth : shipCardWidth + offset * (ships.length - 1);
-  // True once the row holds more ships than fit without overlap (#713): the same condition
-  // `offset` already encodes for layout — 2 ships fit at `shipMaxOffset` with a gap and no
-  // overlap, 3 or more shrink the offset below that. `ships.length > 1` excludes the trivial
-  // single-ship row, where `offsetFor` returns 0 (unused) with nothing behind it to overlap.
-  const overlapping = ships.length > 1 && offset < shipMaxOffset;
+  // The rows the ships fill (#930). The block grows with them, and the drop target covers the
+  // whole block, so a ship dropped on any of its rows lands in the ship row.
+  const rowCount = shipRowsUsed(ships.length, availableRows, scale);
+  const rows = splitIntoRows(ships, shipsPerRow(scale), rowCount);
+  const shipRowHeight = rowCount * shipCardArtHeight + (rowCount - 1) * SHIP_ROW_GAP;
+  const lastRow = rows[rows.length - 1];
+  const lastOffset = offsetFor(lastRow.length, shipCardWidth, shipRowMaxWidth, shipMaxOffset);
+  // True once the last row holds more ships than fit without overlap (#713, #930): 2 ships fit at
+  // `shipMaxOffset` with a gap and no overlap, 3 or more shrink the offset below that. Every row
+  // before the last holds only as many as fit, so only the last row can overlap. A row of one ship
+  // is excluded, where `offsetFor` returns 0 (unused) with nothing behind it to overlap.
+  const overlapping = lastRow.length > 1 && lastOffset < shipMaxOffset;
   const handleShipTap = overlapping ? () => onOpenShipRow(missionIndex) : onShipClick;
   const badgeHeight = scaled(BADGE_STRIP_HEIGHT_BASE, scale);
 
@@ -520,26 +559,42 @@ function ShipRow({
       data-zone={shipRowDropId(missionIndex)}
       data-highlight={highlight}
       data-landed={landedNonce !== null || undefined}
-      className={`relative w-full flex items-center justify-center rounded ${highlightClassName(highlight)}`}
-      style={{ height: shipRowHeight }}
+      className={`relative w-full flex flex-col items-center justify-start rounded ${highlightClassName(highlight)}`}
+      style={{ height: shipRowHeight, gap: SHIP_ROW_GAP }}
     >
       {ships.length === 0 ? (
         <div className="w-full h-full rounded border border-dashed border-white/15" />
       ) : (
-        <div className="relative" style={{ width: rowWidth, height: shipRowHeight }}>
-          {ships.map((ship, idx) => (
-            <div key={ship.id} className="absolute top-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
-              <ShipCard
-                ship={ship}
-                onShipClick={handleShipTap}
-                onOpenPlacedOn={onOpenPlacedOn}
-                width={shipCardWidth}
-                artHeight={shipCardArtHeight}
-                badgeHeight={badgeHeight}
-              />
+        rows.map((rowShips, row) => {
+          const offset = offsetFor(rowShips.length, shipCardWidth, shipRowMaxWidth, shipMaxOffset);
+          const rowWidth = shipCardWidth + offset * (rowShips.length - 1);
+          const first = rows.slice(0, row).reduce((sum, r) => sum + r.length, 0);
+          return (
+            <div
+              key={row}
+              data-testid={`ship-row-${missionIndex}-line-${row}`}
+              className="relative"
+              style={{ width: rowWidth, height: shipCardArtHeight }}
+            >
+              {rowShips.map((ship, idx) => (
+                <div
+                  key={ship.id}
+                  className="absolute top-0"
+                  style={{ left: idx * offset, zIndex: first + idx + 1 }}
+                >
+                  <ShipCard
+                    ship={ship}
+                    onShipClick={handleShipTap}
+                    onOpenPlacedOn={onOpenPlacedOn}
+                    width={shipCardWidth}
+                    artHeight={shipCardArtHeight}
+                    badgeHeight={badgeHeight}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })
       )}
       <LandedRing nonce={landedNonce} />
     </div>
@@ -607,6 +662,7 @@ function MissionColumn({
   onOpenPlacedOn,
   onFlipMission,
   scale,
+  shipRows,
 }: {
   missionIndex: number;
   slot: MissionSlot;
@@ -616,6 +672,7 @@ function MissionColumn({
   onOpenPlacedOn: (targetId: string) => void;
   onFlipMission: (missionId: string) => void;
   scale: number;
+  shipRows: number;
 }) {
   const onDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
   const underDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'under') });
@@ -744,6 +801,7 @@ function MissionColumn({
         onOpenPlacedOn={onOpenPlacedOn}
         columnWidth={cardWidth}
         scale={scale}
+        availableRows={shipRows}
       />
     </div>
   );
@@ -757,6 +815,7 @@ export default function MissionRow({
   onOpenPlacedOn,
   onFlipMission = () => {},
   scale = 1,
+  shipRows = 1,
 }: {
   missions: MissionSlot[];
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
@@ -771,6 +830,9 @@ export default function MissionRow({
   // the game layer. Defaults to 1 (today's fixed sizes) for callers — including this
   // component's own tests — that don't care about the grown state.
   scale?: number;
+  // Issue #930: the rows of ships a ship row may fill, computed by `useShipRowCount`
+  // (`tableScale.ts`) from the spare height of the table. Defaults to 1, a single row.
+  shipRows?: number;
 }) {
   return (
     <div className="flex flex-row gap-2 justify-center">
@@ -779,6 +841,7 @@ export default function MissionRow({
           key={idx}
           missionIndex={idx}
           scale={scale}
+          shipRows={shipRows}
           slot={slot}
           onOpenPile={onOpenPile}
           onShipClick={onShipClick}

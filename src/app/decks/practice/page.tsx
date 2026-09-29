@@ -48,9 +48,12 @@ import {
 import CardHand from './CardHand';
 import MissionRow, {
   DilemmaIcon,
+  SHIP_ROW_GAP,
   missionIndexFromDropId,
   missionHalfFromDropId,
   shipIdFromCrewDropId,
+  shipRowLineHeight,
+  shipsPerRow,
 } from './MissionRow';
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
@@ -60,7 +63,7 @@ import CountBadge from './CountBadge';
 import CardListPanel, { ShuffleIcon } from './CardListPanel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
 import { SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
-import { useTableScale } from './tableScale';
+import { useShipRowCount, useTableScale } from './tableScale';
 import { usePanelBottomInset } from './panelBottomInset';
 import { viewerCardSize } from './viewerCardSize';
 import { offsetFor } from './overlapOffset';
@@ -994,6 +997,17 @@ function PracticeDrawContent() {
   // Issue #828: every card list panel anchors its bottom just above the bottom row.
   const [bottomRow, setBottomRow] = useState<HTMLDivElement | null>(null);
   const panelBottom = usePanelBottomInset(gameLayer, bottomRow);
+  // Issue #930: the ship rows take a second and a third row of ships when the gap between the
+  // mission rows and the bottom row has room for them.
+  const [missionRows, setMissionRows] = useState<HTMLDivElement | null>(null);
+  const shipRows = useShipRowCount(
+    missionRows,
+    bottomRow,
+    shipRowLineHeight(scale),
+    SHIP_ROW_GAP,
+    Math.max(0, ...missions.map((slot) => slot.ships.length)),
+    shipsPerRow(scale),
+  );
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
   // Which of the core's/the brig's own card list panel (#640), or the draw pile's/the dilemma pile's
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
@@ -1702,7 +1716,7 @@ function PracticeDrawContent() {
               {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597),
                   plus the dilemma stack (#630) in its own reserved column to the right, in the
                   same row so it lines up with the missions and shares their gap. */}
-              <div className="flex flex-row gap-2 justify-center items-start">
+              <div ref={setMissionRows} className="flex flex-row gap-2 justify-center items-start">
                 <MissionRow
                   missions={missions}
                   onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
@@ -1711,6 +1725,7 @@ function PracticeDrawContent() {
                   onOpenPlacedOn={openOnlyPlacedOnPanel}
                   onFlipMission={(id) => dispatch({ type: 'flipMission', id })}
                   scale={scale}
+                  shipRows={shipRows}
                 />
                 <DilemmaStackPile
                   stack={dilemmaStack}
