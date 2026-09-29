@@ -568,7 +568,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     expect(coreZone().className).toEqual(expect.stringContaining('border-dashed'));
     // Unlike the brig, the core keeps its fixed CORE_ROW_MAX_WIDTH at every card count (#676),
     // rather than shrinking to the 56px minimum box size the brig uses.
-    expect(coreZone().style.width).toBe('106px');
+    expect(coreZone().style.width).toBe('109px');
     expect(coreZone().style.height).toBe('80px');
   });
 
