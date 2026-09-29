@@ -368,7 +368,10 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
 
       await drop(draggedId, 'mission-pile-awayTeam-0');
 
-      expect(screen.getByRole('button', { name: /^Away team, 0 cards$/i })).toBeInTheDocument();
+      expect(document.body.querySelector('[data-testid="mission-pile-awayTeam-0"]')).toHaveAttribute(
+        'aria-label',
+        'Away team, 0 cards'
+      );
     });
 
     // The under-mission pile has no badge of its own: its stack sits inside the mission card's drop
