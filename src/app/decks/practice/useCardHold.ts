@@ -7,6 +7,8 @@
 //
 // Before the timer fires, a move past `DRAG_ACTIVATION_DISTANCE` cancels it: that press is a
 // drag, and dnd-kit's `PointerSensor` (which uses the same distance, in `page.tsx`) takes it.
+// After the timer fires, the sensor waits for a longer move, `HELD_DRAG_ACTIVATION_DISTANCE`
+// (#925), so a twitch under the preview does not start a drag.
 // Inside a card list panel whose grid scrolls, a touch or pen press goes to `PanelScrollSensor`
 // instead (#788), which decides at the same distance: a vertical first move scrolls the grid,
 // and the browser's `pointercancel` ends the hold.
@@ -36,6 +38,7 @@
 
 import { createContext, useContext, useEffect, useRef } from 'react';
 import type { useDraggable } from '@dnd-kit/core';
+import { CANCEL_RADIUS } from './releaseCancel';
 
 type DraggableListeners = ReturnType<typeof useDraggable>['listeners'];
 
@@ -46,6 +49,23 @@ export const HOVER_DELAY_MS = 300;
 // `PanelScrollSensor`'s direction rule, so the point where a hold gives way to a drag and the
 // point where the drag starts cannot drift apart.
 export const DRAG_ACTIVATION_DISTANCE = 8; // px
+// Once the hold has fired, a twitch of the finger under the preview must not start a drag (#925),
+// so the press needs a move as long as `CANCEL_RADIUS` before it becomes one. A shorter drag would
+// be cancelled on release anyway.
+export const HELD_DRAG_ACTIVATION_DISTANCE = CANCEL_RADIUS; // px
+
+// The distance a press must move to start a drag, by whether its hold has fired.
+export function dragActivationDistanceFor(held: boolean): number {
+  return held ? HELD_DRAG_ACTIVATION_DISTANCE : DRAG_ACTIVATION_DISTANCE;
+}
+
+// The `pointerdown` of the press whose hold has fired and not yet ended. `PanelScrollSensor`
+// compares it with the press it tracks, since dnd-kit's sensor has no other way to learn of a hold.
+let heldPress: PointerEvent | null = null;
+
+export function isHeldPress(press: Event | null | undefined): boolean {
+  return press != null && press === heldPress;
+}
 
 // The side of the screen the preview takes: the one away from the press point (#879), so a
 // thumb on a card of the right half does not cover the preview it asked for.
@@ -197,6 +217,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
 
     const timer = window.setTimeout(() => {
       fired = true;
+      heldPress = downEvent;
       swallowClickRef.current = true;
       callbacksRef.current?.startHold(id, previewSideFor(originX));
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -216,6 +237,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
 
     function cleanup() {
       window.clearTimeout(timer);
+      if (heldPress === downEvent) heldPress = null;
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', end);
       window.removeEventListener('pointercancel', end);
