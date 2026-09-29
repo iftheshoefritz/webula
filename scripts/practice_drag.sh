@@ -57,43 +57,6 @@ fi
 ab() { npx agent-browser "$@" >/dev/null 2>&1; }
 ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 
-# Every eval shares one scope, so each one is an arrow function called at once.
-# A bare `const` fails the second time with "Identifier has already been declared".
-grab=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();for(let fx=0.05;fx<=0.95;fx+=0.05){for(let fy=0.2;fy<=0.8;fy+=0.1){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);const t=document.elementFromPoint(x,y);if(t&&t.closest('[data-card-id]')===e)return x+' '+y}}return 'COVERED'})()")
-
-case "$grab" in
-  MISSING) echo "card $CARD is not in the DOM. Open the hand or the panel that holds it first." >&2; exit 1 ;;
-  COVERED) echo "no point of card $CARD is on top. Another card covers all of it." >&2; exit 1 ;;
-esac
-
-set -- $grab
-ax=$1; ay=$2
-
-ab mouse move "$ax" "$ay"
-ab mouse down
-ab mouse move "$((ax + 4))" "$((ay - 8))"
-
-# The layout reflowed when the drag started, so read the target now, not before.
-# Of a grid of points inside the target rect, take the one nearest its centre
-# that is at least the cancel radius from the press point (trap 3). The same
-# rule as `isReleaseInCancelRadius` in `releaseCancel.ts`.
-target=$(ev "(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const px=$ax,py=$ay;const dead=(x,y)=>Math.hypot(x-px,y-py)<24;let best=null,bd=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}}}return best||'DEAD'})()")
-
-if [ "$target" = "MISSING" ]; then
-  ab mouse up
-  echo "no element has data-zone=\"$ZONE\"." >&2
-  exit 1
-fi
-
-if [ "$target" = "DEAD" ]; then
-  ab mouse up
-  echo "every point of $ZONE is less than 24 px from the press point on $CARD, so any release there cancels the drag (#774). Drag the card out of a card list panel instead, or pick another card." >&2
-  exit 1
-fi
-
-set -- $target
-bx=$1; by=$2
-
 # A badge (hand, dilemma hand, or a mission pile) reads "<Label>, N cards, tap
 # to open". Everything else, including the aria-labels the draw and download
 # piles use, misses the regex and is ignored. The key is the badge's own
@@ -125,7 +88,48 @@ snapshot() {
   ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const st=el.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');const k=el.getAttribute('data-zone')||(st?st.getAttribute('data-testid').replace(/-stack$/,''):pile[1]);parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
 }
 
+# Every eval shares one scope, so each one is an arrow function called at once.
+# A bare `const` fails the second time with "Identifier has already been declared".
+grab=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();for(let fx=0.05;fx<=0.95;fx+=0.05){for(let fy=0.2;fy<=0.8;fy+=0.1){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);const t=document.elementFromPoint(x,y);if(t&&t.closest('[data-card-id]')===e)return x+' '+y}}return 'COVERED'})()")
+
+case "$grab" in
+  MISSING) echo "card $CARD is not in the DOM. Open the hand or the panel that holds it first." >&2; exit 1 ;;
+  COVERED) echo "no point of card $CARD is on top. Another card covers all of it." >&2; exit 1 ;;
+esac
+
+set -- $grab
+ax=$1; ay=$2
+
+# Read the badges before the mouse down. During a drag the open hand shows no
+# count badge, so a count read then would make the hand look like it gained
+# every card it still holds (#920).
 before=$(snapshot)
+
+ab mouse move "$ax" "$ay"
+ab mouse down
+ab mouse move "$((ax + 4))" "$((ay - 8))"
+
+# The layout reflowed when the drag started, so read the target now, not before.
+# Of a grid of points inside the target rect, take the one nearest its centre
+# that is at least the cancel radius from the press point (trap 3). The same
+# rule as `isReleaseInCancelRadius` in `releaseCancel.ts`.
+target=$(ev "(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const px=$ax,py=$ay;const dead=(x,y)=>Math.hypot(x-px,y-py)<24;let best=null,bd=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}}}return best||'DEAD'})()")
+
+if [ "$target" = "MISSING" ]; then
+  ab mouse up
+  echo "no element has data-zone=\"$ZONE\"." >&2
+  exit 1
+fi
+
+if [ "$target" = "DEAD" ]; then
+  ab mouse up
+  echo "every point of $ZONE is less than 24 px from the press point on $CARD, so any release there cancels the drag (#774). Drag the card out of a card list panel instead, or pick another card." >&2
+  exit 1
+fi
+
+set -- $target
+bx=$1; by=$2
+
 
 ab mouse move "$bx" "$by"
 # A second move at the same point. dnd-kit reads the last pointer event, and one
