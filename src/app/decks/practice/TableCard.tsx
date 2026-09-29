@@ -41,6 +41,9 @@ export const TABLE_CARD_ART_HEIGHT = 64; // px
 export const SMALL_CARD_WIDTH = 34; // px
 export const SMALL_CARD_ART_HEIGHT = 32; // px, scaled down from TABLE_CARD_ART_HEIGHT to match
 
+// The card image is 120x167. The height of the whole, uncropped card at a given width (#926).
+export const fullCardHeight = (width: number): number => Math.round((width * 167) / 120);
+
 // The shared "stopped" look (#679): a stopped personnel card's image shows greyed out, like a
 // disabled UI element, everywhere it appears — here, in a card list panel (`CardListPanel.tsx`, which
 // also covers a ship's crew panel), and in the large preview (`CardPreview.tsx`). A face-down
@@ -64,6 +67,7 @@ export default function TableCard({
   artHeight = TABLE_CARD_ART_HEIGHT,
   draggable = false,
   holdable = true,
+  uncropped = false,
 }: {
   instance: CardInstance;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
@@ -73,6 +77,9 @@ export default function TableCard({
   // Press and hold opens the preview (#763). Off for a card that has no preview, such as the
   // dilemma under a mission.
   holdable?: boolean;
+  // Shows the whole card, frame and all, instead of the art crop (#926). Used by the core and the
+  // brig. `artHeight` is ignored: the height follows from the width.
+  uncropped?: boolean;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down';
@@ -99,12 +106,12 @@ export default function TableCard({
       }}
       aria-label={isFaceDown ? 'Face-down card' : card.name}
     >
-      <div className="relative w-full" style={{ height: artHeight }}>
+      <div className="relative w-full" style={{ height: uncropped ? fullCardHeight(width) : artHeight }}>
         <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
           <img
             src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
             alt={isFaceDown ? 'Face-down card' : card.name}
-            className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+            className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
             style={NO_CALLOUT_STYLE}
           />
         </div>
