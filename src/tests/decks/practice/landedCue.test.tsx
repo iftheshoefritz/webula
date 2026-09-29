@@ -193,12 +193,14 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
 
   const landedElements = () => Array.from(document.body.querySelectorAll('[data-landed]'));
   const zone = (name: string) => document.body.querySelector(`[data-zone="${name}"]`);
+  const awayTeamBadge = (missionIndex: number) =>
+    document.body.querySelector(`[data-testid="mission-pile-awayTeam-${missionIndex}"]`);
 
   it('marks the away team badge for an equipment dropped on the mission card (#870)', async () => {
     await setup();
     await drop(handCardId('tricorder'), 'mission-under-0');
 
-    expect(zone('mission-pile-awayTeam-0')).toHaveAttribute('data-landed');
+    expect(awayTeamBadge(0)).toHaveAttribute('data-landed');
     expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
     expect(zone('mission-pile-event-0')).toBeNull();
   });
@@ -211,11 +213,13 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
     expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
   });
 
-  it('marks the away team badge a card is dropped on directly', async () => {
+  // The badge strip is under the reach of the mission's bottom half (#924), so a drop on the badge
+  // is a drop on `mission-on-<index>`, and the cue still plays on the badge.
+  it('marks the away team badge for an equipment dropped on the bottom half', async () => {
     await setup();
-    await drop(handCardId('distress call'), 'mission-pile-awayTeam-0');
+    await drop(handCardId('tricorder'), 'mission-on-0');
 
-    expect(zone('mission-pile-awayTeam-0')).toHaveAttribute('data-landed');
+    expect(awayTeamBadge(0)).toHaveAttribute('data-landed');
     expect(zone('mission-on-0')!.closest('[data-landed]')).toBeNull();
     expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
   });

@@ -360,14 +360,15 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       expect(document.body.querySelector(`[data-testid="card-list-panel-on"] [data-card-id="${draggedId}"]`)).not.toBeNull();
     });
 
-    it('files a card dropped on the away team badge into the away team', async () => {
-      await setupWithMission([mockEventCard]);
-      const draggedId = handCardId(mockEventCard.name);
+    // The away team badge is not a drop target of its own (#924): the mission's bottom half reaches
+    // over it, so a drop there routes by the card's type. No drop id files a ship into the away team.
+    it('files nothing into the away team for a drop on the old badge id', async () => {
+      await setupWithMission([mockShipCard]);
+      const draggedId = handCardId(mockShipCard.name);
 
       await drop(draggedId, 'mission-pile-awayTeam-0');
 
-      expect(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
+      expect(screen.getByRole('button', { name: /^Away team, 0 cards$/i })).toBeInTheDocument();
     });
 
     // The under-mission pile has no badge of its own: its stack sits inside the mission card's drop

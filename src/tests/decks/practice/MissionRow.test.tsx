@@ -39,7 +39,9 @@ describe('MissionRow', () => {
     expect(screen.queryByRole('button', { name: /event pile/i })).not.toBeInTheDocument();
     expect(document.body.querySelector('[data-zone="mission-pile-event-0"]')).toBeNull();
     const badge = screen.getByRole('button', { name: /^Away team, 0 cards$/i });
-    expect(badge).toHaveAttribute('data-zone', 'mission-pile-awayTeam-0');
+    // The badge is not a drop target of its own (#924): the mission's bottom half reaches over it.
+    expect(badge).not.toHaveAttribute('data-zone');
+    expect(badge).toHaveAttribute('data-testid', 'mission-pile-awayTeam-0');
     fireEvent.click(badge);
     expect(onOpenPile).not.toHaveBeenCalled();
   });
@@ -59,6 +61,26 @@ describe('MissionRow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i }));
     expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
+  });
+
+  // #924: the badge strip is part of the mission's drop zone. The bottom half reaches down past the
+  // card over the 4 px gap and the 14 px badge strip; the top half does not.
+  it("reaches the mission's bottom half over the badge strip", () => {
+    render(
+      <MissionRow
+        missions={[emptySlot()]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+      />
+    );
+
+    const on = document.body.querySelector('[data-zone="mission-on-0"]') as HTMLElement;
+    expect(on.style.bottom).toBe('-18px');
+    expect(on.style.height).toBe('calc(50% + 18px)');
+    const under = document.body.querySelector('[data-zone="mission-under-0"]') as HTMLElement;
+    expect(under.style.bottom).toBe('');
   });
 
   // #813: a mission card takes a placed card. It shows a counter of the cards on it, and a tap on the
