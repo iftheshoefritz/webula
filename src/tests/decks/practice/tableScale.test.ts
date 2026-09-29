@@ -1,4 +1,4 @@
-import { computeTableScale } from '../../../app/decks/practice/tableScale';
+import { computeShipRowCount, computeTableScale } from '../../../app/decks/practice/tableScale';
 
 // #630: the dilemma stack's own reserved column widens computeTableScale's width budget from 5
 // mission columns and 4 gaps to 6 columns (the stack's own) and 5 gaps.
@@ -19,5 +19,27 @@ describe('computeTableScale (#630)', () => {
     const expectedWidthScale = expectedAvailableWidth / (72 * 6);
     expect(expectedWidthScale).toBeGreaterThan(1);
     expect(computeTableScale(gameLayerWidth, gameLayerHeight)).toBeCloseTo(expectedWidthScale, 5);
+  });
+});
+
+// #930: one more row of ships costs one ship card's art height plus the gap between two rows.
+describe('computeShipRowCount (#930)', () => {
+  const rowHeight = 32;
+  const rowGap = 4;
+
+  it('keeps one row with no spare height, or a table that already overflows', () => {
+    expect(computeShipRowCount(0, rowHeight, rowGap)).toBe(1);
+    expect(computeShipRowCount(35, rowHeight, rowGap)).toBe(1);
+    expect(computeShipRowCount(-50, rowHeight, rowGap)).toBe(1);
+  });
+
+  it('takes a second row once the free height fits one more row and its gap', () => {
+    expect(computeShipRowCount(36, rowHeight, rowGap)).toBe(2);
+    expect(computeShipRowCount(71, rowHeight, rowGap)).toBe(2);
+  });
+
+  it('takes a third row past twice that, and never more than 3', () => {
+    expect(computeShipRowCount(72, rowHeight, rowGap)).toBe(3);
+    expect(computeShipRowCount(1000, rowHeight, rowGap)).toBe(3);
   });
 });
