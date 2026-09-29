@@ -7,7 +7,7 @@ import { crewDropId, missionPileDropId, shipRowDropId } from './MissionRow';
 
 // One stable key per destination, the key of the element that shows it. The drop ids fit: a flat
 // zone's own name, which also covers the draw pile and the dilemma pile as a whole (not their
-// top/bottom drop halves), a mission pile's badge id, which also covers the under-the-mission
+// top/bottom drop halves), a mission pile's key, the `data-testid` of the away team badge (#924), which also covers the under-the-mission
 // stack (it has no droppable of its own), a ship row's id, and a ship's crew id.
 export function landedZoneKey(target: MoveTarget): string {
   if (typeof target === 'string') return target;

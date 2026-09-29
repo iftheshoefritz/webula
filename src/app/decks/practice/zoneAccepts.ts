@@ -1,7 +1,6 @@
 // Advisory highlight lookup for a drag on the practice table (#608). Presentation only: it
 // never touches how a drop resolves — `handleDragEnd` (page.tsx) keeps its own per-type routing
-// (the ship/dilemma special cases, `shipIdFromCrewDropId`,
-// `missionPileFromDropId`) exactly as it is today, so a drop the lookup marks invalid for a zone
+// (the ship/dilemma special cases, `shipIdFromCrewDropId`) exactly as it is today, so a drop the lookup marks invalid for a zone
 // still succeeds exactly as it does now (an event dropped on the brig still lands in the brig,
 // `coreBrigDrop.test.tsx`). The ship row is the one zone where the two hold the same rule:
 // a drop there takes only a ship (#886), so its highlight and its routing agree.
