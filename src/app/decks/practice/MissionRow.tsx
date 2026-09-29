@@ -107,17 +107,12 @@ export const shipRowDropId = (missionIndex: number): string => `ship-row-${missi
 // (#600, #893); any other card is placed on the ship (#812).
 export const crewDropId = (shipId: string): string => `crew-${shipId}`;
 
-// A mission pile's badge is its own drop target (#602), distinct from `missionHalfDropId`, since a drop
-// on the mission card places the card on it (#813). Only the away team has a badge: the
-// under-mission pile's stack sits inside the mission card's drop target, and a dilemma dropped
-// there goes under the mission.
+// A mission pile's key (#602): the landed key of a move into the pile (`landedZoneKey.ts`), and the
+// `data-testid` of the away team badge. It is not a drop id (#924): the badge strip is part of the
+// mission's bottom half, `missionHalfDropId(missionIndex, 'on')`, so a drop there routes by the
+// card's type and no drag files a card into the away team by the badge alone.
 export const missionPileDropId = (missionIndex: number, pile: MissionPileName): string =>
   `mission-pile-${pile}-${missionIndex}`;
-
-export function missionPileFromDropId(id: string): { missionIndex: number; pile: MissionPileName } | null {
-  const match = /^mission-pile-awayTeam-(\d+)$/.exec(id);
-  return match ? { pile: 'awayTeam', missionIndex: Number(match[1]) } : null;
-}
 
 // Both a drop on the mission card and a drop on its ship row resolve to the same mission index
 // (#599's plan); this parses either droppable id back to that index.
@@ -259,6 +254,8 @@ function MissionFlipButton({
 // scale 1) they still leave the mission's own title, below the art, fully visible. Grows with
 // `scale` (#717) along with the mission column's other chrome.
 const BADGE_STRIP_HEIGHT_BASE = 14; // px
+// The gap between the mission card, its badge strip, and its ship row (Tailwind's `gap-1`).
+const COLUMN_GAP = 4; // px
 
 // Small inline icons (not react-icons) so the three badges are visually distinct at this size.
 function PersonnelIcon() {
@@ -306,11 +303,11 @@ const PILE_NOUN: Record<MissionPileName, string> = {
   underMission: 'Under the mission pile',
 };
 
-// A mission pile's badge (#602): a drop target of its own (dropping any card type directly on it
-// puts the card in that pile) and a tap opens that pile's panel. Since a drop on the mission card
-// places the card on it (#813), the badge is the only way to file a card into the pile by a drag,
-// so it shows with an empty pile too, the same as a ship's crew badge (#811): the icon alone, with
-// no count, and nothing to open.
+// A mission pile's badge (#602): a tap opens that pile's panel. It is not a drop target of its own
+// (#924): the mission's bottom half reaches down over the badge strip (`MissionHalfTarget`), so a
+// drop on the badge routes as a drop on the mission card does, and a personnel or an equipment
+// joins the away team (#870). It shows with an empty pile too, the same as a ship's crew badge
+// (#811): the icon alone, with no count, and nothing to open.
 function PileBadge({
   missionIndex,
   pile,
@@ -324,7 +321,6 @@ function PileBadge({
   onOpen: (missionIndex: number, pile: MissionPileName) => void;
   height: number;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: missionPileDropId(missionIndex, pile) });
   // A badge the drop itself creates (count 0 -> 1) reads the landed zones on its first render,
   // so the cue plays as it mounts (#778).
   const landedNonce = useLandedNonce(missionPileDropId(missionIndex, pile));
@@ -333,14 +329,13 @@ function PileBadge({
   return (
     <button
       type="button"
-      ref={setNodeRef}
-      data-zone={missionPileDropId(missionIndex, pile)}
+      data-testid={missionPileDropId(missionIndex, pile)}
       data-landed={landedNonce !== null || undefined}
       onClick={count > 0 ? () => onOpen(missionIndex, pile) : undefined}
       aria-label={`${PILE_NOUN[pile]}, ${count} card${count === 1 ? '' : 's'}${count > 0 ? ', tap to open' : ''}`}
       className={`relative flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none ${
         count === 0 ? 'opacity-60' : ''
-      } ${isOver ? 'ring-2 ring-accent' : ''}`}
+      }`}
       style={{ height: height - 2 }}
     >
       <Icon />
@@ -571,6 +566,7 @@ function MissionHalfTarget({
   split,
   draggedType,
   eitherOver,
+  reach = 0,
 }: {
   droppable: ReturnType<typeof useDroppable>;
   dropId: string;
@@ -579,6 +575,8 @@ function MissionHalfTarget({
   split: boolean;
   draggedType: string | null;
   eitherOver: boolean;
+  // How far, in px, the bottom half reaches down past the card (#924), over the badge strip.
+  reach?: number;
 }) {
   const highlight = highlightState('mission', draggedType, split ? droppable.isOver : eitherOver);
   return (
@@ -589,6 +587,7 @@ function MissionHalfTarget({
       className={`absolute inset-x-0 h-1/2 pointer-events-none ${half === 'under' ? 'top-0 rounded-t-lg' : 'bottom-0 rounded-b-lg'} ${
         split ? highlightClassName(highlight) : ''
       }`}
+      style={reach > 0 ? { bottom: -reach, height: `calc(50% + ${reach}px)` } : undefined}
     >
       {split && droppable.isOver && (
         <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white bg-black/60 rounded">
@@ -633,9 +632,12 @@ function MissionColumn({
   const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
   const cardArtHeight = scaled(TABLE_CARD_ART_HEIGHT, scale);
   const badgeHeight = scaled(BADGE_STRIP_HEIGHT_BASE, scale);
+  // The bottom half reaches over the gap and the badge strip below the card (#924), so a drop on
+  // the away team badge routes as a drop on the mission card does.
+  const onReach = COLUMN_GAP + badgeHeight;
 
   return (
-    <div className="flex flex-col items-center gap-1" style={{ width: cardWidth }}>
+    <div className="flex flex-col items-center" style={{ width: cardWidth, gap: COLUMN_GAP }}>
       <div
         data-landed={onLandedNonce !== null || undefined}
         className={`relative w-full flex items-center justify-center rounded ${
@@ -670,6 +672,7 @@ function MissionColumn({
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}
+                reach={onReach}
               />
               <MissionHalfTarget
                 droppable={underDrop}
@@ -708,6 +711,7 @@ function MissionColumn({
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}
+                reach={onReach}
               />
               <MissionHalfTarget
                 droppable={underDrop}
@@ -724,7 +728,7 @@ function MissionColumn({
         <LandedRing nonce={onLandedNonce} />
       </div>
 
-      {/* Badge strip: the away team badge (#602). */}
+      {/* Badge strip: the away team badge (#602), under the reach of the bottom half (#924). */}
       <BadgeStrip
         missionIndex={missionIndex}
         awayTeamCount={awayTeam.length}

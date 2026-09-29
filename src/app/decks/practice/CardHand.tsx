@@ -222,9 +222,14 @@ export default function CardHand({
         style={{ width: closedWidth, height: CARD_HEIGHT, visibility: open ? 'hidden' : 'visible' }}
       >
         {count === 0 ? (
-          <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
-            Empty
-          </div>
+          // The empty marker shows only while a drag runs (#929), when it tells the player where
+          // the card can go. The button keeps its size either way, so nothing moves in the bottom
+          // row as the marker appears and disappears.
+          dragging && (
+            <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
+              Empty
+            </div>
+          )
         ) : (
           instances.map((instance, idx) => (
             <img

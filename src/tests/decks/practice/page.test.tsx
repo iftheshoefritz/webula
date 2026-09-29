@@ -463,23 +463,18 @@ describe('PracticeDrawPage', () => {
     expect(zones).toEqual([
       'mission-on-0',
       'mission-under-0',
-      'mission-pile-awayTeam-0',
       'ship-row-0',
       'mission-on-1',
       'mission-under-1',
-      'mission-pile-awayTeam-1',
       'ship-row-1',
       'mission-on-2',
       'mission-under-2',
-      'mission-pile-awayTeam-2',
       'ship-row-2',
       'mission-on-3',
       'mission-under-3',
-      'mission-pile-awayTeam-3',
       'ship-row-3',
       'mission-on-4',
       'mission-under-4',
-      'mission-pile-awayTeam-4',
       'ship-row-4',
       'dilemmaStack',
       'discard',
@@ -506,9 +501,9 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // The empty draw deck and the empty dilemma hand (#631) both show "Empty"; the still-empty
-    // discard pile shows its own "Discard" label.
-    expect(screen.getAllByText('Empty').length).toBe(2);
+    // The empty draw deck shows "Empty"; the empty dilemma hand hides its marker while no drag
+    // runs (#929); the still-empty discard pile shows its own "Discard" label.
+    expect(screen.getAllByText('Empty').length).toBe(1);
     expect(screen.getByText('Discard')).toBeInTheDocument();
     expect(screen.queryByAltText('Face-down draw deck')).not.toBeInTheDocument();
   });

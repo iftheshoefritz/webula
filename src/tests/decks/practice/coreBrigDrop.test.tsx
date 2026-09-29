@@ -350,7 +350,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
   });
 
   it('moves a card dragged out of the core card list panel onto a mission pile, and closes the panel (#640)', async () => {
-    await setupOpenHand([mockEventCard]);
+    await setupOpenHand([mockPersonnelCard]);
     const [draggedId] = mockDraggableIds;
 
     await act(async () => {
@@ -360,7 +360,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'data' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
@@ -368,7 +368,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragStart!({ active: { id: draggedId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-pile-awayTeam-0' } });
+      mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-on-0' } });
     });
 
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).toBeNull();
@@ -407,12 +407,12 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     let panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(2);
 
-    // Drag one of the two cards out of the panel, onto a mission's personnel pile.
+    // Drag one of the two cards out of the panel, onto the discard pile.
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-pile-awayTeam-0' } });
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'discard' } });
     });
 
     // The panel is still open, now showing only the card that is still in the core.
@@ -426,7 +426,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragStart!({ active: { id: secondId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: secondId }, over: { id: 'mission-pile-awayTeam-0' } });
+      mockOnDragEnd!({ active: { id: secondId }, over: { id: 'discard' } });
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).toBeNull();
   });

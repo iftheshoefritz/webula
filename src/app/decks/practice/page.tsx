@@ -50,7 +50,6 @@ import MissionRow, {
   DilemmaIcon,
   missionIndexFromDropId,
   missionHalfFromDropId,
-  missionPileFromDropId,
   shipIdFromCrewDropId,
 } from './MissionRow';
 import CardPreview from './CardPreview';
@@ -205,7 +204,7 @@ const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig', 
 
 // The dilemma pile's two drop targets (#607): a drop on the top half puts the card first in
 // `dilemmaPile` (drawn next); a drop on the bottom half puts it last, matching the pile's older,
-// single-droppable behaviour. Both ids follow the kebab-case pattern `missionPileDropId`/
+// single-droppable behaviour. Both ids follow the kebab-case pattern `missionHalfDropId`/
 // `shipRowDropId` already use.
 const DILEMMA_PILE_TOP_DROPPABLE_ID = 'dilemma-pile-top';
 const DILEMMA_PILE_BOTTOM_DROPPABLE_ID = 'dilemma-pile-bottom';
@@ -288,11 +287,6 @@ function computeMoveTargetForInstance(
       return { zone: 'crew', shipId };
     }
     return { zone: 'on', targetId: shipId };
-  }
-
-  const badgeTarget = missionPileFromDropId(String(over.id));
-  if (badgeTarget) {
-    return { zone: 'missionPile', ...badgeTarget };
   }
 
   const missionIndex = missionIndexFromDropId(String(over.id));
