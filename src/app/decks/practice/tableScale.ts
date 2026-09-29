@@ -66,3 +66,55 @@ export function useTableScale(gameLayer: HTMLElement | null): number {
 
   return scale;
 }
+
+// Issue #930: a mission's ship row packs every ship into one row, and a third ship overlaps the
+// others (#713). When the table has spare height, the ship row takes a second row of ships, and a
+// third, instead of overlapping more. The spare height is the gap the player sees between the
+// mission rows and the bottom row once the browser's toolbar hides: `useShipRowCount` measures it,
+// rather than deriving it from the table scale.
+//
+// One more row costs one ship card's art height (`MissionRow.tsx`'s scaled
+// `SMALL_CARD_ART_HEIGHT`) plus the gap between two rows, so the count is 1 plus as many of those
+// as fit the free height, capped at `MAX_SHIP_ROWS`. Pure, the same as `computeTableScale`, so
+// plain numbers can test it. A negative free height (the table already overflows) keeps 1 row.
+export const MAX_SHIP_ROWS = 3;
+
+export function computeShipRowCount(freeHeight: number, rowHeight: number, rowGap: number): number {
+  const extraRows = Math.floor(freeHeight / (rowHeight + rowGap));
+  return Math.max(1, Math.min(MAX_SHIP_ROWS, 1 + extraRows));
+}
+
+// Measures the free height, from the bottom of the mission rows to the top of the bottom row, with
+// a `ResizeObserver`, the same pattern `usePanelBottomInset` (`panelBottomInset.ts`) uses. The
+// extra rows the tallest ship row already shows (its `maxShips` at `perRow` a row) take up part of
+// that gap, so their height is added back: the free height is the gap a single row would leave,
+// and the count does not flip back and forth as the rows it grants fill the gap. Before both
+// elements are mounted, and in jsdom, which has no layout, it returns 1.
+export function useShipRowCount(
+  missionRows: HTMLElement | null,
+  bottomRow: HTMLElement | null,
+  rowHeight: number,
+  rowGap: number,
+  maxShips: number,
+  perRow: number,
+): number {
+  const [rows, setRows] = useState(1);
+  const usedRows = Math.max(1, Math.min(rows, Math.ceil(maxShips / perRow)));
+
+  useEffect(() => {
+    if (!missionRows || !bottomRow) return;
+    const measure = () => {
+      const gap = bottomRow.getBoundingClientRect().top - missionRows.getBoundingClientRect().bottom;
+      const freeHeight = gap + (usedRows - 1) * (rowHeight + rowGap);
+      setRows(computeShipRowCount(freeHeight, rowHeight, rowGap));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(missionRows);
+    observer.observe(bottomRow);
+    if (missionRows.parentElement) observer.observe(missionRows.parentElement);
+    return () => observer.disconnect();
+  }, [missionRows, bottomRow, rowHeight, rowGap, usedRows]);
+
+  return rows;
+}

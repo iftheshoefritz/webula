@@ -241,3 +241,69 @@ describe('MissionRow', () => {
     });
   });
 });
+
+// #930: with spare height the ship row fills a second and a third row of 2 ships before it
+// overlaps, and only the last row overlaps.
+describe('MissionRow: a ship row of more than one row (#930)', () => {
+  const withShips = (count: number): MissionSlot => ({
+    ...emptySlot(),
+    ships: Array.from({ length: count }, (_, i) => card(`ship-${i}`, `Ship ${i}`)),
+  });
+
+  const renderRow = (count: number, shipRows: number, handlers: { onShipClick?: jest.Mock; onOpenShipRow?: jest.Mock } = {}) =>
+    render(
+      <MissionRow
+        missions={[withShips(count)]}
+        onOpenPile={() => {}}
+        onShipClick={handlers.onShipClick ?? (() => {})}
+        onOpenShipRow={handlers.onOpenShipRow ?? (() => {})}
+        onOpenPlacedOn={() => {}}
+        shipRows={shipRows}
+      />
+    );
+
+  const linesOf = () =>
+    Array.from(document.body.querySelectorAll('[data-testid^="ship-row-0-line-"]')).map(
+      (line) => line.querySelectorAll('[data-zone^="crew-"]').length
+    );
+
+  const tapShip = (id: string) =>
+    fireEvent.click(document.body.querySelector(`[data-zone="crew-${id}"] button`) as HTMLElement);
+
+  it('keeps 4 ships in one row when only one row is available', () => {
+    renderRow(4, 1);
+    expect(linesOf()).toEqual([4]);
+  });
+
+  it('shows 4 ships as 2 rows of 2, and a tap opens the crew panel', () => {
+    const onShipClick = jest.fn();
+    const onOpenShipRow = jest.fn();
+    renderRow(4, 2, { onShipClick, onOpenShipRow });
+    expect(linesOf()).toEqual([2, 2]);
+    const row = document.body.querySelector('[data-zone="ship-row-0"]') as HTMLElement;
+    expect(row.style.height).toBe('68px'); // 2 rows of 32 px and a 4 px gap
+    tapShip('ship-3');
+    expect(onShipClick).toHaveBeenCalledWith('ship-3');
+    expect(onOpenShipRow).not.toHaveBeenCalled();
+  });
+
+  it('shows 6 ships as 3 rows of 2', () => {
+    renderRow(6, 3);
+    expect(linesOf()).toEqual([2, 2, 2]);
+  });
+
+  it('uses only the rows its ships need', () => {
+    renderRow(2, 3);
+    expect(linesOf()).toEqual([2]);
+  });
+
+  it('overlaps the last row past the capacity of the rows, and a tap opens the ship row panel', () => {
+    const onShipClick = jest.fn();
+    const onOpenShipRow = jest.fn();
+    renderRow(5, 2, { onShipClick, onOpenShipRow });
+    expect(linesOf()).toEqual([2, 3]);
+    tapShip('ship-0');
+    expect(onOpenShipRow).toHaveBeenCalledWith(0);
+    expect(onShipClick).not.toHaveBeenCalled();
+  });
+});
