@@ -29,7 +29,7 @@ jest.mock('next/link', () => {
 
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
-import PracticeDrawPage from '../../../app/decks/practice/page';
+import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 
 const row = (collectorsinfo: string, originalName: string, type: string) => ({
   collectorsinfo,

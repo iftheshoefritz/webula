@@ -4,13 +4,13 @@
 //
 // | Layer                                  | Class     | Where                  |
 // |----------------------------------------|-----------|------------------------|
-// | Game menu + fullscreen button, closed  | `z-50`    | `practice/page.tsx`    |
+// | Game menu + fullscreen button, closed  | `z-50`    | `PracticeTable.tsx`    |
 // | Pile count badge                       | `z-[140]` | `CountBadge.tsx`       |
 // | Open hand backdrop                     | `z-[145]` | `CardHand.tsx`         |
 // | Open hand card fan                     | `z-[146]` | `CardHand.tsx`         |
 // | Card list panel                        | `z-[150]` | `CardListPanel.tsx`    |
-// | Game menu splash                       | `z-[160]` | `practice/page.tsx`    |
-// | Game menu + fullscreen button, open    | `z-[170]` | `practice/page.tsx`    |
+// | Game menu splash                       | `z-[160]` | `PracticeTable.tsx`    |
+// | Game menu + fullscreen button, open    | `z-[170]` | `PracticeTable.tsx`    |
 // | Modal backdrop (decklist, Drive picker)| `z-[180]` | `DecklistPanel.tsx`, `DrivePickerModal.tsx` |
 // | Modal dialog (decklist, Drive move)    | `z-[190]` | `DecklistPanel.tsx`, `DrivePickerModal.tsx` |
 // | Card preview (table, decklist image)   | `z-[200]` | `CardPreview.tsx`, `DecklistPanel.tsx` |
