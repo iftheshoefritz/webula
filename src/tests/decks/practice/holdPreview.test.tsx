@@ -380,6 +380,24 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
   });
 
+  // #926: the core and the brig keep the hold preview, and a tap still opens the zone's panel.
+  it.each(['core', 'brig'])('a hold on a card in the %s shows its preview, and a tap opens the panel', async (zone) => {
+    await setupOpenHand([mockPersonnelCard]);
+    const [id] = mockDraggableIds;
+    drag(id, zone);
+
+    const card = document.body.querySelector(`[data-zone="${zone}"] [data-card-id="${id}"]`) as HTMLElement;
+    hold(card);
+    expect(preview('data')).toBeInTheDocument();
+    expect(document.body.querySelector(`[data-testid="card-list-panel-${zone}"]`)).toBeNull();
+    release();
+    expect(preview('data')).toBeNull();
+
+    tap(card);
+    expect(screen.queryByTestId('card-preview')).toBeNull();
+    expect(document.body.querySelector(`[data-testid="card-list-panel-${zone}"]`)).not.toBeNull();
+  });
+
   it("a hold on the ship in its crew panel shows the ship's preview and keeps the panel open (#832)", async () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;

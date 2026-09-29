@@ -87,7 +87,6 @@ function PlacedOnTargetCard({
         width={SMALL_CARD_WIDTH}
         uncropped
         draggable
-        holdable={false}
       />
       {onCount > 0 && <PlacedOnBadge name={instance.card.name} count={onCount} landedNonce={landedNonce} />}
       <LandedRing nonce={landedNonce} />
