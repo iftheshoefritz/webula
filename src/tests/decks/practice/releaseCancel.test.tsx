@@ -236,18 +236,20 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
   });
 
   it("keeps a card in a mission's card list panel, and keeps the panel open, for a 9 px drag", async () => {
+    // An equipment, since only a personnel or an equipment joins the away team (#870, #924).
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockCardData[0]]);
     await act(async () => {
       render(<PracticeDrawPage />);
     });
     await openHand();
     const [id] = mockDraggableIds;
 
-    // File the event into mission 0's Away team, then open that pile's panel.
+    // File the equipment into mission 0's Away team, then open that pile's panel.
     await act(async () => {
       mockOnDragStart!({ active: { id } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id }, over: { id: 'mission-pile-awayTeam-0' } });
+      mockOnDragEnd!({ active: { id }, over: { id: 'mission-on-0' } });
     });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i }));

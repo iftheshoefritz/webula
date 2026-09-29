@@ -61,10 +61,10 @@ ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 # to open". Everything else, including the aria-labels the draw and download
 # piles use, misses the regex and is ignored. The key is the badge's own
 # data-zone if it has one (the closed hand and dilemma hand are their own drop
-# target, and so is a mission pile's badge - a separate drop target from the
-# mission card's own, and not nested inside it, so scoping the search to the
-# target zone's own subtree would miss it). The one badge with no data-zone of
-# its own, the hidden button of the dilemmas stacked under a mission, sits in
+# target). The away team badge is not a drop target (#924), so its key is its
+# data-testid, `mission-pile-awayTeam-<index>`. It sits below the mission card,
+# not nested inside the bottom half's element, so scoping the search to the
+# target zone's own subtree would miss it. The one badge with neither, the hidden button of the dilemmas stacked under a mission, sits in
 # the stack, whose data-testid is `mission-under-<index>-stack` (#920). Its key
 # is that testid without the `-stack`, which is the name of the drop target,
 # `mission-under-<index>`, so two missions' stacks never share one key.
@@ -86,7 +86,7 @@ ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 # mission card's two drop halves (#871), not inside a data-zone, so its key is
 # the fallback, the mission's name.
 snapshot() {
-  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const st=el.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');const k=el.getAttribute('data-zone')||(st?st.getAttribute('data-testid').replace(/-stack$/,''):pile[1]);parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
+  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const st=el.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');const k=el.getAttribute('data-zone')||el.getAttribute('data-testid')||(st?st.getAttribute('data-testid').replace(/-stack$/,''):pile[1]);parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
 }
 
 # Every eval shares one scope, so each one is an arrow function called at once.
