@@ -1733,8 +1733,8 @@ function PracticeDrawContent() {
                   (#682): every zone here fits the table's own height, so `items-end` alone
                   aligns every zone's bottom edge to this row's own bottom edge, the same edge
                   core and the brig already used. */}
-              <div ref={setBottomRow} className="mt-auto flex flex-row items-end gap-4">
-                <div className="flex flex-row items-end gap-4">
+              <div ref={setBottomRow} className="mt-auto flex flex-row items-end gap-2">
+                <div className="flex flex-row items-end gap-2">
                   {/* Discard, with the score counter above it (#753) rather than beside it. The
                       turn counter sits above the hand instead (#927), so the discard pile is
                       centred under the score buttons and the row fits a 568 px table. */}
@@ -1875,7 +1875,7 @@ function PracticeDrawContent() {
                     renders even with no cards (#631), as a drop target for a dilemma dragged back
                     from the stack popup — `CardHand`'s closed row shows an empty placeholder in
                     that state, the same as the draw deck and the dilemma stack. */}
-                <div className="ml-auto flex flex-row items-end gap-4">
+                <div className="ml-auto flex flex-row items-end gap-2">
                   <CardHand
                     instances={dilemmaHand}
                     open={openHand === 'dilemmaHand'}
