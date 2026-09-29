@@ -70,7 +70,12 @@
 
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName, MissionSlot } from './tableReducer';
-import TableCard, { TABLE_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
+import TableCard, {
+  SMALL_CARD_ART_HEIGHT,
+  SMALL_CARD_WIDTH,
+  TABLE_CARD_ART_HEIGHT,
+  TABLE_CARD_WIDTH,
+} from './TableCard';
 import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
@@ -84,14 +89,10 @@ import { LandedRing, landedBumpClassName, useLandedNonce } from './LandedZoneCon
 // match once scaled.
 const scaled = (px: number, scale: number): number => Math.round(px * scale);
 
-// A ship row card is smaller than a mission's table card, so 2 ships fit side by side within
-// the same TABLE_CARD_WIDTH column the mission card above them occupies. Exported at their base
-// (scale-1) size: the ship preview's crew row (#600) sizes its own crew cards to match, and the
-// core's/the brig's own row (`FlatCardRow.tsx`) sizes its cards to match too — that row, unlike
-// the mission's own ship row, does not grow with `scale` (#717).
-export const SHIP_CARD_WIDTH = 34; // px
-export const SHIP_CARD_ART_HEIGHT = 32; // px, scaled down from TABLE_CARD_ART_HEIGHT to match
-const SHIP_MAX_OFFSET_BASE = SHIP_CARD_WIDTH + 2; // 2 ships sit edge to edge with a small gap
+// A ship row card takes the small card size (`SMALL_CARD_WIDTH`/`SMALL_CARD_ART_HEIGHT` in
+// `TableCard.tsx`), so 2 ships fit side by side within the same TABLE_CARD_WIDTH column the mission
+// card above them occupies. The mission's own ship row grows it with `scale`.
+const SMALL_CARD_MAX_OFFSET_BASE = SMALL_CARD_WIDTH + 2; // 2 ships sit edge to edge with a small gap
 
 // The mission card has two drop halves (#871), each the full width and half the height of the
 // card. They differ only for a dilemma: the top half puts it under the mission (#917), the bottom
@@ -520,10 +521,10 @@ function ShipRow({
   const draggedType = useDraggedCardType();
   const highlight = highlightState('shipRow', draggedType, isOver);
   const landedNonce = useLandedNonce(shipRowDropId(missionIndex));
-  const shipCardWidth = scaled(SHIP_CARD_WIDTH, scale);
-  const shipCardArtHeight = scaled(SHIP_CARD_ART_HEIGHT, scale);
+  const shipCardWidth = scaled(SMALL_CARD_WIDTH, scale);
+  const shipCardArtHeight = scaled(SMALL_CARD_ART_HEIGHT, scale);
   const shipRowHeight = shipCardArtHeight; // no title line below the art (#634)
-  const shipMaxOffset = scaled(SHIP_MAX_OFFSET_BASE, scale);
+  const shipMaxOffset = scaled(SMALL_CARD_MAX_OFFSET_BASE, scale);
   const shipRowMaxWidth = columnWidth; // bounds the row to the column's own (scaled) width
   const offset = offsetFor(ships.length, shipCardWidth, shipRowMaxWidth, shipMaxOffset);
   const rowWidth = ships.length === 0 ? shipRowMaxWidth : shipCardWidth + offset * (ships.length - 1);

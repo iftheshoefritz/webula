@@ -48,8 +48,6 @@ import {
 import CardHand from './CardHand';
 import MissionRow, {
   DilemmaIcon,
-  SHIP_CARD_ART_HEIGHT,
-  SHIP_CARD_WIDTH,
   missionIndexFromDropId,
   missionHalfFromDropId,
   missionPileFromDropId,
@@ -63,7 +61,7 @@ import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { ShuffleIcon } from './CardListPanel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
-import { TABLE_CARD_ART_HEIGHT } from './TableCard';
+import { SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 import { useTableScale } from './tableScale';
 import { usePanelBottomInset } from './panelBottomInset';
 import { viewerCardSize } from './viewerCardSize';
@@ -340,9 +338,9 @@ function computeMoveTargetForInstance(
 // and the brig combined. The player uses the core more than the brig (#666), so the core is
 // bounded to fit 3 cards side by side with no overlap, and the brig stays bounded to fit 2
 // overlapping cards; together they stay well inside that budget.
-const CORE_ROW_MAX_WIDTH = 106; // px, fits 3 ship-sized cards side by side with no overlap
-const BRIG_ROW_MAX_WIDTH = 58; // px, fits 2 overlapping ship-sized cards
-const FLAT_ROW_MAX_OFFSET = SHIP_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
+const CORE_ROW_MAX_WIDTH = 106; // px, fits 3 small cards side by side with no overlap
+const BRIG_ROW_MAX_WIDTH = 58; // px, fits 2 overlapping small cards
+const FLAT_ROW_MAX_OFFSET = SMALL_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
 
 // The zones whose panel `openFlatLocation` tracks: the core and the brig (#640), the draw deck and the
 // dilemma pile (#690), the dilemma stack (#733), and the discard pile (#782).
@@ -843,7 +841,7 @@ function DilemmaStackPile({
   const draggedType = useDraggedCardType();
   const highlight = highlightState('dilemmaStack', draggedType, isOver);
   const landedNonce = useLandedNonce('dilemmaStack');
-  const height = Math.round((TABLE_CARD_ART_HEIGHT + SHIP_CARD_ART_HEIGHT) * scale);
+  const height = Math.round((TABLE_CARD_ART_HEIGHT + SMALL_CARD_ART_HEIGHT) * scale);
   const count = stack.length;
   const topCard = stack[0];
   const revealed = topCard?.face === 'up';
