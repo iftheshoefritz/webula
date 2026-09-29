@@ -112,22 +112,15 @@ Vercel runs both in one chain. The `buildCommand` in `vercel.json` is
 `NODE_ENV=test yarn test --ci && yarn build`, so a test failure stops the
 deployment before the build starts.
 
-Start the message of an unfinished commit with `wip:`. The `ignoreCommand` in
-`vercel.json` skips the Vercel build for such a commit, so a push of work in
-progress does not report a failed deployment. The implementation workflow pushes
-every few edits, before the tests pass, for the reason
-`.github/workflows/README.md` gives. Give a finished commit a normal message.
-
 ### The merge method
 
 Merge a pull request with a squash merge. The repository setting
 `squash_merge_commit_title` is `PR_TITLE`, so the squash commit on `main` always
-takes the title of the pull request. A `wip:` commit on the branch cannot put its
-prefix on `main`, so the production deployment runs for every merge.
+takes the title of the pull request. Do not use a rebase merge.
 
-To keep this true, never start the title of a pull request with `wip:`. A rebase
-merge puts every `wip:` commit on `main` and skips the deployment for each one,
-so do not use it.
+The `ignoreCommand` in `vercel.json` skips the Vercel build for a commit whose
+message starts with `wip:`. So never start the title of a pull request with
+`wip:`, because the squash commit then skips the production deployment.
 
 ### To read why a workflow run failed
 
