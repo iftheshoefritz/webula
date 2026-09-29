@@ -259,19 +259,19 @@ Do not build the drag by hand. Three things make a hand drag fail, and each one 
 
 `npx agent-browser drag '<from>' '<to>'` works for a card that no other card covers and a target that does not move, such as a drag out of a card list panel. It fails silently on a hand card: it reports `Done` and moves nothing.
 
-A ship has two drop targets: the ship's art, `crew-<the ship's card id>`, and the ship's crew badge, `crew-badge-<the ship's card id>`. A personnel or an equipment dropped on either one boards the crew (#893). Any other card dropped on the art is placed on the ship, and the ship shows a counter of the cards on it. The badge takes only a personnel or an equipment. The badge shows even when the crew is empty.
+A ship has one drop target, `crew-<the ship's card id>`, over its art. A personnel or an equipment dropped there boards the crew (#893), a ship goes to that ship's own ship row (#668), and any other card is placed on the ship, and the ship shows a counter of the cards on it. The ship's crew badge is not a drop target (#923); it only shows the size of the crew, and it shows even when the crew is empty.
 
 A mission card takes a placed card too. Its art has two drop halves (#871), each the full width and half the height of the card: `mission-under-<index>` on top and `mission-on-<index>` below (#917). They differ only for a dilemma: the top half puts it under the mission, and the bottom half places it on the mission card. A tap on the top half opens the under-the-mission panel, and does nothing when no dilemma is under the mission. A hold on either half shows the mission preview. For every other type both halves do the same thing: a ship goes to the ship row, a personnel or an equipment goes to the away team (#870), and any other card is placed on the mission card. A mission slot with no mission card sends a dilemma under the mission from either half. The mission has no event pile. The counter of the cards on the mission sits outside every `data-zone`, so `practice_drag.sh` prints it under the mission's name. A drop under a mission prints `mission-under-<index>`, the name of the drop target, whether the card shows as one of the two slivers above the mission or has left the DOM (#920). The stack of slivers is not a drop target, so it has no `data-zone`; the script finds it by its `data-testid`, `mission-under-<index>-stack`. A drop on the away team badge, `mission-pile-awayTeam-<index>`, files the card into the away team. The badge shows even when the away team is empty, so it is the only way to file a card there by a drag.
 
 The bare ship row, `ship-row-<index>`, takes only a ship (#886). Any other card dropped there, off any ship, stays where it was, so `practice_drag.sh` prints the zone it came from.
 
-To put a card into a ship's crew, drag it out of a mission's card list panel onto the crew badge. That drag lands. The drag of a ship onto its ship row prints the ship's own zone, and the badge's zone is the same name with `badge-` added:
+To put a card into a ship's crew, drag it out of a mission's card list panel onto the ship. That drag lands. The drag of a ship onto its ship row prints the ship's own zone:
 
 ```bash
 bash scripts/practice_drag.sh card-10 ship-row-0         # prints crew-card-10
 bash scripts/practice_drag.sh card-1 mission-pile-awayTeam-0  # files the card into the away team
 # open that card list panel, then:
-bash scripts/practice_drag.sh card-1 crew-badge-card-10  # boards card-1, prints crew-badge-card-10
+bash scripts/practice_drag.sh card-1 crew-card-10        # boards card-1, prints crew-card-10
 bash scripts/practice_drag.sh card-2 crew-card-10        # boards a personnel, places an event on the ship; prints crew-card-10
 ```
 
