@@ -100,6 +100,8 @@ const SMALL_CARD_MAX_OFFSET_BASE = SMALL_CARD_WIDTH + 2; // 2 ships sit edge to 
 export type MissionHalf = 'on' | 'under';
 export const missionHalfDropId = (missionIndex: number, half: MissionHalf): string =>
   `mission-${half}-${missionIndex}`;
+export const underMissionStackTestId = (missionIndex: number): string =>
+  `${missionHalfDropId(missionIndex, 'under')}-stack`;
 export const shipRowDropId = (missionIndex: number): string => `ship-row-${missionIndex}`;
 // A ship's own droppable, over its art. A personnel or an equipment dropped here boards the crew
 // (#600, #893); any other card is placed on the ship (#812).
@@ -444,7 +446,9 @@ const UNDER_MISSION_SLIVER_FRACTION = 0.05;
 // band has no tap target of its own (#917): a tap on the top half of the mission card opens the
 // pile's panel (`CardListPanel`). A visually hidden button keeps the pile's name and count for a
 // screen reader and a keyboard, and `practice_drag.sh` reads its aria-label. The card images have
-// no click handling of their own (`pointer-events-none`).
+// no click handling of their own (`pointer-events-none`). The stack is not a drop target (#861), so
+// it has no `data-zone`; its `data-testid`, `mission-under-<index>-stack` (#920), names the
+// mission, and `practice_drag.sh` strips the `-stack` to print the drop target's own name.
 function UnderMissionStack({
   missionIndex,
   cards,
@@ -466,6 +470,7 @@ function UnderMissionStack({
 
   return (
     <div
+      data-testid={underMissionStackTestId(missionIndex)}
       className="absolute inset-x-0"
       style={{ top: -stackHeight, height: stackHeight }}
       data-landed={landedNonce !== null || undefined}

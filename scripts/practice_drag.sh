@@ -12,6 +12,11 @@
 # reports whichever one gained a card. If none did (or more than one did), it
 # says so rather than guessing.
 #
+# A drop under a mission prints `mission-under-<index>` (#920), the name of the
+# drop target, whether the card shows as one of the two slivers of the stack
+# or has left the DOM. The stack is not a drop target (#861), so it has no
+# data-zone; the script finds it by its data-testid, `mission-under-<index>-stack`.
+#
 # Three things make a hand drag fail, and each one cost an agent many turns to
 # find again. This script handles all three.
 #
@@ -52,6 +57,37 @@ fi
 ab() { npx agent-browser "$@" >/dev/null 2>&1; }
 ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 
+# A badge (hand, dilemma hand, or a mission pile) reads "<Label>, N cards, tap
+# to open". Everything else, including the aria-labels the draw and download
+# piles use, misses the regex and is ignored. The key is the badge's own
+# data-zone if it has one (the closed hand and dilemma hand are their own drop
+# target, and so is a mission pile's badge - a separate drop target from the
+# mission card's own, and not nested inside it, so scoping the search to the
+# target zone's own subtree would miss it). The one badge with no data-zone of
+# its own, the hidden button of the dilemmas stacked under a mission, sits in
+# the stack, whose data-testid is `mission-under-<index>-stack` (#920). Its key
+# is that testid without the `-stack`, which is the name of the drop target,
+# `mission-under-<index>`, so two missions' stacks never share one key.
+#
+# A ship's crew badge reads "<Ship name> crew, N cards" instead - no ", tap to
+# open" suffix, since it's a non-interactive span (#678), not a button. It
+# carries its own data-zone, `crew-badge-<the ship's card id>` (#811), and
+# shows with an empty crew too (#812), so a drag that boards a card prints that
+# zone. The key comes from the closest data-zone, which is the badge's own,
+# falling back to the ship name if somehow none is set (#715).
+#
+# The badge of the placed cards (#810), on a card in the core or the brig, reads
+# "<Card name>, N cards on it". It sits inside that card's own wrapper, so its
+# key is that card's drop zone, `on-<its card id>`. A ship's counter of the
+# cards on it (#812) reads the same way, and sits inside the ship's own
+# wrapper, so its key is the ship's drop zone, `crew-<the ship's card id>`.
+# A mission card's counter (#813) reads the same way too. It sits beside the
+# mission card's two drop halves (#871), not inside a data-zone, so its key is
+# the fallback, the mission's name.
+snapshot() {
+  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const st=el.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');const k=el.getAttribute('data-zone')||(st?st.getAttribute('data-testid').replace(/-stack$/,''):pile[1]);parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
+}
+
 # Every eval shares one scope, so each one is an arrow function called at once.
 # A bare `const` fails the second time with "Identifier has already been declared".
 grab=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();for(let fx=0.05;fx<=0.95;fx+=0.05){for(let fy=0.2;fy<=0.8;fy+=0.1){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);const t=document.elementFromPoint(x,y);if(t&&t.closest('[data-card-id]')===e)return x+' '+y}}return 'COVERED'})()")
@@ -63,6 +99,11 @@ esac
 
 set -- $grab
 ax=$1; ay=$2
+
+# Read the badges before the mouse down. During a drag the open hand shows no
+# count badge, so a count read then would make the hand look like it gained
+# every card it still holds (#920).
+before=$(snapshot)
 
 ab mouse move "$ax" "$ay"
 ab mouse down
@@ -89,38 +130,6 @@ fi
 set -- $target
 bx=$1; by=$2
 
-# A badge (hand, dilemma hand, or a mission pile) reads "<Label>, N cards, tap
-# to open". Everything else, including the aria-labels the draw and download
-# piles use, misses the regex and is ignored. The key is the badge's own
-# data-zone if it has one (the closed hand and dilemma hand are their own drop
-# target, and so is a mission pile's badge - a separate drop target from the
-# mission card's own, and not nested inside it, so scoping the search to the
-# target zone's own subtree would miss it). The one badge with no data-zone of
-# its own, the dilemmas stacked under a mission, falls back to its label text;
-# only one card moves per run of this script, so at most one badge anywhere
-# on the table ever gains a card, and this fallback key never has to tell two
-# missions' stacks apart.
-#
-# A ship's crew badge reads "<Ship name> crew, N cards" instead - no ", tap to
-# open" suffix, since it's a non-interactive span (#678), not a button. It
-# carries its own data-zone, `crew-badge-<the ship's card id>` (#811), and
-# shows with an empty crew too (#812), so a drag that boards a card prints that
-# zone. The key comes from the closest data-zone, which is the badge's own,
-# falling back to the ship name if somehow none is set (#715).
-#
-# The badge of the placed cards (#810), on a card in the core or the brig, reads
-# "<Card name>, N cards on it". It sits inside that card's own wrapper, so its
-# key is that card's drop zone, `on-<its card id>`. A ship's counter of the
-# cards on it (#812) reads the same way, and sits inside the ship's own
-# wrapper, so its key is the ship's drop zone, `crew-<the ship's card id>`.
-# A mission card's counter (#813) reads the same way too. It sits beside the
-# mission card's two drop halves (#871), not inside a data-zone, so its key is
-# the fallback, the mission's name.
-snapshot() {
-  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const k=el.getAttribute('data-zone')||pile[1];parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
-}
-
-before=$(snapshot)
 
 ab mouse move "$bx" "$by"
 # A second move at the same point. dnd-kit reads the last pointer event, and one
@@ -130,7 +139,9 @@ ab mouse up
 
 # A card in the core or the brig sits inside its own placed-card droppable (#810),
 # `on-<its id>`, so the zone it is in is the next data-zone up.
-found=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';let z=e.closest('[data-zone]');if(z&&z.getAttribute('data-zone')==='on-$CARD')z=z.parentElement.closest('[data-zone]');return z?z.getAttribute('data-zone'):'no zone'})()")
+# A card that shows as a sliver of the stack under a mission has no data-zone
+# ancestor, so the stack's data-testid names the pile instead (#920).
+found=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const st=e.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');if(st)return st.getAttribute('data-testid').replace(/-stack$/,'');let z=e.closest('[data-zone]');if(z&&z.getAttribute('data-zone')==='on-$CARD')z=z.parentElement.closest('[data-zone]');return z?z.getAttribute('data-zone'):'no zone'})()")
 
 if [ "$found" != "MISSING" ]; then
   echo "$found"
