@@ -25,5 +25,8 @@ export function practiceMetadata(fixture: boolean): Metadata {
       statusBarStyle: 'black-translucent',
     },
     icons: { apple: APPLE_TOUCH_ICON },
+    // Next.js writes only `mobile-web-app-capable` for `appleWebApp.capable`, and an iOS older
+    // than 16.4 needs the `apple-` tag to open the home-screen icon with no toolbar.
+    other: { 'apple-mobile-web-app-capable': 'yes' },
   };
 }
