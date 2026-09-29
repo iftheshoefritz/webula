@@ -73,7 +73,7 @@
 // scrolls, a first move mostly sideways drags. A grid that fits keeps `touch-none` and a drag in
 // any direction.
 
-import { useEffect, useRef, useState } from 'react';
+import { RefObject, useEffect, useRef, useState } from 'react';
 import { LAYER_CARD_LIST_PANEL } from '../../../lib/layers';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { panelDraggableId } from './panelDragId';
@@ -125,6 +125,36 @@ export function ShuffleIcon() {
 // eighth: a tap on it lists every discarded card, not just the top one the table shows. It has no
 // Shuffle and no Stop control: its order comes from play, and a discarded card is never stopped.
 // The cards placed on a card (#810) in the core or the brig are a ninth.
+// #932: the vertical scroll classes of a panel element that may overflow (the card grid and the
+// host section beside it). A touch device draws an overlay scrollbar that shows only while a
+// finger moves, so an element that overflows takes `overflow-y-scroll` and `scrollbar-visible`
+// (`globals.css`), a scrollbar that keeps its place and whose thumb shows how much is off screen.
+// An element that fits keeps `overflow-y-auto` and shows no scrollbar.
+export function panelScrollClassName(scrolls: boolean): string {
+  return scrolls ? 'overflow-y-scroll scrollbar-visible' : 'overflow-y-auto';
+}
+
+// Whether the element overflows its height (#788, #932). Re-measured when the element resizes
+// and when `deps` change (the element keeps its capped height while its content grows). jsdom
+// reports 0 for both heights, so the Jest tests see an element that fits.
+function useScrollsVertically(ref: RefObject<HTMLElement | null>, enabled: boolean, deps: unknown[]): boolean {
+  const [scrolls, setScrolls] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !enabled) {
+      setScrolls(false);
+      return;
+    }
+    const measure = () => setScrolls(el.scrollHeight > el.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ref, enabled, ...deps]);
+  return scrolls;
+}
+
 export type PanelLocation =
   | MissionPileName
   | 'core'
@@ -284,10 +314,13 @@ function PanelHost({
 }) {
   const holdListeners = useCardHold(host.id);
   const { card } = host;
+  const sectionRef = useRef<HTMLDivElement | null>(null);
+  const sectionScrolls = useScrollsVertically(sectionRef, true, [cardWidth, cardHeight]);
   return (
     <div
+      ref={sectionRef}
       data-testid={testId}
-      className="shrink-0 self-start max-h-full overflow-y-auto overscroll-contain flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
+      className={`shrink-0 self-start max-h-full ${panelScrollClassName(sectionScrolls)} overscroll-contain flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2`}
     >
       {/* The section sits beside the grid (#894), so it takes no height from it: the image keeps
           the size of a panel card at every viewport. Where the row is shorter than the card (568 x
@@ -394,19 +427,7 @@ export default function CardListPanel({
   // grid keeps its capped height while its content grows). jsdom reports 0 for both heights, so
   // the Jest tests see a grid that fits, and today's `touch-none`.
   const gridRef = useRef<HTMLDivElement | null>(null);
-  const [gridScrolls, setGridScrolls] = useState(false);
-  useEffect(() => {
-    const el = gridRef.current;
-    if (!el || isDilemmaStack) {
-      setGridScrolls(false);
-      return;
-    }
-    const measure = () => setGridScrolls(el.scrollHeight > el.clientHeight);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [isDilemmaStack, cards.length, cardWidth, cardHeight]);
+  const gridScrolls = useScrollsVertically(gridRef, !isDilemmaStack, [cards.length, cardWidth, cardHeight]);
   // #802: the panel may use the full height of the game layer. `insetClassName` is a box inset
   // a little from each edge of this component's own `fixed inset-0` box (the same box as the game
   // layer), so the panel follows the layer's height without any `dvh` arithmetic. It lets taps
@@ -429,7 +450,7 @@ export default function CardListPanel({
   // its one row: `dilemmaStackPopupCollisionDetection` reads its rectangle as "reorder only".
   const gridClassName = isDilemmaStack
     ? 'shrink-0 flex flex-col items-stretch gap-1 rounded-lg bg-black/70 p-2 w-[86vw] overflow-hidden'
-    : 'min-h-0 min-w-0 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 overflow-y-auto overscroll-contain';
+    : `min-h-0 min-w-0 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 ${panelScrollClassName(gridScrolls)} overscroll-contain`;
   // The two end labels sit on their own line above the cards, not at the two ends of the card
   // row: a label in the row takes width from the cards, and the row must keep all of its width
   // for them. The line reads left to right, the same order the
