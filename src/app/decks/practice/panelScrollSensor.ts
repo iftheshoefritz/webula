@@ -13,9 +13,13 @@
 // direction, since it scrolls with the wheel. A panel that fits, and every other zone on the
 // table, keep the ordinary behaviour too. It takes the same `activationConstraint` as the
 // ordinary sensor did, so a press waits for the first move instead of starting the drag at once.
+//
+// Once a press's hold has fired (`useCardHold`), the sensor ignores that constraint and waits for
+// a move past `HELD_DRAG_ACTIVATION_DISTANCE` instead (#925). The hold's preview is up by then, so
+// a twitch keeps it, and a clear move still slides from the preview into a drag.
 import { PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { isInScrollingPanel, panelGestureFor } from './panelGesture';
-import { DRAG_ACTIVATION_DISTANCE } from './useCardHold';
+import { DRAG_ACTIVATION_DISTANCE, dragActivationDistanceFor, isHeldPress } from './useCardHold';
 
 // dnd-kit declares these members private, so the subclass reaches them through this shape.
 type SensorInternals = {
@@ -49,6 +53,14 @@ function splitsScrollFromDrag(sensorInstance: SensorInternals): boolean {
 
 // The base constructor binds `this.handleMove`, so it picks up this override.
 sensor.handleMove = function (this: SensorInternals, event: Event) {
+  // A press whose hold has fired needs a longer move to become a drag (#925). The
+  // `activationConstraint` is fixed when the press starts, so the rule is read here, per move.
+  if (!this.activated && this.initialCoordinates && isHeldPress(this.props.event)) {
+    const { clientX, clientY } = event as MouseEvent;
+    const distance = Math.hypot(clientX - this.initialCoordinates.x, clientY - this.initialCoordinates.y);
+    if (distance <= dragActivationDistanceFor(true)) return;
+    return this.handleStart();
+  }
   if (!this.activated && this.initialCoordinates && splitsScrollFromDrag(this)) {
     const { clientX, clientY } = event as MouseEvent;
     const gesture = panelGestureFor(clientX - this.initialCoordinates.x, clientY - this.initialCoordinates.y);
