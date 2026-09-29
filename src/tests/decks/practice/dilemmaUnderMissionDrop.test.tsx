@@ -189,6 +189,25 @@ describe('Practice table: a dilemma dropped on a mission goes under it (#606, #7
     expect(underMissionButtons).toHaveLength(1);
   });
 
+  it('names the mission on the under-the-mission stack, for practice_drag.sh (#920)', async () => {
+    await setupOpenDilemmaHand();
+    const [firstId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'mission-under-1' } });
+    });
+
+    // The stack is not a drop target (#861), so it names the mission with a testid, not a data-zone.
+    const stack = screen.getByTestId('mission-under-1-stack');
+    expect(stack).not.toHaveAttribute('data-zone');
+    expect(stack.querySelector(`[data-card-id="${firstId}"]`)).not.toBeNull();
+    expect(within(stack).getByRole('button', { name: /Under the mission pile, 1 card, tap to open/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('mission-under-0-stack')).toBeNull();
+  });
+
   it('moves the discard pile\'s top dilemma under a mission when dragged there (#606 review)', async () => {
     await setupOpenDilemmaHand();
     const [firstId] = mockDraggableIds;

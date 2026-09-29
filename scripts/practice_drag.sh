@@ -12,6 +12,11 @@
 # reports whichever one gained a card. If none did (or more than one did), it
 # says so rather than guessing.
 #
+# A drop under a mission prints `mission-under-<index>` (#920), the name of the
+# drop target, whether the card shows as one of the two slivers of the stack
+# or has left the DOM. The stack is not a drop target (#861), so it has no
+# data-zone; the script finds it by its data-testid, `mission-under-<index>-stack`.
+#
 # Three things make a hand drag fail, and each one cost an agent many turns to
 # find again. This script handles all three.
 #
@@ -96,10 +101,10 @@ bx=$1; by=$2
 # target, and so is a mission pile's badge - a separate drop target from the
 # mission card's own, and not nested inside it, so scoping the search to the
 # target zone's own subtree would miss it). The one badge with no data-zone of
-# its own, the dilemmas stacked under a mission, falls back to its label text;
-# only one card moves per run of this script, so at most one badge anywhere
-# on the table ever gains a card, and this fallback key never has to tell two
-# missions' stacks apart.
+# its own, the hidden button of the dilemmas stacked under a mission, sits in
+# the stack, whose data-testid is `mission-under-<index>-stack` (#920). Its key
+# is that testid without the `-stack`, which is the name of the drop target,
+# `mission-under-<index>`, so two missions' stacks never share one key.
 #
 # A ship's crew badge reads "<Ship name> crew, N cards" instead - no ", tap to
 # open" suffix, since it's a non-interactive span (#678), not a button. It
@@ -117,7 +122,7 @@ bx=$1; by=$2
 # mission card's two drop halves (#871), not inside a data-zone, so its key is
 # the fallback, the mission's name.
 snapshot() {
-  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const k=el.getAttribute('data-zone')||pile[1];parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
+  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const st=el.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');const k=el.getAttribute('data-zone')||(st?st.getAttribute('data-testid').replace(/-stack$/,''):pile[1]);parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
 }
 
 before=$(snapshot)
@@ -130,7 +135,9 @@ ab mouse up
 
 # A card in the core or the brig sits inside its own placed-card droppable (#810),
 # `on-<its id>`, so the zone it is in is the next data-zone up.
-found=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';let z=e.closest('[data-zone]');if(z&&z.getAttribute('data-zone')==='on-$CARD')z=z.parentElement.closest('[data-zone]');return z?z.getAttribute('data-zone'):'no zone'})()")
+# A card that shows as a sliver of the stack under a mission has no data-zone
+# ancestor, so the stack's data-testid names the pile instead (#920).
+found=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const st=e.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');if(st)return st.getAttribute('data-testid').replace(/-stack$/,'');let z=e.closest('[data-zone]');if(z&&z.getAttribute('data-zone')==='on-$CARD')z=z.parentElement.closest('[data-zone]');return z?z.getAttribute('data-zone'):'no zone'})()")
 
 if [ "$found" != "MISSING" ]; then
   echo "$found"
