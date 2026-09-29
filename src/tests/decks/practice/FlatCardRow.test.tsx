@@ -68,4 +68,16 @@ describe('FlatCardRow', () => {
       expect(slot).not.toHaveClass('top-0');
     }
   });
+
+  // #926: the core and the brig show the whole card, frame and all, not the art crop.
+  it.each(['core', 'brig'] as const)('shows the whole card in the %s, not the art crop', (zone) => {
+    renderRow(zone, null);
+
+    const img = document.querySelector('[data-card-id="card-1"] img') as HTMLElement;
+    expect(img).toHaveClass('object-contain');
+    expect(img).not.toHaveClass('object-cover');
+    // 34 px wide at the card image's 120x167 ratio.
+    expect(img.parentElement!.parentElement).toHaveStyle({ height: '47px' });
+    expect(row(zone)).toHaveStyle({ height: '47px' });
+  });
 });

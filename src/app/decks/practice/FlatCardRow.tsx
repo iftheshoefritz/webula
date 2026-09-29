@@ -22,7 +22,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { landedBumpClassName } from './LandedZoneContext';
-import TableCard, { SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH } from './TableCard';
+import TableCard, { SMALL_CARD_WIDTH, fullCardHeight } from './TableCard';
 import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
@@ -85,9 +85,8 @@ function PlacedOnTargetCard({
         instance={instance}
         onClick={onCount > 0 ? () => onOpenPlacedOn(instance.id) : onOpen}
         width={SMALL_CARD_WIDTH}
-        artHeight={SMALL_CARD_ART_HEIGHT}
+        uncropped
         draggable
-        holdable={false}
       />
       {onCount > 0 && <PlacedOnBadge name={instance.card.name} count={onCount} landedNonce={landedNonce} />}
       <LandedRing nonce={landedNonce} />
@@ -144,6 +143,8 @@ export default function FlatCardRow({
 
   const offset = offsetFor(cards.length, SMALL_CARD_WIDTH, maxWidth, maxOffset);
   const rowWidth = SMALL_CARD_WIDTH + offset * (cards.length - 1);
+  // Each card shows whole, not cropped to its art (#926), so the row is as tall as a full card.
+  const cardHeight = fullCardHeight(SMALL_CARD_WIDTH);
 
   // During a drag, keep the dashed outline and the full box size the empty zone uses (56x80,
   // "w-14 h-20" above), rather than shrinking to the card row's own size, so the drop target
@@ -160,7 +161,7 @@ export default function FlatCardRow({
       className={`relative rounded ${dragging ? 'rounded-lg border-2 border-dashed border-white/20' : ''} ${highlightClassName(highlight)}`}
       style={{
         width: fixedWidth ? maxWidth : dragging ? Math.max(rowWidth, 56) : rowWidth,
-        height: dragging ? Math.max(SMALL_CARD_ART_HEIGHT, 80) : SMALL_CARD_ART_HEIGHT,
+        height: dragging ? Math.max(cardHeight, 80) : cardHeight,
       }}
     >
       {cards.map((instance, idx) => (
