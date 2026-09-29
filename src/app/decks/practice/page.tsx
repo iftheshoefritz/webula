@@ -375,9 +375,12 @@ function computeMoveTargetForInstance(
 // other four zones and their gaps take a little over 300 px, leaving roughly 250 px for the core
 // and the brig combined. The player uses the core more than the brig (#666), so the core is
 // bounded to fit 3 cards side by side with no overlap, and the brig stays bounded to fit 2
-// overlapping cards; together they stay well inside that budget.
-const CORE_ROW_MAX_WIDTH = 106; // px, fits 3 small cards side by side with no overlap
-const BRIG_ROW_MAX_WIDTH = 58; // px, fits 2 overlapping small cards
+// overlapping cards. #928 spent the width #927 left spare: at 568x320 the page draws a 15 px
+// scrollbar, and the row then had 7 px spare with an empty brig (56 px), or 5 px with a full one
+// (58 px). The two bounds split those 5 px in proportion to their old widths, 106 to 58, so both
+// keep a ratio of about 1.83 to 1 and the dilemma pile stays whole.
+const CORE_ROW_MAX_WIDTH = 109; // px, fits 3 small cards side by side with no overlap
+const BRIG_ROW_MAX_WIDTH = 60; // px, fits 2 overlapping small cards
 const FLAT_ROW_MAX_OFFSET = SMALL_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
 
 // The zones whose panel `openFlatLocation` tracks: the core and the brig (#640), the draw deck and the
