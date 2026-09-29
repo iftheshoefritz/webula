@@ -106,9 +106,6 @@ export const shipRowDropId = (missionIndex: number): string => `ship-row-${missi
 // A ship's own droppable, over its art. A personnel or an equipment dropped here boards the crew
 // (#600, #893); any other card is placed on the ship (#812).
 export const crewDropId = (shipId: string): string => `crew-${shipId}`;
-// A ship's crew badge is a drop target of its own (#811), distinct from `crewDropId` so each has
-// its own `data-zone` to aim at. A drop on it files the dropped card into the ship's crew.
-export const crewBadgeDropId = (shipId: string): string => `crew-badge-${shipId}`;
 
 // A mission pile's badge is its own drop target (#602), distinct from `missionHalfDropId`, since a drop
 // on the mission card places the card on it (#813). Only the away team has a badge: the
@@ -135,16 +132,9 @@ export function missionHalfFromDropId(id: string): MissionHalf | null {
   return match ? (match[1] as MissionHalf) : null;
 }
 
-// Parses a ship's own droppable id back to that ship's instance id (#600's plan). A crew badge's id
-// (#811) does not match: `shipIdFromCrewBadgeDropId` parses that one.
+// Parses a ship's own droppable id back to that ship's instance id (#600's plan).
 export function shipIdFromCrewDropId(id: string): string | null {
-  if (shipIdFromCrewBadgeDropId(id)) return null;
   const match = /^crew-(.+)$/.exec(id);
-  return match ? match[1] : null;
-}
-
-export function shipIdFromCrewBadgeDropId(id: string): string | null {
-  const match = /^crew-badge-(.+)$/.exec(id);
   return match ? match[1] : null;
 }
 
@@ -184,7 +174,6 @@ function ShipCard({
     >
       <TableCard instance={ship} onClick={() => onShipClick(ship.id)} width={width} artHeight={artHeight} draggable />
       <ShipCrewBadge
-        shipId={ship.id}
         shipName={ship.card.name}
         count={crewCount}
         height={badgeHeight}
@@ -372,37 +361,26 @@ function PileBadge({
 // button) — the same reasoning `PileBadge` documents above for the mission's own badges. A tap
 // on the ship opens its crew panel (`onShipClick`), so the badge itself is not a tap target: a non-interactive `<span>` with
 // `pointer-events-none`, so a tap that lands on it falls through to the ship's `TableCard` button
-// underneath rather than being swallowed here. It is a drop target of its own, though (#811):
-// dnd-kit measures a droppable's rect, not its pointer events, so `pointer-events-none` does not
-// stop a drop landing on it. A drop on it boards the card, and since a drop on the ship places the
-// card on the ship instead (#812), it is the only way to board by a drag, so it shows with an empty
-// crew too: the icon alone, with no count.
+// underneath rather than being swallowed here. It is not a drop target (#923): a drop anywhere on
+// the ship lands on the ship's own `crewDropId`, which boards a personnel or an equipment (#893).
+// It shows with an empty crew too: the icon alone, with no count.
 function ShipCrewBadge({
-  shipId,
   shipName,
   count,
   height,
   landedNonce,
 }: {
-  shipId: string;
   shipName: string;
   count: number;
   height: number;
   landedNonce: number | null;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: crewBadgeDropId(shipId) });
-  const draggedType = useDraggedCardType();
-  const highlight = highlightState('crew', draggedType, isOver);
-
   return (
     <span
-      ref={setNodeRef}
-      data-zone={crewBadgeDropId(shipId)}
-      data-highlight={highlight}
       aria-label={`${shipName} crew, ${count} card${count === 1 ? '' : 's'}`}
       className={`absolute -top-1 -right-1 z-10 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none ${
         count === 0 ? 'opacity-60' : ''
-      } ${highlightClassName(highlight)}`}
+      }`}
       style={{ height: height - 2 }}
     >
       <PersonnelIcon />

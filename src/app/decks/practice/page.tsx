@@ -51,7 +51,6 @@ import MissionRow, {
   missionIndexFromDropId,
   missionHalfFromDropId,
   missionPileFromDropId,
-  shipIdFromCrewBadgeDropId,
   shipIdFromCrewDropId,
 } from './MissionRow';
 import CardPreview from './CardPreview';
@@ -269,12 +268,10 @@ function computeMoveTargetForInstance(
     return { zone: 'on', targetId };
   }
 
-  // A personnel or an equipment dropped on a ship boards its crew, from the crew badge (#811) or
-  // from the ship's art (#893): the rules have no place "on a ship" for either. Any other card
-  // dropped on the art is placed on the ship (#812), the same as a drop on a card in the core or
-  // the brig (#810).
-  const crewBadgeShipId = shipIdFromCrewBadgeDropId(String(over.id));
-  const shipId = crewBadgeShipId ?? shipIdFromCrewDropId(String(over.id));
+  // A personnel or an equipment dropped on a ship boards its crew (#893): the rules have no place
+  // "on a ship" for either. Any other card dropped on the ship is placed on it (#812), the same as
+  // a drop on a card in the core or the brig (#810).
+  const shipId = shipIdFromCrewDropId(String(over.id));
   if (shipId) {
     if (instance.card.type === 'ship') {
       // A ship dropped on a ship is neither crew nor placed on it (#668): the ship already on the
@@ -290,7 +287,7 @@ function computeMoveTargetForInstance(
     if (instance.card.type === 'personnel' || instance.card.type === 'equipment') {
       return { zone: 'crew', shipId };
     }
-    return crewBadgeShipId ? null : { zone: 'on', targetId: shipId };
+    return { zone: 'on', targetId: shipId };
   }
 
   const badgeTarget = missionPileFromDropId(String(over.id));

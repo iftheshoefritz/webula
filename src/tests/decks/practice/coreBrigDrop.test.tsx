@@ -220,7 +220,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
     });
 
     // Drag the crew member off the ship and into the brig.

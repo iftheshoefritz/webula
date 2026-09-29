@@ -335,7 +335,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
     drag(shipId, 'mission-under-2');
-    drag(personnelId, `crew-badge-${shipId}`);
+    drag(personnelId, `crew-${shipId}`);
     const ship = screen.getByRole('button', { name: 'u.s.s. relativity' });
     // A hold whose release the page never sees.
     hold(ship);
@@ -356,7 +356,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
     drag(shipId, 'mission-under-2');
-    drag(personnelId, `crew-badge-${shipId}`);
+    drag(personnelId, `crew-${shipId}`);
 
     const ship = screen.getByRole('button', { name: 'u.s.s. relativity' });
     hold(ship);
@@ -384,7 +384,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;
     drag(shipId, 'mission-under-2');
-    drag(personnelId, `crew-badge-${shipId}`);
+    drag(personnelId, `crew-${shipId}`);
     tap(screen.getByRole('button', { name: 'u.s.s. relativity' }));
 
     const panelShip = screen.getByTestId('card-list-panel-crew-ship').querySelector('[aria-label="u.s.s. relativity"]')!;
