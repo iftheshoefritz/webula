@@ -71,10 +71,11 @@ ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 #
 # A ship's crew badge reads "<Ship name> crew, N cards" instead - no ", tap to
 # open" suffix, since it's a non-interactive span (#678), not a button. It
-# carries its own data-zone, `crew-badge-<the ship's card id>` (#811), and
-# shows with an empty crew too (#812), so a drag that boards a card prints that
-# zone. The key comes from the closest data-zone, which is the badge's own,
-# falling back to the ship name if somehow none is set (#715).
+# has no data-zone of its own (#923) and shows with an empty crew too (#812).
+# It sits inside the ship's own wrapper, so the key comes from the closest
+# data-zone, the ship's drop zone `crew-<the ship's card id>`, falling back to
+# the ship name if somehow none is set (#715). The ship's counter of the cards
+# on it shares that key, so the counts of one key are summed.
 #
 # The badge of the placed cards (#810), on a card in the core or the brig, reads
 # "<Card name>, N cards on it". It sits inside that card's own wrapper, so its
@@ -157,13 +158,13 @@ declare -A beforeCounts afterCounts
 if [ -n "$before" ]; then
   IFS=';' read -ra parts <<< "$before"
   for p in "${parts[@]}"; do
-    beforeCounts["${p%=*}"]="${p##*=}"
+    beforeCounts["${p%=*}"]=$(( ${beforeCounts["${p%=*}"]:-0} + ${p##*=} ))
   done
 fi
 if [ -n "$after" ]; then
   IFS=';' read -ra parts <<< "$after"
   for p in "${parts[@]}"; do
-    afterCounts["${p%=*}"]="${p##*=}"
+    afterCounts["${p%=*}"]=$(( ${afterCounts["${p%=*}"]:-0} + ${p##*=} ))
   done
 fi
 

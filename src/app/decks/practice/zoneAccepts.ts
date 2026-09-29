@@ -19,7 +19,6 @@
 export type ZoneKind =
   | 'shipRow'
   | 'mission'
-  | 'crew'
   | 'ship'
   | 'core'
   | 'brig'
@@ -34,7 +33,6 @@ export type ZoneKind =
 const ZONE_ACCEPTS: Record<ZoneKind, readonly string[] | null> = {
   shipRow: ['ship'],
   mission: null,
-  crew: ['personnel', 'equipment'],
   // A ship's own art (#812): a personnel or an equipment boards the crew (#893), a ship goes to
   // that ship's row (#668), and any other card is placed on it.
   ship: null,

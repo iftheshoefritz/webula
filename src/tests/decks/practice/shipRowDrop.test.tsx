@@ -456,7 +456,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${shipId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
     });
     expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).not.toBeNull();
 
@@ -564,7 +564,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       mockOnDragStart!({ active: { id: personnelId } });
     });
     await act(async () => {
-      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-badge-${firstCopyId}` } });
+      mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${firstCopyId}` } });
     });
 
     expect(document.body.querySelector(`[data-zone="crew-${firstCopyId}"] [aria-label*="crew, 1 card"]`)).not.toBeNull();
