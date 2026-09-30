@@ -368,6 +368,12 @@ function CardListPanelCard({
 // like every other card; a tap does nothing, and it is not selectable, so Discard and Stop do not
 // act on it. It is a drag source (#963), under `panelDraggableId` like every panel card, so a drag
 // out of here takes the card off the ship; it is not a drop target (no `data-zone`).
+// #965: the crew panel is at least 1.5 panel card heights tall, also with an empty crew, so the
+// ship section has room below the ship for the cards placed on it. The row of the grid and the
+// ship grows (`flex-1`) to fill that height. `100%` caps it at the height the panel may use, so
+// on a short screen the panel still ends above the bottom row, and the ship section scrolls.
+export const crewPanelMinHeight = (cardHeight: number): string => `min(${Math.round(1.5 * cardHeight)}px, 100%)`;
+
 const PLACED_ON_GAP = 4; // px, between the tiny cards
 export const placedOnCardWidth = (cardWidth: number): number => Math.floor((cardWidth - 2 * PLACED_ON_GAP) / 3);
 
@@ -391,12 +397,18 @@ function PanelHost({
   const { card } = host;
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const sectionScrolls = useScrollsVertically(sectionRef, true, [cardWidth, cardHeight, placedOn.length]);
+  // #965: the section scrolls in an outer box that stretches to the height of the row, and the
+  // framed box inside it hugs the ship and its placed cards. The row takes its height from the
+  // taller of the grid and the framed box, so the section scrolls only when the panel reaches the
+  // height of the screen. A `max-h-full` on the section clamped it to the grid's height in a
+  // browser that resolves the percentage against the row.
   return (
     <div
       ref={sectionRef}
       data-testid={testId}
-      className={`shrink-0 self-start max-h-full ${panelScrollClassName(sectionScrolls)} overscroll-contain flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2`}
+      className={`shrink-0 min-h-0 ${panelScrollClassName(sectionScrolls)} overscroll-contain`}
     >
+      <div className="flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2">
       {/* The section sits beside the grid (#894), so it takes no height from it: the image keeps
           the size of a panel card at every viewport. Where the row is shorter than the card (568 x
           320), the section scrolls, the same way the grid beside it does, rather than run over
@@ -436,6 +448,7 @@ function PanelHost({
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -631,7 +644,7 @@ export default function CardListPanel({
           bottom: bottomInset,
         }}
       >
-      <div className={layoutClassName}>
+      <div className={layoutClassName} style={location === 'crew' ? { minHeight: crewPanelMinHeight(cardHeight) } : undefined}>
         {(showDownloadButton || showStopButton || showFlipButton || showDiscardButton || onShuffle) && (
           <div data-testid="panel-controls" className="shrink-0 flex flex-row items-start gap-2">
             {/* The Download button (#827) shows whenever the panel is given `onDownload`, first in
@@ -688,7 +701,7 @@ export default function CardListPanel({
             height and scrolls, so the host beside it keeps its own size. `min-w-0` lets the grid
             wrap its cards into the width the host leaves it. */}
         {host ? (
-          <div className="min-h-0 max-w-full flex flex-row gap-2">
+          <div className={`min-h-0 max-w-full flex flex-row gap-2 ${location === 'crew' ? 'flex-1' : ''}`}>
             {gridElement}
             <PanelHost
               host={host}

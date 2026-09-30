@@ -10,7 +10,7 @@ jest.mock('@dnd-kit/core', () => ({
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { CardHoldProvider, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
-import CardListPanel, { PanelLocation, placedOnCardWidth } from '../../../app/decks/practice/CardListPanel';
+import CardListPanel, { crewPanelMinHeight, PanelLocation, placedOnCardWidth } from '../../../app/decks/practice/CardListPanel';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 
 const makeCard = (n: number, type = 'personnel'): CardInstance =>
@@ -81,7 +81,7 @@ describe('Practice draw: the host section of a card list panel has no label (#91
     expect(screen.queryByText(/^Ship$/i)).toBeNull();
     expect(screen.queryByText(/^Placed on$/i)).toBeNull();
     // The framed box stays.
-    expect(host.className).toMatch(/border-accent\/60/);
+    expect(host.firstElementChild!.className).toMatch(/border-accent\/60/);
   });
 });
 
@@ -150,5 +150,50 @@ describe('Practice draw: the crew panel shows the cards placed on the ship below
     });
     expect(onHold).toHaveBeenCalledWith('card-20', expect.anything());
     fireEvent.pointerUp(window);
+  });
+});
+
+// #965: the ship section was clamped to the height of the grid beside it (`max-h-full`), so a ship
+// with cards placed on it scrolled in a panel with one row of crew. jsdom does no layout, so this
+// checks the classes and the style that size the panel.
+describe('Practice draw: the crew panel is tall enough for the cards on the ship (#965)', () => {
+  const renderPanel = (location: PanelLocation, cards: CardInstance[]) =>
+    render(
+      <CardListPanel
+        location={location}
+        cards={cards}
+        host={makeCard(9, 'ship')}
+        onClose={() => {}}
+        selectedIds={[]}
+        onToggleSelect={() => {}}
+        cardWidth={108}
+        cardHeight={150}
+      />
+    );
+
+  it('gives the crew panel a minimum height of 1.5 panel card heights, capped at the space it may use', () => {
+    expect(crewPanelMinHeight(150)).toBe('min(225px, 100%)');
+  });
+
+  it.each([[[]], [[makeCard(1)]]])('the row of an empty or small crew grows to fill the panel', (cards) => {
+    renderPanel('crew', cards);
+    const row = screen.getByTestId('card-list-panel-crew').parentElement!;
+    expect(row.className).toMatch(/\bflex-1\b/);
+    expect(row.className).toMatch(/\bmin-h-0\b/);
+  });
+
+  it('the ship section stretches with the row and is not clamped to a percentage height', () => {
+    renderPanel('crew', [makeCard(1)]);
+    const section = screen.getByTestId('card-list-panel-crew-ship');
+    expect(section.className).not.toMatch(/max-h-full/);
+    expect(section.className).not.toMatch(/self-start/);
+    expect(section.className).toMatch(/overflow-y-auto/);
+  });
+
+  it('leaves the on panel at the height of its cards', () => {
+    renderPanel('on', [makeCard(1)]);
+    const row = screen.getByTestId('card-list-panel-on').parentElement!;
+    expect(row.className).not.toMatch(/\bflex-1\b/);
+    expect(row.parentElement!.style.minHeight).toBe('');
   });
 });
