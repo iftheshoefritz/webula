@@ -74,6 +74,7 @@ import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
+import { createCenterOnPointerModifier } from './centerOnPointer';
 import { useFullscreen } from './useFullscreen';
 
 // A plain inline hamburger icon (#722), not react-icons: see `DownloadIcon`'s comment below for
@@ -1087,6 +1088,8 @@ function PracticeDrawContent() {
   // A touch or pen press in a scrolling card list panel splits a scroll from a drag (#788); every
   // other press drags as before. `panelScrollSensor.ts` explains why it is one sensor.
   const sensors = useTableSensors();
+  // Keeps the centre of the drag overlay under the pointer, whatever the size of the source card (#955).
+  const overlayModifiers = useMemo(() => [createCenterOnPointerModifier()], []);
 
   // A deck loaded from Drive (#780). Once set, Reset deals it again instead of the builder's
   // currentDeck. It is kept in page state only: localStorage.currentDeck is the deck builder's
@@ -2147,7 +2150,7 @@ function PracticeDrawContent() {
             </LandedZoneProvider>
             </DraggedCardTypeProvider>
 
-            <DragOverlay>
+            <DragOverlay modifiers={overlayModifiers}>
               {draggingInstance && (
                 <div className="relative">
                   <img
