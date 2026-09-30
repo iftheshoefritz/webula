@@ -75,8 +75,9 @@
 
 import { RefObject, useEffect, useRef, useState } from 'react';
 import { LAYER_CARD_LIST_PANEL } from '../../../lib/layers';
-import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { panelDraggableId } from './panelDragId';
+import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
+import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
+import { dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
 import TableCard, { STOPPED_IMAGE_CLASSNAME, TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH } from './TableCard';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
@@ -199,6 +200,65 @@ const closeLabel = (location: PanelLocation): string =>
   location === 'on'
     ? `Close ${PANEL_LABEL[location].toLowerCase()}`
     : `Close ${PANEL_LABEL[location].toLowerCase()} pile`;
+
+// The dilemma stack's one row (#632), with the insertion mark of a reorder drag (#956). The mark
+// reads the drag's live `active` and `over` from dnd-kit, the same `over` `handleDragEnd` in
+// `page.tsx` receives, so it shows exactly where the drop puts the card
+// (`dilemmaStackInsertPoint`). It shows nothing over the dragged card's own slot, over the row's
+// empty space, or outside the panel: none of those drops reorders. The mark is a thin accent bar
+// that takes no pointer events and carries no `data-zone`: it is not a drop target.
+function DilemmaStackRow({
+  cards,
+  selectedIds,
+  onToggleSelect,
+  cardWidth,
+  cardHeight,
+  markFaceDown,
+}: {
+  cards: CardInstance[];
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
+  cardWidth: number;
+  cardHeight: number;
+  markFaceDown: boolean;
+}) {
+  const { active, over } = useDndContext();
+  const insert = dilemmaStackInsertPoint(
+    cards.map((instance) => instance.id),
+    active ? cardIdOfDraggable(active.id) : null,
+    over ? String(over.id) : null
+  );
+
+  return (
+    <OverlapRow
+      items={cards}
+      keyFor={(instance) => instance.id}
+      cardWidth={cardWidth}
+      height={cardHeight}
+      markBoundary={insert?.boundary ?? null}
+      renderMark={(left, zIndex) => (
+        <div
+          data-testid="dilemma-stack-insert-indicator"
+          data-slot={insert?.slot}
+          aria-hidden="true"
+          className="absolute top-0 h-full w-1 -translate-x-1/2 rounded-full bg-accent pointer-events-none"
+          style={{ left, zIndex }}
+        />
+      )}
+      renderCard={(instance) => (
+        <CardListPanelCard
+          instance={instance}
+          selected={selectedIds.includes(instance.id)}
+          onToggleSelect={() => onToggleSelect(instance.id)}
+          cardWidth={cardWidth}
+          cardHeight={cardHeight}
+          reorderable
+          markFaceDown={markFaceDown}
+        />
+      )}
+    />
+  );
+}
 
 function CardListPanelCard({
   instance,
@@ -520,22 +580,13 @@ export default function CardListPanel({
         // The cards overlap rather than sit side by side (`OverlapRow`), with `zIndex` rising
         // left to right, so a later (further down the stack) card's edge sits on top of the
         // one before it, the same reading order the labels at each end describe.
-        <OverlapRow
-          items={cards}
-          keyFor={(instance) => instance.id}
+        <DilemmaStackRow
+          cards={cards}
+          selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect}
           cardWidth={cardWidth}
-          height={cardHeight}
-          renderCard={(instance) => (
-            <CardListPanelCard
-              instance={instance}
-              selected={selectedIds.includes(instance.id)}
-              onToggleSelect={() => onToggleSelect(instance.id)}
-              cardWidth={cardWidth}
-              cardHeight={cardHeight}
-              reorderable
-              markFaceDown={onFlip !== undefined}
-            />
-          )}
+          cardHeight={cardHeight}
+          markFaceDown={onFlip !== undefined}
         />
       ) : (
         cards.map((instance) => (
