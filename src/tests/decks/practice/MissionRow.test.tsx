@@ -5,7 +5,7 @@ jest.mock('@dnd-kit/core', () => ({
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import MissionRow from '../../../app/decks/practice/MissionRow';
+import MissionRow, { underMissionHeadroom } from '../../../app/decks/practice/MissionRow';
 import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableReducer';
 
 const card = (id: string, name: string): CardInstance => ({
@@ -204,16 +204,22 @@ describe('MissionRow', () => {
       fireEvent.click(button, { clientX: 10, clientY });
     };
 
-    it('shows two slivers, each offset by about 5% of the card height, and the true count', () => {
+    it('shows two slivers, each offset by about 10% of the card height, and the true count', () => {
       renderRow(threeDilemmas());
       expect(document.body.querySelector('[data-card-id="d1"]')).toBeNull();
       const d2 = document.body.querySelector('[data-card-id="d2"]')!.parentElement!;
       const d3 = document.body.querySelector('[data-card-id="d3"]')!.parentElement!;
       expect(d2.style.top).toBe('0px');
-      expect(d3.style.top).toBe('3px'); // 5% of 64px, rounded
-      expect(d2.parentElement!.style.top).toBe('-6px');
+      expect(d3.style.top).toBe('6px'); // 10% of 64px, rounded (#968)
+      expect(d2.parentElement!.style.top).toBe('-12px');
       expect(screen.getByRole('button', { name: /under the mission pile, 3 cards, tap to open/i })).toBeInTheDocument();
       expect(d2.parentElement!.textContent).toBe('3');
+    });
+
+    // #968: the row moves down only once two slivers outgrow the padding above the row.
+    it('moves the mission row down only by what two slivers need past the top padding', () => {
+      expect(underMissionHeadroom(1)).toBe(0); // 2 x 6px fits the 16px padding
+      expect(underMissionHeadroom(2)).toBe(10); // 2 x 13px, less 16px
     });
 
     it('puts the under drop on the top half and the on drop on the bottom half', () => {

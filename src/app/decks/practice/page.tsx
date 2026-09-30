@@ -54,6 +54,7 @@ import MissionRow, {
   shipIdFromCrewDropId,
   shipRowLineHeight,
   shipsPerRow,
+  underMissionHeadroom,
 } from './MissionRow';
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
@@ -1779,8 +1780,13 @@ function PracticeDrawContent() {
             <div className="flex flex-col flex-1 p-4">
               {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597),
                   plus the dilemma stack (#630) in its own reserved column to the right, in the
-                  same row so it lines up with the missions and shares their gap. */}
-              <div ref={setMissionRows} className="flex flex-row gap-2 justify-center items-start">
+                  same row so it lines up with the missions and shares their gap. The row moves
+                  down once the dilemmas under a mission poke out past the padding above it (#968). */}
+              <div
+                ref={setMissionRows}
+                className="flex flex-row gap-2 justify-center items-start"
+                style={{ paddingTop: underMissionHeadroom(scale) }}
+              >
                 <MissionRow
                   missions={missions}
                   onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
