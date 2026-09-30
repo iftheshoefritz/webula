@@ -6,7 +6,8 @@
 // (the panels' own Stop/Unstop and Flip buttons act on the selection).
 //
 // The preview always shows the card's true face, even when it sits face down on the table,
-// because the player owns every card on their own table; a "Face down" label says so. `hidden`
+// because the player owns every card on their own table; a "Face down" label says so, except on
+// a card of an away team (#964), which is face down by default and needs no label. `hidden`
 // hides it for the duration of a drag. `side` is the edge it takes, the one away from the press
 // point (#879); the badge takes the same edge, so it stays over the image.
 
@@ -31,10 +32,13 @@ export default function CardPreview({
   instance,
   hidden = false,
   side = 'right',
+  markFaceDown = true,
 }: {
   instance: CardInstance;
   hidden?: boolean;
   side?: PreviewSide;
+  // False for a card of an away team (#964): it shows no "Face down" badge.
+  markFaceDown?: boolean;
 }) {
   const { card, face } = instance;
   const edge = side === 'left' ? 'left-4' : 'right-4';
@@ -54,7 +58,7 @@ export default function CardPreview({
         }`}
       />
 
-      {face === 'down' && (
+      {markFaceDown && face === 'down' && (
         <span className={`absolute ${edge} ${PREVIEW_BADGE_TOP_CLASSNAME} ${FACE_DOWN_BADGE_CLASSNAME}`}>
           {FACE_DOWN_LABEL}
         </span>

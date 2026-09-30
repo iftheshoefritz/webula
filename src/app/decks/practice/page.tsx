@@ -605,6 +605,10 @@ function PileArt({ alt, shuffleCount }: { alt: string; shuffleCount: number }) {
   );
 }
 
+// A card of an away team is face down by default, so its preview shows no "Face down" badge (#964).
+const isAwayTeamZone = (zone: TableZone): boolean =>
+  typeof zone === 'object' && zone.zone === 'missionPile' && zone.pile === 'awayTeam';
+
 // The top card of the draw pile or the dilemma pile, draggable off the pile art (#814), the same
 // "mounted only while a top card exists" pattern `DiscardPileCard` above uses. The two `PileHalf`
 // buttons cover the whole art, so this component wraps them rather than sitting under them: a
@@ -2009,6 +2013,7 @@ function PracticeDrawContent() {
                   instance={held.instance}
                   hidden={draggingInstance !== null}
                   side={heldCardId ? heldSide : hoveredSide}
+                  markFaceDown={!isAwayTeamZone(held.zone)}
                 />
               )}
 

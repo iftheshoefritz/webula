@@ -28,4 +28,11 @@ describe('CardPreview side (#879)', () => {
     render(<CardPreview instance={faceDown} />);
     expect(screen.getByTestId('card-preview-enlarged')).toHaveClass('right-4');
   });
+
+  // #964: an away team card's preview shows no "Face down" badge.
+  it('shows no badge when markFaceDown is false', () => {
+    render(<CardPreview instance={faceDown} markFaceDown={false} />);
+    expect(screen.getByTestId('card-preview-enlarged')).toBeInTheDocument();
+    expect(screen.queryByText(FACE_DOWN_LABEL)).toBeNull();
+  });
 });
