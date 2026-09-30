@@ -1402,7 +1402,12 @@ function PracticeDrawContent() {
     }
 
     if (openCrewShipId) {
-      const isDragOrigin = typeof zone === 'object' && zone.zone === 'crew' && zone.shipId === openCrewShipId;
+      // The panel also shows the cards placed on the ship (#957), and a drag of one of them starts
+      // from this panel too (#963).
+      const isDragOrigin =
+        typeof zone === 'object' &&
+        ((zone.zone === 'crew' && zone.shipId === openCrewShipId) ||
+          (zone.zone === 'on' && zone.targetId === openCrewShipId));
       // The panel shows the ship too (#832), so it stays open after the last crew member
       // leaves, as long as the ship itself is still on the table.
       const shipStillThere = !!findInstanceAnywhere(nextTable, openCrewShipId);
@@ -2096,8 +2101,10 @@ function PracticeDrawContent() {
               )}
 
               {/* The cards placed on a card (#810): opened by a tap on a card in the core or the
-                  brig with cards on it, or by a tap on a ship's counter of the cards on it (#812).
-                  The only way to take a placed card off is a drag out of here.
+                  brig with cards on it, or by a tap on a mission card's counter of the cards on it
+                  (#813). A ship has no second tap region (#963): the cards on a ship show in its
+                  crew panel, as tiny cards below the ship, and leave the ship by a drag out of
+                  there. A placed card leaves a card by a drag out of here.
                   No Shuffle: `shuffle` has no location for the placed cards. */}
               {openPlacedOnTarget && (
                 <CardListPanel

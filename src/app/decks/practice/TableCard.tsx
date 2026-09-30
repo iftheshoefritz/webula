@@ -68,6 +68,7 @@ export default function TableCard({
   draggable = false,
   holdable = true,
   uncropped = false,
+  draggableId,
 }: {
   instance: CardInstance;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
@@ -80,11 +81,14 @@ export default function TableCard({
   // Shows the whole card, frame and all, instead of the art crop (#926). Used by the core and the
   // brig. `artHeight` is ignored: the height follows from the width.
   uncropped?: boolean;
+  // The id the card drags under, when it is not the card's own id: a card shown in a card list
+  // panel drags under `panelDraggableId` (#913), such as a tiny card placed on a ship (#963).
+  draggableId?: string;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down';
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: instance.id,
+    id: draggableId ?? instance.id,
     disabled: !draggable,
   });
   const holdListeners = useCardHold(instance.id, listeners);

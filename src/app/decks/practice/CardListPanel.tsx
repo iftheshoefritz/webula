@@ -365,8 +365,9 @@ function CardListPanelCard({
 // #957: the crew panel's ship section also shows the cards placed on the ship (`placedOn`), below
 // the ship, as tiny table cards about a third of the ship's width. Only the crew panel: the `'on'`
 // panel lists those same cards in its grid. A tiny card shows its preview on a hold or a hover,
-// like every other card; a tap does nothing, it is not selectable, and it is neither a drag
-// source nor a drop target (no `data-zone`).
+// like every other card; a tap does nothing, and it is not selectable, so Discard and Stop do not
+// act on it. It is a drag source (#963), under `panelDraggableId` like every panel card, so a drag
+// out of here takes the card off the ship; it is not a drop target (no `data-zone`).
 const PLACED_ON_GAP = 4; // px, between the tiny cards
 export const placedOnCardWidth = (cardWidth: number): number => Math.floor((cardWidth - 2 * PLACED_ON_GAP) / 3);
 
@@ -424,7 +425,13 @@ function PanelHost({
         >
           {placedOn.map((c) => (
             <div key={c.id} data-testid={`card-list-panel-crew-on-${c.id}`}>
-              <TableCard instance={c} width={tinyWidth} artHeight={tinyArtHeight} />
+              <TableCard
+                instance={c}
+                width={tinyWidth}
+                artHeight={tinyArtHeight}
+                draggable
+                draggableId={panelDraggableId(c.id)}
+              />
             </div>
           ))}
         </div>
