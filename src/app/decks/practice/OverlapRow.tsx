@@ -11,6 +11,11 @@
 // jsdom reports 0 for every measurement and stubs `ResizeObserver` out, and a fan measures 0
 // before its first layout, so a width of 0 falls back to a bound of `cardWidth x count`: the
 // cards sit edge to edge.
+//
+// A caller may mark one place between two cards, or at an end of the row (#956): `markBoundary` is
+// the index of the card whose left edge the mark sits on, or the card count for the right end.
+// `renderMark` draws it, absolutely placed at that edge, above every card. It changes no card's
+// `left`, so the row does not move under the pointer while the mark comes and goes.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { offsetFor } from './overlapOffset';
@@ -23,6 +28,8 @@ export default function OverlapRow<T>({
   maxOffset = cardWidth,
   centered = false,
   renderCard,
+  markBoundary = null,
+  renderMark,
 }: {
   items: T[];
   keyFor: (item: T) => string;
@@ -36,6 +43,8 @@ export default function OverlapRow<T>({
   // (the stack, whose end labels read left to right).
   centered?: boolean;
   renderCard: (item: T, idx: number) => React.ReactNode;
+  markBoundary?: number | null;
+  renderMark?: (left: number, zIndex: number) => React.ReactNode;
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const [rowWidth, setRowWidth] = useState(0);
@@ -53,6 +62,8 @@ export default function OverlapRow<T>({
   const maxWidth = rowWidth > 0 ? rowWidth : cardWidth * Math.max(count, 1);
   const offset = offsetFor(count, cardWidth, maxWidth, maxOffset);
   const contentWidth = count === 0 ? cardWidth : cardWidth + offset * (count - 1);
+  const showMark = renderMark !== undefined && markBoundary !== null && markBoundary >= 0 && markBoundary <= count;
+  const markLeft = markBoundary !== null && markBoundary >= count ? contentWidth : (markBoundary ?? 0) * offset;
 
   return (
     <div ref={rowRef} className="w-full" style={{ height }}>
@@ -62,6 +73,7 @@ export default function OverlapRow<T>({
             {renderCard(item, idx)}
           </div>
         ))}
+        {showMark && renderMark(markLeft, count + 1)}
       </div>
     </div>
   );
