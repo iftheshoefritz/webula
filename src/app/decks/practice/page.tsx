@@ -66,6 +66,7 @@ import { SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from '
 import { useShipRowCount, useTableScale } from './tableScale';
 import { usePanelBottomInset } from './panelBottomInset';
 import { viewerCardSize } from './viewerCardSize';
+import { useFinePointer } from './useFinePointer';
 import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
@@ -1040,8 +1041,10 @@ function PracticeDrawContent() {
   // derives its own ship-row sizes from the same `scale`.
   const scale = useTableScale(gameLayer);
   const fullscreen = useFullscreen(gameLayer);
-  // Every viewer (a card list panel, the open fan) draws its card at 1.5x the table card (#802).
-  const { width: viewerCardWidth, height: viewerCardHeight } = viewerCardSize(scale);
+  // Every viewer (a card list panel, the open fan) draws its card at 1.5x the table card (#802),
+  // up to a fixed width on a desktop (#946).
+  const finePointer = useFinePointer();
+  const { width: viewerCardWidth, height: viewerCardHeight } = viewerCardSize(scale, finePointer);
   // Issue #828: every card list panel anchors its bottom just above the bottom row.
   const [bottomRow, setBottomRow] = useState<HTMLDivElement | null>(null);
   const panelBottom = usePanelBottomInset(gameLayer, bottomRow);
