@@ -437,8 +437,22 @@ function BadgeStrip({
 // The under-the-mission stack shows at most two slivers (#917); the count on the stack, and the
 // hidden button's aria-label, keep the true number.
 const UNDER_MISSION_MAX_VISIBLE = 2;
-// Each sliver pokes out by about 5% of the card height (#917).
-const UNDER_MISSION_SLIVER_FRACTION = 0.05;
+// Each sliver pokes out by about 10% of the card height (#968, 5% before).
+const UNDER_MISSION_SLIVER_FRACTION = 0.1;
+
+const underMissionSliver = (cardArtHeight: number): number =>
+  Math.max(1, Math.round(cardArtHeight * UNDER_MISSION_SLIVER_FRACTION));
+
+// `page.tsx`'s own `p-4` padding above the mission row, which the stack pokes into.
+const TABLE_TOP_PADDING = 16; // px
+
+// The room the mission row moves down by (#968), so a full stack of slivers stays below the top
+// edge of the table: the height of two slivers, less the padding already above the row. The
+// dilemma stack column shares the row, so `page.tsx` pads the whole row, not `MissionRow` alone.
+export function underMissionHeadroom(scale: number): number {
+  const stackHeight = underMissionSliver(scaled(TABLE_CARD_ART_HEIGHT, scale)) * UNDER_MISSION_MAX_VISIBLE;
+  return Math.max(0, stackHeight - TABLE_TOP_PADDING);
+}
 
 // The dilemmas placed under the mission (#606), rendered face up and stacked directly behind the
 // mission card in z-order, each poking a small sliver out above the mission card's top edge
@@ -465,7 +479,7 @@ function UnderMissionStack({
 }) {
   const landedNonce = useLandedNonce(missionPileDropId(missionIndex, 'underMission'));
   if (cards.length === 0) return null;
-  const sliver = Math.max(1, Math.round(cardArtHeight * UNDER_MISSION_SLIVER_FRACTION));
+  const sliver = underMissionSliver(cardArtHeight);
   const shown = cards.slice(-UNDER_MISSION_MAX_VISIBLE);
   const stackHeight = sliver * shown.length;
 
