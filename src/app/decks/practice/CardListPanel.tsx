@@ -78,7 +78,7 @@ import { LAYER_CARD_LIST_PANEL } from '../../../lib/layers';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { panelDraggableId } from './panelDragId';
 import { CardInstance, MissionPileName } from './tableReducer';
-import { STOPPED_IMAGE_CLASSNAME } from './TableCard';
+import TableCard, { STOPPED_IMAGE_CLASSNAME, TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH } from './TableCard';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
 import OverlapRow from './OverlapRow';
 import { CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
@@ -301,21 +301,35 @@ function CardListPanelCard({
 // the listed cards. No label above it (#916): the card speaks for itself. A hold shows its preview; a tap does nothing. No `useDraggable` and no
 // `data-zone`: it is neither a drag source nor a drop target (the card's `TableCard` already holds
 // a draggable under the same id).
+//
+// #957: the crew panel's ship section also shows the cards placed on the ship (`placedOn`), below
+// the ship, as tiny table cards about a third of the ship's width. Only the crew panel: the `'on'`
+// panel lists those same cards in its grid. A tiny card shows its preview on a hold or a hover,
+// like every other card; a tap does nothing, it is not selectable, and it is neither a drag
+// source nor a drop target (no `data-zone`).
+const PLACED_ON_GAP = 4; // px, between the tiny cards
+export const placedOnCardWidth = (cardWidth: number): number => Math.floor((cardWidth - 2 * PLACED_ON_GAP) / 3);
+
 function PanelHost({
   host,
   testId,
   cardWidth,
   cardHeight,
+  showPlacedOn = false,
 }: {
   host: CardInstance;
   testId: string;
   cardWidth: number;
   cardHeight: number;
+  showPlacedOn?: boolean;
 }) {
+  const placedOn = showPlacedOn ? (host.placedOn ?? []) : [];
+  const tinyWidth = placedOnCardWidth(cardWidth);
+  const tinyArtHeight = Math.round((tinyWidth * TABLE_CARD_ART_HEIGHT) / TABLE_CARD_WIDTH);
   const holdListeners = useCardHold(host.id);
   const { card } = host;
   const sectionRef = useRef<HTMLDivElement | null>(null);
-  const sectionScrolls = useScrollsVertically(sectionRef, true, [cardWidth, cardHeight]);
+  const sectionScrolls = useScrollsVertically(sectionRef, true, [cardWidth, cardHeight, placedOn.length]);
   return (
     <div
       ref={sectionRef}
@@ -342,6 +356,19 @@ function PanelHost({
           style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
         />
       </div>
+      {placedOn.length > 0 && (
+        <div
+          data-testid={`${testId}-placed-on`}
+          className="flex flex-wrap content-start"
+          style={{ width: cardWidth, gap: PLACED_ON_GAP }}
+        >
+          {placedOn.map((c) => (
+            <div key={c.id} data-testid={`card-list-panel-crew-on-${c.id}`}>
+              <TableCard instance={c} width={tinyWidth} artHeight={tinyArtHeight} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -609,6 +636,7 @@ export default function CardListPanel({
               testId={location === 'crew' ? 'card-list-panel-crew-ship' : `card-list-panel-${location}-host`}
               cardWidth={cardWidth}
               cardHeight={cardHeight}
+              showPlacedOn={location === 'crew'}
             />
           </div>
         ) : (

@@ -8,8 +8,9 @@ jest.mock('@dnd-kit/core', () => ({
 }));
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import CardListPanel, { PanelLocation } from '../../../app/decks/practice/CardListPanel';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { CardHoldProvider, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
+import CardListPanel, { PanelLocation, placedOnCardWidth } from '../../../app/decks/practice/CardListPanel';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 
 const makeCard = (n: number, type = 'personnel'): CardInstance =>
@@ -81,5 +82,73 @@ describe('Practice draw: the host section of a card list panel has no label (#91
     expect(screen.queryByText(/^Placed on$/i)).toBeNull();
     // The framed box stays.
     expect(host.className).toMatch(/border-accent\/60/);
+  });
+});
+
+describe('Practice draw: the crew panel shows the cards placed on the ship below it (#957)', () => {
+  const renderPanel = (location: PanelLocation, host: CardInstance, onHold = jest.fn()) =>
+    render(
+      <CardHoldProvider value={{ startHold: onHold, endHold: () => {}, startHover: () => {}, endHover: () => {} }}>
+        <CardListPanel
+          location={location}
+          cards={[makeCard(1)]}
+          host={host}
+          onClose={() => {}}
+          selectedIds={[]}
+          onToggleSelect={() => {}}
+          cardWidth={108}
+          cardHeight={150}
+        />
+      </CardHoldProvider>
+    );
+
+  const shipWithPlaced = (): CardInstance => ({
+    ...makeCard(9, 'ship'),
+    placedOn: [makeCard(20, 'event'), makeCard(21, 'equipment')],
+  });
+
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('renders one tiny card per placed card inside the ship section, a third of its width', () => {
+    renderPanel('crew', shipWithPlaced());
+    const section = screen.getByTestId('card-list-panel-crew-ship');
+    for (const id of ['card-20', 'card-21']) {
+      const tiny = screen.getByTestId(`card-list-panel-crew-on-${id}`);
+      expect(section).toContainElement(tiny);
+      const button = tiny.querySelector('button') as HTMLButtonElement;
+      expect(button.style.width).toBe(`${placedOnCardWidth(108)}px`);
+    }
+    expect(placedOnCardWidth(108)).toBeGreaterThanOrEqual(30);
+    expect(placedOnCardWidth(108)).toBeLessThanOrEqual(36);
+    // The tiny cards sit below the ship image.
+    const shipImage = section.querySelector('[role="img"]')!;
+    expect(shipImage.nextElementSibling).toBe(screen.getByTestId('card-list-panel-crew-ship-placed-on'));
+    // Not drop targets.
+    expect(section.querySelector('[data-zone]')).toBeNull();
+  });
+
+  it('renders no tiny cards for a ship with nothing on it', () => {
+    renderPanel('crew', makeCard(9, 'ship'));
+    expect(screen.queryByTestId('card-list-panel-crew-ship-placed-on')).toBeNull();
+    expect(screen.queryByTestId(/^card-list-panel-crew-on-/)).toBeNull();
+  });
+
+  it('renders no tiny cards in the host section of the on panel', () => {
+    renderPanel('on', shipWithPlaced());
+    expect(screen.queryByTestId(/^card-list-panel-crew-on-/)).toBeNull();
+    expect(screen.getByTestId('card-list-panel-on-host').querySelectorAll('button')).toHaveLength(0);
+  });
+
+  it('a hold on a tiny card previews that card', () => {
+    const onHold = jest.fn();
+    renderPanel('crew', shipWithPlaced(), onHold);
+    const button = screen.getByTestId('card-list-panel-crew-on-card-20').querySelector('button')!;
+    fireEvent.pointerDown(button, { button: 0, clientX: 10, clientY: 10 });
+    act(() => {
+      jest.advanceTimersByTime(HOLD_DELAY_MS);
+    });
+    expect(onHold).toHaveBeenCalledWith('card-20', expect.anything());
+    fireEvent.pointerUp(window);
   });
 });
