@@ -532,7 +532,10 @@ function ShipRow({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: shipRowDropId(missionIndex) });
   const draggedType = useDraggedCardType();
-  const highlight = highlightState('shipRow', draggedType, isOver);
+  // An empty row shows nothing, not even the faint `valid` ring, until a ship is over it (#947).
+  // The mission card is the visible target for a ship; the row stays a drop target.
+  const rawHighlight = highlightState('shipRow', draggedType, isOver);
+  const highlight = ships.length === 0 && rawHighlight === 'valid' ? undefined : rawHighlight;
   const landedNonce = useLandedNonce(shipRowDropId(missionIndex));
   const shipCardWidth = scaled(SMALL_CARD_WIDTH, scale);
   const shipCardArtHeight = shipRowLineHeight(scale);
@@ -562,9 +565,7 @@ function ShipRow({
       className={`relative w-full flex flex-col items-center justify-start rounded ${highlightClassName(highlight)}`}
       style={{ height: shipRowHeight, gap: SHIP_ROW_GAP }}
     >
-      {ships.length === 0 ? (
-        <div className="w-full h-full rounded border border-dashed border-white/15" />
-      ) : (
+      {ships.length > 0 &&
         rows.map((rowShips, row) => {
           const offset = offsetFor(rowShips.length, shipCardWidth, shipRowMaxWidth, shipMaxOffset);
           const rowWidth = shipCardWidth + offset * (rowShips.length - 1);
@@ -594,8 +595,7 @@ function ShipRow({
               ))}
             </div>
           );
-        })
-      )}
+        })}
       <LandedRing nonce={landedNonce} />
     </div>
   );
