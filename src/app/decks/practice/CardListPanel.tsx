@@ -682,13 +682,13 @@ export default function CardListPanel({
             {/* The Shuffle button (#680) sits inside the panel, next to the cards, not on the
                 backdrop — a tap on the backdrop still closes the panel, and a tap here does not.
                 It shares this row with the other controls (#880), so the row takes the height of
-                one line from the card grid. It keeps its own small, quiet look: it acts on the
-                whole pile, not on the selection. */}
+                one line from the card grid. It has the `btn-primary` look of Stop (#966), and is
+                never disabled: it acts on the whole pile, not on the selection. */}
             {onShuffle && (
               <button
                 type="button"
                 onClick={onShuffle}
-                className="shrink-0 flex items-center justify-center gap-1 rounded-md bg-white/[0.05] border border-white/10 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors duration-150"
+                className="btn-primary shrink-0 flex items-center justify-center gap-1"
               >
                 <ShuffleIcon />
                 Shuffle
