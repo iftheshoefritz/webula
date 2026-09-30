@@ -112,16 +112,6 @@ Vercel runs both in one chain. The `buildCommand` in `vercel.json` is
 `NODE_ENV=test yarn test --ci && yarn build`, so a test failure stops the
 deployment before the build starts.
 
-### The merge method
-
-Merge a pull request with a squash merge. The repository setting
-`squash_merge_commit_title` is `PR_TITLE`, so the squash commit on `main` always
-takes the title of the pull request. Do not use a rebase merge.
-
-The `ignoreCommand` in `vercel.json` skips the Vercel build for a commit whose
-message starts with `wip:`. So never start the title of a pull request with
-`wip:`, because the squash commit then skips the production deployment.
-
 ### To read why a workflow run failed
 
 Do not use `gh run view --log`. It truncates a long log and gives no warning
