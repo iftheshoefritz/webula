@@ -398,6 +398,23 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     expect(document.body.querySelector(`[data-testid="card-list-panel-${zone}"]`)).not.toBeNull();
   });
 
+  // #964: an away team card is stored face down, and its preview shows no "Face down" badge.
+  it('a hold on an away team card shows its preview with no "Face down" badge', async () => {
+    await setupOpenHand([mockPersonnelCard, mockEquipmentCard]);
+    const [personnelId, equipmentId] = mockDraggableIds;
+    drag(personnelId, 'mission-on-0');
+    drag(equipmentId, 'mission-on-0');
+    tap(screen.getByRole('button', { name: /^Away team, 2 cards, tap to open$/i }));
+
+    for (const name of ['data', 'tricorder']) {
+      const panelCard = screen.getByTestId('card-list-panel-awayTeam').querySelector(`[aria-label="${name}"]`)!;
+      hold(panelCard);
+      expect(preview(name)).toBeInTheDocument();
+      expect(screen.queryByText('Face down')).toBeNull();
+      release();
+    }
+  });
+
   it("a hold on the ship in its crew panel shows the ship's preview and keeps the panel open (#832)", async () => {
     await setupOpenHand([mockShipCard, mockPersonnelCard]);
     const [shipId, personnelId] = mockDraggableIds;

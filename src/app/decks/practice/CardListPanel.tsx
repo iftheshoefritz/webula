@@ -10,7 +10,7 @@
 // `CardPreview` uses for the enlarged preview). A panel that has a Flip button (#762, below) draws
 // the card face up too, and marks a card whose stored `face` is `down` with the same "Face down"
 // badge the preview shows (#826), so a Flip shows in the panel and the player can still read the
-// card. The mark is not the stopped look (`STOPPED_IMAGE_CLASSNAME`): a card can be both. The
+// card. The away team panel shows no mark (#964): its cards are face down by default. The mark is not the stopped look (`STOPPED_IMAGE_CLASSNAME`): a card can be both. The
 // panels with no Flip button (the core, the brig, a crew, a ship row, and the draw and dilemma
 // piles, which the player opens to download, #690) list every card face up with no mark. The tap acts, the hold looks: a tap on a card
 // toggles it in or out of the selection, and a press and hold shows its preview (`useCardHold`).
@@ -560,6 +560,7 @@ export default function CardListPanel({
   const selectedInPanel = cards.filter((instance) => selectedIds.includes(instance.id));
   const showFlipButton = onFlip !== undefined && selectedInPanel.length > 0;
   const handleFlipTap = () => onFlip?.(selectedInPanel.map((instance) => instance.id));
+  const markFaceDown = onFlip !== undefined && location !== 'awayTeam';
   const showDiscardButton = onDiscard !== undefined;
   const handleDiscardTap = () => onDiscard?.(selectedInPanel.map((instance) => instance.id));
   const showDownloadButton = onDownload !== undefined;
@@ -593,7 +594,7 @@ export default function CardListPanel({
           onToggleSelect={onToggleSelect}
           cardWidth={cardWidth}
           cardHeight={cardHeight}
-          markFaceDown={onFlip !== undefined}
+          markFaceDown={markFaceDown}
         />
       ) : (
         cards.map((instance) => (
@@ -604,7 +605,7 @@ export default function CardListPanel({
             onToggleSelect={() => onToggleSelect(instance.id)}
             cardWidth={cardWidth}
             cardHeight={cardHeight}
-            markFaceDown={onFlip !== undefined}
+            markFaceDown={markFaceDown}
             gridScrolls={gridScrolls}
           />
         ))

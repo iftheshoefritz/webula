@@ -337,7 +337,8 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
         `[data-testid="card-list-panel-awayTeam"] [data-card-id="${draggedId}"]`
       );
       expect(panelCard).not.toBeNull();
-      expect(panelCard!.querySelector('[data-testid="face-down-mark"]')).not.toBeNull();
+      // #964: an away team card shows no "Face down" mark.
+      expect(panelCard!.querySelector('[data-testid="face-down-mark"]')).toBeNull();
     });
 
     it.each([
