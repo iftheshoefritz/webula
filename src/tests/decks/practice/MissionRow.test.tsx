@@ -228,10 +228,25 @@ describe('MissionRow', () => {
       expect(onOpenPile).toHaveBeenCalledWith(0, 'underMission');
     });
 
-    it('opens nothing on a tap of the bottom half', () => {
+    it('opens nothing on a tap of the bottom half when the away team is empty', () => {
       const onOpenPile = renderRow(threeDilemmas());
       tapMission(50);
       expect(onOpenPile).not.toHaveBeenCalled();
+    });
+
+    // #967: the bottom half opens the away team panel, the same panel the away team badge opens.
+    it('opens the away team panel on a tap of the bottom half', () => {
+      const onOpenPile = renderRow({ ...threeDilemmas(), awayTeam: [card('p1', 'Personnel One')] });
+      tapMission(50);
+      expect(onOpenPile).toHaveBeenCalledTimes(1);
+      expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
+    });
+
+    it('opens the under-the-mission panel, not the away team, on a tap of the top half', () => {
+      const onOpenPile = renderRow({ ...threeDilemmas(), awayTeam: [card('p1', 'Personnel One')] });
+      tapMission(10);
+      expect(onOpenPile).toHaveBeenCalledTimes(1);
+      expect(onOpenPile).toHaveBeenCalledWith(0, 'underMission');
     });
 
     it('opens nothing on a tap of the top half when no dilemma is under the mission', () => {

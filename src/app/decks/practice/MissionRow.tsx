@@ -625,7 +625,8 @@ function ShipRow({
 }
 
 // True when a tap on the mission card lands on its top half (#917), where the cards under the
-// mission poke out. A tap there opens the under-the-mission panel.
+// mission poke out. A tap there opens the under-the-mission panel, and a tap on the bottom half
+// opens the away team panel (#967).
 function isTopHalfTap(event: React.MouseEvent<HTMLElement>): boolean {
   const rect = event.currentTarget.getBoundingClientRect();
   return event.clientY < rect.top + rect.height / 2;
@@ -741,7 +742,10 @@ function MissionColumn({
                 width={cardWidth}
                 artHeight={cardArtHeight}
                 onClick={(event) => {
-                  if (underMission.length > 0 && isTopHalfTap(event)) onOpenPile(missionIndex, 'underMission');
+                  // Like the badges, a tap opens a pile only when it holds a card.
+                  const pile: MissionPileName = isTopHalfTap(event) ? 'underMission' : 'awayTeam';
+                  const count = pile === 'underMission' ? underMission.length : awayTeam.length;
+                  if (count > 0) onOpenPile(missionIndex, pile);
                 }}
               />
               <MissionHalfTarget
