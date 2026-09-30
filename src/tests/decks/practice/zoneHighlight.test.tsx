@@ -169,7 +169,7 @@ describe('Practice table: valid-zone highlight during a drag (#608)', () => {
     }
   };
 
-  it('highlights the ship rows, the mission cards, the core, and the discard pile while dragging a ship', async () => {
+  it('highlights the mission cards (not the empty ship rows), the core, and the discard pile while dragging a ship', async () => {
     await setupOpenHand([mockShipCard]);
     const [draggedId] = mockDraggableIds;
 
@@ -177,7 +177,8 @@ describe('Practice table: valid-zone highlight during a drag (#608)', () => {
       mockOnDragStart!({ active: { id: draggedId } });
     });
 
-    shipRowZoneIds.forEach((id) => expect(highlightOf(id)).toBe('valid'));
+    // Every ship row is empty here, and an empty row shows no `valid` ring (#947).
+    shipRowZoneIds.forEach((id) => expect(highlightOf(id)).toBeNull());
     missionZoneIds.forEach((id) => expect(highlightOf(id)).toBe('valid'));
     expect(highlightOf('core')).toBe('valid');
     expect(highlightOf('discard')).toBe('valid');
