@@ -258,7 +258,7 @@ bash scripts/practice_drag.sh card-1 crew-card-10        # boards card-1, prints
 bash scripts/practice_drag.sh card-2 crew-card-10        # boards a personnel, places an event on the ship; prints crew-card-10
 ```
 
-A tap on the ship opens its crew panel. A tap on the counter of the cards on the ship opens those cards in their own panel.
+A tap anywhere on the ship, the counter of the cards on it too, opens its crew panel (#963). The crew panel shows the cards on the ship as tiny cards below the ship, and a drag of a tiny card out of the panel takes it off the ship.
 
 A drag out of the core onto a ship has failed once. See #701.
 

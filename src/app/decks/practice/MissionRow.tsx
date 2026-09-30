@@ -32,8 +32,9 @@
 // and every crew card below it (#832; `CardListPanel`, zone `'crew'`, wired up in `page.tsx`), so the badge itself is not a tap
 // target of its own: it is a plain, non-interactive `<span>` with `pointer-events-none`, so a tap
 // that lands on it falls through to the ship's own `TableCard` button beneath. A ship with cards on
-// it shows a second counter, at the other corner, and that one is a button: a tap on it opens the
-// cards on the ship (`onOpenPlacedOn`), apart from the ship's own tap.
+// it shows a second counter, at the other corner (`ShipPlacedOnPill`), and that one is not a tap
+// target either (#963): a tap on it opens the crew panel too, which shows the cards on the ship
+// below the ship (#957). The ship has one tap region.
 //
 // A row of 2 or fewer ships fits every ship side by side within the mission column's own width
 // with no overlap (see `ShipRow`'s `shipMaxOffset` below); a third ship (or later) overlaps the
@@ -138,14 +139,12 @@ export function shipIdFromCrewDropId(id: string): string | null {
 function ShipCard({
   ship,
   onShipClick,
-  onOpenPlacedOn,
   width,
   artHeight,
   badgeHeight,
 }: {
   ship: CardInstance;
   onShipClick: (id: string) => void;
-  onOpenPlacedOn: (targetId: string) => void;
   width: number;
   artHeight: number;
   badgeHeight: number;
@@ -177,24 +176,23 @@ function ShipCard({
         landedNonce={crewLandedNonce}
       />
       {onCount > 0 && (
-        <PlacedOnCounter
-          name={ship.card.name}
-          count={onCount}
-          height={badgeHeight}
-          landedNonce={onLandedNonce}
-          onOpen={() => onOpenPlacedOn(ship.id)}
-        />
+        <ShipPlacedOnPill name={ship.card.name} count={onCount} height={badgeHeight} landedNonce={onLandedNonce} />
       )}
       <LandedRing nonce={landedNonce} />
     </div>
   );
 }
 
-// The count of the cards on a ship (#812) or a mission card (#813), the same plain count pill as a
-// card in the core or the brig (`PlacedOnBadge`, `FlatCardRow.tsx`), at the corner opposite a ship's
-// crew badge. Unlike the crew badge it is a tap target of its own: a sibling `<button>` of the
-// card's own button, so a tap here opens the cards placed on that card and a tap on a ship still
-// opens its crew. It is not a droppable, so a drop on it lands on that card's own droppable beneath.
+const placedOnLabel = (name: string, count: number): string =>
+  `${name}, ${count} card${count === 1 ? '' : 's'} on it`;
+const PLACED_ON_PILL_CLASSNAME =
+  'absolute -top-1 -left-1 z-10 flex items-center rounded-full bg-black/50 px-1 text-text-primary leading-none';
+
+// The count of the cards on a mission card (#813), the same plain count pill as a card in the core
+// or the brig (`PlacedOnBadge`, `FlatCardRow.tsx`). It is a tap target of its own: a sibling
+// `<button>` of the card's own button, so a tap here opens the cards placed on that card. It is
+// not a droppable, so a drop on it lands on that card's own droppable beneath. A ship shows the
+// same pill as `ShipPlacedOnPill` instead, which takes no tap (#963).
 function PlacedOnCounter({
   name,
   count,
@@ -212,14 +210,42 @@ function PlacedOnCounter({
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`${name}, ${count} card${count === 1 ? '' : 's'} on it`}
-      className="absolute -top-1 -left-1 z-10 flex items-center rounded-full bg-black/50 px-1 text-text-primary leading-none"
+      aria-label={placedOnLabel(name, count)}
+      className={PLACED_ON_PILL_CLASSNAME}
       style={{ height: height - 2 }}
     >
       <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
         {count}
       </span>
     </button>
+  );
+}
+
+// The count of the cards on a ship (#812), at the corner opposite the ship's crew badge. Like
+// `ShipCrewBadge` it is a non-interactive `<span>` with `pointer-events-none` (#963), so a tap on it
+// falls through to the ship's `TableCard` and opens the crew panel, which shows the cards on the
+// ship below the ship (#957).
+function ShipPlacedOnPill({
+  name,
+  count,
+  height,
+  landedNonce,
+}: {
+  name: string;
+  count: number;
+  height: number;
+  landedNonce: number | null;
+}) {
+  return (
+    <span
+      aria-label={placedOnLabel(name, count)}
+      className={`${PLACED_ON_PILL_CLASSNAME} pointer-events-none`}
+      style={{ height: height - 2 }}
+    >
+      <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
+        {count}
+      </span>
+    </span>
   );
 }
 
@@ -516,7 +542,6 @@ function ShipRow({
   ships,
   onShipClick,
   onOpenShipRow,
-  onOpenPlacedOn,
   columnWidth,
   scale,
   availableRows,
@@ -525,7 +550,6 @@ function ShipRow({
   ships: CardInstance[];
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
-  onOpenPlacedOn: (targetId: string) => void;
   columnWidth: number;
   scale: number;
   availableRows: number;
@@ -586,7 +610,6 @@ function ShipRow({
                   <ShipCard
                     ship={ship}
                     onShipClick={handleShipTap}
-                    onOpenPlacedOn={onOpenPlacedOn}
                     width={shipCardWidth}
                     artHeight={shipCardArtHeight}
                     badgeHeight={badgeHeight}
@@ -798,7 +821,6 @@ function MissionColumn({
         ships={ships}
         onShipClick={onShipClick}
         onOpenShipRow={onOpenShipRow}
-        onOpenPlacedOn={onOpenPlacedOn}
         columnWidth={cardWidth}
         scale={scale}
         availableRows={shipRows}
@@ -821,7 +843,7 @@ export default function MissionRow({
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
-  // A tap on the counter of the cards on a ship (#812) opens them.
+  // A tap on the counter of the cards on a mission card (#813) opens them.
   onOpenPlacedOn: (targetId: string) => void;
   // A tap on the Flip button of a double-sided mission (#765) turns it over.
   onFlipMission?: (missionId: string) => void;
