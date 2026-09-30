@@ -2152,7 +2152,10 @@ function PracticeDrawContent() {
 
             <DragOverlay modifiers={overlayModifiers}>
               {draggingInstance && (
-                <div className="relative">
+                // dnd-kit measures this, the overlay's only child, as `overlayNodeRect`, and its
+                // wrapper is the size of the source card. `w-fit` keeps this box the size of the
+                // card image, so `centerOnPointer` centres the image, not the source card's width (#955).
+                <div className="relative w-fit">
                   <img
                     src={draggingShowsBack ? '/cardimages/cardback.jpg' : `/cardimages/${draggingInstance.card.imagefile}.jpg`}
                     width={120}
