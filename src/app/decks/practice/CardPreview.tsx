@@ -19,6 +19,14 @@ import type { PreviewSide } from './useCardHold';
 export const FACE_DOWN_LABEL = 'Face down';
 export const FACE_DOWN_BADGE_CLASSNAME = 'bg-black/70 text-text-primary text-xs font-medium px-2 py-1 rounded';
 
+// Issue #946: on a desktop (`(pointer: fine)`) the preview is no taller than 450 px. At 90% of a
+// desktop window it drew the 499 px card image at 720 px and more, and the browser scaled it up
+// until it looked soft. A touch device keeps 90% of the screen. The badge moves down with the
+// top of the smaller card, 225 px above the middle, so it stays over the image.
+export const PREVIEW_IMAGE_SIZE_CLASSNAME = 'h-[90%] [@media(pointer:fine)]:max-h-[450px]';
+export const PREVIEW_BADGE_TOP_CLASSNAME =
+  'top-[6%] [@media(pointer:fine)]:top-[max(6%,calc(50%_-_217px))]';
+
 export default function CardPreview({
   instance,
   hidden = false,
@@ -41,13 +49,13 @@ export default function CardPreview({
         data-testid="card-preview-enlarged"
         src={faceUpImageSrc(instance)}
         alt={card.name}
-        className={`absolute ${edge} top-1/2 -translate-y-1/2 h-[90%] w-auto rounded-lg shadow-2xl ${
+        className={`absolute ${edge} top-1/2 -translate-y-1/2 ${PREVIEW_IMAGE_SIZE_CLASSNAME} w-auto rounded-lg shadow-2xl ${
           instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''
         }`}
       />
 
       {face === 'down' && (
-        <span className={`absolute ${edge} top-[6%] ${FACE_DOWN_BADGE_CLASSNAME}`}>
+        <span className={`absolute ${edge} ${PREVIEW_BADGE_TOP_CLASSNAME} ${FACE_DOWN_BADGE_CLASSNAME}`}>
           {FACE_DOWN_LABEL}
         </span>
       )}

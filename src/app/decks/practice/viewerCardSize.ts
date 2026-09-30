@@ -25,10 +25,18 @@ export function fullCardHeight(width: number): number {
   return Math.round((width * CARD_IMAGE_HEIGHT) / CARD_IMAGE_WIDTH);
 }
 
+// Issue #946: on a desktop (`(pointer: fine)`, see `useFinePointer.ts`) a viewer card is no wider
+// than this, however big the monitor. The table scale has no upper limit, and at 1440 x 800 it
+// drew a panel card 270 px wide. At 170 px the player still reads the name, the cost and the
+// icons, and the hover preview (`CardPreview.tsx`) shows the game text.
+export const DESKTOP_VIEWER_CARD_MAX_WIDTH = 170;
+
 // The viewer card's width and height at a given table `scale`: 108 x 150 at scale 1. Every
 // viewer shows the full card, not the cropped art the table card shows, so a player who opens a
-// panel reads the card's own text there (#806).
-export function viewerCardSize(scale: number): { width: number; height: number } {
-  const width = Math.round(TABLE_CARD_WIDTH * scale * VIEWER_CARD_SCALE);
+// panel reads the card's own text there (#806). `finePointer` caps the width on a desktop (#946);
+// a touch device keeps the size of the table scale.
+export function viewerCardSize(scale: number, finePointer = false): { width: number; height: number } {
+  const scaled = Math.round(TABLE_CARD_WIDTH * scale * VIEWER_CARD_SCALE);
+  const width = finePointer ? Math.min(scaled, DESKTOP_VIEWER_CARD_MAX_WIDTH) : scaled;
   return { width, height: fullCardHeight(width) };
 }
