@@ -79,7 +79,7 @@ import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
 import { dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
-import TableCard, { STOPPED_IMAGE_CLASSNAME, TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH } from './TableCard';
+import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderStyle, TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH } from './TableCard';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
 import OverlapRow from './OverlapRow';
 import { CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
@@ -327,7 +327,7 @@ function CardListPanelCard({
           height={CARD_IMAGE_HEIGHT}
           alt={card.name}
           className={`rounded-md shadow-md h-auto ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
-          style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
+          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
         />
         {/* Bottom left, clear of the select checkbox; it takes no tap, so the card still selects
             and drags. */}
@@ -426,7 +426,7 @@ function PanelHost({
           height={CARD_IMAGE_HEIGHT}
           alt={card.name}
           className={`rounded-md shadow-md ${host.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
-          style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
+          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
         />
       </div>
       {placedOn.length > 0 && (

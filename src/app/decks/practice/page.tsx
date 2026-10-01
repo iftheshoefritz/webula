@@ -65,7 +65,7 @@ import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { ShuffleIcon } from './CardListPanel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
-import { SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
+import { PILE_CARD_BORDER_STYLE, SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 import { useShipRowCount, useTableScale } from './tableScale';
 import { usePanelBottomInset } from './panelBottomInset';
 import { viewerCardSize } from './viewerCardSize';
@@ -437,6 +437,7 @@ function DiscardPileCard({
         height={167}
         alt="Discard pile"
         className="rounded-lg shadow-lg w-14 h-auto"
+        style={PILE_CARD_BORDER_STYLE}
       />
       <CountBadge count={count} landedNonce={landedNonce} />
     </div>
@@ -603,6 +604,7 @@ function PileArt({ alt, shuffleCount }: { alt: string; shuffleCount: number }) {
         height={167}
         alt={alt}
         className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-full h-full object-cover"
+        style={PILE_CARD_BORDER_STYLE}
       />
     </div>
   );
@@ -828,6 +830,7 @@ function DilemmaStackTopCard({
         height={167}
         alt={topCard.card.name}
         className="pointer-events-none rounded-lg shadow-lg w-14 h-auto"
+        style={PILE_CARD_BORDER_STYLE}
       />
     </button>
   );
@@ -938,7 +941,7 @@ function DilemmaStackPile({
             height={167}
             alt={i === 0 ? 'Face-down dilemma stack' : ''}
             className="pointer-events-none absolute left-0 rounded-lg shadow-lg w-14 h-auto"
-            style={{ bottom: i * offset, zIndex: count - i }}
+            style={{ ...PILE_CARD_BORDER_STYLE, bottom: i * offset, zIndex: count - i }}
           />
         )
       )}
@@ -2262,6 +2265,7 @@ function PracticeDrawContent() {
                     height={167}
                     alt={draggingShowsBack ? 'Face-down card' : draggingInstance.card.name}
                     className="rounded-lg shadow-md w-14 h-auto"
+                    style={PILE_CARD_BORDER_STYLE}
                   />
                   {/* Shows how many cards this drag carries (#677), for a multi-select drag. */}
                   {draggingGroup.length > 1 && <CountBadge count={draggingGroup.length} />}

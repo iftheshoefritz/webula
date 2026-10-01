@@ -13,7 +13,7 @@
 
 import { CardInstance } from './tableReducer';
 import { LAYER_CARD_PREVIEW } from '../../../lib/layers';
-import { STOPPED_IMAGE_CLASSNAME, faceUpImageSrc } from './TableCard';
+import { STOPPED_IMAGE_CLASSNAME, cardBorderStyle, faceUpImageSrc } from './TableCard';
 import type { PreviewSide } from './useCardHold';
 
 // The "Face down" badge, shared with the card list panel's mark on a face-down card (#826).
@@ -25,6 +25,8 @@ export const FACE_DOWN_BADGE_CLASSNAME = 'bg-black/70 text-text-primary text-xs 
 // until it looked soft. A touch device keeps 90% of the screen. The badge moves down with the
 // top of the smaller card, 225 px above the middle, so it stays over the image.
 export const PREVIEW_IMAGE_SIZE_CLASSNAME = 'h-[90%] [@media(pointer:fine)]:max-h-[450px]';
+// The black card border (#983), at the width of the 450 px tall desktop preview.
+const PREVIEW_BORDER_STYLE = cardBorderStyle(Math.round((450 * 120) / 167));
 export const PREVIEW_BADGE_TOP_CLASSNAME =
   'top-[6%] [@media(pointer:fine)]:top-[max(6%,calc(50%_-_217px))]';
 
@@ -56,6 +58,7 @@ export default function CardPreview({
         className={`absolute ${edge} top-1/2 -translate-y-1/2 ${PREVIEW_IMAGE_SIZE_CLASSNAME} w-auto rounded-lg shadow-2xl ${
           instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''
         }`}
+        style={PREVIEW_BORDER_STYLE}
       />
 
       {markFaceDown && face === 'down' && (
