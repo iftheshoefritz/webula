@@ -355,6 +355,10 @@ function CardListPanelCard({
   );
 }
 
+// #986: the background of the panel grid, a shade lighter than the dimmed table behind it, so
+// the panel's edge shows without a border.
+export const PANEL_SURFACE_CLASSNAME = 'bg-bg-raised';
+
 // The card the panel's cards belong to, in its own section to the right of the grid (#894): the ship whose crew
 // the panel lists (#832), or the card the listed cards are placed on (#881). The whole card image
 // at the size of a panel card, face up, on a framed box of its own so it does not read as one of
@@ -555,9 +559,11 @@ export default function CardListPanel({
   // cards inside it once they no longer fit. The buttons above stay outside this scrolling
   // element (`shrink-0`), so they never scroll out of view with the cards. The stack's box hugs
   // its one row: `dilemmaStackPopupCollisionDetection` reads its rectangle as "reorder only".
+  // #986: the grid has no border, so its shade alone marks its edge. `PANEL_SURFACE_CLASSNAME` is
+  // lighter than the dimmed table around it, so a tap outside the grid is easy to aim.
   const gridClassName = isDilemmaStack
-    ? 'shrink-0 flex flex-col items-stretch gap-1 rounded-lg bg-black/70 p-2 w-[86vw] overflow-hidden'
-    : `min-h-0 min-w-0 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 ${panelScrollClassName(gridScrolls)} overscroll-contain`;
+    ? `shrink-0 flex flex-col items-stretch gap-1 rounded-lg ${PANEL_SURFACE_CLASSNAME} p-2 w-[86vw] overflow-hidden`
+    : `min-h-0 min-w-0 flex flex-wrap items-start justify-center gap-2 rounded-lg ${PANEL_SURFACE_CLASSNAME} p-2 ${panelScrollClassName(gridScrolls)} overscroll-contain`;
   // The two end labels sit on their own line above the cards, not at the two ends of the card
   // row: a label in the row takes width from the cards, and the row must keep all of its width
   // for them. The line reads left to right, the same order the
