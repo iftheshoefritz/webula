@@ -83,6 +83,35 @@ describe('MissionRow', () => {
     expect(under.style.bottom).toBe('');
   });
 
+  // #990: the top half reaches up over the slivers of the dilemmas under the mission, so a drop on
+  // them, and the marker, cover them too. Two slivers show at most, each 6 px at scale 1.
+  it.each([
+    [0, ''],
+    [1, '-6px'],
+    [3, '-12px'],
+  ])("reaches the mission's top half up over %i dilemma(s) under the mission", (count, top) => {
+    const slot: MissionSlot = {
+      ...emptySlot(),
+      underMission: Array.from({ length: count }, (_, i) => card(`d${i}`, `Dilemma ${i}`)),
+    };
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+      />
+    );
+
+    const under = document.body.querySelector('[data-zone="mission-under-0"]') as HTMLElement;
+    expect(under.style.top).toBe(top);
+    expect(under.style.bottom).toBe('');
+    if (top) expect(under.style.height).toBe(`calc(50% + ${top.slice(1)})`);
+    const stack = document.body.querySelector('[data-testid="mission-under-0-stack"]') as HTMLElement | null;
+    expect(stack?.style.top ?? '').toBe(top);
+  });
+
   // #813: a mission card takes a placed card. It shows a counter of the cards on it, and a tap on the
   // counter opens them.
   it('shows a counter of the cards on the mission card, and a tap on it opens them', () => {
