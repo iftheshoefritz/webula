@@ -73,7 +73,7 @@
 // scrolls, a first move mostly sideways drags. A grid that fits keeps `touch-none` and a drag in
 // any direction.
 
-import { RefObject, useEffect, useRef, useState } from 'react';
+import React, { RefObject, useEffect, useRef, useState } from 'react';
 import { LAYER_CARD_LIST_PANEL } from '../../../lib/layers';
 import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
@@ -85,6 +85,7 @@ import OverlapRow from './OverlapRow';
 import { CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
+import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -464,6 +465,7 @@ export default function CardListPanel({
   onClose,
   selectedIds,
   onToggleSelect,
+  onSelectIds,
   onShuffle,
   onSetStopped,
   onFlip,
@@ -482,6 +484,9 @@ export default function CardListPanel({
   onClose: () => void;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
+  // Replaces the selection with a list of ids (#993), for the box a mouse drag draws. Left out,
+  // no box starts.
+  onSelectIds?: (ids: string[]) => void;
   // Left out for the discard pile (#782), whose panel shows no Shuffle button.
   onShuffle?: () => void;
   // Sets `stopped` to one explicit value on a list of ids (#681), so the "Stop"/"Unstop" button
@@ -539,6 +544,13 @@ export default function CardListPanel({
   // the Jest tests see a grid that fits, and today's `touch-none`.
   const gridRef = useRef<HTMLDivElement | null>(null);
   const gridScrolls = useScrollsVertically(gridRef, !isDilemmaStack, [cards.length, cardWidth, cardHeight]);
+  // #993: a mouse drag from the empty space of the grid, or from the backdrop, draws a box that
+  // selects the cards of the grid it touches (`useBoxSelect.tsx`).
+  const boxSelect = useBoxSelect(gridRef, selectedIds, onSelectIds);
+  const startBoxOnGrid = (event: React.PointerEvent) => {
+    if (event.target instanceof Element && event.target.closest('button')) return;
+    boxSelect.onPointerDown(event);
+  };
   // #802: the panel may use the full height of the game layer. `insetClassName` is a box inset
   // a little from each edge of this component's own `fixed inset-0` box (the same box as the game
   // layer), so the panel follows the layer's height without any `dvh` arithmetic. It lets taps
@@ -596,6 +608,7 @@ export default function CardListPanel({
       data-testid={`card-list-panel-${location}`}
       {...{ [PANEL_SCROLLS_ATTRIBUTE]: gridScrolls ? 'true' : undefined }}
       className={gridClassName}
+      onPointerDown={startBoxOnGrid}
     >
       {isDilemmaStack && (
         <div className="flex flex-row justify-between">
@@ -641,6 +654,7 @@ export default function CardListPanel({
         type="button"
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
+        onPointerDown={boxSelect.onPointerDown}
         aria-label={closeLabel(location)}
       />
       <div className={insetClassName} style={{
@@ -722,6 +736,7 @@ export default function CardListPanel({
         )}
       </div>
       </div>
+      <BoxSelectRect box={boxSelect.box} />
     </div>
   );
 }
