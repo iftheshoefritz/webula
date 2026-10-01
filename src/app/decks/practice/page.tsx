@@ -404,6 +404,8 @@ type FlatPanelLocation = 'core' | 'brig' | 'drawDeck' | 'dilemmaPile' | 'dilemma
 // The same two piles are the ones the table's Shuffle buttons shuffle (`shufflePile`).
 const DOWNLOAD_HAND = { drawDeck: 'hand', dilemmaPile: 'dilemmaHand' } as const;
 type DownloadPile = keyof typeof DOWNLOAD_HAND;
+// The deck each hand's "→ top" and "→ bottom" buttons send its selected cards to (#994).
+const HAND_DECK = { hand: 'drawDeck', dilemmaHand: 'dilemmaPile' } as const;
 const isDownloadPile = (location: FlatPanelLocation): location is DownloadPile => location in DOWNLOAD_HAND;
 
 // The discard pile's top card, draggable off the pile (#606 review): a dilemma dragged from here
@@ -1383,6 +1385,22 @@ function PracticeDrawContent() {
     shufflePile(pile);
   };
 
+  // Sends the selected cards of an open hand to the top or the bottom of its deck (#994), with the
+  // same `move` a drop on a half of that deck dispatches: the draw deck for the hand, the dilemma
+  // pile for the dilemma hand. The cards keep the order of the hand, so a 'top' send dispatches
+  // them in reverse, as a 'top' drop does (#677). The hand closes once it runs empty, and the
+  // selection clears either way.
+  const sendHandSelectionToDeck = (hand: 'hand' | 'dilemmaHand', position: 'top' | 'bottom') => {
+    const deck = HAND_DECK[hand];
+    const ids = table[hand].filter((c) => selectedCardIds.includes(c.id)).map((c) => c.id);
+    const ordered = position === 'top' ? [...ids].reverse() : ids;
+    const actions: Extract<TableAction, { type: 'move' }>[] = ordered.map((id) => ({ type: 'move', id, to: deck, position }));
+    actions.forEach((action) => dispatch(action));
+    markLanded(actions);
+    if (table[hand].length === ids.length) setOpenHand(null);
+    setSelectedCardIds([]);
+  };
+
   // A tap on a ship opens its crew panel, which shows the ship in its own section above the
   // crew (#832). A ship with no crew opens the panel too, with an empty crew area.
   const handleShipClick = (shipId: string) => {
@@ -2045,6 +2063,7 @@ function PracticeDrawContent() {
                       selectedIds={selectedCardIds}
                       onToggleSelect={toggleCardSelection}
                       onSelectIds={setSelectedCardIds}
+                      onSendSelected={(position) => sendHandSelectionToDeck('hand', position)}
                       openCardWidth={viewerCardWidth}
                       bottomInset={panelBottom}
                     />
@@ -2105,6 +2124,8 @@ function PracticeDrawContent() {
                     selectedIds={selectedCardIds}
                     onToggleSelect={toggleCardSelection}
                     onSelectIds={setSelectedCardIds}
+                    onSendSelected={(position) => sendHandSelectionToDeck('dilemmaHand', position)}
+                    deckLabel="dilemma pile"
                   />
 
                   {/* Dilemma pile, with the shuffle button and the search button above it
