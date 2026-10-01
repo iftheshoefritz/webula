@@ -128,6 +128,7 @@ export interface TableState {
   brig: CardInstance[];
   // The dilemma pile and the dilemma hand (#604) are two more flat zones: the pile starts
   // shuffled and face down like the draw deck, and a tap moves one card to the hand, face up.
+  // A dilemma sent to the bottom of the pile is face up until the next shuffle (#987).
   dilemmaPile: CardInstance[];
   dilemmaHand: CardInstance[];
   // The dilemma stack (#733): a face-down stack of dilemmas, no longer tied to a mission slot.
@@ -164,8 +165,9 @@ export type TableAction =
   | { type: 'flipMission'; id: string }
   // Puts the cards of one card list panel's location in a random order (#680): the order in the table
   // state itself, not just the panel's display order, so the table and the next time the panel
-  // opens both show the same shuffled order. Never changes a card's face, a ship's crew, or any
-  // other field of a card instance — only the order of the array at that location.
+  // opens both show the same shuffled order. Never changes a ship's crew or any other field of a
+  // card instance, and changes a card's face only in the dilemma pile, which it turns face down
+  // (#987).
   | { type: 'shuffle'; location: ShuffleLocation }
   // Moves one card of the dilemma stack to sit where another card of the same stack currently
   // sits (#632): a drag inside the stack's own popup, dropped on top of a neighbour, reorders the
@@ -521,7 +523,16 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // keeps the card's current face; a move to a different location takes on that location's
       // face.
       const toSameLocation = sameLocation(from, action.to);
-      const face = toSameLocation ? card.face : faceForLocation(action.to);
+      // A dilemma that goes to the bottom of the dilemma pile stays face up until a shuffle
+      // (#987), and one that goes to the top is face down, even when it was already in the pile.
+      const face =
+        action.to === 'dilemmaPile'
+          ? action.position === 'top'
+            ? ZONE_FACE.dilemmaPile
+            : 'up'
+          : toSameLocation
+          ? card.face
+          : faceForLocation(action.to);
       const withoutCard = cardsAt(state, from).filter((c) => c.id !== action.id);
       const afterRemoval = withCardsAt(state, from, withoutCard);
 
@@ -605,7 +616,13 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // `ShuffleLocation` ('core' | 'brig' | CrewLocation | MissionPileLocation) is a subset of
       // `MoveTarget`, so `cardsAt`/`withCardsAt` already read and write the right array for it.
       const cards = cardsAt(state, action.location);
-      return withCardsAt(state, action.location, shuffleArray(cards));
+      // A shuffle of the dilemma pile turns its face-up dilemmas face down again (#987).
+      const shuffled = shuffleArray(cards);
+      return withCardsAt(
+        state,
+        action.location,
+        action.location === 'dilemmaPile' ? shuffled.map((c) => ({ ...c, face: ZONE_FACE.dilemmaPile })) : shuffled
+      );
     }
 
     case 'reorderDilemmaStack': {

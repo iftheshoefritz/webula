@@ -70,6 +70,15 @@ describe('savedGame', () => {
     expect(restored!.maxInstanceId).toBe(12);
   });
 
+  it('keeps a face-up dilemma at the bottom of the dilemma pile face up (#987)', () => {
+    const table = tableReducer(dealtTable(), { type: 'move', id: 'card-2', to: 'dilemmaPile', position: 'bottom' });
+    const restored = fromSavedGame(JSON.stringify(toSavedGame(table, deck, 'builder')), deck)!;
+    expect(restored.table.dilemmaPile.map((c) => [c.id, c.face])).toEqual([
+      ['card-4', 'down'],
+      ['card-2', 'up'],
+    ]);
+  });
+
   it('keeps the two rows that share a collectorsinfo apart', () => {
     const restored = fromSavedGame(JSON.stringify(toSavedGame(dealtTable(), deck, 'builder')), deck)!;
     expect(restored.table.drawDeck[0].card.name).toBe('Card 1P1');
