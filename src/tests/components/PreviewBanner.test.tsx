@@ -8,6 +8,11 @@ describe('PreviewBanner', () => {
     expect(screen.getByText('Preview links:')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '/decks' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '/decks?fixture=1' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '/decks/practice?fixture=1' })).toHaveAttribute('href', '/decks/practice?fixture=1');
+    expect(screen.getByRole('link', { name: '/decks/practice?fixture=1&reset=1' })).toHaveAttribute(
+      'href',
+      '/decks/practice?fixture=1&reset=1',
+    );
     expect(screen.getByRole('link', { name: '/decks/reports?fixture=1' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '/api/auth/signin' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '/api/auth/signout' })).toBeInTheDocument();
