@@ -104,6 +104,20 @@ const renderPage = async () => {
   return result!;
 };
 
+// The saves written to `key`, from a spy on `localStorage.setItem`.
+const savesWritten = (spy: jest.SpyInstance, key: string) =>
+  spy.mock.calls.filter(([k]) => k === key).map(([, value]) => JSON.parse(value as string));
+
+// A save of the empty `initialTableState`: no card in any zone and no mission (#1005).
+const isEmptyTable = (table: Record<string, unknown>) =>
+  Object.entries(table).every(([zone, value]) =>
+    zone === 'missions'
+      ? (value as Record<string, unknown>[]).every((slot) =>
+          Object.values(slot).every((pile) => pile === null || (Array.isArray(pile) && pile.length === 0)),
+        )
+      : !Array.isArray(value) || value.length === 0,
+  );
+
 describe('Saved practice game (#976)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -210,6 +224,30 @@ describe('Saved practice game (#976)', () => {
     await renderPage();
     expect(await drawPileCount()).toBe(3);
     expect(handLabel()).toHaveAccessibleName(/^hand, 7 cards/i);
+  });
+
+  it('never writes an empty table over a valid save on a restore (#1005)', async () => {
+    const first = await renderPage();
+    await drawOne();
+    first.unmount();
+
+    const setItem = jest.spyOn(Storage.prototype, 'setItem');
+    await renderPage();
+    expect(await drawPileCount()).toBe(2);
+
+    const saves = savesWritten(setItem, 'practiceGame');
+    expect(saves.length).toBeGreaterThan(0);
+    saves.forEach((save) => expect(isEmptyTable(save.table)).toBe(false));
+  });
+
+  it('never writes an empty table on a first visit with no save (#1005)', async () => {
+    const setItem = jest.spyOn(Storage.prototype, 'setItem');
+    await renderPage();
+    expect(await drawPileCount()).toBe(3);
+
+    const saves = savesWritten(setItem, 'practiceGame');
+    expect(saves.length).toBeGreaterThan(0);
+    saves.forEach((save) => expect(isEmptyTable(save.table)).toBe(false));
   });
 
   it('keeps playing when the write throws', async () => {
