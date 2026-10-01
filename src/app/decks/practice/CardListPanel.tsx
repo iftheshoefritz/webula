@@ -588,6 +588,12 @@ export default function CardListPanel({
   const showStopButton = onSetStopped !== undefined && selectedPersonnel.length > 0;
   const allSelectedStopped = showStopButton && selectedPersonnel.every((instance) => instance.stopped);
   const handleStopTap = () => onSetStopped?.(selectedPersonnel.map((instance) => instance.id), !allSelectedStopped);
+  // #995: a ship's crew panel and a mission's away team panel also get "Stop all", which stops
+  // every personnel card of the panel, with or without a selection. It is disabled once every
+  // personnel card there is already stopped.
+  const showStopAllButton = onSetStopped !== undefined && (location === 'crew' || location === 'awayTeam');
+  const unstoppedPersonnel = cards.filter((instance) => instance.card.type === 'personnel' && !instance.stopped);
+  const handleStopAllTap = () => onSetStopped?.(unstoppedPersonnel.map((instance) => instance.id), true);
   const selectedInPanel = cards.filter((instance) => selectedIds.includes(instance.id));
   const showFlipButton = onFlip !== undefined && selectedInPanel.length > 0;
   const handleFlipTap = () => onFlip?.(selectedInPanel.map((instance) => instance.id));
@@ -665,8 +671,8 @@ export default function CardListPanel({
         }}
       >
       <div className={layoutClassName} style={location === 'crew' ? { minHeight: crewPanelMinHeight(cardHeight) } : undefined}>
-        {(showDownloadButton || showStopButton || showFlipButton || showDiscardButton || onShuffle) && (
-          <div data-testid="panel-controls" className="shrink-0 flex flex-row items-start gap-2">
+        {(showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || onShuffle) && (
+          <div data-testid="panel-controls" className="shrink-0 flex flex-row flex-wrap justify-center items-start gap-2">
             {/* The Download button (#827) shows whenever the panel is given `onDownload`, first in
                 the row, and stays disabled until a card is selected. The Discard button does the same (#902). */}
             {showDownloadButton && (
@@ -682,6 +688,16 @@ export default function CardListPanel({
             {showStopButton && (
               <button type="button" onClick={handleStopTap} className="btn-primary">
                 {allSelectedStopped ? 'Unstop' : 'Stop'}
+              </button>
+            )}
+            {showStopAllButton && (
+              <button
+                type="button"
+                onClick={handleStopAllTap}
+                disabled={unstoppedPersonnel.length === 0}
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Stop all
               </button>
             )}
             {showFlipButton && (
