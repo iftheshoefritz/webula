@@ -1,6 +1,6 @@
-// #986: the card list panel has no border, and its grid used the same near-black shade as the
-// dimmed table behind it, so the edge of the panel did not show. The grid now takes its own
-// lighter shade, `bg-bg-raised`, and the dimming backdrop keeps its own.
+// #986: the card list panel's grid used the same near-black shade as the dimmed table behind it,
+// so the edge of the panel did not show. #1016: the grid keeps its old `bg-black/70` background,
+// and a border in the raised shade, `border-bg-raised`, marks its edge.
 jest.mock('@dnd-kit/core', () => ({
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false }),
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
@@ -36,28 +36,32 @@ const renderPanel = (location: 'core' | 'dilemmaStack', type?: string) =>
     />
   );
 
-describe('Practice table: the card list panel has its own shade (#986)', () => {
-  it('gives the grid the raised shade and no border', () => {
+const expectPanelSurface = (className: string) => {
+  const classes = className.split(/\s+/);
+  expect(classes).toContain('bg-black/70');
+  expect(classes).toContain('border');
+  expect(classes).toContain('border-bg-raised');
+  expect(classes).not.toContain('bg-bg-raised');
+};
+
+describe('Practice table: the card list panel has a border in the raised shade (#986, #1016)', () => {
+  it('gives the grid the old dark background and a raised-shade border', () => {
     renderPanel('core');
 
-    const grid = screen.getByTestId('card-list-panel-core');
-    expect(PANEL_SURFACE_CLASSNAME).toBe('bg-bg-raised');
-    expect(grid.className.split(/\s+/)).toContain('bg-bg-raised');
-    expect(grid.className).not.toMatch(/\bbg-black\//);
-    expect(grid.className).not.toMatch(/(^|\s)border(\s|-)/);
+    expect(PANEL_SURFACE_CLASSNAME).toBe('bg-black/70 border border-bg-raised');
+    expectPanelSurface(screen.getByTestId('card-list-panel-core').className);
   });
 
-  it('gives the dilemma stack grid the same shade', () => {
+  it('gives the dilemma stack grid the same background and border', () => {
     renderPanel('dilemmaStack', 'dilemma');
 
-    const grid = screen.getByTestId('card-list-panel-dilemmaStack');
-    expect(grid.className.split(/\s+/)).toContain('bg-bg-raised');
+    expectPanelSurface(screen.getByTestId('card-list-panel-dilemmaStack').className);
   });
 
-  it('keeps a different shade on the backdrop behind the grid', () => {
+  it('keeps the border off the backdrop behind the grid', () => {
     renderPanel('core');
 
     const backdrop = screen.getByRole('button', { name: /close/i });
-    expect(backdrop.className).not.toContain('bg-bg-raised');
+    expect(backdrop.className).not.toContain('border-bg-raised');
   });
 });
