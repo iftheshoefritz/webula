@@ -443,6 +443,10 @@ const UNDER_MISSION_SLIVER_FRACTION = 0.1;
 const underMissionSliver = (cardArtHeight: number): number =>
   Math.max(1, Math.round(cardArtHeight * UNDER_MISSION_SLIVER_FRACTION));
 
+// How far, in px, the stack of slivers pokes out above the mission card: 0 for an empty pile.
+const underMissionStackHeight = (cardArtHeight: number, count: number): number =>
+  underMissionSliver(cardArtHeight) * Math.min(count, UNDER_MISSION_MAX_VISIBLE);
+
 // `page.tsx`'s own `p-4` padding above the mission row, which the stack pokes into.
 const TABLE_TOP_PADDING = 16; // px
 
@@ -481,7 +485,7 @@ function UnderMissionStack({
   if (cards.length === 0) return null;
   const sliver = underMissionSliver(cardArtHeight);
   const shown = cards.slice(-UNDER_MISSION_MAX_VISIBLE);
-  const stackHeight = sliver * shown.length;
+  const stackHeight = underMissionStackHeight(cardArtHeight, cards.length);
 
   return (
     <div
@@ -668,7 +672,8 @@ function MissionHalfTarget({
   split: boolean;
   draggedType: string | null;
   eitherOver: boolean;
-  // How far, in px, the bottom half reaches down past the card (#924), over the badge strip.
+  // How far, in px, the half reaches past the card: the bottom half down over the badge strip
+  // (#924), the top half up over the dilemmas under the mission (#990).
   reach?: number;
 }) {
   const highlight = highlightState('mission', draggedType, split ? droppable.isOver : eitherOver);
@@ -680,7 +685,11 @@ function MissionHalfTarget({
       className={`absolute inset-x-0 h-1/2 pointer-events-none ${half === 'under' ? 'top-0 rounded-t-lg' : 'bottom-0 rounded-b-lg'} ${
         split ? highlightClassName(highlight) : ''
       }`}
-      style={reach > 0 ? { bottom: -reach, height: `calc(50% + ${reach}px)` } : undefined}
+      style={
+        reach > 0
+          ? { [half === 'under' ? 'top' : 'bottom']: -reach, height: `calc(50% + ${reach}px)` }
+          : undefined
+      }
     >
       {split && droppable.isOver && (
         <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white bg-black/60 rounded">
@@ -730,6 +739,8 @@ function MissionColumn({
   // The bottom half reaches over the gap and the badge strip below the card (#924), so a drop on
   // the away team badge routes as a drop on the mission card does.
   const onReach = COLUMN_GAP + badgeHeight;
+  // The top half reaches up over the slivers of the dilemmas under the mission (#990).
+  const underReach = underMissionStackHeight(cardArtHeight, underMission.length);
 
   return (
     <div className="flex flex-col items-center" style={{ width: cardWidth, gap: COLUMN_GAP }}>
@@ -780,6 +791,7 @@ function MissionColumn({
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}
+                reach={underReach}
               />
               {onCount > 0 && (
                 <PlacedOnCounter
@@ -819,6 +831,7 @@ function MissionColumn({
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}
+                reach={underReach}
               />
             </div>
           )}
