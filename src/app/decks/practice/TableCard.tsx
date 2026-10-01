@@ -24,6 +24,7 @@
 // `listeners`/`attributes`/`setNodeRef` on the same element that has the `onClick`. dnd-kit only returns `listeners` when the draggable is enabled, so a
 // non-draggable table card (a mission) can spread them unconditionally with no effect.
 
+import type { CSSProperties } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
@@ -50,6 +51,22 @@ export const fullCardHeight = (width: number): number => Math.round((width * 167
 // stopped card shows the card back with this same style, since it applies to the `<img>`
 // regardless of which image it renders.
 export const STOPPED_IMAGE_CLASSNAME = 'grayscale opacity-50';
+
+// The black card border (#983). A card image has white outside its rounded corners, and the deck
+// builder and the card search cover it with a black border 6 px wide on a card about 240 px wide.
+// A card on the practice table draws the same border at the same share of its width, and never
+// thinner than 2 px. An outline with a negative offset draws over the image itself, so the border
+// covers the corners and the card keeps its size.
+const CARD_BORDER_SHARE = 6 / 240;
+export function cardBorderWidth(cardWidth: number): number {
+  return Math.max(2, Math.round(cardWidth * CARD_BORDER_SHARE));
+}
+export function cardBorderStyle(cardWidth: number): CSSProperties {
+  const border = cardBorderWidth(cardWidth);
+  return { outline: `${border}px solid black`, outlineOffset: -border };
+}
+// The border of a card that is 56 px wide (`w-14`), the card of a pile and of a drag.
+export const PILE_CARD_BORDER_STYLE = cardBorderStyle(56);
 
 // The image of a card's face-up side (#765): the back face of a flipped double-sided mission, or
 // the front of every other card. This is never `cardback.jpg`; a caller that shows a face-down
@@ -116,7 +133,7 @@ export default function TableCard({
             src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
             alt={isFaceDown ? 'Face-down card' : card.name}
             className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
-            style={NO_CALLOUT_STYLE}
+            style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
           />
         </div>
       </div>

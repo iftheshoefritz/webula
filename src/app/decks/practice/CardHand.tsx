@@ -31,6 +31,7 @@ import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
+import { PILE_CARD_BORDER_STYLE, cardBorderStyle } from './TableCard';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -94,7 +95,7 @@ function DraggableFanCard({
           height={167}
           alt={card.name}
           className="rounded-lg shadow-md h-auto"
-          style={{ ...NO_CALLOUT_STYLE, width }}
+          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width), width }}
         />
       </button>
       <button
@@ -239,7 +240,7 @@ export default function CardHand({
               height={167}
               alt=""
               className="absolute top-0 rounded-lg shadow-md w-14 h-auto"
-              style={{ left: idx * closedOffset, zIndex: idx + 1 }}
+              style={{ ...PILE_CARD_BORDER_STYLE, left: idx * closedOffset, zIndex: idx + 1 }}
             />
           ))
         )}
