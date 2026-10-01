@@ -2098,13 +2098,15 @@ function PracticeDrawContent() {
               </div>
 
               {/* The large card preview, shown only while a card is held (`useCardHold`). It is
-                  read-only and takes no pointer events. `hidden` hides it during a drag. */}
+                  read-only and takes no pointer events. `hidden` hides it during a drag. A hover preview
+                  does not dim the table (#985). */}
               {held && (
                 <CardPreview
                   instance={held.instance}
                   hidden={draggingInstance !== null}
                   side={heldCardId ? heldSide : hoveredSide}
                   markFaceDown={!isAwayTeamZone(held.zone)}
+                  dim={heldCardId !== null}
                 />
               )}
 
