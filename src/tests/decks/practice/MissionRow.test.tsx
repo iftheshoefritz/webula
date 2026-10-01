@@ -4,9 +4,10 @@ jest.mock('@dnd-kit/core', () => ({
 }));
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import MissionRow, { underMissionHeadroom } from '../../../app/decks/practice/MissionRow';
 import CountBadge from '../../../app/decks/practice/CountBadge';
+import { CardHoldProvider, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableReducer';
 
 const card = (id: string, name: string): CardInstance => ({
@@ -299,6 +300,53 @@ describe('MissionRow', () => {
       const onOpenPile = renderRow(emptySlot());
       tapMission(10);
       expect(onOpenPile).not.toHaveBeenCalled();
+    });
+
+    // #1012: the slivers sit on top of the top half, so they take its tap and its hold.
+    it('opens the under-the-mission panel on a tap of a sliver', () => {
+      const onOpenPile = renderRow(threeDilemmas());
+      fireEvent.click(document.body.querySelector('[data-card-id="d2"]')!);
+      expect(onOpenPile).toHaveBeenCalledTimes(1);
+      expect(onOpenPile).toHaveBeenCalledWith(0, 'underMission');
+    });
+
+    it('opens the under-the-mission panel on a tap of the count badge', () => {
+      const onOpenPile = renderRow(threeDilemmas());
+      const stack = document.body.querySelector('[data-testid="mission-under-0-stack"]')!;
+      fireEvent.click(stack.querySelector('span[aria-hidden="true"] > span')!);
+      expect(onOpenPile).toHaveBeenCalledTimes(1);
+      expect(onOpenPile).toHaveBeenCalledWith(0, 'underMission');
+    });
+
+    it('opens the panel once from the hidden button', () => {
+      const onOpenPile = renderRow(threeDilemmas());
+      fireEvent.click(screen.getByRole('button', { name: /under the mission pile, 3 cards, tap to open/i }));
+      expect(onOpenPile).toHaveBeenCalledTimes(1);
+    });
+
+    it('previews the mission on a hold of a sliver', () => {
+      jest.useFakeTimers();
+      try {
+        const startHold = jest.fn();
+        render(
+          <CardHoldProvider value={{ startHold, endHold: () => {}, startHover: () => {}, endHover: () => {} }}>
+            <MissionRow
+              missions={[threeDilemmas()]}
+              onOpenPile={() => {}}
+              onShipClick={() => {}}
+              onOpenShipRow={() => {}}
+              onOpenPlacedOn={() => {}}
+            />
+          </CardHoldProvider>
+        );
+        fireEvent.pointerDown(document.body.querySelector('[data-card-id="d3"]')!, { button: 0 });
+        act(() => {
+          jest.advanceTimersByTime(HOLD_DELAY_MS);
+        });
+        expect(startHold).toHaveBeenCalledWith('mission-0', expect.anything());
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 });

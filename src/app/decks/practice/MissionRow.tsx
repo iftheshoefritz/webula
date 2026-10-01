@@ -68,8 +68,9 @@
 // team's panel (`CardListPanel`). A tap on the top half of the mission card opens the
 // under-the-mission pile's panel (#917), and does nothing when no dilemma is under the mission; a
 // tap on the bottom half does nothing, and a hold on either half previews the mission. The
-// under-the-mission pile has no badge and no visible tap target of its own (`UnderMissionStack`
-// below), since the drop happens on the mission card's own drop target.
+// under-the-mission pile has no drop target of its own (`UnderMissionStack` below), since the drop
+// happens on the mission card's own drop target; a tap on its slivers opens its panel, the same as
+// a tap on the top half (#1012).
 
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName, MissionSlot } from './tableReducer';
@@ -85,6 +86,7 @@ import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, landedBumpClassName, useLandedNonce } from './LandedZoneContext';
 import CountBadge from './CountBadge';
+import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
 // `BADGE_STRIP_HEIGHT_BASE`'s comment describes. `page.tsx` passes down a `scale`, computed by
@@ -478,9 +480,11 @@ export function underMissionHeadroom(scale: number, desktop = false): number {
 // The dilemmas placed under the mission (#606), rendered face up and stacked directly behind the
 // mission card in z-order, each poking a small sliver out above the mission card's top edge
 // (#641). Absolutely positioned within the mission's own relatively positioned drop target
-// (`MissionColumn` below), so an empty pile renders nothing and reserves no space. The sliver
-// band has no tap target of its own (#917): a tap on the top half of the mission card opens the
-// pile's panel (`CardListPanel`). A visually hidden button keeps the pile's name and count for a
+// (`MissionColumn` below), so an empty pile renders nothing and reserves no space. The stack sits on
+// top of the mission's top drop half (#990), so it takes the taps of that half itself (#1012): a
+// tap on a sliver, or on the count badge, opens the pile's panel (`CardListPanel`), and a hold
+// previews the mission (`holdId`), the same as on the top half of the mission card. A visually
+// hidden button keeps the pile's name and count for a
 // screen reader and a keyboard, and `practice_drag.sh` reads its aria-label. The card images have
 // no click handling of their own (`pointer-events-none`). The stack is not a drop target (#861), so
 // it has no `data-zone`; its `data-testid`, `mission-under-<index>-stack` (#920), names the
@@ -492,6 +496,7 @@ function UnderMissionStack({
   cardWidth,
   cardArtHeight,
   uncropped,
+  holdId,
 }: {
   missionIndex: number;
   cards: CardInstance[];
@@ -499,8 +504,11 @@ function UnderMissionStack({
   cardWidth: number;
   cardArtHeight: number;
   uncropped: boolean;
+  // The mission card a hold on the slivers previews; none in a mission slot with no mission card.
+  holdId?: string;
 }) {
   const landedNonce = useLandedNonce(missionPileDropId(missionIndex, 'underMission'));
+  const holdListeners = useCardHold(holdId ?? '');
   if (cards.length === 0) return null;
   const sliver = underMissionSliver(cardArtHeight);
   const shown = cards.slice(-UNDER_MISSION_MAX_VISIBLE);
@@ -509,9 +517,11 @@ function UnderMissionStack({
   return (
     <div
       data-testid={underMissionStackTestId(missionIndex)}
-      className="absolute inset-x-0"
-      style={{ top: -stackHeight, height: stackHeight }}
+      className="absolute inset-x-0 touch-manipulation"
+      style={{ ...NO_CALLOUT_STYLE, top: -stackHeight, height: stackHeight }}
       data-landed={landedNonce !== null || undefined}
+      {...(holdId ? holdListeners : {})}
+      onClick={() => onOpen(missionIndex, 'underMission')}
     >
       {shown.map((card, i) => (
         <div
@@ -531,14 +541,18 @@ function UnderMissionStack({
       ))}
       <button
         type="button"
-        onClick={() => onOpen(missionIndex, 'underMission')}
+        onClick={(event) => {
+          // The stack's own tap handler opens the same panel, so the click stops here.
+          event.stopPropagation();
+          onOpen(missionIndex, 'underMission');
+        }}
         aria-label={`${PILE_NOUN.underMission}, ${cards.length} card${
           cards.length === 1 ? '' : 's'
         }, tap to open`}
         className="sr-only"
       />
       {/* The same count badge as the draw deck, the hands, and the discard pile (#996). The
-          hidden button above already names the count, and a tap falls through to the mission.
+          hidden button above already names the count, and a tap falls through to the stack.
           The stack sits at the very top of the table, so the wrapper moves the badge down by its
           `-top-2` overhang: without it the top of the badge is cut off by the viewport. */}
       <span aria-hidden="true" className="absolute inset-x-0 top-2 pointer-events-none">
@@ -806,6 +820,7 @@ function MissionColumn({
           cardWidth={cardWidth}
           cardArtHeight={cardArtHeight}
           uncropped={desktop}
+          holdId={mission?.id}
         />
 
         <div className="relative z-10 w-full flex items-center justify-center">
