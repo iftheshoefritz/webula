@@ -154,17 +154,62 @@ describe('Saved practice game (#976)', () => {
     expect(handLabel()).toHaveAccessibleName(/^hand, 7 cards/i);
   });
 
-  it('neither reads nor writes practiceGame on a fixture route', async () => {
+  it('keeps the fixture game under its own key and leaves practiceGame alone', async () => {
     (deckFromTsv as jest.Mock).mockReturnValue(builderDeck);
     localStorage.setItem('practiceGame', 'seeded save');
     mockSearchParamsValue = new URLSearchParams('fixture=1');
-    const getItem = jest.spyOn(Storage.prototype, 'getItem');
+
+    const first = await renderPage();
+    await drawOne();
+    first.unmount();
+    expect(localStorage.getItem('practiceGame')).toBe('seeded save');
+    expect(localStorage.getItem('practiceGame:fixture=1')).not.toBeNull();
 
     await renderPage();
-    await drawOne();
+    expect(await drawPileCount()).toBe(2);
+    expect(handLabel()).toHaveAccessibleName(/^hand, 8 cards/i);
+  });
 
-    expect(getItem).not.toHaveBeenCalledWith('practiceGame');
-    expect(localStorage.getItem('practiceGame')).toBe('seeded save');
+  it('keeps the ?fixture=piles game apart from the ?fixture=1 game', async () => {
+    (deckFromTsv as jest.Mock).mockReturnValue(builderDeck);
+    mockSearchParamsValue = new URLSearchParams('fixture=1');
+    const first = await renderPage();
+    await drawOne();
+    first.unmount();
+
+    mockSearchParamsValue = new URLSearchParams('fixture=piles');
+    await renderPage();
+    expect(localStorage.getItem('practiceGame:fixture=piles')).not.toBeNull();
+    expect(localStorage.getItem('practiceGame:fixture=1')).not.toEqual(localStorage.getItem('practiceGame:fixture=piles'));
+  });
+
+  it('deals a new game with ?reset=1 and replaces the save', async () => {
+    const first = await renderPage();
+    await drawOne();
+    first.unmount();
+
+    mockSearchParamsValue = new URLSearchParams('reset=1');
+    const second = await renderPage();
+    expect(await drawPileCount()).toBe(3);
+    expect(handLabel()).toHaveAccessibleName(/^hand, 7 cards/i);
+    second.unmount();
+
+    mockSearchParamsValue = new URLSearchParams();
+    await renderPage();
+    expect(await drawPileCount()).toBe(3);
+  });
+
+  it('deals a new fixture game with ?fixture=1&reset=1', async () => {
+    (deckFromTsv as jest.Mock).mockReturnValue(builderDeck);
+    mockSearchParamsValue = new URLSearchParams('fixture=1');
+    const first = await renderPage();
+    await drawOne();
+    first.unmount();
+
+    mockSearchParamsValue = new URLSearchParams('fixture=1&reset=1');
+    await renderPage();
+    expect(await drawPileCount()).toBe(3);
+    expect(handLabel()).toHaveAccessibleName(/^hand, 7 cards/i);
   });
 
   it('keeps playing when the write throws', async () => {

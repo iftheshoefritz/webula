@@ -961,8 +961,10 @@ function DilemmaStackPile({
   );
 }
 
-// The localStorage key of the saved practice game (#976).
+// The localStorage key of the saved practice game (#976). A fixture route keeps its game under
+// its own key, so a fixture visit never overwrites the player's game.
 const PRACTICE_GAME_KEY = 'practiceGame';
+const practiceGameKey = (fixture: string | null) => (fixture ? `${PRACTICE_GAME_KEY}:fixture=${fixture}` : PRACTICE_GAME_KEY);
 
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
@@ -971,6 +973,10 @@ function PracticeDrawContent() {
   // away team and a crewed ship, for the card list panel checks.
   const isPilesFixture = fixture === 'piles';
   const isFixture = fixture === '1' || isPilesFixture;
+  const gameKey = practiceGameKey(isFixture ? fixture : null);
+  // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
+  // Browser checks use it with `?fixture=1` to start from the same table every time.
+  const isReset = searchParams.get('reset') === '1';
   const { data, loading } = useDataFetching();
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
   const { drawDeck, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
@@ -1140,14 +1146,21 @@ function PracticeDrawContent() {
     saveReadyRef.current = true;
   };
 
-  // Restores the game saved under `practiceGame` (#976). Returns false when there is none, or
+  // Restores the game saved under `gameKey` (#976). Returns false when there is none, or
   // when `fromSavedGame` drops it, for example after an edit of the deck in the deck builder.
+  // A fixture save is compared with the fixture deck, so it needs `data`.
   const restoreSavedGame = (): boolean => {
     try {
-      const raw = localStorage.getItem(PRACTICE_GAME_KEY);
+      if (isFixture && (loading || data.length === 0)) return false;
+      const raw = localStorage.getItem(gameKey);
       if (!raw) return false;
-      const currentRaw = localStorage.getItem('currentDeck');
-      const currentDeck: DeckList = currentRaw ? JSON.parse(currentRaw) : {};
+      let currentDeck: DeckList;
+      if (isFixture) {
+        currentDeck = deckFromTsv(PRACTICE_DECK_TSV, data);
+      } else {
+        const currentRaw = localStorage.getItem('currentDeck');
+        currentDeck = currentRaw ? JSON.parse(currentRaw) : {};
+      }
       const restored = fromSavedGame(raw, currentDeck);
       if (!restored) return false;
       seedInstanceIds(restored.maxInstanceId);
@@ -1187,12 +1200,12 @@ function PracticeDrawContent() {
     }
   };
 
-  // A fixture route neither reads nor writes `practiceGame` (#976). Elsewhere the first run
-  // restores the saved game when there is one, and a restored game is never dealt over by the
-  // later run that `data` starts.
+  // The first run restores the saved game when there is one (#976), and a restored game is never
+  // dealt over by the later run that `data` starts. A fixture route restores only once `data` is
+  // there. `?reset=1` skips the restore.
   useEffect(() => {
     if (restoredRef.current) return;
-    if (!isFixture && !saveReadyRef.current && restoreSavedGame()) {
+    if (!isReset && !saveReadyRef.current && restoreSavedGame()) {
       restoredRef.current = true;
       return;
     }
@@ -1202,14 +1215,14 @@ function PracticeDrawContent() {
   // Writes the game after every change of the table (#976). A failed write (quota, private
   // browsing) is ignored, so play goes on.
   useEffect(() => {
-    if (isFixture || !saveReadyRef.current) return;
+    if (!saveReadyRef.current) return;
     try {
       const save = toSavedGame(table, dealtDeck, loadedDeck ? 'drive' : 'builder', loadedDeck ? driveFileId : undefined);
-      localStorage.setItem(PRACTICE_GAME_KEY, JSON.stringify(save));
+      localStorage.setItem(gameKey, JSON.stringify(save));
     } catch {
       // keep playing without a save
     }
-  }, [table, dealtDeck, loadedDeck, driveFileId, isFixture]);
+  }, [table, dealtDeck, loadedDeck, driveFileId, gameKey]);
 
   useEffect(() => {
     const mql = window.matchMedia('(orientation: portrait)');

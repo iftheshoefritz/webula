@@ -77,7 +77,9 @@ export default function PrivacyPage() {
             Deck data (current deck, saved decks, deck title) is stored in your browser&apos;s{' '}
             <code>localStorage</code> under the keys <code>browserDecks</code>,{' '}
             <code>currentDeck</code>, and <code>deckTitle</code>. The current practice game is
-            stored under the key <code>practiceGame</code>, so it survives a page reload. This data
+            stored under the key <code>practiceGame</code>, so it survives a page reload. The
+            practice game of a demo deck is stored under a key that starts with{' '}
+            <code>practiceGame:fixture=</code>. This data
             never leaves your device and is not transmitted to any server.
           </p>
           <p className="mt-2">
