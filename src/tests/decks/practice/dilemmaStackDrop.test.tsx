@@ -66,6 +66,22 @@ import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
+import { HOLD_DELAY_MS, HOVER_DELAY_MS } from '../../../app/decks/practice/useCardHold';
+
+// jsdom has no PointerEvent, so `fireEvent.pointerEnter` would drop `pointerType` and `buttons`,
+// which the hover reads (#766).
+if (typeof window.PointerEvent === 'undefined') {
+  class PointerEventPolyfill extends MouseEvent {
+    pointerId: number;
+    pointerType: string;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 1;
+      this.pointerType = init.pointerType ?? 'mouse';
+    }
+  }
+  (window as unknown as { PointerEvent: unknown }).PointerEvent = PointerEventPolyfill;
+}
 
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
@@ -675,6 +691,52 @@ describe('Practice table: the dilemma stack (#630)', () => {
         fireEvent.click(within(stackZone()).getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' }));
       });
       expect(document.body.querySelector('[data-testid="card-list-panel-dilemmaStack"]')).not.toBeNull();
+    });
+
+    // #989: the revealed top card previews like any other face-up card on the table.
+    describe('previewing the revealed top card (#989)', () => {
+      const stackTopCard = () =>
+        within(document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement).getByRole('button', {
+          name: 'Dilemma stack, 1 card, tap to open',
+        });
+      const preview = () => screen.queryByTestId('card-preview-enlarged');
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it('a mouse hover shows its preview, and a leave hides it', async () => {
+        await setupRevealedTopCard();
+        jest.useFakeTimers();
+        const card = stackTopCard();
+
+        fireEvent.pointerEnter(card, { pointerType: 'mouse', buttons: 0 });
+        act(() => {
+          jest.advanceTimersByTime(HOVER_DELAY_MS);
+        });
+        expect(preview()).toHaveAttribute('alt', 'cardassian trap');
+
+        act(() => {
+          fireEvent.pointerLeave(card, { pointerType: 'mouse' });
+        });
+        expect(preview()).toBeNull();
+      });
+
+      it('a press and hold shows its preview, and the release hides it', async () => {
+        await setupRevealedTopCard();
+        jest.useFakeTimers();
+
+        fireEvent.pointerDown(stackTopCard(), { button: 0 });
+        act(() => {
+          jest.advanceTimersByTime(HOLD_DELAY_MS);
+        });
+        expect(preview()).toHaveAttribute('alt', 'cardassian trap');
+
+        act(() => {
+          fireEvent.pointerUp(window);
+        });
+        expect(preview()).toBeNull();
+      });
     });
 
     it('drags to a mission, landing under it like any other dilemma (#606/#733)', async () => {
