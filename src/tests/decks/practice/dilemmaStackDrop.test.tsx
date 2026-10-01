@@ -263,7 +263,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     // against a forced height.
     images.forEach((img) => {
       expect(img).not.toBeNull();
-      expect(img.className).toContain('w-14');
+      expect(img).toHaveStyle({ width: '56px' });
       expect(img.className).toContain('h-auto');
       expect(img.className).not.toContain('object-cover');
     });
@@ -577,6 +577,45 @@ describe('Practice table: the dilemma stack (#630)', () => {
       mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
     });
     expect(stackZone()).toHaveStyle({ visibility: 'visible' });
+  });
+
+  // #988: on a desktop the stack and its cards are two times as wide. A touch screen keeps 56 px.
+  it('keeps its 56 px width on a touch screen', async () => {
+    await setupOpenDilemmaHand();
+    const [firstId] = mockDraggableIds;
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+    });
+
+    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+    expect(stackZone).toHaveStyle({ width: '56px' });
+    expect(stackZone.querySelector(`img[data-card-id="${firstId}"]`)).toHaveStyle({ width: '56px' });
+  });
+
+  it('is two times as wide under (pointer: fine)', async () => {
+    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
+      matches: query === '(pointer: fine)',
+      media: query,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
+    await setupOpenDilemmaHand();
+    const [firstId] = mockDraggableIds;
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+    });
+
+    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+    expect(stackZone).toHaveStyle({ width: '112px' });
+    expect(stackZone.querySelector(`img[data-card-id="${firstId}"]`)).toHaveStyle({ width: '112px' });
+    // The zone is at least as tall as one of the wider cards (112 x 167 / 120).
+    expect(parseInt(stackZone.style.height, 10)).toBeGreaterThanOrEqual(156);
   });
 
   // #751: a separate reveal control turns the stack's own top card face up in place, one card at

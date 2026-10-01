@@ -65,7 +65,7 @@ import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { ShuffleIcon } from './CardListPanel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
-import { PILE_CARD_BORDER_STYLE, SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
+import { PILE_CARD_BORDER_STYLE, cardBorderStyle, SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 import { useShipRowCount, useTableScale } from './tableScale';
 import { usePanelBottomInset } from './panelBottomInset';
 import { viewerCardSize } from './viewerCardSize';
@@ -799,11 +799,13 @@ function DilemmaStackTopCard({
   count,
   onOpen,
   zIndex,
+  cardWidth,
 }: {
   topCard: CardInstance;
   count: number;
   onOpen: () => void;
   zIndex: number;
+  cardWidth: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
 
@@ -829,8 +831,8 @@ function DilemmaStackTopCard({
         width={120}
         height={167}
         alt={topCard.card.name}
-        className="pointer-events-none rounded-lg shadow-lg w-14 h-auto"
-        style={PILE_CARD_BORDER_STYLE}
+        className="pointer-events-none rounded-lg shadow-lg h-auto"
+        style={{ ...cardBorderStyle(cardWidth), width: cardWidth }}
       />
     </button>
   );
@@ -873,8 +875,13 @@ function DilemmaStackTopCard({
 // of the physical stack sits highest — the reverse of `UnderMissionStack`'s own stacking order
 // (`MissionRow.tsx`), which fans its last-added card lowest instead. `offsetFor` (`overlapOffset.ts`)
 // bounds that offset so any number of cards still fits inside the zone's own (unscaled) height.
-const DILEMMA_STACK_CARD_WIDTH = 56; // px, matches the zone's own `w-14`
-const DILEMMA_STACK_CARD_HEIGHT = Math.round((DILEMMA_STACK_CARD_WIDTH * 167) / 120); // px, the card's own aspect ratio
+//
+// #988: on a desktop (`useFinePointer`, #946) the zone and its cards are two times as wide, and
+// the zone grows taller when the scale leaves it shorter than one of those wider cards. A phone or
+// a tablet keeps the narrow zone.
+const DILEMMA_STACK_CARD_WIDTH = 56; // px, the zone's own width on a touch screen
+const DILEMMA_STACK_DESKTOP_WIDTH_FACTOR = 2;
+const dilemmaStackCardHeight = (cardWidth: number) => Math.round((cardWidth * 167) / 120); // px, the card's own aspect ratio
 const DILEMMA_STACK_MAX_OFFSET = 24; // px, the largest gap between fanned cards
 
 function DilemmaStackPile({
@@ -883,22 +890,26 @@ function DilemmaStackPile({
   onReveal,
   visible,
   scale,
+  desktop,
 }: {
   stack: CardInstance[];
   onOpen: () => void;
   onReveal: () => void;
   visible: boolean;
   scale: number;
+  desktop: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'dilemmaStack' });
   const draggedType = useDraggedCardType();
   const highlight = highlightState('dilemmaStack', draggedType, isOver);
   const landedNonce = useLandedNonce('dilemmaStack');
-  const height = Math.round((TABLE_CARD_ART_HEIGHT + SMALL_CARD_ART_HEIGHT) * scale);
+  const cardWidth = DILEMMA_STACK_CARD_WIDTH * (desktop ? DILEMMA_STACK_DESKTOP_WIDTH_FACTOR : 1);
+  const cardHeight = dilemmaStackCardHeight(cardWidth);
+  const height = Math.max(Math.round((TABLE_CARD_ART_HEIGHT + SMALL_CARD_ART_HEIGHT) * scale), desktop ? cardHeight : 0);
   const count = stack.length;
   const topCard = stack[0];
   const revealed = topCard?.face === 'up';
-  const offset = offsetFor(count, DILEMMA_STACK_CARD_HEIGHT, height, DILEMMA_STACK_MAX_OFFSET);
+  const offset = offsetFor(count, cardHeight, height, DILEMMA_STACK_MAX_OFFSET);
 
   return (
     <div
@@ -906,8 +917,8 @@ function DilemmaStackPile({
       data-zone="dilemmaStack"
       data-highlight={highlight}
       data-landed={landedNonce !== null || undefined}
-      style={{ height, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}
-      className={`relative w-14 rounded-lg ${highlightClassName(highlight)}`}
+      style={{ width: cardWidth, height, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}
+      className={`relative rounded-lg ${highlightClassName(highlight)}`}
     >
       <LandedRing nonce={landedNonce} />
       {/* Covers the whole box underneath the fan (below), so a tap anywhere the fan doesn't
@@ -931,7 +942,7 @@ function DilemmaStackPile({
       </button>
       {stack.map((card, i) =>
         i === 0 && revealed ? (
-          <DilemmaStackTopCard key={card.id} topCard={card} count={count} onOpen={onOpen} zIndex={count - i} />
+          <DilemmaStackTopCard key={card.id} topCard={card} count={count} onOpen={onOpen} zIndex={count - i} cardWidth={cardWidth} />
         ) : (
           <img
             key={card.id}
@@ -940,8 +951,8 @@ function DilemmaStackPile({
             width={120}
             height={167}
             alt={i === 0 ? 'Face-down dilemma stack' : ''}
-            className="pointer-events-none absolute left-0 rounded-lg shadow-lg w-14 h-auto"
-            style={{ ...PILE_CARD_BORDER_STYLE, bottom: i * offset, zIndex: count - i }}
+            className="pointer-events-none absolute left-0 rounded-lg shadow-lg h-auto"
+            style={{ ...cardBorderStyle(cardWidth), width: cardWidth, bottom: i * offset, zIndex: count - i }}
           />
         )
       )}
@@ -1888,6 +1899,7 @@ function PracticeDrawContent() {
                   onReveal={() => dispatch({ type: 'flip', id: dilemmaStack[0].id })}
                   visible={dilemmaStackVisible}
                   scale={scale}
+                  desktop={finePointer}
                 />
               </div>
 
