@@ -64,6 +64,16 @@ import CardListPanel from '../../../app/decks/practice/CardListPanel';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
+// #1015: an unselected panel card shows no checkbox, so a test selects it with a tap on the card
+// itself, the one inside the open card list panel rather than its copy on the table.
+const panelCard = (name: string) => {
+  const card = screen
+    .getAllByRole('button', { name })
+    .find((button) => button.closest('[data-testid^="card-list-panel-"]'));
+  if (!card) throw new Error(`No card named ${name} in an open card list panel`);
+  return card;
+};
+
 const card = (collectorsinfo: string, name: string, type: string, pile: string) => ({
   collectorsinfo,
   originalName: name,
@@ -154,9 +164,9 @@ describe.each([
     expect(names).toHaveLength(3);
 
     expect(screen.getByRole('button', { name: 'Download' })).toBeDisabled();
-    await click(`Select ${names[0]}`);
+    await act(async () => { fireEvent.click(panelCard(names[0])); });
     expect(screen.getByRole('button', { name: 'Download' })).toBeEnabled();
-    await click(`Select ${names[1]}`);
+    await act(async () => { fireEvent.click(panelCard(names[1])); });
     expect(screen.getByRole('button', { name: 'Download' })).toBeEnabled();
     expect(panel).toBeInTheDocument();
   });
@@ -167,8 +177,8 @@ describe.each([
     const handBefore = handCount(hand)!;
     const otherHandBefore = handCount(otherHand)!;
 
-    await click(`Select ${names[0]}`);
-    await click(`Select ${names[2]}`);
+    await act(async () => { fireEvent.click(panelCard(names[0])); });
+    await act(async () => { fireEvent.click(panelCard(names[2])); });
     (shuffleArray as jest.Mock).mockClear();
     await click('Download');
 
@@ -195,7 +205,7 @@ describe.each([
     await click(`Close ${hand}`);
     await click(`Download from the ${label}`);
     expect(panelNames(pile)).toEqual([names[1]]);
-    expect(screen.getByRole('button', { name: `Select ${names[1]}` })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: `Deselect ${names[1]}` })).toBeNull();
     expect(screen.getByRole('button', { name: 'Download' })).toBeDisabled();
   });
 });
@@ -240,7 +250,7 @@ describe('Practice table: panels with no Download button (#827)', () => {
     });
     await click('Download from the draw deck');
     const name = panelNames('drawDeck')[0]!;
-    await click(`Select ${name}`);
+    await act(async () => { fireEvent.click(panelCard(name)); });
     await click(/^discard$/i);
     await click('Close draw deck');
     await act(async () => {

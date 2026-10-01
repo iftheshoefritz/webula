@@ -643,7 +643,7 @@ describe('PracticeDrawPage', () => {
       act(() => {
         fireEvent.click(card);
       });
-      expect(screen.getByRole('button', { name: 'Select card 1' })).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.queryByRole('button', { name: 'Deselect card 1' })).toBeNull();
     });
 
     it('a hold on a mission shows its image in a read-only preview, with no Flip button', async () => {

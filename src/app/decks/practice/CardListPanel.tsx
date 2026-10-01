@@ -40,7 +40,9 @@
 // `<button>` cannot nest inside another `<button>`. A tap on the checkbox toggles that card in
 // or out of `selectedIds`, owned by `page.tsx` (not this component), so a drag started from a
 // selected card can pick up the whole selection in `handleDragStart`. A tap on the card itself
-// toggles it the same way; the checkbox stays as a second, smaller way to do it.
+// toggles it the same way; the checkbox stays as a second, smaller way to do it. The checkbox
+// shows only while the card is selected (#1015): an empty box on every unselected card was
+// clutter, since a tap on the card already selects it. A tap on the shown checkbox deselects.
 //
 // A Shuffle button (#680) sits in every panel but the discard pile's, last in the row of
 // controls above the cards (#880), rather than on the backdrop — a tap on the backdrop still just closes the panel. `onShuffle`
@@ -341,17 +343,17 @@ function CardListPanelCard({
           </span>
         )}
       </button>
-      <button
-        type="button"
-        onClick={onToggleSelect}
-        aria-pressed={selected}
-        aria-label={selected ? `Deselect ${card.name}` : `Select ${card.name}`}
-        className={`absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none ${
-          selected ? 'bg-accent border-accent text-white' : 'bg-black/50 border-white/50 text-transparent'
-        }`}
-      >
-        ✓
-      </button>
+      {selected && (
+        <button
+          type="button"
+          onClick={onToggleSelect}
+          aria-pressed
+          aria-label={`Deselect ${card.name}`}
+          className="absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none bg-accent border-accent text-white"
+        >
+          ✓
+        </button>
+      )}
     </div>
   );
 }
