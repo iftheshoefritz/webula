@@ -80,7 +80,7 @@ jobs:
                This hides the consent banner and the Next.js dev tools button, which cover elements that the check clicks and drags.
                The dependencies are installed already, and `agent-browser` is one of them, so `npx agent-browser` runs the local copy and downloads nothing. Do not run `yarn install`.
 
-            3. Open the page the pull request affects. For the practice table, use `/decks/practice?fixture=1`. For the deck builder, use `/decks?fixture=1`. The fixture gives you a deck with cards, so the empty state does not hide what you check.
+            3. Open the page the pull request affects. For the practice table, use `/decks/practice?fixture=1&reset=1`. The `reset=1` deals a fresh game instead of the saved one, so every check starts from the same table. For the deck builder, use `/decks?fixture=1`. The fixture gives you a deck with cards, so the empty state does not hide what you check.
                Use the viewport the issue names. If the issue names none, use the default viewport.
 
             4. Run every acceptance check of the issue, one at a time. Record the result of each one.
