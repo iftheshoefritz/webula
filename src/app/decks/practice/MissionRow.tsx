@@ -538,8 +538,10 @@ function UnderMissionStack({
         className="sr-only"
       />
       {/* The same count badge as the draw deck, the hands, and the discard pile (#996). The
-          hidden button above already names the count, and a tap falls through to the mission. */}
-      <span aria-hidden="true" className="pointer-events-none">
+          hidden button above already names the count, and a tap falls through to the mission.
+          The stack sits at the very top of the table, so the wrapper moves the badge down by its
+          `-top-2` overhang: without it the top of the badge is cut off by the viewport. */}
+      <span aria-hidden="true" className="absolute inset-x-0 top-2 pointer-events-none">
         <CountBadge count={cards.length} landedNonce={landedNonce} />
       </span>
       <LandedRing nonce={landedNonce} />
