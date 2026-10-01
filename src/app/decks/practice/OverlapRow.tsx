@@ -16,6 +16,10 @@
 // the index of the card whose left edge the mark sits on, or the card count for the right end.
 // `renderMark` draws it, absolutely placed at that edge, above every card. It changes no card's
 // `left`, so the row does not move under the pointer while the mark comes and goes.
+//
+// `renderAside` draws something after the row with the width the cards take (#1013), so a caller
+// can line it up with the ends of a centred row. The row measures its own width, so the caller
+// needs no state of its own for that width.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { offsetFor } from './overlapOffset';
@@ -30,6 +34,7 @@ export default function OverlapRow<T>({
   renderCard,
   markBoundary = null,
   renderMark,
+  renderAside,
 }: {
   items: T[];
   keyFor: (item: T) => string;
@@ -45,6 +50,7 @@ export default function OverlapRow<T>({
   renderCard: (item: T, idx: number) => React.ReactNode;
   markBoundary?: number | null;
   renderMark?: (left: number, zIndex: number) => React.ReactNode;
+  renderAside?: (contentWidth: number) => React.ReactNode;
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const [rowWidth, setRowWidth] = useState(0);
@@ -75,6 +81,7 @@ export default function OverlapRow<T>({
         ))}
         {showMark && renderMark(markLeft, count + 1)}
       </div>
+      {renderAside?.(contentWidth)}
     </div>
   );
 }
