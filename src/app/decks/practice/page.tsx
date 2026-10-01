@@ -2044,6 +2044,7 @@ function PracticeDrawContent() {
                       ]}
                       selectedIds={selectedCardIds}
                       onToggleSelect={toggleCardSelection}
+                      onSelectIds={setSelectedCardIds}
                       openCardWidth={viewerCardWidth}
                       bottomInset={panelBottom}
                     />
@@ -2103,6 +2104,7 @@ function PracticeDrawContent() {
                     ]}
                     selectedIds={selectedCardIds}
                     onToggleSelect={toggleCardSelection}
+                    onSelectIds={setSelectedCardIds}
                   />
 
                   {/* Dilemma pile, with the shuffle button and the search button above it
@@ -2164,6 +2166,7 @@ function PracticeDrawContent() {
                   }}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
+                  onSelectIds={setSelectedCardIds}
                   onShuffle={() =>
                     dispatch({
                       type: 'shuffle',
@@ -2193,6 +2196,7 @@ function PracticeDrawContent() {
                   }}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
+                  onSelectIds={setSelectedCardIds}
                   onShuffle={
                     openFlatLocation === 'discard' ? undefined : () => dispatch({ type: 'shuffle', location: openFlatLocation })
                   }
@@ -2229,6 +2233,7 @@ function PracticeDrawContent() {
                   }}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
+                  onSelectIds={setSelectedCardIds}
                   onShuffle={() => dispatch({ type: 'shuffle', location: { zone: 'crew', shipId: openCrewShip.id } })}
                   onSetStopped={setStoppedForSelection}
                   onDiscard={discardSelection}
@@ -2256,6 +2261,7 @@ function PracticeDrawContent() {
                   }}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
+                  onSelectIds={setSelectedCardIds}
                   onSetStopped={setStoppedForSelection}
                   onDiscard={discardSelection}
                   hidden={draggingInstance !== null}
@@ -2280,6 +2286,7 @@ function PracticeDrawContent() {
                   }}
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
+                  onSelectIds={setSelectedCardIds}
                   onShuffle={() =>
                     dispatch({ type: 'shuffle', location: { zone: 'shipRow', missionIndex: openShipRowMissionIndex } })
                   }

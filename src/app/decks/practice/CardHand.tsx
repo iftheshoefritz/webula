@@ -32,6 +32,7 @@ import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PILE_CARD_BORDER_STYLE, cardBorderStyle } from './TableCard';
+import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -124,6 +125,7 @@ export default function CardHand({
   label = 'hand',
   selectedIds = [],
   onToggleSelect = () => {},
+  onSelectIds,
   passthroughZone,
   openCardWidth = viewerCardSize(1).width,
   bottomInset = VIEWER_TOP_INSET,
@@ -142,6 +144,9 @@ export default function CardHand({
   // not have to pass them.
   selectedIds?: string[];
   onToggleSelect?: (id: string) => void;
+  // Replaces the selection with a list of ids (#993), for the box a mouse drag from the backdrop
+  // draws (`useBoxSelect.tsx`). Left out, no box starts.
+  onSelectIds?: (ids: string[]) => void;
   // The `data-zone`(s) of other controls that stay tappable through the full-screen backdrop
   // while this hand is open (issue #638: the draw pile, so the player can draw without closing
   // an open hand first; issue #741: also the dilemma pile's two halves, so a tap there behaves
@@ -178,6 +183,8 @@ export default function CardHand({
   // The open fan is not the drop target, so only the closed row shows the landed cue (#778).
   const zoneLandedNonce = useLandedNonce(zone);
   const landedNonce = open ? null : zoneLandedNonce;
+  const fanRef = React.useRef<HTMLDivElement | null>(null);
+  const boxSelect = useBoxSelect(fanRef, selectedIds, onSelectIds);
 
   const handleBackdropClick = (event: React.MouseEvent) => {
     const passthroughZones = passthroughZone
@@ -273,10 +280,12 @@ export default function CardHand({
                 type="button"
                 className={`fixed inset-0 ${LAYER_HAND_BACKDROP} bg-black/30`}
                 onClick={handleBackdropClick}
+                onPointerDown={boxSelect.onPointerDown}
                 aria-label={`Close ${label}`}
               />
             )}
             <div
+              ref={fanRef}
               data-zone={open ? zone : undefined}
               aria-hidden={open ? undefined : true}
               className={`fixed inset-x-2 ${LAYER_HAND_FAN} flex`}
@@ -312,6 +321,7 @@ export default function CardHand({
                 )}
               />
             </div>
+            <BoxSelectRect box={boxSelect.box} className={LAYER_HAND_FAN} />
           </>,
           portalContainer ?? document.body,
         )}
