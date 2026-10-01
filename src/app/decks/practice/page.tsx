@@ -60,7 +60,7 @@ import MissionRow, {
 } from './MissionRow';
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
-import { CardHoldProvider, PreviewSide, swallowClickOf } from './useCardHold';
+import { CardHoldProvider, NO_CALLOUT_STYLE, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { ShuffleIcon } from './CardListPanel';
@@ -808,6 +808,9 @@ function DilemmaStackTopCard({
   cardWidth: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
+  // A revealed card previews like any other face-up card on the table: a mouse hover or a press
+  // and hold (#989).
+  const holdListeners = useCardHold(topCard.id, listeners);
 
   return (
     <button
@@ -817,13 +820,14 @@ function DilemmaStackTopCard({
       onClick={onOpen}
       aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
       style={{
+        ...NO_CALLOUT_STYLE,
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         opacity: isDragging ? 0.5 : 1,
         bottom: 0,
         zIndex,
       }}
       {...attributes}
-      {...listeners}
+      {...holdListeners}
       className="absolute left-0 rounded-lg focus:outline-none touch-none"
     >
       <img
@@ -832,7 +836,7 @@ function DilemmaStackTopCard({
         height={167}
         alt={topCard.card.name}
         className="pointer-events-none rounded-lg shadow-lg h-auto"
-        style={{ ...cardBorderStyle(cardWidth), width: cardWidth }}
+        style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth }}
       />
     </button>
   );
