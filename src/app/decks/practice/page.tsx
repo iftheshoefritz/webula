@@ -1253,9 +1253,11 @@ function PracticeDrawContent() {
   }, [data]);
 
   // Writes the game after every change of the table (#976). A failed write (quota, private
-  // browsing) is ignored, so play goes on.
+  // browsing) is ignored, so play goes on. The first deal or restore sets `saveReadyRef` in the
+  // same commit as its dispatch, so this effect still sees the empty `initialTableState` there,
+  // and that table must not overwrite the save (#1005). The write waits for the next render.
   useEffect(() => {
-    if (!saveReadyRef.current) return;
+    if (!saveReadyRef.current || table === initialTableState) return;
     try {
       const save = toSavedGame(table, dealtDeck, loadedDeck ? 'drive' : 'builder', loadedDeck ? driveFileId : undefined);
       localStorage.setItem(gameKey, JSON.stringify(save));
