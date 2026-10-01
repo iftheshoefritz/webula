@@ -321,6 +321,51 @@ export default function CardHand({
                 height={openCardHeight}
                 maxOffset={openMaxOffset(openCardWidth)}
                 centered
+                renderAside={(fanWidth) =>
+                  /* The "→ top" and "→ bottom" buttons (#994) show while a card of the open hand
+                     is selected. They sit just above the fan, and the right end of the row lines
+                     up with the right end of the fan (#1013): the outer box spans the fan's own
+                     `inset-x-2`, and the inner box takes the width the fan's cards take, centred
+                     as they are. A row wider than a short fan grows to the left, so it stays on
+                     the screen. On a screen too short for a row above the fan, `max()` keeps them
+                     at the top inset, over the top edge of the fan. The row is `fixed` like the
+                     fan around it (neither has a transform), so it places itself on the viewport.
+                     Neither box takes a tap: the fan's `pointer-events: none` reaches them, and
+                     only the buttons turn it back on. The row shares the fan's stacking context
+                     with the cards, whose `zIndex` runs from 1 up to the count (`OverlapRow`), so
+                     its own `zIndex` sits above them all, as the row did when it had a layer of
+                     its own. */
+                  open &&
+                  hasSelection &&
+                  onSendSelected && (
+                    <div
+                      className="fixed inset-x-2 flex justify-center"
+                      style={{
+                        top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${bottomInset + openCardHeight + HAND_CONTROLS_HEIGHT}px))`,
+                        zIndex: count + 2,
+                      }}
+                    >
+                      <div data-testid={`${zone}-controls`} className="flex flex-row justify-end gap-2" style={{ width: fanWidth }}>
+                        <button
+                          type="button"
+                          onClick={() => onSendSelected('top')}
+                          aria-label={`Selected cards to the top of the ${deckLabel}`}
+                          className="btn-primary shrink-0 pointer-events-auto"
+                        >
+                          → top
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSendSelected('bottom')}
+                          aria-label={`Selected cards to the bottom of the ${deckLabel}`}
+                          className="btn-primary shrink-0 pointer-events-auto"
+                        >
+                          → bottom
+                        </button>
+                      </div>
+                    </div>
+                  )
+                }
                 renderCard={(instance) => (
                   <DraggableFanCard
                     instance={instance}
@@ -331,34 +376,6 @@ export default function CardHand({
                 )}
               />
             </div>
-            {/* The "→ top" and "→ bottom" buttons (#994) show while a card of the open hand is
-                selected. They sit just above the fan, at its right end. On a screen too short
-                for a row above the fan, `max()` keeps them at the top inset, over the top edge
-                of the fan. */}
-            {open && hasSelection && onSendSelected && (
-              <div
-                data-testid={`${zone}-controls`}
-                className={`fixed right-2 ${LAYER_HAND_FAN} flex flex-row gap-2`}
-                style={{ top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${bottomInset + openCardHeight + HAND_CONTROLS_HEIGHT}px))` }}
-              >
-                <button
-                  type="button"
-                  onClick={() => onSendSelected('top')}
-                  aria-label={`Selected cards to the top of the ${deckLabel}`}
-                  className="btn-primary"
-                >
-                  → top
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSendSelected('bottom')}
-                  aria-label={`Selected cards to the bottom of the ${deckLabel}`}
-                  className="btn-primary"
-                >
-                  → bottom
-                </button>
-              </div>
-            )}
             <BoxSelectRect box={boxSelect.box} className={LAYER_HAND_FAN} />
           </>,
           portalContainer ?? document.body,

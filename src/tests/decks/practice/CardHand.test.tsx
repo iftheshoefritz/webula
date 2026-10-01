@@ -400,6 +400,52 @@ describe('CardHand', () => {
     expect(onSendSelected.mock.calls).toEqual([['top'], ['bottom']]);
   });
 
+  // #1013: the row's right end lines up with the right end of the fan, not the screen edge. The
+  // row takes the fan's own width, centred as the fan is, and packs its buttons to the right.
+  // jsdom measures 0, so `OverlapRow` lays the cards edge to edge: 3 cards take 3 card widths.
+  it('lines the top and bottom buttons up with the right end of the fan (#1013)', () => {
+    render(
+      <CardHand
+        instances={makeInstances(3)}
+        open
+        onOpen={() => {}}
+        onClose={() => {}}
+        zone="dilemmaHand"
+        openCardWidth={100}
+        selectedIds={['c1']}
+        onSendSelected={() => {}}
+        deckLabel="dilemma pile"
+      />,
+    );
+    const row = screen.getByTestId('dilemmaHand-controls');
+    expect(row).toHaveStyle({ width: '300px' });
+    expect(row).toHaveClass('justify-end');
+    expect(row.parentElement).toHaveClass('fixed', 'inset-x-2', 'justify-center');
+    expect(row.parentElement).not.toHaveClass('right-2');
+  });
+
+  // The row shares the fan's stacking context with the cards, whose `zIndex` runs from 1 to the
+  // count. Without a `zIndex` above them, the cards paint over the buttons where the two overlap,
+  // as they do at 568 x 320, and a tap on the lower half of a button lands on a card.
+  it('stacks the top and bottom buttons above every card of the fan (#1013)', () => {
+    render(
+      <CardHand
+        instances={makeInstances(3)}
+        open
+        onOpen={() => {}}
+        onClose={() => {}}
+        selectedIds={['c1']}
+        onSendSelected={() => {}}
+      />,
+    );
+    const rowZ = Number(screen.getByTestId('hand-controls').parentElement!.style.zIndex);
+    const cardZ = screen
+      .getAllByRole('button', { name: /^Card \d+$/ })
+      .map((card) => Number((card.closest('[style*="z-index"]') as HTMLElement).style.zIndex));
+    expect(cardZ.length).toBe(3);
+    expect(rowZ).toBeGreaterThan(Math.max(...cardZ));
+  });
+
   it('shows no top and bottom buttons when no card of the hand is selected', () => {
     render(
       <CardHand
