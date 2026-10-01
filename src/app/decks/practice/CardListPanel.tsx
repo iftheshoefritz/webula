@@ -373,14 +373,23 @@ export const PANEL_SURFACE_CLASSNAME = 'bg-black/70 border border-bg-raised';
 // like every other card; a tap does nothing, and it is not selectable, so Discard and Stop do not
 // act on it. It is a drag source (#963), under `panelDraggableId` like every panel card, so a drag
 // out of here takes the card off the ship; it is not a drop target (no `data-zone`).
-// #965: the crew panel is at least 1.5 panel card heights tall, also with an empty crew, so the
-// ship section has room below the ship for the cards placed on it. The row of the grid and the
-// ship grows (`flex-1`) to fill that height. `100%` caps it at the height the panel may use, so
-// on a short screen the panel still ends above the bottom row, and the ship section scrolls.
-export const crewPanelMinHeight = (cardHeight: number): string => `min(${Math.round(1.5 * cardHeight)}px, 100%)`;
-
+// #965: the row of the grid and the ship grows (`flex-1`) to fill the height of the panel. The
+// panel's `max-h-full` caps it at the height it may use, so on a short screen the panel still ends
+// above the bottom row, and the ship section scrolls.
 const PLACED_ON_GAP = 4; // px, between the tiny cards
 export const placedOnCardWidth = (cardWidth: number): number => Math.floor((cardWidth - 2 * PLACED_ON_GAP) / 3);
+const placedOnArtHeight = (cardWidth: number): number =>
+  Math.round((placedOnCardWidth(cardWidth) * TABLE_CARD_ART_HEIGHT) / TABLE_CARD_WIDTH);
+
+// #1014: the framed box of the crew panel's ship section is at least as tall as the ship and one
+// row of the tiny cards placed on it, also with no card placed on the ship, so the box always has
+// room for that row. It replaces the 1.5 card heights of #965. The sum is the box's padding
+// (`pt-1 pb-2`), its border (1 px on each side), the gap between the ship and the row (`gap-1`),
+// the ship, and one tiny card. A crew grid or more rows of placed cards that make the panel
+// taller keep it taller.
+const SHIP_SECTION_CHROME = 4 + 8 + 2 + 4; // px
+export const crewShipSectionMinHeight = (cardWidth: number, cardHeight: number): number =>
+  cardHeight + placedOnArtHeight(cardWidth) + SHIP_SECTION_CHROME;
 
 function PanelHost({
   host,
@@ -397,7 +406,7 @@ function PanelHost({
 }) {
   const placedOn = showPlacedOn ? (host.placedOn ?? []) : [];
   const tinyWidth = placedOnCardWidth(cardWidth);
-  const tinyArtHeight = Math.round((tinyWidth * TABLE_CARD_ART_HEIGHT) / TABLE_CARD_WIDTH);
+  const tinyArtHeight = placedOnArtHeight(cardWidth);
   const holdListeners = useCardHold(host.id);
   const { card } = host;
   const sectionRef = useRef<HTMLDivElement | null>(null);
@@ -413,7 +422,10 @@ function PanelHost({
       data-testid={testId}
       className={`shrink-0 min-h-0 ${panelScrollClassName(sectionScrolls)} overscroll-contain`}
     >
-      <div className="flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2">
+      <div
+        className="flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
+        style={showPlacedOn ? { minHeight: crewShipSectionMinHeight(cardWidth, cardHeight) } : undefined}
+      >
       {/* The section sits beside the grid (#894), so it takes no height from it: the image keeps
           the size of a panel card at every viewport. Where the row is shorter than the card (568 x
           320), the section scrolls, the same way the grid beside it does, rather than run over
@@ -670,7 +682,7 @@ export default function CardListPanel({
           bottom: bottomInset,
         }}
       >
-      <div className={layoutClassName} style={location === 'crew' ? { minHeight: crewPanelMinHeight(cardHeight) } : undefined}>
+      <div className={layoutClassName}>
         {(showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || onShuffle) && (
           <div data-testid="panel-controls" className="shrink-0 flex flex-row flex-wrap justify-center items-start gap-2">
             {/* The Download button (#827) shows whenever the panel is given `onDownload`, first in

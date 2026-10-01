@@ -10,7 +10,7 @@ jest.mock('@dnd-kit/core', () => ({
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { CardHoldProvider, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
-import CardListPanel, { crewPanelMinHeight, PanelLocation, placedOnCardWidth } from '../../../app/decks/practice/CardListPanel';
+import CardListPanel, { crewShipSectionMinHeight, PanelLocation, placedOnCardWidth } from '../../../app/decks/practice/CardListPanel';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 
 const makeCard = (n: number, type = 'personnel'): CardInstance =>
@@ -171,8 +171,21 @@ describe('Practice draw: the crew panel is tall enough for the cards on the ship
       />
     );
 
-  it('gives the crew panel a minimum height of 1.5 panel card heights, capped at the space it may use', () => {
-    expect(crewPanelMinHeight(150)).toBe('min(225px, 100%)');
+  it('makes the ship section at least the ship plus one row of tiny cards, with its padding and border (#1014)', () => {
+    // 150 (ship) + 29 (a tiny card 33 px wide) + 4 + 8 (padding) + 2 (border) + 4 (gap).
+    expect(crewShipSectionMinHeight(108, 150)).toBe(197);
+  });
+
+  it('gives the framed box of the ship section that minimum height also with no card placed on the ship (#1014)', () => {
+    renderPanel('crew', [makeCard(1)]);
+    const box = screen.getByTestId('card-list-panel-crew-ship').firstElementChild as HTMLElement;
+    expect(box.style.minHeight).toBe('197px');
+  });
+
+  it('gives the panel itself no fixed minimum height (#1014)', () => {
+    renderPanel('crew', [makeCard(1)]);
+    const layout = screen.getByTestId('card-list-panel-crew').parentElement!.parentElement as HTMLElement;
+    expect(layout.style.minHeight).toBe('');
   });
 
   it.each([[[]], [[makeCard(1)]]])('the row of an empty or small crew grows to fill the panel', (cards) => {
