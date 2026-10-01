@@ -6,6 +6,7 @@ jest.mock('@dnd-kit/core', () => ({
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import MissionRow, { underMissionHeadroom } from '../../../app/decks/practice/MissionRow';
+import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableReducer';
 
 const card = (id: string, name: string): CardInstance => ({
@@ -243,6 +244,16 @@ describe('MissionRow', () => {
       expect(d2.parentElement!.style.top).toBe('-12px');
       expect(screen.getByRole('button', { name: /under the mission pile, 3 cards, tap to open/i })).toBeInTheDocument();
       expect(d2.parentElement!.textContent).toBe('3');
+    });
+
+    // #996: the count uses the same badge as the draw deck, the hands, and the discard pile.
+    it('shows the count in the common count badge', () => {
+      renderRow(threeDilemmas());
+      const stack = document.body.querySelector('[data-testid="mission-under-0-stack"]')!;
+      const { container } = render(<CountBadge count={3} />);
+      const badge = stack.querySelector('span[aria-hidden="true"] > span')!;
+      expect(badge.className).toBe((container.firstChild as HTMLElement).className);
+      expect(badge).toHaveTextContent('3');
     });
 
     // #968: the row moves down only once two slivers outgrow the padding above the row.
