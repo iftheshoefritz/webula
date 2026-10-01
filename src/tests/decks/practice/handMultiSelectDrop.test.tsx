@@ -150,7 +150,7 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
 
   const selectCard = async (name: string) => {
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: `Select ${name}` }));
+      fireEvent.click(screen.getByRole('button', { name }));
     });
   };
 
@@ -230,6 +230,6 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
       });
     }
 
-    expect(screen.getByRole('button', { name: 'Select personnel 1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Deselect personnel 1' })).toBeNull();
   });
 });
