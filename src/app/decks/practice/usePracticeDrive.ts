@@ -57,8 +57,9 @@ export function usePracticeDrive() {
     await fetch(`/api/drive/${file.id}`, { method: 'DELETE', credentials: 'include' });
   };
 
+  // The sign-in comes back with `?openPicker=true`, so the table opens the picker again (#980).
   const signInToDrive = () => {
-    signIn('google', { callbackUrl: '/decks/practice' }, DRIVE_SCOPE_AUTH_PARAMS);
+    signIn('google', { callbackUrl: '/decks/practice?openPicker=true' }, DRIVE_SCOPE_AUTH_PARAMS);
   };
 
   return {

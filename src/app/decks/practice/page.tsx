@@ -1253,6 +1253,16 @@ function PracticeDrawContent() {
     setDecklistOpen(true);
   };
 
+  // A Google sign-in that started from Load deck comes back with `?openPicker=true` (#980). The
+  // table opens the picker, and drops the parameter so a reload does not open it again.
+  useEffect(() => {
+    if (searchParams.get('openPicker') !== 'true') return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('openPicker');
+    window.history.replaceState({}, '', url.pathname + url.search);
+    drive.openPicker();
+  }, []);
+
   // The game menu's Load deck item (#780): closes the menu and opens the Drive picker.
   const handleLoadDeckClick = () => {
     setGameMenuOpen(false);
