@@ -66,6 +66,16 @@ import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 
+// #1015: an unselected panel card shows no checkbox, so a test selects it with a tap on the card
+// itself, the one inside the open card list panel rather than its copy on the table.
+const panelCard = (name: string) => {
+  const card = screen
+    .getAllByRole('button', { name })
+    .find((button) => button.closest('[data-testid^="card-list-panel-"]'));
+  if (!card) throw new Error(`No card named ${name} in an open card list panel`);
+  return card;
+};
+
 const makePersonnel = (n: number) => ({
   collectorsinfo: `2C10${n}`,
   originalName: `Personnel ${n}`,
@@ -216,7 +226,7 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
   it('flips a selected away team card, beside the Stop button, keeps the selection, and shows no mark either way', async () => {
     await openAwayTeam();
 
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('personnel 1')); });
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^flip$/i })).toBeInTheDocument();
 
@@ -234,7 +244,7 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
 
     expect(hasMark('underMission', 'cardassian trap')).toBe(false);
 
-    await click('Select cardassian trap');
+    await act(async () => { fireEvent.click(panelCard('cardassian trap')); });
     await click(/^flip$/i);
 
     expect(panelImage('underMission', 'cardassian trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
@@ -249,9 +259,9 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
   it('turns each card of a mixed selection over on its own', async () => {
     await openUnderMission();
 
-    await click('Select cardassian trap');
+    await act(async () => { fireEvent.click(panelCard('cardassian trap')); });
     await click(/^flip$/i);
-    await click('Select hard time');
+    await act(async () => { fireEvent.click(panelCard('hard time')); });
     await click(/^flip$/i);
 
     expect(hasMark('underMission', 'cardassian trap')).toBe(false);
@@ -261,7 +271,7 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
   it('gives a stopped away team card the stopped look and no mark', async () => {
     await openAwayTeam();
 
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('personnel 1')); });
     await click(/^stop$/i);
 
     expect(panelImage('awayTeam', 'personnel 1')).toHaveClass('grayscale');
@@ -274,7 +284,7 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
     await drop(cardIdFor('personnel 1'), 'core');
     await click('personnel 1');
 
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('personnel 1')); });
 
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
@@ -300,7 +310,7 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
 
     expect(document.body.querySelector('[data-testid="face-down-mark"]')).not.toBeInTheDocument();
 
-    await click('Select cardassian trap');
+    await act(async () => { fireEvent.click(panelCard('cardassian trap')); });
     expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
     expect(panelImage('dilemmaStack', 'cardassian trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
 

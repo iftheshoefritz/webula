@@ -65,6 +65,16 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 
+// #1015: an unselected panel card shows no checkbox, so a test selects it with a tap on the card
+// itself, the one inside the open card list panel rather than its copy on the table.
+const panelCard = (name: string) => {
+  const card = screen
+    .getAllByRole('button', { name })
+    .find((button) => button.closest('[data-testid^="card-list-panel-"]'));
+  if (!card) throw new Error(`No card named ${name} in an open card list panel`);
+  return card;
+};
+
 const mockPersonnelCard = {
   collectorsinfo: '2C002',
   originalName: 'Data',
@@ -349,7 +359,7 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
 
   const selectCard = async (name: string) => {
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: `Select ${name}` }));
+      fireEvent.click(panelCard(name));
     });
   };
 

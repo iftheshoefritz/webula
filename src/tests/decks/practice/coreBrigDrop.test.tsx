@@ -323,7 +323,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     await act(async () => {
       fireEvent.click(card);
     });
-    expect(within(panel).getByRole('button', { name: 'Select distress call' })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(panel).queryByRole('button', { name: 'Deselect distress call' })).toBeNull();
     expect(card).not.toHaveClass('ring-2');
   });
 

@@ -66,6 +66,16 @@ import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
+// #1015: an unselected panel card shows no checkbox, so a test selects it with a tap on the card
+// itself, the one inside the open card list panel rather than its copy on the table.
+const panelCard = (name: string) => {
+  const card = screen
+    .getAllByRole('button', { name })
+    .find((button) => button.closest('[data-testid^="card-list-panel-"]'));
+  if (!card) throw new Error(`No card named ${name} in an open card list panel`);
+  return card;
+};
+
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
@@ -185,20 +195,28 @@ describe('Practice draw: selecting more than one card in a card list panel and d
 
   const selectCard = async (name: string) => {
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: `Select ${name}` }));
+      fireEvent.click(panelCard(name));
     });
   };
 
-  it('shows a card as selected once its checkbox is tapped', async () => {
+  it('shows the checkbox of a card only while the card is selected, and a tap on it deselects (#1015)', async () => {
     await setupOpenHand(mockPersonnelCards.slice(0, 2));
     await dealIntoCore(['personnel 1', 'personnel 2']);
     await openCorePanel('personnel 1');
 
-    expect(screen.getByRole('button', { name: 'Select personnel 1' })).toHaveAttribute('aria-pressed', 'false');
+    // No card of the panel shows a checkbox while nothing is selected.
+    expect(screen.queryByRole('button', { name: /^(Select|Deselect) personnel/ })).toBeNull();
 
     await selectCard('personnel 1');
 
     expect(screen.getByRole('button', { name: 'Deselect personnel 1' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: /^(Select|Deselect) personnel 2$/ })).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Deselect personnel 1' }));
+    });
+
+    expect(screen.queryByRole('button', { name: /^(Select|Deselect) personnel/ })).toBeNull();
   });
 
   it('drags every selected card together, leaving the rest of the pile behind', async () => {
@@ -317,7 +335,7 @@ describe('Practice draw: selecting more than one card in a card list panel and d
     });
     await openCorePanel('personnel 1');
 
-    expect(screen.getByRole('button', { name: 'Select personnel 1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Deselect personnel 1' })).toBeNull();
   });
 
   it('clears a card out of the selection once it moves away, even while the panel stays open (#675)', async () => {
@@ -339,6 +357,6 @@ describe('Practice draw: selecting more than one card in a card list panel and d
     // card that already left.
     const panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
     expect(panel).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'Select personnel 2' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Deselect personnel 2' })).toBeNull();
   });
 });

@@ -376,7 +376,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     release();
     fireEvent.click(crewCard);
     expect(screen.queryByTestId('card-preview')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Select data' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Deselect data' })).toBeNull();
     expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
   });
 

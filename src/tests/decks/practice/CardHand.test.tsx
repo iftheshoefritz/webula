@@ -97,7 +97,7 @@ describe('CardHand', () => {
     expect(screen.getByRole('button', { name: 'Deselect Card 1' })).toHaveAttribute('aria-pressed', 'true');
     expect(card).toHaveClass('ring-2');
     fireEvent.click(card);
-    expect(screen.getByRole('button', { name: 'Select Card 1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Deselect Card 1' })).toBeNull();
     expect(card).not.toHaveClass('ring-2');
   });
 
@@ -183,18 +183,25 @@ describe('CardHand', () => {
     const instances = makeInstances(3);
     render(<Harness instances={instances} initialOpen />);
 
-    expect(screen.getByRole('button', { name: 'Select Card 1' })).toHaveAttribute('aria-pressed', 'false');
+    // #1015: an unselected card shows no checkbox.
+    expect(screen.queryByRole('button', { name: /^(Select|Deselect) Card/ })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select Card 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Card 1' }));
 
     expect(screen.getByRole('button', { name: 'Deselect Card 1' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: /^(Select|Deselect) Card 2$/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deselect Card 1' }));
+
+    expect(screen.queryByRole('button', { name: /^(Select|Deselect) Card/ })).toBeNull();
   });
 
   it('a tap on the checkbox does not open the card preview', () => {
     const instances = makeInstances(3);
     render(<Harness instances={instances} initialOpen />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select Card 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Card 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Deselect Card 1' }));
 
     expect(screen.queryByTestId('previewed')).not.toBeInTheDocument();
   });
@@ -203,11 +210,11 @@ describe('CardHand', () => {
     const instances = makeInstances(3);
     render(<Harness instances={instances} initialOpen />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select Card 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Card 1' }));
     fireEvent.click(screen.getByRole('button', { name: /^close hand$/i }));
     fireEvent.click(screen.getByRole('button', { name: /^hand, 3 cards, tap to open$/i }));
 
-    expect(screen.getByRole('button', { name: 'Select Card 1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Deselect Card 1' })).toBeNull();
   });
 
   it('disables the closed hand when it has no cards', () => {

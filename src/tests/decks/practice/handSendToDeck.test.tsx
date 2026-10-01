@@ -144,7 +144,7 @@ describe('Practice draw: sending the selected cards of the hand to the draw deck
     await setupOpenHand();
     expect(screen.queryByRole('button', { name: 'Selected cards to the top of the draw deck' })).toBeNull();
 
-    await click('Select personnel 1');
+    await click('personnel 1');
     expect(screen.getByRole('button', { name: 'Selected cards to the top of the draw deck' })).toHaveTextContent('→ top');
     expect(screen.getByRole('button', { name: 'Selected cards to the bottom of the draw deck' })).toHaveTextContent('→ bottom');
   });
@@ -152,13 +152,13 @@ describe('Practice draw: sending the selected cards of the hand to the draw deck
   it('puts the cards on the top or the bottom of the draw deck, in the order of the hand', async () => {
     await setupOpenHand();
 
-    await click('Select personnel 3');
-    await click('Select personnel 2');
+    await click('personnel 3');
+    await click('personnel 2');
     await click('Selected cards to the top of the draw deck');
     expect(screen.getByLabelText('hand, 2 cards, tap to open')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Selected cards to the top of the draw deck' })).toBeNull();
 
-    await click('Select personnel 4');
+    await click('personnel 4');
     await click('Selected cards to the bottom of the draw deck');
     expect(screen.getByLabelText('hand, 1 card, tap to open')).toBeInTheDocument();
 
@@ -172,7 +172,7 @@ describe('Practice draw: sending the selected cards of the hand to the draw deck
   it('closes the hand when it sends every card', async () => {
     await setupOpenHand();
 
-    for (const n of [1, 2, 3, 4]) await click(`Select personnel ${n}`);
+    for (const n of [1, 2, 3, 4]) await click(`personnel ${n}`);
     await click('Selected cards to the bottom of the draw deck');
 
     // The closed row shows again, so the hand is closed.

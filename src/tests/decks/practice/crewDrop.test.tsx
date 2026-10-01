@@ -330,7 +330,7 @@ describe('Practice draw: dropping a card on a ship', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'data' }));
     });
-    expect(screen.getByRole('button', { name: 'Select data' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Deselect data' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
   });
 

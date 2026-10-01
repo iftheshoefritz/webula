@@ -101,17 +101,18 @@ function DraggableFanCard({
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width), width }}
         />
       </button>
-      <button
-        type="button"
-        onClick={onToggleSelect}
-        aria-pressed={selected}
-        aria-label={selected ? `Deselect ${card.name}` : `Select ${card.name}`}
-        className={`absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none ${
-          selected ? 'bg-accent border-accent text-white' : 'bg-black/50 border-white/50 text-transparent'
-        }`}
-      >
-        ✓
-      </button>
+      {/* #1015: shown only while the card is selected, as in a card list panel. */}
+      {selected && (
+        <button
+          type="button"
+          onClick={onToggleSelect}
+          aria-pressed
+          aria-label={`Deselect ${card.name}`}
+          className="absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none bg-accent border-accent text-white"
+        >
+          ✓
+        </button>
+      )}
     </div>
   );
 }

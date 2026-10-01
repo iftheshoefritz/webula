@@ -67,6 +67,16 @@ import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
+// #1015: an unselected panel card shows no checkbox, so a test selects it with a tap on the card
+// itself, the one inside the open card list panel rather than its copy on the table.
+const panelCard = (name: string) => {
+  const card = screen
+    .getAllByRole('button', { name })
+    .find((button) => button.closest('[data-testid^="card-list-panel-"]'));
+  if (!card) throw new Error(`No card named ${name} in an open card list panel`);
+  return card;
+};
+
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
@@ -310,7 +320,7 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
 
     // Selecting a card shows no Stop control either.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Select card 1' }));
+      fireEvent.click(panelCard('card 1'));
     });
     expect(screen.queryByRole('button', { name: /^(stop|unstop)$/i })).not.toBeInTheDocument();
   });
