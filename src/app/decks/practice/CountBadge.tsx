@@ -4,8 +4,8 @@ import { landedBumpClassName } from './LandedZoneContext';
 import { LAYER_COUNT_BADGE } from '../../../lib/layers';
 
 // A small circular count badge (see the parent design in issue #130), shared by every table
-// element that shows a count on its top-right corner: the draw pile, the discard pile, and a
-// ship's crew count (#600). The caller positions it (each needs a `relative` ancestor of its
+// element that shows a count on its top-right corner: the draw pile, the discard pile, the hands,
+// the dilemmas under a mission (#996), and a ship's crew count (#600). The caller positions it (each needs a `relative` ancestor of its
 // own size) and skips rendering it entirely when there is nothing to count.
 //
 // Issue #663: the closed hand (`CardHand.tsx`) stacks its cards with a rising `zIndex` (up to

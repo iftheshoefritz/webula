@@ -84,6 +84,7 @@ import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, landedBumpClassName, useLandedNonce } from './LandedZoneContext';
+import CountBadge from './CountBadge';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
 // `BADGE_STRIP_HEIGHT_BASE`'s comment describes. `page.tsx` passes down a `scale`, computed by
@@ -536,13 +537,10 @@ function UnderMissionStack({
         }, tap to open`}
         className="sr-only"
       />
-      <span
-        aria-hidden="true"
-        className="absolute bottom-0 right-1 z-20 pointer-events-none text-[8px] font-bold leading-none text-text-primary"
-      >
-        <span key={landedNonce ?? undefined} className={landedBumpClassName(landedNonce)}>
-          {cards.length}
-        </span>
+      {/* The same count badge as the draw deck, the hands, and the discard pile (#996). The
+          hidden button above already names the count, and a tap falls through to the mission. */}
+      <span aria-hidden="true" className="pointer-events-none">
+        <CountBadge count={cards.length} landedNonce={landedNonce} />
       </span>
       <LandedRing nonce={landedNonce} />
     </div>
