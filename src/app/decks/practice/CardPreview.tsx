@@ -9,7 +9,9 @@
 // because the player owns every card on their own table; a "Face down" label says so, except on
 // a card of an away team (#964), which is face down by default and needs no label. `hidden`
 // hides it for the duration of a drag. `side` is the edge it takes, the one away from the press
-// point (#879); the badge takes the same edge, so it stays over the image.
+// point (#879); the badge takes the same edge, so it stays over the image. `dim` darkens the
+// table behind the preview. A hold dims it; a mouse hover does not (#985), so the player still
+// sees the table while the hover preview shows.
 
 import { CardInstance } from './tableReducer';
 import { LAYER_CARD_PREVIEW } from '../../../lib/layers';
@@ -35,12 +37,15 @@ export default function CardPreview({
   hidden = false,
   side = 'right',
   markFaceDown = true,
+  dim = true,
 }: {
   instance: CardInstance;
   hidden?: boolean;
   side?: PreviewSide;
   // False for a card of an away team (#964): it shows no "Face down" badge.
   markFaceDown?: boolean;
+  // False for a hover preview (#985): the table behind it stays undimmed.
+  dim?: boolean;
 }) {
   const { card, face } = instance;
   const edge = side === 'left' ? 'left-4' : 'right-4';
@@ -48,7 +53,7 @@ export default function CardPreview({
   return (
     <div
       data-testid="card-preview"
-      className={`fixed inset-0 ${LAYER_CARD_PREVIEW} pointer-events-none animate-fade-in bg-black/50`}
+      className={`fixed inset-0 ${LAYER_CARD_PREVIEW} pointer-events-none animate-fade-in ${dim ? 'bg-black/50' : ''}`}
       style={{ visibility: hidden ? 'hidden' : 'visible' }}
     >
       <img

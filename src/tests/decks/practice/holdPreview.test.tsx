@@ -504,6 +504,22 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
       expect(preview('first contact')).toBeNull();
     });
 
+    // #985: a hover preview leaves the table undimmed; a hold preview still dims it.
+    it('a hover preview does not dim the table, and a hold preview does', async () => {
+      await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
+      const mission = screen.getByRole('button', { name: 'first contact' });
+      enter(mission);
+      wait(HOVER_DELAY_MS);
+      expect(screen.getByTestId('card-preview')).not.toHaveClass('bg-black/50');
+      act(() => {
+        leave(mission);
+      });
+
+      fireEvent.pointerDown(mission, { button: 0 });
+      wait(HOLD_DELAY_MS);
+      expect(screen.getByTestId('card-preview')).toHaveClass('bg-black/50');
+    });
+
     it('a drag start closes a hover preview', async () => {
       await setupOpenHand([mockEquipmentCard]);
       const [id] = mockDraggableIds;
