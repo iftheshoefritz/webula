@@ -424,6 +424,28 @@ describe('CardHand', () => {
     expect(row.parentElement).not.toHaveClass('right-2');
   });
 
+  // The row shares the fan's stacking context with the cards, whose `zIndex` runs from 1 to the
+  // count. Without a `zIndex` above them, the cards paint over the buttons where the two overlap,
+  // as they do at 568 x 320, and a tap on the lower half of a button lands on a card.
+  it('stacks the top and bottom buttons above every card of the fan (#1013)', () => {
+    render(
+      <CardHand
+        instances={makeInstances(3)}
+        open
+        onOpen={() => {}}
+        onClose={() => {}}
+        selectedIds={['c1']}
+        onSendSelected={() => {}}
+      />,
+    );
+    const rowZ = Number(screen.getByTestId('hand-controls').parentElement!.style.zIndex);
+    const cardZ = screen
+      .getAllByRole('button', { name: /^Card \d+$/ })
+      .map((card) => Number((card.closest('[style*="z-index"]') as HTMLElement).style.zIndex));
+    expect(cardZ.length).toBe(3);
+    expect(rowZ).toBeGreaterThan(Math.max(...cardZ));
+  });
+
   it('shows no top and bottom buttons when no card of the hand is selected', () => {
     render(
       <CardHand

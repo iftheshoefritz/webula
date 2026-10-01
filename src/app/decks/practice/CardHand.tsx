@@ -331,13 +331,19 @@ export default function CardHand({
                      at the top inset, over the top edge of the fan. The row is `fixed` like the
                      fan around it (neither has a transform), so it places itself on the viewport.
                      Neither box takes a tap: the fan's `pointer-events: none` reaches them, and
-                     only the buttons turn it back on. */
+                     only the buttons turn it back on. The row shares the fan's stacking context
+                     with the cards, whose `zIndex` runs from 1 up to the count (`OverlapRow`), so
+                     its own `zIndex` sits above them all, as the row did when it had a layer of
+                     its own. */
                   open &&
                   hasSelection &&
                   onSendSelected && (
                     <div
                       className="fixed inset-x-2 flex justify-center"
-                      style={{ top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${bottomInset + openCardHeight + HAND_CONTROLS_HEIGHT}px))` }}
+                      style={{
+                        top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${bottomInset + openCardHeight + HAND_CONTROLS_HEIGHT}px))`,
+                        zIndex: count + 2,
+                      }}
                     >
                       <div data-testid={`${zone}-controls`} className="flex flex-row justify-end gap-2" style={{ width: fanWidth }}>
                         <button
