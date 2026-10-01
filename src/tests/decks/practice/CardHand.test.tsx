@@ -379,4 +379,38 @@ describe('CardHand', () => {
       target.remove();
     });
   });
+
+  // #994: the "→ top" and "→ bottom" buttons name the hand's own deck and report the end.
+  it('shows the top and bottom buttons for a selection, named for the deck', () => {
+    const onSendSelected = jest.fn();
+    render(
+      <CardHand
+        instances={makeInstances(2)}
+        open
+        onOpen={() => {}}
+        onClose={() => {}}
+        zone="dilemmaHand"
+        selectedIds={['c1']}
+        onSendSelected={onSendSelected}
+        deckLabel="dilemma pile"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Selected cards to the top of the dilemma pile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Selected cards to the bottom of the dilemma pile' }));
+    expect(onSendSelected.mock.calls).toEqual([['top'], ['bottom']]);
+  });
+
+  it('shows no top and bottom buttons when no card of the hand is selected', () => {
+    render(
+      <CardHand
+        instances={makeInstances(2)}
+        open
+        onOpen={() => {}}
+        onClose={() => {}}
+        selectedIds={['elsewhere']}
+        onSendSelected={() => {}}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /^Selected cards to the/ })).toBeNull();
+  });
 });

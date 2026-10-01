@@ -48,6 +48,8 @@ const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
 // core, brig, dilemma pile) inside a 568 x 320 viewport. The open fan measures its own width
 // (`OverlapRow`), so a long hand never hangs off the screen (#802).
 const CLOSED_MAX_WIDTH = 80;
+// The height of the row of "→ top"/"→ bottom" buttons above the open fan (#994), with its gap.
+const HAND_CONTROLS_HEIGHT = 44;
 const CLOSED_MAX_OFFSET = 10;
 // The fan may leave a small gap between two cards, at the ratio #642 set (60 px for a 56 px card).
 const openMaxOffset = (width: number) => Math.round((width * 60) / 56);
@@ -129,6 +131,8 @@ export default function CardHand({
   passthroughZone,
   openCardWidth = viewerCardSize(1).width,
   bottomInset = VIEWER_TOP_INSET,
+  onSendSelected,
+  deckLabel = 'draw deck',
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -166,6 +170,11 @@ export default function CardHand({
   // `CardListPanel.tsx`), which `page.tsx` measures with `usePanelBottomInset` so the fan's bottom
   // edge sits just above the bottom row (#828).
   bottomInset?: number;
+  // Sends the selected cards of this hand to the top or the bottom of its deck (#994): the draw
+  // deck for the hand, the dilemma pile for the dilemma hand. Left out, the two buttons do not show.
+  onSendSelected?: (position: 'top' | 'bottom') => void;
+  // The name of that deck, for the accessible names of the two buttons.
+  deckLabel?: string;
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
@@ -185,6 +194,7 @@ export default function CardHand({
   const landedNonce = open ? null : zoneLandedNonce;
   const fanRef = React.useRef<HTMLDivElement | null>(null);
   const boxSelect = useBoxSelect(fanRef, selectedIds, onSelectIds);
+  const hasSelection = instances.some((instance) => selectedIds.includes(instance.id));
 
   const handleBackdropClick = (event: React.MouseEvent) => {
     const passthroughZones = passthroughZone
@@ -321,6 +331,34 @@ export default function CardHand({
                 )}
               />
             </div>
+            {/* The "→ top" and "→ bottom" buttons (#994) show while a card of the open hand is
+                selected. They sit just above the fan, at its right end. On a screen too short
+                for a row above the fan, `max()` keeps them at the top inset, over the top edge
+                of the fan. */}
+            {open && hasSelection && onSendSelected && (
+              <div
+                data-testid={`${zone}-controls`}
+                className={`fixed right-2 ${LAYER_HAND_FAN} flex flex-row gap-2`}
+                style={{ top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${bottomInset + openCardHeight + HAND_CONTROLS_HEIGHT}px))` }}
+              >
+                <button
+                  type="button"
+                  onClick={() => onSendSelected('top')}
+                  aria-label={`Selected cards to the top of the ${deckLabel}`}
+                  className="btn-primary"
+                >
+                  → top
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSendSelected('bottom')}
+                  aria-label={`Selected cards to the bottom of the ${deckLabel}`}
+                  className="btn-primary"
+                >
+                  → bottom
+                </button>
+              </div>
+            )}
             <BoxSelectRect box={boxSelect.box} className={LAYER_HAND_FAN} />
           </>,
           portalContainer ?? document.body,
