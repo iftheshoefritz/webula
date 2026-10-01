@@ -118,3 +118,77 @@ export function useShipRowCount(
 
   return rows;
 }
+
+// Issue #992: on a desktop (`useFinePointer`, #946) the mission and ship cards show the whole card
+// (`MissionRow.tsx`), and when the table has a large gap above the bottom row they grow past the
+// table scale too. `computeDesktopTableScale` returns the scale `MissionRow` draws at: the largest
+// one at which a mission column with `DESKTOP_RESERVED_SHIP_ROWS` rows of ships fits the height
+// above the bottom row, and at which the five mission columns and the desktop dilemma stack fit the
+// width. It is never below 1. The ship rows past the reserved ones still come from
+// `useShipRowCount`, which measures the gap that is left.
+//
+// The dilemma stack on a desktop (#988) is a fixed width that does not grow with the scale, so it
+// is set here, and `page.tsx` reads it from here.
+export const DILEMMA_STACK_CARD_WIDTH = 56; // px, the zone's own width on a touch screen
+export const DILEMMA_STACK_DESKTOP_WIDTH_FACTOR = 2;
+export const DESKTOP_RESERVED_SHIP_ROWS = 2;
+
+export function computeDesktopTableScale(
+  gameLayerWidth: number,
+  availableHeight: number,
+  columnHeight: (scale: number) => number,
+): number {
+  const dilemmaStackWidth = DILEMMA_STACK_CARD_WIDTH * DILEMMA_STACK_DESKTOP_WIDTH_FACTOR;
+  const availableWidth = gameLayerWidth - CONTENT_PADDING - MISSION_ROW_GAP * MISSION_SLOTS - dilemmaStackWidth;
+  const widthScale = availableWidth / (TABLE_CARD_WIDTH * MISSION_SLOTS);
+  if (widthScale <= 1 || columnHeight(1) >= availableHeight) return 1;
+  // The column height only grows with the scale, so a bisection finds the largest scale that fits.
+  let low = 1;
+  let high = widthScale;
+  if (columnHeight(high) <= availableHeight) return high;
+  for (let i = 0; i < 20; i++) {
+    const mid = (low + high) / 2;
+    if (columnHeight(mid) <= availableHeight) low = mid;
+    else high = mid;
+  }
+  return low;
+}
+
+// Measures the height above the bottom row, from the top of the mission rows to the top of the
+// bottom row, the same elements `useShipRowCount` measures. It reads the bottom row's own height
+// rather than its top, so a mission row taller than the table does not push the bottom row down
+// and feed back into the measure. Returns `scale` off a desktop, and before the elements mount.
+export function useDesktopTableScale(
+  desktop: boolean,
+  scale: number,
+  gameLayer: HTMLElement | null,
+  missionRows: HTMLElement | null,
+  bottomRow: HTMLElement | null,
+  columnHeight: (scale: number) => number,
+): number {
+  const [desktopScale, setDesktopScale] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!desktop || !gameLayer || !missionRows || !bottomRow) {
+      setDesktopScale(null);
+      return;
+    }
+    const measure = () => {
+      const content = missionRows.parentElement ?? gameLayer;
+      const paddingBottom = parseFloat(getComputedStyle(content).paddingBottom) || 0;
+      const availableHeight =
+        gameLayer.getBoundingClientRect().bottom -
+        paddingBottom -
+        bottomRow.getBoundingClientRect().height -
+        missionRows.getBoundingClientRect().top;
+      setDesktopScale(computeDesktopTableScale(gameLayer.clientWidth, availableHeight, columnHeight));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(gameLayer);
+    observer.observe(bottomRow);
+    return () => observer.disconnect();
+  }, [desktop, gameLayer, missionRows, bottomRow, columnHeight]);
+
+  return desktop && desktopScale !== null ? desktopScale : scale;
+}

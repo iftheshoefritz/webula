@@ -52,6 +52,7 @@ import MissionRow, {
   DilemmaIcon,
   SHIP_ROW_GAP,
   missionIndexFromDropId,
+  missionColumnHeight,
   missionHalfFromDropId,
   shipIdFromCrewDropId,
   shipRowLineHeight,
@@ -66,7 +67,14 @@ import CountBadge from './CountBadge';
 import CardListPanel, { ShuffleIcon } from './CardListPanel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
 import { PILE_CARD_BORDER_STYLE, cardBorderStyle, SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
-import { useShipRowCount, useTableScale } from './tableScale';
+import {
+  DILEMMA_STACK_CARD_WIDTH,
+  DILEMMA_STACK_DESKTOP_WIDTH_FACTOR,
+  DESKTOP_RESERVED_SHIP_ROWS,
+  useDesktopTableScale,
+  useShipRowCount,
+  useTableScale,
+} from './tableScale';
 import { usePanelBottomInset } from './panelBottomInset';
 import { viewerCardSize } from './viewerCardSize';
 import { useFinePointer } from './useFinePointer';
@@ -883,8 +891,12 @@ function DilemmaStackTopCard({
 // #988: on a desktop (`useFinePointer`, #946) the zone and its cards are two times as wide, and
 // the zone grows taller when the scale leaves it shorter than one of those wider cards. A phone or
 // a tablet keeps the narrow zone.
-const DILEMMA_STACK_CARD_WIDTH = 56; // px, the zone's own width on a touch screen
-const DILEMMA_STACK_DESKTOP_WIDTH_FACTOR = 2;
+// The two widths are set in `tableScale.ts`, whose desktop scale (#992) leaves room for the zone.
+
+// The height of a desktop mission column with the ship rows `useDesktopTableScale` reserves (#992).
+// Defined once at module level, so the hook's effect does not run again on every render.
+const desktopMissionColumnHeight = (scale: number): number =>
+  missionColumnHeight(scale, true, DESKTOP_RESERVED_SHIP_ROWS);
 const dilemmaStackCardHeight = (cardWidth: number) => Math.round((cardWidth * 167) / 120); // px, the card's own aspect ratio
 const DILEMMA_STACK_MAX_OFFSET = 24; // px, the largest gap between fanned cards
 
@@ -1086,13 +1098,23 @@ function PracticeDrawContent() {
   // Issue #930: the ship rows take a second and a third row of ships when the gap between the
   // mission rows and the bottom row has room for them.
   const [missionRows, setMissionRows] = useState<HTMLDivElement | null>(null);
+  // Issue #992: on a desktop the missions and the ships show the whole card, and grow into a large
+  // gap above the bottom row. A phone or a tablet keeps the art crop at the table scale.
+  const missionScale = useDesktopTableScale(
+    finePointer,
+    scale,
+    gameLayer,
+    missionRows,
+    bottomRow,
+    desktopMissionColumnHeight,
+  );
   const shipRows = useShipRowCount(
     missionRows,
     bottomRow,
-    shipRowLineHeight(scale),
+    shipRowLineHeight(missionScale, finePointer),
     SHIP_ROW_GAP,
     Math.max(0, ...missions.map((slot) => slot.ships.length)),
-    shipsPerRow(scale),
+    shipsPerRow(missionScale),
   );
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
   // Which of the core's/the brig's own card list panel (#640), or the draw pile's/the dilemma pile's
@@ -1885,7 +1907,7 @@ function PracticeDrawContent() {
               <div
                 ref={setMissionRows}
                 className="flex flex-row gap-2 justify-center items-start"
-                style={{ paddingTop: underMissionHeadroom(scale) }}
+                style={{ paddingTop: underMissionHeadroom(missionScale, finePointer) }}
               >
                 <MissionRow
                   missions={missions}
@@ -1894,15 +1916,16 @@ function PracticeDrawContent() {
                   onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
                   onOpenPlacedOn={openOnlyPlacedOnPanel}
                   onFlipMission={(id) => dispatch({ type: 'flipMission', id })}
-                  scale={scale}
+                  scale={missionScale}
                   shipRows={shipRows}
+                  desktop={finePointer}
                 />
                 <DilemmaStackPile
                   stack={dilemmaStack}
                   onOpen={() => openOnlyFlatZone('dilemmaStack')}
                   onReveal={() => dispatch({ type: 'flip', id: dilemmaStack[0].id })}
                   visible={dilemmaStackVisible}
-                  scale={scale}
+                  scale={missionScale}
                   desktop={finePointer}
                 />
               </div>

@@ -1,4 +1,9 @@
-import { computeShipRowCount, computeTableScale } from '../../../app/decks/practice/tableScale';
+import {
+  computeDesktopTableScale,
+  computeShipRowCount,
+  computeTableScale,
+} from '../../../app/decks/practice/tableScale';
+import { missionColumnHeight } from '../../../app/decks/practice/MissionRow';
 
 // #630: the dilemma stack's own reserved column widens computeTableScale's width budget from 5
 // mission columns and 4 gaps to 6 columns (the stack's own) and 5 gaps.
@@ -41,5 +46,27 @@ describe('computeShipRowCount (#930)', () => {
   it('takes a third row past twice that, and never more than 3', () => {
     expect(computeShipRowCount(72, rowHeight, rowGap)).toBe(3);
     expect(computeShipRowCount(1000, rowHeight, rowGap)).toBe(3);
+  });
+});
+
+// #992: the desktop cards grow into a large gap above the bottom row.
+describe('computeDesktopTableScale (#992)', () => {
+  const column = (scale: number) => missionColumnHeight(scale, true, 2);
+
+  it('grows the cards until the column fills the height above the bottom row', () => {
+    const scale = computeDesktopTableScale(3000, 600, column);
+    expect(scale).toBeGreaterThan(2);
+    expect(column(scale)).toBeLessThanOrEqual(600);
+    expect(column(scale + 0.01)).toBeGreaterThan(600);
+  });
+
+  it('stops at the width of five missions and the desktop dilemma stack', () => {
+    // (1000 - 32 padding - 5 gaps of 8 - 112 dilemma stack) / (5 * 72)
+    expect(computeDesktopTableScale(1000, 5000, column)).toBeCloseTo((1000 - 32 - 40 - 112) / 360, 5);
+  });
+
+  it('never goes below 1', () => {
+    expect(computeDesktopTableScale(3000, 100, column)).toBe(1);
+    expect(computeDesktopTableScale(400, 5000, column)).toBe(1);
   });
 });
