@@ -43,8 +43,10 @@ import {
   createCardInstances,
   findInstanceAnywhere,
   initialTableState,
+  seedInstanceIds,
   tableReducer,
 } from './tableReducer';
+import { fromSavedGame, toSavedGame } from './savedGame';
 import CardHand from './CardHand';
 import MissionRow, {
   DilemmaIcon,
@@ -959,6 +961,11 @@ function DilemmaStackPile({
   );
 }
 
+// The localStorage key of the saved practice game (#976). A fixture route keeps its game under
+// its own key, so a fixture visit never overwrites the player's game.
+const PRACTICE_GAME_KEY = 'practiceGame';
+const practiceGameKey = (fixture: string | null) => (fixture ? `${PRACTICE_GAME_KEY}:fixture=${fixture}` : PRACTICE_GAME_KEY);
+
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
   const fixture = searchParams.get('fixture');
@@ -966,6 +973,10 @@ function PracticeDrawContent() {
   // away team and a crewed ship, for the card list panel checks.
   const isPilesFixture = fixture === 'piles';
   const isFixture = fixture === '1' || isPilesFixture;
+  const gameKey = practiceGameKey(isFixture ? fixture : null);
+  // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
+  // Browser checks use it with `?fixture=1` to start from the same table every time.
+  const isReset = searchParams.get('reset') === '1';
   const { data, loading } = useDataFetching();
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
   const { drawDeck, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
@@ -1104,6 +1115,13 @@ function PracticeDrawContent() {
   // goes through `dealDeck`, so this holds the fixture deck, the builder's deck, or a deck loaded
   // from Drive, whichever the table plays now.
   const [dealtDeck, setDealtDeck] = useState<DeckList>({});
+  // The Drive file of `loadedDeck`, kept in the save (#976).
+  const [driveFileId, setDriveFileId] = useState<string | undefined>(undefined);
+  // Set by the first deal or restore (#976). Until then `table` is the empty
+  // `initialTableState`, which must not overwrite a valid save.
+  const saveReadyRef = useRef(false);
+  // Set once a saved game is restored, so the later `data` load does not deal over it.
+  const restoredRef = useRef(false);
   const [decklistOpen, setDecklistOpen] = useState(false);
   const drive = usePracticeDrive();
 
@@ -1125,6 +1143,39 @@ function PracticeDrawContent() {
     setDeckEmpty(isDeckEmpty(deck));
     setDealtDeck(deck);
     setOpenHand(null);
+    saveReadyRef.current = true;
+  };
+
+  // Restores the game saved under `gameKey` (#976). Returns false when there is none, or
+  // when `fromSavedGame` drops it, for example after an edit of the deck in the deck builder.
+  // A fixture save is compared with the fixture deck, so it needs `data`.
+  const restoreSavedGame = (): boolean => {
+    try {
+      if (isFixture && (loading || data.length === 0)) return false;
+      const raw = localStorage.getItem(gameKey);
+      if (!raw) return false;
+      let currentDeck: DeckList;
+      if (isFixture) {
+        currentDeck = deckFromTsv(PRACTICE_DECK_TSV, data);
+      } else {
+        const currentRaw = localStorage.getItem('currentDeck');
+        currentDeck = currentRaw ? JSON.parse(currentRaw) : {};
+      }
+      const restored = fromSavedGame(raw, currentDeck);
+      if (!restored) return false;
+      seedInstanceIds(restored.maxInstanceId);
+      dispatch({ type: 'restore', state: restored.table });
+      setDealtDeck(restored.dealtDeck);
+      setDeckEmpty(isDeckEmpty(restored.dealtDeck));
+      if (restored.source === 'drive') {
+        setLoadedDeck(restored.dealtDeck);
+        setDriveFileId(restored.driveFileId);
+      }
+      saveReadyRef.current = true;
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const initDeck = () => {
@@ -1149,9 +1200,29 @@ function PracticeDrawContent() {
     }
   };
 
+  // The first run restores the saved game when there is one (#976), and a restored game is never
+  // dealt over by the later run that `data` starts. A fixture route restores only once `data` is
+  // there. `?reset=1` skips the restore.
   useEffect(() => {
+    if (restoredRef.current) return;
+    if (!isReset && !saveReadyRef.current && restoreSavedGame()) {
+      restoredRef.current = true;
+      return;
+    }
     initDeck();
   }, [data]);
+
+  // Writes the game after every change of the table (#976). A failed write (quota, private
+  // browsing) is ignored, so play goes on.
+  useEffect(() => {
+    if (!saveReadyRef.current) return;
+    try {
+      const save = toSavedGame(table, dealtDeck, loadedDeck ? 'drive' : 'builder', loadedDeck ? driveFileId : undefined);
+      localStorage.setItem(gameKey, JSON.stringify(save));
+    } catch {
+      // keep playing without a save
+    }
+  }, [table, dealtDeck, loadedDeck, driveFileId, gameKey]);
 
   useEffect(() => {
     const mql = window.matchMedia('(orientation: portrait)');
@@ -1196,6 +1267,7 @@ function PracticeDrawContent() {
     if (tsv === null) return;
     const deck = deckFromTsv(tsv, data);
     setLoadedDeck(deck);
+    setDriveFileId(file.id);
     dealDeck(deck);
     drive.closePicker();
   };

@@ -10,6 +10,8 @@ export function PreviewBanner({ isPreview }: PreviewBannerProps) {
       <span className="font-semibold text-yellow-800">Preview links:</span>
       <a href="/decks" className="text-blue-700 underline hover:text-blue-900">/decks</a>
       <a href="/decks?fixture=1" className="text-blue-700 underline hover:text-blue-900">/decks?fixture=1</a>
+      <a href="/decks/practice?fixture=1" className="text-blue-700 underline hover:text-blue-900">/decks/practice?fixture=1</a>
+      <a href="/decks/practice?fixture=1&reset=1" className="text-blue-700 underline hover:text-blue-900">/decks/practice?fixture=1&amp;reset=1</a>
       <a href="/decks/reports?fixture=1" className="text-blue-700 underline hover:text-blue-900">/decks/reports?fixture=1</a>
       <a href="/api/auth/signin" className="text-blue-700 underline hover:text-blue-900">/api/auth/signin</a>
       <a href="/api/auth/signout" className="text-blue-700 underline hover:text-blue-900">/api/auth/signout</a>

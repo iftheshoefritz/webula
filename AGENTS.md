@@ -198,6 +198,13 @@ When verifying changes to the deck builder (`/decks`), always visit `/decks?fixt
 
 ### Browser checks
 
+The practice table saves its game in localStorage and restores it on the next load (#976). A
+fixture route keeps its game under its own key, `practiceGame:fixture=1` or
+`practiceGame:fixture=piles`, so a reload of `/decks/practice?fixture=1` shows the game of the last
+visit and not a fresh deal. To start a check from the fresh fixture deal, open
+`/decks/practice?fixture=1&reset=1`. The `reset=1` parameter deals a new game, and the new game
+replaces the save.
+
 To keep the bottom of the page clear, start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`. This hides the consent banner and the Next.js dev tools button.
 
 `agent-browser` is a devDependency, so `npx agent-browser` runs the copy in `node_modules`
