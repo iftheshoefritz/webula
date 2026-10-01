@@ -192,6 +192,9 @@ export type TableAction =
   // would take the score past either limit stops there instead.
   | { type: 'adjustScore'; delta: number }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] }
+  // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
+  // state, and the caller passes its max instance ID to `seedInstanceIds` first.
+  | { type: 'restore'; state: TableState }
   // The fixture deal of `/decks/practice?fixture=piles` (#802): deals like `reset`, then puts
   // `FIXTURE_AWAY_TEAM` personnel into the first mission's away team, and a ship with
   // `FIXTURE_CREW` personnel aboard into the second mission's ship row. The cards come from the
@@ -257,6 +260,12 @@ const generateInstanceId = (): string => {
   nextInstanceId += 1;
   return `card-${nextInstanceId}`;
 };
+
+// Moves the counter past the largest `card-N` of a restored game (#975), so an instance created
+// after a restore never repeats an ID. It never moves the counter back.
+export function seedInstanceIds(maxId: number): void {
+  nextInstanceId = Math.max(nextInstanceId, maxId);
+}
 
 // Gives each expanded deck row a stable, unique id so a specific copy of a duplicated card
 // can be moved on its own. Defaults to face down (the draw deck's convention); callers dealing
@@ -725,6 +734,9 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       });
       return { ...dealt, missions };
     }
+
+    case 'restore':
+      return action.state;
 
     default:
       return state;
