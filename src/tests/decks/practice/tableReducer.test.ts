@@ -506,22 +506,40 @@ describe('tableReducer', () => {
       expect(state.dilemmaPile).toEqual([{ ...moved, face: 'down' }, existing]);
     });
 
-    it("puts a card last in the destination when position is 'bottom' (#607)", () => {
+    it("puts a card last in the destination, face up, when position is 'bottom' (#607, #987)", () => {
       const existing = instance('d0', card('Cardassian Trap'), 'down');
       const moved = instance('d1', card('Chula The Chandra'), 'up');
       const start = { ...initialTableState, dilemmaPile: [existing], discard: [moved] };
       const state = tableReducer(start, { type: 'move', id: 'd1', to: 'dilemmaPile', position: 'bottom' });
 
-      expect(state.dilemmaPile).toEqual([existing, { ...moved, face: 'down' }]);
+      expect(state.dilemmaPile).toEqual([existing, { ...moved, face: 'up' }]);
     });
 
-    it('puts a card last in the destination when position is omitted, matching the bottom default (#607)', () => {
+    it('puts a card last in the destination, face up, when position is omitted, matching the bottom default (#607, #987)', () => {
       const existing = instance('d0', card('Cardassian Trap'), 'down');
       const moved = instance('d1', card('Chula The Chandra'), 'up');
       const start = { ...initialTableState, dilemmaPile: [existing], discard: [moved] };
       const state = tableReducer(start, { type: 'move', id: 'd1', to: 'dilemmaPile' });
 
-      expect(state.dilemmaPile).toEqual([existing, { ...moved, face: 'down' }]);
+      expect(state.dilemmaPile).toEqual([existing, { ...moved, face: 'up' }]);
+    });
+
+    it('turns a dilemma face up when it moves to the bottom of its own dilemma pile (#987)', () => {
+      const top = instance('d0', card('Cardassian Trap'), 'down');
+      const other = instance('d1', card('Chula The Chandra'), 'down');
+      const start = { ...initialTableState, dilemmaPile: [top, other] };
+      const state = tableReducer(start, { type: 'move', id: 'd0', to: 'dilemmaPile', position: 'bottom' });
+
+      expect(state.dilemmaPile).toEqual([other, { ...top, face: 'up' }]);
+    });
+
+    it('puts a dilemma face down on top of the dilemma pile, even one that was face up in it (#987)', () => {
+      const other = instance('d0', card('Cardassian Trap'), 'down');
+      const bottom = instance('d1', card('Chula The Chandra'), 'up');
+      const start = { ...initialTableState, dilemmaPile: [other, bottom] };
+      const state = tableReducer(start, { type: 'move', id: 'd1', to: 'dilemmaPile', position: 'top' });
+
+      expect(state.dilemmaPile).toEqual([{ ...bottom, face: 'down' }, other]);
     });
 
     it('moves a card into the dilemma stack face down (#733)', () => {
@@ -617,6 +635,20 @@ describe('tableReducer', () => {
       expect(state.drawDeck).toEqual(drawDeck);
     });
   });
+
+    it('turns every face-up dilemma in the dilemma pile face down (#987)', () => {
+      const dilemmaPile = [
+        instance('d0', card('Dilemma 0'), 'down'),
+        instance('d1', card('Dilemma 1'), 'up'),
+        instance('d2', card('Dilemma 2'), 'up'),
+      ];
+      const start = { ...initialTableState, dilemmaPile };
+
+      const state = tableReducer(start, { type: 'shuffle', location: 'dilemmaPile' });
+
+      expect(state.dilemmaPile).toHaveLength(3);
+      expect(state.dilemmaPile.every((c) => c.face === 'down')).toBe(true);
+    });
 
   describe('reorderDilemmaStack (#632)', () => {
     it('moves the last card to the first position, leaving the rest in order', () => {
