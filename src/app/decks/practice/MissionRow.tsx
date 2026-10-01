@@ -78,6 +78,7 @@ import TableCard, {
   SMALL_CARD_WIDTH,
   TABLE_CARD_ART_HEIGHT,
   TABLE_CARD_WIDTH,
+  fullCardHeight,
 } from './TableCard';
 import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
@@ -96,6 +97,12 @@ const scaled = (px: number, scale: number): number => Math.round(px * scale);
 // `TableCard.tsx`), so 2 ships fit side by side within the same TABLE_CARD_WIDTH column the mission
 // card above them occupies. The mission's own ship row grows it with `scale`.
 const SMALL_CARD_MAX_OFFSET_BASE = SMALL_CARD_WIDTH + 2; // 2 ships sit edge to edge with a small gap
+
+// Issue #992: on a desktop (`useFinePointer`, #946) the mission, the dilemmas under it, and the
+// ships show the whole card, frame and all, the same as the core and the brig (#926), instead of
+// the art crop. A phone or a tablet keeps the crop. The height of the mission card at a scale:
+export const missionCardHeight = (scale: number, desktop = false): number =>
+  desktop ? fullCardHeight(scaled(TABLE_CARD_WIDTH, scale)) : scaled(TABLE_CARD_ART_HEIGHT, scale);
 
 // The mission card has two drop halves (#871), each the full width and half the height of the
 // card. They differ only for a dilemma: the top half puts it under the mission (#917), the bottom
@@ -142,12 +149,14 @@ function ShipCard({
   width,
   artHeight,
   badgeHeight,
+  desktop,
 }: {
   ship: CardInstance;
   onShipClick: (id: string) => void;
   width: number;
   artHeight: number;
   badgeHeight: number;
+  desktop: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: crewDropId(ship.id) });
   const draggedType = useDraggedCardType();
@@ -168,7 +177,14 @@ function ShipCard({
       data-landed={landedNonce !== null || undefined}
       className={`relative rounded ${highlightClassName(highlight)}`}
     >
-      <TableCard instance={ship} onClick={() => onShipClick(ship.id)} width={width} artHeight={artHeight} draggable />
+      <TableCard
+        instance={ship}
+        onClick={() => onShipClick(ship.id)}
+        width={width}
+        artHeight={artHeight}
+        uncropped={desktop}
+        draggable
+      />
       <ShipCrewBadge
         shipName={ship.card.name}
         count={crewCount}
@@ -453,8 +469,8 @@ const TABLE_TOP_PADDING = 16; // px
 // The room the mission row moves down by (#968), so a full stack of slivers stays below the top
 // edge of the table: the height of two slivers, less the padding already above the row. The
 // dilemma stack column shares the row, so `page.tsx` pads the whole row, not `MissionRow` alone.
-export function underMissionHeadroom(scale: number): number {
-  const stackHeight = underMissionSliver(scaled(TABLE_CARD_ART_HEIGHT, scale)) * UNDER_MISSION_MAX_VISIBLE;
+export function underMissionHeadroom(scale: number, desktop = false): number {
+  const stackHeight = underMissionSliver(missionCardHeight(scale, desktop)) * UNDER_MISSION_MAX_VISIBLE;
   return Math.max(0, stackHeight - TABLE_TOP_PADDING);
 }
 
@@ -474,12 +490,14 @@ function UnderMissionStack({
   onOpen,
   cardWidth,
   cardArtHeight,
+  uncropped,
 }: {
   missionIndex: number;
   cards: CardInstance[];
   onOpen: (missionIndex: number, pile: MissionPileName) => void;
   cardWidth: number;
   cardArtHeight: number;
+  uncropped: boolean;
 }) {
   const landedNonce = useLandedNonce(missionPileDropId(missionIndex, 'underMission'));
   if (cards.length === 0) return null;
@@ -500,7 +518,14 @@ function UnderMissionStack({
           className="absolute inset-x-0 flex items-center justify-center pointer-events-none"
           style={{ top: i * sliver, zIndex: i + 1 }}
         >
-          <TableCard instance={card} onClick={() => {}} width={cardWidth} artHeight={cardArtHeight} holdable={false} />
+          <TableCard
+            instance={card}
+            onClick={() => {}}
+            width={cardWidth}
+            artHeight={cardArtHeight}
+            uncropped={uncropped}
+            holdable={false}
+          />
         </div>
       ))}
       <button
@@ -528,8 +553,10 @@ function UnderMissionStack({
 // badge strip, and its ship row.
 export const SHIP_ROW_GAP = COLUMN_GAP;
 
-// The height of one row of ships (#930): a ship card's art, with no title line below it (#634).
-export const shipRowLineHeight = (scale: number): number => scaled(SMALL_CARD_ART_HEIGHT, scale);
+// The height of one row of ships (#930): a ship card's art, with no title line below it (#634), or
+// the whole ship card on a desktop (#992).
+export const shipRowLineHeight = (scale: number, desktop = false): number =>
+  desktop ? fullCardHeight(scaled(SMALL_CARD_WIDTH, scale)) : scaled(SMALL_CARD_ART_HEIGHT, scale);
 
 // How many ships one row holds with no overlap (#930): 2 at the column width of every scale.
 export function shipsPerRow(scale: number): number {
@@ -542,6 +569,22 @@ export function shipsPerRow(scale: number): number {
 // than the table has room for (`useShipRowCount`, `tableScale.ts`), and always at least 1.
 export function shipRowsUsed(shipCount: number, availableRows: number, scale: number): number {
   return Math.max(1, Math.min(availableRows, Math.ceil(shipCount / shipsPerRow(scale))));
+}
+
+// The height of a whole mission column (#992), from the top of the room the row moves down by
+// (`underMissionHeadroom`) to the bottom of `rows` rows of ships: the mission card, the badge
+// strip, and the ship rows, with the gaps between them. `useDesktopTableScale` (`tableScale.ts`)
+// grows the desktop cards until this fills the height above the bottom row.
+export function missionColumnHeight(scale: number, desktop: boolean, rows: number): number {
+  return (
+    underMissionHeadroom(scale, desktop) +
+    missionCardHeight(scale, desktop) +
+    COLUMN_GAP +
+    scaled(BADGE_STRIP_HEIGHT_BASE, scale) +
+    COLUMN_GAP +
+    rows * shipRowLineHeight(scale, desktop) +
+    (rows - 1) * SHIP_ROW_GAP
+  );
 }
 
 // Fills the rows in order (#930): every row but the last holds `perRow` ships, and the last row
@@ -563,6 +606,7 @@ function ShipRow({
   columnWidth,
   scale,
   availableRows,
+  desktop,
 }: {
   missionIndex: number;
   ships: CardInstance[];
@@ -571,6 +615,7 @@ function ShipRow({
   columnWidth: number;
   scale: number;
   availableRows: number;
+  desktop: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: shipRowDropId(missionIndex) });
   const draggedType = useDraggedCardType();
@@ -580,7 +625,7 @@ function ShipRow({
   const highlight = ships.length === 0 && rawHighlight === 'valid' ? undefined : rawHighlight;
   const landedNonce = useLandedNonce(shipRowDropId(missionIndex));
   const shipCardWidth = scaled(SMALL_CARD_WIDTH, scale);
-  const shipCardArtHeight = shipRowLineHeight(scale);
+  const shipCardArtHeight = shipRowLineHeight(scale, desktop);
   const shipMaxOffset = scaled(SMALL_CARD_MAX_OFFSET_BASE, scale);
   const shipRowMaxWidth = columnWidth; // bounds the row to the column's own (scaled) width
   // The rows the ships fill (#930). The block grows with them, and the drop target covers the
@@ -631,6 +676,7 @@ function ShipRow({
                     width={shipCardWidth}
                     artHeight={shipCardArtHeight}
                     badgeHeight={badgeHeight}
+                    desktop={desktop}
                   />
                 </div>
               ))}
@@ -710,6 +756,7 @@ function MissionColumn({
   onFlipMission,
   scale,
   shipRows,
+  desktop,
 }: {
   missionIndex: number;
   slot: MissionSlot;
@@ -720,6 +767,7 @@ function MissionColumn({
   onFlipMission: (missionId: string) => void;
   scale: number;
   shipRows: number;
+  desktop: boolean;
 }) {
   const onDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
   const underDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'under') });
@@ -734,7 +782,7 @@ function MissionColumn({
   const onLandedNonce = useLandedNonce(mission ? `on-${mission.id}` : '');
   const onCount = mission?.placedOn?.length ?? 0;
   const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
-  const cardArtHeight = scaled(TABLE_CARD_ART_HEIGHT, scale);
+  const cardArtHeight = missionCardHeight(scale, desktop);
   const badgeHeight = scaled(BADGE_STRIP_HEIGHT_BASE, scale);
   // The bottom half reaches over the gap and the badge strip below the card (#924), so a drop on
   // the away team badge routes as a drop on the mission card does.
@@ -757,6 +805,7 @@ function MissionColumn({
           onOpen={onOpenPile}
           cardWidth={cardWidth}
           cardArtHeight={cardArtHeight}
+          uncropped={desktop}
         />
 
         <div className="relative z-10 w-full flex items-center justify-center">
@@ -766,6 +815,7 @@ function MissionColumn({
                 instance={mission}
                 width={cardWidth}
                 artHeight={cardArtHeight}
+                uncropped={desktop}
                 onClick={(event) => {
                   // Like the badges, a tap opens a pile only when it holds a card.
                   const pile: MissionPileName = isTopHalfTap(event) ? 'underMission' : 'awayTeam';
@@ -855,6 +905,7 @@ function MissionColumn({
         columnWidth={cardWidth}
         scale={scale}
         availableRows={shipRows}
+        desktop={desktop}
       />
     </div>
   );
@@ -869,6 +920,7 @@ export default function MissionRow({
   onFlipMission = () => {},
   scale = 1,
   shipRows = 1,
+  desktop = false,
 }: {
   missions: MissionSlot[];
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
@@ -886,6 +938,8 @@ export default function MissionRow({
   // Issue #930: the rows of ships a ship row may fill, computed by `useShipRowCount`
   // (`tableScale.ts`) from the spare height of the table. Defaults to 1, a single row.
   shipRows?: number;
+  // Issue #992: a desktop shows the whole mission and ship cards. Defaults to false, the crop.
+  desktop?: boolean;
 }) {
   return (
     <div className="flex flex-row gap-2 justify-center">
@@ -895,6 +949,7 @@ export default function MissionRow({
           missionIndex={idx}
           scale={scale}
           shipRows={shipRows}
+          desktop={desktop}
           slot={slot}
           onOpenPile={onOpenPile}
           onShipClick={onShipClick}
