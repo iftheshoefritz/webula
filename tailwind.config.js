@@ -7,6 +7,9 @@ module.exports = {
         // Backgrounds
         'bg-primary': '#0d0f0d',
         'bg-secondary': '#131713',
+        // A modal surface with no border (#986): a lighter shade than the dimmed table behind
+        // it, so the edge of the modal shows where a tap closes it.
+        'bg-raised': '#262b26',
 
         // Text
         'text-primary': '#e8e6e3',
