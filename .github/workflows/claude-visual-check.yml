@@ -85,7 +85,8 @@ jobs:
 
             4. Run every acceptance check of the issue, one at a time. Record the result of each one.
                For a drag on the practice table, use the script. Do not build the drag by hand, and do not
-               debug a drag that does not land — the script already handles the two reasons it fails:
+               debug a drag that does not land — the script already handles the reasons a drag fails, opens a
+               closed hand that holds the card, and says why and what to do when it cannot drag the card:
                `bash scripts/practice_drag.sh <card-id> <data-zone or data-testid>`
                It prints the zone the card ended in. For a card that left the DOM, such as a card in a
                mission pile, it prints the `data-zone` or `data-testid` of the badge that gained a card,
