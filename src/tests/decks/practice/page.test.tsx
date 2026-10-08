@@ -792,6 +792,30 @@ describe('PracticeDrawPage', () => {
       expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
     });
 
+    it('starts with the splash closed when the URL has menu=0 (#1028)', async () => {
+      mockSearchParamsValue = new URLSearchParams('menu=0');
+      await renderManyCards();
+
+      expect(screen.queryByTestId('game-menu-splash')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Game menu' })).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('still opens the splash from the menu button with menu=0 (#1028)', async () => {
+      mockSearchParamsValue = new URLSearchParams('menu=0');
+      await renderManyCards();
+
+      await tap(screen.getByRole('button', { name: 'Game menu' }));
+
+      expect(screen.getByTestId('game-menu-splash')).toBeInTheDocument();
+    });
+
+    it('opens the splash on load with menu=1 (#1028)', async () => {
+      mockSearchParamsValue = new URLSearchParams('menu=1');
+      await renderManyCards();
+
+      expect(screen.getByTestId('game-menu-splash')).toBeInTheDocument();
+    });
+
     it('covers the page with a splash that has a Continue item (#896)', async () => {
       await renderManyCards();
 

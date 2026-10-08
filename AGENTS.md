@@ -205,6 +205,12 @@ visit and not a fresh deal. To start a check from the fresh fixture deal, open
 `/decks/practice?fixture=1&reset=1`. The `reset=1` parameter deals a new game, and the new game
 replaces the save.
 
+The game menu splash opens on every load of the practice table (#781) and covers the table. To
+start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
+`/decks/practice?fixture=1&reset=1&menu=0`. A check of the splash itself leaves `menu=0` off.
+`practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
+did not land.
+
 The practice table has two fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game: the missions, a hand of 7, and the rest of the deck in the
@@ -215,9 +221,9 @@ The practice table has two fixtures. Each one deals the same table on every load
   The brig holds 2 personnel, the core holds 4 events, and the dilemma stack holds 4 dilemmas face
   down. The hand, the draw deck and the dilemma pile get the rest.
 
-Use `/decks/practice?fixture=piles&reset=1` for a check of the dilemma stack, dilemmas under a
+Use `/decks/practice?fixture=piles&reset=1&menu=0` for a check of the dilemma stack, dilemmas under a
 mission, the brig, the core, a card placed on a ship, a ship on the table, the crew, the away team,
-or a long card list panel. Use `/decks/practice?fixture=1&reset=1` for a check of a fresh game, the
+or a long card list panel. Use `/decks/practice?fixture=1&reset=1&menu=0` for a check of a fresh game, the
 hand, the draw deck, or the dilemma pile.
 
 To keep the bottom of the page clear, start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`. This hides the consent banner and the Next.js dev tools button.
@@ -283,6 +289,32 @@ bash scripts/practice_drag.sh card-2 crew-card-10        # boards a personnel, p
 A tap anywhere on the ship, the counter of the cards on it too, opens its crew panel (#963). The crew panel shows the cards on the ship as tiny cards below the ship, and a drag of a tiny card out of the panel takes it off the ship.
 
 A drag out of the core onto a ship has failed once. See #701.
+
+### Desktop mode: a fine pointer
+
+Headless Chromium has no pointer device, so the practice table draws its touch layout:
+`useFinePointer` returns false, and the CSS `(pointer: fine)` rules (the size of `CardPreview`)
+do not match. Any check of an issue whose title or acceptance checks name the desktop, a mouse,
+or hover must open the page with the script:
+
+```bash
+bash scripts/agent_browser_desktop.sh 'http://localhost:3000/decks/practice?fixture=1&reset=1'
+```
+
+Quote the URL, because it holds `&`. The script starts Chromium with
+`--blink-settings=primaryPointerType=4;availablePointerTypes=4`, then prints
+`pointer: fine = true` and exits 0, or prints `false` and exits 1. The flag changes the device
+the browser reports, so JavaScript and CSS agree. Use this script and no other method. Do not
+patch `window.matchMedia` with `--init-script`: that changes only what JavaScript sees, CSS still
+sees `pointer: none`, and the page draws a layout no real device draws.
+
+The mode gives a fine pointer, not a hover media query: `(hover: hover)` stays false.
+
+The script closes every `agent-browser` session first, because `--args` applies only when the
+daemon starts and is ignored silently otherwise. Any earlier page state in the browser is gone.
+Every later `npx agent-browser` command, `practice_drag.sh` too, talks to the same browser and
+stays in desktop mode until the next `close`. To check the touch half of a comparison, run
+`npx agent-browser close` and open the page again with a plain `npx agent-browser open`.
 
 ### A click that does not click
 
