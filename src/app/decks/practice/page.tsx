@@ -1177,8 +1177,10 @@ function PracticeDrawContent() {
 
   // Deals a new game from a deck. The fixture, currentDeck, and Drive loads all go through here.
   // The `?fixture=piles` deal (#802) keeps the deck order, so it places the same cards every time.
-  // The fixture deck holds 27 personnel, fewer than the 20 + 12 that deal places, so it deals a second
-  // copy of the deck's personnel too, each copy its own instance.
+  // The fixture deck holds 27 personnel, fewer than the 20 + 12 + 2 that deal places (away team,
+  // crew, brig), so it deals a second copy of the deck's personnel too, each copy its own instance.
+  // The piles deal keeps the dilemmas in deck order too (#1024), so the same dilemmas go under the
+  // mission and into the dilemma stack every time.
   const dealDeck = (deck: DeckList, fixturePiles = false) => {
     const cards = extractDrawDeck(deck);
     dispatch({
@@ -1188,7 +1190,9 @@ function PracticeDrawContent() {
       ),
       // A deck saved before #765 has no `backimagefile` on its missions, so it comes from `data`.
       missions: createCardInstances(withBackImageFiles(extractMissions(deck), data), 'up'),
-      dilemmas: createCardInstances(shuffleArray(extractDilemmas(deck))),
+      dilemmas: createCardInstances(
+        fixturePiles ? extractDilemmas(deck) : shuffleArray(extractDilemmas(deck))
+      ),
     });
     setDeckEmpty(isDeckEmpty(deck));
     setDealtDeck(deck);

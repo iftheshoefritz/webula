@@ -7,6 +7,10 @@ import {
   MissionSlot,
   MISSION_SLOTS,
   OPENING_HAND_SIZE,
+  FIXTURE_BRIG,
+  FIXTURE_CORE,
+  FIXTURE_UNDER_MISSION,
+  FIXTURE_DILEMMA_STACK,
 } from '../../../app/decks/practice/tableReducer';
 
 const card = (name: string) => ({ collectorsinfo: name, name });
@@ -1169,19 +1173,27 @@ describe('resetWithPiles (#802)', () => {
   ];
   const payload = () => ({
     cards: createCardInstances(deck),
-    missions: createCardInstances([card('m0'), card('m1')], 'up'),
-    dilemmas: createCardInstances([card('d0')]),
+    missions: createCardInstances([card('m0'), card('m1'), card('m2')], 'up'),
+    dilemmas: createCardInstances(
+      Array.from({ length: 10 }, (_, i) => ({ collectorsinfo: `d${i}`, name: `d${i}`, type: 'dilemma' }))
+    ),
   });
-  const allIds = (state: ReturnType<typeof tableReducer>) => [
-    ...state.drawDeck,
-    ...state.hand,
-    ...state.dilemmaPile,
-    ...state.missions.flatMap((slot) => [
-      ...(slot.mission ? [slot.mission] : []),
-      ...slot.awayTeam,
-      ...slot.ships.flatMap((ship) => [ship, ...(ship.crew ?? [])]),
-    ]),
-  ].map((c) => c.id);
+  const allCards = (state: ReturnType<typeof tableReducer>) =>
+    [
+      ...state.drawDeck,
+      ...state.hand,
+      ...state.core,
+      ...state.brig,
+      ...state.dilemmaPile,
+      ...state.dilemmaStack,
+      ...state.missions.flatMap((slot) => [
+        ...(slot.mission ? [slot.mission] : []),
+        ...slot.awayTeam,
+        ...slot.underMission,
+        ...slot.ships.flatMap((ship) => [ship, ...(ship.crew ?? [])]),
+      ]),
+    ].flatMap((c) => [c, ...(c.placedOn ?? [])]);
+  const allIds = (state: ReturnType<typeof tableReducer>) => allCards(state).map((c) => c.id);
 
   it('places twenty personnel on one mission and a ship with twelve crew on another', () => {
     const state = tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() });
@@ -1199,6 +1211,57 @@ describe('resetWithPiles (#802)', () => {
     const plain = allIds(tableReducer(initialTableState, { type: 'reset', ...payload() }));
     expect(new Set(fixtureIds).size).toBe(fixtureIds.length);
     expect(fixtureIds).toHaveLength(plain.length);
+  });
+
+  it('puts personnel in the brig, events in the core, and an event on the crewed ship (#1024)', () => {
+    const state = tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() });
+    expect(state.brig).toHaveLength(FIXTURE_BRIG);
+    expect(state.brig.every((c) => c.card.type === 'personnel' && c.face === 'up')).toBe(true);
+    expect(state.core).toHaveLength(FIXTURE_CORE);
+    expect(state.core.every((c) => c.card.type === 'event' && c.face === 'up')).toBe(true);
+    const placedOn = state.missions[1].ships[0].placedOn!;
+    expect(placedOn).toHaveLength(1);
+    expect(placedOn[0].card.type).toBe('event');
+    expect(placedOn[0].face).toBe('up');
+  });
+
+  it('puts dilemmas under the third mission face up and into the dilemma stack face down (#1024)', () => {
+    const state = tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() });
+    const under = state.missions[2].underMission;
+    expect(under.map((c) => c.card.collectorsinfo)).toEqual(['d0', 'd1', 'd2']);
+    expect(under.every((c) => c.face === 'up')).toBe(true);
+    expect(state.dilemmaStack).toHaveLength(FIXTURE_DILEMMA_STACK);
+    expect(state.dilemmaStack.every((c) => c.face === 'down')).toBe(true);
+    expect(state.dilemmaPile).toHaveLength(10 - FIXTURE_UNDER_MISSION - FIXTURE_DILEMMA_STACK);
+  });
+
+  it('places the same cards in each zone on every deal (#1024)', () => {
+    const zones = (state: ReturnType<typeof tableReducer>) => ({
+      brig: state.brig.map((c) => c.card.collectorsinfo),
+      core: state.core.map((c) => c.card.collectorsinfo),
+      stack: state.dilemmaStack.map((c) => c.card.collectorsinfo),
+      under: state.missions[2].underMission.map((c) => c.card.collectorsinfo),
+      onShip: state.missions[1].ships[0].placedOn!.map((c) => c.card.collectorsinfo),
+    });
+    const first = zones(tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() }));
+    const second = zones(tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() }));
+    expect(second).toEqual(first);
+  });
+
+  it('still deals a deck with no ship and few events', () => {
+    const cards = createCardInstances([
+      { collectorsinfo: 'p0', name: 'p0', type: 'personnel' },
+      { collectorsinfo: 'e0', name: 'e0', type: 'event' },
+    ]);
+    const state = tableReducer(initialTableState, {
+      type: 'resetWithPiles',
+      cards,
+      missions: [],
+      dilemmas: [],
+    });
+    expect(state.missions[1].ships).toEqual([]);
+    expect(state.core).toHaveLength(1);
+    expect(state.missions[0].awayTeam).toHaveLength(1);
   });
 });
 
