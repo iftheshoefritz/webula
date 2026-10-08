@@ -199,12 +199,23 @@ export type TableAction =
   | { type: 'restore'; state: TableState }
   // The fixture deal of `/decks/practice?fixture=piles` (#802): deals like `reset`, then puts
   // `FIXTURE_AWAY_TEAM` personnel into the first mission's away team, and a ship with
-  // `FIXTURE_CREW` personnel aboard into the second mission's ship row. The cards come from the
-  // deck itself, taken in deck order, so a deck in a fixed order places the same cards every time.
+  // `FIXTURE_CREW` personnel aboard into the second mission's ship row (#802). It also puts
+  // `FIXTURE_BRIG` personnel into the brig, `FIXTURE_CORE` events into the core, and
+  // `FIXTURE_PLACED` events on the crewed ship, and deals `FIXTURE_UNDER_MISSION` dilemmas under the
+  // third mission and `FIXTURE_DILEMMA_STACK` dilemmas into the dilemma stack (#1024). The cards come
+  // from the deck itself, taken in deck order, so a deck in a fixed order places the same cards
+  // every time.
   | { type: 'resetWithPiles'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
 
 export const FIXTURE_AWAY_TEAM = 20;
 export const FIXTURE_CREW = 12;
+export const FIXTURE_BRIG = 2;
+export const FIXTURE_CORE = 4;
+export const FIXTURE_PLACED = 1;
+export const FIXTURE_UNDER_MISSION = 3;
+export const FIXTURE_DILEMMA_STACK = 4;
+// The mission whose `underMission` the fixture fills: not the away team's or the ship's mission.
+const FIXTURE_UNDER_MISSION_SLOT = 2;
 
 export const ZONE_FACE: Record<Zone, Face> = {
   drawDeck: 'down',
@@ -736,20 +747,55 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const personnel = action.cards.filter((c) => c.card.type === 'personnel');
       const awayTeam = personnel.slice(0, FIXTURE_AWAY_TEAM);
       const crew = personnel.slice(FIXTURE_AWAY_TEAM, FIXTURE_AWAY_TEAM + FIXTURE_CREW);
+      const brigEnd = FIXTURE_AWAY_TEAM + FIXTURE_CREW + FIXTURE_BRIG;
+      const brig = personnel.slice(FIXTURE_AWAY_TEAM + FIXTURE_CREW, brigEnd);
+      const events = action.cards.filter((c) => c.card.type === 'event');
+      const core = events.slice(0, FIXTURE_CORE);
       const ship = action.cards.find((c) => c.card.type === 'ship');
-      const placed = new Set([...awayTeam, ...crew, ...(ship ? [ship] : [])].map((c) => c.id));
-      const dealt = tableReducer(state, { ...action, type: 'reset', cards: action.cards.filter((c) => !placed.has(c.id)) });
+      // With no ship, nothing is placed on one, and the event stays in the deal.
+      const onShip = ship ? events.slice(FIXTURE_CORE, FIXTURE_CORE + FIXTURE_PLACED) : [];
+      const placed = new Set(
+        [...awayTeam, ...crew, ...brig, ...core, ...onShip, ...(ship ? [ship] : [])].map((c) => c.id)
+      );
+      const underMission = action.dilemmas.slice(0, FIXTURE_UNDER_MISSION);
+      const dilemmaStack = action.dilemmas.slice(
+        FIXTURE_UNDER_MISSION,
+        FIXTURE_UNDER_MISSION + FIXTURE_DILEMMA_STACK
+      );
+      const dealt = tableReducer(state, {
+        ...action,
+        type: 'reset',
+        cards: action.cards.filter((c) => !placed.has(c.id)),
+        dilemmas: action.dilemmas.slice(FIXTURE_UNDER_MISSION + FIXTURE_DILEMMA_STACK),
+      });
       const missions = dealt.missions.map((slot, i) => {
         if (i === 0) {
           return { ...slot, awayTeam: awayTeam.map((c) => ({ ...c, face: MISSION_PILE_FACE.awayTeam })) };
         }
         if (i === 1 && ship) {
-          const crewed = { ...ship, face: SHIP_ROW_FACE, crew: crew.map((c) => ({ ...c, face: CREW_FACE })) };
+          const crewed: CardInstance = {
+            ...ship,
+            face: SHIP_ROW_FACE,
+            crew: crew.map((c) => ({ ...c, face: CREW_FACE })),
+            ...(onShip.length ? { placedOn: onShip.map((c) => ({ ...c, face: ON_FACE })) } : {}),
+          };
           return { ...slot, ships: [crewed] };
+        }
+        if (i === FIXTURE_UNDER_MISSION_SLOT) {
+          return {
+            ...slot,
+            underMission: underMission.map((c) => ({ ...c, face: MISSION_PILE_FACE.underMission })),
+          };
         }
         return slot;
       });
-      return { ...dealt, missions };
+      return {
+        ...dealt,
+        missions,
+        brig: brig.map((c) => ({ ...c, face: ZONE_FACE.brig })),
+        core: core.map((c) => ({ ...c, face: ZONE_FACE.core })),
+        dilemmaStack: dilemmaStack.map((c) => ({ ...c, face: ZONE_FACE.dilemmaStack })),
+      };
     }
 
     case 'restore':

@@ -205,6 +205,21 @@ visit and not a fresh deal. To start a check from the fresh fixture deal, open
 `/decks/practice?fixture=1&reset=1`. The `reset=1` parameter deals a new game, and the new game
 replaces the save.
 
+The practice table has two fixtures. Each one deals the same table on every load.
+
+- `?fixture=1` deals a plain new game: the missions, a hand of 7, and the rest of the deck in the
+  draw deck and the dilemma pile. The brig, the core, the dilemma stack and the ship rows are empty.
+- `?fixture=piles` (#802, #1024) deals the cards in deck order, with no shuffle. Mission 0 has an
+  away team of 20 personnel. Mission 1 has a ship with a crew of 12 and one event placed on it, so
+  the ship shows its counter of placed cards. Mission 2 has 3 dilemmas under it, shown as slivers.
+  The brig holds 2 personnel, the core holds 4 events, and the dilemma stack holds 4 dilemmas face
+  down. The hand, the draw deck and the dilemma pile get the rest.
+
+Use `/decks/practice?fixture=piles&reset=1` for a check of the dilemma stack, dilemmas under a
+mission, the brig, the core, a card placed on a ship, a ship on the table, the crew, the away team,
+or a long card list panel. Use `/decks/practice?fixture=1&reset=1` for a check of a fresh game, the
+hand, the draw deck, or the dilemma pile.
+
 To keep the bottom of the page clear, start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`. This hides the consent banner and the Next.js dev tools button.
 
 `agent-browser` is a devDependency, so `npx agent-browser` runs the copy in `node_modules`
