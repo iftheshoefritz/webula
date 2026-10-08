@@ -266,6 +266,8 @@ the script reads the `data-pile-count` of the pile's wrapper (`data-testid="draw
 
 A mission pile, a closed hand, and a closed dilemma hand all keep their cards out of the DOM (a badge with a count stands in for the cards). When the dragged card leaves the DOM, the script reads the `aria-label` of every badge on the table, before and after the drag, and prints whichever one gained a card - the mission pile, `hand`, `dilemmaHand`, `draw-pile-bottom`, or `dilemma-pile-bottom`. If none did, or more than one did, it says so instead of guessing.
 
+The script opens a closed hand or a closed dilemma hand that holds the card, drags the card, and closes the hand again (#1027). It does not open a card list panel, a mission pile, or a ship's crew. When no point of the card is on top, the script names what covers it, for example the backdrop of an open card list panel, and prints the step that clears it.
+
 Do not build the drag by hand. Three things make a hand drag fail, and each one has cost a run its whole turn limit:
 
 1. A mouse down on a card of the open hand closes the fan, and the table then reflows. Coordinates read before the drag point at the old layout, so the drop lands in the wrong zone. Read the rect of the target zone **after** the drag starts.
