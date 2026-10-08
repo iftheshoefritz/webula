@@ -205,6 +205,12 @@ visit and not a fresh deal. To start a check from the fresh fixture deal, open
 `/decks/practice?fixture=1&reset=1`. The `reset=1` parameter deals a new game, and the new game
 replaces the save.
 
+The game menu splash opens on every load of the practice table (#781) and covers the table. To
+start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
+`/decks/practice?fixture=1&reset=1&menu=0`. A check of the splash itself leaves `menu=0` off.
+`practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
+did not land.
+
 To keep the bottom of the page clear, start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`. This hides the consent banner and the Next.js dev tools button.
 
 `agent-browser` is a devDependency, so `npx agent-browser` runs the copy in `node_modules`

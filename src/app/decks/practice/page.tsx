@@ -1056,8 +1056,10 @@ function PracticeDrawContent() {
   );
   const [isPortrait, setIsPortrait] = useState(false);
   // The game menu (#722): open on every load (#781), so a new player finds the game controls.
-  // Nothing is stored; the first press outside the menu closes it.
-  const [gameMenuOpen, setGameMenuOpen] = useState(true);
+  // Nothing is stored; the first press outside the menu closes it. `menu=0` in the URL starts
+  // it closed (#1028), so a browser check's first drag is not covered by the splash. It is read
+  // in the initial state, not in an effect, so the splash never shows for one frame.
+  const [gameMenuOpen, setGameMenuOpen] = useState(() => searchParams.get('menu') !== '0');
   // Only one hand opens at a time (#604), so one value names the open hand rather than one
   // boolean per hand.
   const [openHand, setOpenHand] = useState<'hand' | 'dilemmaHand' | null>(null);

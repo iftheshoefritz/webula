@@ -45,6 +45,12 @@
 # The first move is 4 px right and 8 px up. The `PointerSensor` in `page.tsx`
 # needs 8 px of movement before a drag starts, so one large move alone does
 # nothing.
+#
+# The game menu splash (#781) opens on every load of the table and covers it,
+# so a drag under it lands nowhere. The script checks for the splash first and
+# stops with a message if it is open (#1028). It does not close the splash,
+# because a check of the splash itself must still see it. Open the table with
+# `menu=0` in the URL to start with the splash closed.
 set -u
 
 CARD="${1:-}"
@@ -88,6 +94,12 @@ ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 snapshot() {
   ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const st=el.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');const k=el.getAttribute('data-zone')||el.getAttribute('data-testid')||(st?st.getAttribute('data-testid').replace(/-stack$/,''):pile[1]);parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
 }
+
+splash=$(ev "(()=>document.querySelector('[data-testid=\"game-menu-splash\"]')?'OPEN':'CLOSED')()")
+if [ "$splash" = "OPEN" ]; then
+  echo "the game menu splash is open and covers the table. Add menu=0 to the URL, or press Continue." >&2
+  exit 1
+fi
 
 # Every eval shares one scope, so each one is an arrow function called at once.
 # A bare `const` fails the second time with "Identifier has already been declared".
