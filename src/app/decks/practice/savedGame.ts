@@ -24,6 +24,8 @@ export type SavedMissionSlot = {
   ships: SavedCardInstance[];
   awayTeam: SavedCardInstance[];
   underMission: SavedCardInstance[];
+  // Absent in a save made before #991, which loads as not complete.
+  completed?: boolean;
 };
 
 export type SavedTable = Omit<TableState, Zone | 'missions'> &

@@ -353,6 +353,50 @@ describe('MissionRow', () => {
 
 // #930: with spare height the ship row fills a second and a third row of 2 ships before it
 // overlaps, and only the last row overlaps.
+describe('MissionRow: a completed mission (#991)', () => {
+  const renderRow = (missions: MissionSlot[], onSetMissionCompleted = jest.fn(), onOpenPile = jest.fn()) =>
+    render(
+      <MissionRow
+        missions={missions}
+        onOpenPile={onOpenPile}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+        onSetMissionCompleted={onSetMissionCompleted}
+      />
+    );
+
+  it('shows a faint toggle on a mission that is not complete, and a click marks it complete', () => {
+    const onSet = jest.fn();
+    const onOpenPile = jest.fn();
+    renderRow([{ ...emptySlot(), awayTeam: [card('p1', 'Data')] }], onSet, onOpenPile);
+
+    const toggle = screen.getByRole('button', { name: 'Mark A Mission complete' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('img', { name: 'A Mission' })).not.toHaveClass('brightness-50');
+    fireEvent.click(toggle);
+    expect(onSet).toHaveBeenCalledWith(0, true);
+    expect(onOpenPile).not.toHaveBeenCalled();
+  });
+
+  it('shows the check badge and the darker card on a completed mission, and a click unmarks it', () => {
+    const onSet = jest.fn();
+    renderRow([{ ...emptySlot(), completed: true }], onSet);
+
+    const toggle = screen.getByRole('button', { name: 'Mark A Mission not complete' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(toggle).toHaveClass('w-6', 'h-6', 'bg-accent');
+    expect(screen.getByRole('img', { name: 'A Mission' })).toHaveClass('brightness-50');
+    fireEvent.click(toggle);
+    expect(onSet).toHaveBeenCalledWith(0, false);
+  });
+
+  it('shows no toggle in a slot with no mission card', () => {
+    renderRow([{ ...emptySlot(), mission: null }]);
+    expect(screen.queryByRole('button', { name: /^Mark / })).toBeNull();
+  });
+});
+
 describe('MissionRow: a ship row of more than one row (#930)', () => {
   const withShips = (count: number): MissionSlot => ({
     ...emptySlot(),

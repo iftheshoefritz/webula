@@ -122,6 +122,16 @@ describe('savedGame', () => {
     expect(fromSavedGame(JSON.stringify(save), deck)).toBeNull();
   });
 
+  it('keeps a completed mission, and loads an older save with no completion as not complete (#991)', () => {
+    const table = tableReducer(dealtTable(), { type: 'setMissionCompleted', missionIndex: 0, completed: true });
+    const save: any = toSavedGame(table, deck, 'builder');
+    expect(fromSavedGame(JSON.stringify(save), deck)!.table.missions[0].completed).toBe(true);
+
+    delete save.table.missions[0].completed;
+    const old = fromSavedGame(JSON.stringify(save), deck)!;
+    expect(old.table.missions.every((slot) => !slot.completed)).toBe(true);
+  });
+
   it('gives a top-level field that the save lacks its default', () => {
     const save: any = toSavedGame(dealtTable(), deck, 'builder');
     delete save.table.score;

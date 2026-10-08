@@ -52,6 +52,10 @@ export const fullCardHeight = (width: number): number => Math.round((width * 167
 // regardless of which image it renders.
 export const STOPPED_IMAGE_CLASSNAME = 'grayscale opacity-50';
 
+// The look of a completed mission's card (#991): darker, but in full colour, so it does not read
+// as stopped.
+export const COMPLETED_IMAGE_CLASSNAME = 'brightness-50';
+
 // The black card border (#983). A card image has white outside its rounded corners, and the deck
 // builder and the card search cover it with a black border 6 px wide on a card about 240 px wide.
 // A card on the practice table draws the same border at the same share of its width, and never
@@ -86,6 +90,7 @@ export default function TableCard({
   holdable = true,
   uncropped = false,
   draggableId,
+  completed = false,
 }: {
   instance: CardInstance;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
@@ -101,6 +106,8 @@ export default function TableCard({
   // The id the card drags under, when it is not the card's own id: a card shown in a card list
   // panel drags under `panelDraggableId` (#913), such as a tiny card placed on a ship (#963).
   draggableId?: string;
+  // A completed mission (#991) shows its image darker.
+  completed?: boolean;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down';
@@ -132,7 +139,7 @@ export default function TableCard({
           <img
             src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
             alt={isFaceDown ? 'Face-down card' : card.name}
-            className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+            className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
             style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
           />
         </div>

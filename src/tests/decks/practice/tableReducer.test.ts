@@ -801,6 +801,42 @@ describe('tableReducer', () => {
 
   });
 
+  describe('setMissionCompleted (#991)', () => {
+    const start = () => ({
+      ...initialTableState,
+      score: 5,
+      missions: missionSlots([instance('m0', card('Moab IV'), 'up'), instance('m1', card('Ajilon Prime'), 'up')]),
+    });
+
+    it('marks the addressed mission complete and not complete, and leaves the score alone', () => {
+      const done = tableReducer(start(), { type: 'setMissionCompleted', missionIndex: 1, completed: true });
+      expect(done.missions[1].completed).toBe(true);
+      expect(done.missions[0].completed).toBeFalsy();
+      expect(done.score).toBe(5);
+
+      const undone = tableReducer(done, { type: 'setMissionCompleted', missionIndex: 1, completed: false });
+      expect(undone.missions[1].completed).toBe(false);
+      expect(undone.score).toBe(5);
+    });
+
+    it('ignores a slot with no mission card and an index out of range', () => {
+      const state = start();
+      expect(tableReducer(state, { type: 'setMissionCompleted', missionIndex: 2, completed: true })).toBe(state);
+      expect(tableReducer(state, { type: 'setMissionCompleted', missionIndex: 9, completed: true })).toBe(state);
+    });
+
+    it('keeps completion through nextTurn, and a reset deals every mission not complete', () => {
+      const done = tableReducer(start(), { type: 'setMissionCompleted', missionIndex: 0, completed: true });
+      expect(tableReducer(done, { type: 'nextTurn' }).missions[0].completed).toBe(true);
+
+      const missions = [instance('m0', card('Moab IV'), 'up')];
+      const reset = tableReducer(done, { type: 'reset', cards: [], missions, dilemmas: [] });
+      expect(reset.missions.every((slot) => !slot.completed)).toBe(true);
+      const piles = tableReducer(done, { type: 'resetWithPiles', cards: [], missions, dilemmas: [] });
+      expect(piles.missions.every((slot) => !slot.completed)).toBe(true);
+    });
+  });
+
   describe('flipMission (#765)', () => {
     const doubleSided = { ...card('Ceti Alpha V'), imagefile: 'STVE-EN29035ab', backimagefile: 'STVE-EN29035R' };
 
