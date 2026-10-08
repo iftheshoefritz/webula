@@ -43,6 +43,10 @@ import { CANCEL_RADIUS } from './releaseCancel';
 type DraggableListeners = ReturnType<typeof useDraggable>['listeners'];
 
 export const HOLD_DELAY_MS = 500;
+// The hold, during a drag, over one card in the core or the brig that places the dragged card on
+// it (#1029). Longer than `HOLD_DELAY_MS`, so the player can tell the two holds apart, and so a
+// drag that only passes over a card, or slows near it, does not place the card by accident.
+export const PLACE_ON_HOLD_MS = 800;
 // Long enough that a mouse crossing the mission row does not flash every card it passes.
 export const HOVER_DELAY_MS = 300;
 // Shared with the `PointerSensor`'s `activationConstraint` in `page.tsx` and with

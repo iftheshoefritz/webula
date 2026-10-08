@@ -13,10 +13,12 @@
 // larger size — the small size here makes a card hard to read in place. A tap on a card inside
 // that panel selects it, the same as in a mission's personnel/event/dilemma piles.
 //
-// Each card here can take a placed card (#810): it has a droppable of its own, `onDropId`, so a drop on a
-// card's art places the dragged card on that card, while a drop on the zone off any card still
-// lands in the flat zone. `collisionDetection.ts` ranks the card above the zone the same way it
-// ranks a ship above its ship row. A card shows a count of the cards placed on it, and a tap on it
+// Each card here can take a placed card (#810): it has a droppable of its own, `onDropId`.
+// `collisionDetection.ts` ranks the card above the zone the same way it ranks a ship above its
+// ship row. A drop on a card adds the dragged card to the zone, the same as a drop on the zone off
+// any card, unless the drag held over that card for `PLACE_ON_HOLD_MS` first (#1029): the hold
+// arms the card, and a drop then places the dragged card on it. Until the hold, the zone shows the
+// highlight, and the card shows none. A card shows a count of the cards placed on it, and a tap on it
 // opens those cards in their own panel (`onOpenPlacedOn`) instead of the zone's.
 
 import { useDroppable } from '@dnd-kit/core';
@@ -25,6 +27,7 @@ import { landedBumpClassName } from './LandedZoneContext';
 import TableCard, { SMALL_CARD_WIDTH, fullCardHeight } from './TableCard';
 import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
+import { usePlaceOnHold } from './PlaceOnHoldContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
 
@@ -64,12 +67,13 @@ function PlacedOnTargetCard({
   onOpen: () => void;
   onOpenPlacedOn: (targetId: string) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: onDropId(instance.id) });
+  const { setNodeRef } = useDroppable({ id: onDropId(instance.id) });
   const draggedType = useDraggedCardType();
-  // The same highlight as a ship's art (#812), which also takes any placed card, so the player can
-  // tell a drop on this card from a drop on the zone around it before release (#831). dnd-kit
-  // reports one `over`, so the zone never shows `over` while this card does.
-  const highlight = highlightState('ship', draggedType, isOver);
+  const { armedTargetId } = usePlaceOnHold();
+  // Only an armed card is a target of its own (#1029), so only an armed card shows a highlight,
+  // the same one as a ship's art (#812), which also takes any placed card. The player can then
+  // tell a drop on this card from a drop on the zone around it before release (#831).
+  const highlight = armedTargetId === instance.id && draggedType !== null ? highlightState('ship', draggedType, true) : undefined;
   const landedNonce = useLandedNonce(onDropId(instance.id));
   const onCount = instance.placedOn?.length ?? 0;
 
@@ -100,26 +104,29 @@ export default function FlatCardRow({
   cards,
   maxWidth,
   maxOffset,
-  fixedWidth = false,
   onOpen,
   onOpenPlacedOn,
 }: {
   zone: 'core' | 'brig';
   label: string;
   cards: CardInstance[];
+  // The widest the row may grow, the share of the bottom row's free space `page.tsx` measures
+  // for it (#1029). Past that width, the cards overlap more.
   maxWidth: number;
   maxOffset: number;
-  // Keeps the zone at maxWidth at every card count, instead of shrinking to fit the cards it
-  // holds (#676). Used by the core, so the zone does not grow or shrink as cards are added or
-  // removed. The brig keeps its existing width-to-cards behaviour.
-  fixedWidth?: boolean;
   onOpen: () => void;
   // A tap on a card with cards on it (#810) opens those cards, not the zone's panel.
   onOpenPlacedOn: (targetId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: zone });
   const draggedType = useDraggedCardType();
-  const highlight = highlightState(zone, draggedType, isOver);
+  const { overTargetId, armedTargetId } = usePlaceOnHold();
+  // dnd-kit reports one `over`, so with the pointer on a card the zone's own `isOver` is false. A
+  // drop on a card that is not armed adds the dragged card to this zone (#1029), so the zone shows
+  // `over` then too.
+  const overUnarmedCard =
+    overTargetId !== null && overTargetId !== armedTargetId && cards.some((card) => card.id === overTargetId);
+  const highlight = highlightState(zone, draggedType, isOver || overUnarmedCard);
   const dragging = draggedType !== null;
   const landedNonce = useLandedNonce(zone);
 
@@ -130,10 +137,9 @@ export default function FlatCardRow({
         data-zone={zone}
         data-highlight={highlight}
         data-landed={landedNonce !== null || undefined}
-        className={`relative ${fixedWidth ? '' : 'w-14'} h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1 ${highlightClassName(
+        className={`relative w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1 ${highlightClassName(
           highlight
         )}`}
-        style={fixedWidth ? { width: maxWidth } : undefined}
       >
         <LandedRing nonce={landedNonce} />
         {label}
@@ -160,7 +166,7 @@ export default function FlatCardRow({
       data-landed={landedNonce !== null || undefined}
       className={`relative rounded ${dragging ? 'rounded-lg border-2 border-dashed border-white/20' : ''} ${highlightClassName(highlight)}`}
       style={{
-        width: fixedWidth ? maxWidth : dragging ? Math.max(rowWidth, 56) : rowWidth,
+        width: dragging ? Math.max(rowWidth, 56) : rowWidth,
         height: dragging ? Math.max(cardHeight, 80) : cardHeight,
       }}
     >
