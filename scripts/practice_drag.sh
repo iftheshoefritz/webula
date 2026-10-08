@@ -67,6 +67,17 @@
 # needs 8 px of movement before a drag starts, so one large move alone does
 # nothing.
 #
+# A card in a closed hand or a closed dilemma hand is not in the DOM. The script
+# opens the hand that holds it first (#1027), and closes it again after the
+# drop, so the table is left as the script found it. It does not open a card
+# list panel, a mission pile, or a ship's crew; open those yourself.
+#
+# When no point of the card is on top, the script reads why and says what to do:
+# a hidden card (a drag may still be running), a card outside the viewport,
+# another card on top, or another element on top, such as the backdrop of an
+# open hand or card list panel, named by its data-testid, data-zone or
+# aria-label.
+#
 # The game menu splash (#781) opens on every load of the table and covers it,
 # so a drag under it lands nowhere. The script checks for the splash first and
 # stops with a message if it is open (#1028). It does not close the splash,
@@ -130,12 +141,82 @@ fi
 
 # Every eval shares one scope, so each one is an arrow function called at once.
 # A bare `const` fails the second time with "Identifier has already been declared".
-grab=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();for(let fx=0.05;fx<=0.95;fx+=0.05){for(let fy=0.2;fy<=0.8;fy+=0.1){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);const t=document.elementFromPoint(x,y);if(t&&t.closest('[data-card-id]')===e)return x+' '+y}}return 'COVERED'})()")
+present() { ev "(()=>document.querySelector('[data-card-id=\"$CARD\"]')?'YES':'NO')()"; }
 
-case "$grab" in
-  MISSING) echo "card $CARD is not in the DOM. Open the hand or the panel that holds it first." >&2; exit 1 ;;
-  COVERED) echo "no point of card $CARD is on top. Another card covers all of it." >&2; exit 1 ;;
-esac
+# A closed hand keeps its cards out of the DOM (#1027). The closed button of a
+# hand carries the hand's data-zone, `hand` or `dilemmaHand`, only while the
+# hand is closed, and it is disabled when the hand is empty. Open each closed
+# hand that holds cards, with a DOM click ("A click that does not click" in
+# AGENTS.md), until one shows the card. A hand that does not hold it is closed
+# again by a DOM click on its backdrop, `Close <label>`, which lands at (0, 0),
+# outside every control the backdrop lets through. Only one hand is open at a
+# time, so opening a hand closes the other one.
+OPENED=""
+close_hand() {
+  ev "(()=>{const b=document.querySelector('button[aria-label=\"Close $1\"]');if(!b)return 'NONE';b.click();return 'CLOSED'})()" >/dev/null
+}
+wait_present() {
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [ "$(present)" = "YES" ] && return 0
+    sleep 0.2
+  done
+  return 1
+}
+
+if [ "$(present)" = "NO" ]; then
+  for hz in hand dilemmaHand; do
+    label=$(ev "(()=>{const b=document.querySelector('button[data-zone=\"$hz\"]');if(!b||b.disabled)return '';const m=/^(.*?), \\d+ cards?, tap to open\$/.exec(b.getAttribute('aria-label')||'');if(!m)return '';b.click();return m[1]})()")
+    [ -z "$label" ] && continue
+    if wait_present; then
+      OPENED="$label"
+      break
+    fi
+    close_hand "$label"
+  done
+fi
+
+# The page opens the hand a card came from again after the drop if it still
+# holds a card. If the script opened that hand, close it on the way out, so the
+# next command does not meet a backdrop that covers the table. A hand that was
+# open before the run stays open.
+cleanup() {
+  if [ -n "$OPENED" ]; then
+    sleep 0.3
+    close_hand "$OPENED"
+  fi
+}
+trap cleanup EXIT
+
+# Scan the card for a point where `elementFromPoint` returns it (trap 2). The
+# x axis goes in 1 px steps: `offsetFor` (`overlapOffset.ts`) can show only a
+# 2 px strip of a card under its neighbour, and a coarser step can miss it.
+grab=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();for(let x=Math.ceil(r.x+1);x<r.right-1;x++){for(let fy=0.2;fy<=0.8;fy+=0.1){const y=Math.round(r.y+r.height*fy);const t=document.elementFromPoint(x,y);if(t&&t.closest('[data-card-id]')===e)return x+' '+y}}return 'COVERED'})()")
+
+if [ "$grab" = "MISSING" ]; then
+  echo "card $CARD is not in the DOM, and neither hand holds it. The script opens a closed hand itself, but not a card list panel, a mission pile, or a ship's crew. Open the panel that holds the card (a tap on the pile, the mission, or the ship), then run the script again." >&2
+  exit 1
+fi
+
+# No point of the card is on top. Read why, in the same page state, and say
+# what the agent can do about it.
+if [ "$grab" = "COVERED" ]; then
+  why=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');for(let a=e;a&&a.nodeType===1;a=a.parentElement){if(getComputedStyle(a).visibility==='hidden'||a.getAttribute('aria-hidden')==='true')return 'HIDDEN'}const r=e.getBoundingClientRect();if(r.width===0||r.height===0)return 'HIDDEN';const x=Math.min(Math.max(r.x+r.width/2,0),innerWidth-1),y=Math.min(Math.max(r.y+r.height/2,0),innerHeight-1);if(r.right<=0||r.bottom<=0||r.x>=innerWidth||r.y>=innerHeight)return 'OFFSCREEN';const t=document.elementFromPoint(x,y);if(!t)return 'OFFSCREEN';const c=t.closest('[data-card-id]');if(c)return 'CARD '+c.getAttribute('data-card-id');for(let a=t;a&&a.nodeType===1;a=a.parentElement){for(const k of ['data-testid','data-zone','aria-label']){const v=a.getAttribute(k);if(v&&v!=='practice-game-layer')return 'OTHER '+k+'='+v}}return 'OTHER '+t.tagName.toLowerCase()})()")
+  case "$why" in
+    HIDDEN)
+      echo "card $CARD is in the DOM but hidden. A hidden fan means a drag may still be running. Release the mouse (npx agent-browser mouse up) and run the script again." >&2 ;;
+    OFFSCREEN)
+      echo "card $CARD is outside the viewport, so no point of it can be hit. Use a larger viewport (npx agent-browser set viewport 1280 800), or scroll the card into view, and run the script again." >&2 ;;
+    "CARD "*)
+      echo "card $CARD is under card ${why#CARD }, and no point of it is on top. Drag the card out of its card list panel instead, or move ${why#CARD } first." >&2 ;;
+    "OTHER aria-label=Close "*)
+      echo "card $CARD is under the backdrop of the open ${why#OTHER aria-label=Close }, a hand or a card list panel. Close it with a DOM click on its backdrop, button[aria-label=\"${why#OTHER aria-label=}\"], and run the script again." >&2 ;;
+    "OTHER data-testid=card-list-panel-"*)
+      echo "card $CARD is under an open card list panel (${why#OTHER }). Close the panel, or drag a card that is in the panel, and run the script again." >&2 ;;
+    *)
+      echo "card $CARD is under another element (${why#OTHER }). Close what covers it and run the script again." >&2 ;;
+  esac
+  exit 1
+fi
 
 set -- $grab
 ax=$1; ay=$2
