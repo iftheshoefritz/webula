@@ -200,4 +200,23 @@ describe('Practice table: dragging the top card off the draw deck or the dilemma
     const overlayImage = within(screen.getByTestId('drag-overlay')).getByRole('img');
     expect(overlayImage.getAttribute('src')).toBe('/cardimages/cardback.jpg');
   });
+
+  // Issue #1036: `scripts/watch_landed.sh` finds the overlay's content by this test id.
+  it('marks the drag overlay content with a data-testid during a drag, and drops it after', async () => {
+    await setup();
+    const drawTop = document.body.querySelector('[aria-label="Draw deck top, tap to draw"]')!;
+    const topId = drawTop.closest('[data-card-id]')!.getAttribute('data-card-id')!;
+    expect(screen.queryByTestId('drag-overlay-card')).not.toBeInTheDocument();
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: topId, data: { current: { showBack: true } } } });
+    });
+    const content = within(screen.getByTestId('drag-overlay')).getByTestId('drag-overlay-card');
+    expect(content).not.toHaveAttribute('data-zone');
+
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: topId }, over: { id: 'core' } });
+    });
+    expect(screen.queryByTestId('drag-overlay-card')).not.toBeInTheDocument();
+  });
 });
