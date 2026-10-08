@@ -1948,6 +1948,9 @@ function PracticeDrawContent() {
                   onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
                   onOpenPlacedOn={openOnlyPlacedOnPanel}
                   onFlipMission={(id) => dispatch({ type: 'flipMission', id })}
+                  onSetMissionCompleted={(missionIndex, completed) =>
+                    dispatch({ type: 'setMissionCompleted', missionIndex, completed })
+                  }
                   scale={missionScale}
                   shipRows={shipRows}
                   desktop={finePointer}

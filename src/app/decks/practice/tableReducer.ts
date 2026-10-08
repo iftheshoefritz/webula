@@ -64,6 +64,9 @@ export interface MissionSlot {
   ships: CardInstance[];
   awayTeam: CardInstance[];
   underMission: CardInstance[];
+  // The player marked the mission complete (#991). Absent or false means not complete, so a slot
+  // built before this field, or loaded from a save made before it, reads as not complete.
+  completed?: boolean;
 }
 
 // A ship row is one of MISSION_SLOTS possible move destinations, not a single top-level zone
@@ -187,6 +190,10 @@ export type TableAction =
   // `withCardsAt` (the same helpers `move` uses) instead of per-zone branches, since setting
   // `stopped` has no zone-dependent behaviour to encode.
   | { type: 'setStopped'; ids: string[]; stopped: boolean }
+  // Marks a mission complete or not complete (#991), by its slot index, to an explicit value like
+  // `setStopped`. Does nothing to an index out of range or a slot with no mission card. It never
+  // changes the score: the points a mission earns vary, so scoring stays manual (`adjustScore`).
+  | { type: 'setMissionCompleted'; missionIndex: number; completed: boolean }
   // Raises the turn counter by one and unstops every stopped personnel card, in every zone
   // (#718): the flat zones, every mission's piles, every ship row, and every ship's crew.
   | { type: 'nextTurn' }
@@ -663,6 +670,15 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         const cards = cardsAt(currentState, zone);
         return withCardsAt(currentState, zone, cards.map((c) => (c.id === id ? updated : c)));
       }, state);
+    }
+
+    case 'setMissionCompleted': {
+      const slot = state.missions[action.missionIndex];
+      if (!slot?.mission) return state;
+      const missions = state.missions.map((s, i) =>
+        i === action.missionIndex ? { ...s, completed: action.completed } : s
+      );
+      return { ...state, missions };
     }
 
     case 'nextTurn': {
