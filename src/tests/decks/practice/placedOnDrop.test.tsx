@@ -41,12 +41,14 @@ const mockDraggableIds: string[] = [];
 let mockOnDragStart: ((event: { active: { id: string } }) => void) | null = null;
 let mockOnDragEnd: ((event: { active: { id: string }; over: { id: string } | null }) => void) | null = null;
 let mockOnDragCancel: (() => void) | null = null;
+let mockOnDragOver: ((event: { active: { id: string }; over: { id: string } | null }) => void) | null = null;
 jest.mock('@dnd-kit/core', () => {
   const actual = jest.requireActual('@dnd-kit/core');
   return {
     ...actual,
-    DndContext: ({ children, onDragStart, onDragEnd, onDragCancel }: any) => {
+    DndContext: ({ children, onDragStart, onDragOver, onDragEnd, onDragCancel }: any) => {
       mockOnDragStart = onDragStart;
+      mockOnDragOver = onDragOver;
       mockOnDragEnd = onDragEnd;
       mockOnDragCancel = onDragCancel;
       return children;
@@ -63,6 +65,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, within, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
+import { PLACE_ON_HOLD_MS } from '../../../app/decks/practice/useCardHold';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -161,6 +164,28 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     });
   };
 
+  // A drag that holds over the drop target for `holdMs` before the drop (#1029). The drag moves
+  // onto the target, then the timers run on.
+  const holdDrag = async (id: string, overId: string, holdMs = PLACE_ON_HOLD_MS) => {
+    jest.useFakeTimers();
+    try {
+      await act(async () => {
+        mockOnDragStart!({ active: { id } });
+      });
+      await act(async () => {
+        mockOnDragOver!({ active: { id }, over: { id: overId } });
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(holdMs);
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id }, over: { id: overId } });
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  };
+
   const cardIdOf = (name: string): string =>
     screen.getByRole('button', { name }).getAttribute('data-card-id')!;
 
@@ -192,11 +217,62 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
   it('places a card dropped on a core card on that card, and counts it', async () => {
     const { eventId, personnelId } = await setupCorePlacedOn();
 
-    await drag(personnelId, `on-${eventId}`);
+    await holdDrag(personnelId, `on-${eventId}`);
 
     // The personnel card is placed on the event, not a card of its own in the core.
     expect(screen.queryByRole('button', { name: 'data' })).toBeNull();
     expect(screen.getByLabelText('distress call, 1 card on it')).toBeInTheDocument();
+  });
+
+  // #1029: with the core full of cards, any drop on the zone lands on a card. A drop there with no
+  // hold, or a hold shorter than `PLACE_ON_HOLD_MS`, adds the card to the core.
+  it.each([
+    ['no hold', 0],
+    ['a hold shorter than PLACE_ON_HOLD_MS', PLACE_ON_HOLD_MS - 1],
+  ])('puts a card dropped on a core card after %s in the core, not on the card', async (_, holdMs) => {
+    const { eventId, personnelId } = await setupCorePlacedOn();
+
+    if (holdMs === 0) await drag(personnelId, `on-${eventId}`);
+    else await holdDrag(personnelId, `on-${eventId}`, holdMs);
+
+    const coreZone = document.body.querySelector('[data-zone="core"]')!;
+    expect(coreZone.contains(screen.getByRole('button', { name: 'data' }))).toBe(true);
+    expect(screen.queryByLabelText(/card on it$/)).toBeNull();
+  });
+
+  it('starts the hold again when the drag leaves the card before PLACE_ON_HOLD_MS', async () => {
+    const { eventId, personnelId } = await setupCorePlacedOn();
+
+    jest.useFakeTimers();
+    try {
+      await act(async () => {
+        mockOnDragStart!({ active: { id: personnelId } });
+      });
+      await act(async () => {
+        mockOnDragOver!({ active: { id: personnelId }, over: { id: `on-${eventId}` } });
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(PLACE_ON_HOLD_MS - 100);
+      });
+      await act(async () => {
+        mockOnDragOver!({ active: { id: personnelId }, over: { id: 'core' } });
+      });
+      await act(async () => {
+        mockOnDragOver!({ active: { id: personnelId }, over: { id: `on-${eventId}` } });
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(PLACE_ON_HOLD_MS - 100);
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: personnelId }, over: { id: `on-${eventId}` } });
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+
+    const coreZone = document.body.querySelector('[data-zone="core"]')!;
+    expect(coreZone.contains(screen.getByRole('button', { name: 'data' }))).toBe(true);
+    expect(screen.queryByLabelText(/card on it$/)).toBeNull();
   });
 
   it('still puts a card dropped on the core, off any card, in the core', async () => {
@@ -220,7 +296,7 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
 
   it('lists the placed cards in a panel, and a drag out of the panel takes one off', async () => {
     const { eventId, personnelId } = await setupCorePlacedOn();
-    await drag(personnelId, `on-${eventId}`);
+    await holdDrag(personnelId, `on-${eventId}`);
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
@@ -244,7 +320,7 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
 
   it('shows the host card in its own section, outside the grid of the placed cards (#881)', async () => {
     const { eventId, personnelId } = await setupCorePlacedOn();
-    await drag(personnelId, `on-${eventId}`);
+    await holdDrag(personnelId, `on-${eventId}`);
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
@@ -267,7 +343,7 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
 
   it('keeps a placed card in the grid selectable and draggable (#881)', async () => {
     const { eventId, personnelId } = await setupCorePlacedOn();
-    await drag(personnelId, `on-${eventId}`);
+    await holdDrag(personnelId, `on-${eventId}`);
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'distress call' }));

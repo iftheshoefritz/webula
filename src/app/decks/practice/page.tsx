@@ -7,6 +7,7 @@ import {
   CollisionDetection,
   DndContext,
   DragEndEvent,
+  DragOverEvent,
   DragOverlay,
   DragStartEvent,
   useDraggable,
@@ -61,7 +62,9 @@ import MissionRow, {
 } from './MissionRow';
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
-import { CardHoldProvider, NO_CALLOUT_STYLE, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
+import { CardHoldProvider, NO_CALLOUT_STYLE, PLACE_ON_HOLD_MS, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
+import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHoldContext';
+import { FLAT_ROW_MAX_OFFSET, flatRowWidths, useElementWidth } from './flatRowWidths';
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { ShuffleIcon } from './CardListPanel';
@@ -297,7 +300,8 @@ function drawPileHalfFromDropId(id: string): 'top' | 'bottom' | null {
 function computeMoveTargetForInstance(
   over: DragEndEvent['over'],
   instance: CardInstance,
-  table: TableState
+  table: TableState,
+  armedTargetId: string | null = null
 ): MoveTarget | null {
   if (!over) return null;
 
@@ -313,12 +317,13 @@ function computeMoveTargetForInstance(
     return 'drawDeck';
   }
 
-  // A drop on a card in the core or the brig places the card on it (#810). A card dropped on its
-  // own droppable, such as one the pointer barely moved, stays in the zone it sits in, the same
-  // reorder a drop on that zone gives.
+  // A drop on a card in the core or the brig places the card on it (#810), once a hold over that
+  // card has armed it (#1029). Any other drop on the card, and a drop of a card on its own
+  // droppable, such as one the pointer barely moved, goes to the zone the card sits in, the same
+  // as a drop on that zone off any card.
   const targetId = targetIdFromOnDropId(String(over.id));
   if (targetId) {
-    if (targetId === instance.id) {
+    if (targetId === instance.id || targetId !== armedTargetId) {
       const targetLocation = findInstanceAnywhere(table, targetId);
       return targetLocation && typeof targetLocation.zone === 'string' && targetLocation.zone !== 'missions'
         ? targetLocation.zone
@@ -381,20 +386,6 @@ function computeMoveTargetForInstance(
 
   return null;
 }
-
-// The core and the brig show their cards at the ship row's small size (`MissionRow.tsx`), and
-// each one's row is bounded to a width that keeps the whole bottom row (discard pile, draw pile,
-// closed hand, core, brig, dilemma placeholder) inside the 568 px acceptance-check viewport: the
-// other four zones and their gaps take a little over 300 px, leaving roughly 250 px for the core
-// and the brig combined. The player uses the core more than the brig (#666), so the core is
-// bounded to fit 3 cards side by side with no overlap, and the brig stays bounded to fit 2
-// overlapping cards. #928 spent the width #927 left spare: at 568x320 the page draws a 15 px
-// scrollbar, and the row then had 7 px spare with an empty brig (56 px), or 5 px with a full one
-// (58 px). The two bounds split those 5 px in proportion to their old widths, 106 to 58, so both
-// keep a ratio of about 1.83 to 1 and the dilemma pile stays whole.
-const CORE_ROW_MAX_WIDTH = 109; // px, fits 3 small cards side by side with no overlap
-const BRIG_ROW_MAX_WIDTH = 60; // px, fits 2 overlapping small cards
-const FLAT_ROW_MAX_OFFSET = SMALL_CARD_WIDTH + 2; // cards sit edge to edge with a small gap, matching the ship row
 
 // The zones whose panel `openFlatLocation` tracks: the core and the brig (#640), the draw deck and the
 // dilemma pile (#690), the dilemma stack (#733), and the discard pile (#782).
@@ -1090,6 +1081,12 @@ function PracticeDrawContent() {
   const [landedZones, setLandedZones] = useState<LandedZones | null>(null);
   const landedNonceRef = useRef(0);
   const landedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The hold over one card in the core or the brig that places the dragged card on it (#1029).
+  // `placeOnHoldRef` mirrors the state, so `handleDragOver` and `handleDragEnd` read the latest
+  // value whichever render they were made in.
+  const [placeOnHold, setPlaceOnHoldState] = useState<PlaceOnHold>(NO_PLACE_ON_HOLD);
+  const placeOnHoldRef = useRef<PlaceOnHold>(NO_PLACE_ON_HOLD);
+  const placeOnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [gameLayer, setGameLayer] = useState<HTMLDivElement | null>(null);
   // Issue #717: grows the mission cards, the ship cards, and every card-list-panel card grid past
   // their base pixel size once the game layer (which already tracks the browser's toolbar
@@ -1105,6 +1102,10 @@ function PracticeDrawContent() {
   // Issue #828: every card list panel anchors its bottom just above the bottom row.
   const [bottomRow, setBottomRow] = useState<HTMLDivElement | null>(null);
   const panelBottom = usePanelBottomInset(gameLayer, bottomRow);
+  // Issue #1029: the core and the brig grow into the free space of the bottom row.
+  const [flatRows, setFlatRows] = useState<HTMLDivElement | null>(null);
+  const flatRowsWidth = useElementWidth(flatRows);
+  const flatWidths = flatRowWidths(flatRowsWidth, core.length, brig.length);
   // Issue #930: the ship rows take a second and a third row of ships when the gap between the
   // mission rows and the bottom row has room for them.
   const [missionRows, setMissionRows] = useState<HTMLDivElement | null>(null);
@@ -1485,9 +1486,43 @@ function PracticeDrawContent() {
     setHoveredCardId(null);
   };
 
+  const setPlaceOnHold = (next: PlaceOnHold) => {
+    placeOnHoldRef.current = next;
+    setPlaceOnHoldState(next);
+  };
+
+  const clearPlaceOnHold = () => {
+    if (placeOnTimerRef.current) clearTimeout(placeOnTimerRef.current);
+    placeOnTimerRef.current = null;
+    if (placeOnHoldRef.current !== NO_PLACE_ON_HOLD) setPlaceOnHold(NO_PLACE_ON_HOLD);
+  };
+
+  // The pointer moved onto a new drop target (#1029). Over a card in the core or the brig, other
+  // than the dragged card, a timer starts, and after `PLACE_ON_HOLD_MS` it arms that card. Any
+  // change of target clears the timer and the armed card, so a drop then goes to the zone again.
+  const handleDragOver = (event: DragOverEvent) => {
+    const targetId = event.over ? targetIdFromOnDropId(String(event.over.id)) : null;
+    if (targetId === placeOnHoldRef.current.overTargetId) return;
+    clearPlaceOnHold();
+    if (!targetId || targetId === cardIdOfDraggable(event.active.id)) return;
+    setPlaceOnHold({ overTargetId: targetId, armedTargetId: null });
+    placeOnTimerRef.current = setTimeout(() => {
+      placeOnTimerRef.current = null;
+      setPlaceOnHold({ overTargetId: targetId, armedTargetId: targetId });
+    }, PLACE_ON_HOLD_MS);
+  };
+
+  useEffect(
+    () => () => {
+      if (placeOnTimerRef.current) clearTimeout(placeOnTimerRef.current);
+    },
+    []
+  );
+
   const handleDragStart = (event: DragStartEvent) => {
     const id = cardIdOfDraggable(event.active.id);
     closePreviews();
+    clearPlaceOnHold();
     draggingRef.current = true;
     // The press point, read from the activator event, so the release can be measured against it
     // (#774, #825).
@@ -1629,6 +1664,8 @@ function PracticeDrawContent() {
     const dragOrigin = findInstanceAnywhere(table, id);
     const press = pressRef.current;
     pressRef.current = null;
+    const { armedTargetId } = placeOnHoldRef.current;
+    clearPlaceOnHold();
     // A release still within the cancel radius of the press point is not a choice of a
     // target (#774, #825): the drag cancels before anything else runs, so no card moves, and the hand
     // or the panel it started from opens again.
@@ -1681,7 +1718,7 @@ function PracticeDrawContent() {
     // card dropped somewhere it does not fit already did.
     const actions: Extract<TableAction, { type: 'move' }>[] = [];
     orderedGroup.forEach((instance) => {
-      const target = computeMoveTargetForInstance(over, instance, table);
+      const target = computeMoveTargetForInstance(over, instance, table, armedTargetId);
       if (target) actions.push({ type: 'move', id: instance.id, to: target, position });
     });
 
@@ -1744,6 +1781,7 @@ function PracticeDrawContent() {
 
   const handleDragCancel = () => {
     closePreviews();
+    clearPlaceOnHold();
     pressRef.current = null;
     cancelDrag(draggingInstance ? findInstanceAnywhere(table, draggingInstance.id) : null);
   };
@@ -1922,6 +1960,7 @@ function PracticeDrawContent() {
             // always wins.
             collisionDetection={dilemmaStackPopupCollisionDetection}
             onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >
@@ -1931,6 +1970,7 @@ function PracticeDrawContent() {
             <DraggedCardTypeProvider value={draggingInstance?.card.type ?? null}>
             <LandedZoneProvider value={landedZones}>
             <CardHoldProvider value={cardHold}>
+            <PlaceOnHoldProvider value={placeOnHold}>
             <div className="flex flex-col flex-1 p-4">
               {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597),
                   plus the dilemma stack (#630) in its own reserved column to the right, in the
@@ -2085,15 +2125,17 @@ function PracticeDrawContent() {
                   </div>
                 </div>
 
+                {/* The core and the brig share the bottom row's free space (#1029), measured
+                    here, and grow into it as cards are added. */}
+                <div ref={setFlatRows} data-testid="flat-rows" className="flex-1 min-w-0 flex flex-row items-end gap-2">
                 {/* Core: any card, usually events (#603). A tap on a card opens the core's own
                     card list panel (#640). */}
                 <FlatCardRow
                   zone="core"
                   label="Core"
                   cards={core}
-                  maxWidth={CORE_ROW_MAX_WIDTH}
+                  maxWidth={flatWidths.core}
                   maxOffset={FLAT_ROW_MAX_OFFSET}
-                  fixedWidth
                   onOpen={() => openOnlyFlatZone('core')}
                   onOpenPlacedOn={openOnlyPlacedOnPanel}
                 />
@@ -2104,11 +2146,12 @@ function PracticeDrawContent() {
                   zone="brig"
                   label="Brig"
                   cards={brig}
-                  maxWidth={BRIG_ROW_MAX_WIDTH}
+                  maxWidth={flatWidths.brig}
                   maxOffset={FLAT_ROW_MAX_OFFSET}
                   onOpen={() => openOnlyFlatZone('brig')}
                   onOpenPlacedOn={openOnlyPlacedOnPanel}
                 />
+                </div>
 
                 {/* The dilemma pile stays the rightmost zone, with the closed dilemma hand
                     immediately to its left, on the inside of the row (#604). The dilemma hand
@@ -2335,6 +2378,7 @@ function PracticeDrawContent() {
                 />
               )}
             </div>
+            </PlaceOnHoldProvider>
             </CardHoldProvider>
             </LandedZoneProvider>
             </DraggedCardTypeProvider>
