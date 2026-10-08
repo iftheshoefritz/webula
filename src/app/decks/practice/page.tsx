@@ -2341,7 +2341,8 @@ function PracticeDrawContent() {
                 // dnd-kit measures this, the overlay's only child, as `overlayNodeRect`, and its
                 // wrapper is the size of the source card. `w-fit` keeps this box the size of the
                 // card image, so `centerOnPointer` centres the image, not the source card's width (#955).
-                <div className="relative w-fit">
+                // The `data-testid` lets `scripts/watch_landed.sh` see the overlay come and go (#1036).
+                <div data-testid="drag-overlay-card" className="relative w-fit">
                   <img
                     src={draggingShowsBack ? '/cardimages/cardback.jpg' : `/cardimages/${draggingInstance.card.imagefile}.jpg`}
                     width={120}

@@ -357,6 +357,35 @@ The small first move is the part that matters. The `PointerSensor` in `page.tsx`
 
 Use `npx agent-browser get box '[data-zone="..."]'` to get the coordinates.
 
+### To check a state that exists only after a drop
+
+The landed cue, the bump of a count badge and the drag overlay last about 450 ms
+(`LANDED_CUE_MS`). One `agent-browser` call takes longer, so a snapshot after the drag never
+shows them. Record them with the watcher instead (#1036):
+
+```bash
+bash scripts/watch_landed.sh install            # a MutationObserver starts recording
+bash scripts/practice_drag.sh card-8 core
+bash scripts/watch_landed.sh print              # prints the record, then clears it
+```
+
+```
++2574ms drag-overlay appeared
++4346ms landed-ring core
++4347ms data-landed core
++4606ms drag-overlay removed
+```
+
+The record lists each element that gains `data-landed`, each `landed-ring` inserted, each count
+that gains `animate-landed-bump` (a drop into a pile that shows only a count, such as the closed
+`hand`), and the drag overlay's content, `data-testid="drag-overlay-card"`, appearing and being
+removed. Each line names the element by its `data-zone`, `data-testid` or `aria-label`, or by its
+nearest ancestor that has one. A second `print` right after the first prints `(empty)`.
+
+The observer lives in the page until a navigation, so run `install` again after an `open` or a
+reload. Under `agent-browser set media … reduced-motion` the motion-safe bump does not play and
+the static ring shows instead, so the record lists `landed-ring` and no `animate-landed-bump`.
+
 Do not run `yarn build` while the dev server runs. It overwrites the `.next` cache the dev server uses, and the server then needs a restart.
 
 ## Fixing bugs
