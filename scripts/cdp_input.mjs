@@ -7,6 +7,13 @@
 //   bash scripts/cdp_input.sh touch-drag <x> <y> --to-eval '<js that returns "x y">'
 //   bash scripts/cdp_input.sh click <x> <y> | <selector> [--mod shift,ctrl,meta,alt]
 //   bash scripts/cdp_input.sh mouse-drag <x> <y> <tx> <ty> [--mod shift,ctrl,meta,alt]
+//   bash scripts/cdp_input.sh mouse-path <x> <y> <tx>,<ty>,<hold-ms> ... [--mod shift,ctrl,meta,alt]
+//   bash scripts/cdp_input.sh touch-path <x> <y> <tx>,<ty>,<hold-ms> ...
+//
+// `mouse-path` and `touch-path` (#1044) press at <x> <y>, make the first small move, then glide to
+// each waypoint in turn and rest there for its hold, and release at the last one. One run times
+// the holds to the millisecond; a run of `agent-browser mouse move` and `wait` calls spends about
+// 600 ms on each call, too long to rest on a card for less than `PLACE_ON_HOLD_MS`.
 //
 // agent-browser 0.27.0 drives only a mouse, and `agent-browser keydown Shift` does not set
 // `shiftKey` on the mouse events that follow. CDP does both:
@@ -113,7 +120,7 @@ const RECORDER = `(() => {
 
 async function main() {
   const [url, command, ...rest] = process.argv.slice(2);
-  if (!url || !command) fail('usage: bash scripts/cdp_input.sh <tap|pan|touch-drag|click|mouse-drag> ...');
+  if (!url || !command) fail('usage: bash scripts/cdp_input.sh <tap|pan|touch-drag|click|mouse-drag|mouse-path|touch-path> ...');
 
   let modifiers = 0;
   let toEval = null;
@@ -181,7 +188,7 @@ async function main() {
     }
   };
 
-  const isTouch = ['tap', 'pan', 'touch-drag'].includes(command);
+  const isTouch = ['tap', 'pan', 'touch-drag', 'touch-path'].includes(command);
   if (isTouch) await page('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   await evaluate(RECORDER);
 
@@ -240,6 +247,31 @@ async function main() {
     await sleep(50);
     await release(to);
     lines.push(`${command} ${from.x} ${from.y} -> ${to.x} ${to.y}`);
+  } else if (command === 'mouse-path' || command === 'touch-path') {
+    const from = await takePoint();
+    const waypoints = args.map((arg) => {
+      const m = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(\d+)$/.exec(arg);
+      if (!m) fail(`a waypoint is <x>,<y>,<hold-ms>, not "${arg}".`);
+      return { x: Number(m[1]), y: Number(m[2]), hold: Number(m[3]) };
+    });
+    if (waypoints.length === 0) fail(`${command} needs at least one waypoint: <x>,<y>,<hold-ms>.`);
+    const touchPath = command === 'touch-path';
+    const move = touchPath ? (p) => touch('touchMove', p) : (p) => mouse('mouseMoved', p, true);
+    if (!touchPath) await mouse('mouseMoved', from, false);
+    await (touchPath ? touch('touchStart', from) : mouse('mousePressed', from, true));
+    let at = { x: from.x + FIRST_MOVE.dx, y: from.y + FIRST_MOVE.dy };
+    await move(at);
+    await sleep(100);
+    lines.push(`${command} press ${from.x} ${from.y}`);
+    for (const w of waypoints) {
+      await glide(at, w, move);
+      at = { x: w.x, y: w.y };
+      const start = Date.now();
+      await sleep(w.hold);
+      lines.push(`at ${w.x} ${w.y} for ${Date.now() - start} ms`);
+    }
+    await (touchPath ? touch('touchEnd', at) : mouse('mouseReleased', at, false));
+    lines.push(`release ${at.x} ${at.y}`);
   } else if (command === 'click') {
     const p = await takePoint();
     await mouse('mouseMoved', p, false);
@@ -247,7 +279,7 @@ async function main() {
     await mouse('mouseReleased', p, false);
     lines.push(`click at ${p.x} ${p.y}`);
   } else {
-    fail(`unknown command "${command}". Use tap, pan, touch-drag, click or mouse-drag.`);
+    fail(`unknown command "${command}". Use tap, pan, touch-drag, click, mouse-drag, mouse-path or touch-path.`);
   }
 
   await sleep(200);

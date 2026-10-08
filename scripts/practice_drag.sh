@@ -243,7 +243,16 @@ before=$(snapshot)
 # that is at least the cancel radius from the press point (trap 3). The same
 # rule as `isReleaseInCancelRadius` in `releaseCancel.ts`. The target is the
 # element with that data-zone, or else the element with that data-testid.
-TARGET_JS="(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]')||document.querySelector('[data-testid=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const px=$ax,py=$ay;const dead=(x,y)=>Math.hypot(x-px,y-py)<24;let best=null,bd=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}}}return best||'DEAD'})()"
+# A point where the target's own data-zone is the nearest one wins over a point
+# on a drop target nested inside it (#1044), such as a card of the core, `on-<id>`.
+# The script takes more than `PLACE_ON_HOLD_MS` between its last move and the
+# release, so a drop aimed at the core that rests on a core card arms that card
+# and places the dragged card on it. With no such point, any point of the rect
+# serves, as before. The drag overlay sits under the pointer, so the test skips
+# every element outside a data-zone. The test checks 4 px around the point too:
+# dnd-kit counts the edge of a rect as inside it, and the nested target can
+# shift a pixel or two when the zone grows at the drag's start.
+TARGET_JS="(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]')||document.querySelector('[data-testid=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const px=$ax,py=$ay;const dead=(x,y)=>Math.hypot(x-px,y-py)<24;const zoneAt=(x,y)=>document.elementsFromPoint(x,y).map((el)=>el.closest('[data-zone]')).find(Boolean);const own=(x,y)=>!e.hasAttribute('data-zone')||[[0,0],[-4,-4],[4,-4],[-4,4],[4,4]].every(([dx,dy])=>zoneAt(x+dx,y+dy)===e);let best=null,bd=Infinity,bestOwn=null,bdOwn=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}if(d<bdOwn&&own(x,y)){bdOwn=d;bestOwn=x+' '+y}}}return bestOwn||best||'DEAD'})()"
 
 if [ -n "$TOUCH" ]; then
   # The helper presses, makes the first small move, evaluates TARGET_JS, and
