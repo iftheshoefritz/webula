@@ -275,6 +275,32 @@ A tap anywhere on the ship, the counter of the cards on it too, opens its crew p
 
 A drag out of the core onto a ship has failed once. See #701.
 
+### Desktop mode: a fine pointer
+
+Headless Chromium has no pointer device, so the practice table draws its touch layout:
+`useFinePointer` returns false, and the CSS `(pointer: fine)` rules (the size of `CardPreview`)
+do not match. Any check of an issue whose title or acceptance checks name the desktop, a mouse,
+or hover must open the page with the script:
+
+```bash
+bash scripts/agent_browser_desktop.sh 'http://localhost:3000/decks/practice?fixture=1&reset=1'
+```
+
+Quote the URL, because it holds `&`. The script starts Chromium with
+`--blink-settings=primaryPointerType=4;availablePointerTypes=4`, then prints
+`pointer: fine = true` and exits 0, or prints `false` and exits 1. The flag changes the device
+the browser reports, so JavaScript and CSS agree. Use this script and no other method. Do not
+patch `window.matchMedia` with `--init-script`: that changes only what JavaScript sees, CSS still
+sees `pointer: none`, and the page draws a layout no real device draws.
+
+The mode gives a fine pointer, not a hover media query: `(hover: hover)` stays false.
+
+The script closes every `agent-browser` session first, because `--args` applies only when the
+daemon starts and is ignored silently otherwise. Any earlier page state in the browser is gone.
+Every later `npx agent-browser` command, `practice_drag.sh` too, talks to the same browser and
+stays in desktop mode until the next `close`. To check the touch half of a comparison, run
+`npx agent-browser close` and open the page again with a plain `npx agent-browser open`.
+
 ### A click that does not click
 
 `npx agent-browser click 'button:has-text("<label>")'` also fails silently on this page. It reports success and the button does not fire. Use the DOM instead, and read the result in the same call:
