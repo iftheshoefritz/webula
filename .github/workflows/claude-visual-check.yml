@@ -86,9 +86,10 @@ jobs:
             4. Run every acceptance check of the issue, one at a time. Record the result of each one.
                For a drag on the practice table, use the script. Do not build the drag by hand, and do not
                debug a drag that does not land — the script already handles the two reasons it fails:
-               `bash scripts/practice_drag.sh <card-id> <data-zone>`
-               It prints the zone the card ended in, or `pile` for a mission pile, whose cards are not in
-               the DOM. Read "Browser checks" in AGENTS.md before you use it.
+               `bash scripts/practice_drag.sh <card-id> <data-zone or data-testid>`
+               It prints the zone the card ended in. For a card that left the DOM, such as a card in a
+               mission pile, it prints the `data-zone` or `data-testid` of the badge that gained a card,
+               for example `mission-pile-awayTeam-0`. Read "Browser checks" in AGENTS.md before you use it.
                If your commands do not build the state a check needs, say so in the report. Do not report a check as passed when you did not run it.
 
                You have a turn limit, and one Bash call is one turn. To stay inside it, put the whole
