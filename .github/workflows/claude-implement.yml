@@ -80,7 +80,7 @@ jobs:
                b. Open the page your change affects, and take one snapshot:
                   `npx agent-browser open http://localhost:3000/<the affected path>`
                   `npx agent-browser snapshot`
-                  For a change to the practice table, open `/decks/practice?fixture=1&reset=1`. The `reset=1` deals a fresh game instead of the saved one. For a change to the deck builder, open `/decks?fixture=1`. See AGENTS.md.
+                  For a change to the practice table, open `/decks/practice?fixture=1&reset=1&menu=0`. The `reset=1` deals a fresh game instead of the saved one. The `menu=0` skips the game menu splash; a check of the splash itself leaves it off. For a change to the deck builder, open `/decks?fixture=1`. See AGENTS.md.
                c. Read the snapshot and confirm that the element your change adds or changes is present.
                d. Read the browser console and the dev server log:
                   `npx agent-browser console`
