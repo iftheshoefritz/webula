@@ -1,12 +1,25 @@
 #!/usr/bin/env bash
-# Drags one card of the practice table to one zone, with agent-browser.
+# Drags one card of the practice table to one place, with agent-browser.
 #
-#   bash scripts/practice_drag.sh <card-id> <data-zone>
+#   bash scripts/practice_drag.sh <card-id> <data-zone or data-testid>
 #   bash scripts/practice_drag.sh card-5 core
+#   bash scripts/practice_drag.sh card-1 mission-pile-awayTeam-0
 #
-# It prints the zone the card is in after the drag. A mission pile, a closed
-# hand, a closed dilemma hand, and a ship's crew all keep their cards out of
-# the DOM (a badge with a count stands in for the cards), so for those the
+# The target is a name, not a CSS selector. The script looks for the element
+# with `data-zone="<name>"` first, and if none has it, the element with
+# `data-testid="<name>"` (#1026). A data-testid marks a place that is not a
+# drop target of its own, such as the away team badge (#924), so aiming at one
+# means "drop at that spot": the droppable under that spot routes the drop.
+# For the away team badge that is the mission's bottom half, `mission-on-<index>`.
+#
+# It prints the zone the card is in after the drag: a data-zone, or, for a card
+# that left the DOM, the data-zone or data-testid of the badge that gained a
+# card. Each of those names is also a valid target. The only exceptions are the
+# fallbacks below: a mission card's counter of the cards on it is keyed by the
+# mission's name, and a crew badge with no data-zone ancestor by the ship's name.
+#
+# A mission pile, a closed hand, a closed dilemma hand, and a ship's crew all
+# keep their cards out of the DOM (a badge with a count stands in for the cards), so for those the
 # script cannot find the card by id afterward. Instead it reads the
 # `aria-label` of every badge on the table, before and after the drag, and
 # reports whichever one gained a card. If none did (or more than one did), it
@@ -64,7 +77,7 @@ set -u
 CARD="${1:-}"
 ZONE="${2:-}"
 if [ -z "$CARD" ] || [ -z "$ZONE" ]; then
-  echo "usage: bash scripts/practice_drag.sh <card-id> <data-zone>" >&2
+  echo "usage: bash scripts/practice_drag.sh <card-id> <data-zone or data-testid>" >&2
   exit 2
 fi
 
@@ -139,12 +152,13 @@ ab mouse move "$((ax + 4))" "$((ay - 8))"
 # The layout reflowed when the drag started, so read the target now, not before.
 # Of a grid of points inside the target rect, take the one nearest its centre
 # that is at least the cancel radius from the press point (trap 3). The same
-# rule as `isReleaseInCancelRadius` in `releaseCancel.ts`.
-target=$(ev "(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const px=$ax,py=$ay;const dead=(x,y)=>Math.hypot(x-px,y-py)<24;let best=null,bd=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}}}return best||'DEAD'})()")
+# rule as `isReleaseInCancelRadius` in `releaseCancel.ts`. The target is the
+# element with that data-zone, or else the element with that data-testid.
+target=$(ev "(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]')||document.querySelector('[data-testid=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const px=$ax,py=$ay;const dead=(x,y)=>Math.hypot(x-px,y-py)<24;let best=null,bd=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}}}return best||'DEAD'})()")
 
 if [ "$target" = "MISSING" ]; then
   ab mouse up
-  echo "no element has data-zone=\"$ZONE\"." >&2
+  echo "no element has data-zone=\"$ZONE\" or data-testid=\"$ZONE\"." >&2
   exit 1
 fi
 
