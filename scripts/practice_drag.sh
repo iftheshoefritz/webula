@@ -4,6 +4,12 @@
 #   bash scripts/practice_drag.sh <card-id> <data-zone or data-testid>
 #   bash scripts/practice_drag.sh card-5 core
 #   bash scripts/practice_drag.sh card-1 mission-pile-awayTeam-0
+#   bash scripts/practice_drag.sh --touch card-5 core
+#
+# With `--touch` the drag is a finger, not a mouse (#1035). The press, the
+# moves and the release go through `scripts/cdp_input.sh touch-drag`, which
+# sends CDP touch events on one connection. Everything else, the point to
+# grab, the point to drop, and the zone printed, is the same for both.
 #
 # The target is a name, not a CSS selector. The script looks for the element
 # with `data-zone="<name>"` first, and if none has it, the element with
@@ -85,10 +91,15 @@
 # `menu=0` in the URL to start with the splash closed.
 set -u
 
+TOUCH=""
+if [ "${1:-}" = "--touch" ]; then
+  TOUCH=1
+  shift
+fi
 CARD="${1:-}"
 ZONE="${2:-}"
 if [ -z "$CARD" ] || [ -z "$ZONE" ]; then
-  echo "usage: bash scripts/practice_drag.sh <card-id> <data-zone or data-testid>" >&2
+  echo "usage: bash scripts/practice_drag.sh [--touch] <card-id> <data-zone or data-testid>" >&2
   exit 2
 fi
 
@@ -226,38 +237,56 @@ ax=$1; ay=$2
 # every card it still holds (#920).
 before=$(snapshot)
 
-ab mouse move "$ax" "$ay"
-ab mouse down
-ab mouse move "$((ax + 4))" "$((ay - 8))"
-
-# The layout reflowed when the drag started, so read the target now, not before.
+# The layout reflows when the drag starts, so the target is read after the
+# first move, not before.
 # Of a grid of points inside the target rect, take the one nearest its centre
 # that is at least the cancel radius from the press point (trap 3). The same
 # rule as `isReleaseInCancelRadius` in `releaseCancel.ts`. The target is the
 # element with that data-zone, or else the element with that data-testid.
-target=$(ev "(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]')||document.querySelector('[data-testid=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const px=$ax,py=$ay;const dead=(x,y)=>Math.hypot(x-px,y-py)<24;let best=null,bd=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}}}return best||'DEAD'})()")
+TARGET_JS="(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]')||document.querySelector('[data-testid=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const px=$ax,py=$ay;const dead=(x,y)=>Math.hypot(x-px,y-py)<24;let best=null,bd=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}}}return best||'DEAD'})()"
+
+if [ -n "$TOUCH" ]; then
+  # The helper presses, makes the first small move, evaluates TARGET_JS, and
+  # then moves to the point it returns and lifts the finger. When TARGET_JS
+  # returns a word instead of a point, it lifts the finger at the press point
+  # and prints the word.
+  target=$(bash "$(dirname "$0")/cdp_input.sh" touch-drag "$ax" "$ay" --to-eval "$TARGET_JS" 2>&1 | head -1)
+  case "$target" in
+    MISSING|DEAD) ;;
+    touch-drag*) target="" ;;
+    *)
+      echo "the touch drag failed: $target" >&2
+      exit 1 ;;
+  esac
+else
+  ab mouse move "$ax" "$ay"
+  ab mouse down
+  ab mouse move "$((ax + 4))" "$((ay - 8))"
+  target=$(ev "$TARGET_JS")
+fi
 
 if [ "$target" = "MISSING" ]; then
-  ab mouse up
+  [ -z "$TOUCH" ] && ab mouse up
   echo "no element has data-zone=\"$ZONE\" or data-testid=\"$ZONE\"." >&2
   exit 1
 fi
 
 if [ "$target" = "DEAD" ]; then
-  ab mouse up
+  [ -z "$TOUCH" ] && ab mouse up
   echo "every point of $ZONE is less than 24 px from the press point on $CARD, so any release there cancels the drag (#774). Drag the card out of a card list panel instead, or pick another card." >&2
   exit 1
 fi
 
-set -- $target
-bx=$1; by=$2
+if [ -z "$TOUCH" ]; then
+  set -- $target
+  bx=$1; by=$2
 
-
-ab mouse move "$bx" "$by"
-# A second move at the same point. dnd-kit reads the last pointer event, and one
-# move can arrive before the reflow settles.
-ab mouse move "$bx" "$by"
-ab mouse up
+  ab mouse move "$bx" "$by"
+  # A second move at the same point. dnd-kit reads the last pointer event, and one
+  # move can arrive before the reflow settles.
+  ab mouse move "$bx" "$by"
+  ab mouse up
+fi
 
 # A card in the core or the brig sits inside its own placed-card droppable (#810),
 # `on-<its id>`, so the zone it is in is the next data-zone up.
