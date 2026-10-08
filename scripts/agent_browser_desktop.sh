@@ -3,6 +3,14 @@
 #
 #   bash scripts/agent_browser_desktop.sh <url>
 #   bash scripts/agent_browser_desktop.sh 'http://localhost:3000/decks/practice?fixture=1&reset=1'
+#   bash scripts/agent_browser_desktop.sh --screen 1920x1080 '<url>'
+#
+# `--screen WxH` also gives the browser a screen of that size (#1035), with the
+# launch flag `--screen-info={WxH}`. Headless Chromium reports a screen of
+# 800x600 otherwise, so a fullscreen table cannot grow past that. The script
+# then prints `screen = <width>x<height>` too. A screen size set with the CDP
+# command `Emulation.setDeviceMetricsOverride` ends when its CDP session ends,
+# so the launch flag is the only way that lasts.
 #
 # Headless Chromium has no pointer device, so `(pointer: fine)` does not match.
 # The practice table then draws its touch layout: `useFinePointer` returns
@@ -31,14 +39,27 @@
 # when it is false.
 set -u
 
+SCREEN=""
+if [ "${1:-}" = "--screen" ]; then
+  SCREEN="${2:-}"
+  shift 2
+  if ! [[ "$SCREEN" =~ ^[0-9]+x[0-9]+$ ]]; then
+    echo "--screen takes a size such as 1920x1080" >&2
+    exit 2
+  fi
+fi
 URL="${1:-}"
 if [ -z "$URL" ]; then
-  echo "usage: bash scripts/agent_browser_desktop.sh <url>" >&2
+  echo "usage: bash scripts/agent_browser_desktop.sh [--screen WxH] <url>" >&2
   exit 2
 fi
 
-# The `--args` value is split on commas, so this flag must hold no comma.
+# The `--args` value is split on commas, so a comma separates two flags, and no
+# flag may hold a comma of its own.
 FLAG='--blink-settings=primaryPointerType=4;availablePointerTypes=4'
+if [ -n "$SCREEN" ]; then
+  FLAG="$FLAG,--screen-info={$SCREEN}"
+fi
 
 npx agent-browser close --all >/dev/null 2>&1
 
@@ -50,6 +71,14 @@ npx agent-browser wait --load load >/dev/null 2>&1
 
 FINE=$(npx agent-browser eval "matchMedia('(pointer: fine)').matches" 2>&1 | tail -1 | tr -d '"')
 echo "pointer: fine = $FINE"
+if [ -n "$SCREEN" ]; then
+  SIZE=$(npx agent-browser eval "screen.width+'x'+screen.height" 2>&1 | tail -1 | tr -d '"')
+  echo "screen = $SIZE"
+  if [ "$SIZE" != "$SCREEN" ]; then
+    echo "The browser did not take the screen size $SCREEN." >&2
+    exit 1
+  fi
+fi
 if [ "$FINE" != "true" ]; then
   echo "The page does not see a fine pointer, so it draws the touch layout." >&2
   exit 1

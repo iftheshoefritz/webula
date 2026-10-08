@@ -328,6 +328,62 @@ Every later `npx agent-browser` command, `practice_drag.sh` too, talks to the sa
 stays in desktop mode until the next `close`. To check the touch half of a comparison, run
 `npx agent-browser close` and open the page again with a plain `npx agent-browser open`.
 
+### Touch, modifier keys, and screen size
+
+`agent-browser` 0.27.0 drives only a mouse, and it reports a screen of 800×600. For the rest,
+use `scripts/cdp_input.sh` (#1035). It sends raw CDP input to the open page on one connection
+(Node 20 with `--experimental-websocket`, no package), and prints the pointer events the page
+saw, with their pointer type, their modifier keys and the element they hit. A point is `<x> <y>`
+or a CSS selector, whose centre is the point.
+
+**Touch.** A finger tap, a touch pan, and a touch drag of a card:
+
+```bash
+bash scripts/cdp_input.sh tap 20 20                  # a tap on the open hand's backdrop closes it
+bash scripts/cdp_input.sh pan '[data-testid="card-list-panel-awayTeam"]' 0 -200
+bash scripts/practice_drag.sh --touch card-5 core    # prints core
+```
+
+```
+pan 633 265 -> 633 65
+scrollTop 0 -> 196
+saw: pointerdown touch on data-card-id=card-13; pointercancel touch on data-card-id=card-13
+```
+
+`pan <selector> <dx> <dy>` moves the finger from the centre of the element by `dx`, `dy`, so a
+negative `dy` scrolls the content down. It prints the element's `scrollTop` before and after. A
+pan the browser takes ends in `pointercancel`, and no card moves. `practice_drag.sh --touch` finds
+the points as the mouse mode does, and prints the zone the same way. A touch drag through dnd-kit
+on the table works.
+
+Do not use `Input.synthesizeScrollGesture`: it scrolls nothing in headless mode.
+
+**Modifier keys.** `agent-browser keydown Shift` does not set `shiftKey` on the mouse events
+that follow. `--mod` takes `shift`, `ctrl`, `meta` and `alt`, comma-separated:
+
+```bash
+bash scripts/cdp_input.sh click '[data-card-id="card-11"]'
+bash scripts/cdp_input.sh mouse-drag 408 48 300 150 --mod shift
+```
+
+A box must start on the empty space of the grid. The scrollbar at the right edge of a grid that
+scrolls is not empty space: a press there starts a scrollbar drag, and the page sees no
+`pointermove`. Check the start point with `document.elementFromPoint` first.
+
+**Screen size.** Launch the browser with `--screen-info={1920x1080}`:
+
+```bash
+bash scripts/agent_browser_desktop.sh --screen 1920x1080 'http://localhost:3000/decks/practice?fixture=1&reset=1&menu=0'
+bash scripts/cdp_input.sh click '[data-testid="fullscreen-button"]'   # the table is then 1920x1080
+```
+
+The script prints `screen = 1920x1080`. For a large screen with no fine pointer, run
+`npx agent-browser close --all`, then
+`npx agent-browser --args "--screen-info={1920x1080}" open '<url>'`. `--args` takes effect only on a
+fresh browser, so close first. A screen size set by `Emulation.setDeviceMetricsOverride` ends when
+its CDP session ends, so it does not last past one helper call. Fullscreen needs a trusted click,
+so use `cdp_input.sh click` or a snapshot ref, not a DOM `click()`.
+
 ### A click that does not click
 
 `npx agent-browser click 'button:has-text("<label>")'` also fails silently on this page. It reports success and the button does not fire. Use the DOM instead, and read the result in the same call:
