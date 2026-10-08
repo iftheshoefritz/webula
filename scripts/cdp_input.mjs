@@ -7,6 +7,7 @@
 //   bash scripts/cdp_input.sh touch-drag <x> <y> --to-eval '<js that returns "x y">'
 //   bash scripts/cdp_input.sh click <x> <y> | <selector> [--mod shift,ctrl,meta,alt]
 //   bash scripts/cdp_input.sh mouse-drag <x> <y> <tx> <ty> [--mod shift,ctrl,meta,alt]
+//   bash scripts/cdp_input.sh mouse-drag <x> <y> --to-eval '<js that returns "x y">'
 //
 // agent-browser 0.27.0 drives only a mouse, and `agent-browser keydown Shift` does not set
 // `shiftKey` on the mouse events that follow. CDP does both:
