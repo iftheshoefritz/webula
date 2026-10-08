@@ -648,6 +648,9 @@ function PileTopCardDrag({ topCard, children }: { topCard: CardInstance; childre
 // ever appended to the bottom). Only a dragged dilemma shows the "Top"/"Bottom" label; a drop of
 // any other card type is still accepted on either half (the same advisory-zone convention every
 // other flat zone follows), with only the generic `isOver` ring.
+// The wrapper's `data-pile-count` holds the pile's size even when it is 0 and the `CountBadge` is
+// gone, so `scripts/practice_drag.sh` can tell a card dropped to the bottom of the pile, which
+// leaves the DOM, from one that went nowhere (#1025). `DrawPileButton` does the same.
 function DilemmaPileButton({
   count,
   topCard,
@@ -689,6 +692,7 @@ function DilemmaPileButton({
   return (
     <div
       className={`relative w-14 h-20 rounded-lg group ${count === 0 ? 'opacity-50' : ''}`} data-testid="dilemma-pile"
+      data-pile-count={count}
       data-landed={landedNonce !== null || undefined}
     >
       <LandedRing nonce={landedNonce} />
@@ -754,6 +758,8 @@ function DrawPileButton({
   return (
     <div
       className={`relative w-14 h-20 rounded-lg group ${count === 0 ? 'opacity-50' : ''}`}
+      data-testid="draw-pile"
+      data-pile-count={count}
       data-landed={landedNonce !== null || undefined}
     >
       <LandedRing nonce={landedNonce} />

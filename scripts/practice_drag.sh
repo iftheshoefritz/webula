@@ -17,6 +17,14 @@
 # or has left the DOM. The stack is not a drop target (#861), so it has no
 # data-zone; the script finds it by its data-testid, `mission-under-<index>-stack`.
 #
+# A drop on the draw deck or the dilemma pile prints `draw-pile-top`,
+# `draw-pile-bottom`, `dilemma-pile-top` or `dilemma-pile-bottom` (#1025), the
+# half the card reached. A card that went to the top is the pile's new top
+# card, which stays in the DOM inside the pile's wrapper (`data-testid` of
+# `draw-pile` or `dilemma-pile`), so the script prints `<pile>-top`. A card
+# that went to the bottom leaves the DOM; the wrapper's `data-pile-count` then
+# grows, so the script prints `<pile>-bottom`.
+#
 # Three things make a hand drag fail, and each one cost an agent many turns to
 # find again. This script handles all three.
 #
@@ -91,8 +99,14 @@ ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 # A mission card's counter (#813) reads the same way too. It sits beside the
 # mission card's two drop halves (#871), not inside a data-zone, so its key is
 # the fallback, the mission's name.
+#
+# The draw deck and the dilemma pile hold their size in `data-pile-count` on
+# the pile's wrapper (#1025), present even when the pile is empty. One wrapper
+# per pile, so each pile counts once. Its key is `<testid>-bottom`, because a
+# card that leaves the DOM and lands in the pile went to the bottom: a card on
+# top would still be in the DOM as the pile's top card.
 snapshot() {
-  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const st=el.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');const k=el.getAttribute('data-zone')||el.getAttribute('data-testid')||(st?st.getAttribute('data-testid').replace(/-stack$/,''):pile[1]);parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);return parts.join(';')})()"
+  ev "(()=>{const parts=[];const add=(el)=>{const l=el.getAttribute&&el.getAttribute('aria-label');if(!l)return;const pile=/^(.*?), (\d+) cards?, tap to open$/.exec(l);if(pile){const st=el.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');const k=el.getAttribute('data-zone')||el.getAttribute('data-testid')||(st?st.getAttribute('data-testid').replace(/-stack$/,''):pile[1]);parts.push(k+'='+pile[2]);return}const crew=/^(.*?) crew, (\d+) cards?$/.exec(l)||/^(.*?), (\d+) cards? on it$/.exec(l);if(!crew)return;const z=el.closest('[data-zone]');const k=z?z.getAttribute('data-zone'):crew[1];parts.push(k+'='+crew[2])};document.querySelectorAll('[aria-label]').forEach(add);document.querySelectorAll('[data-pile-count]').forEach((el)=>parts.push(el.getAttribute('data-testid')+'-bottom='+el.getAttribute('data-pile-count')));return parts.join(';')})()"
 }
 
 splash=$(ev "(()=>document.querySelector('[data-testid=\"game-menu-splash\"]')?'OPEN':'CLOSED')()")
@@ -154,7 +168,10 @@ ab mouse up
 # `on-<its id>`, so the zone it is in is the next data-zone up.
 # A card that shows as a sliver of the stack under a mission has no data-zone
 # ancestor, so the stack's data-testid names the pile instead (#920).
-found=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const st=e.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');if(st)return st.getAttribute('data-testid').replace(/-stack$/,'');let z=e.closest('[data-zone]');if(z&&z.getAttribute('data-zone')==='on-$CARD')z=z.parentElement.closest('[data-zone]');return z?z.getAttribute('data-zone'):'no zone'})()")
+# A card on top of the draw deck or the dilemma pile wraps the pile's two drop
+# halves, so it has no data-zone ancestor either; the pile's data-testid names
+# it, and the card is on top (#1025).
+found=$(ev "(()=>{const e=document.querySelector('[data-card-id=\"$CARD\"]');if(!e)return 'MISSING';const pl=e.closest('[data-pile-count]');if(pl)return pl.getAttribute('data-testid')+'-top';const st=e.closest('[data-testid^=\"mission-under-\"][data-testid$=\"-stack\"]');if(st)return st.getAttribute('data-testid').replace(/-stack$/,'');let z=e.closest('[data-zone]');if(z&&z.getAttribute('data-zone')==='on-$CARD')z=z.parentElement.closest('[data-zone]');return z?z.getAttribute('data-zone'):'no zone'})()")
 
 if [ "$found" != "MISSING" ]; then
   echo "$found"

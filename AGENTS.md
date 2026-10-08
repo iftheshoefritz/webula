@@ -241,9 +241,13 @@ every card of the table.
 
 The draw deck card on the table has two drop halves, and they keep the older ids
 `draw-pile-top` and `draw-pile-bottom`, so a drop into the draw deck aims at one of those two,
-and the script then prints `draw-pile-top` or `draw-pile-bottom`.
+and the script then prints `draw-pile-top` or `draw-pile-bottom`. The dilemma pile works the same
+way with `dilemma-pile-top` and `dilemma-pile-bottom`. The script prints the half the card reached:
+a card on top stays in the DOM as the pile's top card, and a card at the bottom leaves the DOM, so
+the script reads the `data-pile-count` of the pile's wrapper (`data-testid="draw-pile"` or
+`"dilemma-pile"`) to see it gain a card (#1025).
 
-A mission pile, a closed hand, and a closed dilemma hand all keep their cards out of the DOM (a badge with a count stands in for the cards). When the dragged card leaves the DOM, the script reads the `aria-label` of every badge on the table, before and after the drag, and prints whichever one gained a card - the mission pile, `hand`, or `dilemmaHand`. If none did, or more than one did, it says so instead of guessing.
+A mission pile, a closed hand, and a closed dilemma hand all keep their cards out of the DOM (a badge with a count stands in for the cards). When the dragged card leaves the DOM, the script reads the `aria-label` of every badge on the table, before and after the drag, and prints whichever one gained a card - the mission pile, `hand`, `dilemmaHand`, `draw-pile-bottom`, or `dilemma-pile-bottom`. If none did, or more than one did, it says so instead of guessing.
 
 Do not build the drag by hand. Three things make a hand drag fail, and each one has cost a run its whole turn limit:
 

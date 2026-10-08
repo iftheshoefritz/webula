@@ -236,4 +236,49 @@ describe('Practice draw: dropping a card on the draw deck (#743)', () => {
     expect(document.body.querySelector('[data-zone="draw-pile-top"]')).not.toBeNull();
     expect(document.body.querySelector('[data-zone="draw-pile-bottom"]')).not.toBeNull();
   });
+
+  // Issue #1025: `practice_drag.sh` reads the pile's size from `data-pile-count` on its wrapper,
+  // which stays even when the pile is empty and its count badge is gone, and finds a card on top
+  // of the pile by that wrapper.
+  it("exposes each pile's size on its wrapper, and keeps a card dropped on top inside the draw pile wrapper", async () => {
+    await setupOpenHand();
+    const drawPile = () => document.body.querySelector('[data-testid="draw-pile"]')!;
+    const dilemmaPile = () => document.body.querySelector('[data-testid="dilemma-pile"]')!;
+
+    expect(drawPile().getAttribute('data-pile-count')).toBe('1');
+    expect(dilemmaPile().getAttribute('data-pile-count')).toBe('0');
+
+    const [bottomId, topId] = mockDraggableIds;
+    await act(async () => {
+      mockOnDragStart!({ active: { id: bottomId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: bottomId }, over: { id: 'draw-pile-bottom' } });
+    });
+    expect(drawPile().getAttribute('data-pile-count')).toBe('2');
+    expect(document.body.querySelector(`[data-card-id="${bottomId}"]`)).toBeNull();
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: topId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: topId }, over: { id: 'draw-pile-top' } });
+    });
+    expect(drawPile().getAttribute('data-pile-count')).toBe('3');
+    expect(drawPile().querySelector(`[data-card-id="${topId}"]`)).not.toBeNull();
+
+    // Every half keeps a name that says which pile, which half, and that a tap draws.
+    expect(screen.getByRole('button', { name: 'Draw deck top, tap to draw' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dilemma pile bottom, tap to draw' })).toBeInTheDocument();
+  });
+
+  it('reads 0 on the draw pile wrapper once the pile is empty', async () => {
+    await setupOpenHand();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
+    });
+
+    expect(document.body.querySelector('[data-testid="draw-pile"]')!.getAttribute('data-pile-count')).toBe('0');
+  });
 });
