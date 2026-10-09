@@ -13,7 +13,9 @@ import MissionRow, {
 import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardHoldProvider, DOUBLE_TAP_MS, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableReducer';
+import { LandedZoneProvider } from '../../../app/decks/practice/LandedZoneContext';
 import eventIcon from '../../../../public/icons/icon_event.gif';
+import dualIcon from '../../../../public/icons/icon_dual.gif';
 
 const card = (id: string, name: string): CardInstance => ({
   id,
@@ -137,20 +139,112 @@ describe('MissionRow', () => {
       />
     );
 
-    const counter = screen.getByRole('button', { name: /^A Mission, 1 card on it$/ });
+    const counter = screen.getByRole('button', { name: /^A Mission, 1 event on it$/ });
     expect(counter).toHaveTextContent('1');
     // #1069: it sits in the badge strip, to the right of the away team badge, not on the card's corner.
     const awayTeam = screen.getByTestId('mission-pile-awayTeam-0');
     expect(counter.parentElement).toBe(awayTeam.parentElement);
     expect(awayTeam.nextElementSibling).toBe(counter);
     expect(screen.getByTestId('mission-corners-0')).not.toContainElement(counter);
-    // It shows the event icon, whatever the placed card is.
+    // It shows the event icon.
     const icon = counter.querySelector('img') as HTMLImageElement;
     expect(icon).not.toBeNull();
     expect(icon.getAttribute('src')).toBe(eventIcon.src);
     expect(icon).toHaveAttribute('alt', '');
     fireEvent.click(counter);
-    expect(onOpenPlacedOn).toHaveBeenCalledWith('mission-0');
+    expect(onOpenPlacedOn).toHaveBeenCalledWith('mission-0', 'events');
+    // #1081: no dilemma is placed on the mission, so it shows no dilemma badge.
+    expect(screen.queryByRole('button', { name: /dilemmas? on it$/ })).not.toBeInTheDocument();
+  });
+
+  const dilemma = (id: string, name: string): CardInstance => ({
+    ...card(id, name),
+    card: { ...card(id, name).card, type: 'dilemma' },
+  });
+
+  // #1081: the dilemmas placed on a mission count in a badge of their own, with the dual icon, to the
+  // right of the events badge. The dilemmas under the mission count in neither.
+  it('counts the dilemmas placed on the mission card in a badge of their own', () => {
+    const onOpenPlacedOn = jest.fn();
+    const slot: MissionSlot = {
+      ...emptySlot(),
+      mission: { ...card('mission-0', 'A Mission'), placedOn: [card('e1', 'An Event'), dilemma('d1', 'A Dilemma')] },
+      underMission: [dilemma('d2', 'Under'), dilemma('d3', 'Under Too')],
+    };
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={onOpenPlacedOn}
+      />
+    );
+
+    const events = screen.getByRole('button', { name: 'A Mission, 1 event on it' });
+    const dilemmas = screen.getByRole('button', { name: 'A Mission, 1 dilemma on it' });
+    expect(events).toHaveTextContent('1');
+    expect(dilemmas).toHaveTextContent('1');
+    expect(dilemmas).toHaveAttribute('data-testid', 'mission-on-dilemmas-0');
+    expect(events).toHaveAttribute('data-testid', 'mission-on-events-0');
+    expect(screen.getByTestId('mission-pile-awayTeam-0').nextElementSibling).toBe(events);
+    expect(events.nextElementSibling).toBe(dilemmas);
+    expect(dilemmas.querySelector('img')!.getAttribute('src')).toBe(dualIcon.src);
+    fireEvent.click(dilemmas);
+    expect(onOpenPlacedOn).toHaveBeenCalledWith('mission-0', 'dilemmas');
+  });
+
+  it('shows no events badge on a mission card with only dilemmas on it', () => {
+    const slot: MissionSlot = {
+      ...emptySlot(),
+      mission: { ...card('mission-0', 'A Mission'), placedOn: [dilemma('d1', 'A'), dilemma('d2', 'B')] },
+    };
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'A Mission, 2 dilemmas on it' })).toHaveTextContent('2');
+    expect(screen.queryByRole('button', { name: /events? on it$/ })).not.toBeInTheDocument();
+  });
+
+  // Both badges share the landed key `on-<mission id>`, so only the badge whose count grew bumps.
+  it('bumps only the badge of the group that gained the dropped card', () => {
+    const before: MissionSlot = {
+      ...emptySlot(),
+      mission: { ...card('mission-0', 'A Mission'), placedOn: [card('e1', 'An Event'), dilemma('d1', 'A Dilemma')] },
+    };
+    const after: MissionSlot = {
+      ...before,
+      mission: { ...before.mission!, placedOn: [...before.mission!.placedOn!, dilemma('d2', 'Another')] },
+    };
+    const row = (slot: MissionSlot, landed: boolean) => (
+      <LandedZoneProvider value={landed ? { keys: new Set(['on-mission-0']), nonce: 1 } : null}>
+        <MissionRow
+          missions={[slot]}
+          onOpenPile={() => {}}
+          onShipClick={() => {}}
+          onOpenShipRow={() => {}}
+          onOpenPlacedOn={() => {}}
+        />
+      </LandedZoneProvider>
+    );
+    const { rerender } = render(row(before, false));
+    rerender(row(after, true));
+
+    const bumped = (name: string) =>
+      screen.getByRole('button', { name }).querySelector('.motion-safe\\:animate-landed-bump') !== null;
+    expect(bumped('A Mission, 2 dilemmas on it')).toBe(true);
+    expect(bumped('A Mission, 1 event on it')).toBe(false);
+    // A later render within the same cue keeps the bump on the same badge.
+    rerender(row(after, true));
+    expect(bumped('A Mission, 2 dilemmas on it')).toBe(true);
+    expect(bumped('A Mission, 1 event on it')).toBe(false);
   });
 
   it('shows no counter on a mission card with nothing on it', () => {
@@ -538,7 +632,7 @@ describe('MissionRow: a completed mission turns (#1060)', () => {
     expect(missionCard()).toHaveClass('motion-safe:transition-transform', 'motion-reduce:transition-none');
     expect(screen.getByRole('img', { name: 'A Mission' })).toHaveClass('brightness-50');
     const stack = screen.getByTestId('mission-under-0-stack');
-    const counter = screen.getByRole('button', { name: 'A Mission, 1 card on it' });
+    const counter = screen.getByRole('button', { name: 'A Mission, 1 event on it' });
     const flip = screen.getByRole('button', { name: /^Flip A Mission/ });
     for (const el of [stack, counter, flip]) {
       for (let a: HTMLElement | null = el; a && a !== document.body; a = a.parentElement) {
@@ -556,7 +650,7 @@ describe('MissionRow: a completed mission turns (#1060)', () => {
     renderRow({ ...doubleSided, completed: true }, true);
     const corners = screen.getByTestId('mission-corners-0');
     expect(corners).toContainElement(screen.getByRole('button', { name: /^Flip A Mission/ }));
-    expect(corners).not.toContainElement(screen.getByRole('button', { name: 'A Mission, 1 card on it' }));
+    expect(corners).not.toContainElement(screen.getByRole('button', { name: 'A Mission, 1 event on it' }));
     // The turned whole card at scale 1 is 100 px wide and 72 px tall.
     expect(corners.style.width).toBe('100px');
     expect(corners.style.height).toBe('72px');

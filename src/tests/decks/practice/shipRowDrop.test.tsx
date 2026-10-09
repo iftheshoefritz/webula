@@ -350,15 +350,15 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       await drop(draggedId, 'mission-under-0');
 
       expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'First Contact, 1 card on it' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'First Contact, 1 event on it' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Away team, 1 card/i })).toBeNull();
       expect(document.body.querySelector('[data-zone^="mission-pile-event"]')).toBeNull();
 
       // A tap on the counter opens the cards on the mission card.
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: 'First Contact, 1 card on it' }));
+        fireEvent.click(screen.getByRole('button', { name: 'First Contact, 1 event on it' }));
       });
-      expect(document.body.querySelector(`[data-testid="card-list-panel-on"] [data-card-id="${draggedId}"]`)).not.toBeNull();
+      expect(document.body.querySelector(`[data-testid="card-list-panel-onEvents"] [data-card-id="${draggedId}"]`)).not.toBeNull();
     });
 
     // The away team badge is not a drop target of its own (#924): the mission's bottom half reaches

@@ -232,7 +232,7 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     await drag(id, { x: 0, y: -30 }, 'mission-under-0', VIEWER_CARD_RECT);
 
     // #813 places an event dropped on a mission card on that card.
-    expect(screen.getByRole('button', { name: /^First Contact, 1 card on it$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^First Contact, 1 event on it$/i })).toBeInTheDocument();
   });
 
   it("keeps a card in a mission's card list panel, and keeps the panel open, for a 9 px drag", async () => {

@@ -210,7 +210,7 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
     await drop(handCardId('Distress Call'), 'mission-on-0');
 
     expect(zone('mission-on-0')!.closest('[data-landed]')).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'First Contact, 1 card on it' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'First Contact, 1 event on it' })).toBeInTheDocument();
   });
 
   // The badge strip is under the reach of the mission's bottom half (#924), so a drop on the badge
