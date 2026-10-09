@@ -54,7 +54,7 @@ describe('Practice draw: a card on the table stays draggable after its panel clo
     expect(document.body.querySelectorAll('[data-card-id="card-4"]')).toHaveLength(2);
 
     rerender(<Table panelOpen={false} onDragStart={onDragStart} />);
-    const buttons = screen.getAllByRole('button', { name: 'card 4' });
+    const buttons = screen.getAllByRole('button', { name: 'Card 4' });
     expect(buttons).toHaveLength(1);
 
     const button = buttons[0];

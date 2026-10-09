@@ -199,8 +199,8 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
       render(<PracticeDrawPage />);
     });
     await openHand();
-    const eventId = cardIdOf('distress call');
-    const personnelId = cardIdOf('data');
+    const eventId = cardIdOf('Distress Call');
+    const personnelId = cardIdOf('Data');
     await drag(eventId, 'core');
     await openHand();
     return { eventId, personnelId };
@@ -220,8 +220,8 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     await holdDrag(personnelId, `on-${eventId}`);
 
     // The personnel card is placed on the event, not a card of its own in the core.
-    expect(screen.queryByRole('button', { name: 'data' })).toBeNull();
-    expect(screen.getByLabelText('distress call, 1 card on it')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Data' })).toBeNull();
+    expect(screen.getByLabelText('Distress Call, 1 card on it')).toBeInTheDocument();
   });
 
   // #1029: with the core full of cards, any drop on the zone lands on a card. A drop there with no
@@ -236,7 +236,7 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     else await holdDrag(personnelId, `on-${eventId}`, holdMs);
 
     const coreZone = document.body.querySelector('[data-zone="core"]')!;
-    expect(coreZone.contains(screen.getByRole('button', { name: 'data' }))).toBe(true);
+    expect(coreZone.contains(screen.getByRole('button', { name: 'Data' }))).toBe(true);
     expect(screen.queryByLabelText(/card on it$/)).toBeNull();
   });
 
@@ -271,7 +271,7 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     }
 
     const coreZone = document.body.querySelector('[data-zone="core"]')!;
-    expect(coreZone.contains(screen.getByRole('button', { name: 'data' }))).toBe(true);
+    expect(coreZone.contains(screen.getByRole('button', { name: 'Data' }))).toBe(true);
     expect(screen.queryByLabelText(/card on it$/)).toBeNull();
   });
 
@@ -281,7 +281,7 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     await drag(personnelId, 'core');
 
     const coreZone = document.body.querySelector('[data-zone="core"]')!;
-    expect(coreZone.contains(screen.getByRole('button', { name: 'data' }))).toBe(true);
+    expect(coreZone.contains(screen.getByRole('button', { name: 'Data' }))).toBe(true);
     expect(screen.queryByLabelText(/card on it$/)).toBeNull();
   });
 
@@ -291,7 +291,7 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     await drag(eventId, `on-${eventId}`);
 
     const coreZone = document.body.querySelector('[data-zone="core"]')!;
-    expect(coreZone.contains(screen.getByRole('button', { name: 'distress call' }))).toBe(true);
+    expect(coreZone.contains(screen.getByRole('button', { name: 'Distress Call' }))).toBe(true);
   });
 
   it('lists the placed cards in a panel, and a drag out of the panel takes one off', async () => {
@@ -299,17 +299,17 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     await holdDrag(personnelId, `on-${eventId}`);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-on"]');
     expect(panel).not.toBeNull();
-    expect(within(panel as HTMLElement).getByRole('button', { name: 'data' })).toBeInTheDocument();
+    expect(within(panel as HTMLElement).getByRole('button', { name: 'Data' })).toBeInTheDocument();
 
     await drag(personnelId, 'core');
 
     const coreZone = document.body.querySelector('[data-zone="core"]')!;
-    expect(coreZone.contains(screen.getByRole('button', { name: 'data' }))).toBe(true);
+    expect(coreZone.contains(screen.getByRole('button', { name: 'Data' }))).toBe(true);
     expect(screen.queryByLabelText(/card on it$/)).toBeNull();
     // #881: the panel shows the host card too, so it stays open with an empty grid.
     const emptyGrid = document.body.querySelector('[data-testid="card-list-panel-on"]');
@@ -323,16 +323,16 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     await holdDrag(personnelId, `on-${eventId}`);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
 
     const grid = document.body.querySelector('[data-testid="card-list-panel-on"]') as HTMLElement;
     const hostSection = document.body.querySelector('[data-testid="card-list-panel-on-host"]') as HTMLElement;
     expect(hostSection).not.toBeNull();
-    expect(hostSection.querySelector('img[alt="distress call"]')).not.toBeNull();
+    expect(hostSection.querySelector('img[alt="Distress Call"]')).not.toBeNull();
     expect(grid.contains(hostSection)).toBe(false);
     expect(hostSection.contains(grid)).toBe(false);
-    expect(within(grid).queryByRole('button', { name: 'distress call' })).toBeNull();
+    expect(within(grid).queryByRole('button', { name: 'Distress Call' })).toBeNull();
 
     // Display only: neither a drop target nor a drag source.
     expect(hostSection.querySelector('[data-zone]')).toBeNull();
@@ -346,25 +346,25 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     await holdDrag(personnelId, `on-${eventId}`);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
 
     const grid = document.body.querySelector('[data-testid="card-list-panel-on"]') as HTMLElement;
-    const placed = within(grid).getByRole('button', { name: 'data' });
+    const placed = within(grid).getByRole('button', { name: 'Data' });
     expect(placed.getAttribute('data-card-id')).toBe(personnelId);
     expect(mockDraggableIds).toContain(personnelId);
 
     await act(async () => {
       fireEvent.click(placed);
     });
-    expect(within(grid).getByRole('button', { name: 'Deselect data' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(grid).getByRole('button', { name: 'Deselect Data' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('opens the core panel, not a panel of placed cards, on a tap on a card with nothing on it', async () => {
     await setupCorePlacedOn();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
 
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();

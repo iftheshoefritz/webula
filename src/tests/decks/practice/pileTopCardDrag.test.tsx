@@ -69,7 +69,7 @@ const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
-// 8 draw cards: a new game deals 7 into the hand, leaving exactly one ("card 8") in the draw deck.
+// 8 draw cards: a new game deals 7 into the hand, leaving exactly one ("Card 8") in the draw deck.
 const mockDrawCards = Array.from({ length: 8 }, (_, i) => ({
   collectorsinfo: `1U${String(i + 1).padStart(3, '0')}`,
   originalName: `Card ${i + 1}`,
@@ -158,7 +158,7 @@ describe('Practice table: dragging the top card off the draw deck or the dilemma
     await drag(topId, 'core');
 
     // Face up in the core, by name.
-    expect(within(coreZone()).getByRole('button', { name: 'card 8' })).toBeInTheDocument();
+    expect(within(coreZone()).getByRole('button', { name: 'Card 8' })).toBeInTheDocument();
     // The draw deck is empty now, so its top half is disabled and has no draggable around it.
     expect(screen.getByRole('button', { name: 'Draw deck top, tap to draw' })).toBeDisabled();
     expect(document.body.querySelector(`[data-card-id="${topId}"]`)?.closest('[data-zone="core"]')).not.toBeNull();
@@ -172,7 +172,7 @@ describe('Practice table: dragging the top card off the draw deck or the dilemma
 
     await drag(topId, 'core');
 
-    expect(within(coreZone()).getByRole('button', { name: 'cardassian trap' })).toBeInTheDocument();
+    expect(within(coreZone()).getByRole('button', { name: 'Cardassian Trap' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' })).toBeDisabled();
   });
 
@@ -185,7 +185,7 @@ describe('Practice table: dragging the top card off the draw deck or the dilemma
 
     const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
     expect(within(stackZone).getByRole('img').getAttribute('alt')).toBe('Face-down dilemma stack');
-    expect(within(stackZone).queryByText('card 8')).not.toBeInTheDocument();
+    expect(within(stackZone).queryByText('Card 8')).not.toBeInTheDocument();
   });
 
   it('shows the card back in the drag overlay for a drag off the pile art', async () => {

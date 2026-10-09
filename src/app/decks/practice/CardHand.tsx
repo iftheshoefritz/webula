@@ -20,6 +20,7 @@
 
 import React from 'react';
 import { LAYER_HAND_BACKDROP, LAYER_HAND_FAN } from '../../../lib/layers';
+import { cardDisplayName } from '../../../lib/cardCount';
 import { createPortal } from 'react-dom';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
@@ -90,13 +91,13 @@ function DraggableFanCard({
           opacity: isDragging ? 0.5 : 1,
         }}
         onClick={onToggleSelect}
-        aria-label={card.name}
+        aria-label={cardDisplayName(card)}
       >
         <img
           src={`/cardimages/${card.imagefile}.jpg`}
           width={120}
           height={167}
-          alt={card.name}
+          alt={cardDisplayName(card)}
           className="rounded-lg shadow-md h-auto"
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width), width }}
         />
@@ -107,7 +108,7 @@ function DraggableFanCard({
           type="button"
           onClick={onToggleSelect}
           aria-pressed
-          aria-label={`Deselect ${card.name}`}
+          aria-label={`Deselect ${cardDisplayName(card)}`}
           className="absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none bg-accent border-accent text-white"
         >
           ✓

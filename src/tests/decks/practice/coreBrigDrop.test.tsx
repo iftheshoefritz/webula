@@ -174,7 +174,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
     const coreZone = document.body.querySelector('[data-zone="core"]');
     expect(coreZone).not.toBeNull();
-    const card = screen.getByRole('button', { name: 'distress call' });
+    const card = screen.getByRole('button', { name: 'Distress Call' });
     expect(coreZone!.contains(card)).toBe(true);
   });
 
@@ -191,7 +191,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
     const brigZone = document.body.querySelector('[data-zone="brig"]');
     expect(brigZone).not.toBeNull();
-    const card = screen.getByRole('button', { name: 'data' });
+    const card = screen.getByRole('button', { name: 'Data' });
     expect(brigZone!.contains(card)).toBe(true);
   });
 
@@ -287,7 +287,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-core"]');
@@ -307,23 +307,23 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
-    const card = within(panel).getByRole('button', { name: 'distress call' });
+    const card = within(panel).getByRole('button', { name: 'Distress Call' });
     await act(async () => {
       fireEvent.click(card);
     });
 
-    expect(within(panel).getByRole('button', { name: 'Deselect distress call' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(panel).getByRole('button', { name: 'Deselect Distress Call' })).toHaveAttribute('aria-pressed', 'true');
     expect(card).toHaveClass('ring-2');
     expect(screen.queryByTestId('card-preview')).toBeNull();
 
     await act(async () => {
       fireEvent.click(card);
     });
-    expect(within(panel).queryByRole('button', { name: 'Deselect distress call' })).toBeNull();
+    expect(within(panel).queryByRole('button', { name: 'Deselect Distress Call' })).toBeNull();
     expect(card).not.toHaveClass('ring-2');
   });
 
@@ -338,7 +338,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
@@ -360,7 +360,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'data' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Data' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
@@ -402,7 +402,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
     // Open the core panel: it lists both cards.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
     let panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(2);
@@ -457,7 +457,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
 
     await act(async () => {
@@ -493,7 +493,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
     // Open the core panel (it lists the one card already there).
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
@@ -519,7 +519,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'brig' } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'data' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Data' }));
     });
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-brig"]');

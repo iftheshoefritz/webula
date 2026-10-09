@@ -170,8 +170,8 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     const fan = document.body.querySelector('[data-zone="hand"]') as HTMLElement;
     expect(fan).not.toBeNull();
     expect(fan.querySelectorAll('[data-card-id]')).toHaveLength(2);
-    expect(screen.getByRole('button', { name: 'personnel 2' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'personnel 3' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Personnel 2' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Personnel 3' })).toBeInTheDocument();
   });
 
   it('closes once the last card is dragged out of a hand that held only one', async () => {
@@ -290,7 +290,7 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     // Open the core's own card list panel, and drag out of it — this drag starts from the panel, not
     // from the hand, even though the hand is still open.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 

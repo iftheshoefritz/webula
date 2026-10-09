@@ -72,7 +72,7 @@ const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
-// 8 cards: a new game deals 7 into the hand, leaving exactly one ("card 8") in the draw deck,
+// 8 cards: a new game deals 7 into the hand, leaving exactly one ("Card 8") in the draw deck,
 // so a drop onto either half has a single pile card to reorder around.
 const makeManyCards = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
@@ -142,7 +142,7 @@ describe('Practice draw: dropping a card on the draw deck (#743)', () => {
 
   it("drops a card from the hand onto the draw deck's top half, so the next draw returns that same card", async () => {
     await setupOpenHand();
-    const [draggedId] = mockDraggableIds; // "card 1", the first card dealt into the hand
+    const [draggedId] = mockDraggableIds; // "Card 1", the first card dealt into the hand
 
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
@@ -157,16 +157,16 @@ describe('Practice draw: dropping a card on the draw deck (#743)', () => {
     expect(document.body.querySelector('[aria-label="hand, 6 cards, tap to open"]')).not.toBeNull();
     expect(screen.getByText('2')).toBeInTheDocument();
 
-    // Tap the draw deck: the hand gets the same card ("card 1") back.
+    // Tap the draw deck: the hand gets the same card ("Card 1") back.
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' }));
     });
-    expect(screen.getByRole('button', { name: 'card 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Card 1' })).toBeInTheDocument();
   });
 
   it("drops a card from the hand onto the draw deck's bottom half, so the next draw returns a different card", async () => {
     await setupOpenHand();
-    const [draggedId] = mockDraggableIds; // "card 1"
+    const [draggedId] = mockDraggableIds; // "Card 1"
 
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
@@ -180,18 +180,18 @@ describe('Practice draw: dropping a card on the draw deck (#743)', () => {
     expect(document.body.querySelector('[aria-label="hand, 6 cards, tap to open"]')).not.toBeNull();
     expect(screen.getByText('2')).toBeInTheDocument();
 
-    // Tap the draw deck: the hand gets "card 8" (the pile's original sole card) back, not the
+    // Tap the draw deck: the hand gets "Card 8" (the pile's original sole card) back, not the
     // card just dropped onto the bottom.
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
     });
-    expect(screen.getByRole('button', { name: 'card 8' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Card 8' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Card 1' })).not.toBeInTheDocument();
   });
 
   it('drags a card from the core onto the draw deck, leaving the core', async () => {
     await setupOpenHand();
-    const [draggedId] = mockDraggableIds; // "card 1"
+    const [draggedId] = mockDraggableIds; // "Card 1"
 
     // File it into the core first.
     await act(async () => {

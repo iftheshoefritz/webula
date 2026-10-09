@@ -241,27 +241,27 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
 
   it('a hold on a mission card shows its preview, and the release hides it', async () => {
     await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
-    const mission = screen.getByRole('button', { name: 'first contact' });
+    const mission = screen.getByRole('button', { name: 'First Contact' });
 
     fireEvent.pointerDown(mission, { button: 0 });
     act(() => {
       jest.advanceTimersByTime(HOLD_DELAY_MS - 1);
     });
-    expect(preview('first contact')).toBeNull();
+    expect(preview('First Contact')).toBeNull();
     act(() => {
       jest.advanceTimersByTime(1);
     });
-    expect(preview('first contact')).toBeInTheDocument();
+    expect(preview('First Contact')).toBeInTheDocument();
 
     release();
     // The click that follows the release does not reopen it.
     fireEvent.click(mission);
-    expect(preview('first contact')).toBeNull();
+    expect(preview('First Contact')).toBeNull();
   });
 
   it('a release before 500 ms shows no preview', async () => {
     await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'first contact' }), { button: 0 });
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'First Contact' }), { button: 0 });
     act(() => {
       jest.advanceTimersByTime(HOLD_DELAY_MS - 1);
     });
@@ -269,26 +269,26 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     act(() => {
       jest.advanceTimersByTime(HOLD_DELAY_MS);
     });
-    expect(preview('first contact')).toBeNull();
+    expect(preview('First Contact')).toBeNull();
   });
 
   it('a hold on an open-hand card shows its preview', async () => {
     await setupOpenHand([mockEquipmentCard]);
-    hold(screen.getByRole('button', { name: 'tricorder' }));
-    expect(preview('tricorder')).toBeInTheDocument();
+    hold(screen.getByRole('button', { name: 'Tricorder' }));
+    expect(preview('Tricorder')).toBeInTheDocument();
     release();
-    expect(preview('tricorder')).toBeNull();
+    expect(preview('Tricorder')).toBeNull();
   });
 
   it('a drag start closes a hold-opened preview', async () => {
     await setupOpenHand([mockEquipmentCard]);
     const [id] = mockDraggableIds;
-    hold(screen.getByRole('button', { name: 'tricorder' }));
-    expect(preview('tricorder')).toBeInTheDocument();
+    hold(screen.getByRole('button', { name: 'Tricorder' }));
+    expect(preview('Tricorder')).toBeInTheDocument();
     act(() => {
       mockOnDragStart!({ active: { id } });
     });
-    expect(preview('tricorder')).toBeNull();
+    expect(preview('Tricorder')).toBeNull();
   });
 
   describe('a drag end closes a hold-opened preview (#776)', () => {
@@ -297,15 +297,15 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     // that the drag's end clears it.
     const holdDuringDrag = async (endDrag: (id: string) => void) => {
       await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
-      const element = screen.getByRole('button', { name: 'tricorder' });
+      const element = screen.getByRole('button', { name: 'Tricorder' });
       const id = element.getAttribute('data-card-id')!;
       element.getBoundingClientRect = () =>
         ({ left: 370, top: 503, right: 443, bottom: 607, width: 73, height: 104, x: 370, y: 503, toJSON: () => ({}) }) as DOMRect;
       act(() => {
         mockOnDragStart!({ active: { id }, activatorEvent: { clientX: 406.5, clientY: 555, target: element } } as any);
       });
-      hold(screen.getByRole('button', { name: 'first contact' }));
-      expect(preview('first contact')).toBeInTheDocument();
+      hold(screen.getByRole('button', { name: 'First Contact' }));
+      expect(preview('First Contact')).toBeInTheDocument();
       act(() => endDrag(id));
       expect(screen.queryByTestId('card-preview')).toBeNull();
       return id;
@@ -336,10 +336,10 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     const [shipId, personnelId] = mockDraggableIds;
     drag(shipId, 'mission-under-2');
     drag(personnelId, `crew-${shipId}`);
-    const ship = screen.getByRole('button', { name: 'u.s.s. relativity' });
+    const ship = screen.getByRole('button', { name: 'U.S.S. Relativity' });
     // A hold whose release the page never sees.
     hold(ship);
-    expect(preview('u.s.s. relativity')).toBeInTheDocument();
+    expect(preview('U.S.S. Relativity')).toBeInTheDocument();
     // The next tap, on the ship, closes the preview and opens no crew panel.
     tap(ship);
     act(() => {
@@ -358,25 +358,25 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     drag(shipId, 'mission-under-2');
     drag(personnelId, `crew-${shipId}`);
 
-    const ship = screen.getByRole('button', { name: 'u.s.s. relativity' });
+    const ship = screen.getByRole('button', { name: 'U.S.S. Relativity' });
     hold(ship);
-    expect(preview('u.s.s. relativity')).toBeInTheDocument();
+    expect(preview('U.S.S. Relativity')).toBeInTheDocument();
     expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
     release();
-    expect(preview('u.s.s. relativity')).toBeNull();
+    expect(preview('U.S.S. Relativity')).toBeNull();
 
     // A tap on the ship opens its crew panel and no preview. A hold on the crew card shows that
     // card; the release hides it, the panel stays open, and the card's selection is unchanged.
     tap(ship);
     expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
     expect(screen.queryByTestId('card-preview')).toBeNull();
-    const crewCard = screen.getByRole('button', { name: 'data' });
+    const crewCard = screen.getByRole('button', { name: 'Data' });
     hold(crewCard);
-    expect(preview('data')).toBeInTheDocument();
+    expect(preview('Data')).toBeInTheDocument();
     release();
     fireEvent.click(crewCard);
     expect(screen.queryByTestId('card-preview')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Deselect data' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Deselect Data' })).toBeNull();
     expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
   });
 
@@ -388,10 +388,10 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
 
     const card = document.body.querySelector(`[data-zone="${zone}"] [data-card-id="${id}"]`) as HTMLElement;
     hold(card);
-    expect(preview('data')).toBeInTheDocument();
+    expect(preview('Data')).toBeInTheDocument();
     expect(document.body.querySelector(`[data-testid="card-list-panel-${zone}"]`)).toBeNull();
     release();
-    expect(preview('data')).toBeNull();
+    expect(preview('Data')).toBeNull();
 
     tap(card);
     expect(screen.queryByTestId('card-preview')).toBeNull();
@@ -406,7 +406,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     drag(equipmentId, 'mission-on-0');
     tap(screen.getByRole('button', { name: /^Away team, 2 cards, tap to open$/i }));
 
-    for (const name of ['data', 'tricorder']) {
+    for (const name of ['Data', 'Tricorder']) {
       const panelCard = screen.getByTestId('card-list-panel-awayTeam').querySelector(`[aria-label="${name}"]`)!;
       hold(panelCard);
       expect(preview(name)).toBeInTheDocument();
@@ -420,19 +420,19 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     const [shipId, personnelId] = mockDraggableIds;
     drag(shipId, 'mission-under-2');
     drag(personnelId, `crew-${shipId}`);
-    tap(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+    tap(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
 
-    const panelShip = screen.getByTestId('card-list-panel-crew-ship').querySelector('[aria-label="u.s.s. relativity"]')!;
+    const panelShip = screen.getByTestId('card-list-panel-crew-ship').querySelector('[aria-label="U.S.S. Relativity"]')!;
     hold(panelShip);
-    expect(preview('u.s.s. relativity')).toBeInTheDocument();
+    expect(preview('U.S.S. Relativity')).toBeInTheDocument();
     release();
-    expect(preview('u.s.s. relativity')).toBeNull();
+    expect(preview('U.S.S. Relativity')).toBeNull();
     expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
   });
 
   it('the preview holds no button and takes no pointer events (#764)', async () => {
     await setupOpenHand([mockEquipmentCard]);
-    hold(screen.getByRole('button', { name: 'tricorder' }));
+    hold(screen.getByRole('button', { name: 'Tricorder' }));
     const layer = screen.getByTestId('card-preview');
     expect(layer).toHaveClass('pointer-events-none');
     expect(layer.querySelector('button')).toBeNull();
@@ -450,8 +450,8 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
 
     it('a press on the left half keeps the preview on the right edge', async () => {
       await setupOpenHand([mockEquipmentCard]);
-      holdAt(screen.getByRole('button', { name: 'tricorder' }), 100);
-      const image = preview('tricorder');
+      holdAt(screen.getByRole('button', { name: 'Tricorder' }), 100);
+      const image = preview('Tricorder');
       expect(image).toHaveClass('right-4');
       expect(image).not.toHaveClass('left-4');
       release();
@@ -459,8 +459,8 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
 
     it('a press on the right half puts the preview on the left edge', async () => {
       await setupOpenHand([mockEquipmentCard]);
-      holdAt(screen.getByRole('button', { name: 'tricorder' }), 900);
-      const image = preview('tricorder');
+      holdAt(screen.getByRole('button', { name: 'Tricorder' }), 900);
+      const image = preview('Tricorder');
       expect(image).toHaveClass('left-4');
       expect(image).not.toHaveClass('right-4');
       release();
@@ -468,7 +468,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
 
     it('a mouse hover on the right half puts the preview on the left edge', async () => {
       await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
-      fireEvent.pointerEnter(screen.getByRole('button', { name: 'first contact' }), {
+      fireEvent.pointerEnter(screen.getByRole('button', { name: 'First Contact' }), {
         pointerType: 'mouse',
         buttons: 0,
         clientX: 900,
@@ -477,7 +477,7 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
       act(() => {
         jest.advanceTimersByTime(HOVER_DELAY_MS);
       });
-      expect(preview('first contact')).toHaveClass('left-4');
+      expect(preview('First Contact')).toHaveClass('left-4');
     });
   });
 
@@ -492,22 +492,22 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
 
     it('a hover on a mission card shows its preview after 300 ms, and a leave hides it', async () => {
       await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
-      const mission = screen.getByRole('button', { name: 'first contact' });
+      const mission = screen.getByRole('button', { name: 'First Contact' });
       enter(mission);
       wait(HOVER_DELAY_MS - 1);
-      expect(preview('first contact')).toBeNull();
+      expect(preview('First Contact')).toBeNull();
       wait(1);
-      expect(preview('first contact')).toBeInTheDocument();
+      expect(preview('First Contact')).toBeInTheDocument();
       act(() => {
         leave(mission);
       });
-      expect(preview('first contact')).toBeNull();
+      expect(preview('First Contact')).toBeNull();
     });
 
     // #985: a hover preview leaves the table undimmed; a hold preview still dims it.
     it('a hover preview does not dim the table, and a hold preview does', async () => {
       await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
-      const mission = screen.getByRole('button', { name: 'first contact' });
+      const mission = screen.getByRole('button', { name: 'First Contact' });
       enter(mission);
       wait(HOVER_DELAY_MS);
       expect(screen.getByTestId('card-preview')).not.toHaveClass('bg-black/50');
@@ -523,13 +523,13 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     it('a drag start closes a hover preview', async () => {
       await setupOpenHand([mockEquipmentCard]);
       const [id] = mockDraggableIds;
-      enter(screen.getByRole('button', { name: 'tricorder' }));
+      enter(screen.getByRole('button', { name: 'Tricorder' }));
       wait(HOVER_DELAY_MS);
-      expect(preview('tricorder')).toBeInTheDocument();
+      expect(preview('Tricorder')).toBeInTheDocument();
       act(() => {
         mockOnDragStart!({ active: { id } });
       });
-      expect(preview('tricorder')).toBeNull();
+      expect(preview('Tricorder')).toBeNull();
     });
 
     it('a hover that starts during a drag shows nothing', async () => {
@@ -538,38 +538,38 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
       act(() => {
         mockOnDragStart!({ active: { id } });
       });
-      enter(screen.getByRole('button', { name: 'first contact' }));
+      enter(screen.getByRole('button', { name: 'First Contact' }));
       wait(HOVER_DELAY_MS);
       act(() => {
         mockOnDragCancel!();
       });
-      expect(preview('first contact')).toBeNull();
+      expect(preview('First Contact')).toBeNull();
     });
 
     it('a hover, then a hold on the same card, then a release with no move closes the preview (#784)', async () => {
       await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
-      const mission = screen.getByRole('button', { name: 'first contact' });
+      const mission = screen.getByRole('button', { name: 'First Contact' });
       enter(mission);
       wait(HOVER_DELAY_MS);
       hold(mission);
-      expect(preview('first contact')).toBeInTheDocument();
+      expect(preview('First Contact')).toBeInTheDocument();
       release();
-      expect(preview('first contact')).toBeNull();
+      expect(preview('First Contact')).toBeNull();
     });
   });
 
   describe('a press closes the preview (#784)', () => {
     it('a press on the table closes a stuck preview, and its click does nothing else', async () => {
       await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
-      const mission = screen.getByRole('button', { name: 'first contact' });
-      const tricorder = screen.getByRole('button', { name: 'tricorder' });
+      const mission = screen.getByRole('button', { name: 'First Contact' });
+      const tricorder = screen.getByRole('button', { name: 'Tricorder' });
       hold(mission);
-      expect(preview('first contact')).toBeInTheDocument();
+      expect(preview('First Contact')).toBeInTheDocument();
       // The release never reaches the page, so the preview stays up.
       const onClick = jest.fn();
       tricorder.addEventListener('click', onClick);
       tap(tricorder);
-      expect(preview('first contact')).toBeNull();
+      expect(preview('First Contact')).toBeNull();
       expect(onClick).not.toHaveBeenCalled();
       // The next tap acts as normal.
       tap(tricorder);
@@ -578,29 +578,29 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
 
     it('a press off the hovered card closes a hover preview whose card moved away, and does nothing else', async () => {
       await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
-      const mission = screen.getByRole('button', { name: 'first contact' });
-      const tricorder = screen.getByRole('button', { name: 'tricorder' });
+      const mission = screen.getByRole('button', { name: 'First Contact' });
+      const tricorder = screen.getByRole('button', { name: 'Tricorder' });
       fireEvent.pointerEnter(mission, { pointerType: 'mouse', buttons: 0 });
       act(() => {
         jest.advanceTimersByTime(HOVER_DELAY_MS);
       });
-      expect(preview('first contact')).toBeInTheDocument();
+      expect(preview('First Contact')).toBeInTheDocument();
       // No `pointerleave` arrives: the card moved out from under a still pointer.
       const onClick = jest.fn();
       tricorder.addEventListener('click', onClick);
       tap(tricorder);
-      expect(preview('first contact')).toBeNull();
+      expect(preview('First Contact')).toBeNull();
       expect(onClick).not.toHaveBeenCalled();
     });
 
     it('a click on the hovered card itself still acts', async () => {
       await setupOpenHand([mockEquipmentCard]);
-      const tricorder = screen.getByRole('button', { name: 'tricorder' });
+      const tricorder = screen.getByRole('button', { name: 'Tricorder' });
       fireEvent.pointerEnter(tricorder, { pointerType: 'mouse', buttons: 0 });
       act(() => {
         jest.advanceTimersByTime(HOVER_DELAY_MS);
       });
-      expect(preview('tricorder')).toBeInTheDocument();
+      expect(preview('Tricorder')).toBeInTheDocument();
       const onClick = jest.fn();
       tricorder.addEventListener('click', onClick);
       tap(tricorder);

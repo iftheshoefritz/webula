@@ -87,6 +87,7 @@ import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, landedBumpClassName, useLandedNonce } from './LandedZoneContext';
 import CountBadge from './CountBadge';
 import { LAYER_COUNT_BADGE } from '../../../lib/layers';
+import { cardDisplayName } from '../../../lib/cardCount';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
@@ -190,13 +191,13 @@ function ShipCard({
         draggable
       />
       <ShipCrewBadge
-        shipName={ship.card.name}
+        shipName={cardDisplayName(ship.card)}
         count={crewCount}
         height={badgeHeight}
         landedNonce={crewLandedNonce}
       />
       {onCount > 0 && (
-        <ShipPlacedOnPill name={ship.card.name} count={onCount} height={badgeHeight} landedNonce={onLandedNonce} />
+        <ShipPlacedOnPill name={cardDisplayName(ship.card)} count={onCount} height={badgeHeight} landedNonce={onLandedNonce} />
       )}
       <LandedRing nonce={landedNonce} />
     </div>
@@ -286,7 +287,7 @@ function MissionFlipButton({
     <button
       type="button"
       onClick={() => onFlip(mission.id)}
-      aria-label={`Flip ${mission.card.name} to its ${mission.flipped ? 'front' : 'back'}`}
+      aria-label={`Flip ${cardDisplayName(mission.card)} to its ${mission.flipped ? 'front' : 'back'}`}
       className="absolute -top-1 -right-1 z-10 flex items-center rounded-full bg-black/50 px-1 text-text-primary leading-none"
       style={{ height: height - 2 }}
     >
@@ -332,7 +333,7 @@ function MissionCompleteToggle({
         onSetCompleted(missionIndex, !completed);
       }}
       aria-pressed={completed}
-      aria-label={`Mark ${mission.card.name} ${completed ? 'not complete' : 'complete'}`}
+      aria-label={`Mark ${cardDisplayName(mission.card)} ${completed ? 'not complete' : 'complete'}`}
       className={
         completed
           ? `absolute -bottom-2 -right-2 ${LAYER_COUNT_BADGE} bg-accent text-white rounded-full w-6 h-6 flex items-center justify-center shadow`
@@ -930,7 +931,7 @@ function MissionColumn({
               />
               {onCount > 0 && (
                 <PlacedOnCounter
-                  name={mission.card.name}
+                  name={cardDisplayName(mission.card)}
                   count={onCount}
                   height={badgeHeight}
                   landedNonce={onLandedNonce}

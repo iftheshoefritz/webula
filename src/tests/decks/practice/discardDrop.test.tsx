@@ -156,7 +156,7 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
   it('moves the dropped card out of the hand and into the discard pile', async () => {
     await setupOpenHand([mockManyCards[0]]);
     const [draggedId] = mockDraggableIds;
-    expect(screen.getByRole('button', { name: 'card 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Card 1' })).toBeInTheDocument();
 
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
@@ -165,7 +165,7 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'discard' } });
     });
 
-    expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Card 1' })).not.toBeInTheDocument();
     const discardCard = screen.getByAltText('Discard pile');
     expect(discardCard).toBeInTheDocument();
     expect(discardCard.parentElement).toHaveTextContent('1');
@@ -174,7 +174,7 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
   it('moves only the dropped copy when the hand has two copies of the same card', async () => {
     await setupOpenHand([mockManyCards[0], mockManyCards[0]]);
 
-    expect(screen.getAllByRole('button', { name: 'card 1' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Card 1' })).toHaveLength(2);
     const [firstId] = mockDraggableIds;
 
     await act(async () => {
@@ -194,7 +194,7 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
       });
     }
 
-    expect(screen.getAllByRole('button', { name: 'card 1' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Card 1' })).toHaveLength(1);
     const discardCard = screen.getByAltText('Discard pile');
     expect(discardCard.parentElement).toHaveTextContent('1');
   });
@@ -305,7 +305,7 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
         mockOnDragEnd!({ active: { id }, over: { id: 'discard' } });
       });
     }
-    expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Card 1' })).not.toBeInTheDocument();
     const shuffleCountBefore = screen.queryAllByRole('button', { name: /shuffle/i }).length;
 
     await act(async () => {
@@ -313,14 +313,14 @@ describe('Practice draw: dropping a hand card on the discard pile', () => {
     });
 
     expect(screen.getByRole('button', { name: /^close discard pile$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'card 1' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'card 2' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Card 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Card 2' })).toBeInTheDocument();
     expect(document.body.querySelector('[data-testid="card-list-panel-discard"]')).not.toBeNull();
     expect(screen.queryAllByRole('button', { name: /shuffle/i })).toHaveLength(shuffleCountBefore);
 
     // Selecting a card shows no Stop control either.
     await act(async () => {
-      fireEvent.click(panelCard('card 1'));
+      fireEvent.click(panelCard('Card 1'));
     });
     expect(screen.queryByRole('button', { name: /^(stop|unstop)$/i })).not.toBeInTheDocument();
   });

@@ -12,7 +12,7 @@ import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableRedu
 
 const card = (id: string, name: string): CardInstance => ({
   id,
-  card: { name, imagefile: id },
+  card: { name: name.toLowerCase(), originalName: name, imagefile: id },
   face: 'up',
 });
 
