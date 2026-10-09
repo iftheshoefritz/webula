@@ -92,6 +92,8 @@ export default function TableCard({
   uncropped = false,
   draggableId,
   completed = false,
+  turnedScale,
+  turnable = false,
 }: {
   instance: CardInstance;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
@@ -109,6 +111,13 @@ export default function TableCard({
   draggableId?: string;
   // A completed mission (#991) shows its image darker, and its label says so (#1059).
   completed?: boolean;
+  // A completed mission turns 90° clockwise around its centre (#1060), drawn at this scale so it
+  // fits the slot it sits in (`turnedMissionScale`, `MissionRow.tsx`). The turn is a transform, so
+  // the card's flow box keeps its upright size and nothing else on the table moves. It is on this
+  // table card only: the preview draws the card upright.
+  turnedScale?: number;
+  // A card that can turn (a mission) animates the turn both ways, and not under reduced motion.
+  turnable?: boolean;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down';
@@ -117,6 +126,10 @@ export default function TableCard({
     disabled: !draggable,
   });
   const holdListeners = useCardHold(instance.id, listeners);
+  const transforms = [
+    transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : '',
+    turnedScale !== undefined ? `rotate(90deg) scale(${turnedScale})` : '',
+  ].filter(Boolean);
 
   return (
     <button
@@ -126,11 +139,13 @@ export default function TableCard({
       onClick={onClick}
       {...attributes}
       {...(holdable ? holdListeners : listeners)}
-      className={`flex flex-col items-center focus:outline-none ${draggable ? 'touch-none' : 'touch-manipulation'}`}
+      className={`flex flex-col items-center focus:outline-none ${draggable ? 'touch-none' : 'touch-manipulation'} ${
+        turnable ? 'motion-safe:transition-transform motion-reduce:transition-none' : ''
+      }`}
       style={{
         ...NO_CALLOUT_STYLE,
         width,
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+        transform: transforms.length > 0 ? transforms.join(' ') : undefined,
         opacity: isDragging ? 0.5 : 1,
       }}
       aria-label={isFaceDown ? 'Face-down card' : `${cardDisplayName(card)}${completed ? ', completed' : ''}`}

@@ -77,6 +77,7 @@ import {
   DILEMMA_STACK_CARD_WIDTH,
   DILEMMA_STACK_DESKTOP_WIDTH_FACTOR,
   DESKTOP_RESERVED_SHIP_ROWS,
+  desktopMissionSlotBudget,
   useDesktopTableScale,
   useShipRowCount,
   useTableScale,
@@ -1132,6 +1133,9 @@ function PracticeDrawContent() {
     bottomRow,
     desktopMissionColumnHeight,
   );
+  // Issue #1060: every desktop mission slot reserves the width of a turned mission, as far as the
+  // width of the table allows.
+  const gameLayerWidth = useElementWidth(gameLayer);
   const shipRows = useShipRowCount(
     missionRows,
     bottomRow,
@@ -2029,6 +2033,7 @@ function PracticeDrawContent() {
                   scale={missionScale}
                   shipRows={shipRows}
                   desktop={finePointer}
+                  slotBudget={desktopMissionSlotBudget(gameLayerWidth)}
                 />
                 <DilemmaStackPile
                   stack={dilemmaStack}

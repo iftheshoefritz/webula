@@ -5,7 +5,11 @@ jest.mock('@dnd-kit/core', () => ({
 
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import MissionRow, { underMissionHeadroom } from '../../../app/decks/practice/MissionRow';
+import MissionRow, {
+  missionSlotWidth,
+  turnedMissionScale,
+  underMissionHeadroom,
+} from '../../../app/decks/practice/MissionRow';
 import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardHoldProvider, DOUBLE_TAP_MS, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableReducer';
@@ -486,6 +490,92 @@ describe('MissionRow: a completed mission (#991)', () => {
   it('shows no toggle in a slot with no mission card', () => {
     renderRow([{ ...emptySlot(), mission: null }]);
     expect(screen.queryByRole('button', { name: /^Mark / })).toBeNull();
+  });
+});
+
+// #1060: a completed mission's card turns 90° inside its slot; nothing around it turns.
+describe('MissionRow: a completed mission turns (#1060)', () => {
+  const doubleSided: MissionSlot = {
+    ...emptySlot(),
+    mission: {
+      ...card('mission-0', 'A Mission'),
+      card: { name: 'a mission', originalName: 'A Mission', imagefile: 'mission-0', backimagefile: 'back' },
+      placedOn: [card('e1', 'An Event')],
+    },
+    underMission: [card('d1', 'A Dilemma')],
+  };
+  const renderRow = (slot: MissionSlot, desktop = false, slotBudget?: number) =>
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+        desktop={desktop}
+        slotBudget={slotBudget}
+      />
+    );
+  const missionCard = () => document.body.querySelector('[data-card-id="mission-0"]') as HTMLElement;
+
+  it('turns and darkens the card of a completed mission, and nothing else', () => {
+    renderRow({ ...doubleSided, completed: true });
+    expect(missionCard().style.transform).toBe(`rotate(90deg) scale(${turnedMissionScale(1)})`);
+    expect(missionCard()).toHaveClass('motion-safe:transition-transform', 'motion-reduce:transition-none');
+    expect(screen.getByRole('img', { name: 'A Mission' })).toHaveClass('brightness-50');
+    const stack = screen.getByTestId('mission-under-0-stack');
+    const counter = screen.getByRole('button', { name: 'A Mission, 1 card on it' });
+    const flip = screen.getByRole('button', { name: /^Flip A Mission/ });
+    for (const el of [stack, counter, flip]) {
+      for (let a: HTMLElement | null = el; a && a !== document.body; a = a.parentElement) {
+        expect(a.style.transform).not.toMatch(/rotate/);
+      }
+    }
+  });
+
+  it('draws a mission that is not complete upright', () => {
+    renderRow(doubleSided);
+    expect(missionCard().style.transform).toBe('');
+  });
+
+  it('puts the counter and the Flip button on the corners of the turned card', () => {
+    renderRow({ ...doubleSided, completed: true }, true);
+    const corners = screen.getByTestId('mission-corners-0');
+    // The turned whole card at scale 1 is 100 px wide and 72 px tall.
+    expect(corners.style.width).toBe('100px');
+    expect(corners.style.height).toBe('72px');
+  });
+
+  it('reserves the width of a turned card for every desktop slot, and the card width on touch', () => {
+    const { unmount } = renderRow(doubleSided, true);
+    expect(missionCard().closest('div.flex-col')).toHaveStyle({ width: '100px' });
+    unmount();
+    renderRow(doubleSided);
+    expect(missionCard().closest('div.flex-col')).toHaveStyle({ width: '72px' });
+  });
+});
+
+describe('missionSlotWidth and turnedMissionScale (#1060)', () => {
+  it('keeps the card width on a touch screen, and shrinks the turned crop to fit its height', () => {
+    expect(missionSlotWidth(1)).toBe(72);
+    expect(missionSlotWidth(1, false, 10)).toBe(72);
+    // The 72 x 64 crop turned is 64 x 72: it fits the slot's 64 px height at 64 / 72.
+    expect(turnedMissionScale(1)).toBeCloseTo(64 / 72, 5);
+    expect(turnedMissionScale(2)).toBeCloseTo(128 / 144, 5);
+  });
+
+  it('reserves the turned card width on a desktop with room, and draws the turned card at full size', () => {
+    expect(missionSlotWidth(1, true)).toBe(100);
+    expect(missionSlotWidth(1, true, 500)).toBe(100);
+    expect(missionSlotWidth(2, true, 500)).toBe(200);
+    expect(turnedMissionScale(1, true)).toBe(1);
+  });
+
+  it('falls back to the slot width that fits on a narrow desktop, down to the card width', () => {
+    expect(missionSlotWidth(1, true, 86.7)).toBe(86);
+    expect(missionSlotWidth(1, true, 40)).toBe(72);
+    expect(turnedMissionScale(1, true, 86)).toBeCloseTo(0.86, 5);
+    expect(turnedMissionScale(1, true, 72)).toBeCloseTo(0.72, 5);
   });
 });
 

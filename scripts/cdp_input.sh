@@ -2,9 +2,11 @@
 # Sends touch input, or mouse input with modifier keys, to the agent-browser page (#1035).
 #
 #   bash scripts/cdp_input.sh tap <x> <y> | <selector>
+#   bash scripts/cdp_input.sh double-tap <x> <y> | <selector>
 #   bash scripts/cdp_input.sh pan <selector> <dx> <dy>
 #   bash scripts/cdp_input.sh touch-drag <x> <y> <tx> <ty>
 #   bash scripts/cdp_input.sh click <x> <y> | <selector> [--mod shift,ctrl,meta,alt]
+#   bash scripts/cdp_input.sh double-click <x> <y> | <selector> [--mod shift,ctrl,meta,alt]
 #   bash scripts/cdp_input.sh mouse-drag <x> <y> <tx> <ty> [--mod shift,ctrl,meta,alt]
 #   bash scripts/cdp_input.sh mouse-path <x> <y> <tx>,<ty>,<hold-ms> ... [--mod shift,ctrl,meta,alt]
 #   bash scripts/cdp_input.sh touch-path <x> <y> <tx>,<ty>,<hold-ms> ...

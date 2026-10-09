@@ -113,6 +113,32 @@ const SMALL_CARD_MAX_OFFSET_BASE = SMALL_CARD_WIDTH + 2; // 2 ships sit edge to 
 export const missionCardHeight = (scale: number, desktop = false): number =>
   desktop ? fullCardHeight(scaled(TABLE_CARD_WIDTH, scale)) : scaled(TABLE_CARD_ART_HEIGHT, scale);
 
+// A completed mission turns 90° clockwise (#1060), and is drawn at the largest size that fits the
+// slot's reserved box, so completing a mission moves nothing. The box is the slot's width by the
+// upright card's height.
+//
+// On a phone or a tablet the slot is the card's own width: the turned art crop fits that width but
+// not the height, so it shrinks by `artHeight / cardWidth`. On a desktop every slot reserves the
+// width of the turned whole card, `fullCardHeight(cardWidth)`, all the time, and the turned card
+// fits it at full size. `slotBudget` is the width the row can give one slot
+// (`desktopMissionSlotBudget`, `tableScale.ts`): a desktop too narrow for the wider slots gets a
+// slot that fits, down to the card width, and the turned card shrinks to fit that.
+export function missionSlotWidth(scale: number, desktop = false, slotBudget = Infinity): number {
+  const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
+  if (!desktop) return cardWidth;
+  return Math.max(cardWidth, Math.min(fullCardHeight(cardWidth), Math.floor(slotBudget)));
+}
+
+export function turnedMissionScale(
+  scale: number,
+  desktop = false,
+  slotWidth = missionSlotWidth(scale, desktop),
+): number {
+  const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
+  const cardHeight = missionCardHeight(scale, desktop);
+  return Math.min(1, slotWidth / cardHeight, cardHeight / cardWidth);
+}
+
 // The mission card has two drop halves (#871), each the full width and half the height of the
 // card. They differ only for a dilemma: the top half puts it under the mission (#917), the bottom
 // half places it on the mission card. Every other type routes the same way from either half.
@@ -236,7 +262,7 @@ function PlacedOnCounter({
       type="button"
       onClick={onOpen}
       aria-label={placedOnLabel(name, count)}
-      className={PLACED_ON_PILL_CLASSNAME}
+      className={`${PLACED_ON_PILL_CLASSNAME} pointer-events-auto`}
       style={{ height: height - 2 }}
     >
       <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
@@ -275,7 +301,8 @@ function ShipPlacedOnPill({
 }
 
 // The Flip button of a double-sided mission (#765), at the top-right corner of the mission card,
-// the corner opposite `PlacedOnCounter`. Like the counter it is a sibling `<button>` of the card's
+// the corner opposite `PlacedOnCounter`. Both sit on the corners of the card as drawn, upright or
+// turned (#1060), and stay upright themselves. Like the counter it is a sibling `<button>` of the card's
 // own button, not a droppable, so a drop on it lands on the mission card's drop half beneath. It
 // shows only for a mission with a `backimagefile`.
 function MissionFlipButton({
@@ -292,7 +319,7 @@ function MissionFlipButton({
       type="button"
       onClick={() => onFlip(mission.id)}
       aria-label={`Flip ${cardDisplayName(mission.card)} to its ${mission.flipped ? 'front' : 'back'}`}
-      className="absolute -top-1 -right-1 z-10 flex items-center rounded-full bg-black/50 px-1 text-text-primary leading-none"
+      className="absolute -top-1 -right-1 z-10 flex items-center rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-auto"
       style={{ height: height - 2 }}
     >
       <span className="text-[8px] font-bold">Flip</span>
@@ -752,6 +779,8 @@ function isTopHalfTap(event: React.MouseEvent<HTMLElement>): boolean {
 // while the hold preview on the mission's `TableCard` and the tap on `PlacedOnCounter` still work.
 // During a dilemma drag each half shows its own highlight and, under the pointer, its label; for
 // any other type both halves report the whole card's state and the card itself shows the ring.
+// The halves span the slot's reserved width (#1060), so on a desktop a drop anywhere on a turned
+// mission lands; they are not turned with the card, so they stay a top and a bottom half.
 function MissionHalfTarget({
   droppable,
   dropId,
@@ -809,6 +838,7 @@ function MissionColumn({
   scale,
   shipRows,
   desktop,
+  slotWidth,
 }: {
   missionIndex: number;
   slot: MissionSlot;
@@ -821,6 +851,9 @@ function MissionColumn({
   scale: number;
   shipRows: number;
   desktop: boolean;
+  // The width the slot reserves (`missionSlotWidth`): the card's own width on a touch screen, and
+  // the turned card's width on a desktop (#1060).
+  slotWidth: number;
 }) {
   const onDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
   const underDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'under') });
@@ -844,6 +877,11 @@ function MissionColumn({
   const underReach = underMissionStackHeight(cardArtHeight, underMission.length);
   // A completed mission (#991) darkens. A double-tap on the card toggles it (#1059).
   const completed = Boolean(mission && slot.completed);
+  // A completed mission turns 90° clockwise inside its slot (#1060). The counter and the Flip
+  // button sit on the corners of the card as drawn, upright or turned.
+  const turnedScale = turnedMissionScale(scale, desktop, slotWidth);
+  const visualWidth = completed ? Math.round(cardArtHeight * turnedScale) : cardWidth;
+  const visualHeight = completed ? Math.round(cardWidth * turnedScale) : cardArtHeight;
   // The tap that waits out `DOUBLE_TAP_MS` for a second tap: where it landed, and the panel it
   // opens if no second tap comes.
   const pendingTap = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
@@ -875,7 +913,7 @@ function MissionColumn({
   };
 
   return (
-    <div className="flex flex-col items-center" style={{ width: cardWidth, gap: COLUMN_GAP }}>
+    <div className="flex flex-col items-center" style={{ width: slotWidth, gap: COLUMN_GAP }}>
       <div
         data-landed={onLandedNonce !== null || undefined}
         className={`relative w-full flex items-center justify-center rounded ${
@@ -902,6 +940,8 @@ function MissionColumn({
                 artHeight={cardArtHeight}
                 uncropped={desktop}
                 completed={completed}
+                turnedScale={completed ? turnedScale : undefined}
+                turnable
                 onClick={onMissionClick}
               />
               <MissionToggleButton
@@ -930,18 +970,24 @@ function MissionColumn({
                 eitherOver={eitherOver}
                 reach={underReach}
               />
-              {onCount > 0 && (
-                <PlacedOnCounter
-                  name={cardDisplayName(mission.card)}
-                  count={onCount}
-                  height={badgeHeight}
-                  landedNonce={onLandedNonce}
-                  onOpen={() => onOpenPlacedOn(mission.id)}
-                />
-              )}
-              {mission.card.backimagefile && (
-                <MissionFlipButton mission={mission} height={badgeHeight} onFlip={onFlipMission} />
-              )}
+              <div
+                data-testid={`mission-corners-${missionIndex}`}
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ width: visualWidth, height: visualHeight }}
+              >
+                {onCount > 0 && (
+                  <PlacedOnCounter
+                    name={cardDisplayName(mission.card)}
+                    count={onCount}
+                    height={badgeHeight}
+                    landedNonce={onLandedNonce}
+                    onOpen={() => onOpenPlacedOn(mission.id)}
+                  />
+                )}
+                {mission.card.backimagefile && (
+                  <MissionFlipButton mission={mission} height={badgeHeight} onFlip={onFlipMission} />
+                )}
+              </div>
             </>
           ) : (
             <div
@@ -1009,6 +1055,7 @@ export default function MissionRow({
   scale = 1,
   shipRows = 1,
   desktop = false,
+  slotBudget = Infinity,
 }: {
   missions: MissionSlot[];
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
@@ -1030,7 +1077,11 @@ export default function MissionRow({
   shipRows?: number;
   // Issue #992: a desktop shows the whole mission and ship cards. Defaults to false, the crop.
   desktop?: boolean;
+  // Issue #1060: the width the row can give one desktop slot (`desktopMissionSlotBudget`,
+  // `tableScale.ts`). Unbounded by default.
+  slotBudget?: number;
 }) {
+  const slotWidth = missionSlotWidth(scale, desktop, slotBudget);
   return (
     <div className="flex flex-row gap-2 justify-center">
       {missions.map((slot, idx) => (
@@ -1040,6 +1091,7 @@ export default function MissionRow({
           scale={scale}
           shipRows={shipRows}
           desktop={desktop}
+          slotWidth={slotWidth}
           slot={slot}
           onOpenPile={onOpenPile}
           onShipClick={onShipClick}

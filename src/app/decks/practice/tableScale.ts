@@ -19,7 +19,7 @@
 
 import { useEffect, useState } from 'react';
 import { MISSION_SLOTS } from './tableReducer';
-import { TABLE_CARD_WIDTH } from './TableCard';
+import { TABLE_CARD_WIDTH, fullCardHeight } from './TableCard';
 
 // The 568x320 viewport the fixed pixel card sizes below were tuned against (see
 // `MissionRow.tsx`'s `BADGE_STRIP_HEIGHT_BASE` comment) — scale 1 at this height, larger once the
@@ -133,14 +133,25 @@ export const DILEMMA_STACK_CARD_WIDTH = 56; // px, the zone's own width on a tou
 export const DILEMMA_STACK_DESKTOP_WIDTH_FACTOR = 2;
 export const DESKTOP_RESERVED_SHIP_ROWS = 2;
 
+// Issue #1060: a completed mission turns 90°, and on a desktop the turned card is as wide as the
+// whole card is tall. Every desktop mission slot reserves that width, `fullCardHeight` of the card
+// width, all the time, so completing a mission moves nothing. The width budget divides by the
+// wider slot, not by `TABLE_CARD_WIDTH`, so a width-bound desktop draws its missions smaller than a
+// slot of the card's own width would. A desktop too narrow for the wider slots at scale 1 gets the
+// slot width that fits, `desktopMissionSlotBudget`, down to the card width (`missionSlotWidth`,
+// `MissionRow.tsx`), and the turned card shrinks to fit it.
+export function desktopMissionSlotBudget(gameLayerWidth: number): number {
+  const dilemmaStackWidth = DILEMMA_STACK_CARD_WIDTH * DILEMMA_STACK_DESKTOP_WIDTH_FACTOR;
+  const availableWidth = gameLayerWidth - CONTENT_PADDING - MISSION_ROW_GAP * MISSION_SLOTS - dilemmaStackWidth;
+  return availableWidth / MISSION_SLOTS;
+}
+
 export function computeDesktopTableScale(
   gameLayerWidth: number,
   availableHeight: number,
   columnHeight: (scale: number) => number,
 ): number {
-  const dilemmaStackWidth = DILEMMA_STACK_CARD_WIDTH * DILEMMA_STACK_DESKTOP_WIDTH_FACTOR;
-  const availableWidth = gameLayerWidth - CONTENT_PADDING - MISSION_ROW_GAP * MISSION_SLOTS - dilemmaStackWidth;
-  const widthScale = availableWidth / (TABLE_CARD_WIDTH * MISSION_SLOTS);
+  const widthScale = desktopMissionSlotBudget(gameLayerWidth) / fullCardHeight(TABLE_CARD_WIDTH);
   if (widthScale <= 1 || columnHeight(1) >= availableHeight) return 1;
   // The column height only grows with the scale, so a bisection finds the largest scale that fits.
   let low = 1;
