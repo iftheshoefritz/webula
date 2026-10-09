@@ -149,7 +149,8 @@ describe('Practice draw: the reveal panel of a pile (#1070)', () => {
     });
   };
   const openReveal = () => click(screen.getByRole('button', { name: 'Reveal the draw deck' }));
-  const revealNext = () => click(screen.getByRole('button', { name: 'Reveal next' }));
+  const revealNext = () => click(screen.getByRole('button', { name: 'Reveal top' }));
+  const revealBottom = () => click(screen.getByRole('button', { name: 'Reveal bottom' }));
   const drawOne = () => click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
   const drag = async (draggableId: string, overId: string | null) => {
     await act(async () => {
@@ -207,7 +208,84 @@ describe('Practice draw: the reveal panel of a pile (#1070)', () => {
 
     await revealNext();
     expect(panelNames()).toEqual(['Card 8', 'Card 9', 'Card 10', 'Card 11']);
-    expect(screen.getByRole('button', { name: 'Reveal next' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reveal top' })).toBeDisabled();
+  });
+
+  it('shows "Reveal top" and "Reveal bottom", and no "Reveal next" (#1078)', async () => {
+    await setup();
+    await openReveal();
+    expect(screen.getByRole('button', { name: 'Reveal top' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Reveal bottom' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Reveal next' })).not.toBeInTheDocument();
+  });
+
+  it('shows one end of the pile at a time, in pile order (#1078)', async () => {
+    await setup();
+    await openReveal();
+
+    await revealNext();
+    await revealNext();
+    expect(panelNames()).toEqual(['Card 8', 'Card 9']);
+
+    await revealBottom();
+    expect(panelNames()).toEqual(['Card 11']);
+    expect(screen.getByRole('button', { name: 'Close bottom of the draw deck' })).toBeInTheDocument();
+    await revealBottom();
+    expect(panelNames()).toEqual(['Card 10', 'Card 11']);
+    expect(drawPileCount()).toBe('4');
+
+    await revealNext();
+    expect(panelNames()).toEqual(['Card 8']);
+    expect(drawPileCount()).toBe('4');
+  });
+
+  it('"Reveal bottom" is disabled once every card is revealed from the bottom, and "Reveal top" is not (#1078)', async () => {
+    await setup();
+    await openReveal();
+    for (let i = 0; i < 4; i += 1) await revealBottom();
+    expect(panelNames()).toEqual(['Card 8', 'Card 9', 'Card 10', 'Card 11']);
+    expect(screen.getByRole('button', { name: 'Reveal bottom' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reveal top' })).toBeEnabled();
+  });
+
+  it('a reorder between two bottom cards changes the order at the bottom of the pile (#1078)', async () => {
+    await setup();
+    await openReveal();
+    await revealBottom();
+    await revealBottom();
+
+    await drag(`panel:${panelId('Card 11')}`, panelId('Card 10'));
+    expect(panelNames()).toEqual(['Card 11', 'Card 10']);
+
+    await click(screen.getByRole('button', { name: 'Close bottom of the draw deck' }));
+    await openReveal();
+    await revealBottom();
+    await revealBottom();
+    expect(panelNames()).toEqual(['Card 11', 'Card 10']);
+    expect(drawPileCount()).toBe('4');
+  });
+
+  it('with bottom cards shown, Bottom keeps a card listed and Top takes it out (#1078)', async () => {
+    await setup();
+    await openReveal();
+    await revealBottom();
+    await revealBottom();
+    await revealBottom();
+    expect(panelNames()).toEqual(['Card 9', 'Card 10', 'Card 11']);
+
+    // Card 9 to the bottom: it stays revealed, now last.
+    await click(within(screen.getByTestId(PANEL)).getByRole('button', { name: 'Card 9' }));
+    await click(screen.getByRole('button', { name: 'Selected cards to the bottom of the draw deck' }));
+    expect(panelNames()).toEqual(['Card 10', 'Card 11', 'Card 9']);
+
+    // Card 10 to the top: it leaves the panel and is the pile's first card.
+    await click(within(screen.getByTestId(PANEL)).getByRole('button', { name: 'Card 10' }));
+    await click(screen.getByRole('button', { name: 'Selected cards to the top of the draw deck' }));
+    expect(panelNames()).toEqual(['Card 11', 'Card 9']);
+    expect(drawPileCount()).toBe('4');
+
+    await revealNext();
+    expect(panelNames()).toEqual(['Card 10']);
   });
 
   it('a reorder in the panel changes the order of the pile', async () => {

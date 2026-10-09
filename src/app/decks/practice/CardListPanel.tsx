@@ -117,8 +117,8 @@ export function ShuffleIcon() {
 }
 
 // A plain inline eye icon (#751), for the same reason as `ShuffleIcon`. The dilemma stack's
-// "Reveal top dilemma" control, each pile's reveal button and the reveal panel's "Reveal next"
-// button (#1070) share it.
+// "Reveal top dilemma" control, each pile's reveal button and the reveal panel's "Reveal top" and
+// "Reveal bottom" buttons (#1070, #1078) share it.
 export function RevealIcon({ className = 'w-2.5 h-2.5' }: { className?: string }) {
   return (
     <svg
@@ -222,7 +222,13 @@ const PANEL_LABEL: Record<PanelLocation, string> = {
 export const isRevealLocation = (location: PanelLocation): location is 'drawDeckReveal' | 'dilemmaPileReveal' =>
   location === 'drawDeckReveal' || location === 'dilemmaPileReveal';
 
-const closeLabel = (location: PanelLocation): string =>
+// The reveal panel's title follows the end of the pile it shows (#1078).
+const panelLabel = (location: PanelLocation, revealEnd: 'top' | 'bottom'): string =>
+  revealEnd === 'bottom' && isRevealLocation(location)
+    ? PANEL_LABEL[location].replace(/^Top of the /, 'Bottom of the ')
+    : PANEL_LABEL[location];
+
+const closeLabel = (location: PanelLocation, revealEnd: 'top' | 'bottom' = 'top'): string =>
   location === 'core' ||
   location === 'brig' ||
   location === 'crew' ||
@@ -234,8 +240,8 @@ const closeLabel = (location: PanelLocation): string =>
   location === 'shipRow' ||
   location === 'discard' ||
   location === 'on'
-    ? `Close ${PANEL_LABEL[location].toLowerCase()}`
-    : `Close ${PANEL_LABEL[location].toLowerCase()} pile`;
+    ? `Close ${panelLabel(location, revealEnd).toLowerCase()}`
+    : `Close ${panelLabel(location, revealEnd).toLowerCase()} pile`;
 
 // The dilemma stack's one row (#632), and the reveal panel's (#1070), with the insertion mark of a reorder drag (#956). The mark
 // reads the drag's live `active` and `over` from dnd-kit, the same `over` `handleDragEnd` in
@@ -540,8 +546,10 @@ export default function CardListPanel({
   onFlip,
   onDiscard,
   onDownload,
-  onRevealNext,
-  canRevealNext = false,
+  revealEnd = 'top',
+  onReveal,
+  canRevealTop = false,
+  canRevealBottom = false,
   onSendToDeck,
   hidden = false,
   cardWidth = viewerCardSize(1).width,
@@ -576,11 +584,15 @@ export default function CardListPanel({
   // Given only for the draw deck and the dilemma pile; `page.tsx` binds which pile and hand.
   // Its presence shows the "Download" button, disabled while nothing is selected.
   onDownload?: (ids: string[]) => void;
-  // The reveal panel only (#1070): shows one more card from the top of the pile. Its presence
-  // shows the "Reveal next" button, even with no card in the panel; `canRevealNext` says whether
-  // an unrevealed card is left.
-  onRevealNext?: () => void;
-  canRevealNext?: boolean;
+  // The reveal panel only (#1070, #1078): the end of the pile its cards come from, which sets the
+  // title and the end labels of the row.
+  revealEnd?: 'top' | 'bottom';
+  // The reveal panel only (#1070, #1078): shows one more card from the top or the bottom of the
+  // pile. Its presence shows the "Reveal top" and "Reveal bottom" buttons, even with no card in
+  // the panel; `canRevealTop` and `canRevealBottom` say whether each one can reveal a card.
+  onReveal?: (end: 'top' | 'bottom') => void;
+  canRevealTop?: boolean;
+  canRevealBottom?: boolean;
   // The reveal panel only (#1070): sends the selected cards, in the panel's order, to the top or
   // the bottom of the pile. Its presence shows the "Top" and "Bottom" buttons, disabled while
   // nothing is selected.
@@ -619,8 +631,8 @@ export default function CardListPanel({
   // every card stays reachable at that viewport. Each card also becomes a drop target of its own
   // (`reorderable` on `CardListPanelCard`), so a drop on top of a neighbour reorders the stack instead
   // of leaving the zone.
-  // The reveal panel (#1070) uses the same ordered row: its cards are the top of the pile, in
-  // order, and a drop on a neighbour reorders the pile.
+  // The reveal panel (#1070) uses the same ordered row: its cards are the top or the bottom of the
+  // pile (#1078), in order, and a drop on a neighbour reorders the pile.
   const isRevealPanel = isRevealLocation(location);
   const isOrdered = location === 'dilemmaStack' || isRevealPanel;
   // The stack's row is `OverlapRow` (#802), the same component the open fan uses. Its width
@@ -716,11 +728,15 @@ export default function CardListPanel({
       onPointerDown={startBoxOnGrid}
     >
       {isOrdered && (
-        // The reveal panel's cards are only the top of the pile (#1070), so its right end is
-        // not the bottom of the pile.
+        // The reveal panel's cards are only one end of the pile (#1070, #1078), so the label at
+        // its other end is not an end of the pile.
         <div className="flex flex-row justify-between">
-          <span className={stackEndLabelClassName}>{isRevealPanel ? 'Top (drawn first)' : 'Top (revealed first)'}</span>
-          <span className={stackEndLabelClassName}>{isRevealPanel ? 'Drawn later' : 'Bottom (revealed last)'}</span>
+          <span className={stackEndLabelClassName}>
+            {isRevealPanel ? (revealEnd === 'bottom' ? 'Drawn earlier' : 'Top (drawn first)') : 'Top (revealed first)'}
+          </span>
+          <span className={stackEndLabelClassName}>
+            {isRevealPanel ? (revealEnd === 'bottom' ? 'Bottom (drawn last)' : 'Drawn later') : 'Bottom (revealed last)'}
+          </span>
         </div>
       )}
       {isRevealPanel && cards.length === 0 && (
@@ -768,7 +784,7 @@ export default function CardListPanel({
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
         onPointerDown={boxSelect.onPointerDown}
-        aria-label={closeLabel(location)}
+        aria-label={closeLabel(location, revealEnd)}
       />
       <div className={insetClassName} style={{
           top: PANEL_TOP_INSET,
@@ -778,20 +794,31 @@ export default function CardListPanel({
         }}
       >
       <div className={layoutClassName}>
-        {(onRevealNext || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || onShuffle) && (
+        {(onReveal || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || onShuffle) && (
           <div data-testid="panel-controls" className="shrink-0 flex flex-row flex-wrap justify-center items-start gap-2">
-            {/* The reveal panel's own controls (#1070). "Reveal next" shows even with no card in
-                the panel, so an empty panel always has a way to reveal. */}
-            {onRevealNext && (
-              <button
-                type="button"
-                onClick={onRevealNext}
-                disabled={!canRevealNext}
-                className="btn-primary shrink-0 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <RevealIcon className="w-3 h-3" />
-                Reveal next
-              </button>
+            {/* The reveal panel's own controls (#1070, #1078). Both reveal buttons show even with no
+                card in the panel, so an empty panel always has a way to reveal. */}
+            {onReveal && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onReveal('top')}
+                  disabled={!canRevealTop}
+                  className="btn-primary shrink-0 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RevealIcon className="w-3 h-3" />
+                  Reveal top
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onReveal('bottom')}
+                  disabled={!canRevealBottom}
+                  className="btn-primary shrink-0 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RevealIcon className="w-3 h-3" />
+                  Reveal bottom
+                </button>
+              </>
             )}
             {showSendButtons && (
               <>
