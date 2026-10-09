@@ -116,6 +116,27 @@ export function ShuffleIcon() {
   );
 }
 
+// A plain inline eye icon (#751), for the same reason as `ShuffleIcon`. The dilemma stack's
+// "Reveal top dilemma" control, each pile's reveal button and the reveal panel's "Reveal next"
+// button (#1070) share it.
+export function RevealIcon({ className = 'w-2.5 h-2.5' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 // A mission pile is one of `MissionPileName`; the core and the brig (#640) are two more flat
 // zones this same panel now lists, alongside a mission's piles. A ship's crew (#664) is a third:
 // like the core and the brig, it is not addressed by mission index, so it is named the same way,
@@ -169,6 +190,10 @@ export type PanelLocation =
   | 'drawDeck'
   | 'dilemmaPile'
   | 'dilemmaStack'
+  // The reveal panel of the top cards of the draw deck or the dilemma pile (#1070), apart from
+  // the pile's Download panel, which keeps `drawDeck` / `dilemmaPile`.
+  | 'drawDeckReveal'
+  | 'dilemmaPileReveal'
   | 'shipRow'
   | 'discard'
   | 'on';
@@ -182,6 +207,8 @@ const PANEL_LABEL: Record<PanelLocation, string> = {
   drawDeck: 'Draw deck',
   dilemmaPile: 'Dilemma pile',
   dilemmaStack: 'Dilemma stack',
+  drawDeckReveal: 'Top of the draw deck',
+  dilemmaPileReveal: 'Top of the dilemma pile',
   shipRow: 'Ships',
   discard: 'Discard pile',
   on: 'On the card',
@@ -192,6 +219,9 @@ const PANEL_LABEL: Record<PanelLocation, string> = {
 // "pile", "team" or "stack" (or need no
 // such word at all) in their own label, so their close button's label does not repeat it; a mission pile's label keeps the
 // trailing "pile", unchanged from before #640.
+export const isRevealLocation = (location: PanelLocation): location is 'drawDeckReveal' | 'dilemmaPileReveal' =>
+  location === 'drawDeckReveal' || location === 'dilemmaPileReveal';
+
 const closeLabel = (location: PanelLocation): string =>
   location === 'core' ||
   location === 'brig' ||
@@ -200,13 +230,14 @@ const closeLabel = (location: PanelLocation): string =>
   location === 'drawDeck' ||
   location === 'dilemmaPile' ||
   location === 'dilemmaStack' ||
+  isRevealLocation(location) ||
   location === 'shipRow' ||
   location === 'discard' ||
   location === 'on'
     ? `Close ${PANEL_LABEL[location].toLowerCase()}`
     : `Close ${PANEL_LABEL[location].toLowerCase()} pile`;
 
-// The dilemma stack's one row (#632), with the insertion mark of a reorder drag (#956). The mark
+// The dilemma stack's one row (#632), and the reveal panel's (#1070), with the insertion mark of a reorder drag (#956). The mark
 // reads the drag's live `active` and `over` from dnd-kit, the same `over` `handleDragEnd` in
 // `page.tsx` receives, so it shows exactly where the drop puts the card
 // (`dilemmaStackInsertPoint`). It shows nothing over the dragged card's own slot, over the row's
@@ -509,6 +540,9 @@ export default function CardListPanel({
   onFlip,
   onDiscard,
   onDownload,
+  onRevealNext,
+  canRevealNext = false,
+  onSendToDeck,
   hidden = false,
   cardWidth = viewerCardSize(1).width,
   cardHeight = viewerCardSize(1).height,
@@ -542,6 +576,15 @@ export default function CardListPanel({
   // Given only for the draw deck and the dilemma pile; `page.tsx` binds which pile and hand.
   // Its presence shows the "Download" button, disabled while nothing is selected.
   onDownload?: (ids: string[]) => void;
+  // The reveal panel only (#1070): shows one more card from the top of the pile. Its presence
+  // shows the "Reveal next" button, even with no card in the panel; `canRevealNext` says whether
+  // an unrevealed card is left.
+  onRevealNext?: () => void;
+  canRevealNext?: boolean;
+  // The reveal panel only (#1070): sends the selected cards, in the panel's order, to the top or
+  // the bottom of the pile. Its presence shows the "Top" and "Bottom" buttons, disabled while
+  // nothing is selected.
+  onSendToDeck?: (ids: string[], position: 'top' | 'bottom') => void;
   hidden?: boolean;
   // Issue #717: this panel is one of "the modals" the issue names, so its own card grid grows
   // the same way the table's mission cards do — `page.tsx` computes both from the same `scale`
@@ -576,7 +619,10 @@ export default function CardListPanel({
   // every card stays reachable at that viewport. Each card also becomes a drop target of its own
   // (`reorderable` on `CardListPanelCard`), so a drop on top of a neighbour reorders the stack instead
   // of leaving the zone.
-  const isDilemmaStack = location === 'dilemmaStack';
+  // The reveal panel (#1070) uses the same ordered row: its cards are the top of the pile, in
+  // order, and a drop on a neighbour reorders the pile.
+  const isRevealPanel = isRevealLocation(location);
+  const isOrdered = location === 'dilemmaStack' || isRevealPanel;
   // The stack's row is `OverlapRow` (#802), the same component the open fan uses. Its width
   // bound is the row's own measured width, not a card-count guess (#632's browser-check
   // follow-up): a guess of six cards let the sixth card fall outside the panel at 568 x 320, and a
@@ -589,7 +635,7 @@ export default function CardListPanel({
   const gridRef = useRef<HTMLDivElement | null>(null);
   const cropGridCards = artCrop && (location === 'crew' || location === 'awayTeam');
   const gridCardHeight = cropGridCards ? artCropHeight(cardWidth) : cardHeight;
-  const gridScrolls = useScrollsVertically(gridRef, !isDilemmaStack, [cards.length, cardWidth, gridCardHeight]);
+  const gridScrolls = useScrollsVertically(gridRef, !isOrdered, [cards.length, cardWidth, gridCardHeight]);
   // #993: a mouse drag from the empty space of the grid, or from the backdrop, draws a box that
   // selects the cards of the grid it touches (`useBoxSelect.tsx`).
   const boxSelect = useBoxSelect(gridRef, selectedIds, onSelectIds);
@@ -619,7 +665,7 @@ export default function CardListPanel({
   // its one row: `dilemmaStackPopupCollisionDetection` reads its rectangle as "reorder only".
   // #986, #1016: the border of `PANEL_SURFACE_CLASSNAME` marks the grid's edge against the dimmed
   // table around it, so a tap outside the grid is easy to aim.
-  const gridClassName = isDilemmaStack
+  const gridClassName = isOrdered
     ? `shrink-0 flex flex-col items-stretch gap-1 rounded-lg ${PANEL_SURFACE_CLASSNAME} p-2 w-[86vw] overflow-hidden`
     : `min-h-0 min-w-0 flex flex-wrap items-start justify-center gap-2 rounded-lg ${PANEL_SURFACE_CLASSNAME} p-2 ${panelScrollClassName(gridScrolls)} overscroll-contain`;
   // The two end labels sit on their own line above the cards, not at the two ends of the card
@@ -648,6 +694,13 @@ export default function CardListPanel({
   const handleDiscardTap = () => onDiscard?.(selectedInPanel.map((instance) => instance.id));
   const showDownloadButton = onDownload !== undefined;
   const handleDownloadTap = () => onDownload?.(selectedInPanel.map((instance) => instance.id));
+  const showSendButtons = onSendToDeck !== undefined;
+  const handleSendTap = (position: 'top' | 'bottom') =>
+    onSendToDeck?.(
+      selectedInPanel.map((instance) => instance.id),
+      position
+    );
+  const deckName = PANEL_LABEL[location].replace(/^Top of the /, '');
 
   // Issue #861: the grid is a selector for the tests and for the scripts, not a drop target. It
   // has no `useDroppable`, and no drag aims at it: the open panel covers the table, and a reorder
@@ -662,13 +715,20 @@ export default function CardListPanel({
       className={gridClassName}
       onPointerDown={startBoxOnGrid}
     >
-      {isDilemmaStack && (
+      {isOrdered && (
+        // The reveal panel's cards are only the top of the pile (#1070), so its right end is
+        // not the bottom of the pile.
         <div className="flex flex-row justify-between">
-          <span className={stackEndLabelClassName}>Top (revealed first)</span>
-          <span className={stackEndLabelClassName}>Bottom (revealed last)</span>
+          <span className={stackEndLabelClassName}>{isRevealPanel ? 'Top (drawn first)' : 'Top (revealed first)'}</span>
+          <span className={stackEndLabelClassName}>{isRevealPanel ? 'Drawn later' : 'Bottom (revealed last)'}</span>
         </div>
       )}
-      {isDilemmaStack ? (
+      {isRevealPanel && cards.length === 0 && (
+        <p data-testid="reveal-panel-empty" className="text-xs text-text-muted text-center py-2">
+          No card revealed yet.
+        </p>
+      )}
+      {isOrdered ? (
         // The cards overlap rather than sit side by side (`OverlapRow`), with `zIndex` rising
         // left to right, so a later (further down the stack) card's edge sits on top of the
         // one before it, the same reading order the labels at each end describe.
@@ -718,8 +778,43 @@ export default function CardListPanel({
         }}
       >
       <div className={layoutClassName}>
-        {(showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || onShuffle) && (
+        {(onRevealNext || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || onShuffle) && (
           <div data-testid="panel-controls" className="shrink-0 flex flex-row flex-wrap justify-center items-start gap-2">
+            {/* The reveal panel's own controls (#1070). "Reveal next" shows even with no card in
+                the panel, so an empty panel always has a way to reveal. */}
+            {onRevealNext && (
+              <button
+                type="button"
+                onClick={onRevealNext}
+                disabled={!canRevealNext}
+                className="btn-primary shrink-0 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RevealIcon className="w-3 h-3" />
+                Reveal next
+              </button>
+            )}
+            {showSendButtons && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleSendTap('top')}
+                  disabled={selectedInPanel.length === 0}
+                  aria-label={`Selected cards to the top of the ${deckName.toLowerCase()}`}
+                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Top
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendTap('bottom')}
+                  disabled={selectedInPanel.length === 0}
+                  aria-label={`Selected cards to the bottom of the ${deckName.toLowerCase()}`}
+                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Bottom
+                </button>
+              </>
+            )}
             {/* The Download button (#827) shows whenever the panel is given `onDownload`, first in
                 the row, and stays disabled until a card is selected. The Discard button does the same (#902). */}
             {showDownloadButton && (

@@ -1,6 +1,6 @@
 // Where a card dragged inside the dilemma stack's panel lands if released now (#956).
 //
-// The drop dispatches `reorderDilemmaStack`, which calls `arrayMove(from, to)` with `to` the index
+// The drop dispatches `reorder`, which calls `arrayMove(from, to)` with `to` the index
 // of the card under the pointer (`over`). The dragged card therefore ends at `to`: just after the
 // `over` card on a move to the right, just before it on a move to the left. The indicator reads
 // the same `over` the drop does, not the pointer's own position, so the two always agree.
