@@ -31,6 +31,8 @@ import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { DrivePickerModal } from '../../../components/DrivePickerModal';
 import { usePracticeDrive } from './usePracticeDrive';
+import { useOfflineDecks } from './offlineDecks';
+import { OfflineMenuItems } from './OfflineMenuItems';
 import {
   CardInstance,
   MissionPileName,
@@ -139,7 +141,8 @@ function FullscreenIcon({ exit }: { exit: boolean }) {
 // Load deck (#780), which opens the Drive picker. Reset throws away the current game, so it
 // confirms first via `window.confirm`, the same confirm-before-destroy pattern
 // `DrivePickerModal`'s own delete already uses elsewhere in the app, rather than a custom dialog
-// built just for this one destructive action.
+// built just for this one destructive action. The offline items (#1052), Make available offline
+// and Offline decks, are in `OfflineMenuItems`.
 //
 // The menu opens on every load of the table (#781), so a new player sees it. It is a splash
 // screen over the whole page (#896): it covers the table, so a press on the table no longer
@@ -166,6 +169,9 @@ function GameMenu({
   onLoadDeck,
   onDecklist,
   fullscreen,
+  deck,
+  deckName,
+  offline,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -174,6 +180,9 @@ function GameMenu({
   onLoadDeck: () => void;
   onDecklist: () => void;
   fullscreen: ReturnType<typeof useFullscreen>;
+  deck: DeckList;
+  deckName: string;
+  offline: ReturnType<typeof useOfflineDecks>;
 }) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -210,6 +219,7 @@ function GameMenu({
             <button type="button" onClick={onLoadDeck} className={SPLASH_ITEM_CLASS}>
               Load deck
             </button>
+            <OfflineMenuItems deck={deck} deckName={deckName} offline={offline} itemClassName={SPLASH_ITEM_CLASS} />
           </div>
         </div>
       )}
@@ -1169,6 +1179,9 @@ function PracticeDrawContent() {
   const [dealtDeck, setDealtDeck] = useState<DeckList>({});
   // The Drive file of `loadedDeck`, kept in the save (#976).
   const [driveFileId, setDriveFileId] = useState<string | undefined>(undefined);
+  // The Drive file name of `loadedDeck`, the name of the deck when it is made offline (#1052).
+  // A Drive game restored from the save has no name, so it falls back to "Drive deck".
+  const [driveFileName, setDriveFileName] = useState<string | undefined>(undefined);
   // Set by the first deal or restore (#976). Until then `table` is the empty
   // `initialTableState`, which must not overwrite a valid save.
   const saveReadyRef = useRef(false);
@@ -1176,6 +1189,7 @@ function PracticeDrawContent() {
   const restoredRef = useRef(false);
   const [decklistOpen, setDecklistOpen] = useState(false);
   const drive = usePracticeDrive();
+  const offlineDecks = useOfflineDecks(data);
 
   // Deals a new game from a deck. The fixture, currentDeck, and Drive loads all go through here.
   // The `?fixture=piles` deal (#802) keeps the deck order, so it places the same cards every time.
@@ -1329,15 +1343,30 @@ function PracticeDrawContent() {
 
   // The picker's choice of deck. Confirms first, since a load throws away the current game. The
   // pile choice of the picker is ignored: a practice game always deals the full deck.
-  const loadDriveDeck = async (file: { id: string }) => {
+  const loadDriveDeck = async (file: { id: string; name?: string }) => {
     if (!window.confirm('Load this deck? This will throw away the current game.')) return;
     const tsv = await drive.fetchDeckTsv(file);
     if (tsv === null) return;
     const deck = deckFromTsv(tsv, data);
     setLoadedDeck(deck);
     setDriveFileId(file.id);
+    setDriveFileName(file.name);
     dealDeck(deck);
     drive.closePicker();
+  };
+
+  // The name of the dealt deck, for Make available offline (#1052): the Drive file name for a Drive
+  // load, and the deck builder's `deckFile.name` (written by `useDriveSync`) for the builder deck.
+  const dealtDeckName = (): string => {
+    if (loadedDeck) return driveFileName ?? 'Drive deck';
+    if (isFixture) return 'Practice fixture deck';
+    try {
+      const raw = localStorage.getItem('deckFile');
+      const name = raw ? JSON.parse(raw)?.name : undefined;
+      return typeof name === 'string' && name.trim() ? name : 'My deck';
+    } catch {
+      return 'My deck';
+    }
   };
 
   const drawOne = () => {
@@ -1917,6 +1946,9 @@ function PracticeDrawContent() {
           onLoadDeck={handleLoadDeckClick}
           onDecklist={handleDecklistClick}
           fullscreen={fullscreen}
+          deck={dealtDeck}
+          deckName={dealtDeckName()}
+          offline={offlineDecks}
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
 
