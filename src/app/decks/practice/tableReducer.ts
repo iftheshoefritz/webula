@@ -431,7 +431,7 @@ const flipFace = (face: Face): Face => (face === 'up' ? 'down' : 'up');
 
 // Reads the cards at a move source or destination, regardless of whether it is a top-level
 // zone (drawDeck/hand/discard), a mission's ship row, or a ship's crew.
-const cardsAt = (state: TableState, location: MoveTarget): CardInstance[] => {
+export const cardsAt = (state: TableState, location: MoveTarget): CardInstance[] => {
   if (isShipRowLocation(location)) return state.missions[location.missionIndex].ships;
   if (isCrewLocation(location)) return findShipInstance(state, location.shipId)?.crew ?? [];
   if (isMissionPileLocation(location)) return state.missions[location.missionIndex][location.pile];
