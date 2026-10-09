@@ -2346,6 +2346,8 @@ function PracticeDrawContent() {
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
+                  // #1071: on a phone or a tablet the crew and away team grids show the art crop.
+                  artCrop={!finePointer}
                   bottomInset={panelBottom}
                 />
               )}
@@ -2407,6 +2409,8 @@ function PracticeDrawContent() {
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
+                  // #1071: on a phone or a tablet the crew and away team grids show the art crop.
+                  artCrop={!finePointer}
                   bottomInset={panelBottom}
                 />
               )}
