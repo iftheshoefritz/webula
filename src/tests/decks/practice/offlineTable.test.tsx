@@ -48,7 +48,6 @@ jest.mock('next/link', () => {
 });
 
 import React from 'react';
-import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import { getSession } from 'next-auth/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';

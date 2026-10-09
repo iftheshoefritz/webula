@@ -106,7 +106,7 @@ const panelFor = (location: string) =>
   document.body.querySelector(`[data-testid="card-list-panel-${location}"]`) as HTMLElement | null;
 
 const panelNames = (location: string) =>
-  Array.from(panelFor(location)!.querySelectorAll('img')).map((img) => img.getAttribute('alt'));
+  Array.from(panelFor(location)!.querySelectorAll('img')).map((img) => img.alt);
 
 // #827: the draw deck's and the dilemma pile's panels have a Download button. It moves the
 // selected cards into the matching hand, closes the panel, clears the selection, and then

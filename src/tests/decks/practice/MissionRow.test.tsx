@@ -165,6 +165,7 @@ describe('MissionRow', () => {
         onOpenPile={() => {}}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
       />
     );
 
@@ -183,6 +184,7 @@ describe('MissionRow', () => {
         onOpenPile={onOpenPile}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
       />
     );
 
@@ -203,6 +205,7 @@ describe('MissionRow', () => {
         onOpenPile={() => {}}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
       />
     );
 

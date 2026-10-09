@@ -44,7 +44,8 @@ const cardFixture = (overrides = {}): CardDef => ({
   type: 'mission',
   count: 1,
   originalName: 'Test Card',
-  mission: 'S',
+  missiontype: 'S',
+  backimagefile: '',
   unique: 'n',
   ...overrides,
 });

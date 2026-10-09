@@ -73,12 +73,13 @@ import React from 'react';
 import { render, act, screen, fireEvent, waitFor } from '@testing-library/react';
 import { getSession, signIn } from 'next-auth/react';
 import DeckBuilderClient from '../../components/DeckBuilderClient';
+import { makeCardData } from '../fixtures/makeCardData';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const cardData = [
-  { collectorsinfo: '1R000', originalName: 'Card 1', name: 'card 1', type: 'event' },
-  { collectorsinfo: '2C001', originalName: 'Card 2', name: 'card 2', type: 'event' },
+  makeCardData({ collectorsinfo: '1R000', originalName: 'Card 1', name: 'card 1', type: 'event' }),
+  makeCardData({ collectorsinfo: '2C001', originalName: 'Card 2', name: 'card 2', type: 'event' }),
 ];
 
 function mockSession() {

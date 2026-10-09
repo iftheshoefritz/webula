@@ -25,7 +25,7 @@ const makeCard = (overrides = {}) => ({
 
 const columns = ['name', 'type', 'affiliation', 'skills', 'gametext', 'cost', 'integrity', 'cunning', 'strength'];
 
-function getFiltered(data, searchQuery, deckRows) {
+function getFiltered(data, searchQuery, deckRows?) {
   const { result } = renderHook(() =>
     useFilterData(false, data, columns, searchQuery, deckRows)
   );
