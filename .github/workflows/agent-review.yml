@@ -65,7 +65,7 @@ jobs:
                - Read the relevant file(s) and understand the context.
                - Make the necessary edits to address the reviewer's concern.
                - Write or update tests for any new or modified code.
-               - Run `yarn test` and then `yarn build` to confirm nothing is broken. `yarn build` also checks types, runs ESLint, and pre-renders the static pages. Fix every failure before you continue.
+               - Run `yarn test`, `yarn typecheck` and then `yarn build` to confirm nothing is broken. `yarn typecheck` checks the types of every file, the tests too. `yarn build` checks the types of the app code but not of the tests, runs ESLint, and pre-renders the static pages. Fix every failure before you continue.
                  The dependencies are installed already, and `agent-browser` is one of them, so `npx agent-browser` runs the local copy and downloads nothing. Do not run `yarn install`.
                - Commit and push before the browser check. The run can stop at the turn limit, and an unpushed change is lost.
                  - Commit with a message like `fix: address review comments (PR #${{ github.event.pull_request.number }})`.
@@ -73,7 +73,7 @@ jobs:
                - If your change affects what a page shows or does, check it in the browser. Start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`, and follow "Browser checks" in AGENTS.md.
                  - Check only the items in the review comments. Use the page and the viewport that the comments name.
                  - Check each item one time. After all items pass, stop the dev server.
-               - If the browser check made you change code, run `yarn test` and `yarn build` again, then commit and push again as above.
+               - If the browser check made you change code, run `yarn test`, `yarn typecheck` and `yarn build` again, then commit and push again as above.
 
             4. **If no code changes are needed for an item:**
                - For an inline comment, reply to that thread with a clear clarification or acknowledgement:
