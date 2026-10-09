@@ -33,6 +33,9 @@ import { DrivePickerModal } from '../../../components/DrivePickerModal';
 import { usePracticeDrive } from './usePracticeDrive';
 import { useOfflineDecks } from './offlineDecks';
 import { OfflineMenuItems } from './OfflineMenuItems';
+import { OfflineDeckList, OfflineDeckPicker } from './OfflineDeckPicker';
+import { isBrowserOnline, useOnline } from './useOnline';
+import type { OfflineDeck } from './offlineDecks';
 import {
   CardInstance,
   MissionPileName,
@@ -1192,6 +1195,11 @@ function PracticeDrawContent() {
   const [decklistOpen, setDecklistOpen] = useState(false);
   const drive = usePracticeDrive();
   const offlineDecks = useOfflineDecks(data);
+  const online = useOnline();
+  // Set by each deal or restore (#1053): whether the browser was offline then. Only a deck dealt
+  // or restored offline can be gated, so a game in progress stays on the table when the connection
+  // drops, since its images are already loaded.
+  const [dealtOffline, setDealtOffline] = useState(false);
 
   // Deals a new game from a deck. The fixture, currentDeck, and Drive loads all go through here.
   // The `?fixture=piles` deal (#802) keeps the deck order, so it places the same cards every time.
@@ -1214,6 +1222,7 @@ function PracticeDrawContent() {
     });
     setDeckEmpty(isDeckEmpty(deck));
     setDealtDeck(deck);
+    setDealtOffline(!isBrowserOnline());
     setOpenHand(null);
     saveReadyRef.current = true;
   };
@@ -1238,6 +1247,7 @@ function PracticeDrawContent() {
       seedInstanceIds(restored.maxInstanceId);
       dispatch({ type: 'restore', state: restored.table });
       setDealtDeck(restored.dealtDeck);
+      setDealtOffline(!isBrowserOnline());
       setDeckEmpty(isDeckEmpty(restored.dealtDeck));
       if (restored.source === 'drive') {
         setLoadedDeck(restored.dealtDeck);
@@ -1356,6 +1366,23 @@ function PracticeDrawContent() {
     dealDeck(deck);
     drive.closePicker();
   };
+
+  // An offline deck chosen from the not-available message or from Load deck while offline (#1053).
+  // It deals the same way a Drive load does, so Reset deals it again, and the save keeps it as a
+  // Drive game with no file, which restores it with no Drive call.
+  const playOfflineDeck = (record: OfflineDeck, confirmFirst: boolean) => {
+    if (confirmFirst && !window.confirm('Load this deck? This will throw away the current game.')) return;
+    setLoadedDeck(record.deck);
+    setDriveFileId(undefined);
+    setDriveFileName(record.name);
+    dealDeck(record.deck);
+    drive.closePicker();
+  };
+
+  // Offline, a deck that is not in the offline record would show a table of broken images, so the
+  // page shows the offline decks instead (#1053). A fixture route is a test path and is exempt.
+  const deckNotOffline =
+    !online && dealtOffline && !isFixture && !isDeckEmpty(dealtDeck) && !offlineDecks.isOffline(dealtDeck);
 
   // The name of the dealt deck, for Make available offline (#1052): the Drive file name for a Drive
   // load, and the deck builder's `deckFile.name` (written by `useDriveSync`) for the builder deck.
@@ -1954,7 +1981,15 @@ function PracticeDrawContent() {
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
 
-        {drive.showPicker && (
+        {drive.showPicker && !online && (
+          <OfflineDeckPicker
+            decks={offlineDecks.decks}
+            onChoose={(record) => playOfflineDeck(record, true)}
+            onClose={drive.closePicker}
+          />
+        )}
+
+        {drive.showPicker && online && (
           <DrivePickerModal
             mode="load"
             driveFiles={drive.driveFiles}
@@ -1970,7 +2005,20 @@ function PracticeDrawContent() {
           />
         )}
 
-        {isEmpty && (
+        {deckNotOffline && (
+          <div
+            data-testid="deck-not-offline"
+            className="flex flex-col items-center justify-center flex-1 gap-3 p-8 text-text-muted"
+          >
+            <p className="text-lg text-text-primary">This deck is not available offline.</p>
+            <p className="text-sm">Choose a deck that is available offline to play instead.</p>
+            <div className="w-full max-w-sm">
+              <OfflineDeckList decks={offlineDecks.decks} onChoose={(record) => playOfflineDeck(record, false)} />
+            </div>
+          </div>
+        )}
+
+        {!deckNotOffline && isEmpty && (
           <div className="flex flex-col items-center justify-center flex-1 text-text-muted gap-2 p-8">
             <FaLayerGroup className="text-4xl" />
             <p className="text-lg">No draw cards in deck.</p>
@@ -1981,7 +2029,7 @@ function PracticeDrawContent() {
           </div>
         )}
 
-        {!isEmpty && (
+        {!deckNotOffline && !isEmpty && (
           <DndContext
             sensors={sensors}
             // A ship's own crew drop zone (`crew-<shipId>`) sits nested inside its ship row's
