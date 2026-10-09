@@ -188,6 +188,21 @@ is "open" or "closed", never "stacked".
 | turn | `TableState.turn`, action `nextTurn`, which unstops every personnel |
 | score | `TableState.score`, action `adjustScore`, clamped to `SCORE_MIN`..`SCORE_MAX` |
 
+### The game log
+
+The rulebook has no log. The practice table keeps one in memory (#1065): `gameLog.ts` and
+`GameLogPanel.tsx`, opened by the "Game log" item of the game menu. It is not part of the
+saved game, and a deal, a reset or a restore empties it.
+
+| Idea | Code | Note |
+|---|---|---|
+| game log | `GameState.log`, `gameReducer` | The page's reducer: `tableReducer` plus the log. |
+| log entry | `LogEntry`, `logEntryFor` | One entry per player action. An action that changes nothing makes none. |
+| one player action of several table actions | `GameAction` `batch` | A group drag, and a selection's Discard, Flip, Download or Top / Bottom. |
+| an unseen card | `LogCard` `null`, text "a card" | A draw, and a drag that showed the card back (#814). |
+| a place in the text | `LogPlace`, `placeText` | The text names the zones as above. It says "the ships at <mission>" for a ship row, "the crew of <ship>", "the away team at <mission>", "the pile under <mission>", "the cards on <card>", and "the dilemma hand". A slot with no mission card is "Mission <n>". |
+| the log as text, grouped by turn | `gameLogText`, `logByTurn` | A "Turn N" line per `TableState.turn`. The entry of `nextTurn` heads the new turn. |
+
 The rulebook win score is 100 points. `SCORE_MAX` is 140, so the counter can show a
 score above the win score. See [section 7](#7-names-kept-and-why).
 

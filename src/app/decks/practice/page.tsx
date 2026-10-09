@@ -69,6 +69,8 @@ import MissionRow, {
 } from './MissionRow';
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
+import GameLogPanel from './GameLogPanel';
+import { gameReducer, initialGameState } from './gameLog';
 import { CardHoldProvider, NO_CALLOUT_STYLE, PLACE_ON_HOLD_MS, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
 import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHoldContext';
 import { FLAT_ROW_MAX_OFFSET, flatRowWidths, useElementWidth } from './flatRowWidths';
@@ -175,6 +177,7 @@ function GameMenu({
   onReset,
   onLoadDeck,
   onDecklist,
+  onGameLog,
   fullscreen,
   deck,
   deckName,
@@ -186,6 +189,7 @@ function GameMenu({
   onReset: () => void;
   onLoadDeck: () => void;
   onDecklist: () => void;
+  onGameLog: () => void;
   fullscreen: ReturnType<typeof useFullscreen>;
   deck: DeckList;
   deckName: string;
@@ -227,6 +231,9 @@ function GameMenu({
               Load deck
             </button>
             <OfflineMenuItems deck={deck} deckName={deckName} offline={offline} itemClassName={SPLASH_ITEM_CLASS} />
+            <button type="button" onClick={onGameLog} className={SPLASH_ITEM_CLASS}>
+              Game log
+            </button>
           </div>
         </div>
       )}
@@ -1048,7 +1055,10 @@ function PracticeDrawContent() {
   const isReset = searchParams.get('reset') === '1';
   const { data, loading } = useDataFetching();
   useServiceWorker();
-  const [table, dispatch] = useReducer(tableReducer, initialTableState);
+  // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
+  // entry per player action, so a handler whose action moves several cards dispatches one `batch`.
+  const [game, dispatch] = useReducer(gameReducer, initialTableState, initialGameState);
+  const table = game.table;
   const { drawDeck, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
   // The card a press and hold shows in the preview, while the pointer stays down. The preview
@@ -1103,9 +1113,11 @@ function PracticeDrawContent() {
   const [openHand, setOpenHand] = useState<'hand' | 'dilemmaHand' | null>(null);
   // How many times each pile's Shuffle button has run, the `key` that restarts its animation (#786).
   const [shuffleCounts, setShuffleCounts] = useState({ drawDeck: 0, dilemmaPile: 0 });
+  const bumpShuffleCount = (location: DownloadPile) =>
+    setShuffleCounts((counts) => ({ ...counts, [location]: counts[location] + 1 }));
   const shufflePile = (location: DownloadPile) => {
     dispatch({ type: 'shuffle', location });
-    setShuffleCounts((counts) => ({ ...counts, [location]: counts[location] + 1 }));
+    bumpShuffleCount(location);
   };
   const [draggingInstance, setDraggingInstance] = useState<CardInstance | null>(null);
   // Whether the `DragOverlay` shows the card back rather than the card (#814).
@@ -1229,6 +1241,7 @@ function PracticeDrawContent() {
   // Set once a saved game is restored, so the later `data` load does not deal over it.
   const restoredRef = useRef(false);
   const [decklistOpen, setDecklistOpen] = useState(false);
+  const [gameLogOpen, setGameLogOpen] = useState(false);
   const drive = usePracticeDrive();
   const offlineDecks = useOfflineDecks(data);
   const online = useOnline();
@@ -1373,6 +1386,12 @@ function PracticeDrawContent() {
     setDecklistOpen(true);
   };
 
+  // The game menu's Game log item (#1065): closes the menu and opens the log.
+  const handleGameLogClick = () => {
+    setGameMenuOpen(false);
+    setGameLogOpen(true);
+  };
+
   // A Google sign-in that started from Load deck comes back with `?openPicker=true` (#980). The
   // table opens the picker, and drops the parameter so a reload does not open it again.
   useEffect(() => {
@@ -1466,7 +1485,7 @@ function PracticeDrawContent() {
   // Turns each id over on its own (#762's card list panel Flip button): one `flip` per card, so a
   // mixed selection stays mixed, inverted. Keeps the selection afterward, as with Stop.
   const flipSelection = (ids: string[]) => {
-    ids.forEach((id) => dispatch({ type: 'flip', id }));
+    dispatch({ type: 'batch', actions: ids.map((id) => ({ type: 'flip', id })) });
   };
 
   // Moves every id to the discard pile, in the given order (#787's card list panel Discard button), with
@@ -1476,7 +1495,7 @@ function PracticeDrawContent() {
   const discardSelection = (ids: string[]) => {
     const origin = ids.length > 0 ? findInstanceAnywhere(table, ids[0]) : null;
     const actions: TableAction[] = ids.map((id) => ({ type: 'move', id, to: 'discard' }));
-    actions.forEach((action) => dispatch(action));
+    dispatch({ type: 'batch', actions });
     const nextTable = actions.reduce((state, action) => tableReducer(state, action), table);
     closePanelsAfterDrag(origin, nextTable);
     setSelectedCardIds([]);
@@ -1487,10 +1506,17 @@ function PracticeDrawContent() {
   // moves dispatch before the shuffle, so the shuffle covers only the cards left in the pile.
   // `openHand` is not touched: the hand stays open or closed, and its badge count rises.
   const downloadSelection = (pile: DownloadPile, ids: string[]) => {
-    ids.forEach((id) => dispatch({ type: 'move', id, to: DOWNLOAD_HAND[pile] }));
+    // One player action, so one batch and one log entry (#1065): the moves, then the shuffle.
+    dispatch({
+      type: 'batch',
+      actions: [
+        ...ids.map((id): TableAction => ({ type: 'move', id, to: DOWNLOAD_HAND[pile] })),
+        { type: 'shuffle', location: pile },
+      ],
+    });
     setOpenFlatLocation(null);
     setSelectedCardIds([]);
-    shufflePile(pile);
+    bumpShuffleCount(pile);
   };
 
   // Sends cards to the top or the bottom of a deck, keeping their order: a 'top' send dispatches
@@ -1499,7 +1525,7 @@ function PracticeDrawContent() {
   const sendCardsToDeck = (deck: DownloadPile, ids: string[], position: 'top' | 'bottom') => {
     const ordered = position === 'top' ? [...ids].reverse() : ids;
     const actions: Extract<TableAction, { type: 'move' }>[] = ordered.map((id) => ({ type: 'move', id, to: deck, position }));
-    actions.forEach((action) => dispatch(action));
+    dispatch({ type: 'batch', actions });
     markLanded(actions);
   };
 
@@ -1866,10 +1892,10 @@ function PracticeDrawContent() {
       if (target) actions.push({ type: 'move', id: instance.id, to: target, position });
     });
 
-    // React applies queued `useReducer` dispatches through the reducer in the order they are
-    // called, each built on the previous one's result, so dispatching every card's own action in
-    // sequence here reaches the same end state `tableReducer`, replayed below, predicts.
-    actions.forEach((action) => dispatch(action));
+    // One batch applies every card's own action through `tableReducer` in order, so it reaches
+    // the same end state `tableReducer`, replayed below, predicts, and makes one log entry
+    // (#1065). A drag that showed the card back logs its cards as unseen.
+    if (actions.length > 0) dispatch({ type: 'batch', actions, unseen: draggingShowsBack });
     markLanded(actions);
 
     // `tableReducer` is a pure function (#675): replaying the same actions here, on the side,
@@ -2076,12 +2102,14 @@ function PracticeDrawContent() {
           onReset={handleResetClick}
           onLoadDeck={handleLoadDeckClick}
           onDecklist={handleDecklistClick}
+          onGameLog={handleGameLogClick}
           fullscreen={fullscreen}
           deck={dealtDeck}
           deckName={dealtDeckName()}
           offline={offlineDecks}
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
+        {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
 
         {drive.showPicker && !online && (
           <OfflineDeckPicker
