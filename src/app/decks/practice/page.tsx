@@ -1030,7 +1030,7 @@ function DilemmaStackPile({
           type="button"
           onClick={onReveal}
           aria-label="Reveal top dilemma"
-          className="absolute -bottom-1 -left-1 w-6 h-6 rounded-full bg-black/85 border border-white shadow-md flex items-center justify-center text-text-primary focus:outline-none"
+          className="absolute -bottom-1 -left-1 w-6 h-6 rounded-full bg-black/90 border border-white shadow-md flex items-center justify-center text-text-primary focus:outline-none"
           style={{ zIndex: count + 1 }}
         >
           <RevealIcon className="w-3 h-3" />
