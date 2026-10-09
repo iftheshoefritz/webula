@@ -2237,8 +2237,8 @@ function PracticeDrawContent() {
               <div ref={setBottomRow} className="mt-auto flex flex-row items-end gap-2">
                 <div className="flex flex-row items-end gap-2">
                   {/* Discard, with the score counter above it (#753) rather than beside it. The
-                      turn counter sits above the hand instead (#927), so the discard pile is
-                      centred under the score buttons and the row fits a 568 px table. */}
+                      turn counter sits above the draw deck the same way (#1079), so each pile is
+                      centred under its buttons and the row fits a 568 px table. */}
                   <div className="flex flex-col items-center gap-1">
                     {/* Score counter (#719): shows the current score, and plus/minus buttons
                         that change it by SCORE_STEP points, clamped by the reducer to 0-140. */}
@@ -2274,7 +2274,7 @@ function PracticeDrawContent() {
                   </div>
 
                   {/* The draw deck, with its Shuffle, Download (#690) and reveal (#1070) buttons
-                      stacked over its left edge (`PileControls`). */}
+                      stacked over its left edge (`PileControls`), and the turn counter above it. */}
                   <div className="flex flex-row items-end">
                     <PileControls
                       label="draw deck"
@@ -2284,36 +2284,40 @@ function PracticeDrawContent() {
                       onDownload={() => openOnlyFlatZone('drawDeck')}
                       onReveal={() => openOnlyRevealPanel('drawDeck')}
                     />
-                    {/* The draw deck (#743): the same top/bottom drop-half split as the dilemma
-                        pile, so a card dragged from any zone can be filed back in at either
-                        end of the deck, not only drawn from the top. */}
-                    <DrawPileButton
-                      count={drawDeck.length}
-                      topCard={drawDeck[0]}
-                      onDraw={drawOne}
-                      showPositionLabel={draggingInstance !== null}
-                      shuffleCount={shuffleCounts.drawDeck}
-                    />
+                    {/* The turn counter sits above the draw deck (#1079), centred on the pile
+                        alone, the way the score counter sits above the discard pile.
+                        `PileControls` stays outside this column, so it keeps overlapping the
+                        pile's left edge, and the button is not nested in the pile's draggable. */}
+                    <div data-testid="draw-deck-column" className="flex flex-col items-center gap-1">
+                      {/* Turn counter (#718): shows the current turn, and a button that raises it
+                          by one and unstops every stopped personnel card on the table. */}
+                      <div className="flex flex-col items-center gap-1">
+                        <span data-testid="turn-counter" className="text-xs text-text-muted">
+                          Turn {turn}
+                        </span>
+                        <button
+                          className="btn-icon btn-icon-sm"
+                          onClick={nextTurn}
+                          aria-label="Next turn"
+                        >
+                          <FaForward />
+                        </button>
+                      </div>
+
+                      {/* The draw deck (#743): the same top/bottom drop-half split as the dilemma
+                          pile, so a card dragged from any zone can be filed back in at either
+                          end of the deck, not only drawn from the top. */}
+                      <DrawPileButton
+                        count={drawDeck.length}
+                        topCard={drawDeck[0]}
+                        onDraw={drawOne}
+                        showPositionLabel={draggingInstance !== null}
+                        shuffleCount={shuffleCounts.drawDeck}
+                      />
+                    </div>
                   </div>
 
-                  {/* The hand, with the turn counter above it (#927), the way the draw deck and
-                      the discard pile carry their controls above their card. */}
-                  <div className="flex flex-col items-center gap-1">
-                    {/* Turn counter (#718): shows the current turn, and a button that raises it
-                        by one and unstops every stopped personnel card on the table. */}
-                    <div className="flex flex-col items-center gap-1">
-                      <span data-testid="turn-counter" className="text-xs text-text-muted">
-                        Turn {turn}
-                      </span>
-                      <button
-                        className="btn-icon btn-icon-sm"
-                        onClick={nextTurn}
-                        aria-label="Next turn"
-                      >
-                        <FaForward />
-                      </button>
-                    </div>
-
+                  <div data-testid="hand-column" className="flex flex-col items-center gap-1">
                     {/* Hand. `selectedIds`/`onToggleSelect` let the player select more than one
                         card here and drag them together (#691), the same as a card list panel (#677);
                         closing the hand clears the selection. */}
