@@ -87,6 +87,7 @@ import {
   useTableScale,
 } from './tableScale';
 import { usePanelBottomInset } from './panelBottomInset';
+import { useToolbarScrollRoom } from './toolbarScrollRoom';
 import { viewerCardSize } from './viewerCardSize';
 import { useFinePointer } from './useFinePointer';
 import { offsetFor } from './overlapOffset';
@@ -1134,6 +1135,8 @@ function PracticeDrawContent() {
   // against. `viewerCardWidth`/`viewerCardHeight` feed every `CardListPanel` and `CardHand` below; `MissionRow`
   // derives its own ship-row sizes from the same `scale`.
   const scale = useTableScale(gameLayer);
+  // #1068: keeps room to scroll the browser's toolbar away again after it comes back.
+  useToolbarScrollRoom(gameLayer);
   const fullscreen = useFullscreen(gameLayer);
   // Every viewer (a card list panel, the open fan) draws its card at 1.5x the table card (#802),
   // up to a fixed width on a desktop (#946).
@@ -2426,6 +2429,8 @@ function PracticeDrawContent() {
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
+                  // #1071: on a phone or a tablet the crew and away team grids show the art crop.
+                  artCrop={!finePointer}
                   bottomInset={panelBottom}
                 />
               )}
@@ -2512,6 +2517,8 @@ function PracticeDrawContent() {
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
+                  // #1071: on a phone or a tablet the crew and away team grids show the art crop.
+                  artCrop={!finePointer}
                   bottomInset={panelBottom}
                 />
               )}

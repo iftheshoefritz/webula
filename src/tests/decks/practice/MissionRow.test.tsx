@@ -13,6 +13,7 @@ import MissionRow, {
 import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardHoldProvider, DOUBLE_TAP_MS, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableReducer';
+import eventIcon from '../../../../public/icons/icon_event.gif';
 
 const card = (id: string, name: string): CardInstance => ({
   id,
@@ -138,6 +139,16 @@ describe('MissionRow', () => {
 
     const counter = screen.getByRole('button', { name: /^A Mission, 1 card on it$/ });
     expect(counter).toHaveTextContent('1');
+    // #1069: it sits in the badge strip, to the right of the away team badge, not on the card's corner.
+    const awayTeam = screen.getByTestId('mission-pile-awayTeam-0');
+    expect(counter.parentElement).toBe(awayTeam.parentElement);
+    expect(awayTeam.nextElementSibling).toBe(counter);
+    expect(screen.getByTestId('mission-corners-0')).not.toContainElement(counter);
+    // It shows the event icon, whatever the placed card is.
+    const icon = counter.querySelector('img') as HTMLImageElement;
+    expect(icon).not.toBeNull();
+    expect(icon.getAttribute('src')).toBe(eventIcon.src);
+    expect(icon).toHaveAttribute('alt', '');
     fireEvent.click(counter);
     expect(onOpenPlacedOn).toHaveBeenCalledWith('mission-0');
   });
@@ -538,9 +549,11 @@ describe('MissionRow: a completed mission turns (#1060)', () => {
     expect(missionCard().style.transform).toBe('');
   });
 
-  it('puts the counter and the Flip button on the corners of the turned card', () => {
+  it('puts the Flip button on the corner of the turned card, and the counter in the badge strip', () => {
     renderRow({ ...doubleSided, completed: true }, true);
     const corners = screen.getByTestId('mission-corners-0');
+    expect(corners).toContainElement(screen.getByRole('button', { name: /^Flip A Mission/ }));
+    expect(corners).not.toContainElement(screen.getByRole('button', { name: 'A Mission, 1 card on it' }));
     // The turned whole card at scale 1 is 100 px wide and 72 px tall.
     expect(corners.style.width).toBe('100px');
     expect(corners.style.height).toBe('72px');
