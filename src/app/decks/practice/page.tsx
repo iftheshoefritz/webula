@@ -1022,15 +1022,18 @@ function DilemmaStackPile({
         <DilemmaIcon />
         {count > 0 && <span className="text-[8px] font-bold">{count}</span>}
       </span>
+      {/* #1080: 24 px, the size of the pile buttons, with an opaque fill and a solid ring so it
+          reads against the card back. A sibling of the tap-to-open button, painted above it, so a
+          tap here flips the top card and never opens the panel. */}
       {count > 0 && !revealed && (
         <button
           type="button"
           onClick={onReveal}
           aria-label="Reveal top dilemma"
-          className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-black/50 border border-white/50 flex items-center justify-center text-text-primary focus:outline-none"
+          className="absolute -bottom-1 -left-1 w-6 h-6 rounded-full bg-black/85 border border-white shadow-md flex items-center justify-center text-text-primary focus:outline-none"
           style={{ zIndex: count + 1 }}
         >
-          <RevealIcon />
+          <RevealIcon className="w-3 h-3" />
         </button>
       )}
     </div>
