@@ -8,10 +8,11 @@ import { useCallback, useState } from 'react';
 import { DeckList } from '../../../types';
 import { withBackImageFiles } from '../deckBuilderUtils';
 import { fingerprint } from './savedGame';
+import { CARD_DATA_URL, OFFLINE_CACHE_NAME } from './offlineCache';
 
-export const OFFLINE_CACHE_NAME = 'webula-offline-v1';
+export { CARD_DATA_URL, OFFLINE_CACHE_NAME };
+
 export const OFFLINE_DECKS_KEY = 'practiceOfflineDecks';
-export const CARD_DATA_URL = '/cards_with_processed_columns.txt';
 export const CARD_BACK_URL = '/cardimages/cardback.jpg';
 const DOWNLOAD_CONCURRENCY = 4;
 

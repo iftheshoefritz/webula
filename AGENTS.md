@@ -397,6 +397,44 @@ fresh browser, so close first. A screen size set by `Emulation.setDeviceMetricsO
 its CDP session ends, so it does not last past one helper call. Fullscreen needs a trusted click,
 so use `cdp_input.sh click` or a snapshot ref, not a DOM `click()`.
 
+### The service worker and offline checks
+
+The practice page registers a service worker (#1051), built from `src/app/sw.ts` into
+`public/sw.js` by `@serwist/next`. `yarn dev` builds no worker and registers none, so a check of the
+worker or of offline play needs the production server:
+
+```bash
+yarn build && NEXT_PUBLIC_AGENT_BROWSER=1 yarn start
+```
+
+Never run it alongside `yarn dev`: both use port 3000 and the `.next` folder. Only
+`/decks/practice` registers the worker, through `useServiceWorker`. Its scope is `/`, and its
+precache holds the `_next/static` chunks and the HTML of `/decks/practice`, never a card image.
+`/cardimages/*` and the card data come from the offline deck cache (`OFFLINE_CACHE_NAME` in
+`offlineCache.ts`) when it holds them, and from the network otherwise.
+
+To reload the page with the network blocked, use `cdp_input.sh offline-reload`. It sends
+`Network.emulateNetworkConditions` with `offline: true` to the page and to every service worker,
+on one connection, then reloads the page or opens the URL you give it, and prints what loaded:
+
+```bash
+bash scripts/cdp_input.sh offline-reload 'http://localhost:3000/decks/practice?fixture=1&menu=0'
+```
+
+```
+offline: 1 service worker(s) and the page
+url: http://localhost:3000/decks/practice?fixture=1&menu=0
+controlled by a service worker: true
+title: Webula – Star Trek CCG Card Search
+images: 0, not loaded: 0
+```
+
+The network comes back when the command ends, so read the page with `npx agent-browser snapshot`
+or `eval` after it: the page stays as it loaded. A page the worker did not serve shows the
+browser's offline error page, and its URL starts with `chrome-error://`. A load before the
+worker controls the page has nothing cached, so open the page online first and check
+`navigator.serviceWorker.controller`.
+
 ### A click that does not click
 
 `npx agent-browser click 'button:has-text("<label>")'` also fails silently on this page. It reports success and the button does not fire. Use the DOM instead, and read the result in the same call:

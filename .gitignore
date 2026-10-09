@@ -43,3 +43,8 @@ drive.json
 
 package-lock.json
 tsconfig.tsbuildinfo
+
+# the service worker, built from src/app/sw.ts by `yarn build` (#1051)
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js

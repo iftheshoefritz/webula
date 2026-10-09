@@ -91,6 +91,7 @@ import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './rel
 import { cardIdOfDraggable } from './panelDragId';
 import { createCenterOnPointerModifier } from './centerOnPointer';
 import { useFullscreen } from './useFullscreen';
+import { useServiceWorker } from './useServiceWorker';
 
 // A plain inline hamburger icon (#722), not react-icons: see `DownloadIcon`'s comment below for
 // why a react-icons import here would need every test mock of `react-icons/fa` in this file's own
@@ -1008,6 +1009,7 @@ function PracticeDrawContent() {
   // Browser checks use it with `?fixture=1` to start from the same table every time.
   const isReset = searchParams.get('reset') === '1';
   const { data, loading } = useDataFetching();
+  useServiceWorker();
   const [table, dispatch] = useReducer(tableReducer, initialTableState);
   const { drawDeck, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
