@@ -594,6 +594,11 @@ function DownloadIcon() {
 // "control sits beside the card, not nested on top of it" reasoning `PileBadge`/`ShipCrewBadge`
 // (`MissionRow.tsx`) already follow. Disabled, like the pile's own draw control, once the pile is
 // empty: there is nothing left to download.
+// The three buttons of `PileControls` overlap the pile's edge, so they are opaque (#1077): the
+// tint of `.btn-icon` would let the card back show through. The hover colour is opaque too,
+// because `.btn-icon:hover` would otherwise paint its own translucent tint over the rest colour.
+const PILE_CONTROL_CLASS = 'btn-icon btn-icon-sm bg-bg-raised hover:bg-[#323832]';
+
 function DownloadPileButton({ label, count, onOpen }: { label: string; count: number; onOpen: () => void }) {
   return (
     <button
@@ -601,7 +606,7 @@ function DownloadPileButton({ label, count, onOpen }: { label: string; count: nu
       onClick={onOpen}
       disabled={count === 0}
       aria-label={`Download from the ${label}`}
-      className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+      className={`${PILE_CONTROL_CLASS} disabled:opacity-50 disabled:cursor-not-allowed`}
     >
       <DownloadIcon />
     </button>
@@ -614,7 +619,8 @@ function DownloadPileButton({ label, count, onOpen }: { label: string; count: nu
 // above the pile: three buttons in a row do not fit above a pile at the narrowest phone width.
 // The column is a sibling of the pile, not a child of its draggable or its drop halves, and
 // `z-10` paints it above them, so a tap on a button never draws and never starts a drag (the
-// same "control beside, not nested" rule `DownloadPileButton` follows).
+// same "control beside, not nested" rule `DownloadPileButton` follows). The buttons are opaque
+// (`PILE_CONTROL_CLASS`, #1077), so the card back under the overlap does not show through them.
 function PileControls({
   label,
   shuffleLabel,
@@ -632,7 +638,7 @@ function PileControls({
 }) {
   return (
     <div data-testid="pile-controls" className="relative z-10 -mr-2 flex flex-col gap-1">
-      <button className="btn-icon btn-icon-sm" onClick={onShuffle} aria-label={shuffleLabel}>
+      <button className={PILE_CONTROL_CLASS} onClick={onShuffle} aria-label={shuffleLabel}>
         <ShuffleIcon />
       </button>
       <DownloadPileButton label={label} count={count} onOpen={onDownload} />
@@ -643,7 +649,7 @@ function PileControls({
         onClick={onReveal}
         disabled={count === 0}
         aria-label={`Reveal the ${label}`}
-        className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        className={`${PILE_CONTROL_CLASS} disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         <RevealIcon className="w-3 h-3" />
       </button>

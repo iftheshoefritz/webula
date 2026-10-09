@@ -178,6 +178,22 @@ describe('Practice draw: the reveal panel of a pile (#1070)', () => {
     expect(screen.getByRole('button', { name: 'Reveal the dilemma pile' })).toBeInTheDocument();
   });
 
+  // #1077: the pile buttons overlap the pile's edge, so they are opaque, at rest and on hover.
+  // jsdom computes no Tailwind styles, so this checks the class names only.
+  it('the six pile buttons are opaque, and the other icon buttons keep their tint', async () => {
+    await setup();
+    const columns = screen.getAllByTestId('pile-controls');
+    expect(columns).toHaveLength(2);
+    const buttons = columns.flatMap((column) => within(column).getAllByRole('button'));
+    expect(buttons).toHaveLength(6);
+    for (const button of buttons) {
+      expect(button).toHaveClass('btn-icon', 'bg-bg-raised', 'hover:bg-[#323832]');
+    }
+    const nextTurn = screen.getByRole('button', { name: 'Next turn' });
+    expect(nextTurn).toHaveClass('btn-icon');
+    expect(nextTurn).not.toHaveClass('bg-bg-raised');
+  });
+
   it('reveals one more card from the top with each tap, without moving it', async () => {
     await setup();
     await openReveal();
