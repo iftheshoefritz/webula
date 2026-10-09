@@ -16,6 +16,14 @@ export const VIEWER_CARD_SCALE = 1.5;
 // while a hand is open.
 export const VIEWER_TOP_INSET = 8; // px, Tailwind's `inset-2`
 
+// Issue #1068: how far a card list panel's own box starts from the top of the game layer. iOS
+// Safari reads a tap near the top edge of the screen, with its toolbar scrolled away, as "show the
+// toolbar", and the tap never reaches the page. A full panel's controls row sat at
+// `VIEWER_TOP_INSET`, inside that band. Apple does not document the band's height; this is the
+// height of the tab bar. The panel's grid shrinks and scrolls, so the larger inset costs a row of
+// cards, not the controls row. The open fan keeps `VIEWER_TOP_INSET`.
+export const PANEL_TOP_INSET = 44; // px
+
 // The card image is 120 x 167. A viewer draws the whole image, frame and text included, so its
 // height follows its width at that ratio.
 export const CARD_IMAGE_WIDTH = 120;
