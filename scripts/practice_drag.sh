@@ -8,7 +8,8 @@
 #
 # With `--touch` the drag is a finger, not a mouse (#1035). The press, the
 # moves and the release go through `scripts/cdp_input.sh touch-drag`, which
-# sends CDP touch events on one connection. Everything else, the point to
+# sends CDP touch events on one connection. Without it they go through
+# `scripts/cdp_input.sh mouse-drag`, which sends CDP mouse events the same way. Everything else, the point to
 # grab, the point to drop, and the zone printed, is the same for both.
 #
 # The target is a name, not a CSS selector. The script looks for the element
@@ -103,7 +104,6 @@ if [ -z "$CARD" ] || [ -z "$ZONE" ]; then
   exit 2
 fi
 
-ab() { npx agent-browser "$@" >/dev/null 2>&1; }
 ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 
 # A badge (hand, dilemma hand, or a mission pile) reads "<Label>, N cards, tap
@@ -245,56 +245,49 @@ before=$(snapshot)
 # element with that data-zone, or else the element with that data-testid.
 # A point where the target's own data-zone is the nearest one wins over a point
 # on a drop target nested inside it (#1044), such as a card of the core, `on-<id>`.
-# The script takes more than `PLACE_ON_HOLD_MS` between its last move and the
-# release, so a drop aimed at the core that rests on a core card arms that card
-# and places the dragged card on it. With no such point, any point of the rect
+# The release comes about 50 ms after the last move (#1043), well inside
+# `PLACE_ON_HOLD_MS`, but a drop that lands on the zone itself does not depend
+# on that timing at all. With no such point, any point of the rect
 # serves, as before. The drag overlay sits under the pointer, so the test skips
 # every element outside a data-zone. The test checks 4 px around the point too:
 # dnd-kit counts the edge of a rect as inside it, and the nested target can
 # shift a pixel or two when the zone grows at the drag's start.
 TARGET_JS="(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]')||document.querySelector('[data-testid=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const px=$ax,py=$ay;const dead=(x,y)=>Math.hypot(x-px,y-py)<24;const zoneAt=(x,y)=>document.elementsFromPoint(x,y).map((el)=>el.closest('[data-zone]')).find(Boolean);const own=(x,y)=>!e.hasAttribute('data-zone')||[[0,0],[-4,-4],[4,-4],[-4,4],[4,4]].every(([dx,dy])=>zoneAt(x+dx,y+dy)===e);let best=null,bd=Infinity,bestOwn=null,bdOwn=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}if(d<bdOwn&&own(x,y)){bdOwn=d;bestOwn=x+' '+y}}}return bestOwn||best||'DEAD'})()"
 
+# Both modes go through `cdp_input.sh`, which sends the press, the moves and the
+# release on one connection. The helper presses, makes the first small move,
+# evaluates TARGET_JS, and then moves to the point it returns and releases.
+# When TARGET_JS returns a word instead of a point, it releases at the press
+# point and prints the word.
+#
+# The mouse mode once made its last moves and the release with three
+# `agent-browser` calls, about 0.5 s each. The pointer then rested on the
+# target for about 1 s, longer than `PLACE_ON_HOLD_MS` (800 ms, #1029), so a
+# drop on a card in the core or the brig placed the dragged card on that card
+# instead of adding it to the zone (#1043). The helper releases about 50 ms
+# after the last move, so the script never arms a hold, in either mode.
 if [ -n "$TOUCH" ]; then
-  # The helper presses, makes the first small move, evaluates TARGET_JS, and
-  # then moves to the point it returns and lifts the finger. When TARGET_JS
-  # returns a word instead of a point, it lifts the finger at the press point
-  # and prints the word.
-  target=$(bash "$(dirname "$0")/cdp_input.sh" touch-drag "$ax" "$ay" --to-eval "$TARGET_JS" 2>&1 | head -1)
-  case "$target" in
-    MISSING|DEAD) ;;
-    touch-drag*) target="" ;;
-    *)
-      echo "the touch drag failed: $target" >&2
-      exit 1 ;;
-  esac
+  DRAG=touch-drag
 else
-  ab mouse move "$ax" "$ay"
-  ab mouse down
-  ab mouse move "$((ax + 4))" "$((ay - 8))"
-  target=$(ev "$TARGET_JS")
+  DRAG=mouse-drag
 fi
+target=$(bash "$(dirname "$0")/cdp_input.sh" "$DRAG" "$ax" "$ay" --to-eval "$TARGET_JS" 2>&1 | head -1)
+case "$target" in
+  MISSING|DEAD) ;;
+  "$DRAG "*) target="" ;;
+  *)
+    echo "the $DRAG failed: $target" >&2
+    exit 1 ;;
+esac
 
 if [ "$target" = "MISSING" ]; then
-  [ -z "$TOUCH" ] && ab mouse up
   echo "no element has data-zone=\"$ZONE\" or data-testid=\"$ZONE\"." >&2
   exit 1
 fi
 
 if [ "$target" = "DEAD" ]; then
-  [ -z "$TOUCH" ] && ab mouse up
   echo "every point of $ZONE is less than 24 px from the press point on $CARD, so any release there cancels the drag (#774). Drag the card out of a card list panel instead, or pick another card." >&2
   exit 1
-fi
-
-if [ -z "$TOUCH" ]; then
-  set -- $target
-  bx=$1; by=$2
-
-  ab mouse move "$bx" "$by"
-  # A second move at the same point. dnd-kit reads the last pointer event, and one
-  # move can arrive before the reflow settles.
-  ab mouse move "$bx" "$by"
-  ab mouse up
 fi
 
 # A card in the core or the brig sits inside its own placed-card droppable (#810),
