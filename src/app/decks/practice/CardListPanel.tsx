@@ -85,7 +85,7 @@ import { CardInstance, MissionPileName } from './tableReducer';
 import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderStyle, TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH } from './TableCard';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
 import OverlapRow from './OverlapRow';
-import { CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
+import { CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, PANEL_TOP_INSET, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
@@ -570,11 +570,11 @@ export default function CardListPanel({
   // a little from each edge of this component's own `fixed inset-0` box (the same box as the game
   // layer), so the panel follows the layer's height without any `dvh` arithmetic. It lets taps
   // through (`pointer-events-none`) to the backdrop, and only the panel inside it takes them.
-  // The top and side insets are `VIEWER_TOP_INSET`, the same number the open fan takes for its
-  // own top (`CardHand.tsx`). The bottom inset is `bottomInset`, just above the bottom row (#828).
+  // The side insets are `VIEWER_TOP_INSET`. The top inset is `PANEL_TOP_INSET` (#1068), which keeps
+  // the controls row of a full panel out of the top band where iOS Safari takes a tap to show its
+  // toolbar. The bottom inset is `bottomInset`, just above the bottom row (#828).
   // `justify-end` anchors the panel's bottom edge there, so a panel grows upward as it gains cards
-  // and leaves no empty band above the bottom row. Only a panel that fills the area starts at the
-  // same height as the fan.
+  // and leaves no empty band above the bottom row.
   const insetClassName = 'absolute flex flex-col items-center justify-end pointer-events-none';
   // Positioning only; the visible card grid itself is `gridClassName` below, a sibling of the
   // button row. `max-h-full` bounds the panel by the inset box but sets no height, so a pile of
@@ -679,7 +679,7 @@ export default function CardListPanel({
         aria-label={closeLabel(location)}
       />
       <div className={insetClassName} style={{
-          top: VIEWER_TOP_INSET,
+          top: PANEL_TOP_INSET,
           left: VIEWER_TOP_INSET,
           right: VIEWER_TOP_INSET,
           bottom: bottomInset,
