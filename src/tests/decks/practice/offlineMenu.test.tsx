@@ -54,7 +54,7 @@ jest.mock('../../../app/decks/practice/offlineDecks', () => {
       };
       const remove = async (deck: unknown) => setDecks(await mockRemoveOfflineDeck(deck));
       const isOffline = (deck: any) => decks.some((d: any) => d.fingerprint === fingerprint(deck));
-      return { decks, progress, failed, makeOffline, remove, isOffline };
+      return { decks, progress, refreshing: false, failed, makeOffline, remove, isOffline };
     },
   };
 });

@@ -7,6 +7,7 @@ import { act, renderHook } from '@testing-library/react';
 import {
   CARD_BACK_URL,
   CARD_DATA_URL,
+  OFFLINE_CACHE_NAME,
   OFFLINE_DECKS_KEY,
   OfflineDeck,
   addOfflineDeck,
@@ -14,7 +15,9 @@ import {
   downloadUrls,
   findOfflineDeck,
   makeDeckOffline,
+  OFFLINE_REFRESH_CACHE_NAME,
   readOfflineDecks,
+  refreshOfflineDecks,
   removeOfflineDeck,
   useOfflineDecks,
 } from '../../../app/decks/practice/offlineDecks';
@@ -241,5 +244,133 @@ describe('useOfflineDecks', () => {
     });
     expect(result.current.failed.map((f) => f.name).sort()).toEqual(['Card 1', 'Card back', 'Card data']);
     expect(result.current.decks).toEqual([]);
+  });
+});
+
+// Cache Storage with one cache per name, so a test can tell the offline cache from the cache a
+// refresh downloads into.
+const mockCacheStorage = () => {
+  const stores = new Map<string, Map<string, any>>();
+  const storeOf = (name: string) => {
+    if (!stores.has(name)) stores.set(name, new Map());
+    return stores.get(name)!;
+  };
+  const cacheOf = (name: string) => {
+    const store = storeOf(name);
+    return {
+      match: jest.fn(async (url: string) => store.get(url)),
+      put: jest.fn(async (url: string, r: any) => {
+        store.set(url, r);
+      }),
+      delete: jest.fn(async (url: string) => store.delete(url)),
+    };
+  };
+  (global as any).caches = {
+    open: jest.fn(async (name: string) => cacheOf(name)),
+    delete: jest.fn(async (name: string) => stores.delete(name)),
+  };
+  return { offline: storeOf(OFFLINE_CACHE_NAME), stores };
+};
+
+const fetchedUrls = () => (global.fetch as jest.Mock).mock.calls.filter(([, init]) => init?.method !== 'HEAD').map(([url]) => url);
+
+describe('the refresh when the card data changes', () => {
+  const deckA = deckOf(row('1'));
+  const deckB = deckOf(row('2'));
+  const urlsA = ['/cardimages/img-1.jpg', CARD_BACK_URL, CARD_DATA_URL];
+  const urlsB = ['/cardimages/img-2.jpg', CARD_BACK_URL, CARD_DATA_URL];
+  const allUrls = ['/cardimages/img-1.jpg', '/cardimages/img-2.jpg', CARD_BACK_URL, CARD_DATA_URL];
+
+  // Two offline decks made with the card data `"v1"`, with their old copies cached.
+  const setUp = () => {
+    const caches = mockCacheStorage();
+    allUrls.forEach((url) => caches.offline.set(url, { ...response(1), old: true }));
+    addOfflineDeck({ ...record(deckA, urlsA, 'A'), dataVersion: '"v1"' });
+    addOfflineDeck({ ...record(deckB, urlsB, 'B'), dataVersion: '"v1"' });
+    return caches;
+  };
+
+  const server = (version: string, fail: (url: string) => boolean = () => false) =>
+    jest.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'HEAD') return response(0, { ETag: version });
+      if (fail(url)) throw new TypeError('Failed to fetch');
+      return { ...response(10, { ETag: version }), fresh: url };
+    }) as any;
+
+  it('re-downloads every URL of every offline deck and records the new version', async () => {
+    const { offline, stores } = setUp();
+    global.fetch = server('"v2"');
+    const onProgress = jest.fn();
+
+    const result = await refreshOfflineDecks(onProgress);
+
+    expect(result.refreshed).toBe(true);
+    expect(fetchedUrls().map((url: string) => url.split('?')[0]).sort()).toEqual([...allUrls].sort());
+    // The query keeps the service worker from answering out of the offline cache.
+    fetchedUrls().forEach((url: string) => expect(url).toContain('?v='));
+    allUrls.forEach((url) => {
+      expect(offline.get(url).old).toBeUndefined();
+      expect(offline.get(url).fresh).toContain(url);
+    });
+    expect(readOfflineDecks().map((d) => [d.name, d.dataVersion, d.bytes])).toEqual([
+      ['A', '"v2"', 30],
+      ['B', '"v2"', 30],
+    ]);
+    expect(onProgress).toHaveBeenLastCalledWith({ done: 4, total: 4, bytes: 40 });
+    expect(stores.has(OFFLINE_REFRESH_CACHE_NAME)).toBe(false);
+  });
+
+  it('downloads nothing when the version has not changed', async () => {
+    const { offline } = setUp();
+    global.fetch = server('"v1"');
+
+    const result = await refreshOfflineDecks();
+
+    expect(result).toEqual({ refreshed: false, reason: 'up-to-date' });
+    expect(fetchedUrls()).toEqual([]);
+    allUrls.forEach((url) => expect(offline.get(url).old).toBe(true));
+  });
+
+  it('downloads nothing when the server names no version or cannot be reached', async () => {
+    setUp();
+    global.fetch = jest.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }) as any;
+
+    expect(await refreshOfflineDecks()).toEqual({ refreshed: false, reason: 'unknown-version' });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the old copies and the old version when the refresh fails half way', async () => {
+    const { offline, stores } = setUp();
+    global.fetch = server('"v2"', (url) => url.startsWith('/cardimages/img-2.jpg'));
+
+    const result = await refreshOfflineDecks();
+
+    expect(result).toEqual({ refreshed: false, reason: 'failed', failed: ['/cardimages/img-2.jpg'] });
+    allUrls.forEach((url) => expect(offline.get(url).old).toBe(true));
+    expect(readOfflineDecks().map((d) => d.dataVersion)).toEqual(['"v1"', '"v1"']);
+    expect(stores.has(OFFLINE_REFRESH_CACHE_NAME)).toBe(false);
+  });
+
+  it('does nothing with no offline decks', async () => {
+    mockCacheStorage();
+    global.fetch = jest.fn() as any;
+    expect(await refreshOfflineDecks()).toEqual({ refreshed: false, reason: 'no-decks' });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('runs on load in useOfflineDecks and shows the new version', async () => {
+    setUp();
+    global.fetch = server('"v2"');
+    const { result } = renderHook(() => useOfflineDecks([]));
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(result.current.decks.map((d) => d.dataVersion)).toEqual(['"v2"', '"v2"']);
+    expect(result.current.refreshing).toBe(false);
+    expect(result.current.progress).toBeNull();
   });
 });
