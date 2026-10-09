@@ -2,10 +2,12 @@
 // Run it through `scripts/cdp_input.sh`, which finds the browser's DevTools URL.
 //
 //   bash scripts/cdp_input.sh tap <x> <y> | <selector>
+//   bash scripts/cdp_input.sh double-tap <x> <y> | <selector>
 //   bash scripts/cdp_input.sh pan <selector> <dx> <dy>
 //   bash scripts/cdp_input.sh touch-drag <x> <y> <tx> <ty>
 //   bash scripts/cdp_input.sh touch-drag <x> <y> --to-eval '<js that returns "x y">'
 //   bash scripts/cdp_input.sh click <x> <y> | <selector> [--mod shift,ctrl,meta,alt]
+//   bash scripts/cdp_input.sh double-click <x> <y> | <selector> [--mod shift,ctrl,meta,alt]
 //   bash scripts/cdp_input.sh mouse-drag <x> <y> <tx> <ty> [--mod shift,ctrl,meta,alt]
 //   bash scripts/cdp_input.sh mouse-drag <x> <y> --to-eval '<js that returns "x y">'
 //   bash scripts/cdp_input.sh mouse-path <x> <y> <tx>,<ty>,<hold-ms> ... [--mod shift,ctrl,meta,alt]
@@ -16,6 +18,10 @@
 // and for every service worker, then reloads the page (or opens <url>) and prints what loaded:
 // the URL, whether a service worker controls the page, the page's title, and the images that did
 // not load. The network comes back when the run ends, because the emulation belongs to its session.
+//
+// `double-tap` and `double-click` (#1060) send two presses at one point on one connection, about
+// `DOUBLE_GAP_MS` apart, inside the 250 ms `DOUBLE_TAP_MS` window of a mission card. Two runs of
+// `tap` or `click` cannot: each run starts its own Node process, which takes longer than that.
 //
 // `mouse-path` and `touch-path` (#1044) press at <x> <y>, make the first small move, then glide to
 // each waypoint in turn and rest there for its hold, and release at the last one. One run times
@@ -46,6 +52,9 @@ const STEP_WAIT_MS = 16;
 // The first move of a drag. The `PointerSensor` in `page.tsx` needs 8 px before a drag starts,
 // so a single large move does not start it (see the mid-drag section of AGENTS.md).
 const FIRST_MOVE = { dx: 4, dy: -8 };
+
+// The gap between the two presses of a double-tap or a double-click.
+const DOUBLE_GAP_MS = 100;
 
 const MODIFIERS = { alt: 1, ctrl: 2, meta: 4, shift: 8 };
 
@@ -160,7 +169,7 @@ async function offlineReload(send, page, evaluate, url) {
 
 async function main() {
   const [url, command, ...rest] = process.argv.slice(2);
-  if (!url || !command) fail('usage: bash scripts/cdp_input.sh <tap|pan|touch-drag|click|mouse-drag|mouse-path|touch-path|offline-reload> ...');
+  if (!url || !command) fail('usage: bash scripts/cdp_input.sh <tap|double-tap|pan|touch-drag|click|double-click|mouse-drag|mouse-path|touch-path|offline-reload> ...');
 
   let modifiers = 0;
   let toEval = null;
@@ -234,7 +243,7 @@ async function main() {
     process.exit(0);
   }
 
-  const isTouch = ['tap', 'pan', 'touch-drag', 'touch-path'].includes(command);
+  const isTouch = ['tap', 'double-tap', 'pan', 'touch-drag', 'touch-path'].includes(command);
   if (isTouch) await page('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   await evaluate(RECORDER);
 
@@ -245,6 +254,17 @@ async function main() {
     await sleep(50);
     await touch('touchEnd', p);
     lines.push(`tap at ${p.x} ${p.y}`);
+  } else if (command === 'double-tap') {
+    const p = await takePoint();
+    const start = Date.now();
+    await touch('touchStart', p);
+    await sleep(30);
+    await touch('touchEnd', p);
+    await sleep(DOUBLE_GAP_MS);
+    await touch('touchStart', p);
+    await sleep(30);
+    await touch('touchEnd', p);
+    lines.push(`double-tap at ${p.x} ${p.y} in ${Date.now() - start} ms`);
   } else if (command === 'pan') {
     const selector = args[0];
     const from = await takePoint();
@@ -324,8 +344,18 @@ async function main() {
     await mouse('mousePressed', p, true);
     await mouse('mouseReleased', p, false);
     lines.push(`click at ${p.x} ${p.y}`);
+  } else if (command === 'double-click') {
+    const p = await takePoint();
+    await mouse('mouseMoved', p, false);
+    const start = Date.now();
+    await mouse('mousePressed', p, true);
+    await mouse('mouseReleased', p, false);
+    await sleep(DOUBLE_GAP_MS);
+    await mouse('mousePressed', p, true);
+    await mouse('mouseReleased', p, false);
+    lines.push(`double-click at ${p.x} ${p.y} in ${Date.now() - start} ms`);
   } else {
-    fail(`unknown command "${command}". Use tap, pan, touch-drag, click, mouse-drag, mouse-path, touch-path or offline-reload.`);
+    fail(`unknown command "${command}". Use tap, double-tap, pan, touch-drag, click, double-click, mouse-drag, mouse-path, touch-path or offline-reload.`);
   }
 
   await sleep(200);

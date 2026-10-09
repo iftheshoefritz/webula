@@ -2,6 +2,7 @@ import {
   computeDesktopTableScale,
   computeShipRowCount,
   computeTableScale,
+  desktopMissionSlotBudget,
 } from '../../../app/decks/practice/tableScale';
 import { missionColumnHeight } from '../../../app/decks/practice/MissionRow';
 
@@ -61,8 +62,15 @@ describe('computeDesktopTableScale (#992)', () => {
   });
 
   it('stops at the width of five missions and the desktop dilemma stack', () => {
-    // (1000 - 32 padding - 5 gaps of 8 - 112 dilemma stack) / (5 * 72)
-    expect(computeDesktopTableScale(1000, 5000, column)).toBeCloseTo((1000 - 32 - 40 - 112) / 360, 5);
+    // #1060: each slot reserves the width of a turned mission, 100 px at scale 1, not 72.
+    // (1500 - 32 padding - 5 gaps of 8 - 112 dilemma stack) / (5 * 100)
+    expect(computeDesktopTableScale(1500, 5000, column)).toBeCloseTo((1500 - 32 - 40 - 112) / 500, 5);
+  });
+
+  it('stays at 1 when the wider slots do not fit at scale 1 (#1060)', () => {
+    // Five 72 px slots fit 600 px, five 100 px slots do not.
+    expect(desktopMissionSlotBudget(600)).toBeCloseTo((600 - 32 - 40 - 112) / 5, 5);
+    expect(computeDesktopTableScale(600, 5000, column)).toBe(1);
   });
 
   it('never goes below 1', () => {
