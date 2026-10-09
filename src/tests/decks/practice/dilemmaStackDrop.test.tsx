@@ -693,6 +693,35 @@ describe('Practice table: the dilemma stack (#630)', () => {
       expect(document.body.querySelector('[data-testid="card-list-panel-dilemmaStack"]')).not.toBeNull();
     });
 
+    // #1080: the eye is a 24 px target beside the tap-to-open button, not inside it, so a tap on
+    // it flips the top card and opens no panel.
+    it('the eye is a 24 px sibling of the tap-to-open button, and a tap on it opens no panel', async () => {
+      await setupOpenDilemmaHand();
+      const [firstId] = mockDraggableIds;
+      const stackZone = () => document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+
+      await act(async () => {
+        mockOnDragStart!({ active: { id: firstId } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+      });
+
+      const eye = within(stackZone()).getByRole('button', { name: 'Reveal top dilemma' });
+      const open = within(stackZone()).getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' });
+      expect(open.contains(eye)).toBe(false);
+      expect(eye.parentElement).toBe(stackZone());
+      expect(open.parentElement).toBe(stackZone());
+      expect(eye).toHaveClass('w-6', 'h-6');
+
+      await act(async () => {
+        fireEvent.click(eye);
+      });
+
+      expect(within(stackZone()).getByAltText('Cardassian Trap')).toBeInTheDocument();
+      expect(document.body.querySelector('[data-testid="card-list-panel-dilemmaStack"]')).toBeNull();
+    });
+
     // #989: the revealed top card previews like any other face-up card on the table.
     describe('previewing the revealed top card (#989)', () => {
       const stackTopCard = () =>
