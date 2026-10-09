@@ -17,6 +17,7 @@ yarn dev        # Start development server (http://localhost:3000)
 yarn build      # Production build
 yarn lint       # Run ESLint
 yarn test       # Run all tests
+yarn typecheck  # Type-check every file, the tests too
 yarn test:watch # Run tests in watch mode
 ```
 
@@ -91,26 +92,40 @@ The script is idempotent — safe to re-run after every card data update.
 
 ## Validation
 
-Before you open or update a PR, run both commands. Both must pass.
+Before you open or update a PR, run all three commands. All three must pass.
 
 ```bash
 yarn test       # Jest test suite
-yarn build      # type checks, ESLint, and static page pre-render
+yarn typecheck  # tsc --noEmit -p . : the types of every file, the tests too
+yarn build      # type checks of the app code, ESLint, and static page pre-render
 ```
 
-`yarn test` alone is not enough. Vercel deploys with `yarn build`, and that step
-catches three more classes of error:
+`yarn test` alone is not enough. It does not check types: `next/jest` compiles
+with SWC, which strips the types, so a test with a type error still runs and
+passes.
 
-1. TypeScript type errors.
+`yarn build` alone is not enough either. Vercel deploys with `yarn build`, and
+that step catches three more classes of error:
+
+1. TypeScript type errors in the app code, not in the tests.
 2. ESLint errors.
 3. Errors thrown at build time while Next.js pre-renders the static pages.
 
-CI runs the two commands as two parallel jobs, so a red check tells you which
-one failed. Run them independently while you work.
+`next build` compiles every file that `tsconfig.json` includes, and then drops
+each diagnostic from a file that matches `*.test.*`, `*.spec.*`, `__tests__/` or
+`__mocks__/` (`runTypeCheck` in `node_modules/next/dist/lib/typescript/`). So a
+type error in a test passes the build. 103 of them piled up on `main` that way
+before `yarn typecheck` existed (#1062). A helper a test imports, such as
+`src/tests/fixtures/makeCardData.ts`, is not a test file, so the build does
+check it.
 
-Vercel runs both in one chain. The `buildCommand` in `vercel.json` is
-`NODE_ENV=test yarn test --ci && yarn build`, so a test failure stops the
-deployment before the build starts.
+CI runs the three commands as three parallel jobs, `test`, `typecheck` and
+`build`, so a red check tells you which one failed. Run them independently while
+you work.
+
+Vercel runs all three in one chain. The `buildCommand` in `vercel.json` is
+`NODE_ENV=test yarn test --ci && yarn typecheck && yarn build`, so a test
+failure or a type error stops the deployment before the build starts.
 
 ### To read why a workflow run failed
 

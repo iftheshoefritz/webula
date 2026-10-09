@@ -115,7 +115,7 @@ jobs:
             5. Read the browser console and the dev server log for errors before you stop the server.
 
             6. If a check fails because of a bug in the code, fix the bug.
-               a. Run `yarn test` and `yarn build`. Both must pass.
+               a. Run `yarn test`, `yarn typecheck` and `yarn build`. All three must pass.
                b. Commit with a message like `fix: <short description> (follow-up for #${{ github.event.pull_request.number }})`.
                c. Run `git pull --rebase`, then `git push origin HEAD`. Never force-push. Other workflows push to this branch too.
                d. Run the failed check again.

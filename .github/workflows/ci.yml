@@ -42,3 +42,26 @@ jobs:
 
       - name: Build
         run: yarn build
+
+  # `yarn build` does not type-check the tests. Next.js (`runTypeCheck` in
+  # node_modules/next/dist/lib/typescript/runTypeCheck.js) compiles every file in
+  # tsconfig.json, then drops each diagnostic from a file that matches `*.test.*`,
+  # `*.spec.*`, `__tests__/` or `__mocks__/`. `yarn test` does not type-check either:
+  # next/jest compiles with SWC, which strips the types. This job checks them all (#1062).
+  typecheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Type check
+        run: yarn typecheck

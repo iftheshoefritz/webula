@@ -5,7 +5,7 @@ import { useServiceWorker } from '../../../app/decks/practice/useServiceWorker';
 // production build, and does nothing when there is none (`yarn dev`, or a browser with no
 // service workers).
 describe('useServiceWorker', () => {
-  const nav = navigator as Navigator & { serviceWorker?: unknown };
+  const nav = navigator as { serviceWorker?: unknown };
   const hadServiceWorker = 'serviceWorker' in nav;
 
   beforeEach(() => {
