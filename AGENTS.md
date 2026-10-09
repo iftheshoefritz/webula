@@ -376,8 +376,8 @@ and each run of `tap` or `click` starts its own Node process, which takes longer
 `double-tap` and `double-click` send both presses on one connection, about 100 ms apart:
 
 ```bash
-bash scripts/cdp_input.sh double-tap '[data-card-id="card-0"]'     # touch mode
-bash scripts/cdp_input.sh double-click '[data-card-id="card-0"]'   # desktop mode
+bash scripts/cdp_input.sh double-tap '[data-card-id="<the mission's card id>"]'     # touch mode
+bash scripts/cdp_input.sh double-click '[data-card-id="<the mission's card id>"]'   # desktop mode
 ```
 
 **Modifier keys.** `agent-browser keydown Shift` does not set `shiftKey` on the mouse events
