@@ -67,11 +67,14 @@
 // but a ship (#886). A tap on the badge opens the away
 // team's panel (`CardListPanel`). A tap on the top half of the mission card opens the
 // under-the-mission pile's panel (#917), and does nothing when no dilemma is under the mission; a
-// tap on the bottom half does nothing, and a hold on either half previews the mission. The
+// tap on the bottom half opens the away team's panel (#967), and a hold on either half previews
+// the mission. A single tap acts only once `DOUBLE_TAP_MS` passes with no second tap, because a
+// double-tap toggles the mission's completion instead (#1059). The
 // under-the-mission pile has no drop target of its own (`UnderMissionStack` below), since the drop
 // happens on the mission card's own drop target; a tap on its slivers opens its panel, the same as
 // a tap on the top half (#1012).
 
+import { useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName, MissionSlot } from './tableReducer';
 import TableCard, {
@@ -88,7 +91,8 @@ import { LandedRing, landedBumpClassName, useLandedNonce } from './LandedZoneCon
 import CountBadge from './CountBadge';
 import { LAYER_COUNT_BADGE } from '../../../lib/layers';
 import { cardDisplayName } from '../../../lib/cardCount';
-import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
+import { DOUBLE_TAP_MS, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
+import { CANCEL_RADIUS } from './releaseCancel';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
 // `BADGE_STRIP_HEIGHT_BASE`'s comment describes. `page.tsx` passes down a `scale`, computed by
@@ -296,52 +300,33 @@ function MissionFlipButton({
   );
 }
 
-function CheckIcon({ className }: { className: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className={className} aria-hidden="true">
-      <path d="M5 12.5l4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// The toggle that marks a mission complete (#991). One control both shows the state and changes
-// it: a mission that is not complete shows a faint outlined check pill in the badge strip, beside
-// the away team badge, and a completed mission shows a solid check badge, the size and look of the
-// count of the dilemmas under the mission (`CountBadge`), at the bottom-right corner of the
-// mission card. Like `MissionFlipButton` it is a sibling `<button>` of the card's own button, not
-// a droppable, so a drop on it lands on the mission's drop half beneath. Completing a mission
-// does not change the score.
-function MissionCompleteToggle({
+// A completed mission (#991): a double-tap on the mission card toggles it (#1059), and the card
+// darkens. Nothing is drawn over the card, so the point box stays clear. For the keyboard and a
+// screen reader, a button beside the card in the tab order toggles it too. It is visually hidden
+// until it has focus, and it is not a droppable. Completing a mission does not change the score.
+function MissionToggleButton({
   mission,
   missionIndex,
   completed,
-  height,
   onSetCompleted,
 }: {
   mission: CardInstance;
   missionIndex: number;
   completed: boolean;
-  height: number;
   onSetCompleted: (missionIndex: number, completed: boolean) => void;
 }) {
   return (
     <button
       type="button"
-      data-testid={`mission-complete-${missionIndex}`}
+      data-testid={`mission-toggle-${missionIndex}`}
       onClick={(event) => {
         event.stopPropagation();
         onSetCompleted(missionIndex, !completed);
       }}
       aria-pressed={completed}
-      aria-label={`Mark ${cardDisplayName(mission.card)} ${completed ? 'not complete' : 'complete'}`}
-      className={
-        completed
-          ? `absolute -bottom-2 -right-2 ${LAYER_COUNT_BADGE} bg-accent text-white rounded-full w-6 h-6 flex items-center justify-center shadow`
-          : 'flex items-center rounded-full border border-white/40 bg-black/50 px-1 text-text-primary/60 leading-none'
-      }
-      style={completed ? undefined : { height: height - 2 }}
+      className={`sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 ${LAYER_COUNT_BADGE} focus:rounded focus:bg-black/80 focus:px-1 focus:text-[9px] focus:text-text-primary`}
     >
-      <CheckIcon className={completed ? 'w-4 h-4' : 'w-2 h-2'} />
+      {`Mark ${cardDisplayName(mission.card)} ${completed ? 'not complete' : 'complete'}`}
     </button>
   );
 }
@@ -492,19 +477,15 @@ function BadgeStrip({
   awayTeamCount,
   onOpenPile,
   height,
-  children,
 }: {
   missionIndex: number;
   awayTeamCount: number;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   height: number;
-  // The not-complete toggle of the mission (#991), beside the away team badge.
-  children?: React.ReactNode;
 }) {
   return (
     <div className="w-full flex items-center justify-center gap-1" style={{ height }}>
       <PileBadge missionIndex={missionIndex} pile="awayTeam" count={awayTeamCount} onOpen={onOpenPile} height={height} />
-      {children}
     </div>
   );
 }
@@ -861,18 +842,37 @@ function MissionColumn({
   const onReach = COLUMN_GAP + badgeHeight;
   // The top half reaches up over the slivers of the dilemmas under the mission (#990).
   const underReach = underMissionStackHeight(cardArtHeight, underMission.length);
-  // A completed mission (#991): the card darkens, and the toggle moves from the badge strip to a
-  // solid check badge on the card.
+  // A completed mission (#991) darkens. A double-tap on the card toggles it (#1059).
   const completed = Boolean(mission && slot.completed);
-  const completeToggle = mission && (
-    <MissionCompleteToggle
-      mission={mission}
-      missionIndex={missionIndex}
-      completed={completed}
-      height={badgeHeight}
-      onSetCompleted={onSetMissionCompleted}
-    />
+  // The tap that waits out `DOUBLE_TAP_MS` for a second tap: where it landed, and the panel it
+  // opens if no second tap comes.
+  const pendingTap = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
+  useEffect(
+    () => () => {
+      if (pendingTap.current) clearTimeout(pendingTap.current.timer);
+    },
+    [],
   );
+  const onMissionClick = (event: React.MouseEvent<HTMLElement>) => {
+    const pending = pendingTap.current;
+    if (pending) {
+      clearTimeout(pending.timer);
+      pendingTap.current = null;
+      if (Math.hypot(event.clientX - pending.x, event.clientY - pending.y) <= CANCEL_RADIUS) {
+        onSetMissionCompleted(missionIndex, !completed);
+        return;
+      }
+    }
+    // Read the half now: the event's `currentTarget` is gone when the timer fires.
+    const pile: MissionPileName = isTopHalfTap(event) ? 'underMission' : 'awayTeam';
+    const timer = setTimeout(() => {
+      pendingTap.current = null;
+      // Like the badges, a tap opens a pile only when it holds a card.
+      const count = pile === 'underMission' ? underMission.length : awayTeam.length;
+      if (count > 0) onOpenPile(missionIndex, pile);
+    }, DOUBLE_TAP_MS);
+    pendingTap.current = { timer, x: event.clientX, y: event.clientY };
+  };
 
   return (
     <div className="flex flex-col items-center" style={{ width: cardWidth, gap: COLUMN_GAP }}>
@@ -902,12 +902,13 @@ function MissionColumn({
                 artHeight={cardArtHeight}
                 uncropped={desktop}
                 completed={completed}
-                onClick={(event) => {
-                  // Like the badges, a tap opens a pile only when it holds a card.
-                  const pile: MissionPileName = isTopHalfTap(event) ? 'underMission' : 'awayTeam';
-                  const count = pile === 'underMission' ? underMission.length : awayTeam.length;
-                  if (count > 0) onOpenPile(missionIndex, pile);
-                }}
+                onClick={onMissionClick}
+              />
+              <MissionToggleButton
+                mission={mission}
+                missionIndex={missionIndex}
+                completed={completed}
+                onSetCompleted={onSetMissionCompleted}
               />
               <MissionHalfTarget
                 droppable={onDrop}
@@ -941,7 +942,6 @@ function MissionColumn({
               {mission.card.backimagefile && (
                 <MissionFlipButton mission={mission} height={badgeHeight} onFlip={onFlipMission} />
               )}
-              {completed && completeToggle}
             </>
           ) : (
             <div
@@ -982,9 +982,7 @@ function MissionColumn({
         awayTeamCount={awayTeam.length}
         onOpenPile={onOpenPile}
         height={badgeHeight}
-      >
-        {!completed && completeToggle}
-      </BadgeStrip>
+      />
 
       <ShipRow
         missionIndex={missionIndex}
@@ -1020,7 +1018,7 @@ export default function MissionRow({
   onOpenPlacedOn: (targetId: string) => void;
   // A tap on the Flip button of a double-sided mission (#765) turns it over.
   onFlipMission?: (missionId: string) => void;
-  // A tap on the complete toggle of a mission (#991) marks it complete or not complete.
+  // A double-tap on a mission card, or its hidden focus button, marks it complete or not (#991, #1059).
   onSetMissionCompleted?: (missionIndex: number, completed: boolean) => void;
   // Issue #717: grows the mission cards, the ship cards, and the under-mission pile stack past
   // their base pixel size, computed by `useTableScale` (`tableScale.ts`) from the live size of

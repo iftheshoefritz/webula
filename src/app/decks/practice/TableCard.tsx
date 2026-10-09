@@ -107,7 +107,7 @@ export default function TableCard({
   // The id the card drags under, when it is not the card's own id: a card shown in a card list
   // panel drags under `panelDraggableId` (#913), such as a tiny card placed on a ship (#963).
   draggableId?: string;
-  // A completed mission (#991) shows its image darker.
+  // A completed mission (#991) shows its image darker, and its label says so (#1059).
   completed?: boolean;
 }) {
   const { card, face } = instance;
@@ -133,7 +133,7 @@ export default function TableCard({
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         opacity: isDragging ? 0.5 : 1,
       }}
-      aria-label={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
+      aria-label={isFaceDown ? 'Face-down card' : `${cardDisplayName(card)}${completed ? ', completed' : ''}`}
     >
       <div className="relative w-full" style={{ height: uncropped ? fullCardHeight(width) : artHeight }}>
         <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
