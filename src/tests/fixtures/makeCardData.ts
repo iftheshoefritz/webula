@@ -14,6 +14,3 @@ export function makeCardData(partial: Partial<CardData> = {}): CardData {
     ...partial,
   };
 }
-
-// Deliberate type error to prove the typecheck CI job fails (#1062). Reverted in the next commit.
-export const deliberateTypeError: number = "not a number";
