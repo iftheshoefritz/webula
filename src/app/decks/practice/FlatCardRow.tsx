@@ -30,6 +30,7 @@ import { useDraggedCardType } from './DraggedCardTypeContext';
 import { usePlaceOnHold } from './PlaceOnHoldContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
+import { cardDisplayName } from '../../../lib/cardCount';
 
 // The droppable id of the card a dropped card is placed on (#810), named after that card's own id.
 // `landedZoneKey.ts` makes the same key for such a move, so the landed cue plays on the card that
@@ -92,7 +93,7 @@ function PlacedOnTargetCard({
         uncropped
         draggable
       />
-      {onCount > 0 && <PlacedOnBadge name={instance.card.name} count={onCount} landedNonce={landedNonce} />}
+      {onCount > 0 && <PlacedOnBadge name={cardDisplayName(instance.card)} count={onCount} landedNonce={landedNonce} />}
       <LandedRing nonce={landedNonce} />
     </div>
   );

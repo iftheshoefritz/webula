@@ -77,6 +77,10 @@ code carries this string in two fields:
 - `originalName` — the form with the original letter case, used for a display and
   for the LackeyCCG export format.
 
+To show a card's name, call `cardDisplayName` in `src/lib/cardCount.ts`. It returns
+`originalName` with any version suffix removed, or `name` when a row has no
+`originalName`.
+
 There is no field that holds the title alone. A rule that needs the title alone
 cannot be written from this data.
 

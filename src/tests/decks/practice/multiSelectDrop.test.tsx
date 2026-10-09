@@ -201,19 +201,19 @@ describe('Practice draw: selecting more than one card in a card list panel and d
 
   it('shows the checkbox of a card only while the card is selected, and a tap on it deselects (#1015)', async () => {
     await setupOpenHand(mockPersonnelCards.slice(0, 2));
-    await dealIntoCore(['personnel 1', 'personnel 2']);
-    await openCorePanel('personnel 1');
+    await dealIntoCore(['Personnel 1', 'Personnel 2']);
+    await openCorePanel('Personnel 1');
 
     // No card of the panel shows a checkbox while nothing is selected.
     expect(screen.queryByRole('button', { name: /^(Select|Deselect) personnel/ })).toBeNull();
 
-    await selectCard('personnel 1');
+    await selectCard('Personnel 1');
 
-    expect(screen.getByRole('button', { name: 'Deselect personnel 1' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByRole('button', { name: /^(Select|Deselect) personnel 2$/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Deselect Personnel 1' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: /^(Select|Deselect) Personnel 2$/ })).toBeNull();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Deselect personnel 1' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Deselect Personnel 1' }));
     });
 
     expect(screen.queryByRole('button', { name: /^(Select|Deselect) personnel/ })).toBeNull();
@@ -221,15 +221,15 @@ describe('Practice draw: selecting more than one card in a card list panel and d
 
   it('drags every selected card together, leaving the rest of the pile behind', async () => {
     await setupOpenHand(mockPersonnelCards);
-    await dealIntoCore(['personnel 1', 'personnel 2', 'personnel 3', 'personnel 4']);
-    await openCorePanel('personnel 1');
+    await dealIntoCore(['Personnel 1', 'Personnel 2', 'Personnel 3', 'Personnel 4']);
+    await openCorePanel('Personnel 1');
 
-    await selectCard('personnel 1');
-    await selectCard('personnel 2');
-    await selectCard('personnel 3');
+    await selectCard('Personnel 1');
+    await selectCard('Personnel 2');
+    await selectCard('Personnel 3');
 
     // Drag one of the three selected cards — the other two go along with it.
-    const draggedId = cardIdFor('personnel 2');
+    const draggedId = cardIdFor('Personnel 2');
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
     });
@@ -239,20 +239,20 @@ describe('Practice draw: selecting more than one card in a card list panel and d
 
     const coreZone = document.body.querySelector('[data-zone="core"]') as HTMLElement;
     expect(coreZone.querySelectorAll('[data-card-id]')).toHaveLength(1);
-    expect(within(coreZone).getByRole('button', { name: 'personnel 4' })).toBeInTheDocument();
+    expect(within(coreZone).getByRole('button', { name: 'Personnel 4' })).toBeInTheDocument();
     expect(screen.getByAltText('Discard pile').parentElement).toHaveTextContent('3');
   });
 
   it('drags only the touched card when it is not part of the selection', async () => {
     await setupOpenHand(mockPersonnelCards.slice(0, 3));
-    await dealIntoCore(['personnel 1', 'personnel 2', 'personnel 3']);
-    await openCorePanel('personnel 1');
+    await dealIntoCore(['Personnel 1', 'Personnel 2', 'Personnel 3']);
+    await openCorePanel('Personnel 1');
 
-    await selectCard('personnel 1');
-    await selectCard('personnel 2');
+    await selectCard('Personnel 1');
+    await selectCard('Personnel 2');
 
-    // personnel 3 is not selected: dragging it moves only itself.
-    const draggedId = cardIdFor('personnel 3');
+    // Personnel 3 is not selected: dragging it moves only itself.
+    const draggedId = cardIdFor('Personnel 3');
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
     });
@@ -262,19 +262,19 @@ describe('Practice draw: selecting more than one card in a card list panel and d
 
     const coreZone = document.body.querySelector('[data-zone="core"]') as HTMLElement;
     expect(coreZone.querySelectorAll('[data-card-id]')).toHaveLength(2);
-    expect(within(coreZone).getByRole('button', { name: 'personnel 1' })).toBeInTheDocument();
-    expect(within(coreZone).getByRole('button', { name: 'personnel 2' })).toBeInTheDocument();
+    expect(within(coreZone).getByRole('button', { name: 'Personnel 1' })).toBeInTheDocument();
+    expect(within(coreZone).getByRole('button', { name: 'Personnel 2' })).toBeInTheDocument();
   });
 
   it('shows the number of cards carried in the drag overlay for a multi-card drag', async () => {
     await setupOpenHand(mockPersonnelCards.slice(0, 3));
-    await dealIntoCore(['personnel 1', 'personnel 2', 'personnel 3']);
-    await openCorePanel('personnel 1');
+    await dealIntoCore(['Personnel 1', 'Personnel 2', 'Personnel 3']);
+    await openCorePanel('Personnel 1');
 
-    await selectCard('personnel 1');
-    await selectCard('personnel 2');
+    await selectCard('Personnel 1');
+    await selectCard('Personnel 2');
 
-    const draggedId = cardIdFor('personnel 1');
+    const draggedId = cardIdFor('Personnel 1');
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
     });
@@ -284,10 +284,10 @@ describe('Practice draw: selecting more than one card in a card list panel and d
 
   it('does not show a card count in the drag overlay for a single-card drag', async () => {
     await setupOpenHand(mockPersonnelCards.slice(0, 2));
-    await dealIntoCore(['personnel 1', 'personnel 2']);
-    await openCorePanel('personnel 1');
+    await dealIntoCore(['Personnel 1', 'Personnel 2']);
+    await openCorePanel('Personnel 1');
 
-    const draggedId = cardIdFor('personnel 1');
+    const draggedId = cardIdFor('Personnel 1');
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
     });
@@ -298,13 +298,13 @@ describe('Practice draw: selecting more than one card in a card list panel and d
 
   it('keeps the selected cards in their panel order when they land in a mission pile', async () => {
     await setupOpenHand(mockPersonnelCards.slice(0, 3));
-    await dealIntoCore(['personnel 1', 'personnel 2', 'personnel 3']);
-    await openCorePanel('personnel 1');
+    await dealIntoCore(['Personnel 1', 'Personnel 2', 'Personnel 3']);
+    await openCorePanel('Personnel 1');
 
-    await selectCard('personnel 2');
-    await selectCard('personnel 3');
-    const id2 = cardIdFor('personnel 2');
-    const id3 = cardIdFor('personnel 3');
+    await selectCard('Personnel 2');
+    await selectCard('Personnel 3');
+    const id2 = cardIdFor('Personnel 2');
+    const id3 = cardIdFor('Personnel 3');
 
     await act(async () => {
       mockOnDragStart!({ active: { id: id2 } });
@@ -325,26 +325,26 @@ describe('Practice draw: selecting more than one card in a card list panel and d
 
   it('clears the selection when the panel is closed', async () => {
     await setupOpenHand(mockPersonnelCards.slice(0, 2));
-    await dealIntoCore(['personnel 1', 'personnel 2']);
-    await openCorePanel('personnel 1');
-    await selectCard('personnel 1');
-    expect(screen.getByRole('button', { name: 'Deselect personnel 1' })).toHaveAttribute('aria-pressed', 'true');
+    await dealIntoCore(['Personnel 1', 'Personnel 2']);
+    await openCorePanel('Personnel 1');
+    await selectCard('Personnel 1');
+    expect(screen.getByRole('button', { name: 'Deselect Personnel 1' })).toHaveAttribute('aria-pressed', 'true');
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Close core' }));
     });
-    await openCorePanel('personnel 1');
+    await openCorePanel('Personnel 1');
 
-    expect(screen.queryByRole('button', { name: 'Deselect personnel 1' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Deselect Personnel 1' })).toBeNull();
   });
 
   it('clears a card out of the selection once it moves away, even while the panel stays open (#675)', async () => {
     await setupOpenHand(mockPersonnelCards.slice(0, 2));
-    await dealIntoCore(['personnel 1', 'personnel 2']);
-    await openCorePanel('personnel 1');
-    await selectCard('personnel 1');
+    await dealIntoCore(['Personnel 1', 'Personnel 2']);
+    await openCorePanel('Personnel 1');
+    await selectCard('Personnel 1');
 
-    const draggedId = cardIdFor('personnel 1');
+    const draggedId = cardIdFor('Personnel 1');
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
     });
@@ -352,11 +352,11 @@ describe('Practice draw: selecting more than one card in a card list panel and d
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'mission-under-0' } });
     });
 
-    // The core panel stays open (#675: the core still holds "personnel 2"). Re-selecting the
+    // The core panel stays open (#675: the core still holds "Personnel 2"). Re-selecting the
     // card that stayed behind should start from unselected, not carry over stale state from the
     // card that already left.
     const panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
     expect(panel).not.toBeNull();
-    expect(screen.queryByRole('button', { name: 'Deselect personnel 2' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Deselect Personnel 2' })).toBeNull();
   });
 });

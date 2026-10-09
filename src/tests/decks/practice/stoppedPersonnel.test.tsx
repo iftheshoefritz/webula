@@ -167,7 +167,7 @@ describe('Practice draw: stopping a personnel card (#679)', () => {
       mockOnDragEnd!({ active: { id: personnelId }, over: { id: 'brig' } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'data' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Data' }));
     });
     const panel = document.body.querySelector('[data-testid="card-list-panel-brig"]') as HTMLElement;
     return { personnelId, panel };
@@ -179,7 +179,7 @@ describe('Practice draw: stopping a personnel card (#679)', () => {
     expect(screen.queryByRole('button', { name: /^stop$/i })).not.toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(within(panel).getByRole('button', { name: 'data' }));
+      fireEvent.click(within(panel).getByRole('button', { name: 'Data' }));
     });
     expect(panelCardImg()).not.toHaveClass('grayscale');
     await act(async () => {
@@ -197,7 +197,7 @@ describe('Practice draw: stopping a personnel card (#679)', () => {
 
   it('a hold on a stopped personnel card shows it greyed out in the preview, which has no Stop button (#764)', async () => {
     const { panel } = await personnelInBrigPanel();
-    const card = within(panel).getByRole('button', { name: 'data' });
+    const card = within(panel).getByRole('button', { name: 'Data' });
     await act(async () => {
       fireEvent.click(card);
     });
@@ -222,7 +222,7 @@ describe('Practice draw: stopping a personnel card (#679)', () => {
   it('shows a stopped personnel card greyed out on the table, in its card list panel, and after moving to a new zone', async () => {
     const { personnelId, panel } = await personnelInBrigPanel();
     await act(async () => {
-      fireEvent.click(within(panel).getByRole('button', { name: 'data' }));
+      fireEvent.click(within(panel).getByRole('button', { name: 'Data' }));
     });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
@@ -365,20 +365,20 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
 
   it('shows a "Stop" button once two personnel cards are selected, stops only those two, and flips to "Unstop"', async () => {
     await setupOpenHand([...mockMultiPersonnelCards, mockEquipmentCard]);
-    await dealIntoCore(['personnel 1', 'personnel 2', 'personnel 3', 'tricorder']);
-    await openCorePanel('personnel 1');
+    await dealIntoCore(['Personnel 1', 'Personnel 2', 'Personnel 3', 'Tricorder']);
+    await openCorePanel('Personnel 1');
 
     expect(screen.queryByRole('button', { name: /^stop$/i })).not.toBeInTheDocument();
 
-    await selectCard('personnel 1');
-    await selectCard('personnel 2');
+    await selectCard('Personnel 1');
+    await selectCard('Personnel 2');
 
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
-    const img1 = within(panel).getByRole('button', { name: 'personnel 1' }).querySelector('img')!;
-    const img2 = within(panel).getByRole('button', { name: 'personnel 2' }).querySelector('img')!;
-    const img3 = within(panel).getByRole('button', { name: 'personnel 3' }).querySelector('img')!;
+    const img1 = within(panel).getByRole('button', { name: 'Personnel 1' }).querySelector('img')!;
+    const img2 = within(panel).getByRole('button', { name: 'Personnel 2' }).querySelector('img')!;
+    const img3 = within(panel).getByRole('button', { name: 'Personnel 3' }).querySelector('img')!;
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
@@ -390,8 +390,8 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
     expect(screen.getByRole('button', { name: /^unstop$/i })).toBeInTheDocument();
 
     // The selection stays after the tap, so the player can drag the same cards next.
-    expect(screen.getByRole('button', { name: 'Deselect personnel 1' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Deselect personnel 2' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Deselect Personnel 1' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Deselect Personnel 2' })).toHaveAttribute('aria-pressed', 'true');
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^unstop$/i }));
@@ -403,26 +403,26 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
 
   it('shows "Stop" (not "Unstop") for a mixed selection of an already-stopped card and an unstopped one, and a tap stops both', async () => {
     await setupOpenHand([...mockMultiPersonnelCards, mockEquipmentCard]);
-    await dealIntoCore(['personnel 1', 'personnel 2', 'personnel 3', 'tricorder']);
-    await openCorePanel('personnel 1');
+    await dealIntoCore(['Personnel 1', 'Personnel 2', 'Personnel 3', 'Tricorder']);
+    await openCorePanel('Personnel 1');
 
-    // Stop "personnel 1" by itself first, then deselect it.
-    await selectCard('personnel 1');
+    // Stop "Personnel 1" by itself first, then deselect it.
+    await selectCard('Personnel 1');
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Deselect personnel 1' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Deselect Personnel 1' }));
     });
 
     // Select it together with an unstopped card.
-    await selectCard('personnel 1');
-    await selectCard('personnel 2');
+    await selectCard('Personnel 1');
+    await selectCard('Personnel 2');
 
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
-    const img2 = within(panel).getByRole('button', { name: 'personnel 2' }).querySelector('img')!;
+    const img2 = within(panel).getByRole('button', { name: 'Personnel 2' }).querySelector('img')!;
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^stop$/i }));
@@ -433,10 +433,10 @@ describe('Practice draw: stopping or unstopping more than one selected personnel
 
   it('shows no "Stop" button when only a non-personnel card is selected', async () => {
     await setupOpenHand([mockMultiPersonnelCards[0], mockEquipmentCard]);
-    await dealIntoCore(['personnel 1', 'tricorder']);
-    await openCorePanel('personnel 1');
+    await dealIntoCore(['Personnel 1', 'Tricorder']);
+    await openCorePanel('Personnel 1');
 
-    await selectCard('tricorder');
+    await selectCard('Tricorder');
 
     expect(screen.queryByRole('button', { name: /^stop$/i })).not.toBeInTheDocument();
   });

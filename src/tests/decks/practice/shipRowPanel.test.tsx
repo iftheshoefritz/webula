@@ -208,7 +208,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     await dropOnMission(thirdId, 0, 0);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. voyager' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Voyager' }));
     });
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-shipRow"]') as HTMLElement;
@@ -228,12 +228,12 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     await dropOnMission(secondId, 0, 0);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'i.k.s. somraw' }));
+      fireEvent.click(screen.getByRole('button', { name: 'I.K.S. Somraw' }));
     });
 
     expect(document.body.querySelector('[data-testid="card-list-panel-shipRow"]')).toBeNull();
     expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
-    expect(screen.getByTestId('card-list-panel-crew-ship').querySelector('img[alt="i.k.s. somraw"]')).not.toBeNull();
+    expect(screen.getByTestId('card-list-panel-crew-ship').querySelector('img[alt="I.K.S. Somraw"]')).not.toBeNull();
     expect(screen.queryByTestId('card-preview')).toBeNull();
   });
 
@@ -245,7 +245,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     await dropOnMission(thirdId, 1, 0);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'i.k.s. somraw' }));
+      fireEvent.click(screen.getByRole('button', { name: 'I.K.S. Somraw' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-shipRow"]')).not.toBeNull();
 
@@ -274,7 +274,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     await dropOnMission(thirdId, 2, 0);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. voyager' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Voyager' }));
     });
     const panel = document.body.querySelector('[data-testid="card-list-panel-shipRow"]') as HTMLElement;
     expect(panel).not.toBeNull();
@@ -304,7 +304,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. voyager' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Voyager' }));
     });
     const panel = document.body.querySelector('[data-testid="card-list-panel-shipRow"]') as HTMLElement;
     expect(panel).not.toBeNull();
@@ -327,7 +327,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     await dropOnMission(thirdId, 4, 1);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. voyager' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Voyager' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-shipRow"]')).not.toBeNull();
 
@@ -351,7 +351,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     await dropOnMission(thirdId, 0, 0);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. voyager' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Voyager' }));
     });
 
     const closeButton = document.body.querySelector('button[aria-label="Close ships"]') as HTMLElement;

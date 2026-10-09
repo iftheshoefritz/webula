@@ -71,7 +71,7 @@ describe('CardListPanel touch-action (#788)', () => {
     renderPanel();
     const grid = document.querySelector('[data-testid="card-list-panel-drawDeck"]') as HTMLElement;
     expect(grid.hasAttribute(PANEL_SCROLLS_ATTRIBUTE)).toBe(false);
-    const card = screen.getByRole('button', { name: 'card 0' });
+    const card = screen.getByRole('button', { name: 'Card 0' });
     expect(card.className).toMatch(/touch-none/);
     expect(card.className).not.toMatch(/touch-pan-y/);
   });
@@ -82,7 +82,7 @@ describe('CardListPanel touch-action (#788)', () => {
     renderPanel();
     const grid = document.querySelector('[data-testid="card-list-panel-drawDeck"]') as HTMLElement;
     expect(grid.getAttribute(PANEL_SCROLLS_ATTRIBUTE)).toBe('true');
-    const card = screen.getByRole('button', { name: 'card 0' });
+    const card = screen.getByRole('button', { name: 'Card 0' });
     expect(card.className).toMatch(/touch-pan-y/);
     expect(card.className).not.toMatch(/touch-none/);
   });

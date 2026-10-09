@@ -144,7 +144,7 @@ describe('Practice draw: sending the selected cards of the hand to the draw deck
     await setupOpenHand();
     expect(screen.queryByRole('button', { name: 'Selected cards to the top of the draw deck' })).toBeNull();
 
-    await click('personnel 1');
+    await click('Personnel 1');
     expect(screen.getByRole('button', { name: 'Selected cards to the top of the draw deck' })).toHaveTextContent('→ top');
     expect(screen.getByRole('button', { name: 'Selected cards to the bottom of the draw deck' })).toHaveTextContent('→ bottom');
   });
@@ -152,27 +152,27 @@ describe('Practice draw: sending the selected cards of the hand to the draw deck
   it('puts the cards on the top or the bottom of the draw deck, in the order of the hand', async () => {
     await setupOpenHand();
 
-    await click('personnel 3');
-    await click('personnel 2');
+    await click('Personnel 3');
+    await click('Personnel 2');
     await click('Selected cards to the top of the draw deck');
     expect(screen.getByLabelText('hand, 2 cards, tap to open')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Selected cards to the top of the draw deck' })).toBeNull();
 
-    await click('personnel 4');
+    await click('Personnel 4');
     await click('Selected cards to the bottom of the draw deck');
     expect(screen.getByLabelText('hand, 1 card, tap to open')).toBeInTheDocument();
 
-    // The draw deck now reads personnel 2, personnel 3, personnel 4 from the top.
+    // The draw deck now reads Personnel 2, Personnel 3, Personnel 4 from the top.
     await click('Draw deck top, tap to draw');
     await click('Draw deck top, tap to draw');
     await click('Draw deck top, tap to draw');
-    expect(handNames()).toEqual(['personnel 1', 'personnel 2', 'personnel 3', 'personnel 4']);
+    expect(handNames()).toEqual(['Personnel 1', 'Personnel 2', 'Personnel 3', 'Personnel 4']);
   });
 
   it('closes the hand when it sends every card', async () => {
     await setupOpenHand();
 
-    for (const n of [1, 2, 3, 4]) await click(`personnel ${n}`);
+    for (const n of [1, 2, 3, 4]) await click(`Personnel ${n}`);
     await click('Selected cards to the bottom of the draw deck');
 
     // The closed row shows again, so the hand is closed.

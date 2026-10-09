@@ -15,6 +15,7 @@
 
 import { CardInstance } from './tableReducer';
 import { LAYER_CARD_PREVIEW } from '../../../lib/layers';
+import { cardDisplayName } from '../../../lib/cardCount';
 import { STOPPED_IMAGE_CLASSNAME, cardBorderStyle, faceUpImageSrc } from './TableCard';
 import type { PreviewSide } from './useCardHold';
 
@@ -59,7 +60,7 @@ export default function CardPreview({
       <img
         data-testid="card-preview-enlarged"
         src={faceUpImageSrc(instance)}
-        alt={card.name}
+        alt={cardDisplayName(card)}
         className={`absolute ${edge} top-1/2 -translate-y-1/2 ${PREVIEW_IMAGE_SIZE_CLASSNAME} w-auto rounded-lg shadow-2xl ${
           instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''
         }`}

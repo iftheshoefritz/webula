@@ -54,7 +54,7 @@ describe('Practice draw: a card list panel shows its host to the right of the gr
 
     // The host does not shrink with the grid: it keeps the size of a panel card.
     expect(host.className).toMatch(/shrink-0/);
-    const img = host.querySelector('img[alt="card 9"]') as HTMLImageElement;
+    const img = host.querySelector('img[alt="Card 9"]') as HTMLImageElement;
     expect(img.style.width).toBe('108px');
     expect(img.style.height).toBe('150px');
     expect(img.style.maxHeight).toBe('');
@@ -172,7 +172,7 @@ describe('Practice draw: the crew panel is tall enough for the cards on the ship
     );
 
   it('makes the ship section at least the ship plus one row of tiny cards, with its padding and border (#1014)', () => {
-    // 150 (ship) + 29 (a tiny card 33 px wide) + 4 + 8 (padding) + 2 (border) + 4 (gap).
+    // 150 (ship) + 29 (a tiny Card 33 px wide) + 4 + 8 (padding) + 2 (border) + 4 (gap).
     expect(crewShipSectionMinHeight(108, 150)).toBe(197);
   });
 

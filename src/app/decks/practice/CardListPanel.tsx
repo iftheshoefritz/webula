@@ -77,6 +77,7 @@
 
 import React, { RefObject, useEffect, useRef, useState } from 'react';
 import { LAYER_CARD_LIST_PANEL } from '../../../lib/layers';
+import { cardDisplayName } from '../../../lib/cardCount';
 import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
 import { dilemmaStackInsertPoint } from './dilemmaStackInsert';
@@ -319,7 +320,7 @@ function CardListPanelCard({
           transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
           opacity: isDragging ? 0.5 : 1,
         }}
-        aria-label={card.name}
+        aria-label={cardDisplayName(card)}
       >
         {/* The whole card image, frame and text included (#806), not the cropped art the table
             card shows: the panel is where the player reads the card. The height comes from the
@@ -328,7 +329,7 @@ function CardListPanelCard({
           src={`/cardimages/${card.imagefile}.jpg`}
           width={CARD_IMAGE_WIDTH}
           height={CARD_IMAGE_HEIGHT}
-          alt={card.name}
+          alt={cardDisplayName(card)}
           className={`rounded-md shadow-md h-auto ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
         />
@@ -348,7 +349,7 @@ function CardListPanelCard({
           type="button"
           onClick={onToggleSelect}
           aria-pressed
-          aria-label={`Deselect ${card.name}`}
+          aria-label={`Deselect ${cardDisplayName(card)}`}
           className="absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none bg-accent border-accent text-white"
         >
           ✓
@@ -434,7 +435,7 @@ function PanelHost({
           the bottom row. */}
       <div
         role="img"
-        aria-label={card.name}
+        aria-label={cardDisplayName(card)}
         {...holdListeners}
         className="touch-pan-y flex justify-center"
         style={NO_CALLOUT_STYLE}
@@ -443,7 +444,7 @@ function PanelHost({
           src={`/cardimages/${card.imagefile}.jpg`}
           width={CARD_IMAGE_WIDTH}
           height={CARD_IMAGE_HEIGHT}
-          alt={card.name}
+          alt={cardDisplayName(card)}
           className={`rounded-md shadow-md ${host.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
         />

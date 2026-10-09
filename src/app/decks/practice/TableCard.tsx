@@ -27,6 +27,7 @@
 import type { CSSProperties } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
+import { cardDisplayName } from '../../../lib/cardCount';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 
 export const TABLE_CARD_WIDTH = 72; // px
@@ -132,13 +133,13 @@ export default function TableCard({
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         opacity: isDragging ? 0.5 : 1,
       }}
-      aria-label={isFaceDown ? 'Face-down card' : card.name}
+      aria-label={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
     >
       <div className="relative w-full" style={{ height: uncropped ? fullCardHeight(width) : artHeight }}>
         <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
           <img
             src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
-            alt={isFaceDown ? 'Face-down card' : card.name}
+            alt={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
             className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
             style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
           />

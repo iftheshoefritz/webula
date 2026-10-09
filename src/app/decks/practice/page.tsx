@@ -27,6 +27,7 @@ import {
 import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
+import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { DrivePickerModal } from '../../../components/DrivePickerModal';
 import { usePracticeDrive } from './usePracticeDrive';
@@ -841,7 +842,7 @@ function DilemmaStackTopCard({
         src={`/cardimages/${topCard.card.imagefile}.jpg`}
         width={120}
         height={167}
-        alt={topCard.card.name}
+        alt={cardDisplayName(topCard.card)}
         className="pointer-events-none rounded-lg shadow-lg h-auto"
         style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth }}
       />
@@ -2394,7 +2395,7 @@ function PracticeDrawContent() {
                     src={draggingShowsBack ? '/cardimages/cardback.jpg' : `/cardimages/${draggingInstance.card.imagefile}.jpg`}
                     width={120}
                     height={167}
-                    alt={draggingShowsBack ? 'Face-down card' : draggingInstance.card.name}
+                    alt={draggingShowsBack ? 'Face-down card' : cardDisplayName(draggingInstance.card)}
                     className="rounded-lg shadow-md w-14 h-auto"
                     style={PILE_CARD_BORDER_STYLE}
                   />

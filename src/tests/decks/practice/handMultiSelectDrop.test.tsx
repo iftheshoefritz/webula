@@ -157,12 +157,12 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
   it('drags every selected card together, leaving the rest of the hand behind', async () => {
     await setupOpenHand(mockPersonnelCards);
 
-    await selectCard('personnel 1');
-    await selectCard('personnel 2');
-    await selectCard('personnel 3');
+    await selectCard('Personnel 1');
+    await selectCard('Personnel 2');
+    await selectCard('Personnel 3');
 
     // Drag one of the three selected cards — the other two go along with it.
-    const draggedId = cardIdFor('personnel 2');
+    const draggedId = cardIdFor('Personnel 2');
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
     });
@@ -180,11 +180,11 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
   it('drags only the touched card when it is not part of the selection', async () => {
     await setupOpenHand(mockPersonnelCards.slice(0, 3));
 
-    await selectCard('personnel 1');
-    await selectCard('personnel 2');
+    await selectCard('Personnel 1');
+    await selectCard('Personnel 2');
 
-    // personnel 3 is not selected: dragging it moves only itself.
-    const draggedId = cardIdFor('personnel 3');
+    // Personnel 3 is not selected: dragging it moves only itself.
+    const draggedId = cardIdFor('Personnel 3');
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
     });
@@ -202,10 +202,10 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
   it('shows the number of cards carried in the drag overlay for a multi-card drag from the hand', async () => {
     await setupOpenHand(mockPersonnelCards.slice(0, 3));
 
-    await selectCard('personnel 1');
-    await selectCard('personnel 2');
+    await selectCard('Personnel 1');
+    await selectCard('Personnel 2');
 
-    const draggedId = cardIdFor('personnel 1');
+    const draggedId = cardIdFor('Personnel 1');
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
     });
@@ -215,8 +215,8 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
 
   it('clears the selection when the hand is closed', async () => {
     await setupOpenHand(mockPersonnelCards.slice(0, 2));
-    await selectCard('personnel 1');
-    expect(screen.getByRole('button', { name: 'Deselect personnel 1' })).toHaveAttribute('aria-pressed', 'true');
+    await selectCard('Personnel 1');
+    expect(screen.getByRole('button', { name: 'Deselect Personnel 1' })).toHaveAttribute('aria-pressed', 'true');
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^close hand$/i }));
@@ -230,6 +230,6 @@ describe('Practice draw: selecting more than one card in the open hand and dragg
       });
     }
 
-    expect(screen.queryByRole('button', { name: 'Deselect personnel 1' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Deselect Personnel 1' })).toBeNull();
   });
 });

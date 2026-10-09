@@ -338,7 +338,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
     // Open the core's own card list panel.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
@@ -369,10 +369,10 @@ describe('Practice table: the dilemma stack (#630)', () => {
     // both the fan's card and the panel's card. Scope the tap to the panel.
     const stackPanel = document.body.querySelector('[data-testid="card-list-panel-dilemmaStack"]') as HTMLElement;
     await act(async () => {
-      fireEvent.click(within(stackPanel).getByRole('button', { name: 'cardassian trap' }));
+      fireEvent.click(within(stackPanel).getByRole('button', { name: 'Cardassian Trap' }));
     });
 
-    const panelImage = () => within(stackPanel).getByAltText('cardassian trap');
+    const panelImage = () => within(stackPanel).getByAltText('Cardassian Trap');
     expect(screen.queryByTestId('card-preview')).toBeNull();
     expect(panelImage()).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
     expect(screen.queryByRole('button', { name: 'Flip' })).toBeNull();
@@ -435,7 +435,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     );
     expect(cardIds).toEqual([secondId]);
 
-    // Close the stack popup so its own "cardassian trap" card button doesn't also match below.
+    // Close the stack popup so its own "Cardassian Trap" card button doesn't also match below.
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Close dilemma stack' }));
     });
@@ -450,7 +450,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
       });
     }
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'cardassian trap' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Cardassian Trap' }));
     });
     expect(screen.queryByText('Face down')).not.toBeInTheDocument();
   });
@@ -675,7 +675,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
       // Face down by default: a reveal control is there, and the card's own art is not yet shown.
       expect(within(stackZone()).getByRole('button', { name: 'Reveal top dilemma' })).toBeInTheDocument();
-      expect(within(stackZone()).queryByAltText('cardassian trap')).not.toBeInTheDocument();
+      expect(within(stackZone()).queryByAltText('Cardassian Trap')).not.toBeInTheDocument();
 
       await act(async () => {
         fireEvent.click(within(stackZone()).getByRole('button', { name: 'Reveal top dilemma' }));
@@ -683,7 +683,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
       // Revealed: its own art replaces the generic card back, and the reveal control disappears —
       // there is nothing left to reveal until the next card takes its place.
-      expect(within(stackZone()).getByAltText('cardassian trap')).toBeInTheDocument();
+      expect(within(stackZone()).getByAltText('Cardassian Trap')).toBeInTheDocument();
       expect(within(stackZone()).queryByRole('button', { name: 'Reveal top dilemma' })).not.toBeInTheDocument();
 
       // A tap still opens the full reorder panel, exactly as before.
@@ -714,7 +714,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
         act(() => {
           jest.advanceTimersByTime(HOVER_DELAY_MS);
         });
-        expect(preview()).toHaveAttribute('alt', 'cardassian trap');
+        expect(preview()).toHaveAttribute('alt', 'Cardassian Trap');
 
         act(() => {
           fireEvent.pointerLeave(card, { pointerType: 'mouse' });
@@ -730,7 +730,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
         act(() => {
           jest.advanceTimersByTime(HOLD_DELAY_MS);
         });
-        expect(preview()).toHaveAttribute('alt', 'cardassian trap');
+        expect(preview()).toHaveAttribute('alt', 'Cardassian Trap');
 
         act(() => {
           fireEvent.pointerUp(window);
@@ -834,7 +834,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
       expect(screen.getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Reveal top dilemma' })).toBeInTheDocument();
-      expect(screen.queryByAltText('cardassian trap')).not.toBeInTheDocument();
+      expect(screen.queryByAltText('Cardassian Trap')).not.toBeInTheDocument();
     });
   });
 });

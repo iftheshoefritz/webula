@@ -1,4 +1,4 @@
-import { getCardCounts, formatCardCountLabel, stripVersionSuffix } from '../../lib/cardCount';
+import { getCardCounts, formatCardCountLabel, stripVersionSuffix, cardDisplayName } from '../../lib/cardCount';
 
 describe('stripVersionSuffix', () => {
   it('removes a trailing *VP suffix', () => {
@@ -77,5 +77,19 @@ describe('formatCardCountLabel', () => {
 
   it('handles the zero-result case', () => {
     expect(formatCardCountLabel({ total: 0, unique: 0 })).toBe('0 cards, 0 versions');
+  });
+});
+
+describe('cardDisplayName', () => {
+  it('shows the printed name in its original letter case', () => {
+    expect(cardDisplayName({ name: 'moab iv avert danger', originalName: 'Moab IV Avert Danger' })).toBe('Moab IV Avert Danger');
+  });
+
+  it('removes a version suffix from the printed name', () => {
+    expect(cardDisplayName({ name: "t'pol austere commander *ap", originalName: "T'Pol Austere Commander *AP" })).toBe("T'Pol Austere Commander");
+  });
+
+  it('falls back to name when the row has no originalName', () => {
+    expect(cardDisplayName({ name: 'tricorder' })).toBe('tricorder');
   });
 });
