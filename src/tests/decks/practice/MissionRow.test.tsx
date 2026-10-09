@@ -7,7 +7,7 @@ import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import MissionRow, { underMissionHeadroom } from '../../../app/decks/practice/MissionRow';
 import CountBadge from '../../../app/decks/practice/CountBadge';
-import { CardHoldProvider, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
+import { CardHoldProvider, DOUBLE_TAP_MS, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableReducer';
 
 const card = (id: string, name: string): CardInstance => ({
@@ -227,12 +227,18 @@ describe('MissionRow', () => {
       ...emptySlot(),
       underMission: [card('d1', 'Dilemma One'), card('d2', 'Dilemma Two'), card('d3', 'Dilemma Three')],
     });
+    // A single tap acts only after the double-tap window (#1059).
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
     // jsdom lays nothing out, so the mission card gets a 72x64 rect at the origin.
     const tapMission = (clientY: number) => {
       const button = document.body.querySelector('[data-card-id="mission-0"]') as HTMLElement;
       button.getBoundingClientRect = () =>
         ({ top: 0, left: 0, right: 72, bottom: 64, width: 72, height: 64, x: 0, y: 0, toJSON: () => {} }) as DOMRect;
       fireEvent.click(button, { clientX: 10, clientY });
+      act(() => {
+        jest.advanceTimersByTime(DOUBLE_TAP_MS);
+      });
     };
 
     it('shows two slivers, each offset by about 10% of the card height, and the true count', () => {
@@ -366,28 +372,114 @@ describe('MissionRow: a completed mission (#991)', () => {
       />
     );
 
-  it('shows a faint toggle on a mission that is not complete, and a click marks it complete', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const missionButton = () => {
+    const button = document.body.querySelector('[data-card-id="mission-0"]') as HTMLElement;
+    button.getBoundingClientRect = () =>
+      ({ top: 0, left: 0, right: 72, bottom: 64, width: 72, height: 64, x: 0, y: 0, toJSON: () => {} }) as DOMRect;
+    return button;
+  };
+  const tap = (button: HTMLElement, clientX = 10, clientY = 50) => fireEvent.click(button, { clientX, clientY });
+
+  // #1059: a double-tap toggles completion, and the single tap it starts with does nothing.
+  it('marks a mission complete on two taps within the window, and opens no panel', () => {
     const onSet = jest.fn();
     const onOpenPile = jest.fn();
     renderRow([{ ...emptySlot(), awayTeam: [card('p1', 'Data')] }], onSet, onOpenPile);
-
-    const toggle = screen.getByRole('button', { name: 'Mark A Mission complete' });
-    expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('img', { name: 'A Mission' })).not.toHaveClass('brightness-50');
-    fireEvent.click(toggle);
+    const button = missionButton();
+    tap(button);
+    act(() => {
+      jest.advanceTimersByTime(DOUBLE_TAP_MS - 50);
+    });
+    tap(button, 12, 52);
+    act(() => {
+      jest.advanceTimersByTime(DOUBLE_TAP_MS * 2);
+    });
+    expect(onSet).toHaveBeenCalledTimes(1);
     expect(onSet).toHaveBeenCalledWith(0, true);
     expect(onOpenPile).not.toHaveBeenCalled();
   });
 
-  it('shows the check badge and the darker card on a completed mission, and a click unmarks it', () => {
+  it('marks a completed mission not complete on a double-tap', () => {
     const onSet = jest.fn();
     renderRow([{ ...emptySlot(), completed: true }], onSet);
+    const button = missionButton();
+    tap(button);
+    tap(button);
+    expect(onSet).toHaveBeenCalledWith(0, false);
+  });
 
-    const toggle = screen.getByRole('button', { name: 'Mark A Mission not complete' });
-    expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    expect(toggle).toHaveClass('w-6', 'h-6', 'bg-accent');
+  it('opens the panel of a single tap only after the window passes', () => {
+    const onSet = jest.fn();
+    const onOpenPile = jest.fn();
+    renderRow([{ ...emptySlot(), awayTeam: [card('p1', 'Data')] }], onSet, onOpenPile);
+    tap(missionButton());
+    act(() => {
+      jest.advanceTimersByTime(DOUBLE_TAP_MS - 1);
+    });
+    expect(onOpenPile).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
+    expect(onSet).not.toHaveBeenCalled();
+  });
+
+  it('does not count two taps far apart as a double-tap', () => {
+    const onSet = jest.fn();
+    const onOpenPile = jest.fn();
+    renderRow([{ ...emptySlot(), awayTeam: [card('p1', 'Data')] }], onSet, onOpenPile);
+    const button = missionButton();
+    tap(button, 10, 10);
+    tap(button, 10, 60);
+    act(() => {
+      jest.advanceTimersByTime(DOUBLE_TAP_MS);
+    });
+    expect(onSet).not.toHaveBeenCalled();
+    expect(onOpenPile).toHaveBeenCalledTimes(1);
+    expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
+  });
+
+  it('draws no check toggle on the card or in the badge strip', () => {
+    renderRow([{ ...emptySlot() }, { ...emptySlot(), completed: true }]);
+    expect(document.body.querySelector('[data-testid^="mission-complete-"]')).toBeNull();
+  });
+
+  it('darkens a completed mission and says so in its accessible name', () => {
+    renderRow([{ ...emptySlot(), completed: true }]);
     expect(screen.getByRole('img', { name: 'A Mission' })).toHaveClass('brightness-50');
+    expect(document.body.querySelector('[data-card-id="mission-0"]')).toHaveAttribute(
+      'aria-label',
+      'A Mission, completed'
+    );
+  });
+
+  it('names a mission that is not complete by its name alone, and does not darken it', () => {
+    renderRow([{ ...emptySlot() }]);
+    expect(screen.getByRole('img', { name: 'A Mission' })).not.toHaveClass('brightness-50');
+    expect(document.body.querySelector('[data-card-id="mission-0"]')).toHaveAttribute('aria-label', 'A Mission');
+  });
+
+  it('toggles completion from the hidden focus button', () => {
+    const onSet = jest.fn();
+    const onOpenPile = jest.fn();
+    const { unmount } = renderRow([{ ...emptySlot(), awayTeam: [card('p1', 'Data')] }], onSet, onOpenPile);
+    const toggle = screen.getByRole('button', { name: 'Mark A Mission complete' });
+    expect(toggle).toHaveAttribute('data-testid', 'mission-toggle-0');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(toggle).toHaveClass('sr-only', 'focus:not-sr-only');
+    expect(toggle).not.toHaveAttribute('data-zone');
     fireEvent.click(toggle);
+    expect(onSet).toHaveBeenCalledWith(0, true);
+    expect(onOpenPile).not.toHaveBeenCalled();
+    unmount();
+
+    renderRow([{ ...emptySlot(), completed: true }], onSet);
+    const pressed = screen.getByRole('button', { name: 'Mark A Mission not complete' });
+    expect(pressed).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(pressed);
     expect(onSet).toHaveBeenCalledWith(0, false);
   });
 
