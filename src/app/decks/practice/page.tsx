@@ -1205,12 +1205,13 @@ function PracticeDrawContent() {
   // (`MissionRow.tsx`'s `ShipRow`), so every ship on that row stays reachable for a tap and a
   // drag, not just the one on top.
   const [openShipRowMissionIndex, setOpenShipRowMissionIndex] = useState<number | null>(null);
-  // The open reveal panel of the draw deck's or the dilemma pile's top cards (#1070), if any: the
-  // pile, and the ids of the cards revealed so far. UI state like the panels above, never saved,
+  // The open reveal panel of the draw deck's or the dilemma pile's top or bottom cards (#1070,
+  // #1078), if any: the pile, the end of the pile shown, and the ids of the cards revealed so far
+  // from that end. The panel shows one end at a time. UI state like the panels above, never saved,
   // and cleared on every close, so the next open starts empty. The panel lists the pile's cards
   // whose ids are here, in pile order, read from the pile on every render. A plain count would
   // show cards the player never revealed once a card goes to the bottom.
-  const [openReveal, setOpenReveal] = useState<{ pile: DownloadPile; ids: string[] } | null>(null);
+  const [openReveal, setOpenReveal] = useState<{ pile: DownloadPile; end: 'top' | 'bottom'; ids: string[] } | null>(null);
   // The cards checked in the currently open card list panel (#677), by id. UI state, scoped to
   // whichever panel is open — only one panel is ever open at a time — and cleared whenever a
   // panel closes, the same as the panels themselves.
@@ -1617,23 +1618,27 @@ function PracticeDrawContent() {
     setOpenShipRowMissionIndex(null);
     setOpenPlacedOnTargetId(null);
     setSelectedCardIds([]);
-    setOpenReveal({ pile, ids: [] });
+    setOpenReveal({ pile, end: 'top', ids: [] });
   };
 
-  // "Reveal next" (#1070): adds the topmost card of the pile not yet revealed. Nothing moves.
-  const revealNext = () => {
+  // "Reveal top" and "Reveal bottom" (#1070, #1078): add the card nearest that end of the pile not
+  // yet revealed. Nothing moves. A tap for the other end first forgets the cards revealed so far,
+  // so the revealed cards are always one run at one end of the pile.
+  const revealFrom = (end: 'top' | 'bottom') => {
     if (!openReveal) return;
-    const next = table[openReveal.pile].find((c) => !openReveal.ids.includes(c.id));
-    if (next) setOpenReveal({ ...openReveal, ids: [...openReveal.ids, next.id] });
+    const ids = end === openReveal.end ? openReveal.ids : [];
+    const pile = table[openReveal.pile];
+    const next = (end === 'top' ? pile : [...pile].reverse()).find((c) => !ids.includes(c.id));
+    if (next) setOpenReveal({ ...openReveal, end, ids: [...ids, next.id] });
   };
 
   // The reveal panel's Top and Bottom (#1070), the same send the hands' buttons make. A card sent
-  // to the top stays revealed, in its new place. A card sent to the bottom is no longer one of the
-  // top cards, so it leaves the panel.
+  // to the end the panel shows stays revealed, in its new place. A card sent to the other end is
+  // no longer one of the cards at this end, so it leaves the panel (#1078).
   const sendRevealSelectionToDeck = (ids: string[], position: 'top' | 'bottom') => {
     if (!openReveal) return;
     sendCardsToDeck(openReveal.pile, ids, position);
-    if (position === 'bottom') setOpenReveal({ ...openReveal, ids: openReveal.ids.filter((id) => !ids.includes(id)) });
+    if (position !== openReveal.end) setOpenReveal({ ...openReveal, ids: openReveal.ids.filter((id) => !ids.includes(id)) });
     setSelectedCardIds([]);
   };
 
@@ -2500,9 +2505,9 @@ function PracticeDrawContent() {
                 />
               )}
 
-              {/* The reveal panel of the draw deck's or the dilemma pile's top cards (#1070), opened
-                  by the eye beside the pile. It starts empty, and "Reveal next" adds the next card
-                  from the top. Closing it forgets what was revealed. No Shuffle, no Discard, no
+              {/* The reveal panel of the draw deck's or the dilemma pile's top or bottom cards (#1070,
+                  #1078), opened by the eye beside the pile. It starts empty, and "Reveal top" or
+                  "Reveal bottom" adds the next card from that end. Closing it forgets what was revealed. No Shuffle, no Discard, no
                   Download: only Top and Bottom act on the selection. */}
               {openReveal && (
                 <CardListPanel
@@ -2515,8 +2520,20 @@ function PracticeDrawContent() {
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onSelectIds={setSelectedCardIds}
-                  onRevealNext={revealNext}
-                  canRevealNext={table[openReveal.pile].some((c) => !openReveal.ids.includes(c.id))}
+                  revealEnd={openReveal.end}
+                  onReveal={revealFrom}
+                  // The button for the end shown is enabled while a card is left unrevealed; the
+                  // other end's button, while the pile has a card, since its tap starts over.
+                  canRevealTop={
+                    openReveal.end === 'top'
+                      ? table[openReveal.pile].some((c) => !openReveal.ids.includes(c.id))
+                      : table[openReveal.pile].length > 0
+                  }
+                  canRevealBottom={
+                    openReveal.end === 'bottom'
+                      ? table[openReveal.pile].some((c) => !openReveal.ids.includes(c.id))
+                      : table[openReveal.pile].length > 0
+                  }
                   onSendToDeck={sendRevealSelectionToDeck}
                   hidden={draggingInstance !== null && !dragFromOrderedPanel}
                   cardWidth={viewerCardWidth}
