@@ -51,8 +51,8 @@
 // (#886): any other card dropped on the bare row stays where it was. A personnel
 // or an equipment joins that mission's away team face down (#870). An event, a mission, or an
 // interrupt is placed on the mission card, face up, behind its count pill (#813,
-// `PlacedOnCounter`). A dilemma dropped on a mission, from anywhere, goes under the mission
-// instead (#606, #733), face up, permanently, unless it lands on the bottom half of the mission card,
+// `PlacedOnCounter`), which sits in the badge strip beside the away team badge (#1069). A dilemma
+// dropped on a mission, from anywhere, goes under the mission instead (#606, #733), face up, permanently, unless it lands on the bottom half of the mission card,
 // which places it on the mission card (#871, `missionHalfDropId`). The top half, where the cards
 // under the mission poke out, puts it under the mission (#917). The away team badge sits on
 // the badge strip, below (and as a sibling of, not nested inside) the mission card's own
@@ -92,6 +92,9 @@ import CountBadge from './CountBadge';
 import { LAYER_COUNT_BADGE } from '../../../lib/layers';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { DOUBLE_TAP_MS, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
+// Imported, not linked as `/icons/...`, so Next.js emits it under `_next/static` and the service
+// worker precaches it for offline play (#1051).
+import eventIcon from '../../../../public/icons/icon_event.gif';
 import { CANCEL_RADIUS } from './releaseCancel';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
@@ -236,14 +239,13 @@ function ShipCard({
 
 const placedOnLabel = (name: string, count: number): string =>
   `${name}, ${count} card${count === 1 ? '' : 's'} on it`;
-const PLACED_ON_PILL_CLASSNAME =
-  'absolute -top-1 -left-1 z-10 flex items-center rounded-full bg-black/50 px-1 text-text-primary leading-none';
 
-// The count of the cards on a mission card (#813), the same plain count pill as a card in the core
-// or the brig (`PlacedOnBadge`, `FlatCardRow.tsx`). It is a tap target of its own: a sibling
-// `<button>` of the card's own button, so a tap here opens the cards placed on that card. It is
-// not a droppable, so a drop on it lands on that card's own droppable beneath. A ship shows the
-// same pill as `ShipPlacedOnPill` instead, which takes no tap (#963).
+// The count of the cards on a mission card (#813), in the badge strip to the right of the away team
+// badge (#1069), and the same pill as `PileBadge`, with the STCCG event icon whatever the placed
+// cards are. It is a tap target of its own, so a tap here opens the cards placed on that card. It
+// is not a droppable: the mission's bottom half reaches over the badge strip, so a drop on it lands
+// on `mission-on-<index>`. A ship shows a corner pill instead, `ShipPlacedOnPill`, which takes no
+// tap (#963).
 function PlacedOnCounter({
   name,
   count,
@@ -262,9 +264,11 @@ function PlacedOnCounter({
       type="button"
       onClick={onOpen}
       aria-label={placedOnLabel(name, count)}
-      className={`${PLACED_ON_PILL_CLASSNAME} pointer-events-auto`}
+      className="relative flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none"
       style={{ height: height - 2 }}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- a fixed 8 px icon, no optimisation to gain */}
+      <img src={eventIcon.src} alt="" aria-hidden="true" className="w-2 h-2" />
       <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
         {count}
       </span>
@@ -290,7 +294,7 @@ function ShipPlacedOnPill({
   return (
     <span
       aria-label={placedOnLabel(name, count)}
-      className={`${PLACED_ON_PILL_CLASSNAME} pointer-events-none`}
+      className="absolute -top-1 -left-1 z-10 flex items-center rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none"
       style={{ height: height - 2 }}
     >
       <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
@@ -300,10 +304,9 @@ function ShipPlacedOnPill({
   );
 }
 
-// The Flip button of a double-sided mission (#765), at the top-right corner of the mission card,
-// the corner opposite `PlacedOnCounter`. Both sit on the corners of the card as drawn, upright or
-// turned (#1060), and stay upright themselves. Like the counter it is a sibling `<button>` of the card's
-// own button, not a droppable, so a drop on it lands on the mission card's drop half beneath. It
+// The Flip button of a double-sided mission (#765), at the top-right corner of the mission card.
+// It sits on the corner of the card as drawn, upright or turned (#1060), and stays upright itself.
+// It is a sibling `<button>` of the card's own button, not a droppable, so a drop on it lands on the mission card's drop half beneath. It
 // shows only for a mission with a `backimagefile`.
 function MissionFlipButton({
   mission,
@@ -499,20 +502,34 @@ function ShipCrewBadge({
   );
 }
 
+// The away team badge, and to its right the count of the cards placed on the mission card when
+// there are any (#1069). The strip stays centred, so the away team badge shifts left when the
+// second badge appears.
 function BadgeStrip({
   missionIndex,
   awayTeamCount,
   onOpenPile,
+  placedOn,
   height,
 }: {
   missionIndex: number;
   awayTeamCount: number;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
+  placedOn: { name: string; count: number; landedNonce: number | null; onOpen: () => void } | null;
   height: number;
 }) {
   return (
     <div className="w-full flex items-center justify-center gap-1" style={{ height }}>
       <PileBadge missionIndex={missionIndex} pile="awayTeam" count={awayTeamCount} onOpen={onOpenPile} height={height} />
+      {placedOn && placedOn.count > 0 && (
+        <PlacedOnCounter
+          name={placedOn.name}
+          count={placedOn.count}
+          height={height}
+          landedNonce={placedOn.landedNonce}
+          onOpen={placedOn.onOpen}
+        />
+      )}
     </div>
   );
 }
@@ -776,7 +793,7 @@ function isTopHalfTap(event: React.MouseEvent<HTMLElement>): boolean {
 
 // One of the mission card's two drop halves (#871), laid over the card like a `PileHalf`
 // (`page.tsx`), but with `pointer-events-none`: dnd-kit measures the rect, so a drop still lands,
-// while the hold preview on the mission's `TableCard` and the tap on `PlacedOnCounter` still work.
+// while the hold preview on the mission's `TableCard` and the taps on the badge strip still work.
 // During a dilemma drag each half shows its own highlight and, under the pointer, its label; for
 // any other type both halves report the whole card's state and the card itself shows the ring.
 // The halves span the slot's reserved width (#1060), so on a desktop a drop anywhere on a turned
@@ -877,8 +894,8 @@ function MissionColumn({
   const underReach = underMissionStackHeight(cardArtHeight, underMission.length);
   // A completed mission (#991) darkens. A double-tap on the card toggles it (#1059).
   const completed = Boolean(mission && slot.completed);
-  // A completed mission turns 90° clockwise inside its slot (#1060). The counter and the Flip
-  // button sit on the corners of the card as drawn, upright or turned.
+  // A completed mission turns 90° clockwise inside its slot (#1060). The Flip button sits on the
+  // corner of the card as drawn, upright or turned.
   const turnedScale = turnedMissionScale(scale, desktop, slotWidth);
   const visualWidth = completed ? Math.round(cardArtHeight * turnedScale) : cardWidth;
   const visualHeight = completed ? Math.round(cardWidth * turnedScale) : cardArtHeight;
@@ -975,15 +992,6 @@ function MissionColumn({
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
                 style={{ width: visualWidth, height: visualHeight }}
               >
-                {onCount > 0 && (
-                  <PlacedOnCounter
-                    name={cardDisplayName(mission.card)}
-                    count={onCount}
-                    height={badgeHeight}
-                    landedNonce={onLandedNonce}
-                    onOpen={() => onOpenPlacedOn(mission.id)}
-                  />
-                )}
                 {mission.card.backimagefile && (
                   <MissionFlipButton mission={mission} height={badgeHeight} onFlip={onFlipMission} />
                 )}
@@ -1022,11 +1030,22 @@ function MissionColumn({
         <LandedRing nonce={onLandedNonce} />
       </div>
 
-      {/* Badge strip: the away team badge (#602), under the reach of the bottom half (#924). */}
+      {/* Badge strip: the away team badge (#602) and the placed-on count (#1069), under the reach
+          of the bottom half (#924). */}
       <BadgeStrip
         missionIndex={missionIndex}
         awayTeamCount={awayTeam.length}
         onOpenPile={onOpenPile}
+        placedOn={
+          mission
+            ? {
+                name: cardDisplayName(mission.card),
+                count: onCount,
+                landedNonce: onLandedNonce,
+                onOpen: () => onOpenPlacedOn(mission.id),
+              }
+            : null
+        }
         height={badgeHeight}
       />
 

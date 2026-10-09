@@ -131,9 +131,9 @@ ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 # key is that card's drop zone, `on-<its card id>`. A ship's counter of the
 # cards on it (#812) reads the same way, and sits inside the ship's own
 # wrapper, so its key is the ship's drop zone, `crew-<the ship's card id>`.
-# A mission card's counter (#813) reads the same way too. It sits beside the
-# mission card's two drop halves (#871), not inside a data-zone, so its key is
-# the fallback, the mission's name.
+# A mission card's counter (#813) reads the same way too. It sits in the badge
+# strip beside the away team badge (#1069), not inside a data-zone, so its key
+# is the fallback, the mission's name.
 #
 # The draw deck and the dilemma pile hold their size in `data-pile-count` on
 # the pile's wrapper (#1025), present even when the pile is empty. One wrapper

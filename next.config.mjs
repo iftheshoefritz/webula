@@ -22,10 +22,12 @@ const withSerwist = withSerwistInit({
   // `public/cardimages` (~206 MB). The practice page is the only entry outside `_next/static`.
   additionalPrecacheEntries: [{ url: '/decks/practice', revision: buildRevision }],
   exclude: [/cardimages\//, /cards_with_processed_columns\.txt$/],
+  // This transform runs before Serwist's own, which turns the `/_next//static/media` of an imported
+  // image (the event icon of `MissionRow.tsx`, #1069) into `/_next/static/media`, so keep both forms.
   manifestTransforms: [
     async (entries) => ({
       manifest: entries.filter(
-        (entry) => entry.url.startsWith('/_next/static/') || entry.url === '/decks/practice',
+        (entry) => /^\/_next\/\/?static\//.test(entry.url) || entry.url === '/decks/practice',
       ),
       warnings: [],
     }),
