@@ -10,6 +10,12 @@
 //   bash scripts/cdp_input.sh mouse-drag <x> <y> --to-eval '<js that returns "x y">'
 //   bash scripts/cdp_input.sh mouse-path <x> <y> <tx>,<ty>,<hold-ms> ... [--mod shift,ctrl,meta,alt]
 //   bash scripts/cdp_input.sh touch-path <x> <y> <tx>,<ty>,<hold-ms> ...
+//   bash scripts/cdp_input.sh offline-reload [<url>]
+//
+// `offline-reload` (#1051) blocks the network with `Network.emulateNetworkConditions`, for the page
+// and for every service worker, then reloads the page (or opens <url>) and prints what loaded:
+// the URL, whether a service worker controls the page, the page's title, and the images that did
+// not load. The network comes back when the run ends, because the emulation belongs to its session.
 //
 // `mouse-path` and `touch-path` (#1044) press at <x> <y>, make the first small move, then glide to
 // each waypoint in turn and rest there for its hold, and release at the last one. One run times
@@ -119,9 +125,42 @@ const RECORDER = `(() => {
   return 'ok';
 })()`;
 
+const OFFLINE = { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
+const OFFLINE_LOAD_WAIT_MS = 4000;
+
+async function offlineReload(send, page, evaluate, url) {
+  // A service worker fetches on its own target, so it goes offline too, as with the DevTools box.
+  const { targetInfos } = await send('Target.getTargets');
+  const workers = targetInfos.filter((t) => t.type === 'service_worker');
+  for (const worker of workers) {
+    const { sessionId } = await send('Target.attachToTarget', { targetId: worker.targetId, flatten: true });
+    await send('Network.enable', {}, sessionId);
+    await send('Network.emulateNetworkConditions', OFFLINE, sessionId);
+  }
+  await page('Network.enable');
+  await page('Network.emulateNetworkConditions', OFFLINE);
+  await page('Page.enable');
+  if (url) await page('Page.navigate', { url });
+  else await page('Page.reload', {});
+  await sleep(OFFLINE_LOAD_WAIT_MS);
+  const report = await evaluate(`(() => ({
+    url: location.href,
+    controlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
+    title: document.title,
+    images: document.images.length,
+    broken: Array.from(document.images).filter((i) => i.complete && i.naturalWidth === 0).map((i) => i.getAttribute('src')),
+  }))()`);
+  console.log(`offline: ${workers.length} service worker(s) and the page`);
+  console.log(`url: ${report.url}`);
+  console.log(`controlled by a service worker: ${report.controlled}`);
+  console.log(`title: ${report.title}`);
+  console.log(`images: ${report.images}, not loaded: ${report.broken.length}`);
+  for (const src of report.broken.slice(0, 10)) console.log(`  ${src}`);
+}
+
 async function main() {
   const [url, command, ...rest] = process.argv.slice(2);
-  if (!url || !command) fail('usage: bash scripts/cdp_input.sh <tap|pan|touch-drag|click|mouse-drag|mouse-path|touch-path> ...');
+  if (!url || !command) fail('usage: bash scripts/cdp_input.sh <tap|pan|touch-drag|click|mouse-drag|mouse-path|touch-path|offline-reload> ...');
 
   let modifiers = 0;
   let toEval = null;
@@ -188,6 +227,12 @@ async function main() {
       await sleep(STEP_WAIT_MS);
     }
   };
+
+  if (command === 'offline-reload') {
+    await offlineReload(send, page, evaluate, args[0]);
+    ws.close();
+    process.exit(0);
+  }
 
   const isTouch = ['tap', 'pan', 'touch-drag', 'touch-path'].includes(command);
   if (isTouch) await page('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
@@ -280,7 +325,7 @@ async function main() {
     await mouse('mouseReleased', p, false);
     lines.push(`click at ${p.x} ${p.y}`);
   } else {
-    fail(`unknown command "${command}". Use tap, pan, touch-drag, click, mouse-drag, mouse-path or touch-path.`);
+    fail(`unknown command "${command}". Use tap, pan, touch-drag, click, mouse-drag, mouse-path, touch-path or offline-reload.`);
   }
 
   await sleep(200);
