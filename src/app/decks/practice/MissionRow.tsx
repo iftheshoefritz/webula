@@ -51,7 +51,9 @@
 // (#886): any other card dropped on the bare row stays where it was. A personnel
 // or an equipment joins that mission's away team face down (#870). An event, a mission, or an
 // interrupt is placed on the mission card, face up, behind its count pill (#813,
-// `PlacedOnCounter`), which sits in the badge strip beside the away team badge (#1069). A dilemma
+// `PlacedOnCounter`), which sits in the badge strip beside the away team badge (#1069). The
+// dilemmas placed on the mission count in a pill of their own, with the dual icon, to the right of
+// it (#1081). A dilemma
 // dropped on a mission, from anywhere, goes under the mission instead (#606, #733), face up, permanently, unless it lands on the bottom half of the mission card,
 // which places it on the mission card (#871, `missionHalfDropId`). The top half, where the cards
 // under the mission poke out, puts it under the mission (#917). The away team badge sits on
@@ -95,6 +97,7 @@ import { DOUBLE_TAP_MS, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 // Imported, not linked as `/icons/...`, so Next.js emits it under `_next/static` and the service
 // worker precaches it for offline play (#1051).
 import eventIcon from '../../../../public/icons/icon_event.gif';
+import dualIcon from '../../../../public/icons/icon_dual.gif';
 import { CANCEL_RADIUS } from './releaseCancel';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
@@ -237,38 +240,58 @@ function ShipCard({
   );
 }
 
-const placedOnLabel = (name: string, count: number): string =>
-  `${name}, ${count} card${count === 1 ? '' : 's'} on it`;
+const placedOnLabel = (name: string, count: number, noun = 'card'): string =>
+  `${name}, ${count} ${noun}${count === 1 ? '' : 's'} on it`;
 
-// The count of the cards on a mission card (#813), in the badge strip to the right of the away team
-// badge (#1069), and the same pill as `PileBadge`, with the STCCG event icon whatever the placed
-// cards are. It is a tap target of its own, so a tap here opens the cards placed on that card. It
-// is not a droppable: the mission's bottom half reaches over the badge strip, so a drop on it lands
-// on `mission-on-<index>`. A ship shows a corner pill instead, `ShipPlacedOnPill`, which takes no
-// tap (#963).
+// The two groups of the cards placed on a mission card (#1081): the dilemmas, and every other card,
+// which the badge strip calls the events. The split is a filter by `card.type`, not a zone of its
+// own, so a saved game (#976) needs no migration.
+export type PlacedOnGroup = 'events' | 'dilemmas';
+
+export const placedOnGroupOf = (instance: CardInstance): PlacedOnGroup =>
+  instance.card.type === 'dilemma' ? 'dilemmas' : 'events';
+
+const PLACED_ON_GROUP: Record<PlacedOnGroup, { icon: { src: string }; noun: string }> = {
+  events: { icon: eventIcon, noun: 'event' },
+  dilemmas: { icon: dualIcon, noun: 'dilemma' },
+};
+
+// The count of one group of the cards on a mission card (#813, #1081), in the badge strip to the
+// right of the away team badge (#1069), and the same pill as `PileBadge`: the STCCG event icon for
+// every card that is not a dilemma, and the dual dilemma icon for the dilemmas. It is a tap target
+// of its own, so a tap here opens that group of the cards placed on that card. It is not a
+// droppable: the mission's bottom half reaches over the badge strip, so a drop on it lands on
+// `mission-on-<index>`. A ship shows a corner pill instead, `ShipPlacedOnPill`, which takes no tap
+// (#963).
 function PlacedOnCounter({
+  missionIndex,
+  group,
   name,
   count,
   height,
   landedNonce,
   onOpen,
 }: {
+  missionIndex: number;
+  group: PlacedOnGroup;
   name: string;
   count: number;
   height: number;
   landedNonce: number | null;
   onOpen: () => void;
 }) {
+  const { icon, noun } = PLACED_ON_GROUP[group];
   return (
     <button
       type="button"
+      data-testid={`mission-on-${group}-${missionIndex}`}
       onClick={onOpen}
-      aria-label={placedOnLabel(name, count)}
-      className="relative flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none"
+      aria-label={placedOnLabel(name, count, noun)}
+      className={`relative flex items-center ${BADGE_PILL_CLASS}`}
       style={{ height: height - 2 }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- a fixed 8 px icon, no optimisation to gain */}
-      <img src={eventIcon.src} alt="" aria-hidden="true" className="w-2 h-2" />
+      <img src={icon.src} alt="" aria-hidden="true" className="w-2 h-2" />
       <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
         {count}
       </span>
@@ -363,11 +386,16 @@ function MissionToggleButton({
 
 // The badge strip's fixed (scale-1) height (#602): tall enough to fit an icon+count badge,
 // reserved on every mission column regardless of how many badges that mission actually shows, so
-// a mission with 0, 1, or 2 badges keeps the same column layout as its neighbours. Two badges sit
-// side by side within a scale-1 TABLE_CARD_WIDTH; at 568x320 (the acceptance check's viewport,
-// scale 1) they still leave the mission's own title, below the art, fully visible. Grows with
-// `scale` (#717) along with the mission column's other chrome.
+// a mission with 1, 2, or 3 badges keeps the same column layout as its neighbours. Three badges
+// (the away team, the events and the dilemmas on the mission, #1081), each with a two-digit count,
+// sit side by side within a scale-1 TABLE_CARD_WIDTH: each pill is about 22 px wide with
+// `BADGE_PILL_CLASS`'s tight padding, and the strip's `gap-0.5` adds 4 px. At 568x320 (the
+// acceptance check's viewport, scale 1) they still leave the mission's own title, below the art,
+// fully visible. Grows with `scale` (#717) along with the mission column's other chrome.
 const BADGE_STRIP_HEIGHT_BASE = 14; // px
+// The pill of every badge in the badge strip. The padding and the gap are tight so three pills
+// with two-digit counts fit the narrowest mission column (#1081).
+const BADGE_PILL_CLASS = 'gap-px rounded-full bg-black/50 px-0.5 text-text-primary leading-none';
 // The gap between the mission card, its badge strip, and its ship row (Tailwind's `gap-1`).
 const COLUMN_GAP = 4; // px
 
@@ -447,9 +475,7 @@ function PileBadge({
       data-landed={landedNonce !== null || undefined}
       onClick={count > 0 ? () => onOpen(missionIndex, pile) : undefined}
       aria-label={`${PILE_NOUN[pile]}, ${count} card${count === 1 ? '' : 's'}${count > 0 ? ', tap to open' : ''}`}
-      className={`relative flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none ${
-        count === 0 ? 'opacity-60' : ''
-      }`}
+      className={`relative flex items-center ${BADGE_PILL_CLASS} ${count === 0 ? 'opacity-60' : ''}`}
       style={{ height: height - 2 }}
     >
       <Icon />
@@ -502,9 +528,11 @@ function ShipCrewBadge({
   );
 }
 
-// The away team badge, and to its right the count of the cards placed on the mission card when
-// there are any (#1069). The strip stays centred, so the away team badge shifts left when the
-// second badge appears.
+type PlacedOnBadge = { group: PlacedOnGroup; count: number; landedNonce: number | null };
+
+// The away team badge, and to its right the count of the events placed on the mission card
+// (#1069), then the count of the dilemmas placed on it (#1081), each only when its count is above
+// 0. The strip stays centred, so the away team badge shifts left as the other badges appear.
 function BadgeStrip({
   missionIndex,
   awayTeamCount,
@@ -515,23 +543,39 @@ function BadgeStrip({
   missionIndex: number;
   awayTeamCount: number;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
-  placedOn: { name: string; count: number; landedNonce: number | null; onOpen: () => void } | null;
+  placedOn: { name: string; badges: PlacedOnBadge[]; onOpen: (group: PlacedOnGroup) => void } | null;
   height: number;
 }) {
   return (
-    <div className="w-full flex items-center justify-center gap-1" style={{ height }}>
+    <div className="w-full flex items-center justify-center gap-0.5" style={{ height }}>
       <PileBadge missionIndex={missionIndex} pile="awayTeam" count={awayTeamCount} onOpen={onOpenPile} height={height} />
-      {placedOn && placedOn.count > 0 && (
-        <PlacedOnCounter
-          name={placedOn.name}
-          count={placedOn.count}
-          height={height}
-          landedNonce={placedOn.landedNonce}
-          onOpen={placedOn.onOpen}
-        />
-      )}
+      {placedOn?.badges
+        .filter((badge) => badge.count > 0)
+        .map((badge) => (
+          <PlacedOnCounter
+            key={badge.group}
+            missionIndex={missionIndex}
+            group={badge.group}
+            name={placedOn.name}
+            count={badge.count}
+            height={height}
+            landedNonce={badge.landedNonce}
+            onOpen={() => placedOn.onOpen(badge.group)}
+          />
+        ))}
     </div>
   );
+}
+
+// The landed nonce of a drop onto a mission card, for one group's badge only: the events and the
+// dilemmas share the landed key `on-<mission id>`, so the badge whose count grew with that nonce
+// bumps, and the other does not (#1081).
+function useGroupLandedNonce(landedNonce: number | null, count: number): number | null {
+  const lastCount = useRef(count);
+  const ownNonce = useRef<number | null>(null);
+  if (landedNonce !== null && count > lastCount.current) ownNonce.current = landedNonce;
+  lastCount.current = count;
+  return landedNonce !== null && ownNonce.current === landedNonce ? landedNonce : null;
 }
 
 // The under-the-mission stack shows at most two slivers (#917); the count on the stack, and the
@@ -862,7 +906,7 @@ function MissionColumn({
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
-  onOpenPlacedOn: (targetId: string) => void;
+  onOpenPlacedOn: (targetId: string, group?: PlacedOnGroup) => void;
   onFlipMission: (missionId: string) => void;
   onSetMissionCompleted: (missionIndex: number, completed: boolean) => void;
   scale: number;
@@ -883,7 +927,12 @@ function MissionColumn({
   const { mission, ships, awayTeam, underMission } = slot;
   // The cards placed on the mission card (#813), such as the events at the mission.
   const onLandedNonce = useLandedNonce(mission ? `on-${mission.id}` : '');
-  const onCount = mission?.placedOn?.length ?? 0;
+  // Split by type into the events and the dilemmas (#1081), each with a badge of its own.
+  const placedOn = mission?.placedOn ?? [];
+  const dilemmaCount = placedOn.filter((c) => placedOnGroupOf(c) === 'dilemmas').length;
+  const eventCount = placedOn.length - dilemmaCount;
+  const eventLandedNonce = useGroupLandedNonce(onLandedNonce, eventCount);
+  const dilemmaLandedNonce = useGroupLandedNonce(onLandedNonce, dilemmaCount);
   const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
   const cardArtHeight = missionCardHeight(scale, desktop);
   const badgeHeight = scaled(BADGE_STRIP_HEIGHT_BASE, scale);
@@ -1030,8 +1079,8 @@ function MissionColumn({
         <LandedRing nonce={onLandedNonce} />
       </div>
 
-      {/* Badge strip: the away team badge (#602) and the placed-on count (#1069), under the reach
-          of the bottom half (#924). */}
+      {/* Badge strip: the away team badge (#602) and the counts of the events (#1069) and the
+          dilemmas (#1081) placed on the mission, under the reach of the bottom half (#924). */}
       <BadgeStrip
         missionIndex={missionIndex}
         awayTeamCount={awayTeam.length}
@@ -1040,9 +1089,11 @@ function MissionColumn({
           mission
             ? {
                 name: cardDisplayName(mission.card),
-                count: onCount,
-                landedNonce: onLandedNonce,
-                onOpen: () => onOpenPlacedOn(mission.id),
+                badges: [
+                  { group: 'events', count: eventCount, landedNonce: eventLandedNonce },
+                  { group: 'dilemmas', count: dilemmaCount, landedNonce: dilemmaLandedNonce },
+                ],
+                onOpen: (group) => onOpenPlacedOn(mission.id, group),
               }
             : null
         }
@@ -1080,8 +1131,9 @@ export default function MissionRow({
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   onShipClick: (shipId: string) => void;
   onOpenShipRow: (missionIndex: number) => void;
-  // A tap on the counter of the cards on a mission card (#813) opens them.
-  onOpenPlacedOn: (targetId: string) => void;
+  // A tap on a counter of the cards on a mission card (#813) opens them: the events or the
+  // dilemmas, by the counter's group (#1081).
+  onOpenPlacedOn: (targetId: string, group?: PlacedOnGroup) => void;
   // A tap on the Flip button of a double-sided mission (#765) turns it over.
   onFlipMission?: (missionId: string) => void;
   // A double-tap on a mission card, or its hidden focus button, marks it complete or not (#991, #1059).

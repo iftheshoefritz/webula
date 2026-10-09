@@ -55,7 +55,7 @@ jest.mock('@dnd-kit/core', () => {
 });
 
 import React from 'react';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act, fireEvent, cleanup } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/page';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
@@ -167,7 +167,9 @@ describe('Practice table: the two drop halves of a mission card (#871)', () => {
   };
 
   const underButton = () => screen.queryByRole('button', { name: /Under the mission pile, 1 card, tap to open/i });
-  const onPill = () => screen.queryByRole('button', { name: 'first contact, 1 card on it' });
+  const onPill = () => screen.queryByRole('button', { name: 'first contact, 1 event on it' });
+  // #1081: a dilemma placed on the mission counts in a badge of its own.
+  const dilemmaPill = () => screen.queryByRole('button', { name: 'first contact, 1 dilemma on it' });
 
   it('renders both halves as drop zones, and no whole-card mission zone', async () => {
     await setup();
@@ -180,7 +182,8 @@ describe('Practice table: the two drop halves of a mission card (#871)', () => {
     await setup();
     await drop(await drawDilemma(), 'mission-on-0');
 
-    expect(onPill()).toBeInTheDocument();
+    expect(dilemmaPill()).toBeInTheDocument();
+    expect(onPill()).toBeNull();
     expect(underButton()).toBeNull();
   });
 
@@ -190,7 +193,51 @@ describe('Practice table: the two drop halves of a mission card (#871)', () => {
 
     expect(underButton()).toBeInTheDocument();
     expect(onPill()).toBeNull();
+    expect(dilemmaPill()).toBeNull();
     expect(screen.getAllByAltText('cardassian trap').length).toBeGreaterThan(0);
+  });
+
+  // #1081: the dilemmas and the other cards placed on a mission count in two badges, and each badge
+  // opens a panel of only its own cards.
+  it('splits the cards placed on a mission into an events badge and a dilemma badge', async () => {
+    await setup();
+    await drop(cardId('distress call'), 'mission-on-0');
+    await drop(await drawDilemma(), 'mission-on-0');
+
+    expect(onPill()).toBeInTheDocument();
+    expect(dilemmaPill()).toBeInTheDocument();
+    expect(onPill()).toHaveAttribute('data-testid', 'mission-on-events-0');
+    expect(dilemmaPill()).toHaveAttribute('data-testid', 'mission-on-dilemmas-0');
+
+    const panelNames = (testId: string) =>
+      Array.from(document.body.querySelectorAll(`[data-testid="${testId}"] img`)).map((img) => img.getAttribute('alt'));
+
+    await act(async () => {
+      fireEvent.click(onPill()!);
+    });
+    expect(panelNames('card-list-panel-onEvents')).toEqual(['distress call']);
+    expect(screen.getByRole('button', { name: 'Close events on the card' })).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(dilemmaPill()!);
+    });
+    expect(document.body.querySelector('[data-testid="card-list-panel-onEvents"]')).toBeNull();
+    expect(panelNames('card-list-panel-onDilemmas')).toEqual(['cardassian trap']);
+  });
+
+  // A saved game keeps the placed cards in one list, so the split needs no migration: a restore
+  // shows each placed card in its own badge.
+  it('restores the placed cards of a saved game into their own badges', async () => {
+    await setup();
+    await drop(cardId('distress call'), 'mission-on-0');
+    await drop(await drawDilemma(), 'mission-on-0');
+    expect(localStorage.getItem('practiceGame')).not.toBeNull();
+
+    cleanup();
+    await setup();
+
+    expect(onPill()).toBeInTheDocument();
+    expect(dilemmaPill()).toBeInTheDocument();
   });
 
   it('puts a dilemma dropped on the bottom half of a slot with no mission card under the mission', async () => {

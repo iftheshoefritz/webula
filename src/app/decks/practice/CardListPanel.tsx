@@ -196,7 +196,10 @@ export type PanelLocation =
   | 'dilemmaPileReveal'
   | 'shipRow'
   | 'discard'
-  | 'on';
+  | 'on'
+  // The cards placed on a mission card, split by type (#1081): the dilemmas, and every other card.
+  | 'onEvents'
+  | 'onDilemmas';
 
 const PANEL_LABEL: Record<PanelLocation, string> = {
   awayTeam: 'Away team',
@@ -212,6 +215,8 @@ const PANEL_LABEL: Record<PanelLocation, string> = {
   shipRow: 'Ships',
   discard: 'Discard pile',
   on: 'On the card',
+  onEvents: 'Events on the card',
+  onDilemmas: 'Dilemmas on the card',
 };
 
 // The core, the brig, a ship's crew (#664), the draw deck, the dilemma pile (#690), the dilemma
@@ -233,7 +238,9 @@ const closeLabel = (location: PanelLocation): string =>
   isRevealLocation(location) ||
   location === 'shipRow' ||
   location === 'discard' ||
-  location === 'on'
+  location === 'on' ||
+  location === 'onEvents' ||
+  location === 'onDilemmas'
     ? `Close ${PANEL_LABEL[location].toLowerCase()}`
     : `Close ${PANEL_LABEL[location].toLowerCase()} pile`;
 

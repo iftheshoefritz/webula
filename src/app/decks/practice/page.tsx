@@ -62,6 +62,8 @@ import MissionRow, {
   missionIndexFromDropId,
   missionColumnHeight,
   missionHalfFromDropId,
+  PlacedOnGroup,
+  placedOnGroupOf,
   shipIdFromCrewDropId,
   shipRowLineHeight,
   shipsPerRow,
@@ -1199,6 +1201,9 @@ function PracticeDrawContent() {
   // Whose panel of placed cards (#810) is open, if any, named by that card's own instance id, the same way
   // `openCrewShipId` names a ship. A tap on a card in the core or the brig with cards on it opens it.
   const [openPlacedOnTargetId, setOpenPlacedOnTargetId] = useState<string | null>(null);
+  // The group a mission card's badge opened (#1081): only its events or only its dilemmas. Null for
+  // a core or brig card, whose panel shows every card placed on it.
+  const [openPlacedOnGroup, setOpenPlacedOnGroup] = useState<PlacedOnGroup | null>(null);
   // Which mission's ship-row list panel (#713) is open, if any, named by mission index the same
   // way `openPile` is — only one at a time, tracked the same way as the other three panels
   // below. Opened once a mission's ship row holds more ships than fit without overlap
@@ -1600,13 +1605,14 @@ function PracticeDrawContent() {
     setOpenShipRowMissionIndex(missionIndex);
   };
 
-  const openOnlyPlacedOnPanel = (targetId: string) => {
+  const openOnlyPlacedOnPanel = (targetId: string, group?: PlacedOnGroup) => {
     setOpenPile(null);
     setOpenFlatLocation(null);
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
     setOpenReveal(null);
     setSelectedCardIds([]);
+    setOpenPlacedOnGroup(group ?? null);
     setOpenPlacedOnTargetId(targetId);
   };
 
@@ -2023,7 +2029,7 @@ function PracticeDrawContent() {
     : openCrewShip
     ? openCrewShip.crew ?? []
     : openPlacedOnTarget
-    ? openPlacedOnTarget.placedOn ?? []
+    ? (openPlacedOnTarget.placedOn ?? []).filter((c) => !openPlacedOnGroup || placedOnGroupOf(c) === openPlacedOnGroup)
     : openShipRowMissionIndex !== null
     ? missions[openShipRowMissionIndex].ships
     : null;
@@ -2553,13 +2559,16 @@ function PracticeDrawContent() {
 
               {/* The cards placed on a card (#810): opened by a tap on a card in the core or the
                   brig with cards on it, or by a tap on a mission card's counter of the cards on it
-                  (#813). A ship has no second tap region (#963): the cards on a ship show in its
+                  (#813). A mission card has two counters (#1081), one of its events and one of its
+                  dilemmas, and each opens only its own group, with a title of its own. A ship has no second tap region (#963): the cards on a ship show in its
                   crew panel, as tiny cards below the ship, and leave the ship by a drag out of
                   there. A placed card leaves a card by a drag out of here.
                   No Shuffle: `shuffle` has no location for the placed cards. */}
               {openPlacedOnTarget && (
                 <CardListPanel
-                  location="on"
+                  location={
+                    openPlacedOnGroup === 'events' ? 'onEvents' : openPlacedOnGroup === 'dilemmas' ? 'onDilemmas' : 'on'
+                  }
                   cards={openPanelCards ?? []}
                   host={openPlacedOnTarget}
                   onClose={() => {
