@@ -123,6 +123,10 @@ export type ShuffleLocation =
   | MissionPileLocation
   | ShipRowLocation;
 
+// The ordered zones a `reorder` action (#632, #1070) rearranges: the dilemma stack, from its own
+// panel, and the draw deck and the dilemma pile, from the reveal panel of their top cards.
+export type ReorderZone = 'dilemmaStack' | 'drawDeck' | 'dilemmaPile';
+
 export interface TableState {
   drawDeck: CardInstance[];
   hand: CardInstance[];
@@ -178,9 +182,10 @@ export type TableAction =
   // keeps the new order, and the reveal order (#630/#733's index-0-is-first-revealed convention)
   // changes with it. `overId` names the card being dropped on, rather than a raw index, since
   // that is what a drop event on the popup naturally resolves to; a no-op (dropping a card on
-  // itself, or on a card no longer in the stack) leaves the state unchanged. Only ever targets
-  // `dilemmaStack`, so it needs no `location` the way `shuffle` does.
-  | { type: 'reorderDilemmaStack'; id: string; overId: string }
+  // itself, or on a card no longer in the stack) leaves the state unchanged. Since #1070 it also
+  // reorders the draw deck and the dilemma pile, from the reveal panel of their top cards, so it
+  // names the zone.
+  | { type: 'reorder'; zone: ReorderZone; id: string; overId: string }
   // Sets one or more personnel cards' `stopped` flag to a single value (#681), wherever each
   // currently sits — including aboard a ship as crew, the same reach `flip` lacks. `ids` lets
   // the card list panel's "Stop"/"Unstop" button (a selection of more than one card) and the card
@@ -643,11 +648,12 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       );
     }
 
-    case 'reorderDilemmaStack': {
-      const fromIndex = state.dilemmaStack.findIndex((c) => c.id === action.id);
-      const toIndex = state.dilemmaStack.findIndex((c) => c.id === action.overId);
+    case 'reorder': {
+      const cards = state[action.zone];
+      const fromIndex = cards.findIndex((c) => c.id === action.id);
+      const toIndex = cards.findIndex((c) => c.id === action.overId);
       if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return state;
-      return { ...state, dilemmaStack: arrayMove(state.dilemmaStack, fromIndex, toIndex) };
+      return { ...state, [action.zone]: arrayMove(cards, fromIndex, toIndex) };
     }
 
     case 'setStopped': {

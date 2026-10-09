@@ -43,6 +43,7 @@ import {
   SCORE_MAX,
   SCORE_MIN,
   SCORE_STEP,
+  ReorderZone,
   TableAction,
   TableState,
   TableZone,
@@ -73,7 +74,7 @@ import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHol
 import { FLAT_ROW_MAX_OFFSET, flatRowWidths, useElementWidth } from './flatRowWidths';
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
-import CardListPanel, { ShuffleIcon } from './CardListPanel';
+import CardListPanel, { PanelLocation, RevealIcon, ShuffleIcon } from './CardListPanel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
 import { PILE_CARD_BORDER_STYLE, cardBorderStyle, SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
 import {
@@ -599,6 +600,49 @@ function DownloadPileButton({ label, count, onOpen }: { label: string; count: nu
   );
 }
 
+// The three controls of the draw deck or the dilemma pile (#1070): Shuffle, Download and the eye
+// that opens the reveal panel of the pile's top cards, from top to bottom. They stand in a column
+// that overlaps the pile's left edge by a third of a button (`-mr-2`), rather than in a row
+// above the pile: three buttons in a row do not fit above a pile at the narrowest phone width.
+// The column is a sibling of the pile, not a child of its draggable or its drop halves, and
+// `z-10` paints it above them, so a tap on a button never draws and never starts a drag (the
+// same "control beside, not nested" rule `DownloadPileButton` follows).
+function PileControls({
+  label,
+  shuffleLabel,
+  count,
+  onShuffle,
+  onDownload,
+  onReveal,
+}: {
+  label: string;
+  shuffleLabel: string;
+  count: number;
+  onShuffle: () => void;
+  onDownload: () => void;
+  onReveal: () => void;
+}) {
+  return (
+    <div data-testid="pile-controls" className="relative z-10 -mr-2 flex flex-col gap-1">
+      <button className="btn-icon btn-icon-sm" onClick={onShuffle} aria-label={shuffleLabel}>
+        <ShuffleIcon />
+      </button>
+      <DownloadPileButton label={label} count={count} onOpen={onDownload} />
+      {/* A tap opens the reveal panel and draws nothing. Disabled, like Download, once the pile
+          is empty. */}
+      <button
+        type="button"
+        onClick={onReveal}
+        disabled={count === 0}
+        aria-label={`Reveal the ${label}`}
+        className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <RevealIcon className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
+
 // The face-down card art of the draw pile or the dilemma pile, animated when the pile's Shuffle
 // button runs (#786): a shuffle changes nothing visible, so without it the player cannot tell
 // the tap did anything. `shuffleCount` is the `key`, so each tap remounts the wrapper and
@@ -783,27 +827,6 @@ function DrawPileButton({
 
       {topCard ? <PileTopCardDrag topCard={topCard}>{halves}</PileTopCardDrag> : halves}
     </div>
-  );
-}
-
-// A plain inline eye icon (#751), not react-icons: see `DownloadIcon`'s comment above for why a
-// react-icons import here would need every test mock of `react-icons/fa` in this file's own
-// tests, and every other test that renders this page, updated too.
-function RevealIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="w-2.5 h-2.5"
-      aria-hidden="true"
-    >
-      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
   );
 }
 
@@ -1167,6 +1190,12 @@ function PracticeDrawContent() {
   // (`MissionRow.tsx`'s `ShipRow`), so every ship on that row stays reachable for a tap and a
   // drag, not just the one on top.
   const [openShipRowMissionIndex, setOpenShipRowMissionIndex] = useState<number | null>(null);
+  // The open reveal panel of the draw deck's or the dilemma pile's top cards (#1070), if any: the
+  // pile, and the ids of the cards revealed so far. UI state like the panels above, never saved,
+  // and cleared on every close, so the next open starts empty. The panel lists the pile's cards
+  // whose ids are here, in pile order, read from the pile on every render. A plain count would
+  // show cards the player never revealed once a card goes to the bottom.
+  const [openReveal, setOpenReveal] = useState<{ pile: DownloadPile; ids: string[] } | null>(null);
   // The cards checked in the currently open card list panel (#677), by id. UI state, scoped to
   // whichever panel is open — only one panel is ever open at a time — and cleared whenever a
   // panel closes, the same as the panels themselves.
@@ -1461,18 +1490,24 @@ function PracticeDrawContent() {
     shufflePile(pile);
   };
 
+  // Sends cards to the top or the bottom of a deck, keeping their order: a 'top' send dispatches
+  // them in reverse, as a 'top' drop does (#677). Shared by the hands (#994) and the reveal panel
+  // (#1070).
+  const sendCardsToDeck = (deck: DownloadPile, ids: string[], position: 'top' | 'bottom') => {
+    const ordered = position === 'top' ? [...ids].reverse() : ids;
+    const actions: Extract<TableAction, { type: 'move' }>[] = ordered.map((id) => ({ type: 'move', id, to: deck, position }));
+    actions.forEach((action) => dispatch(action));
+    markLanded(actions);
+  };
+
   // Sends the selected cards of an open hand to the top or the bottom of its deck (#994), with the
   // same `move` a drop on a half of that deck dispatches: the draw deck for the hand, the dilemma
   // pile for the dilemma hand. The cards keep the order of the hand, so a 'top' send dispatches
   // them in reverse, as a 'top' drop does (#677). The hand closes once it runs empty, and the
   // selection clears either way.
   const sendHandSelectionToDeck = (hand: 'hand' | 'dilemmaHand', position: 'top' | 'bottom') => {
-    const deck = HAND_DECK[hand];
     const ids = table[hand].filter((c) => selectedCardIds.includes(c.id)).map((c) => c.id);
-    const ordered = position === 'top' ? [...ids].reverse() : ids;
-    const actions: Extract<TableAction, { type: 'move' }>[] = ordered.map((id) => ({ type: 'move', id, to: deck, position }));
-    actions.forEach((action) => dispatch(action));
-    markLanded(actions);
+    sendCardsToDeck(HAND_DECK[hand], ids, position);
     if (table[hand].length === ids.length) setOpenHand(null);
     setSelectedCardIds([]);
   };
@@ -1501,6 +1536,7 @@ function PracticeDrawContent() {
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
     setOpenPlacedOnTargetId(null);
+    setOpenReveal(null);
     setSelectedCardIds([]);
     setOpenPile({ missionIndex, pile });
   };
@@ -1510,6 +1546,7 @@ function PracticeDrawContent() {
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
     setOpenPlacedOnTargetId(null);
+    setOpenReveal(null);
     setSelectedCardIds([]);
     setOpenFlatLocation(zone);
   };
@@ -1519,6 +1556,7 @@ function PracticeDrawContent() {
     setOpenFlatLocation(null);
     setOpenShipRowMissionIndex(null);
     setOpenPlacedOnTargetId(null);
+    setOpenReveal(null);
     setSelectedCardIds([]);
     setOpenCrewShipId(shipId);
   };
@@ -1528,6 +1566,7 @@ function PracticeDrawContent() {
     setOpenFlatLocation(null);
     setOpenCrewShipId(null);
     setOpenPlacedOnTargetId(null);
+    setOpenReveal(null);
     setSelectedCardIds([]);
     setOpenShipRowMissionIndex(missionIndex);
   };
@@ -1537,8 +1576,36 @@ function PracticeDrawContent() {
     setOpenFlatLocation(null);
     setOpenCrewShipId(null);
     setOpenShipRowMissionIndex(null);
+    setOpenReveal(null);
     setSelectedCardIds([]);
     setOpenPlacedOnTargetId(targetId);
+  };
+
+  const openOnlyRevealPanel = (pile: DownloadPile) => {
+    setOpenPile(null);
+    setOpenFlatLocation(null);
+    setOpenCrewShipId(null);
+    setOpenShipRowMissionIndex(null);
+    setOpenPlacedOnTargetId(null);
+    setSelectedCardIds([]);
+    setOpenReveal({ pile, ids: [] });
+  };
+
+  // "Reveal next" (#1070): adds the topmost card of the pile not yet revealed. Nothing moves.
+  const revealNext = () => {
+    if (!openReveal) return;
+    const next = table[openReveal.pile].find((c) => !openReveal.ids.includes(c.id));
+    if (next) setOpenReveal({ ...openReveal, ids: [...openReveal.ids, next.id] });
+  };
+
+  // The reveal panel's Top and Bottom (#1070), the same send the hands' buttons make. A card sent
+  // to the top stays revealed, in its new place. A card sent to the bottom is no longer one of the
+  // top cards, so it leaves the panel.
+  const sendRevealSelectionToDeck = (ids: string[], position: 'top' | 'bottom') => {
+    if (!openReveal) return;
+    sendCardsToDeck(openReveal.pile, ids, position);
+    if (position === 'bottom') setOpenReveal({ ...openReveal, ids: openReveal.ids.filter((id) => !ids.includes(id)) });
+    setSelectedCardIds([]);
   };
 
   // A drag ends a press and hold (#763), and hides a hover preview (#766). Called at the drag's
@@ -1658,6 +1725,15 @@ function PracticeDrawContent() {
       }
     }
 
+    if (openReveal) {
+      const isDragOrigin = zone === openReveal.pile;
+      const stillHasCards = nextTable[openReveal.pile].some((c) => openReveal.ids.includes(c.id));
+      if (!isDragOrigin || !stillHasCards) {
+        setOpenReveal(null);
+        closedAPanel = true;
+      }
+    }
+
     if (openCrewShipId) {
       // The panel also shows the cards placed on the ship (#957), and a drag of one of them starts
       // from this panel too (#963).
@@ -1755,10 +1831,12 @@ function PracticeDrawContent() {
     // an unrelated drag. Returning here skips the "card left its panel" side effects a real
     // move-out triggers below (`closePanelsAfterDrag`, clearing `selectedCardIds`), since the
     // card never leaves the zone it was selected in.
-    if (over && dragOrigin?.zone === 'dilemmaStack') {
+    // The reveal panel (#1070) reorders its pile the same way: its cards are the top of the pile,
+    // so a move between two of them moves no unrevealed card.
+    if (over && orderedPanel && dragOrigin?.zone === orderedPanel.zone) {
       const overId = String(over.id);
-      if (overId !== id && dilemmaStack.some((c) => c.id === overId)) {
-        dispatch({ type: 'reorderDilemmaStack', id, overId });
+      if (overId !== id && orderedPanel.cards.some((c) => c.id === overId)) {
+        dispatch({ type: 'reorder', zone: orderedPanel.zone, id, overId });
         return;
       }
     }
@@ -1806,6 +1884,9 @@ function PracticeDrawContent() {
     if (actions.length > 0) {
       const movedIds = new Set(actions.map((action) => action.id));
       setSelectedCardIds((ids) => ids.filter((cardId) => !movedIds.has(cardId)));
+      // A revealed card that moved, even within its own pile, is no longer one of the revealed
+      // top cards (#1070).
+      setOpenReveal((reveal) => reveal && { ...reveal, ids: reveal.ids.filter((cardId) => !movedIds.has(cardId)) });
     }
 
     closePanelsAfterDrag(dragOrigin, nextTable);
@@ -1892,7 +1973,11 @@ function PracticeDrawContent() {
   // The cards of whichever card list panel is currently open, if any — only one panel is ever open
   // at a time. Used both to build a multi-select drag's group (`handleDragStart`) and to pass
   // the right card list to whichever `<CardListPanel>` below is rendered.
-  const openPanelCards: CardInstance[] | null = openPile
+  // The reveal panel's cards (#1070): the pile's revealed cards, in pile order.
+  const revealedCards = openReveal ? table[openReveal.pile].filter((c) => openReveal.ids.includes(c.id)) : null;
+  const openPanelCards: CardInstance[] | null = revealedCards
+    ? revealedCards
+    : openPile
     ? missions[openPile.missionIndex][openPile.pile]
     : openFlatLocation
     ? openFlatLocation === 'core'
@@ -1924,8 +2009,18 @@ function PracticeDrawContent() {
   // stack popup" for as long as the drag runs, including one that ends by dropping the card
   // somewhere else entirely (the dilemma hand, a mission): that drop still moves the card, same
   // as before this popup started staying visible for it.
-  const dragFromDilemmaStackPanel =
-    draggingInstance !== null && findInstanceAnywhere(table, draggingInstance.id)?.zone === 'dilemmaStack';
+  // The reveal panel of a pile's top cards (#1070) is the other ordered panel, and works the same
+  // way. `orderedPanel` names whichever of the two is open: its zone, its cards and its location.
+  const orderedPanel: { zone: ReorderZone; cards: CardInstance[]; location: PanelLocation } | null =
+    openReveal && revealedCards
+      ? { zone: openReveal.pile, cards: revealedCards, location: `${openReveal.pile}Reveal` }
+      : openFlatLocation === 'dilemmaStack'
+      ? { zone: 'dilemmaStack', cards: dilemmaStack, location: 'dilemmaStack' }
+      : null;
+  const dragFromOrderedPanel =
+    draggingInstance !== null &&
+    orderedPanel !== null &&
+    findInstanceAnywhere(table, draggingInstance.id)?.zone === orderedPanel.zone;
 
   // Keeping the popup visible mid-drag (above) is not enough on its own: dnd-kit's collision
   // detection ranks droppables purely by their on-screen rects, oblivious to which element paints
@@ -1938,9 +2033,9 @@ function PracticeDrawContent() {
   // staying open (dnd-kit only reports a stack card as a candidate at all when the pointer is
   // already over its own rect, which only happens inside the popup, so this exclusion never hides
   // a legitimate target elsewhere on the table).
-  const dilemmaStackPopupCollisionDetection: CollisionDetection = (args) => {
-    if (!dragFromDilemmaStackPanel) return collisionDetection(args);
-    const panelEl = document.querySelector('[data-testid="card-list-panel-dilemmaStack"]');
+  const orderedPanelCollisionDetection: CollisionDetection = (args) => {
+    if (!dragFromOrderedPanel || !orderedPanel) return collisionDetection(args);
+    const panelEl = document.querySelector(`[data-testid="card-list-panel-${orderedPanel.location}"]`);
     const panelRect = panelEl?.getBoundingClientRect();
     const pointer = args.pointerCoordinates;
     const insidePanel =
@@ -1950,7 +2045,7 @@ function PracticeDrawContent() {
       pointer.x <= panelRect.right &&
       pointer.y >= panelRect.top &&
       pointer.y <= panelRect.bottom;
-    const stackCardIds = new Set(dilemmaStack.map((c) => c.id));
+    const stackCardIds = new Set(orderedPanel.cards.map((c) => c.id));
     const droppableContainers = args.droppableContainers.filter((container) =>
       insidePanel ? stackCardIds.has(String(container.id)) : !stackCardIds.has(String(container.id))
     );
@@ -2045,7 +2140,7 @@ function PracticeDrawContent() {
             // instead of boarding (#645). `collisionDetection` re-ranks the same overlap set by
             // area instead, smallest first, so the most-nested zone the dragged card touches
             // always wins.
-            collisionDetection={dilemmaStackPopupCollisionDetection}
+            collisionDetection={orderedPanelCollisionDetection}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
@@ -2138,22 +2233,17 @@ function PracticeDrawContent() {
                     />
                   </div>
 
-                  {/* The draw deck, with the shuffle button and the search button above it
-                      (#753) rather than beside it. */}
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="flex items-center gap-1">
-                      <button
-                        className="btn-icon btn-icon-sm"
-                        onClick={() => shufflePile('drawDeck')}
-                        aria-label="Shuffle"
-                      >
-                        <ShuffleIcon />
-                      </button>
-                      {/* Download from the draw deck without drawing (#690): a separate control,
-                          rather than layered on the draw-deck button, so it never steals the
-                          button's own tap-to-draw click or its top/bottom drop halves. */}
-                      <DownloadPileButton label="draw deck" count={drawDeck.length} onOpen={() => openOnlyFlatZone('drawDeck')} />
-                    </div>
+                  {/* The draw deck, with its Shuffle, Download (#690) and reveal (#1070) buttons
+                      stacked over its left edge (`PileControls`). */}
+                  <div className="flex flex-row items-end">
+                    <PileControls
+                      label="draw deck"
+                      shuffleLabel="Shuffle"
+                      count={drawDeck.length}
+                      onShuffle={() => shufflePile('drawDeck')}
+                      onDownload={() => openOnlyFlatZone('drawDeck')}
+                      onReveal={() => openOnlyRevealPanel('drawDeck')}
+                    />
                     {/* The draw deck (#743): the same top/bottom drop-half split as the dilemma
                         pile, so a card dragged from any zone can be filed back in at either
                         end of the deck, not only drawn from the top. */}
@@ -2274,28 +2364,18 @@ function PracticeDrawContent() {
                     deckLabel="dilemma pile"
                   />
 
-                  {/* Dilemma pile, with the shuffle button and the search button above it
-                      (#753, #785) rather than beside it, the same layout as the draw deck. */}
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="flex items-center gap-1">
-                      {/* Its own accessible name, so it is told apart from the draw deck's
-                          "Shuffle" button (#785). */}
-                      <button
-                        className="btn-icon btn-icon-sm"
-                        onClick={() => shufflePile('dilemmaPile')}
-                        aria-label="Shuffle dilemma pile"
-                      >
-                        <ShuffleIcon />
-                      </button>
-                      {/* Download from the dilemma pile without drawing (#690): a separate control,
-                          rather than layered on the dilemma-pile button, so it never steals the
-                          button's own tap-to-draw click or its top/bottom drop halves. */}
-                      <DownloadPileButton
-                        label="dilemma pile"
-                        count={dilemmaPile.length}
-                        onOpen={() => openOnlyFlatZone('dilemmaPile')}
-                      />
-                    </div>
+                  {/* Dilemma pile, with the same stacked buttons as the draw deck (#1070). The
+                      Shuffle button has its own accessible name, so it is told apart from the
+                      draw deck's "Shuffle" button (#785). */}
+                  <div className="flex flex-row items-end">
+                    <PileControls
+                      label="dilemma pile"
+                      shuffleLabel="Shuffle dilemma pile"
+                      count={dilemmaPile.length}
+                      onShuffle={() => shufflePile('dilemmaPile')}
+                      onDownload={() => openOnlyFlatZone('dilemmaPile')}
+                      onReveal={() => openOnlyRevealPanel('dilemmaPile')}
+                    />
                     <DilemmaPileButton
                       count={dilemmaPile.length}
                       topCard={dilemmaPile[0]}
@@ -2380,7 +2460,32 @@ function PracticeDrawContent() {
                       ? (ids) => downloadSelection(openFlatLocation, ids)
                       : undefined
                   }
-                  hidden={draggingInstance !== null && !dragFromDilemmaStackPanel}
+                  hidden={draggingInstance !== null && !dragFromOrderedPanel}
+                  cardWidth={viewerCardWidth}
+                  cardHeight={viewerCardHeight}
+                  bottomInset={panelBottom}
+                />
+              )}
+
+              {/* The reveal panel of the draw deck's or the dilemma pile's top cards (#1070), opened
+                  by the eye beside the pile. It starts empty, and "Reveal next" adds the next card
+                  from the top. Closing it forgets what was revealed. No Shuffle, no Discard, no
+                  Download: only Top and Bottom act on the selection. */}
+              {openReveal && (
+                <CardListPanel
+                  location={`${openReveal.pile}Reveal`}
+                  cards={openPanelCards ?? []}
+                  onClose={() => {
+                    setOpenReveal(null);
+                    setSelectedCardIds([]);
+                  }}
+                  selectedIds={selectedCardIds}
+                  onToggleSelect={toggleCardSelection}
+                  onSelectIds={setSelectedCardIds}
+                  onRevealNext={revealNext}
+                  canRevealNext={table[openReveal.pile].some((c) => !openReveal.ids.includes(c.id))}
+                  onSendToDeck={sendRevealSelectionToDeck}
+                  hidden={draggingInstance !== null && !dragFromOrderedPanel}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
                   bottomInset={panelBottom}

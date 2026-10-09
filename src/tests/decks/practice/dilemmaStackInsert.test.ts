@@ -1,6 +1,6 @@
 // #956: the insertion mark of a reorder drag in the dilemma stack's panel must show where the
 // drop puts the card. Each case checks the slot the helper predicts against the index the
-// dragged card has after the reducer's own `reorderDilemmaStack`.
+// dragged card has after the reducer's own `reorder`.
 import { initialTableState, tableReducer, CardInstance } from '../../../app/decks/practice/tableReducer';
 import { dilemmaStackInsertPoint } from '../../../app/decks/practice/dilemmaStackInsert';
 
@@ -10,7 +10,7 @@ const stack = ids.map(
 );
 
 const indexAfterDrop = (id: string, overId: string) =>
-  tableReducer({ ...initialTableState, dilemmaStack: stack }, { type: 'reorderDilemmaStack', id, overId })
+  tableReducer({ ...initialTableState, dilemmaStack: stack }, { type: 'reorder', zone: 'dilemmaStack', id, overId })
     .dilemmaStack.map((c) => c.id)
     .indexOf(id);
 

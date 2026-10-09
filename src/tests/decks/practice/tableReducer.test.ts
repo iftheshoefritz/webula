@@ -654,12 +654,12 @@ describe('tableReducer', () => {
       expect(state.dilemmaPile.every((c) => c.face === 'down')).toBe(true);
     });
 
-  describe('reorderDilemmaStack (#632)', () => {
+  describe('reorder (#632, #1070)', () => {
     it('moves the last card to the first position, leaving the rest in order', () => {
       const cards = Array.from({ length: 4 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
       const start = { ...initialTableState, dilemmaStack: cards };
 
-      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd3', overId: 'd0' });
+      const state = tableReducer(start, { type: 'reorder', zone: 'dilemmaStack', id: 'd3', overId: 'd0' });
 
       expect(state.dilemmaStack.map((c) => c.id)).toEqual(['d3', 'd0', 'd1', 'd2']);
     });
@@ -668,7 +668,7 @@ describe('tableReducer', () => {
       const cards = Array.from({ length: 4 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
       const start = { ...initialTableState, dilemmaStack: cards };
 
-      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd0', overId: 'd3' });
+      const state = tableReducer(start, { type: 'reorder', zone: 'dilemmaStack', id: 'd0', overId: 'd3' });
 
       expect(state.dilemmaStack.map((c) => c.id)).toEqual(['d1', 'd2', 'd3', 'd0']);
     });
@@ -677,7 +677,7 @@ describe('tableReducer', () => {
       const cards = Array.from({ length: 5 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
       const start = { ...initialTableState, dilemmaStack: cards };
 
-      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd1', overId: 'd3' });
+      const state = tableReducer(start, { type: 'reorder', zone: 'dilemmaStack', id: 'd1', overId: 'd3' });
 
       expect(state.dilemmaStack.map((c) => c.id)).toEqual(['d0', 'd2', 'd3', 'd1', 'd4']);
     });
@@ -687,7 +687,7 @@ describe('tableReducer', () => {
       const cards = [stopped, instance('d1', card('Dilemma 1'), 'down'), instance('d2', card('Dilemma 2'), 'down')];
       const start = { ...initialTableState, dilemmaStack: cards };
 
-      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd2', overId: 'd0' });
+      const state = tableReducer(start, { type: 'reorder', zone: 'dilemmaStack', id: 'd2', overId: 'd0' });
 
       expect(state.dilemmaStack).toEqual([cards[2], cards[0], cards[1]]);
     });
@@ -696,7 +696,7 @@ describe('tableReducer', () => {
       const cards = Array.from({ length: 3 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
       const start = { ...initialTableState, dilemmaStack: cards };
 
-      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd1', overId: 'd1' });
+      const state = tableReducer(start, { type: 'reorder', zone: 'dilemmaStack', id: 'd1', overId: 'd1' });
 
       expect(state).toBe(start);
     });
@@ -705,7 +705,7 @@ describe('tableReducer', () => {
       const cards = Array.from({ length: 3 }, (_, i) => instance(`d${i}`, card(`Dilemma ${i}`), 'down'));
       const start = { ...initialTableState, dilemmaStack: cards };
 
-      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'gone', overId: 'd1' });
+      const state = tableReducer(start, { type: 'reorder', zone: 'dilemmaStack', id: 'gone', overId: 'd1' });
 
       expect(state).toBe(start);
     });
@@ -715,9 +715,21 @@ describe('tableReducer', () => {
       const untouched = instance('h0', card('Hand card'), 'up');
       const start = { ...initialTableState, dilemmaStack: cards, hand: [untouched] };
 
-      const state = tableReducer(start, { type: 'reorderDilemmaStack', id: 'd2', overId: 'd0' });
+      const state = tableReducer(start, { type: 'reorder', zone: 'dilemmaStack', id: 'd2', overId: 'd0' });
 
       expect(state.hand).toEqual([untouched]);
+    });
+
+    // #1070: the reveal panel of the draw deck and the dilemma pile reorders the pile itself.
+    it.each(['drawDeck', 'dilemmaPile'] as const)('reorders the %s and leaves the dilemma stack alone', (zone) => {
+      const cards = Array.from({ length: 4 }, (_, i) => instance(`p${i}`, card(`Card ${i}`), 'down'));
+      const stack = [instance('s0', card('Stack card'), 'down')];
+      const start = { ...initialTableState, [zone]: cards, dilemmaStack: stack };
+
+      const state = tableReducer(start, { type: 'reorder', zone, id: 'p1', overId: 'p0' });
+
+      expect(state[zone].map((c) => c.id)).toEqual(['p1', 'p0', 'p2', 'p3']);
+      expect(state.dilemmaStack).toBe(stack);
     });
   });
 

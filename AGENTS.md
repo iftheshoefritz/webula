@@ -249,6 +249,13 @@ The popup that lists the cards of one place is the `CardListPanel`. Its grid car
 (#856). The draw deck is the zone `drawDeck` (#838), so its panel is
 `card-list-panel-drawDeck`.
 
+The draw deck and the dilemma pile each have three buttons, Shuffle, Download and an eye, stacked
+in a column (`data-testid="pile-controls"`) that overlaps the left edge of the pile (#1070). The eye,
+"Reveal the draw deck" or "Reveal the dilemma pile", opens the reveal panel, `card-list-panel-drawDeckReveal`
+or `card-list-panel-dilemmaPileReveal`. It starts empty, and each tap of "Reveal next" shows one more card
+from the top of the pile without moving it. Its cards reorder like the dilemma stack's, and the reorder
+changes the pile. Closing it forgets what was revealed.
+
 The panel grid is not a drop target (#861). It has no `useDroppable`, so a drag must not aim at
 it. Use the `data-testid` to find the panel, or to open it, and nothing more. If
 `practice_drag.sh` prints a `card-list-panel-` name, the card did not move: the script prints the
