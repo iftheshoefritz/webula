@@ -63,6 +63,18 @@ describe('useDataFetching', () => {
     expect(result.current.data.length).toBeGreaterThan(0);
   });
 
+  it('ends loading with no data when the fetch rejects, as it does offline (#1050)', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const { result } = renderHook(() => useDataFetching());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toEqual([]);
+    expect(result.current.columns).toEqual([]);
+    warn.mockRestore();
+  });
+
   it('fetches TSV from /cards_with_processed_columns.txt', async () => {
     const tsv = buildTsv([baseRow]);
     const mockFetch = jest.fn().mockResolvedValue({ text: async () => tsv } as any);
