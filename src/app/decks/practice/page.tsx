@@ -596,6 +596,11 @@ function DownloadIcon() {
 // "control sits beside the card, not nested on top of it" reasoning `PileBadge`/`ShipCrewBadge`
 // (`MissionRow.tsx`) already follow. Disabled, like the pile's own draw control, once the pile is
 // empty: there is nothing left to download.
+// The three buttons of `PileControls` overlap the pile's edge, so they are opaque (#1077): the
+// tint of `.btn-icon` would let the card back show through. The hover colour is opaque too,
+// because `.btn-icon:hover` would otherwise paint its own translucent tint over the rest colour.
+const PILE_CONTROL_CLASS = 'btn-icon btn-icon-sm bg-bg-raised hover:bg-[#323832]';
+
 function DownloadPileButton({ label, count, onOpen }: { label: string; count: number; onOpen: () => void }) {
   return (
     <button
@@ -603,7 +608,7 @@ function DownloadPileButton({ label, count, onOpen }: { label: string; count: nu
       onClick={onOpen}
       disabled={count === 0}
       aria-label={`Download from the ${label}`}
-      className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+      className={`${PILE_CONTROL_CLASS} disabled:opacity-50 disabled:cursor-not-allowed`}
     >
       <DownloadIcon />
     </button>
@@ -616,7 +621,8 @@ function DownloadPileButton({ label, count, onOpen }: { label: string; count: nu
 // above the pile: three buttons in a row do not fit above a pile at the narrowest phone width.
 // The column is a sibling of the pile, not a child of its draggable or its drop halves, and
 // `z-10` paints it above them, so a tap on a button never draws and never starts a drag (the
-// same "control beside, not nested" rule `DownloadPileButton` follows).
+// same "control beside, not nested" rule `DownloadPileButton` follows). The buttons are opaque
+// (`PILE_CONTROL_CLASS`, #1077), so the card back under the overlap does not show through them.
 function PileControls({
   label,
   shuffleLabel,
@@ -634,7 +640,7 @@ function PileControls({
 }) {
   return (
     <div data-testid="pile-controls" className="relative z-10 -mr-2 flex flex-col gap-1">
-      <button className="btn-icon btn-icon-sm" onClick={onShuffle} aria-label={shuffleLabel}>
+      <button className={PILE_CONTROL_CLASS} onClick={onShuffle} aria-label={shuffleLabel}>
         <ShuffleIcon />
       </button>
       <DownloadPileButton label={label} count={count} onOpen={onDownload} />
@@ -645,7 +651,7 @@ function PileControls({
         onClick={onReveal}
         disabled={count === 0}
         aria-label={`Reveal the ${label}`}
-        className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        className={`${PILE_CONTROL_CLASS} disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         <RevealIcon className="w-3 h-3" />
       </button>
@@ -1024,15 +1030,18 @@ function DilemmaStackPile({
         <DilemmaIcon />
         {count > 0 && <span className="text-[8px] font-bold">{count}</span>}
       </span>
+      {/* #1080: 24 px, the size of the pile buttons, with an opaque fill and a solid ring so it
+          reads against the card back. A sibling of the tap-to-open button, painted above it, so a
+          tap here flips the top card and never opens the panel. */}
       {count > 0 && !revealed && (
         <button
           type="button"
           onClick={onReveal}
           aria-label="Reveal top dilemma"
-          className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-black/50 border border-white/50 flex items-center justify-center text-text-primary focus:outline-none"
+          className="absolute -bottom-1 -left-1 w-6 h-6 rounded-full bg-black/90 border border-white shadow-md flex items-center justify-center text-text-primary focus:outline-none"
           style={{ zIndex: count + 1 }}
         >
-          <RevealIcon />
+          <RevealIcon className="w-3 h-3" />
         </button>
       )}
     </div>
@@ -1210,12 +1219,13 @@ function PracticeDrawContent() {
   // (`MissionRow.tsx`'s `ShipRow`), so every ship on that row stays reachable for a tap and a
   // drag, not just the one on top.
   const [openShipRowMissionIndex, setOpenShipRowMissionIndex] = useState<number | null>(null);
-  // The open reveal panel of the draw deck's or the dilemma pile's top cards (#1070), if any: the
-  // pile, and the ids of the cards revealed so far. UI state like the panels above, never saved,
+  // The open reveal panel of the draw deck's or the dilemma pile's top or bottom cards (#1070,
+  // #1078), if any: the pile, the end of the pile shown, and the ids of the cards revealed so far
+  // from that end. The panel shows one end at a time. UI state like the panels above, never saved,
   // and cleared on every close, so the next open starts empty. The panel lists the pile's cards
   // whose ids are here, in pile order, read from the pile on every render. A plain count would
   // show cards the player never revealed once a card goes to the bottom.
-  const [openReveal, setOpenReveal] = useState<{ pile: DownloadPile; ids: string[] } | null>(null);
+  const [openReveal, setOpenReveal] = useState<{ pile: DownloadPile; end: 'top' | 'bottom'; ids: string[] } | null>(null);
   // The cards checked in the currently open card list panel (#677), by id. UI state, scoped to
   // whichever panel is open — only one panel is ever open at a time — and cleared whenever a
   // panel closes, the same as the panels themselves.
@@ -1623,23 +1633,27 @@ function PracticeDrawContent() {
     setOpenShipRowMissionIndex(null);
     setOpenPlacedOnTargetId(null);
     setSelectedCardIds([]);
-    setOpenReveal({ pile, ids: [] });
+    setOpenReveal({ pile, end: 'top', ids: [] });
   };
 
-  // "Reveal next" (#1070): adds the topmost card of the pile not yet revealed. Nothing moves.
-  const revealNext = () => {
+  // "Reveal top" and "Reveal bottom" (#1070, #1078): add the card nearest that end of the pile not
+  // yet revealed. Nothing moves. A tap for the other end first forgets the cards revealed so far,
+  // so the revealed cards are always one run at one end of the pile.
+  const revealFrom = (end: 'top' | 'bottom') => {
     if (!openReveal) return;
-    const next = table[openReveal.pile].find((c) => !openReveal.ids.includes(c.id));
-    if (next) setOpenReveal({ ...openReveal, ids: [...openReveal.ids, next.id] });
+    const ids = end === openReveal.end ? openReveal.ids : [];
+    const pile = table[openReveal.pile];
+    const next = (end === 'top' ? pile : [...pile].reverse()).find((c) => !ids.includes(c.id));
+    if (next) setOpenReveal({ ...openReveal, end, ids: [...ids, next.id] });
   };
 
   // The reveal panel's Top and Bottom (#1070), the same send the hands' buttons make. A card sent
-  // to the top stays revealed, in its new place. A card sent to the bottom is no longer one of the
-  // top cards, so it leaves the panel.
+  // to the end the panel shows stays revealed, in its new place. A card sent to the other end is
+  // no longer one of the cards at this end, so it leaves the panel (#1078).
   const sendRevealSelectionToDeck = (ids: string[], position: 'top' | 'bottom') => {
     if (!openReveal) return;
     sendCardsToDeck(openReveal.pile, ids, position);
-    if (position === 'bottom') setOpenReveal({ ...openReveal, ids: openReveal.ids.filter((id) => !ids.includes(id)) });
+    if (position !== openReveal.end) setOpenReveal({ ...openReveal, ids: openReveal.ids.filter((id) => !ids.includes(id)) });
     setSelectedCardIds([]);
   };
 
@@ -2234,8 +2248,8 @@ function PracticeDrawContent() {
               <div ref={setBottomRow} className="mt-auto flex flex-row items-end gap-2">
                 <div className="flex flex-row items-end gap-2">
                   {/* Discard, with the score counter above it (#753) rather than beside it. The
-                      turn counter sits above the hand instead (#927), so the discard pile is
-                      centred under the score buttons and the row fits a 568 px table. */}
+                      turn counter sits above the draw deck the same way (#1079), so each pile is
+                      centred under its buttons and the row fits a 568 px table. */}
                   <div className="flex flex-col items-center gap-1">
                     {/* Score counter (#719): shows the current score, and plus/minus buttons
                         that change it by SCORE_STEP points, clamped by the reducer to 0-140. */}
@@ -2271,7 +2285,7 @@ function PracticeDrawContent() {
                   </div>
 
                   {/* The draw deck, with its Shuffle, Download (#690) and reveal (#1070) buttons
-                      stacked over its left edge (`PileControls`). */}
+                      stacked over its left edge (`PileControls`), and the turn counter above it. */}
                   <div className="flex flex-row items-end">
                     <PileControls
                       label="draw deck"
@@ -2281,36 +2295,40 @@ function PracticeDrawContent() {
                       onDownload={() => openOnlyFlatZone('drawDeck')}
                       onReveal={() => openOnlyRevealPanel('drawDeck')}
                     />
-                    {/* The draw deck (#743): the same top/bottom drop-half split as the dilemma
-                        pile, so a card dragged from any zone can be filed back in at either
-                        end of the deck, not only drawn from the top. */}
-                    <DrawPileButton
-                      count={drawDeck.length}
-                      topCard={drawDeck[0]}
-                      onDraw={drawOne}
-                      showPositionLabel={draggingInstance !== null}
-                      shuffleCount={shuffleCounts.drawDeck}
-                    />
+                    {/* The turn counter sits above the draw deck (#1079), centred on the pile
+                        alone, the way the score counter sits above the discard pile.
+                        `PileControls` stays outside this column, so it keeps overlapping the
+                        pile's left edge, and the button is not nested in the pile's draggable. */}
+                    <div data-testid="draw-deck-column" className="flex flex-col items-center gap-1">
+                      {/* Turn counter (#718): shows the current turn, and a button that raises it
+                          by one and unstops every stopped personnel card on the table. */}
+                      <div className="flex flex-col items-center gap-1">
+                        <span data-testid="turn-counter" className="text-xs text-text-muted">
+                          Turn {turn}
+                        </span>
+                        <button
+                          className="btn-icon btn-icon-sm"
+                          onClick={nextTurn}
+                          aria-label="Next turn"
+                        >
+                          <FaForward />
+                        </button>
+                      </div>
+
+                      {/* The draw deck (#743): the same top/bottom drop-half split as the dilemma
+                          pile, so a card dragged from any zone can be filed back in at either
+                          end of the deck, not only drawn from the top. */}
+                      <DrawPileButton
+                        count={drawDeck.length}
+                        topCard={drawDeck[0]}
+                        onDraw={drawOne}
+                        showPositionLabel={draggingInstance !== null}
+                        shuffleCount={shuffleCounts.drawDeck}
+                      />
+                    </div>
                   </div>
 
-                  {/* The hand, with the turn counter above it (#927), the way the draw deck and
-                      the discard pile carry their controls above their card. */}
-                  <div className="flex flex-col items-center gap-1">
-                    {/* Turn counter (#718): shows the current turn, and a button that raises it
-                        by one and unstops every stopped personnel card on the table. */}
-                    <div className="flex flex-col items-center gap-1">
-                      <span data-testid="turn-counter" className="text-xs text-text-muted">
-                        Turn {turn}
-                      </span>
-                      <button
-                        className="btn-icon btn-icon-sm"
-                        onClick={nextTurn}
-                        aria-label="Next turn"
-                      >
-                        <FaForward />
-                      </button>
-                    </div>
-
+                  <div data-testid="hand-column" className="flex flex-col items-center gap-1">
                     {/* Hand. `selectedIds`/`onToggleSelect` let the player select more than one
                         card here and drag them together (#691), the same as a card list panel (#677);
                         closing the hand clears the selection. */}
@@ -2506,9 +2524,9 @@ function PracticeDrawContent() {
                 />
               )}
 
-              {/* The reveal panel of the draw deck's or the dilemma pile's top cards (#1070), opened
-                  by the eye beside the pile. It starts empty, and "Reveal next" adds the next card
-                  from the top. Closing it forgets what was revealed. No Shuffle, no Discard, no
+              {/* The reveal panel of the draw deck's or the dilemma pile's top or bottom cards (#1070,
+                  #1078), opened by the eye beside the pile. It starts empty, and "Reveal top" or
+                  "Reveal bottom" adds the next card from that end. Closing it forgets what was revealed. No Shuffle, no Discard, no
                   Download: only Top and Bottom act on the selection. */}
               {openReveal && (
                 <CardListPanel
@@ -2521,8 +2539,20 @@ function PracticeDrawContent() {
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onSelectIds={setSelectedCardIds}
-                  onRevealNext={revealNext}
-                  canRevealNext={table[openReveal.pile].some((c) => !openReveal.ids.includes(c.id))}
+                  revealEnd={openReveal.end}
+                  onReveal={revealFrom}
+                  // The button for the end shown is enabled while a card is left unrevealed; the
+                  // other end's button, while the pile has a card, since its tap starts over.
+                  canRevealTop={
+                    openReveal.end === 'top'
+                      ? table[openReveal.pile].some((c) => !openReveal.ids.includes(c.id))
+                      : table[openReveal.pile].length > 0
+                  }
+                  canRevealBottom={
+                    openReveal.end === 'bottom'
+                      ? table[openReveal.pile].some((c) => !openReveal.ids.includes(c.id))
+                      : table[openReveal.pile].length > 0
+                  }
                   onSendToDeck={sendRevealSelectionToDeck}
                   hidden={draggingInstance !== null && !dragFromOrderedPanel}
                   cardWidth={viewerCardWidth}
