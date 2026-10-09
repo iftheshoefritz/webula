@@ -112,7 +112,7 @@ export function toSavedGame(
 }
 
 // The deck's cards as sorted `key:count` pairs. A key with no copies left is not part of it.
-const fingerprint = (deck: DeckList): string =>
+export const fingerprint = (deck: DeckList): string =>
   Object.entries(deck)
     .filter(([, entry]) => (entry?.count ?? 0) > 0)
     .map(([key, entry]) => `${key}:${entry.count}`)
