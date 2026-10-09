@@ -4,7 +4,8 @@
 // the core's and the brig's own panel too: a tap on a pile's badge (or,
 // for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
 // already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
-// cards face up regardless of their stored face. Each card shows as the whole card image (#806),
+// cards face up regardless of their stored face. Each card shows as the whole card image (#806)
+// (except, on a phone or a tablet, in the crew panel and the away team panel, #1071: see `artCrop`),
 // frame and text included, not as the cropped art of the table card (`TableCard.tsx`): the panel
 // is where the player reads a card, so the text on it must be there (the same true-face-to-owner convention
 // `CardPreview` uses for the enlarged preview). A panel that has a Flip button (#762, below) draws
@@ -82,10 +83,10 @@ import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
 import { dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
-import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderStyle, TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH } from './TableCard';
+import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderStyle } from './TableCard';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
 import OverlapRow from './OverlapRow';
-import { CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, PANEL_TOP_INSET, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
+import { artCropHeight, CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, PANEL_TOP_INSET, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
@@ -273,6 +274,7 @@ function CardListPanelCard({
   reorderable = false,
   markFaceDown = false,
   gridScrolls = false,
+  artCrop = false,
 }: {
   instance: CardInstance;
   selected: boolean;
@@ -289,6 +291,8 @@ function CardListPanelCard({
   markFaceDown?: boolean;
   // The panel's card grid overflows (#788): let the browser pan it vertically under a touch.
   gridScrolls?: boolean;
+  // #1071: draw the art crop at `cardHeight`, as the table card does, not the whole card.
+  artCrop?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: panelDraggableId(instance.id) });
   const { setNodeRef: setDropRef } = useDroppable({ id: instance.id, disabled: !reorderable });
@@ -322,17 +326,37 @@ function CardListPanelCard({
         }}
         aria-label={cardDisplayName(card)}
       >
-        {/* The whole card image, frame and text included (#806), not the cropped art the table
-            card shows: the panel is where the player reads the card. The height comes from the
-            image's own ratio (`fullCardHeight`), so the image is never squashed. */}
-        <img
-          src={`/cardimages/${card.imagefile}.jpg`}
-          width={CARD_IMAGE_WIDTH}
-          height={CARD_IMAGE_HEIGHT}
-          alt={cardDisplayName(card)}
-          className={`rounded-md shadow-md h-auto ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
-          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
-        />
+        {artCrop ? (
+          // #1071: on a phone or a tablet the crew and away team panels show the art crop the
+          // table card shows (`TableCard`): the top of the image in a box `cardHeight` tall,
+          // cropped by `object-cover object-top`, never squashed.
+          <div
+            data-testid="panel-card-art"
+            className="rounded-md shadow-md overflow-hidden"
+            style={{ ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
+          >
+            <img
+              src={`/cardimages/${card.imagefile}.jpg`}
+              width={CARD_IMAGE_WIDTH}
+              height={CARD_IMAGE_HEIGHT}
+              alt={cardDisplayName(card)}
+              className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+              style={NO_CALLOUT_STYLE}
+            />
+          </div>
+        ) : (
+          // The whole card image, frame and text included (#806), not the cropped art the table
+          // card shows: the panel is where the player reads the card. The height comes from the
+          // image's own ratio (`fullCardHeight`), so the image is never squashed.
+          <img
+            src={`/cardimages/${card.imagefile}.jpg`}
+            width={CARD_IMAGE_WIDTH}
+            height={CARD_IMAGE_HEIGHT}
+            alt={cardDisplayName(card)}
+            className={`rounded-md shadow-md h-auto ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+            style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
+          />
+        )}
         {/* Bottom left, clear of the select checkbox; it takes no tap, so the card still selects
             and drags. */}
         {showFaceDownMark && (
@@ -381,8 +405,7 @@ export const PANEL_SURFACE_CLASSNAME = 'bg-black/70 border border-bg-raised';
 // above the bottom row, and the ship section scrolls.
 const PLACED_ON_GAP = 4; // px, between the tiny cards
 export const placedOnCardWidth = (cardWidth: number): number => Math.floor((cardWidth - 2 * PLACED_ON_GAP) / 3);
-const placedOnArtHeight = (cardWidth: number): number =>
-  Math.round((placedOnCardWidth(cardWidth) * TABLE_CARD_ART_HEIGHT) / TABLE_CARD_WIDTH);
+const placedOnArtHeight = (cardWidth: number): number => artCropHeight(placedOnCardWidth(cardWidth));
 
 // #1014: the framed box of the crew panel's ship section is at least as tall as the ship and one
 // row of the tiny cards placed on it, also with no card placed on the ship, so the box always has
@@ -489,6 +512,7 @@ export default function CardListPanel({
   hidden = false,
   cardWidth = viewerCardSize(1).width,
   cardHeight = viewerCardSize(1).height,
+  artCrop = false,
   bottomInset = VIEWER_TOP_INSET,
 }: {
   location: PanelLocation;
@@ -523,10 +547,15 @@ export default function CardListPanel({
   // the same way the table's mission cards do — `page.tsx` computes both from the same `scale`
   // (`tableScale.ts`) and passes the result down here, at the viewer's 1.5x (`viewerCardSize`,
   // #802). `cardHeight` is the height of the whole card image at that width (#806), not the
-  // height of the cropped art the table card shows. Defaults to that size at scale 1 for
-  // callers, including this component's own tests, that don't care about the grown state.
+  // height of the cropped art the table card shows; the ship of a crew panel always draws at it.
+  // Defaults to that size at scale 1 for callers, including this component's own tests, that
+  // don't care about the grown state.
   cardWidth?: number;
   cardHeight?: number;
+  // #1071: a phone or a tablet (no fine pointer, `useFinePointer`). The grid cards of a crew panel
+  // or an away team panel then show the art crop (`artCropHeight`) instead of the whole card, so
+  // the panel shows more rows in the same height. Every other location keeps the whole card.
+  artCrop?: boolean;
   // Issue #828: how far the panel's area stops above the bottom of the game layer. `page.tsx`
   // measures the bottom row and passes its height plus a small gap, so the panel's bottom sits
   // just above the bottom row. Defaults to `VIEWER_TOP_INSET`, the old symmetric inset, for
@@ -558,7 +587,9 @@ export default function CardListPanel({
   // grid keeps its capped height while its content grows). jsdom reports 0 for both heights, so
   // the Jest tests see a grid that fits, and today's `touch-none`.
   const gridRef = useRef<HTMLDivElement | null>(null);
-  const gridScrolls = useScrollsVertically(gridRef, !isDilemmaStack, [cards.length, cardWidth, cardHeight]);
+  const cropGridCards = artCrop && (location === 'crew' || location === 'awayTeam');
+  const gridCardHeight = cropGridCards ? artCropHeight(cardWidth) : cardHeight;
+  const gridScrolls = useScrollsVertically(gridRef, !isDilemmaStack, [cards.length, cardWidth, gridCardHeight]);
   // #993: a mouse drag from the empty space of the grid, or from the backdrop, draws a box that
   // selects the cards of the grid it touches (`useBoxSelect.tsx`).
   const boxSelect = useBoxSelect(gridRef, selectedIds, onSelectIds);
@@ -657,7 +688,8 @@ export default function CardListPanel({
             selected={selectedIds.includes(instance.id)}
             onToggleSelect={() => onToggleSelect(instance.id)}
             cardWidth={cardWidth}
-            cardHeight={cardHeight}
+            cardHeight={gridCardHeight}
+            artCrop={cropGridCards}
             markFaceDown={markFaceDown}
             gridScrolls={gridScrolls}
           />
