@@ -55,7 +55,7 @@ export function OfflineMenuItems({
 }) {
   const [listOpen, setListOpen] = useState(false);
   const [storage, setStorage] = useState<StorageUse | null>(null);
-  const { decks, progress, failed, makeOffline, remove, isOffline } = offline;
+  const { decks, progress, refreshing, failed, makeOffline, remove, isOffline } = offline;
   const deckIsOffline = !isDeckEmpty(deck) && isOffline(deck);
   const downloading = progress !== null;
 
@@ -87,6 +87,7 @@ export function OfflineMenuItems({
       </button>
       {progress && (
         <p role="status" data-testid="offline-progress" className="text-center text-sm text-text-muted">
+          {refreshing && 'Refreshing offline decks: '}
           {progress.done} / {progress.total} cards · {formatBytes(progress.bytes)}
         </p>
       )}
