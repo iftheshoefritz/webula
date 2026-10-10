@@ -80,15 +80,17 @@ jobs:
                This hides the consent banner and the Next.js dev tools button, which cover elements that the check clicks and drags.
                The dependencies are installed already, and `agent-browser` is one of them, so `npx agent-browser` runs the local copy and downloads nothing. Do not run `yarn install`.
 
-            3. Open the page the pull request affects. For the practice table, use `/decks/practice?fixture=1`. For the deck builder, use `/decks?fixture=1`. The fixture gives you a deck with cards, so the empty state does not hide what you check.
+            3. Open the page the pull request affects. For the practice table, use `/decks/practice?fixture=1&reset=1&menu=0`. The `reset=1` deals a fresh game instead of the saved one, so every check starts from the same table. The `menu=0` skips the game menu splash; a check of the splash itself leaves it off. For the deck builder, use `/decks?fixture=1`. The fixture gives you a deck with cards, so the empty state does not hide what you check.
                Use the viewport the issue names. If the issue names none, use the default viewport.
 
             4. Run every acceptance check of the issue, one at a time. Record the result of each one.
                For a drag on the practice table, use the script. Do not build the drag by hand, and do not
-               debug a drag that does not land — the script already handles the two reasons it fails:
-               `bash scripts/practice_drag.sh <card-id> <data-zone>`
-               It prints the zone the card ended in, or `pile` for a mission pile, whose cards are not in
-               the DOM. Read "Browser checks" in AGENTS.md before you use it.
+               debug a drag that does not land — the script already handles the reasons a drag fails, opens a
+               closed hand that holds the card, and says why and what to do when it cannot drag the card:
+               `bash scripts/practice_drag.sh <card-id> <data-zone or data-testid>`
+               It prints the zone the card ended in. For a card that left the DOM, such as a card in a
+               mission pile, it prints the `data-zone` or `data-testid` of the badge that gained a card,
+               for example `mission-pile-awayTeam-0`. Read "Browser checks" in AGENTS.md before you use it.
                If your commands do not build the state a check needs, say so in the report. Do not report a check as passed when you did not run it.
 
                You have a turn limit, and one Bash call is one turn. To stay inside it, put the whole
@@ -113,7 +115,7 @@ jobs:
             5. Read the browser console and the dev server log for errors before you stop the server.
 
             6. If a check fails because of a bug in the code, fix the bug.
-               a. Run `yarn test` and `yarn build`. Both must pass.
+               a. Run `yarn test`, `yarn typecheck` and `yarn build`. All three must pass.
                b. Commit with a message like `fix: <short description> (follow-up for #${{ github.event.pull_request.number }})`.
                c. Run `git pull --rebase`, then `git push origin HEAD`. Never force-push. Other workflows push to this branch too.
                d. Run the failed check again.

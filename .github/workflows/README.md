@@ -2,13 +2,11 @@
 
 ## CI (`ci.yml`)
 **Event:** `push` or `pull_request` on any branch
-**Action:** Two parallel jobs, no Claude. The `test` job runs `yarn test --ci`. The `build` job runs `yarn build`, which checks types, runs ESLint, and pre-renders the static pages — the same checks as the Vercel deployment.
+**Action:** Three parallel jobs, no Claude. The `test` job runs `yarn test --ci`. The `typecheck` job runs `yarn typecheck` (`tsc --noEmit -p .`), which checks the types of every file, the tests too. The `build` job runs `yarn build`, which checks the types of the app code but not of the tests, runs ESLint, and pre-renders the static pages. The Vercel deployment runs all three (#1062).
 
-Vercel chains the two through the `buildCommand` in `vercel.json`, so a test failure stops the deployment.
+Vercel chains the three through the `buildCommand` in `vercel.json`, so a test failure or a type error stops the deployment.
 
-The implementation workflow pushes every few edits, before the tests pass, so the work survives a run that hits the turn limit. Such a push would report a failed deployment, so the `ignoreCommand` in `vercel.json` skips the Vercel build for a commit whose message starts with `wip:`. Step 3 of `claude-implement.yml` uses that prefix; steps 4 and 6, which push a finished change, do not.
-
-A pull request merges into `main` with a squash merge. The repository setting `squash_merge_commit_title` is `PR_TITLE`, so the squash commit takes the title of the pull request and never a `wip:` commit headline from the branch. Before this setting the value was `COMMIT_OR_PR_TITLE`, which gives a pull request of one commit the message of that commit, and a `wip:` commit then stopped the deployment of `main` (#758). Do not start the title of a pull request with `wip:`, and do not merge with a rebase, which puts every `wip:` commit on `main`.
+The `ignoreCommand` in `vercel.json` skips the Vercel build for a commit whose message starts with `wip:`. A person can use that prefix to push unfinished work. The implementation workflow does not use it: it runs the tests and the build before its first push (#951).
 
 ---
 
@@ -53,7 +51,7 @@ workflow that can create or label an issue.
 
 ## Claude Issue Implementation (`claude-implement.yml`)
 **Event:** Issue labeled `ready-for-dev`
-**Action:** Claude implements the feature/fix and runs `yarn test` and `yarn build`. Then it creates a branch, commits, pushes, and opens a draft PR targeting `main` with `Closes #<issue>`. Then it does a short smoke check in the browser, and hands the PR to `claude-visual-check.yml` with the `visual-check` label.
+**Action:** Claude implements the feature/fix and runs `yarn test`, `yarn typecheck` and `yarn build`. Then it creates a branch, commits, pushes, and opens a draft PR targeting `main` with `Closes #<issue>`. Then it does a short smoke check in the browser, and hands the PR to `claude-visual-check.yml` with the `visual-check` label.
 
 The PR opens before the browser check for three reasons:
 
@@ -98,7 +96,7 @@ An agent that installs the dependencies itself spends turns on it, and its first
 
 The check is a separate workflow because it used most of the turns of `claude-implement.yml` and ran last. Run 35314198627 on issue #605 stopped at the turn limit with the code complete, both checks green, and the `## Visual Verification` section still on "Pending.". A separate run gets its own turn limit, and the branch is already pushed, so it risks nothing.
 
-If an acceptance check fails on a bug, Claude fixes the bug, runs `yarn test` and `yarn build`, pushes to the same branch, and runs the check again. If it cannot fix it, the PR stays a draft and gets the `needs-human-input` label.
+If an acceptance check fails on a bug, Claude fixes the bug, runs `yarn test`, `yarn typecheck` and `yarn build`, pushes to the same branch, and runs the check again. If it cannot fix it, the PR stays a draft and gets the `needs-human-input` label.
 
 `claude-implement.yml` adds the `visual-check` label as `claude[bot]`, so this workflow sets `allowed_bots: "claude[bot]"`. Without it the action refuses the run with "Workflow initiated by non-human actor". The list names one bot, so no other App can start the run.
 
@@ -119,7 +117,7 @@ The attribution footer that starts with 🤖 `Generated with` is not part of any
 
 ## Agent Review (`agent-review.yml`)
 **Event:** PR labeled `agent-review`
-**Action:** Claude fetches all unresolved review comments, and either makes code changes or replies to the thread. For a code change, it runs `yarn test` and `yarn build`, commits, and pushes. Then, if the change affects a page, it checks only the review items in the browser. It posts a summary comment and removes the `agent-review` label.
+**Action:** Claude fetches all unresolved review comments, and either makes code changes or replies to the thread. For a code change, it runs `yarn test`, `yarn typecheck` and `yarn build`, commits, and pushes. Then, if the change affects a page, it checks only the review items in the browser. It posts a summary comment and removes the `agent-review` label.
 
 The push comes before the browser check for the same reason as in the implementation workflow. A run on PR #611 made a correct fix and stopped at the turn limit before it committed, so the fix was lost.
 

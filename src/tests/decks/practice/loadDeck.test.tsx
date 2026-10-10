@@ -156,9 +156,27 @@ describe('Load deck in the practice game menu (#780)', () => {
     fireEvent.click(signInButton);
     expect(signIn).toHaveBeenCalledWith(
       'google',
-      { callbackUrl: '/decks/practice' },
+      { callbackUrl: '/decks/practice?openPicker=true' },
       expect.objectContaining({ scope: expect.stringContaining('drive.appdata') }),
     );
+  });
+
+  it('opens the picker after a sign-in that started from Load deck (#980)', async () => {
+    (getSession as jest.Mock).mockResolvedValue(session);
+    mockSearchParamsValue = new URLSearchParams('openPicker=true');
+    window.history.replaceState({}, '', '/decks/practice?openPicker=true');
+    await renderPage();
+
+    expect(screen.getByText('Your decks')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load My Drive deck' })).toBeInTheDocument();
+    expect(window.location.search).toBe('');
+  });
+
+  it('does not open the picker on a normal load (#980)', async () => {
+    await renderPage();
+
+    expect(screen.queryByText('Your decks')).not.toBeInTheDocument();
+    expect(getSession).not.toHaveBeenCalled();
   });
 
   it('deals the chosen deck after a confirm, closes the picker, and Reset deals it again', async () => {

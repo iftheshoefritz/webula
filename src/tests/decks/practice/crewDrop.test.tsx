@@ -65,6 +65,7 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
+import { panelDraggableId } from '../../../app/decks/practice/panelDragId';
 
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
@@ -215,13 +216,13 @@ describe('Practice draw: dropping a card on a ship', () => {
 
     // ...and now shown as crew: the ship's own personnel badge shows 1. A tap on the ship itself
     // (not the badge, which is not interactive) opens a panel listing its crew, and no preview.
-    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 1 card"]')).not.toBeNull();
+    expect(document.body.querySelector('[aria-label="U.S.S. Relativity crew, 1 card"]')).not.toBeNull();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
     });
     const panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
     expect(panel).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Data' })).toBeInTheDocument();
     expect(screen.queryByTestId('card-preview')).toBeNull();
   });
 
@@ -238,7 +239,7 @@ describe('Practice draw: dropping a card on a ship', () => {
     });
 
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
-    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 1 card"]')).not.toBeNull();
+    expect(document.body.querySelector('[aria-label="U.S.S. Relativity crew, 1 card"]')).not.toBeNull();
   });
 
   it("routes a ship dropped on another ship's crew slot onto that ship's own row instead of aboard it (#668)", async () => {
@@ -259,9 +260,9 @@ describe('Practice draw: dropping a card on a ship', () => {
     // it as crew.
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
     const shipRow = document.body.querySelector('[data-zone="ship-row-0"]') as HTMLElement;
-    expect(shipRow.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
-    expect(shipRow.contains(screen.getByRole('button', { name: 'i.k.s. somraw' }))).toBe(true);
-    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
+    expect(shipRow.contains(screen.getByRole('button', { name: 'U.S.S. Relativity' }))).toBe(true);
+    expect(shipRow.contains(screen.getByRole('button', { name: 'I.K.S. Somraw' }))).toBe(true);
+    expect(document.body.querySelector('[aria-label="U.S.S. Relativity crew, 0 cards"]')).not.toBeNull();
   });
 
   it("drags a crew card from the ship's crew panel to the discard pile, removing it from the crew and keeping the panel on the ship (#832)", async () => {
@@ -278,9 +279,9 @@ describe('Practice draw: dropping a card on a ship', () => {
 
     // Tap the ship: it opens the crew panel, listing the crew member.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
     });
-    expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Data' })).toBeInTheDocument();
 
     // Drag the crew card to the discard pile.
     await act(async () => {
@@ -296,9 +297,9 @@ describe('Practice draw: dropping a card on a ship', () => {
     expect(panel).not.toBeNull();
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(0);
     expect(screen.getByTestId('card-list-panel-crew-ship')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'data' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Data' })).not.toBeInTheDocument();
     expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
-    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
+    expect(document.body.querySelector('[aria-label="U.S.S. Relativity crew, 0 cards"]')).not.toBeNull();
   });
 
   it("tapping a crew card in the ship's crew panel selects it, keeping the panel open (#764)", async () => {
@@ -314,22 +315,22 @@ describe('Practice draw: dropping a card on a ship', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'data' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Data' }));
     });
 
-    expect(screen.getByRole('button', { name: 'Deselect data' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'data' })).toHaveClass('ring-2');
+    expect(screen.getByRole('button', { name: 'Deselect Data' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Data' })).toHaveClass('ring-2');
     expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
     expect(screen.queryByTestId('card-preview')).toBeNull();
     expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'data' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Data' }));
     });
-    expect(screen.getByRole('button', { name: 'Select data' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Deselect Data' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
   });
 
@@ -361,7 +362,7 @@ describe('Practice draw: dropping a card on a ship', () => {
 
     // Tap the ship: it opens the crew panel, listing both crew members.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
     });
     let panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(2);
@@ -407,7 +408,7 @@ describe('Practice draw: dropping a card on a ship', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
     });
 
     await act(async () => {
@@ -435,13 +436,13 @@ describe('Practice draw: dropping a card on a ship', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
     });
 
     expect(screen.queryByTestId('card-preview')).toBeNull();
     const panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
     expect(panel).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Data' })).toBeInTheDocument();
   });
 
   it('tapping a ship with no crew opens its panel with the ship and an empty crew, and no preview (#764, #832)', async () => {
@@ -450,7 +451,7 @@ describe('Practice draw: dropping a card on a ship', () => {
     await placeShipOnMission(shipId, 2, 0);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
     });
 
     expect(screen.queryByTestId('card-preview')).toBeNull();
@@ -458,7 +459,7 @@ describe('Practice draw: dropping a card on a ship', () => {
     expect(panel).not.toBeNull();
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(0);
     const shipSection = screen.getByTestId('card-list-panel-crew-ship');
-    expect(shipSection.querySelector('img[alt="u.s.s. relativity"]')).not.toBeNull();
+    expect(shipSection.querySelector('img[alt="U.S.S. Relativity"]')).not.toBeNull();
   });
 
   it('shows the ship in its own section of the crew panel, outside the crew grid (#832)', async () => {
@@ -473,13 +474,13 @@ describe('Practice draw: dropping a card on a ship', () => {
       mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
     });
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
     const shipSection = screen.getByTestId('card-list-panel-crew-ship');
     // The ship's section shows the ship's whole card image, and sits outside the crew grid.
-    expect(shipSection.querySelector('img[alt="u.s.s. relativity"]')).not.toBeNull();
+    expect(shipSection.querySelector('img[alt="U.S.S. Relativity"]')).not.toBeNull();
     expect(panel.contains(shipSection)).toBe(false);
     // The crew grid still holds exactly the crew.
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(1);
@@ -491,7 +492,7 @@ describe('Practice draw: dropping a card on a ship', () => {
 
     // A tap on the ship in the panel selects nothing, and the panel stays open.
     await act(async () => {
-      fireEvent.click(shipSection.querySelector('img[alt="u.s.s. relativity"]')!);
+      fireEvent.click(shipSection.querySelector('img[alt="U.S.S. Relativity"]')!);
     });
     expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Discard' })).toBeDisabled();
@@ -511,7 +512,7 @@ describe('Practice draw: dropping a card on a ship', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
     });
 
     const closeButton = document.body.querySelector('button[aria-label="Close crew"]') as HTMLElement;
@@ -529,7 +530,7 @@ describe('Practice draw: dropping a card on a ship', () => {
     await placeShipOnMission(shipId, 2, 2);
 
     // The badge shows with an empty crew too (#812), but has no drop target of its own (#923).
-    const badge = document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]') as HTMLElement;
+    const badge = document.body.querySelector('[aria-label="U.S.S. Relativity crew, 0 cards"]') as HTMLElement;
     expect(badge).not.toBeNull();
     expect(badge.hasAttribute('data-zone')).toBe(false);
     expect(document.body.querySelector(`[data-zone="crew-badge-${shipId}"]`)).toBeNull();
@@ -539,7 +540,7 @@ describe('Practice draw: dropping a card on a ship', () => {
     await act(async () => {
       mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
     });
-    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 1 card"]')).not.toBeNull();
+    expect(document.body.querySelector('[aria-label="U.S.S. Relativity crew, 1 card"]')).not.toBeNull();
 
     await act(async () => {
       mockOnDragStart!({ active: { id: secondId } });
@@ -548,12 +549,12 @@ describe('Practice draw: dropping a card on a ship', () => {
       mockOnDragEnd!({ active: { id: secondId }, over: { id: `crew-${shipId}` } });
     });
 
-    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 2 cards"]')).not.toBeNull();
+    expect(document.body.querySelector('[aria-label="U.S.S. Relativity crew, 2 cards"]')).not.toBeNull();
     expect(screen.queryByRole('button', { name: /Away team, [1-9]/i })).toBeNull();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
     });
-    expect(screen.getByRole('button', { name: 'worf' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Worf' })).toBeInTheDocument();
   });
 
   // #645 filed this card into the away team; #886 removed that route, and the ship row holds ships.
@@ -570,7 +571,7 @@ describe('Practice draw: dropping a card on a ship', () => {
     });
 
     expect(screen.queryByRole('button', { name: /Away team, 1 card/i })).toBeNull();
-    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
+    expect(document.body.querySelector('[aria-label="U.S.S. Relativity crew, 0 cards"]')).not.toBeNull();
   });
   it("places an event dropped on a ship's art on the ship, and leaves its crew alone (#812, #893)", async () => {
     await setupOpenHand([mockShipCard, mockEventCard]);
@@ -585,8 +586,8 @@ describe('Practice draw: dropping a card on a ship', () => {
     });
 
     expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
-    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 0 cards"]')).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'u.s.s. relativity, 1 card on it' })).toBeInTheDocument();
+    expect(document.body.querySelector('[aria-label="U.S.S. Relativity crew, 0 cards"]')).not.toBeNull();
+    expect(screen.getByLabelText('U.S.S. Relativity, 1 card on it')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Away team, [1-9]/i })).toBeNull();
   });
 
@@ -605,12 +606,13 @@ describe('Practice draw: dropping a card on a ship', () => {
       mockOnDragEnd!({ active: { id: cardId }, over: { id: `crew-${shipId}` } });
     });
 
-    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 1 card"]')).not.toBeNull();
-    expect(screen.queryByRole('button', { name: /u\.s\.s\. relativity, \d+ cards? on it/ })).toBeNull();
+    expect(document.body.querySelector('[aria-label="U.S.S. Relativity crew, 1 card"]')).not.toBeNull();
+    expect(screen.queryByLabelText(/u\.s\.s\. relativity, \d+ cards? on it/)).toBeNull();
     expect(screen.queryByRole('button', { name: /Away team, [1-9]/i })).toBeNull();
   });
 
-  it('opens the cards on a ship from its counter, and its crew from the ship (#812)', async () => {
+  // Places an event on the ship and boards a personnel, and returns their ids.
+  const shipWithCardOnAndCrew = async () => {
     const secondPersonnel = { ...mockPersonnelCard, collectorsinfo: '2C003', originalName: 'Worf', name: 'worf', imagefile: 'worf' };
     await setupOpenHand([mockShipCard, mockEventCard, secondPersonnel]);
     const [shipId, onId, crewId] = mockDraggableIds;
@@ -628,24 +630,62 @@ describe('Practice draw: dropping a card on a ship', () => {
     await act(async () => {
       mockOnDragEnd!({ active: { id: crewId }, over: { id: `crew-${shipId}` } });
     });
+    return { shipId, onId, crewId };
+  };
 
+  it('shows the count of the cards on a ship as a pill that takes no tap (#963)', async () => {
+    await shipWithCardOnAndCrew();
+
+    const pill = screen.getByLabelText('U.S.S. Relativity, 1 card on it');
+    expect(pill.tagName).toBe('SPAN');
+    expect(pill).toHaveClass('pointer-events-none');
+    expect(screen.queryByRole('button', { name: 'U.S.S. Relativity, 1 card on it' })).toBeNull();
+
+    // A tap on the pill falls through to the ship in a browser; here it opens no panel of its own.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity, 1 card on it' }));
+      fireEvent.click(pill);
     });
-    const onPanel = document.body.querySelector('[data-testid="card-list-panel-on"]') as HTMLElement;
-    expect(onPanel).not.toBeNull();
-    expect(onPanel.querySelector(`[data-card-id="${onId}"]`)).not.toBeNull();
-    expect(onPanel.querySelector(`[data-card-id="${crewId}"]`)).toBeNull();
-    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-on"]')).toBeNull();
+  });
+
+  it('opens the crew panel from the ship, with the cards on the ship below the ship (#812, #957, #963)', async () => {
+    const { onId, crewId } = await shipWithCardOnAndCrew();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'u.s.s. relativity' }));
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
     });
     const crewPanel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
     expect(crewPanel).not.toBeNull();
     expect(crewPanel.querySelector(`[data-card-id="${crewId}"]`)).not.toBeNull();
     expect(crewPanel.querySelector(`[data-card-id="${onId}"]`)).toBeNull();
+    const placedOn = screen.getByTestId('card-list-panel-crew-ship-placed-on');
+    expect(placedOn.querySelector(`[data-card-id="${onId}"]`)).not.toBeNull();
     expect(document.body.querySelector('[data-testid="card-list-panel-on"]')).toBeNull();
+  });
+
+  it('takes a card off the ship by a drag of its tiny card out of the crew panel, and keeps the panel open (#963)', async () => {
+    const { onId, crewId } = await shipWithCardOnAndCrew();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'U.S.S. Relativity' }));
+    });
+    // The tiny card drags under its panel id (#913).
+    expect(mockDraggableIds).toContain(panelDraggableId(onId));
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: panelDraggableId(onId) } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: panelDraggableId(onId) }, over: { id: 'core' } });
+    });
+
+    expect(screen.queryByLabelText(/u\.s\.s\. relativity, \d+ cards? on it/)).toBeNull();
+    const coreZone = document.body.querySelector('[data-zone="core"]') as HTMLElement;
+    expect(coreZone.querySelector(`[data-card-id="${onId}"]`)).not.toBeNull();
+    const crewPanel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
+    expect(crewPanel).not.toBeNull();
+    expect(crewPanel.querySelector(`[data-card-id="${crewId}"]`)).not.toBeNull();
+    expect(screen.queryByTestId('card-list-panel-crew-ship-placed-on')).toBeNull();
   });
 
   it('carries the crew and the cards on it of a ship moved to another mission (#812, #872)', async () => {
@@ -675,10 +715,10 @@ describe('Practice draw: dropping a card on a ship', () => {
     });
 
     const shipRow = document.body.querySelector('[data-zone="ship-row-3"]') as HTMLElement;
-    expect(shipRow.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
-    expect(document.body.querySelector('[aria-label="u.s.s. relativity crew, 1 card"]')).not.toBeNull();
+    expect(shipRow.contains(screen.getByRole('button', { name: 'U.S.S. Relativity' }))).toBe(true);
+    expect(document.body.querySelector('[aria-label="U.S.S. Relativity crew, 1 card"]')).not.toBeNull();
     // The card placed on the ship travels with it (#872); before, it went to the discard pile.
-    expect(screen.getByRole('button', { name: 'u.s.s. relativity, 1 card on it' })).not.toBeNull();
+    expect(screen.getByLabelText('U.S.S. Relativity, 1 card on it')).not.toBeNull();
     expect(screen.queryByAltText('Discard pile')).toBeNull();
   });
 });

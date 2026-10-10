@@ -4,13 +4,14 @@
 // the core's and the brig's own panel too: a tap on a pile's badge (or,
 // for the under-the-mission pile, the card-edge strip) (`MissionRow`), or a tap on any card
 // already sitting in the core or the brig (`FlatCardRow`), opens this panel, listing that zone's
-// cards face up regardless of their stored face. Each card shows as the whole card image (#806),
+// cards face up regardless of their stored face. Each card shows as the whole card image (#806)
+// (except, on a phone or a tablet, in the crew panel and the away team panel, #1071: see `artCrop`),
 // frame and text included, not as the cropped art of the table card (`TableCard.tsx`): the panel
 // is where the player reads a card, so the text on it must be there (the same true-face-to-owner convention
 // `CardPreview` uses for the enlarged preview). A panel that has a Flip button (#762, below) draws
 // the card face up too, and marks a card whose stored `face` is `down` with the same "Face down"
 // badge the preview shows (#826), so a Flip shows in the panel and the player can still read the
-// card. The mark is not the stopped look (`STOPPED_IMAGE_CLASSNAME`): a card can be both. The
+// card. The away team panel shows no mark (#964): its cards are face down by default. The mark is not the stopped look (`STOPPED_IMAGE_CLASSNAME`): a card can be both. The
 // panels with no Flip button (the core, the brig, a crew, a ship row, and the draw and dilemma
 // piles, which the player opens to download, #690) list every card face up with no mark. The tap acts, the hold looks: a tap on a card
 // toggles it in or out of the selection, and a press and hold shows its preview (`useCardHold`).
@@ -40,7 +41,9 @@
 // `<button>` cannot nest inside another `<button>`. A tap on the checkbox toggles that card in
 // or out of `selectedIds`, owned by `page.tsx` (not this component), so a drag started from a
 // selected card can pick up the whole selection in `handleDragStart`. A tap on the card itself
-// toggles it the same way; the checkbox stays as a second, smaller way to do it.
+// toggles it the same way; the checkbox stays as a second, smaller way to do it. The checkbox
+// shows only while the card is selected (#1015): an empty box on every unselected card was
+// clutter, since a tap on the card already selects it. A tap on the shown checkbox deselects.
 //
 // A Shuffle button (#680) sits in every panel but the discard pile's, last in the row of
 // controls above the cards (#880), rather than on the backdrop — a tap on the backdrop still just closes the panel. `onShuffle`
@@ -73,17 +76,20 @@
 // scrolls, a first move mostly sideways drags. A grid that fits keeps `touch-none` and a drag in
 // any direction.
 
-import { RefObject, useEffect, useRef, useState } from 'react';
+import React, { RefObject, useEffect, useRef, useState } from 'react';
 import { LAYER_CARD_LIST_PANEL } from '../../../lib/layers';
-import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { panelDraggableId } from './panelDragId';
+import { cardDisplayName } from '../../../lib/cardCount';
+import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
+import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
+import { dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
-import { STOPPED_IMAGE_CLASSNAME } from './TableCard';
+import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderStyle } from './TableCard';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
 import OverlapRow from './OverlapRow';
-import { CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
+import { artCropHeight, CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, PANEL_TOP_INSET, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
+import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -106,6 +112,27 @@ export function ShuffleIcon() {
       <polyline points="21 16 21 21 16 21" />
       <line x1="15" y1="15" x2="21" y2="21" />
       <line x1="4" y1="4" x2="9" y2="9" />
+    </svg>
+  );
+}
+
+// A plain inline eye icon (#751), for the same reason as `ShuffleIcon`. The dilemma stack's
+// "Reveal top dilemma" control, each pile's reveal button and the reveal panel's "Reveal top" and
+// "Reveal bottom" buttons (#1070, #1078) share it.
+export function RevealIcon({ className = 'w-2.5 h-2.5' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
@@ -163,9 +190,16 @@ export type PanelLocation =
   | 'drawDeck'
   | 'dilemmaPile'
   | 'dilemmaStack'
+  // The reveal panel of the top cards of the draw deck or the dilemma pile (#1070), apart from
+  // the pile's Download panel, which keeps `drawDeck` / `dilemmaPile`.
+  | 'drawDeckReveal'
+  | 'dilemmaPileReveal'
   | 'shipRow'
   | 'discard'
-  | 'on';
+  | 'on'
+  // The cards placed on a mission card, split by type (#1081): the dilemmas, and every other card.
+  | 'onEvents'
+  | 'onDilemmas';
 
 const PANEL_LABEL: Record<PanelLocation, string> = {
   awayTeam: 'Away team',
@@ -176,9 +210,13 @@ const PANEL_LABEL: Record<PanelLocation, string> = {
   drawDeck: 'Draw deck',
   dilemmaPile: 'Dilemma pile',
   dilemmaStack: 'Dilemma stack',
+  drawDeckReveal: 'Top of the draw deck',
+  dilemmaPileReveal: 'Top of the dilemma pile',
   shipRow: 'Ships',
   discard: 'Discard pile',
   on: 'On the card',
+  onEvents: 'Events on the card',
+  onDilemmas: 'Dilemmas on the card',
 };
 
 // The core, the brig, a ship's crew (#664), the draw deck, the dilemma pile (#690), the dilemma
@@ -186,7 +224,16 @@ const PANEL_LABEL: Record<PanelLocation, string> = {
 // "pile", "team" or "stack" (or need no
 // such word at all) in their own label, so their close button's label does not repeat it; a mission pile's label keeps the
 // trailing "pile", unchanged from before #640.
-const closeLabel = (location: PanelLocation): string =>
+export const isRevealLocation = (location: PanelLocation): location is 'drawDeckReveal' | 'dilemmaPileReveal' =>
+  location === 'drawDeckReveal' || location === 'dilemmaPileReveal';
+
+// The reveal panel's title follows the end of the pile it shows (#1078).
+const panelLabel = (location: PanelLocation, revealEnd: 'top' | 'bottom'): string =>
+  revealEnd === 'bottom' && isRevealLocation(location)
+    ? PANEL_LABEL[location].replace(/^Top of the /, 'Bottom of the ')
+    : PANEL_LABEL[location];
+
+const closeLabel = (location: PanelLocation, revealEnd: 'top' | 'bottom' = 'top'): string =>
   location === 'core' ||
   location === 'brig' ||
   location === 'crew' ||
@@ -194,11 +241,73 @@ const closeLabel = (location: PanelLocation): string =>
   location === 'drawDeck' ||
   location === 'dilemmaPile' ||
   location === 'dilemmaStack' ||
+  isRevealLocation(location) ||
   location === 'shipRow' ||
   location === 'discard' ||
-  location === 'on'
-    ? `Close ${PANEL_LABEL[location].toLowerCase()}`
-    : `Close ${PANEL_LABEL[location].toLowerCase()} pile`;
+  location === 'on' ||
+  location === 'onEvents' ||
+  location === 'onDilemmas'
+    ? `Close ${panelLabel(location, revealEnd).toLowerCase()}`
+    : `Close ${panelLabel(location, revealEnd).toLowerCase()} pile`;
+
+// The dilemma stack's one row (#632), and the reveal panel's (#1070), with the insertion mark of a reorder drag (#956). The mark
+// reads the drag's live `active` and `over` from dnd-kit, the same `over` `handleDragEnd` in
+// `page.tsx` receives, so it shows exactly where the drop puts the card
+// (`dilemmaStackInsertPoint`). It shows nothing over the dragged card's own slot, over the row's
+// empty space, or outside the panel: none of those drops reorders. The mark is a thin accent bar
+// that takes no pointer events and carries no `data-zone`: it is not a drop target.
+function DilemmaStackRow({
+  cards,
+  selectedIds,
+  onToggleSelect,
+  cardWidth,
+  cardHeight,
+  markFaceDown,
+}: {
+  cards: CardInstance[];
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
+  cardWidth: number;
+  cardHeight: number;
+  markFaceDown: boolean;
+}) {
+  const { active, over } = useDndContext();
+  const insert = dilemmaStackInsertPoint(
+    cards.map((instance) => instance.id),
+    active ? cardIdOfDraggable(active.id) : null,
+    over ? String(over.id) : null
+  );
+
+  return (
+    <OverlapRow
+      items={cards}
+      keyFor={(instance) => instance.id}
+      cardWidth={cardWidth}
+      height={cardHeight}
+      markBoundary={insert?.boundary ?? null}
+      renderMark={(left, zIndex) => (
+        <div
+          data-testid="dilemma-stack-insert-indicator"
+          data-slot={insert?.slot}
+          aria-hidden="true"
+          className="absolute top-0 h-full w-1 -translate-x-1/2 rounded-full bg-accent pointer-events-none"
+          style={{ left, zIndex }}
+        />
+      )}
+      renderCard={(instance) => (
+        <CardListPanelCard
+          instance={instance}
+          selected={selectedIds.includes(instance.id)}
+          onToggleSelect={() => onToggleSelect(instance.id)}
+          cardWidth={cardWidth}
+          cardHeight={cardHeight}
+          reorderable
+          markFaceDown={markFaceDown}
+        />
+      )}
+    />
+  );
+}
 
 function CardListPanelCard({
   instance,
@@ -209,6 +318,7 @@ function CardListPanelCard({
   reorderable = false,
   markFaceDown = false,
   gridScrolls = false,
+  artCrop = false,
 }: {
   instance: CardInstance;
   selected: boolean;
@@ -225,6 +335,8 @@ function CardListPanelCard({
   markFaceDown?: boolean;
   // The panel's card grid overflows (#788): let the browser pan it vertically under a touch.
   gridScrolls?: boolean;
+  // #1071: draw the art crop at `cardHeight`, as the table card does, not the whole card.
+  artCrop?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: panelDraggableId(instance.id) });
   const { setNodeRef: setDropRef } = useDroppable({ id: instance.id, disabled: !reorderable });
@@ -256,19 +368,39 @@ function CardListPanelCard({
           transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
           opacity: isDragging ? 0.5 : 1,
         }}
-        aria-label={card.name}
+        aria-label={cardDisplayName(card)}
       >
-        {/* The whole card image, frame and text included (#806), not the cropped art the table
-            card shows: the panel is where the player reads the card. The height comes from the
-            image's own ratio (`fullCardHeight`), so the image is never squashed. */}
-        <img
-          src={`/cardimages/${card.imagefile}.jpg`}
-          width={CARD_IMAGE_WIDTH}
-          height={CARD_IMAGE_HEIGHT}
-          alt={card.name}
-          className={`rounded-md shadow-md h-auto ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
-          style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
-        />
+        {artCrop ? (
+          // #1071: on a phone or a tablet the crew and away team panels show the art crop the
+          // table card shows (`TableCard`): the top of the image in a box `cardHeight` tall,
+          // cropped by `object-cover object-top`, never squashed.
+          <div
+            data-testid="panel-card-art"
+            className="rounded-md shadow-md overflow-hidden"
+            style={{ ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
+          >
+            <img
+              src={`/cardimages/${card.imagefile}.jpg`}
+              width={CARD_IMAGE_WIDTH}
+              height={CARD_IMAGE_HEIGHT}
+              alt={cardDisplayName(card)}
+              className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+              style={NO_CALLOUT_STYLE}
+            />
+          </div>
+        ) : (
+          // The whole card image, frame and text included (#806), not the cropped art the table
+          // card shows: the panel is where the player reads the card. The height comes from the
+          // image's own ratio (`fullCardHeight`), so the image is never squashed.
+          <img
+            src={`/cardimages/${card.imagefile}.jpg`}
+            width={CARD_IMAGE_WIDTH}
+            height={CARD_IMAGE_HEIGHT}
+            alt={cardDisplayName(card)}
+            className={`rounded-md shadow-md h-auto ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+            style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
+          />
+        )}
         {/* Bottom left, clear of the select checkbox; it takes no tap, so the card still selects
             and drags. */}
         {showFaceDownMark && (
@@ -280,20 +412,24 @@ function CardListPanelCard({
           </span>
         )}
       </button>
-      <button
-        type="button"
-        onClick={onToggleSelect}
-        aria-pressed={selected}
-        aria-label={selected ? `Deselect ${card.name}` : `Select ${card.name}`}
-        className={`absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none ${
-          selected ? 'bg-accent border-accent text-white' : 'bg-black/50 border-white/50 text-transparent'
-        }`}
-      >
-        ✓
-      </button>
+      {selected && (
+        <button
+          type="button"
+          onClick={onToggleSelect}
+          aria-pressed
+          aria-label={`Deselect ${cardDisplayName(card)}`}
+          className="absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none bg-accent border-accent text-white"
+        >
+          ✓
+        </button>
+      )}
     </div>
   );
 }
+
+// #986: the surface of the panel grid. #1016: the grid keeps its dark background of before
+// #986, and a border in the raised shade marks its edge against the dimmed table behind it.
+export const PANEL_SURFACE_CLASSNAME = 'bg-black/70 border border-bg-raised';
 
 // The card the panel's cards belong to, in its own section to the right of the grid (#894): the ship whose crew
 // the panel lists (#832), or the card the listed cards are placed on (#881). The whole card image
@@ -301,34 +437,72 @@ function CardListPanelCard({
 // the listed cards. No label above it (#916): the card speaks for itself. A hold shows its preview; a tap does nothing. No `useDraggable` and no
 // `data-zone`: it is neither a drag source nor a drop target (the card's `TableCard` already holds
 // a draggable under the same id).
+//
+// #957: the crew panel's ship section also shows the cards placed on the ship (`placedOn`), below
+// the ship, as tiny table cards about a third of the ship's width. Only the crew panel: the `'on'`
+// panel lists those same cards in its grid. A tiny card shows its preview on a hold or a hover,
+// like every other card; a tap does nothing, and it is not selectable, so Discard and Stop do not
+// act on it. It is a drag source (#963), under `panelDraggableId` like every panel card, so a drag
+// out of here takes the card off the ship; it is not a drop target (no `data-zone`).
+// #965: the row of the grid and the ship grows (`flex-1`) to fill the height of the panel. The
+// panel's `max-h-full` caps it at the height it may use, so on a short screen the panel still ends
+// above the bottom row, and the ship section scrolls.
+const PLACED_ON_GAP = 4; // px, between the tiny cards
+export const placedOnCardWidth = (cardWidth: number): number => Math.floor((cardWidth - 2 * PLACED_ON_GAP) / 3);
+const placedOnArtHeight = (cardWidth: number): number => artCropHeight(placedOnCardWidth(cardWidth));
+
+// #1014: the framed box of the crew panel's ship section is at least as tall as the ship and one
+// row of the tiny cards placed on it, also with no card placed on the ship, so the box always has
+// room for that row. It replaces the 1.5 card heights of #965. The sum is the box's padding
+// (`pt-1 pb-2`), its border (1 px on each side), the gap between the ship and the row (`gap-1`),
+// the ship, and one tiny card. A crew grid or more rows of placed cards that make the panel
+// taller keep it taller.
+const SHIP_SECTION_CHROME = 4 + 8 + 2 + 4; // px
+export const crewShipSectionMinHeight = (cardWidth: number, cardHeight: number): number =>
+  cardHeight + placedOnArtHeight(cardWidth) + SHIP_SECTION_CHROME;
+
 function PanelHost({
   host,
   testId,
   cardWidth,
   cardHeight,
+  showPlacedOn = false,
 }: {
   host: CardInstance;
   testId: string;
   cardWidth: number;
   cardHeight: number;
+  showPlacedOn?: boolean;
 }) {
+  const placedOn = showPlacedOn ? (host.placedOn ?? []) : [];
+  const tinyWidth = placedOnCardWidth(cardWidth);
+  const tinyArtHeight = placedOnArtHeight(cardWidth);
   const holdListeners = useCardHold(host.id);
   const { card } = host;
   const sectionRef = useRef<HTMLDivElement | null>(null);
-  const sectionScrolls = useScrollsVertically(sectionRef, true, [cardWidth, cardHeight]);
+  const sectionScrolls = useScrollsVertically(sectionRef, true, [cardWidth, cardHeight, placedOn.length]);
+  // #965: the section scrolls in an outer box that stretches to the height of the row, and the
+  // framed box inside it hugs the ship and its placed cards. The row takes its height from the
+  // taller of the grid and the framed box, so the section scrolls only when the panel reaches the
+  // height of the screen. A `max-h-full` on the section clamped it to the grid's height in a
+  // browser that resolves the percentage against the row.
   return (
     <div
       ref={sectionRef}
       data-testid={testId}
-      className={`shrink-0 self-start max-h-full ${panelScrollClassName(sectionScrolls)} overscroll-contain flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2`}
+      className={`shrink-0 min-h-0 ${panelScrollClassName(sectionScrolls)} overscroll-contain`}
     >
+      <div
+        className="flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
+        style={showPlacedOn ? { minHeight: crewShipSectionMinHeight(cardWidth, cardHeight) } : undefined}
+      >
       {/* The section sits beside the grid (#894), so it takes no height from it: the image keeps
           the size of a panel card at every viewport. Where the row is shorter than the card (568 x
           320), the section scrolls, the same way the grid beside it does, rather than run over
           the bottom row. */}
       <div
         role="img"
-        aria-label={card.name}
+        aria-label={cardDisplayName(card)}
         {...holdListeners}
         className="touch-pan-y flex justify-center"
         style={NO_CALLOUT_STYLE}
@@ -337,10 +511,30 @@ function PanelHost({
           src={`/cardimages/${card.imagefile}.jpg`}
           width={CARD_IMAGE_WIDTH}
           height={CARD_IMAGE_HEIGHT}
-          alt={card.name}
+          alt={cardDisplayName(card)}
           className={`rounded-md shadow-md ${host.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
-          style={{ ...NO_CALLOUT_STYLE, width: cardWidth, height: cardHeight }}
+          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
         />
+      </div>
+      {placedOn.length > 0 && (
+        <div
+          data-testid={`${testId}-placed-on`}
+          className="flex flex-wrap content-start"
+          style={{ width: cardWidth, gap: PLACED_ON_GAP }}
+        >
+          {placedOn.map((c) => (
+            <div key={c.id} data-testid={`card-list-panel-crew-on-${c.id}`}>
+              <TableCard
+                instance={c}
+                width={tinyWidth}
+                artHeight={tinyArtHeight}
+                draggable
+                draggableId={panelDraggableId(c.id)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
       </div>
     </div>
   );
@@ -353,14 +547,21 @@ export default function CardListPanel({
   onClose,
   selectedIds,
   onToggleSelect,
+  onSelectIds,
   onShuffle,
   onSetStopped,
   onFlip,
   onDiscard,
   onDownload,
+  revealEnd = 'top',
+  onReveal,
+  canRevealTop = false,
+  canRevealBottom = false,
+  onSendToDeck,
   hidden = false,
   cardWidth = viewerCardSize(1).width,
   cardHeight = viewerCardSize(1).height,
+  artCrop = false,
   bottomInset = VIEWER_TOP_INSET,
 }: {
   location: PanelLocation;
@@ -371,6 +572,9 @@ export default function CardListPanel({
   onClose: () => void;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
+  // Replaces the selection with a list of ids (#993), for the box a mouse drag draws. Left out,
+  // no box starts.
+  onSelectIds?: (ids: string[]) => void;
   // Left out for the discard pile (#782), whose panel shows no Shuffle button.
   onShuffle?: () => void;
   // Sets `stopped` to one explicit value on a list of ids (#681), so the "Stop"/"Unstop" button
@@ -387,15 +591,33 @@ export default function CardListPanel({
   // Given only for the draw deck and the dilemma pile; `page.tsx` binds which pile and hand.
   // Its presence shows the "Download" button, disabled while nothing is selected.
   onDownload?: (ids: string[]) => void;
+  // The reveal panel only (#1070, #1078): the end of the pile its cards come from, which sets the
+  // title and the end labels of the row.
+  revealEnd?: 'top' | 'bottom';
+  // The reveal panel only (#1070, #1078): shows one more card from the top or the bottom of the
+  // pile. Its presence shows the "Reveal top" and "Reveal bottom" buttons, even with no card in
+  // the panel; `canRevealTop` and `canRevealBottom` say whether each one can reveal a card.
+  onReveal?: (end: 'top' | 'bottom') => void;
+  canRevealTop?: boolean;
+  canRevealBottom?: boolean;
+  // The reveal panel only (#1070): sends the selected cards, in the panel's order, to the top or
+  // the bottom of the pile. Its presence shows the "Top" and "Bottom" buttons, disabled while
+  // nothing is selected.
+  onSendToDeck?: (ids: string[], position: 'top' | 'bottom') => void;
   hidden?: boolean;
   // Issue #717: this panel is one of "the modals" the issue names, so its own card grid grows
   // the same way the table's mission cards do — `page.tsx` computes both from the same `scale`
   // (`tableScale.ts`) and passes the result down here, at the viewer's 1.5x (`viewerCardSize`,
   // #802). `cardHeight` is the height of the whole card image at that width (#806), not the
-  // height of the cropped art the table card shows. Defaults to that size at scale 1 for
-  // callers, including this component's own tests, that don't care about the grown state.
+  // height of the cropped art the table card shows; the ship of a crew panel always draws at it.
+  // Defaults to that size at scale 1 for callers, including this component's own tests, that
+  // don't care about the grown state.
   cardWidth?: number;
   cardHeight?: number;
+  // #1071: a phone or a tablet (no fine pointer, `useFinePointer`). The grid cards of a crew panel
+  // or an away team panel then show the art crop (`artCropHeight`) instead of the whole card, so
+  // the panel shows more rows in the same height. Every other location keeps the whole card.
+  artCrop?: boolean;
   // Issue #828: how far the panel's area stops above the bottom of the game layer. `page.tsx`
   // measures the bottom row and passes its height plus a small gap, so the panel's bottom sits
   // just above the bottom row. Defaults to `VIEWER_TOP_INSET`, the old symmetric inset, for
@@ -416,7 +638,10 @@ export default function CardListPanel({
   // every card stays reachable at that viewport. Each card also becomes a drop target of its own
   // (`reorderable` on `CardListPanelCard`), so a drop on top of a neighbour reorders the stack instead
   // of leaving the zone.
-  const isDilemmaStack = location === 'dilemmaStack';
+  // The reveal panel (#1070) uses the same ordered row: its cards are the top or the bottom of the
+  // pile (#1078), in order, and a drop on a neighbour reorders the pile.
+  const isRevealPanel = isRevealLocation(location);
+  const isOrdered = location === 'dilemmaStack' || isRevealPanel;
   // The stack's row is `OverlapRow` (#802), the same component the open fan uses. Its width
   // bound is the row's own measured width, not a card-count guess (#632's browser-check
   // follow-up): a guess of six cards let the sixth card fall outside the panel at 568 x 320, and a
@@ -427,16 +652,25 @@ export default function CardListPanel({
   // grid keeps its capped height while its content grows). jsdom reports 0 for both heights, so
   // the Jest tests see a grid that fits, and today's `touch-none`.
   const gridRef = useRef<HTMLDivElement | null>(null);
-  const gridScrolls = useScrollsVertically(gridRef, !isDilemmaStack, [cards.length, cardWidth, cardHeight]);
+  const cropGridCards = artCrop && (location === 'crew' || location === 'awayTeam');
+  const gridCardHeight = cropGridCards ? artCropHeight(cardWidth) : cardHeight;
+  const gridScrolls = useScrollsVertically(gridRef, !isOrdered, [cards.length, cardWidth, gridCardHeight]);
+  // #993: a mouse drag from the empty space of the grid, or from the backdrop, draws a box that
+  // selects the cards of the grid it touches (`useBoxSelect.tsx`).
+  const boxSelect = useBoxSelect(gridRef, selectedIds, onSelectIds);
+  const startBoxOnGrid = (event: React.PointerEvent) => {
+    if (event.target instanceof Element && event.target.closest('button')) return;
+    boxSelect.onPointerDown(event);
+  };
   // #802: the panel may use the full height of the game layer. `insetClassName` is a box inset
   // a little from each edge of this component's own `fixed inset-0` box (the same box as the game
   // layer), so the panel follows the layer's height without any `dvh` arithmetic. It lets taps
   // through (`pointer-events-none`) to the backdrop, and only the panel inside it takes them.
-  // The top and side insets are `VIEWER_TOP_INSET`, the same number the open fan takes for its
-  // own top (`CardHand.tsx`). The bottom inset is `bottomInset`, just above the bottom row (#828).
+  // The side insets are `VIEWER_TOP_INSET`. The top inset is `PANEL_TOP_INSET` (#1068), which keeps
+  // the controls row of a full panel out of the top band where iOS Safari takes a tap to show its
+  // toolbar. The bottom inset is `bottomInset`, just above the bottom row (#828).
   // `justify-end` anchors the panel's bottom edge there, so a panel grows upward as it gains cards
-  // and leaves no empty band above the bottom row. Only a panel that fills the area starts at the
-  // same height as the fan.
+  // and leaves no empty band above the bottom row.
   const insetClassName = 'absolute flex flex-col items-center justify-end pointer-events-none';
   // Positioning only; the visible card grid itself is `gridClassName` below, a sibling of the
   // button row. `max-h-full` bounds the panel by the inset box but sets no height, so a pile of
@@ -448,9 +682,11 @@ export default function CardListPanel({
   // cards inside it once they no longer fit. The buttons above stay outside this scrolling
   // element (`shrink-0`), so they never scroll out of view with the cards. The stack's box hugs
   // its one row: `dilemmaStackPopupCollisionDetection` reads its rectangle as "reorder only".
-  const gridClassName = isDilemmaStack
-    ? 'shrink-0 flex flex-col items-stretch gap-1 rounded-lg bg-black/70 p-2 w-[86vw] overflow-hidden'
-    : `min-h-0 min-w-0 flex flex-wrap items-start justify-center gap-2 rounded-lg bg-black/70 p-2 ${panelScrollClassName(gridScrolls)} overscroll-contain`;
+  // #986, #1016: the border of `PANEL_SURFACE_CLASSNAME` marks the grid's edge against the dimmed
+  // table around it, so a tap outside the grid is easy to aim.
+  const gridClassName = isOrdered
+    ? `shrink-0 flex flex-col items-stretch gap-1 rounded-lg ${PANEL_SURFACE_CLASSNAME} p-2 w-[86vw] overflow-hidden`
+    : `min-h-0 min-w-0 flex flex-wrap items-start justify-center gap-2 rounded-lg ${PANEL_SURFACE_CLASSNAME} p-2 ${panelScrollClassName(gridScrolls)} overscroll-contain`;
   // The two end labels sit on their own line above the cards, not at the two ends of the card
   // row: a label in the row takes width from the cards, and the row must keep all of its width
   // for them. The line reads left to right, the same order the
@@ -463,13 +699,27 @@ export default function CardListPanel({
   const showStopButton = onSetStopped !== undefined && selectedPersonnel.length > 0;
   const allSelectedStopped = showStopButton && selectedPersonnel.every((instance) => instance.stopped);
   const handleStopTap = () => onSetStopped?.(selectedPersonnel.map((instance) => instance.id), !allSelectedStopped);
+  // #995: a ship's crew panel and a mission's away team panel also get "Stop all", which stops
+  // every personnel card of the panel, with or without a selection. It is disabled once every
+  // personnel card there is already stopped.
+  const showStopAllButton = onSetStopped !== undefined && (location === 'crew' || location === 'awayTeam');
+  const unstoppedPersonnel = cards.filter((instance) => instance.card.type === 'personnel' && !instance.stopped);
+  const handleStopAllTap = () => onSetStopped?.(unstoppedPersonnel.map((instance) => instance.id), true);
   const selectedInPanel = cards.filter((instance) => selectedIds.includes(instance.id));
   const showFlipButton = onFlip !== undefined && selectedInPanel.length > 0;
   const handleFlipTap = () => onFlip?.(selectedInPanel.map((instance) => instance.id));
+  const markFaceDown = onFlip !== undefined && location !== 'awayTeam';
   const showDiscardButton = onDiscard !== undefined;
   const handleDiscardTap = () => onDiscard?.(selectedInPanel.map((instance) => instance.id));
   const showDownloadButton = onDownload !== undefined;
   const handleDownloadTap = () => onDownload?.(selectedInPanel.map((instance) => instance.id));
+  const showSendButtons = onSendToDeck !== undefined;
+  const handleSendTap = (position: 'top' | 'bottom') =>
+    onSendToDeck?.(
+      selectedInPanel.map((instance) => instance.id),
+      position
+    );
+  const deckName = PANEL_LABEL[location].replace(/^Top of the /, '');
 
   // Issue #861: the grid is a selector for the tests and for the scripts, not a drop target. It
   // has no `useDroppable`, and no drag aims at it: the open panel covers the table, and a reorder
@@ -482,33 +732,36 @@ export default function CardListPanel({
       data-testid={`card-list-panel-${location}`}
       {...{ [PANEL_SCROLLS_ATTRIBUTE]: gridScrolls ? 'true' : undefined }}
       className={gridClassName}
+      onPointerDown={startBoxOnGrid}
     >
-      {isDilemmaStack && (
+      {isOrdered && (
+        // The reveal panel's cards are only one end of the pile (#1070, #1078), so the label at
+        // its other end is not an end of the pile.
         <div className="flex flex-row justify-between">
-          <span className={stackEndLabelClassName}>Top (revealed first)</span>
-          <span className={stackEndLabelClassName}>Bottom (revealed last)</span>
+          <span className={stackEndLabelClassName}>
+            {isRevealPanel ? (revealEnd === 'bottom' ? 'Drawn earlier' : 'Top (drawn first)') : 'Top (revealed first)'}
+          </span>
+          <span className={stackEndLabelClassName}>
+            {isRevealPanel ? (revealEnd === 'bottom' ? 'Bottom (drawn last)' : 'Drawn later') : 'Bottom (revealed last)'}
+          </span>
         </div>
       )}
-      {isDilemmaStack ? (
+      {isRevealPanel && cards.length === 0 && (
+        <p data-testid="reveal-panel-empty" className="text-xs text-text-muted text-center py-2">
+          No card revealed yet.
+        </p>
+      )}
+      {isOrdered ? (
         // The cards overlap rather than sit side by side (`OverlapRow`), with `zIndex` rising
         // left to right, so a later (further down the stack) card's edge sits on top of the
         // one before it, the same reading order the labels at each end describe.
-        <OverlapRow
-          items={cards}
-          keyFor={(instance) => instance.id}
+        <DilemmaStackRow
+          cards={cards}
+          selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect}
           cardWidth={cardWidth}
-          height={cardHeight}
-          renderCard={(instance) => (
-            <CardListPanelCard
-              instance={instance}
-              selected={selectedIds.includes(instance.id)}
-              onToggleSelect={() => onToggleSelect(instance.id)}
-              cardWidth={cardWidth}
-              cardHeight={cardHeight}
-              reorderable
-              markFaceDown={onFlip !== undefined}
-            />
-          )}
+          cardHeight={cardHeight}
+          markFaceDown={markFaceDown}
         />
       ) : (
         cards.map((instance) => (
@@ -518,8 +771,9 @@ export default function CardListPanel({
             selected={selectedIds.includes(instance.id)}
             onToggleSelect={() => onToggleSelect(instance.id)}
             cardWidth={cardWidth}
-            cardHeight={cardHeight}
-            markFaceDown={onFlip !== undefined}
+            cardHeight={gridCardHeight}
+            artCrop={cropGridCards}
+            markFaceDown={markFaceDown}
             gridScrolls={gridScrolls}
           />
         ))
@@ -536,18 +790,65 @@ export default function CardListPanel({
         type="button"
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
-        aria-label={closeLabel(location)}
+        onPointerDown={boxSelect.onPointerDown}
+        aria-label={closeLabel(location, revealEnd)}
       />
       <div className={insetClassName} style={{
-          top: VIEWER_TOP_INSET,
+          top: PANEL_TOP_INSET,
           left: VIEWER_TOP_INSET,
           right: VIEWER_TOP_INSET,
           bottom: bottomInset,
         }}
       >
       <div className={layoutClassName}>
-        {(showDownloadButton || showStopButton || showFlipButton || showDiscardButton || onShuffle) && (
-          <div data-testid="panel-controls" className="shrink-0 flex flex-row items-start gap-2">
+        {(onReveal || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || onShuffle) && (
+          <div data-testid="panel-controls" className="shrink-0 flex flex-row flex-wrap justify-center items-start gap-2">
+            {/* The reveal panel's own controls (#1070, #1078). Both reveal buttons show even with no
+                card in the panel, so an empty panel always has a way to reveal. */}
+            {onReveal && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onReveal('top')}
+                  disabled={!canRevealTop}
+                  className="btn-primary shrink-0 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RevealIcon className="w-3 h-3" />
+                  Reveal top
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onReveal('bottom')}
+                  disabled={!canRevealBottom}
+                  className="btn-primary shrink-0 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RevealIcon className="w-3 h-3" />
+                  Reveal bottom
+                </button>
+              </>
+            )}
+            {showSendButtons && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleSendTap('top')}
+                  disabled={selectedInPanel.length === 0}
+                  aria-label={`Selected cards to the top of the ${deckName.toLowerCase()}`}
+                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Top
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendTap('bottom')}
+                  disabled={selectedInPanel.length === 0}
+                  aria-label={`Selected cards to the bottom of the ${deckName.toLowerCase()}`}
+                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Bottom
+                </button>
+              </>
+            )}
             {/* The Download button (#827) shows whenever the panel is given `onDownload`, first in
                 the row, and stays disabled until a card is selected. The Discard button does the same (#902). */}
             {showDownloadButton && (
@@ -563,6 +864,16 @@ export default function CardListPanel({
             {showStopButton && (
               <button type="button" onClick={handleStopTap} className="btn-primary">
                 {allSelectedStopped ? 'Unstop' : 'Stop'}
+              </button>
+            )}
+            {showStopAllButton && (
+              <button
+                type="button"
+                onClick={handleStopAllTap}
+                disabled={unstoppedPersonnel.length === 0}
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Stop all
               </button>
             )}
             {showFlipButton && (
@@ -583,13 +894,13 @@ export default function CardListPanel({
             {/* The Shuffle button (#680) sits inside the panel, next to the cards, not on the
                 backdrop — a tap on the backdrop still closes the panel, and a tap here does not.
                 It shares this row with the other controls (#880), so the row takes the height of
-                one line from the card grid. It keeps its own small, quiet look: it acts on the
-                whole pile, not on the selection. */}
+                one line from the card grid. It has the `btn-primary` look of Stop (#966), and is
+                never disabled: it acts on the whole pile, not on the selection. */}
             {onShuffle && (
               <button
                 type="button"
                 onClick={onShuffle}
-                className="shrink-0 flex items-center justify-center gap-1 rounded-md bg-white/[0.05] border border-white/10 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors duration-150"
+                className="btn-primary shrink-0 flex items-center justify-center gap-1"
               >
                 <ShuffleIcon />
                 Shuffle
@@ -602,13 +913,14 @@ export default function CardListPanel({
             height and scrolls, so the host beside it keeps its own size. `min-w-0` lets the grid
             wrap its cards into the width the host leaves it. */}
         {host ? (
-          <div className="min-h-0 max-w-full flex flex-row gap-2">
+          <div className={`min-h-0 max-w-full flex flex-row gap-2 ${location === 'crew' ? 'flex-1' : ''}`}>
             {gridElement}
             <PanelHost
               host={host}
               testId={location === 'crew' ? 'card-list-panel-crew-ship' : `card-list-panel-${location}-host`}
               cardWidth={cardWidth}
               cardHeight={cardHeight}
+              showPlacedOn={location === 'crew'}
             />
           </div>
         ) : (
@@ -616,6 +928,7 @@ export default function CardListPanel({
         )}
       </div>
       </div>
+      <BoxSelectRect box={boxSelect.box} />
     </div>
   );
 }

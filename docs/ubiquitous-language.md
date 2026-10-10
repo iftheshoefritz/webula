@@ -77,6 +77,10 @@ code carries this string in two fields:
 - `originalName` — the form with the original letter case, used for a display and
   for the LackeyCCG export format.
 
+To show a card's name, call `cardDisplayName` in `src/lib/cardCount.ts`. It returns
+`originalName` with any version suffix removed, or `name` when a row has no
+`originalName`.
+
 There is no field that holds the title alone. A rule that needs the title alone
 cannot be written from this data.
 
@@ -167,7 +171,8 @@ is "open" or "closed", never "stacked".
 | aboard a ship | `CrewLocation`, `zone: 'crew'`, `CardInstance.crew` | Addressed by the ship's own id, so a ship move keeps its crew. |
 | away team (personnel at a planet mission) | `MissionPileLocation`, pile `'awayTeam'`, `MissionSlot.awayTeam` | The pair of `crew`, the personnel aboard a ship. The drop target id is `mission-pile-awayTeam-<index>` and the label is "Away team". **The code uses the one name at every mission type**, so it reads wrong at a headquarters mission and at a space mission, where the rulebook has no away team. The owner accepts this: the pile is the same place at every mission, and one name is clearer than three. |
 | overcome dilemmas beneath the mission | `MissionPileLocation`, pile `'underMission'` | The UI label is "Under the mission". On the table, a drop on the top half of the mission card, `mission-under-<index>` (#871, #917), puts a dilemma here. |
-| play and place (a card placed on another card) | `PlacedOnLocation`, `CardInstance.placedOn`, `findPlacedOnTarget`, `placedOnTargets`, `targetId` | The code held the noun "host" for the card underneath. "Host" is not a rulebook word, so #840 removed it: every comment and label says "the card it is placed on", and no new noun took its place. The stack is one level deep. On the table, a drop on the bottom half of the mission card, `mission-on-<index>` (#871, #917), places a dilemma on the mission. |
+| play and place (a card placed on another card) | `PlacedOnLocation`, `CardInstance.placedOn`, `findPlacedOnTarget`, `placedOnTargets`, `targetId` | The code held the noun "host" for the card underneath. "Host" is not a rulebook word, so #840 removed it: every comment and label says "the card it is placed on", and no new noun took its place. The stack is one level deep. On the table, a drop on the bottom half of the mission card, `mission-on-<index>` (#871, #917), places a dilemma on the mission. The badge strip of a mission splits its placed cards by type (#1081): the dilemmas count in a badge with the dual icon, and every other card in a badge with the event icon. Their panels are the `PanelLocation`s `'onDilemmas'` and `'onEvents'`, a filter of `placedOn` by `card.type` and not a zone of their own; a core or brig card keeps one panel, `'on'`. |
+| completed mission | `MissionSlot.completed`, action `setMissionCompleted`, a double-tap on the mission card and the focus button `mission-toggle-<i>` of `MissionRow` (#991, #1059) | A double-tap (two taps within `DOUBLE_TAP_MS`, 250 ms) toggles it. A completed mission shows its card darker and turned 90° clockwise inside its slot (#1060), and its card's label ends in ", completed". The focus button, visually hidden until it has keyboard focus, reads "Mark <name> complete" or "Mark <name> not complete". Completing a mission scores nothing automatically: the player changes the score by hand. |
 
 ### Card state
 
@@ -179,8 +184,24 @@ is "open" or "closed", never "stacked".
 | flip a double-sided mission over ("flip this mission", "flip it over") | `CardInstance.flipped`, action `flipMission`, card field `backimagefile` (the second name of `ImageFile`), the Flip button of `MissionRow` (#765). **This is not `face`/`flip`.** `face: 'down'` shows `cardback.jpg` for every card, and `flip` never applies to a mission card. A flipped mission shows its back face image, and a move clears `flipped`. |
 | shuffle | action `shuffle`, `shuffleArray` |
 | download (take a chosen card from the deck) | the "Download" button of a `CardListPanel`, callback `onDownload`, handler `downloadSelection` in `page.tsx`: one `move` per selected card from `'drawDeck'` to `'hand'`, or from `'dilemmaPile'` to `'dilemmaHand'` (`DOWNLOAD_HAND`), then `shuffle` of that pile (#827). `DownloadPileButton` opens the panel. The rulebook's download puts the card into play; this action puts it into the hand, and the player plays it from there. |
+| reveal (look at the top or bottom cards of your own pile) | the reveal panel, `PanelLocation` `'drawDeckReveal'` or `'dilemmaPileReveal'`, state `openReveal` in `page.tsx` (#1070). The eye button of `PileControls` opens it empty, and "Reveal top" or "Reveal bottom" (`onReveal`, #1078) adds the card nearest that end of the pile not yet shown. The panel shows one end at a time (`openReveal.end`), so a tap for the other end first clears it. Nothing moves. A reorder in the panel is the `reorder` action on the pile, and Top / Bottom (`onSendToDeck`) are `move` with a `position`. In the rulebook, to reveal a card is to show it to your opponent; here the player looks at the cards alone, and closing the panel forgets them. |
 | turn | `TableState.turn`, action `nextTurn`, which unstops every personnel |
 | score | `TableState.score`, action `adjustScore`, clamped to `SCORE_MIN`..`SCORE_MAX` |
+
+### The game log
+
+The rulebook has no log. The practice table keeps one in memory (#1065): `gameLog.ts` and
+`GameLogPanel.tsx`, opened by the "Game log" item of the game menu. It is not part of the
+saved game, and a deal, a reset or a restore empties it.
+
+| Idea | Code | Note |
+|---|---|---|
+| game log | `GameState.log`, `gameReducer` | The page's reducer: `tableReducer` plus the log. |
+| log entry | `LogEntry`, `logEntryFor` | One entry per player action. An action that changes nothing makes none. |
+| one player action of several table actions | `GameAction` `batch` | A group drag, and a selection's Discard, Flip, Download or Top / Bottom. |
+| an unseen card | `LogCard` `null`, text "a card" | A draw, and a drag that showed the card back (#814). |
+| a place in the text | `LogPlace`, `placeText` | The text names the zones as above. It says "the ships at <mission>" for a ship row, "the crew of <ship>", "the away team at <mission>", "the pile under <mission>", "the cards on <card>", and "the dilemma hand". A slot with no mission card is "Mission <n>". |
+| the log as text, grouped by turn | `gameLogText`, `logByTurn` | A "Turn N" line per `TableState.turn`. The entry of `nextTurn` heads the new turn. |
 
 The rulebook win score is 100 points. `SCORE_MAX` is 140, so the counter can show a
 score above the win score. See [section 7](#7-names-kept-and-why).
@@ -243,7 +264,7 @@ gives the reason, so that the next reader does not open the same issue again.
 | `shipRow`, `MissionSlot` | They name a layout of the screen, not a game concept. The rulebook has no word because the table is a picture, not a rule. |
 | `SMALL_CARD_WIDTH`, `SMALL_CARD_ART_HEIGHT` | A size of the screen, not a card type. The small card is not a ship: it sizes a ship in the ship row, but also every card of any type in the core and the brig, and part of the height of the dilemma stack. The names were `SHIP_CARD_WIDTH` and `SHIP_CARD_ART_HEIGHT` until #931. They sit in `TableCard.tsx` beside `TABLE_CARD_WIDTH` and `TABLE_CARD_ART_HEIGHT`, the larger size. |
 | `SCORE_MAX = 140` | The win score is 100 in a normal game, but certain cards change it. This codebase does not model those cards. It only allows a higher maximum, so the counter can show a score above 100. |
-| `resetWithPiles`, `?fixture=piles` | The fixture deal of the practice table, a test scaffold and not a game step (#854). "Seed" is the rulebook word for placing cards at the start of a game, so no fixture name says it: the constants are `FIXTURE_AWAY_TEAM` and `FIXTURE_CREW`, and the parameter of `dealDeck` is `fixturePiles`. The real start of a game is "deal" and the action `reset`. The action and the URL value keep "piles", because a change of the URL breaks the browser checks of `AGENTS.md`. |
+| `resetWithPiles`, `?fixture=piles` | The fixture deal of the practice table, a test scaffold and not a game step (#854). "Seed" is the rulebook word for placing cards at the start of a game, so no fixture name says it: the constants are `FIXTURE_AWAY_TEAM`, `FIXTURE_CREW`, `FIXTURE_BRIG`, `FIXTURE_CORE`, `FIXTURE_PLACED`, `FIXTURE_UNDER_MISSION` and `FIXTURE_DILEMMA_STACK` (#1024), and the parameter of `dealDeck` is `fixturePiles`. The real start of a game is "deal" and the action `reset`. The action and the URL value keep "piles", because a change of the URL breaks the browser checks of `AGENTS.md`. |
 | The hand takes any number of cards | The rulebook applies the limit of seven at the discard step of a turn, and this codebase does not model the steps of a turn. The practice table never stops a drop. |
 
 ## 8. Cases found by the second search

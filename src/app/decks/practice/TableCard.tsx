@@ -24,8 +24,10 @@
 // `listeners`/`attributes`/`setNodeRef` on the same element that has the `onClick`. dnd-kit only returns `listeners` when the draggable is enabled, so a
 // non-draggable table card (a mission) can spread them unconditionally with no effect.
 
+import type { CSSProperties } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
+import { cardDisplayName } from '../../../lib/cardCount';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 
 export const TABLE_CARD_WIDTH = 72; // px
@@ -51,6 +53,26 @@ export const fullCardHeight = (width: number): number => Math.round((width * 167
 // regardless of which image it renders.
 export const STOPPED_IMAGE_CLASSNAME = 'grayscale opacity-50';
 
+// The look of a completed mission's card (#991): darker, but in full colour, so it does not read
+// as stopped.
+export const COMPLETED_IMAGE_CLASSNAME = 'brightness-50';
+
+// The black card border (#983). A card image has white outside its rounded corners, and the deck
+// builder and the card search cover it with a black border 6 px wide on a card about 240 px wide.
+// A card on the practice table draws the same border at the same share of its width, and never
+// thinner than 2 px. An outline with a negative offset draws over the image itself, so the border
+// covers the corners and the card keeps its size.
+const CARD_BORDER_SHARE = 6 / 240;
+export function cardBorderWidth(cardWidth: number): number {
+  return Math.max(2, Math.round(cardWidth * CARD_BORDER_SHARE));
+}
+export function cardBorderStyle(cardWidth: number): CSSProperties {
+  const border = cardBorderWidth(cardWidth);
+  return { outline: `${border}px solid black`, outlineOffset: -border };
+}
+// The border of a card that is 56 px wide (`w-14`), the card of a pile and of a drag.
+export const PILE_CARD_BORDER_STYLE = cardBorderStyle(56);
+
 // The image of a card's face-up side (#765): the back face of a flipped double-sided mission, or
 // the front of every other card. This is never `cardback.jpg`; a caller that shows a face-down
 // card as face down checks `face` itself.
@@ -68,6 +90,10 @@ export default function TableCard({
   draggable = false,
   holdable = true,
   uncropped = false,
+  draggableId,
+  completed = false,
+  turnedScale,
+  turnable = false,
 }: {
   instance: CardInstance;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
@@ -80,14 +106,30 @@ export default function TableCard({
   // Shows the whole card, frame and all, instead of the art crop (#926). Used by the core and the
   // brig. `artHeight` is ignored: the height follows from the width.
   uncropped?: boolean;
+  // The id the card drags under, when it is not the card's own id: a card shown in a card list
+  // panel drags under `panelDraggableId` (#913), such as a tiny card placed on a ship (#963).
+  draggableId?: string;
+  // A completed mission (#991) shows its image darker, and its label says so (#1059).
+  completed?: boolean;
+  // A completed mission turns 90° clockwise around its centre (#1060), drawn at this scale so it
+  // fits the slot it sits in (`turnedMissionScale`, `MissionRow.tsx`). The turn is a transform, so
+  // the card's flow box keeps its upright size and nothing else on the table moves. It is on this
+  // table card only: the preview draws the card upright.
+  turnedScale?: number;
+  // A card that can turn (a mission) animates the turn both ways, and not under reduced motion.
+  turnable?: boolean;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down';
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: instance.id,
+    id: draggableId ?? instance.id,
     disabled: !draggable,
   });
   const holdListeners = useCardHold(instance.id, listeners);
+  const transforms = [
+    transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : '',
+    turnedScale !== undefined ? `rotate(90deg) scale(${turnedScale})` : '',
+  ].filter(Boolean);
 
   return (
     <button
@@ -97,22 +139,24 @@ export default function TableCard({
       onClick={onClick}
       {...attributes}
       {...(holdable ? holdListeners : listeners)}
-      className={`flex flex-col items-center focus:outline-none ${draggable ? 'touch-none' : 'touch-manipulation'}`}
+      className={`flex flex-col items-center focus:outline-none ${draggable ? 'touch-none' : 'touch-manipulation'} ${
+        turnable ? 'motion-safe:transition-transform motion-reduce:transition-none' : ''
+      }`}
       style={{
         ...NO_CALLOUT_STYLE,
         width,
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+        transform: transforms.length > 0 ? transforms.join(' ') : undefined,
         opacity: isDragging ? 0.5 : 1,
       }}
-      aria-label={isFaceDown ? 'Face-down card' : card.name}
+      aria-label={isFaceDown ? 'Face-down card' : `${cardDisplayName(card)}${completed ? ', completed' : ''}`}
     >
       <div className="relative w-full" style={{ height: uncropped ? fullCardHeight(width) : artHeight }}>
         <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
           <img
             src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
-            alt={isFaceDown ? 'Face-down card' : card.name}
-            className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
-            style={NO_CALLOUT_STYLE}
+            alt={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
+            className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+            style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
           />
         </div>
       </div>

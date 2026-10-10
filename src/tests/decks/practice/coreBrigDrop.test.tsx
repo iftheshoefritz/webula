@@ -174,7 +174,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
     const coreZone = document.body.querySelector('[data-zone="core"]');
     expect(coreZone).not.toBeNull();
-    const card = screen.getByRole('button', { name: 'distress call' });
+    const card = screen.getByRole('button', { name: 'Distress Call' });
     expect(coreZone!.contains(card)).toBe(true);
   });
 
@@ -191,7 +191,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
     const brigZone = document.body.querySelector('[data-zone="brig"]');
     expect(brigZone).not.toBeNull();
-    const card = screen.getByRole('button', { name: 'data' });
+    const card = screen.getByRole('button', { name: 'Data' });
     expect(brigZone!.contains(card)).toBe(true);
   });
 
@@ -287,7 +287,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-core"]');
@@ -307,23 +307,23 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
-    const card = within(panel).getByRole('button', { name: 'distress call' });
+    const card = within(panel).getByRole('button', { name: 'Distress Call' });
     await act(async () => {
       fireEvent.click(card);
     });
 
-    expect(within(panel).getByRole('button', { name: 'Deselect distress call' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(panel).getByRole('button', { name: 'Deselect Distress Call' })).toHaveAttribute('aria-pressed', 'true');
     expect(card).toHaveClass('ring-2');
     expect(screen.queryByTestId('card-preview')).toBeNull();
 
     await act(async () => {
       fireEvent.click(card);
     });
-    expect(within(panel).getByRole('button', { name: 'Select distress call' })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(panel).queryByRole('button', { name: 'Deselect Distress Call' })).toBeNull();
     expect(card).not.toHaveClass('ring-2');
   });
 
@@ -338,7 +338,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
@@ -360,7 +360,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'core' } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'data' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Data' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
@@ -402,7 +402,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
     // Open the core panel: it lists both cards.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
     let panel = document.body.querySelector('[data-testid="card-list-panel-core"]') as HTMLElement;
     expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(2);
@@ -457,7 +457,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
 
     await act(async () => {
@@ -493,7 +493,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
     // Open the core panel (it lists the one card already there).
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
@@ -519,7 +519,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragEnd!({ active: { id: draggedId }, over: { id: 'brig' } });
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'data' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Data' }));
     });
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-brig"]');
@@ -566,9 +566,9 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     });
 
     expect(coreZone().className).toEqual(expect.stringContaining('border-dashed'));
-    // Unlike the brig, the core keeps its fixed CORE_ROW_MAX_WIDTH at every card count (#676),
-    // rather than shrinking to the 56px minimum box size the brig uses.
-    expect(coreZone().style.width).toBe('109px');
+    // The core no longer keeps a fixed width (#1029): it grows with its cards, and during a drag it
+    // keeps the 56px minimum box size, the same as the brig.
+    expect(coreZone().style.width).toBe('56px');
     expect(coreZone().style.height).toBe('80px');
   });
 
@@ -604,10 +604,12 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     expect(brigZone().style.height).toBe('80px');
   });
 
-  // #676: the core previously shrank to fit its cards (one card made it 34px wide), instead of
-  // keeping a fixed width sized for three cards. This checks the zone's own width stays the same
-  // as cards are added, unlike the brig, which is still allowed to grow with its cards.
-  it('keeps the core at the same fixed width at 0, 1, and 4 cards, while the brig grows with its cards (#676)', async () => {
+  // #1029: the core and the brig grow to make room for each new card, into the free space of the
+  // bottom row. jsdom has no layout, so the test gives the shared box a measured width.
+  it('grows the core with each card up to the 4th, and the brig with its cards, into the free space (#1029)', async () => {
+    const clientWidth = jest.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.dataset.testid === 'flat-rows' ? 400 : 0;
+    });
     const mockEventCards = [1, 2, 3, 4].map((n) => ({
       collectorsinfo: `1U10${n}`,
       originalName: `Event ${n}`,
@@ -625,8 +627,8 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
     const coreZone = () => document.body.querySelector('[data-zone="core"]') as HTMLElement;
     const brigZone = () => document.body.querySelector('[data-zone="brig"]') as HTMLElement;
-    const emptyCoreWidth = coreZone().style.width;
     const emptyBrigWidth = brigZone().style.width;
+    const coreWidths: number[] = [];
 
     for (let i = 0; i < cardIds.length; i++) {
       // Each drag start closes the hand (except the first, which setupOpenHand already opened),
@@ -651,8 +653,10 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
         mockOnDragEnd!({ active: { id: cardIds[i] }, over: { id: 'core' } });
       });
 
-      expect(coreZone().style.width).toBe(emptyCoreWidth);
+      coreWidths.push(parseFloat(coreZone().style.width));
     }
+    // 34px cards, 36px apart: no overlap, and no cap at three cards.
+    expect(coreWidths).toEqual([34, 70, 106, 142]);
 
     // The brig, unaffected by #676, still grows with the cards it holds: drag two of the same
     // cards back out of the core and into the brig instead.
@@ -665,5 +669,6 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       });
     }
     expect(brigZone().style.width).not.toBe(emptyBrigWidth);
+    clientWidth.mockRestore();
   });
 });

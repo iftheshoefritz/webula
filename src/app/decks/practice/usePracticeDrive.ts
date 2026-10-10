@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { getSession, signIn } from 'next-auth/react';
 import { DRIVE_SCOPE_AUTH_PARAMS } from '../../../hooks/useDriveSync';
 import type { DriveFile, Session } from '../../../hooks/useDriveSync';
+import { isBrowserOnline } from './useOnline';
 
 // The Drive picker of the practice table (#780). A small version of useDriveSync: that hook
 // writes the picked file to localStorage.deckFile (the deck builder's Save target) and rewrites
@@ -15,8 +16,11 @@ export function usePracticeDrive() {
 
   // The session is looked up when the picker opens, not on mount, so the table makes no session
   // request until the player asks for a deck.
+  // Offline (#1053) the picker shows the offline decks instead, so it asks for neither the session
+  // nor the Drive list.
   const openPicker = async () => {
     setShowPicker(true);
+    if (!isBrowserOnline()) return;
     const fromNextAuth = (await getSession()) as Session | null;
     const resolved = fromNextAuth && new Date() > new Date(fromNextAuth.expires) ? null : fromNextAuth;
     setSession(resolved);
@@ -57,8 +61,9 @@ export function usePracticeDrive() {
     await fetch(`/api/drive/${file.id}`, { method: 'DELETE', credentials: 'include' });
   };
 
+  // The sign-in comes back with `?openPicker=true`, so the table opens the picker again (#980).
   const signInToDrive = () => {
-    signIn('google', { callbackUrl: '/decks/practice' }, DRIVE_SCOPE_AUTH_PARAMS);
+    signIn('google', { callbackUrl: '/decks/practice?openPicker=true' }, DRIVE_SCOPE_AUTH_PARAMS);
   };
 
   return {

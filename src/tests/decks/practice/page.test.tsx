@@ -179,11 +179,11 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    const missionImage = () => document.querySelector('[data-card-id] img[alt="ceti alpha v"]');
+    const missionImage = () => document.querySelector('[data-card-id] img[alt="Ceti Alpha V"]');
     expect(missionImage()).toHaveAttribute('src', '/cardimages/STVE-EN29035ab.jpg');
-    fireEvent.click(screen.getByRole('button', { name: 'Flip ceti alpha v to its back' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Flip Ceti Alpha V to its back' }));
     expect(missionImage()).toHaveAttribute('src', '/cardimages/STVE-EN29035R.jpg');
-    fireEvent.click(screen.getByRole('button', { name: 'Flip ceti alpha v to its front' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Flip Ceti Alpha V to its front' }));
     expect(missionImage()).toHaveAttribute('src', '/cardimages/STVE-EN29035ab.jpg');
   });
 
@@ -519,7 +519,7 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    // A new game already dealt 7 cards, including "card 1", into the (closed) hand. Open it
+    // A new game already dealt 7 cards, including "Card 1", into the (closed) hand. Open it
     // to reach the individual card buttons.
     // #740 keeps a hand open after a drag out of it, so this tap only runs when the
     // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
@@ -530,7 +530,7 @@ describe('PracticeDrawPage', () => {
       });
     }
 
-    const cardButton = screen.getByRole('button', { name: 'card 1' });
+    const cardButton = screen.getByRole('button', { name: 'Card 1' });
     expect(cardButton).toBeInTheDocument();
     const cardImg = cardButton.querySelector('img');
     expect(cardImg).toHaveAttribute('src', '/cardimages/card_1.jpg');
@@ -547,7 +547,7 @@ describe('PracticeDrawPage', () => {
       render(<PracticeDrawPage />);
     });
 
-    expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Card 1' })).not.toBeInTheDocument();
 
     // #740 keeps a hand open after a drag out of it, so this tap only runs when the
     // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
@@ -557,13 +557,13 @@ describe('PracticeDrawPage', () => {
         fireEvent.click(closedHandButton);
       });
     }
-    expect(screen.getByRole('button', { name: 'card 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Card 1' })).toBeInTheDocument();
 
     const backdrop = screen.getByRole('button', { name: /^close hand$/i });
     await act(async () => {
       fireEvent.click(backdrop);
     });
-    expect(screen.queryByRole('button', { name: 'card 1' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Card 1' })).not.toBeInTheDocument();
   });
 
   // The tap acts, the hold looks (#764): a tap never opens the preview, a press and hold does,
@@ -625,30 +625,30 @@ describe('PracticeDrawPage', () => {
     it('a tap on a mission card opens no preview', async () => {
       await renderWithOpenHand();
       act(() => {
-        fireEvent.click(screen.getByRole('button', { name: 'first contact' }));
+        fireEvent.click(screen.getByRole('button', { name: 'First Contact' }));
       });
       expect(screen.queryByTestId('card-preview-enlarged')).toBeNull();
     });
 
     it('a tap on a hand card opens no preview, and selects the card', async () => {
       await renderWithOpenHand();
-      const card = screen.getByRole('button', { name: 'card 1' });
+      const card = screen.getByRole('button', { name: 'Card 1' });
       act(() => {
         fireEvent.click(card);
       });
       expect(screen.queryByTestId('card-preview-enlarged')).toBeNull();
-      expect(screen.getByRole('button', { name: 'Deselect card 1' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: 'Deselect Card 1' })).toHaveAttribute('aria-pressed', 'true');
       expect(card).toHaveClass('ring-2');
 
       act(() => {
         fireEvent.click(card);
       });
-      expect(screen.getByRole('button', { name: 'Select card 1' })).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.queryByRole('button', { name: 'Deselect Card 1' })).toBeNull();
     });
 
     it('a hold on a mission shows its image in a read-only preview, with no Flip button', async () => {
       await renderWithOpenHand();
-      hold(screen.getByRole('button', { name: 'first contact' }));
+      hold(screen.getByRole('button', { name: 'First Contact' }));
 
       const layer = screen.getByTestId('card-preview');
       expect(screen.getByTestId('card-preview-enlarged')).toHaveAttribute('src', '/cardimages/first_contact.jpg');
@@ -664,15 +664,15 @@ describe('PracticeDrawPage', () => {
       await renderWithOpenHand();
       const expectedClasses = ['absolute', 'right-4', 'top-1/2', '-translate-y-1/2', 'h-[90%]', 'w-auto'];
 
-      hold(screen.getByRole('button', { name: 'card 1' }));
-      expect(screen.getByTestId('card-preview-enlarged')).toHaveAttribute('alt', 'card 1');
+      hold(screen.getByRole('button', { name: 'Card 1' }));
+      expect(screen.getByTestId('card-preview-enlarged')).toHaveAttribute('alt', 'Card 1');
       expect(screen.getByTestId('card-preview-enlarged')).toHaveClass(...expectedClasses);
       // The hand card stays visible in the open fan while its preview shows.
-      expect(screen.getByRole('button', { name: 'card 1' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Card 1' })).toBeVisible();
       release();
 
-      hold(screen.getByRole('button', { name: 'card 2' }));
-      expect(screen.getByTestId('card-preview-enlarged')).toHaveAttribute('alt', 'card 2');
+      hold(screen.getByRole('button', { name: 'Card 2' }));
+      expect(screen.getByTestId('card-preview-enlarged')).toHaveAttribute('alt', 'Card 2');
       expect(screen.getByTestId('card-preview-enlarged')).toHaveClass(...expectedClasses);
       release();
     });
@@ -790,6 +790,30 @@ describe('PracticeDrawPage', () => {
 
       expect(screen.getByRole('button', { name: 'Game menu' })).toHaveAttribute('aria-expanded', 'true');
       expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
+    });
+
+    it('starts with the splash closed when the URL has menu=0 (#1028)', async () => {
+      mockSearchParamsValue = new URLSearchParams('menu=0');
+      await renderManyCards();
+
+      expect(screen.queryByTestId('game-menu-splash')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Game menu' })).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('still opens the splash from the menu button with menu=0 (#1028)', async () => {
+      mockSearchParamsValue = new URLSearchParams('menu=0');
+      await renderManyCards();
+
+      await tap(screen.getByRole('button', { name: 'Game menu' }));
+
+      expect(screen.getByTestId('game-menu-splash')).toBeInTheDocument();
+    });
+
+    it('opens the splash on load with menu=1 (#1028)', async () => {
+      mockSearchParamsValue = new URLSearchParams('menu=1');
+      await renderManyCards();
+
+      expect(screen.getByTestId('game-menu-splash')).toBeInTheDocument();
     });
 
     it('covers the page with a splash that has a Continue item (#896)', async () => {

@@ -64,6 +64,9 @@ export interface MissionSlot {
   ships: CardInstance[];
   awayTeam: CardInstance[];
   underMission: CardInstance[];
+  // The player marked the mission complete (#991). Absent or false means not complete, so a slot
+  // built before this field, or loaded from a save made before it, reads as not complete.
+  completed?: boolean;
 }
 
 // A ship row is one of MISSION_SLOTS possible move destinations, not a single top-level zone
@@ -120,6 +123,10 @@ export type ShuffleLocation =
   | MissionPileLocation
   | ShipRowLocation;
 
+// The ordered zones a `reorder` action (#632, #1070) rearranges: the dilemma stack, from its own
+// panel, and the draw deck and the dilemma pile, from the reveal panel of their top cards.
+export type ReorderZone = 'dilemmaStack' | 'drawDeck' | 'dilemmaPile';
+
 export interface TableState {
   drawDeck: CardInstance[];
   hand: CardInstance[];
@@ -128,6 +135,7 @@ export interface TableState {
   brig: CardInstance[];
   // The dilemma pile and the dilemma hand (#604) are two more flat zones: the pile starts
   // shuffled and face down like the draw deck, and a tap moves one card to the hand, face up.
+  // A dilemma sent to the bottom of the pile is face up until the next shuffle (#987).
   dilemmaPile: CardInstance[];
   dilemmaHand: CardInstance[];
   // The dilemma stack (#733): a face-down stack of dilemmas, no longer tied to a mission slot.
@@ -164,8 +172,9 @@ export type TableAction =
   | { type: 'flipMission'; id: string }
   // Puts the cards of one card list panel's location in a random order (#680): the order in the table
   // state itself, not just the panel's display order, so the table and the next time the panel
-  // opens both show the same shuffled order. Never changes a card's face, a ship's crew, or any
-  // other field of a card instance — only the order of the array at that location.
+  // opens both show the same shuffled order. Never changes a ship's crew or any other field of a
+  // card instance, and changes a card's face only in the dilemma pile, which it turns face down
+  // (#987).
   | { type: 'shuffle'; location: ShuffleLocation }
   // Moves one card of the dilemma stack to sit where another card of the same stack currently
   // sits (#632): a drag inside the stack's own popup, dropped on top of a neighbour, reorders the
@@ -173,9 +182,10 @@ export type TableAction =
   // keeps the new order, and the reveal order (#630/#733's index-0-is-first-revealed convention)
   // changes with it. `overId` names the card being dropped on, rather than a raw index, since
   // that is what a drop event on the popup naturally resolves to; a no-op (dropping a card on
-  // itself, or on a card no longer in the stack) leaves the state unchanged. Only ever targets
-  // `dilemmaStack`, so it needs no `location` the way `shuffle` does.
-  | { type: 'reorderDilemmaStack'; id: string; overId: string }
+  // itself, or on a card no longer in the stack) leaves the state unchanged. Since #1070 it also
+  // reorders the draw deck and the dilemma pile, from the reveal panel of their top cards, so it
+  // names the zone.
+  | { type: 'reorder'; zone: ReorderZone; id: string; overId: string }
   // Sets one or more personnel cards' `stopped` flag to a single value (#681), wherever each
   // currently sits — including aboard a ship as crew, the same reach `flip` lacks. `ids` lets
   // the card list panel's "Stop"/"Unstop" button (a selection of more than one card) and the card
@@ -185,6 +195,10 @@ export type TableAction =
   // `withCardsAt` (the same helpers `move` uses) instead of per-zone branches, since setting
   // `stopped` has no zone-dependent behaviour to encode.
   | { type: 'setStopped'; ids: string[]; stopped: boolean }
+  // Marks a mission complete or not complete (#991), by its slot index, to an explicit value like
+  // `setStopped`. Does nothing to an index out of range or a slot with no mission card. It never
+  // changes the score: the points a mission earns vary, so scoring stays manual (`adjustScore`).
+  | { type: 'setMissionCompleted'; missionIndex: number; completed: boolean }
   // Raises the turn counter by one and unstops every stopped personnel card, in every zone
   // (#718): the flat zones, every mission's piles, every ship row, and every ship's crew.
   | { type: 'nextTurn' }
@@ -192,14 +206,28 @@ export type TableAction =
   // would take the score past either limit stops there instead.
   | { type: 'adjustScore'; delta: number }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] }
+  // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
+  // state, and the caller passes its max instance ID to `seedInstanceIds` first.
+  | { type: 'restore'; state: TableState }
   // The fixture deal of `/decks/practice?fixture=piles` (#802): deals like `reset`, then puts
   // `FIXTURE_AWAY_TEAM` personnel into the first mission's away team, and a ship with
-  // `FIXTURE_CREW` personnel aboard into the second mission's ship row. The cards come from the
-  // deck itself, taken in deck order, so a deck in a fixed order places the same cards every time.
+  // `FIXTURE_CREW` personnel aboard into the second mission's ship row (#802). It also puts
+  // `FIXTURE_BRIG` personnel into the brig, `FIXTURE_CORE` events into the core, and
+  // `FIXTURE_PLACED` events on the crewed ship, and deals `FIXTURE_UNDER_MISSION` dilemmas under the
+  // third mission and `FIXTURE_DILEMMA_STACK` dilemmas into the dilemma stack (#1024). The cards come
+  // from the deck itself, taken in deck order, so a deck in a fixed order places the same cards
+  // every time.
   | { type: 'resetWithPiles'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
 
 export const FIXTURE_AWAY_TEAM = 20;
 export const FIXTURE_CREW = 12;
+export const FIXTURE_BRIG = 2;
+export const FIXTURE_CORE = 4;
+export const FIXTURE_PLACED = 1;
+export const FIXTURE_UNDER_MISSION = 3;
+export const FIXTURE_DILEMMA_STACK = 4;
+// The mission whose `underMission` the fixture fills: not the away team's or the ship's mission.
+const FIXTURE_UNDER_MISSION_SLOT = 2;
 
 export const ZONE_FACE: Record<Zone, Face> = {
   drawDeck: 'down',
@@ -257,6 +285,12 @@ const generateInstanceId = (): string => {
   nextInstanceId += 1;
   return `card-${nextInstanceId}`;
 };
+
+// Moves the counter past the largest `card-N` of a restored game (#975), so an instance created
+// after a restore never repeats an ID. It never moves the counter back.
+export function seedInstanceIds(maxId: number): void {
+  nextInstanceId = Math.max(nextInstanceId, maxId);
+}
 
 // Gives each expanded deck row a stable, unique id so a specific copy of a duplicated card
 // can be moved on its own. Defaults to face down (the draw deck's convention); callers dealing
@@ -397,7 +431,7 @@ const flipFace = (face: Face): Face => (face === 'up' ? 'down' : 'up');
 
 // Reads the cards at a move source or destination, regardless of whether it is a top-level
 // zone (drawDeck/hand/discard), a mission's ship row, or a ship's crew.
-const cardsAt = (state: TableState, location: MoveTarget): CardInstance[] => {
+export const cardsAt = (state: TableState, location: MoveTarget): CardInstance[] => {
   if (isShipRowLocation(location)) return state.missions[location.missionIndex].ships;
   if (isCrewLocation(location)) return findShipInstance(state, location.shipId)?.crew ?? [];
   if (isMissionPileLocation(location)) return state.missions[location.missionIndex][location.pile];
@@ -512,7 +546,16 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // keeps the card's current face; a move to a different location takes on that location's
       // face.
       const toSameLocation = sameLocation(from, action.to);
-      const face = toSameLocation ? card.face : faceForLocation(action.to);
+      // A dilemma that goes to the bottom of the dilemma pile stays face up until a shuffle
+      // (#987), and one that goes to the top is face down, even when it was already in the pile.
+      const face =
+        action.to === 'dilemmaPile'
+          ? action.position === 'top'
+            ? ZONE_FACE.dilemmaPile
+            : 'up'
+          : toSameLocation
+          ? card.face
+          : faceForLocation(action.to);
       const withoutCard = cardsAt(state, from).filter((c) => c.id !== action.id);
       const afterRemoval = withCardsAt(state, from, withoutCard);
 
@@ -596,14 +639,21 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // `ShuffleLocation` ('core' | 'brig' | CrewLocation | MissionPileLocation) is a subset of
       // `MoveTarget`, so `cardsAt`/`withCardsAt` already read and write the right array for it.
       const cards = cardsAt(state, action.location);
-      return withCardsAt(state, action.location, shuffleArray(cards));
+      // A shuffle of the dilemma pile turns its face-up dilemmas face down again (#987).
+      const shuffled = shuffleArray(cards);
+      return withCardsAt(
+        state,
+        action.location,
+        action.location === 'dilemmaPile' ? shuffled.map((c) => ({ ...c, face: ZONE_FACE.dilemmaPile })) : shuffled
+      );
     }
 
-    case 'reorderDilemmaStack': {
-      const fromIndex = state.dilemmaStack.findIndex((c) => c.id === action.id);
-      const toIndex = state.dilemmaStack.findIndex((c) => c.id === action.overId);
+    case 'reorder': {
+      const cards = state[action.zone];
+      const fromIndex = cards.findIndex((c) => c.id === action.id);
+      const toIndex = cards.findIndex((c) => c.id === action.overId);
       if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return state;
-      return { ...state, dilemmaStack: arrayMove(state.dilemmaStack, fromIndex, toIndex) };
+      return { ...state, [action.zone]: arrayMove(cards, fromIndex, toIndex) };
     }
 
     case 'setStopped': {
@@ -626,6 +676,15 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         const cards = cardsAt(currentState, zone);
         return withCardsAt(currentState, zone, cards.map((c) => (c.id === id ? updated : c)));
       }, state);
+    }
+
+    case 'setMissionCompleted': {
+      const slot = state.missions[action.missionIndex];
+      if (!slot?.mission) return state;
+      const missions = state.missions.map((s, i) =>
+        i === action.missionIndex ? { ...s, completed: action.completed } : s
+      );
+      return { ...state, missions };
     }
 
     case 'nextTurn': {
@@ -710,21 +769,59 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const personnel = action.cards.filter((c) => c.card.type === 'personnel');
       const awayTeam = personnel.slice(0, FIXTURE_AWAY_TEAM);
       const crew = personnel.slice(FIXTURE_AWAY_TEAM, FIXTURE_AWAY_TEAM + FIXTURE_CREW);
+      const brigEnd = FIXTURE_AWAY_TEAM + FIXTURE_CREW + FIXTURE_BRIG;
+      const brig = personnel.slice(FIXTURE_AWAY_TEAM + FIXTURE_CREW, brigEnd);
+      const events = action.cards.filter((c) => c.card.type === 'event');
+      const core = events.slice(0, FIXTURE_CORE);
       const ship = action.cards.find((c) => c.card.type === 'ship');
-      const placed = new Set([...awayTeam, ...crew, ...(ship ? [ship] : [])].map((c) => c.id));
-      const dealt = tableReducer(state, { ...action, type: 'reset', cards: action.cards.filter((c) => !placed.has(c.id)) });
+      // With no ship, nothing is placed on one, and the event stays in the deal.
+      const onShip = ship ? events.slice(FIXTURE_CORE, FIXTURE_CORE + FIXTURE_PLACED) : [];
+      const placed = new Set(
+        [...awayTeam, ...crew, ...brig, ...core, ...onShip, ...(ship ? [ship] : [])].map((c) => c.id)
+      );
+      const underMission = action.dilemmas.slice(0, FIXTURE_UNDER_MISSION);
+      const dilemmaStack = action.dilemmas.slice(
+        FIXTURE_UNDER_MISSION,
+        FIXTURE_UNDER_MISSION + FIXTURE_DILEMMA_STACK
+      );
+      const dealt = tableReducer(state, {
+        ...action,
+        type: 'reset',
+        cards: action.cards.filter((c) => !placed.has(c.id)),
+        dilemmas: action.dilemmas.slice(FIXTURE_UNDER_MISSION + FIXTURE_DILEMMA_STACK),
+      });
       const missions = dealt.missions.map((slot, i) => {
         if (i === 0) {
           return { ...slot, awayTeam: awayTeam.map((c) => ({ ...c, face: MISSION_PILE_FACE.awayTeam })) };
         }
         if (i === 1 && ship) {
-          const crewed = { ...ship, face: SHIP_ROW_FACE, crew: crew.map((c) => ({ ...c, face: CREW_FACE })) };
+          const crewed: CardInstance = {
+            ...ship,
+            face: SHIP_ROW_FACE,
+            crew: crew.map((c) => ({ ...c, face: CREW_FACE })),
+            ...(onShip.length ? { placedOn: onShip.map((c) => ({ ...c, face: ON_FACE })) } : {}),
+          };
           return { ...slot, ships: [crewed] };
+        }
+        if (i === FIXTURE_UNDER_MISSION_SLOT) {
+          return {
+            ...slot,
+            underMission: underMission.map((c) => ({ ...c, face: MISSION_PILE_FACE.underMission })),
+          };
         }
         return slot;
       });
-      return { ...dealt, missions };
+      return {
+        ...dealt,
+        missions,
+        brig: brig.map((c) => ({ ...c, face: ZONE_FACE.brig })),
+        core: core.map((c) => ({ ...c, face: ZONE_FACE.core })),
+        dilemmaStack: dilemmaStack.map((c) => ({ ...c, face: ZONE_FACE.dilemmaStack })),
+      };
     }
+
+    case 'restore':
+      return action.state;
 
     default:
       return state;

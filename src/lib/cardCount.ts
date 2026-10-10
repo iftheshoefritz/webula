@@ -10,6 +10,15 @@ export function stripVersionSuffix(name: string): string {
 }
 
 /**
+ * The name to show for a card: the printed name (`originalName`, with its
+ * original letter case) less any version suffix, or `name` when the row has
+ * no `originalName`. Use `name` itself only to match, sort or search.
+ */
+export function cardDisplayName(card: CardRow): string {
+  return card.originalName ? stripVersionSuffix(card.originalName) : card.name;
+}
+
+/**
  * Counts search results, collapsing the versions (reprints) of the same
  * card into a single unique entry while still reporting the raw total.
  */

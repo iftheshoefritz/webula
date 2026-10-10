@@ -1,4 +1,10 @@
-import { computeShipRowCount, computeTableScale } from '../../../app/decks/practice/tableScale';
+import {
+  computeDesktopTableScale,
+  computeShipRowCount,
+  computeTableScale,
+  desktopMissionSlotBudget,
+} from '../../../app/decks/practice/tableScale';
+import { missionColumnHeight } from '../../../app/decks/practice/MissionRow';
 
 // #630: the dilemma stack's own reserved column widens computeTableScale's width budget from 5
 // mission columns and 4 gaps to 6 columns (the stack's own) and 5 gaps.
@@ -41,5 +47,34 @@ describe('computeShipRowCount (#930)', () => {
   it('takes a third row past twice that, and never more than 3', () => {
     expect(computeShipRowCount(72, rowHeight, rowGap)).toBe(3);
     expect(computeShipRowCount(1000, rowHeight, rowGap)).toBe(3);
+  });
+});
+
+// #992: the desktop cards grow into a large gap above the bottom row.
+describe('computeDesktopTableScale (#992)', () => {
+  const column = (scale: number) => missionColumnHeight(scale, true, 2);
+
+  it('grows the cards until the column fills the height above the bottom row', () => {
+    const scale = computeDesktopTableScale(3000, 600, column);
+    expect(scale).toBeGreaterThan(2);
+    expect(column(scale)).toBeLessThanOrEqual(600);
+    expect(column(scale + 0.01)).toBeGreaterThan(600);
+  });
+
+  it('stops at the width of five missions and the desktop dilemma stack', () => {
+    // #1060: each slot reserves the width of a turned mission, 100 px at scale 1, not 72.
+    // (1500 - 32 padding - 5 gaps of 8 - 112 dilemma stack) / (5 * 100)
+    expect(computeDesktopTableScale(1500, 5000, column)).toBeCloseTo((1500 - 32 - 40 - 112) / 500, 5);
+  });
+
+  it('stays at 1 when the wider slots do not fit at scale 1 (#1060)', () => {
+    // Five 72 px slots fit 600 px, five 100 px slots do not.
+    expect(desktopMissionSlotBudget(600)).toBeCloseTo((600 - 32 - 40 - 112) / 5, 5);
+    expect(computeDesktopTableScale(600, 5000, column)).toBe(1);
+  });
+
+  it('never goes below 1', () => {
+    expect(computeDesktopTableScale(3000, 100, column)).toBe(1);
+    expect(computeDesktopTableScale(400, 5000, column)).toBe(1);
   });
 });

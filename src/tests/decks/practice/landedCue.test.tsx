@@ -198,7 +198,7 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
 
   it('marks the away team badge for an equipment dropped on the mission card (#870)', async () => {
     await setup();
-    await drop(handCardId('tricorder'), 'mission-under-0');
+    await drop(handCardId('Tricorder'), 'mission-under-0');
 
     expect(awayTeamBadge(0)).toHaveAttribute('data-landed');
     expect(screen.queryByRole('button', { name: /on it$/ })).toBeNull();
@@ -207,17 +207,17 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
 
   it('marks the mission card for an event placed on it (#813)', async () => {
     await setup();
-    await drop(handCardId('distress call'), 'mission-on-0');
+    await drop(handCardId('Distress Call'), 'mission-on-0');
 
     expect(zone('mission-on-0')!.closest('[data-landed]')).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'First Contact, 1 event on it' })).toBeInTheDocument();
   });
 
   // The badge strip is under the reach of the mission's bottom half (#924), so a drop on the badge
   // is a drop on `mission-on-<index>`, and the cue still plays on the badge.
   it('marks the away team badge for an equipment dropped on the bottom half', async () => {
     await setup();
-    await drop(handCardId('tricorder'), 'mission-on-0');
+    await drop(handCardId('Tricorder'), 'mission-on-0');
 
     expect(awayTeamBadge(0)).toHaveAttribute('data-landed');
     expect(zone('mission-on-0')!.closest('[data-landed]')).toBeNull();
@@ -226,7 +226,7 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
 
   it.each(['discard', 'core', 'draw-pile-top', 'draw-pile-bottom'])('marks the zone for a drop on %s', async (overId) => {
     await setup();
-    await drop(handCardId('tricorder'), overId);
+    await drop(handCardId('Tricorder'), overId);
 
     const landed = landedElements();
     expect(landed).toHaveLength(1);
@@ -241,7 +241,7 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
 
   it('marks the closed hand for a card dropped on it from the core', async () => {
     await setup();
-    const id = handCardId('tricorder');
+    const id = handCardId('Tricorder');
     await drop(id, 'core');
     await drop(id, 'hand');
 
@@ -251,7 +251,7 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
 
   it('marks nothing for a drop over no target, over a target that takes no card, or a cancel', async () => {
     await setup();
-    const id = handCardId('tricorder');
+    const id = handCardId('Tricorder');
 
     await drop(id, null);
     expect(landedElements()).toHaveLength(0);
@@ -270,7 +270,7 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
 
   it('marks nothing for a release within the cancel radius', async () => {
     await setup();
-    const id = handCardId('tricorder');
+    const id = handCardId('Tricorder');
     const element = document.body.querySelector(`[data-card-id="${id}"]`) as HTMLElement;
     const rect = { left: 370, top: 503, right: 443, bottom: 607, width: 73, height: 104, x: 370, y: 503 };
     element.getBoundingClientRect = () => ({ ...rect, toJSON: () => ({}) }) as DOMRect;
@@ -289,12 +289,12 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
   it('clears the cue after its duration, and a second drop on the same zone restarts it', async () => {
     jest.useFakeTimers();
     await setup();
-    await drop(handCardId('tricorder'), 'discard');
+    await drop(handCardId('Tricorder'), 'discard');
 
     const firstRing = zone('discard')!.querySelector('[data-testid="landed-ring"]');
     expect(firstRing).not.toBeNull();
 
-    await drop(handCardId('distress call'), 'discard');
+    await drop(handCardId('Distress Call'), 'discard');
     const secondRing = zone('discard')!.querySelector('[data-testid="landed-ring"]');
     expect(secondRing).not.toBeNull();
     // A new element, so its animation starts again.

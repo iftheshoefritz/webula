@@ -20,6 +20,7 @@
 
 import React from 'react';
 import { LAYER_HAND_BACKDROP, LAYER_HAND_FAN } from '../../../lib/layers';
+import { cardDisplayName } from '../../../lib/cardCount';
 import { createPortal } from 'react-dom';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
@@ -31,6 +32,8 @@ import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
+import { PILE_CARD_BORDER_STYLE, cardBorderStyle } from './TableCard';
+import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -46,6 +49,8 @@ const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
 // core, brig, dilemma pile) inside a 568 x 320 viewport. The open fan measures its own width
 // (`OverlapRow`), so a long hand never hangs off the screen (#802).
 const CLOSED_MAX_WIDTH = 80;
+// The height of the row of "→ top"/"→ bottom" buttons above the open fan (#994), with its gap.
+const HAND_CONTROLS_HEIGHT = 44;
 const CLOSED_MAX_OFFSET = 10;
 // The fan may leave a small gap between two cards, at the ratio #642 set (60 px for a 56 px card).
 const openMaxOffset = (width: number) => Math.round((width * 60) / 56);
@@ -86,28 +91,29 @@ function DraggableFanCard({
           opacity: isDragging ? 0.5 : 1,
         }}
         onClick={onToggleSelect}
-        aria-label={card.name}
+        aria-label={cardDisplayName(card)}
       >
         <img
           src={`/cardimages/${card.imagefile}.jpg`}
           width={120}
           height={167}
-          alt={card.name}
+          alt={cardDisplayName(card)}
           className="rounded-lg shadow-md h-auto"
-          style={{ ...NO_CALLOUT_STYLE, width }}
+          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width), width }}
         />
       </button>
-      <button
-        type="button"
-        onClick={onToggleSelect}
-        aria-pressed={selected}
-        aria-label={selected ? `Deselect ${card.name}` : `Select ${card.name}`}
-        className={`absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none ${
-          selected ? 'bg-accent border-accent text-white' : 'bg-black/50 border-white/50 text-transparent'
-        }`}
-      >
-        ✓
-      </button>
+      {/* #1015: shown only while the card is selected, as in a card list panel. */}
+      {selected && (
+        <button
+          type="button"
+          onClick={onToggleSelect}
+          aria-pressed
+          aria-label={`Deselect ${cardDisplayName(card)}`}
+          className="absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none bg-accent border-accent text-white"
+        >
+          ✓
+        </button>
+      )}
     </div>
   );
 }
@@ -123,9 +129,12 @@ export default function CardHand({
   label = 'hand',
   selectedIds = [],
   onToggleSelect = () => {},
+  onSelectIds,
   passthroughZone,
   openCardWidth = viewerCardSize(1).width,
   bottomInset = VIEWER_TOP_INSET,
+  onSendSelected,
+  deckLabel = 'draw deck',
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -141,6 +150,9 @@ export default function CardHand({
   // not have to pass them.
   selectedIds?: string[];
   onToggleSelect?: (id: string) => void;
+  // Replaces the selection with a list of ids (#993), for the box a mouse drag from the backdrop
+  // draws (`useBoxSelect.tsx`). Left out, no box starts.
+  onSelectIds?: (ids: string[]) => void;
   // The `data-zone`(s) of other controls that stay tappable through the full-screen backdrop
   // while this hand is open (issue #638: the draw pile, so the player can draw without closing
   // an open hand first; issue #741: also the dilemma pile's two halves, so a tap there behaves
@@ -160,6 +172,11 @@ export default function CardHand({
   // `CardListPanel.tsx`), which `page.tsx` measures with `usePanelBottomInset` so the fan's bottom
   // edge sits just above the bottom row (#828).
   bottomInset?: number;
+  // Sends the selected cards of this hand to the top or the bottom of its deck (#994): the draw
+  // deck for the hand, the dilemma pile for the dilemma hand. Left out, the two buttons do not show.
+  onSendSelected?: (position: 'top' | 'bottom') => void;
+  // The name of that deck, for the accessible names of the two buttons.
+  deckLabel?: string;
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
@@ -177,6 +194,9 @@ export default function CardHand({
   // The open fan is not the drop target, so only the closed row shows the landed cue (#778).
   const zoneLandedNonce = useLandedNonce(zone);
   const landedNonce = open ? null : zoneLandedNonce;
+  const fanRef = React.useRef<HTMLDivElement | null>(null);
+  const boxSelect = useBoxSelect(fanRef, selectedIds, onSelectIds);
+  const hasSelection = instances.some((instance) => selectedIds.includes(instance.id));
 
   const handleBackdropClick = (event: React.MouseEvent) => {
     const passthroughZones = passthroughZone
@@ -239,7 +259,7 @@ export default function CardHand({
               height={167}
               alt=""
               className="absolute top-0 rounded-lg shadow-md w-14 h-auto"
-              style={{ left: idx * closedOffset, zIndex: idx + 1 }}
+              style={{ ...PILE_CARD_BORDER_STYLE, left: idx * closedOffset, zIndex: idx + 1 }}
             />
           ))
         )}
@@ -272,10 +292,12 @@ export default function CardHand({
                 type="button"
                 className={`fixed inset-0 ${LAYER_HAND_BACKDROP} bg-black/30`}
                 onClick={handleBackdropClick}
+                onPointerDown={boxSelect.onPointerDown}
                 aria-label={`Close ${label}`}
               />
             )}
             <div
+              ref={fanRef}
               data-zone={open ? zone : undefined}
               aria-hidden={open ? undefined : true}
               className={`fixed inset-x-2 ${LAYER_HAND_FAN} flex`}
@@ -301,6 +323,51 @@ export default function CardHand({
                 height={openCardHeight}
                 maxOffset={openMaxOffset(openCardWidth)}
                 centered
+                renderAside={(fanWidth) =>
+                  /* The "→ top" and "→ bottom" buttons (#994) show while a card of the open hand
+                     is selected. They sit just above the fan, and the right end of the row lines
+                     up with the right end of the fan (#1013): the outer box spans the fan's own
+                     `inset-x-2`, and the inner box takes the width the fan's cards take, centred
+                     as they are. A row wider than a short fan grows to the left, so it stays on
+                     the screen. On a screen too short for a row above the fan, `max()` keeps them
+                     at the top inset, over the top edge of the fan. The row is `fixed` like the
+                     fan around it (neither has a transform), so it places itself on the viewport.
+                     Neither box takes a tap: the fan's `pointer-events: none` reaches them, and
+                     only the buttons turn it back on. The row shares the fan's stacking context
+                     with the cards, whose `zIndex` runs from 1 up to the count (`OverlapRow`), so
+                     its own `zIndex` sits above them all, as the row did when it had a layer of
+                     its own. */
+                  open &&
+                  hasSelection &&
+                  onSendSelected && (
+                    <div
+                      className="fixed inset-x-2 flex justify-center"
+                      style={{
+                        top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${bottomInset + openCardHeight + HAND_CONTROLS_HEIGHT}px))`,
+                        zIndex: count + 2,
+                      }}
+                    >
+                      <div data-testid={`${zone}-controls`} className="flex flex-row justify-end gap-2" style={{ width: fanWidth }}>
+                        <button
+                          type="button"
+                          onClick={() => onSendSelected('top')}
+                          aria-label={`Selected cards to the top of the ${deckLabel}`}
+                          className="btn-primary shrink-0 pointer-events-auto"
+                        >
+                          → top
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSendSelected('bottom')}
+                          aria-label={`Selected cards to the bottom of the ${deckLabel}`}
+                          className="btn-primary shrink-0 pointer-events-auto"
+                        >
+                          → bottom
+                        </button>
+                      </div>
+                    </div>
+                  )
+                }
                 renderCard={(instance) => (
                   <DraggableFanCard
                     instance={instance}
@@ -311,6 +378,7 @@ export default function CardHand({
                 )}
               />
             </div>
+            <BoxSelectRect box={boxSelect.box} className={LAYER_HAND_FAN} />
           </>,
           portalContainer ?? document.body,
         )}

@@ -66,6 +66,16 @@ import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 
+// #1015: an unselected panel card shows no checkbox, so a test selects it with a tap on the card
+// itself, the one inside the open card list panel rather than its copy on the table.
+const panelCard = (name: string) => {
+  const card = screen
+    .getAllByRole('button', { name })
+    .find((button) => button.closest('[data-testid^="card-list-panel-"]'));
+  if (!card) throw new Error(`No card named ${name} in an open card list panel`);
+  return card;
+};
+
 const makePersonnel = (n: number) => ({
   collectorsinfo: `2C10${n}`,
   originalName: `Personnel ${n}`,
@@ -88,12 +98,17 @@ const mockDilemmaCard = {
   count: 1,
 };
 
+const mockDilemmaCards = [
+  mockDilemmaCard,
+  { ...mockDilemmaCard, collectorsinfo: '1R101', originalName: 'Hard Time', name: 'hard time', imagefile: 'hard_time' },
+];
+
 const CARD_BACK = '/cardimages/cardback.jpg';
 
 // #762: a "Flip" button beside "Stop"/"Unstop" in the panels whose cards the preview can flip (a
 // mission's away team and under-the-mission piles). It turns each selected card over on its own.
 // #826: in those panels every card draws its own image, and a face-down card carries a "Face down"
-// mark, so the player can read the card and still see a Flip.
+// mark, so the player can read the card and still see a Flip. #964: except in the away team panel.
 describe('Practice table: the card list panel Flip button (#762)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -178,78 +193,102 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
   // its Away team, and opens that pile's panel.
   const openAwayTeam = async () => {
     await renderWithDeck(mockPersonnelCards);
-    for (const name of ['personnel 1', 'personnel 2']) {
+    for (const name of ['Personnel 1', 'Personnel 2']) {
       await openClosedHand(/^hand, \d+ cards?, tap to open$/i);
       await drop(cardIdFor(name), 'mission-under-0');
     }
     await click(/Away team, 2 cards, tap to open/i);
   };
 
-  it('draws face-down cards in an away team panel as their own image with a mark, and shows no Flip without a selection', async () => {
+  // Drops both dilemmas from the dilemma hand under the first mission, where they go face up, and
+  // opens that pile's panel.
+  const openUnderMission = async () => {
+    await renderWithDeck([], mockDilemmaCards);
+    for (const name of ['Cardassian Trap', 'Hard Time']) {
+      await click('Dilemma pile top, tap to draw');
+      await openClosedHand(/^dilemma hand, \d+ cards?, tap to open$/i);
+      await drop(cardIdFor(name), 'mission-under-0');
+    }
+    await click(/Under the mission pile, 2 cards, tap to open/i);
+  };
+
+  // #964: an away team card is face down by default, so its panel shows no "Face down" mark.
+  it('draws face-down cards in an away team panel as their own image with no mark, and shows no Flip without a selection', async () => {
     await openAwayTeam();
 
-    expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
-    expect(panelImage('awayTeam', 'personnel 2')).toHaveAttribute('src', '/cardimages/personnel_2.jpg');
-    expect(hasMark('awayTeam', 'personnel 1')).toBe(true);
-    expect(hasMark('awayTeam', 'personnel 2')).toBe(true);
-    // The mark is not the stopped look.
-    expect(panelImage('awayTeam', 'personnel 1')).not.toHaveClass('grayscale');
+    expect(panelImage('awayTeam', 'Personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
+    expect(panelImage('awayTeam', 'Personnel 2')).toHaveAttribute('src', '/cardimages/personnel_2.jpg');
+    expect(hasMark('awayTeam', 'Personnel 1')).toBe(false);
+    expect(hasMark('awayTeam', 'Personnel 2')).toBe(false);
     expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
   });
 
-  it('flips a selected face-down card face up, beside the Stop button, and keeps the selection', async () => {
+  it('flips a selected away team card, beside the Stop button, keeps the selection, and shows no mark either way', async () => {
     await openAwayTeam();
 
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('Personnel 1')); });
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^flip$/i })).toBeInTheDocument();
 
     await click(/^flip$/i);
-
-    expect(panelImage('awayTeam', 'personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
-    expect(hasMark('awayTeam', 'personnel 1')).toBe(false);
-    expect(hasMark('awayTeam', 'personnel 2')).toBe(true);
-    expect(screen.getByRole('button', { name: 'Deselect personnel 1' })).toHaveAttribute('aria-pressed', 'true');
-    // Stop is unchanged by a flip.
-    expect(panelImage('awayTeam', 'personnel 1')).not.toHaveClass('grayscale');
+    expect(hasMark('awayTeam', 'Personnel 1')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Deselect Personnel 1' })).toHaveAttribute('aria-pressed', 'true');
+    expect(panelImage('awayTeam', 'Personnel 1')).not.toHaveClass('grayscale');
 
     await click(/^flip$/i);
-    expect(hasMark('awayTeam', 'personnel 1')).toBe(true);
+    expect(hasMark('awayTeam', 'Personnel 1')).toBe(false);
+  });
+
+  it('marks a face-down card in the under-the-mission panel, and a flip turns the mark on and off', async () => {
+    await openUnderMission();
+
+    expect(hasMark('underMission', 'Cardassian Trap')).toBe(false);
+
+    await act(async () => { fireEvent.click(panelCard('Cardassian Trap')); });
+    await click(/^flip$/i);
+
+    expect(panelImage('underMission', 'Cardassian Trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
+    expect(hasMark('underMission', 'Cardassian Trap')).toBe(true);
+    expect(hasMark('underMission', 'Hard Time')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Deselect Cardassian Trap' })).toHaveAttribute('aria-pressed', 'true');
+
+    await click(/^flip$/i);
+    expect(hasMark('underMission', 'Cardassian Trap')).toBe(false);
   });
 
   it('turns each card of a mixed selection over on its own', async () => {
-    await openAwayTeam();
+    await openUnderMission();
 
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('Cardassian Trap')); });
     await click(/^flip$/i);
-    await click('Select personnel 2');
+    await act(async () => { fireEvent.click(panelCard('Hard Time')); });
     await click(/^flip$/i);
 
-    expect(hasMark('awayTeam', 'personnel 1')).toBe(true);
-    expect(hasMark('awayTeam', 'personnel 2')).toBe(false);
+    expect(hasMark('underMission', 'Cardassian Trap')).toBe(false);
+    expect(hasMark('underMission', 'Hard Time')).toBe(true);
   });
 
-  it('marks a card that is both stopped and face down with the stopped look and the mark', async () => {
+  it('gives a stopped away team card the stopped look and no mark', async () => {
     await openAwayTeam();
 
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('Personnel 1')); });
     await click(/^stop$/i);
 
-    expect(panelImage('awayTeam', 'personnel 1')).toHaveClass('grayscale');
-    expect(hasMark('awayTeam', 'personnel 1')).toBe(true);
+    expect(panelImage('awayTeam', 'Personnel 1')).toHaveClass('grayscale');
+    expect(hasMark('awayTeam', 'Personnel 1')).toBe(false);
   });
 
   it('shows no Flip button in the core panel, even with a selection, and keeps its cards face up', async () => {
     await renderWithDeck(mockPersonnelCards);
     await openClosedHand(/^hand, \d+ cards?, tap to open$/i);
-    await drop(cardIdFor('personnel 1'), 'core');
-    await click('personnel 1');
+    await drop(cardIdFor('Personnel 1'), 'core');
+    await click('Personnel 1');
 
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('Personnel 1')); });
 
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
-    expect(panelImage('core', 'personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
+    expect(panelImage('core', 'Personnel 1')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
     expect(document.body.querySelector('[data-testid="face-down-mark"]')).not.toBeInTheDocument();
   });
 
@@ -260,20 +299,20 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
     await renderWithDeck([], [mockDilemmaCard]);
     await click('Dilemma pile top, tap to draw');
     await openClosedHand(/^dilemma hand, 1 card, tap to open$/i);
-    await drop(cardIdFor('cardassian trap'), 'dilemmaStack');
+    await drop(cardIdFor('Cardassian Trap'), 'dilemmaStack');
 
     const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
     expect(stackZone.querySelector('img')).toHaveAttribute('src', CARD_BACK);
 
     await click('Dilemma stack, 1 card, tap to open');
-    expect(panelImage('dilemmaStack', 'cardassian trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
+    expect(panelImage('dilemmaStack', 'Cardassian Trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
     expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
 
     expect(document.body.querySelector('[data-testid="face-down-mark"]')).not.toBeInTheDocument();
 
-    await click('Select cardassian trap');
+    await act(async () => { fireEvent.click(panelCard('Cardassian Trap')); });
     expect(screen.queryByRole('button', { name: /^flip$/i })).not.toBeInTheDocument();
-    expect(panelImage('dilemmaStack', 'cardassian trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
+    expect(panelImage('dilemmaStack', 'Cardassian Trap')).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
 
     await click('Close dilemma stack');
 

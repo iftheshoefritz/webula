@@ -1,10 +1,11 @@
 // #828: a card list panel anchors its bottom edge just above the bottom row and grows upward,
 // instead of anchoring its top and leaving an empty band above the bottom row. jsdom has no
 // layout, so these check the structure: the column justifies to the end, and the measured bottom
-// inset reaches the inset box while the top stays `VIEWER_TOP_INSET`.
+// inset reaches the inset box while the top stays `PANEL_TOP_INSET` (#1068).
 jest.mock('@dnd-kit/core', () => ({
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false }),
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
+  useDndContext: () => ({ active: null, over: null }),
 }));
 
 import React from 'react';
@@ -12,6 +13,7 @@ import { render, renderHook } from '@testing-library/react';
 import CardListPanel, { PanelLocation } from '../../../app/decks/practice/CardListPanel';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import { panelBottomInset, usePanelBottomInset } from '../../../app/decks/practice/panelBottomInset';
+import { PANEL_TOP_INSET, VIEWER_TOP_INSET } from '../../../app/decks/practice/viewerCardSize';
 
 const makeCard = (n: number): CardInstance =>
   ({
@@ -46,10 +48,10 @@ describe('Practice draw: a card list panel anchors its bottom just above the bot
     expect(box.className).toMatch(/\bjustify-end\b/);
   });
 
-  it('puts a given bottom inset on the inset box and keeps the top at VIEWER_TOP_INSET', () => {
+  it('puts a given bottom inset on the inset box and keeps the top at PANEL_TOP_INSET', () => {
     const box = insetBoxFor('drawDeck', 120);
     expect(box.style.bottom).toBe('120px');
-    expect(box.style.top).toBe('8px');
+    expect(box.style.top).toBe(`${PANEL_TOP_INSET}px`);
     expect(box.style.left).toBe('8px');
     expect(box.style.right).toBe('8px');
   });
@@ -57,7 +59,14 @@ describe('Practice draw: a card list panel anchors its bottom just above the bot
   it('keeps the old symmetric inset with no bottom inset given', () => {
     const box = insetBoxFor('discard');
     expect(box.style.bottom).toBe('8px');
-    expect(box.style.top).toBe('8px');
+    expect(box.style.top).toBe(`${PANEL_TOP_INSET}px`);
+  });
+
+  // #1068: iOS Safari takes a tap in a band at the top of the screen to show its toolbar, so the
+  // panel's controls row starts below that band, not at the 8 px the open fan keeps.
+  it('starts the panel lower than VIEWER_TOP_INSET, out of the band where iOS Safari takes a tap', () => {
+    expect(PANEL_TOP_INSET).toBeGreaterThan(VIEWER_TOP_INSET);
+    expect(PANEL_TOP_INSET).toBeGreaterThanOrEqual(44);
   });
 });
 

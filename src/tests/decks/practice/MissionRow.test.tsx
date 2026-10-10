@@ -4,13 +4,22 @@ jest.mock('@dnd-kit/core', () => ({
 }));
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import MissionRow from '../../../app/decks/practice/MissionRow';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import MissionRow, {
+  missionSlotWidth,
+  turnedMissionScale,
+  underMissionHeadroom,
+} from '../../../app/decks/practice/MissionRow';
+import CountBadge from '../../../app/decks/practice/CountBadge';
+import { CardHoldProvider, DOUBLE_TAP_MS, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableReducer';
+import { LandedZoneProvider } from '../../../app/decks/practice/LandedZoneContext';
+import eventIcon from '../../../../public/icons/icon_event.gif';
+import dualIcon from '../../../../public/icons/icon_dual.gif';
 
 const card = (id: string, name: string): CardInstance => ({
   id,
-  card: { name, imagefile: id },
+  card: { name: name.toLowerCase(), originalName: name, imagefile: id },
   face: 'up',
 });
 
@@ -83,6 +92,35 @@ describe('MissionRow', () => {
     expect(under.style.bottom).toBe('');
   });
 
+  // #990: the top half reaches up over the slivers of the dilemmas under the mission, so a drop on
+  // them, and the marker, cover them too. Two slivers show at most, each 6 px at scale 1.
+  it.each([
+    [0, ''],
+    [1, '-6px'],
+    [3, '-12px'],
+  ])("reaches the mission's top half up over %i dilemma(s) under the mission", (count, top) => {
+    const slot: MissionSlot = {
+      ...emptySlot(),
+      underMission: Array.from({ length: count }, (_, i) => card(`d${i}`, `Dilemma ${i}`)),
+    };
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+      />
+    );
+
+    const under = document.body.querySelector('[data-zone="mission-under-0"]') as HTMLElement;
+    expect(under.style.top).toBe(top);
+    expect(under.style.bottom).toBe('');
+    if (top) expect(under.style.height).toBe(`calc(50% + ${top.slice(1)})`);
+    const stack = document.body.querySelector('[data-testid="mission-under-0-stack"]') as HTMLElement | null;
+    expect(stack?.style.top ?? '').toBe(top);
+  });
+
   // #813: a mission card takes a placed card. It shows a counter of the cards on it, and a tap on the
   // counter opens them.
   it('shows a counter of the cards on the mission card, and a tap on it opens them', () => {
@@ -101,10 +139,112 @@ describe('MissionRow', () => {
       />
     );
 
-    const counter = screen.getByRole('button', { name: /^A Mission, 1 card on it$/ });
+    const counter = screen.getByRole('button', { name: /^A Mission, 1 event on it$/ });
     expect(counter).toHaveTextContent('1');
+    // #1069: it sits in the badge strip, to the right of the away team badge, not on the card's corner.
+    const awayTeam = screen.getByTestId('mission-pile-awayTeam-0');
+    expect(counter.parentElement).toBe(awayTeam.parentElement);
+    expect(awayTeam.nextElementSibling).toBe(counter);
+    expect(screen.getByTestId('mission-corners-0')).not.toContainElement(counter);
+    // It shows the event icon.
+    const icon = counter.querySelector('img') as HTMLImageElement;
+    expect(icon).not.toBeNull();
+    expect(icon.getAttribute('src')).toBe(eventIcon.src);
+    expect(icon).toHaveAttribute('alt', '');
     fireEvent.click(counter);
-    expect(onOpenPlacedOn).toHaveBeenCalledWith('mission-0');
+    expect(onOpenPlacedOn).toHaveBeenCalledWith('mission-0', 'events');
+    // #1081: no dilemma is placed on the mission, so it shows no dilemma badge.
+    expect(screen.queryByRole('button', { name: /dilemmas? on it$/ })).not.toBeInTheDocument();
+  });
+
+  const dilemma = (id: string, name: string): CardInstance => ({
+    ...card(id, name),
+    card: { ...card(id, name).card, type: 'dilemma' },
+  });
+
+  // #1081: the dilemmas placed on a mission count in a badge of their own, with the dual icon, to the
+  // right of the events badge. The dilemmas under the mission count in neither.
+  it('counts the dilemmas placed on the mission card in a badge of their own', () => {
+    const onOpenPlacedOn = jest.fn();
+    const slot: MissionSlot = {
+      ...emptySlot(),
+      mission: { ...card('mission-0', 'A Mission'), placedOn: [card('e1', 'An Event'), dilemma('d1', 'A Dilemma')] },
+      underMission: [dilemma('d2', 'Under'), dilemma('d3', 'Under Too')],
+    };
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={onOpenPlacedOn}
+      />
+    );
+
+    const events = screen.getByRole('button', { name: 'A Mission, 1 event on it' });
+    const dilemmas = screen.getByRole('button', { name: 'A Mission, 1 dilemma on it' });
+    expect(events).toHaveTextContent('1');
+    expect(dilemmas).toHaveTextContent('1');
+    expect(dilemmas).toHaveAttribute('data-testid', 'mission-on-dilemmas-0');
+    expect(events).toHaveAttribute('data-testid', 'mission-on-events-0');
+    expect(screen.getByTestId('mission-pile-awayTeam-0').nextElementSibling).toBe(events);
+    expect(events.nextElementSibling).toBe(dilemmas);
+    expect(dilemmas.querySelector('img')!.getAttribute('src')).toBe(dualIcon.src);
+    fireEvent.click(dilemmas);
+    expect(onOpenPlacedOn).toHaveBeenCalledWith('mission-0', 'dilemmas');
+  });
+
+  it('shows no events badge on a mission card with only dilemmas on it', () => {
+    const slot: MissionSlot = {
+      ...emptySlot(),
+      mission: { ...card('mission-0', 'A Mission'), placedOn: [dilemma('d1', 'A'), dilemma('d2', 'B')] },
+    };
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'A Mission, 2 dilemmas on it' })).toHaveTextContent('2');
+    expect(screen.queryByRole('button', { name: /events? on it$/ })).not.toBeInTheDocument();
+  });
+
+  // Both badges share the landed key `on-<mission id>`, so only the badge whose count grew bumps.
+  it('bumps only the badge of the group that gained the dropped card', () => {
+    const before: MissionSlot = {
+      ...emptySlot(),
+      mission: { ...card('mission-0', 'A Mission'), placedOn: [card('e1', 'An Event'), dilemma('d1', 'A Dilemma')] },
+    };
+    const after: MissionSlot = {
+      ...before,
+      mission: { ...before.mission!, placedOn: [...before.mission!.placedOn!, dilemma('d2', 'Another')] },
+    };
+    const row = (slot: MissionSlot, landed: boolean) => (
+      <LandedZoneProvider value={landed ? { keys: new Set(['on-mission-0']), nonce: 1 } : null}>
+        <MissionRow
+          missions={[slot]}
+          onOpenPile={() => {}}
+          onShipClick={() => {}}
+          onOpenShipRow={() => {}}
+          onOpenPlacedOn={() => {}}
+        />
+      </LandedZoneProvider>
+    );
+    const { rerender } = render(row(before, false));
+    rerender(row(after, true));
+
+    const bumped = (name: string) =>
+      screen.getByRole('button', { name }).querySelector('.motion-safe\\:animate-landed-bump') !== null;
+    expect(bumped('A Mission, 2 dilemmas on it')).toBe(true);
+    expect(bumped('A Mission, 1 event on it')).toBe(false);
+    // A later render within the same cue keeps the bump on the same badge.
+    rerender(row(after, true));
+    expect(bumped('A Mission, 2 dilemmas on it')).toBe(true);
+    expect(bumped('A Mission, 1 event on it')).toBe(false);
   });
 
   it('shows no counter on a mission card with nothing on it', () => {
@@ -130,6 +270,7 @@ describe('MissionRow', () => {
         onOpenPile={() => {}}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
       />
     );
 
@@ -148,6 +289,7 @@ describe('MissionRow', () => {
         onOpenPile={onOpenPile}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
       />
     );
 
@@ -168,6 +310,7 @@ describe('MissionRow', () => {
         onOpenPile={() => {}}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
       />
     );
 
@@ -196,24 +339,46 @@ describe('MissionRow', () => {
       ...emptySlot(),
       underMission: [card('d1', 'Dilemma One'), card('d2', 'Dilemma Two'), card('d3', 'Dilemma Three')],
     });
+    // A single tap acts only after the double-tap window (#1059).
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
     // jsdom lays nothing out, so the mission card gets a 72x64 rect at the origin.
     const tapMission = (clientY: number) => {
       const button = document.body.querySelector('[data-card-id="mission-0"]') as HTMLElement;
       button.getBoundingClientRect = () =>
         ({ top: 0, left: 0, right: 72, bottom: 64, width: 72, height: 64, x: 0, y: 0, toJSON: () => {} }) as DOMRect;
       fireEvent.click(button, { clientX: 10, clientY });
+      act(() => {
+        jest.advanceTimersByTime(DOUBLE_TAP_MS);
+      });
     };
 
-    it('shows two slivers, each offset by about 5% of the card height, and the true count', () => {
+    it('shows two slivers, each offset by about 10% of the card height, and the true count', () => {
       renderRow(threeDilemmas());
       expect(document.body.querySelector('[data-card-id="d1"]')).toBeNull();
       const d2 = document.body.querySelector('[data-card-id="d2"]')!.parentElement!;
       const d3 = document.body.querySelector('[data-card-id="d3"]')!.parentElement!;
       expect(d2.style.top).toBe('0px');
-      expect(d3.style.top).toBe('3px'); // 5% of 64px, rounded
-      expect(d2.parentElement!.style.top).toBe('-6px');
+      expect(d3.style.top).toBe('6px'); // 10% of 64px, rounded (#968)
+      expect(d2.parentElement!.style.top).toBe('-12px');
       expect(screen.getByRole('button', { name: /under the mission pile, 3 cards, tap to open/i })).toBeInTheDocument();
       expect(d2.parentElement!.textContent).toBe('3');
+    });
+
+    // #996: the count uses the same badge as the draw deck, the hands, and the discard pile.
+    it('shows the count in the common count badge', () => {
+      renderRow(threeDilemmas());
+      const stack = document.body.querySelector('[data-testid="mission-under-0-stack"]')!;
+      const { container } = render(<CountBadge count={3} />);
+      const badge = stack.querySelector('span[aria-hidden="true"] > span')!;
+      expect(badge.className).toBe((container.firstChild as HTMLElement).className);
+      expect(badge).toHaveTextContent('3');
+    });
+
+    // #968: the row moves down only once two slivers outgrow the padding above the row.
+    it('moves the mission row down only by what two slivers need past the top padding', () => {
+      expect(underMissionHeadroom(1)).toBe(0); // 2 x 6px fits the 16px padding
+      expect(underMissionHeadroom(2)).toBe(10); // 2 x 13px, less 16px
     });
 
     it('puts the under drop on the top half and the on drop on the bottom half', () => {
@@ -228,10 +393,25 @@ describe('MissionRow', () => {
       expect(onOpenPile).toHaveBeenCalledWith(0, 'underMission');
     });
 
-    it('opens nothing on a tap of the bottom half', () => {
+    it('opens nothing on a tap of the bottom half when the away team is empty', () => {
       const onOpenPile = renderRow(threeDilemmas());
       tapMission(50);
       expect(onOpenPile).not.toHaveBeenCalled();
+    });
+
+    // #967: the bottom half opens the away team panel, the same panel the away team badge opens.
+    it('opens the away team panel on a tap of the bottom half', () => {
+      const onOpenPile = renderRow({ ...threeDilemmas(), awayTeam: [card('p1', 'Personnel One')] });
+      tapMission(50);
+      expect(onOpenPile).toHaveBeenCalledTimes(1);
+      expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
+    });
+
+    it('opens the under-the-mission panel, not the away team, on a tap of the top half', () => {
+      const onOpenPile = renderRow({ ...threeDilemmas(), awayTeam: [card('p1', 'Personnel One')] });
+      tapMission(10);
+      expect(onOpenPile).toHaveBeenCalledTimes(1);
+      expect(onOpenPile).toHaveBeenCalledWith(0, 'underMission');
     });
 
     it('opens nothing on a tap of the top half when no dilemma is under the mission', () => {
@@ -239,11 +419,276 @@ describe('MissionRow', () => {
       tapMission(10);
       expect(onOpenPile).not.toHaveBeenCalled();
     });
+
+    // #1012: the slivers sit on top of the top half, so they take its tap and its hold.
+    it('opens the under-the-mission panel on a tap of a sliver', () => {
+      const onOpenPile = renderRow(threeDilemmas());
+      fireEvent.click(document.body.querySelector('[data-card-id="d2"]')!);
+      expect(onOpenPile).toHaveBeenCalledTimes(1);
+      expect(onOpenPile).toHaveBeenCalledWith(0, 'underMission');
+    });
+
+    it('opens the under-the-mission panel on a tap of the count badge', () => {
+      const onOpenPile = renderRow(threeDilemmas());
+      const stack = document.body.querySelector('[data-testid="mission-under-0-stack"]')!;
+      fireEvent.click(stack.querySelector('span[aria-hidden="true"] > span')!);
+      expect(onOpenPile).toHaveBeenCalledTimes(1);
+      expect(onOpenPile).toHaveBeenCalledWith(0, 'underMission');
+    });
+
+    it('opens the panel once from the hidden button', () => {
+      const onOpenPile = renderRow(threeDilemmas());
+      fireEvent.click(screen.getByRole('button', { name: /under the mission pile, 3 cards, tap to open/i }));
+      expect(onOpenPile).toHaveBeenCalledTimes(1);
+    });
+
+    it('previews the mission on a hold of a sliver', () => {
+      jest.useFakeTimers();
+      try {
+        const startHold = jest.fn();
+        render(
+          <CardHoldProvider value={{ startHold, endHold: () => {}, startHover: () => {}, endHover: () => {} }}>
+            <MissionRow
+              missions={[threeDilemmas()]}
+              onOpenPile={() => {}}
+              onShipClick={() => {}}
+              onOpenShipRow={() => {}}
+              onOpenPlacedOn={() => {}}
+            />
+          </CardHoldProvider>
+        );
+        fireEvent.pointerDown(document.body.querySelector('[data-card-id="d3"]')!, { button: 0 });
+        act(() => {
+          jest.advanceTimersByTime(HOLD_DELAY_MS);
+        });
+        expect(startHold).toHaveBeenCalledWith('mission-0', expect.anything());
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 });
 
 // #930: with spare height the ship row fills a second and a third row of 2 ships before it
 // overlaps, and only the last row overlaps.
+describe('MissionRow: a completed mission (#991)', () => {
+  const renderRow = (missions: MissionSlot[], onSetMissionCompleted = jest.fn(), onOpenPile = jest.fn()) =>
+    render(
+      <MissionRow
+        missions={missions}
+        onOpenPile={onOpenPile}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+        onSetMissionCompleted={onSetMissionCompleted}
+      />
+    );
+
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const missionButton = () => {
+    const button = document.body.querySelector('[data-card-id="mission-0"]') as HTMLElement;
+    button.getBoundingClientRect = () =>
+      ({ top: 0, left: 0, right: 72, bottom: 64, width: 72, height: 64, x: 0, y: 0, toJSON: () => {} }) as DOMRect;
+    return button;
+  };
+  const tap = (button: HTMLElement, clientX = 10, clientY = 50) => fireEvent.click(button, { clientX, clientY });
+
+  // #1059: a double-tap toggles completion, and the single tap it starts with does nothing.
+  it('marks a mission complete on two taps within the window, and opens no panel', () => {
+    const onSet = jest.fn();
+    const onOpenPile = jest.fn();
+    renderRow([{ ...emptySlot(), awayTeam: [card('p1', 'Data')] }], onSet, onOpenPile);
+    const button = missionButton();
+    tap(button);
+    act(() => {
+      jest.advanceTimersByTime(DOUBLE_TAP_MS - 50);
+    });
+    tap(button, 12, 52);
+    act(() => {
+      jest.advanceTimersByTime(DOUBLE_TAP_MS * 2);
+    });
+    expect(onSet).toHaveBeenCalledTimes(1);
+    expect(onSet).toHaveBeenCalledWith(0, true);
+    expect(onOpenPile).not.toHaveBeenCalled();
+  });
+
+  it('marks a completed mission not complete on a double-tap', () => {
+    const onSet = jest.fn();
+    renderRow([{ ...emptySlot(), completed: true }], onSet);
+    const button = missionButton();
+    tap(button);
+    tap(button);
+    expect(onSet).toHaveBeenCalledWith(0, false);
+  });
+
+  it('opens the panel of a single tap only after the window passes', () => {
+    const onSet = jest.fn();
+    const onOpenPile = jest.fn();
+    renderRow([{ ...emptySlot(), awayTeam: [card('p1', 'Data')] }], onSet, onOpenPile);
+    tap(missionButton());
+    act(() => {
+      jest.advanceTimersByTime(DOUBLE_TAP_MS - 1);
+    });
+    expect(onOpenPile).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
+    expect(onSet).not.toHaveBeenCalled();
+  });
+
+  it('does not count two taps far apart as a double-tap', () => {
+    const onSet = jest.fn();
+    const onOpenPile = jest.fn();
+    renderRow([{ ...emptySlot(), awayTeam: [card('p1', 'Data')] }], onSet, onOpenPile);
+    const button = missionButton();
+    tap(button, 10, 10);
+    tap(button, 10, 60);
+    act(() => {
+      jest.advanceTimersByTime(DOUBLE_TAP_MS);
+    });
+    expect(onSet).not.toHaveBeenCalled();
+    expect(onOpenPile).toHaveBeenCalledTimes(1);
+    expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
+  });
+
+  it('draws no check toggle on the card or in the badge strip', () => {
+    renderRow([{ ...emptySlot() }, { ...emptySlot(), completed: true }]);
+    expect(document.body.querySelector('[data-testid^="mission-complete-"]')).toBeNull();
+  });
+
+  it('darkens a completed mission and says so in its accessible name', () => {
+    renderRow([{ ...emptySlot(), completed: true }]);
+    expect(screen.getByRole('img', { name: 'A Mission' })).toHaveClass('brightness-50');
+    expect(document.body.querySelector('[data-card-id="mission-0"]')).toHaveAttribute(
+      'aria-label',
+      'A Mission, completed'
+    );
+  });
+
+  it('names a mission that is not complete by its name alone, and does not darken it', () => {
+    renderRow([{ ...emptySlot() }]);
+    expect(screen.getByRole('img', { name: 'A Mission' })).not.toHaveClass('brightness-50');
+    expect(document.body.querySelector('[data-card-id="mission-0"]')).toHaveAttribute('aria-label', 'A Mission');
+  });
+
+  it('toggles completion from the hidden focus button', () => {
+    const onSet = jest.fn();
+    const onOpenPile = jest.fn();
+    const { unmount } = renderRow([{ ...emptySlot(), awayTeam: [card('p1', 'Data')] }], onSet, onOpenPile);
+    const toggle = screen.getByRole('button', { name: 'Mark A Mission complete' });
+    expect(toggle).toHaveAttribute('data-testid', 'mission-toggle-0');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(toggle).toHaveClass('sr-only', 'focus:not-sr-only');
+    expect(toggle).not.toHaveAttribute('data-zone');
+    fireEvent.click(toggle);
+    expect(onSet).toHaveBeenCalledWith(0, true);
+    expect(onOpenPile).not.toHaveBeenCalled();
+    unmount();
+
+    renderRow([{ ...emptySlot(), completed: true }], onSet);
+    const pressed = screen.getByRole('button', { name: 'Mark A Mission not complete' });
+    expect(pressed).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(pressed);
+    expect(onSet).toHaveBeenCalledWith(0, false);
+  });
+
+  it('shows no toggle in a slot with no mission card', () => {
+    renderRow([{ ...emptySlot(), mission: null }]);
+    expect(screen.queryByRole('button', { name: /^Mark / })).toBeNull();
+  });
+});
+
+// #1060: a completed mission's card turns 90° inside its slot; nothing around it turns.
+describe('MissionRow: a completed mission turns (#1060)', () => {
+  const doubleSided: MissionSlot = {
+    ...emptySlot(),
+    mission: {
+      ...card('mission-0', 'A Mission'),
+      card: { name: 'a mission', originalName: 'A Mission', imagefile: 'mission-0', backimagefile: 'back' },
+      placedOn: [card('e1', 'An Event')],
+    },
+    underMission: [card('d1', 'A Dilemma')],
+  };
+  const renderRow = (slot: MissionSlot, desktop = false, slotBudget?: number) =>
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+        desktop={desktop}
+        slotBudget={slotBudget}
+      />
+    );
+  const missionCard = () => document.body.querySelector('[data-card-id="mission-0"]') as HTMLElement;
+
+  it('turns and darkens the card of a completed mission, and nothing else', () => {
+    renderRow({ ...doubleSided, completed: true });
+    expect(missionCard().style.transform).toBe(`rotate(90deg) scale(${turnedMissionScale(1)})`);
+    expect(missionCard()).toHaveClass('motion-safe:transition-transform', 'motion-reduce:transition-none');
+    expect(screen.getByRole('img', { name: 'A Mission' })).toHaveClass('brightness-50');
+    const stack = screen.getByTestId('mission-under-0-stack');
+    const counter = screen.getByRole('button', { name: 'A Mission, 1 event on it' });
+    const flip = screen.getByRole('button', { name: /^Flip A Mission/ });
+    for (const el of [stack, counter, flip]) {
+      for (let a: HTMLElement | null = el; a && a !== document.body; a = a.parentElement) {
+        expect(a.style.transform).not.toMatch(/rotate/);
+      }
+    }
+  });
+
+  it('draws a mission that is not complete upright', () => {
+    renderRow(doubleSided);
+    expect(missionCard().style.transform).toBe('');
+  });
+
+  it('puts the Flip button on the corner of the turned card, and the counter in the badge strip', () => {
+    renderRow({ ...doubleSided, completed: true }, true);
+    const corners = screen.getByTestId('mission-corners-0');
+    expect(corners).toContainElement(screen.getByRole('button', { name: /^Flip A Mission/ }));
+    expect(corners).not.toContainElement(screen.getByRole('button', { name: 'A Mission, 1 event on it' }));
+    // The turned whole card at scale 1 is 100 px wide and 72 px tall.
+    expect(corners.style.width).toBe('100px');
+    expect(corners.style.height).toBe('72px');
+  });
+
+  it('reserves the width of a turned card for every desktop slot, and the card width on touch', () => {
+    const { unmount } = renderRow(doubleSided, true);
+    expect(missionCard().closest('div.flex-col')).toHaveStyle({ width: '100px' });
+    unmount();
+    renderRow(doubleSided);
+    expect(missionCard().closest('div.flex-col')).toHaveStyle({ width: '72px' });
+  });
+});
+
+describe('missionSlotWidth and turnedMissionScale (#1060)', () => {
+  it('keeps the card width on a touch screen, and shrinks the turned crop to fit its height', () => {
+    expect(missionSlotWidth(1)).toBe(72);
+    expect(missionSlotWidth(1, false, 10)).toBe(72);
+    // The 72 x 64 crop turned is 64 x 72: it fits the slot's 64 px height at 64 / 72.
+    expect(turnedMissionScale(1)).toBeCloseTo(64 / 72, 5);
+    expect(turnedMissionScale(2)).toBeCloseTo(128 / 144, 5);
+  });
+
+  it('reserves the turned card width on a desktop with room, and draws the turned card at full size', () => {
+    expect(missionSlotWidth(1, true)).toBe(100);
+    expect(missionSlotWidth(1, true, 500)).toBe(100);
+    expect(missionSlotWidth(2, true, 500)).toBe(200);
+    expect(turnedMissionScale(1, true)).toBe(1);
+  });
+
+  it('falls back to the slot width that fits on a narrow desktop, down to the card width', () => {
+    expect(missionSlotWidth(1, true, 86.7)).toBe(86);
+    expect(missionSlotWidth(1, true, 40)).toBe(72);
+    expect(turnedMissionScale(1, true, 86)).toBeCloseTo(0.86, 5);
+    expect(turnedMissionScale(1, true, 72)).toBeCloseTo(0.72, 5);
+  });
+});
+
 describe('MissionRow: a ship row of more than one row (#930)', () => {
   const withShips = (count: number): MissionSlot => ({
     ...emptySlot(),

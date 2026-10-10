@@ -67,4 +67,18 @@ describe('CardListPanel: one row of controls (#880)', () => {
     render(<CardListPanel location="core" cards={cards} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />);
     expect(screen.queryByTestId('panel-controls')).toBeNull();
   });
+
+  // #966: Shuffle has the btn-primary style, so it does not look disabled with no card selected.
+  it('gives Shuffle the btn-primary style and keeps it enabled with no selection', () => {
+    const onShuffle = jest.fn();
+    render(
+      <CardListPanel location="drawDeck" cards={cards} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} onShuffle={onShuffle} />
+    );
+    const shuffle = within(screen.getByTestId('panel-controls')).getByRole('button', { name: 'Shuffle' });
+    expect(shuffle).toHaveClass('btn-primary');
+    expect(shuffle).toBeEnabled();
+    expect(shuffle.querySelector('svg')).not.toBeNull();
+    fireEvent.click(shuffle);
+    expect(onShuffle).toHaveBeenCalledTimes(1);
+  });
 });

@@ -174,7 +174,7 @@ describe('Practice draw: only one card list panel is ever open at a time (#711)'
 
     // Without closing it, tap the core card sitting behind it.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
 
     // The mission's card list panel is gone; the core's own panel is open and shows the core's card.
@@ -182,6 +182,6 @@ describe('Practice draw: only one card list panel is ever open at a time (#711)'
     const corePanel = document.body.querySelector('[data-testid="card-list-panel-core"]');
     expect(corePanel).not.toBeNull();
     expect(corePanel!.querySelector('[data-card-id]')?.getAttribute('data-card-id')).toBe(eventId);
-    expect(screen.queryByRole('button', { name: 'data' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Data' })).not.toBeInTheDocument();
   });
 });

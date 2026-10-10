@@ -66,6 +66,16 @@ import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 
+// #1015: an unselected panel card shows no checkbox, so a test selects it with a tap on the card
+// itself, the one inside the open card list panel rather than its copy on the table.
+const panelCard = (name: string) => {
+  const card = screen
+    .getAllByRole('button', { name })
+    .find((button) => button.closest('[data-testid^="card-list-panel-"]'));
+  if (!card) throw new Error(`No card named ${name} in an open card list panel`);
+  return card;
+};
+
 const makePersonnel = (n: number) => ({
   collectorsinfo: `2C10${n}`,
   originalName: `Personnel ${n}`,
@@ -157,7 +167,7 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
   // its Away team, and opens that pile's panel.
   const openPersonnelPile = async () => {
     await renderWithDeck(mockPersonnelCards);
-    for (const name of ['personnel 1', 'personnel 2']) {
+    for (const name of ['Personnel 1', 'Personnel 2']) {
       await openClosedHand(/^hand, \d+ cards?, tap to open$/i);
       await drop(cardIdFor(name), 'mission-under-0');
     }
@@ -178,20 +188,20 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
     });
 
     const panel = document.body.querySelector('[data-testid="card-list-panel-awayTeam"]') as HTMLElement;
-    expect(within(panel).getByRole('button', { name: 'personnel 1' })).toBeInTheDocument();
-    expect(within(panel).getByRole('button', { name: 'personnel 2' })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Personnel 1' })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Personnel 2' })).toBeInTheDocument();
   });
 
   it('discards one selected card, keeps the panel open, and clears the selection', async () => {
     await openPersonnelPile();
 
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('Personnel 1')); });
     await click(/^discard$/i);
 
     expect(screen.getByRole('button', { name: /^close away team$/i })).toBeInTheDocument();
     const panel = document.body.querySelector('[data-testid="card-list-panel-awayTeam"]') as HTMLElement;
-    expect(within(panel).queryByRole('button', { name: 'personnel 1' })).not.toBeInTheDocument();
-    expect(within(panel).getByRole('button', { name: 'Select personnel 2' })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(panel).queryByRole('button', { name: 'Personnel 1' })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: 'Deselect Personnel 2' })).toBeNull();
     expect(screen.getByRole('button', { name: /^discard$/i })).toBeDisabled();
     expect(discardCount()).toContain('1');
     expect(screen.getByAltText('Discard pile')).toHaveAttribute('src', '/cardimages/personnel_1.jpg');
@@ -200,8 +210,8 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
   it('discards every selected card in the panel order, and closes the panel once it is empty', async () => {
     await openPersonnelPile();
 
-    await click('Select personnel 2');
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('Personnel 2')); });
+    await act(async () => { fireEvent.click(panelCard('Personnel 1')); });
     await click(/^discard$/i);
 
     expect(screen.queryByRole('button', { name: /^close away team$/i })).not.toBeInTheDocument();
@@ -212,14 +222,14 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
 
   it("shows no Discard button in the panel of the discard pile", async () => {
     await openPersonnelPile();
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('Personnel 1')); });
     await click(/^discard$/i);
 
     await click('Close away team');
     await act(async () => {
       fireEvent.click(screen.getByAltText('Discard pile').parentElement!);
     });
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('Personnel 1')); });
 
     expect(document.body.querySelector('[data-testid="card-list-panel-discard"]')).not.toBeNull();
     expect(screen.queryByRole('button', { name: /^discard$/i })).not.toBeInTheDocument();
@@ -237,7 +247,7 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
     expect(screen.getByRole('button', { name: /^discard$/i })).toBeDisabled();
 
     const firstName = panel.querySelector('img')!.getAttribute('alt')!;
-    await click(`Select ${firstName}`);
+    await act(async () => { fireEvent.click(panelCard(firstName)); });
 
     expect(screen.queryByRole('button', { name: /^(un)?stop$/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^discard$/i })).toBeEnabled();
@@ -245,7 +255,7 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
 
   it('still shows the Stop button in the panel of the away team', async () => {
     await openPersonnelPile();
-    await click('Select personnel 1');
+    await act(async () => { fireEvent.click(panelCard('Personnel 1')); });
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
   });
 });

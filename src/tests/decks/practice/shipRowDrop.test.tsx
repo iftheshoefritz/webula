@@ -171,7 +171,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
   it('moves a dragged ship out of the hand and into the target mission\'s ship row when dropped on the mission card', async () => {
     await setupOpenHand([mockShipCard]);
     const [draggedId] = mockDraggableIds;
-    expect(screen.getByRole('button', { name: 'u.s.s. relativity' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'U.S.S. Relativity' })).toBeInTheDocument();
 
     await act(async () => {
       mockOnDragStart!({ active: { id: draggedId } });
@@ -187,8 +187,8 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     // ...and now shown in mission 1's ship row.
     const shipRow = document.body.querySelector('[data-zone="ship-row-1"]');
     expect(shipRow).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'u.s.s. relativity' })).toBeInTheDocument();
-    expect(shipRow!.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
+    expect(screen.getByRole('button', { name: 'U.S.S. Relativity' })).toBeInTheDocument();
+    expect(shipRow!.contains(screen.getByRole('button', { name: 'U.S.S. Relativity' }))).toBe(true);
   });
 
   it('moves a dragged ship into the target mission\'s ship row when dropped on the ship row itself', async () => {
@@ -203,7 +203,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     });
 
     const shipRow = document.body.querySelector('[data-zone="ship-row-3"]');
-    expect(shipRow!.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
+    expect(shipRow!.contains(screen.getByRole('button', { name: 'U.S.S. Relativity' }))).toBe(true);
   });
 
   it('files a non-ship card into the away team when dropped on a mission card (#602)', async () => {
@@ -323,7 +323,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       ['equipment', mockEquipmentCard],
     ])("files a %s dropped on a mission card's art into the away team, face down", async (_type, card) => {
       await setupWithMission([card]);
-      const draggedId = handCardId(card.name);
+      const draggedId = handCardId(card.originalName);
 
       await drop(draggedId, 'mission-under-0');
 
@@ -337,34 +337,35 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
         `[data-testid="card-list-panel-awayTeam"] [data-card-id="${draggedId}"]`
       );
       expect(panelCard).not.toBeNull();
-      expect(panelCard!.querySelector('[data-testid="face-down-mark"]')).not.toBeNull();
+      // #964: an away team card shows no "Face down" mark.
+      expect(panelCard!.querySelector('[data-testid="face-down-mark"]')).toBeNull();
     });
 
     it.each([
       ['event', mockEventCard],
     ])("places a %s dropped on a mission card's art on the mission card", async (_type, card) => {
       await setupWithMission([card]);
-      const draggedId = handCardId(card.name);
+      const draggedId = handCardId(card.originalName);
 
       await drop(draggedId, 'mission-under-0');
 
       expect(screen.getByRole('button', { name: /^hand, 0 cards, tap to open$/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'first contact, 1 card on it' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'First Contact, 1 event on it' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Away team, 1 card/i })).toBeNull();
       expect(document.body.querySelector('[data-zone^="mission-pile-event"]')).toBeNull();
 
       // A tap on the counter opens the cards on the mission card.
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: 'first contact, 1 card on it' }));
+        fireEvent.click(screen.getByRole('button', { name: 'First Contact, 1 event on it' }));
       });
-      expect(document.body.querySelector(`[data-testid="card-list-panel-on"] [data-card-id="${draggedId}"]`)).not.toBeNull();
+      expect(document.body.querySelector(`[data-testid="card-list-panel-onEvents"] [data-card-id="${draggedId}"]`)).not.toBeNull();
     });
 
     // The away team badge is not a drop target of its own (#924): the mission's bottom half reaches
     // over it, so a drop there routes by the card's type. No drop id files a ship into the away team.
     it('files nothing into the away team for a drop on the old badge id', async () => {
       await setupWithMission([mockShipCard]);
-      const draggedId = handCardId(mockShipCard.name);
+      const draggedId = handCardId(mockShipCard.originalName);
 
       await drop(draggedId, 'mission-pile-awayTeam-0');
 
@@ -378,7 +379,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     // target, so a dilemma dropped there goes under the mission (#606), not on the mission card.
     it('files a dilemma dropped on the mission under the mission, not on the mission card', async () => {
       await setupWithMission([mockDilemmaCard]);
-      const draggedId = handCardId(mockDilemmaCard.name);
+      const draggedId = handCardId(mockDilemmaCard.originalName);
 
       await drop(draggedId, 'mission-under-0');
 
@@ -396,7 +397,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       ['dilemma', mockDilemmaCard],
     ])('leaves a %s dropped on a ship row, off any ship, in the hand (#645, #886)', async (_type, card) => {
       await setupWithMission([card]);
-      const draggedId = handCardId(card.name);
+      const draggedId = handCardId(card.originalName);
 
       await drop(draggedId, 'ship-row-0');
 
@@ -462,7 +463,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     await act(async () => {
       mockOnDragEnd!({ active: { id: personnelId }, over: { id: `crew-${shipId}` } });
     });
-    expect(document.body.querySelector('[aria-label*="u.s.s. relativity crew"]')).not.toBeNull();
+    expect(document.body.querySelector('[aria-label*="U.S.S. Relativity crew"]')).not.toBeNull();
 
     // Drag the crewed ship to mission 4's ship row, crossing over the missions in between.
     await act(async () => {
@@ -475,7 +476,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     const sourceRow = document.body.querySelector('[data-zone="ship-row-0"]');
     const destinationRow = document.body.querySelector('[data-zone="ship-row-4"]');
     expect(sourceRow!.querySelector('[data-card-id]')).toBeNull();
-    const shipButton = screen.getByRole('button', { name: 'u.s.s. relativity' });
+    const shipButton = screen.getByRole('button', { name: 'U.S.S. Relativity' });
     expect(destinationRow!.contains(shipButton)).toBe(true);
     expect(destinationRow!.querySelector('[aria-label*="crew, 1 card"]')).not.toBeNull();
 
@@ -483,7 +484,7 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     await act(async () => {
       fireEvent.click(shipButton);
     });
-    expect(screen.getByRole('button', { name: 'data' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Data' })).toBeInTheDocument();
   });
 
   it('drops a second, different ship on a mission that already holds one, over the first ship\'s crew zone, keeping both reachable (#668)', async () => {
@@ -611,6 +612,6 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     });
 
     const shipRow = document.body.querySelector('[data-zone="ship-row-2"]');
-    expect(shipRow!.contains(screen.getByRole('button', { name: 'u.s.s. relativity' }))).toBe(true);
+    expect(shipRow!.contains(screen.getByRole('button', { name: 'U.S.S. Relativity' }))).toBe(true);
   });
 });

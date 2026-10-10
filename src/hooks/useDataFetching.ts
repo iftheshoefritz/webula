@@ -17,10 +17,15 @@ const useDataFetching = () => {
     const fetchData = async () => {
       posthog.capture('useDataFetch.fetchCardsStart');
       console.log('fetchData');
-      const response = await fetch('/cards_with_processed_columns.txt');
-      posthog.capture('useDataFetch.fetchCardsFinish');
-      const text = await response.text();
-      setUnparsedData(text);
+      try {
+        const response = await fetch('/cards_with_processed_columns.txt');
+        posthog.capture('useDataFetch.fetchCardsFinish');
+        const text = await response.text();
+        setUnparsedData(text);
+      } catch (error) {
+        // Offline the fetch rejects (#1050). The hook then ends with no data, not stuck loading.
+        console.warn('useDataFetching: the card data did not load', error);
+      }
       setLoading(false);
     };
     fetchData();

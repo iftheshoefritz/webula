@@ -66,6 +66,22 @@ import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
+import { HOLD_DELAY_MS, HOVER_DELAY_MS } from '../../../app/decks/practice/useCardHold';
+
+// jsdom has no PointerEvent, so `fireEvent.pointerEnter` would drop `pointerType` and `buttons`,
+// which the hover reads (#766).
+if (typeof window.PointerEvent === 'undefined') {
+  class PointerEventPolyfill extends MouseEvent {
+    pointerId: number;
+    pointerType: string;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 1;
+      this.pointerType = init.pointerType ?? 'mouse';
+    }
+  }
+  (window as unknown as { PointerEvent: unknown }).PointerEvent = PointerEventPolyfill;
+}
 
 const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
@@ -263,7 +279,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     // against a forced height.
     images.forEach((img) => {
       expect(img).not.toBeNull();
-      expect(img.className).toContain('w-14');
+      expect(img).toHaveStyle({ width: '56px' });
       expect(img.className).toContain('h-auto');
       expect(img.className).not.toContain('object-cover');
     });
@@ -322,7 +338,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
     // Open the core's own card list panel.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'distress call' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Distress Call' }));
     });
     expect(document.body.querySelector('[data-testid="card-list-panel-core"]')).not.toBeNull();
 
@@ -353,10 +369,10 @@ describe('Practice table: the dilemma stack (#630)', () => {
     // both the fan's card and the panel's card. Scope the tap to the panel.
     const stackPanel = document.body.querySelector('[data-testid="card-list-panel-dilemmaStack"]') as HTMLElement;
     await act(async () => {
-      fireEvent.click(within(stackPanel).getByRole('button', { name: 'cardassian trap' }));
+      fireEvent.click(within(stackPanel).getByRole('button', { name: 'Cardassian Trap' }));
     });
 
-    const panelImage = () => within(stackPanel).getByAltText('cardassian trap');
+    const panelImage = () => within(stackPanel).getByAltText('Cardassian Trap');
     expect(screen.queryByTestId('card-preview')).toBeNull();
     expect(panelImage()).toHaveAttribute('src', '/cardimages/cardassian_trap.jpg');
     expect(screen.queryByRole('button', { name: 'Flip' })).toBeNull();
@@ -419,7 +435,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     );
     expect(cardIds).toEqual([secondId]);
 
-    // Close the stack popup so its own "cardassian trap" card button doesn't also match below.
+    // Close the stack popup so its own "Cardassian Trap" card button doesn't also match below.
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Close dilemma stack' }));
     });
@@ -434,7 +450,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
       });
     }
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'cardassian trap' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Cardassian Trap' }));
     });
     expect(screen.queryByText('Face down')).not.toBeInTheDocument();
   });
@@ -579,6 +595,45 @@ describe('Practice table: the dilemma stack (#630)', () => {
     expect(stackZone()).toHaveStyle({ visibility: 'visible' });
   });
 
+  // #988: on a desktop the stack and its cards are two times as wide. A touch screen keeps 56 px.
+  it('keeps its 56 px width on a touch screen', async () => {
+    await setupOpenDilemmaHand();
+    const [firstId] = mockDraggableIds;
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+    });
+
+    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+    expect(stackZone).toHaveStyle({ width: '56px' });
+    expect(stackZone.querySelector(`img[data-card-id="${firstId}"]`)).toHaveStyle({ width: '56px' });
+  });
+
+  it('is two times as wide under (pointer: fine)', async () => {
+    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
+      matches: query === '(pointer: fine)',
+      media: query,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
+    await setupOpenDilemmaHand();
+    const [firstId] = mockDraggableIds;
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+    });
+
+    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+    expect(stackZone).toHaveStyle({ width: '112px' });
+    expect(stackZone.querySelector(`img[data-card-id="${firstId}"]`)).toHaveStyle({ width: '112px' });
+    // The zone is at least as tall as one of the wider cards (112 x 167 / 120).
+    expect(parseInt(stackZone.style.height, 10)).toBeGreaterThanOrEqual(156);
+  });
+
   // #751: a separate reveal control turns the stack's own top card face up in place, one card at
   // a time, so the player can drag it straight off the table without opening the full reorder
   // panel.
@@ -620,7 +675,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
       // Face down by default: a reveal control is there, and the card's own art is not yet shown.
       expect(within(stackZone()).getByRole('button', { name: 'Reveal top dilemma' })).toBeInTheDocument();
-      expect(within(stackZone()).queryByAltText('cardassian trap')).not.toBeInTheDocument();
+      expect(within(stackZone()).queryByAltText('Cardassian Trap')).not.toBeInTheDocument();
 
       await act(async () => {
         fireEvent.click(within(stackZone()).getByRole('button', { name: 'Reveal top dilemma' }));
@@ -628,7 +683,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
       // Revealed: its own art replaces the generic card back, and the reveal control disappears —
       // there is nothing left to reveal until the next card takes its place.
-      expect(within(stackZone()).getByAltText('cardassian trap')).toBeInTheDocument();
+      expect(within(stackZone()).getByAltText('Cardassian Trap')).toBeInTheDocument();
       expect(within(stackZone()).queryByRole('button', { name: 'Reveal top dilemma' })).not.toBeInTheDocument();
 
       // A tap still opens the full reorder panel, exactly as before.
@@ -636,6 +691,81 @@ describe('Practice table: the dilemma stack (#630)', () => {
         fireEvent.click(within(stackZone()).getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' }));
       });
       expect(document.body.querySelector('[data-testid="card-list-panel-dilemmaStack"]')).not.toBeNull();
+    });
+
+    // #1080: the eye is a 24 px target beside the tap-to-open button, not inside it, so a tap on
+    // it flips the top card and opens no panel.
+    it('the eye is a 24 px sibling of the tap-to-open button, and a tap on it opens no panel', async () => {
+      await setupOpenDilemmaHand();
+      const [firstId] = mockDraggableIds;
+      const stackZone = () => document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+
+      await act(async () => {
+        mockOnDragStart!({ active: { id: firstId } });
+      });
+      await act(async () => {
+        mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+      });
+
+      const eye = within(stackZone()).getByRole('button', { name: 'Reveal top dilemma' });
+      const open = within(stackZone()).getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' });
+      expect(open.contains(eye)).toBe(false);
+      expect(eye.parentElement).toBe(stackZone());
+      expect(open.parentElement).toBe(stackZone());
+      expect(eye).toHaveClass('w-6', 'h-6');
+
+      await act(async () => {
+        fireEvent.click(eye);
+      });
+
+      expect(within(stackZone()).getByAltText('Cardassian Trap')).toBeInTheDocument();
+      expect(document.body.querySelector('[data-testid="card-list-panel-dilemmaStack"]')).toBeNull();
+    });
+
+    // #989: the revealed top card previews like any other face-up card on the table.
+    describe('previewing the revealed top card (#989)', () => {
+      const stackTopCard = () =>
+        within(document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement).getByRole('button', {
+          name: 'Dilemma stack, 1 card, tap to open',
+        });
+      const preview = () => screen.queryByTestId('card-preview-enlarged');
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it('a mouse hover shows its preview, and a leave hides it', async () => {
+        await setupRevealedTopCard();
+        jest.useFakeTimers();
+        const card = stackTopCard();
+
+        fireEvent.pointerEnter(card, { pointerType: 'mouse', buttons: 0 });
+        act(() => {
+          jest.advanceTimersByTime(HOVER_DELAY_MS);
+        });
+        expect(preview()).toHaveAttribute('alt', 'Cardassian Trap');
+
+        act(() => {
+          fireEvent.pointerLeave(card, { pointerType: 'mouse' });
+        });
+        expect(preview()).toBeNull();
+      });
+
+      it('a press and hold shows its preview, and the release hides it', async () => {
+        await setupRevealedTopCard();
+        jest.useFakeTimers();
+
+        fireEvent.pointerDown(stackTopCard(), { button: 0 });
+        act(() => {
+          jest.advanceTimersByTime(HOLD_DELAY_MS);
+        });
+        expect(preview()).toHaveAttribute('alt', 'Cardassian Trap');
+
+        act(() => {
+          fireEvent.pointerUp(window);
+        });
+        expect(preview()).toBeNull();
+      });
     });
 
     it('drags to a mission, landing under it like any other dilemma (#606/#733)', async () => {
@@ -733,7 +863,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
       expect(screen.getByRole('button', { name: 'Dilemma stack, 1 card, tap to open' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Reveal top dilemma' })).toBeInTheDocument();
-      expect(screen.queryByAltText('cardassian trap')).not.toBeInTheDocument();
+      expect(screen.queryByAltText('Cardassian Trap')).not.toBeInTheDocument();
     });
   });
 });

@@ -97,7 +97,7 @@ describe('CardHand', () => {
     expect(screen.getByRole('button', { name: 'Deselect Card 1' })).toHaveAttribute('aria-pressed', 'true');
     expect(card).toHaveClass('ring-2');
     fireEvent.click(card);
-    expect(screen.getByRole('button', { name: 'Select Card 1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Deselect Card 1' })).toBeNull();
     expect(card).not.toHaveClass('ring-2');
   });
 
@@ -183,18 +183,25 @@ describe('CardHand', () => {
     const instances = makeInstances(3);
     render(<Harness instances={instances} initialOpen />);
 
-    expect(screen.getByRole('button', { name: 'Select Card 1' })).toHaveAttribute('aria-pressed', 'false');
+    // #1015: an unselected card shows no checkbox.
+    expect(screen.queryByRole('button', { name: /^(Select|Deselect) Card/ })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select Card 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Card 1' }));
 
     expect(screen.getByRole('button', { name: 'Deselect Card 1' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: /^(Select|Deselect) Card 2$/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deselect Card 1' }));
+
+    expect(screen.queryByRole('button', { name: /^(Select|Deselect) Card/ })).toBeNull();
   });
 
   it('a tap on the checkbox does not open the card preview', () => {
     const instances = makeInstances(3);
     render(<Harness instances={instances} initialOpen />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select Card 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Card 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Deselect Card 1' }));
 
     expect(screen.queryByTestId('previewed')).not.toBeInTheDocument();
   });
@@ -203,11 +210,11 @@ describe('CardHand', () => {
     const instances = makeInstances(3);
     render(<Harness instances={instances} initialOpen />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select Card 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Card 1' }));
     fireEvent.click(screen.getByRole('button', { name: /^close hand$/i }));
     fireEvent.click(screen.getByRole('button', { name: /^hand, 3 cards, tap to open$/i }));
 
-    expect(screen.getByRole('button', { name: 'Select Card 1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Deselect Card 1' })).toBeNull();
   });
 
   it('disables the closed hand when it has no cards', () => {
@@ -378,5 +385,85 @@ describe('CardHand', () => {
       expect(onClose).toHaveBeenCalledTimes(1);
       target.remove();
     });
+  });
+
+  // #994: the "→ top" and "→ bottom" buttons name the hand's own deck and report the end.
+  it('shows the top and bottom buttons for a selection, named for the deck', () => {
+    const onSendSelected = jest.fn();
+    render(
+      <CardHand
+        instances={makeInstances(2)}
+        open
+        onOpen={() => {}}
+        onClose={() => {}}
+        zone="dilemmaHand"
+        selectedIds={['c1']}
+        onSendSelected={onSendSelected}
+        deckLabel="dilemma pile"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Selected cards to the top of the dilemma pile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Selected cards to the bottom of the dilemma pile' }));
+    expect(onSendSelected.mock.calls).toEqual([['top'], ['bottom']]);
+  });
+
+  // #1013: the row's right end lines up with the right end of the fan, not the screen edge. The
+  // row takes the fan's own width, centred as the fan is, and packs its buttons to the right.
+  // jsdom measures 0, so `OverlapRow` lays the cards edge to edge: 3 cards take 3 card widths.
+  it('lines the top and bottom buttons up with the right end of the fan (#1013)', () => {
+    render(
+      <CardHand
+        instances={makeInstances(3)}
+        open
+        onOpen={() => {}}
+        onClose={() => {}}
+        zone="dilemmaHand"
+        openCardWidth={100}
+        selectedIds={['c1']}
+        onSendSelected={() => {}}
+        deckLabel="dilemma pile"
+      />,
+    );
+    const row = screen.getByTestId('dilemmaHand-controls');
+    expect(row).toHaveStyle({ width: '300px' });
+    expect(row).toHaveClass('justify-end');
+    expect(row.parentElement).toHaveClass('fixed', 'inset-x-2', 'justify-center');
+    expect(row.parentElement).not.toHaveClass('right-2');
+  });
+
+  // The row shares the fan's stacking context with the cards, whose `zIndex` runs from 1 to the
+  // count. Without a `zIndex` above them, the cards paint over the buttons where the two overlap,
+  // as they do at 568 x 320, and a tap on the lower half of a button lands on a card.
+  it('stacks the top and bottom buttons above every card of the fan (#1013)', () => {
+    render(
+      <CardHand
+        instances={makeInstances(3)}
+        open
+        onOpen={() => {}}
+        onClose={() => {}}
+        selectedIds={['c1']}
+        onSendSelected={() => {}}
+      />,
+    );
+    const rowZ = Number(screen.getByTestId('hand-controls').parentElement!.style.zIndex);
+    const cardZ = screen
+      .getAllByRole('button', { name: /^Card \d+$/ })
+      .map((card) => Number((card.closest('[style*="z-index"]') as HTMLElement).style.zIndex));
+    expect(cardZ.length).toBe(3);
+    expect(rowZ).toBeGreaterThan(Math.max(...cardZ));
+  });
+
+  it('shows no top and bottom buttons when no card of the hand is selected', () => {
+    render(
+      <CardHand
+        instances={makeInstances(2)}
+        open
+        onOpen={() => {}}
+        onClose={() => {}}
+        selectedIds={['elsewhere']}
+        onSendSelected={() => {}}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /^Selected cards to the/ })).toBeNull();
   });
 });

@@ -6,6 +6,7 @@
 jest.mock('@dnd-kit/core', () => ({
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false }),
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
+  useDndContext: () => ({ active: null, over: null }),
 }));
 
 import React from 'react';
