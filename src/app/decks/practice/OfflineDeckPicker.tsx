@@ -4,7 +4,7 @@
 
 import { LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { OfflineDeck } from './offlineDecks';
-import { formatBytes } from './OfflineMenuItems';
+import { formatBytes } from './OfflineMenuView';
 
 export function OfflineDeckList({ decks, onChoose }: { decks: OfflineDeck[]; onChoose: (deck: OfflineDeck) => void }) {
   if (decks.length === 0) {

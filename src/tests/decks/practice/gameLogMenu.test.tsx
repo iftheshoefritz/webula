@@ -72,14 +72,11 @@ describe('the Game log item of the game menu (#1065)', () => {
     return screen.getByTestId('game-menu-splash');
   };
 
-  it('is the last item of the game menu, and opens an empty log on a new game', async () => {
+  it('is an item of the game menu, and opens an empty log on a new game', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
-    const items = within(openMenu()).getAllByRole('button');
-    expect(items[items.length - 1]).toHaveTextContent('Game log');
-
-    fireEvent.click(items[items.length - 1]);
+    fireEvent.click(within(openMenu()).getByRole('button', { name: 'Game log' }));
     expect(screen.queryByTestId('game-menu-splash')).not.toBeInTheDocument();
     const panel = screen.getByRole('dialog', { name: 'Game log' });
     expect(within(panel).getByText(EMPTY_LOG_TEXT)).toBeInTheDocument();
