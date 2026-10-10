@@ -830,7 +830,7 @@ describe('PracticeDrawPage', () => {
       await renderManyCards();
 
       const items = within(screen.getByTestId('game-menu-splash')).getAllByRole('button');
-      expect(items.map((b) => b.textContent)).toEqual(['Continue', 'Decklist', 'Game log', 'Load deck', 'Offline', 'Reset']);
+      expect(items.map((b) => b.textContent)).toEqual(['Continue', 'Decklist', 'Game log', 'Load deck', 'Offline', 'Controls', 'Reset']);
       expect(items[0].parentElement).toHaveClass('grid-cols-1', 'landscape:grid-cols-2');
       expect(items[0]).toHaveClass('landscape:col-span-2');
       expect(items[items.length - 1]).toHaveClass('landscape:col-start-2');

@@ -72,6 +72,7 @@ import MissionRow, {
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
+import ControlsPanel from './ControlsPanel';
 import { gameReducer, initialGameState } from './gameLog';
 import { CardHoldProvider, NO_CALLOUT_STYLE, PLACE_ON_HOLD_MS, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
 import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHoldContext';
@@ -158,7 +159,7 @@ function FullscreenIcon({ exit }: { exit: boolean }) {
 //
 // In landscape the items are a grid of two columns (#1087), so the menu fits the about 320-340 px
 // a phone's browser bars leave. Continue spans both columns. Reset is last, in the bottom-right
-// cell, away from the items a player uses often. In portrait the one column keeps the same order.
+// cell next to Controls (#1088), away from the items a player uses often. In portrait the one column keeps the same order.
 //
 // The menu opens on every load of the table (#781), so a new player sees it. It is a splash
 // screen over the whole page (#896): it covers the table, so a press on the table no longer
@@ -185,6 +186,7 @@ function GameMenu({
   onLoadDeck,
   onDecklist,
   onGameLog,
+  onControls,
   fullscreen,
   deck,
   deckName,
@@ -197,6 +199,7 @@ function GameMenu({
   onLoadDeck: () => void;
   onDecklist: () => void;
   onGameLog: () => void;
+  onControls: () => void;
   fullscreen: ReturnType<typeof useFullscreen>;
   deck: DeckList;
   deckName: string;
@@ -258,6 +261,9 @@ function GameMenu({
               </button>
               <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
                 {offlineItemLabel(offline.progress)}
+              </button>
+              <button type="button" onClick={onControls} className={SPLASH_ITEM_CLASS}>
+                Controls
               </button>
               <button type="button" onClick={onReset} className={`${SPLASH_ITEM_CLASS} landscape:col-start-2`}>
                 Reset
@@ -1144,8 +1150,11 @@ function PracticeDrawContent() {
   // The game menu (#722): open on every load (#781), so a new player finds the game controls.
   // Nothing is stored; the first press outside the menu closes it. `menu=0` in the URL starts
   // it closed (#1028), so a browser check's first drag is not covered by the splash. It is read
-  // in the initial state, not in an effect, so the splash never shows for one frame.
-  const [gameMenuOpen, setGameMenuOpen] = useState(() => searchParams.get('menu') !== '0');
+  // in the initial state, not in an effect, so the splash never shows for one frame. `controls=1`
+  // (#1088) starts it closed too, so the shared link shows the Controls panel over the table.
+  const [gameMenuOpen, setGameMenuOpen] = useState(
+    () => searchParams.get('menu') !== '0' && searchParams.get('controls') !== '1'
+  );
   // Only one hand opens at a time (#604), so one value names the open hand rather than one
   // boolean per hand.
   const [openHand, setOpenHand] = useState<'hand' | 'dilemmaHand' | null>(null);
@@ -1284,6 +1293,8 @@ function PracticeDrawContent() {
   const restoredRef = useRef(false);
   const [decklistOpen, setDecklistOpen] = useState(false);
   const [gameLogOpen, setGameLogOpen] = useState(false);
+  // The Controls panel (#1088). `controls=1` in the URL opens it on load, so it has a link to share.
+  const [controlsOpen, setControlsOpen] = useState(() => searchParams.get('controls') === '1');
   const drive = usePracticeDrive();
   const offlineDecks = useOfflineDecks(data);
   const online = useOnline();
@@ -1432,6 +1443,12 @@ function PracticeDrawContent() {
   const handleGameLogClick = () => {
     setGameMenuOpen(false);
     setGameLogOpen(true);
+  };
+
+  // The game menu's Controls item (#1088): closes the menu and opens the Controls panel.
+  const handleControlsClick = () => {
+    setGameMenuOpen(false);
+    setControlsOpen(true);
   };
 
   // A Google sign-in that started from Load deck comes back with `?openPicker=true` (#980). The
@@ -2150,6 +2167,7 @@ function PracticeDrawContent() {
           onLoadDeck={handleLoadDeckClick}
           onDecklist={handleDecklistClick}
           onGameLog={handleGameLogClick}
+          onControls={handleControlsClick}
           fullscreen={fullscreen}
           deck={dealtDeck}
           deckName={dealtDeckName()}
@@ -2157,6 +2175,7 @@ function PracticeDrawContent() {
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
+        {controlsOpen && <ControlsPanel onClose={() => setControlsOpen(false)} />}
 
         {drive.showPicker && !online && (
           <OfflineDeckPicker
