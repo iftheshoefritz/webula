@@ -528,6 +528,31 @@ The observer lives in the page until a navigation, so run `install` again after 
 reload. Under `agent-browser set media … reduced-motion` the motion-safe bump does not play and
 the static ring shows instead, so the record lists `landed-ring` and no `animate-landed-bump`.
 
+### The clips of the Controls panel
+
+A row of `src/app/decks/practice/controls.ts` that sets `clip` plays a short clip of its gesture
+in the Controls panel (#1089). The files are `public/controls/<id>-<touch|mouse>.{webm,mp4,webp}`,
+the paths of `clipFiles`. `scripts/record_controls.sh` records them (#1091):
+
+```bash
+NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev                          # in another shell
+bash scripts/record_controls.sh mission-drop-halves           # both columns of one row
+bash scripts/record_controls.sh mission-drop-halves touch     # one column
+bash scripts/record_controls.sh --all                         # every row that sets `clip`
+```
+
+It opens the fixture of the clip, touch with a plain `agent-browser open` and mouse with
+`agent_browser_desktop.sh`, shows a circle at the pointer that fills on a press, runs the gesture
+with `practice_drag.sh` or `cdp_input.sh`, and records the screen with CDP `Page.startScreencast`.
+`ffmpeg` crops the frames to the part of the table the gesture uses and encodes WebM, MP4 and a
+WebP poster. The script stops when `ffmpeg` is missing (`sudo apt-get install ffmpeg`), and warns
+when a file is over 200 KB. The gesture of each row is one entry of `GESTURES` in
+`scripts/record_controls.mjs`; to give a row a clip, add its entry, record it, and set `clip`.
+
+No CI job runs the recorder. When you change a gesture that a clip shows, run the recorder for
+that row and commit the new files in the same PR. `controlClipFiles.test.ts` fails when a row
+sets `clip` and a file is missing or over 200 KB.
+
 Do not run `yarn build` while the dev server runs. It overwrites the `.next` cache the dev server uses, and the server then needs a restart.
 
 ## Fixing bugs
