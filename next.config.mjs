@@ -19,9 +19,10 @@ const withSerwist = withSerwistInit({
   reloadOnOnline: false,
   disable: process.env.NODE_ENV === 'development',
   // A list here replaces the default glob of `public/`, which would precache all of
-  // `public/cardimages` (~206 MB). The practice page is the only entry outside `_next/static`.
+  // `public/cardimages` (~206 MB) and the clips of the Controls panel in `public/controls` (#1089).
+  // The practice page is the only entry outside `_next/static`.
   additionalPrecacheEntries: [{ url: '/decks/practice', revision: buildRevision }],
-  exclude: [/cardimages\//, /cards_with_processed_columns\.txt$/],
+  exclude: [/cardimages\//, /controls\//, /cards_with_processed_columns\.txt$/],
   // This transform runs before Serwist's own, which turns the `/_next//static/media` of an imported
   // image (the event icon of `MissionRow.tsx`, #1069) into `/_next/static/media`, so keep both forms.
   manifestTransforms: [
