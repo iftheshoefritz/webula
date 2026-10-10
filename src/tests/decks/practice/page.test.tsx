@@ -826,6 +826,16 @@ describe('PracticeDrawPage', () => {
       }
     });
 
+    it('lays the items out in two columns in landscape, Continue on top and Reset last (#1087)', async () => {
+      await renderManyCards();
+
+      const items = within(screen.getByTestId('game-menu-splash')).getAllByRole('button');
+      expect(items.map((b) => b.textContent)).toEqual(['Continue', 'Decklist', 'Game log', 'Load deck', 'Offline', 'Controls', 'Reset']);
+      expect(items[0].parentElement).toHaveClass('grid-cols-1', 'landscape:grid-cols-2');
+      expect(items[0]).toHaveClass('landscape:col-span-2');
+      expect(items[items.length - 1]).toHaveClass('landscape:col-start-2');
+    });
+
     // The pile count badges sit at `z-[140]` (CountBadge.tsx), the open hand at `z-[145]`/`z-[146]`
     // and the card list panel at `z-[150]`. At `z-40` the badges drew over the splash.
     it('stacks the splash above the table overlays (follow-up for #907)', async () => {
