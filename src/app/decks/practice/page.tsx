@@ -32,7 +32,7 @@ import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '..
 import { DrivePickerModal } from '../../../components/DrivePickerModal';
 import { usePracticeDrive } from './usePracticeDrive';
 import { useOfflineDecks } from './offlineDecks';
-import { OfflineMenuItems } from './OfflineMenuItems';
+import { OfflineMenuView, offlineItemLabel } from './OfflineMenuView';
 import { OfflineDeckList, OfflineDeckPicker } from './OfflineDeckPicker';
 import { isBrowserOnline, useOnline } from './useOnline';
 import type { OfflineDeck } from './offlineDecks';
@@ -152,8 +152,13 @@ function FullscreenIcon({ exit }: { exit: boolean }) {
 // Load deck (#780), which opens the Drive picker. Reset throws away the current game, so it
 // confirms first via `window.confirm`, the same confirm-before-destroy pattern
 // `DrivePickerModal`'s own delete already uses elsewhere in the app, rather than a custom dialog
-// built just for this one destructive action. The offline items (#1052), Make available offline
-// and Offline decks, are in `OfflineMenuItems`.
+// built just for this one destructive action. The Offline item (#1052, #1087) opens a sub-view of
+// the splash in place of the item list, `OfflineMenuView`. Escape in the sub-view returns to the
+// item list, and Escape in the item list closes the splash.
+//
+// In landscape the items are a grid of two columns (#1087), so the menu fits the about 320-340 px
+// a phone's browser bars leave. Continue spans both columns. Reset is last, in the bottom-right
+// cell, away from the items a player uses often. In portrait the one column keeps the same order.
 //
 // The menu opens on every load of the table (#781), so a new player sees it. It is a splash
 // screen over the whole page (#896): it covers the table, so a press on the table no longer
@@ -199,15 +204,23 @@ function GameMenu({
 }) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const [view, setView] = useState<'items' | 'offline'>('items');
+
+  // The splash opens on the item list every time.
+  useEffect(() => {
+    if (!open) setView('items');
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current();
+      if (event.key !== 'Escape') return;
+      if (view === 'offline') setView('items');
+      else onCloseRef.current();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
+  }, [open, view]);
 
   return (
     <>
@@ -219,24 +232,38 @@ function GameMenu({
           data-testid="game-menu-splash"
           className={`fixed inset-0 ${LAYER_MENU_SPLASH} flex flex-col items-center justify-center bg-[#131713]/95 px-8`}
         >
-          <div className="flex w-full max-w-[16rem] flex-col gap-2">
-            <button type="button" onClick={onClose} className={SPLASH_ITEM_CLASS}>
-              Continue
-            </button>
-            <button type="button" onClick={onDecklist} className={SPLASH_ITEM_CLASS}>
-              Decklist
-            </button>
-            <button type="button" onClick={onReset} className={SPLASH_ITEM_CLASS}>
-              Reset
-            </button>
-            <button type="button" onClick={onLoadDeck} className={SPLASH_ITEM_CLASS}>
-              Load deck
-            </button>
-            <OfflineMenuItems deck={deck} deckName={deckName} offline={offline} itemClassName={SPLASH_ITEM_CLASS} />
-            <button type="button" onClick={onGameLog} className={SPLASH_ITEM_CLASS}>
-              Game log
-            </button>
-          </div>
+          {view === 'offline' ? (
+            <div className="flex max-h-full w-full max-w-[16rem] flex-col gap-2 overflow-y-auto landscape:max-w-[24rem]">
+              <OfflineMenuView
+                deck={deck}
+                deckName={deckName}
+                offline={offline}
+                itemClassName={SPLASH_ITEM_CLASS}
+                onBack={() => setView('items')}
+              />
+            </div>
+          ) : (
+            <div className="grid w-full max-w-[16rem] grid-cols-1 gap-2 landscape:max-w-[28rem] landscape:grid-cols-2">
+              <button type="button" onClick={onClose} className={`${SPLASH_ITEM_CLASS} landscape:col-span-2`}>
+                Continue
+              </button>
+              <button type="button" onClick={onDecklist} className={SPLASH_ITEM_CLASS}>
+                Decklist
+              </button>
+              <button type="button" onClick={onGameLog} className={SPLASH_ITEM_CLASS}>
+                Game log
+              </button>
+              <button type="button" onClick={onLoadDeck} className={SPLASH_ITEM_CLASS}>
+                Load deck
+              </button>
+              <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
+                {offlineItemLabel(offline.progress)}
+              </button>
+              <button type="button" onClick={onReset} className={`${SPLASH_ITEM_CLASS} landscape:col-start-2`}>
+                Reset
+              </button>
+            </div>
+          )}
         </div>
       )}
       <div

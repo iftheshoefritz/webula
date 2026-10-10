@@ -113,16 +113,67 @@ describe('the offline items of the game menu (#1052)', () => {
     });
   });
 
+  // Renders the page and opens the Offline sub-view of the splash (#1087).
   const renderPage = async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Offline' }));
+    });
   };
 
-  it('shows Make available offline and Offline decks in the menu', async () => {
-    await renderPage();
+  it('opens a sub-view with Make available offline and the offline decks from one Offline item', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    expect(screen.queryByRole('button', { name: 'Make available offline' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Offline decks' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Offline' }));
+    });
     expect(screen.getByRole('button', { name: 'Make available offline' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Offline decks' })).toBeInTheDocument();
+    expect(screen.getByTestId('offline-decks-list')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
+  });
+
+  it('returns to the item list on Back and on Escape, and Escape there closes the splash', async () => {
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+    expect(screen.queryByTestId('offline-decks-list')).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Offline' }));
+    });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByTestId('game-menu-splash')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('game-menu-splash')).not.toBeInTheDocument();
+  });
+
+  it('keeps a download counting after Back, and shows the count on the Offline item', async () => {
+    let report: (p: { done: number; total: number; bytes: number }) => void = () => {};
+    mockMakeDeckOffline.mockImplementation((_name, _d, _data, onProgress) => {
+      report = onProgress;
+      onProgress({ done: 3, total: 10, bytes: 2048 });
+      return new Promise(() => {});
+    });
+    await renderPage();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Make available offline' }));
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('button', { name: 'Offline · 3 / 10' })).toBeInTheDocument();
+
+    await act(async () => {
+      report({ done: 7, total: 10, bytes: 4096 });
+    });
+    expect(screen.getByRole('button', { name: 'Offline · 7 / 10' })).toBeInTheDocument();
   });
 
   it('shows the progress, names the deck from deckFile, and then reads Available offline', async () => {
@@ -187,9 +238,6 @@ describe('the offline items of the game menu (#1052)', () => {
     await renderPage();
     expect(screen.getByRole('button', { name: 'Available offline ✓' })).toBeDisabled();
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Offline decks' }));
-    });
     const list = screen.getByTestId('offline-decks-list');
     expect(within(list).getByText(/Borg Rush/)).toBeInTheDocument();
     expect(within(list).getByText(/3\.0 MB/)).toBeInTheDocument();
