@@ -61,7 +61,7 @@ jest.mock('../../../app/decks/practice/offlineDecks', () => {
 
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
-import PracticeDrawPage from '../../../app/decks/practice/page';
+import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import { fingerprint } from '../../../app/decks/practice/savedGame';
 
 const row = (collectorsinfo: string, originalName: string, type: string) => ({

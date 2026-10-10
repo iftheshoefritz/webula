@@ -35,7 +35,7 @@ jest.mock('next/link', () => {
 
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
-import PracticeDrawPage from '../../../app/decks/practice/page';
+import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';

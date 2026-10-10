@@ -49,7 +49,7 @@ jest.mock('next/link', () => {
 import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import { getSession, signIn } from 'next-auth/react';
-import PracticeDrawPage from '../../../app/decks/practice/page';
+import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
