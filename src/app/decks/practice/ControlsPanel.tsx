@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
-import { controlsBySection } from './controls';
+import ControlClip from './ControlClip';
+import { CONTROL_ROWS, clipFiles, controlsBySection, type ControlColumn, type ControlRow } from './controls';
 import { useFinePointer } from './useFinePointer';
-
-type ControlColumn = 'touch' | 'mouse';
 
 const COLUMNS: { column: ControlColumn; label: string }[] = [
   { column: 'touch', label: 'Touch' },
@@ -14,8 +13,8 @@ const COLUMNS: { column: ControlColumn; label: string }[] = [
 // table, grouped by section, for touch or for a mouse. It opens on the column of the device
 // (`useFinePointer`), and the Touch / Mouse switch shows the other one. The switch is not
 // remembered, so every opening follows the device again. A tap on the backdrop or Escape closes
-// it, the same as the Game log panel.
-export default function ControlsPanel({ onClose }: { onClose: () => void }) {
+// it, the same as the Game log panel. A test passes its own `rows`.
+export default function ControlsPanel({ onClose, rows = CONTROL_ROWS }: { onClose: () => void; rows?: ControlRow[] }) {
   const finePointer = useFinePointer();
   // Null until the player picks a column, so the panel follows the device, which
   // `useFinePointer` reports only after the first render.
@@ -61,17 +60,25 @@ export default function ControlsPanel({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div className="overflow-y-auto">
-          {controlsBySection().map(({ section, rows }) => (
+          {controlsBySection(rows).map(({ section, rows: sectionRows }) => (
             <section key={section} className="mb-3 last:mb-0">
               <h3 className="text-xs uppercase tracking-wide text-text-muted">{section}</h3>
               <dl className="divide-y divide-solid divide-white/[0.06]">
-                {rows.map((row) => (
-                  <div key={row.id} data-testid={`control-${row.id}`} className="py-1 text-sm">
-                    <dt className="font-medium text-text-primary">{row.action}</dt>
-                    <dd className="text-text-secondary">{row[column]}</dd>
-                    {/* The clips of #1089 go here. */}
-                  </div>
-                ))}
+                {sectionRows.map((row) => {
+                  const files = clipFiles(row, column);
+                  return (
+                    <div key={row.id} data-testid={`control-${row.id}`} className="py-1 text-sm">
+                      <dt className="font-medium text-text-primary">{row.action}</dt>
+                      <dd className="text-text-secondary">{row[column]}</dd>
+                      {/* Keyed by the file, so a switch of the column loads the other clip. */}
+                      {files && (
+                        <dd>
+                          <ControlClip key={files.webm} files={files} label={`${row.action}, ${column}`} />
+                        </dd>
+                      )}
+                    </div>
+                  );
+                })}
               </dl>
             </section>
           ))}

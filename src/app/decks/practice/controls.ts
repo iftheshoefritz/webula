@@ -15,7 +15,7 @@ export type ControlRow = {
   action: string;
   touch: string;
   mouse: string;
-  // Which clips exist for the row; filled in by #1089.
+  // Which clips exist for the row (#1089); `clipFiles` gives their paths.
   clip?: { touch?: boolean; mouse?: boolean };
 };
 
@@ -201,4 +201,20 @@ export const CONTROL_ROWS: ControlRow[] = [
 // The rows of each section, in the order of `CONTROL_SECTIONS`.
 export function controlsBySection(rows: ControlRow[] = CONTROL_ROWS): { section: ControlSection; rows: ControlRow[] }[] {
   return CONTROL_SECTIONS.map((section) => ({ section, rows: rows.filter((row) => row.section === section) }));
+}
+
+export type ControlColumn = 'touch' | 'mouse';
+
+// The folder of the clips under `public/` (#1089). The service worker does not precache it
+// (`next.config.mjs`), so the offline install stays small.
+export const CONTROL_CLIPS_PATH = '/controls/';
+
+export type ClipFiles = { webm: string; mp4: string; poster: string };
+
+// The files of a row's clip for one column, or null when the row has no clip for it (#1090). The
+// panel plays them, and the recorder of #1091 and its file test use the same paths.
+export function clipFiles(row: ControlRow, column: ControlColumn): ClipFiles | null {
+  if (!row.clip?.[column]) return null;
+  const base = `${CONTROL_CLIPS_PATH}${row.id}-${column}`;
+  return { webm: `${base}.webm`, mp4: `${base}.mp4`, poster: `${base}.webp` };
 }
