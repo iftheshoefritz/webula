@@ -73,6 +73,31 @@ Card pile assignment determined by `cardPileFor()` in `src/app/decks/deckBuilder
 
 ## Card Data Scripts
 
+### `scripts/copy_card_data.sh`
+
+Rebuilds `public/cards_with_processed_columns.txt` from `sets/Physical.txt` and
+`sets/Virtual.txt` of the LackeyCCG plugin repo
+[`eberlems/startrek2e`](https://github.com/eberlems/startrek2e), branch `playable`,
+fetched over HTTPS. No local LackeyCCG install is needed. Set `STARTREK2E_REF` to
+build from another branch, tag or commit. Run `extract_card_options.sh` after it.
+
+```bash
+bash scripts/copy_card_data.sh
+```
+
+### `scripts/copy_images.sh`
+
+Downloads into `public/cardimages` the card images that
+`public/cards_with_processed_columns.txt` names, from `sets/setimages/general/` of
+the same repo. Run it after `copy_card_data.sh`. By default it fetches only the
+images that are missing; `--all` downloads every image again. It splits a
+`front,back` `ImageFile` into two images, and at the end it lists the images
+GitHub does not have.
+
+```bash
+bash scripts/copy_images.sh
+```
+
 ### `scripts/extract_card_options.sh`
 
 Extracts unique `Class` and `Species` values from `public/cards_with_processed_columns.txt` and writes them as hardcoded TypeScript constants into `src/lib/missionRequirements.ts` between sentinel comments.
