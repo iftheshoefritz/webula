@@ -43,3 +43,10 @@ npx playwright install --with-deps chromium
 echo -n "dpaste.com reachability: "
 curl -sS -o /dev/null -w '%{http_code}\n' --max-time 10 https://dpaste.com/api/v2/ \
   || echo "UNREACHABLE — add dpaste.com to the environment egress allowlist"
+
+# scripts/copy_card_data.sh and scripts/copy_images.sh download the card data
+# and images from raw.githubusercontent.com (eberlems/startrek2e).
+echo -n "raw.githubusercontent.com reachability: "
+curl -sS -o /dev/null -w '%{http_code}\n' --max-time 10 \
+  https://raw.githubusercontent.com/eberlems/startrek2e/playable/updatelist.txt \
+  || echo "UNREACHABLE — add raw.githubusercontent.com to the environment egress allowlist"
