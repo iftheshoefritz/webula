@@ -104,7 +104,8 @@ import dualIcon from '../../../../public/icons/icon_dual.gif';
 import { CANCEL_RADIUS } from './releaseCancel';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
-// `BADGE_STRIP_HEIGHT_BASE`'s comment describes. `page.tsx` passes down a `scale`, computed by
+// `BADGE_STRIP_HEIGHT_BASE`'s comment describes. The smallest supported screen is now 667x375
+// (`MIN_SCREEN`, `tableScale.ts`), where the scale is about 1.17. `page.tsx` passes down a `scale`, computed by
 // `useTableScale` (`tableScale.ts`) from the live size of the game layer, that grows past 1 once
 // there's more room than that — e.g. once scrolling up hides the browser's own toolbar. `scaled`
 // rounds every derived pixel value the same way, so two elements whose base sizes matched still
@@ -521,7 +522,7 @@ function MissionToggleButton({
 // (the away team, the events and the dilemmas on the mission, #1081), each with a two-digit count,
 // sit side by side within a scale-1 TABLE_CARD_WIDTH: each pill is about 22 px wide with
 // `BADGE_PILL_CLASS`'s tight padding, and the strip's `gap-0.5` adds 4 px. At 568x320 (the
-// acceptance check's viewport, scale 1) they still leave the mission's own title, below the art,
+// old minimum screen, scale 1) they still leave the mission's own title, below the art,
 // fully visible. Grows with `scale` (#717) along with the mission column's other chrome.
 const BADGE_STRIP_HEIGHT_BASE = 14; // px
 // The pill of every badge in the badge strip. The padding and the gap are tight so three pills
@@ -843,8 +844,8 @@ export function shipRowsUsed(shipCount: number, availableRows: number, scale: nu
 
 // The height of a whole mission column (#992), from the top of the room the row moves down by
 // (`underMissionHeadroom`) to the bottom of `rows` rows of ships: the mission card, the badge
-// strip, and the ship rows, with the gaps between them. `useDesktopTableScale` (`tableScale.ts`)
-// grows the desktop cards until this fills the height above the bottom row.
+// strip, and the ship rows, with the gaps between them. `useMissionScale` (`tableScale.ts`)
+// grows the cards, on a desktop and on a touch screen, until this fills the height above the bottom row.
 export function missionColumnHeight(scale: number, desktop: boolean, rows: number): number {
   return (
     underMissionHeadroom(scale, desktop) +

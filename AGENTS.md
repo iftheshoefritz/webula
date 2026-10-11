@@ -236,6 +236,30 @@ run that hit the turn limit left the section on "Pending." with the code already
 
 When verifying changes to the deck builder (`/decks`), always visit `/decks?fixture=1` — this loads a pre-populated fixture deck (see `src/lib/practiceDeck.ts` and the fixture handling in `src/components/DeckBuilderClient.tsx`) so you can verify UI that depends on cards being present (analysis tabs, card lists, mission selectors, charts, etc.). Visiting `/decks` alone shows only the empty state. The fixture URL bypasses authentication and localStorage, so no login or saved deck is required.
 
+### The minimum screen
+
+The smallest screen the practice table supports is an iPhone SE (2nd generation) in landscape,
+667×375 CSS px (`MIN_SCREEN` in `tableScale.ts`). It was the first-generation iPhone SE, 568×320,
+before. Some comments and older issues still name 568×320. Read those as the old minimum.
+
+The card sizes in `MissionRow.tsx` and `TableCard.tsx` are still the sizes at scale 1, and scale 1
+is still a 320 px tall table. At 667×375 the table draws at a scale of 375/320, about 1.17. A
+layout that must fit the minimum screen must fit it at that scale.
+
+The missions, the ships and the dilemma stack draw at a larger scale of their own,
+`missionScale` (`useMissionScale`, `tableScale.ts`). On a touch screen they grow until a mission
+column with two rows of ships fills the height above the bottom row, as far as the width allows
+the five missions, the dilemma stack and a 20 px gutter each side for the menu buttons, and never
+below the table scale (`computeTouchMissionScale`). A desktop does the same with the whole card
+(#992). At 667×375 a mission is about 97 px wide, where the table scale alone gives 84.
+
+`agent-browser` opens an 800×600 page. To check that a layout fits the minimum screen, set the
+size first:
+
+```bash
+npx agent-browser set viewport 667 375
+```
+
 ### Browser checks
 
 The practice table saves its game in localStorage and restores it on the next load (#976). A
