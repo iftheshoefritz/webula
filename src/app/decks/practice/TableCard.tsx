@@ -150,16 +150,47 @@ export default function TableCard({
       }}
       aria-label={isFaceDown ? 'Face-down card' : `${cardDisplayName(card)}${completed ? ', completed' : ''}`}
     >
-      <div className="relative w-full" style={{ height: uncropped ? fullCardHeight(width) : artHeight }}>
-        <div className="w-full h-full rounded-md overflow-hidden bg-black/20">
-          <img
-            src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
-            alt={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
-            className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
-            style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
-          />
-        </div>
-      </div>
+      <TableCardImage
+        instance={instance}
+        width={width}
+        height={uncropped ? fullCardHeight(width) : artHeight}
+        uncropped={uncropped}
+        completed={completed}
+      />
     </button>
+  );
+}
+
+// The image of a table card, cropped to its art or whole, with the card border. `TableCard` draws
+// it inside its `<button>`, and the strips of the cards placed on a mission (#1099, `MissionRow.tsx`)
+// draw it alone, so they crop the same way with no `data-card-id` of their own.
+export function TableCardImage({
+  instance,
+  width,
+  height,
+  uncropped = false,
+  completed = false,
+  className = 'rounded-md',
+}: {
+  instance: CardInstance;
+  width: number;
+  height: number;
+  uncropped?: boolean;
+  completed?: boolean;
+  className?: string;
+}) {
+  const { card, face } = instance;
+  const isFaceDown = face === 'down';
+  return (
+    <div className="relative w-full" style={{ height }}>
+      <div className={`w-full h-full overflow-hidden bg-black/20 ${className}`}>
+        <img
+          src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
+          alt={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
+          className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
+        />
+      </div>
+    </div>
   );
 }
