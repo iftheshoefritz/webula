@@ -86,8 +86,9 @@ import {
   DILEMMA_STACK_CARD_WIDTH,
   DILEMMA_STACK_DESKTOP_WIDTH_FACTOR,
   DESKTOP_RESERVED_SHIP_ROWS,
+  TOUCH_RESERVED_SHIP_ROWS,
   desktopMissionSlotBudget,
-  useDesktopTableScale,
+  useMissionScale,
   useShipRowCount,
   useTableScale,
 } from './tableScale';
@@ -1014,10 +1015,13 @@ function DilemmaStackTopCard({
 // a tablet keeps the narrow zone.
 // The two widths are set in `tableScale.ts`, whose desktop scale (#992) leaves room for the zone.
 
-// The height of a desktop mission column with the ship rows `useDesktopTableScale` reserves (#992).
-// Defined once at module level, so the hook's effect does not run again on every render.
+// The height of a mission column with the ship rows `useMissionScale` reserves, on a desktop (#992)
+// and on a touch screen. Defined once at module level, so the hook's effect does not run again on
+// every render.
 const desktopMissionColumnHeight = (scale: number): number =>
   missionColumnHeight(scale, true, DESKTOP_RESERVED_SHIP_ROWS);
+const touchMissionColumnHeight = (scale: number): number =>
+  missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
 const dilemmaStackCardHeight = (cardWidth: number) => Math.round((cardWidth * 167) / 120); // px, the card's own aspect ratio
 const DILEMMA_STACK_MAX_OFFSET = 24; // px, the largest gap between fanned cards
 
@@ -1246,14 +1250,16 @@ function PracticeDrawContent() {
   // mission rows and the bottom row has room for them.
   const [missionRows, setMissionRows] = useState<HTMLDivElement | null>(null);
   // Issue #992: on a desktop the missions and the ships show the whole card, and grow into a large
-  // gap above the bottom row. A phone or a tablet keeps the art crop at the table scale.
-  const missionScale = useDesktopTableScale(
+  // gap above the bottom row. A phone or a tablet keeps the art crop, and grows it into that gap
+  // the same way, never below the table scale.
+  const missionScale = useMissionScale(
     finePointer,
     scale,
     gameLayer,
     missionRows,
     bottomRow,
     desktopMissionColumnHeight,
+    touchMissionColumnHeight,
   );
   // Issue #1060: every desktop mission slot reserves the width of a turned mission, as far as the
   // width of the table allows.

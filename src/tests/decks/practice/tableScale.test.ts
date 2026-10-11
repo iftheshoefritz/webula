@@ -2,8 +2,10 @@ import {
   computeDesktopTableScale,
   computeShipRowCount,
   computeTableScale,
+  computeTouchMissionScale,
   desktopMissionSlotBudget,
   MIN_SCREEN,
+  TOUCH_RESERVED_SHIP_ROWS,
 } from '../../../app/decks/practice/tableScale';
 import { missionColumnHeight } from '../../../app/decks/practice/MissionRow';
 
@@ -82,5 +84,37 @@ describe('computeDesktopTableScale (#992)', () => {
   it('never goes below 1', () => {
     expect(computeDesktopTableScale(3000, 100, column)).toBe(1);
     expect(computeDesktopTableScale(400, 5000, column)).toBe(1);
+  });
+});
+
+// The touch missions and ships grow into the gap above the bottom row too, now that the minimum
+// screen is 667x375 (`MIN_SCREEN`).
+describe('computeTouchMissionScale', () => {
+  const column = (scale: number) => missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
+  const minTableScale = computeTableScale(MIN_SCREEN.width, MIN_SCREEN.height);
+
+  it('makes the missions larger than the table scale at the minimum screen', () => {
+    // A 375 px table leaves about 250 px above the bottom row.
+    const scale = computeTouchMissionScale(MIN_SCREEN.width, 250, column, minTableScale);
+    expect(scale).toBeGreaterThan(minTableScale * 1.1);
+  });
+
+  it('stops at the width of five art crops and the dilemma stack, clear of the menu buttons', () => {
+    // (667 - 32 padding - 2 * 20 menu button gutter - 5 gaps of 8 - 56 dilemma stack) / (5 * 72)
+    expect(computeTouchMissionScale(MIN_SCREEN.width, 5000, column, 1)).toBeCloseTo(
+      (667 - 32 - 40 - 40 - 56) / 360,
+      5,
+    );
+  });
+
+  it('grows until the column with two rows of ships fills the height', () => {
+    const scale = computeTouchMissionScale(3000, 300, column, 1);
+    expect(column(scale)).toBeLessThanOrEqual(300);
+    expect(column(scale + 0.01)).toBeGreaterThan(300);
+  });
+
+  it('never goes below the table scale', () => {
+    expect(computeTouchMissionScale(MIN_SCREEN.width, 100, column, minTableScale)).toBe(minTableScale);
+    expect(computeTouchMissionScale(400, 5000, column, 1.3)).toBe(1.3);
   });
 });

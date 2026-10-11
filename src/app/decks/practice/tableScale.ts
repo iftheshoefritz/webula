@@ -159,6 +159,43 @@ export function computeDesktopTableScale(
   columnHeight: (scale: number) => number,
 ): number {
   const widthScale = desktopMissionSlotBudget(gameLayerWidth) / fullCardHeight(TABLE_CARD_WIDTH);
+  return fitColumnScale(widthScale, availableHeight, columnHeight);
+}
+
+// The touch layout grows its missions and ships the same way, now that the minimum screen,
+// 667x375, leaves a gap above the bottom row at the table scale (`MIN_SCREEN`). A touch mission
+// slot is the card's own width, the art crop, and the dilemma stack keeps its narrow fixed width,
+// so the width budget is five card widths and that zone. The result never drops below the table
+// scale: the gap only ever makes the missions and the ships larger than the rest of the table.
+export const TOUCH_RESERVED_SHIP_ROWS = 2;
+// The game menu and fullscreen buttons sit in the top left corner, over the table (`left-2`, 24 px
+// wide, so they end 32 px in). The mission row is centred, so a row that keeps its left edge 4 px
+// clear of them leaves this much more than the content padding free on each side.
+const MENU_BUTTON_GUTTER = 20; // px, each side
+
+export function computeTouchMissionScale(
+  gameLayerWidth: number,
+  availableHeight: number,
+  columnHeight: (scale: number) => number,
+  tableScale: number,
+): number {
+  const availableWidth =
+    gameLayerWidth -
+    CONTENT_PADDING -
+    2 * MENU_BUTTON_GUTTER -
+    MISSION_ROW_GAP * MISSION_SLOTS -
+    DILEMMA_STACK_CARD_WIDTH;
+  const widthScale = availableWidth / MISSION_SLOTS / TABLE_CARD_WIDTH;
+  return Math.max(tableScale, fitColumnScale(widthScale, availableHeight, columnHeight));
+}
+
+// The largest scale, up to `widthScale`, at which `columnHeight` fits `availableHeight`, and never
+// below 1.
+function fitColumnScale(
+  widthScale: number,
+  availableHeight: number,
+  columnHeight: (scale: number) => number,
+): number {
   if (widthScale <= 1 || columnHeight(1) >= availableHeight) return 1;
   // The column height only grows with the scale, so a bisection finds the largest scale that fits.
   let low = 1;
@@ -175,20 +212,23 @@ export function computeDesktopTableScale(
 // Measures the height above the bottom row, from the top of the mission rows to the top of the
 // bottom row, the same elements `useShipRowCount` measures. It reads the bottom row's own height
 // rather than its top, so a mission row taller than the table does not push the bottom row down
-// and feed back into the measure. Returns `scale` off a desktop, and before the elements mount.
-export function useDesktopTableScale(
+// and feed back into the measure. Returns the scale the missions and the ships draw at: the desktop
+// scale (#992) on a desktop, the touch mission scale on a touch screen, and `scale` before the
+// elements mount.
+export function useMissionScale(
   desktop: boolean,
   scale: number,
   gameLayer: HTMLElement | null,
   missionRows: HTMLElement | null,
   bottomRow: HTMLElement | null,
-  columnHeight: (scale: number) => number,
+  desktopColumnHeight: (scale: number) => number,
+  touchColumnHeight: (scale: number) => number,
 ): number {
-  const [desktopScale, setDesktopScale] = useState<number | null>(null);
+  const [missionScale, setMissionScale] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!desktop || !gameLayer || !missionRows || !bottomRow) {
-      setDesktopScale(null);
+    if (!gameLayer || !missionRows || !bottomRow) {
+      setMissionScale(null);
       return;
     }
     const measure = () => {
@@ -199,14 +239,18 @@ export function useDesktopTableScale(
         paddingBottom -
         bottomRow.getBoundingClientRect().height -
         missionRows.getBoundingClientRect().top;
-      setDesktopScale(computeDesktopTableScale(gameLayer.clientWidth, availableHeight, columnHeight));
+      setMissionScale(
+        desktop
+          ? computeDesktopTableScale(gameLayer.clientWidth, availableHeight, desktopColumnHeight)
+          : computeTouchMissionScale(gameLayer.clientWidth, availableHeight, touchColumnHeight, scale),
+      );
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(gameLayer);
     observer.observe(bottomRow);
     return () => observer.disconnect();
-  }, [desktop, gameLayer, missionRows, bottomRow, columnHeight]);
+  }, [desktop, scale, gameLayer, missionRows, bottomRow, desktopColumnHeight, touchColumnHeight]);
 
-  return desktop && desktopScale !== null ? desktopScale : scale;
+  return missionScale ?? scale;
 }

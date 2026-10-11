@@ -246,6 +246,13 @@ The card sizes in `MissionRow.tsx` and `TableCard.tsx` are still the sizes at sc
 is still a 320 px tall table. At 667×375 the table draws at a scale of 375/320, about 1.17. A
 layout that must fit the minimum screen must fit it at that scale.
 
+The missions, the ships and the dilemma stack draw at a larger scale of their own,
+`missionScale` (`useMissionScale`, `tableScale.ts`). On a touch screen they grow until a mission
+column with two rows of ships fills the height above the bottom row, as far as the width allows
+the five missions, the dilemma stack and a 20 px gutter each side for the menu buttons, and never
+below the table scale (`computeTouchMissionScale`). A desktop does the same with the whole card
+(#992). At 667×375 a mission is about 97 px wide, where the table scale alone gives 84.
+
 `agent-browser` opens an 800×600 page. To check that a layout fits the minimum screen, set the
 size first:
 

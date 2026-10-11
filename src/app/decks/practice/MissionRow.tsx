@@ -844,8 +844,8 @@ export function shipRowsUsed(shipCount: number, availableRows: number, scale: nu
 
 // The height of a whole mission column (#992), from the top of the room the row moves down by
 // (`underMissionHeadroom`) to the bottom of `rows` rows of ships: the mission card, the badge
-// strip, and the ship rows, with the gaps between them. `useDesktopTableScale` (`tableScale.ts`)
-// grows the desktop cards until this fills the height above the bottom row.
+// strip, and the ship rows, with the gaps between them. `useMissionScale` (`tableScale.ts`)
+// grows the cards, on a desktop and on a touch screen, until this fills the height above the bottom row.
 export function missionColumnHeight(scale: number, desktop: boolean, rows: number): number {
   return (
     underMissionHeadroom(scale, desktop) +
