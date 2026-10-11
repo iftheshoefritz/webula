@@ -503,6 +503,13 @@ browser's offline error page, and its URL starts with `chrome-error://`. A load 
 worker controls the page has nothing cached, so open the page online first and check
 `navigator.serviceWorker.controller`.
 
+When a new build takes control of an open page (`controllerchange` on a page that already had a
+controller), the game menu shows "A new version of Webula is available" with Reload and Dismiss
+(`data-testid="update-prompt"`), and the menu button shows a dot (`data-testid="update-dot"`)
+(#1104). The page asks the registration for an update each time it comes back to `visible`
+while online. To trigger that check without leaving the tab, run
+`npx agent-browser eval "navigator.serviceWorker.getRegistration().then(r=>r.update())"`.
+
 ### A click that does not click
 
 `npx agent-browser click 'button:has-text("<label>")'` also fails silently on this page. It reports success and the button does not fire. Use the DOM instead, and read the result in the same call:

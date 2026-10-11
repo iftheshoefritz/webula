@@ -104,7 +104,7 @@ import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './rel
 import { cardIdOfDraggable } from './panelDragId';
 import { createCenterOnPointerModifier } from './centerOnPointer';
 import { useFullscreen } from './useFullscreen';
-import { useServiceWorker } from './useServiceWorker';
+import { useServiceWorker, type ServiceWorkerUpdate } from './useServiceWorker';
 
 // A plain inline hamburger icon (#722), not react-icons: see `DownloadIcon`'s comment below for
 // why a react-icons import here would need every test mock of `react-icons/fa` in this file's own
@@ -191,6 +191,7 @@ function GameMenu({
   deck,
   deckName,
   offline,
+  update,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -204,6 +205,7 @@ function GameMenu({
   deck: DeckList;
   deckName: string;
   offline: ReturnType<typeof useOfflineDecks>;
+  update: ServiceWorkerUpdate;
 }) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -247,6 +249,21 @@ function GameMenu({
             </div>
           ) : (
             <div className="grid w-full max-w-[16rem] grid-cols-1 gap-2 landscape:max-w-[28rem] landscape:grid-cols-2">
+              {update.updateReady && (
+                <div
+                  role="status"
+                  data-testid="update-prompt"
+                  className="flex items-center gap-2 rounded-md border border-accent/50 bg-bg-secondary px-3 py-2 text-sm text-text-primary landscape:col-span-2"
+                >
+                  <span className="flex-1">A new version of Webula is available</span>
+                  <button type="button" onClick={update.reload} className="btn-primary">
+                    Reload
+                  </button>
+                  <button type="button" onClick={update.dismiss} className="rounded-md px-2 py-1.5 text-sm text-text-secondary hover:text-text-primary">
+                    Dismiss
+                  </button>
+                </div>
+              )}
               <button type="button" onClick={onClose} className={`${SPLASH_ITEM_CLASS} landscape:col-span-2`}>
                 Continue
               </button>
@@ -275,8 +292,25 @@ function GameMenu({
       <div
         className={`absolute top-2 left-2 flex flex-col gap-1 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
       >
-        <button type="button" onClick={onToggle} aria-label="Game menu" aria-expanded={open} className="btn-icon btn-icon-sm">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label="Game menu"
+          aria-expanded={open}
+          aria-describedby={update.updateReady ? 'update-dot' : undefined}
+          className="btn-icon btn-icon-sm relative"
+        >
           <MenuIcon />
+          {/* A new build has taken control (#1104): the prompt waits in the menu, so it never covers the table. */}
+          {update.updateReady && (
+            <span
+              id="update-dot"
+              data-testid="update-dot"
+              className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent-light ring-2 ring-[#131713]"
+            >
+              <span className="sr-only">A new version is available</span>
+            </span>
+          )}
         </button>
         {fullscreen.enabled && (
           <button
@@ -1098,7 +1132,7 @@ function PracticeDrawContent() {
   // Browser checks use it with `?fixture=1` to start from the same table every time.
   const isReset = searchParams.get('reset') === '1';
   const { data, loading } = useDataFetching();
-  useServiceWorker();
+  const serviceWorkerUpdate = useServiceWorker();
   // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
   // entry per player action, so a handler whose action moves several cards dispatches one `batch`.
   const [game, dispatch] = useReducer(gameReducer, initialTableState, initialGameState);
@@ -2172,6 +2206,7 @@ function PracticeDrawContent() {
           deck={dealtDeck}
           deckName={dealtDeckName()}
           offline={offlineDecks}
+          update={serviceWorkerUpdate}
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
