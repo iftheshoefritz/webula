@@ -8,8 +8,8 @@
 #   bash scripts/cdp_input.sh click <x> <y> | <selector> [--mod shift,ctrl,meta,alt]
 #   bash scripts/cdp_input.sh double-click <x> <y> | <selector> [--mod shift,ctrl,meta,alt]
 #   bash scripts/cdp_input.sh mouse-drag <x> <y> <tx> <ty> [--mod shift,ctrl,meta,alt]
-#   bash scripts/cdp_input.sh mouse-path <x> <y> <tx>,<ty>,<hold-ms> ... [--mod shift,ctrl,meta,alt]
-#   bash scripts/cdp_input.sh touch-path <x> <y> <tx>,<ty>,<hold-ms> ...
+#   bash scripts/cdp_input.sh mouse-path <x> <y> <tx>,<ty>,<hold-ms> ... [--mod shift,ctrl,meta,alt] [--first <dx>,<dy>]
+#   bash scripts/cdp_input.sh touch-path <x> <y> <tx>,<ty>,<hold-ms> ... [--first <dx>,<dy>]
 #
 # The work is done by `cdp_input.mjs`; this wrapper only finds the browser's
 # DevTools URL with `npx agent-browser get cdp-url` and runs Node with

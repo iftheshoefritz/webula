@@ -10,8 +10,8 @@
 //   bash scripts/cdp_input.sh double-click <x> <y> | <selector> [--mod shift,ctrl,meta,alt]
 //   bash scripts/cdp_input.sh mouse-drag <x> <y> <tx> <ty> [--mod shift,ctrl,meta,alt]
 //   bash scripts/cdp_input.sh mouse-drag <x> <y> --to-eval '<js that returns "x y">'
-//   bash scripts/cdp_input.sh mouse-path <x> <y> <tx>,<ty>,<hold-ms> ... [--mod shift,ctrl,meta,alt]
-//   bash scripts/cdp_input.sh touch-path <x> <y> <tx>,<ty>,<hold-ms> ...
+//   bash scripts/cdp_input.sh mouse-path <x> <y> <tx>,<ty>,<hold-ms> ... [--mod shift,ctrl,meta,alt] [--first <dx>,<dy>]
+//   bash scripts/cdp_input.sh touch-path <x> <y> <tx>,<ty>,<hold-ms> ... [--first <dx>,<dy>]
 //   bash scripts/cdp_input.sh offline-reload [<url>]
 //
 // `offline-reload` (#1051) blocks the network with `Network.emulateNetworkConditions`, for the page
@@ -27,6 +27,8 @@
 // each waypoint in turn and rest there for its hold, and release at the last one. One run times
 // the holds to the millisecond; a run of `agent-browser mouse move` and `wait` calls spends about
 // 600 ms on each call, too long to rest on a card for less than `PLACE_ON_HOLD_MS`.
+// `--first <dx>,<dy>` sets that first move (#1093). A drag out of a card list panel that scrolls
+// needs a first move mostly sideways (`panelScrollSensor.ts`), and the default one is mostly up.
 //
 // agent-browser 0.27.0 drives only a mouse, and `agent-browser keydown Shift` does not set
 // `shiftKey` on the mouse events that follow. CDP does both:
@@ -173,6 +175,7 @@ async function main() {
 
   let modifiers = 0;
   let toEval = null;
+  let firstMove = FIRST_MOVE;
   const args = [];
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--mod') {
@@ -180,6 +183,10 @@ async function main() {
         if (!(m in MODIFIERS)) fail(`unknown modifier "${m}". Use shift, ctrl, meta or alt.`);
         modifiers |= MODIFIERS[m];
       }
+    } else if (rest[i] === '--first') {
+      const m = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(rest[++i] || '');
+      if (!m) fail('--first takes <dx>,<dy>, such as 8,0.');
+      firstMove = { dx: Number(m[1]), dy: Number(m[2]) };
     } else if (rest[i] === '--to-eval') {
       toEval = rest[++i];
     } else {
@@ -325,7 +332,7 @@ async function main() {
     const move = touchPath ? (p) => touch('touchMove', p) : (p) => mouse('mouseMoved', p, true);
     if (!touchPath) await mouse('mouseMoved', from, false);
     await (touchPath ? touch('touchStart', from) : mouse('mousePressed', from, true));
-    let at = { x: from.x + FIRST_MOVE.dx, y: from.y + FIRST_MOVE.dy };
+    let at = { x: from.x + firstMove.dx, y: from.y + firstMove.dy };
     await move(at);
     await sleep(100);
     lines.push(`${command} press ${from.x} ${from.y}`);

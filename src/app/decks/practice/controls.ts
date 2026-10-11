@@ -113,6 +113,7 @@ export const CONTROL_ROWS: ControlRow[] = [
     action: 'Move a card out of a panel',
     touch: 'Drag it onto the table. A first move up or down scrolls the panel, and a first move sideways drags the card.',
     mouse: 'Drag it onto the table.',
+    clip: { touch: true },
   },
   {
     id: 'download',
@@ -143,6 +144,7 @@ export const CONTROL_ROWS: ControlRow[] = [
     touch: 'Tap the cards in a panel or in the open hand.',
     mouse:
       'Click the cards in a panel or in the open hand, or drag a box on the empty space. Shift, Ctrl or Cmd adds to the selection.',
+    clip: { mouse: true },
   },
   {
     id: 'move-selection',
@@ -161,6 +163,7 @@ export const CONTROL_ROWS: ControlRow[] = [
     section: 'More than one card',
     action: 'Place a card on a card in the core or the brig',
     ...both('Drag it over the card and hold until the ring shows, then release.'),
+    clip: { touch: true, mouse: true },
   },
 
   // Buttons

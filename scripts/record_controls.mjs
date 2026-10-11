@@ -47,9 +47,11 @@ const CROP_PAD = 16;
 const FIXTURE_PILES = '/decks/practice?fixture=piles&reset=1&menu=0';
 const FIXTURE_FRESH = '/decks/practice?fixture=1&reset=1&menu=0';
 
-// The gesture of each clip, keyed by the row `id` of `controls.ts`. #1093 adds entries.
+// The gesture of each clip, keyed by the row `id` of `controls.ts`.
 //
 // - `fixture`: the page the clip starts from.
+// - `setup(ctx, mode)`: optional. Runs before the crop is read and the recording starts, such as to
+//   open the panel the gesture works in.
 // - `crop`: selectors of the elements the gesture uses. The clip shows the box around all of them,
 //   read from the page before the gesture starts.
 // - `run(ctx, mode)`: the gesture. `ctx.drag(cardId, target)` runs `practice_drag.sh`, with
@@ -108,6 +110,112 @@ const GESTURES = {
       await ctx.input(mode === 'touch' ? 'touch-path' : 'mouse-path', x, y, `${tx},${ty},500`, `${x + 8},${y + 2},300`);
       const zone = await ctx.evaluate(`document.querySelector('[data-card-id="${cardId}"]')?.closest('[data-zone^="ship-row-"]')?.dataset.zone`);
       if (zone !== 'ship-row-1') throw new Error(`the ship went to ${zone}, so the release did not cancel the drag`);
+    },
+  },
+  // #1089 calls this row `place-on-hold`. A personnel of the brig is dragged onto the last card of
+  // the core and rests there past PLACE_ON_HOLD_MS (800 ms), so the ring shows and the release
+  // places the personnel on that card. One `cdp_input.sh` run times the hold.
+  'place-on-card': {
+    fixture: FIXTURE_PILES,
+    modes: ['touch', 'mouse'],
+    crop: ['[data-zone="hand"]', '[data-zone="core"]', '[data-zone="brig"]'],
+    async run(ctx, mode) {
+      const points = JSON.parse(
+        await ctx.evaluate(`(() => {
+          const from = document.querySelector('[data-zone="brig"] [data-card-id]');
+          const cards = document.querySelectorAll('[data-zone="core"] [data-card-id]');
+          const onto = cards[cards.length - 1];
+          if (!from || !onto) return 'null';
+          const a = from.getBoundingClientRect();
+          const b = onto.getBoundingClientRect();
+          return JSON.stringify({
+            ontoId: onto.dataset.cardId,
+            x: Math.round(a.left + a.width / 2), y: Math.round(a.top + a.height / 2),
+            tx: Math.round(b.left + b.width / 2), ty: Math.round(b.top + b.height / 2),
+          });
+        })()`)
+      );
+      if (!points) throw new Error('the fixture has no card in the brig or the core');
+      const { ontoId, x, y, tx, ty } = points;
+      await ctx.input(mode === 'touch' ? 'touch-path' : 'mouse-path', x, y, `${tx},${ty},1200`);
+      // The counter of the cards on a card sits in the core, out of the card's own button.
+      const placed = await ctx.evaluate(`!!document.querySelector('[data-zone="core"] [aria-label$=", 1 card on it"]')`);
+      if (!placed) throw new Error(`the personnel was not placed on ${ontoId}`);
+    },
+  },
+  // #1089 calls this row `box-select`. In the away team panel a box from the empty space left of
+  // the first row selects two cards, and a Shift box from the gap between the rows adds three
+  // more. The panel opens by a DOM click: after a real click the pointer rests on a card of the
+  // new panel, and the press of the first box only closes that card's hover preview.
+  select: {
+    fixture: FIXTURE_PILES,
+    modes: ['mouse'],
+    crop: ['[data-testid="card-list-panel-awayTeam"]'],
+    async setup(ctx) {
+      await ctx.evaluate(`document.querySelector('[data-testid="mission-pile-awayTeam-0"]')?.click()`);
+      await sleep(1000);
+    },
+    async run(ctx) {
+      const panel = '[data-testid="card-list-panel-awayTeam"]';
+      const boxes = JSON.parse(
+        await ctx.evaluate(`(() => {
+          const grid = document.querySelector('${panel}');
+          const cards = grid ? [...grid.querySelectorAll('[data-card-id]')].map((c) => c.getBoundingClientRect()) : [];
+          const g = grid?.getBoundingClientRect();
+          const row2 = cards.findIndex((r) => r.top > cards[0].bottom);
+          if (!g || row2 < 3) return 'null';
+          const r = (n) => Math.round(n);
+          const x = r((g.left + cards[0].left) / 2);
+          const centre = (c) => [r(c.left + c.width / 2), r(Math.min(c.top + c.height / 2, g.bottom - 24))];
+          return JSON.stringify([
+            [x, r((g.top + cards[0].top) / 2), ...centre(cards[1])],
+            [x, r((cards[0].bottom + cards[row2].top) / 2), ...centre(cards[row2 + 2])],
+          ]);
+        })()`)
+      );
+      if (!boxes) throw new Error('the away team panel did not open with two rows of cards');
+      const selected = `document.querySelectorAll('${panel} button[aria-label^="Deselect "]').length`;
+      await ctx.input('mouse-drag', ...boxes[0]);
+      if ((await ctx.evaluate(selected)) !== 2) throw new Error('the first box did not select 2 cards');
+      await sleep(400);
+      await ctx.input('mouse-drag', ...boxes[1], '--mod', 'shift');
+      if ((await ctx.evaluate(selected)) !== 5) throw new Error('the Shift box did not add 3 cards');
+    },
+  },
+  // #1089 calls this row `panel-scroll-or-drag`. In the away team panel, which scrolls, a move up
+  // scrolls the grid, and then a first move sideways picks a card up and drags it to the core.
+  'drag-out-of-panel': {
+    fixture: FIXTURE_PILES,
+    modes: ['touch'],
+    crop: ['[data-testid="card-list-panel-awayTeam"]', '[data-zone="core"]'],
+    async setup(ctx) {
+      await ctx.input('tap', '[data-testid="mission-pile-awayTeam-0"]');
+      await sleep(1000);
+    },
+    async run(ctx) {
+      const panel = '[data-testid="card-list-panel-awayTeam"]';
+      const scroll = await ctx.input('pan', panel, 0, -200);
+      if (!/scrollTop 0 -> [1-9]/.test(scroll)) throw new Error(`the pan did not scroll the panel:\n${scroll}`);
+      await sleep(400);
+      const points = JSON.parse(
+        await ctx.evaluate(`(() => {
+          const grid = document.querySelector('${panel}').getBoundingClientRect();
+          const card = [...document.querySelectorAll('${panel} [data-card-id]')]
+            .map((c) => c.getBoundingClientRect())
+            .find((r) => r.top >= grid.top && r.top + r.height / 2 < grid.bottom);
+          const core = document.querySelector('[data-zone="core"]').getBoundingClientRect();
+          if (!card) return 'null';
+          const x = Math.round(card.left + card.width / 2);
+          const y = Math.round(card.top + card.height / 2);
+          return JSON.stringify({ x, y, core: document.querySelectorAll('[data-zone="core"] [data-card-id]').length,
+            tx: Math.round(core.left + core.width / 2), ty: Math.round(core.top + core.height / 2) });
+        })()`)
+      );
+      if (!points) throw new Error('the away team panel shows no card');
+      const { x, y, tx, ty } = points;
+      await ctx.input('touch-path', x, y, `${x + 80},${y + 4},150`, `${tx},${ty},400`, '--first', '10,0');
+      const core = await ctx.evaluate(`document.querySelectorAll('[data-zone="core"] [data-card-id]').length`);
+      if (core !== points.core + 1) throw new Error('the card did not leave the panel for the core');
     },
   },
 };
@@ -239,6 +347,17 @@ async function record(rowId, gesture, mode, outDir) {
     return result.value;
   };
 
+  const ctx = {
+    evaluate,
+    drag: (cardId, targetName) =>
+      // A drop that leaves no badge to read exits non-zero, so the gesture checks the page itself.
+      run('bash', [path.join(SCRIPTS, 'practice_drag.sh'), ...(mode === 'touch' ? ['--touch'] : []), cardId, targetName], {
+        allowFail: true,
+      }).then((out) => out.split('\n').pop()),
+    input: (...args) => run('bash', [path.join(SCRIPTS, 'cdp_input.sh'), ...args]),
+  };
+  if (gesture.setup) await gesture.setup(ctx, mode);
+
   const crop = await evaluate(`(() => {
     const rects = ${JSON.stringify(gesture.crop)}.map((s) => document.querySelector(s)).filter(Boolean).map((e) => e.getBoundingClientRect());
     if (rects.length === 0) return null;
@@ -267,15 +386,6 @@ async function record(rowId, gesture, mode, outDir) {
   await page('Page.startScreencast', { format: 'png', everyNthFrame: 1 });
   await sleep(300);
 
-  const ctx = {
-    evaluate,
-    drag: (cardId, targetName) =>
-      // A drop that leaves no badge to read exits non-zero, so the gesture checks the page itself.
-      run('bash', [path.join(SCRIPTS, 'practice_drag.sh'), ...(mode === 'touch' ? ['--touch'] : []), cardId, targetName], {
-        allowFail: true,
-      }).then((out) => out.split('\n').pop()),
-    input: (...args) => run('bash', [path.join(SCRIPTS, 'cdp_input.sh'), ...args]),
-  };
   try {
     await gesture.run(ctx, mode);
     // The landed cue plays for about 450 ms after the drop.

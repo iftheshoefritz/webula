@@ -439,7 +439,17 @@ bash scripts/cdp_input.sh mouse-drag 408 48 300 150 --mod shift
 
 A box must start on the empty space of the grid. The scrollbar at the right edge of a grid that
 scrolls is not empty space: a press there starts a scrollbar drag, and the page sees no
-`pointermove`. Check the start point with `document.elementFromPoint` first.
+`pointermove`. Check the start point with `document.elementFromPoint` first. A box also fails
+when a card's hover preview is open, as it is after a real click opened the panel and left the
+pointer on a card: the press only closes the preview. Open the panel with a DOM `click()` instead.
+
+**A drag out of a panel that scrolls.** The first move of `touch-path` and `mouse-path` is 4 px
+right and 8 px up, so in a grid that scrolls the browser takes a touch as a pan
+(`panelScrollSensor.ts`). `--first <dx>,<dy>` sets a first move mostly sideways (#1093):
+
+```bash
+bash scripts/cdp_input.sh touch-path 297 190 377,194,150 319,593,400 --first 10,0
+```
 
 **Screen size.** Launch the browser with `--screen-info={1920x1080}`:
 
