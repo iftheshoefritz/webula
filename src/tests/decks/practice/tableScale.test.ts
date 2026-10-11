@@ -3,6 +3,7 @@ import {
   computeShipRowCount,
   computeTableScale,
   desktopMissionSlotBudget,
+  MIN_SCREEN,
 } from '../../../app/decks/practice/tableScale';
 import { missionColumnHeight } from '../../../app/decks/practice/MissionRow';
 
@@ -11,6 +12,11 @@ import { missionColumnHeight } from '../../../app/decks/practice/MissionRow';
 describe('computeTableScale (#630)', () => {
   it('still returns 1 at the 568x320 acceptance-check viewport', () => {
     expect(computeTableScale(568, 320)).toBe(1);
+  });
+
+  it('returns 375/320 at the 667x375 minimum screen, an iPhone SE (2nd generation)', () => {
+    expect(MIN_SCREEN).toEqual({ width: 667, height: 375 });
+    expect(computeTableScale(MIN_SCREEN.width, MIN_SCREEN.height)).toBeCloseTo(375 / 320, 5);
   });
 
   it('bounds the scale by the widened width budget once width is the tighter constraint', () => {

@@ -26,6 +26,13 @@ import { TABLE_CARD_WIDTH, fullCardHeight } from './TableCard';
 // game layer measures taller than it.
 const BASELINE_HEIGHT = 320; // px
 
+// The smallest screen the practice table supports: an iPhone SE (2nd generation) in landscape.
+// It was the first-generation iPhone SE, 568x320, the baseline above, until the cards needed
+// more room. The baseline stays at 320 px so every card keeps its size: at the minimum screen the
+// table draws at a scale of about 1.17, and a size that must fit the minimum screen is checked at
+// that scale, not at 1.
+export const MIN_SCREEN = { width: 667, height: 375 } as const; // CSS px
+
 // The space around the five mission columns that stays fixed regardless of scale: `page.tsx`'s
 // own `p-4` padding on both sides of the game layer's content (32px), and `MissionRow.tsx`'s own
 // `gap-2` between the five columns (8px, four gaps).
