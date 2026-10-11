@@ -47,7 +47,7 @@ const CROP_PAD = 16;
 const FIXTURE_PILES = '/decks/practice?fixture=piles&reset=1&menu=0';
 const FIXTURE_FRESH = '/decks/practice?fixture=1&reset=1&menu=0';
 
-// The gesture of each clip, keyed by the row `id` of `controls.ts`. #1092 and #1093 add entries.
+// The gesture of each clip, keyed by the row `id` of `controls.ts`. #1093 adds entries.
 //
 // - `fixture`: the page the clip starts from.
 // - `crop`: selectors of the elements the gesture uses. The clip shows the box around all of them,
@@ -67,6 +67,47 @@ const GESTURES = {
       await ctx.drag(await ctx.evaluate(topDilemma), 'mission-on-3');
       const on = await ctx.evaluate(`document.querySelector('[data-testid="mission-on-dilemmas-3"]')?.getAttribute('aria-label') || ''`);
       if (!/1 dilemma on it/.test(on)) throw new Error('the second dilemma was not placed on the mission card');
+    },
+  },
+  // Two presses on one connection, since two runs of `cdp_input.sh` take longer than DOUBLE_TAP_MS.
+  'complete-mission': {
+    fixture: FIXTURE_FRESH,
+    modes: ['touch', 'mouse'],
+    crop: ['[data-testid="mission-corners-1"]', '[data-testid="mission-corners-3"]', '[data-testid="mission-pile-awayTeam-2"]'],
+    async run(ctx, mode) {
+      const cardId = await ctx.evaluate(
+        `document.querySelector('[data-testid="mission-corners-2"]')?.parentElement.querySelector('[data-card-id]')?.dataset.cardId`
+      );
+      if (!cardId) throw new Error('mission 2 has no card');
+      await ctx.input(mode === 'touch' ? 'double-tap' : 'double-click', `[data-card-id="${cardId}"]`);
+      const done = await ctx.evaluate(`document.querySelector('[data-testid="mission-toggle-2"]')?.getAttribute('aria-pressed')`);
+      if (done !== 'true') throw new Error('the double press did not complete mission 2');
+    },
+  },
+  // The row's text names the release cancel (#774, #825), which #1089 calls `release-cancel`. The ship
+  // of mission 1 is dragged over the empty ship row of mission 2, where a release would move it, and
+  // is released back within CANCEL_RADIUS of the press point, so it stays.
+  'move-card': {
+    fixture: FIXTURE_PILES,
+    modes: ['touch', 'mouse'],
+    crop: ['[data-zone="mission-under-1"]', '[data-zone="mission-on-2"]', '[data-zone="ship-row-1"]', '[data-zone="ship-row-2"]'],
+    async run(ctx, mode) {
+      const points = JSON.parse(
+        await ctx.evaluate(`(() => {
+          const ship = document.querySelector('[data-zone="ship-row-1"] [data-card-id]');
+          const row = document.querySelector('[data-zone="ship-row-2"]')?.getBoundingClientRect();
+          if (!ship || !row) return 'null';
+          const r = ship.getBoundingClientRect();
+          const x = Math.round(r.left + r.width / 2);
+          const y = Math.round(r.top + r.height / 2);
+          return JSON.stringify({ cardId: ship.dataset.cardId, x, y, tx: Math.round(row.left + row.width / 2), ty: y });
+        })()`)
+      );
+      if (!points) throw new Error('mission 1 has no ship');
+      const { cardId, x, y, tx, ty } = points;
+      await ctx.input(mode === 'touch' ? 'touch-path' : 'mouse-path', x, y, `${tx},${ty},500`, `${x + 8},${y + 2},300`);
+      const zone = await ctx.evaluate(`document.querySelector('[data-card-id="${cardId}"]')?.closest('[data-zone^="ship-row-"]')?.dataset.zone`);
+      if (zone !== 'ship-row-1') throw new Error(`the ship went to ${zone}, so the release did not cancel the drag`);
     },
   },
 };

@@ -48,6 +48,7 @@ export const CONTROL_ROWS: ControlRow[] = [
     section: 'Basics',
     action: 'Move a card',
     ...both('Drag it to where it goes. A release near the point where the drag started cancels the drag.'),
+    clip: { touch: true, mouse: true },
   },
   {
     id: 'no-rules',
@@ -87,6 +88,7 @@ export const CONTROL_ROWS: ControlRow[] = [
     touch: 'Double-tap the mission card. Completing scores nothing, so change the score by hand.',
     mouse:
       'Double-click the mission card, or Tab to it and press Enter. Completing scores nothing, so change the score by hand.',
+    clip: { touch: true, mouse: true },
   },
   {
     id: 'flip-mission',
