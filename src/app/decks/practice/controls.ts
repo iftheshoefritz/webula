@@ -65,6 +65,7 @@ export const CONTROL_ROWS: ControlRow[] = [
       'The top half puts a dilemma under the mission. The bottom half places it on the mission card. ' +
         'A personnel or an equipment joins the away team, and a ship goes to the ship row.'
     ),
+    clip: { touch: true, mouse: true },
   },
   {
     id: 'ship-drop',

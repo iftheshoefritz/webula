@@ -4,8 +4,8 @@ import ControlsPanel from '../../../app/decks/practice/ControlsPanel';
 import { REDUCED_MOTION_QUERY } from '../../../app/decks/practice/ControlClip';
 import { CONTROL_ROWS, clipFiles, type ControlRow } from '../../../app/decks/practice/controls';
 
-// #1090: the playback of a row's clip in the Controls panel. No row of `controls.ts` has a clip
-// yet, so these tests use rows made here.
+// #1090: the playback of a row's clip in the Controls panel. These tests use rows made here, so
+// they do not change as the rows of `controls.ts` gain clips (#1091).
 
 const clipRow: ControlRow = {
   id: 'test-gesture',
@@ -144,10 +144,13 @@ describe('ControlClip in the Controls panel (#1090)', () => {
     expect(screen.getByText('Do the gesture with a finger.')).toBeInTheDocument();
   });
 
-  it('shows no video for a row with no clip, so the real panel shows none yet', () => {
+  it('shows a video only on the rows of the real panel that have a clip', () => {
     mockMedia();
     render(<ControlsPanel onClose={jest.fn()} />);
-    expect(CONTROL_ROWS.some((row) => row.clip)).toBe(false);
-    expect(screen.queryByTestId('control-clip')).not.toBeInTheDocument();
+    for (const row of CONTROL_ROWS) {
+      const clip = screen.getByTestId(`control-${row.id}`).querySelector('[data-testid="control-clip"]');
+      if (row.clip?.touch) expect(clip).not.toBeNull();
+      else expect(clip).toBeNull();
+    }
   });
 });
