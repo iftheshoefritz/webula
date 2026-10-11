@@ -6,7 +6,9 @@ jest.mock('@dnd-kit/core', () => ({
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import MissionRow, {
+  PLACED_ON_STRIP_MAX_VISIBLE,
   missionSlotWidth,
+  placedOnStripLayout,
   turnedMissionScale,
   underMissionHeadroom,
 } from '../../../app/decks/practice/MissionRow';
@@ -750,5 +752,142 @@ describe('MissionRow: a ship row of more than one row (#930)', () => {
     tapShip('ship-0');
     expect(onOpenShipRow).toHaveBeenCalledWith(0);
     expect(onShipClick).not.toHaveBeenCalled();
+  });
+});
+
+// #1099: the cards placed on a mission show in two strips over the mission card, the events on the
+// left and the dilemmas on the right.
+describe('MissionRow: the strips of the cards placed on a mission (#1099)', () => {
+  const dilemma = (id: string, name: string): CardInstance => ({
+    ...card(id, name),
+    card: { ...card(id, name).card, type: 'dilemma' },
+  });
+  const withPlaced = (placedOn: CardInstance[], completed = false): MissionSlot => ({
+    ...emptySlot(),
+    mission: { ...card('mission-0', 'A Mission'), placedOn },
+    completed,
+  });
+  const renderRow = (
+    slot: MissionSlot,
+    { onOpenPlacedOn = jest.fn(), onSetMissionCompleted = jest.fn(), startHold = jest.fn() } = {},
+  ) => {
+    render(
+      <CardHoldProvider value={{ startHold, endHold: () => {}, startHover: () => {}, endHover: () => {} }}>
+        <MissionRow
+          missions={[slot]}
+          onOpenPile={() => {}}
+          onShipClick={() => {}}
+          onOpenShipRow={() => {}}
+          onOpenPlacedOn={onOpenPlacedOn}
+          onSetMissionCompleted={onSetMissionCompleted}
+        />
+      </CardHoldProvider>
+    );
+    return { onOpenPlacedOn, onSetMissionCompleted, startHold };
+  };
+  const strip = (group: 'events' | 'dilemmas') => screen.getByTestId(`mission-on-${group}-strip-0`);
+  const stripNames = (group: 'events' | 'dilemmas') =>
+    Array.from(strip(group).querySelectorAll('img')).map((img) => img.getAttribute('alt'));
+
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('shows the events on the left edge and the dilemmas on the right edge', () => {
+    renderRow(withPlaced([card('e1', 'Event 1'), dilemma('d1', 'Dilemma 1'), card('e2', 'Event 2')]));
+    expect(stripNames('events')).toEqual(['Event 1', 'Event 2']);
+    expect(stripNames('dilemmas')).toEqual(['Dilemma 1']);
+    const layout = placedOnStripLayout(1);
+    expect(strip('events').style.left).toBe(`${layout.inset}px`);
+    expect(strip('dilemmas').style.right).toBe(`${layout.inset}px`);
+    expect(strip('events').style.top).toBe(`${layout.top}px`);
+    // Each small card is the art crop of a table card.
+    expect(strip('events').querySelector('img')).toHaveClass('object-cover', 'object-top');
+  });
+
+  it('shows the last 3 cards of a group, and the badge keeps the full count', () => {
+    renderRow(withPlaced([1, 2, 3, 4].map((n) => card(`e${n}`, `Event ${n}`))));
+    expect(stripNames('events')).toEqual(['Event 2', 'Event 3', 'Event 4']);
+    expect(screen.getByRole('button', { name: 'A Mission, 4 events on it' })).toBeInTheDocument();
+    expect(screen.queryByTestId('mission-on-dilemmas-strip-0')).toBeNull();
+  });
+
+  it('gives no strip and no small card a data-zone or a data-card-id', () => {
+    renderRow(withPlaced([card('e1', 'Event 1'), dilemma('d1', 'Dilemma 1')]));
+    for (const group of ['events', 'dilemmas'] as const) {
+      expect(strip(group).closest('[data-zone]')).toBeNull();
+      expect(strip(group).querySelector('[data-zone], [data-card-id]')).toBeNull();
+      expect(strip(group).closest('[data-card-id]')).toBeNull();
+    }
+    expect(document.body.querySelectorAll('[data-card-id="e1"]')).toHaveLength(0);
+  });
+
+  it("opens each strip's own panel once the double-tap window passes", () => {
+    const { onOpenPlacedOn, onSetMissionCompleted } = renderRow(
+      withPlaced([card('e1', 'Event 1'), dilemma('d1', 'Dilemma 1')]),
+    );
+    fireEvent.click(strip('events'), { clientX: 5, clientY: 20 });
+    act(() => {
+      jest.advanceTimersByTime(DOUBLE_TAP_MS - 1);
+    });
+    expect(onOpenPlacedOn).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(onOpenPlacedOn).toHaveBeenCalledWith('mission-0', 'events');
+    fireEvent.click(strip('dilemmas'), { clientX: 65, clientY: 20 });
+    act(() => {
+      jest.advanceTimersByTime(DOUBLE_TAP_MS);
+    });
+    expect(onOpenPlacedOn).toHaveBeenLastCalledWith('mission-0', 'dilemmas');
+    expect(onSetMissionCompleted).not.toHaveBeenCalled();
+  });
+
+  it('toggles completion on a double-tap of a strip, and opens no panel', () => {
+    const { onOpenPlacedOn, onSetMissionCompleted } = renderRow(withPlaced([card('e1', 'Event 1')]));
+    fireEvent.click(strip('events'), { clientX: 5, clientY: 20 });
+    fireEvent.click(strip('events'), { clientX: 6, clientY: 21 });
+    act(() => {
+      jest.advanceTimersByTime(DOUBLE_TAP_MS * 2);
+    });
+    expect(onSetMissionCompleted).toHaveBeenCalledWith(0, true);
+    expect(onOpenPlacedOn).not.toHaveBeenCalled();
+  });
+
+  it('previews the small card on a hold, not the mission', () => {
+    const { startHold } = renderRow(withPlaced([card('e1', 'Event 1')]));
+    fireEvent.pointerDown(strip('events').querySelector('[data-testid="placed-on-strip-card"]')!, { button: 0 });
+    act(() => {
+      jest.advanceTimersByTime(HOLD_DELAY_MS);
+    });
+    expect(startHold).toHaveBeenCalledWith('e1', expect.anything());
+  });
+
+  it('turns the strips with a completed mission, and darkens their cards', () => {
+    renderRow(withPlaced([card('e1', 'Event 1')], true));
+    const strips = screen.getByTestId('mission-strips-0');
+    expect(strips.style.transform).toBe(`translate(-50%, -50%) rotate(90deg) scale(${turnedMissionScale(1)})`);
+    expect(strips).toContainElement(strip('events'));
+    expect(strip('events').querySelector('img')).toHaveClass('brightness-50');
+    expect(document.body.querySelector('[data-card-id="mission-0"]')!.closest('div.flex-col')).toHaveStyle({
+      width: '72px',
+    });
+  });
+
+  it('draws the strips upright on a mission that is not complete', () => {
+    renderRow(withPlaced([card('e1', 'Event 1')]));
+    expect(screen.getByTestId('mission-strips-0').style.transform).toBe('translate(-50%, -50%)');
+  });
+});
+
+describe('placedOnStripLayout (#1099)', () => {
+  it.each([1, 1.5, 2.4])('fits 3 cards between the title and the point box at scale %s', (scale) => {
+    const layout = placedOnStripLayout(scale);
+    const stripBottom = layout.top + layout.cardHeight + layout.step * (PLACED_ON_STRIP_MAX_VISIBLE - 1);
+    expect(stripBottom).toBeLessThanOrEqual(layout.bottom);
+    // The cards overlap no more than half their height, so each stays readable as a card.
+    expect(layout.step).toBeGreaterThanOrEqual(layout.cardHeight / 2);
+    // Both strips leave at least half the width of the mission art clear, and the strips stay on the art crop.
+    expect(2 * (layout.inset + layout.cardWidth)).toBeLessThanOrEqual(Math.round(72 * scale) / 2);
+    expect(layout.bottom).toBeLessThanOrEqual(Math.round(64 * scale));
   });
 });

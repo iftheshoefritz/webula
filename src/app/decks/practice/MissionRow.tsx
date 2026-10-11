@@ -53,7 +53,9 @@
 // interrupt is placed on the mission card, face up, behind its count pill (#813,
 // `PlacedOnCounter`), which sits in the badge strip beside the away team badge (#1069). The
 // dilemmas placed on the mission count in a pill of their own, with the dual icon, to the right of
-// it (#1081). A dilemma
+// it (#1081). The last 3 cards of each group also show as small cards in a strip along the edge of
+// the mission card (#1099, `PlacedOnStrip`), the events on the left and the dilemmas on the right.
+// A dilemma
 // dropped on a mission, from anywhere, goes under the mission instead (#606, #733), face up, permanently, unless it lands on the bottom half of the mission card,
 // which places it on the mission card (#871, `missionHalfDropId`). The top half, where the cards
 // under the mission poke out, puts it under the mission (#917). The away team badge sits on
@@ -80,6 +82,7 @@ import { useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName, MissionSlot } from './tableReducer';
 import TableCard, {
+  TableCardImage,
   SMALL_CARD_ART_HEIGHT,
   SMALL_CARD_WIDTH,
   TABLE_CARD_ART_HEIGHT,
@@ -324,6 +327,134 @@ function ShipPlacedOnPill({
         {count}
       </span>
     </span>
+  );
+}
+
+// The strips of the cards placed on a mission (#1099): small cards along the edges of the mission
+// card, the events on the left and the dilemmas on the right, so the player sees what is on the
+// mission without opening a panel. Each strip shows the last `PLACED_ON_STRIP_MAX_VISIBLE` cards of
+// its group in `placedOn` order, the most recently placed lowest and on top; the badge in the badge
+// strip keeps the full count. The strips start below the mission's title and stop above its point
+// box, both measured on a mission image (357x499: the title band ends at about 65 px, and the point
+// box starts at about 255 px). The touch crop keeps the top of the image and the desktop card is as
+// wide, so both draw the title and the point box at the same offsets, and one layout serves both. At
+// scale 1 the room is 36 px, and 3 cards 14 px tall overlap by 3 px each to fit.
+const MISSION_TITLE_SHARE = 0.14;
+const MISSION_POINT_BOX_SHARE = 0.5;
+export const PLACED_ON_STRIP_MAX_VISIBLE = 3;
+const PLACED_ON_STRIP_CARD_WIDTH_BASE = 16; // px
+const PLACED_ON_STRIP_CARD_HEIGHT_BASE = 14; // px, about the art crop's own shape
+const PLACED_ON_STRIP_INSET_BASE = 2; // px, the mission card's border
+
+export function placedOnStripLayout(scale: number): {
+  top: number;
+  bottom: number;
+  inset: number;
+  cardWidth: number;
+  cardHeight: number;
+  step: number;
+} {
+  const fullHeight = fullCardHeight(scaled(TABLE_CARD_WIDTH, scale));
+  const top = Math.ceil(fullHeight * MISSION_TITLE_SHARE);
+  const bottom = Math.floor(fullHeight * MISSION_POINT_BOX_SHARE);
+  const cardHeight = scaled(PLACED_ON_STRIP_CARD_HEIGHT_BASE, scale);
+  const step = Math.min(cardHeight, Math.floor((bottom - top - cardHeight) / (PLACED_ON_STRIP_MAX_VISIBLE - 1)));
+  return {
+    top,
+    bottom,
+    inset: scaled(PLACED_ON_STRIP_INSET_BASE, scale),
+    cardWidth: scaled(PLACED_ON_STRIP_CARD_WIDTH_BASE, scale),
+    cardHeight,
+    step,
+  };
+}
+
+export const placedOnStripTestId = (missionIndex: number, group: PlacedOnGroup): string =>
+  `mission-on-${group}-strip-${missionIndex}`;
+
+// One strip. It is not a droppable and has no `data-zone`: a drop on it lands on the mission half
+// under it, the same as anywhere else on the card (#917). Its small cards have no `data-card-id`,
+// so the scripts still find the one card of each id, in its panel. A tap goes to `onTap`, the
+// mission's own tap handler, so it waits out `DOUBLE_TAP_MS` and a double-tap toggles completion
+// (#1059).
+function PlacedOnStrip({
+  missionIndex,
+  group,
+  name,
+  cards,
+  layout,
+  completed,
+  onTap,
+}: {
+  missionIndex: number;
+  group: PlacedOnGroup;
+  name: string;
+  cards: CardInstance[];
+  layout: ReturnType<typeof placedOnStripLayout>;
+  completed: boolean;
+  onTap: (event: React.MouseEvent<HTMLElement>) => void;
+}) {
+  if (cards.length === 0) return null;
+  const shown = cards.slice(-PLACED_ON_STRIP_MAX_VISIBLE);
+  const { noun } = PLACED_ON_GROUP[group];
+  return (
+    <div
+      data-testid={placedOnStripTestId(missionIndex, group)}
+      aria-label={`The last ${noun}s placed on ${name}: ${shown.map((c) => cardDisplayName(c.card)).join(', ')}`}
+      className="absolute pointer-events-auto touch-manipulation"
+      style={{
+        ...NO_CALLOUT_STYLE,
+        top: layout.top,
+        [group === 'events' ? 'left' : 'right']: layout.inset,
+        width: layout.cardWidth,
+        height: layout.cardHeight + layout.step * (shown.length - 1),
+      }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onTap(event);
+      }}
+    >
+      {shown.map((card, i) => (
+        <PlacedOnStripCard
+          key={card.id}
+          card={card}
+          top={i * layout.step}
+          zIndex={i + 1}
+          width={layout.cardWidth}
+          height={layout.cardHeight}
+          completed={completed}
+        />
+      ))}
+    </div>
+  );
+}
+
+// A small card of a strip: the art crop of a table card, and a hold previews this card (#1099).
+function PlacedOnStripCard({
+  card,
+  top,
+  zIndex,
+  width,
+  height,
+  completed,
+}: {
+  card: CardInstance;
+  top: number;
+  zIndex: number;
+  width: number;
+  height: number;
+  completed: boolean;
+}) {
+  const holdListeners = useCardHold(card.id);
+  return (
+    <div
+      data-testid="placed-on-strip-card"
+      className="absolute inset-x-0"
+      style={{ top, zIndex }}
+      {...holdListeners}
+    >
+      <TableCardImage instance={card} width={width} height={height} completed={completed} className="rounded-sm" />
+    </div>
   );
 }
 
@@ -950,6 +1081,7 @@ function MissionColumn({
   const visualHeight = completed ? Math.round(cardWidth * turnedScale) : cardArtHeight;
   // The tap that waits out `DOUBLE_TAP_MS` for a second tap: where it landed, and the panel it
   // opens if no second tap comes.
+  // The card and its strips (#1099) share it, so a double-tap toggles completion wherever it lands.
   const pendingTap = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
   useEffect(
     () => () => {
@@ -957,7 +1089,8 @@ function MissionColumn({
     },
     [],
   );
-  const onMissionClick = (event: React.MouseEvent<HTMLElement>) => {
+  // Runs `action` once `DOUBLE_TAP_MS` passes with no second tap; a second tap toggles completion.
+  const deferTap = (event: React.MouseEvent<HTMLElement>, action: () => void) => {
     const pending = pendingTap.current;
     if (pending) {
       clearTimeout(pending.timer);
@@ -967,16 +1100,22 @@ function MissionColumn({
         return;
       }
     }
-    // Read the half now: the event's `currentTarget` is gone when the timer fires.
-    const pile: MissionPileName = isTopHalfTap(event) ? 'underMission' : 'awayTeam';
     const timer = setTimeout(() => {
       pendingTap.current = null;
-      // Like the badges, a tap opens a pile only when it holds a card.
-      const count = pile === 'underMission' ? underMission.length : awayTeam.length;
-      if (count > 0) onOpenPile(missionIndex, pile);
+      action();
     }, DOUBLE_TAP_MS);
     pendingTap.current = { timer, x: event.clientX, y: event.clientY };
   };
+  const onMissionClick = (event: React.MouseEvent<HTMLElement>) => {
+    // Read the half now: the event's `currentTarget` is gone when the timer fires.
+    const pile: MissionPileName = isTopHalfTap(event) ? 'underMission' : 'awayTeam';
+    deferTap(event, () => {
+      // Like the badges, a tap opens a pile only when it holds a card.
+      const count = pile === 'underMission' ? underMission.length : awayTeam.length;
+      if (count > 0) onOpenPile(missionIndex, pile);
+    });
+  };
+  const stripLayout = placedOnStripLayout(scale);
 
   return (
     <div className="flex flex-col items-center" style={{ width: slotWidth, gap: COLUMN_GAP }}>
@@ -1036,6 +1175,30 @@ function MissionColumn({
                 eitherOver={eitherOver}
                 reach={underReach}
               />
+              {/* The strips of the placed cards (#1099), on the upright card's box. They turn with a
+                  completed mission (#1060), so they stay below its title and above its point box. */}
+              <div
+                data-testid={`mission-strips-${missionIndex}`}
+                className="absolute left-1/2 top-1/2 pointer-events-none motion-safe:transition-transform motion-reduce:transition-none"
+                style={{
+                  width: cardWidth,
+                  height: cardArtHeight,
+                  transform: `translate(-50%, -50%)${completed ? ` rotate(90deg) scale(${turnedScale})` : ''}`,
+                }}
+              >
+                {(['events', 'dilemmas'] as const).map((group) => (
+                  <PlacedOnStrip
+                    key={group}
+                    missionIndex={missionIndex}
+                    group={group}
+                    name={cardDisplayName(mission.card)}
+                    cards={placedOn.filter((c) => placedOnGroupOf(c) === group)}
+                    layout={stripLayout}
+                    completed={completed}
+                    onTap={(event) => deferTap(event, () => onOpenPlacedOn(mission.id, group))}
+                  />
+                ))}
+              </div>
               <div
                 data-testid={`mission-corners-${missionIndex}`}
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
