@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { FaFolder, FaFolderOpen } from 'react-icons/fa';
+import { FaEdit, FaFolder, FaFolderOpen } from 'react-icons/fa';
 import { DriveModalShell } from '../../../components/drivePicker/DriveModalShell';
 import { DriveSignInRows } from '../../../components/drivePicker/DriveSignInRows';
 import { DriveListRow } from '../../../components/drivePicker/DriveListRow';
@@ -19,10 +19,15 @@ type Props = {
   onClose: () => void
 }
 
+// Opens the deck in the deck builder, in the same tab (#1111): a new tab breaks the home-screen app (#922).
+export const editDeckHref = (file: DriveFile) =>
+  `/decks?driveFile=${encodeURIComponent(file.id)}&name=${encodeURIComponent(file.name)}`;
+
 // The Drive picker of the practice table's Load deck (#1109). It only loads: a game always deals
 // the full deck, so it has no pile choice, and deck management (move, rename, delete, new folder)
 // stays in the deck builder's picker, `DrivePickerModal`. With no decks it links to the deck
-// builder, in the same tab, since the home-screen app has no tab bar (#922).
+// builder, in the same tab, since the home-screen app has no tab bar (#922). Each deck's Edit button
+// opens it in the deck builder (#1111).
 export const PracticeDeckPicker: React.FC<Props> = ({
   driveFiles,
   inProgress,
@@ -83,6 +88,13 @@ export const PracticeDeckPicker: React.FC<Props> = ({
                     >
                       <FaFolderOpen/>
                     </button>
+                    <Link
+                      href={editDeckHref(file)}
+                      aria-label={`Edit ${file.name}`}
+                      className="btn-icon btn-icon-sm"
+                    >
+                      <FaEdit/>
+                    </Link>
                   </div>
                 </DriveListRow>
               ))}

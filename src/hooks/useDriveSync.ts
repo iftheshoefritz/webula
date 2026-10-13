@@ -30,6 +30,7 @@ interface UseDriveSyncParams {
   createLackeyTSV: () => string;
   handleFileLoad: (name: string, contents: string, piles?: DeckPile[]) => void;
   clearDirty: () => void;
+  deckIsEmpty: boolean;
 }
 
 export const DRIVE_SCOPE_AUTH_PARAMS = {
@@ -37,7 +38,17 @@ export const DRIVE_SCOPE_AUTH_PARAMS = {
   include_granted_scopes: 'true',
 };
 
-export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad, clearDirty }: UseDriveSyncParams) {
+// The `?driveFile=<id>&name=<name>` parameters (#1111) open one Drive deck, the Edit button of the
+// practice table's Load deck picker. Both are removed from the URL and any other parameter stays.
+export function urlWithoutDriveFileParams(location: { pathname: string; search: string; hash: string }) {
+  const params = new URLSearchParams(location.search);
+  params.delete('driveFile');
+  params.delete('name');
+  const query = params.toString();
+  return `${location.pathname}${query ? `?${query}` : ''}${location.hash}`;
+}
+
+export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad, clearDirty, deckIsEmpty }: UseDriveSyncParams) {
   const [deckFile, setDeckFile] = useLocalStorage<{ id: string | null; name: string }>('deckFile', { id: null, name: 'My deck' });
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
@@ -59,6 +70,10 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
   >([]);
   const [bulkImportSkipped, setBulkImportSkipped] = useState<{ name: string; error: string }[]>([]);
   const [bulkImportError, setBulkImportError] = useState<string | null>(null);
+  // A Drive deck the URL asked for (#1111). It waits for the card data, as a `?share=` deck does,
+  // because handleFileLoad parses it against `data`.
+  const [pendingDriveFile, setPendingDriveFile] = useState<{ id: string; name: string; contents: string } | null>(null);
+  const [pendingDriveWarning, setPendingDriveWarning] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -68,6 +83,23 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
       setSession(resolvedSession);
 
       const params = new URLSearchParams(window.location.search);
+      const driveFileId = params.get('driveFile');
+      if (driveFileId) {
+        const name = params.get('name') || 'My deck';
+        window.history.replaceState({}, '', urlWithoutDriveFileParams(window.location));
+        if (resolvedSession) {
+          try {
+            const response = await fetch(`/api/drive/${encodeURIComponent(driveFileId)}`, { method: 'GET', credentials: 'include' });
+            if (response.ok) {
+              const contents = await response.json();
+              if (typeof contents === 'string') setPendingDriveFile({ id: driveFileId, name, contents });
+            }
+          } catch {
+            // A deck that does not load leaves the deck builder as it was.
+          }
+        }
+        return;
+      }
       if (params.get('openPicker') === 'true') {
         window.history.replaceState({}, '', '/decks');
         if (params.get('pickerMode') === 'compare') {
@@ -84,6 +116,33 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
       }
     })();
   }, []);
+
+  const loadPendingDriveFile = (file: { id: string; name: string; contents: string }) => {
+    setDeckFile({ id: file.id, name: file.name });
+    handleFileLoad(file.name, file.contents);
+  };
+
+  useEffect(() => {
+    if (!pendingDriveFile || data.length === 0) return;
+    if (deckIsEmpty || deckFile?.id === pendingDriveFile.id) {
+      loadPendingDriveFile(pendingDriveFile);
+      setPendingDriveFile(null);
+    } else {
+      setPendingDriveWarning(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDriveFile, data]);
+
+  const confirmPendingDriveFile = () => {
+    if (pendingDriveFile) loadPendingDriveFile(pendingDriveFile);
+    setPendingDriveFile(null);
+    setPendingDriveWarning(false);
+  };
+
+  const cancelPendingDriveFile = () => {
+    setPendingDriveFile(null);
+    setPendingDriveWarning(false);
+  };
 
   const resetDeckFile = () => {
     setDeckFile({ id: null, name: 'My deck' });
@@ -434,6 +493,10 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     requestDriveSignInForBulkImport,
     confirmBulkSaveAs,
     closeBulkImportResults,
+    pendingDriveWarning,
+    pendingDriveFileName: pendingDriveFile?.name ?? null,
+    confirmPendingDriveFile,
+    cancelPendingDriveFile,
   };
 }
 

@@ -181,12 +181,17 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     requestDriveSignInForBulkImport,
     confirmBulkSaveAs,
     closeBulkImportResults,
+    pendingDriveWarning,
+    pendingDriveFileName,
+    confirmPendingDriveFile,
+    cancelPendingDriveFile,
   } = useDriveSync({
     data,
     deckTitle,
     createLackeyTSV,
     handleFileLoad,
     clearDirty,
+    deckIsEmpty: Object.keys(currentDeck).length === 0,
   });
 
   const exportLackeyDeckToDisk = () => {
@@ -1361,6 +1366,31 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 onClick={() => { handleFileLoad(pendingShareTitle || 'shared-deck', pendingShareContent!); setPendingShareContent(null); setPendingShareTitle(null); setPendingShareWarning(false); }}
               >
                 I&apos;m ready to load this awesome shared deck
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingDriveWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h2 className="text-lg font-semibold text-white mb-3">Open {pendingDriveFileName}?</h2>
+            <p className="text-gray-300 text-sm mb-6">
+              Opening this deck will replace your current deck in the browser. Save to Google Drive or export your deck first if you want to keep it.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm"
+                onClick={cancelPendingDriveFile}
+              >
+                Keep my current deck
+              </button>
+              <button
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm"
+                onClick={confirmPendingDriveFile}
+              >
+                Open {pendingDriveFileName}
               </button>
             </div>
           </div>
