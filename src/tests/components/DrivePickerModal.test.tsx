@@ -61,10 +61,10 @@ describe('DrivePickerModal – Google Drive section', () => {
 });
 
 describe('DrivePickerModal – Google Drive header', () => {
-  it('does not show a "This Browser" section header', () => {
+  it('does not show a "This Browser" section header, nor a "Google Drive" heading (#1109)', () => {
     render(<DrivePickerModal {...baseProps} />);
     expect(screen.queryByText('This Browser')).not.toBeInTheDocument();
-    expect(screen.getByText('Google Drive')).toBeInTheDocument();
+    expect(screen.queryByText('Google Drive')).not.toBeInTheDocument();
   });
 
   it('always shows drive content without requiring a click to expand', () => {

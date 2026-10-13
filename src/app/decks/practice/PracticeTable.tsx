@@ -29,7 +29,7 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
-import { DrivePickerModal } from '../../../components/DrivePickerModal';
+import { PracticeDeckPicker } from './PracticeDeckPicker';
 import { usePracticeDrive } from './usePracticeDrive';
 import { useOfflineDecks } from './offlineDecks';
 import { OfflineMenuView, offlineItemLabel } from './OfflineMenuView';
@@ -153,7 +153,7 @@ function FullscreenIcon({ exit }: { exit: boolean }) {
 // A home for the controls that act on the whole game rather than one zone (#722): Reset, and
 // Load deck (#780), which opens the Drive picker. Reset throws away the current game, so it
 // confirms first via `window.confirm`, the same confirm-before-destroy pattern
-// `DrivePickerModal`'s own delete already uses elsewhere in the app, rather than a custom dialog
+// the deck builder's Drive picker (`DrivePickerModal`) already uses for a delete elsewhere in the app, rather than a custom dialog
 // built just for this one destructive action. The Offline item (#1052, #1087) opens a sub-view of
 // the splash in place of the item list, `OfflineMenuView`. Escape in the sub-view returns to the
 // item list, and Escape in the item list closes the splash.
@@ -1507,8 +1507,7 @@ function PracticeDrawContent() {
     drive.openPicker();
   };
 
-  // The picker's choice of deck. Confirms first, since a load throws away the current game. The
-  // pile choice of the picker is ignored: a practice game always deals the full deck.
+  // The picker's choice of deck. Confirms first, since a load throws away the current game.
   const loadDriveDeck = async (file: { id: string; name?: string }) => {
     if (!window.confirm('Load this deck? This will throw away the current game.')) return;
     const tsv = await drive.fetchDeckTsv(file);
@@ -2227,11 +2226,9 @@ function PracticeDrawContent() {
         )}
 
         {drive.showPicker && online && (
-          <DrivePickerModal
-            mode="load"
+          <PracticeDeckPicker
             driveFiles={drive.driveFiles}
-            loadDriveFile={loadDriveDeck}
-            deleteDriveFile={drive.deleteDriveFile}
+            onLoad={loadDriveDeck}
             inProgress={drive.loading}
             onClose={drive.closePicker}
             isSignedIn={!!drive.session}

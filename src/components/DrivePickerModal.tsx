@@ -1,16 +1,12 @@
 import React, { useState } from 'react'
-import { FaTrash, FaFolder, FaFolderOpen, FaFolderPlus, FaSignInAlt, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaExchangeAlt } from 'react-icons/fa';
+import { FaTrash, FaFolder, FaFolderOpen, FaFolderPlus, FaEdit, FaCheck, FaTimes, FaExchangeAlt } from 'react-icons/fa';
 import { DeckPile } from '../app/decks/deckBuilderUtils';
-import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
-import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../lib/layers';
-
-type DriveFile = { id: string; name: string };
-
-// Folders only ever live at the appDataFolder root today (no nesting), so an item is a
-// root item when it has no parents info (folders weren't requested) or its parents
-// include the appDataFolder root.
-const isRootItem = (file: { parents?: string[] }) =>
-  !file.parents || file.parents.includes('appDataFolder');
+import { LAYER_MODAL } from '../lib/layers';
+import { DriveModalShell } from './drivePicker/DriveModalShell';
+import { DriveSignInRows } from './drivePicker/DriveSignInRows';
+import { DRIVE_LIST_ROW_CLASS } from './drivePicker/DriveListRow';
+import { DriveBackRow, isFolder, useDriveFolderView } from './drivePicker/useDriveFolderView';
+import type { DriveFile } from './drivePicker/useDriveFolderView';
 
 const MAX_COMPARE_SELECTION = 5;
 const MIN_COMPARE_SELECTION = 0;
@@ -88,21 +84,10 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   const [newFolderName, setNewFolderName] = useState('');
   const [movingFile, setMovingFile] = useState<(DriveFile & { parents?: string[] }) | null>(null);
 
-  const isFolder = (file: { mimeType?: string }) => file.mimeType === FOLDER_MIME_TYPE;
   // 'reports' lists a different Drive file kind with no folder concept, so it stays
   // folder-blind; every other mode browses folders the same way.
-  const supportsFolders = mode !== 'reports';
-  const isBrowsingFolder = supportsFolders && !!browsedFolder;
-  const deckFiles = driveFiles.filter((f) => !isFolder(f));
-  // Folders to move a deck into aren't scoped to the browsed view — a deck can move into any
-  // root folder regardless of whether the picker is currently browsing root or inside one.
-  const folders = driveFiles.filter((f) => isFolder(f) && isRootItem(f));
-  const rootFolders = supportsFolders && !isBrowsingFolder ? folders : [];
-  const visibleDeckFiles = supportsFolders
-    ? (isBrowsingFolder
-        ? deckFiles.filter((f) => f.parents?.includes(browsedFolder!.id))
-        : deckFiles.filter(isRootItem))
-    : deckFiles;
+  const { isBrowsingFolder, deckFiles, folders, rootFolders, visibleDeckFiles } =
+    useDriveFolderView(driveFiles, browsedFolder, { supportsFolders: mode !== 'reports' });
 
   const startCreateFolder = () => {
     setCreatingFolder(true);
@@ -192,55 +177,22 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
 
   return (
     <>
-    <div className={`fixed inset-0 ${LAYER_MODAL_BACKDROP} overflow-y-auto`}>
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="absolute inset-0 bg-black opacity-50" onClick={onClose}></div>
-        <div className="bg-bg-secondary p-3 border border-white/10 rounded-lg shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
-          <div className="flex justify-between items-center">
-            <span className="text-2xl font-bold mt-4 mb-2 block text-text-primary">{title}</span>
-            <button
-              type="button"
-              className="text-text-primary hover:text-text-secondary"
-              onClick={onClose}
-            >
-              <span className="text-2xl">&times;</span>
-            </button>
-          </div>
+    <DriveModalShell title={title} onClose={onClose}>
           <div>
-            <span className="block text-text-secondary py-1">Google Drive</span>
             <div className="max-h-64 overflow-y-auto overflow-x-hidden">
               <ul className="w-full divide-y divide-white/[0.06]">
-                {!isSignedIn ? (
-                  <li className="text-text-primary py-2 px-3">
-                    <button className="btn-primary" onClick={onSignIn}>
-                      <FaSignInAlt className="inline mr-2" />Sign in with Google to load Drive decks
-                    </button>
-                  </li>
-                ) : !hasDriveScope ? (
-                  <li className="text-text-primary py-2 px-3">
-                    <button className="btn-primary" onClick={onSignIn}>
-                      <FaSignInAlt className="inline mr-2" />Grant Google Drive access
-                    </button>
-                  </li>
+                {!isSignedIn || !hasDriveScope ? (
+                  <DriveSignInRows isSignedIn={isSignedIn} hasDriveScope={hasDriveScope} onSignIn={onSignIn} />
                 ) : (
                   <>
                     {inProgress && (
                       <li className="text-text-primary px-3 py-1">please wait...</li>
                     )}
                     {!inProgress && isBrowsingFolder && (
-                      <li className="flex items-center text-text-primary py-1 px-1 hover:bg-white/[0.04] rounded transition-colors">
-                        <button
-                          type="button"
-                          className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
-                          onClick={() => onBrowseFolder?.(null)}
-                          title={browsedFolder!.name}
-                        >
-                          <FaArrowLeft className="inline mr-2" />{browsedFolder!.name}
-                        </button>
-                      </li>
+                      <DriveBackRow folder={browsedFolder!} onBack={() => onBrowseFolder?.(null)} />
                     )}
                     {!inProgress && mode === 'load' && !isBrowsingFolder && (
-                      <li className="flex items-center text-text-primary py-1 px-1 hover:bg-white/[0.04] rounded transition-colors">
+                      <li className={DRIVE_LIST_ROW_CLASS}>
                         {creatingFolder ? (
                           <>
                             <input
@@ -289,7 +241,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                       <li className="text-text-primary px-3 py-1">no files found</li>
                     )}
                     {!inProgress && rootFolders.map((folder: {id: string, name: string}) => (
-                      <li key={folder.id} className="flex items-center text-text-primary py-1 px-1 hover:bg-white/[0.04] rounded transition-colors">
+                      <li key={folder.id} className={DRIVE_LIST_ROW_CLASS}>
                         {renamingId === folder.id ? (
                           <input
                             type="text"
@@ -355,7 +307,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                       </li>
                     ))}
                     {!inProgress && visibleDeckFiles.map((file: {id: string, name: string, parents?: string[]}) => (
-                      <li key={file.id} className="flex items-center text-text-primary py-1 px-1 hover:bg-white/[0.04] rounded transition-colors">
+                      <li key={file.id} className={DRIVE_LIST_ROW_CLASS}>
                         {mode === 'reports' && renamingId === file.id ? (
                           <input
                             type="text"
@@ -481,24 +433,9 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
               </button>
             </div>
           )}
-        </div>
-      </div>
-    </div>
+    </DriveModalShell>
     {movingFile && (
-      <div className={`fixed inset-0 ${LAYER_MODAL} overflow-y-auto`}>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="absolute inset-0 bg-black opacity-50" onClick={cancelMoveFile}></div>
-          <div className="bg-bg-secondary p-3 border border-white/10 rounded-lg shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
-            <div className="flex justify-between items-center">
-              <span className="text-2xl font-bold mt-4 mb-2 block text-text-primary">Move &quot;{movingFile.name}&quot;</span>
-              <button
-                type="button"
-                className="text-text-primary hover:text-text-secondary"
-                onClick={cancelMoveFile}
-              >
-                <span className="text-2xl">&times;</span>
-              </button>
-            </div>
+      <DriveModalShell title={<>Move &quot;{movingFile.name}&quot;</>} onClose={cancelMoveFile} layer={LAYER_MODAL}>
             <ul className="w-full divide-y divide-white/[0.06]">
               <li className="text-text-primary py-1 hover:bg-white/[0.04] rounded transition-colors">
                 <button
@@ -524,9 +461,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                 </li>
               ))}
             </ul>
-          </div>
-        </div>
-      </div>
+      </DriveModalShell>
     )}
     </>
   )
