@@ -26,6 +26,7 @@ jest.mock('next-auth/react', () => ({
 jest.mock('posthog-js', () => ({ capture: jest.fn() }));
 
 jest.mock('react-icons/fa', () => ({
+  FaPlay: () => null,
   FaLayerGroup: () => null,
   FaMobileAlt: () => null,
   FaForward: () => null,
@@ -48,7 +49,7 @@ jest.mock('next/link', () => {
 });
 
 import React from 'react';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import { getSession } from 'next-auth/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import useDataFetching from '../../../hooks/useDataFetching';
@@ -197,5 +198,32 @@ describe('the practice table while offline (#1053)', () => {
 
     expect(screen.queryByTestId('offline-deck-picker')).not.toBeInTheDocument();
     expect(drawPileCount()).toBe('13');
+  });
+
+  it('Load deck opens the offline decks in the shared Drive picker shell, which closes with × and the backdrop (#1110)', async () => {
+    localStorage.setItem(OFFLINE_DECKS_KEY, JSON.stringify([recordOf(offlineDeck, 'Offline deck')]));
+    await renderPage();
+    const openPicker = async () => {
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Load deck' }));
+      });
+    };
+
+    await openPicker();
+    const picker = screen.getByRole('dialog', { name: 'Load deck' });
+    expect(picker).toHaveAttribute('data-testid', 'offline-deck-picker');
+    expect(within(picker).getByText('Load deck')).toBeInTheDocument();
+    const row = within(within(picker).getByTestId('offline-deck-choices')).getByTitle('Offline deck').closest('li')!;
+    expect(row).toHaveTextContent(/\d+(\.\d+)? (B|KB|MB)/);
+    expect(within(row).getByRole('button', { name: 'Play Offline deck' })).toBeInTheDocument();
+
+    fireEvent.click(within(picker).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByTestId('offline-deck-picker')).not.toBeInTheDocument();
+
+    // Load deck closed the splash menu; open it again from the menu button.
+    fireEvent.click(screen.getByRole('button', { name: 'Game menu' }));
+    await openPicker();
+    fireEvent.click(screen.getByTestId('offline-deck-picker-backdrop'));
+    expect(screen.queryByTestId('offline-deck-picker')).not.toBeInTheDocument();
   });
 });

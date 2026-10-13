@@ -11,7 +11,7 @@
 // | Card list panel                        | `z-[150]` | `CardListPanel.tsx`    |
 // | Game menu splash                       | `z-[160]` | `PracticeTable.tsx`    |
 // | Game menu + fullscreen button, open    | `z-[170]` | `PracticeTable.tsx`    |
-// | Modal backdrop (decklist, Drive picker)| `z-[180]` | `DecklistPanel.tsx`, `drivePicker/DriveModalShell.tsx` (`DrivePickerModal.tsx`, `PracticeDeckPicker.tsx`), `OfflineDeckPicker.tsx` |
+// | Modal backdrop (decklist, Drive picker)| `z-[180]` | `DecklistPanel.tsx`, `drivePicker/DriveModalShell.tsx` (`DrivePickerModal.tsx`, `PracticeDeckPicker.tsx`, `OfflineDeckPicker.tsx`) |
 // | Modal dialog (decklist, Drive move)    | `z-[190]` | `DecklistPanel.tsx`, `DrivePickerModal.tsx` (its Move dialog) |
 // | Card preview (table, decklist image)   | `z-[200]` | `CardPreview.tsx`, `DecklistPanel.tsx` |
 //
