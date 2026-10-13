@@ -52,7 +52,7 @@ describe('PracticeDeckPicker (#1109)', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
-  it('gives each deck a Load button and nothing else', () => {
+  it('gives each deck a Load button and an Edit link, and nothing else', () => {
     render(<PracticeDeckPicker {...baseProps} driveFiles={files} />);
     expect(screen.getByRole('button', { name: 'Load Root Deck' })).toBeInTheDocument();
     expect(screen.queryByText('Folder Deck')).not.toBeInTheDocument();
@@ -61,11 +61,25 @@ describe('PracticeDeckPicker (#1109)', () => {
     expect(screen.queryByRole('button', { name: /^Delete / })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Rename / })).not.toBeInTheDocument();
     expect(screen.queryByText('New folder')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link')).toHaveLength(1);
     const deckRow = screen.getByText('Root Deck').closest('li')!;
     expect(within(deckRow).getAllByRole('button')).toHaveLength(1);
+    expect(within(deckRow).getAllByRole('link')).toHaveLength(1);
     const folderRow = screen.getByText('Tournament').closest('li')!;
     expect(within(folderRow).getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('links each deck to the deck builder in the same tab (#1111)', () => {
+    const named = [{ id: 'd 1', name: 'Borg & Co', parents: ['appDataFolder'] }];
+    render(<PracticeDeckPicker {...baseProps} driveFiles={named} />);
+    const edit = screen.getByRole('link', { name: 'Edit Borg & Co' });
+    expect(edit).toHaveAttribute('href', '/decks?driveFile=d%201&name=Borg%20%26%20Co');
+    expect(edit).not.toHaveAttribute('target');
+    expect(edit).toHaveClass('btn-icon', 'btn-icon-sm');
+
+    const href = new URL(edit.getAttribute('href')!, 'http://localhost');
+    expect(href.searchParams.get('driveFile')).toBe('d 1');
+    expect(href.searchParams.get('name')).toBe('Borg & Co');
   });
 
   it('calls onLoad with the deck', () => {
