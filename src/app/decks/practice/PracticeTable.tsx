@@ -16,11 +16,13 @@ import {
 import { collisionDetection } from './collisionDetection';
 import { FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
 import {
+  cardPileFor,
   deckFromTsv,
   extractDrawDeck,
   extractDilemmas,
   extractMissions,
   isDeckEmpty,
+  mergeDeckPiles,
   shuffleArray,
   withBackImageFiles,
 } from '../deckBuilderUtils';
@@ -30,6 +32,7 @@ import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
+import type { MissionsAndDrawSource } from './PracticeDeckPicker';
 import { usePracticeDrive } from './usePracticeDrive';
 import { useOfflineDecks } from './offlineDecks';
 import { OfflineMenuView, offlineItemLabel } from './OfflineMenuView';
@@ -1323,6 +1326,9 @@ function PracticeDrawContent() {
   const [dealtDeck, setDealtDeck] = useState<DeckList>({});
   // The Drive file of `loadedDeck`, kept in the save (#976).
   const [driveFileId, setDriveFileId] = useState<string | undefined>(undefined);
+  // The Drive file of the dilemmas, when a two-step load takes them from another deck (#1114).
+  // Then `driveFileId` is the file of the missions and draw deck.
+  const [dilemmaDriveFileId, setDilemmaDriveFileId] = useState<string | undefined>(undefined);
   // The Drive file name of `loadedDeck`, the name of the deck when it is made offline (#1052).
   // A Drive game restored from the save has no name, so it falls back to "Drive deck".
   const [driveFileName, setDriveFileName] = useState<string | undefined>(undefined);
@@ -1394,6 +1400,7 @@ function PracticeDrawContent() {
       if (restored.source === 'drive') {
         setLoadedDeck(restored.dealtDeck);
         setDriveFileId(restored.driveFileId);
+        setDilemmaDriveFileId(restored.dilemmaDriveFileId);
       }
       saveReadyRef.current = true;
       return true;
@@ -1443,12 +1450,14 @@ function PracticeDrawContent() {
   useEffect(() => {
     if (!saveReadyRef.current || table === initialTableState) return;
     try {
-      const save = toSavedGame(table, dealtDeck, loadedDeck ? 'drive' : 'builder', loadedDeck ? driveFileId : undefined);
+      const save = loadedDeck
+        ? toSavedGame(table, dealtDeck, 'drive', driveFileId, dilemmaDriveFileId)
+        : toSavedGame(table, dealtDeck, 'builder');
       localStorage.setItem(gameKey, JSON.stringify(save));
     } catch {
       // keep playing without a save
     }
-  }, [table, dealtDeck, loadedDeck, driveFileId, gameKey]);
+  }, [table, dealtDeck, loadedDeck, driveFileId, dilemmaDriveFileId, gameKey]);
 
   useEffect(() => {
     const mql = window.matchMedia('(orientation: portrait)');
@@ -1515,10 +1524,46 @@ function PracticeDrawContent() {
     const deck = deckFromTsv(tsv, data);
     setLoadedDeck(deck);
     setDriveFileId(file.id);
+    setDilemmaDriveFileId(undefined);
     setDriveFileName(file.name);
     dealDeck(deck);
     drive.closePicker();
   };
+
+  // The picker's step 2 (#1114): the missions and draw deck of a Drive deck, or of the deck dealt
+  // now, with the dilemmas of another Drive deck. Confirms once, then deals the combined deck,
+  // which Reset deals again and the save keeps as a Drive game.
+  const loadDriveDilemmas = async (source: MissionsAndDrawSource, dilemmaFile: { id: string; name: string }) => {
+    if (!window.confirm('Load this deck? This will throw away the current game.')) return;
+    let baseDeck: DeckList;
+    let baseFileId: string | undefined;
+    let baseName: string;
+    if (source.kind === 'drive') {
+      const tsv = await drive.fetchDeckTsv(source.file);
+      if (tsv === null) return;
+      baseDeck = deckFromTsv(tsv, data);
+      baseFileId = source.file.id;
+      baseName = source.file.name;
+    } else {
+      baseDeck = dealtDeck;
+      baseFileId = loadedDeck ? driveFileId : undefined;
+      baseName = dealtDeckName();
+    }
+    const dilemmaTsv = await drive.fetchDeckTsv(dilemmaFile);
+    if (dilemmaTsv === null) return;
+    const deck = mergeDeckPiles(baseDeck, deckFromTsv(dilemmaTsv, data), ['dilemmaPile']);
+    setLoadedDeck(deck);
+    setDriveFileId(baseFileId);
+    setDilemmaDriveFileId(dilemmaFile.id);
+    setDriveFileName(`${baseName} + ${dilemmaFile.name} dilemmas`);
+    dealDeck(deck);
+    drive.closePicker();
+  };
+
+  // "Keep the current missions and draw deck" needs a dealt deck with a mission or a draw card.
+  const canKeepCurrentMissionsAndDraw = Object.values(dealtDeck).some(
+    (entry) => (entry?.count ?? 0) > 0 && entry?.row && cardPileFor(entry.row) !== 'dilemmaPile'
+  );
 
   // An offline deck chosen from the not-available message or from Load deck while offline (#1053).
   // It deals the same way a Drive load does, so Reset deals it again, and the save keeps it as a
@@ -1527,6 +1572,7 @@ function PracticeDrawContent() {
     if (confirmFirst && !window.confirm('Load this deck? This will throw away the current game.')) return;
     setLoadedDeck(record.deck);
     setDriveFileId(undefined);
+    setDilemmaDriveFileId(undefined);
     setDriveFileName(record.name);
     dealDeck(record.deck);
     drive.closePicker();
@@ -2229,6 +2275,8 @@ function PracticeDrawContent() {
           <PracticeDeckPicker
             driveFiles={drive.driveFiles}
             onLoad={loadDriveDeck}
+            onLoadDilemmas={loadDriveDilemmas}
+            canKeepCurrent={canKeepCurrentMissionsAndDraw}
             inProgress={drive.loading}
             onClose={drive.closePicker}
             isSignedIn={!!drive.session}

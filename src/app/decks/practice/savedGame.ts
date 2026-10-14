@@ -36,6 +36,9 @@ export interface SavedGame {
   savedAt: string;
   source: SavedGameSource;
   driveFileId?: string;
+  // The Drive file of the dilemmas when they come from another deck than the missions and draw
+  // deck (#1114). Absent in a save of one deck.
+  dilemmaDriveFileId?: string;
   dealtDeck: DeckList;
   table: SavedTable;
 }
@@ -45,6 +48,7 @@ export interface RestoredGame {
   dealtDeck: DeckList;
   source: SavedGameSource;
   driveFileId?: string;
+  dilemmaDriveFileId?: string;
   // The largest N of the restored `card-N` IDs, for `seedInstanceIds`.
   maxInstanceId: number;
 }
@@ -81,7 +85,8 @@ export function toSavedGame(
   table: TableState,
   dealtDeck: DeckList,
   source: SavedGameSource,
-  driveFileId?: string
+  driveFileId?: string,
+  dilemmaDriveFileId?: string
 ): SavedGame {
   // The saved deck takes the `backimagefile` of a dealt mission (#765), so a restore needs no
   // card database to repair it.
@@ -106,6 +111,7 @@ export function toSavedGame(
     savedAt: new Date().toISOString(),
     source,
     ...(driveFileId ? { driveFileId } : {}),
+    ...(dilemmaDriveFileId ? { dilemmaDriveFileId } : {}),
     dealtDeck: savedDeck,
     table: savedTable,
   };
@@ -188,6 +194,7 @@ export function fromSavedGame(json: string, currentDeck: DeckList): RestoredGame
     dealtDeck,
     source: save.source,
     ...(save.driveFileId ? { driveFileId: save.driveFileId } : {}),
+    ...(save.dilemmaDriveFileId ? { dilemmaDriveFileId: save.dilemmaDriveFileId } : {}),
     maxInstanceId,
   };
 }
