@@ -76,6 +76,7 @@ import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
 import ControlsPanel from './ControlsPanel';
+import HomeScreenHelp from './HomeScreenHelp';
 import { gameReducer, initialGameState } from './gameLog';
 import { CardHoldProvider, NO_CALLOUT_STYLE, PLACE_ON_HOLD_MS, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
 import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHoldContext';
@@ -177,8 +178,9 @@ function FullscreenIcon({ exit }: { exit: boolean }) {
 //
 // The fullscreen button (#921) sits under the menu button, in the same corner, so it adds no width
 // to the bottom row. It puts the game layer into fullscreen, so every overlay above, which portals
-// into the game layer, still shows. It is hidden where the browser has no Fullscreen API for a
-// `<div>`, such as iPhone Safari.
+// into the game layer, still shows. Where the browser has no Fullscreen API for a `<div>`, such as
+// iPhone Safari, it shows how to add the app to the home screen instead (#1127), and it is hidden
+// in an app already added to the home screen that has no Fullscreen API either.
 const SPLASH_ITEM_CLASS =
   'block w-full rounded-md border border-white/10 bg-bg-secondary px-6 py-2.5 text-center text-base text-text-secondary hover:bg-white/[0.1] hover:text-text-primary';
 
@@ -191,6 +193,7 @@ function GameMenu({
   onDecklist,
   onGameLog,
   onControls,
+  onHomeScreenHelp,
   fullscreen,
   deck,
   deckName,
@@ -205,6 +208,7 @@ function GameMenu({
   onDecklist: () => void;
   onGameLog: () => void;
   onControls: () => void;
+  onHomeScreenHelp: () => void;
   fullscreen: ReturnType<typeof useFullscreen>;
   deck: DeckList;
   deckName: string;
@@ -316,10 +320,10 @@ function GameMenu({
             </span>
           )}
         </button>
-        {fullscreen.enabled && (
+        {fullscreen.mode !== 'none' && (
           <button
             type="button"
-            onClick={fullscreen.toggle}
+            onClick={fullscreen.mode === 'fullscreen' ? fullscreen.toggle : onHomeScreenHelp}
             aria-label={fullscreen.isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             aria-pressed={fullscreen.isFullscreen}
             data-testid="fullscreen-button"
@@ -1341,6 +1345,7 @@ function PracticeDrawContent() {
   const [gameLogOpen, setGameLogOpen] = useState(false);
   // The Controls panel (#1088). `controls=1` in the URL opens it on load, so it has a link to share.
   const [controlsOpen, setControlsOpen] = useState(() => searchParams.get('controls') === '1');
+  const [homeScreenHelpOpen, setHomeScreenHelpOpen] = useState(false);
   const drive = usePracticeDrive();
   const offlineDecks = useOfflineDecks(data);
   const online = useOnline();
@@ -2253,6 +2258,10 @@ function PracticeDrawContent() {
           onDecklist={handleDecklistClick}
           onGameLog={handleGameLogClick}
           onControls={handleControlsClick}
+          onHomeScreenHelp={() => {
+            setGameMenuOpen(false);
+            setHomeScreenHelpOpen(true);
+          }}
           fullscreen={fullscreen}
           deck={dealtDeck}
           deckName={dealtDeckName()}
@@ -2262,6 +2271,7 @@ function PracticeDrawContent() {
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
         {controlsOpen && <ControlsPanel onClose={() => setControlsOpen(false)} />}
+        {homeScreenHelpOpen && <HomeScreenHelp onClose={() => setHomeScreenHelpOpen(false)} />}
 
         {drive.showPicker && !online && (
           <OfflineDeckPicker
