@@ -37,11 +37,39 @@ describe('useFullscreen (#921)', () => {
     setDocument('fullscreenEnabled', false);
     const { result } = renderHook(() => useFullscreen(layer));
     expect(result.current.enabled).toBe(false);
+    expect(result.current.mode).toBe('homeScreen');
+  });
+
+  it('is not enabled when the element has no requestFullscreen (#1127)', () => {
+    (layer as unknown as Record<string, unknown>).requestFullscreen = undefined;
+    const { result } = renderHook(() => useFullscreen(layer));
+    expect(result.current.enabled).toBe(false);
+    expect(result.current.mode).toBe('homeScreen');
+    expect(() => act(() => result.current.toggle())).not.toThrow();
+  });
+
+  it('hides the button in an installed app with no Fullscreen API (#1127)', () => {
+    setDocument('fullscreenEnabled', false);
+    const original = window.matchMedia;
+    window.matchMedia = jest.fn((query: string) => ({ matches: query === '(display-mode: standalone)' })) as unknown as typeof window.matchMedia;
+    try {
+      const { result } = renderHook(() => useFullscreen(layer));
+      expect(result.current.mode).toBe('none');
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
+  it('shows no button before the element mounts (#1127)', () => {
+    setDocument('fullscreenEnabled', false);
+    const { result } = renderHook(() => useFullscreen(null));
+    expect(result.current.mode).toBe('none');
   });
 
   it('puts the game layer into fullscreen, and takes it out again', () => {
     const { result } = renderHook(() => useFullscreen(layer));
     expect(result.current.enabled).toBe(true);
+    expect(result.current.mode).toBe('fullscreen');
     expect(result.current.isFullscreen).toBe(false);
 
     act(() => result.current.toggle());
