@@ -280,8 +280,8 @@ The practice table has two fixtures. Each one deals the same table on every load
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
-  ship rows are empty. A new game deals no opening hand from #1115 on; until #1115 lands it still
-  deals 7, but no test, script or check may rely on that hand (#1116).
+  ship rows are empty. A new game deals no opening hand (#1115): a tap on the draw deck draws one
+  card into the hand.
 - `?fixture=piles` (#802, #1024) deals the cards in deck order, with no shuffle, and **a hand of 7**
   (`FIXTURE_HAND` in `tableReducer.ts`), its own and not the opening hand of a new game. Mission 0 has an
   away team of 20 personnel. Mission 1 has a ship with a crew of 12 and one event placed on it, so

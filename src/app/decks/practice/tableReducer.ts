@@ -24,9 +24,6 @@ export type Zone =
 // CardInstance or, for a deck with fewer than 5 missions, null.
 export const MISSION_SLOTS = 5;
 
-// A new game deals an opening hand of this many cards (the rulebook's opening hand of seven).
-export const OPENING_HAND_SIZE = 7;
-
 export interface CardInstance {
   id: string;
   card: any;
@@ -210,7 +207,7 @@ export type TableAction =
   // state, and the caller passes its max instance ID to `seedInstanceIds` first.
   | { type: 'restore'; state: TableState }
   // The fixture deal of `/decks/practice?fixture=piles` (#802): deals like `reset`, with a hand of
-  // `FIXTURE_HAND` cards of its own, so a change to the opening hand of `reset` leaves it (#1116). It puts
+  // `FIXTURE_HAND` cards of its own, since `reset` deals no hand (#1115, #1116). It puts
   // `FIXTURE_AWAY_TEAM` personnel into the first mission's away team, and a ship with
   // `FIXTURE_CREW` personnel aboard into the second mission's ship row (#802). It also puts
   // `FIXTURE_BRIG` personnel into the brig, `FIXTURE_CORE` events into the core, and
@@ -736,11 +733,10 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     }
 
     case 'reset': {
-      // A new game (and the reset button) deals an opening hand of OPENING_HAND_SIZE cards, face
-      // up, and leaves the rest in the draw deck. A smaller deck deals all of it.
-      const handSize = Math.min(OPENING_HAND_SIZE, action.cards.length);
-      const hand = action.cards.slice(0, handSize).map((c) => ({ ...c, face: ZONE_FACE.hand }));
-      const drawDeck = action.cards.slice(handSize);
+      // A new game (and the reset button) deals no hand (#1115): every card goes to the draw deck,
+      // and the player draws the opening cards with ordinary `draw` actions, so the game log
+      // records each one.
+      const drawDeck = action.cards;
       // The missions are dealt face up into the mission row in deck order, as a fixed set: no
       // shuffling, and reset re-deals the identical set every time (unlike the draw deck). No
       // ships are dealt; a mission's ship row always starts empty.
@@ -754,7 +750,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // game and the reset button deal no dilemmas into the dilemma hand or the dilemma stack.
       return {
         drawDeck,
-        hand,
+        hand: [],
         discard: [],
         core: [],
         brig: [],
@@ -793,7 +789,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         cards: rest,
         dilemmas: action.dilemmas.slice(FIXTURE_UNDER_MISSION + FIXTURE_DILEMMA_STACK),
       });
-      // The fixture deals its own hand, not the opening hand of `reset`.
+      // The fixture deals its own hand; `reset` deals none.
       const handSize = Math.min(FIXTURE_HAND, rest.length);
       const missions = dealt.missions.map((slot, i) => {
         if (i === 0) {

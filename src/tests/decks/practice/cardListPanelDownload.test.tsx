@@ -85,7 +85,7 @@ const card = (collectorsinfo: string, name: string, type: string, pile: string) 
   count: 1,
 });
 
-// The opening hand takes seven draw cards, so ten leave three in the draw deck.
+// The test draws seven cards into the hand, so ten leave three in the draw deck.
 const drawCards = Array.from({ length: 10 }, (_, i) => card(`1U0${10 + i}`, `draw ${i + 1}`, 'equipment', 'draw'));
 const dilemmaCards = [1, 2, 3].map((n) => card(`1U10${n}`, `dilemma ${n}`, 'dilemma', 'dilemma'));
 const allCards = [...drawCards, ...dilemmaCards];
