@@ -291,6 +291,11 @@ The practice table has two fixtures. Each one deals the same table on every load
   events (`card-7`, `card-8`), two interrupts (`card-9`, `card-10`) and two ships (`card-39`,
   `card-40`).
 
+A tap on the closed hand opens it as an arc along the bottom edge of the screen
+(`data-testid="hand-arc"`, `handArc.ts`, #1125): about half of each card is below the edge, and the
+arc stays between the draw deck and the dilemma pile, over the core and the brig. The dilemma hand
+still opens as a flat fan above the bottom row.
+
 Use `/decks/practice?fixture=piles&reset=1&menu=0` for a check of the hand, of a drag from the hand,
 or of anything else that needs cards in the hand, and for a check of the dilemma stack, dilemmas
 under a mission, the brig, the core, a card placed on a ship, a ship on the table, the crew, the

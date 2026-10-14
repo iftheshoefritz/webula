@@ -34,6 +34,7 @@ import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PILE_CARD_BORDER_STYLE, cardBorderStyle } from './TableCard';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
+import { handArcLayout } from './handArc';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -54,6 +55,34 @@ const HAND_CONTROLS_HEIGHT = 44;
 const CLOSED_MAX_OFFSET = 10;
 // The fan may leave a small gap between two cards, at the ratio #642 set (60 px for a 56 px card).
 const openMaxOffset = (width: number) => Math.round((width * 60) / 56);
+// The gap the arc keeps from each pile (#1125).
+const ARC_PILE_GAP = 4;
+
+type ArcBounds = { left: number; right: number; bottom: number };
+
+// Issue #1125: measures the free gap between the two piles `arcBetween` names, and the bottom
+// edge of the screen, while `active`, and again on every resize. Without either pile (a test that
+// renders the hand alone) the gap is the whole screen, less the fan's usual inset.
+function useArcBounds(arcBetween: { left: string; right: string } | undefined, active: boolean): ArcBounds | null {
+  const [bounds, setBounds] = React.useState<ArcBounds | null>(null);
+  React.useLayoutEffect(() => {
+    if (!arcBetween || !active) return;
+    const measure = () => {
+      const width = window.innerWidth;
+      const leftRect = document.querySelector(arcBetween.left)?.getBoundingClientRect();
+      const rightRect = document.querySelector(arcBetween.right)?.getBoundingClientRect();
+      setBounds({
+        left: (leftRect ? leftRect.right : 0) + ARC_PILE_GAP,
+        right: (rightRect ? rightRect.left : width) - ARC_PILE_GAP,
+        bottom: window.innerHeight,
+      });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [arcBetween?.left, arcBetween?.right, active]); // eslint-disable-line react-hooks/exhaustive-deps
+  return bounds;
+}
 
 // Issue #691: carries the same select checkbox `CardListPanelCard` (`CardListPanel.tsx`) already has, as
 // a sibling of the card's own draggable button rather than nested inside it, for the same reason
@@ -135,6 +164,7 @@ export default function CardHand({
   bottomInset = VIEWER_TOP_INSET,
   onSendSelected,
   deckLabel = 'draw deck',
+  arcBetween,
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -177,6 +207,10 @@ export default function CardHand({
   onSendSelected?: (position: 'top' | 'bottom') => void;
   // The name of that deck, for the accessible names of the two buttons.
   deckLabel?: string;
+  // Issue #1125, an experiment: the open hand draws as an arc at the bottom of the screen, about
+  // half of each card below the bottom edge, between the elements these two selectors name (the
+  // draw deck and the dilemma pile). Left out, the hand opens as the flat fan above the bottom row.
+  arcBetween?: { left: string; right: string };
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
@@ -197,6 +231,37 @@ export default function CardHand({
   const fanRef = React.useRef<HTMLDivElement | null>(null);
   const boxSelect = useBoxSelect(fanRef, selectedIds, onSelectIds);
   const hasSelection = instances.some((instance) => selectedIds.includes(instance.id));
+  const arcBounds = useArcBounds(arcBetween, showFan);
+  const arc =
+    arcBetween && arcBounds
+      ? handArcLayout({
+          count,
+          cardWidth: openCardWidth,
+          maxStep: openMaxOffset(openCardWidth),
+          ...arcBounds,
+        })
+      : null;
+
+  const sendButtons = (
+    <>
+      <button
+        type="button"
+        onClick={() => onSendSelected?.('top')}
+        aria-label={`Selected cards to the top of the ${deckLabel}`}
+        className="btn-primary shrink-0 pointer-events-auto"
+      >
+        → top
+      </button>
+      <button
+        type="button"
+        onClick={() => onSendSelected?.('bottom')}
+        aria-label={`Selected cards to the bottom of the ${deckLabel}`}
+        className="btn-primary shrink-0 pointer-events-auto"
+      >
+        → bottom
+      </button>
+    </>
+  );
 
   const handleBackdropClick = (event: React.MouseEvent) => {
     const passthroughZones = passthroughZone
@@ -296,88 +361,126 @@ export default function CardHand({
                 aria-label={`Close ${label}`}
               />
             )}
-            <div
-              ref={fanRef}
-              data-zone={open ? zone : undefined}
-              aria-hidden={open ? undefined : true}
-              className={`fixed inset-x-2 ${LAYER_HAND_FAN} flex`}
-              style={{
-                bottom: bottomInset,
-                height: openCardHeight,
-                visibility: open ? 'visible' : 'hidden',
-                // The fan's own bounding box no longer reaches the bottom row, but a tap that
-                // misses every card must still reach the backdrop, and the backdrop's own
-                // hit-test still forwards a tap on a passthrough zone (issue #638's draw pile,
-                // issue #741's dilemma pile). `pointer-events: none` here lets a tap that misses
-                // every card fall through this whole container to the backdrop beneath it, so
-                // the backdrop's own hit-test (`handleBackdropClick`) still runs. Each
-                // `DraggableFanCard` re-enables its own pointer events (`pointer-events-auto`),
-                // so the cards themselves stay clickable and draggable.
-                pointerEvents: 'none',
-              }}
-            >
-              <OverlapRow
-                items={instances}
-                keyFor={(instance) => instance.id}
-                cardWidth={openCardWidth}
-                height={openCardHeight}
-                maxOffset={openMaxOffset(openCardWidth)}
-                centered
-                renderAside={(fanWidth) =>
-                  /* The "→ top" and "→ bottom" buttons (#994) show while a card of the open hand
-                     is selected. They sit just above the fan, and the right end of the row lines
-                     up with the right end of the fan (#1013): the outer box spans the fan's own
-                     `inset-x-2`, and the inner box takes the width the fan's cards take, centred
-                     as they are. A row wider than a short fan grows to the left, so it stays on
-                     the screen. On a screen too short for a row above the fan, `max()` keeps them
-                     at the top inset, over the top edge of the fan. The row is `fixed` like the
-                     fan around it (neither has a transform), so it places itself on the viewport.
-                     Neither box takes a tap: the fan's `pointer-events: none` reaches them, and
-                     only the buttons turn it back on. The row shares the fan's stacking context
-                     with the cards, whose `zIndex` runs from 1 up to the count (`OverlapRow`), so
-                     its own `zIndex` sits above them all, as the row did when it had a layer of
-                     its own. */
-                  open &&
-                  hasSelection &&
-                  onSendSelected && (
+            {arc ? (
+              /* Issue #1125: the arc. The container covers the screen and takes no tap, as the
+                 flat fan's does, and each card turns on a wrapper of its own, so the card's
+                 draggable button keeps dnd-kit's transform. A later card sits on top of the one
+                 before it, as in the flat fan. */
+              <div
+                ref={fanRef}
+                data-zone={open ? zone : undefined}
+                data-testid={`${zone}-arc`}
+                aria-hidden={open ? undefined : true}
+                className={`fixed inset-0 ${LAYER_HAND_FAN} overflow-hidden`}
+                style={{ visibility: open ? 'visible' : 'hidden', pointerEvents: 'none' }}
+              >
+                {instances.map((instance, idx) => {
+                  const placed = arc.cards[idx];
+                  return (
                     <div
-                      className="fixed inset-x-2 flex justify-center"
+                      key={instance.id}
+                      className="absolute"
                       style={{
-                        top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${bottomInset + openCardHeight + HAND_CONTROLS_HEIGHT}px))`,
-                        zIndex: count + 2,
+                        left: placed.centerX - arc.cardWidth / 2,
+                        top: placed.centerY - arc.cardHeight / 2,
+                        width: arc.cardWidth,
+                        transform: `rotate(${placed.angle}deg)`,
+                        zIndex: idx + 1,
                       }}
                     >
-                      <div data-testid={`${zone}-controls`} className="flex flex-row justify-end gap-2" style={{ width: fanWidth }}>
-                        <button
-                          type="button"
-                          onClick={() => onSendSelected('top')}
-                          aria-label={`Selected cards to the top of the ${deckLabel}`}
-                          className="btn-primary shrink-0 pointer-events-auto"
-                        >
-                          → top
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onSendSelected('bottom')}
-                          aria-label={`Selected cards to the bottom of the ${deckLabel}`}
-                          className="btn-primary shrink-0 pointer-events-auto"
-                        >
-                          → bottom
-                        </button>
-                      </div>
+                      <DraggableFanCard
+                        instance={instance}
+                        width={arc.cardWidth}
+                        selected={selectedIds.includes(instance.id)}
+                        onToggleSelect={() => onToggleSelect(instance.id)}
+                      />
                     </div>
-                  )
-                }
-                renderCard={(instance) => (
-                  <DraggableFanCard
-                    instance={instance}
-                    width={openCardWidth}
-                    selected={selectedIds.includes(instance.id)}
-                    onToggleSelect={() => onToggleSelect(instance.id)}
-                  />
+                  );
+                })}
+                {open && hasSelection && onSendSelected && (
+                  <div
+                    data-testid={`${zone}-controls`}
+                    className="absolute flex flex-row justify-center gap-2"
+                    style={{
+                      left: arcBounds?.left,
+                      width: arcBounds ? arcBounds.right - arcBounds.left : undefined,
+                      top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${arc.visibleHeight + HAND_CONTROLS_HEIGHT}px))`,
+                      zIndex: count + 2,
+                    }}
+                  >
+                    {sendButtons}
+                  </div>
                 )}
-              />
-            </div>
+              </div>
+            ) : (
+              <div
+                ref={fanRef}
+                data-zone={open ? zone : undefined}
+                aria-hidden={open ? undefined : true}
+                className={`fixed inset-x-2 ${LAYER_HAND_FAN} flex`}
+                style={{
+                  bottom: bottomInset,
+                  height: openCardHeight,
+                  visibility: open ? 'visible' : 'hidden',
+                  // The fan's own bounding box no longer reaches the bottom row, but a tap that
+                  // misses every card must still reach the backdrop, and the backdrop's own
+                  // hit-test still forwards a tap on a passthrough zone (issue #638's draw pile,
+                  // issue #741's dilemma pile). `pointer-events: none` here lets a tap that misses
+                  // every card fall through this whole container to the backdrop beneath it, so
+                  // the backdrop's own hit-test (`handleBackdropClick`) still runs. Each
+                  // `DraggableFanCard` re-enables its own pointer events (`pointer-events-auto`),
+                  // so the cards themselves stay clickable and draggable.
+                  pointerEvents: 'none',
+                }}
+              >
+                <OverlapRow
+                  items={instances}
+                  keyFor={(instance) => instance.id}
+                  cardWidth={openCardWidth}
+                  height={openCardHeight}
+                  maxOffset={openMaxOffset(openCardWidth)}
+                  centered
+                  renderAside={(fanWidth) =>
+                    /* The "→ top" and "→ bottom" buttons (#994) show while a card of the open hand
+                       is selected. They sit just above the fan, and the right end of the row lines
+                       up with the right end of the fan (#1013): the outer box spans the fan's own
+                       `inset-x-2`, and the inner box takes the width the fan's cards take, centred
+                       as they are. A row wider than a short fan grows to the left, so it stays on
+                       the screen. On a screen too short for a row above the fan, `max()` keeps them
+                       at the top inset, over the top edge of the fan. The row is `fixed` like the
+                       fan around it (neither has a transform), so it places itself on the viewport.
+                       Neither box takes a tap: the fan's `pointer-events: none` reaches them, and
+                       only the buttons turn it back on. The row shares the fan's stacking context
+                       with the cards, whose `zIndex` runs from 1 up to the count (`OverlapRow`), so
+                       its own `zIndex` sits above them all, as the row did when it had a layer of
+                       its own. */
+                    open &&
+                    hasSelection &&
+                    onSendSelected && (
+                      <div
+                        className="fixed inset-x-2 flex justify-center"
+                        style={{
+                          top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${bottomInset + openCardHeight + HAND_CONTROLS_HEIGHT}px))`,
+                          zIndex: count + 2,
+                        }}
+                      >
+                        <div data-testid={`${zone}-controls`} className="flex flex-row justify-end gap-2" style={{ width: fanWidth }}>
+                          {sendButtons}
+                        </div>
+                      </div>
+                    )
+                  }
+                  renderCard={(instance) => (
+                    <DraggableFanCard
+                      instance={instance}
+                      width={openCardWidth}
+                      selected={selectedIds.includes(instance.id)}
+                      onToggleSelect={() => onToggleSelect(instance.id)}
+                    />
+                  )}
+                />
+              </div>
+            )}
             <BoxSelectRect box={boxSelect.box} className={LAYER_HAND_FAN} />
           </>,
           portalContainer ?? document.body,

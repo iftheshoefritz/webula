@@ -1137,6 +1137,9 @@ function DilemmaStackPile({
 const PRACTICE_GAME_KEY = 'practiceGame';
 const practiceGameKey = (fixture: string | null) => (fixture ? `${PRACTICE_GAME_KEY}:fixture=${fixture}` : PRACTICE_GAME_KEY);
 
+// Issue #1125: the open hand draws as an arc between the draw deck and the dilemma pile.
+const HAND_ARC_BETWEEN = { left: '[data-testid="draw-pile"]', right: '[data-testid="dilemma-pile-group"]' };
+
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
   const fixture = searchParams.get('fixture');
@@ -2502,6 +2505,7 @@ function PracticeDrawContent() {
                       onSendSelected={(position) => sendHandSelectionToDeck('hand', position)}
                       openCardWidth={viewerCardWidth}
                       bottomInset={panelBottom}
+                      arcBetween={HAND_ARC_BETWEEN}
                     />
                   </div>
                 </div>
@@ -2569,8 +2573,9 @@ function PracticeDrawContent() {
 
                   {/* Dilemma pile, with the same stacked buttons as the draw deck (#1070). The
                       Shuffle button has its own accessible name, so it is told apart from the
-                      draw deck's "Shuffle" button (#785). */}
-                  <div className="flex flex-row items-end">
+                      draw deck's "Shuffle" button (#785). The open hand's arc ends at the left edge
+                      of this group, its buttons included (#1125). */}
+                  <div data-testid="dilemma-pile-group" className="flex flex-row items-end">
                     <PileControls
                       label="dilemma pile"
                       shuffleLabel="Shuffle dilemma pile"
