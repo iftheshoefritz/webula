@@ -467,3 +467,43 @@ describe('CardHand', () => {
     expect(screen.queryByRole('button', { name: /^Selected cards to the/ })).toBeNull();
   });
 });
+
+describe('CardHand as an arc (#1125)', () => {
+  it('draws the open hand as an arc centred between the two piles', () => {
+    const left = document.createElement('div');
+    left.setAttribute('data-testid', 'left-pile');
+    left.getBoundingClientRect = () => ({ left: 0, right: 100, top: 0, bottom: 0, width: 100, height: 0, x: 0, y: 0, toJSON: () => ({}) });
+    const right = document.createElement('div');
+    right.setAttribute('data-testid', 'right-pile');
+    right.getBoundingClientRect = () => ({ left: 900, right: 1000, top: 0, bottom: 0, width: 100, height: 0, x: 900, y: 0, toJSON: () => ({}) });
+    document.body.append(left, right);
+
+    render(
+      <CardHand
+        instances={makeInstances(3)}
+        open
+        onOpen={() => {}}
+        onClose={() => {}}
+        openCardWidth={108}
+        arcBetween={{ left: '[data-testid="left-pile"]', right: '[data-testid="right-pile"]' }}
+      />,
+    );
+
+    const arc = screen.getByTestId('hand-arc');
+    expect(arc).toHaveAttribute('data-zone', 'hand');
+    const wrappers = Array.from(arc.children) as HTMLElement[];
+    expect(wrappers).toHaveLength(3);
+    // The middle card sits centred in the gap, 104 to 896 px.
+    const middle = wrappers[1];
+    expect(parseFloat(middle.style.left) + 54).toBeCloseTo(500);
+    expect(middle.style.transform).toBe('rotate(0deg)');
+    expect(wrappers[0].style.transform).toMatch(/rotate\(-/);
+    for (const wrapper of wrappers) {
+      expect(parseFloat(wrapper.style.left)).toBeGreaterThanOrEqual(104);
+    }
+    expect(arc.querySelector('[data-card-id="c1"]')).toBeInTheDocument();
+
+    left.remove();
+    right.remove();
+  });
+});
