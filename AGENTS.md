@@ -210,6 +210,10 @@ repository gets an `agent-error:startup-failure` label for work that never ran. 
 make an issue that is ready to implement, say so in the issue body and leave the label to
 the owner.
 
+The owner can delegate `ready-for-dev`, and merging, to a cloud session with the
+`drive-issues` skill (`.claude/skills/drive-issues/SKILL.md`), for example
+`/drive-issues 1114+`. The delegation covers only the issues named in that invocation.
+
 ## PR Requirements
 
 All PRs from automated agents MUST include:
