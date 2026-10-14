@@ -63,6 +63,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, within, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -138,6 +139,8 @@ describe('Practice draw: selecting more than one card in a card list panel and d
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
 
     // #740 keeps a hand open after a drag out of it, so this tap only runs when the
     // hand is closed — after a drag that emptied it, or a drag that started elsewhere.

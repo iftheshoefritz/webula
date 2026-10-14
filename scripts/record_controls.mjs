@@ -72,6 +72,7 @@ const GESTURES = {
     },
   },
   // Two presses on one connection, since two runs of `cdp_input.sh` take longer than DOUBLE_TAP_MS.
+  // It needs the missions and no hand, so it stays on the fresh fixture (#1116).
   'complete-mission': {
     fixture: FIXTURE_FRESH,
     modes: ['touch', 'mouse'],

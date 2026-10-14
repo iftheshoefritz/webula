@@ -65,6 +65,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, within, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import { PLACE_ON_HOLD_MS } from '../../../app/decks/practice/useCardHold';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
@@ -198,6 +199,8 @@ describe('Practice draw: a card in the core or the brig takes a placed card (#81
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
     await openHand();
     const eventId = cardIdOf('Distress Call');
     const personnelId = cardIdOf('Data');

@@ -60,6 +60,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { isReleaseInCancelRadius, PressGeometry } from '../../../app/decks/practice/releaseCancel';
@@ -192,6 +193,8 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
     await openHand();
     const [id] = mockDraggableIds;
 
@@ -206,6 +209,8 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
     await openHand();
     const [id] = mockDraggableIds;
 
@@ -225,6 +230,8 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
     await openHand();
     // The mission card is draggable too, so find the event by its name.
     const id = screen.getByRole('button', { name: 'Distress Call' }).closest('[data-card-id]')!.getAttribute('data-card-id')!;
@@ -241,6 +248,8 @@ describe('Practice draw: a release near the press point cancels the drag (#774)'
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
     await openHand();
     const [id] = mockDraggableIds;
 

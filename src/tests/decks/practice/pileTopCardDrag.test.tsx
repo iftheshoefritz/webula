@@ -62,6 +62,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -136,6 +137,7 @@ describe('Practice table: dragging the top card off the draw deck or the dilemma
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
   };
 
   const drag = async (id: string, overId: string) => {

@@ -64,6 +64,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 import { HOLD_DELAY_MS, HOVER_DELAY_MS } from '../../../app/decks/practice/useCardHold';
@@ -158,6 +159,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
 
     const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
     await act(async () => {
@@ -233,6 +236,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
 
     const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
     for (let i = 0; i < 4; i++) {
@@ -557,6 +562,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
 
     // A fresh game: no dilemmas drawn, the dilemma hand closed. The zone stays in the DOM (its
     // reserved column keeps the mission row in place) but is hidden.

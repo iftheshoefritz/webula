@@ -50,6 +50,7 @@ import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import { getSession, signIn } from 'next-auth/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { OPENING_HAND_SIZE } from '../../../app/decks/practice/tableReducer';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
@@ -68,7 +69,8 @@ const makeCards = (n: number, prefix: string) =>
 const deckOf = (cards: ReturnType<typeof makeCards>) =>
   Object.fromEntries(cards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
-// The builder's deck deals 3 cards to the draw deck (10 - a 7 card hand); the Drive deck deals 13.
+// The builder's deck holds 10 cards and the Drive deck 20. A new game deals an opening hand of
+// OPENING_HAND_SIZE cards and leaves the rest in the draw deck, so the counts below follow it (#1116).
 const builderCards = makeCards(10, '1U');
 const builderDeck = deckOf(builderCards);
 const driveCards = makeCards(20, '9R');
@@ -87,6 +89,9 @@ const drawPileCount = async () => {
   });
   return count;
 };
+
+const HAND = OPENING_HAND_SIZE;
+const handOf = (n: number) => new RegExp(`^hand, ${n} cards?`, 'i');
 
 const handLabel = () => screen.getByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
 
@@ -146,15 +151,15 @@ describe('Saved practice game (#976)', () => {
 
   it('restores a moved card after the page mounts again', async () => {
     const first = await renderPage();
-    expect(await drawPileCount()).toBe(3);
+    expect(await drawPileCount()).toBe(10 - HAND);
     await drawOne();
-    expect(await drawPileCount()).toBe(2);
-    expect(handLabel()).toHaveAccessibleName(/^hand, 8 cards/i);
+    expect(await drawPileCount()).toBe(9 - HAND);
+    expect(handLabel()).toHaveAccessibleName(handOf(HAND + 1));
     first.unmount();
 
     await renderPage();
-    expect(await drawPileCount()).toBe(2);
-    expect(handLabel()).toHaveAccessibleName(/^hand, 8 cards/i);
+    expect(await drawPileCount()).toBe(9 - HAND);
+    expect(handLabel()).toHaveAccessibleName(handOf(HAND + 1));
   });
 
   it('deals a new game when the deck in the builder changed between the mounts', async () => {
@@ -164,8 +169,8 @@ describe('Saved practice game (#976)', () => {
 
     localStorage.setItem('currentDeck', JSON.stringify(deckOf(makeCards(12, '2U'))));
     await renderPage();
-    expect(await drawPileCount()).toBe(5);
-    expect(handLabel()).toHaveAccessibleName(/^hand, 7 cards/i);
+    expect(await drawPileCount()).toBe(12 - HAND);
+    expect(handLabel()).toHaveAccessibleName(handOf(HAND));
   });
 
   it('keeps the fixture game under its own key and leaves practiceGame alone', async () => {
@@ -180,8 +185,8 @@ describe('Saved practice game (#976)', () => {
     expect(localStorage.getItem('practiceGame:fixture=1')).not.toBeNull();
 
     await renderPage();
-    expect(await drawPileCount()).toBe(2);
-    expect(handLabel()).toHaveAccessibleName(/^hand, 8 cards/i);
+    expect(await drawPileCount()).toBe(9 - HAND);
+    expect(handLabel()).toHaveAccessibleName(handOf(HAND + 1));
   });
 
   it('keeps the ?fixture=piles game apart from the ?fixture=1 game', async () => {
@@ -204,13 +209,13 @@ describe('Saved practice game (#976)', () => {
 
     mockSearchParamsValue = new URLSearchParams('reset=1');
     const second = await renderPage();
-    expect(await drawPileCount()).toBe(3);
-    expect(handLabel()).toHaveAccessibleName(/^hand, 7 cards/i);
+    expect(await drawPileCount()).toBe(10 - HAND);
+    expect(handLabel()).toHaveAccessibleName(handOf(HAND));
     second.unmount();
 
     mockSearchParamsValue = new URLSearchParams();
     await renderPage();
-    expect(await drawPileCount()).toBe(3);
+    expect(await drawPileCount()).toBe(10 - HAND);
   });
 
   it('deals a new fixture game with ?fixture=1&reset=1', async () => {
@@ -222,8 +227,8 @@ describe('Saved practice game (#976)', () => {
 
     mockSearchParamsValue = new URLSearchParams('fixture=1&reset=1');
     await renderPage();
-    expect(await drawPileCount()).toBe(3);
-    expect(handLabel()).toHaveAccessibleName(/^hand, 7 cards/i);
+    expect(await drawPileCount()).toBe(10 - HAND);
+    expect(handLabel()).toHaveAccessibleName(handOf(HAND));
   });
 
   it('never writes an empty table over a valid save on a restore (#1005)', async () => {
@@ -233,7 +238,7 @@ describe('Saved practice game (#976)', () => {
 
     const setItem = jest.spyOn(Storage.prototype, 'setItem');
     await renderPage();
-    expect(await drawPileCount()).toBe(2);
+    expect(await drawPileCount()).toBe(9 - HAND);
 
     const saves = savesWritten(setItem, 'practiceGame');
     expect(saves.length).toBeGreaterThan(0);
@@ -243,7 +248,7 @@ describe('Saved practice game (#976)', () => {
   it('never writes an empty table on a first visit with no save (#1005)', async () => {
     const setItem = jest.spyOn(Storage.prototype, 'setItem');
     await renderPage();
-    expect(await drawPileCount()).toBe(3);
+    expect(await drawPileCount()).toBe(10 - HAND);
 
     const saves = savesWritten(setItem, 'practiceGame');
     expect(saves.length).toBeGreaterThan(0);
@@ -258,6 +263,6 @@ describe('Saved practice game (#976)', () => {
     await renderPage();
     await drawOne();
 
-    expect(await drawPileCount()).toBe(2);
+    expect(await drawPileCount()).toBe(9 - HAND);
   });
 });

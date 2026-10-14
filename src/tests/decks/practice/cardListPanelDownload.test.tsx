@@ -60,6 +60,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import CardListPanel from '../../../app/decks/practice/CardListPanel';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
@@ -154,6 +155,8 @@ describe.each([
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
     await click(`Download from the ${label}`);
   };
 
@@ -248,6 +251,8 @@ describe('Practice table: panels with no Download button (#827)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
     await click('Download from the draw deck');
     const name = panelNames('drawDeck')[0]!;
     await act(async () => { fireEvent.click(panelCard(name)); });

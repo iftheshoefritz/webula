@@ -8,6 +8,7 @@ import {
   MISSION_SLOTS,
   OPENING_HAND_SIZE,
   FIXTURE_BRIG,
+  FIXTURE_HAND,
   FIXTURE_CORE,
   FIXTURE_UNDER_MISSION,
   FIXTURE_DILEMMA_STACK,
@@ -1251,7 +1252,7 @@ describe('resetWithPiles (#802)', () => {
     expect(state.missions[1].ships[0].card.type).toBe('ship');
     expect(state.missions[1].ships[0].crew).toHaveLength(12);
     expect(state.missions[1].ships[0].crew!.every((c) => c.face === 'up')).toBe(true);
-    expect(state.hand).toHaveLength(OPENING_HAND_SIZE);
+    expect(state.hand).toHaveLength(FIXTURE_HAND);
   });
 
   it('uses every card once, the same total as a plain reset', () => {
