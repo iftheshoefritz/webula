@@ -340,17 +340,22 @@ function ShipPlacedOnPill({
 // box starts at about 255 px). The touch crop keeps the top of the image and the desktop card is as
 // wide, so both draw the title and the point box at the same offsets, and one layout serves both. At
 // scale 1 the room is 36 px, and 3 cards 14 px tall overlap by 3 px each to fit.
+//
+// Each strip sticks out past the mission card's edge on its side (#1126), so it reads as cards
+// placed on the mission and not as part of its art. The overhang does not grow with the scale: the
+// `gap-2` between two mission columns is 8 px at every scale, and two neighbouring strips that
+// stick out 3 px each leave 2 px of it clear, so they never touch.
 const MISSION_TITLE_SHARE = 0.14;
 const MISSION_POINT_BOX_SHARE = 0.5;
 export const PLACED_ON_STRIP_MAX_VISIBLE = 3;
 const PLACED_ON_STRIP_CARD_WIDTH_BASE = 16; // px
 const PLACED_ON_STRIP_CARD_HEIGHT_BASE = 14; // px, about the art crop's own shape
-const PLACED_ON_STRIP_INSET_BASE = 2; // px, the mission card's border
+export const PLACED_ON_STRIP_OVERHANG = 3; // px past the mission card's edge, at every scale
 
 export function placedOnStripLayout(scale: number): {
   top: number;
   bottom: number;
-  inset: number;
+  overhang: number;
   cardWidth: number;
   cardHeight: number;
   step: number;
@@ -363,7 +368,7 @@ export function placedOnStripLayout(scale: number): {
   return {
     top,
     bottom,
-    inset: scaled(PLACED_ON_STRIP_INSET_BASE, scale),
+    overhang: PLACED_ON_STRIP_OVERHANG,
     cardWidth: scaled(PLACED_ON_STRIP_CARD_WIDTH_BASE, scale),
     cardHeight,
     step,
@@ -406,7 +411,7 @@ function PlacedOnStrip({
       style={{
         ...NO_CALLOUT_STYLE,
         top: layout.top,
-        [group === 'events' ? 'left' : 'right']: layout.inset,
+        [group === 'events' ? 'left' : 'right']: -layout.overhang,
         width: layout.cardWidth,
         height: layout.cardHeight + layout.step * (shown.length - 1),
       }}
