@@ -68,6 +68,8 @@ describe('the fullscreen button where fullscreen is not available (#1127)', () =
       render(<PracticeDrawPage />);
     });
     const button = screen.getByTestId('fullscreen-button');
+    expect(button).toHaveAccessibleName('How to add to the home screen');
+    expect(button).not.toHaveAttribute('aria-pressed');
     expect(() => fireEvent.click(button)).not.toThrow();
     const help = screen.getByRole('dialog', { name: 'Add to Home Screen' });
     expect(help).toHaveTextContent('Add to Home Screen');

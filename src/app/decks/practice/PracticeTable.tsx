@@ -324,8 +324,14 @@ function GameMenu({
           <button
             type="button"
             onClick={fullscreen.mode === 'fullscreen' ? fullscreen.toggle : onHomeScreenHelp}
-            aria-label={fullscreen.isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-            aria-pressed={fullscreen.isFullscreen}
+            aria-label={
+              fullscreen.mode === 'homeScreen'
+                ? 'How to add to the home screen'
+                : fullscreen.isFullscreen
+                  ? 'Exit fullscreen'
+                  : 'Enter fullscreen'
+            }
+            aria-pressed={fullscreen.mode === 'fullscreen' ? fullscreen.isFullscreen : undefined}
             data-testid="fullscreen-button"
             className="btn-icon btn-icon-sm"
           >
