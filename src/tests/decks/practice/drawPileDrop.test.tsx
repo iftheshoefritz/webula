@@ -73,7 +73,7 @@ const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
-// 8 cards: a new game deals 7 into the hand, leaving exactly one ("Card 8") in the draw deck,
+// 8 cards: the test draws 7 into the hand, leaving exactly one ("Card 8") in the draw deck,
 // so a drop onto either half has a single pile card to reorder around.
 const makeManyCards = (n: number) =>
   Array.from({ length: n }, (_, i) => ({

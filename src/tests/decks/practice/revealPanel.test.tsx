@@ -72,7 +72,7 @@ const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
-// 11 cards: a new game deals 7 into the hand, leaving "Card 8" to "Card 11" in the draw deck,
+// 11 cards: the test draws 7 into the hand, leaving "Card 8" to "Card 11" in the draw deck,
 // in that order, with "Card 8" on top.
 const makeManyCards = (n: number) =>
   Array.from({ length: n }, (_, i) => ({

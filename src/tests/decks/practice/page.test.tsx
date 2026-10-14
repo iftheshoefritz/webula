@@ -914,7 +914,7 @@ describe('PracticeDrawPage', () => {
     });
     await drawOpeningHand();
 
-    // Draw one card, leaving cards on the table beyond the initial opening hand.
+    // Draw one card, leaving cards on the table beyond the drawn hand.
     const drawPileButton = screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' });
     await act(async () => {
       fireEvent.click(drawPileButton);

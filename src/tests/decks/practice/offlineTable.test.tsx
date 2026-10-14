@@ -52,7 +52,6 @@ import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import { getSession } from 'next-auth/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
-import { OPENING_HAND_SIZE } from '../../../app/decks/practice/tableReducer';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 import { OFFLINE_DECKS_KEY, OfflineDeck } from '../../../app/decks/practice/offlineDecks';
@@ -147,8 +146,8 @@ describe('the practice table while offline (#1053)', () => {
     });
 
     expect(screen.queryByText('This deck is not available offline.')).not.toBeInTheDocument();
-    // 20 cards, less the opening hand.
-    expect(drawPileCount()).toBe(String(20 - OPENING_HAND_SIZE));
+    // 20 cards: a new game deals no hand (#1115).
+    expect(drawPileCount()).toBe('20');
   });
 
   it('renders the table for a deck in the record', async () => {
@@ -156,7 +155,7 @@ describe('the practice table while offline (#1053)', () => {
     await renderPage();
 
     expect(screen.queryByText('This deck is not available offline.')).not.toBeInTheDocument();
-    expect(drawPileCount()).toBe(String(10 - OPENING_HAND_SIZE));
+    expect(drawPileCount()).toBe('10');
   });
 
   it('renders the table online for a deck not in the record', async () => {
@@ -164,7 +163,7 @@ describe('the practice table while offline (#1053)', () => {
     await renderPage();
 
     expect(screen.queryByText('This deck is not available offline.')).not.toBeInTheDocument();
-    expect(drawPileCount()).toBe(String(10 - OPENING_HAND_SIZE));
+    expect(drawPileCount()).toBe('10');
   });
 
   it('keeps the table of a game dealt online when the connection drops', async () => {
@@ -176,7 +175,7 @@ describe('the practice table while offline (#1053)', () => {
     });
 
     expect(screen.queryByText('This deck is not available offline.')).not.toBeInTheDocument();
-    expect(drawPileCount()).toBe(String(10 - OPENING_HAND_SIZE));
+    expect(drawPileCount()).toBe('10');
   });
 
   it('Load deck shows the offline message and decks, and calls neither getSession nor /api/drive', async () => {
@@ -198,7 +197,7 @@ describe('the practice table while offline (#1053)', () => {
     });
 
     expect(screen.queryByTestId('offline-deck-picker')).not.toBeInTheDocument();
-    expect(drawPileCount()).toBe(String(20 - OPENING_HAND_SIZE));
+    expect(drawPileCount()).toBe('20');
   });
 
   it('Load deck opens the offline decks in the shared Drive picker shell, which closes with × and the backdrop (#1110)', async () => {
