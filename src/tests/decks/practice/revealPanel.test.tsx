@@ -64,6 +64,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -141,6 +142,8 @@ describe('Practice draw: the reveal panel of a pile (#1070)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
   };
 
   const click = async (element: HTMLElement) => {

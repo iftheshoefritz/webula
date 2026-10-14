@@ -40,7 +40,7 @@ const row = (collectorsinfo: string, originalName: string, type: string) => ({
   imagefile: collectorsinfo,
 });
 
-// Eight draw deck cards, so the draw deck still holds one after the opening hand of seven.
+// Eight draw deck cards, so the draw deck still holds one after an opening hand of up to seven.
 const deck = {
   '1M001': { count: 1, row: row('1M001', 'Test Mission', 'mission') },
   '1D001': { count: 2, row: row('1D001', 'Test Dilemma', 'dilemma') },

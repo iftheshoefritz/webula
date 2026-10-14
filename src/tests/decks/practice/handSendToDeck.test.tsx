@@ -63,6 +63,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, within, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -128,6 +129,7 @@ describe('Practice draw: sending the selected cards of the hand to the draw deck
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
     await click(/^hand, 4 cards, tap to open$/i);
   };
 

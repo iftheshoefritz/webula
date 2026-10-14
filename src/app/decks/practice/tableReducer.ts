@@ -209,7 +209,8 @@ export type TableAction =
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
   // state, and the caller passes its max instance ID to `seedInstanceIds` first.
   | { type: 'restore'; state: TableState }
-  // The fixture deal of `/decks/practice?fixture=piles` (#802): deals like `reset`, then puts
+  // The fixture deal of `/decks/practice?fixture=piles` (#802): deals like `reset`, with a hand of
+  // `FIXTURE_HAND` cards of its own, so a change to the opening hand of `reset` leaves it (#1116). It puts
   // `FIXTURE_AWAY_TEAM` personnel into the first mission's away team, and a ship with
   // `FIXTURE_CREW` personnel aboard into the second mission's ship row (#802). It also puts
   // `FIXTURE_BRIG` personnel into the brig, `FIXTURE_CORE` events into the core, and
@@ -219,6 +220,7 @@ export type TableAction =
   // every time.
   | { type: 'resetWithPiles'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
 
+export const FIXTURE_HAND = 7;
 export const FIXTURE_AWAY_TEAM = 20;
 export const FIXTURE_CREW = 12;
 export const FIXTURE_BRIG = 2;
@@ -784,12 +786,15 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         FIXTURE_UNDER_MISSION,
         FIXTURE_UNDER_MISSION + FIXTURE_DILEMMA_STACK
       );
+      const rest = action.cards.filter((c) => !placed.has(c.id));
       const dealt = tableReducer(state, {
         ...action,
         type: 'reset',
-        cards: action.cards.filter((c) => !placed.has(c.id)),
+        cards: rest,
         dilemmas: action.dilemmas.slice(FIXTURE_UNDER_MISSION + FIXTURE_DILEMMA_STACK),
       });
+      // The fixture deals its own hand, not the opening hand of `reset`.
+      const handSize = Math.min(FIXTURE_HAND, rest.length);
       const missions = dealt.missions.map((slot, i) => {
         if (i === 0) {
           return { ...slot, awayTeam: awayTeam.map((c) => ({ ...c, face: MISSION_PILE_FACE.awayTeam })) };
@@ -813,6 +818,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       });
       return {
         ...dealt,
+        hand: rest.slice(0, handSize).map((c) => ({ ...c, face: ZONE_FACE.hand })),
+        drawDeck: rest.slice(handSize),
         missions,
         brig: brig.map((c) => ({ ...c, face: ZONE_FACE.brig })),
         core: core.map((c) => ({ ...c, face: ZONE_FACE.core })),

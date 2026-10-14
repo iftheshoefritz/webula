@@ -60,6 +60,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -138,6 +139,8 @@ describe('Practice draw: only one card list panel is ever open at a time (#711)'
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
 
     // #740 keeps the hand open after a drag out of it, so this helper taps the closed row only
     // when the hand is closed.

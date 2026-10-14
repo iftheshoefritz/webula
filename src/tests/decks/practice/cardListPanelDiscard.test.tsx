@@ -63,6 +63,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 
@@ -131,6 +132,8 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
   };
 
   const openClosedHand = async (pattern: RegExp) => {

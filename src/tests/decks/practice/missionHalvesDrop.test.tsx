@@ -57,6 +57,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent, cleanup } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -129,6 +130,8 @@ describe('Practice table: the two drop halves of a mission card (#871)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
     const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
     if (closedHandButton) {
       await act(async () => {

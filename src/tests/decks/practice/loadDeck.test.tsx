@@ -51,6 +51,7 @@ import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import { getSession, signIn } from 'next-auth/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { OPENING_HAND_SIZE } from '../../../app/decks/practice/tableReducer';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
@@ -69,7 +70,8 @@ const makeCards = (n: number, prefix: string) =>
 const deckOf = (cards: ReturnType<typeof makeCards>) =>
   Object.fromEntries(cards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
-// The builder's deck deals 3 cards to the draw deck (10 - a 7 card hand); the Drive deck deals 13.
+// The builder's deck holds 10 cards and the Drive deck 20. A deal leaves all but the opening hand of
+// OPENING_HAND_SIZE cards in the draw deck (#1116).
 const builderCards = makeCards(10, '1U');
 const builderDeck = deckOf(builderCards);
 const driveCards = makeCards(20, '9R');
@@ -183,7 +185,7 @@ describe('Load deck in the practice game menu (#780)', () => {
     (getSession as jest.Mock).mockResolvedValue(session);
     jest.spyOn(window, 'confirm').mockReturnValue(true);
     await renderPage();
-    expect(await drawPileIds()).toHaveLength(3);
+    expect(await drawPileIds()).toHaveLength(10 - OPENING_HAND_SIZE);
 
     await openPicker();
     await act(async () => {
@@ -193,7 +195,7 @@ describe('Load deck in the practice game menu (#780)', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/drive/file-1', expect.objectContaining({ method: 'GET' }));
     expect(deckFromTsv).toHaveBeenCalledWith('drive deck tsv', builderCards);
     expect(screen.queryByText('Your decks')).not.toBeInTheDocument();
-    expect(await drawPileIds()).toHaveLength(13);
+    expect(await drawPileIds()).toHaveLength(20 - OPENING_HAND_SIZE);
 
     // Reset deals the loaded deck again, and the builder's deck stays as it was.
     await act(async () => {
@@ -202,7 +204,7 @@ describe('Load deck in the practice game menu (#780)', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
     });
-    expect(await drawPileIds()).toHaveLength(13);
+    expect(await drawPileIds()).toHaveLength(20 - OPENING_HAND_SIZE);
     expect(localStorage.getItem('currentDeck')).toBe(JSON.stringify(builderDeck));
   });
 
@@ -222,7 +224,7 @@ describe('Load deck in the practice game menu (#780)', () => {
       fireEvent.click(screen.getByText('×'));
     });
     expect(screen.queryByText('Your decks')).not.toBeInTheDocument();
-    expect(await drawPileIds()).toHaveLength(3);
+    expect(await drawPileIds()).toHaveLength(10 - OPENING_HAND_SIZE);
   });
 
   it('keeps the game when the deck fetch fails', async () => {
@@ -241,7 +243,7 @@ describe('Load deck in the practice game menu (#780)', () => {
     });
 
     expect(deckFromTsv).not.toHaveBeenCalled();
-    expect(await drawPileIds()).toHaveLength(3);
+    expect(await drawPileIds()).toHaveLength(10 - OPENING_HAND_SIZE);
   });
 
   it('still deals the fixture deck with ?fixture=1', async () => {
