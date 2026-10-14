@@ -168,7 +168,7 @@ describe('Load deck in the practice game menu (#780)', () => {
     await renderPage();
 
     expect(screen.getByText('Your decks')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Load My Drive deck' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' })).toBeInTheDocument();
     expect(window.location.search).toBe('');
   });
 
@@ -187,7 +187,7 @@ describe('Load deck in the practice game menu (#780)', () => {
 
     await openPicker();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Load My Drive deck' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' }));
     });
 
     expect(fetchMock).toHaveBeenCalledWith('/api/drive/file-1', expect.objectContaining({ method: 'GET' }));
@@ -213,7 +213,7 @@ describe('Load deck in the practice game menu (#780)', () => {
 
     await openPicker();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Load My Drive deck' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' }));
     });
 
     expect(fetchMock).not.toHaveBeenCalledWith('/api/drive/file-1', expect.anything());
@@ -237,7 +237,7 @@ describe('Load deck in the practice game menu (#780)', () => {
 
     await openPicker();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Load My Drive deck' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' }));
     });
 
     expect(deckFromTsv).not.toHaveBeenCalled();
