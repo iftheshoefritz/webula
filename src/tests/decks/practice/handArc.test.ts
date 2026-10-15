@@ -1,4 +1,4 @@
-import { handArcLayout } from '../../../app/decks/practice/handArc';
+import { ARC_ANGLE_PER_CARD, ARC_MAX_ANGLE, ARC_SAG, handArcLayout } from '../../../app/decks/practice/handArc';
 
 // Half the width a card covers once turned, as the layout computes it.
 const halfExtent = (width: number, height: number, angle: number) => {
@@ -36,6 +36,26 @@ describe('handArcLayout (#1125)', () => {
     const { cards } = handArcLayout({ count: 3, cardWidth: 108, maxStep: 116, left: 100, right: 1100, bottom: 600 });
     expect(cards[1].centerX).toBe(600);
     expect(cards[1].centerX - cards[0].centerX).toBe(116);
+  });
+
+  it('sags the ends by about half of what #1125 drew (#1132)', () => {
+    expect(ARC_SAG).toBe(0.06);
+    expect(ARC_MAX_ANGLE).toBe(14);
+    expect(ARC_ANGLE_PER_CARD).toBe(3);
+    // The share of a card's bounding box below the bottom edge, as getBoundingClientRect measures it.
+    const layout = handArcLayout({ count: 7, cardWidth: 126, maxStep: 135, left: 0, right: 2000, bottom: 375 });
+    const share = (card: { centerY: number; angle: number }) => {
+      const rad = (Math.abs(card.angle) * Math.PI) / 180;
+      const half = (layout.cardHeight / 2) * Math.cos(rad) + (layout.cardWidth / 2) * Math.sin(rad);
+      return (card.centerY + half - 375) / (2 * half);
+    };
+    const shares = layout.cards.map(share);
+    // 0.56 vs 0.45 before, a difference of 0.11.
+    expect(shares[0] - shares[3]).toBeGreaterThan(0.04);
+    expect(shares[0] - shares[3]).toBeLessThan(0.07);
+    const mean = shares.reduce((sum, s) => sum + s, 0) / shares.length;
+    expect(mean).toBeGreaterThan(0.48);
+    expect(mean).toBeLessThan(0.52);
   });
 
   it('draws a narrower card when the gap is narrower than one card', () => {
