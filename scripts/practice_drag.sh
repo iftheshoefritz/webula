@@ -2,9 +2,13 @@
 # Drags one card of the practice table to one place, with agent-browser.
 #
 #   bash scripts/practice_drag.sh <card-id> <data-zone or data-testid>
-#   bash scripts/practice_drag.sh card-5 core
+#   bash scripts/practice_drag.sh card-7 core
 #   bash scripts/practice_drag.sh card-1 mission-pile-awayTeam-0
-#   bash scripts/practice_drag.sh --touch card-5 core
+#   bash scripts/practice_drag.sh --touch card-7 core
+#
+# The examples drag hand cards of `/decks/practice?fixture=piles&reset=1&menu=0`,
+# the fixture that deals a hand (#1116). `?fixture=1` deals a new game with no
+# hand (#1115).
 #
 # With `--touch` the drag is a finger, not a mouse (#1035). The press, the
 # moves and the release go through `scripts/cdp_input.sh touch-drag`, which

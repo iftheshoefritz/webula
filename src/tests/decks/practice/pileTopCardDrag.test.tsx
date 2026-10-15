@@ -62,6 +62,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -69,7 +70,7 @@ const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
-// 8 draw cards: a new game deals 7 into the hand, leaving exactly one ("Card 8") in the draw deck.
+// 8 draw cards: the test draws 7 into the hand, leaving exactly one ("Card 8") in the draw deck.
 const mockDrawCards = Array.from({ length: 8 }, (_, i) => ({
   collectorsinfo: `1U${String(i + 1).padStart(3, '0')}`,
   originalName: `Card ${i + 1}`,
@@ -136,6 +137,7 @@ describe('Practice table: dragging the top card off the draw deck or the dilemma
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
   };
 
   const drag = async (id: string, overId: string) => {

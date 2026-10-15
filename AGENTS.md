@@ -275,24 +275,36 @@ replaces the save.
 
 The game menu splash opens on every load of the practice table (#781) and covers the table. To
 start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
-`/decks/practice?fixture=1&reset=1&menu=0`. A check of the splash itself leaves `menu=0` off.
+`/decks/practice?fixture=1&reset=1&menu=0`, and for a check that needs cards in the hand it is
+`/decks/practice?fixture=piles&reset=1&menu=0`. A check of the splash itself leaves `menu=0` off.
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
 The practice table has two fixtures. Each one deals the same table on every load.
 
-- `?fixture=1` deals a plain new game: the missions, a hand of 7, and the rest of the deck in the
-  draw deck and the dilemma pile. The brig, the core, the dilemma stack and the ship rows are empty.
-- `?fixture=piles` (#802, #1024) deals the cards in deck order, with no shuffle. Mission 0 has an
+- `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
+  the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
+  ship rows are empty. A new game deals no opening hand (#1115): a tap on the draw deck draws one
+  card into the hand.
+- `?fixture=piles` (#802, #1024) deals the cards in deck order, with no shuffle, and **a hand of 7**
+  (`FIXTURE_HAND` in `tableReducer.ts`), its own and not the opening hand of a new game. Mission 0 has an
   away team of 20 personnel. Mission 1 has a ship with a crew of 12 and one event placed on it, so
   the ship shows its counter of placed cards. Mission 2 has 3 dilemmas under it, shown as slivers.
   The brig holds 2 personnel, the core holds 4 events, and the dilemma stack holds 4 dilemmas face
-  down. The hand, the draw deck and the dilemma pile get the rest.
+  down. The draw deck and the dilemma pile get the rest. The hand holds a Tricorder (`card-1`), two
+  events (`card-7`, `card-8`), two interrupts (`card-9`, `card-10`) and two ships (`card-39`,
+  `card-40`).
 
-Use `/decks/practice?fixture=piles&reset=1&menu=0` for a check of the dilemma stack, dilemmas under a
-mission, the brig, the core, a card placed on a ship, a ship on the table, the crew, the away team,
-or a long card list panel. Use `/decks/practice?fixture=1&reset=1&menu=0` for a check of a fresh game, the
-hand, the draw deck, or the dilemma pile.
+A tap on the closed hand opens it as an arc along the bottom edge of the screen
+(`data-testid="hand-arc"`, `handArc.ts`, #1125): about half of each card is below the edge, and the
+arc stays between the draw deck and the dilemma pile, over the core and the brig. The dilemma hand
+still opens as a flat fan above the bottom row.
+
+Use `/decks/practice?fixture=piles&reset=1&menu=0` for a check of the hand, of a drag from the hand,
+or of anything else that needs cards in the hand, and for a check of the dilemma stack, dilemmas
+under a mission, the brig, the core, a card placed on a ship, a ship on the table, the crew, the
+away team, or a long card list panel. Use `/decks/practice?fixture=1&reset=1&menu=0` for a check of
+a fresh game, the draw deck, or the dilemma pile.
 
 To keep the bottom of the page clear, start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`. This hides the consent banner and the Next.js dev tools button.
 
@@ -307,8 +319,10 @@ To check drag and drop on the practice table, use the script. It takes a card ID
 
 The script prints a `data-zone`, or, for a card that left the DOM, the `data-zone` or `data-testid` of the badge that gained a card. Each printed name is also a valid target, except two fallbacks: the counter of the cards on a mission prints the mission's name, and a crew badge with no `data-zone` ancestor prints the ship's name.
 
+The examples drag hand cards, so they run on `/decks/practice?fixture=piles&reset=1&menu=0`:
+
 ```bash
-bash scripts/practice_drag.sh card-5 core
+bash scripts/practice_drag.sh card-7 core
 bash scripts/practice_drag.sh card-8 brig
 ```
 
@@ -370,9 +384,10 @@ To see when a card armed, install a `MutationObserver` on `data-highlight` befor
 
 A ship has one drop target, `crew-<the ship's card id>`, over its art. A personnel or an equipment dropped there boards the crew (#893), a ship goes to that ship's own ship row (#668), and any other card is placed on the ship, and the ship shows a counter of the cards on it. The ship's crew badge is not a drop target (#923); it only shows the size of the crew, and it shows even when the crew is empty.
 
-A mission card takes a placed card too. Its art has two drop halves (#871), each the full width and half the height of the card: `mission-under-<index>` on top and `mission-on-<index>` below (#917). The top half reaches up over the slivers of the dilemmas under the mission (#990), so a drop on a sliver goes under the mission. They differ only for a dilemma: the top half puts it under the mission, and the bottom half places it on the mission card. A tap on the top half opens the under-the-mission panel, and does nothing when no dilemma is under the mission. A tap on the bottom half opens the away team panel, and does nothing when the away team is empty (#967). A double-tap on the mission card (two taps within 250 ms, `DOUBLE_TAP_MS`) toggles its completion and opens no panel, so a single tap acts only after that window passes (#1059). A completed mission is darkened and turned 90° clockwise inside its slot (#1060); the slivers, the counter and the Flip button stay upright, and nothing else on the table moves. On a desktop every mission slot is as wide as the turned card all the time, and the two drop halves span the slot's width. For the keyboard, a button visually hidden until it has focus, `data-testid="mission-toggle-<index>"`, toggles it too. A hold on either half shows the mission preview. For every other type both halves do the same thing: a ship goes to the ship row, a personnel or an equipment goes to the away team (#870), and any other card is placed on the mission card. A mission slot with no mission card sends a dilemma under the mission from either half. The mission has no event pile. The cards placed on the mission count in two badges in the badge strip, to the right of the away team badge: the events badge, `data-testid="mission-on-events-<index>"`, with the event icon, counts every placed card that is not a dilemma (#1069), and the dilemma badge, `data-testid="mission-on-dilemmas-<index>"`, with the dual icon, counts the placed dilemmas (#1081). Each shows only when its count is above 0, and a tap on it opens a panel of only its own cards, `card-list-panel-onEvents` or `card-list-panel-onDilemmas`. The mission card also shows the last 3 cards of each group as small cards in a strip along its edge (#1099), below its title and above its point box: the events on the left, `data-testid="mission-on-events-strip-<index>"`, and the dilemmas on the right, `mission-on-dilemmas-strip-<index>`. A strip is not a drop target and its small cards have no `data-card-id`, so a drop on a strip lands on the mission half under it. A tap on a strip opens the same panel as its badge once the double-tap window passes, a double-tap on it toggles completion, a hold on a small card previews that card, and the strips turn with a completed mission. Both sit outside every `data-zone`, so `practice_drag.sh` prints them under the mission's name. A drop under a mission prints `mission-under-<index>`, the name of the drop target, whether the card shows as one of the two slivers above the mission or has left the DOM (#920). The stack of slivers is not a drop target, so it has no `data-zone`; the script finds it by its `data-testid`, `mission-under-<index>-stack`. The away team badge, `data-testid="mission-pile-awayTeam-<index>"`, is not a drop target (#924). The bottom half `mission-on-<index>` reaches down over the badge strip, so a drop on the badge routes as a drop on the mission card does: a personnel or an equipment joins the away team, and the landed cue plays on the badge. `practice_drag.sh` prints a move into the away team as `mission-pile-awayTeam-<index>`, the badge's `data-testid`. The script can aim at the badge by that name too, and the drop then lands on `mission-on-<index>`:
+A mission card takes a placed card too. Its art has two drop halves (#871), each the full width and half the height of the card: `mission-under-<index>` on top and `mission-on-<index>` below (#917). The top half reaches up over the slivers of the dilemmas under the mission (#990), so a drop on a sliver goes under the mission. They differ only for a dilemma: the top half puts it under the mission, and the bottom half places it on the mission card. A tap on the top half opens the under-the-mission panel, and does nothing when no dilemma is under the mission. A tap on the bottom half opens the away team panel, and does nothing when the away team is empty (#967). A double-tap on the mission card (two taps within 250 ms, `DOUBLE_TAP_MS`) toggles its completion and opens no panel, so a single tap acts only after that window passes (#1059). A completed mission is darkened and turned 90° clockwise inside its slot (#1060); the slivers, the counter and the Flip button stay upright, and nothing else on the table moves. On a desktop every mission slot is as wide as the turned card all the time, and the two drop halves span the slot's width. For the keyboard, a button visually hidden until it has focus, `data-testid="mission-toggle-<index>"`, toggles it too. A hold on either half shows the mission preview. For every other type both halves do the same thing: a ship goes to the ship row, a personnel or an equipment goes to the away team (#870), and any other card is placed on the mission card. A mission slot with no mission card sends a dilemma under the mission from either half. The mission has no event pile. The cards placed on the mission count in two badges in the badge strip, to the right of the away team badge: the events badge, `data-testid="mission-on-events-<index>"`, with the event icon, counts every placed card that is not a dilemma (#1069), and the dilemma badge, `data-testid="mission-on-dilemmas-<index>"`, with the dual icon, counts the placed dilemmas (#1081). Each shows only when its count is above 0, and a tap on it opens a panel of only its own cards, `card-list-panel-onEvents` or `card-list-panel-onDilemmas`. The mission card also shows the last 3 cards of each group as small cards in a strip along its edge (#1099), below its title and above its point box: the events on the left, `data-testid="mission-on-events-strip-<index>"`, and the dilemmas on the right, `mission-on-dilemmas-strip-<index>`. Each strip sticks out 3 px past the card's edge on its side (#1126). A strip is not a drop target and its small cards have no `data-card-id`, so a drop on a strip lands on the mission half under it. A tap on a strip opens the same panel as its badge once the double-tap window passes, a double-tap on it toggles completion, a hold on a small card previews that card, and the strips turn with a completed mission. Both sit outside every `data-zone`, so `practice_drag.sh` prints them under the mission's name. A drop under a mission prints `mission-under-<index>`, the name of the drop target, whether the card shows as one of the two slivers above the mission or has left the DOM (#920). The stack of slivers is not a drop target, so it has no `data-zone`; the script finds it by its `data-testid`, `mission-under-<index>-stack`. The away team badge, `data-testid="mission-pile-awayTeam-<index>"`, is not a drop target (#924). The bottom half `mission-on-<index>` reaches down over the badge strip, so a drop on the badge routes as a drop on the mission card does: a personnel or an equipment joins the away team, and the landed cue plays on the badge. `practice_drag.sh` prints a move into the away team as `mission-pile-awayTeam-<index>`, the badge's `data-testid`. The script can aim at the badge by that name too, and the drop then lands on `mission-on-<index>`:
 
 ```bash
+# on ?fixture=piles, where card-1 is the Tricorder in the hand
 bash scripts/practice_drag.sh card-1 mission-pile-awayTeam-0   # prints mission-pile-awayTeam-0
 ```
 
@@ -381,11 +396,12 @@ The bare ship row, `ship-row-<index>`, takes only a ship (#886). Any other card 
 To put a card into a ship's crew, drag it out of a mission's card list panel onto the ship. That drag lands. The drag of a ship onto its ship row prints the ship's own zone:
 
 ```bash
-bash scripts/practice_drag.sh card-10 ship-row-0         # prints crew-card-10
-bash scripts/practice_drag.sh card-1 mission-on-0            # a personnel joins the away team
+# on ?fixture=piles, where the hand holds the ships card-39 and card-40
+bash scripts/practice_drag.sh card-39 ship-row-0         # prints crew-card-39
+bash scripts/practice_drag.sh card-1 mission-on-0        # an equipment joins the away team
 # open that card list panel, then:
-bash scripts/practice_drag.sh card-1 crew-card-10        # boards card-1, prints crew-card-10
-bash scripts/practice_drag.sh card-2 crew-card-10        # boards a personnel, places an event on the ship; prints crew-card-10
+bash scripts/practice_drag.sh card-1 crew-card-39        # boards card-1, prints crew-card-39
+bash scripts/practice_drag.sh card-9 crew-card-39        # places an interrupt on the ship; prints crew-card-39
 ```
 
 A tap anywhere on the ship, the counter of the cards on it too, opens its crew panel (#963). The crew panel shows the cards on the ship as tiny cards below the ship, and a drag of a tiny card out of the panel takes it off the ship.
@@ -401,6 +417,7 @@ or hover must open the page with the script:
 
 ```bash
 bash scripts/agent_browser_desktop.sh 'http://localhost:3000/decks/practice?fixture=1&reset=1'
+bash scripts/agent_browser_desktop.sh 'http://localhost:3000/decks/practice?fixture=piles&reset=1&menu=0'   # a check of the hand
 ```
 
 Quote the URL, because it holds `&`. The script starts Chromium with
@@ -426,12 +443,12 @@ use `scripts/cdp_input.sh` (#1035). It sends raw CDP input to the open page on o
 saw, with their pointer type, their modifier keys and the element they hit. A point is `<x> <y>`
 or a CSS selector, whose centre is the point.
 
-**Touch.** A finger tap, a touch pan, and a touch drag of a card:
+**Touch.** A finger tap, a touch pan, and a touch drag of a card, on `?fixture=piles`:
 
 ```bash
 bash scripts/cdp_input.sh tap 20 20                  # a tap on the open hand's backdrop closes it
 bash scripts/cdp_input.sh pan '[data-testid="card-list-panel-awayTeam"]' 0 -200
-bash scripts/practice_drag.sh --touch card-5 core    # prints core
+bash scripts/practice_drag.sh --touch card-7 core    # prints core
 ```
 
 ```
@@ -577,7 +594,7 @@ shows them. Record them with the watcher instead (#1036):
 
 ```bash
 bash scripts/watch_landed.sh install            # a MutationObserver starts recording
-bash scripts/practice_drag.sh card-8 core
+bash scripts/practice_drag.sh card-8 core       # a hand card of ?fixture=piles
 bash scripts/watch_landed.sh print              # prints the record, then clears it
 ```
 

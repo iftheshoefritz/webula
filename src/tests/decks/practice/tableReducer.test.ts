@@ -6,8 +6,8 @@ import {
   CardInstance,
   MissionSlot,
   MISSION_SLOTS,
-  OPENING_HAND_SIZE,
   FIXTURE_BRIG,
+  FIXTURE_HAND,
   FIXTURE_CORE,
   FIXTURE_UNDER_MISSION,
   FIXTURE_DILEMMA_STACK,
@@ -39,7 +39,7 @@ const missionSlots = (
 
 describe('tableReducer', () => {
   describe('reset', () => {
-    it('deals the first 7 cards into the hand, face up, and leaves the rest in the pile', () => {
+    it('empties the hand and deals every card into the draw deck (#1115)', () => {
       const cards = Array.from({ length: 10 }, (_, i) => instance(`c${i}`, card(`Card ${i}`)));
       const state = tableReducer(
         {
@@ -52,17 +52,8 @@ describe('tableReducer', () => {
         { type: 'reset', cards, missions: [], dilemmas: [] }
       );
 
-      expect(state.hand).toEqual(cards.slice(0, 7).map((c) => ({ ...c, face: 'up' })));
-      expect(state.drawDeck).toEqual(cards.slice(7));
-      expect(state.discard).toEqual([]);
-    });
-
-    it('deals all the cards into the hand when the deck has fewer than 7', () => {
-      const cards = [instance('a', card('Tricorder')), instance('b', card('Phaser'))];
-      const state = tableReducer(initialTableState, { type: 'reset', cards, missions: [], dilemmas: [] });
-
-      expect(state.hand).toEqual(cards.map((c) => ({ ...c, face: 'up' })));
-      expect(state.drawDeck).toEqual([]);
+      expect(state.hand).toEqual([]);
+      expect(state.drawDeck).toEqual(cards);
       expect(state.discard).toEqual([]);
     });
 
@@ -172,14 +163,15 @@ describe('tableReducer', () => {
       expect(state.dilemmaHand).toEqual([]);
     });
 
-    it('keeps the dilemmas out of the 7 card opening hand', () => {
+    it('deals no hand and puts every draw card in the draw deck (#1115)', () => {
       const cards = Array.from({ length: 10 }, (_, i) => instance(`c${i}`, card(`Card ${i}`)));
       const dilemmas = [instance('d1', card('A'))];
 
       const state = tableReducer(initialTableState, { type: 'reset', cards, missions: [], dilemmas });
 
-      expect(state.hand).toHaveLength(OPENING_HAND_SIZE);
-      expect(state.hand.every((c) => c.id.startsWith('c'))).toBe(true);
+      expect(state.hand).toEqual([]);
+      expect(state.drawDeck.map((c) => c.id)).toEqual(cards.map((c) => c.id));
+      expect(state.dilemmaPile).toEqual(dilemmas);
     });
 
     it('puts the dilemmas back in the dilemma pile on a second reset', () => {
@@ -1251,7 +1243,7 @@ describe('resetWithPiles (#802)', () => {
     expect(state.missions[1].ships[0].card.type).toBe('ship');
     expect(state.missions[1].ships[0].crew).toHaveLength(12);
     expect(state.missions[1].ships[0].crew!.every((c) => c.face === 'up')).toBe(true);
-    expect(state.hand).toHaveLength(OPENING_HAND_SIZE);
+    expect(state.hand).toHaveLength(FIXTURE_HAND);
   });
 
   it('uses every card once, the same total as a plain reset', () => {

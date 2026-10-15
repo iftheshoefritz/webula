@@ -57,6 +57,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { LANDED_CUE_MS } from '../../../app/decks/practice/LandedZoneContext';
@@ -166,6 +167,8 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
     const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
     if (closedHandButton) {
       await act(async () => {

@@ -36,6 +36,7 @@ jest.mock('next/link', () => {
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
@@ -122,6 +123,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     // The page container or some content should be rendered
     expect(document.body).toBeTruthy();
@@ -135,6 +137,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(deckFromTsv).toHaveBeenCalledWith(PRACTICE_DECK_TSV, mockCardData);
     expect(extractDrawDeck).toHaveBeenCalledWith(mockDeck);
@@ -148,6 +151,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(deckFromTsv).toHaveBeenCalledWith(PRACTICE_DECK_TSV, mockCardData);
   });
@@ -161,6 +165,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(deckFromTsv).not.toHaveBeenCalled();
     expect(extractDrawDeck).toHaveBeenCalledWith(mockDeck);
@@ -178,6 +183,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     const missionImage = () => document.querySelector('[data-card-id] img[alt="Ceti Alpha V"]');
     expect(missionImage()).toHaveAttribute('src', '/cardimages/STVE-EN29035ab.jpg');
@@ -195,6 +201,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(deckFromTsv).not.toHaveBeenCalled();
   });
@@ -207,6 +214,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(deckFromTsv).not.toHaveBeenCalled();
   });
@@ -243,6 +251,7 @@ describe('PracticeDrawPage', () => {
       await act(async () => {
         render(<PracticeDrawPage />);
       });
+      await drawOpeningHand();
     } catch (e) {
       error = e as Error;
     }
@@ -261,6 +270,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(screen.queryByText('Practice Draw')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /back to deck builder/i })).not.toBeInTheDocument();
@@ -274,6 +284,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(screen.getByText('No draw cards in deck.')).toBeInTheDocument();
   });
@@ -288,6 +299,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(screen.queryByText('No draw cards in deck.')).not.toBeInTheDocument();
   });
@@ -300,6 +312,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     const link = screen.getByRole('link', { name: /go to deck builder/i });
     expect(link).toHaveAttribute('href', '/decks');
@@ -315,8 +328,9 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
-    // A new game deals 7 of the 10 cards into the (closed) hand; the rest stay in the pile.
+    // The test draws a hand of 7 of the 10 cards into the (closed) hand; the rest stay in the pile.
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
 
@@ -343,6 +357,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     // #743: the draw deck is now two drop-half buttons; the passthrough only needs one of them
     // to cover the tap point below.
@@ -388,6 +403,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     // 10-card deck: 7 dealt into the hand, 3 left in the pile.
     expect(screen.getByText('3')).toBeInTheDocument();
@@ -423,6 +439,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(screen.queryByRole('button', { name: /draw to 7/i })).not.toBeInTheDocument();
   });
@@ -438,6 +455,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     // #743: the draw deck's two drop halves are its tap controls now, in place of the single
     // button that used to carry the "Empty" placeholder's own accessible name.
@@ -456,6 +474,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     const zones = Array.from(document.body.querySelectorAll('[data-zone]')).map((el) =>
       el.getAttribute('data-zone')
@@ -500,6 +519,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     // The empty draw deck shows "Empty"; the empty dilemma hand hides its marker while no drag
     // runs (#929); the still-empty discard pile shows its own "Discard" label.
@@ -518,8 +538,9 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
-    // A new game already dealt 7 cards, including "Card 1", into the (closed) hand. Open it
+    // The test drew 7 cards, including "Card 1", into the (closed) hand. Open it
     // to reach the individual card buttons.
     // #740 keeps a hand open after a drag out of it, so this tap only runs when the
     // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
@@ -546,6 +567,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(screen.queryByRole('button', { name: 'Card 1' })).not.toBeInTheDocument();
 
@@ -597,6 +619,7 @@ describe('PracticeDrawPage', () => {
       await act(async () => {
         render(<PracticeDrawPage />);
       });
+      await drawOpeningHand();
 
       // #740 keeps a hand open after a drag out of it, so this tap only runs when the
       // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
@@ -705,6 +728,7 @@ describe('PracticeDrawPage', () => {
       await act(async () => {
         render(<PracticeDrawPage />);
       });
+      await drawOpeningHand();
     };
 
     it('starts with every dilemma in the dilemma pile and an empty dilemma hand', async () => {
@@ -772,6 +796,7 @@ describe('PracticeDrawPage', () => {
       await act(async () => {
         render(<PracticeDrawPage />);
       });
+      await drawOpeningHand();
     };
 
     const tap = async (element: Element) => {
@@ -887,8 +912,9 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
-    // Draw one card, leaving cards on the table beyond the initial opening hand.
+    // Draw one card, leaving cards on the table beyond the drawn hand.
     const drawPileButton = screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' });
     await act(async () => {
       fireEvent.click(drawPileButton);
@@ -967,6 +993,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(screen.getByText('Rotate your device')).toBeInTheDocument();
   });
@@ -996,6 +1023,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     // Initially landscape — overlay not shown
     expect(screen.queryByText('Rotate your device')).not.toBeInTheDocument();
@@ -1023,6 +1051,7 @@ describe('PracticeDrawPage', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
 
     expect(lockMock).toHaveBeenCalledWith('landscape');
   });

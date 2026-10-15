@@ -64,6 +64,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -71,7 +72,7 @@ const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
-// 11 cards: a new game deals 7 into the hand, leaving "Card 8" to "Card 11" in the draw deck,
+// 11 cards: the test draws 7 into the hand, leaving "Card 8" to "Card 11" in the draw deck,
 // in that order, with "Card 8" on top.
 const makeManyCards = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
@@ -141,6 +142,8 @@ describe('Practice draw: the reveal panel of a pile (#1070)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
   };
 
   const click = async (element: HTMLElement) => {

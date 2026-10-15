@@ -60,6 +60,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -130,6 +131,8 @@ describe('Practice draw: the dilemma pile has a Shuffle button (#785)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
 
     const dilemmaPile = screen.getByTestId('dilemma-pile');
     const countBefore = dilemmaPile.textContent;
@@ -168,6 +171,8 @@ describe('Practice draw: the dilemma pile has a Shuffle button (#785)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
 
     (shuffleArray as jest.Mock).mockClear();
     await act(async () => {

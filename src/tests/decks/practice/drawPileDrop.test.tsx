@@ -65,6 +65,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -72,7 +73,7 @@ const mockCardData = [
   { collectorsinfo: '1U001', originalName: 'Tricorder', type: 'equipment', name: 'tricorder', imagefile: 'tricorder', pile: 'drawDeck', count: 1 },
 ];
 
-// 8 cards: a new game deals 7 into the hand, leaving exactly one ("Card 8") in the draw deck,
+// 8 cards: the test draws 7 into the hand, leaving exactly one ("Card 8") in the draw deck,
 // so a drop onto either half has a single pile card to reorder around.
 const makeManyCards = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
@@ -131,6 +132,8 @@ describe('Practice draw: dropping a card on the draw deck (#743)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
 
     const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
     if (closedHandButton) {

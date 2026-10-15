@@ -62,6 +62,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -157,6 +158,8 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    mockDraggableIds.length = 0;
 
     // #740 keeps a hand open after a drag out of it, so this tap only runs when the
     // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
@@ -295,6 +298,8 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
       await act(async () => {
         render(<PracticeDrawPage />);
       });
+      await drawOpeningHand();
+      mockDraggableIds.length = 0;
       const closedHandButton = screen.queryByRole('button', { name: /^hand, \d+ cards?, tap to open$/i });
       if (closedHandButton) {
         await act(async () => {

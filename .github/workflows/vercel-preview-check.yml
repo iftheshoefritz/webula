@@ -117,6 +117,8 @@ jobs:
 
                Always link `/decks/practice?fixture=1` when the change touches anything under `src/app/decks/practice/`. The practice table has no other way in: `/decks/practice` on its own shows an empty table, so a reviewer who follows a bare link sees none of the change.
 
+               When the change touches the hand, a drag from the hand, or anything else that needs cards in the hand, also link `/decks/practice?fixture=piles`. The piles fixture deals a hand of 7, and `?fixture=1` deals none (#1115).
+
             7. Construct full clickable URLs by appending each relevant path to the Vercel preview base URL from step 3.
 
                Example: if the base URL is `https://webula-abc123.vercel.app` and the route is `/decks?fixture=1`,

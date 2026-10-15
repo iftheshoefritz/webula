@@ -40,7 +40,7 @@ const row = (collectorsinfo: string, originalName: string, type: string) => ({
   imagefile: collectorsinfo,
 });
 
-// Eight draw deck cards, so the draw deck still holds one after the opening hand of seven.
+// Eight draw deck cards, so the draw deck still holds one after seven opening draws.
 const deck = {
   '1M001': { count: 1, row: row('1M001', 'Test Mission', 'mission') },
   '1D001': { count: 2, row: row('1D001', 'Test Dilemma', 'dilemma') },
@@ -102,5 +102,23 @@ describe('the Game log item of the game menu (#1065)', () => {
       'Turn 1\n- Drew a card from the draw deck into the hand\n\nTurn 2\n- Started turn 2'
     );
     expect(within(panel).getByRole('button', { name: 'Copied' })).toBeInTheDocument();
+  });
+
+  it('deals no hand, and seven taps on the draw deck draw a hand of 7 that the log lists in turn 1 (#1115)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('button', { name: /^hand, 0 cards?, tap to open$/i })).toBeInTheDocument();
+
+    for (let i = 0; i < 7; i++) {
+      fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
+    }
+    expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
+
+    fireEvent.click(within(openMenu()).getByRole('button', { name: 'Game log' }));
+    const panel = await screen.findByRole('dialog', { name: 'Game log' });
+    const turn1 = within(panel).getByTestId('game-log-turn-1');
+    expect(within(turn1).getAllByText('Drew a card from the draw deck into the hand')).toHaveLength(7);
   });
 });

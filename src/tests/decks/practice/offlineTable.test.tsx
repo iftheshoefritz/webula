@@ -146,8 +146,8 @@ describe('the practice table while offline (#1053)', () => {
     });
 
     expect(screen.queryByText('This deck is not available offline.')).not.toBeInTheDocument();
-    // 20 cards, a hand of 7.
-    expect(drawPileCount()).toBe('13');
+    // 20 cards: a new game deals no hand (#1115).
+    expect(drawPileCount()).toBe('20');
   });
 
   it('renders the table for a deck in the record', async () => {
@@ -155,7 +155,7 @@ describe('the practice table while offline (#1053)', () => {
     await renderPage();
 
     expect(screen.queryByText('This deck is not available offline.')).not.toBeInTheDocument();
-    expect(drawPileCount()).toBe('3');
+    expect(drawPileCount()).toBe('10');
   });
 
   it('renders the table online for a deck not in the record', async () => {
@@ -163,7 +163,7 @@ describe('the practice table while offline (#1053)', () => {
     await renderPage();
 
     expect(screen.queryByText('This deck is not available offline.')).not.toBeInTheDocument();
-    expect(drawPileCount()).toBe('3');
+    expect(drawPileCount()).toBe('10');
   });
 
   it('keeps the table of a game dealt online when the connection drops', async () => {
@@ -175,7 +175,7 @@ describe('the practice table while offline (#1053)', () => {
     });
 
     expect(screen.queryByText('This deck is not available offline.')).not.toBeInTheDocument();
-    expect(drawPileCount()).toBe('3');
+    expect(drawPileCount()).toBe('10');
   });
 
   it('Load deck shows the offline message and decks, and calls neither getSession nor /api/drive', async () => {
@@ -197,7 +197,7 @@ describe('the practice table while offline (#1053)', () => {
     });
 
     expect(screen.queryByTestId('offline-deck-picker')).not.toBeInTheDocument();
-    expect(drawPileCount()).toBe('13');
+    expect(drawPileCount()).toBe('20');
   });
 
   it('Load deck opens the offline decks in the shared Drive picker shell, which closes with × and the backdrop (#1110)', async () => {

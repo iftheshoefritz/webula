@@ -69,7 +69,8 @@ const makeCards = (n: number, prefix: string) =>
 const deckOf = (cards: ReturnType<typeof makeCards>) =>
   Object.fromEntries(cards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
-// The builder's deck deals 3 cards to the draw deck (10 - a 7 card hand); the Drive deck deals 13.
+// The builder's deck holds 10 cards and the Drive deck 20. A deal deals no hand and leaves every card
+// in the draw deck (#1115).
 const builderCards = makeCards(10, '1U');
 const builderDeck = deckOf(builderCards);
 const driveCards = makeCards(20, '9R');
@@ -168,7 +169,7 @@ describe('Load deck in the practice game menu (#780)', () => {
     await renderPage();
 
     expect(screen.getByText('Your decks')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Load My Drive deck' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' })).toBeInTheDocument();
     expect(window.location.search).toBe('');
   });
 
@@ -183,17 +184,17 @@ describe('Load deck in the practice game menu (#780)', () => {
     (getSession as jest.Mock).mockResolvedValue(session);
     jest.spyOn(window, 'confirm').mockReturnValue(true);
     await renderPage();
-    expect(await drawPileIds()).toHaveLength(3);
+    expect(await drawPileIds()).toHaveLength(10);
 
     await openPicker();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Load My Drive deck' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' }));
     });
 
     expect(fetchMock).toHaveBeenCalledWith('/api/drive/file-1', expect.objectContaining({ method: 'GET' }));
     expect(deckFromTsv).toHaveBeenCalledWith('drive deck tsv', builderCards);
     expect(screen.queryByText('Your decks')).not.toBeInTheDocument();
-    expect(await drawPileIds()).toHaveLength(13);
+    expect(await drawPileIds()).toHaveLength(20);
 
     // Reset deals the loaded deck again, and the builder's deck stays as it was.
     await act(async () => {
@@ -202,7 +203,7 @@ describe('Load deck in the practice game menu (#780)', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
     });
-    expect(await drawPileIds()).toHaveLength(13);
+    expect(await drawPileIds()).toHaveLength(20);
     expect(localStorage.getItem('currentDeck')).toBe(JSON.stringify(builderDeck));
   });
 
@@ -213,7 +214,7 @@ describe('Load deck in the practice game menu (#780)', () => {
 
     await openPicker();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Load My Drive deck' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' }));
     });
 
     expect(fetchMock).not.toHaveBeenCalledWith('/api/drive/file-1', expect.anything());
@@ -222,7 +223,7 @@ describe('Load deck in the practice game menu (#780)', () => {
       fireEvent.click(screen.getByText('×'));
     });
     expect(screen.queryByText('Your decks')).not.toBeInTheDocument();
-    expect(await drawPileIds()).toHaveLength(3);
+    expect(await drawPileIds()).toHaveLength(10);
   });
 
   it('keeps the game when the deck fetch fails', async () => {
@@ -237,11 +238,11 @@ describe('Load deck in the practice game menu (#780)', () => {
 
     await openPicker();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Load My Drive deck' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' }));
     });
 
     expect(deckFromTsv).not.toHaveBeenCalled();
-    expect(await drawPileIds()).toHaveLength(3);
+    expect(await drawPileIds()).toHaveLength(10);
   });
 
   it('still deals the fixture deck with ?fixture=1', async () => {

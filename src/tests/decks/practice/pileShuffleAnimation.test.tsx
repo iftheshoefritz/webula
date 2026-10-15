@@ -73,7 +73,7 @@ const card = (collectorsinfo: string, name: string, type: string, pile: string) 
   count: 1,
 });
 
-// More than an opening hand, so the draw deck still has cards after the deal.
+// More than the 7 cards the test draws, so the draw deck still has cards after them.
 const drawCards = Array.from({ length: 12 }, (_, i) =>
   card(`1U0${String(i + 10)}`, `draw card ${i}`, 'personnel', 'draw')
 );

@@ -16,11 +16,13 @@ import {
 import { collisionDetection } from './collisionDetection';
 import { FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
 import {
+  cardPileFor,
   deckFromTsv,
   extractDrawDeck,
   extractDilemmas,
   extractMissions,
   isDeckEmpty,
+  mergeDeckPiles,
   shuffleArray,
   withBackImageFiles,
 } from '../deckBuilderUtils';
@@ -30,6 +32,7 @@ import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
+import type { MissionsAndDrawSource } from './PracticeDeckPicker';
 import { usePracticeDrive } from './usePracticeDrive';
 import { useOfflineDecks } from './offlineDecks';
 import { OfflineMenuView, offlineItemLabel } from './OfflineMenuView';
@@ -73,6 +76,7 @@ import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
 import ControlsPanel from './ControlsPanel';
+import HomeScreenHelp from './HomeScreenHelp';
 import { gameReducer, initialGameState } from './gameLog';
 import { CardHoldProvider, NO_CALLOUT_STYLE, PLACE_ON_HOLD_MS, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
 import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHoldContext';
@@ -174,8 +178,9 @@ function FullscreenIcon({ exit }: { exit: boolean }) {
 //
 // The fullscreen button (#921) sits under the menu button, in the same corner, so it adds no width
 // to the bottom row. It puts the game layer into fullscreen, so every overlay above, which portals
-// into the game layer, still shows. It is hidden where the browser has no Fullscreen API for a
-// `<div>`, such as iPhone Safari.
+// into the game layer, still shows. Where the browser has no Fullscreen API for a `<div>`, such as
+// iPhone Safari, it shows how to add the app to the home screen instead (#1127), and it is hidden
+// in an app already added to the home screen that has no Fullscreen API either.
 const SPLASH_ITEM_CLASS =
   'block w-full rounded-md border border-white/10 bg-bg-secondary px-6 py-2.5 text-center text-base text-text-secondary hover:bg-white/[0.1] hover:text-text-primary';
 
@@ -188,6 +193,7 @@ function GameMenu({
   onDecklist,
   onGameLog,
   onControls,
+  onHomeScreenHelp,
   fullscreen,
   deck,
   deckName,
@@ -202,6 +208,7 @@ function GameMenu({
   onDecklist: () => void;
   onGameLog: () => void;
   onControls: () => void;
+  onHomeScreenHelp: () => void;
   fullscreen: ReturnType<typeof useFullscreen>;
   deck: DeckList;
   deckName: string;
@@ -313,12 +320,18 @@ function GameMenu({
             </span>
           )}
         </button>
-        {fullscreen.enabled && (
+        {fullscreen.mode !== 'none' && (
           <button
             type="button"
-            onClick={fullscreen.toggle}
-            aria-label={fullscreen.isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-            aria-pressed={fullscreen.isFullscreen}
+            onClick={fullscreen.mode === 'fullscreen' ? fullscreen.toggle : onHomeScreenHelp}
+            aria-label={
+              fullscreen.mode === 'homeScreen'
+                ? 'How to add to the home screen'
+                : fullscreen.isFullscreen
+                  ? 'Exit fullscreen'
+                  : 'Enter fullscreen'
+            }
+            aria-pressed={fullscreen.mode === 'fullscreen' ? fullscreen.isFullscreen : undefined}
             data-testid="fullscreen-button"
             className="btn-icon btn-icon-sm"
           >
@@ -1124,6 +1137,9 @@ function DilemmaStackPile({
 const PRACTICE_GAME_KEY = 'practiceGame';
 const practiceGameKey = (fixture: string | null) => (fixture ? `${PRACTICE_GAME_KEY}:fixture=${fixture}` : PRACTICE_GAME_KEY);
 
+// Issue #1125: the open hand draws as an arc between the draw deck and the dilemma pile.
+const HAND_ARC_BETWEEN = { left: '[data-testid="draw-pile"]', right: '[data-testid="dilemma-pile-group"]' };
+
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
   const fixture = searchParams.get('fixture');
@@ -1323,6 +1339,9 @@ function PracticeDrawContent() {
   const [dealtDeck, setDealtDeck] = useState<DeckList>({});
   // The Drive file of `loadedDeck`, kept in the save (#976).
   const [driveFileId, setDriveFileId] = useState<string | undefined>(undefined);
+  // The Drive file of the dilemmas, when a two-step load takes them from another deck (#1114).
+  // Then `driveFileId` is the file of the missions and draw deck.
+  const [dilemmaDriveFileId, setDilemmaDriveFileId] = useState<string | undefined>(undefined);
   // The Drive file name of `loadedDeck`, the name of the deck when it is made offline (#1052).
   // A Drive game restored from the save has no name, so it falls back to "Drive deck".
   const [driveFileName, setDriveFileName] = useState<string | undefined>(undefined);
@@ -1335,6 +1354,7 @@ function PracticeDrawContent() {
   const [gameLogOpen, setGameLogOpen] = useState(false);
   // The Controls panel (#1088). `controls=1` in the URL opens it on load, so it has a link to share.
   const [controlsOpen, setControlsOpen] = useState(() => searchParams.get('controls') === '1');
+  const [homeScreenHelpOpen, setHomeScreenHelpOpen] = useState(false);
   const drive = usePracticeDrive();
   const offlineDecks = useOfflineDecks(data);
   const online = useOnline();
@@ -1394,6 +1414,7 @@ function PracticeDrawContent() {
       if (restored.source === 'drive') {
         setLoadedDeck(restored.dealtDeck);
         setDriveFileId(restored.driveFileId);
+        setDilemmaDriveFileId(restored.dilemmaDriveFileId);
       }
       saveReadyRef.current = true;
       return true;
@@ -1443,12 +1464,14 @@ function PracticeDrawContent() {
   useEffect(() => {
     if (!saveReadyRef.current || table === initialTableState) return;
     try {
-      const save = toSavedGame(table, dealtDeck, loadedDeck ? 'drive' : 'builder', loadedDeck ? driveFileId : undefined);
+      const save = loadedDeck
+        ? toSavedGame(table, dealtDeck, 'drive', driveFileId, dilemmaDriveFileId)
+        : toSavedGame(table, dealtDeck, 'builder');
       localStorage.setItem(gameKey, JSON.stringify(save));
     } catch {
       // keep playing without a save
     }
-  }, [table, dealtDeck, loadedDeck, driveFileId, gameKey]);
+  }, [table, dealtDeck, loadedDeck, driveFileId, dilemmaDriveFileId, gameKey]);
 
   useEffect(() => {
     const mql = window.matchMedia('(orientation: portrait)');
@@ -1515,10 +1538,46 @@ function PracticeDrawContent() {
     const deck = deckFromTsv(tsv, data);
     setLoadedDeck(deck);
     setDriveFileId(file.id);
+    setDilemmaDriveFileId(undefined);
     setDriveFileName(file.name);
     dealDeck(deck);
     drive.closePicker();
   };
+
+  // The picker's step 2 (#1114): the missions and draw deck of a Drive deck, or of the deck dealt
+  // now, with the dilemmas of another Drive deck. Confirms once, then deals the combined deck,
+  // which Reset deals again and the save keeps as a Drive game.
+  const loadDriveDilemmas = async (source: MissionsAndDrawSource, dilemmaFile: { id: string; name: string }) => {
+    if (!window.confirm('Load this deck? This will throw away the current game.')) return;
+    let baseDeck: DeckList;
+    let baseFileId: string | undefined;
+    let baseName: string;
+    if (source.kind === 'drive') {
+      const tsv = await drive.fetchDeckTsv(source.file);
+      if (tsv === null) return;
+      baseDeck = deckFromTsv(tsv, data);
+      baseFileId = source.file.id;
+      baseName = source.file.name;
+    } else {
+      baseDeck = dealtDeck;
+      baseFileId = loadedDeck ? driveFileId : undefined;
+      baseName = dealtDeckName();
+    }
+    const dilemmaTsv = await drive.fetchDeckTsv(dilemmaFile);
+    if (dilemmaTsv === null) return;
+    const deck = mergeDeckPiles(baseDeck, deckFromTsv(dilemmaTsv, data), ['dilemmaPile']);
+    setLoadedDeck(deck);
+    setDriveFileId(baseFileId);
+    setDilemmaDriveFileId(dilemmaFile.id);
+    setDriveFileName(`${baseName} + ${dilemmaFile.name} dilemmas`);
+    dealDeck(deck);
+    drive.closePicker();
+  };
+
+  // "Keep the current missions and draw deck" needs a dealt deck with a mission or a draw card.
+  const canKeepCurrentMissionsAndDraw = Object.values(dealtDeck).some(
+    (entry) => (entry?.count ?? 0) > 0 && entry?.row && cardPileFor(entry.row) !== 'dilemmaPile'
+  );
 
   // An offline deck chosen from the not-available message or from Load deck while offline (#1053).
   // It deals the same way a Drive load does, so Reset deals it again, and the save keeps it as a
@@ -1527,6 +1586,7 @@ function PracticeDrawContent() {
     if (confirmFirst && !window.confirm('Load this deck? This will throw away the current game.')) return;
     setLoadedDeck(record.deck);
     setDriveFileId(undefined);
+    setDilemmaDriveFileId(undefined);
     setDriveFileName(record.name);
     dealDeck(record.deck);
     drive.closePicker();
@@ -2207,6 +2267,10 @@ function PracticeDrawContent() {
           onDecklist={handleDecklistClick}
           onGameLog={handleGameLogClick}
           onControls={handleControlsClick}
+          onHomeScreenHelp={() => {
+            setGameMenuOpen(false);
+            setHomeScreenHelpOpen(true);
+          }}
           fullscreen={fullscreen}
           deck={dealtDeck}
           deckName={dealtDeckName()}
@@ -2216,6 +2280,7 @@ function PracticeDrawContent() {
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
         {controlsOpen && <ControlsPanel onClose={() => setControlsOpen(false)} />}
+        {homeScreenHelpOpen && <HomeScreenHelp onClose={() => setHomeScreenHelpOpen(false)} />}
 
         {drive.showPicker && !online && (
           <OfflineDeckPicker
@@ -2229,6 +2294,8 @@ function PracticeDrawContent() {
           <PracticeDeckPicker
             driveFiles={drive.driveFiles}
             onLoad={loadDriveDeck}
+            onLoadDilemmas={loadDriveDilemmas}
+            canKeepCurrent={canKeepCurrentMissionsAndDraw}
             inProgress={drive.loading}
             onClose={drive.closePicker}
             isSignedIn={!!drive.session}
@@ -2438,6 +2505,7 @@ function PracticeDrawContent() {
                       onSendSelected={(position) => sendHandSelectionToDeck('hand', position)}
                       openCardWidth={viewerCardWidth}
                       bottomInset={panelBottom}
+                      arcBetween={HAND_ARC_BETWEEN}
                     />
                   </div>
                 </div>
@@ -2505,8 +2573,9 @@ function PracticeDrawContent() {
 
                   {/* Dilemma pile, with the same stacked buttons as the draw deck (#1070). The
                       Shuffle button has its own accessible name, so it is told apart from the
-                      draw deck's "Shuffle" button (#785). */}
-                  <div className="flex flex-row items-end">
+                      draw deck's "Shuffle" button (#785). The open hand's arc ends at the left edge
+                      of this group, its buttons included (#1125). */}
+                  <div data-testid="dilemma-pile-group" className="flex flex-row items-end">
                     <PileControls
                       label="dilemma pile"
                       shuffleLabel="Shuffle dilemma pile"

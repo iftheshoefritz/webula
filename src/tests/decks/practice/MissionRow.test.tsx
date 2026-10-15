@@ -792,13 +792,14 @@ describe('MissionRow: the strips of the cards placed on a mission (#1099)', () =
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('shows the events on the left edge and the dilemmas on the right edge', () => {
+  it('shows the events past the left edge and the dilemmas past the right edge (#1126)', () => {
     renderRow(withPlaced([card('e1', 'Event 1'), dilemma('d1', 'Dilemma 1'), card('e2', 'Event 2')]));
     expect(stripNames('events')).toEqual(['Event 1', 'Event 2']);
     expect(stripNames('dilemmas')).toEqual(['Dilemma 1']);
     const layout = placedOnStripLayout(1);
-    expect(strip('events').style.left).toBe(`${layout.inset}px`);
-    expect(strip('dilemmas').style.right).toBe(`${layout.inset}px`);
+    expect(layout.overhang).toBeGreaterThan(0);
+    expect(strip('events').style.left).toBe(`-${layout.overhang}px`);
+    expect(strip('dilemmas').style.right).toBe(`-${layout.overhang}px`);
     expect(strip('events').style.top).toBe(`${layout.top}px`);
     // Each small card is the art crop of a table card.
     expect(strip('events').querySelector('img')).toHaveClass('object-cover', 'object-top');
@@ -887,7 +888,9 @@ describe('placedOnStripLayout (#1099)', () => {
     // The cards overlap no more than half their height, so each stays readable as a card.
     expect(layout.step).toBeGreaterThanOrEqual(layout.cardHeight / 2);
     // Both strips leave at least half the width of the mission art clear, and the strips stay on the art crop.
-    expect(2 * (layout.inset + layout.cardWidth)).toBeLessThanOrEqual(Math.round(72 * scale) / 2);
+    expect(2 * (layout.cardWidth - layout.overhang)).toBeLessThanOrEqual(Math.round(72 * scale) / 2);
+    // The strips of two neighbouring missions, 8 px apart (`gap-2`), do not touch (#1126).
+    expect(2 * layout.overhang).toBeLessThan(8);
     expect(layout.bottom).toBeLessThanOrEqual(Math.round(64 * scale));
   });
 });
