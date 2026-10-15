@@ -949,7 +949,7 @@ describe('MissionRow: the span on the cropped mission card (#1133)', () => {
 
 describe('missionSpanLayout (#1133)', () => {
   it.each([1, 375 / 320, 97 / 72, 2.4])('sits between the quadrant icon and the point box at scale %s', (scale) => {
-    const { top, width, height, ring, backing, bars, stub, fontSize } = missionSpanLayout(scale);
+    const { top, width, height, ring, backing, bars, stub } = missionSpanLayout(scale);
     const cardWidth = Math.round(72 * scale);
     const fullHeight = Math.round((cardWidth * 167) / 120);
     // Centred across the card, stubs included, with a gap to the quadrant icon (to x 68 of 357) and
@@ -958,23 +958,23 @@ describe('missionSpanLayout (#1133)', () => {
     expect(left / cardWidth).toBeGreaterThan(68 / 357);
     expect((left + width) / cardWidth).toBeLessThan(290 / 357);
     expect(width / 2).toBeLessThanOrEqual(0.33 * cardWidth);
-    // Centred on their row (y 250-298 of 499).
-    expect(Math.abs(top + height / 2 - fullHeight * (274 / 499))).toBeLessThanOrEqual(height / 2);
-    // On the crop, and never smaller than the floor.
+    // Its middle is level with the point numeral's middle (y 285 of 499), within a pixel.
+    expect(Math.abs(top + height / 2 - fullHeight * (285 / 499))).toBeLessThanOrEqual(1);
+    // On the crop.
     expect(top + height).toBeLessThanOrEqual(Math.round(64 * scale));
-    expect(ring).toBeGreaterThanOrEqual(12);
-    expect(fontSize).toBeGreaterThanOrEqual(8);
     // The printed proportions: the backing wider than the ring, the bars about the ring's height.
     expect(backing).toBeGreaterThan(ring);
     expect(bars).toBeLessThanOrEqual(ring);
     expect(stub).toBeGreaterThan(0);
   });
 
-  it('keeps the printed proportions above the floor', () => {
-    const { ring, backing, stub, fontSize } = missionSpanLayout(3);
-    expect(ring).toBe(Math.round(216 * 0.08));
-    expect(backing).toBe(Math.round((ring * 44) / 28));
-    expect(stub).toBe(Math.round((ring * 36) / 28));
-    expect(fontSize).toBe(Math.round(ring / 2));
+  it.each([1, 375 / 320, 2.4])('draws the numeral as tall as the point numeral at scale %s (#1140)', (scale) => {
+    const { numeral, fontSize, ring } = missionSpanLayout(scale);
+    const cardWidth = Math.round(72 * scale);
+    // The point numeral is 19 px tall on the 357 px wide image.
+    expect(numeral).toBeCloseTo((cardWidth * 19) / 357, 5);
+    expect(fontSize * 0.72).toBeCloseTo(numeral, 1);
+    // The ring keeps the printed proportion: twice the numeral's height.
+    expect(Math.abs(ring - 2 * numeral)).toBeLessThanOrEqual(0.5);
   });
 });

@@ -380,26 +380,29 @@ export function placedOnStripLayout(scale: number): {
 // The span of a mission on the touch crop (#1133). The crop keeps the row of the quadrant icon and
 // the point box but cuts off the span the card prints at its bottom centre, so the crop draws the
 // span in the gap of that row, as the card prints it. Measured on a mission image (357x499): the
-// printed span is a black disc with a thin silver ring, about 28 px across (0.08 of the card width),
-// on a black backing disc about 44 px across, with a white, bold, italic numeral half the ring's
-// height. Two brushed-silver bars run behind it, a bright, a darker and a bright band about 24 px in
-// all, and the backing breaks them. The crop draws short stubs of those bars on both sides of the
-// backing, each about 0.10 of the card width, fading out at their outer ends. The quadrant icon ends
-// at about x 68 and the point box starts at about x 290, both about y 250-298, so the whole overlay
-// reaches no more than `MISSION_SPAN_MAX_REACH` of the card width from its centre, which leaves a gap
-// to both; the stubs give way when the floor makes the disc large for the card. The overlay is
-// centred across the card and on that row, at the same share of the full card height as on the
-// image, since the crop keeps the top of the image. The ring never shrinks below 12 px, and its
-// numeral below 8 px, the size of the badge strip's text. A desktop shows the whole card, printed
-// span included, so it draws none.
-const MISSION_SPAN_CENTRE_SHARE = 0.535; // of the full card height
-const MISSION_SPAN_RING_SHARE = 0.08; // of the card width
+// printed span is a black disc with a thin silver ring on a black backing disc (44/28 of the ring),
+// with a white, bold, italic numeral half the ring's height. Two brushed-silver bars run behind it,
+// a bright, a darker and a bright band about 24/28 of the ring in all, and the backing breaks them.
+// The crop draws short stubs of those bars on both sides of the backing, fading out at their outer
+// ends.
+//
+// The numeral is as tall as the numeral of the point box beside it, and its middle is level with
+// that numeral's middle (the owner's call on #1140): the point numeral is about 19 px tall (y 276-294)
+// on the image, 0.053 of the card width, with its middle at y 285, 0.571 of the card height. Both
+// follow the image, so they match at every scale; the ring and the backing keep the printed
+// proportions around the numeral. The quadrant icon ends at about x 68 and the point box starts at
+// about x 290, so the whole overlay reaches no more than `MISSION_SPAN_MAX_REACH` of the card width
+// from its centre, which leaves a gap to both. A desktop shows the whole card, printed span
+// included, so it draws none.
+const MISSION_SPAN_CENTRE_SHARE = 285 / 499; // of the full card height: the point numeral's middle
+const MISSION_SPAN_NUMERAL_SHARE = 19 / 357; // of the card width: the point numeral's height
+// The height of a digit of the numeral's font, as a share of its font size.
+const MISSION_SPAN_DIGIT_EM = 0.72;
+const MISSION_SPAN_RING_RATIO = 2; // of the numeral's height, as printed
 const MISSION_SPAN_BACKING_RATIO = 44 / 28; // of the ring
 const MISSION_SPAN_BARS_RATIO = 24 / 28; // of the ring
 const MISSION_SPAN_STUB_RATIO = 36 / 28; // of the ring
 export const MISSION_SPAN_MAX_REACH = 0.28; // of the card width, from its centre
-const MISSION_SPAN_MIN_RING = 12; // px
-const MISSION_SPAN_MIN_FONT = 8; // px
 
 export function missionSpanLayout(scale: number): {
   top: number;
@@ -411,9 +414,11 @@ export function missionSpanLayout(scale: number): {
   bars: number;
   stub: number;
   fontSize: number;
+  numeral: number;
 } {
   const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
-  const ring = Math.max(MISSION_SPAN_MIN_RING, Math.round(cardWidth * MISSION_SPAN_RING_SHARE));
+  const numeral = cardWidth * MISSION_SPAN_NUMERAL_SHARE;
+  const ring = Math.round(numeral * MISSION_SPAN_RING_RATIO);
   const backing = Math.round(ring * MISSION_SPAN_BACKING_RATIO);
   const stub = Math.max(
     0,
@@ -429,7 +434,8 @@ export function missionSpanLayout(scale: number): {
     backing,
     bars: Math.round(ring * MISSION_SPAN_BARS_RATIO),
     stub,
-    fontSize: Math.max(MISSION_SPAN_MIN_FONT, Math.round(ring / 2)),
+    numeral,
+    fontSize: Math.round((numeral / MISSION_SPAN_DIGIT_EM) * 10) / 10,
   };
 }
 
