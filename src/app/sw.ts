@@ -6,7 +6,7 @@
 // - The precache holds the build's `_next/static` chunks and the HTML of `/decks/practice`
 //   (`next.config.mjs` keeps every other file out of it, `public/cardimages` above all).
 // - A navigation to `/decks/practice` goes to the network first, and falls back to the HTML of the
-//   page when the network fails. Other routes have no offline fallback.
+//   page when the network fails or takes longer than 3 s. Other routes have no offline fallback.
 // - `/cardimages/*` and the card data come from the offline deck cache of `offlineDecks.ts` when it
 //   holds them, and from the network otherwise. Nothing stores an image the player only looked at.
 // - Google Fonts are stale-while-revalidate into a small cache.
@@ -24,6 +24,8 @@ declare const self: ServiceWorkerGlobalScope;
 
 const PRACTICE_PATH = '/decks/practice';
 const SHELL_CACHE_PREFIX = 'webula-practice-shell-';
+// How long a navigation to the practice page waits for the network before it takes the cache.
+const NAVIGATION_TIMEOUT_SECONDS = 3;
 const FONTS_CACHE_NAME = 'webula-fonts';
 const FONT_ORIGINS = ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
 
@@ -51,9 +53,18 @@ const serwist = new Serwist({
           // `?fixture=1` and every other query load the same page, so one entry serves them all.
           { cacheKeyWillBeUsed: async () => PRACTICE_PATH },
           // The cache of the navigations is empty until the first one; the precache has the page
-          // from the install.
+          // from the install. Both caches belong to this build, so the fallback never pairs the
+          // HTML of an old build with the chunks of this one.
+          {
+            cachedResponseWillBeUsed: async ({ cachedResponse }) =>
+              cachedResponse ?? (await serwist.matchPrecache(PRACTICE_PATH)),
+          },
           { handlerDidError: async () => serwist.matchPrecache(PRACTICE_PATH) },
         ],
+        // A slow network falls back to the cached page of this build (#1134). The first navigation
+        // after an update, the Reload of the update prompt, finds the shell cache empty, so the
+        // plugin above serves the precache.
+        networkTimeoutSeconds: NAVIGATION_TIMEOUT_SECONDS,
       }),
     },
     {

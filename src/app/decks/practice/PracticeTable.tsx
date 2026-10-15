@@ -264,10 +264,31 @@ function GameMenu({
                   className="flex items-center gap-2 rounded-md border border-accent/50 bg-bg-secondary px-3 py-2 text-sm text-text-primary landscape:col-span-2"
                 >
                   <span className="flex-1">A new version of Webula is available</span>
-                  <button type="button" onClick={update.reload} className="btn-primary">
-                    Reload
+                  <button
+                    type="button"
+                    onClick={update.reload}
+                    disabled={update.reloading}
+                    className="btn-primary inline-flex items-center gap-1.5 disabled:cursor-wait disabled:opacity-70"
+                  >
+                    {update.reloading ? (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          data-testid="update-reload-spinner"
+                          className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                        />
+                        Reloading…
+                      </>
+                    ) : (
+                      'Reload'
+                    )}
                   </button>
-                  <button type="button" onClick={update.dismiss} className="rounded-md px-2 py-1.5 text-sm text-text-secondary hover:text-text-primary">
+                  <button
+                    type="button"
+                    onClick={update.dismiss}
+                    disabled={update.reloading}
+                    className="rounded-md px-2 py-1.5 text-sm text-text-secondary hover:text-text-primary disabled:cursor-wait disabled:opacity-50"
+                  >
                     Dismiss
                   </button>
                 </div>

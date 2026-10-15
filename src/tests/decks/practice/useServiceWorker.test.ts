@@ -1,3 +1,6 @@
+const mockReloadPage = jest.fn();
+jest.mock('../../../app/decks/practice/reloadPage', () => ({ reloadPage: () => mockReloadPage() }));
+
 import { act, renderHook } from '@testing-library/react';
 import { useServiceWorker } from '../../../app/decks/practice/useServiceWorker';
 
@@ -142,6 +145,23 @@ describe('useServiceWorker', () => {
 
       act(() => container.takeControl());
       expect(hook.result.current.updateReady).toBe(true);
+    });
+
+    // #1134: two taps before the next render both reach the same `reload`.
+    it('reloads once however many times reload is called', () => {
+      mockReloadPage.mockClear();
+      const { container, hook } = setup({});
+
+      act(() => container.takeControl());
+      expect(hook.result.current.reloading).toBe(false);
+      act(() => {
+        const { reload } = hook.result.current;
+        reload();
+        reload();
+      });
+
+      expect(hook.result.current.reloading).toBe(true);
+      expect(mockReloadPage).toHaveBeenCalledTimes(1);
     });
   });
 });
