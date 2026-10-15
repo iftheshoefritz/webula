@@ -421,7 +421,8 @@ export function missionSpanLayout(scale: number): {
   plateLeft: number;
   plateWidth: number;
   circleY: number;
-  circleRadius: number;
+  quadrantCut: number;
+  pointsCut: number;
 } {
   const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
   const numeral = cardWidth * MISSION_SPAN_NUMERAL_SHARE;
@@ -454,13 +455,15 @@ export function missionSpanLayout(scale: number): {
       Math.min(backing, scaled(TABLE_CARD_ART_HEIGHT, scale) - cardBorderWidth(cardWidth) - top)
     ),
     plateSolidFrom: (backing - bars) / 2,
-    // The plate reaches out sideways until it meets the silver rings of the quadrant icon and the
-    // point box (the owner's call on #1140): it runs from the centre of one ring to the centre of
-    // the other, and each ring's disc is cut out of it, so its ends follow the rings' curves.
+    // The plate reaches out sideways until it meets the rings of the quadrant icon and the point
+    // box (the owner's call on #1140): it runs from the centre of one ring to the centre of the
+    // other, and each ring's disc is cut out of it, so its ends follow the rings' curves. The cut
+    // keeps the dark outline around each silver ring, which is wider around the point box.
     plateLeft: cardWidth * MISSION_SPAN_RING_CENTRE_X_SHARE - (cardWidth - (backing + 2 * stub)) / 2,
     plateWidth: cardWidth * (1 - 2 * MISSION_SPAN_RING_CENTRE_X_SHARE),
     circleY: fullCardHeight(cardWidth) * MISSION_SPAN_RING_CENTRE_Y_SHARE - top,
-    circleRadius: cardWidth * MISSION_SPAN_RING_RADIUS_SHARE,
+    quadrantCut: cardWidth * MISSION_SPAN_QUADRANT_CUT_SHARE,
+    pointsCut: cardWidth * MISSION_SPAN_POINTS_CUT_SHARE,
     fontSize: Math.round((numeral / MISSION_SPAN_DIGIT_EM) * 10) / 10,
   };
 }
@@ -476,10 +479,12 @@ const NUMERAL_TRIM_STYLE = { textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabe
 const MISSION_SPAN_PLATE = '188, 189, 193';
 const MISSION_SPAN_PLATE_TOP_ALPHA = 0.45;
 // The outer silver rings of the quadrant icon and the point box, measured on a mission image
-// (357x499): centred at x 37.5 and x 319.5, both at y 283.5, 28.5 px in radius.
+// (357x499): centred at x 37.5 and x 319.5, both at y 283.5, 28.5 px in radius. A dark outline
+// runs around each ring, out to 30 px around the quadrant icon and 31.5 px around the point box.
 const MISSION_SPAN_RING_CENTRE_X_SHARE = 37.5 / 357; // of the card width, from either edge
 const MISSION_SPAN_RING_CENTRE_Y_SHARE = 283.5 / 499; // of the full card height
-const MISSION_SPAN_RING_RADIUS_SHARE = 28.5 / 357; // of the card width
+const MISSION_SPAN_QUADRANT_CUT_SHARE = 30 / 357; // of the card width
+const MISSION_SPAN_POINTS_CUT_SHARE = 31.5 / 357; // of the card width
 // The silver ring: brighter at the top left, darker at the bottom right.
 const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
 
@@ -488,11 +493,11 @@ const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7
 function MissionSpan({ missionIndex, span, scale }: { missionIndex: number; span: string; scale: number }) {
   const layout = missionSpanLayout(scale);
   const { top, width, height, ring, rim, backing, bars, stub, fontSize } = layout;
-  const { plate, plateSolidFrom, plateLeft, plateWidth, circleY, circleRadius } = layout;
-  // Cuts the two rings' discs out of the plate's ends.
-  const ringCut = (x: string) =>
-    `radial-gradient(circle at ${x} ${circleY}px, transparent ${circleRadius}px, black ${circleRadius + 0.5}px)`;
-  const plateMask = `${ringCut('0px')}, ${ringCut('100%')}`;
+  const { plate, plateSolidFrom, plateLeft, plateWidth, circleY, quadrantCut, pointsCut } = layout;
+  // Cuts the two rings' discs, with their dark outlines, out of the plate's ends.
+  const ringCut = (x: string, radius: number) =>
+    `radial-gradient(circle at ${x} ${circleY}px, transparent ${radius}px, black ${radius + 0.5}px)`;
+  const plateMask = `${ringCut('0px', quadrantCut)}, ${ringCut('100%', pointsCut)}`;
   const stubStyle = (side: 'left' | 'right'): CSSProperties => {
     const fade = `linear-gradient(to ${side}, black 0%, transparent 100%)`;
     return {

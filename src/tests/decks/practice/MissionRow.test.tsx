@@ -979,14 +979,17 @@ describe('missionSpanLayout (#1133)', () => {
   });
 
   it.each([1, 375 / 320, 97 / 72, 2.4])('widens the plate to the rings of the quadrant icon and the point box at scale %s (#1140)', (scale) => {
-    const { width, plateLeft, plateWidth, circleRadius } = missionSpanLayout(scale);
+    const { width, plateLeft, plateWidth, quadrantCut, pointsCut } = missionSpanLayout(scale);
     const cardWidth = Math.round(72 * scale);
     const overlayLeft = (cardWidth - width) / 2;
     // From the quadrant ring's centre (x 37.5 of 357) to the point ring's centre (x 319.5).
     expect(overlayLeft + plateLeft).toBeCloseTo((cardWidth * 37.5) / 357, 5);
     expect(overlayLeft + plateLeft + plateWidth).toBeCloseTo((cardWidth * 319.5) / 357, 5);
-    // The ring's radius is cut out of each end, so the grey meets the ring's edge (x 66 and x 291).
-    expect(overlayLeft + plateLeft + circleRadius).toBeCloseTo((cardWidth * 66) / 357, 5);
+    // Each ring is cut out of the plate with its dark outline, which is wider around the point box:
+    // the grey starts at x 67.5 and ends at x 288.
+    expect(overlayLeft + plateLeft + quadrantCut).toBeCloseTo((cardWidth * 67.5) / 357, 5);
+    expect(overlayLeft + plateLeft + plateWidth - pointsCut).toBeCloseTo((cardWidth * 288) / 357, 5);
+    expect(pointsCut).toBeGreaterThan(quadrantCut);
   });
 
   it.each([1, 375 / 320, 2.4])('draws the numeral as tall as the point numeral at scale %s (#1140)', (scale) => {
