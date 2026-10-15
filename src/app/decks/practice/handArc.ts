@@ -9,8 +9,8 @@ export const ARC_MAX_ANGLE = 14;
 // The angle the arc adds per card, so a short hand turns less than a long one.
 export const ARC_ANGLE_PER_CARD = 3;
 // How much lower the cards at the ends sit than the card in the middle, as a part of the card's
-// height.
-export const ARC_SAG = 0.12;
+// height. Issue #1132 halved it from 0.12, so the arc is flatter.
+export const ARC_SAG = 0.06;
 
 const IMAGE_RATIO = 167 / 120;
 
