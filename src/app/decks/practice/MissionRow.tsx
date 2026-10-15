@@ -89,6 +89,7 @@ import TableCard, {
   SMALL_CARD_WIDTH,
   TABLE_CARD_ART_HEIGHT,
   TABLE_CARD_WIDTH,
+  cardBorderWidth,
   fullCardHeight,
 } from './TableCard';
 import { offsetFor } from './overlapOffset';
@@ -415,6 +416,8 @@ export function missionSpanLayout(scale: number): {
   stub: number;
   fontSize: number;
   numeral: number;
+  plate: number;
+  plateSolidFrom: number;
 } {
   const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
   const numeral = cardWidth * MISSION_SPAN_NUMERAL_SHARE;
@@ -427,16 +430,26 @@ export function missionSpanLayout(scale: number): {
   // The numeral's top is level with the point numeral's top, and the ring, the backing and the
   // stubs are centred on the numeral, so the overlay may reach below the crop.
   const centre = fullCardHeight(cardWidth) * MISSION_SPAN_NUMERAL_TOP_SHARE + numeral / 2;
+  const top = Math.round(centre - backing / 2);
+  const bars = Math.round(ring * MISSION_SPAN_BARS_RATIO);
   return {
-    top: Math.round(centre - backing / 2),
+    top,
     width: backing + 2 * stub,
     height: backing,
     ring,
     rim: Math.max(1, Math.round(ring / 10)),
     backing,
-    bars: Math.round(ring * MISSION_SPAN_BARS_RATIO),
+    bars,
     stub,
     numeral,
+    // The grey plate behind the span stops where the card's black bottom border starts (the
+    // owner's call on #1140), and only the chrome may reach below it. Above the top bar it is
+    // see-through.
+    plate: Math.max(
+      0,
+      Math.min(backing, scaled(TABLE_CARD_ART_HEIGHT, scale) - cardBorderWidth(cardWidth) - top)
+    ),
+    plateSolidFrom: (backing - bars) / 2,
     fontSize: Math.round((numeral / MISSION_SPAN_DIGIT_EM) * 10) / 10,
   };
 }
@@ -447,13 +460,18 @@ const MISSION_SPAN_BARS =
   'linear-gradient(to bottom, #6b7280 0%, #f3f4f6 12%, #9ca3af 29%, #111 30%, #111 37%, #4b5563 38%, #9ca3af 50%, #4b5563 62%, #111 63%, #111 70%, #9ca3af 71%, #f3f4f6 86%, #6b7280 100%)';
 // CSS text-box trimming, which React's `CSSProperties` does not type yet.
 const NUMERAL_TRIM_STYLE = { textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic' } as CSSProperties;
+// The grey of the requirements box under the printed bars, behind the span and its chrome (the
+// owner's call on #1140): see-through above the top bar, opaque from the top bar down.
+const MISSION_SPAN_PLATE = '188, 189, 193';
+const MISSION_SPAN_PLATE_TOP_ALPHA = 0.45;
 // The silver ring: brighter at the top left, darker at the bottom right.
 const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
 
 // The overlay. It takes no pointer events and is not a droppable, and has no `data-zone` or
 // `data-card-id`: a tap, a hold and a drop on it reach the mission card and its halves under it.
 function MissionSpan({ missionIndex, span, scale }: { missionIndex: number; span: string; scale: number }) {
-  const { top, width, height, ring, rim, backing, bars, stub, fontSize } = missionSpanLayout(scale);
+  const { top, width, height, ring, rim, backing, bars, stub, fontSize, plate, plateSolidFrom } =
+    missionSpanLayout(scale);
   const stubStyle = (side: 'left' | 'right'): CSSProperties => {
     const fade = `linear-gradient(to ${side}, black 0%, transparent 100%)`;
     return {
@@ -474,6 +492,14 @@ function MissionSpan({ missionIndex, span, scale }: { missionIndex: number; span
       className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
       style={{ top, width, height }}
     >
+      <div
+        data-testid={`mission-span-${missionIndex}-plate`}
+        className="absolute inset-x-0 top-0"
+        style={{
+          height: plate,
+          backgroundImage: `linear-gradient(to bottom, rgba(${MISSION_SPAN_PLATE}, ${MISSION_SPAN_PLATE_TOP_ALPHA}) ${plateSolidFrom}px, rgb(${MISSION_SPAN_PLATE}) ${plateSolidFrom}px)`,
+        }}
+      />
       {stub > 0 && (
         <>
           <div data-testid={`mission-span-${missionIndex}-stub-left`} className="absolute" style={stubStyle('left')} />

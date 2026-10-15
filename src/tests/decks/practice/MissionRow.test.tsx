@@ -968,6 +968,16 @@ describe('missionSpanLayout (#1133)', () => {
     expect(stub).toBeGreaterThan(0);
   });
 
+  it.each([1, 375 / 320, 97 / 72, 2.4])('stops the grey plate at the card\'s bottom border at scale %s (#1140)', (scale) => {
+    const { top, height, bars, plate, plateSolidFrom } = missionSpanLayout(scale);
+    const cardWidth = Math.round(72 * scale);
+    // Where the black border (6 of 240 of the card width, at least 2 px) starts above the crop's bottom.
+    const borderTop = Math.round(64 * scale) - Math.max(2, Math.round((cardWidth * 6) / 240));
+    expect(plate).toBe(Math.min(height, borderTop - top));
+    // Opaque from the top bar down.
+    expect(plateSolidFrom).toBe((height - bars) / 2);
+  });
+
   it.each([1, 375 / 320, 2.4])('draws the numeral as tall as the point numeral at scale %s (#1140)', (scale) => {
     const { numeral, fontSize, ring } = missionSpanLayout(scale);
     const cardWidth = Math.round(72 * scale);
