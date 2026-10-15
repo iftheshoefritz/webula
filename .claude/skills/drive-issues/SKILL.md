@@ -1,6 +1,7 @@
 ---
 name: drive-issues
-description: Drive a set of GitHub issues to merged PRs through the repo's label workflows (needs-elaboration, needs-plan, ready-for-dev, visual-check, agent-review), acting as the owner's proxy - applying ready-for-dev and merging. Use when the owner says "drive issues 1114 onwards", "pick up issues 1114-1120", "work through #1114 #1116 with the workflow labels", or invokes /drive-issues.
+description: Take a set of issues through the label workflows to merged PRs, as the owner's proxy.
+disable-model-invocation: true
 argument-hint: "<issues: 1114+ | 1114-1120 | 1114 1116 1119> [max N in flight] [no-merge]"
 ---
 
@@ -13,9 +14,14 @@ invocation. Move every issue in the set to a merged PR, in the order you judge b
 applying the workflow labels and following up on whatever each run produces. You
 dispatch and review. The workflows write the code.
 
+The set is **done** when every issue in it is merged, closed, or waiting on the owner.
+
 Arguments: `$ARGUMENTS`
 
 ## 0. Tools: the GitHub MCP, not `gh`
+
+This skill runs in a cloud session that the owner starts. A local session has no GitHub
+MCP and no `send_later`.
 
 Do every GitHub read and write with the GitHub MCP tools (`mcp__github__*`). In a cloud
 session the `gh` CLI has no GitHub token, so the `gh` commands in AGENTS.md and in
@@ -31,23 +37,7 @@ owner's own account, and that is what lets a `ready-for-dev` label from this ses
 as a person's. If it returns any other login, apply no `ready-for-dev` and merge nothing;
 tell the owner.
 
-The owner and repo for every call are `iftheshoefritz` and `webula`.
-
-| To | Call |
-|---|---|
-| list open issues | `list_issues` with `state: OPEN` (issues only, no PRs; paginate with `after`) |
-| read an issue | `issue_read` with `method` `get` (includes `closed_by_pull_requests`), `get_comments`, `get_sub_issues`, `get_parent`, `get_labels` |
-| set labels on an issue **or a PR** | `issue_write` `method: update`, `issue_number` = the issue or PR number, `labels` = the **full** new list (it replaces the list; follow "Writing labels" in §4) |
-| create a sub-issue | `issue_write` `method: create` with `parent_issue_number` |
-| close an issue | `issue_write` `method: update`, `state: closed`, `state_reason: completed` |
-| comment on an issue or PR | `add_issue_comment` |
-| find the PR for an issue | `issue_read` `get` → `closed_by_pull_requests`, or `search_pull_requests` with `repo:iftheshoefritz/webula is:pr "#<n>" in:body` |
-| read a PR | `pull_request_read` with `method` `get` (draft, `mergeable_state`, head SHA, body), `get_diff`, `get_files`, `get_check_runs` (CI jobs), `get_status` (commit statuses, Vercel), `get_comments`, `get_review_comments` (threads, resolved or not), `get_reviews` |
-| mark a PR ready, edit title or body | `update_pull_request` (it has **no** labels field) |
-| bring a PR up to date with `main` | `update_pull_request_branch` with `expectedHeadSha` |
-| list workflow runs | `actions_list` `method: list_workflow_runs`, `resource_id: claude-implement.yml` (or another workflow file), `workflow_runs_filter: {event: issues}` for issue-label runs |
-| read why a run failed | `actions_list` `list_workflow_jobs` for the run, then `get_job_logs` with `job_id` (or `run_id` + `failed_only: true`), `return_content: true`, and a `tail_lines` of 300 or more: the `"type": "result"` record that says why it stopped is at the end |
-| merge | `merge_pull_request` with `merge_method: squash`, `commit_title`, `expectedHeadSha` |
+For the call that does each task, read [`github-mcp.md`](github-mcp.md).
 
 ## 1. Parse the arguments into an issue set
 
@@ -82,13 +72,15 @@ For each issue read the body, all comments, labels, sub-issues, and linked PRs
 | Unclear | open questions, no acceptance checks, contradictory comments | `needs-elaboration` |
 | Architectural | the issue asks a design question or weighs alternatives | `architecture-discussion` |
 | Clear, unplanned | no `<!-- claude-plan -->` comment | `needs-plan` |
-| Planned | a plan comment that matches the current body | `ready-for-dev` |
+| Planned | a `<!-- claude-plan -->` comment, and no comment after its last update that changes what the issue asks | `ready-for-dev` |
 | In flight | an open PR that closes it | follow the PR (§5) |
 | Done | a merged PR, or closed | nothing |
 
 A small, obvious issue (a one-line fix with explicit acceptance checks) may skip
 `needs-plan`. Anything that touches more than one component gets a plan first: the
-implement run has a hard 80-turn limit and leans on the plan to stay inside it.
+implement run has a hard **turn limit** (80 turns, the `--max-turns` of
+`claude-implement.yml`) and leans on the plan to stay inside it. An issue too big for the
+turn limit gets split (§5), never a higher limit.
 
 ## 3. Choose the order
 
@@ -112,14 +104,13 @@ ready when an implementation slot frees up.
 Apply labels with `issue_write` (method `update`). A PR is labelled the same way, by its
 number: `update_pull_request` has no labels field. Before you use a label for the first
 time in a session, read its workflow (`grep -rn "github.event.label.name" .github/workflows/`)
-and the AGENTS.md table under "A label can start a workflow run".
+and its row in the AGENTS.md table under "A label can start a workflow run": the table says
+which runs remove their own label.
 
 **Writing labels.** `issue_write` replaces the whole label list, and the workflows change
-labels while they run: `needs-elaboration`, `needs-plan`, `agent-review` and
-`visual-check` are removed by their own run, and runs add `needs-human-input`,
-`visual-check` and `agent-error:*`. A list you read minutes ago can undo their changes,
-and putting back a label that a run already removed starts that run again. So every label
-write is three calls:
+labels while they run. A list you read minutes ago can undo their changes, and putting
+back a label that a run already removed starts that run again. So every label write is
+three calls:
 
 1. **Re-read** the labels with `issue_read` `get_labels` immediately before the write,
    never from an earlier read, a check-in, or your notes.
@@ -133,9 +124,8 @@ write is three calls:
 
 Change one label per write. To add two labels, write twice.
 
-**`ready-for-dev`.** AGENTS.md says only a person applies it, because
-`claude-implement.yml` refuses a run that a bot starts ("Workflow initiated by non-human
-actor"). This skill is the owner's delegation of that label. The GitHub MCP acts as the
+**`ready-for-dev`.** AGENTS.md says a bot cannot apply it, and that this skill is the
+exception: the owner delegates the label to this session. The GitHub MCP acts as the
 owner's account (§0), so the label should count as a human's. Verify it on the first one:
 a few minutes after you label, list the runs of `claude-implement.yml` (`actions_list`,
 `list_workflow_runs`) and check that the newest run for that issue is running, not
@@ -160,30 +150,27 @@ Runs on issues do not wake this session, so check in. PR events do wake it.
 | You see | Do |
 |---|---|
 | Elaboration answered the questions | if open questions remain that the code can't answer, ask the owner; else `needs-plan` |
-| Plan comment written | read it; if it is wrong or too big for 80 turns, comment and re-label `needs-plan`, or split the issue (below); else `ready-for-dev` when a slot is free |
+| Plan comment written | read it; if it is wrong or too big for the turn limit, comment and re-label `needs-plan`, or split the issue (below); else `ready-for-dev` when a slot is free |
 | `architecture-discussion` added `needs-human-input` | put the open question to the owner, with your recommendation, and wait |
-| Draft PR with "Pending." and no `visual-check` label | the implement run died before the hand-off: add `visual-check` |
 | PR still a draft with `needs-human-input` | read the visual-check report; fix it if small (§6), else ask the owner |
 | Unresolved review comments, or a Vercel preview check ❌/🟠 that names a real gap | add `agent-review` |
 | CI red | read the failing job log (`get_job_logs`); a failure this PR caused → a PR comment naming it plus `agent-review`, or fix it yourself (§6) |
 | PR conflicts with `main` (`mergeable_state: dirty`) | `update_pull_request_branch`; if GitHub can't merge it, merge `main` into the branch locally, resolve, validate, push |
+| A label started no run | read `.github/workflows/README.md`: a PR with conflicts gets no run at all, and a PR branch with an old copy of a workflow file fails at startup. Bring the branch up to date with `main` before you add the label again |
 | `agent-error:max-turns` | read the failure comment, split the issue in two sub-issues (state change / UI change is the usual cut), plan each, then `ready-for-dev` each |
-| any other `agent-error:<reason>` | read the comment and the log (`get_job_logs`, §0); re-run once by re-labelling if the run died before the agent did any work; otherwise report it |
+| any other `agent-error:<reason>` | read the comment and the log (`get_job_logs`); re-run once by re-labelling if the run died before the agent did any work; otherwise report it |
 
 **Splitting an issue.** Create the sub-issues with `issue_write` `method: create` and
-`parent_issue_number` (`sub_issue_write` only links issues that already exist), each
-with its own acceptance checks and the part of the parent's plan that applies to it.
-They join the issue set. Tell the owner about the split when you make it.
+`parent_issue_number`, each with its own acceptance checks and the part of the parent's
+plan that applies to it. They join the issue set. Tell the owner about the split when you
+make it.
 
 ## 6. Fixing things yourself
 
 Prefer a label: the workflows carry the repo's checks and its browser verification. Fix
 in this session only what is small (a lint error, a failing assertion the diff explains,
 a conflict) or what the same workflow has already failed on once. Then follow "Fixing
-Existing PRs" in AGENTS.md: check out the PR branch, keep the fix minimal, run
-`yarn test`, `yarn typecheck` and `yarn build` (all three must pass), commit
-`fix: <what> (follow-up for #<pr>)`, and push to the same branch. Never force-push a
-branch you did not create.
+Existing PRs" and "Validation" in AGENTS.md.
 
 ## 7. Merge gate
 
@@ -228,14 +215,10 @@ Ask the owner only for decisions that are theirs: product behaviour the issue le
 open, a design choice from `architecture-discussion`, a split that changes scope, or a PR
 that fails the gate twice. Decide everything else, and say what you decided.
 
-When every issue in the set is merged, closed, or waiting on the owner, cancel pending
-check-ins and send a final table: issue, outcome, PR, and anything left for the owner.
+When the set is done, cancel pending check-ins and send a final table: issue, outcome,
+PR, and anything left for the owner.
 
 ## Never
 
-- Apply `ready-for-dev` to, or merge a PR for, an issue outside the set of this invocation.
-- Merge a PR that fails the gate.
 - Skip, disable or delete a test to get CI green.
 - Push to `main` directly, or force-push a branch you did not create.
-- Raise the 80-turn limit of `claude-implement.yml`; split the issue instead.
-- Edit CLAUDE.md. AGENTS.md is the file to update.
