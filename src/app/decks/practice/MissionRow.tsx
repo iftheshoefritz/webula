@@ -55,6 +55,8 @@
 // dilemmas placed on the mission count in a pill of their own, with the dual icon, to the right of
 // it (#1081). The last 3 cards of each group also show as small cards in a strip along the edge of
 // the mission card (#1099, `PlacedOnStrip`), the events on the left and the dilemmas on the right.
+// The touch crop cuts off the mission's span, so it draws the span between the quadrant icon and
+// the point box (#1133, `MissionSpan`).
 // A dilemma
 // dropped on a mission, from anywhere, goes under the mission instead (#606, #733), face up, permanently, unless it lands on the bottom half of the mission card,
 // which places it on the mission card (#871, `missionHalfDropId`). The top half, where the cards
@@ -373,6 +375,48 @@ export function placedOnStripLayout(scale: number): {
     cardHeight,
     step,
   };
+}
+
+// The span of a mission on the touch crop (#1133). The crop keeps the row of the quadrant icon and
+// the point box but cuts off the span the card prints at its bottom centre, so the crop draws the
+// span in the gap of that row, styled like the printed one: a light disc with a dark ring and a
+// bold black numeral. Measured on a mission image (357x499): the quadrant icon spans about x 15-68
+// and the point box about x 290-345, both about y 250-298, and the printed span is a disc about
+// 38 px across. The disc is centred across the card and on that row, at the same share of the full
+// card height as on the image, since the crop keeps the top of the image. It never shrinks below
+// 12 px, and its numeral below 8 px, the size of the badge strip's text; the gap of the row is far
+// wider than that. A desktop shows the whole card, printed span included, so it draws none.
+const MISSION_SPAN_CENTRE_SHARE = 0.535; // of the full card height
+const MISSION_SPAN_SIZE_SHARE = 0.11; // of the card width
+const MISSION_SPAN_MIN_SIZE = 12; // px
+const MISSION_SPAN_MIN_FONT = 8; // px
+
+export function missionSpanLayout(scale: number): { top: number; size: number; fontSize: number } {
+  const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
+  const size = Math.max(MISSION_SPAN_MIN_SIZE, Math.round(cardWidth * MISSION_SPAN_SIZE_SHARE));
+  const centre = fullCardHeight(cardWidth) * MISSION_SPAN_CENTRE_SHARE;
+  return {
+    top: Math.round(centre - size / 2),
+    size,
+    fontSize: Math.max(MISSION_SPAN_MIN_FONT, Math.round(size * 0.65)),
+  };
+}
+
+// The disc. It takes no pointer events and is not a droppable, and has no `data-zone` or
+// `data-card-id`: a tap, a hold and a drop on it reach the mission card and its halves under it.
+function MissionSpan({ missionIndex, span, scale }: { missionIndex: number; span: string; scale: number }) {
+  const { top, size, fontSize } = missionSpanLayout(scale);
+  return (
+    <div
+      data-testid={`mission-span-${missionIndex}`}
+      role="img"
+      aria-label={`Span ${span}`}
+      className="absolute left-1/2 -translate-x-1/2 pointer-events-none rounded-full flex items-center justify-center font-bold leading-none text-black bg-gradient-to-b from-white to-neutral-300 border border-neutral-800 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.7)]"
+      style={{ top, width: size, height: size, fontSize }}
+    >
+      {span}
+    </div>
+  );
 }
 
 export const placedOnStripTestId = (missionIndex: number, group: PlacedOnGroup): string =>
@@ -1181,8 +1225,8 @@ function MissionColumn({
                 eitherOver={eitherOver}
                 reach={underReach}
               />
-              {/* The strips of the placed cards (#1099), on the upright card's box. They turn with a
-                  completed mission (#1060), so they stay below its title and above its point box. */}
+              {/* The strips of the placed cards (#1099) and the span (#1133), on the upright card's box.
+                  They turn with a completed mission (#1060), so they stay where the card prints them. */}
               <div
                 data-testid={`mission-strips-${missionIndex}`}
                 className="absolute left-1/2 top-1/2 pointer-events-none motion-safe:transition-transform motion-reduce:transition-none"
@@ -1204,6 +1248,10 @@ function MissionColumn({
                     onTap={(event) => deferTap(event, () => onOpenPlacedOn(mission.id, group))}
                   />
                 ))}
+                {/* The span, which the touch crop cuts off (#1133). It turns with the card. */}
+                {!desktop && mission.card.span && (
+                  <MissionSpan missionIndex={missionIndex} span={String(mission.card.span)} scale={scale} />
+                )}
               </div>
               <div
                 data-testid={`mission-corners-${missionIndex}`}

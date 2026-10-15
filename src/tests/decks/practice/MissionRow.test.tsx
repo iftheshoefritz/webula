@@ -8,6 +8,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import MissionRow, {
   PLACED_ON_STRIP_MAX_VISIBLE,
   missionSlotWidth,
+  missionSpanLayout,
   placedOnStripLayout,
   turnedMissionScale,
   underMissionHeadroom,
@@ -892,5 +893,75 @@ describe('placedOnStripLayout (#1099)', () => {
     // The strips of two neighbouring missions, 8 px apart (`gap-2`), do not touch (#1126).
     expect(2 * layout.overhang).toBeLessThan(8);
     expect(layout.bottom).toBeLessThanOrEqual(Math.round(64 * scale));
+  });
+});
+
+// #1133: the touch crop cuts off the span, so it draws the span between the quadrant icon and the
+// point box. A desktop shows the whole card, printed span included.
+describe('MissionRow: the span on the cropped mission card (#1133)', () => {
+  const withSpan = (span: string, completed = false): MissionSlot => ({
+    ...emptySlot(),
+    mission: { ...card('mission-0', 'A Mission'), card: { ...card('mission-0', 'A Mission').card, span } },
+    completed,
+  });
+  const renderRow = (slot: MissionSlot, desktop = false) =>
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+        desktop={desktop}
+      />
+    );
+
+  it('shows the span on a touch layout, and it is not a drop target', () => {
+    renderRow(withSpan('3'));
+    const span = screen.getByTestId('mission-span-0');
+    expect(span).toHaveTextContent('3');
+    expect(span).toHaveAccessibleName('Span 3');
+    expect(span).toHaveClass('pointer-events-none');
+    expect(span.closest('[data-zone]')).toBeNull();
+    expect(span.closest('[data-card-id]')).toBeNull();
+    expect(span.querySelector('[data-zone], [data-card-id]')).toBeNull();
+  });
+
+  it('shows no span on a desktop layout', () => {
+    renderRow(withSpan('3'), true);
+    expect(screen.queryByTestId('mission-span-0')).toBeNull();
+  });
+
+  it('shows no span for a mission with no span value', () => {
+    renderRow(withSpan(''));
+    expect(screen.queryByTestId('mission-span-0')).toBeNull();
+  });
+
+  it('turns the span with a completed mission', () => {
+    renderRow(withSpan('2', true));
+    expect(screen.getByTestId('mission-strips-0')).toContainElement(screen.getByTestId('mission-span-0'));
+    expect(screen.getByTestId('mission-strips-0').style.transform).toMatch(/rotate\(90deg\)/);
+  });
+});
+
+describe('missionSpanLayout (#1133)', () => {
+  it.each([1, 375 / 320, 97 / 72, 2.4])('sits between the quadrant icon and the point box at scale %s', (scale) => {
+    const { top, size, fontSize } = missionSpanLayout(scale);
+    const cardWidth = Math.round(72 * scale);
+    const fullHeight = Math.round((cardWidth * 167) / 120);
+    // Centred across the card, clear of the quadrant icon (to x 68 of 357) and the point box (from x 290).
+    const left = (cardWidth - size) / 2;
+    expect(left / cardWidth).toBeGreaterThanOrEqual(68 / 357);
+    expect((left + size) / cardWidth).toBeLessThanOrEqual(290 / 357);
+    // Centred on their row (y 250-298 of 499), within a pixel of rounding.
+    expect(Math.abs(top + size / 2 - fullHeight * (274 / 499))).toBeLessThanOrEqual(size / 2);
+    // On the crop, and never smaller than the floor.
+    expect(top + size).toBeLessThanOrEqual(Math.round(64 * scale));
+    expect(size).toBeGreaterThanOrEqual(12);
+    expect(fontSize).toBeGreaterThanOrEqual(8);
+  });
+
+  it('scales the disc with the card above the floor', () => {
+    expect(missionSpanLayout(3).size).toBe(Math.round(216 * 0.11));
   });
 });
