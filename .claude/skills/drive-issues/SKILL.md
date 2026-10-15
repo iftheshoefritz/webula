@@ -37,7 +37,7 @@ The owner and repo for every call are `iftheshoefritz` and `webula`.
 |---|---|
 | list open issues | `list_issues` with `state: OPEN` (issues only, no PRs; paginate with `after`) |
 | read an issue | `issue_read` with `method` `get` (includes `closed_by_pull_requests`), `get_comments`, `get_sub_issues`, `get_parent`, `get_labels` |
-| set labels on an issue **or a PR** | `issue_write` `method: update`, `issue_number` = the issue or PR number, `labels` = the **full** new list (it replaces the list, so read the labels first; to remove one, send the list without it) |
+| set labels on an issue **or a PR** | `issue_write` `method: update`, `issue_number` = the issue or PR number, `labels` = the **full** new list (it replaces the list; follow "Writing labels" in §4) |
 | create a sub-issue | `issue_write` `method: create` with `parent_issue_number` |
 | close an issue | `issue_write` `method: update`, `state: closed`, `state_reason: completed` |
 | comment on an issue or PR | `add_issue_comment` |
@@ -109,10 +109,29 @@ ready when an implementation slot frees up.
 
 ## 4. Apply labels, and check that the run started
 
-Apply labels with `issue_write` (method `update`, the full `labels` list, keeping the
-existing ones). A PR is labelled the same way, by its number: `update_pull_request` has
-no labels field. Before you use a label for the first time in a session, read its
-workflow (`grep -rn "github.event.label.name" .github/workflows/`) and the AGENTS.md table under "A label can start a workflow run".
+Apply labels with `issue_write` (method `update`). A PR is labelled the same way, by its
+number: `update_pull_request` has no labels field. Before you use a label for the first
+time in a session, read its workflow (`grep -rn "github.event.label.name" .github/workflows/`)
+and the AGENTS.md table under "A label can start a workflow run".
+
+**Writing labels.** `issue_write` replaces the whole label list, and the workflows change
+labels while they run: `needs-elaboration`, `needs-plan`, `agent-review` and
+`visual-check` are removed by their own run, and runs add `needs-human-input`,
+`visual-check` and `agent-error:*`. A list you read minutes ago can undo their changes,
+and putting back a label that a run already removed starts that run again. So every label
+write is three calls:
+
+1. **Re-read** the labels with `issue_read` `get_labels` immediately before the write,
+   never from an earlier read, a check-in, or your notes.
+2. **Write** that fresh list plus the label you add, or minus the one you remove, and
+   nothing else. A label that is on the issue already starts nothing when you write it
+   again, since GitHub sends `labeled` only for a label the write adds. So the fresh list
+   is safe as it is, and a stale one is not.
+3. **Check** with `get_labels` again. If a label someone else added in the moment between
+   1 and 2 is now missing, add it back with the same three steps; if it is one of the
+   self-removing labels, leave it off and tell the owner.
+
+Change one label per write. To add two labels, write twice.
 
 **`ready-for-dev`.** AGENTS.md says only a person applies it, because
 `claude-implement.yml` refuses a run that a bot starts ("Workflow initiated by non-human
