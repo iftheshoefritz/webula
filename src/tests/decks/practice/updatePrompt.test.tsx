@@ -118,6 +118,21 @@ describe('the update prompt of the game menu (#1104)', () => {
     expect(mockReloadPage).toHaveBeenCalledTimes(1);
   });
 
+  // #1134: the new page can take a while to come, so the first tap shows that it was taken.
+  it('shows Reloading and disables both buttons after the first tap, and reloads only once', async () => {
+    await renderWithNewBuild();
+    const prompt = screen.getByTestId('update-prompt');
+    fireEvent.click(within(prompt).getByRole('button', { name: 'Reload' }));
+    const reloading = within(prompt).getByRole('button', { name: 'Reloading…' });
+    expect(reloading).toBeDisabled();
+    expect(within(prompt).getByTestId('update-reload-spinner')).toBeInTheDocument();
+    expect(within(prompt).getByRole('button', { name: 'Dismiss' })).toBeDisabled();
+    fireEvent.click(reloading);
+    fireEvent.click(within(prompt).getByRole('button', { name: 'Dismiss' }));
+    expect(mockReloadPage).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('update-prompt')).toBeInTheDocument();
+  });
+
   it('hides the prompt and the dot on Dismiss', async () => {
     await renderWithNewBuild();
     fireEvent.click(within(screen.getByTestId('update-prompt')).getByRole('button', { name: 'Dismiss' }));

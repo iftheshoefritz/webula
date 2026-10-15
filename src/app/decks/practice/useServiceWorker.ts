@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { reloadPage } from './reloadPage';
 import { isBrowserOnline } from './useOnline';
 
@@ -19,12 +19,17 @@ import { isBrowserOnline } from './useOnline';
 export interface ServiceWorkerUpdate {
   // A new build has taken control of the page, and the player has not dismissed the prompt.
   updateReady: boolean;
+  // The player tapped Reload, and the page has not gone yet (#1134). The new page may take a while
+  // to come, so the prompt says the tap was taken, and a second tap does nothing.
+  reloading: boolean;
   reload: () => void;
   dismiss: () => void;
 }
 
 export function useServiceWorker(): ServiceWorkerUpdate {
   const [updateReady, setUpdateReady] = useState(false);
+  const [reloading, setReloading] = useState(false);
+  const reloadingRef = useRef(false);
 
   useEffect(() => {
     if (!('serviceWorker' in navigator) || window.serwist === undefined) return;
@@ -54,5 +59,14 @@ export function useServiceWorker(): ServiceWorkerUpdate {
   // A later build fires its own `controllerchange`, so the prompt comes back only for that one.
   const dismiss = useCallback(() => setUpdateReady(false), []);
 
-  return { updateReady, reload: reloadPage, dismiss };
+  // A ref, not the state, guards the second tap: two taps before the next render both see the old
+  // state.
+  const reload = useCallback(() => {
+    if (reloadingRef.current) return;
+    reloadingRef.current = true;
+    setReloading(true);
+    reloadPage();
+  }, []);
+
+  return { updateReady, reloading, reload, dismiss };
 }
