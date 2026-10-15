@@ -31,7 +31,7 @@ import CountBadge from './CountBadge';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
-import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
+import { HAND_ARC_ATTRIBUTE, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PILE_CARD_BORDER_STYLE, cardBorderStyle } from './TableCard';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
 import { handArcLayout } from './handArc';
@@ -370,6 +370,7 @@ export default function CardHand({
                 ref={fanRef}
                 data-zone={open ? zone : undefined}
                 data-testid={`${zone}-arc`}
+                {...{ [HAND_ARC_ATTRIBUTE]: 'true' }}
                 aria-hidden={open ? undefined : true}
                 className={`fixed inset-0 ${LAYER_HAND_FAN} overflow-hidden`}
                 style={{ visibility: open ? 'visible' : 'hidden', pointerEvents: 'none' }}

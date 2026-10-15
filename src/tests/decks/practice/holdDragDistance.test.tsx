@@ -9,6 +9,8 @@ import { CANCEL_RADIUS } from '../../../app/decks/practice/releaseCancel';
 import {
   CardHoldProvider,
   DRAG_ACTIVATION_DISTANCE,
+  HAND_ARC_ATTRIBUTE,
+  HAND_ARC_DRAG_ACTIVATION_DISTANCE,
   HELD_DRAG_ACTIVATION_DISTANCE,
   HOLD_DELAY_MS,
   dragActivationDistanceFor,
@@ -42,6 +44,14 @@ describe('dragActivationDistanceFor (#925)', () => {
     expect(dragActivationDistanceFor(true)).toBe(HELD_DRAG_ACTIVATION_DISTANCE);
     expect(HELD_DRAG_ACTIVATION_DISTANCE).toBe(CANCEL_RADIUS);
   });
+
+  // #1131: a thumb on an outer card of the hand arc drifts past 8 px before the preview fires.
+  it('needs a longer move on a card of the hand arc, and the cancel radius once it has held', () => {
+    expect(dragActivationDistanceFor(false, true)).toBe(HAND_ARC_DRAG_ACTIVATION_DISTANCE);
+    expect(HAND_ARC_DRAG_ACTIVATION_DISTANCE).toBeGreaterThan(12);
+    expect(HAND_ARC_DRAG_ACTIVATION_DISTANCE).toBeLessThan(HELD_DRAG_ACTIVATION_DISTANCE);
+    expect(dragActivationDistanceFor(true, true)).toBe(HELD_DRAG_ACTIVATION_DISTANCE);
+  });
 });
 
 function Card() {
@@ -56,21 +66,23 @@ function Card() {
 
 const callbacks = { startHold: () => {}, endHold: () => {}, startHover: () => {}, endHover: () => {} };
 
-function Table({ onDragStart }: { onDragStart: () => void }) {
+function Table({ onDragStart, onHold, inHandArc }: { onDragStart: () => void; onHold?: () => void; inHandArc?: boolean }) {
   const sensors = useTableSensors();
   return (
-    <CardHoldProvider value={callbacks}>
+    <CardHoldProvider value={onHold ? { ...callbacks, startHold: onHold } : callbacks}>
       <DndContext sensors={sensors} onDragStart={onDragStart}>
-        <Card />
+        <div {...{ [HAND_ARC_ATTRIBUTE]: inHandArc ? 'true' : undefined }}>
+          <Card />
+        </div>
       </DndContext>
     </CardHoldProvider>
   );
 }
 
 // Presses the card, optionally holds it until the preview fires, then moves the pointer `dx` px.
-const gesture = (dx: number, hold: boolean) => {
+const gesture = (dx: number, hold: boolean, inHandArc = false) => {
   const onDragStart = jest.fn();
-  render(<Table onDragStart={onDragStart} />);
+  render(<Table onDragStart={onDragStart} inHandArc={inHandArc} />);
   const card = screen.getByRole('button', { name: 'card' });
   fireEvent.pointerDown(card, { pointerType: 'touch', isPrimary: true, button: 0, buttons: 1, clientX: 100, clientY: 100 });
   if (hold) act(() => jest.advanceTimersByTime(HOLD_DELAY_MS));
@@ -96,5 +108,39 @@ describe('the table sensors after a hold (#925)', () => {
 
   it('still starts a drag on a 9 px move with no hold', () => {
     expect(gesture(9, false)).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a press on a card of the hand arc (#1131)', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    fireEvent.pointerUp(document);
+    fireEvent.pointerUp(window);
+    jest.useRealTimers();
+  });
+
+  it('keeps the hold and starts no drag when the thumb drifts 12 px before the preview fires', () => {
+    const onDragStart = jest.fn();
+    const onHold = jest.fn();
+    render(<Table onDragStart={onDragStart} onHold={onHold} inHandArc />);
+    const card = screen.getByRole('button', { name: 'card' });
+    fireEvent.pointerDown(card, { pointerType: 'touch', isPrimary: true, button: 0, buttons: 1, clientX: 100, clientY: 300 });
+    fireEvent.pointerMove(document, { pointerType: 'touch', buttons: 1, clientX: 106, clientY: 300 });
+    fireEvent.pointerMove(document, { pointerType: 'touch', buttons: 1, clientX: 112, clientY: 300 });
+    act(() => jest.advanceTimersByTime(HOLD_DELAY_MS + 100));
+    expect(onHold).toHaveBeenCalledTimes(1);
+    expect(onDragStart).not.toHaveBeenCalled();
+  });
+
+  it('starts a drag on a move past the hand arc distance with no hold', () => {
+    expect(gesture(HAND_ARC_DRAG_ACTIVATION_DISTANCE + 1, false, true)).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts no drag on a 12 px move with no hold', () => {
+    expect(gesture(12, false, true)).not.toHaveBeenCalled();
+  });
+
+  it('keeps the 8 px distance for a card outside the arc', () => {
+    expect(gesture(12, false)).toHaveBeenCalledTimes(1);
   });
 });

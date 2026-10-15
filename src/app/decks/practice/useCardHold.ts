@@ -8,7 +8,8 @@
 // Before the timer fires, a move past `DRAG_ACTIVATION_DISTANCE` cancels it: that press is a
 // drag, and dnd-kit's `PointerSensor` (which uses the same distance, in `page.tsx`) takes it.
 // After the timer fires, the sensor waits for a longer move, `HELD_DRAG_ACTIVATION_DISTANCE`
-// (#925), so a twitch under the preview does not start a drag.
+// (#925), so a twitch under the preview does not start a drag. A press on a card of the hand arc
+// waits for `HAND_ARC_DRAG_ACTIVATION_DISTANCE` before the timer fires as well (#1131).
 // Inside a card list panel whose grid scrolls, a touch or pen press goes to `PanelScrollSensor`
 // instead (#788), which decides at the same distance: a vertical first move scrolls the grid,
 // and the browser's `pointercancel` ends the hold.
@@ -56,14 +57,30 @@ export const DOUBLE_TAP_MS = 250;
 // `PanelScrollSensor`'s direction rule, so the point where a hold gives way to a drag and the
 // point where the drag starts cannot drift apart.
 export const DRAG_ACTIVATION_DISTANCE = 8; // px
+// A press on a card of the hand arc (#1125) needs a longer move before the hold gives way to a
+// drag (#1131). The outer cards of the arc sit low, partly below the bottom edge of the screen, so
+// the thumb that holds one drifts more than 8 px before the preview fires. A drag out of the arc
+// still starts at once, since it moves the card far up the table. Shorter than
+// `HELD_DRAG_ACTIVATION_DISTANCE`, so a press that has held never needs less than it did before.
+export const HAND_ARC_DRAG_ACTIVATION_DISTANCE = 20; // px
+// `CardHand` marks the container of the hand arc with it, as `CardListPanel` marks a grid that
+// scrolls with `PANEL_SCROLLS_ATTRIBUTE`.
+export const HAND_ARC_ATTRIBUTE = 'data-hand-arc';
+
+export function isInHandArc(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(`[${HAND_ARC_ATTRIBUTE}="true"]`) !== null;
+}
+
 // Once the hold has fired, a twitch of the finger under the preview must not start a drag (#925),
 // so the press needs a move as long as `CANCEL_RADIUS` before it becomes one. A shorter drag would
 // be cancelled on release anyway.
 export const HELD_DRAG_ACTIVATION_DISTANCE = CANCEL_RADIUS; // px
 
-// The distance a press must move to start a drag, by whether its hold has fired.
-export function dragActivationDistanceFor(held: boolean): number {
-  return held ? HELD_DRAG_ACTIVATION_DISTANCE : DRAG_ACTIVATION_DISTANCE;
+// The distance a press must move to start a drag, by whether its hold has fired and whether it
+// started on a card of the hand arc.
+export function dragActivationDistanceFor(held: boolean, inHandArc = false): number {
+  if (held) return HELD_DRAG_ACTIVATION_DISTANCE;
+  return inHandArc ? HAND_ARC_DRAG_ACTIVATION_DISTANCE : DRAG_ACTIVATION_DISTANCE;
 }
 
 // The `pointerdown` of the press whose hold has fired and not yet ended. `PanelScrollSensor`
@@ -183,6 +200,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     const originX = event.clientX;
     const originY = event.clientY;
     const downEvent = event.nativeEvent;
+    const dragDistance = dragActivationDistanceFor(false, isInHandArc(downEvent.target));
     let fired = false;
 
     const end = () => {
@@ -204,7 +222,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
         return;
       }
       if (fired) return;
-      if (Math.hypot(e.clientX - originX, e.clientY - originY) > DRAG_ACTIVATION_DISTANCE) cleanup();
+      if (Math.hypot(e.clientX - originX, e.clientY - originY) > dragDistance) cleanup();
     };
     const onLostCapture = (e: PointerEvent) => {
       if (e.pointerId === downEvent.pointerId) end();
