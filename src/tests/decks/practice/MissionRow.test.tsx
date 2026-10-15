@@ -8,6 +8,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import MissionRow, {
   PLACED_ON_STRIP_MAX_VISIBLE,
   missionSlotWidth,
+  missionSpanLayout,
   placedOnStripLayout,
   turnedMissionScale,
   underMissionHeadroom,
@@ -892,5 +893,88 @@ describe('placedOnStripLayout (#1099)', () => {
     // The strips of two neighbouring missions, 8 px apart (`gap-2`), do not touch (#1126).
     expect(2 * layout.overhang).toBeLessThan(8);
     expect(layout.bottom).toBeLessThanOrEqual(Math.round(64 * scale));
+  });
+});
+
+// #1133: the touch crop cuts off the span, so it draws the span between the quadrant icon and the
+// point box. A desktop shows the whole card, printed span included.
+describe('MissionRow: the span on the cropped mission card (#1133)', () => {
+  const withSpan = (span: string, completed = false): MissionSlot => ({
+    ...emptySlot(),
+    mission: { ...card('mission-0', 'A Mission'), card: { ...card('mission-0', 'A Mission').card, span } },
+    completed,
+  });
+  const renderRow = (slot: MissionSlot, desktop = false) =>
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+        desktop={desktop}
+      />
+    );
+
+  it('shows the span on a touch layout, and it is not a drop target', () => {
+    renderRow(withSpan('3'));
+    const span = screen.getByTestId('mission-span-0');
+    expect(span).toHaveTextContent('3');
+    expect(span).toHaveAccessibleName('Span 3');
+    expect(span).toHaveClass('pointer-events-none');
+    expect(span.closest('[data-zone]')).toBeNull();
+    expect(span.closest('[data-card-id]')).toBeNull();
+    expect(span.querySelector('[data-zone], [data-card-id]')).toBeNull();
+    // The bar stubs on both sides of the disc, as the card prints them.
+    expect(screen.getByTestId('mission-span-0-stub-left')).toBeInTheDocument();
+    expect(screen.getByTestId('mission-span-0-stub-right')).toBeInTheDocument();
+  });
+
+  it('shows no span on a desktop layout', () => {
+    renderRow(withSpan('3'), true);
+    expect(screen.queryByTestId('mission-span-0')).toBeNull();
+  });
+
+  it('shows no span for a mission with no span value', () => {
+    renderRow(withSpan(''));
+    expect(screen.queryByTestId('mission-span-0')).toBeNull();
+  });
+
+  it('turns the span with a completed mission', () => {
+    renderRow(withSpan('2', true));
+    expect(screen.getByTestId('mission-strips-0')).toContainElement(screen.getByTestId('mission-span-0'));
+    expect(screen.getByTestId('mission-strips-0').style.transform).toMatch(/rotate\(90deg\)/);
+  });
+});
+
+describe('missionSpanLayout (#1133)', () => {
+  it.each([1, 375 / 320, 97 / 72, 2.4])('sits between the quadrant icon and the point box at scale %s', (scale) => {
+    const { top, width, height, ring, backing, bars, stub, fontSize } = missionSpanLayout(scale);
+    const cardWidth = Math.round(72 * scale);
+    const fullHeight = Math.round((cardWidth * 167) / 120);
+    // Centred across the card, stubs included, with a gap to the quadrant icon (to x 68 of 357) and
+    // the point box (from x 290).
+    const left = (cardWidth - width) / 2;
+    expect(left / cardWidth).toBeGreaterThan(68 / 357);
+    expect((left + width) / cardWidth).toBeLessThan(290 / 357);
+    expect(width / 2).toBeLessThanOrEqual(0.33 * cardWidth);
+    // Centred on their row (y 250-298 of 499).
+    expect(Math.abs(top + height / 2 - fullHeight * (274 / 499))).toBeLessThanOrEqual(height / 2);
+    // On the crop, and never smaller than the floor.
+    expect(top + height).toBeLessThanOrEqual(Math.round(64 * scale));
+    expect(ring).toBeGreaterThanOrEqual(12);
+    expect(fontSize).toBeGreaterThanOrEqual(8);
+    // The printed proportions: the backing wider than the ring, the bars about the ring's height.
+    expect(backing).toBeGreaterThan(ring);
+    expect(bars).toBeLessThanOrEqual(ring);
+    expect(stub).toBeGreaterThan(0);
+  });
+
+  it('keeps the printed proportions above the floor', () => {
+    const { ring, backing, stub, fontSize } = missionSpanLayout(3);
+    expect(ring).toBe(Math.round(216 * 0.08));
+    expect(backing).toBe(Math.round((ring * 44) / 28));
+    expect(stub).toBe(Math.round((ring * 36) / 28));
+    expect(fontSize).toBe(Math.round(ring / 2));
   });
 });

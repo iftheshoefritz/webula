@@ -55,6 +55,8 @@
 // dilemmas placed on the mission count in a pill of their own, with the dual icon, to the right of
 // it (#1081). The last 3 cards of each group also show as small cards in a strip along the edge of
 // the mission card (#1099, `PlacedOnStrip`), the events on the left and the dilemmas on the right.
+// The touch crop cuts off the mission's span, so it draws the span between the quadrant icon and
+// the point box, styled as the card prints it (#1133, `MissionSpan`).
 // A dilemma
 // dropped on a mission, from anywhere, goes under the mission instead (#606, #733), face up, permanently, unless it lands on the bottom half of the mission card,
 // which places it on the mission card (#871, `missionHalfDropId`). The top half, where the cards
@@ -78,7 +80,7 @@
 // happens on the mission card's own drop target; a tap on its slivers opens its panel, the same as
 // a tap on the top half (#1012).
 
-import { useEffect, useRef } from 'react';
+import { CSSProperties, useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName, MissionSlot } from './tableReducer';
 import TableCard, {
@@ -373,6 +375,117 @@ export function placedOnStripLayout(scale: number): {
     cardHeight,
     step,
   };
+}
+
+// The span of a mission on the touch crop (#1133). The crop keeps the row of the quadrant icon and
+// the point box but cuts off the span the card prints at its bottom centre, so the crop draws the
+// span in the gap of that row, as the card prints it. Measured on a mission image (357x499): the
+// printed span is a black disc with a thin silver ring, about 28 px across (0.08 of the card width),
+// on a black backing disc about 44 px across, with a white, bold, italic numeral half the ring's
+// height. Two brushed-silver bars run behind it, a bright, a darker and a bright band about 24 px in
+// all, and the backing breaks them. The crop draws short stubs of those bars on both sides of the
+// backing, each about 0.10 of the card width, fading out at their outer ends. The quadrant icon ends
+// at about x 68 and the point box starts at about x 290, both about y 250-298, so the whole overlay
+// reaches no more than `MISSION_SPAN_MAX_REACH` of the card width from its centre, which leaves a gap
+// to both; the stubs give way when the floor makes the disc large for the card. The overlay is
+// centred across the card and on that row, at the same share of the full card height as on the
+// image, since the crop keeps the top of the image. The ring never shrinks below 12 px, and its
+// numeral below 8 px, the size of the badge strip's text. A desktop shows the whole card, printed
+// span included, so it draws none.
+const MISSION_SPAN_CENTRE_SHARE = 0.535; // of the full card height
+const MISSION_SPAN_RING_SHARE = 0.08; // of the card width
+const MISSION_SPAN_BACKING_RATIO = 44 / 28; // of the ring
+const MISSION_SPAN_BARS_RATIO = 24 / 28; // of the ring
+const MISSION_SPAN_STUB_RATIO = 36 / 28; // of the ring
+export const MISSION_SPAN_MAX_REACH = 0.28; // of the card width, from its centre
+const MISSION_SPAN_MIN_RING = 12; // px
+const MISSION_SPAN_MIN_FONT = 8; // px
+
+export function missionSpanLayout(scale: number): {
+  top: number;
+  width: number;
+  height: number;
+  ring: number;
+  rim: number;
+  backing: number;
+  bars: number;
+  stub: number;
+  fontSize: number;
+} {
+  const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
+  const ring = Math.max(MISSION_SPAN_MIN_RING, Math.round(cardWidth * MISSION_SPAN_RING_SHARE));
+  const backing = Math.round(ring * MISSION_SPAN_BACKING_RATIO);
+  const stub = Math.max(
+    0,
+    Math.min(Math.round(ring * MISSION_SPAN_STUB_RATIO), Math.floor(cardWidth * MISSION_SPAN_MAX_REACH - backing / 2))
+  );
+  const centre = fullCardHeight(cardWidth) * MISSION_SPAN_CENTRE_SHARE;
+  return {
+    top: Math.round(centre - backing / 2),
+    width: backing + 2 * stub,
+    height: backing,
+    ring,
+    rim: Math.max(1, Math.round(ring / 10)),
+    backing,
+    bars: Math.round(ring * MISSION_SPAN_BARS_RATIO),
+    stub,
+    fontSize: Math.max(MISSION_SPAN_MIN_FONT, Math.round(ring / 2)),
+  };
+}
+
+// The three bands of the printed bars, top to bottom: bright, darker and textured, bright, with a
+// thin dark seam between them.
+const MISSION_SPAN_BARS =
+  'linear-gradient(to bottom, #6b7280 0%, #f3f4f6 12%, #9ca3af 29%, #111 30%, #111 37%, #4b5563 38%, #9ca3af 50%, #4b5563 62%, #111 63%, #111 70%, #9ca3af 71%, #f3f4f6 86%, #6b7280 100%)';
+// The silver ring: brighter at the top left, darker at the bottom right.
+const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
+
+// The overlay. It takes no pointer events and is not a droppable, and has no `data-zone` or
+// `data-card-id`: a tap, a hold and a drop on it reach the mission card and its halves under it.
+function MissionSpan({ missionIndex, span, scale }: { missionIndex: number; span: string; scale: number }) {
+  const { top, width, height, ring, rim, backing, bars, stub, fontSize } = missionSpanLayout(scale);
+  const stubStyle = (side: 'left' | 'right'): CSSProperties => {
+    const fade = `linear-gradient(to ${side}, black 0%, transparent 100%)`;
+    return {
+      [side]: 0,
+      top: (height - bars) / 2,
+      width: stub + backing / 2,
+      height: bars,
+      backgroundImage: MISSION_SPAN_BARS,
+      maskImage: fade,
+      WebkitMaskImage: fade,
+    };
+  };
+  return (
+    <div
+      data-testid={`mission-span-${missionIndex}`}
+      role="img"
+      aria-label={`Span ${span}`}
+      className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
+      style={{ top, width, height }}
+    >
+      {stub > 0 && (
+        <>
+          <div data-testid={`mission-span-${missionIndex}-stub-left`} className="absolute" style={stubStyle('left')} />
+          <div data-testid={`mission-span-${missionIndex}-stub-right`} className="absolute" style={stubStyle('right')} />
+        </>
+      )}
+      {/* The black backing, which breaks the bars. */}
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black flex items-center justify-center"
+        style={{ width: backing, height: backing }}
+      >
+        <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: MISSION_SPAN_RING }}>
+          <div
+            className="w-full h-full rounded-full bg-black flex items-center justify-center font-sans font-extrabold italic leading-none text-white tracking-tighter"
+            style={{ fontSize }}
+          >
+            {span}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export const placedOnStripTestId = (missionIndex: number, group: PlacedOnGroup): string =>
@@ -1181,8 +1294,8 @@ function MissionColumn({
                 eitherOver={eitherOver}
                 reach={underReach}
               />
-              {/* The strips of the placed cards (#1099), on the upright card's box. They turn with a
-                  completed mission (#1060), so they stay below its title and above its point box. */}
+              {/* The strips of the placed cards (#1099) and the span (#1133), on the upright card's box.
+                  They turn with a completed mission (#1060), so they stay where the card prints them. */}
               <div
                 data-testid={`mission-strips-${missionIndex}`}
                 className="absolute left-1/2 top-1/2 pointer-events-none motion-safe:transition-transform motion-reduce:transition-none"
@@ -1204,6 +1317,10 @@ function MissionColumn({
                     onTap={(event) => deferTap(event, () => onOpenPlacedOn(mission.id, group))}
                   />
                 ))}
+                {/* The span, which the touch crop cuts off (#1133). It turns with the card. */}
+                {!desktop && mission.card.span && (
+                  <MissionSpan missionIndex={missionIndex} span={String(mission.card.span)} scale={scale} />
+                )}
               </div>
               <div
                 data-testid={`mission-corners-${missionIndex}`}
