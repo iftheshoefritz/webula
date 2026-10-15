@@ -17,9 +17,13 @@
 // Once a press's hold has fired (`useCardHold`), the sensor ignores that constraint and waits for
 // a move past `HELD_DRAG_ACTIVATION_DISTANCE` instead (#925). The hold's preview is up by then, so
 // a twitch keeps it, and a clear move still slides from the preview into a drag.
+//
+// A press on a card of the hand arc waits for `HAND_ARC_DRAG_ACTIVATION_DISTANCE` (#1131), the
+// distance `useCardHold` waits for before it gives the hold up, so a thumb that drifts near the
+// bottom edge still gets the preview.
 import { PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { isInScrollingPanel, panelGestureFor } from './panelGesture';
-import { DRAG_ACTIVATION_DISTANCE, dragActivationDistanceFor, isHeldPress } from './useCardHold';
+import { DRAG_ACTIVATION_DISTANCE, dragActivationDistanceFor, isHeldPress, isInHandArc } from './useCardHold';
 
 // dnd-kit declares these members private, so the subclass reaches them through this shape.
 type SensorInternals = {
@@ -55,10 +59,11 @@ function splitsScrollFromDrag(sensorInstance: SensorInternals): boolean {
 sensor.handleMove = function (this: SensorInternals, event: Event) {
   // A press whose hold has fired needs a longer move to become a drag (#925). The
   // `activationConstraint` is fixed when the press starts, so the rule is read here, per move.
-  if (!this.activated && this.initialCoordinates && isHeldPress(this.props.event)) {
+  const held = isHeldPress(this.props.event);
+  if (!this.activated && this.initialCoordinates && (held || isInHandArc(this.props.event.target))) {
     const { clientX, clientY } = event as MouseEvent;
     const distance = Math.hypot(clientX - this.initialCoordinates.x, clientY - this.initialCoordinates.y);
-    if (distance <= dragActivationDistanceFor(true)) return;
+    if (distance <= dragActivationDistanceFor(held, true)) return;
     return this.handleStart();
   }
   if (!this.activated && this.initialCoordinates && splitsScrollFromDrag(this)) {
