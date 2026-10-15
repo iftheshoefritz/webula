@@ -958,10 +958,10 @@ describe('missionSpanLayout (#1133)', () => {
     expect(left / cardWidth).toBeGreaterThan(68 / 357);
     expect((left + width) / cardWidth).toBeLessThan(290 / 357);
     expect(width / 2).toBeLessThanOrEqual(0.33 * cardWidth);
-    // Its middle is level with the point numeral's middle (y 285 of 499), within a pixel.
-    expect(Math.abs(top + height / 2 - fullHeight * (285 / 499))).toBeLessThanOrEqual(1);
-    // On the crop.
-    expect(top + height).toBeLessThanOrEqual(Math.round(64 * scale));
+    // The numeral's top is level with the point numeral's top (y 276 of 499), within a pixel, and the
+    // overlay is centred on the numeral.
+    const { numeral } = missionSpanLayout(scale);
+    expect(Math.abs(top + height / 2 - numeral / 2 - fullHeight * (276 / 499))).toBeLessThanOrEqual(1);
     // The printed proportions: the backing wider than the ring, the bars about the ring's height.
     expect(backing).toBeGreaterThan(ring);
     expect(bars).toBeLessThanOrEqual(ring);

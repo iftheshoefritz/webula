@@ -386,15 +386,15 @@ export function placedOnStripLayout(scale: number): {
 // The crop draws short stubs of those bars on both sides of the backing, fading out at their outer
 // ends.
 //
-// The numeral is as tall as the numeral of the point box beside it, and its middle is level with
-// that numeral's middle (the owner's call on #1140): the point numeral is about 19 px tall (y 276-294)
-// on the image, 0.053 of the card width, with its middle at y 285, 0.571 of the card height. Both
-// follow the image, so they match at every scale; the ring and the backing keep the printed
-// proportions around the numeral. The quadrant icon ends at about x 68 and the point box starts at
+// The numeral is as tall as the numeral of the point box beside it, and its top is level with that
+// numeral's top (the owner's calls on #1140): the point numeral is about 19 px tall (y 276-294) on
+// the image, 0.053 of the card width, with its top at y 276, 0.553 of the card height. Both follow
+// the image, so they match at every scale. The ring, the backing and the stubs keep the printed
+// proportions and stay centred on the numeral, so they may reach below the crop. The quadrant icon ends at about x 68 and the point box starts at
 // about x 290, so the whole overlay reaches no more than `MISSION_SPAN_MAX_REACH` of the card width
 // from its centre, which leaves a gap to both. A desktop shows the whole card, printed span
 // included, so it draws none.
-const MISSION_SPAN_CENTRE_SHARE = 285 / 499; // of the full card height: the point numeral's middle
+const MISSION_SPAN_NUMERAL_TOP_SHARE = 276 / 499; // of the full card height: the point numeral's top
 const MISSION_SPAN_NUMERAL_SHARE = 19 / 357; // of the card width: the point numeral's height
 // The height of a digit of the numeral's font, as a share of its font size.
 const MISSION_SPAN_DIGIT_EM = 0.72;
@@ -424,7 +424,9 @@ export function missionSpanLayout(scale: number): {
     0,
     Math.min(Math.round(ring * MISSION_SPAN_STUB_RATIO), Math.floor(cardWidth * MISSION_SPAN_MAX_REACH - backing / 2))
   );
-  const centre = fullCardHeight(cardWidth) * MISSION_SPAN_CENTRE_SHARE;
+  // The numeral's top is level with the point numeral's top, and the ring, the backing and the
+  // stubs are centred on the numeral, so the overlay may reach below the crop.
+  const centre = fullCardHeight(cardWidth) * MISSION_SPAN_NUMERAL_TOP_SHARE + numeral / 2;
   return {
     top: Math.round(centre - backing / 2),
     width: backing + 2 * stub,
@@ -443,6 +445,8 @@ export function missionSpanLayout(scale: number): {
 // thin dark seam between them.
 const MISSION_SPAN_BARS =
   'linear-gradient(to bottom, #6b7280 0%, #f3f4f6 12%, #9ca3af 29%, #111 30%, #111 37%, #4b5563 38%, #9ca3af 50%, #4b5563 62%, #111 63%, #111 70%, #9ca3af 71%, #f3f4f6 86%, #6b7280 100%)';
+// CSS text-box trimming, which React's `CSSProperties` does not type yet.
+const NUMERAL_TRIM_STYLE = { textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic' } as CSSProperties;
 // The silver ring: brighter at the top left, darker at the bottom right.
 const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
 
@@ -486,7 +490,12 @@ function MissionSpan({ missionIndex, span, scale }: { missionIndex: number; span
             className="w-full h-full rounded-full bg-black flex items-center justify-center font-sans font-extrabold italic leading-none text-white tracking-tighter"
             style={{ fontSize }}
           >
-            {span}
+            {/* Trimmed to the cap height, so the box is the digit itself and the flex centring puts
+                the digit, not its line box, at the middle of the ring, whatever the system font's
+                ascent and descent. */}
+            <span data-testid={`mission-span-${missionIndex}-numeral`} style={NUMERAL_TRIM_STYLE}>
+              {span}
+            </span>
           </div>
         </div>
       </div>
