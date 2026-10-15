@@ -13,6 +13,7 @@ import MissionRow, {
   turnedMissionScale,
   underMissionHeadroom,
 } from '../../../app/decks/practice/MissionRow';
+import { COMPLETED_IMAGE_CLASSNAME } from '../../../app/decks/practice/TableCard';
 import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardHoldProvider, DOUBLE_TAP_MS, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableReducer';
@@ -925,9 +926,13 @@ describe('MissionRow: the span on the cropped mission card (#1133)', () => {
     expect(span.closest('[data-zone]')).toBeNull();
     expect(span.closest('[data-card-id]')).toBeNull();
     expect(span.querySelector('[data-zone], [data-card-id]')).toBeNull();
-    // The bar stubs on both sides of the disc, as the card prints them.
-    expect(screen.getByTestId('mission-span-0-stub-left')).toBeInTheDocument();
-    expect(screen.getByTestId('mission-span-0-stub-right')).toBeInTheDocument();
+    // The rail the disc breaks, and the grey plate under it (#1140).
+    expect(span).toContainElement(screen.getByTestId('mission-span-0-rail'));
+    expect(span).toContainElement(screen.getByTestId('mission-span-0-plate'));
+    // The numeral is upright and skewed about its own centre, not italic (#1140).
+    const numeral = screen.getByTestId('mission-span-0-numeral');
+    expect(numeral.style.transform).toBe('skewX(-12deg)');
+    expect(numeral.closest('.italic')).toBeNull();
   });
 
   it('shows no span on a desktop layout', () => {
@@ -945,60 +950,83 @@ describe('MissionRow: the span on the cropped mission card (#1133)', () => {
     expect(screen.getByTestId('mission-strips-0')).toContainElement(screen.getByTestId('mission-span-0'));
     expect(screen.getByTestId('mission-strips-0').style.transform).toMatch(/rotate\(90deg\)/);
   });
+
+  it('darkens the span with a completed mission, as the card image (#1140)', () => {
+    renderRow(withSpan('2', true));
+    expect(screen.getByTestId('mission-span-0')).toHaveClass(COMPLETED_IMAGE_CLASSNAME);
+  });
+
+  it('does not darken the span of a mission that is not completed', () => {
+    renderRow(withSpan('2'));
+    expect(screen.getByTestId('mission-span-0')).not.toHaveClass(COMPLETED_IMAGE_CLASSNAME);
+  });
 });
 
 describe('missionSpanLayout (#1133)', () => {
-  it.each([1, 375 / 320, 97 / 72, 2.4])('sits between the quadrant icon and the point box at scale %s', (scale) => {
-    const { top, width, height, ring, backing, bars, stub } = missionSpanLayout(scale);
-    const cardWidth = Math.round(72 * scale);
-    const fullHeight = Math.round((cardWidth * 167) / 120);
-    // Centred across the card, stubs included, with a gap to the quadrant icon (to x 68 of 357) and
-    // the point box (from x 290).
-    const left = (cardWidth - width) / 2;
-    expect(left / cardWidth).toBeGreaterThan(68 / 357);
-    expect((left + width) / cardWidth).toBeLessThan(290 / 357);
-    expect(width / 2).toBeLessThanOrEqual(0.33 * cardWidth);
-    // The numeral's top is level with the point numeral's top (y 276 of 499), within a pixel, and the
-    // overlay is centred on the numeral.
-    const { numeral } = missionSpanLayout(scale);
-    expect(Math.abs(top + height / 2 - numeral / 2 - fullHeight * (276 / 499))).toBeLessThanOrEqual(1);
-    // The printed proportions: the backing wider than the ring, the bars about the ring's height.
-    expect(backing).toBeGreaterThan(ring);
-    expect(bars).toBeLessThanOrEqual(ring);
-    expect(stub).toBeGreaterThan(0);
+  const SCALES = [1, 375 / 320, 97 / 72, 2.4];
+  const card = (scale: number) => {
+    const width = Math.round(72 * scale);
+    return { width, fullHeight: Math.round((width * 167) / 120), artHeight: Math.round(64 * scale) };
+  };
+
+  it.each(SCALES)('centres the disc on the line of the quadrant icon and the point box at scale %s (#1140)', (scale) => {
+    const { top, width, axis, backing, backingLeft, ring, rim } = missionSpanLayout(scale);
+    const { width: cardWidth, fullHeight } = card(scale);
+    expect(width).toBe(cardWidth);
+    // Both are centred at y 283.5 of the 499 px tall image.
+    expect(top + axis).toBeCloseTo(fullHeight * (283.5 / 499), 5);
+    // The disc is on whole pixels, centred across the card, and within half a pixel of that line.
+    expect(Number.isInteger(top)).toBe(true);
+    expect(Number.isInteger(backingLeft)).toBe(true);
+    expect(backingLeft * 2 + backing).toBe(cardWidth);
+    expect(Math.abs(axis - backing / 2)).toBeLessThanOrEqual(0.5);
+    // The ring sits on whole pixels inside the backing, and its rim leaves a black disc inside it.
+    expect(Number.isInteger((backing - ring) / 2)).toBe(true);
+    expect(ring).toBeLessThan(backing);
+    expect(ring - 2 * rim).toBeGreaterThan(0);
   });
 
-  it.each([1, 375 / 320, 97 / 72, 2.4])('stops the grey plate at the card\'s bottom border at scale %s (#1140)', (scale) => {
-    const { top, height, bars, plate, plateSolidFrom } = missionSpanLayout(scale);
-    const cardWidth = Math.round(72 * scale);
-    // Where the black border (6 of 240 of the card width, at least 2 px) starts above the crop's bottom.
-    const borderTop = Math.round(64 * scale) - Math.max(2, Math.round((cardWidth * 6) / 240));
-    expect(plate).toBe(Math.min(height, borderTop - top));
-    // Opaque from the top bar down.
-    expect(plateSolidFrom).toBe((height - bars) / 2);
+  it.each(SCALES)('keeps the disc smaller than the quadrant icon and the point box at scale %s (#1140)', (scale) => {
+    const { backing } = missionSpanLayout(scale);
+    const { width: cardWidth } = card(scale);
+    // As printed, 44 px across against their 57 on the 357 px wide image, to the nearest 2 px.
+    expect(Math.abs(backing - (cardWidth * 44) / 357)).toBeLessThanOrEqual(1);
+    expect(backing).toBeLessThan((cardWidth * 57) / 357);
   });
 
-  it.each([1, 375 / 320, 97 / 72, 2.4])('widens the plate to the rings of the quadrant icon and the point box at scale %s (#1140)', (scale) => {
-    const { width, plateLeft, plateWidth, quadrantCut, pointsCut } = missionSpanLayout(scale);
-    const cardWidth = Math.round(72 * scale);
-    const overlayLeft = (cardWidth - width) / 2;
-    // From the quadrant ring's centre (x 37.5 of 357) to the point ring's centre (x 319.5).
-    expect(overlayLeft + plateLeft).toBeCloseTo((cardWidth * 37.5) / 357, 5);
-    expect(overlayLeft + plateLeft + plateWidth).toBeCloseTo((cardWidth * 319.5) / 357, 5);
-    // Each ring is cut out of the plate with its dark outline, which is wider around the point box:
-    // the grey starts at x 67.5 and ends at x 288.
-    expect(overlayLeft + plateLeft + quadrantCut).toBeCloseTo((cardWidth * 67.5) / 357, 5);
-    expect(overlayLeft + plateLeft + plateWidth - pointsCut).toBeCloseTo((cardWidth * 288) / 357, 5);
-    expect(pointsCut).toBeGreaterThan(quadrantCut);
+  it.each(SCALES)('runs the rail and the plate from the chrome of one to the chrome of the other at scale %s (#1140)', (scale) => {
+    const { bandLeft, bandWidth, chromeRadius } = missionSpanLayout(scale);
+    const { width: cardWidth } = card(scale);
+    // From the centre of the quadrant icon (x 37.5 of 357) to the centre of the point box (x 319.5),
+    // with both cut at the chrome, 28.5 px in radius, the same on both sides.
+    expect(bandLeft).toBeCloseTo((cardWidth * 37.5) / 357, 5);
+    expect(bandLeft + bandWidth).toBeCloseTo((cardWidth * 319.5) / 357, 5);
+    expect(chromeRadius).toBeCloseTo((cardWidth * 28.5) / 357, 5);
+  });
+
+  it.each(SCALES)('fills the plate down to the card\'s border at scale %s (#1140)', (scale) => {
+    const { top, height, backing, plateBottom } = missionSpanLayout(scale);
+    const { width: cardWidth, artHeight } = card(scale);
+    // The black border is 6 of 240 of the card width, at least 2 px. The plate reaches half a pixel
+    // into it, and the disc ends above it.
+    const borderTop = artHeight - Math.max(2, Math.round((cardWidth * 6) / 240));
+    expect(top + plateBottom).toBe(borderTop + 0.5);
+    expect(height).toBe(Math.max(backing, plateBottom));
+    expect(top + backing).toBeLessThanOrEqual(borderTop);
+  });
+
+  it.each(SCALES)('draws a rail of about the printed height on whole pixels at scale %s (#1140)', (scale) => {
+    const { rail, backing } = missionSpanLayout(scale);
+    const { width: cardWidth } = card(scale);
+    expect(Math.abs(rail - (cardWidth * 18) / 357)).toBeLessThanOrEqual(1);
+    expect(Number.isInteger((backing - rail) / 2)).toBe(true);
   });
 
   it.each([1, 375 / 320, 2.4])('draws the numeral as tall as the point numeral at scale %s (#1140)', (scale) => {
-    const { numeral, fontSize, ring } = missionSpanLayout(scale);
-    const cardWidth = Math.round(72 * scale);
+    const { numeral, fontSize } = missionSpanLayout(scale);
+    const { width: cardWidth } = card(scale);
     // The point numeral is 19 px tall on the 357 px wide image.
     expect(numeral).toBeCloseTo((cardWidth * 19) / 357, 5);
-    expect(fontSize * 0.72).toBeCloseTo(numeral, 1);
-    // The ring keeps the printed proportion: twice the numeral's height.
-    expect(Math.abs(ring - 2 * numeral)).toBeLessThanOrEqual(0.5);
+    expect(fontSize * 0.78).toBeCloseTo(numeral, 1);
   });
 });

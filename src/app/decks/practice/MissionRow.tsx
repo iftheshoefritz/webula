@@ -89,6 +89,7 @@ import TableCard, {
   SMALL_CARD_WIDTH,
   TABLE_CARD_ART_HEIGHT,
   TABLE_CARD_WIDTH,
+  COMPLETED_IMAGE_CLASSNAME,
   cardBorderWidth,
   fullCardHeight,
 } from './TableCard';
@@ -380,178 +381,168 @@ export function placedOnStripLayout(scale: number): {
 
 // The span of a mission on the touch crop (#1133). The crop keeps the row of the quadrant icon and
 // the point box but cuts off the span the card prints at its bottom centre, so the crop draws the
-// span in the gap of that row, as the card prints it. Measured on a mission image (357x499): the
-// printed span is a black disc with a thin silver ring on a black backing disc (44/28 of the ring),
-// with a white, bold, italic numeral half the ring's height. Two brushed-silver bars run behind it,
-// a bright, a darker and a bright band about 24/28 of the ring in all, and the backing breaks them.
-// The crop draws short stubs of those bars on both sides of the backing, fading out at their outer
-// ends.
+// span in the gap of that row. The card prints the span as a black disc with a silver ring on a
+// black backing, which breaks a rail of brushed-silver bars. The crop builds the row the same way,
+// on the line the card already draws there: the quadrant icon and the point box are centred on one
+// line (y 283.5 of the 357x499 image), and the grey requirements box starts on that line and runs
+// up to the chrome of both (28.5 px in radius, centred 37.5 px in from either edge). So the span is
+// centred on that line, the rail runs along it from the chrome of one to the chrome of the other,
+// and a grey plate fills under the rail down to the card's border. Both ends are cut on the chrome
+// itself, so no art shows between them on either side, whatever the art (#1140).
 //
-// The numeral is as tall as the numeral of the point box beside it, and its top is level with that
-// numeral's top (the owner's calls on #1140): the point numeral is about 19 px tall (y 276-294) on
-// the image, 0.053 of the card width, with its top at y 276, 0.553 of the card height. Both follow
-// the image, so they match at every scale. The ring, the backing and the stubs keep the printed
-// proportions and stay centred on the numeral, so they may reach below the crop. The quadrant icon ends at about x 68 and the point box starts at
-// about x 290, so the whole overlay reaches no more than `MISSION_SPAN_MAX_REACH` of the card width
-// from its centre, which leaves a gap to both. A desktop shows the whole card, printed span
-// included, so it draws none.
-const MISSION_SPAN_NUMERAL_TOP_SHARE = 276 / 499; // of the full card height: the point numeral's top
-const MISSION_SPAN_NUMERAL_SHARE = 19 / 357; // of the card width: the point numeral's height
-// The height of a digit of the numeral's font, as a share of its font size.
-const MISSION_SPAN_DIGIT_EM = 0.72;
-const MISSION_SPAN_RING_RATIO = 2; // of the numeral's height, as printed
-const MISSION_SPAN_BACKING_RATIO = 44 / 28; // of the ring
-const MISSION_SPAN_BARS_RATIO = 24 / 28; // of the ring
-const MISSION_SPAN_STUB_RATIO = 36 / 28; // of the ring
-export const MISSION_SPAN_MAX_REACH = 0.28; // of the card width, from its centre
+// The span is a little smaller than the quadrant icon and the point box (44 px across, as the card
+// prints it, against their 57), and its numeral is as tall as the point numeral (19 px, the owner's
+// call on #1140). A desktop shows the whole card, printed span included, so it draws none.
+const MISSION_SPAN_AXIS_SHARE = 283.5 / 499; // of the full card height
+const MISSION_SPAN_CHROME_X = 37.5 / 357; // of the card width, from either edge
+const MISSION_SPAN_CHROME_RADIUS = 28.5 / 357; // of the card width
+const MISSION_SPAN_BACKING = 44 / 357; // of the card width
+const MISSION_SPAN_BACKING_EDGE = 4 / 357; // of the card width: the black between the ring and the bars
+const MISSION_SPAN_NUMERAL = 19 / 357; // of the card width: the point numeral's height
+const MISSION_SPAN_RAIL = 18 / 357; // of the card width
+// The height of a digit of the numeral's font, as a share of its font size, measured in Chromium.
+const MISSION_SPAN_DIGIT_EM = 0.78;
 
 export function missionSpanLayout(scale: number): {
   top: number;
   width: number;
   height: number;
+  axis: number;
+  backing: number;
+  backingLeft: number;
   ring: number;
   rim: number;
-  backing: number;
-  bars: number;
-  stub: number;
-  fontSize: number;
   numeral: number;
-  plate: number;
-  plateSolidFrom: number;
-  plateLeft: number;
-  plateWidth: number;
-  circleY: number;
-  quadrantCut: number;
-  pointsCut: number;
+  fontSize: number;
+  rail: number;
+  bandLeft: number;
+  bandWidth: number;
+  chromeRadius: number;
+  plateBottom: number;
 } {
-  const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
-  const numeral = cardWidth * MISSION_SPAN_NUMERAL_SHARE;
-  const ring = Math.round(numeral * MISSION_SPAN_RING_RATIO);
-  const backing = Math.round(ring * MISSION_SPAN_BACKING_RATIO);
-  const stub = Math.max(
-    0,
-    Math.min(Math.round(ring * MISSION_SPAN_STUB_RATIO), Math.floor(cardWidth * MISSION_SPAN_MAX_REACH - backing / 2))
-  );
-  // The numeral's top is level with the point numeral's top, and the ring, the backing and the
-  // stubs are centred on the numeral, so the overlay may reach below the crop.
-  const centre = fullCardHeight(cardWidth) * MISSION_SPAN_NUMERAL_TOP_SHARE + numeral / 2;
-  const top = Math.round(centre - backing / 2);
-  const bars = Math.round(ring * MISSION_SPAN_BARS_RATIO);
+  const width = scaled(TABLE_CARD_WIDTH, scale);
+  const axisOnCard = fullCardHeight(width) * MISSION_SPAN_AXIS_SHARE;
+  // The disc sits on whole pixels, and as far as the card's width allows, on its centre, so the
+  // ring and the numeral do not blur against each other.
+  const backing = width - 2 * Math.round((width - width * MISSION_SPAN_BACKING) / 2);
+  const ring = backing - 2 * Math.max(1, Math.round(width * MISSION_SPAN_BACKING_EDGE));
+  const top = Math.round(axisOnCard - backing / 2);
+  // The card's border is an outline over the image. The plate reaches half a pixel into it, which
+  // covers the image when the strips sit half a pixel above the card.
+  const borderTop = scaled(TABLE_CARD_ART_HEIGHT, scale) - cardBorderWidth(width);
+  const plateBottom = borderTop + 0.5 - top;
+  const numeral = width * MISSION_SPAN_NUMERAL;
+  const bandLeft = width * MISSION_SPAN_CHROME_X;
   return {
     top,
-    width: backing + 2 * stub,
-    height: backing,
-    ring,
-    rim: Math.max(1, Math.round(ring / 10)),
+    width,
+    height: Math.max(backing, plateBottom),
+    axis: axisOnCard - top,
     backing,
-    bars,
-    stub,
+    backingLeft: (width - backing) / 2,
+    ring,
+    rim: Math.max(1, Math.round(ring / 12)),
     numeral,
-    // The grey plate behind the span stops where the card's black bottom border starts (the
-    // owner's call on #1140), and only the chrome may reach below it. Above the top bar it is
-    // see-through.
-    plate: Math.max(
-      0,
-      Math.min(backing, scaled(TABLE_CARD_ART_HEIGHT, scale) - cardBorderWidth(cardWidth) - top)
-    ),
-    plateSolidFrom: (backing - bars) / 2,
-    // The plate reaches out sideways until it meets the rings of the quadrant icon and the point
-    // box (the owner's call on #1140): it runs from the centre of one ring to the centre of the
-    // other, and each ring's disc is cut out of it, so its ends follow the rings' curves. The cut
-    // keeps the dark outline around each silver ring, which is wider around the point box.
-    plateLeft: cardWidth * MISSION_SPAN_RING_CENTRE_X_SHARE - (cardWidth - (backing + 2 * stub)) / 2,
-    plateWidth: cardWidth * (1 - 2 * MISSION_SPAN_RING_CENTRE_X_SHARE),
-    circleY: fullCardHeight(cardWidth) * MISSION_SPAN_RING_CENTRE_Y_SHARE - top,
-    quadrantCut: cardWidth * MISSION_SPAN_QUADRANT_CUT_SHARE,
-    pointsCut: cardWidth * MISSION_SPAN_POINTS_CUT_SHARE,
     fontSize: Math.round((numeral / MISSION_SPAN_DIGIT_EM) * 10) / 10,
+    // As the backing, so the rail's edges fall on whole pixels too.
+    rail: backing - 2 * Math.round((backing - width * MISSION_SPAN_RAIL) / 2),
+    bandLeft,
+    bandWidth: width - 2 * bandLeft,
+    chromeRadius: width * MISSION_SPAN_CHROME_RADIUS,
+    plateBottom,
   };
 }
 
-// The three bands of the printed bars, top to bottom: bright, darker and textured, bright, with a
-// thin dark seam between them.
-const MISSION_SPAN_BARS =
-  'linear-gradient(to bottom, #6b7280 0%, #f3f4f6 12%, #9ca3af 29%, #111 30%, #111 37%, #4b5563 38%, #9ca3af 50%, #4b5563 62%, #111 63%, #111 70%, #9ca3af 71%, #f3f4f6 86%, #6b7280 100%)';
-// CSS text-box trimming, which React's `CSSProperties` does not type yet.
-const NUMERAL_TRIM_STYLE = { textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic' } as CSSProperties;
-// The grey of the requirements box under the printed bars, behind the span and its chrome (the
-// owner's call on #1140): see-through above the top bar, opaque from the top bar down.
-const MISSION_SPAN_PLATE = '188, 189, 193';
-const MISSION_SPAN_PLATE_TOP_ALPHA = 0.45;
-// The outer silver rings of the quadrant icon and the point box, measured on a mission image
-// (357x499): centred at x 37.5 and x 319.5, both at y 283.5, 28.5 px in radius. A dark outline
-// runs around each ring, out to 30 px around the quadrant icon and 31.5 px around the point box.
-const MISSION_SPAN_RING_CENTRE_X_SHARE = 37.5 / 357; // of the card width, from either edge
-const MISSION_SPAN_RING_CENTRE_Y_SHARE = 283.5 / 499; // of the full card height
-const MISSION_SPAN_QUADRANT_CUT_SHARE = 30 / 357; // of the card width
-const MISSION_SPAN_POINTS_CUT_SHARE = 31.5 / 357; // of the card width
+// The rail: a bright, a darker and a bright band, as the card prints its bars.
+const MISSION_SPAN_RAIL_IMAGE =
+  'linear-gradient(to bottom, #6b7280 0%, #f3f4f6 14%, #a1a7b0 34%, #4b5563 42%, #6b7280 50%, #4b5563 58%, #a1a7b0 66%, #e5e7eb 86%, #6b7280 100%)';
+// The grey of the requirements box, a little lighter at the top.
+const MISSION_SPAN_PLATE_IMAGE = 'linear-gradient(to bottom, #d4d5d8, #b9babe)';
 // The silver ring: brighter at the top left, darker at the bottom right.
 const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
+// The numeral is upright and skewed about its own centre, as the card's numerals lean. An italic
+// font, or the slant a browser makes of an upright one, leans about the baseline, which moves the
+// digit off the centre of the ring by a different amount in every font. The box is trimmed to the
+// digit itself, so the flex centring puts the digit, not its line box, at the middle of the ring.
+// React's `CSSProperties` does not type the text-box properties yet.
+const NUMERAL_STYLE = {
+  display: 'inline-block',
+  transform: 'skewX(-12deg)',
+  textBoxTrim: 'trim-both',
+  textBoxEdge: 'cap alphabetic',
+} as CSSProperties;
 
 // The overlay. It takes no pointer events and is not a droppable, and has no `data-zone` or
 // `data-card-id`: a tap, a hold and a drop on it reach the mission card and its halves under it.
-function MissionSpan({ missionIndex, span, scale }: { missionIndex: number; span: string; scale: number }) {
+// It darkens with a completed mission, as the card's image does (#991).
+function MissionSpan({
+  missionIndex,
+  span,
+  scale,
+  completed,
+}: {
+  missionIndex: number;
+  span: string;
+  scale: number;
+  completed: boolean;
+}) {
   const layout = missionSpanLayout(scale);
-  const { top, width, height, ring, rim, backing, bars, stub, fontSize } = layout;
-  const { plate, plateSolidFrom, plateLeft, plateWidth, circleY, quadrantCut, pointsCut } = layout;
-  // Cuts the two rings' discs, with their dark outlines, out of the plate's ends.
-  const ringCut = (x: string, radius: number) =>
-    `radial-gradient(circle at ${x} ${circleY}px, transparent ${radius}px, black ${radius + 0.5}px)`;
-  const plateMask = `${ringCut('0px', quadrantCut)}, ${ringCut('100%', pointsCut)}`;
-  const stubStyle = (side: 'left' | 'right'): CSSProperties => {
-    const fade = `linear-gradient(to ${side}, black 0%, transparent 100%)`;
-    return {
-      [side]: 0,
-      top: (height - bars) / 2,
-      width: stub + backing / 2,
-      height: bars,
-      backgroundImage: MISSION_SPAN_BARS,
-      maskImage: fade,
-      WebkitMaskImage: fade,
-    };
+  const { top, width, height, axis, backing, backingLeft, ring, rim, fontSize, rail } = layout;
+  const { bandLeft, bandWidth, chromeRadius, plateBottom } = layout;
+  // The rail and the plate start at the disc's centre, which is on the chrome's line to within half
+  // a pixel; the cuts are centred on the chrome itself.
+  const centre = backing / 2;
+  // The rail and the plate run from the centre of one chrome ring to the centre of the other, and
+  // each ring's disc is cut out of both, so their ends follow the chrome.
+  const chromeCut = (y: number): CSSProperties => {
+    const cut = (x: string) =>
+      `radial-gradient(circle at ${x} ${y}px, transparent ${chromeRadius}px, black ${chromeRadius + 0.5}px)`;
+    const mask = `${cut('0px')}, ${cut('100%')}`;
+    return { maskImage: mask, WebkitMaskImage: mask, maskComposite: 'intersect', WebkitMaskComposite: 'source-in' };
   };
   return (
     <div
       data-testid={`mission-span-${missionIndex}`}
       role="img"
       aria-label={`Span ${span}`}
-      className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
+      className={`absolute left-0 pointer-events-none ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
       style={{ top, width, height }}
     >
       <div
         data-testid={`mission-span-${missionIndex}-plate`}
-        className="absolute top-0"
+        className="absolute"
         style={{
-          left: plateLeft,
-          width: plateWidth,
-          height: plate,
-          maskImage: plateMask,
-          WebkitMaskImage: plateMask,
-          maskComposite: 'intersect',
-          WebkitMaskComposite: 'source-in',
-          backgroundImage: `linear-gradient(to bottom, rgba(${MISSION_SPAN_PLATE}, ${MISSION_SPAN_PLATE_TOP_ALPHA}) ${plateSolidFrom}px, rgb(${MISSION_SPAN_PLATE}) ${plateSolidFrom}px)`,
+          left: bandLeft,
+          width: bandWidth,
+          top: centre,
+          height: plateBottom - centre,
+          backgroundImage: MISSION_SPAN_PLATE_IMAGE,
+          ...chromeCut(axis - centre),
         }}
       />
-      {stub > 0 && (
-        <>
-          <div data-testid={`mission-span-${missionIndex}-stub-left`} className="absolute" style={stubStyle('left')} />
-          <div data-testid={`mission-span-${missionIndex}-stub-right`} className="absolute" style={stubStyle('right')} />
-        </>
-      )}
-      {/* The black backing, which breaks the bars. */}
       <div
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black flex items-center justify-center"
-        style={{ width: backing, height: backing }}
+        data-testid={`mission-span-${missionIndex}-rail`}
+        className="absolute"
+        style={{
+          left: bandLeft,
+          width: bandWidth,
+          top: centre - rail / 2,
+          height: rail,
+          backgroundImage: MISSION_SPAN_RAIL_IMAGE,
+          ...chromeCut(axis - centre + rail / 2),
+        }}
+      />
+      {/* The black backing, which breaks the rail. */}
+      <div
+        className="absolute top-0 rounded-full bg-black flex items-center justify-center"
+        style={{ left: backingLeft, width: backing, height: backing }}
       >
         <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: MISSION_SPAN_RING }}>
           <div
-            className="w-full h-full rounded-full bg-black flex items-center justify-center font-sans font-extrabold italic leading-none text-white tracking-tighter"
+            className="w-full h-full rounded-full bg-black flex items-center justify-center font-sans font-bold leading-none text-white"
             style={{ fontSize }}
           >
-            {/* Trimmed to the cap height, so the box is the digit itself and the flex centring puts
-                the digit, not its line box, at the middle of the ring, whatever the system font's
-                ascent and descent. */}
-            <span data-testid={`mission-span-${missionIndex}-numeral`} style={NUMERAL_TRIM_STYLE}>
+            <span data-testid={`mission-span-${missionIndex}-numeral`} style={NUMERAL_STYLE}>
               {span}
             </span>
           </div>
@@ -1392,7 +1383,12 @@ function MissionColumn({
                 ))}
                 {/* The span, which the touch crop cuts off (#1133). It turns with the card. */}
                 {!desktop && mission.card.span && (
-                  <MissionSpan missionIndex={missionIndex} span={String(mission.card.span)} scale={scale} />
+                  <MissionSpan
+                    missionIndex={missionIndex}
+                    span={String(mission.card.span)}
+                    scale={scale}
+                    completed={completed}
+                  />
                 )}
               </div>
               <div
