@@ -140,9 +140,11 @@ the run again if you remove and re-add it. Do that only on purpose, to re-run.
 
 Runs on issues do not wake this session, so check in. PR events do wake it.
 
-- **After you label an issue**, schedule a check-in with `send_later`: about 20 minutes
-  for elaboration or a plan, 35 for an implementation. Keep one pending check-in that
-  covers everything in flight, not one per issue.
+- **After you label an issue**, schedule a check-in with `send_later`: about 5 minutes
+  for elaboration or a plan, 15 for an implementation. If the run is still going at the
+  check-in, check again 5 minutes later. Keep one pending check-in, at the earliest time
+  that anything in flight needs, not one per issue. (Runs to 2026-10-15: a plan takes
+  3 minutes, 6 at most; an implementation takes 8, 15 for 9 runs in 10, 28 at most.)
 - **When a PR appears** for an issue (`Closes #N`), call `subscribe_pr_activity` on it.
 - On each check-in or event, refresh every issue in the set, act on what changed, and keep
   going until the set is done.
