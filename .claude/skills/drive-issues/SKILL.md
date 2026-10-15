@@ -15,6 +15,40 @@ dispatch and review. The workflows write the code.
 
 Arguments: `$ARGUMENTS`
 
+## 0. Tools: the GitHub MCP, not `gh`
+
+Do every GitHub read and write with the GitHub MCP tools (`mcp__github__*`). In a cloud
+session the `gh` CLI has no GitHub token, so the `gh` commands in AGENTS.md and in
+`scripts/` (such as `replace_pr_section.sh` and the `gh api` log recipe) work only inside
+the Actions workflows, not here. If the tools appear only as deferred names, load them with
+`ToolSearch` first, in one call, e.g.
+`select:mcp__github__get_me,mcp__github__list_issues,mcp__github__issue_read,mcp__github__issue_write,mcp__github__add_issue_comment,mcp__github__pull_request_read,mcp__github__search_pull_requests,mcp__github__actions_list,mcp__github__get_job_logs,mcp__github__update_pull_request_branch,mcp__github__merge_pull_request`.
+The check-in and PR-watch tools are `mcp__claude-code-remote__send_later` and
+`mcp__claude-code-remote__subscribe_pr_activity`.
+
+Call `mcp__github__get_me` first. It should return `iftheshoefritz`: the MCP acts as the
+owner's own account, and that is what lets a `ready-for-dev` label from this session count
+as a person's. If it returns any other login, apply no `ready-for-dev` and merge nothing;
+tell the owner.
+
+The owner and repo for every call are `iftheshoefritz` and `webula`.
+
+| To | Call |
+|---|---|
+| list open issues | `list_issues` with `state: OPEN` (issues only, no PRs; paginate with `after`) |
+| read an issue | `issue_read` with `method` `get` (includes `closed_by_pull_requests`), `get_comments`, `get_sub_issues`, `get_parent`, `get_labels` |
+| set labels on an issue **or a PR** | `issue_write` `method: update`, `issue_number` = the issue or PR number, `labels` = the **full** new list (it replaces the list, so read the labels first; to remove one, send the list without it) |
+| create a sub-issue | `issue_write` `method: create` with `parent_issue_number` |
+| close an issue | `issue_write` `method: update`, `state: closed`, `state_reason: completed` |
+| comment on an issue or PR | `add_issue_comment` |
+| find the PR for an issue | `issue_read` `get` → `closed_by_pull_requests`, or `search_pull_requests` with `repo:iftheshoefritz/webula is:pr "#<n>" in:body` |
+| read a PR | `pull_request_read` with `method` `get` (draft, `mergeable_state`, head SHA, body), `get_diff`, `get_files`, `get_check_runs` (CI jobs), `get_status` (commit statuses, Vercel), `get_comments`, `get_review_comments` (threads, resolved or not), `get_reviews` |
+| mark a PR ready, edit title or body | `update_pull_request` (it has **no** labels field) |
+| bring a PR up to date with `main` | `update_pull_request_branch` with `expectedHeadSha` |
+| list workflow runs | `actions_list` `method: list_workflow_runs`, `resource_id: claude-implement.yml` (or another workflow file), `workflow_runs_filter: {event: issues}` for issue-label runs |
+| read why a run failed | `actions_list` `list_workflow_jobs` for the run, then `get_job_logs` with `job_id` (or `run_id` + `failed_only: true`), `return_content: true`, and a `tail_lines` of 300 or more: the `"type": "result"` record that says why it stopped is at the end |
+| merge | `merge_pull_request` with `merge_method: squash`, `commit_title`, `expectedHeadSha` |
+
 ## 1. Parse the arguments into an issue set
 
 | Form | Meaning |
@@ -25,8 +59,10 @@ Arguments: `$ARGUMENTS`
 | `max 3` / `3 in flight` | at most 3 issues with an implementation run or open PR at once (default **2**) |
 | `no-merge` | do everything except merge; stop at the gate (§7) and report |
 
-List the set with `mcp__github__list_issues` / `search_issues`
-(`repo:iftheshoefritz/webula is:issue is:open`) and drop pull requests. For an open-ended
+List the set with `list_issues` (`state: OPEN`, `orderBy: CREATED_AT`, `direction: DESC`,
+`fields: [number, title, labels, assignees]`), paging until the numbers fall below the start
+of the range, then keep the numbers in the range. Don't use `search_issues` for this: it is
+a natural-language search, not GitHub's `is:open` query syntax. For an open-ended
 range (`1114+`), take the set as it stands now, and add issues created later only if they
 are sub-issues or follow-ups you created for an issue in the set. Tell the owner the set
 you resolved before you label anything.
@@ -39,7 +75,7 @@ named it explicitly.
 
 For each issue read the body, all comments, labels, sub-issues, and linked PRs
 (`issue_read` with methods `get`, `get_comments`, `get_sub_issues`, `get_labels`;
-`search_pull_requests` for `Closes #N`). Classify it:
+`closed_by_pull_requests` or `search_pull_requests` for the PR). Classify it:
 
 | State | Signal | Next label |
 |---|---|---|
@@ -73,17 +109,17 @@ ready when an implementation slot frees up.
 
 ## 4. Apply labels, and check that the run started
 
-Apply labels with `mcp__github__issue_write` (method `update`, the full `labels` list,
-keeping the existing ones) or `update_pull_request`. Before you use a label for the first
-time in a session, read its workflow (`grep -rn "github.event.label.name" .github/workflows/`)
-and the AGENTS.md table under "A label can start a workflow run".
+Apply labels with `issue_write` (method `update`, the full `labels` list, keeping the
+existing ones). A PR is labelled the same way, by its number: `update_pull_request` has
+no labels field. Before you use a label for the first time in a session, read its
+workflow (`grep -rn "github.event.label.name" .github/workflows/`) and the AGENTS.md table under "A label can start a workflow run".
 
 **`ready-for-dev`.** AGENTS.md says only a person applies it, because
 `claude-implement.yml` refuses a run that a bot starts ("Workflow initiated by non-human
-actor"). This skill is the owner's delegation of that label. The GitHub tools of a cloud
-session act as the owner's account, so the label should count as a human's. Verify it on
-the first one: a few minutes after you label, list the runs of `claude-implement.yml`
-(`mcp__github__actions_list`) and check that the newest run for that issue is running, not
+actor"). This skill is the owner's delegation of that label. The GitHub MCP acts as the
+owner's account (§0), so the label should count as a human's. Verify it on the first one:
+a few minutes after you label, list the runs of `claude-implement.yml` (`actions_list`,
+`list_workflow_runs`) and check that the newest run for that issue is running, not
 failed in its first minute and not followed by an `agent-error:startup-failure` label. If
 it was refused, stop applying `ready-for-dev`, remove the `agent-error:` label, and tell
 the owner which issues are ready for them to label by hand.
@@ -113,11 +149,12 @@ Runs on issues do not wake this session, so check in. PR events do wake it.
 | CI red | read the failing job log (`get_job_logs`); a failure this PR caused → a PR comment naming it plus `agent-review`, or fix it yourself (§6) |
 | PR conflicts with `main` (`mergeable_state: dirty`) | `update_pull_request_branch`; if GitHub can't merge it, merge `main` into the branch locally, resolve, validate, push |
 | `agent-error:max-turns` | read the failure comment, split the issue in two sub-issues (state change / UI change is the usual cut), plan each, then `ready-for-dev` each |
-| any other `agent-error:<reason>` | read the comment and the log (AGENTS.md "To read why a workflow run failed"); re-run once by re-labelling if the run died before the agent did any work; otherwise report it |
+| any other `agent-error:<reason>` | read the comment and the log (`get_job_logs`, §0); re-run once by re-labelling if the run died before the agent did any work; otherwise report it |
 
-**Splitting an issue.** Create the sub-issues with `sub_issue_write`, each with its own
-acceptance checks and the part of the parent's plan that applies to it. They join the
-issue set. Tell the owner about the split when you make it.
+**Splitting an issue.** Create the sub-issues with `issue_write` `method: create` and
+`parent_issue_number` (`sub_issue_write` only links issues that already exist), each
+with its own acceptance checks and the part of the parent's plan that applies to it.
+They join the issue set. Tell the owner about the split when you make it.
 
 ## 6. Fixing things yourself
 
@@ -135,24 +172,28 @@ Merge a PR only when **all** of these hold on its current head commit:
 
 1. It is not a draft, and no `needs-human-input`, `visual-check` or `agent-review` label
    is pending.
-2. CI `test`, `typecheck` and `build` are green, and the Vercel deployment succeeded.
+2. CI `test`, `typecheck` and `build` are green (`get_check_runs`), and the Vercel
+   deployment succeeded (`get_status`).
 3. `## Visual Verification` holds a real report, not "Pending.", and it covers and passes
    each acceptance check of the issue. A `## Dev Server Issues` section stops the merge.
 4. The Vercel preview check comment is ✅, or its concern is one you checked and dismissed
    in a PR comment that says why.
-5. No review thread is unresolved, and `mergeable_state` is `clean`.
-6. You read the diff yourself. It does what the issue asks and nothing unrelated, new
+5. No review thread is unresolved (`get_review_comments`), and `mergeable_state` (`get`)
+   is `clean`.
+6. You read the diff yourself (`get_diff`). It does what the issue asks and nothing unrelated, new
    behaviour has tests, and no test was skipped or deleted. If you would not approve it,
    don't merge it: say what is wrong in a PR comment and add `agent-review`.
 7. The body still has `Closes #<issue>`.
 
-Then call `mcp__github__merge_pull_request` with `merge_method: squash` and a title of
-the form `<Area>: <summary> (#<pr>)`, in the style of `git log --oneline main` (for
+Then call `merge_pull_request` with `merge_method: squash`, `expectedHeadSha` set to the
+head SHA you checked (so a later push can't merge unchecked), and a `commit_title` of the
+form `<Area>: <summary> (#<pr>)`, in the style of `git log --oneline main` (for
 example `Practice table: a Load deck picker of its own (#1112)`). Confirm the issue
-closed, and close it with `state_reason: completed` if not. Unsubscribe from the PR.
+closed, and close it with `issue_write` (`state: closed`, `state_reason: completed`) if
+not. Unsubscribe from the PR (`unsubscribe_pr_activity`).
 
 After a merge, every other open PR in the set is behind `main`: update its branch before
-its next gate check.
+its next gate check (`update_pull_request_branch`).
 
 With `no-merge`, stop at the gate and list the PRs that pass it.
 
