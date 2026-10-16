@@ -55,6 +55,8 @@
 // dilemmas placed on the mission count in a pill of their own, with the dual icon, to the right of
 // it (#1081). The last 3 cards of each group also show as small cards in a strip along the edge of
 // the mission card (#1099, `PlacedOnStrip`), the events on the left and the dilemmas on the right.
+// The touch crop cuts off the mission's span, so it draws the span between the quadrant icon and
+// the point box, styled as the card prints it (#1133, `MissionSpan`).
 // A dilemma
 // dropped on a mission, from anywhere, goes under the mission instead (#606, #733), face up, permanently, unless it lands on the bottom half of the mission card,
 // which places it on the mission card (#871, `missionHalfDropId`). The top half, where the cards
@@ -78,7 +80,7 @@
 // happens on the mission card's own drop target; a tap on its slivers opens its panel, the same as
 // a tap on the top half (#1012).
 
-import { useEffect, useRef } from 'react';
+import { CSSProperties, useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance, MissionPileName, MissionSlot } from './tableReducer';
 import TableCard, {
@@ -87,6 +89,8 @@ import TableCard, {
   SMALL_CARD_WIDTH,
   TABLE_CARD_ART_HEIGHT,
   TABLE_CARD_WIDTH,
+  COMPLETED_IMAGE_CLASSNAME,
+  cardBorderWidth,
   fullCardHeight,
 } from './TableCard';
 import { offsetFor } from './overlapOffset';
@@ -373,6 +377,179 @@ export function placedOnStripLayout(scale: number): {
     cardHeight,
     step,
   };
+}
+
+// The span of a mission on the touch crop (#1133). The crop keeps the row of the quadrant icon and
+// the point box but cuts off the span the card prints at its bottom centre, so the crop draws the
+// span in the gap of that row. The card prints the span as a black disc with a silver ring on a
+// black backing, which breaks a rail of brushed-silver bars. The crop builds the row the same way,
+// on the line the card already draws there: the quadrant icon and the point box are centred on one
+// line (y 283.5 of the 357x499 image), and the grey requirements box starts on that line and runs
+// up to the chrome of both (28.5 px in radius, centred 37.5 px in from either edge). So the span is
+// centred on that line, the rail runs along it from the chrome of one to the chrome of the other,
+// and a grey plate fills under the rail down to the card's border. Both ends are cut on the chrome
+// itself, so no art shows between them on either side, whatever the art (#1140).
+//
+// The span is a little smaller than the quadrant icon and the point box (44 px across, as the card
+// prints it, against their 57), and its numeral is as tall as the point numeral (19 px, the owner's
+// call on #1140). A desktop shows the whole card, printed span included, so it draws none.
+const MISSION_SPAN_AXIS_SHARE = 283.5 / 499; // of the full card height
+const MISSION_SPAN_CHROME_X = 37.5 / 357; // of the card width, from either edge
+const MISSION_SPAN_CHROME_RADIUS = 28.5 / 357; // of the card width
+const MISSION_SPAN_BACKING = 44 / 357; // of the card width
+const MISSION_SPAN_BACKING_EDGE = 4 / 357; // of the card width: the black between the ring and the bars
+const MISSION_SPAN_NUMERAL = 19 / 357; // of the card width: the point numeral's height
+const MISSION_SPAN_RAIL = 18 / 357; // of the card width
+// The height of a digit of the numeral's font, as a share of its font size, measured in Chromium.
+const MISSION_SPAN_DIGIT_EM = 0.78;
+
+export function missionSpanLayout(scale: number): {
+  top: number;
+  width: number;
+  height: number;
+  axis: number;
+  backing: number;
+  backingLeft: number;
+  ring: number;
+  rim: number;
+  numeral: number;
+  fontSize: number;
+  rail: number;
+  bandLeft: number;
+  bandWidth: number;
+  chromeRadius: number;
+  plateBottom: number;
+} {
+  const width = scaled(TABLE_CARD_WIDTH, scale);
+  const axisOnCard = fullCardHeight(width) * MISSION_SPAN_AXIS_SHARE;
+  // The disc sits on whole pixels, and as far as the card's width allows, on its centre, so the
+  // ring and the numeral do not blur against each other.
+  const backing = width - 2 * Math.round((width - width * MISSION_SPAN_BACKING) / 2);
+  const ring = backing - 2 * Math.max(1, Math.round(width * MISSION_SPAN_BACKING_EDGE));
+  const top = Math.round(axisOnCard - backing / 2);
+  // The card's border is an outline over the image. The plate reaches half a pixel into it, which
+  // covers the image when the strips sit half a pixel above the card.
+  const borderTop = scaled(TABLE_CARD_ART_HEIGHT, scale) - cardBorderWidth(width);
+  const plateBottom = borderTop + 0.5 - top;
+  const numeral = width * MISSION_SPAN_NUMERAL;
+  const bandLeft = width * MISSION_SPAN_CHROME_X;
+  return {
+    top,
+    width,
+    height: Math.max(backing, plateBottom),
+    axis: axisOnCard - top,
+    backing,
+    backingLeft: (width - backing) / 2,
+    ring,
+    rim: Math.max(1, Math.round(ring / 12)),
+    numeral,
+    fontSize: Math.round((numeral / MISSION_SPAN_DIGIT_EM) * 10) / 10,
+    // As the backing, so the rail's edges fall on whole pixels too.
+    rail: backing - 2 * Math.round((backing - width * MISSION_SPAN_RAIL) / 2),
+    bandLeft,
+    bandWidth: width - 2 * bandLeft,
+    chromeRadius: width * MISSION_SPAN_CHROME_RADIUS,
+    plateBottom,
+  };
+}
+
+// The rail: a bright, a darker and a bright band, as the card prints its bars.
+const MISSION_SPAN_RAIL_IMAGE =
+  'linear-gradient(to bottom, #6b7280 0%, #f3f4f6 14%, #a1a7b0 34%, #4b5563 42%, #6b7280 50%, #4b5563 58%, #a1a7b0 66%, #e5e7eb 86%, #6b7280 100%)';
+// The grey of the requirements box, a little lighter at the top.
+const MISSION_SPAN_PLATE_IMAGE = 'linear-gradient(to bottom, #d4d5d8, #b9babe)';
+// The silver ring: brighter at the top left, darker at the bottom right.
+const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
+// The numeral is upright and skewed about its own centre, as the card's numerals lean. An italic
+// font, or the slant a browser makes of an upright one, leans about the baseline, which moves the
+// digit off the centre of the ring by a different amount in every font. The box is trimmed to the
+// digit itself, so the flex centring puts the digit, not its line box, at the middle of the ring.
+// React's `CSSProperties` does not type the text-box properties yet.
+const NUMERAL_STYLE = {
+  display: 'inline-block',
+  transform: 'skewX(-12deg)',
+  textBoxTrim: 'trim-both',
+  textBoxEdge: 'cap alphabetic',
+} as CSSProperties;
+
+// The overlay. It takes no pointer events and is not a droppable, and has no `data-zone` or
+// `data-card-id`: a tap, a hold and a drop on it reach the mission card and its halves under it.
+// It darkens with a completed mission, as the card's image does (#991).
+function MissionSpan({
+  missionIndex,
+  span,
+  scale,
+  completed,
+}: {
+  missionIndex: number;
+  span: string;
+  scale: number;
+  completed: boolean;
+}) {
+  const layout = missionSpanLayout(scale);
+  const { top, width, height, axis, backing, backingLeft, ring, rim, fontSize, rail } = layout;
+  const { bandLeft, bandWidth, chromeRadius, plateBottom } = layout;
+  // The rail and the plate start at the disc's centre, which is on the chrome's line to within half
+  // a pixel; the cuts are centred on the chrome itself.
+  const centre = backing / 2;
+  // The rail and the plate run from the centre of one chrome ring to the centre of the other, and
+  // each ring's disc is cut out of both, so their ends follow the chrome.
+  const chromeCut = (y: number): CSSProperties => {
+    const cut = (x: string) =>
+      `radial-gradient(circle at ${x} ${y}px, transparent ${chromeRadius}px, black ${chromeRadius + 0.5}px)`;
+    const mask = `${cut('0px')}, ${cut('100%')}`;
+    return { maskImage: mask, WebkitMaskImage: mask, maskComposite: 'intersect', WebkitMaskComposite: 'source-in' };
+  };
+  return (
+    <div
+      data-testid={`mission-span-${missionIndex}`}
+      role="img"
+      aria-label={`Span ${span}`}
+      className={`absolute left-0 pointer-events-none ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+      style={{ top, width, height }}
+    >
+      <div
+        data-testid={`mission-span-${missionIndex}-plate`}
+        className="absolute"
+        style={{
+          left: bandLeft,
+          width: bandWidth,
+          top: centre,
+          height: plateBottom - centre,
+          backgroundImage: MISSION_SPAN_PLATE_IMAGE,
+          ...chromeCut(axis - centre),
+        }}
+      />
+      <div
+        data-testid={`mission-span-${missionIndex}-rail`}
+        className="absolute"
+        style={{
+          left: bandLeft,
+          width: bandWidth,
+          top: centre - rail / 2,
+          height: rail,
+          backgroundImage: MISSION_SPAN_RAIL_IMAGE,
+          ...chromeCut(axis - centre + rail / 2),
+        }}
+      />
+      {/* The black backing, which breaks the rail. */}
+      <div
+        className="absolute top-0 rounded-full bg-black flex items-center justify-center"
+        style={{ left: backingLeft, width: backing, height: backing }}
+      >
+        <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: MISSION_SPAN_RING }}>
+          <div
+            className="w-full h-full rounded-full bg-black flex items-center justify-center font-sans font-bold leading-none text-white"
+            style={{ fontSize }}
+          >
+            <span data-testid={`mission-span-${missionIndex}-numeral`} style={NUMERAL_STYLE}>
+              {span}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export const placedOnStripTestId = (missionIndex: number, group: PlacedOnGroup): string =>
@@ -1181,8 +1358,8 @@ function MissionColumn({
                 eitherOver={eitherOver}
                 reach={underReach}
               />
-              {/* The strips of the placed cards (#1099), on the upright card's box. They turn with a
-                  completed mission (#1060), so they stay below its title and above its point box. */}
+              {/* The strips of the placed cards (#1099) and the span (#1133), on the upright card's box.
+                  They turn with a completed mission (#1060), so they stay where the card prints them. */}
               <div
                 data-testid={`mission-strips-${missionIndex}`}
                 className="absolute left-1/2 top-1/2 pointer-events-none motion-safe:transition-transform motion-reduce:transition-none"
@@ -1204,6 +1381,15 @@ function MissionColumn({
                     onTap={(event) => deferTap(event, () => onOpenPlacedOn(mission.id, group))}
                   />
                 ))}
+                {/* The span, which the touch crop cuts off (#1133). It turns with the card. */}
+                {!desktop && mission.card.span && (
+                  <MissionSpan
+                    missionIndex={missionIndex}
+                    span={String(mission.card.span)}
+                    scale={scale}
+                    completed={completed}
+                  />
+                )}
               </div>
               <div
                 data-testid={`mission-corners-${missionIndex}`}
