@@ -203,18 +203,19 @@ today.
 A label that the run does not remove starts the run again when somebody removes it and
 adds it back.
 
-`ready-for-dev` is the one exception: a bot cannot apply it. The rule is about the
-account that applies the label. A run that a bot starts, such as an agent in a GitHub
-Actions workflow, stops at once with "Workflow initiated by non-human actor", and the
-repository gets an `agent-error:startup-failure` label for work that never ran. So an
-Actions agent leaves the label off the issues it creates, such as the sub-issues of the
-issue it works on, and off the issues it updates. When it makes an issue that is ready to
-implement, it says so in the issue body and leaves the label to the owner.
+`ready-for-dev` is the one exception: the owner applies it. This holds in every kind of
+session, an Actions workflow, a cloud session, or a local session. Leave the label off the
+issues you create, such as the sub-issues of the issue you work on, and off the issues you
+update. When you make an issue that is ready to implement, say so in the issue body.
 
-The rule does not apply to a session that the owner starts with the `drive-issues` skill
-(`.claude/skills/drive-issues/SKILL.md`), for example `/drive-issues 1114+`. That session
-acts as the owner's own account, so its label starts the run. The owner delegates
-`ready-for-dev`, and merging, to that session for the issues named in that invocation only.
+The label starts the implementation run, and the owner decides when that run starts. A
+request to capture or write issues is not a request to start that run. Apply the label only
+when the owner tells you to in the session, for named issues. A `/drive-issues` invocation
+(`.claude/skills/drive-issues/SKILL.md`) is such an instruction for the issues it names.
+
+A bot account cannot apply the label in any case. A run that a bot starts, such as an agent
+in a GitHub Actions workflow, stops at once with "Workflow initiated by non-human actor", and
+the repository gets an `agent-error:startup-failure` label for work that never ran.
 
 ## PR Requirements
 
