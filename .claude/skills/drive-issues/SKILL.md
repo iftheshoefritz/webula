@@ -124,9 +124,9 @@ three calls:
 
 Change one label per write. To add two labels, write twice.
 
-**`ready-for-dev`.** AGENTS.md says a bot cannot apply it, and that this skill is the
-exception: the owner delegates the label to this session. The GitHub MCP acts as the
-owner's account (§0), so the label should count as a human's. Verify it on the first one:
+**`ready-for-dev`.** AGENTS.md leaves the label to the owner, and a bot cannot apply it.
+The owner's invocation of this skill delegates the label to this session. The GitHub MCP
+acts as the owner's account (§0), so the label should count as a human's. Verify it on the first one:
 a few minutes after you label, list the runs of `claude-implement.yml` (`actions_list`,
 `list_workflow_runs`) and check that the newest run for that issue is running, not
 failed in its first minute and not followed by an `agent-error:startup-failure` label. If
