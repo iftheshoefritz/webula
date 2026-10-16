@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import {
+  PRACTICE_DEBUG_TAPS_MANIFEST,
   PRACTICE_FIXTURE_MANIFEST,
   PRACTICE_MANIFEST,
   isFixtureParam,
@@ -36,5 +37,13 @@ describe('practice table manifests (#922)', () => {
         expect(fs.existsSync(path.join(process.cwd(), 'public', icon.src))).toBe(true);
       }
     }
+  });
+
+  it('links the tap debug manifest for ?debugTaps=1, which starts with the overlay on (#1155)', () => {
+    expect(practiceMetadata(false, true).manifest).toBe(PRACTICE_DEBUG_TAPS_MANIFEST);
+    const debug = readManifest(PRACTICE_DEBUG_TAPS_MANIFEST);
+    const table = readManifest(PRACTICE_MANIFEST);
+    expect(debug.start_url).toBe('/decks/practice?debugTaps=1');
+    expect(debug.id).not.toBe(table.id);
   });
 });

@@ -60,6 +60,17 @@ describe('useFullscreen (#921)', () => {
     }
   });
 
+  it('reports a page in the fullscreen display mode as standalone (#1155)', () => {
+    const original = window.matchMedia;
+    window.matchMedia = jest.fn((query: string) => ({ matches: query === '(display-mode: fullscreen)' })) as unknown as typeof window.matchMedia;
+    try {
+      const { result } = renderHook(() => useFullscreen(layer));
+      expect(result.current.standalone).toBe(true);
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
   it('shows no button before the element mounts (#1127)', () => {
     setDocument('fullscreenEnabled', false);
     const { result } = renderHook(() => useFullscreen(null));

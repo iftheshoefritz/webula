@@ -109,6 +109,7 @@ import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './rel
 import { cardIdOfDraggable } from './panelDragId';
 import { createCenterOnPointerModifier } from './centerOnPointer';
 import { useFullscreen } from './useFullscreen';
+import { TapDebugOverlay, useDebugTaps } from './TapDebugOverlay';
 import { useServiceWorker, type ServiceWorkerUpdate } from './useServiceWorker';
 
 // A plain inline hamburger icon (#722), not react-icons: see `DownloadIcon`'s comment below for
@@ -1172,6 +1173,7 @@ function PracticeDrawContent() {
   // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
   // Browser checks use it with `?fixture=1` to start from the same table every time.
   const isReset = searchParams.get('reset') === '1';
+  const debugTaps = useDebugTaps(searchParams.get('debugTaps'));
   const { data, loading } = useDataFetching();
   const serviceWorkerUpdate = useServiceWorker();
   // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
@@ -1269,9 +1271,10 @@ function PracticeDrawContent() {
   // against. `viewerCardWidth`/`viewerCardHeight` feed every `CardListPanel` and `CardHand` below; `MissionRow`
   // derives its own ship-row sizes from the same `scale`.
   const scale = useTableScale(gameLayer);
-  // #1068: keeps room to scroll the browser's toolbar away again after it comes back.
-  useToolbarScrollRoom(gameLayer);
   const fullscreen = useFullscreen(gameLayer);
+  // #1068: keeps room to scroll the browser's toolbar away again after it comes back. In an app
+  // added to the home screen it pins the document's scroll at 0 instead (#1155).
+  useToolbarScrollRoom(gameLayer, fullscreen.standalone);
   // Every viewer (a card list panel, the open fan) draws its card at 1.5x the table card (#802),
   // up to a fixed width on a desktop (#946).
   const finePointer = useFinePointer();
@@ -2272,8 +2275,13 @@ function PracticeDrawContent() {
   return (
     <>
       {/* Scroll room only. Mobile Safari hides its toolbar when the document scrolls, and keeps it
-          hidden only while the document is taller than the toolbar-hidden viewport (100lvh). */}
-      <div aria-hidden="true" data-testid="practice-scroll-spacer" className="h-[calc(100lvh+120px)]" />
+          hidden only while the document is taller than the toolbar-hidden viewport (100lvh). An
+          app added to the home screen has no toolbar, and a scrolled document there takes a tap
+          above the finger, so it gets no spacer (#1155). */}
+      {fullscreen.standalone !== true && (
+        <div aria-hidden="true" data-testid="practice-scroll-spacer" className="h-[calc(100lvh+120px)]" />
+      )}
+      {debugTaps && <TapDebugOverlay standalone={fullscreen.standalone} />}
 
       {/* Game layer: fixed inset-0 always fills the visible area as the toolbar shows and hides */}
       <div ref={setGameLayer} data-testid="practice-game-layer" className="fixed inset-0 bg-gradient-page font-body text-text-primary flex flex-col">

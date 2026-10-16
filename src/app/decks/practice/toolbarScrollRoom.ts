@@ -12,6 +12,12 @@
 // the next swipe can scroll and hide the toolbar again. It acts on the resize only, never on a
 // `scroll` event, so it does not fight a scroll the player is making: the toolbar changes after the
 // gesture ends.
+//
+// Issue #1155: an app added to the home screen has no toolbar to hide, and iOS draws a `fixed`
+// layer of a scrolled document in one place and hit-tests it in another, so a tap acts above the
+// finger. While the page runs standalone, the hook does the opposite: `PracticeTable` renders no
+// spacer, the root cannot scroll or overscroll, and any scroll that still happens (a rubber-band,
+// a rotation) goes back to 0 at once.
 
 import { useEffect } from 'react';
 
@@ -28,9 +34,10 @@ export function scrollRoomTarget(scrollY: number, maxScroll: number): number | n
   return target < scrollY ? target : null;
 }
 
-export function useToolbarScrollRoom(gameLayer: HTMLElement | null): void {
+// `standalone` is null until it is known, and the hook then does nothing.
+export function useToolbarScrollRoom(gameLayer: HTMLElement | null, standalone: boolean | null): void {
   useEffect(() => {
-    if (!gameLayer) return;
+    if (!gameLayer || standalone !== false) return;
     const onResize = () => {
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
       const target = scrollRoomTarget(window.scrollY, maxScroll);
@@ -39,5 +46,32 @@ export function useToolbarScrollRoom(gameLayer: HTMLElement | null): void {
     const observer = new ResizeObserver(onResize);
     observer.observe(gameLayer);
     return () => observer.disconnect();
-  }, [gameLayer]);
+  }, [gameLayer, standalone]);
+
+  useEffect(() => {
+    if (standalone !== true) return;
+    const root = document.documentElement;
+    const { overflow, overscrollBehavior } = root.style;
+    root.style.overflow = 'hidden';
+    root.style.overscrollBehavior = 'none';
+    const pin = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
+    };
+    pin();
+    const viewport = window.visualViewport;
+    window.addEventListener('scroll', pin);
+    window.addEventListener('resize', pin);
+    window.addEventListener('orientationchange', pin);
+    viewport?.addEventListener('resize', pin);
+    viewport?.addEventListener('scroll', pin);
+    return () => {
+      root.style.overflow = overflow;
+      root.style.overscrollBehavior = overscrollBehavior;
+      window.removeEventListener('scroll', pin);
+      window.removeEventListener('resize', pin);
+      window.removeEventListener('orientationchange', pin);
+      viewport?.removeEventListener('resize', pin);
+      viewport?.removeEventListener('scroll', pin);
+    };
+  }, [standalone]);
 }
