@@ -972,6 +972,43 @@ describe('PracticeDrawPage', () => {
     expect(gameLayer).not.toHaveClass('overflow-hidden');
   });
 
+  // Issue #1155: an app added to the home screen has no toolbar to hide, and a scrolled document
+  // there takes a tap above the finger, so the page renders no spacer.
+  it('renders no scroll spacer when the page runs as a home-screen app', async () => {
+    (navigator as Navigator & { standalone?: boolean }).standalone = true;
+    try {
+      render(<PracticeDrawPage />);
+      await act(async () => {});
+      expect(screen.queryByTestId('practice-scroll-spacer')).not.toBeInTheDocument();
+      expect(screen.getByTestId('practice-game-layer')).toHaveClass('fixed', 'inset-0');
+    } finally {
+      delete (navigator as Navigator & { standalone?: boolean }).standalone;
+    }
+  });
+
+  it('draws the tap debug overlay only with ?debugTaps=1, with a dot at each pointerdown (#1155)', async () => {
+    const { unmount } = render(<PracticeDrawPage />);
+    await act(async () => {});
+    expect(screen.queryByTestId('tap-debug-overlay')).not.toBeInTheDocument();
+    unmount();
+
+    mockSearchParamsValue = new URLSearchParams('debugTaps=1');
+    render(<PracticeDrawPage />);
+    await act(async () => {});
+    expect(screen.getByTestId('tap-debug-overlay')).toHaveClass('pointer-events-none');
+    expect(screen.getByTestId('tap-debug-overlay')).toHaveTextContent(/scrollY 0/);
+
+    // jsdom has no hit test, so the stub names the game layer as the element under the tap.
+    document.elementFromPoint = jest.fn(() => screen.getByTestId('practice-game-layer'));
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent('pointerdown', { clientX: 120, clientY: 80 }));
+    });
+    const dot = screen.getByTestId('tap-debug-dot');
+    expect(dot).toHaveStyle({ left: '120px', top: '80px' });
+    expect(screen.getByTestId('tap-debug-overlay')).toHaveTextContent('tap 120,80 → div practice-game-layer');
+    delete (document as Partial<Document>).elementFromPoint;
+  });
+
   // Orientation: RotateDeviceOverlay is rendered when matchMedia reports portrait
   it('renders RotateDeviceOverlay when orientation is portrait', async () => {
     Object.defineProperty(window, 'matchMedia', {
