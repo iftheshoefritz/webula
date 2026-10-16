@@ -54,6 +54,7 @@ const CLOSED_MAX_WIDTH = 80;
 const HAND_CONTROLS_HEIGHT = 44;
 const CLOSED_MAX_OFFSET = 10;
 // The fan may leave a small gap between two cards, at the ratio #642 set (60 px for a 56 px card).
+// The arc caps the step itself, so its neighbours always touch (#1153).
 const openMaxOffset = (width: number) => Math.round((width * 60) / 56);
 // The gap the arc keeps from each pile (#1125).
 const ARC_PILE_GAP = 4;
