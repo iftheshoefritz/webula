@@ -37,7 +37,7 @@ owner's own account, and that is what lets a `ready-for-dev` label from this ses
 as a person's. If it returns any other login, apply no `ready-for-dev` and merge nothing;
 tell the owner.
 
-For the call that does each task, read [`github-mcp.md`](github-mcp.md).
+For the call that does each task, read [`.claude/github-mcp.md`](../../github-mcp.md).
 
 ## 1. Parse the arguments into an issue set
 
