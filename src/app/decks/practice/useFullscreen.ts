@@ -22,11 +22,15 @@ function fullscreenEnabled(element: HTMLElement | null): boolean {
 }
 
 // True when the page runs as an app added to the home screen (#1127). iOS Safari reports it with
-// `navigator.standalone` as well as the media query.
-function runsStandalone(): boolean {
+// `navigator.standalone` as well as the media query. The manifest asks for `fullscreen`, which iOS
+// opens as `standalone` and other browsers may report as asked (#1155).
+export function runsStandalone(): boolean {
   const nav = navigator as Navigator & { standalone?: boolean };
   if (nav.standalone) return true;
-  return typeof window.matchMedia === 'function' && Boolean(window.matchMedia('(display-mode: standalone)')?.matches);
+  if (typeof window.matchMedia !== 'function') return false;
+  return ['(display-mode: standalone)', '(display-mode: fullscreen)'].some((query) =>
+    Boolean(window.matchMedia(query)?.matches)
+  );
 }
 
 // What the fullscreen button does (#1127): `fullscreen` toggles fullscreen, `homeScreen` shows how
@@ -80,5 +84,5 @@ export function useFullscreen(element: HTMLElement | null) {
 
   const mode: FullscreenButtonMode = enabled ? 'fullscreen' : standalone === false ? 'homeScreen' : 'none';
 
-  return { enabled, mode, isFullscreen, toggle };
+  return { enabled, mode, standalone, isFullscreen, toggle };
 }

@@ -5,6 +5,9 @@ import type { Metadata } from 'next';
 // the second replace the first.
 export const PRACTICE_MANIFEST = '/practice-table.webmanifest';
 export const PRACTICE_FIXTURE_MANIFEST = '/practice-fixture.webmanifest';
+// A third install that opens with the tap debug overlay (#1155). A home-screen app keeps its own
+// storage and has no address bar, so its start URL is the one way to give it `?debugTaps=1`.
+export const PRACTICE_DEBUG_TAPS_MANIFEST = '/practice-debug-taps.webmanifest';
 
 export const APPLE_TOUCH_ICON = '/app-icons/apple-touch-icon.png';
 
@@ -12,13 +15,15 @@ export function isFixtureParam(fixture: string | string[] | undefined): boolean 
   return (Array.isArray(fixture) ? fixture[0] : fixture) === '1';
 }
 
+export const isDebugTapsParam = isFixtureParam;
+
 // The metadata of `/decks/practice`: the manifest, and the tags iPhone Safari reads, since it
 // takes the home-screen title and icon from the page rather than from the manifest.
-export function practiceMetadata(fixture: boolean): Metadata {
-  const title = fixture ? 'Practice Fixture' : 'Practice Table';
+export function practiceMetadata(fixture: boolean, debugTaps = false): Metadata {
+  const title = debugTaps ? 'Practice Tap Debug' : fixture ? 'Practice Fixture' : 'Practice Table';
   return {
     title: `Webula – ${title}`,
-    manifest: fixture ? PRACTICE_FIXTURE_MANIFEST : PRACTICE_MANIFEST,
+    manifest: debugTaps ? PRACTICE_DEBUG_TAPS_MANIFEST : fixture ? PRACTICE_FIXTURE_MANIFEST : PRACTICE_MANIFEST,
     appleWebApp: {
       capable: true,
       title,
