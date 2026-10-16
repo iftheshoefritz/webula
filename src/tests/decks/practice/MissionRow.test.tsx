@@ -986,12 +986,11 @@ describe('missionSpanLayout (#1133)', () => {
     expect(ring - 2 * rim).toBeGreaterThan(0);
   });
 
-  it.each(SCALES)('keeps the disc smaller than the quadrant icon and the point box at scale %s (#1140)', (scale) => {
+  it.each(SCALES)('draws the disc as large as the quadrant icon and the point box at scale %s (#1141)', (scale) => {
     const { backing } = missionSpanLayout(scale);
     const { width: cardWidth } = card(scale);
-    // As printed, 44 px across against their 57 on the 357 px wide image, to the nearest 2 px.
-    expect(Math.abs(backing - (cardWidth * 44) / 357)).toBeLessThanOrEqual(1);
-    expect(backing).toBeLessThan((cardWidth * 57) / 357);
+    // 57 px across on the 357 px wide image, the outer edge of their chrome, to the nearest 2 px.
+    expect(Math.abs(backing - (cardWidth * 57) / 357)).toBeLessThanOrEqual(1);
   });
 
   it.each(SCALES)('runs the rail and the plate from the chrome of one to the chrome of the other at scale %s (#1140)', (scale) => {
@@ -1006,13 +1005,15 @@ describe('missionSpanLayout (#1133)', () => {
 
   it.each(SCALES)('fills the plate down to the card\'s border at scale %s (#1140)', (scale) => {
     const { top, height, backing, plateBottom } = missionSpanLayout(scale);
-    const { width: cardWidth, artHeight } = card(scale);
+    const { width: cardWidth, fullHeight, artHeight } = card(scale);
     // The black border is 6 of 240 of the card width, at least 2 px. The plate reaches half a pixel
-    // into it, and the disc ends above it.
+    // into it. The disc ends level with the chrome of the two circles (y 312 of 499), which can
+    // reach into the border, and inside the crop (#1141).
     const borderTop = artHeight - Math.max(2, Math.round((cardWidth * 6) / 240));
     expect(top + plateBottom).toBe(borderTop + 0.5);
     expect(height).toBe(Math.max(backing, plateBottom));
-    expect(top + backing).toBeLessThanOrEqual(borderTop);
+    expect(Math.abs(top + backing - (fullHeight * 312) / 499)).toBeLessThanOrEqual(1);
+    expect(top + backing).toBeLessThanOrEqual(artHeight);
   });
 
   it.each(SCALES)('draws a rail of about the printed height on whole pixels at scale %s (#1140)', (scale) => {
@@ -1022,11 +1023,10 @@ describe('missionSpanLayout (#1133)', () => {
     expect(Number.isInteger((backing - rail) / 2)).toBe(true);
   });
 
-  it.each([1, 375 / 320, 2.4])('draws the numeral as tall as the point numeral at scale %s (#1140)', (scale) => {
-    const { numeral, fontSize } = missionSpanLayout(scale);
-    const { width: cardWidth } = card(scale);
-    // The point numeral is 19 px tall on the 357 px wide image.
-    expect(numeral).toBeCloseTo((cardWidth * 19) / 357, 5);
+  it.each([1, 375 / 320, 2.4])('draws the numeral 19/44 of the disc tall at scale %s (#1141)', (scale) => {
+    const { numeral, fontSize, backing } = missionSpanLayout(scale);
+    // The card prints a 19 px numeral on a 44 px disc.
+    expect(numeral).toBeCloseTo((backing * 19) / 44, 5);
     expect(fontSize * 0.78).toBeCloseTo(numeral, 1);
   });
 });

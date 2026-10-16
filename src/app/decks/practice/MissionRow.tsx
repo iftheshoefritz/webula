@@ -390,15 +390,16 @@ export function placedOnStripLayout(scale: number): {
 // and a grey plate fills under the rail down to the card's border. Both ends are cut on the chrome
 // itself, so no art shows between them on either side, whatever the art (#1140).
 //
-// The span is a little smaller than the quadrant icon and the point box (44 px across, as the card
-// prints it, against their 57), and its numeral is as tall as the point numeral (19 px, the owner's
-// call on #1140). A desktop shows the whole card, printed span included, so it draws none.
+// The span is as large as the quadrant icon and the point box, 57 px across to the outer edge of
+// their chrome (#1141), though the card prints it 44 px across. Its numeral grows with it: 19 px on
+// the printed 44 px disc, so 19/44 of the disc (the owner's call on #1141). A desktop shows the
+// whole card, printed span included, so it draws none.
 const MISSION_SPAN_AXIS_SHARE = 283.5 / 499; // of the full card height
 const MISSION_SPAN_CHROME_X = 37.5 / 357; // of the card width, from either edge
 const MISSION_SPAN_CHROME_RADIUS = 28.5 / 357; // of the card width
-const MISSION_SPAN_BACKING = 44 / 357; // of the card width
+const MISSION_SPAN_BACKING = 2 * MISSION_SPAN_CHROME_RADIUS; // of the card width
 const MISSION_SPAN_BACKING_EDGE = 4 / 357; // of the card width: the black between the ring and the bars
-const MISSION_SPAN_NUMERAL = 19 / 357; // of the card width: the point numeral's height
+const MISSION_SPAN_NUMERAL = 19 / 44; // of the backing's diameter, as the card prints it
 const MISSION_SPAN_RAIL = 18 / 357; // of the card width
 // The height of a digit of the numeral's font, as a share of its font size, measured in Chromium.
 const MISSION_SPAN_DIGIT_EM = 0.78;
@@ -431,7 +432,7 @@ export function missionSpanLayout(scale: number): {
   // covers the image when the strips sit half a pixel above the card.
   const borderTop = scaled(TABLE_CARD_ART_HEIGHT, scale) - cardBorderWidth(width);
   const plateBottom = borderTop + 0.5 - top;
-  const numeral = width * MISSION_SPAN_NUMERAL;
+  const numeral = backing * MISSION_SPAN_NUMERAL;
   const bandLeft = width * MISSION_SPAN_CHROME_X;
   return {
     top,
