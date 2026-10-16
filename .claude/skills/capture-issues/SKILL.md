@@ -22,9 +22,7 @@ Arguments: `$ARGUMENTS`
 This skill runs in a cloud session, the same kind as `/drive-issues`. In a cloud session
 the `gh` CLI has no GitHub token. Do every GitHub read and write with the GitHub MCP tools
 (`mcp__github__*`), and load them with `ToolSearch` if they show only as deferred names.
-[`../drive-issues/github-mcp.md`](../drive-issues/github-mcp.md) lists the call for each
-task. To find issues that cover an idea already, use `search_issues`: it is a
-natural-language search, which suits a duplicate check.
+[`.claude/github-mcp.md`](../../github-mcp.md) lists the call for each task.
 
 ## 1. Collect
 

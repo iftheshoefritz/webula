@@ -1,12 +1,16 @@
-# GitHub MCP calls for drive-issues
+# GitHub MCP calls
 
-The owner and repo for every call are `iftheshoefritz` and `webula`.
+The skills that run in a cloud session, such as `drive-issues` and `capture-issues`, do
+their GitHub reads and writes with the GitHub MCP tools (`mcp__github__*`), because `gh`
+has no token there. The owner and repo for every call are `iftheshoefritz` and `webula`.
 
 | To | Call |
 |---|---|
 | list open issues | `list_issues` with `state: OPEN` (issues only, no PRs; paginate with `after`) |
 | read an issue | `issue_read` with `method` `get` (includes `closed_by_pull_requests`), `get_comments`, `get_sub_issues`, `get_parent`, `get_labels` |
-| set labels on an issue **or a PR** | `issue_write` `method: update`, `issue_number` = the issue or PR number, `labels` = the **full** new list (it replaces the list; follow "Writing labels" in §4 of `SKILL.md`) |
+| set labels on an issue **or a PR** | `issue_write` `method: update`, `issue_number` = the issue or PR number, `labels` = the **full** new list (it replaces the list, so read the labels again right before the write; `drive-issues` §4, "Writing labels", gives the full procedure) |
+| create an issue | `issue_write` `method: create`, with `title`, `body` and an empty `labels` list |
+| find issues about an idea | `search_issues`, a natural-language search, not GitHub's query syntax |
 | create a sub-issue | `issue_write` `method: create` with `parent_issue_number` (`sub_issue_write` only links issues that already exist) |
 | close an issue | `issue_write` `method: update`, `state: closed`, `state_reason: completed` |
 | comment on an issue or PR | `add_issue_comment` |
