@@ -44,6 +44,12 @@ import { CANCEL_RADIUS } from './releaseCancel';
 type DraggableListeners = ReturnType<typeof useDraggable>['listeners'];
 
 export const HOLD_DELAY_MS = 500;
+// How long the guard against the click of a hold's release stays up (#1152). A mouse sends its
+// click in the same task as the `pointerup`, but a touch does not: the browser builds the click of
+// a tap from a gesture it dispatches after `touchend`, in a later task. The window has to outlast
+// that delay. A later tap is never at risk, since its own press ends the guard at once; only a
+// click with no press (Enter or Space on the focused card) waits out the window.
+export const HELD_CLICK_WINDOW_MS = 400;
 // The hold, during a drag, over one card in the core or the brig that places the dragged card on
 // it (#1029). Longer than `HOLD_DELAY_MS`, so the player can tell the two holds apart, and so a
 // drag that only passes over a card, or slows near it, does not place the card by accident.
@@ -118,8 +124,9 @@ type PointerHandler = (event: React.PointerEvent) => void;
 
 // Swallows the one `click` the press `down` produces, wherever it lands (#776). The listener is
 // on `window` in the capture phase, so it runs before any handler on the table. It is dropped
-// once the press's release has sent its events (the same `setTimeout(..., 0)` as a hold's own
-// release uses), or at the next press, so it never eats a later tap.
+// `HELD_CLICK_WINDOW_MS` after the press's release (the same window as a hold's own release
+// uses, since a touch's click comes later than its release), or at the next press, so it never
+// eats a later tap.
 export function swallowClickOf(down: PointerEvent) {
   const onClick = (e: MouseEvent) => {
     e.stopPropagation();
@@ -127,7 +134,7 @@ export function swallowClickOf(down: PointerEvent) {
     drop();
   };
   const onRelease = (e: PointerEvent) => {
-    if (e.pointerId === down.pointerId) window.setTimeout(drop, 0);
+    if (e.pointerId === down.pointerId) window.setTimeout(drop, HELD_CLICK_WINDOW_MS);
   };
   const onNextPress = (e: PointerEvent) => {
     if (e !== down) drop();
@@ -151,8 +158,10 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
   // Set once a hold has fired, so the `click` that can follow its release does not also run the
-  // card's tap handler (a selection toggle, or a crew panel). Cleared on the next press.
+  // card's tap handler (a selection toggle, or a crew panel). Cleared by that click, on the next
+  // press, or `HELD_CLICK_WINDOW_MS` after the release.
   const swallowClickRef = useRef(false);
+  const swallowTimerRef = useRef<number | null>(null);
   // Ends the hold in progress, if any. Given the press that ends it, it swallows that press's
   // click when the hold has fired (#776).
   const cleanupRef = useRef<((press?: PointerEvent) => void) | null>(null);
@@ -160,6 +169,13 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
   const hoveredRef = useRef(false);
   const idRef = useRef(id);
   idRef.current = id;
+
+  const stopSwallowing = () => {
+    swallowClickRef.current = false;
+    if (swallowTimerRef.current === null) return;
+    window.clearTimeout(swallowTimerRef.current);
+    swallowTimerRef.current = null;
+  };
 
   const cancelHoverTimer = () => {
     if (hoverTimerRef.current === null) return;
@@ -180,6 +196,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     () => () => {
       cleanupRef.current?.();
       endHover();
+      stopSwallowing();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
@@ -191,7 +208,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     dndPointerDown?.(event);
     // A press is a tap, a hold or a drag, so a hover still pending on the card does not fire.
     cancelHoverTimer();
-    swallowClickRef.current = false;
+    stopSwallowing();
     cleanupRef.current?.(event.nativeEvent);
     if (!callbacksRef.current) return;
     // A secondary mouse button is not a press.
@@ -209,10 +226,12 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
       callbacksRef.current?.endHold();
       endHover();
       // A release off the card (a mouse lets go over the preview's backdrop) sends no click to
-      // the card, so stop waiting for one once this release's own events are done.
-      window.setTimeout(() => {
+      // the card, so stop waiting for one once a touch's late click would have come (#1152).
+      if (swallowTimerRef.current !== null) window.clearTimeout(swallowTimerRef.current);
+      swallowTimerRef.current = window.setTimeout(() => {
+        swallowTimerRef.current = null;
         swallowClickRef.current = false;
-      }, 0);
+      }, HELD_CLICK_WINDOW_MS);
     };
     const onMove = (e: PointerEvent) => {
       // A mouse or a pen that moves with no button down was released where the page did not see
@@ -281,7 +300,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
 
   const onClickCapture = (event: React.MouseEvent) => {
     if (!swallowClickRef.current) return;
-    swallowClickRef.current = false;
+    stopSwallowing();
     event.stopPropagation();
     event.preventDefault();
   };
