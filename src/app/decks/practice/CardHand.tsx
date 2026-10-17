@@ -52,6 +52,16 @@ const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
 const CLOSED_MAX_WIDTH = 80;
 // The height of the row of "→ top"/"→ bottom" buttons above the open fan (#994), with its gap.
 const HAND_CONTROLS_HEIGHT = 44;
+// On a touch screen the arc's button row sits 20% closer to the bottom edge (#1149): its distance
+// from the bottom is this share of the desktop distance.
+const TOUCH_ARC_CONTROLS_SHARE = 0.8;
+
+// The distance of the arc's button row from the bottom edge of the screen. On a desktop the row
+// sits above the highest card of the arc; on a touch screen it sits 20% lower, over the top of the
+// middle cards (#1149).
+export function arcControlsBottom(visibleHeight: number, finePointer: boolean): number {
+  return (visibleHeight + HAND_CONTROLS_HEIGHT) * (finePointer ? 1 : TOUCH_ARC_CONTROLS_SHARE);
+}
 const CLOSED_MAX_OFFSET = 10;
 // The fan may leave a small gap between two cards, at the ratio #642 set (60 px for a 56 px card).
 // The arc caps the step itself, so its neighbours always touch (#1153).
@@ -166,6 +176,7 @@ export default function CardHand({
   onSendSelected,
   deckLabel = 'draw deck',
   arcBetween,
+  finePointer = false,
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -213,6 +224,8 @@ export default function CardHand({
   // the dilemma pile). The practice table gives it to both hands (#1150). Left out, the hand opens
   // as the flat fan above the bottom row.
   arcBetween?: { left: string; right: string };
+  // A mouse or a trackpad (`useFinePointer`). Without one, the arc's buttons sit lower (#1149).
+  finePointer?: boolean;
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
@@ -407,7 +420,7 @@ export default function CardHand({
                     style={{
                       left: arcBounds?.left,
                       width: arcBounds ? arcBounds.right - arcBounds.left : undefined,
-                      top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${arc.visibleHeight + HAND_CONTROLS_HEIGHT}px))`,
+                      top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${arcControlsBottom(arc.visibleHeight, finePointer)}px))`,
                       zIndex: count + 2,
                     }}
                   >

@@ -5,7 +5,7 @@ jest.mock('@dnd-kit/core', () => ({
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import CardHand from '../../../app/decks/practice/CardHand';
+import CardHand, { arcControlsBottom } from '../../../app/decks/practice/CardHand';
 import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import { VIEWER_TOP_INSET } from '../../../app/decks/practice/viewerCardSize';
@@ -505,5 +505,12 @@ describe('CardHand as an arc (#1125)', () => {
 
     left.remove();
     right.remove();
+  });
+
+
+  it('puts the buttons 20% closer to the bottom edge on a touch screen than on a desktop (#1149)', () => {
+    // The desktop row sits above the arc's highest card, with room for its 32 px buttons and gap.
+    expect(arcControlsBottom(98, true)).toBe(142);
+    expect(arcControlsBottom(98, false)).toBeCloseTo(142 * 0.8);
   });
 });

@@ -2536,6 +2536,7 @@ function PracticeDrawContent() {
                       openCardWidth={viewerCardWidth}
                       bottomInset={panelBottom}
                       arcBetween={HAND_ARC_BETWEEN}
+                      finePointer={finePointer}
                     />
                   </div>
                 </div>
@@ -2600,6 +2601,7 @@ function PracticeDrawContent() {
                     onSendSelected={(position) => sendHandSelectionToDeck('dilemmaHand', position)}
                     deckLabel="dilemma pile"
                     arcBetween={HAND_ARC_BETWEEN}
+                    finePointer={finePointer}
                   />
 
                   {/* Dilemma pile, with the same stacked buttons as the draw deck (#1070). The
