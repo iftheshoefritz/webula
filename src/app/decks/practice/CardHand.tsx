@@ -208,9 +208,10 @@ export default function CardHand({
   onSendSelected?: (position: 'top' | 'bottom') => void;
   // The name of that deck, for the accessible names of the two buttons.
   deckLabel?: string;
-  // Issue #1125, an experiment: the open hand draws as an arc at the bottom of the screen, about
-  // half of each card below the bottom edge, between the elements these two selectors name (the
-  // draw deck and the dilemma pile). Left out, the hand opens as the flat fan above the bottom row.
+  // Issue #1125: the open hand draws as an arc at the bottom of the screen, about half of each
+  // card below the bottom edge, between the elements these two selectors name (the draw deck and
+  // the dilemma pile). The practice table gives it to both hands (#1150). Left out, the hand opens
+  // as the flat fan above the bottom row.
   arcBetween?: { left: string; right: string };
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);

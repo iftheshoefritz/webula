@@ -300,8 +300,8 @@ The practice table has two fixtures. Each one deals the same table on every load
 
 A tap on the closed hand opens it as an arc along the bottom edge of the screen
 (`data-testid="hand-arc"`, `handArc.ts`, #1125): about half of each card is below the edge, and the
-arc stays between the draw deck and the dilemma pile, over the core and the brig. The dilemma hand
-still opens as a flat fan above the bottom row. A press on a card of the arc becomes a drag only after
+arc stays between the draw deck and the dilemma pile, over the core and the brig. A tap on the closed
+dilemma hand opens it as the same arc, in the same gap (`data-testid="dilemmaHand-arc"`, #1150). A press on a card of the arc becomes a drag only after
 20 px (`HAND_ARC_DRAG_ACTIVATION_DISTANCE`, #1131), not 8, so a thumb that drifts near the bottom
 edge still gets the hold preview.
 

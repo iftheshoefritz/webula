@@ -253,6 +253,34 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     expect(fan.querySelectorAll('[data-card-id]')).toHaveLength(1);
   });
 
+  it('opens the dilemma hand as an arc, the same as the hand (#1150)', async () => {
+    const deck = { [mockDilemmaCard.collectorsinfo]: { count: 2, row: mockDilemmaCard } };
+    localStorage.setItem('currentDeck', JSON.stringify(deck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (extractDrawDeck as jest.Mock).mockReturnValue([]);
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    await drawOpeningHand();
+
+    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
+    await act(async () => {
+      fireEvent.click(drawDilemmaButton);
+    });
+    await act(async () => {
+      fireEvent.click(drawDilemmaButton);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i }));
+    });
+
+    const arc = screen.getByTestId('dilemmaHand-arc');
+    expect(arc).toHaveAttribute('data-zone', 'dilemmaHand');
+    expect(arc).toHaveAttribute('data-hand-arc', 'true');
+    expect(arc.querySelectorAll('[data-card-id]')).toHaveLength(2);
+  });
+
   it('closes if a drag starts from an open card list panel while the hand is open, unchanged from before #740', async () => {
     const deck = {
       [mockPersonnelCards[0].collectorsinfo]: { count: 1, row: mockPersonnelCards[0] },

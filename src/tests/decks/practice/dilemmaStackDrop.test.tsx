@@ -253,7 +253,9 @@ describe('Practice table: the dilemma stack (#630)', () => {
       });
     }
 
-    const ids = [...mockDraggableIds];
+    // The open dilemma hand draws as an arc (#1150), which renders again once it has measured its
+    // bounds, so the mock sees each card's `useDraggable` more than once.
+    const ids = [...new Set(mockDraggableIds)];
     expect(ids).toHaveLength(4);
 
     // Drop all 4 dilemmas onto the stack, in order, so it ends up as `ids` itself (a drop always
