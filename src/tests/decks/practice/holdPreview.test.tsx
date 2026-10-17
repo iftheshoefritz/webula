@@ -402,6 +402,45 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
   });
 
   // #964: an away team card is stored face down, and its preview shows no "Face down" badge.
+  // #1152: a touch sends the click of a release in a later task than the `pointerup`, so the
+  // click comes after a timer tick. A hold only previews; a tap selects.
+  const releaseThenLateClick = (element: Element) => {
+    release();
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    act(() => {
+      fireEvent.click(element);
+    });
+  };
+
+  it('a hold on an open-hand card does not select it, even when the click comes late (#1152)', async () => {
+    await setupOpenHand([mockEquipmentCard]);
+    const handCard = screen.getByRole('button', { name: 'Tricorder' });
+    hold(handCard);
+    expect(preview('Tricorder')).toBeInTheDocument();
+    releaseThenLateClick(handCard);
+    expect(preview('Tricorder')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Deselect Tricorder' })).toBeNull();
+    tap(screen.getByRole('button', { name: 'Tricorder' }));
+    expect(screen.getByRole('button', { name: 'Deselect Tricorder' })).toBeInTheDocument();
+  });
+
+  it('a hold on a card list panel card does not select it, even when the click comes late (#1152)', async () => {
+    await setupOpenHand([mockPersonnelCard]);
+    const [personnelId] = mockDraggableIds;
+    drag(personnelId, 'mission-on-0');
+    tap(screen.getByRole('button', { name: /^Away team, 1 card, tap to open$/i }));
+    const panelCard = () => screen.getByTestId('card-list-panel-awayTeam').querySelector('[aria-label="Data"]')!;
+    hold(panelCard());
+    expect(preview('Data')).toBeInTheDocument();
+    releaseThenLateClick(panelCard());
+    expect(preview('Data')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Deselect Data' })).toBeNull();
+    tap(panelCard());
+    expect(screen.getByRole('button', { name: 'Deselect Data' })).toBeInTheDocument();
+  });
+
   it('a hold on an away team card shows its preview with no "Face down" badge', async () => {
     await setupOpenHand([mockPersonnelCard, mockEquipmentCard]);
     const [personnelId, equipmentId] = mockDraggableIds;

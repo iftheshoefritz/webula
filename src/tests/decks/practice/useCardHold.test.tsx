@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
-import { CardHoldProvider, useCardHold, HOLD_DELAY_MS, HOVER_DELAY_MS } from '../../../app/decks/practice/useCardHold';
+import { CardHoldProvider, useCardHold, HOLD_DELAY_MS, HOVER_DELAY_MS, HELD_CLICK_WINDOW_MS } from '../../../app/decks/practice/useCardHold';
 
 // jsdom has no PointerEvent, so `fireEvent.pointerMove` would drop `clientX`/`clientY`.
 if (typeof window.PointerEvent === 'undefined') {
@@ -197,6 +197,54 @@ describe('useCardHold', () => {
     fireEvent.pointerUp(card());
     fireEvent.click(card());
     expect(onTap).toHaveBeenCalledTimes(1);
+  });
+
+  // #1152: a touch's click comes in a later task than its `pointerup`.
+  it('swallows the click of a hold\'s release when it comes after a timer tick', () => {
+    const onTap = jest.fn();
+    render(<Harness onTap={onTap} />);
+    press({ pointerType: 'touch' });
+    act(() => jest.advanceTimersByTime(HOLD_DELAY_MS));
+    fireEvent.pointerUp(card(), { pointerType: 'touch' });
+    act(() => jest.advanceTimersByTime(HELD_CLICK_WINDOW_MS - 1));
+    fireEvent.click(card());
+    expect(onTap).not.toHaveBeenCalled();
+    // A fresh tap goes through.
+    press({ pointerType: 'touch' });
+    fireEvent.pointerUp(card(), { pointerType: 'touch' });
+    act(() => jest.advanceTimersByTime(1));
+    fireEvent.click(card());
+    expect(onTap).toHaveBeenCalledTimes(1);
+  });
+
+  it('a click with no press after the window has passed still taps (a key on the focused card)', () => {
+    const onTap = jest.fn();
+    render(<Harness onTap={onTap} />);
+    press();
+    act(() => jest.advanceTimersByTime(HOLD_DELAY_MS));
+    // Released off the card: no click reaches it.
+    fireEvent.pointerUp(screen.getByTestId('elsewhere'));
+    act(() => jest.advanceTimersByTime(HELD_CLICK_WINDOW_MS));
+    fireEvent.click(card());
+    expect(onTap).toHaveBeenCalledTimes(1);
+  });
+
+  it('the press that ends a fired hold has its late click swallowed too (#776, #1152)', () => {
+    const onElsewhere = jest.fn();
+    render(<Harness />);
+    const elsewhere = screen.getByTestId('elsewhere');
+    elsewhere.addEventListener('click', onElsewhere);
+    press();
+    act(() => jest.advanceTimersByTime(HOLD_DELAY_MS));
+    fireEvent.pointerDown(elsewhere, { pointerId: 2 });
+    fireEvent.pointerUp(elsewhere, { pointerId: 2 });
+    act(() => jest.advanceTimersByTime(HELD_CLICK_WINDOW_MS - 1));
+    fireEvent.click(elsewhere);
+    expect(onElsewhere).not.toHaveBeenCalled();
+    // A click with no press after the window has passed acts.
+    act(() => jest.advanceTimersByTime(HELD_CLICK_WINDOW_MS));
+    fireEvent.click(elsewhere);
+    expect(onElsewhere).toHaveBeenCalledTimes(1);
   });
 
   it('vibrates when navigator.vibrate exists', () => {
