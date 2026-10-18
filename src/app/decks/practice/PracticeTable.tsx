@@ -76,7 +76,7 @@ import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
 import { AttemptDialog } from './AttemptPanel';
-import { AttemptPanel, attemptDefaults, canAttempt } from './attempt';
+import { AttemptPanel, attemptDefaults, canAttempt, fixtureAttempt } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
 import { gameReducer, initialGameState } from './gameLog';
@@ -1171,7 +1171,9 @@ function PracticeDrawContent() {
   // `?fixture=piles` (#802) deals the same fixture deck as `?fixture=1`, then places a big
   // away team and a crewed ship, for the card list panel checks.
   const isPilesFixture = fixture === 'piles';
-  const isFixture = fixture === '1' || isPilesFixture;
+  // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
+  const isAttemptFixture = fixture === 'attempt';
+  const isFixture = fixture === '1' || isPilesFixture || isAttemptFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
   // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
   // Browser checks use it with `?fixture=1` to start from the same table every time.
@@ -1398,9 +1400,12 @@ function PracticeDrawContent() {
   // crew, brig), so it deals a second copy of the deck's personnel too, each copy its own instance.
   // The piles deal keeps the dilemmas in deck order too (#1024), so the same dilemmas go under the
   // mission and into the dilemma stack every time.
-  const dealDeck = (deck: DeckList, fixturePiles = false) => {
+  // The `?fixture=attempt` deal (#1169) then starts the attempt the popup's Start would, with its
+  // default numbers. `tableReducer` is pure and `resetWithPiles` ignores the state it gets, so a
+  // second run of the deal gives the table the page gets, and with it the ship's instance id.
+  const dealDeck = (deck: DeckList, fixturePiles = false, fixtureAttemptToo = false) => {
     const cards = extractDrawDeck(deck);
-    dispatch({
+    const deal: TableAction = {
       type: fixturePiles ? 'resetWithPiles' : 'reset',
       cards: createCardInstances(
         fixturePiles ? [...cards, ...cards.filter((c: any) => c.type === 'personnel')] : shuffleArray(cards)
@@ -1410,7 +1415,12 @@ function PracticeDrawContent() {
       dilemmas: createCardInstances(
         fixturePiles ? extractDilemmas(deck) : shuffleArray(extractDilemmas(deck))
       ),
-    });
+    };
+    dispatch(deal);
+    if (fixtureAttemptToo) {
+      const start = fixtureAttempt(tableReducer(initialTableState, deal));
+      if (start) dispatch(start);
+    }
     setDeckEmpty(isDeckEmpty(deck));
     setDealtDeck(deck);
     setDealtOffline(!isBrowserOnline());
@@ -1460,7 +1470,7 @@ function PracticeDrawContent() {
 
     if (isFixture) {
       if (loading || data.length === 0) return;
-      dealDeck(deckFromTsv(PRACTICE_DECK_TSV, data), isPilesFixture);
+      dealDeck(deckFromTsv(PRACTICE_DECK_TSV, data), isPilesFixture || isAttemptFixture, isAttemptFixture);
       return;
     }
 

@@ -4,9 +4,11 @@
 #   bash scripts/agent_browser_desktop.sh <url>
 #   bash scripts/agent_browser_desktop.sh 'http://localhost:3000/decks/practice?fixture=1&reset=1'
 #   bash scripts/agent_browser_desktop.sh 'http://localhost:3000/decks/practice?fixture=piles&reset=1&menu=0'
+#   bash scripts/agent_browser_desktop.sh 'http://localhost:3000/decks/practice?fixture=attempt&reset=1&menu=0'
 #
 # A check of the hand, or of a drag from it, opens `?fixture=piles`, the fixture
-# that deals a hand (#1116).
+# that deals a hand (#1116). A check of an attempt opens `?fixture=attempt`, the
+# same table with an attempt in progress at Bilana System (#1169).
 #   bash scripts/agent_browser_desktop.sh --screen 1920x1080 '<url>'
 #
 # `--screen WxH` also gives the browser a screen of that size (#1035), with the

@@ -8,7 +8,8 @@
 #
 # The examples drag hand cards of `/decks/practice?fixture=piles&reset=1&menu=0`,
 # the fixture that deals a hand (#1116). `?fixture=1` deals a new game with no
-# hand (#1115).
+# hand (#1115). `?fixture=attempt` deals the same table as `?fixture=piles`, with
+# an attempt in progress at Bilana System (#1169).
 #
 # With `--touch` the drag is a finger, not a mouse (#1035). The press, the
 # moves and the release go through `scripts/cdp_input.sh touch-drag`, which

@@ -2,7 +2,7 @@
 // a render. The table enforces nothing once an attempt starts: these only decide where the button
 // shows and what the popup's two numbers start at.
 
-import { CardInstance, findInstanceAnywhere, TableState } from './tableReducer';
+import { CardInstance, findInstanceAnywhere, FIXTURE_SHIP_SLOT, TableAction, TableState } from './tableReducer';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
 export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 'crew'; shipId: string };
@@ -49,4 +49,14 @@ export function attemptDefaults(
     personnel: unstoppedPersonnel(found.cards),
     subtract: table.missions[found.missionIndex].underMission.length,
   };
+}
+
+// The attempt of `/decks/practice?fixture=attempt` (#1169): the `startAttempt` that Start in the
+// popup would dispatch, with its default numbers, for the crew of the ship the piles deal puts at
+// Bilana System. `table` is the table `resetWithPiles` dealt. Null when that deal has no ship there.
+export function fixtureAttempt(table: TableState): Extract<TableAction, { type: 'startAttempt' }> | null {
+  const ship = table.missions[FIXTURE_SHIP_SLOT]?.ships[0];
+  if (!ship) return null;
+  const defaults = attemptDefaults(table, { kind: 'crew', shipId: ship.id });
+  return defaults ? { type: 'startAttempt', ...defaults } : null;
 }
