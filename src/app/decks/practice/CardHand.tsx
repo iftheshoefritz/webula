@@ -34,7 +34,7 @@ import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { HAND_ARC_ATTRIBUTE, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PILE_CARD_BORDER_STYLE, cardBorderStyle } from './TableCard';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
-import { handArcLayout } from './handArc';
+import { ARC_TOUCH_LOWER, handArcLayout } from './handArc';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -166,6 +166,7 @@ export default function CardHand({
   onSendSelected,
   deckLabel = 'draw deck',
   arcBetween,
+  finePointer = true,
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -209,10 +210,13 @@ export default function CardHand({
   // The name of that deck, for the accessible names of the two buttons.
   deckLabel?: string;
   // Issue #1125: the open hand draws as an arc at the bottom of the screen, about half of each
-  // card below the bottom edge, between the elements these two selectors name (the draw deck and
+  // card below the bottom edge (lower still on a touch screen, #1149), between the elements these two selectors name (the draw deck and
   // the dilemma pile). The practice table gives it to both hands (#1150). Left out, the hand opens
   // as the flat fan above the bottom row.
   arcBetween?: { left: string; right: string };
+  // Whether the pointer is fine (`useFinePointer`). With a coarse pointer the arc sits
+  // `ARC_TOUCH_LOWER` of its visible height lower (#1149). Left out, the arc stays as on a desktop.
+  finePointer?: boolean;
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
@@ -241,6 +245,7 @@ export default function CardHand({
           cardWidth: openCardWidth,
           maxStep: openMaxOffset(openCardWidth),
           ...arcBounds,
+          lower: finePointer ? 0 : ARC_TOUCH_LOWER,
         })
       : null;
 
