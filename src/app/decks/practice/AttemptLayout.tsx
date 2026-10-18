@@ -11,9 +11,12 @@
 // collision detection and the drop routing need no change. `PracticeTable` mounts either this or the
 // mission row, never both, so each droppable is mounted once. The other missions are not mounted.
 //
-// The away team badge sits in the ships column here, outside the reach of the mission's bottom half,
-// so a drop on it lands on no droppable. A drop on the bottom half of the mission card still joins
-// the away team.
+// The middle column holds the row of the attempting personnel (#1165, `AttemptPersonnelRow`): at a
+// planet mission the away team, in place of the away team badge, above the ships; at a space
+// mission the crew of the attempting ship, beside the ships, with the away team badge above them.
+// The row is a droppable of its own, `attempt-away-team-<i>` or `attempt-crew-<id>`. At a space
+// mission the away team badge sits outside the reach of the mission's bottom half, so a drop on it
+// lands on no droppable; a drop on the bottom half of the mission card still joins the away team.
 
 import { ReactNode } from 'react';
 import type { Attempt, MissionPileName, MissionSlot } from './tableReducer';
@@ -25,11 +28,14 @@ import {
   PlacedOnGroup,
   ShipRow,
   badgeStripHeight,
+  crewDropId,
+  missionPileDropId,
   underMissionStackRoom,
 } from './MissionRow';
 import { TABLE_CARD_WIDTH } from './TableCard';
 import { ATTEMPT_GAP, ATTEMPT_STRIP_GUTTER, ATTEMPT_STRIP_HEIGHT, AttemptLayoutSizes } from './tableScale';
 import { cardDisplayName } from '../../../lib/cardCount';
+import AttemptPersonnelRow, { attemptAwayTeamDropId, attemptCrewDropId } from './AttemptPersonnelRow';
 
 export default function AttemptLayout({
   attempt,
@@ -47,6 +53,9 @@ export default function AttemptLayout({
   onOpenPlacedOn,
   onFlipMission,
   onSetMissionCompleted,
+  selectedIds,
+  onToggleSelect,
+  onSetStopped,
 }: {
   attempt: Attempt;
   slot: MissionSlot;
@@ -64,12 +73,29 @@ export default function AttemptLayout({
   onOpenPlacedOn: (targetId: string, group?: PlacedOnGroup) => void;
   onFlipMission: (missionId: string) => void;
   onSetMissionCompleted: (missionIndex: number, completed: boolean) => void;
+  // The selection of the row's cards (#1165), the same one a card list panel uses.
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
+  onSetStopped: (ids: string[], stopped: boolean) => void;
 }) {
   const { missionIndex } = attempt;
-  const { missionScale, shipScale, shipRows, shipsWidth } = sizes;
+  const { missionScale, shipScale, shipRows, shipsWidth, shipRowsWidth, personnelCardWidth, personnelRows, personnelWidth } =
+    sizes;
   const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
   const missionName = slot.mission ? cardDisplayName(slot.mission.card) : 'Mission';
   const ship = attempt.shipId ? slot.ships.find((s) => s.id === attempt.shipId) : undefined;
+  const ships = (
+    <ShipRow
+      missionIndex={missionIndex}
+      ships={slot.ships}
+      onShipClick={onShipClick}
+      onOpenShipRow={onOpenShipRow}
+      columnWidth={shipRowsWidth}
+      scale={shipScale}
+      availableRows={shipRows}
+      desktop={desktop}
+    />
+  );
 
   return (
     <div ref={layoutRef} data-testid="attempt-layout" className="flex flex-col" style={{ gap: ATTEMPT_GAP }}>
@@ -130,25 +156,54 @@ export default function AttemptLayout({
           className="flex flex-col items-center"
           style={{ width: shipsWidth, gap: MISSION_COLUMN_GAP }}
         >
-          <div className="flex items-center justify-center" style={{ height: badgeStripHeight(missionScale) }}>
-            <PileBadge
-              missionIndex={missionIndex}
-              pile="awayTeam"
-              count={slot.awayTeam.length}
-              onOpen={onOpenPile}
-              height={badgeStripHeight(missionScale)}
-            />
-          </div>
-          <ShipRow
-            missionIndex={missionIndex}
-            ships={slot.ships}
-            onShipClick={onShipClick}
-            onOpenShipRow={onOpenShipRow}
-            columnWidth={shipsWidth}
-            scale={shipScale}
-            availableRows={shipRows}
-            desktop={desktop}
-          />
+          {attempt.shipId ? (
+            <>
+              <div className="flex items-center justify-center" style={{ height: badgeStripHeight(missionScale) }}>
+                <PileBadge
+                  missionIndex={missionIndex}
+                  pile="awayTeam"
+                  count={slot.awayTeam.length}
+                  onOpen={onOpenPile}
+                  height={badgeStripHeight(missionScale)}
+                />
+              </div>
+              <div className="flex flex-row items-start" style={{ gap: ATTEMPT_GAP }}>
+                <div style={{ width: shipRowsWidth }}>{ships}</div>
+                {ship && (
+                  <AttemptPersonnelRow
+                    dropId={attemptCrewDropId(ship.id)}
+                    landedKey={crewDropId(ship.id)}
+                    kind="ship"
+                    label={`Crew of ${cardDisplayName(ship.card)}`}
+                    cards={ship.crew ?? []}
+                    cardWidth={personnelCardWidth}
+                    rows={personnelRows}
+                    width={personnelWidth}
+                    selectedIds={selectedIds}
+                    onToggleSelect={onToggleSelect}
+                    onSetStopped={onSetStopped}
+                  />
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <AttemptPersonnelRow
+                dropId={attemptAwayTeamDropId(missionIndex)}
+                landedKey={missionPileDropId(missionIndex, 'awayTeam')}
+                kind="mission"
+                label="Away team"
+                cards={slot.awayTeam}
+                cardWidth={personnelCardWidth}
+                rows={personnelRows}
+                width={personnelWidth}
+                selectedIds={selectedIds}
+                onToggleSelect={onToggleSelect}
+                onSetStopped={onSetStopped}
+              />
+              {ships}
+            </>
+          )}
         </div>
         {dilemmaStack}
       </div>

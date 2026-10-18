@@ -94,6 +94,7 @@ export default function TableCard({
   completed = false,
   turnedScale,
   turnable = false,
+  showFace = false,
 }: {
   instance: CardInstance;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
@@ -118,9 +119,12 @@ export default function TableCard({
   turnedScale?: number;
   // A card that can turn (a mission) animates the turn both ways, and not under reduced motion.
   turnable?: boolean;
+  // Draws a face-down card face up, as the away team panel does (#964): the row of the attempting
+  // personnel (#1165) shows the away team, which is stored face down, to its owner.
+  showFace?: boolean;
 }) {
   const { card, face } = instance;
-  const isFaceDown = face === 'down';
+  const isFaceDown = face === 'down' && !showFace;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: draggableId ?? instance.id,
     disabled: !draggable,
@@ -156,6 +160,7 @@ export default function TableCard({
         height={uncropped ? fullCardHeight(width) : artHeight}
         uncropped={uncropped}
         completed={completed}
+        showFace={showFace}
       />
     </button>
   );
@@ -171,6 +176,7 @@ export function TableCardImage({
   uncropped = false,
   completed = false,
   className = 'rounded-md',
+  showFace = false,
 }: {
   instance: CardInstance;
   width: number;
@@ -178,9 +184,10 @@ export function TableCardImage({
   uncropped?: boolean;
   completed?: boolean;
   className?: string;
+  showFace?: boolean;
 }) {
   const { card, face } = instance;
-  const isFaceDown = face === 'down';
+  const isFaceDown = face === 'down' && !showFace;
   return (
     <div className="relative w-full" style={{ height }}>
       <div className={`w-full h-full overflow-hidden bg-black/20 ${className}`}>

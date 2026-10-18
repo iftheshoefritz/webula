@@ -78,6 +78,7 @@ import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
 import { AttemptDialog } from './AttemptPanel';
 import AttemptLayout from './AttemptLayout';
+import { missionIndexFromAttemptAwayTeamDropId, shipIdFromAttemptCrewDropId } from './AttemptPersonnelRow';
 import { AttemptPanel, attemptDefaults, canAttempt, fixtureAttempt } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
@@ -470,7 +471,9 @@ function computeMoveTargetForInstance(
   // A personnel or an equipment dropped on a ship boards its crew (#893): the rules have no place
   // "on a ship" for either. Any other card dropped on the ship is placed on it (#812), the same as
   // a drop on a card in the core or the brig (#810).
-  const shipId = shipIdFromCrewDropId(String(over.id));
+  // The rows of the attempting personnel (#1165) route as the target each one stands for: the crew
+  // row as the ship's art, the away team row as the mission's bottom half.
+  const shipId = shipIdFromAttemptCrewDropId(String(over.id)) ?? shipIdFromCrewDropId(String(over.id));
   if (shipId) {
     if (instance.card.type === 'ship') {
       // A ship dropped on a ship is neither crew nor placed on it (#668): the ship already on the
@@ -489,14 +492,15 @@ function computeMoveTargetForInstance(
     return { zone: 'on', targetId: shipId };
   }
 
-  const missionIndex = missionIndexFromDropId(String(over.id));
+  const awayTeamIndex = missionIndexFromAttemptAwayTeamDropId(String(over.id));
+  const missionIndex = awayTeamIndex ?? missionIndexFromDropId(String(over.id));
   if (missionIndex !== null) {
     if (instance.card.type === 'ship') {
       return { zone: 'shipRow', missionIndex };
     }
     // The ship row holds ships (#886), the same rule `ZONE_ACCEPTS` highlights: any other card
     // dropped on the bare row, off any ship, stays where it was.
-    const half = missionHalfFromDropId(String(over.id));
+    const half = awayTeamIndex !== null ? 'on' : missionHalfFromDropId(String(over.id));
     if (!half) return null;
     if (instance.card.type === 'dilemma') {
       // A dilemma dropped on the top half of a mission card is placed on it (#871). Dropped on the
@@ -1332,6 +1336,15 @@ function PracticeDrawContent() {
     if (!attemptKey) setFullTableFor(null);
   }, [attemptKey]);
   const attemptLayoutShows = attemptKey !== null && fullTableFor !== attemptKey;
+  // The cards of the row of the attempting personnel (#1165): the away team at a planet mission,
+  // the crew of the attempting ship at a space mission. Null with no attempt, or no attempt layout.
+  const attemptPersonnelCards: CardInstance[] | null = (() => {
+    if (!attemptLayoutShows || !table.attempt) return null;
+    const slot = missions[table.attempt.missionIndex];
+    if (!slot) return null;
+    if (table.attempt.shipId === undefined) return slot.awayTeam;
+    return slot.ships.find((ship) => ship.id === table.attempt?.shipId)?.crew ?? [];
+  })();
   const [attemptLayoutEl, setAttemptLayoutEl] = useState<HTMLDivElement | null>(null);
   const [attemptStrip, setAttemptStrip] = useState<HTMLDivElement | null>(null);
   const attemptSizes = useAttemptLayout(
@@ -1342,6 +1355,7 @@ function PracticeDrawContent() {
     attemptLayoutShows ? attemptStrip : null,
     bottomRow,
     table.attempt ? missions[table.attempt.missionIndex]?.ships.length ?? 0 : 0,
+    attemptPersonnelCards ? { count: attemptPersonnelCards.length, space: table.attempt?.shipId !== undefined } : undefined,
     desktopMissionColumnHeight,
     touchMissionColumnHeight,
   );
@@ -1935,7 +1949,14 @@ function PracticeDrawContent() {
     // drag of a card that is not selected moves only that one card, as before, even while the
     // zone holds an unrelated selection. Only one of these can ever apply to a given drag: a
     // drag starts either from an open hand or from an open panel, never both.
-    const groupSource = found.zone === 'hand' ? hand : found.zone === 'dilemmaHand' ? dilemmaHand : openPanelCards;
+    // With no panel open, a drag from the row of the attempting personnel (#1165) moves its
+    // selection the same way.
+    const groupSource =
+      found.zone === 'hand'
+        ? hand
+        : found.zone === 'dilemmaHand'
+          ? dilemmaHand
+          : openPanelCards ?? (attemptPersonnelCards?.some((c) => c.id === id) ? attemptPersonnelCards : null);
     setDraggingGroup(
       groupSource && selectedCardIds.includes(id)
         ? groupSource.filter((c) => selectedCardIds.includes(c.id))
@@ -2466,6 +2487,9 @@ function PracticeDrawContent() {
                   onSetMissionCompleted={(missionIndex, completed) =>
                     dispatch({ type: 'setMissionCompleted', missionIndex, completed })
                   }
+                  selectedIds={selectedCardIds}
+                  onToggleSelect={toggleCardSelection}
+                  onSetStopped={setStoppedForSelection}
                   dilemmaStack={
                     <DilemmaStackPile
                       stack={dilemmaStack}
