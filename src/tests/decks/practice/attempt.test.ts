@@ -6,9 +6,11 @@ import {
   MissionSlot,
   MISSION_SLOTS,
   TableState,
+  FIXTURE_CREW,
+  FIXTURE_UNDER_MISSION,
 } from '../../../app/decks/practice/tableReducer';
 import { drawSpend } from '../../../app/decks/practice/drawSpend';
-import { canAttempt, attemptDefaults } from '../../../app/decks/practice/attempt';
+import { canAttempt, attemptDefaults, fixtureAttempt } from '../../../app/decks/practice/attempt';
 import { gameReducer, initialGameState, logEntryText, GameAction, GameState } from '../../../app/decks/practice/gameLog';
 import { toSavedGame, fromSavedGame } from '../../../app/decks/practice/savedGame';
 import { DeckList } from '../../../types';
@@ -216,5 +218,42 @@ describe('the save of an attempt (#1163)', () => {
     const t = { ...dealt(), attempt } as unknown as TableState;
     const restored = fromSavedGame(saved(t), deck)!.table;
     expect(restored.attempt).toBeUndefined();
+  });
+});
+
+describe('the attempt of ?fixture=attempt (#1169)', () => {
+  // A piles deal shaped like the fixture deck's: Bilana System, a space mission, in slot 2.
+  const range = (n: number, make: (i: number) => CardInstance) => Array.from({ length: n }, (_, i) => make(i));
+  const deal = (withShip = true) => ({
+    type: 'resetWithPiles' as const,
+    cards: [
+      ...range(40, (i) => personnel(`p${i}`)),
+      ...(withShip ? [inst('ship', 'U.S.S. Relativity', 'ship')] : []),
+      ...range(6, (i) => inst(`e${i}`, `Event ${i}`, 'event')),
+      ...range(10, (i) => equipment(`k${i}`)),
+    ],
+    missions: [
+      mission('m0', 'Moab IV', 'p'),
+      mission('m1', 'Angel I', 'p'),
+      mission('m2', 'Bilana System', 's'),
+      mission('m3', 'Earth', 'h'),
+      mission('m4', 'Tarod IX', 'p'),
+    ],
+    dilemmas: range(10, (i) => dilemma(`d${i}`)),
+  });
+
+  it('starts an attempt at Bilana System with the crewed ship, and changes nothing else', () => {
+    const piles = tableReducer(initialTableState, deal());
+    const start = fixtureAttempt(piles);
+    expect(start).toEqual({ type: 'startAttempt', missionIndex: 2, shipId: 'ship', personnel: FIXTURE_CREW, subtract: FIXTURE_UNDER_MISSION });
+    const attempted = tableReducer(piles, start!);
+    const { attempt, ...rest } = attempted;
+    expect(rest).toEqual(piles);
+    expect(attempt).toEqual({ missionIndex: 2, shipId: piles.missions[2].ships[0].id, personnel: 12, subtract: 3 });
+    expect(drawSpend(attempt!.personnel, attempt!.subtract)).toBe(FIXTURE_CREW - 3);
+  });
+
+  it('starts none when the deal has no ship', () => {
+    expect(fixtureAttempt(tableReducer(initialTableState, deal(false)))).toBeNull();
   });
 });

@@ -216,6 +216,61 @@ describe('Saved practice game (#976)', () => {
     expect(localStorage.getItem('practiceGame:fixture=1')).not.toEqual(localStorage.getItem('practiceGame:fixture=piles'));
   });
 
+  it('keeps the ?fixture=attempt game under its own key, with an attempt at Bilana System (#1169)', async () => {
+    const row = (id: string, type: string, extra: Record<string, unknown> = {}) => ({
+      collectorsinfo: id,
+      originalName: `Card ${id}`,
+      name: `card ${id}`,
+      imagefile: `card_${id}`,
+      type,
+      pile: type === 'mission' ? 'mission' : type === 'dilemma' ? 'dilemmaPile' : 'drawDeck',
+      count: 1,
+      ...extra,
+    });
+    const rows = [
+      ...['p', 'p', 's', 'h', 'p'].map((t, i) => row(`M${i}`, 'mission', { missiontype: t })),
+      ...Array.from({ length: 20 }, (_, i) => row(`P${i}`, 'personnel')),
+      row('S0', 'ship'),
+      ...Array.from({ length: 6 }, (_, i) => row(`E${i}`, 'event')),
+      ...Array.from({ length: 10 }, (_, i) => row(`K${i}`, 'equipment')),
+      ...Array.from({ length: 10 }, (_, i) => row(`D${i}`, 'dilemma')),
+    ];
+    (deckFromTsv as jest.Mock).mockReturnValue(Object.fromEntries(rows.map((r) => [r.collectorsinfo, { count: 1, row: r }])));
+    (extractDrawDeck as jest.Mock).mockImplementation((deck) =>
+      Object.values(deck)
+        .map((entry) => (entry as { row: { pile: string } }).row)
+        .filter((r) => r.pile === 'drawDeck'),
+    );
+    const savedTable = (key: string) => JSON.parse(localStorage.getItem(key)!).table;
+
+    mockSearchParamsValue = new URLSearchParams('fixture=piles');
+    (await renderPage()).unmount();
+    expect(savedTable('practiceGame:fixture=piles').attempt).toBeUndefined();
+
+    mockSearchParamsValue = new URLSearchParams('fixture=attempt');
+    const first = await renderPage();
+    const dealt = savedTable('practiceGame:fixture=attempt');
+    expect(dealt.attempt).toEqual({ missionIndex: 2, shipId: dealt.missions[2].ships[0].id, personnel: 12, subtract: 3 });
+    expect(screen.getByTestId('attempt-overlay-2')).toHaveTextContent(/draw\/spend 9/i);
+    const { attempt: _attempt, ...rest } = dealt;
+    // The rest of the table is the piles table, apart from the instance ids of the second deal.
+    const withoutIds = (table: unknown) => JSON.stringify(table).replace(/"id":"[^"]*"/g, '"id"');
+    expect(withoutIds(rest)).toEqual(withoutIds(savedTable('practiceGame:fixture=piles')));
+    first.unmount();
+
+    // A remount restores the attempt; once ended, `reset=1` deals it again.
+    const second = await renderPage();
+    expect(screen.getByTestId('attempt-overlay-2')).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-done'));
+    });
+    expect(screen.queryByTestId('attempt-overlay-2')).toBeNull();
+    second.unmount();
+    mockSearchParamsValue = new URLSearchParams('fixture=attempt&reset=1');
+    await renderPage();
+    expect(screen.getByTestId('attempt-overlay-2')).toBeInTheDocument();
+  });
+
   it('deals a new game with ?reset=1 and replaces the save', async () => {
     const first = await renderPage();
     await drawOne();

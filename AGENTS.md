@@ -283,7 +283,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has two fixtures. Each one deals the same table on every load.
+The practice table has three fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -299,6 +299,11 @@ The practice table has two fixtures. Each one deals the same table on every load
   down. The draw deck and the dilemma pile get the rest. The hand holds a Tricorder (`card-1`), two
   events (`card-7`, `card-8`), two interrupts (`card-9`, `card-10`) and two ships (`card-39`,
   `card-40`).
+- `?fixture=attempt` (#1169) deals exactly the `?fixture=piles` table, the same cards and the same
+  ids, and then starts an attempt at Bilana System (mission 2) with the crewed ship, with the
+  defaults of the attempt popup: the 12 unstopped crew minus the 3 dilemmas under the mission, so
+  the overlay `attempt-overlay-2` reads "draw/spend 9". It keeps its game under
+  `practiceGame:fixture=attempt`. `?fixture=piles` deals no attempt.
 
 A tap on the closed hand opens it as an arc along the bottom edge of the screen
 (`data-testid="hand-arc"`, `handArc.ts`, #1125): about half of each card is below the edge, and the
@@ -311,7 +316,8 @@ Use `/decks/practice?fixture=piles&reset=1&menu=0` for a check of the hand, of a
 or of anything else that needs cards in the hand, and for a check of the dilemma stack, dilemmas
 under a mission, the brig, the core, a card placed on a ship, a ship on the table, the crew, the
 away team, or a long card list panel. Use `/decks/practice?fixture=1&reset=1&menu=0` for a check of
-a fresh game, the draw deck, or the dilemma pile.
+a fresh game, the draw deck, or the dilemma pile. Use `/decks/practice?fixture=attempt&reset=1&menu=0`
+for a check of an attempt in progress.
 
 To keep the bottom of the page clear, start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`. This hides the consent banner and the Next.js dev tools button.
 
@@ -429,6 +435,9 @@ On `/decks/practice?fixture=piles&reset=1&menu=0`, Moab IV (mission 0) is a plan
 away team of 20: tap the lower half of its card, wait out the double-tap window, then tap Attempt and
 Start. Bilana System (mission 2) is a space mission with the crewed ship: tap the ship, then Attempt.
 The attempt is part of the save, so an overlay survives a reload. Start a check with `reset=1`.
+For a check of the attempt itself rather than of how it starts, open
+`/decks/practice?fixture=attempt&reset=1&menu=0`, which deals the table with the attempt at
+Bilana System already in progress.
 
 ### Desktop mode: a fine pointer
 

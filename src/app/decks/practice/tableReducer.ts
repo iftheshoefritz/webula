@@ -246,7 +246,7 @@ export const FIXTURE_UNDER_MISSION = 3;
 export const FIXTURE_DILEMMA_STACK = 4;
 // The mission whose ship row and `underMission` the fixture fills, not the away team's mission. It is
 // Bilana System in the fixture deck, a space mission, where a ship can be (#1166).
-const FIXTURE_SHIP_SLOT = 2;
+export const FIXTURE_SHIP_SLOT = 2;
 
 export const ZONE_FACE: Record<Zone, Face> = {
   drawDeck: 'down',
