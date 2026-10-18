@@ -439,9 +439,27 @@ row), and the dilemma stack. The bottom row does not change.
 Every drop target in the attempt layout keeps its id: `mission-on-<i>`, `mission-under-<i>`,
 `ship-row-<i>` and `crew-<id>` with `<i>` the mission's own slot index, and `dilemmaStack`. The mission
 row is not mounted during the attempt layout, so the targets of the other missions do not exist then:
-tap View full table to bring them back. In the attempt layout the away team badge sits in the ships
-column, outside the mission's bottom half, so a drop on the badge lands nowhere: to aim a drop at the
-away team, aim at `mission-on-<i>`.
+tap View full table to bring them back.
+
+The attempting personnel show as whole cards, face up, in a row of the middle column (#1165,
+`AttemptPersonnelRow.tsx`). At a planet mission the row is the away team, in place of the away team
+badge, above the ships: `data-zone` and `data-testid` `attempt-away-team-<i>`. At a space mission it is
+the crew of the attempting ship, beside the ships: `attempt-crew-<the ship's id>`, and the away team
+badge stays above the ships. The row reads the live away team or crew, the equipment too, in order, and
+the frozen numbers of the attempt do not change. Its cards overlap, and it wraps to 2 rows when 1 row
+would show less than 12 px of each card (`ATTEMPT_PERSONNEL_MIN_SLICE`, `computeAttemptLayout`). Each
+card carries its `data-card-id`. A tap selects a card, a hold previews it, and below the row
+`attempt-row-stop` (Stop or Unstop, while personnel are selected) and `attempt-row-stop-all` (while
+an unstopped personnel is in the row) set `stopped`. A drop on the away team row routes as a drop on
+`mission-on-<i>`: a personnel or an equipment joins the away team, a ship goes to the ship row, any
+other card is placed on the mission card. A drop on the crew row routes as a drop on `crew-<id>`. At a
+space mission the away team badge sits outside the mission's bottom half, so a drop on the badge lands
+nowhere: to aim a drop at the away team, aim at `mission-on-<i>`.
+
+```bash
+# on ?fixture=piles, in an attempt at Moab IV, where card-1 is the Tricorder in the hand
+bash scripts/practice_drag.sh card-1 attempt-away-team-0   # prints attempt-away-team-0
+```
 
 View full table shows the normal table, and the attempt goes on: the overlay on the mission card,
 `attempt-overlay-<index>`, then holds only `attempt-back-to-attempt`, "Back to attempt", which returns to

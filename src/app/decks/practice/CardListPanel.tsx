@@ -90,6 +90,7 @@ import { artCropHeight, CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, PANEL_TOP_INSET, vi
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
+import { stopButtons } from './stopRules';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -698,17 +699,13 @@ export default function CardListPanel({
   // cards below it do.
   const stackEndLabelClassName = 'shrink-0 text-[10px] font-bold uppercase tracking-wide text-text-secondary';
 
-  const selectedPersonnel = cards.filter(
-    (instance) => selectedIds.includes(instance.id) && instance.card.type === 'personnel'
-  );
+  const { selectedPersonnel, allSelectedStopped, unstoppedPersonnel } = stopButtons(cards, selectedIds);
   const showStopButton = onSetStopped !== undefined && selectedPersonnel.length > 0;
-  const allSelectedStopped = showStopButton && selectedPersonnel.every((instance) => instance.stopped);
   const handleStopTap = () => onSetStopped?.(selectedPersonnel.map((instance) => instance.id), !allSelectedStopped);
   // #995: a ship's crew panel and a mission's away team panel also get "Stop all", which stops
   // every personnel card of the panel, with or without a selection. It is disabled once every
   // personnel card there is already stopped.
   const showStopAllButton = onSetStopped !== undefined && (location === 'crew' || location === 'awayTeam');
-  const unstoppedPersonnel = cards.filter((instance) => instance.card.type === 'personnel' && !instance.stopped);
   const handleStopAllTap = () => onSetStopped?.(unstoppedPersonnel.map((instance) => instance.id), true);
   const selectedInPanel = cards.filter((instance) => selectedIds.includes(instance.id));
   const showFlipButton = onFlip !== undefined && selectedInPanel.length > 0;

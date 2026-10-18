@@ -1,6 +1,9 @@
 import {
   ATTEMPT_GAP,
+  ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
+  ATTEMPT_PERSONNEL_MIN_SLICE,
   ATTEMPT_STRIP_HEIGHT,
+  attemptPersonnelHeight,
   AttemptLayoutSizes,
   DESKTOP_RESERVED_SHIP_ROWS,
   attemptMissionColumnHeight,
@@ -19,6 +22,7 @@ import {
   missionColumnHeight,
   shipRowLineHeight,
 } from '../../../app/decks/practice/MissionRow';
+import { offsetFor } from '../../../app/decks/practice/overlapOffset';
 
 // #630: the dilemma stack's own reserved column widens computeTableScale's width budget from 5
 // mission columns and 4 gaps to 6 columns (the stack's own) and 5 gaps.
@@ -189,5 +193,53 @@ describe('computeAttemptLayout (#1164)', () => {
     const shipsHeight = (s: AttemptLayoutSizes) =>
       badgeStripHeight(s.missionScale) + 4 + s.shipRows * shipRowLineHeight(s.shipScale, true) + (s.shipRows - 1) * 4;
     expect(shipsHeight(many)).toBeLessThanOrEqual(600);
+  });
+
+  // Issue #1165: the row of the attempting personnel, the 20 personnel of the fixture's away team.
+  describe('the row of the attempting personnel (#1165)', () => {
+    const tableHeight = 250;
+    const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const floor = computeTouchMissionScale(MIN_SCREEN.width, tableHeight, touchColumn, minTableScale);
+    // The cards each line holds, and the least of each card the row shows past the next one.
+    const slice = (sizes: AttemptLayoutSizes, count: number) =>
+      offsetFor(Math.ceil(count / sizes.personnelRows), sizes.personnelCardWidth, sizes.personnelWidth, sizes.personnelCardWidth);
+
+    it('fits 20 away team cards at 667x375, clear of the dilemma stack, with each card showing', () => {
+      const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 0, floor, { count: 20, space: false });
+      expect(usedWidth(sizes, false)).toBeLessThanOrEqual(MIN_SCREEN.width);
+      expect(sizes.personnelWidth).toBeLessThanOrEqual(sizes.shipsWidth);
+      expect(slice(sizes, 20)).toBeGreaterThanOrEqual(ATTEMPT_PERSONNEL_MIN_SLICE);
+      // The row, its buttons and one line of ships fit the height below the strip.
+      const middle =
+        attemptPersonnelHeight(sizes.personnelCardWidth, sizes.personnelRows) +
+        4 +
+        ATTEMPT_PERSONNEL_BUTTONS_HEIGHT +
+        4 +
+        sizes.shipRows * shipRowLineHeight(sizes.shipScale, false);
+      expect(middle).toBeLessThanOrEqual(available);
+    });
+
+    it('fits a crew of 12 beside the ships at a space mission', () => {
+      const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 1, floor, { count: 12, space: true });
+      expect(usedWidth(sizes, false)).toBeLessThanOrEqual(MIN_SCREEN.width);
+      expect(sizes.shipRowsWidth + ATTEMPT_GAP + sizes.personnelWidth).toBeLessThanOrEqual(sizes.shipsWidth);
+      expect(sizes.shipScale).toBeGreaterThanOrEqual(floor);
+      expect(slice(sizes, 12)).toBeGreaterThanOrEqual(ATTEMPT_PERSONNEL_MIN_SLICE);
+      const middle =
+        badgeStripHeight(sizes.missionScale) +
+        4 +
+        Math.max(
+          attemptPersonnelHeight(sizes.personnelCardWidth, sizes.personnelRows) + 4 + ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
+          sizes.shipRows * shipRowLineHeight(sizes.shipScale, false),
+        );
+      expect(middle).toBeLessThanOrEqual(available);
+    });
+
+    it('wraps to 2 rows when 1 row would show too little of each card and the height has room', () => {
+      const sizes = computeAttemptLayout(MIN_SCREEN.width, 400, false, 0, floor, { count: 60, space: false });
+      expect(sizes.personnelRows).toBe(2);
+      expect(slice(sizes, 60)).toBeGreaterThanOrEqual(ATTEMPT_PERSONNEL_MIN_SLICE);
+      expect(computeAttemptLayout(MIN_SCREEN.width, 400, false, 0, floor, { count: 20, space: false }).personnelRows).toBe(1);
+    });
   });
 });
