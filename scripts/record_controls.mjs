@@ -338,7 +338,8 @@ async function record(rowId, gesture, mode, outDir) {
   const cdpUrl = (await run('npx', ['agent-browser', 'get', 'cdp-url'])).split('\n').pop().replace(/"/g, '');
   const { ws, send, onEvent } = await connect(cdpUrl);
   const { targetInfos } = await send('Target.getTargets');
-  const target = targetInfos.find((t) => t.type === 'page' && !t.url.startsWith('devtools://'));
+  // The browser can hold a `chrome://newtab` page next to ours, so pick the page of the app.
+  const target = targetInfos.find((t) => t.type === 'page' && t.url.startsWith(BASE_URL));
   if (!target) throw new Error('agent-browser has no page open');
   const { sessionId } = await send('Target.attachToTarget', { targetId: target.targetId, flatten: true });
   const page = (method, params) => send(method, params, sessionId);
