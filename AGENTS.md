@@ -438,7 +438,8 @@ dilemma stack under the attempted mission, face up and in stack order, ends the 
 back the mission row (#1170). The log gets one entry: "Ended the attempt at <mission>, and moved
 <cards> under <mission>", or only its first part when the stack was empty. Below the strip, left to right: the attempted mission, drawn whole and larger than on the
 table, the ships column `attempt-ships` (the away team badge, then every ship of that mission's ship
-row), and the dilemma stack. The bottom row does not change. The dilemma stack mounts only here
+row), and the dilemma stack. At a space mission the ships sit in a column exactly as wide as the
+mission, 2 to a row, with the crew row beside them (#1177). The bottom row does not change. The dilemma stack mounts only here
 (#1170), so the `dilemmaStack` drop target exists only in the attempt layout.
 
 Every drop target in the attempt layout keeps its id: `mission-on-<i>`, `mission-under-<i>`,

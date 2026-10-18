@@ -264,6 +264,40 @@ describe('computeAttemptLayout (#1164)', () => {
       expect(middle).toBeLessThanOrEqual(available);
     });
 
+    // Issue #1177: at a space mission the ships sit in one column as wide as the mission.
+    it('makes the ships column as wide as the mission at 667x375, with the ship at the mission scale', () => {
+      const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 1, floor, { count: 12, space: true });
+      expect(sizes.shipRowsWidth).toBe(Math.round(72 * sizes.missionScale));
+      expect(sizes.shipScale).toBe(sizes.missionScale);
+      // The mission is height-bound here, so its scale does not shrink for the ships column.
+      expect(sizes.missionScale).toBeCloseTo(
+        Math.max(floor, fitColumnScale(10, available, attemptMissionColumnHeight)),
+        5,
+      );
+      expect(usedWidth(sizes, false)).toBeLessThanOrEqual(MIN_SCREEN.width);
+      expect(slice(sizes, 12)).toBeGreaterThanOrEqual(ATTEMPT_PERSONNEL_MIN_SLICE);
+    });
+
+    it('keeps the ships column as wide as the mission on a wide screen with a small crew', () => {
+      const tableHeight = 700;
+      const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+      const floor = computeDesktopTableScale(1440, tableHeight, desktopColumn);
+      const sizes = computeAttemptLayout(1440, available, true, 1, floor, { count: 2, space: true });
+      expect(sizes.shipRowsWidth).toBe(Math.round(72 * sizes.missionScale));
+      expect(sizes.personnelWidth).toBe(sizes.personnelCardWidth * 2);
+      expect(sizes.shipsWidth).toBe(sizes.shipRowsWidth + ATTEMPT_GAP + sizes.personnelWidth);
+      expect(usedWidth(sizes, true)).toBeLessThanOrEqual(1440);
+    });
+
+    it('fits many ships down the one column between the floor and the mission scale', () => {
+      const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 6, floor, { count: 12, space: true });
+      expect(sizes.shipRowsWidth).toBe(Math.round(72 * sizes.missionScale));
+      expect(sizes.shipScale).toBeGreaterThanOrEqual(floor);
+      expect(sizes.shipScale).toBeLessThanOrEqual(sizes.missionScale);
+      const ships = badgeStripHeight(sizes.missionScale) + 4 + sizes.shipRows * shipRowLineHeight(sizes.shipScale, false) + (sizes.shipRows - 1) * 4;
+      expect(ships).toBeLessThanOrEqual(available);
+    });
+
     it('wraps to 2 rows when 1 row would show too little of each card and the height has room', () => {
       const sizes = computeAttemptLayout(MIN_SCREEN.width, 400, false, 0, floor, { count: 60, space: false });
       expect(sizes.personnelRows).toBe(2);
