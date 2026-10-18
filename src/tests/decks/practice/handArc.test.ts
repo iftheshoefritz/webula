@@ -2,6 +2,7 @@ import {
   ARC_ANGLE_PER_CARD,
   ARC_MAX_ANGLE,
   ARC_SAG,
+  ARC_TOUCH_LOWER,
   ArcLayout,
   handArcLayout,
 } from '../../../app/decks/practice/handArc';
@@ -159,5 +160,23 @@ describe('handArcLayout (#1125)', () => {
     const layout = handArcLayout({ count: 1, cardWidth: 126, maxStep: 135, left: 0, right: 80, bottom: 375 });
     expect(layout.cardWidth).toBe(80);
     expect(layout.cards[0].angle).toBe(0);
+  });
+});
+
+describe('handArcLayout lower (#1149)', () => {
+  it('moves every card down by a part of the visible height, and nothing else', () => {
+    const input = { count: 7, cardWidth: 126, maxStep: 135, left: 230, right: 590, bottom: 375 };
+    const plain = handArcLayout(input);
+    const lowered = handArcLayout({ ...input, lower: ARC_TOUCH_LOWER });
+    const drop = ARC_TOUCH_LOWER * plain.visibleHeight;
+    expect(drop).toBeGreaterThan(0);
+    expect(lowered.cardWidth).toBe(plain.cardWidth);
+    expect(lowered.cardHeight).toBe(plain.cardHeight);
+    lowered.cards.forEach((card, i) => {
+      expect(card.centerX).toBeCloseTo(plain.cards[i].centerX);
+      expect(card.angle).toBeCloseTo(plain.cards[i].angle);
+      expect(card.centerY).toBeCloseTo(plain.cards[i].centerY + drop);
+    });
+    expect(lowered.visibleHeight).toBeCloseTo(0.8 * plain.visibleHeight);
   });
 });

@@ -1,6 +1,6 @@
 // Issue #1125: the open hand drawn as an arc along the bottom edge of the screen, the way a
 // player holds a fanned hand of cards. Each card's centre sits near the bottom edge, so about half
-// of each card is below the screen. The cards near the ends of the arc turn outward and sit lower
+// of each card is below the screen, and on a touch screen the arc sits lower still (#1149). The cards near the ends of the arc turn outward and sit lower
 // than the ones in the middle. The arc stays between `left` and `right`, the right edge of the draw
 // deck and the left edge of the dilemma pile, so it never covers either pile.
 
@@ -15,6 +15,10 @@ export const ARC_SAG = 0.06;
 // Issue #1153: how far the top corners of two neighbouring cards overlap at the largest step, as a
 // part of the card's width, so no strip of the table shows between them.
 export const ARC_TOP_OVERLAP = 0.04;
+
+// Issue #1149: how far the arc sits lower on a touch screen, as a part of its visible height, so
+// each card shows 20% less of itself above the bottom edge.
+export const ARC_TOUCH_LOWER = 0.2;
 
 const IMAGE_RATIO = 167 / 120;
 
@@ -67,6 +71,7 @@ export function handArcLayout({
   left,
   right,
   bottom,
+  lower = 0,
 }: {
   count: number;
   // The card width the hand wants; the arc draws narrower cards when the gap is too small.
@@ -78,6 +83,9 @@ export function handArcLayout({
   left: number;
   right: number;
   bottom: number;
+  // How far to move the whole arc down, as a part of its visible height (#1149). Every card moves
+  // the same distance, so the sag, the turns and the spacing do not change.
+  lower?: number;
 }): ArcLayout {
   const endAngle = count > 1 ? Math.min(ARC_MAX_ANGLE, ARC_ANGLE_PER_CARD * (count - 1)) : 0;
   const rad = (endAngle * Math.PI) / 180;
@@ -108,10 +116,16 @@ export function handArcLayout({
     centerY: bottom + sag * (t * t - meanSquare),
     angle: t * endAngle,
   }));
-  const visibleHeight = cards.reduce((max, card) => {
+  const fullHeight = cards.reduce((max, card) => {
     const turned = (Math.abs(card.angle) * Math.PI) / 180;
     const top = card.centerY - ((height / 2) * Math.cos(turned) + (width / 2) * Math.sin(turned));
     return Math.max(max, bottom - top);
   }, 0);
-  return { cardWidth: width, cardHeight: height, cards, visibleHeight };
+  const drop = lower * fullHeight;
+  return {
+    cardWidth: width,
+    cardHeight: height,
+    cards: drop ? cards.map((card) => ({ ...card, centerY: card.centerY + drop })) : cards,
+    visibleHeight: fullHeight - drop,
+  };
 }

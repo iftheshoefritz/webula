@@ -9,6 +9,7 @@ import CardHand from '../../../app/decks/practice/CardHand';
 import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import { VIEWER_TOP_INSET } from '../../../app/decks/practice/viewerCardSize';
+import { ARC_TOUCH_LOWER, handArcLayout } from '../../../app/decks/practice/handArc';
 
 const makeInstances = (n: number): CardInstance[] =>
   Array.from({ length: n }, (_, i) => ({
@@ -505,5 +506,63 @@ describe('CardHand as an arc (#1125)', () => {
 
     left.remove();
     right.remove();
+  });
+});
+
+describe('CardHand arc on a touch screen (#1149)', () => {
+  const stubPiles = () => {
+    const left = document.createElement('div');
+    left.setAttribute('data-testid', 'left-pile');
+    left.getBoundingClientRect = () => ({ left: 0, right: 100, top: 0, bottom: 0, width: 100, height: 0, x: 0, y: 0, toJSON: () => ({}) });
+    const right = document.createElement('div');
+    right.setAttribute('data-testid', 'right-pile');
+    right.getBoundingClientRect = () => ({ left: 900, right: 1000, top: 0, bottom: 0, width: 100, height: 0, x: 900, y: 0, toJSON: () => ({}) });
+    document.body.append(left, right);
+    return () => {
+      left.remove();
+      right.remove();
+    };
+  };
+
+  // The bounds `useArcBounds` measures from the two stubbed piles.
+  const layout = (lower: number) =>
+    handArcLayout({ count: 3, cardWidth: 108, maxStep: Math.round((108 * 60) / 56), left: 104, right: 896, bottom: window.innerHeight, lower });
+
+  it.each(['hand', 'dilemmaHand'] as const)('lowers the %s arc and its controls row with a coarse pointer only', (zone) => {
+    const tops: Record<string, { cards: number[]; controls: string }> = {};
+    for (const finePointer of [true, false]) {
+      const cleanup = stubPiles();
+      const { unmount } = render(
+        <CardHand
+          instances={makeInstances(3)}
+          open
+          onOpen={() => {}}
+          onClose={() => {}}
+          zone={zone}
+          openCardWidth={108}
+          selectedIds={['c1']}
+          onSendSelected={() => {}}
+          arcBetween={{ left: '[data-testid="left-pile"]', right: '[data-testid="right-pile"]' }}
+          finePointer={finePointer}
+        />,
+      );
+      const wrappers = (Array.from(screen.getByTestId(`${zone}-arc`).children) as HTMLElement[]).slice(0, 3);
+      tops[String(finePointer)] = {
+        cards: wrappers.map((wrapper) => parseFloat(wrapper.style.top)),
+        controls: screen.getByTestId(`${zone}-controls`).style.top,
+      };
+      unmount();
+      cleanup();
+    }
+
+    const plain = layout(0);
+    const lowered = layout(ARC_TOUCH_LOWER);
+    const drop = ARC_TOUCH_LOWER * plain.visibleHeight;
+    tops.false.cards.forEach((top, i) => expect(top - tops.true.cards[i]).toBeCloseTo(drop));
+    expect(tops.true.cards[0]).toBeCloseTo(plain.cards[0].centerY - plain.cardHeight / 2);
+    // The row's top is `calc(100% - (visibleHeight + the row's height))`, so it moves down by the drop.
+    const offset = (top: string) => parseFloat(top.match(/100% - ([\d.]+)px/)![1]);
+    expect(offset(tops.true.controls) - offset(tops.false.controls)).toBeCloseTo(plain.visibleHeight - lowered.visibleHeight);
+    expect(plain.visibleHeight - lowered.visibleHeight).toBeCloseTo(drop);
   });
 });
