@@ -63,6 +63,7 @@ import React from 'react';
 import { render, screen, act, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
+import { enterAttempt, mockAttemptMission } from '../../fixtures/enterAttempt';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -179,7 +180,15 @@ describe('Practice table: dragging the top card off the draw deck or the dilemma
   });
 
   it("keeps the draw deck's top card face down when it lands in a face-down zone", async () => {
-    await setup();
+    // The stack mounts only in the attempt layout (#1170).
+    localStorage.setItem('currentDeck', JSON.stringify({ ...mockDeck, [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission } }));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (extractDrawDeck as jest.Mock).mockReturnValue(mockDrawCards);
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    await enterAttempt(<PracticeDrawPage />);
+    await drawOpeningHand();
     const drawTop = document.body.querySelector('[aria-label="Draw deck top, tap to draw"]')!;
     const topId = drawTop.closest('[data-card-id]')!.getAttribute('data-card-id')!;
 

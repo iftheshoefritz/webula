@@ -64,6 +64,7 @@ import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
+import { enterAttempt, mockAttemptMission } from '../../fixtures/enterAttempt';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 
@@ -299,7 +300,9 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
   // stack, while the stack stays face down on the table. The panel has no Flip button; the
   // table's Reveal control turns the top card over.
   it('draws a face-down dilemma stack card face up in its panel, shows no Flip, and keeps it face down on the table', async () => {
-    await renderWithDeck([], [mockDilemmaCard]);
+    // The stack mounts only in the attempt layout (#1170).
+    await renderWithDeck([], [mockDilemmaCard, mockAttemptMission]);
+    await enterAttempt(<PracticeDrawPage />);
     await click('Dilemma pile top, tap to draw');
     await openClosedHand(/^dilemma hand, 1 card, tap to open$/i);
     await drop(cardIdFor('Cardassian Trap'), 'dilemmaStack');

@@ -7,10 +7,11 @@ import {
   MISSION_SLOTS,
   TableState,
   FIXTURE_CREW,
+  FIXTURE_DILEMMA_STACK,
   FIXTURE_UNDER_MISSION,
 } from '../../../app/decks/practice/tableReducer';
 import { drawSpend } from '../../../app/decks/practice/drawSpend';
-import { canAttempt, attemptDefaults, fixtureAttempt } from '../../../app/decks/practice/attempt';
+import { canAttempt, attemptDefaults, fixtureAttempt, fixtureAttemptStack } from '../../../app/decks/practice/attempt';
 import { gameReducer, initialGameState, logEntryText, GameAction, GameState } from '../../../app/decks/practice/gameLog';
 import { toSavedGame, fromSavedGame } from '../../../app/decks/practice/savedGame';
 import { DeckList } from '../../../types';
@@ -78,6 +79,35 @@ describe('tableReducer: startAttempt and endAttempt (#1163)', () => {
     const empty = table();
     expect(tableReducer(empty, { ...start, missionIndex: 4 })).toBe(empty);
     expect(tableReducer(empty, { type: 'endAttempt' })).toBe(empty);
+  });
+
+  // Issue #1170: the stack lives only in the attempt layout, so Attempt done empties it.
+  it('moves the dilemmas of the stack under the attempted mission, face up and in order, as it ends', () => {
+    const stack = [{ ...dilemma('k1'), face: 'up' as const }, { ...dilemma('k2'), face: 'down' as const }, { ...dilemma('k3'), face: 'down' as const }];
+    const started = tableReducer(table({ dilemmaStack: stack }), start);
+    const ended = tableReducer(started, { type: 'endAttempt' });
+    expect(ended.attempt).toBeUndefined();
+    expect(ended.dilemmaStack).toEqual([]);
+    expect(ended.missions[1].underMission.map((c) => [c.id, c.face])).toEqual([
+      ['d1', 'up'],
+      ['d2', 'up'],
+      ['k1', 'up'],
+      ['k2', 'up'],
+      ['k3', 'up'],
+    ]);
+    // Nothing else changes.
+    expect({ ...ended, missions: started.missions, dilemmaStack: started.dilemmaStack }).toEqual(
+      (({ attempt: _attempt, ...rest }) => rest)(started)
+    );
+  });
+
+  it('moves nothing when the stack is empty, and nothing with no attempt', () => {
+    const started = tableReducer(table(), start);
+    const ended = tableReducer(started, { type: 'endAttempt' });
+    expect(ended.missions).toBe(started.missions);
+    expect(ended.dilemmaStack).toBe(started.dilemmaStack);
+    const idle = table({ dilemmaStack: [dilemma('k1')] });
+    expect(tableReducer(idle, { type: 'endAttempt' })).toBe(idle);
   });
 
   it('keeps the numbers frozen when a personnel joins or is stopped', () => {
@@ -164,6 +194,17 @@ describe('the game log of an attempt (#1163)', () => {
     ]);
   });
 
+  it('logs the dilemmas of the stack that the end moved under the mission, in one entry (#1170)', () => {
+    const state = [start, { type: 'endAttempt' }].reduce(
+      (s, a) => gameReducer(s, a as GameAction),
+      initialGameState(table({ dilemmaStack: [dilemma('k1'), { ...dilemma('k2'), face: 'down' }] }))
+    );
+    expect(texts(state)).toEqual([
+      'Attempted Bilana System with U.S.S. Relativity: 7 personnel − 2 = draw/spend 5',
+      'Ended the attempt at Bilana System, and moved Dilemma k1 and Dilemma k2 under Bilana System',
+    ]);
+  });
+
   it('logs the start with no ship at a planet mission, and N floored at 0', () => {
     expect(texts(run({ type: 'startAttempt', missionIndex: 0, personnel: 20, subtract: 25 }))).toEqual([
       'Attempted Moab IV: 20 personnel − 25 = draw/spend 0',
@@ -209,6 +250,25 @@ describe('the save of an attempt (#1163)', () => {
     expect(fromSavedGame(saved(dealt()), deck)!.table.attempt).toBeUndefined();
   });
 
+  // Issue #1170: a save from before the stack lived only in the attempt layout.
+  it('sends the stack of a save with no attempt to the bottom of the dilemma pile, face down', () => {
+    const row = { collectorsinfo: '1D1', name: 'Dilemma', type: 'dilemma' };
+    const withDilemmas: DeckList = { ...deck, dilemma: { count: 3, row } } as any;
+    const card = (id: string, face: 'up' | 'down') => ({ id, card: { ...row }, face });
+    const t: TableState = { ...dealt(), dilemmaPile: [card('card-2', 'down')], dilemmaStack: [card('card-3', 'up'), card('card-4', 'down')] };
+    const restored = fromSavedGame(JSON.stringify(toSavedGame(t, withDilemmas, 'builder')), withDilemmas)!.table;
+    expect(restored.dilemmaStack).toEqual([]);
+    expect(restored.dilemmaPile.map((c) => [c.id, c.face])).toEqual([
+      ['card-2', 'down'],
+      ['card-3', 'down'],
+      ['card-4', 'down'],
+    ]);
+    // A save with an attempt keeps its stack.
+    const attempting = { ...t, attempt: { missionIndex: 0, personnel: 1, subtract: 0 } };
+    const kept = fromSavedGame(JSON.stringify(toSavedGame(attempting, withDilemmas, 'builder')), withDilemmas)!.table;
+    expect(kept.dilemmaStack.map((c) => c.id)).toEqual(['card-3', 'card-4']);
+  });
+
   it.each([
     ['a slot with no mission card', { missionIndex: 1, personnel: 1, subtract: 0 }],
     ['a slot out of range', { missionIndex: 9, personnel: 1, subtract: 0 }],
@@ -251,6 +311,18 @@ describe('the attempt of ?fixture=attempt (#1169)', () => {
     expect(rest).toEqual(piles);
     expect(attempt).toEqual({ missionIndex: 2, shipId: piles.missions[2].ships[0].id, personnel: 12, subtract: 3 });
     expect(drawSpend(attempt!.personnel, attempt!.subtract)).toBe(FIXTURE_CREW - 3);
+  });
+
+  it('fills the dilemma stack from the top of the pile, face down (#1170)', () => {
+    const piles = tableReducer(initialTableState, deal());
+    expect(piles.dilemmaStack).toEqual([]);
+    const moves = fixtureAttemptStack(piles);
+    expect(moves).toHaveLength(FIXTURE_DILEMMA_STACK);
+    const stacked = moves.reduce(tableReducer, tableReducer(piles, fixtureAttempt(piles)!));
+    expect(stacked.dilemmaStack.map((c) => [c.card.name, c.face])).toEqual(
+      ['d3', 'd4', 'd5', 'd6'].map((id) => [`Dilemma ${id}`, 'down'])
+    );
+    expect(stacked.dilemmaPile).toHaveLength(10 - FIXTURE_UNDER_MISSION - FIXTURE_DILEMMA_STACK);
   });
 
   it('starts none when the deal has no ship', () => {

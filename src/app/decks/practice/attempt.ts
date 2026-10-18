@@ -2,7 +2,14 @@
 // a render. The table enforces nothing once an attempt starts: these only decide where the button
 // shows and what the popup's two numbers start at.
 
-import { CardInstance, findInstanceAnywhere, FIXTURE_SHIP_SLOT, TableAction, TableState } from './tableReducer';
+import {
+  CardInstance,
+  findInstanceAnywhere,
+  FIXTURE_DILEMMA_STACK,
+  FIXTURE_SHIP_SLOT,
+  TableAction,
+  TableState,
+} from './tableReducer';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
 export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 'crew'; shipId: string };
@@ -59,4 +66,14 @@ export function fixtureAttempt(table: TableState): Extract<TableAction, { type: 
   if (!ship) return null;
   const defaults = attemptDefaults(table, { kind: 'crew', shipId: ship.id });
   return defaults ? { type: 'startAttempt', ...defaults } : null;
+}
+
+// The dilemma stack of `/decks/practice?fixture=attempt` (#1170): the moves of the top
+// `FIXTURE_DILEMMA_STACK` dilemmas of the pile into the stack, in pile order. They land face down,
+// as the stack takes them. `resetWithPiles` deals no stack, since the stack holds cards only during
+// an attempt, so the attempt fixture fills it once the attempt has started.
+export function fixtureAttemptStack(table: TableState): Extract<TableAction, { type: 'move' }>[] {
+  return table.dilemmaPile
+    .slice(0, FIXTURE_DILEMMA_STACK)
+    .map((c) => ({ type: 'move', id: c.id, to: 'dilemmaStack' }));
 }

@@ -60,7 +60,8 @@ export type LogEntry = { turn: number } & (
   | { kind: 'score'; delta: number; score: number }
   // A mission attempt (#1163): the ship only at a space mission.
   | { kind: 'attemptStarted'; mission: string; ship?: string; personnel: number; subtract: number }
-  | { kind: 'attemptEnded'; mission: string }
+  // The dilemmas still in the stack that Attempt done moved under the mission (#1170), when any.
+  | { kind: 'attemptEnded'; mission: string; moved?: string[] }
 );
 
 // Several table actions that are one player action (#1065): a group drag, a selection's Discard,
@@ -208,7 +209,13 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
       };
     case 'endAttempt':
       if (after === before || !before.attempt) return null;
-      return { kind: 'attemptEnded', mission: missionName(before, before.attempt.missionIndex) };
+      // The dilemmas go under the mission face up, so the log names each one, a face-down one too.
+      const moved = before.dilemmaStack.map((c) => cardDisplayName(c.card));
+      return {
+        kind: 'attemptEnded',
+        mission: missionName(before, before.attempt.missionIndex),
+        ...(moved.length ? { moved } : {}),
+      };
     case 'nextTurn':
       return { kind: 'nextTurn' };
     case 'adjustScore':
@@ -356,7 +363,9 @@ export function logEntryText(entry: LogEntry): string {
         entry.subtract
       } = draw/spend ${drawSpend(entry.personnel, entry.subtract)}`;
     case 'attemptEnded':
-      return `Ended the attempt at ${entry.mission}`;
+      return entry.moved?.length
+        ? `Ended the attempt at ${entry.mission}, and moved ${cardsText(entry.moved)} under ${entry.mission}`
+        : `Ended the attempt at ${entry.mission}`;
   }
 }
 

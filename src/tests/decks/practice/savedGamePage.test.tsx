@@ -258,10 +258,16 @@ describe('Saved practice game (#976)', () => {
     expect(dealt.attempt).toEqual({ missionIndex: 2, shipId: dealt.missions[2].ships[0].id, personnel: 12, subtract: 3 });
     // The attempt opens in the attempt layout (#1164), with draw/spend N in its strip.
     expect(screen.getByTestId('attempt-strip')).toHaveTextContent(/draw\/spend 9/i);
-    const { attempt: _attempt, ...rest } = dealt;
+    const { attempt: _attempt, dilemmaStack, ...rest } = dealt;
+    // The stack holds the top 4 dilemmas of the piles table's dilemma pile, face down (#1170).
+    expect(dilemmaStack.map((c: { key: string; face: string }) => [c.key, c.face])).toEqual(
+      ['D3', 'D4', 'D5', 'D6'].map((key) => [key, 'down'])
+    );
     // The rest of the table is the piles table, apart from the instance ids of the second deal.
     const withoutIds = (table: unknown) => JSON.stringify(table).replace(/"id":"[^"]*"/g, '"id"');
-    expect(withoutIds(rest)).toEqual(withoutIds(savedTable('practiceGame:fixture=piles')));
+    const { dilemmaStack: pilesStack, ...piles } = savedTable('practiceGame:fixture=piles');
+    expect(pilesStack).toEqual([]);
+    expect(withoutIds({ ...rest, dilemmaPile: [...dilemmaStack, ...rest.dilemmaPile] })).toEqual(withoutIds(piles));
     first.unmount();
 
     // A remount restores the attempt, in the attempt layout; once ended, `reset=1` deals it again.
@@ -298,7 +304,8 @@ describe('Saved practice game (#976)', () => {
     });
     expect(screen.queryByTestId('attempt-layout')).toBeNull();
     for (const i of [0, 1, 2, 3, 4]) expect(zones(`mission-on-${i}`)).toBe(1);
-    expect(zones('dilemmaStack')).toBe(1);
+    // The dilemma stack lives only in the attempt layout (#1170).
+    expect(zones('dilemmaStack')).toBe(0);
     expect(screen.getByTestId('attempt-overlay-2')).toHaveTextContent(/^Back to attempt$/);
     // Page state, not part of the save.
     expect(JSON.parse(localStorage.getItem('practiceGame:fixture=attempt')!).table.attempt).toBeDefined();
@@ -308,6 +315,7 @@ describe('Saved practice game (#976)', () => {
     });
     expect(screen.getByTestId('attempt-layout')).toBeInTheDocument();
     expect(zones('mission-on-0')).toBe(0);
+    expect(zones('dilemmaStack')).toBe(1);
 
     // Attempt done: the mission row again, with no overlay.
     await act(async () => {
@@ -316,6 +324,13 @@ describe('Saved practice game (#976)', () => {
     expect(screen.queryByTestId('attempt-layout')).toBeNull();
     expect(screen.queryByTestId('attempt-overlay-2')).toBeNull();
     for (const i of [0, 1, 2, 3, 4]) expect(zones(`mission-on-${i}`)).toBe(1);
+    expect(zones('dilemmaStack')).toBe(0);
+    // The 4 dilemmas of the stack went under Bilana System, after its 3 (#1170).
+    const ended = JSON.parse(localStorage.getItem('practiceGame:fixture=attempt')!).table;
+    expect(ended.dilemmaStack).toEqual([]);
+    expect(ended.missions[2].underMission.map((c: { key: string; face: string }) => [c.key, c.face])).toEqual(
+      ['D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6'].map((key) => [key, 'up'])
+    );
   });
 
   it('restores a game saved mid-attempt in the attempt layout, even after View full table (#1164)', async () => {

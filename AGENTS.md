@@ -253,12 +253,13 @@ The card sizes in `MissionRow.tsx` and `TableCard.tsx` are still the sizes at sc
 is still a 320 px tall table. At 667×375 the table draws at a scale of 375/320, about 1.17. A
 layout that must fit the minimum screen must fit it at that scale.
 
-The missions, the ships and the dilemma stack draw at a larger scale of their own,
+The missions and the ships draw at a larger scale of their own,
 `missionScale` (`useMissionScale`, `tableScale.ts`). On a touch screen they grow until a mission
 column with two rows of ships fills the height above the bottom row, as far as the width allows
-the five missions, the dilemma stack and a 20 px gutter each side for the menu buttons, and never
-below the table scale (`computeTouchMissionScale`). A desktop does the same with the whole card
-(#992). At 667×375 a mission is about 97 px wide, where the table scale alone gives 84.
+the five missions, the four gaps between them and a 20 px gutter each side for the menu buttons, and
+never below the table scale (`computeTouchMissionScale`). The mission row holds no dilemma stack
+(#1170): the stack lives only in the attempt layout. A desktop does the same with the whole card
+(#992). At 667×375 a mission is about 105 px wide, where the table scale alone gives 84.
 
 `agent-browser` opens an 800×600 page. To check that a layout fits the minimum screen, set the
 size first:
@@ -295,14 +296,15 @@ The practice table has three fixtures. Each one deals the same table on every lo
   and one event placed on it, so the ship shows its counter of placed cards, and 3 dilemmas under it,
   shown as slivers (#1166). The ship row of mission 1, Angel I, a planet mission, is empty: for a
   check that needs a ship at a planet mission, run `bash scripts/practice_drag.sh card-39 ship-row-1`.
-  The brig holds 2 personnel, the core holds 4 events, and the dilemma stack holds 4 dilemmas face
-  down. The draw deck and the dilemma pile get the rest. The hand holds a Tricorder (`card-1`), two
+  The brig holds 2 personnel and the core holds 4 events. The dilemma stack is empty (#1170), as
+  outside every attempt. The draw deck and the dilemma pile get the rest. The hand holds a Tricorder (`card-1`), two
   events (`card-7`, `card-8`), two interrupts (`card-9`, `card-10`) and two ships (`card-39`,
   `card-40`).
 - `?fixture=attempt` (#1169) deals exactly the `?fixture=piles` table, the same cards and the same
   ids, and then starts an attempt at Bilana System (mission 2) with the crewed ship, with the
   defaults of the attempt popup: the 12 unstopped crew minus the 3 dilemmas under the mission, so
-  the page opens in the attempt layout and its strip reads "draw/spend 9". It keeps its game under
+  the page opens in the attempt layout and its strip reads "draw/spend 9". It then moves the top 4
+  dilemmas of the dilemma pile into the dilemma stack, face down (#1170). It keeps its game under
   `practiceGame:fixture=attempt`. `?fixture=piles` deals no attempt.
 
 A tap on the closed hand opens it as an arc along the bottom edge of the screen
@@ -313,11 +315,11 @@ dilemma hand opens it as the same arc, in the same gap (`data-testid="dilemmaHan
 edge still gets the hold preview.
 
 Use `/decks/practice?fixture=piles&reset=1&menu=0` for a check of the hand, of a drag from the hand,
-or of anything else that needs cards in the hand, and for a check of the dilemma stack, dilemmas
+or of anything else that needs cards in the hand, and for a check of dilemmas
 under a mission, the brig, the core, a card placed on a ship, a ship on the table, the crew, the
 away team, or a long card list panel. Use `/decks/practice?fixture=1&reset=1&menu=0` for a check of
 a fresh game, the draw deck, or the dilemma pile. Use `/decks/practice?fixture=attempt&reset=1&menu=0`
-for a check of an attempt in progress.
+for a check of an attempt in progress or of the dilemma stack.
 
 To keep the bottom of the page clear, start the dev server with `NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`. This hides the consent banner and the Next.js dev tools button.
 
@@ -431,10 +433,13 @@ while an attempt is in progress. It opens the popup, `data-testid="attempt-dialo
 `attempt-start`. Start opens the **attempt layout** (#1164), `data-testid="attempt-layout"`, in place of
 the mission row. Its strip across the top, `attempt-strip`, holds the status (`attempt-status`: the
 mission's name, and the ship's at a space mission), `attempt-draw-spend`, the button
-`attempt-view-full-table` and the button `attempt-done`, which ends the attempt and brings back the
-mission row. Below the strip, left to right: the attempted mission, drawn whole and larger than on the
+`attempt-view-full-table` and the button `attempt-done`, which moves every dilemma still in the
+dilemma stack under the attempted mission, face up and in stack order, ends the attempt, and brings
+back the mission row (#1170). The log gets one entry: "Ended the attempt at <mission>, and moved
+<cards> under <mission>", or only its first part when the stack was empty. Below the strip, left to right: the attempted mission, drawn whole and larger than on the
 table, the ships column `attempt-ships` (the away team badge, then every ship of that mission's ship
-row), and the dilemma stack. The bottom row does not change.
+row), and the dilemma stack. The bottom row does not change. The dilemma stack mounts only here
+(#1170), so the `dilemmaStack` drop target exists only in the attempt layout.
 
 Every drop target in the attempt layout keeps its id: `mission-on-<i>`, `mission-under-<i>`,
 `ship-row-<i>` and `crew-<id>` with `<i>` the mission's own slot index, and `dilemmaStack`. The mission
@@ -463,7 +468,7 @@ bash scripts/practice_drag.sh card-1 attempt-away-team-0   # prints attempt-away
 
 View full table shows the normal table, and the attempt goes on: the overlay on the mission card,
 `attempt-overlay-<index>`, then holds only `attempt-back-to-attempt`, "Back to attempt", which returns to
-the attempt layout. Which view shows is page state, not part of the save.
+the attempt layout. The full table shows no dilemma stack: go back to the attempt to use it. Which view shows is page state, not part of the save.
 
 On `/decks/practice?fixture=piles&reset=1&menu=0`, Moab IV (mission 0) is a planet mission with an
 away team of 20: tap the lower half of its card, wait out the double-tap window, then tap Attempt and

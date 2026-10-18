@@ -916,8 +916,8 @@ const underMissionStackHeight = (cardArtHeight: number, count: number): number =
 const TABLE_TOP_PADDING = 16; // px
 
 // The room the mission row moves down by (#968), so a full stack of slivers stays below the top
-// edge of the table: the height of two slivers, less the padding already above the row. The
-// dilemma stack column shares the row, so `page.tsx` pads the whole row, not `MissionRow` alone.
+// edge of the table: the height of two slivers, less the padding already above the row.
+// `PracticeTable.tsx` pads the row's wrapper, not `MissionRow` alone.
 export function underMissionHeadroom(scale: number, desktop = false): number {
   const stackHeight = underMissionSliver(missionCardHeight(scale, desktop)) * UNDER_MISSION_MAX_VISIBLE;
   return Math.max(0, stackHeight - TABLE_TOP_PADDING);
