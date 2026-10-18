@@ -80,11 +80,10 @@
 // happens on the mission card's own drop target; a tap on its slivers opens its panel, the same as
 // a tap on the top half (#1012).
 
-import { CSSProperties, useEffect, useRef } from 'react';
+import { CSSProperties, ReactNode, useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import type { Attempt, CardInstance, MissionPileName, MissionSlot } from './tableReducer';
-import { drawSpend } from './drawSpend';
-import { AttemptOverlay, AttemptOverlayContents } from './AttemptPanel';
+import { AttemptOverlay, BackToAttemptButton } from './AttemptPanel';
 import TableCard, {
   TableCardImage,
   SMALL_CARD_ART_HEIGHT,
@@ -767,7 +766,7 @@ const PILE_NOUN: Record<MissionPileName, string> = {
 // drop on the badge routes as a drop on the mission card does, and a personnel or an equipment
 // joins the away team (#870). It shows with an empty pile too, the same as a ship's crew badge
 // (#811): the icon alone, with no count, and nothing to open.
-function PileBadge({
+export function PileBadge({
   missionIndex,
   pile,
   count,
@@ -856,16 +855,21 @@ function BadgeStrip({
   onOpenPile,
   placedOn,
   height,
+  showAwayTeam,
 }: {
   missionIndex: number;
   awayTeamCount: number;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   placedOn: { name: string; badges: PlacedOnBadge[]; onOpen: (group: PlacedOnGroup) => void } | null;
   height: number;
+  // The attempt layout (#1164) shows the away team badge in the ships column instead.
+  showAwayTeam: boolean;
 }) {
   return (
     <div className="w-full flex items-center justify-center gap-0.5" style={{ height }}>
-      <PileBadge missionIndex={missionIndex} pile="awayTeam" count={awayTeamCount} onOpen={onOpenPile} height={height} />
+      {showAwayTeam && (
+        <PileBadge missionIndex={missionIndex} pile="awayTeam" count={awayTeamCount} onOpen={onOpenPile} height={height} />
+      )}
       {placedOn?.badges
         .filter((badge) => badge.count > 0)
         .map((badge) => (
@@ -1014,18 +1018,32 @@ export const SHIP_ROW_GAP = COLUMN_GAP;
 export const shipRowLineHeight = (scale: number, desktop = false): number =>
   desktop ? fullCardHeight(scaled(SMALL_CARD_WIDTH, scale)) : scaled(SMALL_CARD_ART_HEIGHT, scale);
 
-// How many ships one row holds with no overlap (#930): 2 at the column width of every scale.
-export function shipsPerRow(scale: number): number {
+// How many ships one row holds with no overlap (#930): 2 at the column width of every scale. The
+// attempt layout (#1164) gives its ship rows a width of their own, `rowWidth`.
+export function shipsPerRow(scale: number, rowWidth = scaled(TABLE_CARD_WIDTH, scale)): number {
   const cardWidth = scaled(SMALL_CARD_WIDTH, scale);
   const maxOffset = scaled(SMALL_CARD_MAX_OFFSET_BASE, scale);
-  return Math.max(1, Math.floor((scaled(TABLE_CARD_WIDTH, scale) - cardWidth) / maxOffset) + 1);
+  return Math.max(1, Math.floor((rowWidth - cardWidth) / maxOffset) + 1);
 }
 
 // The rows a ship row fills (#930): as many as its ships need at `shipsPerRow` each, never more
 // than the table has room for (`useShipRowCount`, `tableScale.ts`), and always at least 1.
-export function shipRowsUsed(shipCount: number, availableRows: number, scale: number): number {
-  return Math.max(1, Math.min(availableRows, Math.ceil(shipCount / shipsPerRow(scale))));
+export function shipRowsUsed(shipCount: number, availableRows: number, scale: number, rowWidth?: number): number {
+  return Math.max(1, Math.min(availableRows, Math.ceil(shipCount / shipsPerRow(scale, rowWidth))));
 }
+
+// The width of a ship card at a scale, and the height of the badge strip (#602).
+export const shipCardWidth = (scale: number): number => scaled(SMALL_CARD_WIDTH, scale);
+export const badgeStripHeight = (scale: number): number => scaled(BADGE_STRIP_HEIGHT_BASE, scale);
+export const MISSION_COLUMN_GAP = COLUMN_GAP;
+// The width a ship row needs to hold `perRow` ships side by side with no overlap.
+export const shipRowWidth = (scale: number, perRow: number): number =>
+  scaled(SMALL_CARD_WIDTH, scale) + (perRow - 1) * scaled(SMALL_CARD_MAX_OFFSET_BASE, scale);
+
+// The room above the mission card that a full stack of slivers needs, with no table padding to
+// poke into: the attempt layout (#1164) has its strip above the mission.
+export const underMissionStackRoom = (scale: number, uncropped = false): number =>
+  underMissionSliver(missionCardHeight(scale, uncropped)) * UNDER_MISSION_MAX_VISIBLE;
 
 // The height of a whole mission column (#992), from the top of the room the row moves down by
 // (`underMissionHeadroom`) to the bottom of `rows` rows of ships: the mission card, the badge
@@ -1054,7 +1072,7 @@ function splitIntoRows<T>(ships: T[], perRow: number, rows: number): T[][] {
   return result;
 }
 
-function ShipRow({
+export function ShipRow({
   missionIndex,
   ships,
   onShipClick,
@@ -1086,8 +1104,8 @@ function ShipRow({
   const shipRowMaxWidth = columnWidth; // bounds the row to the column's own (scaled) width
   // The rows the ships fill (#930). The block grows with them, and the drop target covers the
   // whole block, so a ship dropped on any of its rows lands in the ship row.
-  const rowCount = shipRowsUsed(ships.length, availableRows, scale);
-  const rows = splitIntoRows(ships, shipsPerRow(scale), rowCount);
+  const rowCount = shipRowsUsed(ships.length, availableRows, scale, columnWidth);
+  const rows = splitIntoRows(ships, shipsPerRow(scale, columnWidth), rowCount);
   const shipRowHeight = rowCount * shipCardArtHeight + (rowCount - 1) * SHIP_ROW_GAP;
   const lastRow = rows[rows.length - 1];
   const lastOffset = offsetFor(lastRow.length, shipCardWidth, shipRowMaxWidth, shipMaxOffset);
@@ -1204,39 +1222,37 @@ function MissionHalfTarget({
   );
 }
 
-function MissionColumn({
+// The mission card of a slot, with everything it does on the table, and its badge strip below it:
+// `MissionColumn` stacks the ship row under it, and the attempt layout (#1164) puts the ships beside
+// it. Both render this one component, so the attempted mission keeps every behaviour of the card.
+export function MissionCard({
   missionIndex,
   slot,
   onOpenPile,
-  onShipClick,
-  onOpenShipRow,
   onOpenPlacedOn,
   onFlipMission,
   onSetMissionCompleted,
-  attemptN,
-  onEndAttempt,
+  overlay,
   scale,
-  shipRows,
-  desktop,
+  uncropped,
   slotWidth,
+  showAwayTeam = true,
 }: {
   missionIndex: number;
   slot: MissionSlot;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
-  onShipClick: (shipId: string) => void;
-  onOpenShipRow: (missionIndex: number) => void;
   onOpenPlacedOn: (targetId: string, group?: PlacedOnGroup) => void;
   onFlipMission: (missionId: string) => void;
   onSetMissionCompleted: (missionIndex: number, completed: boolean) => void;
-  // The draw/spend N of the attempt at this mission (#1163), or undefined when none runs here.
-  attemptN?: number;
-  onEndAttempt: () => void;
+  // The contents of the attempt overlay on the card (#1163, #1164), or undefined for none.
+  overlay?: ReactNode;
   scale: number;
-  shipRows: number;
-  desktop: boolean;
+  // The whole card rather than the art crop: on a desktop (#992), and in the attempt layout.
+  uncropped: boolean;
   // The width the slot reserves (`missionSlotWidth`): the card's own width on a touch screen, and
   // the turned card's width on a desktop (#1060).
   slotWidth: number;
+  showAwayTeam?: boolean;
 }) {
   const onDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
   const underDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'under') });
@@ -1246,7 +1262,7 @@ function MissionColumn({
   const split = draggedType === 'dilemma';
   const eitherOver = onDrop.isOver || underDrop.isOver;
   const highlight = highlightState('mission', draggedType, eitherOver);
-  const { mission, ships, awayTeam, underMission } = slot;
+  const { mission, awayTeam, underMission } = slot;
   // The cards placed on the mission card (#813), such as the events at the mission.
   const onLandedNonce = useLandedNonce(mission ? `on-${mission.id}` : '');
   // Split by type into the events and the dilemmas (#1081), each with a badge of its own.
@@ -1256,7 +1272,7 @@ function MissionColumn({
   const eventLandedNonce = useGroupLandedNonce(onLandedNonce, eventCount);
   const dilemmaLandedNonce = useGroupLandedNonce(onLandedNonce, dilemmaCount);
   const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
-  const cardArtHeight = missionCardHeight(scale, desktop);
+  const cardArtHeight = missionCardHeight(scale, uncropped);
   const badgeHeight = scaled(BADGE_STRIP_HEIGHT_BASE, scale);
   // The bottom half reaches over the gap and the badge strip below the card (#924), so a drop on
   // the away team badge routes as a drop on the mission card does.
@@ -1267,7 +1283,7 @@ function MissionColumn({
   const completed = Boolean(mission && slot.completed);
   // A completed mission turns 90° clockwise inside its slot (#1060). The Flip button sits on the
   // corner of the card as drawn, upright or turned.
-  const turnedScale = turnedMissionScale(scale, desktop, slotWidth);
+  const turnedScale = turnedMissionScale(scale, uncropped, slotWidth);
   const visualWidth = completed ? Math.round(cardArtHeight * turnedScale) : cardWidth;
   const visualHeight = completed ? Math.round(cardWidth * turnedScale) : cardArtHeight;
   // The tap that waits out `DOUBLE_TAP_MS` for a second tap: where it landed, and the panel it
@@ -1309,7 +1325,7 @@ function MissionColumn({
   const stripLayout = placedOnStripLayout(scale);
 
   return (
-    <div className="flex flex-col items-center" style={{ width: slotWidth, gap: COLUMN_GAP }}>
+    <>
       <div
         data-landed={onLandedNonce !== null || undefined}
         className={`relative w-full flex items-center justify-center rounded ${
@@ -1323,7 +1339,7 @@ function MissionColumn({
           onOpen={onOpenPile}
           cardWidth={cardWidth}
           cardArtHeight={cardArtHeight}
-          uncropped={desktop}
+          uncropped={uncropped}
           holdId={mission?.id}
         />
 
@@ -1334,7 +1350,7 @@ function MissionColumn({
                 instance={mission}
                 width={cardWidth}
                 artHeight={cardArtHeight}
-                uncropped={desktop}
+                uncropped={uncropped}
                 completed={completed}
                 turnedScale={completed ? turnedScale : undefined}
                 turnable
@@ -1390,7 +1406,7 @@ function MissionColumn({
                   />
                 ))}
                 {/* The span, which the touch crop cuts off (#1133). It turns with the card. */}
-                {!desktop && mission.card.span && (
+                {!uncropped && mission.card.span && (
                   <MissionSpan
                     missionIndex={missionIndex}
                     span={String(mission.card.span)}
@@ -1410,11 +1426,7 @@ function MissionColumn({
               </div>
               {/* The attempt in progress (#1163), above the card and its drop halves, upright on a
                   turned mission. */}
-              {attemptN !== undefined && (
-                <AttemptOverlay missionIndex={missionIndex}>
-                  <AttemptOverlayContents n={attemptN} onEnd={onEndAttempt} />
-                </AttemptOverlay>
-              )}
+              {overlay !== undefined && <AttemptOverlay missionIndex={missionIndex}>{overlay}</AttemptOverlay>}
             </>
           ) : (
             <div
@@ -1468,14 +1480,61 @@ function MissionColumn({
             : null
         }
         height={badgeHeight}
+        showAwayTeam={showAwayTeam}
       />
+    </>
+  );
+}
 
+function MissionColumn({
+  missionIndex,
+  slot,
+  onOpenPile,
+  onShipClick,
+  onOpenShipRow,
+  onOpenPlacedOn,
+  onFlipMission,
+  onSetMissionCompleted,
+  attemptOverlay,
+  scale,
+  shipRows,
+  desktop,
+  slotWidth,
+}: {
+  missionIndex: number;
+  slot: MissionSlot;
+  onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
+  onShipClick: (shipId: string) => void;
+  onOpenShipRow: (missionIndex: number) => void;
+  onOpenPlacedOn: (targetId: string, group?: PlacedOnGroup) => void;
+  onFlipMission: (missionId: string) => void;
+  onSetMissionCompleted: (missionIndex: number, completed: boolean) => void;
+  attemptOverlay?: ReactNode;
+  scale: number;
+  shipRows: number;
+  desktop: boolean;
+  slotWidth: number;
+}) {
+  return (
+    <div className="flex flex-col items-center" style={{ width: slotWidth, gap: COLUMN_GAP }}>
+      <MissionCard
+        missionIndex={missionIndex}
+        slot={slot}
+        onOpenPile={onOpenPile}
+        onOpenPlacedOn={onOpenPlacedOn}
+        onFlipMission={onFlipMission}
+        onSetMissionCompleted={onSetMissionCompleted}
+        overlay={attemptOverlay}
+        scale={scale}
+        uncropped={desktop}
+        slotWidth={slotWidth}
+      />
       <ShipRow
         missionIndex={missionIndex}
-        ships={ships}
+        ships={slot.ships}
         onShipClick={onShipClick}
         onOpenShipRow={onOpenShipRow}
-        columnWidth={cardWidth}
+        columnWidth={scaled(TABLE_CARD_WIDTH, scale)}
         scale={scale}
         availableRows={shipRows}
         desktop={desktop}
@@ -1493,7 +1552,7 @@ export default function MissionRow({
   onFlipMission = () => {},
   onSetMissionCompleted = () => {},
   attempt,
-  onEndAttempt = () => {},
+  onBackToAttempt = () => {},
   scale = 1,
   shipRows = 1,
   desktop = false,
@@ -1510,10 +1569,10 @@ export default function MissionRow({
   onFlipMission?: (missionId: string) => void;
   // A double-tap on a mission card, or its hidden focus button, marks it complete or not (#991, #1059).
   onSetMissionCompleted?: (missionIndex: number, completed: boolean) => void;
-  // The mission attempt in progress (#1163): its mission card shows the overlay, and the overlay's
-  // Attempt done button calls `onEndAttempt`.
+  // The mission attempt in progress (#1163), while the full table shows (#1164): its mission card
+  // shows the overlay, and the overlay's Back to attempt button calls `onBackToAttempt`.
   attempt?: Attempt;
-  onEndAttempt?: () => void;
+  onBackToAttempt?: () => void;
   // Issue #717: grows the mission cards, the ship cards, and the under-mission pile stack past
   // their base pixel size, computed by `useTableScale` (`tableScale.ts`) from the live size of
   // the game layer. Defaults to 1 (today's fixed sizes) for callers — including this
@@ -1546,8 +1605,9 @@ export default function MissionRow({
           onOpenPlacedOn={onOpenPlacedOn}
           onFlipMission={onFlipMission}
           onSetMissionCompleted={onSetMissionCompleted}
-          attemptN={attempt?.missionIndex === idx ? drawSpend(attempt.personnel, attempt.subtract) : undefined}
-          onEndAttempt={onEndAttempt}
+          attemptOverlay={
+            attempt?.missionIndex === idx ? <BackToAttemptButton onBack={onBackToAttempt} /> : undefined
+          }
         />
       ))}
     </div>

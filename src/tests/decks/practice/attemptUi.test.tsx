@@ -1,5 +1,5 @@
 // Issue #1163: the Attempt button of a card list panel, the attempt popup, and the overlay on the
-// attempted mission card.
+// attempted mission card, which shows Back to attempt on the full table (#1164).
 jest.mock('@dnd-kit/core', () => ({
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false }),
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
@@ -51,7 +51,7 @@ describe('AttemptDialog (#1163)', () => {
   });
 });
 
-describe('MissionRow: the attempt overlay (#1163)', () => {
+describe('MissionRow: the attempt overlay on the full table (#1164)', () => {
   const slot = (id: string): MissionSlot => ({
     mission: { id, card: { name: id, originalName: id, imagefile: id }, face: 'up' },
     ships: [],
@@ -59,8 +59,8 @@ describe('MissionRow: the attempt overlay (#1163)', () => {
     underMission: [],
   });
 
-  it('shows draw/spend N and Attempt done on the attempted mission only', () => {
-    const onEndAttempt = jest.fn();
+  it('shows Back to attempt, and only that, on the attempted mission only', () => {
+    const onBackToAttempt = jest.fn();
     render(
       <MissionRow
         missions={[slot('m0'), slot('m1')]}
@@ -69,12 +69,13 @@ describe('MissionRow: the attempt overlay (#1163)', () => {
         onOpenShipRow={() => {}}
         onOpenPlacedOn={() => {}}
         attempt={{ missionIndex: 1, personnel: 7, subtract: 2 }}
-        onEndAttempt={onEndAttempt}
+        onBackToAttempt={onBackToAttempt}
       />
     );
     expect(screen.queryByTestId('attempt-overlay-0')).toBeNull();
-    expect(screen.getByTestId('attempt-overlay-1')).toHaveTextContent('draw/spend 5');
-    fireEvent.click(screen.getByTestId('attempt-done'));
-    expect(onEndAttempt).toHaveBeenCalled();
+    expect(screen.getByTestId('attempt-overlay-1')).toHaveTextContent(/^Back to attempt$/);
+    expect(screen.queryByTestId('attempt-done')).toBeNull();
+    fireEvent.click(screen.getByTestId('attempt-back-to-attempt'));
+    expect(onBackToAttempt).toHaveBeenCalled();
   });
 });
