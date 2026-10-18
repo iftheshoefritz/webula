@@ -82,7 +82,9 @@
 
 import { CSSProperties, useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { CardInstance, MissionPileName, MissionSlot } from './tableReducer';
+import type { Attempt, CardInstance, MissionPileName, MissionSlot } from './tableReducer';
+import { drawSpend } from './drawSpend';
+import { AttemptOverlay, AttemptOverlayContents } from './AttemptPanel';
 import TableCard, {
   TableCardImage,
   SMALL_CARD_ART_HEIGHT,
@@ -1211,6 +1213,8 @@ function MissionColumn({
   onOpenPlacedOn,
   onFlipMission,
   onSetMissionCompleted,
+  attemptN,
+  onEndAttempt,
   scale,
   shipRows,
   desktop,
@@ -1224,6 +1228,9 @@ function MissionColumn({
   onOpenPlacedOn: (targetId: string, group?: PlacedOnGroup) => void;
   onFlipMission: (missionId: string) => void;
   onSetMissionCompleted: (missionIndex: number, completed: boolean) => void;
+  // The draw/spend N of the attempt at this mission (#1163), or undefined when none runs here.
+  attemptN?: number;
+  onEndAttempt: () => void;
   scale: number;
   shipRows: number;
   desktop: boolean;
@@ -1401,6 +1408,13 @@ function MissionColumn({
                   <MissionFlipButton mission={mission} height={badgeHeight} onFlip={onFlipMission} />
                 )}
               </div>
+              {/* The attempt in progress (#1163), above the card and its drop halves, upright on a
+                  turned mission. */}
+              {attemptN !== undefined && (
+                <AttemptOverlay missionIndex={missionIndex}>
+                  <AttemptOverlayContents n={attemptN} onEnd={onEndAttempt} />
+                </AttemptOverlay>
+              )}
             </>
           ) : (
             <div
@@ -1478,6 +1492,8 @@ export default function MissionRow({
   onOpenPlacedOn,
   onFlipMission = () => {},
   onSetMissionCompleted = () => {},
+  attempt,
+  onEndAttempt = () => {},
   scale = 1,
   shipRows = 1,
   desktop = false,
@@ -1494,6 +1510,10 @@ export default function MissionRow({
   onFlipMission?: (missionId: string) => void;
   // A double-tap on a mission card, or its hidden focus button, marks it complete or not (#991, #1059).
   onSetMissionCompleted?: (missionIndex: number, completed: boolean) => void;
+  // The mission attempt in progress (#1163): its mission card shows the overlay, and the overlay's
+  // Attempt done button calls `onEndAttempt`.
+  attempt?: Attempt;
+  onEndAttempt?: () => void;
   // Issue #717: grows the mission cards, the ship cards, and the under-mission pile stack past
   // their base pixel size, computed by `useTableScale` (`tableScale.ts`) from the live size of
   // the game layer. Defaults to 1 (today's fixed sizes) for callers — including this
@@ -1526,6 +1546,8 @@ export default function MissionRow({
           onOpenPlacedOn={onOpenPlacedOn}
           onFlipMission={onFlipMission}
           onSetMissionCompleted={onSetMissionCompleted}
+          attemptN={attempt?.missionIndex === idx ? drawSpend(attempt.personnel, attempt.subtract) : undefined}
+          onEndAttempt={onEndAttempt}
         />
       ))}
     </div>

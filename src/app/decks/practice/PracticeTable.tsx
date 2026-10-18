@@ -75,6 +75,8 @@ import MissionRow, {
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
+import { AttemptDialog } from './AttemptPanel';
+import { AttemptPanel, attemptDefaults, canAttempt } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
 import { gameReducer, initialGameState } from './gameLog';
@@ -1377,6 +1379,8 @@ function PracticeDrawContent() {
   const restoredRef = useRef(false);
   const [decklistOpen, setDecklistOpen] = useState(false);
   const [gameLogOpen, setGameLogOpen] = useState(false);
+  // The attempt popup (#1163): the panel whose Attempt button opened it, or null when closed.
+  const [attemptPopup, setAttemptPopup] = useState<AttemptPanel | null>(null);
   // The Controls panel (#1088). `controls=1` in the URL opens it on load, so it has a link to share.
   const [controlsOpen, setControlsOpen] = useState(() => searchParams.get('controls') === '1');
   const [homeScreenHelpOpen, setHomeScreenHelpOpen] = useState(false);
@@ -2186,6 +2190,9 @@ function PracticeDrawContent() {
     return () => window.removeEventListener('pointerdown', onPress, true);
   }, [previewCardId, heldCardId, hoveredCardId, draggingInstance]);
   const openCrewShip = openCrewShipId ? findInstanceAnywhere(table, openCrewShipId)?.instance : null;
+  // The Attempt button of the open away team or crew panel (#1163), given only where `canAttempt` says yes.
+  const attemptFrom = (panel: AttemptPanel) => (canAttempt(table, panel) ? () => setAttemptPopup(panel) : undefined);
+  const attemptDefaultsOpen = attemptPopup ? attemptDefaults(table, attemptPopup) : null;
   const openPlacedOnTarget = openPlacedOnTargetId ? findInstanceAnywhere(table, openPlacedOnTargetId)?.instance : null;
   // The cards of whichever card list panel is currently open, if any — only one panel is ever open
   // at a time. Used both to build a multi-select drag's group (`handleDragStart`) and to pass
@@ -2309,6 +2316,21 @@ function PracticeDrawContent() {
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
+        {attemptDefaultsOpen && (
+          <AttemptDialog
+            mission={cardDisplayName(missions[attemptDefaultsOpen.missionIndex].mission!.card)}
+            personnel={attemptDefaultsOpen.personnel}
+            subtract={attemptDefaultsOpen.subtract}
+            onCancel={() => setAttemptPopup(null)}
+            onStart={(personnel, subtract) => {
+              dispatch({ type: 'startAttempt', ...attemptDefaultsOpen, personnel, subtract });
+              setAttemptPopup(null);
+              setOpenPile(null);
+              setOpenCrewShipId(null);
+              setSelectedCardIds([]);
+            }}
+          />
+        )}
         {controlsOpen && <ControlsPanel onClose={() => setControlsOpen(false)} />}
         {homeScreenHelpOpen && <HomeScreenHelp onClose={() => setHomeScreenHelpOpen(false)} />}
 
@@ -2405,6 +2427,8 @@ function PracticeDrawContent() {
                   onSetMissionCompleted={(missionIndex, completed) =>
                     dispatch({ type: 'setMissionCompleted', missionIndex, completed })
                   }
+                  attempt={table.attempt}
+                  onEndAttempt={() => dispatch({ type: 'endAttempt' })}
                   scale={missionScale}
                   shipRows={shipRows}
                   desktop={finePointer}
@@ -2662,6 +2686,11 @@ function PracticeDrawContent() {
                   onSetStopped={setStoppedForSelection}
                   onFlip={flipSelection}
                   onDiscard={discardSelection}
+                  onAttempt={
+                    openPile.pile === 'awayTeam'
+                      ? attemptFrom({ kind: 'awayTeam', missionIndex: openPile.missionIndex })
+                      : undefined
+                  }
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}
@@ -2762,6 +2791,7 @@ function PracticeDrawContent() {
                   onShuffle={() => dispatch({ type: 'shuffle', location: { zone: 'crew', shipId: openCrewShip.id } })}
                   onSetStopped={setStoppedForSelection}
                   onDiscard={discardSelection}
+                  onAttempt={attemptFrom({ kind: 'crew', shipId: openCrewShip.id })}
                   hidden={draggingInstance !== null}
                   cardWidth={viewerCardWidth}
                   cardHeight={viewerCardHeight}

@@ -145,6 +145,19 @@ export interface TableState {
   // The score counter (#719): starts at 0 on a new game and on reset, and only ever changes via
   // `adjustScore` below, which clamps it to the 0-140 range.
   score: number;
+  // The mission attempt in progress (#1163), or absent when none is. Only one runs at a time.
+  attempt?: Attempt;
+}
+
+// A mission attempt (#1163): the mission's slot index, the attempting ship at a space mission
+// (absent at a planet mission), and the two numbers the player confirmed in the popup. The numbers
+// are frozen once the attempt starts: the table enforces no rules, so a personnel who joins or a
+// ship that leaves changes nothing about it.
+export interface Attempt {
+  missionIndex: number;
+  shipId?: string;
+  personnel: number;
+  subtract: number;
 }
 
 // The score counter's range (#719) and the amount each button press changes it by.
@@ -202,6 +215,11 @@ export type TableAction =
   // Changes the score counter by `delta` (#719), clamped to SCORE_MIN..SCORE_MAX: a delta that
   // would take the score past either limit stops there instead.
   | { type: 'adjustScore'; delta: number }
+  // Starts a mission attempt (#1163). Does nothing while an attempt is in progress, or at a slot
+  // with no mission card. The Attempt button's visibility (`canAttempt`) owns every other rule.
+  | ({ type: 'startAttempt' } & Attempt)
+  // Ends the attempt in progress, and nothing else. Does nothing when no attempt is in progress.
+  | { type: 'endAttempt' }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] }
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
   // state, and the caller passes its max instance ID to `seedInstanceIds` first.
@@ -732,6 +750,19 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     case 'adjustScore': {
       const score = Math.min(SCORE_MAX, Math.max(SCORE_MIN, state.score + action.delta));
       return { ...state, score };
+    }
+
+    case 'startAttempt': {
+      if (state.attempt || !state.missions[action.missionIndex]?.mission) return state;
+      const { missionIndex, shipId, personnel, subtract } = action;
+      return { ...state, attempt: { missionIndex, ...(shipId ? { shipId } : {}), personnel, subtract } };
+    }
+
+    case 'endAttempt': {
+      if (!state.attempt) return state;
+      const ended = { ...state };
+      delete ended.attempt;
+      return ended;
     }
 
     case 'reset': {

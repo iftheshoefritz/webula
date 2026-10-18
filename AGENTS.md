@@ -415,6 +415,21 @@ A tap anywhere on the ship, the counter of the cards on it too, opens its crew p
 
 A drag out of the core onto a ship has failed once. See #701.
 
+### A mission attempt
+
+An **Attempt** button (`data-testid="attempt-button"`, #1163) shows in the away team panel of a
+planet mission and in the crew panel of a ship on the ship row of a space mission, and nowhere else:
+not at a headquarters, not at a completed mission, not in a panel with no unstopped personnel, and not
+while an attempt is in progress. It opens the popup, `data-testid="attempt-dialog"`, with two fields,
+`attempt-personnel` and `attempt-subtract`, the result `attempt-result` ("draw/spend N"), and
+`attempt-start`. Start puts an overlay on the mission card, `attempt-overlay-<index>`, with the button
+`attempt-done`, which ends the attempt.
+
+On `/decks/practice?fixture=piles&reset=1&menu=0`, Moab IV (mission 0) is a planet mission with an
+away team of 20: tap the lower half of its card, wait out the double-tap window, then tap Attempt and
+Start. Bilana System (mission 2) is a space mission with the crewed ship: tap the ship, then Attempt.
+The attempt is part of the save, so an overlay survives a reload. Start a check with `reset=1`.
+
 ### Desktop mode: a fine pointer
 
 Headless Chromium has no pointer device, so the practice table draws its touch layout:
