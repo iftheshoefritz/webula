@@ -209,10 +209,11 @@ export type TableAction =
   // The fixture deal of `/decks/practice?fixture=piles` (#802): deals like `reset`, with a hand of
   // `FIXTURE_HAND` cards of its own, since `reset` deals no hand (#1115, #1116). It puts
   // `FIXTURE_AWAY_TEAM` personnel into the first mission's away team, and a ship with
-  // `FIXTURE_CREW` personnel aboard into the second mission's ship row (#802). It also puts
-  // `FIXTURE_BRIG` personnel into the brig, `FIXTURE_CORE` events into the core, and
-  // `FIXTURE_PLACED` events on the crewed ship, and deals `FIXTURE_UNDER_MISSION` dilemmas under the
-  // third mission and `FIXTURE_DILEMMA_STACK` dilemmas into the dilemma stack (#1024). The cards come
+  // `FIXTURE_CREW` personnel aboard into the third mission's ship row (#802, #1166), a space mission
+  // of the fixture deck. It also puts `FIXTURE_BRIG` personnel into the brig, `FIXTURE_CORE` events
+  // into the core, and `FIXTURE_PLACED` events on the crewed ship, and deals `FIXTURE_UNDER_MISSION`
+  // dilemmas under the same third mission and `FIXTURE_DILEMMA_STACK` dilemmas into the dilemma
+  // stack (#1024). The cards come
   // from the deck itself, taken in deck order, so a deck in a fixed order places the same cards
   // every time.
   | { type: 'resetWithPiles'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
@@ -225,8 +226,9 @@ export const FIXTURE_CORE = 4;
 export const FIXTURE_PLACED = 1;
 export const FIXTURE_UNDER_MISSION = 3;
 export const FIXTURE_DILEMMA_STACK = 4;
-// The mission whose `underMission` the fixture fills: not the away team's or the ship's mission.
-const FIXTURE_UNDER_MISSION_SLOT = 2;
+// The mission whose ship row and `underMission` the fixture fills, not the away team's mission. It is
+// Bilana System in the fixture deck, a space mission, where a ship can be (#1166).
+const FIXTURE_SHIP_SLOT = 2;
 
 export const ZONE_FACE: Record<Zone, Face> = {
   drawDeck: 'down',
@@ -795,18 +797,20 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         if (i === 0) {
           return { ...slot, awayTeam: awayTeam.map((c) => ({ ...c, face: MISSION_PILE_FACE.awayTeam })) };
         }
-        if (i === 1 && ship) {
-          const crewed: CardInstance = {
-            ...ship,
-            face: SHIP_ROW_FACE,
-            crew: crew.map((c) => ({ ...c, face: CREW_FACE })),
-            ...(onShip.length ? { placedOn: onShip.map((c) => ({ ...c, face: ON_FACE })) } : {}),
-          };
-          return { ...slot, ships: [crewed] };
-        }
-        if (i === FIXTURE_UNDER_MISSION_SLOT) {
+        if (i === FIXTURE_SHIP_SLOT) {
+          const crewed: CardInstance[] = ship
+            ? [
+                {
+                  ...ship,
+                  face: SHIP_ROW_FACE,
+                  crew: crew.map((c) => ({ ...c, face: CREW_FACE })),
+                  ...(onShip.length ? { placedOn: onShip.map((c) => ({ ...c, face: ON_FACE })) } : {}),
+                },
+              ]
+            : slot.ships;
           return {
             ...slot,
+            ships: crewed,
             underMission: underMission.map((c) => ({ ...c, face: MISSION_PILE_FACE.underMission })),
           };
         }

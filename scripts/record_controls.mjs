@@ -88,7 +88,7 @@ const GESTURES = {
     },
   },
   // The row's text names the release cancel (#774, #825), which #1089 calls `release-cancel`. The ship
-  // of mission 1 is dragged over the empty ship row of mission 2, where a release would move it, and
+  // of mission 2 is dragged over the empty ship row of mission 1, where a release would move it, and
   // is released back within CANCEL_RADIUS of the press point, so it stays.
   'move-card': {
     fixture: FIXTURE_PILES,
@@ -97,8 +97,8 @@ const GESTURES = {
     async run(ctx, mode) {
       const points = JSON.parse(
         await ctx.evaluate(`(() => {
-          const ship = document.querySelector('[data-zone="ship-row-1"] [data-card-id]');
-          const row = document.querySelector('[data-zone="ship-row-2"]')?.getBoundingClientRect();
+          const ship = document.querySelector('[data-zone="ship-row-2"] [data-card-id]');
+          const row = document.querySelector('[data-zone="ship-row-1"]')?.getBoundingClientRect();
           if (!ship || !row) return 'null';
           const r = ship.getBoundingClientRect();
           const x = Math.round(r.left + r.width / 2);
@@ -106,11 +106,11 @@ const GESTURES = {
           return JSON.stringify({ cardId: ship.dataset.cardId, x, y, tx: Math.round(row.left + row.width / 2), ty: y });
         })()`)
       );
-      if (!points) throw new Error('mission 1 has no ship');
+      if (!points) throw new Error('mission 2 has no ship');
       const { cardId, x, y, tx, ty } = points;
-      await ctx.input(mode === 'touch' ? 'touch-path' : 'mouse-path', x, y, `${tx},${ty},500`, `${x + 8},${y + 2},300`);
+      await ctx.input(mode === 'touch' ? 'touch-path' : 'mouse-path', x, y, `${tx},${ty},500`, `${x - 8},${y + 2},300`);
       const zone = await ctx.evaluate(`document.querySelector('[data-card-id="${cardId}"]')?.closest('[data-zone^="ship-row-"]')?.dataset.zone`);
-      if (zone !== 'ship-row-1') throw new Error(`the ship went to ${zone}, so the release did not cancel the drag`);
+      if (zone !== 'ship-row-2') throw new Error(`the ship went to ${zone}, so the release did not cancel the drag`);
     },
   },
   // #1089 calls this row `place-on-hold`. A personnel of the brig is dragged onto the last card of
