@@ -70,7 +70,7 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import { getSession } from 'next-auth/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import {
   attemptAwayTeamDropId,
   attemptCrewDropId,
@@ -207,6 +207,37 @@ describe('the row of the attempting personnel (#1165)', () => {
     const team = savedTable().missions[0].awayTeam;
     expect(team.filter((c) => isType(c, 'personnel')).every((c) => c.stopped)).toBe(true);
     expect(screen.queryByTestId('attempt-row-stop-all')).toBeNull();
+  });
+
+  it('shuffles the crew of the attempting ship from the row (#1179)', async () => {
+    await dealAttempt();
+    const shipId = savedTable().missions[2].ships[0].id;
+    const before = rowIds(attemptCrewDropId(shipId));
+    (shuffleArray as jest.Mock).mockImplementationOnce((arr: unknown[]) => [...arr].reverse());
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-row-shuffle'));
+    });
+    expect(shuffleArray).toHaveBeenCalledTimes(1);
+    expect(rowIds(attemptCrewDropId(shipId))).toEqual([...before].reverse());
+    expect((savedTable().missions[2].ships[0].crew ?? []).map((c) => c.id)).toEqual([...before].reverse());
+  });
+
+  it('shuffles the away team from the row at a planet mission (#1179)', async () => {
+    await dealAttempt(true);
+    const before = rowIds(attemptAwayTeamDropId(0));
+    (shuffleArray as jest.Mock).mockImplementationOnce((arr: unknown[]) => [...arr].reverse());
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-row-shuffle'));
+    });
+    expect(rowIds(attemptAwayTeamDropId(0))).toEqual([...before].reverse());
+    expect(savedTable().missions[0].awayTeam.map((c) => c.id)).toEqual([...before].reverse());
+  });
+
+  it('shows no Shuffle on an empty row (#1179)', async () => {
+    await dealAttempt(true);
+    for (const c of savedTable().missions[0].awayTeam) await drag(c.id, 'brig');
+    expect(rowIds(attemptAwayTeamDropId(0))).toEqual([]);
+    expect(screen.queryByTestId('attempt-row-shuffle')).toBeNull();
   });
 
   it('routes a drop on the away team row as a drop on the mission bottom half', async () => {

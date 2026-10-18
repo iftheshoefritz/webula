@@ -20,7 +20,7 @@
 // lands on no droppable; a drop on the bottom half of the mission card still joins the away team.
 
 import { ReactNode } from 'react';
-import type { Attempt, MissionPileName, MissionSlot } from './tableReducer';
+import type { Attempt, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
 import { drawSpend } from './drawSpend';
 import {
   MISSION_COLUMN_GAP,
@@ -57,6 +57,7 @@ export default function AttemptLayout({
   selectedIds,
   onToggleSelect,
   onSetStopped,
+  onShuffle,
 }: {
   attempt: Attempt;
   slot: MissionSlot;
@@ -78,6 +79,8 @@ export default function AttemptLayout({
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
   onSetStopped: (ids: string[], stopped: boolean) => void;
+  // The row's Shuffle (#1179): the crew of the attempting ship, or the away team of the mission.
+  onShuffle: (location: ShuffleLocation) => void;
 }) {
   const { missionIndex } = attempt;
   const { missionScale, shipScale, shipRows, shipsWidth, shipRowsWidth, personnelCardWidth, personnelRows, personnelWidth } =
@@ -183,6 +186,7 @@ export default function AttemptLayout({
                     selectedIds={selectedIds}
                     onToggleSelect={onToggleSelect}
                     onSetStopped={onSetStopped}
+                    onShuffle={() => onShuffle({ zone: 'crew', shipId: ship.id })}
                   />
                 )}
               </div>
@@ -201,6 +205,7 @@ export default function AttemptLayout({
                 selectedIds={selectedIds}
                 onToggleSelect={onToggleSelect}
                 onSetStopped={onSetStopped}
+                onShuffle={() => onShuffle({ zone: 'missionPile', missionIndex, pile: 'awayTeam' })}
               />
               {ships}
             </>

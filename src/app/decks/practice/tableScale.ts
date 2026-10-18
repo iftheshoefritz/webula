@@ -303,7 +303,7 @@ export interface AttemptLayoutSizes {
 // when the height has room for them.
 export const ATTEMPT_PERSONNEL_MIN_SLICE = 12; // px
 export const ATTEMPT_PERSONNEL_MAX_ROWS = 2;
-// The line of the row's Stop, Unstop and Stop all buttons, below its cards.
+// The line of the row's Stop, Unstop, Stop all and Shuffle buttons, below its cards.
 export const ATTEMPT_PERSONNEL_BUTTONS_HEIGHT = 18; // px
 
 export interface AttemptPersonnel {
