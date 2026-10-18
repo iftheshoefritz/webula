@@ -259,7 +259,7 @@ column with two rows of ships fills the height above the bottom row, as far as t
 the five missions, the four gaps between them and a 20 px gutter each side for the menu buttons, and
 never below the table scale (`computeTouchMissionScale`). The mission row holds no dilemma stack
 (#1170): the stack lives only in the attempt layout. A desktop does the same with the whole card
-(#992). At 667×375 a mission is about 97 px wide, where the table scale alone gives 84.
+(#992). At 667×375 a mission is about 105 px wide, where the table scale alone gives 84.
 
 `agent-browser` opens an 800×600 page. To check that a layout fits the minimum screen, set the
 size first:
