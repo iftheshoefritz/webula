@@ -207,6 +207,12 @@ export function fromSavedGame(json: string, currentDeck: DeckList): RestoredGame
   const table: TableState = { ...initialTableState, ...restoredTable };
   // An attempt (#1163) loads only when its numbers are sound and its slot still holds a mission card.
   if (!isValidAttempt(table)) delete table.attempt;
+  // The dilemma stack holds cards only during an attempt (#1170). A save with stack cards and no
+  // attempt, such as one from before #1170, sends them to the bottom of the dilemma pile, face down.
+  if (!table.attempt && table.dilemmaStack.length) {
+    table.dilemmaPile = [...table.dilemmaPile, ...table.dilemmaStack.map((c) => ({ ...c, face: ZONE_FACE.dilemmaPile, stopped: undefined }))];
+    table.dilemmaStack = [];
+  }
   return {
     table,
     dealtDeck,

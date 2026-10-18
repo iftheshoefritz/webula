@@ -3,6 +3,7 @@ import {
   ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
   ATTEMPT_PERSONNEL_MIN_SLICE,
   ATTEMPT_STRIP_HEIGHT,
+  attemptFloorScale,
   attemptPersonnelHeight,
   AttemptLayoutSizes,
   DESKTOP_RESERVED_SHIP_ROWS,
@@ -13,6 +14,7 @@ import {
   computeTableScale,
   computeTouchMissionScale,
   desktopMissionSlotBudget,
+  fitColumnScale,
   MIN_SCREEN,
   TOUCH_RESERVED_SHIP_ROWS,
 } from '../../../app/decks/practice/tableScale';
@@ -84,16 +86,27 @@ describe('computeDesktopTableScale (#992)', () => {
     expect(column(scale + 0.01)).toBeGreaterThan(600);
   });
 
-  it('stops at the width of five missions and the desktop dilemma stack', () => {
+  it('stops at the width of five missions, with no dilemma stack in the row (#1170)', () => {
     // #1060: each slot reserves the width of a turned mission, 100 px at scale 1, not 72.
-    // (1500 - 32 padding - 5 gaps of 8 - 112 dilemma stack) / (5 * 100)
-    expect(computeDesktopTableScale(1500, 5000, column)).toBeCloseTo((1500 - 32 - 40 - 112) / 500, 5);
+    // (1500 - 32 padding - 4 gaps of 8) / (5 * 100)
+    expect(computeDesktopTableScale(1500, 5000, column)).toBeCloseTo((1500 - 32 - 32) / 500, 5);
+  });
+
+  it('draws the missions larger than with the dilemma stack in the row, or the same where height binds (#1170)', () => {
+    // The budget before #1170: 5 gaps of 8 and the 112 px desktop dilemma stack.
+    const withStack = (width: number, height: number) =>
+      fitColumnScale((width - 32 - 40 - 112) / 5 / 100, height, column);
+    expect(computeDesktopTableScale(1440, 5000, column)).toBeGreaterThan(withStack(1440, 5000));
+    expect(desktopMissionSlotBudget(1440)).toBeCloseTo((1440 - 32 - 32) / 5, 5);
+    // Where the height binds, the scale stays the same.
+    expect(computeDesktopTableScale(1440, 400, column)).toBeCloseTo(withStack(1440, 400), 5);
+    expect(computeDesktopTableScale(1440, 400, column)).toBeLessThan((1440 - 32 - 32) / 500);
   });
 
   it('stays at 1 when the wider slots do not fit at scale 1 (#1060)', () => {
-    // Five 72 px slots fit 600 px, five 100 px slots do not.
-    expect(desktopMissionSlotBudget(600)).toBeCloseTo((600 - 32 - 40 - 112) / 5, 5);
-    expect(computeDesktopTableScale(600, 5000, column)).toBe(1);
+    // Five 72 px slots fit 500 px, five 100 px slots do not.
+    expect(desktopMissionSlotBudget(500)).toBeCloseTo((500 - 32 - 32) / 5, 5);
+    expect(computeDesktopTableScale(500, 5000, column)).toBe(1);
   });
 
   it('never goes below 1', () => {
@@ -114,12 +127,19 @@ describe('computeTouchMissionScale', () => {
     expect(scale).toBeGreaterThan(minTableScale * 1.1);
   });
 
-  it('stops at the width of five art crops and the dilemma stack, clear of the menu buttons', () => {
-    // (667 - 32 padding - 2 * 20 menu button gutter - 5 gaps of 8 - 56 dilemma stack) / (5 * 72)
-    expect(computeTouchMissionScale(MIN_SCREEN.width, 5000, column, 1)).toBeCloseTo(
-      (667 - 32 - 40 - 40 - 56) / 360,
-      5,
-    );
+  it('stops at the width of five art crops, clear of the menu buttons, with no dilemma stack (#1170)', () => {
+    // (667 - 32 padding - 2 * 20 menu button gutter - 4 gaps of 8) / (5 * 72)
+    expect(computeTouchMissionScale(MIN_SCREEN.width, 5000, column, 1)).toBeCloseTo((667 - 32 - 40 - 32) / 360, 5);
+  });
+
+  it('draws the missions larger at the minimum screen than with the dilemma stack in the row (#1170)', () => {
+    // The budget before #1170: 5 gaps of 8 and the 56 px dilemma stack.
+    const withStack = (height: number) =>
+      Math.max(minTableScale, fitColumnScale((667 - 32 - 40 - 40 - 56) / 360, height, column));
+    // A 375 px table leaves about 250 px above the bottom row.
+    expect(computeTouchMissionScale(MIN_SCREEN.width, 250, column, minTableScale)).toBeGreaterThan(withStack(250));
+    // Where the height binds, the scale stays the same.
+    expect(computeTouchMissionScale(MIN_SCREEN.width, 150, column, minTableScale)).toBeCloseTo(withStack(150), 5);
   });
 
   it('grows until the column with two rows of ships fills the height', () => {
@@ -149,13 +169,18 @@ describe('computeAttemptLayout (#1164)', () => {
     // A 375 px table leaves about 250 px above the bottom row, and the strip and its gap take 52.
     const tableHeight = 250;
     const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
-    const floor = computeTouchMissionScale(MIN_SCREEN.width, tableHeight, touchColumn, minTableScale);
+    const rowScale = computeTouchMissionScale(MIN_SCREEN.width, tableHeight, touchColumn, minTableScale);
+    // The mission row's scale is too large for the whole card here (#1170), so the floor drops to
+    // the largest scale that fits the height.
+    const floor = attemptFloorScale(rowScale, available, minTableScale);
+    expect(floor).toBeLessThan(rowScale);
+    expect(floor).toBeGreaterThan(minTableScale);
     const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 1, floor);
     expect(sizes.missionScale).toBeGreaterThanOrEqual(floor);
     expect(attemptMissionColumnHeight(sizes.missionScale)).toBeLessThanOrEqual(available + 1);
     expect(usedWidth(sizes, false)).toBeLessThanOrEqual(MIN_SCREEN.width);
-    // The whole card is taller than the art crop the mission row draws at the floor scale.
-    expect(missionCardHeight(sizes.missionScale, true)).toBeGreaterThan(missionCardHeight(floor, false));
+    // The whole card is taller than the art crop the mission row draws.
+    expect(missionCardHeight(sizes.missionScale, true)).toBeGreaterThan(missionCardHeight(rowScale, false));
     expect(ATTEMPT_STRIP_HEIGHT).toBeGreaterThanOrEqual(60 - 16);
   });
 
@@ -199,7 +224,11 @@ describe('computeAttemptLayout (#1164)', () => {
   describe('the row of the attempting personnel (#1165)', () => {
     const tableHeight = 250;
     const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
-    const floor = computeTouchMissionScale(MIN_SCREEN.width, tableHeight, touchColumn, minTableScale);
+    const floor = attemptFloorScale(
+      computeTouchMissionScale(MIN_SCREEN.width, tableHeight, touchColumn, minTableScale),
+      available,
+      minTableScale,
+    );
     // The cards each line holds, and the least of each card the row shows past the next one.
     const slice = (sizes: AttemptLayoutSizes, count: number) =>
       offsetFor(Math.ceil(count / sizes.personnelRows), sizes.personnelCardWidth, sizes.personnelWidth, sizes.personnelCardWidth);

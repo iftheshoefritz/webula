@@ -79,7 +79,7 @@ import GameLogPanel from './GameLogPanel';
 import { AttemptDialog } from './AttemptPanel';
 import AttemptLayout from './AttemptLayout';
 import { missionIndexFromAttemptAwayTeamDropId, shipIdFromAttemptCrewDropId } from './AttemptPersonnelRow';
-import { AttemptPanel, attemptDefaults, canAttempt, fixtureAttempt } from './attempt';
+import { AttemptPanel, attemptDefaults, canAttempt, fixtureAttempt, fixtureAttemptStack } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
 import { gameReducer, initialGameState } from './gameLog';
@@ -1364,6 +1364,10 @@ function PracticeDrawContent() {
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
   // `openPile` tracks a mission's open pile: a piece of UI state with no effect on the table.
   const [openFlatLocation, setOpenFlatLocation] = useState<FlatPanelLocation | null>(null);
+  // The dilemma stack mounts only in the attempt layout (#1170), so its panel closes with it.
+  useEffect(() => {
+    if (!attemptLayoutShows) setOpenFlatLocation((open) => (open === 'dilemmaStack' ? null : open));
+  }, [attemptLayoutShows]);
   // Which ship's crew panel (#664) is open, if any, named by the ship's own instance id (not a
   // mission index, since a ship stays reachable by its own id regardless of which mission's ship
   // row currently holds it — the same reasoning `crewDropId` already follows). Tracked the same
@@ -1441,9 +1445,10 @@ function PracticeDrawContent() {
   // The fixture deck holds 27 personnel, fewer than the 20 + 12 + 2 that deal places (away team,
   // crew, brig), so it deals a second copy of the deck's personnel too, each copy its own instance.
   // The piles deal keeps the dilemmas in deck order too (#1024), so the same dilemmas go under the
-  // mission and into the dilemma stack every time.
+  // mission every time.
   // The `?fixture=attempt` deal (#1169) then starts the attempt the popup's Start would, with its
-  // default numbers. `tableReducer` is pure and `resetWithPiles` ignores the state it gets, so a
+  // default numbers, and moves the top dilemmas of the pile into the dilemma stack (#1170), as one
+  // player action and so one log entry, of cards the player did not see. `tableReducer` is pure and `resetWithPiles` ignores the state it gets, so a
   // second run of the deal gives the table the page gets, and with it the ship's instance id.
   const dealDeck = (deck: DeckList, fixturePiles = false, fixtureAttemptToo = false) => {
     const cards = extractDrawDeck(deck);
@@ -1460,8 +1465,12 @@ function PracticeDrawContent() {
     };
     dispatch(deal);
     if (fixtureAttemptToo) {
-      const start = fixtureAttempt(tableReducer(initialTableState, deal));
-      if (start) dispatch(start);
+      const dealt = tableReducer(initialTableState, deal);
+      const start = fixtureAttempt(dealt);
+      if (start) {
+        dispatch(start);
+        dispatch({ type: 'batch', actions: fixtureAttemptStack(dealt), unseen: true });
+      }
     }
     setDeckEmpty(isDeckEmpty(deck));
     setDealtDeck(deck);
@@ -2505,8 +2514,8 @@ function PracticeDrawContent() {
               ) : (
                 <>
               {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597),
-                  plus the dilemma stack (#630) in its own reserved column to the right, in the
-                  same row so it lines up with the missions and shares their gap. The row moves
+                  across the full width. The dilemma stack lives only in the attempt layout
+                  (#1170), so the full table shows none, during an attempt too. The row moves
                   down once the dilemmas under a mission poke out past the padding above it (#968). */}
               <div
                 ref={setMissionRows}
@@ -2529,14 +2538,6 @@ function PracticeDrawContent() {
                   shipRows={shipRows}
                   desktop={finePointer}
                   slotBudget={desktopMissionSlotBudget(gameLayerWidth)}
-                />
-                <DilemmaStackPile
-                  stack={dilemmaStack}
-                  onOpen={() => openOnlyFlatZone('dilemmaStack')}
-                  onReveal={() => dispatch({ type: 'flip', id: dilemmaStack[0].id })}
-                  visible={dilemmaStackVisible}
-                  scale={missionScale}
-                  desktop={finePointer}
                 />
               </div>
                 </>

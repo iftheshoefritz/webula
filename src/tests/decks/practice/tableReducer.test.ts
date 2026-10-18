@@ -1276,14 +1276,21 @@ describe('resetWithPiles (#802)', () => {
     expect(placedOn[0].face).toBe('up');
   });
 
-  it('puts dilemmas under the third mission face up and into the dilemma stack face down (#1024)', () => {
+  it('puts dilemmas under the third mission face up, and deals no dilemma stack (#1024, #1170)', () => {
     const state = tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() });
     const under = state.missions[2].underMission;
     expect(under.map((c) => c.card.collectorsinfo)).toEqual(['d0', 'd1', 'd2']);
     expect(under.every((c) => c.face === 'up')).toBe(true);
-    expect(state.dilemmaStack).toHaveLength(FIXTURE_DILEMMA_STACK);
-    expect(state.dilemmaStack.every((c) => c.face === 'down')).toBe(true);
-    expect(state.dilemmaPile).toHaveLength(10 - FIXTURE_UNDER_MISSION - FIXTURE_DILEMMA_STACK);
+    expect(state.dilemmaStack).toEqual([]);
+    // The dilemmas the stack held before #1170 stay on top of the pile, in deck order.
+    expect(state.dilemmaPile).toHaveLength(10 - FIXTURE_UNDER_MISSION);
+    expect(state.dilemmaPile.slice(0, FIXTURE_DILEMMA_STACK).map((c) => c.card.collectorsinfo)).toEqual([
+      'd3',
+      'd4',
+      'd5',
+      'd6',
+    ]);
+    expect(state.dilemmaPile.every((c) => c.face === 'down')).toBe(true);
   });
 
   it('places the same cards in each zone on every deal (#1024)', () => {

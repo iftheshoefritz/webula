@@ -141,12 +141,12 @@ export function useShipRowCount(
 // (`MissionRow.tsx`), and when the table has a large gap above the bottom row they grow past the
 // table scale too. `computeDesktopTableScale` returns the scale `MissionRow` draws at: the largest
 // one at which a mission column with `DESKTOP_RESERVED_SHIP_ROWS` rows of ships fits the height
-// above the bottom row, and at which the five mission columns and the desktop dilemma stack fit the
-// width. It is never below 1. The ship rows past the reserved ones still come from
+// above the bottom row, and at which the five mission columns fit the width. The dilemma stack
+// lives only in the attempt layout (#1170), so the mission row gives it no width. It is never below 1. The ship rows past the reserved ones still come from
 // `useShipRowCount`, which measures the gap that is left.
 //
 // The dilemma stack on a desktop (#988) is a fixed width that does not grow with the scale, so it
-// is set here, and `page.tsx` reads it from here.
+// is set here, and `computeAttemptLayout` and `DilemmaStackPile` read it from here.
 export const DILEMMA_STACK_CARD_WIDTH = 56; // px, the zone's own width on a touch screen
 export const DILEMMA_STACK_DESKTOP_WIDTH_FACTOR = 2;
 export const DESKTOP_RESERVED_SHIP_ROWS = 2;
@@ -158,9 +158,9 @@ export const DESKTOP_RESERVED_SHIP_ROWS = 2;
 // slot of the card's own width would. A desktop too narrow for the wider slots at scale 1 gets the
 // slot width that fits, `desktopMissionSlotBudget`, down to the card width (`missionSlotWidth`,
 // `MissionRow.tsx`), and the turned card shrinks to fit it.
+// The row has a gap between each two of the five slots, and none after the last.
 export function desktopMissionSlotBudget(gameLayerWidth: number): number {
-  const dilemmaStackWidth = DILEMMA_STACK_CARD_WIDTH * DILEMMA_STACK_DESKTOP_WIDTH_FACTOR;
-  const availableWidth = gameLayerWidth - CONTENT_PADDING - MISSION_ROW_GAP * MISSION_SLOTS - dilemmaStackWidth;
+  const availableWidth = gameLayerWidth - CONTENT_PADDING - MISSION_ROW_GAP * (MISSION_SLOTS - 1);
   return availableWidth / MISSION_SLOTS;
 }
 
@@ -175,8 +175,8 @@ export function computeDesktopTableScale(
 
 // The touch layout grows its missions and ships the same way, now that the minimum screen,
 // 667x375, leaves a gap above the bottom row at the table scale (`MIN_SCREEN`). A touch mission
-// slot is the card's own width, the art crop, and the dilemma stack keeps its narrow fixed width,
-// so the width budget is five card widths and that zone. The result never drops below the table
+// slot is the card's own width, the art crop, so the width budget is five card widths and the four
+// gaps between them (#1170). The result never drops below the table
 // scale: the gap only ever makes the missions and the ships larger than the rest of the table.
 export const TOUCH_RESERVED_SHIP_ROWS = 2;
 // The game menu and fullscreen buttons sit in the top left corner, over the table (`left-2`, 24 px
@@ -194,8 +194,7 @@ export function computeTouchMissionScale(
     gameLayerWidth -
     CONTENT_PADDING -
     2 * MENU_BUTTON_GUTTER -
-    MISSION_ROW_GAP * MISSION_SLOTS -
-    DILEMMA_STACK_CARD_WIDTH;
+    MISSION_ROW_GAP * (MISSION_SLOTS - 1);
   const widthScale = availableWidth / MISSION_SLOTS / TABLE_CARD_WIDTH;
   return Math.max(tableScale, fitColumnScale(widthScale, availableHeight, columnHeight));
 }
@@ -333,7 +332,8 @@ export const attemptMissionColumnHeight = (scale: number): number =>
 
 // Pure, like `computeTouchMissionScale`. `availableHeight` runs from the bottom of the strip to the
 // top of the bottom row, less the gap below the strip. `floorScale` is the scale the missions draw
-// at on the normal table: neither the mission nor the ships draw smaller than that.
+// at on the normal table, capped by `attemptFloorScale`: neither the mission nor the ships draw
+// smaller than that.
 //
 // The mission card has the width first: it grows, as far as the height allows, into the width left
 // once the middle column keeps room for 2 ships at the floor scale, and for the row of the
@@ -341,6 +341,15 @@ export const attemptMissionColumnHeight = (scale: number): number =>
 // of the width, and the ships grow in it until they no longer fit with no overlap in the rows the
 // height has room for, never past the mission's scale. With no `personnel`, the middle column holds
 // the away team badge and the ships only.
+// The floor of the attempt layout: the scale the missions draw at on the normal table, unless the
+// whole mission card is too tall for `availableHeight` at that scale, and then the largest scale at
+// which it fits, never below the table scale. The mission row gives the dilemma stack no width
+// (#1170), so on a short screen, the minimum one too, its missions draw at a scale at which the
+// whole card does not fit below the strip.
+export function attemptFloorScale(missionScale: number, availableHeight: number, tableScale: number): number {
+  return Math.max(tableScale, fitColumnScale(missionScale, availableHeight, attemptMissionColumnHeight));
+}
+
 export function computeAttemptLayout(
   gameLayerWidth: number,
   availableHeight: number,
@@ -459,10 +468,11 @@ export function useAttemptLayout(
       const paddingBottom = parseFloat(getComputedStyle(content).paddingBottom) || 0;
       const bodyBottom = gameLayer.getBoundingClientRect().bottom - paddingBottom - bottomRow.getBoundingClientRect().height;
       const tableHeight = bodyBottom - layout.getBoundingClientRect().top;
-      const floor = desktop
+      const missionScale = desktop
         ? computeDesktopTableScale(gameLayer.clientWidth, tableHeight, desktopColumnHeight)
         : computeTouchMissionScale(gameLayer.clientWidth, tableHeight, touchColumnHeight, scale);
       const availableHeight = bodyBottom - strip.getBoundingClientRect().bottom - ATTEMPT_GAP;
+      const floor = attemptFloorScale(missionScale, availableHeight, desktop ? 1 : scale);
       setSizes(computeAttemptLayout(gameLayer.clientWidth, availableHeight, desktop, shipCount, floor, personnel));
     };
     measure();

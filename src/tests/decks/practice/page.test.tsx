@@ -495,7 +495,6 @@ describe('PracticeDrawPage', () => {
       'mission-on-4',
       'mission-under-4',
       'ship-row-4',
-      'dilemmaStack',
       'discard',
       'draw-pile-top',
       'draw-pile-bottom',

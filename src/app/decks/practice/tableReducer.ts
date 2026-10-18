@@ -218,7 +218,8 @@ export type TableAction =
   // Starts a mission attempt (#1163). Does nothing while an attempt is in progress, or at a slot
   // with no mission card. The Attempt button's visibility (`canAttempt`) owns every other rule.
   | ({ type: 'startAttempt' } & Attempt)
-  // Ends the attempt in progress, and nothing else. Does nothing when no attempt is in progress.
+  // Ends the attempt in progress, and moves every dilemma still in the dilemma stack under the
+  // attempted mission, face up, in stack order (#1170). Does nothing when no attempt is in progress.
   | { type: 'endAttempt' }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] }
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
@@ -230,8 +231,9 @@ export type TableAction =
   // `FIXTURE_CREW` personnel aboard into the third mission's ship row (#802, #1166), a space mission
   // of the fixture deck. It also puts `FIXTURE_BRIG` personnel into the brig, `FIXTURE_CORE` events
   // into the core, and `FIXTURE_PLACED` events on the crewed ship, and deals `FIXTURE_UNDER_MISSION`
-  // dilemmas under the same third mission and `FIXTURE_DILEMMA_STACK` dilemmas into the dilemma
-  // stack (#1024). The cards come
+  // dilemmas under the same third mission (#1024). It deals no dilemma stack (#1170): the stack
+  // holds cards only during an attempt, so the next `FIXTURE_DILEMMA_STACK` dilemmas stay on top of
+  // the dilemma pile, where `fixtureAttemptStack` takes them for `?fixture=attempt`. The cards come
   // from the deck itself, taken in deck order, so a deck in a fixed order places the same cards
   // every time.
   | { type: 'resetWithPiles'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
@@ -760,7 +762,13 @@ export function tableReducer(state: TableState, action: TableAction): TableState
 
     case 'endAttempt': {
       if (!state.attempt) return state;
-      const ended = { ...state };
+      // The dilemmas still in the stack go under the attempted mission (#1170), face up, in stack
+      // order, after the ones already there, as a `move` to `underMission` puts them.
+      const under: MissionPileLocation = { zone: 'missionPile', missionIndex: state.attempt.missionIndex, pile: 'underMission' };
+      const moved = state.dilemmaStack.map((c) => ({ ...c, face: faceForLocation(under) }));
+      const ended = moved.length
+        ? { ...withCardsAt(state, under, [...cardsAt(state, under), ...moved]), dilemmaStack: [] }
+        : { ...state };
       delete ended.attempt;
       return ended;
     }
@@ -811,16 +819,12 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         [...awayTeam, ...crew, ...brig, ...core, ...onShip, ...(ship ? [ship] : [])].map((c) => c.id)
       );
       const underMission = action.dilemmas.slice(0, FIXTURE_UNDER_MISSION);
-      const dilemmaStack = action.dilemmas.slice(
-        FIXTURE_UNDER_MISSION,
-        FIXTURE_UNDER_MISSION + FIXTURE_DILEMMA_STACK
-      );
       const rest = action.cards.filter((c) => !placed.has(c.id));
       const dealt = tableReducer(state, {
         ...action,
         type: 'reset',
         cards: rest,
-        dilemmas: action.dilemmas.slice(FIXTURE_UNDER_MISSION + FIXTURE_DILEMMA_STACK),
+        dilemmas: action.dilemmas.slice(FIXTURE_UNDER_MISSION),
       });
       // The fixture deals its own hand; `reset` deals none.
       const handSize = Math.min(FIXTURE_HAND, rest.length);
@@ -854,7 +858,6 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         missions,
         brig: brig.map((c) => ({ ...c, face: ZONE_FACE.brig })),
         core: core.map((c) => ({ ...c, face: ZONE_FACE.core })),
-        dilemmaStack: dilemmaStack.map((c) => ({ ...c, face: ZONE_FACE.dilemmaStack })),
       };
     }
 

@@ -51,10 +51,11 @@ jest.mock('@dnd-kit/core', () => {
       return children;
     },
     DragOverlay: ({ children }: any) => <div data-testid="drag-overlay">{children}</div>,
-    useDraggable: ({ id, data }: { id: string; data?: { showBack?: boolean } }) => {
+    useDraggable: ({ id, data, disabled }: { id: string; data?: { showBack?: boolean }; disabled?: boolean }) => {
       // The top card of the draw deck and the dilemma pile (#814) is left out, so the ids here
-      // stay the table cards' ids, in the order these tests expect.
-      if (!data?.showBack) mockDraggableIds.push(id);
+      // stay the table cards' ids, in the order these tests expect. So is a card that cannot be
+      // dragged, the mission card of the attempt (#1170).
+      if (!data?.showBack && !disabled) mockDraggableIds.push(id);
       return { attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false };
     },
     useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
@@ -65,6 +66,7 @@ import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
+import { enterAttempt, mockAttemptMission } from '../../fixtures/enterAttempt';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 import { HOLD_DELAY_MS, HOVER_DELAY_MS } from '../../../app/decks/practice/useCardHold';
@@ -108,12 +110,18 @@ const mockEventCard = {
   count: 1,
 };
 
+// The dilemma stack mounts only in the attempt layout (#1170), so every test starts an attempt at
+// the mission of slot 0 (`enterAttempt`).
+const missionEntry = { [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission } };
+
 const mockDeck = {
   [mockDilemmaCard.collectorsinfo]: { count: 2, row: mockDilemmaCard },
   [mockEventCard.collectorsinfo]: { count: 1, row: mockEventCard },
+  ...missionEntry,
 };
 
-// #630: a face-down top-level zone to the right of the missions (the state side, `dilemmaStack`
+// #630: a face-down top-level zone to the right of the missions, in the attempt layout only since
+// #1170 (the state side, `dilemmaStack`
 // on `TableState`, was already added by #733). A drop onto it appends to the bottom, so the
 // first card dropped stays first in stack order (index 0), the first revealed. A tap opens its
 // own `CardListPanel`, under the same one-panel-at-a-time rule as every other flat zone (#711), and a
@@ -159,6 +167,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await enterAttempt(<PracticeDrawPage />);
     await drawOpeningHand();
     mockDraggableIds.length = 0;
 
@@ -230,12 +239,14 @@ describe('Practice table: the dilemma stack (#630)', () => {
     const fanDeck = {
       [mockDilemmaCard.collectorsinfo]: { count: 4, row: mockDilemmaCard },
       [mockEventCard.collectorsinfo]: { count: 1, row: mockEventCard },
+      ...missionEntry,
     };
     localStorage.setItem('currentDeck', JSON.stringify(fanDeck));
 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await enterAttempt(<PracticeDrawPage />);
     await drawOpeningHand();
     mockDraggableIds.length = 0;
 
@@ -564,11 +575,12 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await enterAttempt(<PracticeDrawPage />);
     await drawOpeningHand();
     mockDraggableIds.length = 0;
 
-    // A fresh game: no dilemmas drawn, the dilemma hand closed. The zone stays in the DOM (its
-    // reserved column keeps the mission row in place) but is hidden.
+    // A fresh attempt: no dilemmas drawn, the dilemma hand closed. The zone stays in the DOM (its
+    // column keeps the attempt layout in place) but is hidden.
     const stackZone = () => document.body.querySelector('[data-zone="dilemmaStack"]');
     expect(stackZone()).not.toBeNull();
     expect(stackZone()).toHaveStyle({ visibility: 'hidden' });

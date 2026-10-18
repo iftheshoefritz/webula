@@ -103,9 +103,9 @@ export const CONTROL_ROWS: ControlRow[] = [
     section: 'Piles and panels',
     action: 'Open a panel',
     touch:
-      'Tap the away team badge, the slivers above a mission, the event or dilemma badge, a card in the core or the brig, or the dilemma stack.',
+      'Tap the away team badge, the slivers above a mission, the event or dilemma badge, a card in the core or the brig, or, during an attempt, the dilemma stack.',
     mouse:
-      'Click the away team badge, the slivers above a mission, the event or dilemma badge, a card in the core or the brig, or the dilemma stack.',
+      'Click the away team badge, the slivers above a mission, the event or dilemma badge, a card in the core or the brig, or, during an attempt, the dilemma stack.',
   },
   {
     id: 'drag-out-of-panel',
@@ -133,7 +133,7 @@ export const CONTROL_ROWS: ControlRow[] = [
     id: 'order-dilemma-stack',
     section: 'Piles and panels',
     action: 'Order the dilemma stack',
-    ...both('Open it and drag the dilemmas. The first card is revealed first.'),
+    ...both('During an attempt, open it and drag the dilemmas. The first card is revealed first.'),
   },
 
   // More than one card
@@ -179,7 +179,7 @@ export const CONTROL_ROWS: ControlRow[] = [
     id: 'reveal-top-dilemma',
     section: 'Buttons',
     action: 'Reveal top dilemma',
-    ...both('The button on the dilemma stack turns its top card over.'),
+    ...both('During an attempt, the button on the dilemma stack turns its top card over.'),
   },
   {
     id: 'selection-buttons',
