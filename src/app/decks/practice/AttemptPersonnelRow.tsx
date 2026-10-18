@@ -9,7 +9,8 @@
 //
 // A card works as it does in the away team panel or the crew panel: a hold shows the preview, a tap
 // selects it, and the selection gets Stop or Unstop (#681), with Stop all (#995) beside them, from
-// the same rules (`stopRules.ts`). The away team is stored face down, and the row shows it face up,
+// the same rules (`stopRules.ts`). Shuffle (#1179) comes last, as in the panel's row of controls
+// (#880): it shuffles the whole place, never the selection, and shows while the row holds a card. The away team is stored face down, and the row shows it face up,
 // as the panel does (#964). A stopped personnel shows greyed out (#679).
 //
 // The row is a droppable of its own: dnd-kit keeps one registration per id, and the ship's art
@@ -28,6 +29,7 @@ import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { stopButtons } from './stopRules';
+import { ShuffleIcon } from './CardListPanel';
 import { ATTEMPT_PERSONNEL_BUTTONS_HEIGHT, ATTEMPT_PERSONNEL_MAX_ROWS, attemptPersonnelHeight } from './tableScale';
 
 export const attemptAwayTeamDropId = (missionIndex: number): string => `attempt-away-team-${missionIndex}`;
@@ -63,6 +65,7 @@ export default function AttemptPersonnelRow({
   selectedIds,
   onToggleSelect,
   onSetStopped,
+  onShuffle,
 }: {
   dropId: string;
   // The landed key of a move into the place (`landedZoneKey.ts`), so the row plays the landed cue.
@@ -78,6 +81,8 @@ export default function AttemptPersonnelRow({
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
   onSetStopped: (ids: string[], stopped: boolean) => void;
+  // Shuffles the stored order of the place the row shows.
+  onShuffle: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dropId });
   const draggedType = useDraggedCardType();
@@ -162,6 +167,17 @@ export default function AttemptPersonnelRow({
             className={buttonClassName}
           >
             Stop all
+          </button>
+        )}
+        {cards.length > 0 && (
+          <button
+            type="button"
+            data-testid="attempt-row-shuffle"
+            onClick={onShuffle}
+            className={`${buttonClassName} flex items-center justify-center gap-1`}
+          >
+            <ShuffleIcon />
+            Shuffle
           </button>
         )}
       </div>
