@@ -1,4 +1,10 @@
 import {
+  ATTEMPT_GAP,
+  ATTEMPT_STRIP_HEIGHT,
+  AttemptLayoutSizes,
+  DESKTOP_RESERVED_SHIP_ROWS,
+  attemptMissionColumnHeight,
+  computeAttemptLayout,
   computeDesktopTableScale,
   computeShipRowCount,
   computeTableScale,
@@ -7,7 +13,12 @@ import {
   MIN_SCREEN,
   TOUCH_RESERVED_SHIP_ROWS,
 } from '../../../app/decks/practice/tableScale';
-import { missionColumnHeight } from '../../../app/decks/practice/MissionRow';
+import {
+  badgeStripHeight,
+  missionCardHeight,
+  missionColumnHeight,
+  shipRowLineHeight,
+} from '../../../app/decks/practice/MissionRow';
 
 // #630: the dilemma stack's own reserved column widens computeTableScale's width budget from 5
 // mission columns and 4 gaps to 6 columns (the stack's own) and 5 gaps.
@@ -116,5 +127,67 @@ describe('computeTouchMissionScale', () => {
   it('never goes below the table scale', () => {
     expect(computeTouchMissionScale(MIN_SCREEN.width, 100, column, minTableScale)).toBe(minTableScale);
     expect(computeTouchMissionScale(400, 5000, column, 1.3)).toBe(1.3);
+  });
+});
+
+// Issue #1164: the attempt layout sizes the attempted mission, drawn whole, and the ships beside it
+// from the space below its strip.
+describe('computeAttemptLayout (#1164)', () => {
+  const touchColumn = (scale: number) => missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
+  const desktopColumn = (scale: number) => missionColumnHeight(scale, true, DESKTOP_RESERVED_SHIP_ROWS);
+  const minTableScale = computeTableScale(MIN_SCREEN.width, MIN_SCREEN.height);
+  // The width the layout's parts take: the padding, the menu gutter, the mission card, the ships
+  // column, the dilemma stack and the two gaps.
+  const usedWidth = (sizes: AttemptLayoutSizes, desktop: boolean) =>
+    32 + 20 + Math.round(72 * sizes.missionScale) + sizes.shipsWidth + 56 * (desktop ? 2 : 1) + 2 * ATTEMPT_GAP;
+
+  it('draws the mission larger than the mission row does at the minimum screen, and fits it', () => {
+    // A 375 px table leaves about 250 px above the bottom row, and the strip and its gap take 52.
+    const tableHeight = 250;
+    const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const floor = computeTouchMissionScale(MIN_SCREEN.width, tableHeight, touchColumn, minTableScale);
+    const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 1, floor);
+    expect(sizes.missionScale).toBeGreaterThanOrEqual(floor);
+    expect(attemptMissionColumnHeight(sizes.missionScale)).toBeLessThanOrEqual(available + 1);
+    expect(usedWidth(sizes, false)).toBeLessThanOrEqual(MIN_SCREEN.width);
+    // The whole card is taller than the art crop the mission row draws at the floor scale.
+    expect(missionCardHeight(sizes.missionScale, true)).toBeGreaterThan(missionCardHeight(floor, false));
+    expect(ATTEMPT_STRIP_HEIGHT).toBeGreaterThanOrEqual(60 - 16);
+  });
+
+  it('draws the mission larger than the desktop mission row does at 1440x900, and fits it', () => {
+    const tableHeight = 700;
+    const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const floor = computeDesktopTableScale(1440, tableHeight, desktopColumn);
+    const sizes = computeAttemptLayout(1440, available, true, 2, floor);
+    expect(sizes.missionScale).toBeGreaterThan(floor);
+    expect(attemptMissionColumnHeight(sizes.missionScale)).toBeLessThanOrEqual(available);
+    expect(attemptMissionColumnHeight(sizes.missionScale + 0.01)).toBeGreaterThan(available);
+    expect(usedWidth(sizes, true)).toBeLessThanOrEqual(1440);
+  });
+
+  it('never draws the mission or the ships below the floor, nor the ships above the mission', () => {
+    for (const [width, height, ships] of [
+      [MIN_SCREEN.width, 100, 1],
+      [MIN_SCREEN.width, 198, 6],
+      [1440, 600, 0],
+      [1440, 600, 12],
+    ]) {
+      const floor = 1.3;
+      const sizes = computeAttemptLayout(width, height, width > 1000, ships, floor);
+      expect(sizes.missionScale).toBeGreaterThanOrEqual(floor);
+      expect(sizes.shipScale).toBeGreaterThanOrEqual(floor);
+      expect(sizes.shipScale).toBeLessThanOrEqual(sizes.missionScale);
+    }
+  });
+
+  it('gives more ships more rows, as far as the height allows', () => {
+    const one = computeAttemptLayout(1440, 600, true, 1, 1);
+    const many = computeAttemptLayout(1440, 600, true, 12, 1);
+    expect(one.shipRows).toBe(1);
+    expect(many.shipRows).toBeGreaterThan(1);
+    const shipsHeight = (s: AttemptLayoutSizes) =>
+      badgeStripHeight(s.missionScale) + 4 + s.shipRows * shipRowLineHeight(s.shipScale, true) + (s.shipRows - 1) * 4;
+    expect(shipsHeight(many)).toBeLessThanOrEqual(600);
   });
 });

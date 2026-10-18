@@ -63,6 +63,7 @@ import MissionRow, {
   DilemmaIcon,
   SHIP_ROW_GAP,
   missionIndexFromDropId,
+  missionCardHeight,
   missionColumnHeight,
   missionHalfFromDropId,
   PlacedOnGroup,
@@ -76,6 +77,7 @@ import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
 import { AttemptDialog } from './AttemptPanel';
+import AttemptLayout from './AttemptLayout';
 import { AttemptPanel, attemptDefaults, canAttempt, fixtureAttempt } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
@@ -94,6 +96,7 @@ import {
   DESKTOP_RESERVED_SHIP_ROWS,
   TOUCH_RESERVED_SHIP_ROWS,
   desktopMissionSlotBudget,
+  useAttemptLayout,
   useMissionScale,
   useShipRowCount,
   useTableScale,
@@ -1069,6 +1072,7 @@ function DilemmaStackPile({
   visible,
   scale,
   desktop,
+  minHeight = 0,
 }: {
   stack: CardInstance[];
   onOpen: () => void;
@@ -1076,6 +1080,8 @@ function DilemmaStackPile({
   visible: boolean;
   scale: number;
   desktop: boolean;
+  // The attempt layout (#1164) makes the zone as tall as the attempted mission card.
+  minHeight?: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'dilemmaStack' });
   const draggedType = useDraggedCardType();
@@ -1083,7 +1089,7 @@ function DilemmaStackPile({
   const landedNonce = useLandedNonce('dilemmaStack');
   const cardWidth = DILEMMA_STACK_CARD_WIDTH * (desktop ? DILEMMA_STACK_DESKTOP_WIDTH_FACTOR : 1);
   const cardHeight = dilemmaStackCardHeight(cardWidth);
-  const height = Math.max(Math.round((TABLE_CARD_ART_HEIGHT + SMALL_CARD_ART_HEIGHT) * scale), desktop ? cardHeight : 0);
+  const height = Math.max(Math.round((TABLE_CARD_ART_HEIGHT + SMALL_CARD_ART_HEIGHT) * scale), desktop ? cardHeight : 0, minHeight);
   const count = stack.length;
   const topCard = stack[0];
   const revealed = topCard?.face === 'up';
@@ -1316,6 +1322,28 @@ function PracticeDrawContent() {
     SHIP_ROW_GAP,
     Math.max(0, ...missions.map((slot) => slot.ships.length)),
     shipsPerRow(missionScale),
+  );
+  // Issue #1164: an attempt in progress shows the attempt layout in place of the mission row, until
+  // View full table. Page state, not part of the save: the attempt the player chose the full table
+  // for, by its value, so a new attempt, a restored game, or a reload opens in the attempt layout.
+  const attemptKey = table.attempt ? JSON.stringify(table.attempt) : null;
+  const [fullTableFor, setFullTableFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!attemptKey) setFullTableFor(null);
+  }, [attemptKey]);
+  const attemptLayoutShows = attemptKey !== null && fullTableFor !== attemptKey;
+  const [attemptLayoutEl, setAttemptLayoutEl] = useState<HTMLDivElement | null>(null);
+  const [attemptStrip, setAttemptStrip] = useState<HTMLDivElement | null>(null);
+  const attemptSizes = useAttemptLayout(
+    finePointer,
+    scale,
+    gameLayer,
+    attemptLayoutShows ? attemptLayoutEl : null,
+    attemptLayoutShows ? attemptStrip : null,
+    bottomRow,
+    table.attempt ? missions[table.attempt.missionIndex]?.ships.length ?? 0 : 0,
+    desktopMissionColumnHeight,
+    touchMissionColumnHeight,
   );
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
   // Which of the core's/the brig's own card list panel (#640), or the draw pile's/the dilemma pile's
@@ -2418,6 +2446,40 @@ function PracticeDrawContent() {
             <CardHoldProvider value={cardHold}>
             <PlaceOnHoldProvider value={placeOnHold}>
             <div className="flex flex-col flex-1 p-4">
+              {/* The attempt layout (#1164) in place of the mission row while an attempt is in
+                  progress. Only one of the two is mounted, so each droppable is mounted once. */}
+              {attemptLayoutShows && table.attempt ? (
+                <AttemptLayout
+                  attempt={table.attempt}
+                  slot={missions[table.attempt.missionIndex]}
+                  sizes={attemptSizes}
+                  desktop={finePointer}
+                  layoutRef={setAttemptLayoutEl}
+                  stripRef={setAttemptStrip}
+                  onViewFullTable={() => setFullTableFor(attemptKey)}
+                  onEndAttempt={() => dispatch({ type: 'endAttempt' })}
+                  onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
+                  onShipClick={handleShipClick}
+                  onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
+                  onOpenPlacedOn={openOnlyPlacedOnPanel}
+                  onFlipMission={(id) => dispatch({ type: 'flipMission', id })}
+                  onSetMissionCompleted={(missionIndex, completed) =>
+                    dispatch({ type: 'setMissionCompleted', missionIndex, completed })
+                  }
+                  dilemmaStack={
+                    <DilemmaStackPile
+                      stack={dilemmaStack}
+                      onOpen={() => openOnlyFlatZone('dilemmaStack')}
+                      onReveal={() => dispatch({ type: 'flip', id: dilemmaStack[0].id })}
+                      visible={dilemmaStackVisible}
+                      scale={attemptSizes.missionScale}
+                      desktop={finePointer}
+                      minHeight={missionCardHeight(attemptSizes.missionScale, true)}
+                    />
+                  }
+                />
+              ) : (
+                <>
               {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597),
                   plus the dilemma stack (#630) in its own reserved column to the right, in the
                   same row so it lines up with the missions and shares their gap. The row moves
@@ -2438,7 +2500,7 @@ function PracticeDrawContent() {
                     dispatch({ type: 'setMissionCompleted', missionIndex, completed })
                   }
                   attempt={table.attempt}
-                  onEndAttempt={() => dispatch({ type: 'endAttempt' })}
+                  onBackToAttempt={() => setFullTableFor(null)}
                   scale={missionScale}
                   shipRows={shipRows}
                   desktop={finePointer}
@@ -2453,6 +2515,8 @@ function PracticeDrawContent() {
                   desktop={finePointer}
                 />
               </div>
+                </>
+              )}
 
               {/* Bottom row, anchored to the bottom. From left to right: discard pile, draw pile,
                   closed hand, core, brig. The dilemma pile is the rightmost zone, at the right

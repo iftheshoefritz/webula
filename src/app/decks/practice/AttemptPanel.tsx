@@ -104,10 +104,9 @@ export function AttemptDialog({
   );
 }
 
-// The overlay on the attempted mission card (#1163) while the attempt runs. Only its button takes
-// a pointer, so a drop under the mission and a double-tap on the card still work. Slice 2 (#1164)
-// swaps its contents for "Back to attempt", so the position is set here and the contents are the
-// children.
+// The overlay on the attempted mission card (#1163) while the attempt runs and the full table shows
+// (#1164). Only its button takes a pointer, so a drop under the mission and a double-tap on the card
+// still work. The position is set here and the contents are the children.
 export function AttemptOverlay({ missionIndex, children }: { missionIndex: number; children: React.ReactNode }) {
   return (
     <div
@@ -119,22 +118,19 @@ export function AttemptOverlay({ missionIndex, children }: { missionIndex: numbe
   );
 }
 
-// The overlay's contents in slice 1: the frozen result, and the button that ends the attempt.
-export function AttemptOverlayContents({ n, onEnd }: { n: number; onEnd: () => void }) {
+// The overlay's only contents on the full table (#1164): the button back to the attempt layout.
+export function BackToAttemptButton({ onBack }: { onBack: () => void }) {
   return (
-    <>
-      <span className="text-[9px] font-bold leading-none whitespace-nowrap">draw/spend {n}</span>
-      <button
-        type="button"
-        data-testid="attempt-done"
-        onClick={(event) => {
-          event.stopPropagation();
-          onEnd();
-        }}
-        className="pointer-events-auto rounded bg-accent-dark px-1 py-0.5 text-[9px] font-semibold leading-none text-white"
-      >
-        Attempt done
-      </button>
-    </>
+    <button
+      type="button"
+      data-testid="attempt-back-to-attempt"
+      onClick={(event) => {
+        event.stopPropagation();
+        onBack();
+      }}
+      className="pointer-events-auto rounded bg-accent-dark px-1 py-0.5 text-[9px] font-semibold leading-none text-white whitespace-nowrap"
+    >
+      Back to attempt
+    </button>
   );
 }

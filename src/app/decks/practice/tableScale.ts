@@ -20,6 +20,17 @@
 import { useEffect, useState } from 'react';
 import { MISSION_SLOTS } from './tableReducer';
 import { TABLE_CARD_WIDTH, fullCardHeight } from './TableCard';
+import {
+  MISSION_COLUMN_GAP,
+  SHIP_ROW_GAP,
+  badgeStripHeight,
+  missionCardHeight,
+  shipCardWidth,
+  shipRowLineHeight,
+  shipRowWidth,
+  shipsPerRow,
+  underMissionStackRoom,
+} from './MissionRow';
 
 // The 568x320 viewport the fixed pixel card sizes below were tuned against (see
 // `MissionRow.tsx`'s `BADGE_STRIP_HEIGHT_BASE` comment) — scale 1 at this height, larger once the
@@ -191,7 +202,7 @@ export function computeTouchMissionScale(
 
 // The largest scale, up to `widthScale`, at which `columnHeight` fits `availableHeight`, and never
 // below 1.
-function fitColumnScale(
+export function fitColumnScale(
   widthScale: number,
   availableHeight: number,
   columnHeight: (scale: number) => number,
@@ -253,4 +264,123 @@ export function useMissionScale(
   }, [desktop, scale, gameLayer, missionRows, bottomRow, desktopColumnHeight, touchColumnHeight]);
 
   return missionScale ?? scale;
+}
+
+// Issue #1164: the attempt layout. While an attempt is in progress the table shows, in place of the
+// mission row, a strip across the top and, below it, the attempted mission, the ships and the away
+// team at it, and the dilemma stack, left to right, above the bottom row.
+//
+// The strip is as tall as the game menu and fullscreen buttons reach below the content padding
+// (`top-2`, two 24 px buttons and a 4 px gap, so they end 60 px down, 44 px below the 16 px padding),
+// so the body below it is clear of them, and its contents start right of `MENU_BUTTON_GUTTER`.
+export const ATTEMPT_STRIP_HEIGHT = 44; // px
+export const ATTEMPT_STRIP_GUTTER = MENU_BUTTON_GUTTER;
+// The gap between the strip and the body, and between the body's three columns (Tailwind's `gap-2`).
+export const ATTEMPT_GAP = 8; // px
+
+export interface AttemptLayoutSizes {
+  // The scale of the mission card, drawn whole, and of its badge strip.
+  missionScale: number;
+  // The scale of the ships, and the rows they fill.
+  shipScale: number;
+  shipRows: number;
+  // The width of the column of the away team badge and the ships.
+  shipsWidth: number;
+}
+
+// The height of the attempted mission's column at a scale: room for the slivers of the dilemmas
+// under it, the whole card, and the badge strip of the placed-on counters below it.
+export const attemptMissionColumnHeight = (scale: number): number =>
+  underMissionStackRoom(scale, true) + missionCardHeight(scale, true) + MISSION_COLUMN_GAP + badgeStripHeight(scale);
+
+// Pure, like `computeTouchMissionScale`. `availableHeight` runs from the bottom of the strip to the
+// top of the bottom row, less the gap below the strip. `floorScale` is the scale the missions draw
+// at on the normal table: neither the mission nor the ships draw smaller than that.
+//
+// The mission card has the width first: it grows, as far as the height allows, into the width left
+// once the ships column keeps room for 2 ships at the floor scale. The ships column takes the rest
+// of the width, and the ships grow in it until they no longer fit with no overlap in the rows the
+// height has room for, never past the mission's scale.
+export function computeAttemptLayout(
+  gameLayerWidth: number,
+  availableHeight: number,
+  desktop: boolean,
+  shipCount: number,
+  floorScale: number,
+): AttemptLayoutSizes {
+  const floor = Math.max(1, floorScale);
+  const dilemmaStackWidth = DILEMMA_STACK_CARD_WIDTH * (desktop ? DILEMMA_STACK_DESKTOP_WIDTH_FACTOR : 1);
+  const availableWidth = gameLayerWidth - CONTENT_PADDING - MENU_BUTTON_GUTTER - 2 * ATTEMPT_GAP - dilemmaStackWidth;
+  const minShipsWidth = shipRowWidth(floor, 2);
+  const missionWidthScale = (availableWidth - minShipsWidth) / TABLE_CARD_WIDTH;
+  const missionScale = Math.max(floor, fitColumnScale(missionWidthScale, availableHeight, attemptMissionColumnHeight));
+  const shipsWidth = Math.max(minShipsWidth, Math.floor(availableWidth - Math.round(TABLE_CARD_WIDTH * missionScale)));
+
+  // The ships column: the away team badge, then the rows of ships.
+  const rowsFitting = (scale: number): number => {
+    const free = availableHeight - badgeStripHeight(missionScale) - MISSION_COLUMN_GAP;
+    const line = shipRowLineHeight(scale, desktop);
+    return Math.max(1, Math.floor((free + SHIP_ROW_GAP) / (line + SHIP_ROW_GAP)));
+  };
+  const rowsNeeded = (scale: number): number => Math.max(1, Math.ceil(shipCount / shipsPerRow(scale, shipsWidth)));
+  const fits = (scale: number): boolean => shipCardWidth(scale) <= shipsWidth && rowsNeeded(scale) <= rowsFitting(scale);
+  let shipScale = floor;
+  if (missionScale > floor && fits(floor)) {
+    if (fits(missionScale)) shipScale = missionScale;
+    else {
+      let low = floor;
+      let high = missionScale;
+      for (let i = 0; i < 20; i++) {
+        const mid = (low + high) / 2;
+        if (fits(mid)) low = mid;
+        else high = mid;
+      }
+      shipScale = low;
+    }
+  }
+  return { missionScale, shipScale, shipRows: Math.min(rowsNeeded(shipScale), rowsFitting(shipScale)), shipsWidth };
+}
+
+// Measures the attempt layout with a `ResizeObserver`, the same way `useMissionScale` measures the
+// mission row: the available height runs from the bottom of the strip to the top of the bottom row.
+// The floor is the scale the mission row would draw at in the same space, from the top of the
+// layout. Before the elements mount, and in jsdom, it returns the sizes at `scale`.
+export function useAttemptLayout(
+  desktop: boolean,
+  scale: number,
+  gameLayer: HTMLElement | null,
+  layout: HTMLElement | null,
+  strip: HTMLElement | null,
+  bottomRow: HTMLElement | null,
+  shipCount: number,
+  desktopColumnHeight: (scale: number) => number,
+  touchColumnHeight: (scale: number) => number,
+): AttemptLayoutSizes {
+  const [sizes, setSizes] = useState<AttemptLayoutSizes | null>(null);
+
+  useEffect(() => {
+    if (!gameLayer || !layout || !strip || !bottomRow) {
+      setSizes(null);
+      return;
+    }
+    const measure = () => {
+      const content = layout.parentElement ?? gameLayer;
+      const paddingBottom = parseFloat(getComputedStyle(content).paddingBottom) || 0;
+      const bodyBottom = gameLayer.getBoundingClientRect().bottom - paddingBottom - bottomRow.getBoundingClientRect().height;
+      const tableHeight = bodyBottom - layout.getBoundingClientRect().top;
+      const floor = desktop
+        ? computeDesktopTableScale(gameLayer.clientWidth, tableHeight, desktopColumnHeight)
+        : computeTouchMissionScale(gameLayer.clientWidth, tableHeight, touchColumnHeight, scale);
+      const availableHeight = bodyBottom - strip.getBoundingClientRect().bottom - ATTEMPT_GAP;
+      setSizes(computeAttemptLayout(gameLayer.clientWidth, availableHeight, desktop, shipCount, floor));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(gameLayer);
+    observer.observe(bottomRow);
+    observer.observe(strip);
+    return () => observer.disconnect();
+  }, [desktop, scale, gameLayer, layout, strip, bottomRow, shipCount, desktopColumnHeight, touchColumnHeight]);
+
+  return sizes ?? { missionScale: scale, shipScale: scale, shipRows: 1, shipsWidth: shipRowWidth(scale, 2) };
 }

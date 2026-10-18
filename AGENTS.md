@@ -302,7 +302,7 @@ The practice table has three fixtures. Each one deals the same table on every lo
 - `?fixture=attempt` (#1169) deals exactly the `?fixture=piles` table, the same cards and the same
   ids, and then starts an attempt at Bilana System (mission 2) with the crewed ship, with the
   defaults of the attempt popup: the 12 unstopped crew minus the 3 dilemmas under the mission, so
-  the overlay `attempt-overlay-2` reads "draw/spend 9". It keeps its game under
+  the page opens in the attempt layout and its strip reads "draw/spend 9". It keeps its game under
   `practiceGame:fixture=attempt`. `?fixture=piles` deals no attempt.
 
 A tap on the closed hand opens it as an arc along the bottom edge of the screen
@@ -428,16 +428,32 @@ planet mission and in the crew panel of a ship on the ship row of a space missio
 not at a headquarters, not at a completed mission, not in a panel with no unstopped personnel, and not
 while an attempt is in progress. It opens the popup, `data-testid="attempt-dialog"`, with two fields,
 `attempt-personnel` and `attempt-subtract`, the result `attempt-result` ("draw/spend N"), and
-`attempt-start`. Start puts an overlay on the mission card, `attempt-overlay-<index>`, with the button
-`attempt-done`, which ends the attempt.
+`attempt-start`. Start opens the **attempt layout** (#1164), `data-testid="attempt-layout"`, in place of
+the mission row. Its strip across the top, `attempt-strip`, holds the status (`attempt-status`: the
+mission's name, and the ship's at a space mission), `attempt-draw-spend`, the button
+`attempt-view-full-table` and the button `attempt-done`, which ends the attempt and brings back the
+mission row. Below the strip, left to right: the attempted mission, drawn whole and larger than on the
+table, the ships column `attempt-ships` (the away team badge, then every ship of that mission's ship
+row), and the dilemma stack. The bottom row does not change.
+
+Every drop target in the attempt layout keeps its id: `mission-on-<i>`, `mission-under-<i>`,
+`ship-row-<i>` and `crew-<id>` with `<i>` the mission's own slot index, and `dilemmaStack`. The mission
+row is not mounted during the attempt layout, so the targets of the other missions do not exist then:
+tap View full table to bring them back. In the attempt layout the away team badge sits in the ships
+column, outside the mission's bottom half, so a drop on the badge lands nowhere: to aim a drop at the
+away team, aim at `mission-on-<i>`.
+
+View full table shows the normal table, and the attempt goes on: the overlay on the mission card,
+`attempt-overlay-<index>`, then holds only `attempt-back-to-attempt`, "Back to attempt", which returns to
+the attempt layout. Which view shows is page state, not part of the save.
 
 On `/decks/practice?fixture=piles&reset=1&menu=0`, Moab IV (mission 0) is a planet mission with an
 away team of 20: tap the lower half of its card, wait out the double-tap window, then tap Attempt and
 Start. Bilana System (mission 2) is a space mission with the crewed ship: tap the ship, then Attempt.
-The attempt is part of the save, so an overlay survives a reload. Start a check with `reset=1`.
-For a check of the attempt itself rather than of how it starts, open
+The attempt is part of the save, so it survives a reload and opens in the attempt layout. Start a check
+with `reset=1`. For a check of the attempt itself rather than of how it starts, open
 `/decks/practice?fixture=attempt&reset=1&menu=0`, which deals the table with the attempt at
-Bilana System already in progress.
+Bilana System already in progress, in the attempt layout.
 
 ### Desktop mode: a fine pointer
 
