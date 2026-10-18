@@ -455,7 +455,7 @@ the frozen numbers of the attempt do not change. Its cards overlap, and it wraps
 would show less than 12 px of each card (`ATTEMPT_PERSONNEL_MIN_SLICE`, `computeAttemptLayout`). Each
 card carries its `data-card-id`. A tap selects a card, a hold previews it, and below the row
 `attempt-row-stop` (Stop or Unstop, while personnel are selected) and `attempt-row-stop-all` (while
-an unstopped personnel is in the row) set `stopped`. A drop on the away team row routes as a drop on
+an unstopped personnel is in the row) set `stopped`. `attempt-row-shuffle`, last in that line and shown while the row holds a card, shuffles the away team or the crew (#1179). A drop on the away team row routes as a drop on
 `mission-on-<i>`: a personnel or an equipment joins the away team, a ship goes to the ship row, any
 other card is placed on the mission card. A drop on the crew row routes as a drop on `crew-<id>`. At a
 space mission the away team badge sits outside the mission's bottom half, so a drop on the badge lands

@@ -2499,6 +2499,7 @@ function PracticeDrawContent() {
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onSetStopped={setStoppedForSelection}
+                  onShuffle={(location) => dispatch({ type: 'shuffle', location })}
                   dilemmaStack={
                     <DilemmaStackPile
                       stack={dilemmaStack}
