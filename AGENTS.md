@@ -291,8 +291,10 @@ The practice table has two fixtures. Each one deals the same table on every load
   card into the hand.
 - `?fixture=piles` (#802, #1024) deals the cards in deck order, with no shuffle, and **a hand of 7**
   (`FIXTURE_HAND` in `tableReducer.ts`), its own and not the opening hand of a new game. Mission 0 has an
-  away team of 20 personnel. Mission 1 has a ship with a crew of 12 and one event placed on it, so
-  the ship shows its counter of placed cards. Mission 2 has 3 dilemmas under it, shown as slivers.
+  away team of 20 personnel. Mission 2, Bilana System, a space mission, has a ship with a crew of 12
+  and one event placed on it, so the ship shows its counter of placed cards, and 3 dilemmas under it,
+  shown as slivers (#1166). The ship row of mission 1, Angel I, a planet mission, is empty: for a
+  check that needs a ship at a planet mission, run `bash scripts/practice_drag.sh card-39 ship-row-1`.
   The brig holds 2 personnel, the core holds 4 events, and the dilemma stack holds 4 dilemmas face
   down. The draw deck and the dilemma pile get the rest. The hand holds a Tricorder (`card-1`), two
   events (`card-7`, `card-8`), two interrupts (`card-9`, `card-10`) and two ships (`card-39`,

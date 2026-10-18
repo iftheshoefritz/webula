@@ -11,6 +11,8 @@ import {
   FIXTURE_CORE,
   FIXTURE_UNDER_MISSION,
   FIXTURE_DILEMMA_STACK,
+  FIXTURE_CREW,
+  FIXTURE_PLACED,
 } from '../../../app/decks/practice/tableReducer';
 
 const card = (name: string) => ({ collectorsinfo: name, name });
@@ -1239,11 +1241,20 @@ describe('resetWithPiles (#802)', () => {
     const state = tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() });
     expect(state.missions[0].awayTeam).toHaveLength(20);
     expect(state.missions[0].awayTeam.every((c) => c.card.type === 'personnel')).toBe(true);
-    expect(state.missions[1].ships).toHaveLength(1);
-    expect(state.missions[1].ships[0].card.type).toBe('ship');
-    expect(state.missions[1].ships[0].crew).toHaveLength(12);
-    expect(state.missions[1].ships[0].crew!.every((c) => c.face === 'up')).toBe(true);
+    expect(state.missions[2].ships).toHaveLength(1);
+    expect(state.missions[2].ships[0].card.type).toBe('ship');
+    expect(state.missions[2].ships[0].crew).toHaveLength(12);
+    expect(state.missions[2].ships[0].crew!.every((c) => c.face === 'up')).toBe(true);
     expect(state.hand).toHaveLength(FIXTURE_HAND);
+  });
+
+  it('deals the crewed ship at the third mission, with the dilemmas under it (#1166)', () => {
+    const state = tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() });
+    expect(state.missions[1].ships).toEqual([]);
+    expect(state.missions[2].ships).toHaveLength(1);
+    expect(state.missions[2].ships[0].crew).toHaveLength(FIXTURE_CREW);
+    expect(state.missions[2].ships[0].placedOn).toHaveLength(FIXTURE_PLACED);
+    expect(state.missions[2].underMission).toHaveLength(FIXTURE_UNDER_MISSION);
   });
 
   it('uses every card once, the same total as a plain reset', () => {
@@ -1259,7 +1270,7 @@ describe('resetWithPiles (#802)', () => {
     expect(state.brig.every((c) => c.card.type === 'personnel' && c.face === 'up')).toBe(true);
     expect(state.core).toHaveLength(FIXTURE_CORE);
     expect(state.core.every((c) => c.card.type === 'event' && c.face === 'up')).toBe(true);
-    const placedOn = state.missions[1].ships[0].placedOn!;
+    const placedOn = state.missions[2].ships[0].placedOn!;
     expect(placedOn).toHaveLength(1);
     expect(placedOn[0].card.type).toBe('event');
     expect(placedOn[0].face).toBe('up');
@@ -1281,7 +1292,7 @@ describe('resetWithPiles (#802)', () => {
       core: state.core.map((c) => c.card.collectorsinfo),
       stack: state.dilemmaStack.map((c) => c.card.collectorsinfo),
       under: state.missions[2].underMission.map((c) => c.card.collectorsinfo),
-      onShip: state.missions[1].ships[0].placedOn!.map((c) => c.card.collectorsinfo),
+      onShip: state.missions[2].ships[0].placedOn!.map((c) => c.card.collectorsinfo),
     });
     const first = zones(tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() }));
     const second = zones(tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() }));
@@ -1299,7 +1310,8 @@ describe('resetWithPiles (#802)', () => {
       missions: [],
       dilemmas: [],
     });
-    expect(state.missions[1].ships).toEqual([]);
+    expect(state.missions[2].ships).toEqual([]);
+    expect(state.missions[2].mission).toBeNull();
     expect(state.core).toHaveLength(1);
     expect(state.missions[0].awayTeam).toHaveLength(1);
   });
