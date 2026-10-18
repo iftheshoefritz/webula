@@ -20,6 +20,7 @@ import {
   tableReducer,
   Zone,
 } from './tableReducer';
+import { drawSpend } from './drawSpend';
 
 // A place a card can be, with the names the text needs captured at the time of the action, so a
 // later move of a ship or a mission card does not change an old entry.
@@ -57,6 +58,9 @@ export type LogEntry = { turn: number } & (
   | { kind: 'missionCompleted'; mission: string; completed: boolean }
   | { kind: 'nextTurn' }
   | { kind: 'score'; delta: number; score: number }
+  // A mission attempt (#1163): the ship only at a space mission.
+  | { kind: 'attemptStarted'; mission: string; ship?: string; personnel: number; subtract: number }
+  | { kind: 'attemptEnded'; mission: string }
 );
 
 // Several table actions that are one player action (#1065): a group drag, a selection's Discard,
@@ -193,6 +197,18 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
       if (!slot?.mission || !!slot.completed === action.completed) return null;
       return { kind: 'missionCompleted', mission: missionName(before, action.missionIndex), completed: action.completed };
     }
+    case 'startAttempt':
+      if (after === before) return null;
+      return {
+        kind: 'attemptStarted',
+        mission: missionName(before, action.missionIndex),
+        ...(action.shipId ? { ship: cardName(before, action.shipId) } : {}),
+        personnel: action.personnel,
+        subtract: action.subtract,
+      };
+    case 'endAttempt':
+      if (after === before || !before.attempt) return null;
+      return { kind: 'attemptEnded', mission: missionName(before, before.attempt.missionIndex) };
     case 'nextTurn':
       return { kind: 'nextTurn' };
     case 'adjustScore':
@@ -335,6 +351,12 @@ export function logEntryText(entry: LogEntry): string {
       return `Started turn ${entry.turn}`;
     case 'score':
       return `Score ${entry.delta > 0 ? '+' : ''}${entry.delta} (now ${entry.score})`;
+    case 'attemptStarted':
+      return `Attempted ${entry.mission}${entry.ship ? ` with ${entry.ship}` : ''}: ${entry.personnel} personnel − ${
+        entry.subtract
+      } = draw/spend ${drawSpend(entry.personnel, entry.subtract)}`;
+    case 'attemptEnded':
+      return `Ended the attempt at ${entry.mission}`;
   }
 }
 

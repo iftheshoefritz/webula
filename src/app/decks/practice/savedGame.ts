@@ -150,6 +150,21 @@ const instanceNumber = (id: string): number => {
   return match ? Number(match[1]) : 0;
 };
 
+const isCount = (value: unknown): boolean => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+
+const isValidAttempt = (table: TableState): boolean => {
+  const attempt: unknown = table.attempt;
+  if (!isObject(attempt)) return false;
+  const { missionIndex, shipId, personnel, subtract } = attempt;
+  return (
+    Number.isInteger(missionIndex) &&
+    !!table.missions[missionIndex]?.mission &&
+    (shipId === undefined || typeof shipId === 'string') &&
+    isCount(personnel) &&
+    isCount(subtract)
+  );
+};
+
 // Returns the restored game, or null when the save must be dropped: bad JSON, an unknown
 // version, a builder save whose deck no longer matches `currentDeck`, or a card whose key is not
 // in the saved deck. A Drive save is trusted as it is, with no Drive call.
@@ -188,9 +203,12 @@ export function fromSavedGame(json: string, currentDeck: DeckList): RestoredGame
     if (error instanceof MissingKeyError || error instanceof TypeError) return null;
     throw error;
   }
+  // A top-level field that an older save lacks takes its default.
+  const table: TableState = { ...initialTableState, ...restoredTable };
+  // An attempt (#1163) loads only when its numbers are sound and its slot still holds a mission card.
+  if (!isValidAttempt(table)) delete table.attempt;
   return {
-    // A top-level field that an older save lacks takes its default.
-    table: { ...initialTableState, ...restoredTable },
+    table,
     dealtDeck,
     source: save.source,
     ...(save.driveFileId ? { driveFileId: save.driveFileId } : {}),

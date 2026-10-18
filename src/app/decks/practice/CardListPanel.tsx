@@ -558,6 +558,7 @@ export default function CardListPanel({
   canRevealTop = false,
   canRevealBottom = false,
   onSendToDeck,
+  onAttempt,
   hidden = false,
   cardWidth = viewerCardSize(1).width,
   cardHeight = viewerCardSize(1).height,
@@ -604,6 +605,10 @@ export default function CardListPanel({
   // the bottom of the pile. Its presence shows the "Top" and "Bottom" buttons, disabled while
   // nothing is selected.
   onSendToDeck?: (ids: string[], position: 'top' | 'bottom') => void;
+  // A ship's crew panel at a space mission or a mission's away team panel at a planet mission
+  // (#1163): opens the attempt popup. `PracticeTable` gives it only when `canAttempt` says yes,
+  // and its presence shows the "Attempt" button.
+  onAttempt?: () => void;
   hidden?: boolean;
   // Issue #717: this panel is one of "the modals" the issue names, so its own card grid grows
   // the same way the table's mission cards do — `page.tsx` computes both from the same `scale`
@@ -801,7 +806,7 @@ export default function CardListPanel({
         }}
       >
       <div className={layoutClassName}>
-        {(onReveal || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || onShuffle) && (
+        {(onAttempt || onReveal || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || onShuffle) && (
           <div data-testid="panel-controls" className="shrink-0 flex flex-row flex-wrap justify-center items-start gap-2">
             {/* The reveal panel's own controls (#1070, #1078). Both reveal buttons show even with no
                 card in the panel, so an empty panel always has a way to reveal. */}
@@ -848,6 +853,11 @@ export default function CardListPanel({
                   Bottom
                 </button>
               </>
+            )}
+            {onAttempt && (
+              <button type="button" onClick={onAttempt} data-testid="attempt-button" className="btn-primary">
+                Attempt
+              </button>
             )}
             {/* The Download button (#827) shows whenever the panel is given `onDownload`, first in
                 the row, and stays disabled until a card is selected. The Discard button does the same (#902). */}
