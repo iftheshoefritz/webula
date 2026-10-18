@@ -14,6 +14,7 @@
 // The middle column holds the row of the attempting personnel (#1165, `AttemptPersonnelRow`): at a
 // planet mission the away team, in place of the away team badge, above the ships; at a space
 // mission the crew of the attempting ship, beside the ships, with the away team badge above them.
+// At a space mission the ships sit in a column exactly as wide as the mission, 2 to a row (#1177).
 // The row is a droppable of its own, `attempt-away-team-<i>` or `attempt-crew-<id>`. At a space
 // mission the away team badge sits outside the reach of the mission's bottom half, so a drop on it
 // lands on no droppable; a drop on the bottom half of the mission card still joins the away team.
