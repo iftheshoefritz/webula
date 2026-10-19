@@ -40,6 +40,7 @@ import { OfflineDeckList, OfflineDeckPicker } from './OfflineDeckPicker';
 import { isBrowserOnline, useOnline } from './useOnline';
 import type { OfflineDeck } from './offlineDecks';
 import {
+  AttemptPhase,
   CardInstance,
   MissionPileName,
   MoveTarget,
@@ -79,7 +80,7 @@ import GameLogPanel from './GameLogPanel';
 import { AttemptDialog } from './AttemptPanel';
 import AttemptLayout from './AttemptLayout';
 import { missionIndexFromAttemptAwayTeamDropId, shipIdFromAttemptCrewDropId } from './AttemptPersonnelRow';
-import { AttemptPanel, attemptDefaults, canAttempt, fixtureAttempt, fixtureAttemptStack } from './attempt';
+import { AttemptPanel, attemptDefaults, attemptViewKey, canAttempt, fixtureAttempt, fixtureAttemptStack } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
 import { gameReducer, initialGameState } from './gameLog';
@@ -1182,7 +1183,11 @@ function PracticeDrawContent() {
   // away team and a crewed ship, for the card list panel checks.
   const isPilesFixture = fixture === 'piles';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
-  const isAttemptFixture = fixture === 'attempt';
+  // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
+  // the dilemma choice, with no stack.
+  const attemptFixturePhase: AttemptPhase | null =
+    fixture === 'attempt' ? 'face' : fixture === 'attempt-choose' ? 'choose' : null;
+  const isAttemptFixture = attemptFixturePhase !== null;
   const isFixture = fixture === '1' || isPilesFixture || isAttemptFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
   // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
@@ -1329,8 +1334,9 @@ function PracticeDrawContent() {
   );
   // Issue #1164: an attempt in progress shows the attempt layout in place of the mission row, until
   // View full table. Page state, not part of the save: the attempt the player chose the full table
-  // for, by its value, so a new attempt, a restored game, or a reload opens in the attempt layout.
-  const attemptKey = table.attempt ? JSON.stringify(table.attempt) : null;
+  // for, by its identity (#1189), so a change of phase or a draw keeps the full table, and a new
+  // attempt, a restored game, or a reload opens in the attempt layout.
+  const attemptKey = attemptViewKey(table.attempt);
   const [fullTableFor, setFullTableFor] = useState<string | null>(null);
   useEffect(() => {
     if (!attemptKey) setFullTableFor(null);
@@ -1450,7 +1456,7 @@ function PracticeDrawContent() {
   // default numbers, and moves the top dilemmas of the pile into the dilemma stack (#1170), as one
   // player action and so one log entry, of cards the player did not see. `tableReducer` is pure and `resetWithPiles` ignores the state it gets, so a
   // second run of the deal gives the table the page gets, and with it the ship's instance id.
-  const dealDeck = (deck: DeckList, fixturePiles = false, fixtureAttemptToo = false) => {
+  const dealDeck = (deck: DeckList, fixturePiles = false, fixtureAttemptPhase: AttemptPhase | null = null) => {
     const cards = extractDrawDeck(deck);
     const deal: TableAction = {
       type: fixturePiles ? 'resetWithPiles' : 'reset',
@@ -1464,12 +1470,17 @@ function PracticeDrawContent() {
       ),
     };
     dispatch(deal);
-    if (fixtureAttemptToo) {
+    if (fixtureAttemptPhase) {
       const dealt = tableReducer(initialTableState, deal);
       const start = fixtureAttempt(dealt);
       if (start) {
         dispatch(start);
-        dispatch({ type: 'batch', actions: fixtureAttemptStack(dealt), unseen: true });
+        // The attempt starts in the choice phase, where the stack is face up, so the facing fixture
+        // switches phase first and its stack lands face down (#1189).
+        if (fixtureAttemptPhase === 'face') {
+          dispatch({ type: 'setAttemptPhase', phase: 'face' });
+          dispatch({ type: 'batch', actions: fixtureAttemptStack(dealt), unseen: true });
+        }
       }
     }
     setDeckEmpty(isDeckEmpty(deck));
@@ -1521,7 +1532,7 @@ function PracticeDrawContent() {
 
     if (isFixture) {
       if (loading || data.length === 0) return;
-      dealDeck(deckFromTsv(PRACTICE_DECK_TSV, data), isPilesFixture || isAttemptFixture, isAttemptFixture);
+      dealDeck(deckFromTsv(PRACTICE_DECK_TSV, data), isPilesFixture || isAttemptFixture, attemptFixturePhase);
       return;
     }
 

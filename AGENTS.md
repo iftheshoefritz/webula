@@ -284,7 +284,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has three fixtures. Each one deals the same table on every load.
+The practice table has four fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -304,8 +304,12 @@ The practice table has three fixtures. Each one deals the same table on every lo
   ids, and then starts an attempt at Bilana System (mission 2) with the crewed ship, with the
   defaults of the attempt popup: the 12 unstopped crew minus the 3 dilemmas under the mission, so
   the page opens in the attempt layout and its strip reads "draw/spend 9". It then moves the top 4
-  dilemmas of the dilemma pile into the dilemma stack, face down (#1170). It keeps its game under
+  dilemmas of the dilemma pile into the dilemma stack, face down (#1170): it switches the attempt to
+  the facing phase first (#1189), so its log holds one phase entry. It keeps its game under
   `practiceGame:fixture=attempt`. `?fixture=piles` deals no attempt.
+- `?fixture=attempt-choose` (#1189) deals the same table and starts the same attempt, and stops in
+  the dilemma choice: phase `'choose'`, `drawn` 0, an empty dilemma stack and an empty dilemma hand.
+  It keeps its game under `practiceGame:fixture=attempt-choose`.
 
 A tap on the closed hand opens it as an arc along the bottom edge of the screen
 (`data-testid="hand-arc"`, `handArc.ts`, #1125): about half of each card is below the edge, more in
@@ -443,6 +447,15 @@ row), and the dilemma stack. At a space mission the ships sit in a column exactl
 mission, 2 to a row, with the crew row beside them (#1177). The bottom row does not change. The dilemma stack mounts only here
 (#1170), so the `dilemmaStack` drop target exists only in the attempt layout.
 
+An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
+dilemmas. Start begins in `'choose'`, with `Attempt.drawn` 0. The choice-phase draw, `drawCard` from
+the dilemma pile to the dilemma hand with `counted: true`, adds 1 to `drawn`, and it never stops at
+N; a plain draw from the dilemma pile leaves `drawn` alone. A dilemma that enters the stack lands face
+up in `'choose'` and face down at every other time. `setAttemptPhase` to `'face'` turns every stack
+card face down and sends every card of the dilemma hand to the bottom of the dilemma pile, face up,
+in hand order; to `'choose'` it turns the stack face up and moves no card. Each is one log entry. A
+save from before #1189 restores in `'face'` with `drawn` 0. No button switches the phase yet.
+
 Every drop target in the attempt layout keeps its id: `mission-on-<i>`, `mission-under-<i>`,
 `ship-row-<i>` and `crew-<id>` with `<i>` the mission's own slot index, and `dilemmaStack`. The mission
 row is not mounted during the attempt layout, so the targets of the other missions do not exist then:
@@ -470,7 +483,8 @@ bash scripts/practice_drag.sh card-1 attempt-away-team-0   # prints attempt-away
 
 View full table shows the normal table, and the attempt goes on: the overlay on the mission card,
 `attempt-overlay-<index>`, then holds only `attempt-back-to-attempt`, "Back to attempt", which returns to
-the attempt layout. The full table shows no dilemma stack: go back to the attempt to use it. Which view shows is page state, not part of the save.
+the attempt layout. The full table shows no dilemma stack: go back to the attempt to use it. Which view shows is page state, not part of the save. It is keyed on the
+attempt's mission and ship (`attemptViewKey`, #1189), so a change of phase or a draw keeps the full table.
 
 On `/decks/practice?fixture=piles&reset=1&menu=0`, Moab IV (mission 0) is a planet mission with an
 away team of 20: tap the lower half of its card, wait out the double-tap window, then tap Attempt and

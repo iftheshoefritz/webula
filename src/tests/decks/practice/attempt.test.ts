@@ -67,7 +67,7 @@ const start = { type: 'startAttempt', missionIndex: 1, shipId: 's1', personnel: 
 describe('tableReducer: startAttempt and endAttempt (#1163)', () => {
   it('starts an attempt with the numbers given, and ends it', () => {
     const started = tableReducer(table(), start);
-    expect(started.attempt).toEqual({ missionIndex: 1, shipId: 's1', personnel: 7, subtract: 2 });
+    expect(started.attempt).toEqual({ missionIndex: 1, shipId: 's1', personnel: 7, subtract: 2, phase: 'choose', drawn: 0 });
     const ended = tableReducer(started, { type: 'endAttempt' });
     expect(ended.attempt).toBeUndefined();
     expect('attempt' in ended).toBe(false);
@@ -243,7 +243,7 @@ describe('the save of an attempt (#1163)', () => {
 
   it('restores an attempt in progress with the same numbers', () => {
     const t = tableReducer(dealt(), { type: 'startAttempt', missionIndex: 0, personnel: 20, subtract: 25 });
-    expect(fromSavedGame(saved(t), deck)!.table.attempt).toEqual({ missionIndex: 0, personnel: 20, subtract: 25 });
+    expect(fromSavedGame(saved(t), deck)!.table.attempt).toEqual({ missionIndex: 0, personnel: 20, subtract: 25, phase: 'choose', drawn: 0 });
   });
 
   it('loads a save with no attempt with none', () => {
@@ -264,7 +264,7 @@ describe('the save of an attempt (#1163)', () => {
       ['card-4', 'down'],
     ]);
     // A save with an attempt keeps its stack.
-    const attempting = { ...t, attempt: { missionIndex: 0, personnel: 1, subtract: 0 } };
+    const attempting = { ...t, attempt: { missionIndex: 0, personnel: 1, subtract: 0, phase: 'face' as const, drawn: 0 } };
     const kept = fromSavedGame(JSON.stringify(toSavedGame(attempting, withDilemmas, 'builder')), withDilemmas)!.table;
     expect(kept.dilemmaStack.map((c) => c.id)).toEqual(['card-3', 'card-4']);
   });
@@ -309,7 +309,14 @@ describe('the attempt of ?fixture=attempt (#1169)', () => {
     const attempted = tableReducer(piles, start!);
     const { attempt, ...rest } = attempted;
     expect(rest).toEqual(piles);
-    expect(attempt).toEqual({ missionIndex: 2, shipId: piles.missions[2].ships[0].id, personnel: 12, subtract: 3 });
+    expect(attempt).toEqual({
+      missionIndex: 2,
+      shipId: piles.missions[2].ships[0].id,
+      personnel: 12,
+      subtract: 3,
+      phase: 'choose',
+      drawn: 0,
+    });
     expect(drawSpend(attempt!.personnel, attempt!.subtract)).toBe(FIXTURE_CREW - 3);
   });
 
@@ -318,7 +325,9 @@ describe('the attempt of ?fixture=attempt (#1169)', () => {
     expect(piles.dilemmaStack).toEqual([]);
     const moves = fixtureAttemptStack(piles);
     expect(moves).toHaveLength(FIXTURE_DILEMMA_STACK);
-    const stacked = moves.reduce(tableReducer, tableReducer(piles, fixtureAttempt(piles)!));
+    // The page switches the fixture's attempt to the facing phase before the stack moves (#1189).
+    const facing = tableReducer(tableReducer(piles, fixtureAttempt(piles)!), { type: 'setAttemptPhase', phase: 'face' });
+    const stacked = moves.reduce(tableReducer, facing);
     expect(stacked.dilemmaStack.map((c) => [c.card.name, c.face])).toEqual(
       ['d3', 'd4', 'd5', 'd6'].map((id) => [`Dilemma ${id}`, 'down'])
     );

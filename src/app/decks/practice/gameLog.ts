@@ -14,6 +14,7 @@ import {
   findInstanceAnywhere,
   MoveTarget,
   ReorderZone,
+  AttemptPhase,
   TableAction,
   TableState,
   TableZone,
@@ -62,6 +63,9 @@ export type LogEntry = { turn: number } & (
   | { kind: 'attemptStarted'; mission: string; ship?: string; personnel: number; subtract: number }
   // The dilemmas still in the stack that Attempt done moved under the mission (#1170), when any.
   | { kind: 'attemptEnded'; mission: string; moved?: string[] }
+  // A change of the attempt's phase (#1189). Choose -> face names the dilemmas it sent from the
+  // dilemma hand to the bottom of the dilemma pile, when any.
+  | { kind: 'attemptPhase'; mission: string; phase: AttemptPhase; returned?: string[] }
 );
 
 // Several table actions that are one player action (#1065): a group drag, a selection's Discard,
@@ -216,6 +220,16 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         mission: missionName(before, before.attempt.missionIndex),
         ...(moved.length ? { moved } : {}),
       };
+    case 'setAttemptPhase': {
+      if (after === before || !before.attempt) return null;
+      const returned = action.phase === 'face' ? before.dilemmaHand.map((c) => cardDisplayName(c.card)) : [];
+      return {
+        kind: 'attemptPhase',
+        mission: missionName(before, before.attempt.missionIndex),
+        phase: action.phase,
+        ...(returned.length ? { returned } : {}),
+      };
+    }
     case 'nextTurn':
       return { kind: 'nextTurn' };
     case 'adjustScore':
@@ -366,6 +380,15 @@ export function logEntryText(entry: LogEntry): string {
       return entry.moved?.length
         ? `Ended the attempt at ${entry.mission}, and moved ${cardsText(entry.moved)} under ${entry.mission}`
         : `Ended the attempt at ${entry.mission}`;
+    case 'attemptPhase': {
+      const text =
+        entry.phase === 'face'
+          ? `Started facing dilemmas at ${entry.mission}`
+          : `Went back to the dilemma choice at ${entry.mission}`;
+      return entry.returned?.length
+        ? `${text}, and moved ${cardsText(entry.returned)} to the bottom of the dilemma pile`
+        : text;
+    }
   }
 }
 

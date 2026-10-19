@@ -153,11 +153,20 @@ export interface TableState {
 // (absent at a planet mission), and the two numbers the player confirmed in the popup. The numbers
 // are frozen once the attempt starts: the table enforces no rules, so a personnel who joins or a
 // ship that leaves changes nothing about it.
+//
+// An attempt has a phase (#1189): `'choose'`, the dilemma choice, where the opponent draws dilemmas
+// into the dilemma hand and the stack is face up, and `'face'`, facing dilemmas, where the stack is
+// face down. `drawn` counts the dilemmas the choice-phase draw took; nothing else changes it, and
+// the table never stops a draw at the attempt's draw/spend number.
+export type AttemptPhase = 'choose' | 'face';
+
 export interface Attempt {
   missionIndex: number;
   shipId?: string;
   personnel: number;
   subtract: number;
+  phase: AttemptPhase;
+  drawn: number;
 }
 
 // The score counter's range (#719) and the amount each button press changes it by.
@@ -168,7 +177,9 @@ export const SCORE_STEP = 5;
 export type TableAction =
   // A tap on a face-down pile moves its top card to a hand. The draw deck and the hand are one
   // pair (#596); the dilemma pile and the dilemma hand are the other (#604).
-  | { type: 'drawCard'; from: Zone; to: Zone }
+  // `counted` marks the draw of the dilemma choice (#1189): during an attempt it adds 1 to
+  // `attempt.drawn` when a card moved. Outside an attempt it is a plain draw.
+  | { type: 'drawCard'; from: Zone; to: Zone; counted?: boolean }
   // `position` chooses which end of the destination array the moved card lands on: 'bottom'
   // (the default, when omitted) keeps every existing call site's behaviour — the moved card (and
   // any crew it releases) goes after the destination's existing cards, same as always. 'top'
@@ -217,7 +228,13 @@ export type TableAction =
   | { type: 'adjustScore'; delta: number }
   // Starts a mission attempt (#1163). Does nothing while an attempt is in progress, or at a slot
   // with no mission card. The Attempt button's visibility (`canAttempt`) owns every other rule.
-  | ({ type: 'startAttempt' } & Attempt)
+  // A new attempt starts in the choice phase with no dilemma drawn (#1189).
+  | ({ type: 'startAttempt' } & Omit<Attempt, 'phase' | 'drawn'>)
+  // Switches the attempt in progress to a phase (#1189). To `'face'` it turns every card of the
+  // dilemma stack face down and sends every card of the dilemma hand to the bottom of the dilemma
+  // pile, face up, in hand order. To `'choose'` it turns the stack face up and moves no card. Does
+  // nothing with no attempt in progress, or when the attempt is already in that phase.
+  | { type: 'setAttemptPhase'; phase: AttemptPhase }
   // Ends the attempt in progress, and moves every dilemma still in the dilemma stack under the
   // attempted mission, face up, in stack order (#1170). Does nothing when no attempt is in progress.
   | { type: 'endAttempt' }
@@ -500,6 +517,11 @@ const withCardsAt = (state: TableState, location: MoveTarget, cards: CardInstanc
   return { ...state, [location]: cards };
 };
 
+// The face a card takes on entering a location, read from the state: the dilemma stack is face up
+// during the dilemma choice of an attempt (#1189), and takes `ZONE_FACE.dilemmaStack` otherwise.
+const entryFace = (state: TableState, location: MoveTarget): Face =>
+  location === 'dilemmaStack' && state.attempt?.phase === 'choose' ? 'up' : faceForLocation(location);
+
 const faceForLocation = (location: MoveTarget): Face => {
   if (isShipRowLocation(location)) return SHIP_ROW_FACE;
   if (isCrewLocation(location)) return CREW_FACE;
@@ -539,7 +561,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       return {
         ...state,
         [action.from]: rest,
-        [action.to]: [...state[action.to], { ...top, face: ZONE_FACE[action.to] }],
+        [action.to]: [...state[action.to], { ...top, face: entryFace(state, action.to) }],
+        ...(action.counted && state.attempt ? { attempt: { ...state.attempt, drawn: state.attempt.drawn + 1 } } : {}),
       };
     }
 
@@ -576,7 +599,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
             : 'up'
           : toSameLocation
           ? card.face
-          : faceForLocation(action.to);
+          : entryFace(state, action.to);
       const withoutCard = cardsAt(state, from).filter((c) => c.id !== action.id);
       const afterRemoval = withCardsAt(state, from, withoutCard);
 
@@ -604,7 +627,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         ...(card.flipped ? { flipped: undefined } : {}),
       };
       const releasedCrew = releasesCrew
-        ? card.crew!.map((c) => ({ ...unstopFor(action.to, c), face: faceForLocation(action.to) }))
+        ? card.crew!.map((c) => ({ ...unstopFor(action.to, c), face: entryFace(state, action.to) }))
         : [];
       const discardedOn = discardsOn
         ? card.placedOn!.map((c) => ({ ...unstopFor('discard', c), face: ZONE_FACE.discard }))
@@ -757,7 +780,27 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     case 'startAttempt': {
       if (state.attempt || !state.missions[action.missionIndex]?.mission) return state;
       const { missionIndex, shipId, personnel, subtract } = action;
-      return { ...state, attempt: { missionIndex, ...(shipId ? { shipId } : {}), personnel, subtract } };
+      return {
+        ...state,
+        attempt: { missionIndex, ...(shipId ? { shipId } : {}), personnel, subtract, phase: 'choose', drawn: 0 },
+      };
+    }
+
+    case 'setAttemptPhase': {
+      if (!state.attempt || state.attempt.phase === action.phase) return state;
+      const attempt = { ...state.attempt, phase: action.phase };
+      if (action.phase === 'choose') {
+        return { ...state, attempt, dilemmaStack: state.dilemmaStack.map((c) => ({ ...c, face: 'up' })) };
+      }
+      // The dilemmas drawn and not chosen go to the bottom of the pile face up, as a `move` to the
+      // pile's bottom puts them (#987).
+      return {
+        ...state,
+        attempt,
+        dilemmaStack: state.dilemmaStack.map((c) => ({ ...c, face: ZONE_FACE.dilemmaStack })),
+        dilemmaPile: [...state.dilemmaPile, ...state.dilemmaHand.map((c) => ({ ...c, face: 'up' as Face }))],
+        dilemmaHand: [],
+      };
     }
 
     case 'endAttempt': {

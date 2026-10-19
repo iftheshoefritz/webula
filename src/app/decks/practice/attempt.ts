@@ -3,6 +3,7 @@
 // shows and what the popup's two numbers start at.
 
 import {
+  Attempt,
   CardInstance,
   findInstanceAnywhere,
   FIXTURE_DILEMMA_STACK,
@@ -76,4 +77,11 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
   return table.dilemmaPile
     .slice(0, FIXTURE_DILEMMA_STACK)
     .map((c) => ({ type: 'move', id: c.id, to: 'dilemmaStack' }));
+}
+
+// The key of the view of an attempt (#1164, #1189): its identity, the mission and the ship, and not
+// its phase or its count, so a change of either keeps the full table the player chose. Null with no
+// attempt in progress.
+export function attemptViewKey(attempt: Attempt | undefined): string | null {
+  return attempt ? JSON.stringify([attempt.missionIndex, attempt.shipId ?? null]) : null;
 }

@@ -155,13 +155,16 @@ const isCount = (value: unknown): boolean => typeof value === 'number' && Number
 const isValidAttempt = (table: TableState): boolean => {
   const attempt: unknown = table.attempt;
   if (!isObject(attempt)) return false;
-  const { missionIndex, shipId, personnel, subtract } = attempt;
+  const { missionIndex, shipId, personnel, subtract, phase, drawn } = attempt;
   return (
     Number.isInteger(missionIndex) &&
     !!table.missions[missionIndex]?.mission &&
     (shipId === undefined || typeof shipId === 'string') &&
     isCount(personnel) &&
-    isCount(subtract)
+    isCount(subtract) &&
+    // A save from before #1189 has no `phase` and no `drawn`.
+    (phase === undefined || phase === 'choose' || phase === 'face') &&
+    (drawn === undefined || isCount(drawn))
   );
 };
 
@@ -207,6 +210,9 @@ export function fromSavedGame(json: string, currentDeck: DeckList): RestoredGame
   const table: TableState = { ...initialTableState, ...restoredTable };
   // An attempt (#1163) loads only when its numbers are sound and its slot still holds a mission card.
   if (!isValidAttempt(table)) delete table.attempt;
+  // An attempt saved before #1189 opened in the layout of facing dilemmas, so it restores in that
+  // phase, with no dilemma drawn.
+  else table.attempt = { ...table.attempt!, phase: table.attempt!.phase ?? 'face', drawn: table.attempt!.drawn ?? 0 };
   // The dilemma stack holds cards only during an attempt (#1170). A save with stack cards and no
   // attempt, such as one from before #1170, sends them to the bottom of the dilemma pile, face down.
   if (!table.attempt && table.dilemmaStack.length) {
