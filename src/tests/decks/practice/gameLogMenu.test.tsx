@@ -121,4 +121,26 @@ describe('the Game log item of the game menu (#1065)', () => {
     const turn1 = within(panel).getByTestId('game-log-turn-1');
     expect(within(turn1).getAllByText('Drew a card from the draw deck into the hand')).toHaveLength(7);
   });
+
+  it('has an undo button that names the last entry, and a tap takes the entry back (#1194)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    const undo = screen.getByTestId('undo-button');
+    expect(undo).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
+    expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
+    expect(undo).toBeEnabled();
+    expect(undo).toHaveAttribute('aria-label', 'Undo: Drew a card from the draw deck into the hand');
+    expect(undo).toHaveAttribute('title', 'Undo: Drew a card from the draw deck into the hand');
+
+    fireEvent.click(undo);
+    expect(screen.getByRole('button', { name: /^hand, 0 cards?, tap to open$/i })).toBeInTheDocument();
+    expect(undo).toBeDisabled();
+    fireEvent.click(within(openMenu()).getByRole('button', { name: 'Game log' }));
+    const panel = await screen.findByRole('dialog', { name: 'Game log' });
+    expect(within(panel).getByText(EMPTY_LOG_TEXT)).toBeInTheDocument();
+  });
 });
