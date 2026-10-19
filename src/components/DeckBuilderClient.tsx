@@ -38,7 +38,6 @@ import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
-import { isEarlyAccessUser } from '../lib/featureFlags';
 import useDriveSync from '../hooks/useDriveSync';
 import useDeckState from '../hooks/useDeckState';
 
@@ -277,6 +276,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       .map((collectorsinfo) => currentDeck[collectorsinfo].row)
       .filter((row) => row.count > 0);
   }, [currentDeck]);
+
+  const practiceHref = isFixture ? '/decks/practice?fixture=1' : '/decks/practice';
+  const drawDeckEmpty = !currentDeckRows.some((row) => row.pile === 'drawDeck');
 
   const filteredData = useFilterData(false, data, columns, searchQuery, currentDeckRows);
   const cardCountLabel = useMemo(() => formatCardCountLabel(getCardCounts(filteredData)), [filteredData]);
@@ -633,16 +635,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                       />
                     </div>
                   )}
-                  {isEarlyAccessUser(session?.user?.email) && (
-                    <Link
-                      href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
-                      className={`flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 ${currentDeckRows.filter((row) => row.pile === 'drawDeck').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
-                      aria-disabled={currentDeckRows.filter((row) => row.pile === 'drawDeck').length === 0}
-                    >
-                      <FaPlayCircle className="shrink-0" />
-                      <span>Practice draw</span>
-                    </Link>
-                  )}
+                  <Link
+                    href={practiceHref}
+                    className={`flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10 ${drawDeckEmpty ? 'opacity-50 pointer-events-none' : ''}`}
+                    aria-disabled={drawDeckEmpty}
+                  >
+                    <FaPlayCircle className="shrink-0" />
+                    <span>Practice game</span>
+                  </Link>
                 </div>
               )}
             </div>
@@ -717,17 +717,16 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             {shareState === 'error' && shareError && (
               <span className="text-sm text-red-400 font-medium">{shareError}</span>
             )}
-            {isEarlyAccessUser(session?.user?.email) && (
-              <Link
-                href={isFixture ? '/decks/practice?fixture=1' : '/decks/practice'}
-                className={`btn-icon flex items-center justify-center ${currentDeckRows.filter((row) => row.pile === 'drawDeck').length === 0 ? 'opacity-50 pointer-events-none' : ''}`}
-                data-tooltip-id="button-tooltip"
-                data-tooltip-content="Practice drawing from your draw pile"
-                aria-disabled={currentDeckRows.filter((row) => row.pile === 'drawDeck').length === 0}
-              >
-                <FaPlayCircle />
-              </Link>
-            )}
+            <Link
+              href={practiceHref}
+              className={`btn-icon flex items-center justify-center ${drawDeckEmpty ? 'opacity-50 pointer-events-none' : ''}`}
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="Practice game"
+              aria-label="Practice game"
+              aria-disabled={drawDeckEmpty}
+            >
+              <FaPlayCircle />
+            </Link>
             <button
               className="btn-icon"
               onClick={openDeckPicker}
