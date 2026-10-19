@@ -467,6 +467,16 @@ card previews on a hold, opens the stack's panel on a tap, and drags off the sta
 personnel row, its Stop, Stop all and Shuffle buttons, its droppable and the away team badge are not
 mounted in `'choose'`. `?fixture=attempt-choose` opens in this layout.
 
+In `'choose'` the attempt strip also holds the **Draw dilemma** button,
+`data-testid="attempt-draw-dilemma"`, and beside it the count, `data-testid="attempt-drawn-count"`,
+"Drawn 3 of 9", which reads `Attempt.drawn` and N, `drawSpend` (#1191). Each tap is the counted
+choice-phase draw, and then the dilemma hand opens as its arc, if it is closed. The button is disabled
+only while the dilemma pile is empty; it never stops at N, and the count goes on past it, "Drawn 10 of
+9", in amber, with `data-over="true"`. The strip sits at the top, so the open arc never covers the
+button, and the arc's backdrop forwards a tap on the button to it (`passthroughZone` of `CardHand`, which
+falls back to a `data-testid`), so the player keeps drawing with the arc open. In `'face'` neither shows. The Download button of the dilemma pile stays the plain draw, which
+leaves `drawn` alone.
+
 Every drop target in the attempt layout keeps its id: `mission-on-<i>`, `mission-under-<i>`,
 `ship-row-<i>` and `crew-<id>` with `<i>` the mission's own slot index, and `dilemmaStack`. The mission
 row is not mounted during the attempt layout, so the targets of the other missions do not exist then:

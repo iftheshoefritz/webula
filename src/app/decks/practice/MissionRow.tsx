@@ -726,10 +726,11 @@ function PersonnelIcon() {
 }
 
 // A stack of face-down cards. Unused in this file since the dilemma stack moved out of the
-// mission slots (#733); exported for #630, which uses it for the new stack's own badge.
-export function DilemmaIcon() {
+// mission slots (#733); exported for #630, which uses it for the new stack's own badge, and for the
+// Draw dilemma button of the attempt strip (#1191), at a size of its own.
+export function DilemmaIcon({ className = 'w-2 h-2' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-2 h-2" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
       <rect x="3" y="9" width="14" height="10" rx="1.5" />
       <path d="M7 5.5A1.5 1.5 0 0 1 8.5 4h12A1.5 1.5 0 0 1 22 5.5v10a1.5 1.5 0 0 1-1.5 1.5H19V7.5A1.5 1.5 0 0 0 17.5 6H7z" />
     </svg>
