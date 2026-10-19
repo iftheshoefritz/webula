@@ -199,7 +199,7 @@ export default function AttemptLayout({
       <div
         ref={stripRef}
         data-testid="attempt-strip"
-        className="flex flex-row items-center gap-2 rounded bg-black/40 px-2 text-text-primary"
+        className="flex flex-row items-center gap-1 rounded bg-black/40 px-2 text-text-primary"
         style={{ height: ATTEMPT_STRIP_HEIGHT, marginLeft: ATTEMPT_STRIP_GUTTER }}
       >
         <span data-testid="attempt-status" className="min-w-0 truncate text-xs">
@@ -212,7 +212,7 @@ export default function AttemptLayout({
         {attempt.phase === 'choose' && (
           <AttemptDrawDilemma attempt={attempt} canDraw={canDrawDilemma} onDraw={onDrawDilemma} />
         )}
-        <div className="ml-auto flex shrink-0 flex-row gap-2">
+        <div className="ml-auto flex shrink-0 flex-row gap-1">
           {attempt.phase === 'choose' ? (
             <button
               type="button"
@@ -339,13 +339,13 @@ export function AttemptDrawDilemma({
   const n = drawSpend(attempt.personnel, attempt.subtract);
   const over = attempt.drawn > n;
   return (
-    <div className="flex shrink-0 flex-row items-center gap-2">
+    <div className="flex shrink-0 flex-row items-center gap-1">
       <button
         type="button"
         data-testid="attempt-draw-dilemma"
         onClick={onDraw}
         disabled={!canDraw}
-        className="btn-primary whitespace-nowrap flex items-center justify-center gap-1 !px-3 !py-1 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+        className="btn-primary whitespace-nowrap flex items-center justify-center gap-1 !px-2 !py-1 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <DilemmaIcon className="w-4 h-4" />
         Draw dilemma
