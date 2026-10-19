@@ -454,7 +454,15 @@ N; a plain draw from the dilemma pile leaves `drawn` alone. A dilemma that enter
 up in `'choose'` and face down at every other time. `setAttemptPhase` to `'face'` turns every stack
 card face down and sends every card of the dilemma hand to the bottom of the dilemma pile, face up,
 in hand order; to `'choose'` it turns the stack face up and moves no card. Each is one log entry. A
-save from before #1189 restores in `'face'` with `drawn` 0. No button switches the phase yet.
+save from before #1189 restores in `'face'` with `drawn` 0.
+
+The attempt strip holds the phase button, before View full table (#1192). In `'choose'` it is
+**Face dilemmas**, `data-testid="attempt-face-dilemmas"`: a tap is `setAttemptPhase` to `'face'`, so the
+stack turns face down and the dilemma hand goes to the bottom of the dilemma pile, face up, and it closes
+the dilemma hand's arc. In `'face'` it is **Back to choosing**, `data-testid="attempt-back-to-choosing"`:
+a tap is `setAttemptPhase` to `'choose'`, so the stack turns face up and the choice layout shows again;
+it leaves the dilemma hand as it is. The button group does not shrink, so on a narrow screen the status
+text gives way first.
 
 In `'choose'` the attempt layout draws the dilemma choice (#1190): the mission on the left at the
 facing phase's scale (`computeAttemptChoiceLayout` keeps the `missionScale` of `computeAttemptLayout`),

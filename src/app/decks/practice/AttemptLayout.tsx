@@ -31,7 +31,7 @@
 
 import { ReactNode } from 'react';
 import CountBadge from './CountBadge';
-import type { Attempt, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
+import type { Attempt, AttemptPhase, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
 import { drawSpend } from './drawSpend';
 import {
   MISSION_COLUMN_GAP,
@@ -73,6 +73,7 @@ export default function AttemptLayout({
   onShuffle,
   canDrawDilemma,
   onDrawDilemma,
+  onSetPhase,
 }: {
   attempt: Attempt;
   slot: MissionSlot;
@@ -102,6 +103,8 @@ export default function AttemptLayout({
   // The Draw dilemma button of the dilemma choice (#1191): false while the dilemma pile is empty.
   canDrawDilemma: boolean;
   onDrawDilemma: () => void;
+  // The phase button of the strip (#1192): Face dilemmas in the choice, Back to choosing in the facing.
+  onSetPhase: (phase: AttemptPhase) => void;
 }) {
   const { missionIndex } = attempt;
   const {
@@ -196,7 +199,7 @@ export default function AttemptLayout({
       <div
         ref={stripRef}
         data-testid="attempt-strip"
-        className="flex flex-row items-center gap-2 rounded bg-black/40 px-2 text-text-primary"
+        className="flex flex-row items-center gap-1 rounded bg-black/40 px-2 text-text-primary"
         style={{ height: ATTEMPT_STRIP_HEIGHT, marginLeft: ATTEMPT_STRIP_GUTTER }}
       >
         <span data-testid="attempt-status" className="min-w-0 truncate text-xs">
@@ -209,7 +212,26 @@ export default function AttemptLayout({
         {attempt.phase === 'choose' && (
           <AttemptDrawDilemma attempt={attempt} canDraw={canDrawDilemma} onDraw={onDrawDilemma} />
         )}
-        <div className="ml-auto flex flex-row gap-2">
+        <div className="ml-auto flex shrink-0 flex-row gap-1">
+          {attempt.phase === 'choose' ? (
+            <button
+              type="button"
+              data-testid="attempt-face-dilemmas"
+              onClick={() => onSetPhase('face')}
+              className="btn-primary whitespace-nowrap !px-2 !py-1 text-xs"
+            >
+              Face dilemmas
+            </button>
+          ) : (
+            <button
+              type="button"
+              data-testid="attempt-back-to-choosing"
+              onClick={() => onSetPhase('choose')}
+              className="btn-primary bg-none bg-white/[0.05] whitespace-nowrap !px-2 !py-1 text-xs"
+            >
+              Back to choosing
+            </button>
+          )}
           <button
             type="button"
             data-testid="attempt-view-full-table"
@@ -317,13 +339,13 @@ export function AttemptDrawDilemma({
   const n = drawSpend(attempt.personnel, attempt.subtract);
   const over = attempt.drawn > n;
   return (
-    <div className="flex shrink-0 flex-row items-center gap-2">
+    <div className="flex shrink-0 flex-row items-center gap-1">
       <button
         type="button"
         data-testid="attempt-draw-dilemma"
         onClick={onDraw}
         disabled={!canDraw}
-        className="btn-primary whitespace-nowrap flex items-center justify-center gap-1 !px-3 !py-1 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+        className="btn-primary whitespace-nowrap flex items-center justify-center gap-1 !px-2 !py-1 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <DilemmaIcon className="w-4 h-4" />
         Draw dilemma

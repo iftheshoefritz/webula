@@ -1812,6 +1812,13 @@ function PracticeDrawContent() {
     setOpenHand('dilemmaHand');
   };
 
+  // The phase button of the attempt strip (#1192). Facing the dilemmas sends the dilemma hand to the
+  // pile, so its arc closes too; going back to the choice leaves the hand as it is.
+  const setAttemptPhase = (phase: AttemptPhase) => {
+    dispatch({ type: 'setAttemptPhase', phase });
+    if (phase === 'face') setOpenHand(null);
+  };
+
   // Raises the turn counter by one and unstops every stopped personnel card on the table (#718).
   const nextTurn = () => {
     dispatch({ type: 'nextTurn' });
@@ -2607,6 +2614,7 @@ function PracticeDrawContent() {
                   onShuffle={(location) => dispatch({ type: 'shuffle', location })}
                   canDrawDilemma={dilemmaPile.length > 0}
                   onDrawDilemma={drawChoiceDilemma}
+                  onSetPhase={setAttemptPhase}
                   dilemmaStack={
                     table.attempt.phase === 'choose' ? (
                       <DilemmaStackFaceUp
