@@ -113,4 +113,24 @@ describe('Practice table: the Draw dilemma button (#1191)', () => {
     expect(screen.getByTestId('attempt-drawn-count')).toHaveAttribute('data-over', 'true');
     expect(button).toBeDisabled();
   });
+
+  it('draws again through the backdrop of the open dilemma hand, which stays open', async () => {
+    localStorage.setItem('currentDeck', JSON.stringify(mockDeck));
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    await enterAttempt(<PracticeDrawPage />, 0, { personnel: 2, phase: 'choose', drawn: 0 });
+    const button = screen.getByTestId('attempt-draw-dilemma');
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    // The backdrop covers the strip, so a real tap on the button lands on the backdrop, which
+    // forwards it to the button by its `data-testid`. jsdom has no layout, so the button gets a rect.
+    button.getBoundingClientRect = () => ({ left: 200, top: 20, right: 330, bottom: 50, width: 130, height: 30, x: 200, y: 20, toJSON: () => {} });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close dilemma hand' }), { clientX: 260, clientY: 35 });
+    });
+    expect(screen.getByTestId('attempt-drawn-count')).toHaveTextContent(/^Drawn 2 of 2$/);
+    expect(screen.getByTestId('dilemmaHand-arc')).toBeInTheDocument();
+  });
 });

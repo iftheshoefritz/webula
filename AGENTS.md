@@ -473,7 +473,8 @@ In `'choose'` the attempt strip also holds the **Draw dilemma** button,
 choice-phase draw, and then the dilemma hand opens as its arc, if it is closed. The button is disabled
 only while the dilemma pile is empty; it never stops at N, and the count goes on past it, "Drawn 10 of
 9", in amber, with `data-over="true"`. The strip sits at the top, so the open arc never covers the
-button. In `'face'` neither shows. The Download button of the dilemma pile stays the plain draw, which
+button, and the arc's backdrop forwards a tap on the button to it (`passthroughZone` of `CardHand`, which
+falls back to a `data-testid`), so the player keeps drawing with the arc open. In `'face'` neither shows. The Download button of the dilemma pile stays the plain draw, which
 leaves `drawn` alone.
 
 Every drop target in the attempt layout keeps its id: `mission-on-<i>`, `mission-under-<i>`,

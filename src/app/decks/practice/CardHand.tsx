@@ -195,7 +195,9 @@ export default function CardHand({
   // control's current bounding box, in order, and on the first hit forwards the tap to it
   // (`.click()`) instead of closing the hand — the control keeps its own click handling
   // (including its own `disabled` state) unchanged. A single string is also accepted for a
-  // caller with only one passthrough target.
+  // caller with only one passthrough target. A name no `data-zone` carries is looked up as a
+  // `data-testid` (#1191), for a control that is not a drop target, such as the Draw dilemma button
+  // of the attempt strip, so a player keeps drawing with the dilemma hand open.
   passthroughZone?: string | string[];
   // The width of an open fan card (#802), the viewer size `page.tsx` derives from the shared
   // `scale`. Defaults to that size at scale 1.
@@ -277,7 +279,9 @@ export default function CardHand({
         : [passthroughZone]
       : [];
     for (const zoneName of passthroughZones) {
-      const target = document.querySelector<HTMLElement>(`[data-zone="${zoneName}"]`);
+      const target =
+        document.querySelector<HTMLElement>(`[data-zone="${zoneName}"]`) ??
+        document.querySelector<HTMLElement>(`[data-testid="${zoneName}"]`);
       if (!target) continue;
       const rect = target.getBoundingClientRect();
       if (

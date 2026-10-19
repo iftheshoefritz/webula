@@ -2769,6 +2769,7 @@ function PracticeDrawContent() {
                         DRAW_PILE_BOTTOM_DROPPABLE_ID,
                         DILEMMA_PILE_TOP_DROPPABLE_ID,
                         DILEMMA_PILE_BOTTOM_DROPPABLE_ID,
+                        'attempt-draw-dilemma',
                       ]}
                       selectedIds={selectedCardIds}
                       onToggleSelect={toggleCardSelection}
@@ -2835,6 +2836,7 @@ function PracticeDrawContent() {
                       DRAW_PILE_BOTTOM_DROPPABLE_ID,
                       DILEMMA_PILE_TOP_DROPPABLE_ID,
                       DILEMMA_PILE_BOTTOM_DROPPABLE_ID,
+                      'attempt-draw-dilemma',
                     ]}
                     selectedIds={selectedCardIds}
                     onToggleSelect={toggleCardSelection}
