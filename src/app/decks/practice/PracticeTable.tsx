@@ -1136,6 +1136,7 @@ function DilemmaStackPile({
   scale,
   desktop,
   minHeight = 0,
+  maxHeight = Infinity,
 }: {
   stack: CardInstance[];
   onOpen: () => void;
@@ -1143,13 +1144,18 @@ function DilemmaStackPile({
   visible: boolean;
   scale: number;
   desktop: boolean;
-  // The attempt layout (#1164) makes the zone as tall as the attempted mission card.
+  // The attempt layout (#1164) makes the zone as tall as the attempted mission card, and never
+  // taller than the height its columns fit (#1203).
   minHeight?: number;
+  maxHeight?: number;
 }) {
   const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone();
   const cardWidth = DILEMMA_STACK_CARD_WIDTH * (desktop ? DILEMMA_STACK_DESKTOP_WIDTH_FACTOR : 1);
   const cardHeight = dilemmaStackCardHeight(cardWidth);
-  const height = Math.max(Math.round((TABLE_CARD_ART_HEIGHT + SMALL_CARD_ART_HEIGHT) * scale), desktop ? cardHeight : 0, minHeight);
+  const height = Math.min(
+    maxHeight,
+    Math.max(Math.round((TABLE_CARD_ART_HEIGHT + SMALL_CARD_ART_HEIGHT) * scale), desktop ? cardHeight : 0, minHeight),
+  );
   const count = stack.length;
   const topCard = stack[0];
   const revealed = topCard?.face === 'up';
@@ -2701,6 +2707,7 @@ function PracticeDrawContent() {
                       scale={attemptSizes.missionScale}
                       desktop={finePointer}
                       minHeight={missionCardHeight(attemptSizes.missionScale, true)}
+                      maxHeight={Math.floor(attemptSizes.columnHeight)}
                     />
                     )
                   }
