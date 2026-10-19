@@ -195,7 +195,7 @@ export default function AttemptLayout({
   const choiceBody = (
     <div
       data-testid="attempt-body"
-      className="flex flex-row justify-center items-start"
+      className="flex min-h-0 flex-row justify-center items-start overflow-y-clip"
       style={{ gap: ATTEMPT_GAP, paddingTop: underMissionStackRoom(missionScale, true) }}
     >
       {missionColumn}
@@ -236,7 +236,10 @@ export default function AttemptLayout({
   );
 
   return (
-    <div ref={layoutRef} data-testid="attempt-layout" className="flex flex-col" style={{ gap: ATTEMPT_GAP }}>
+    // `min-h-0` and the bodies' `overflow-y-clip` are a safety net (#1203): the sizes fit the height
+    // above the bottom row (`attemptColumnHeight`), and should a column still be too tall, the body
+    // clips it rather than push the bottom row off the screen.
+    <div ref={layoutRef} data-testid="attempt-layout" className="flex min-h-0 flex-col" style={{ gap: ATTEMPT_GAP }}>
       <div
         ref={stripRef}
         data-testid="attempt-strip"
@@ -295,7 +298,7 @@ export default function AttemptLayout({
       {attempt.phase === 'choose' ? choiceBody : (
       <div
         data-testid="attempt-body"
-        className="flex flex-row justify-center items-start"
+        className="flex min-h-0 flex-row justify-center items-start overflow-y-clip"
         style={{ gap: ATTEMPT_GAP, paddingTop: underMissionStackRoom(missionScale, true) }}
       >
         {missionColumn}
