@@ -8,6 +8,7 @@ import {
   AttemptLayoutSizes,
   DESKTOP_RESERVED_SHIP_ROWS,
   attemptMissionColumnHeight,
+  computeAttemptChoiceLayout,
   computeAttemptLayout,
   computeDesktopTableScale,
   computeShipRowCount,
@@ -25,8 +26,10 @@ import {
   missionCardHeight,
   missionColumnHeight,
   shipRowLineHeight,
+  underMissionStackRoom,
 } from '../../../app/decks/practice/MissionRow';
 import { offsetFor } from '../../../app/decks/practice/overlapOffset';
+import { fullCardHeight } from '../../../app/decks/practice/TableCard';
 
 // #630: the dilemma stack's own reserved column widens computeTableScale's width budget from 5
 // mission columns and 4 gaps to 6 columns (the stack's own) and 5 gaps.
@@ -372,5 +375,45 @@ describe('computeAttemptLayout (#1164)', () => {
     it('overlaps the cards in 1 row when 2 rows do not fit the height', () => {
       expect(attemptPersonnelLines(8, 40, 2000, 60)).toEqual({ rows: 1, firstRow: 8, width: 240 });
     });
+  });
+});
+
+// Issue #1190: the dilemma choice keeps the facing phase's mission scale and gives the stack in the
+// middle the width the personnel row takes in the facing phase.
+describe('computeAttemptChoiceLayout (#1190)', () => {
+  const touchColumn = (scale: number) => missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
+  const minTableScale = computeTableScale(MIN_SCREEN.width, MIN_SCREEN.height);
+  const tableHeight = 250;
+  const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+  const floor = attemptFloorScale(
+    computeTouchMissionScale(MIN_SCREEN.width, tableHeight, touchColumn, minTableScale),
+    available,
+    minTableScale,
+  );
+
+  it.each([
+    ['a planet mission with an away team of 20', 0, { count: 20, space: false }],
+    ['a space mission with 1 ship and a crew of 12', 1, { count: 12, space: true }],
+  ])('fits the minimum screen at %s, with the mission at the facing scale', (_name, ships, personnel) => {
+    const face = computeAttemptLayout(MIN_SCREEN.width, available, false, ships, floor, personnel);
+    const choice = computeAttemptChoiceLayout(MIN_SCREEN.width, available, false, ships, floor, face);
+    expect(choice.missionScale).toBe(face.missionScale);
+    const missionWidth = Math.round(72 * choice.missionScale);
+    // The padding, the menu gutter, the mission, the stack, the right column and the two gaps.
+    expect(32 + 20 + missionWidth + choice.stackWidth + choice.rightWidth + 2 * ATTEMPT_GAP).toBeLessThanOrEqual(
+      MIN_SCREEN.width,
+    );
+    expect(attemptMissionColumnHeight(choice.missionScale)).toBeLessThanOrEqual(available + 1);
+    // The pile and the rows of ships below it fit the height below the slivers' room.
+    const right =
+      fullCardHeight(choice.pileCardWidth) + 4 + choice.shipRows * shipRowLineHeight(choice.shipScale, false);
+    expect(right).toBeLessThanOrEqual(available - underMissionStackRoom(choice.missionScale, true));
+    // The stack is wider than the facing phase's fan, and its cards are as tall as the zone allows.
+    expect(choice.stackWidth).toBeGreaterThan(56);
+    expect(choice.stackCardWidth).toBeLessThanOrEqual(choice.stackWidth);
+    expect(fullCardHeight(choice.stackCardWidth)).toBeLessThanOrEqual(choice.stackHeight + 1);
+    expect(choice.stackHeight).toBe(missionCardHeight(choice.missionScale, true));
+    // 3 dilemmas sit edge to edge, every one readable.
+    expect(offsetFor(3, choice.stackCardWidth, choice.stackWidth, choice.stackCardWidth)).toBe(choice.stackCardWidth);
   });
 });

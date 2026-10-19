@@ -18,8 +18,15 @@
 // The row is a droppable of its own, `attempt-away-team-<i>` or `attempt-crew-<id>`. At a space
 // mission the away team badge sits outside the reach of the mission's bottom half, so a drop on it
 // lands on no droppable; a drop on the bottom half of the mission card still joins the away team.
+//
+// The dilemma choice (#1190, `attempt.phase === 'choose'`) draws a body of its own: the mission at
+// the same scale; the dilemma stack, face up and as wide as the width allows, in the middle; and on
+// the right the attempting personnel as one face-down pile with a count (`attempt-personnel-pile`),
+// above the ships, one to a row. The pile is not a drop target and previews nothing; the row of the
+// personnel, its buttons and its droppable are not mounted, nor is the away team badge.
 
 import { ReactNode } from 'react';
+import CountBadge from './CountBadge';
 import type { Attempt, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
 import { drawSpend } from './drawSpend';
 import {
@@ -33,8 +40,8 @@ import {
   missionPileDropId,
   underMissionStackRoom,
 } from './MissionRow';
-import { TABLE_CARD_WIDTH } from './TableCard';
-import { ATTEMPT_GAP, ATTEMPT_STRIP_GUTTER, ATTEMPT_STRIP_HEIGHT, AttemptLayoutSizes } from './tableScale';
+import { TABLE_CARD_WIDTH, cardBorderStyle } from './TableCard';
+import { ATTEMPT_GAP, ATTEMPT_STRIP_GUTTER, ATTEMPT_STRIP_HEIGHT, AttemptSizes } from './tableScale';
 import { cardDisplayName } from '../../../lib/cardCount';
 import AttemptPersonnelRow, { attemptAwayTeamDropId, attemptCrewDropId } from './AttemptPersonnelRow';
 
@@ -42,6 +49,7 @@ export default function AttemptLayout({
   attempt,
   slot,
   sizes,
+  personnelCount,
   desktop,
   dilemmaStack,
   layoutRef,
@@ -61,7 +69,10 @@ export default function AttemptLayout({
 }: {
   attempt: Attempt;
   slot: MissionSlot;
-  sizes: AttemptLayoutSizes;
+  sizes: AttemptSizes;
+  // The cards of the away team or of the attempting ship's crew: the count of the face-down pile
+  // of the dilemma choice (#1190).
+  personnelCount: number;
   desktop: boolean;
   // The dilemma stack, sized by the caller, which owns it on the normal table too.
   dilemmaStack: ReactNode;
@@ -97,6 +108,22 @@ export default function AttemptLayout({
   const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
   const missionName = slot.mission ? cardDisplayName(slot.mission.card) : 'Mission';
   const ship = attempt.shipId ? slot.ships.find((s) => s.id === attempt.shipId) : undefined;
+  const missionColumn = (
+    <div className="flex flex-col items-center" style={{ width: missionWidth, gap: MISSION_COLUMN_GAP }}>
+      <MissionCard
+        missionIndex={missionIndex}
+        slot={slot}
+        onOpenPile={onOpenPile}
+        onOpenPlacedOn={onOpenPlacedOn}
+        onFlipMission={onFlipMission}
+        onSetMissionCompleted={onSetMissionCompleted}
+        scale={missionScale}
+        uncropped
+        slotWidth={missionWidth}
+        showAwayTeam={false}
+      />
+    </div>
+  );
   const ships = (
     <ShipRow
       missionIndex={missionIndex}
@@ -108,6 +135,50 @@ export default function AttemptLayout({
       availableRows={shipRows}
       desktop={desktop}
     />
+  );
+
+  const { choice } = sizes;
+  const choiceBody = (
+    <div
+      data-testid="attempt-body"
+      className="flex flex-row justify-center items-start"
+      style={{ gap: ATTEMPT_GAP, paddingTop: underMissionStackRoom(missionScale, true) }}
+    >
+      {missionColumn}
+      {dilemmaStack}
+      <div
+        data-testid="attempt-ships"
+        className="flex flex-col items-center"
+        style={{ width: choice.rightWidth, gap: MISSION_COLUMN_GAP }}
+      >
+        <div
+          data-testid="attempt-personnel-pile"
+          aria-label={`Attempting personnel, ${personnelCount} card${personnelCount === 1 ? '' : 's'}`}
+          className="relative"
+          style={{ width: choice.pileCardWidth }}
+        >
+          <img
+            src="/cardimages/cardback.jpg"
+            width={120}
+            height={167}
+            alt=""
+            className="pointer-events-none rounded-lg shadow-lg h-auto"
+            style={{ ...cardBorderStyle(choice.pileCardWidth), width: choice.pileCardWidth }}
+          />
+          <CountBadge count={personnelCount} />
+        </div>
+        <ShipRow
+          missionIndex={missionIndex}
+          ships={slot.ships}
+          onShipClick={onShipClick}
+          onOpenShipRow={onOpenShipRow}
+          columnWidth={choice.rightWidth}
+          scale={choice.shipScale}
+          availableRows={choice.shipRows}
+          desktop={desktop}
+        />
+      </div>
+    </div>
   );
 
   return (
@@ -145,25 +216,13 @@ export default function AttemptLayout({
         </div>
       </div>
 
+      {attempt.phase === 'choose' ? choiceBody : (
       <div
         data-testid="attempt-body"
         className="flex flex-row justify-center items-start"
         style={{ gap: ATTEMPT_GAP, paddingTop: underMissionStackRoom(missionScale, true) }}
       >
-        <div className="flex flex-col items-center" style={{ width: missionWidth, gap: MISSION_COLUMN_GAP }}>
-          <MissionCard
-            missionIndex={missionIndex}
-            slot={slot}
-            onOpenPile={onOpenPile}
-            onOpenPlacedOn={onOpenPlacedOn}
-            onFlipMission={onFlipMission}
-            onSetMissionCompleted={onSetMissionCompleted}
-            scale={missionScale}
-            uncropped
-            slotWidth={missionWidth}
-            showAwayTeam={false}
-          />
-        </div>
+        {missionColumn}
         <div
           data-testid="attempt-ships"
           className="flex flex-col items-center"
@@ -224,6 +283,7 @@ export default function AttemptLayout({
         </div>
         {dilemmaStack}
       </div>
+      )}
     </div>
   );
 }

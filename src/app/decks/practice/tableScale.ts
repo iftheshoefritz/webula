@@ -493,10 +493,78 @@ export function computeAttemptLayout(
   };
 }
 
+// Issue #1190: the layout of the dilemma choice (`Attempt.phase === 'choose'`, #1189). Left to
+// right: the mission, at exactly the facing phase's scale, so it does not move when the phase
+// changes; the dilemma stack, face up, every card readable; and a right column with the attempting
+// personnel as one face-down pile, above the ships of the mission's ship row, one ship wide. The
+// stack takes the width the personnel row and the narrow facing stack take in the facing phase.
+export interface AttemptChoiceSizes {
+  // The scale of the mission card: the facing phase's `missionScale`.
+  missionScale: number;
+  // The face-up stack: the zone's width and height, and the width of one whole card in it. The
+  // cards sit edge to edge while they fit, and overlap past that.
+  stackWidth: number;
+  stackHeight: number;
+  stackCardWidth: number;
+  // The right column: its width, the width of the face-down pile, and the ships below it.
+  rightWidth: number;
+  pileCardWidth: number;
+  shipScale: number;
+  shipRows: number;
+}
+
+// Pure, like `computeAttemptLayout`, with the same inputs, and the facing sizes for them, whose
+// `missionScale` it keeps.
+export function computeAttemptChoiceLayout(
+  gameLayerWidth: number,
+  availableHeight: number,
+  desktop: boolean,
+  shipCount: number,
+  floorScale: number,
+  face: AttemptLayoutSizes,
+): AttemptChoiceSizes {
+  const floor = Math.max(1, floorScale);
+  const { missionScale } = face;
+  const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
+  const availableWidth = gameLayerWidth - CONTENT_PADDING - MENU_BUTTON_GUTTER - 2 * ATTEMPT_GAP;
+  // The body's top padding, room for the slivers above the mission, is above every column.
+  const columnHeight = availableHeight - underMissionStackRoom(missionScale, true);
+
+  // The right column: the pile, as wide as a ship at the floor scale, less when one line of ships
+  // below it would not fit the height; then the ships, one to a row, in the rows that fit.
+  const shipLine = shipRowLineHeight(floor, desktop);
+  const pileCardWidth = Math.max(
+    1,
+    Math.min(shipCardWidth(floor), Math.floor((Math.max(0, columnHeight - MISSION_COLUMN_GAP - shipLine) * 120) / 167)),
+  );
+  const rightWidth = Math.max(pileCardWidth, shipRowWidth(floor, 1));
+  const shipsFree = columnHeight - fullCardHeight(pileCardWidth) - MISSION_COLUMN_GAP;
+  const rowsFitting = Math.max(1, Math.floor((shipsFree + SHIP_ROW_GAP) / (shipLine + SHIP_ROW_GAP)));
+  const rowsNeeded = Math.max(1, Math.ceil(shipCount / shipsPerRow(floor, rightWidth)));
+
+  // The stack: every width the mission and the right column leave, as tall as the mission card.
+  const stackWidth = Math.max(1, Math.floor(availableWidth - missionWidth - rightWidth));
+  const stackHeight = missionCardHeight(missionScale, true);
+  const stackCardWidth = Math.max(1, Math.min(stackWidth, Math.floor((stackHeight * 120) / 167)));
+  return {
+    missionScale,
+    stackWidth,
+    stackHeight,
+    stackCardWidth,
+    rightWidth,
+    pileCardWidth,
+    shipScale: floor,
+    shipRows: Math.min(rowsNeeded, rowsFitting),
+  };
+}
+
 // Measures the attempt layout with a `ResizeObserver`, the same way `useMissionScale` measures the
 // mission row: the available height runs from the bottom of the strip to the top of the bottom row.
 // The floor is the scale the mission row would draw at in the same space, from the top of the
-// layout. Before the elements mount, and in jsdom, it returns the sizes at `scale`.
+// layout. Before the elements mount, and in jsdom, it returns the sizes at `scale`. It returns the
+// sizes of both phases (#1190), so a change of phase needs no new measure.
+export type AttemptSizes = AttemptLayoutSizes & { choice: AttemptChoiceSizes };
+
 export function useAttemptLayout(
   desktop: boolean,
   scale: number,
@@ -508,8 +576,8 @@ export function useAttemptLayout(
   personnel: AttemptPersonnel | undefined,
   desktopColumnHeight: (scale: number) => number,
   touchColumnHeight: (scale: number) => number,
-): AttemptLayoutSizes {
-  const [sizes, setSizes] = useState<AttemptLayoutSizes | null>(null);
+): AttemptSizes {
+  const [sizes, setSizes] = useState<AttemptSizes | null>(null);
   const personnelCount = personnel?.count;
   const personnelSpace = personnel?.space;
 
@@ -530,7 +598,9 @@ export function useAttemptLayout(
         : computeTouchMissionScale(gameLayer.clientWidth, tableHeight, touchColumnHeight, scale);
       const availableHeight = bodyBottom - strip.getBoundingClientRect().bottom - ATTEMPT_GAP;
       const floor = attemptFloorScale(missionScale, availableHeight, desktop ? 1 : scale);
-      setSizes(computeAttemptLayout(gameLayer.clientWidth, availableHeight, desktop, shipCount, floor, personnel));
+      const face = computeAttemptLayout(gameLayer.clientWidth, availableHeight, desktop, shipCount, floor, personnel);
+      const choice = computeAttemptChoiceLayout(gameLayer.clientWidth, availableHeight, desktop, shipCount, floor, face);
+      setSizes({ ...face, choice });
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -562,6 +632,8 @@ export function useAttemptLayout(
   const personnelWidth = fallbackLines.width;
   const shipRowsWidth = personnel?.space ? Math.round(TABLE_CARD_WIDTH * scale) : Math.max(shipRowWidth(scale, 2), personnelWidth);
   const shipsWidth = personnel?.space ? shipRowsWidth + ATTEMPT_GAP + personnelWidth : shipRowsWidth;
+  const stackHeight = missionCardHeight(scale, true);
+  const stackCardWidth = Math.floor((stackHeight * 120) / 167);
   return {
     missionScale: scale,
     shipScale: scale,
@@ -572,5 +644,15 @@ export function useAttemptLayout(
     personnelRows: fallbackLines.rows,
     personnelFirstRow: fallbackLines.firstRow,
     personnelWidth,
+    choice: {
+      missionScale: scale,
+      stackWidth: 3 * stackCardWidth,
+      stackHeight,
+      stackCardWidth,
+      rightWidth: shipRowWidth(scale, 1),
+      pileCardWidth: cardWidth,
+      shipScale: scale,
+      shipRows: 1,
+    },
   };
 }
