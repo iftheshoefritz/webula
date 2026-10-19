@@ -70,6 +70,19 @@ export function cardBorderStyle(cardWidth: number): CSSProperties {
   const border = cardBorderWidth(cardWidth);
   return { outline: `${border}px solid black`, outlineOffset: -border };
 }
+// The frame trim of a mission's touch crop (#1175). The image prints a black frame 17 px wide on its
+// 357 px width, on the top and both sides (measured on the mission images: 16 to 18 px), thicker
+// than the border. The crop draws the image larger than its box, so that the box's edges cut the
+// printed frame down to the border's thickness, and shifts it up and left by the same amount, so
+// that exactly `cardBorderWidth` of black shows on the top and both sides, all of it under the
+// border. The bottom of the box cuts the image below its art as before, under the same border.
+export const MISSION_IMAGE_FRAME_SHARE = 17 / 357; // of the image's width
+export function missionCropImage(cardWidth: number): { imageWidth: number; shift: number } {
+  const border = cardBorderWidth(cardWidth);
+  const imageWidth = (cardWidth - 2 * border) / (1 - 2 * MISSION_IMAGE_FRAME_SHARE);
+  return { imageWidth, shift: imageWidth * MISSION_IMAGE_FRAME_SHARE - border };
+}
+
 // The border of a card that is 56 px wide (`w-14`), the card of a pile and of a drag.
 export const PILE_CARD_BORDER_STYLE = cardBorderStyle(56);
 
@@ -95,6 +108,7 @@ export default function TableCard({
   turnedScale,
   turnable = false,
   showFace = false,
+  trimFrame = false,
 }: {
   instance: CardInstance;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
@@ -122,6 +136,9 @@ export default function TableCard({
   // Draws a face-down card face up, as the away team panel does (#964): the row of the attempting
   // personnel (#1165) shows the away team, which is stored face down, to its owner.
   showFace?: boolean;
+  // Trims the printed frame out of the crop, so its border is one thickness all round (#1175). Only
+  // the touch crop of a mission sets it (`missionCropImage`).
+  trimFrame?: boolean;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down' && !showFace;
@@ -161,6 +178,7 @@ export default function TableCard({
         uncropped={uncropped}
         completed={completed}
         showFace={showFace}
+        trimFrame={trimFrame && !uncropped}
       />
     </button>
   );
@@ -177,6 +195,7 @@ export function TableCardImage({
   completed = false,
   className = 'rounded-md',
   showFace = false,
+  trimFrame = false,
 }: {
   instance: CardInstance;
   width: number;
@@ -185,16 +204,42 @@ export function TableCardImage({
   completed?: boolean;
   className?: string;
   showFace?: boolean;
+  trimFrame?: boolean;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down' && !showFace;
+  const looks = `${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`;
+  const src = isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance);
+  const alt = isFaceDown ? 'Face-down card' : cardDisplayName(card);
+  if (trimFrame) {
+    // The image is larger than the box, which clips it, so the border lies on the box's edges, over
+    // the image, as an overlay of its own.
+    const { imageWidth, shift } = missionCropImage(width);
+    return (
+      <div className="relative w-full" style={{ height }}>
+        <div className={`relative w-full h-full overflow-hidden bg-black/20 ${className}`}>
+          <img
+            src={src}
+            alt={alt}
+            className={`absolute max-w-none h-auto ${looks}`}
+            style={{ ...NO_CALLOUT_STYLE, width: imageWidth, left: -shift, top: -shift }}
+          />
+          <div
+            data-testid="card-border"
+            className={`absolute inset-0 pointer-events-none ${className}`}
+            style={{ border: `${cardBorderWidth(width)}px solid black` }}
+          />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="relative w-full" style={{ height }}>
       <div className={`w-full h-full overflow-hidden bg-black/20 ${className}`}>
         <img
-          src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
-          alt={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
-          className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+          src={src}
+          alt={alt}
+          className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${looks}`}
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
         />
       </div>

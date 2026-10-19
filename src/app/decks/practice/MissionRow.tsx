@@ -93,6 +93,7 @@ import TableCard, {
   COMPLETED_IMAGE_CLASSNAME,
   cardBorderWidth,
   fullCardHeight,
+  missionCropImage,
 } from './TableCard';
 import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
@@ -385,23 +386,30 @@ export function placedOnStripLayout(scale: number): {
 // span in the gap of that row. The card prints the span as a black disc with a silver ring on a
 // black backing, which breaks a rail of brushed-silver bars. The crop builds the row the same way,
 // on the line the card already draws there: the quadrant icon and the point box are centred on one
-// line (y 283.5 of the 357x499 image), and the grey requirements box starts on that line and runs
-// up to the chrome of both (28.5 px in radius, centred 37.5 px in from either edge). So the span is
-// centred on that line, the rail runs along it from the chrome of one to the chrome of the other,
-// and a grey plate fills under the rail down to the card's border. Both ends are cut on the chrome
-// itself, so no art shows between them on either side, whatever the art (#1140).
+// line (y 285 of the 357x499 image: their chrome runs from y 255 to 315, measured on the mission
+// images, #1175), and the grey requirements box starts near that line and runs up to the chrome of
+// both (28.5 px in radius, centred 37.5 px in from either edge). So the span is centred on that
+// line, the rail runs along it from the chrome of one to the chrome of the other, and a grey plate
+// fills under the rail down to the card's border. Both ends are cut on the chrome itself, so no art
+// shows between them on either side, whatever the art (#1140).
+//
+// The crop draws the image larger than the card and shifted up and left, to trim its printed frame
+// (`missionCropImage`, #1175), so every share below is of the image as drawn, and is measured from
+// its edge, not the card's.
 //
 // The span is as large as the quadrant icon and the point box, 57 px across to the outer edge of
 // their chrome (#1141), though the card prints it 44 px across. Its numeral grows with it: 19 px on
-// the printed 44 px disc, so 19/44 of the disc (the owner's call on #1141). A desktop shows the
-// whole card, printed span included, so it draws none.
-const MISSION_SPAN_AXIS_SHARE = 283.5 / 499; // of the full card height
-const MISSION_SPAN_CHROME_X = 37.5 / 357; // of the card width, from either edge
-const MISSION_SPAN_CHROME_RADIUS = 28.5 / 357; // of the card width
-const MISSION_SPAN_BACKING = 2 * MISSION_SPAN_CHROME_RADIUS; // of the card width
-const MISSION_SPAN_BACKING_EDGE = 4 / 357; // of the card width: the black between the ring and the bars
+// the printed 44 px disc, so 19/44 of the disc (the owner's call on #1141). The chrome reaches past
+// the inner edge of the card's bottom border, which covers it, and the disc does too, so the span is
+// cut at that edge, as the chrome is. A desktop shows the whole card, printed span included, so it
+// draws none.
+const MISSION_SPAN_AXIS_SHARE = 285 / 357; // of the drawn image's width
+const MISSION_SPAN_CHROME_X = 37.5 / 357; // of the drawn image's width, from either edge
+const MISSION_SPAN_CHROME_RADIUS = 28.5 / 357; // of the drawn image's width
+const MISSION_SPAN_BACKING = 2 * MISSION_SPAN_CHROME_RADIUS; // of the drawn image's width
+const MISSION_SPAN_BACKING_EDGE = 4 / 357; // of the drawn image's width: the black between the ring and the bars
 const MISSION_SPAN_NUMERAL = 19 / 44; // of the backing's diameter, as the card prints it
-const MISSION_SPAN_RAIL = 18 / 357; // of the card width
+const MISSION_SPAN_RAIL = 18 / 357; // of the drawn image's width
 // The height of a digit of the numeral's font, as a share of its font size, measured in Chromium.
 const MISSION_SPAN_DIGIT_EM = 0.78;
 
@@ -423,22 +431,25 @@ export function missionSpanLayout(scale: number): {
   plateBottom: number;
 } {
   const width = scaled(TABLE_CARD_WIDTH, scale);
-  const axisOnCard = fullCardHeight(width) * MISSION_SPAN_AXIS_SHARE;
+  const { imageWidth, shift } = missionCropImage(width);
+  const axisOnCard = imageWidth * MISSION_SPAN_AXIS_SHARE - shift;
   // The disc sits on whole pixels, and as far as the card's width allows, on its centre, so the
   // ring and the numeral do not blur against each other.
-  const backing = width - 2 * Math.round((width - width * MISSION_SPAN_BACKING) / 2);
-  const ring = backing - 2 * Math.max(1, Math.round(width * MISSION_SPAN_BACKING_EDGE));
+  const backing = width - 2 * Math.round((width - imageWidth * MISSION_SPAN_BACKING) / 2);
+  const ring = backing - 2 * Math.max(1, Math.round(imageWidth * MISSION_SPAN_BACKING_EDGE));
   const top = Math.round(axisOnCard - backing / 2);
   // The card's border is an outline over the image. The plate reaches half a pixel into it, which
   // covers the image when the strips sit half a pixel above the card.
   const borderTop = scaled(TABLE_CARD_ART_HEIGHT, scale) - cardBorderWidth(width);
   const plateBottom = borderTop + 0.5 - top;
   const numeral = backing * MISSION_SPAN_NUMERAL;
-  const bandLeft = width * MISSION_SPAN_CHROME_X;
+  // The image is shifted as far left as up, so the chrome is as far in from either edge of the card.
+  const bandLeft = imageWidth * MISSION_SPAN_CHROME_X - shift;
   return {
     top,
     width,
-    height: Math.max(backing, plateBottom),
+    // The span ends where the plate does, half a pixel into the border, and cuts the disc there.
+    height: plateBottom,
     axis: axisOnCard - top,
     backing,
     backingLeft: (width - backing) / 2,
@@ -447,10 +458,10 @@ export function missionSpanLayout(scale: number): {
     numeral,
     fontSize: Math.round((numeral / MISSION_SPAN_DIGIT_EM) * 10) / 10,
     // As the backing, so the rail's edges fall on whole pixels too.
-    rail: backing - 2 * Math.round((backing - width * MISSION_SPAN_RAIL) / 2),
+    rail: backing - 2 * Math.round((backing - imageWidth * MISSION_SPAN_RAIL) / 2),
     bandLeft,
     bandWidth: width - 2 * bandLeft,
-    chromeRadius: width * MISSION_SPAN_CHROME_RADIUS,
+    chromeRadius: imageWidth * MISSION_SPAN_CHROME_RADIUS,
     plateBottom,
   };
 }
@@ -507,7 +518,7 @@ function MissionSpan({
       data-testid={`mission-span-${missionIndex}`}
       role="img"
       aria-label={`Span ${span}`}
-      className={`absolute left-0 pointer-events-none ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+      className={`absolute left-0 overflow-hidden pointer-events-none ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
       style={{ top, width, height }}
     >
       <div
@@ -1387,6 +1398,7 @@ export function MissionCard({
                 width={cardWidth}
                 artHeight={cardArtHeight}
                 uncropped={uncropped}
+                trimFrame
                 completed={completed}
                 turnedScale={completed ? turnedScale : undefined}
                 turnable

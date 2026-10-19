@@ -963,18 +963,28 @@ describe('MissionRow: the span on the cropped mission card (#1133)', () => {
 });
 
 describe('missionSpanLayout (#1133)', () => {
-  const SCALES = [1, 375 / 320, 97 / 72, 2.4];
+  const SCALES = [1, 375 / 320, 105 / 72, 97 / 72, 2.4];
   const card = (scale: number) => {
     const width = Math.round(72 * scale);
-    return { width, fullHeight: Math.round((width * 167) / 120), artHeight: Math.round(64 * scale) };
+    const border = Math.max(2, Math.round((width * 6) / 240));
+    // The crop draws the image larger and shifted, to trim its printed frame, 17 px of its 357 (#1175).
+    const imageWidth = (width - 2 * border) / (1 - (2 * 17) / 357);
+    return {
+      width,
+      border,
+      imageWidth,
+      shift: (imageWidth * 17) / 357 - border,
+      fullHeight: Math.round((width * 167) / 120),
+      artHeight: Math.round(64 * scale),
+    };
   };
 
-  it.each(SCALES)('centres the disc on the line of the quadrant icon and the point box at scale %s (#1140)', (scale) => {
+  it.each(SCALES)('centres the disc on the line of the quadrant icon and the point box at scale %s (#1140, #1175)', (scale) => {
     const { top, width, axis, backing, backingLeft, ring, rim } = missionSpanLayout(scale);
-    const { width: cardWidth, fullHeight } = card(scale);
+    const { width: cardWidth, imageWidth, shift } = card(scale);
     expect(width).toBe(cardWidth);
-    // Both are centred at y 283.5 of the 499 px tall image.
-    expect(top + axis).toBeCloseTo(fullHeight * (283.5 / 499), 5);
+    // Both are centred at y 285 of the 357x499 image, in the image as the crop draws it.
+    expect(top + axis).toBeCloseTo((imageWidth * 285) / 357 - shift, 5);
     // The disc is on whole pixels, centred across the card, and within half a pixel of that line.
     expect(Number.isInteger(top)).toBe(true);
     expect(Number.isInteger(backingLeft)).toBe(true);
@@ -988,38 +998,34 @@ describe('missionSpanLayout (#1133)', () => {
 
   it.each(SCALES)('draws the disc as large as the quadrant icon and the point box at scale %s (#1141)', (scale) => {
     const { backing } = missionSpanLayout(scale);
-    const { width: cardWidth } = card(scale);
+    const { imageWidth } = card(scale);
     // 57 px across on the 357 px wide image, the outer edge of their chrome, to the nearest 2 px.
-    expect(Math.abs(backing - (cardWidth * 57) / 357)).toBeLessThanOrEqual(1);
+    expect(Math.abs(backing - (imageWidth * 57) / 357)).toBeLessThanOrEqual(1);
   });
 
   it.each(SCALES)('runs the rail and the plate from the chrome of one to the chrome of the other at scale %s (#1140)', (scale) => {
     const { bandLeft, bandWidth, chromeRadius } = missionSpanLayout(scale);
-    const { width: cardWidth } = card(scale);
+    const { imageWidth, shift } = card(scale);
     // From the centre of the quadrant icon (x 37.5 of 357) to the centre of the point box (x 319.5),
     // with both cut at the chrome, 28.5 px in radius, the same on both sides.
-    expect(bandLeft).toBeCloseTo((cardWidth * 37.5) / 357, 5);
-    expect(bandLeft + bandWidth).toBeCloseTo((cardWidth * 319.5) / 357, 5);
-    expect(chromeRadius).toBeCloseTo((cardWidth * 28.5) / 357, 5);
+    expect(bandLeft).toBeCloseTo((imageWidth * 37.5) / 357 - shift, 5);
+    expect(bandLeft + bandWidth).toBeCloseTo((imageWidth * 319.5) / 357 - shift, 5);
+    expect(chromeRadius).toBeCloseTo((imageWidth * 28.5) / 357, 5);
   });
 
-  it.each(SCALES)('fills the plate down to the card\'s border at scale %s (#1140)', (scale) => {
-    const { top, height, backing, plateBottom } = missionSpanLayout(scale);
-    const { width: cardWidth, fullHeight, artHeight } = card(scale);
+  it.each(SCALES)('fills the plate down to the card\'s border and cuts the disc there at scale %s (#1140, #1175)', (scale) => {
+    const { top, height, plateBottom } = missionSpanLayout(scale);
+    const { artHeight, border } = card(scale);
     // The black border is 6 of 240 of the card width, at least 2 px. The plate reaches half a pixel
-    // into it. The disc ends level with the chrome of the two circles (y 312 of 499), which can
-    // reach into the border, and inside the crop (#1141).
-    const borderTop = artHeight - Math.max(2, Math.round((cardWidth * 6) / 240));
-    expect(top + plateBottom).toBe(borderTop + 0.5);
-    expect(height).toBe(Math.max(backing, plateBottom));
-    expect(Math.abs(top + backing - (fullHeight * 312) / 499)).toBeLessThanOrEqual(1);
-    expect(top + backing).toBeLessThanOrEqual(artHeight);
+    // into it, and the span ends there, so the border covers the disc as it covers the chrome.
+    expect(top + plateBottom).toBe(artHeight - border + 0.5);
+    expect(height).toBe(plateBottom);
   });
 
   it.each(SCALES)('draws a rail of about the printed height on whole pixels at scale %s (#1140)', (scale) => {
     const { rail, backing } = missionSpanLayout(scale);
-    const { width: cardWidth } = card(scale);
-    expect(Math.abs(rail - (cardWidth * 18) / 357)).toBeLessThanOrEqual(1);
+    const { imageWidth } = card(scale);
+    expect(Math.abs(rail - (imageWidth * 18) / 357)).toBeLessThanOrEqual(1);
     expect(Number.isInteger((backing - rail) / 2)).toBe(true);
   });
 

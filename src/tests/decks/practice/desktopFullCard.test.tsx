@@ -11,7 +11,7 @@ import MissionRow, {
   shipRowLineHeight,
   underMissionHeadroom,
 } from '../../../app/decks/practice/MissionRow';
-import { fullCardHeight } from '../../../app/decks/practice/TableCard';
+import { fullCardHeight, missionCropImage } from '../../../app/decks/practice/TableCard';
 import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableReducer';
 
 // #992: on a desktop the missions, the dilemmas under them, and the ships show the whole card.
@@ -53,7 +53,9 @@ describe('MissionRow on a desktop (#992)', () => {
 
   it('keeps the art crop on a touch screen', () => {
     renderRow();
-    for (const id of ['m1', 'd1', 's1']) expect(imageOf(id)).toHaveClass('object-cover', 'object-top');
+    for (const id of ['d1', 's1']) expect(imageOf(id)).toHaveClass('object-cover', 'object-top');
+    // The mission's crop draws its image larger, to trim the printed frame (#1175).
+    expect(imageOf('m1').style.width).toBe(`${missionCropImage(72).imageWidth}px`);
     expect(boxOf('m1').style.height).toBe('64px');
     expect(boxOf('s1').style.height).toBe('32px');
   });
