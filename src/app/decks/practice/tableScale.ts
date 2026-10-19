@@ -19,7 +19,7 @@
 
 import { useEffect, useState } from 'react';
 import { MISSION_SLOTS } from './tableReducer';
-import { TABLE_CARD_WIDTH, fullCardHeight } from './TableCard';
+import { TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH, fullCardHeight } from './TableCard';
 import {
   MISSION_COLUMN_GAP,
   SHIP_ROW_GAP,
@@ -295,6 +295,43 @@ export interface AttemptLayoutSizes {
   personnelRows: number;
   personnelFirstRow: number;
   personnelWidth: number;
+  // The column of the cards placed on the mission (#1180), right of the mission card, or 0 with
+  // nothing placed on it.
+  placedOnWidth: number;
+}
+
+// Issue #1180: in the attempt layout the cards placed on the attempted mission show in a column to
+// the right of the mission card, as tall as the card: the dilemmas in a block above, the events in
+// a block below, each card as the art crop of a table card as wide as the column. It is as wide as
+// a ship at the floor scale, and takes its width from the middle column's slack first.
+export const ATTEMPT_PLACED_ON_BLOCK_GAP = 4; // px, between the two blocks
+export const attemptPlacedOnWidth = (floor: number): number => shipCardWidth(floor);
+
+export interface AttemptPlacedOnBlock {
+  // The block's height, the height of one art crop, and the step from one card's top to the next.
+  height: number;
+  cardHeight: number;
+  step: number;
+}
+
+// The blocks of the column, `height` tall with cards `cardWidth` wide: a group with cards gets the
+// whole height when the other has none, and half of it, less half the gap, when both have cards.
+// Every card shows, in `placedOn` order, overlapped to fit: the step never exceeds a card's height.
+export function attemptPlacedOnBlocks(
+  dilemmaCount: number,
+  eventCount: number,
+  height: number,
+  cardWidth: number,
+): { dilemmas: AttemptPlacedOnBlock | null; events: AttemptPlacedOnBlock | null } {
+  const both = dilemmaCount > 0 && eventCount > 0;
+  const blockHeight = Math.max(1, Math.floor(both ? (height - ATTEMPT_PLACED_ON_BLOCK_GAP) / 2 : height));
+  const block = (count: number): AttemptPlacedOnBlock | null => {
+    if (count === 0) return null;
+    const cardHeight = Math.max(1, Math.min(blockHeight, Math.round((cardWidth * TABLE_CARD_ART_HEIGHT) / TABLE_CARD_WIDTH)));
+    const step = count > 1 ? Math.min(cardHeight, Math.floor((blockHeight - cardHeight) / (count - 1))) : 0;
+    return { height: blockHeight, cardHeight, step };
+  };
+  return { dilemmas: block(dilemmaCount), events: block(eventCount) };
 }
 
 // Issue #1165: the attempting personnel show as a row of whole cards, the away team at a planet
@@ -385,10 +422,21 @@ export function computeAttemptLayout(
   shipCount: number,
   floorScale: number,
   personnel?: AttemptPersonnel,
+  placedOn = false,
 ): AttemptLayoutSizes {
   const floor = Math.max(1, floorScale);
   const dilemmaStackWidth = DILEMMA_STACK_CARD_WIDTH * (desktop ? DILEMMA_STACK_DESKTOP_WIDTH_FACTOR : 1);
-  const availableWidth = gameLayerWidth - CONTENT_PADDING - MENU_BUTTON_GUTTER - 2 * ATTEMPT_GAP - dilemmaStackWidth;
+  // The column of the placed cards (#1180) and its gap come off the width first. The mission is
+  // bounded by the height or by the width, whichever is less, so this takes the middle column's
+  // slack, and shrinks the mission, never below the floor, only when the slack runs out.
+  const placedOnWidth = placedOn ? attemptPlacedOnWidth(floor) : 0;
+  const availableWidth =
+    gameLayerWidth -
+    CONTENT_PADDING -
+    MENU_BUTTON_GUTTER -
+    2 * ATTEMPT_GAP -
+    dilemmaStackWidth -
+    (placedOnWidth > 0 ? placedOnWidth + ATTEMPT_GAP : 0);
   const minShipsWidth = shipRowWidth(floor, 2);
   const space = personnel?.space ?? false;
   const count = personnel?.count ?? 0;
@@ -490,6 +538,7 @@ export function computeAttemptLayout(
     personnelRows,
     personnelFirstRow: lines.firstRow,
     personnelWidth,
+    placedOnWidth,
   };
 }
 
@@ -526,7 +575,9 @@ export function computeAttemptChoiceLayout(
   const floor = Math.max(1, floorScale);
   const { missionScale } = face;
   const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
-  const availableWidth = gameLayerWidth - CONTENT_PADDING - MENU_BUTTON_GUTTER - 2 * ATTEMPT_GAP;
+  // The column of the placed cards (#1180) keeps the facing phase's width, and the stack gives it up.
+  const placedOnRoom = face.placedOnWidth > 0 ? face.placedOnWidth + ATTEMPT_GAP : 0;
+  const availableWidth = gameLayerWidth - CONTENT_PADDING - MENU_BUTTON_GUTTER - 2 * ATTEMPT_GAP - placedOnRoom;
   // The body's top padding, room for the slivers above the mission, is above every column.
   const columnHeight = availableHeight - underMissionStackRoom(missionScale, true);
 
@@ -574,6 +625,8 @@ export function useAttemptLayout(
   bottomRow: HTMLElement | null,
   shipCount: number,
   personnel: AttemptPersonnel | undefined,
+  // Whether any card is placed on the attempted mission, which gives it the column (#1180).
+  placedOn: boolean,
   desktopColumnHeight: (scale: number) => number,
   touchColumnHeight: (scale: number) => number,
 ): AttemptSizes {
@@ -598,7 +651,15 @@ export function useAttemptLayout(
         : computeTouchMissionScale(gameLayer.clientWidth, tableHeight, touchColumnHeight, scale);
       const availableHeight = bodyBottom - strip.getBoundingClientRect().bottom - ATTEMPT_GAP;
       const floor = attemptFloorScale(missionScale, availableHeight, desktop ? 1 : scale);
-      const face = computeAttemptLayout(gameLayer.clientWidth, availableHeight, desktop, shipCount, floor, personnel);
+      const face = computeAttemptLayout(
+        gameLayer.clientWidth,
+        availableHeight,
+        desktop,
+        shipCount,
+        floor,
+        personnel,
+        placedOn,
+      );
       const choice = computeAttemptChoiceLayout(gameLayer.clientWidth, availableHeight, desktop, shipCount, floor, face);
       setSizes({ ...face, choice });
     };
@@ -618,6 +679,7 @@ export function useAttemptLayout(
     shipCount,
     personnelCount,
     personnelSpace,
+    placedOn,
     desktopColumnHeight,
     touchColumnHeight,
   ]);
@@ -644,6 +706,7 @@ export function useAttemptLayout(
     personnelRows: fallbackLines.rows,
     personnelFirstRow: fallbackLines.firstRow,
     personnelWidth,
+    placedOnWidth: placedOn ? attemptPlacedOnWidth(scale) : 0,
     choice: {
       missionScale: scale,
       stackWidth: 3 * stackCardWidth,

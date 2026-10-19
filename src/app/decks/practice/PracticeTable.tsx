@@ -80,7 +80,7 @@ import GameLogPanel from './GameLogPanel';
 import { AttemptDialog } from './AttemptPanel';
 import AttemptLayout from './AttemptLayout';
 import { missionIndexFromAttemptAwayTeamDropId, shipIdFromAttemptCrewDropId } from './AttemptPersonnelRow';
-import { AttemptPanel, attemptDefaults, attemptViewKey, canAttempt, fixtureAttempt, fixtureAttemptStack } from './attempt';
+import { AttemptPanel, attemptDefaults, attemptViewKey, canAttempt, fixtureAttempt, fixtureAttemptPlacedOn, fixtureAttemptStack } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
 import { gameReducer, initialGameState } from './gameLog';
@@ -1447,6 +1447,7 @@ function PracticeDrawContent() {
     bottomRow,
     table.attempt ? missions[table.attempt.missionIndex]?.ships.length ?? 0 : 0,
     attemptPersonnelCards ? { count: attemptPersonnelCards.length, space: table.attempt?.shipId !== undefined } : undefined,
+    (table.attempt ? missions[table.attempt.missionIndex]?.mission?.placedOn?.length ?? 0 : 0) > 0,
     desktopMissionColumnHeight,
     touchMissionColumnHeight,
   );
@@ -1560,6 +1561,8 @@ function PracticeDrawContent() {
       const start = fixtureAttempt(dealt);
       if (start) {
         dispatch(start);
+        // Dilemmas and events on the attempted mission, for its column of placed cards (#1180).
+        dispatch({ type: 'batch', actions: fixtureAttemptPlacedOn(dealt), unseen: true });
         // The attempt starts in the choice phase, where the stack is face up, so the facing fixture
         // switches phase first and its stack lands face down (#1189).
         if (fixtureAttemptPhase === 'face') {

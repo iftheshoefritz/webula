@@ -11,7 +11,14 @@ import {
   FIXTURE_UNDER_MISSION,
 } from '../../../app/decks/practice/tableReducer';
 import { drawSpend } from '../../../app/decks/practice/drawSpend';
-import { canAttempt, attemptDefaults, fixtureAttempt, fixtureAttemptStack } from '../../../app/decks/practice/attempt';
+import {
+  canAttempt,
+  attemptDefaults,
+  fixtureAttempt,
+  fixtureAttemptPlacedOn,
+  fixtureAttemptStack,
+  FIXTURE_ATTEMPT_PLACED,
+} from '../../../app/decks/practice/attempt';
 import { gameReducer, initialGameState, logEntryText, GameAction, GameState } from '../../../app/decks/practice/gameLog';
 import { toSavedGame, fromSavedGame } from '../../../app/decks/practice/savedGame';
 import { DeckList } from '../../../types';
@@ -332,6 +339,36 @@ describe('the attempt of ?fixture=attempt (#1169)', () => {
       ['d3', 'd4', 'd5', 'd6'].map((id) => [`Dilemma ${id}`, 'down'])
     );
     expect(stacked.dilemmaPile).toHaveLength(10 - FIXTURE_UNDER_MISSION - FIXTURE_DILEMMA_STACK);
+  });
+
+  it('places 2 dilemmas from below the stack and 2 events of the draw deck on Bilana System (#1180)', () => {
+    const piles = tableReducer(initialTableState, deal());
+    // This deal's events all go to the core, the ship and the hand, so add two to the draw deck.
+    const table = { ...piles, drawDeck: [...piles.drawDeck, inst('x1', 'Extra 1', 'event'), inst('x2', 'Extra 2', 'event')] };
+    const moves = fixtureAttemptPlacedOn(table);
+    expect(moves).toHaveLength(2 * FIXTURE_ATTEMPT_PLACED);
+    const placed = moves.reduce(tableReducer, tableReducer(table, fixtureAttempt(table)!));
+    expect(placed.missions[2].mission!.placedOn!.map((c) => [c.card.name, c.face])).toEqual([
+      ['Dilemma d7', 'up'],
+      ['Dilemma d8', 'up'],
+      ['Extra 1', 'up'],
+      ['Extra 2', 'up'],
+    ]);
+    // The stack still takes the top 4 dilemmas of the pile.
+    expect(fixtureAttemptStack(placed).map((m) => m.id)).toEqual(fixtureAttemptStack(table).map((m) => m.id));
+  });
+
+  it('takes the events from the core when the draw deck has none (#1180)', () => {
+    const piles = tableReducer(initialTableState, deal());
+    expect(piles.drawDeck.some((c) => c.card.type === 'event')).toBe(false);
+    const placed = fixtureAttemptPlacedOn(piles).reduce(tableReducer, piles);
+    expect(placed.missions[2].mission!.placedOn!.map((c) => c.card.name)).toEqual([
+      'Dilemma d7',
+      'Dilemma d8',
+      'Event 0',
+      'Event 1',
+    ]);
+    expect(placed.core.map((c) => c.card.name)).toEqual(['Event 2', 'Event 3']);
   });
 
   it('starts none when the deal has no ship', () => {

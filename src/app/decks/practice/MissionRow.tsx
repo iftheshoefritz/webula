@@ -260,7 +260,7 @@ export type PlacedOnGroup = 'events' | 'dilemmas';
 export const placedOnGroupOf = (instance: CardInstance): PlacedOnGroup =>
   instance.card.type === 'dilemma' ? 'dilemmas' : 'events';
 
-const PLACED_ON_GROUP: Record<PlacedOnGroup, { icon: { src: string }; noun: string }> = {
+export const PLACED_ON_GROUP: Record<PlacedOnGroup, { icon: { src: string }; noun: string }> = {
   events: { icon: eventIcon, noun: 'event' },
   dilemmas: { icon: dualIcon, noun: 'dilemma' },
 };
@@ -1187,6 +1187,7 @@ function MissionHalfTarget({
   draggedType,
   eitherOver,
   reach = 0,
+  side,
 }: {
   droppable: ReturnType<typeof useDroppable>;
   dropId: string;
@@ -1198,8 +1199,38 @@ function MissionHalfTarget({
   // How far, in px, the half reaches past the card: the bottom half down over the badge strip
   // (#924), the top half up over the dilemmas under the mission (#990).
   reach?: number;
+  // The column of the placed cards right of the card in the attempt layout (#1180), past a gap: the
+  // bottom half's droppable then spans the whole card, the gap and the column, from the card's top
+  // to the end of its reach. The top half lies inside it and, smaller, outranks it under
+  // `pointerWithin`, so the top half of the card still goes under. The highlight shows on the bottom
+  // half and the column only.
+  side?: { gap: number; width: number };
 }) {
   const highlight = highlightState('mission', draggedType, split ? droppable.isOver : eitherOver);
+  if (side) {
+    const partClassName = `absolute ${split ? highlightClassName(highlight) : ''}`;
+    return (
+      <div
+        ref={droppable.setNodeRef}
+        data-zone={dropId}
+        data-highlight={highlight}
+        className="absolute left-0 top-0 pointer-events-none"
+        style={{ right: -(side.gap + side.width), bottom: -reach }}
+      >
+        <div
+          className={`${partClassName} left-0 bottom-0 rounded-b-lg`}
+          style={{ right: side.gap + side.width, height: `calc(50% + ${reach / 2}px)` }}
+        >
+          {split && droppable.isOver && (
+            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white bg-black/60 rounded">
+              {label}
+            </span>
+          )}
+        </div>
+        <div className={`${partClassName} right-0 top-0 rounded`} style={{ width: side.width, bottom: reach }} />
+      </div>
+    );
+  }
   return (
     <div
       ref={droppable.setNodeRef}
@@ -1238,6 +1269,7 @@ export function MissionCard({
   uncropped,
   slotWidth,
   showAwayTeam = true,
+  placedOnColumn,
 }: {
   missionIndex: number;
   slot: MissionSlot;
@@ -1254,6 +1286,9 @@ export function MissionCard({
   // the turned card's width on a desktop (#1060).
   slotWidth: number;
   showAwayTeam?: boolean;
+  // The column of the placed cards beside the card in the attempt layout (#1180): the card then
+  // draws no strips, and its bottom half reaches over the column.
+  placedOnColumn?: { gap: number; width: number };
 }) {
   const onDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
   const underDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'under') });
@@ -1372,6 +1407,7 @@ export function MissionCard({
                 draggedType={draggedType}
                 eitherOver={eitherOver}
                 reach={onReach}
+                side={placedOnColumn}
               />
               <MissionHalfTarget
                 droppable={underDrop}
@@ -1394,7 +1430,7 @@ export function MissionCard({
                   transform: `translate(-50%, -50%)${completed ? ` rotate(90deg) scale(${turnedScale})` : ''}`,
                 }}
               >
-                {(['events', 'dilemmas'] as const).map((group) => (
+                {!placedOnColumn && (['events', 'dilemmas'] as const).map((group) => (
                   <PlacedOnStrip
                     key={group}
                     missionIndex={missionIndex}

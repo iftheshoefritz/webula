@@ -274,7 +274,15 @@ describe('Saved practice game (#976)', () => {
     const withoutIds = (table: unknown) => JSON.stringify(table).replace(/"id":"[^"]*"/g, '"id"');
     const { dilemmaStack: pilesStack, ...piles } = savedTable('practiceGame:fixture=piles');
     expect(pilesStack).toEqual([]);
-    expect(withoutIds({ ...rest, dilemmaPile: [...dilemmaStack, ...rest.dilemmaPile] })).toEqual(withoutIds(piles));
+    // The next 2 dilemmas of the pile and the first 2 events of the core are placed on Bilana System,
+    // face up (#1180): this deck's draw deck holds no event.
+    const placed = rest.missions[2].mission.placedOn as { key: string; face: string }[];
+    expect(placed.map((c) => [c.key, c.face])).toEqual([['D7', 'up'], ['D8', 'up'], ['E0', 'up'], ['E1', 'up']]);
+    const { placedOn: _placedOn, ...bilana } = rest.missions[2].mission;
+    const missions = rest.missions.map((s: object, i: number) => (i === 2 ? { ...s, mission: bilana } : s));
+    const pile = [...dilemmaStack, ...placed.slice(0, 2).map((c) => ({ ...c, face: 'down' })), ...rest.dilemmaPile];
+    const core = [...placed.slice(2), ...rest.core];
+    expect(withoutIds({ ...rest, core, missions, dilemmaPile: pile })).toEqual(withoutIds(piles));
     first.unmount();
 
     // A remount restores the attempt, in the attempt layout; once ended, `reset=1` deals it again.
