@@ -255,7 +255,14 @@ describe('Saved practice game (#976)', () => {
     mockSearchParamsValue = new URLSearchParams('fixture=attempt');
     const first = await renderPage();
     const dealt = savedTable('practiceGame:fixture=attempt');
-    expect(dealt.attempt).toEqual({ missionIndex: 2, shipId: dealt.missions[2].ships[0].id, personnel: 12, subtract: 3 });
+    expect(dealt.attempt).toEqual({
+      missionIndex: 2,
+      shipId: dealt.missions[2].ships[0].id,
+      personnel: 12,
+      subtract: 3,
+      phase: 'face',
+      drawn: 0,
+    });
     // The attempt opens in the attempt layout (#1164), with draw/spend N in its strip.
     expect(screen.getByTestId('attempt-strip')).toHaveTextContent(/draw\/spend 9/i);
     const { attempt: _attempt, dilemmaStack, ...rest } = dealt;
@@ -281,6 +288,17 @@ describe('Saved practice game (#976)', () => {
     second.unmount();
     mockSearchParamsValue = new URLSearchParams('fixture=attempt&reset=1');
     await renderPage();
+    expect(screen.getByTestId('attempt-layout')).toBeInTheDocument();
+  });
+
+  it('keeps the ?fixture=attempt-choose game under its own key, in the dilemma choice with no stack (#1189)', async () => {
+    mockAttemptDeck();
+    mockSearchParamsValue = new URLSearchParams('fixture=attempt-choose&reset=1');
+    await renderPage();
+    const dealt = JSON.parse(localStorage.getItem('practiceGame:fixture=attempt-choose')!).table;
+    expect(dealt.attempt).toMatchObject({ missionIndex: 2, personnel: 12, subtract: 3, phase: 'choose', drawn: 0 });
+    expect(dealt.dilemmaStack).toEqual([]);
+    expect(dealt.dilemmaHand).toEqual([]);
     expect(screen.getByTestId('attempt-layout')).toBeInTheDocument();
   });
 

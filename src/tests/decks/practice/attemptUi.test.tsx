@@ -68,7 +68,7 @@ describe('MissionRow: the attempt overlay on the full table (#1164)', () => {
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
         onOpenPlacedOn={() => {}}
-        attempt={{ missionIndex: 1, personnel: 7, subtract: 2 }}
+        attempt={{ missionIndex: 1, personnel: 7, subtract: 2, phase: 'face', drawn: 0 }}
         onBackToAttempt={onBackToAttempt}
       />
     );
