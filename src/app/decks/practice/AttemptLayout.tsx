@@ -25,28 +25,48 @@
 // above the ships, one to a row. The pile is not a drop target and previews nothing; the row of the
 // personnel, its buttons and its droppable are not mounted, nor is the away team badge.
 //
+// The cards placed on the attempted mission (#1180) show in a column right of the mission card, as
+// tall as the card (`AttemptPlacedOnColumn`): the dilemmas in a block above, the events below, every
+// card as an art crop, overlapped to fit. The card then draws no strips; its badges stay. The column
+// is not a droppable and has no `data-zone`, and its cards have no `data-card-id`: the bottom half of
+// the mission card, `mission-on-<i>`, reaches over it, so a drop on it is a drop on the mission card.
+// A tap on a block opens that group's panel, and a hold on a card previews it. With nothing placed
+// on the mission there is no column, and it takes no width.
+//
 // In the dilemma choice the strip also holds the Draw dilemma button and the count of the dilemmas
 // drawn (#1191, `AttemptDrawDilemma`). The strip sits at the top, so the open dilemma hand arc,
 // which rises from the bottom edge, never covers the button.
 
 import { ReactNode } from 'react';
 import CountBadge from './CountBadge';
-import type { Attempt, AttemptPhase, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
+import type { Attempt, AttemptPhase, CardInstance, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
 import { drawSpend } from './drawSpend';
 import {
   MISSION_COLUMN_GAP,
   MissionCard,
+  PLACED_ON_GROUP,
   PileBadge,
   PlacedOnGroup,
   DilemmaIcon,
   ShipRow,
   badgeStripHeight,
   crewDropId,
+  missionCardHeight,
   missionPileDropId,
+  placedOnGroupOf,
   underMissionStackRoom,
 } from './MissionRow';
-import { TABLE_CARD_WIDTH, cardBorderStyle } from './TableCard';
-import { ATTEMPT_GAP, ATTEMPT_STRIP_GUTTER, ATTEMPT_STRIP_HEIGHT, AttemptSizes } from './tableScale';
+import { TABLE_CARD_WIDTH, TableCardImage, cardBorderStyle } from './TableCard';
+import {
+  ATTEMPT_GAP,
+  ATTEMPT_PLACED_ON_BLOCK_GAP,
+  ATTEMPT_STRIP_GUTTER,
+  ATTEMPT_STRIP_HEIGHT,
+  AttemptPlacedOnBlock,
+  AttemptSizes,
+  attemptPlacedOnBlocks,
+} from './tableScale';
+import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { cardDisplayName } from '../../../lib/cardCount';
 import AttemptPersonnelRow, { attemptAwayTeamDropId, attemptCrewDropId } from './AttemptPersonnelRow';
 
@@ -117,11 +137,15 @@ export default function AttemptLayout({
     personnelRows,
     personnelFirstRow,
     personnelWidth,
+    placedOnWidth,
   } = sizes;
   const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
   const missionName = slot.mission ? cardDisplayName(slot.mission.card) : 'Mission';
   const ship = attempt.shipId ? slot.ships.find((s) => s.id === attempt.shipId) : undefined;
-  const missionColumn = (
+  const placedOn = slot.mission?.placedOn ?? [];
+  const placedOnColumn =
+    slot.mission && placedOn.length > 0 && placedOnWidth > 0 ? { gap: ATTEMPT_GAP, width: placedOnWidth } : undefined;
+  const missionCard = (
     <div className="flex flex-col items-center" style={{ width: missionWidth, gap: MISSION_COLUMN_GAP }}>
       <MissionCard
         missionIndex={missionIndex}
@@ -134,9 +158,26 @@ export default function AttemptLayout({
         uncropped
         slotWidth={missionWidth}
         showAwayTeam={false}
+        placedOnColumn={placedOnColumn}
       />
     </div>
   );
+  const missionColumn =
+    slot.mission && placedOnColumn ? (
+      <div className="flex flex-row items-start" style={{ gap: ATTEMPT_GAP }}>
+        {missionCard}
+        <AttemptPlacedOnColumn
+          missionIndex={missionIndex}
+          mission={slot.mission}
+          cards={placedOn}
+          width={placedOnColumn.width}
+          height={missionCardHeight(missionScale, true)}
+          onOpen={(group) => onOpenPlacedOn(slot.mission!.id, group)}
+        />
+      </div>
+    ) : (
+      missionCard
+    );
   const ships = (
     <ShipRow
       missionIndex={missionIndex}
@@ -319,6 +360,121 @@ export default function AttemptLayout({
         {dilemmaStack}
       </div>
       )}
+    </div>
+  );
+}
+
+export const attemptPlacedOnTestId = (missionIndex: number): string => `attempt-placed-on-${missionIndex}`;
+
+// The column of the cards placed on the attempted mission (#1180): the dilemmas above, the events
+// below, each group a block of its own that a tap opens as that group's panel.
+function AttemptPlacedOnColumn({
+  missionIndex,
+  mission,
+  cards,
+  width,
+  height,
+  onOpen,
+}: {
+  missionIndex: number;
+  mission: CardInstance;
+  cards: CardInstance[];
+  width: number;
+  height: number;
+  onOpen: (group: PlacedOnGroup) => void;
+}) {
+  const dilemmas = cards.filter((c) => placedOnGroupOf(c) === 'dilemmas');
+  const events = cards.filter((c) => placedOnGroupOf(c) === 'events');
+  const blocks = attemptPlacedOnBlocks(dilemmas.length, events.length, height, width);
+  const name = cardDisplayName(mission.card);
+  return (
+    <div
+      data-testid={attemptPlacedOnTestId(missionIndex)}
+      aria-label={`The cards placed on ${name}`}
+      className="flex flex-col"
+      style={{ width, height, gap: ATTEMPT_PLACED_ON_BLOCK_GAP }}
+    >
+      {(
+        [
+          ['dilemmas', dilemmas, blocks.dilemmas],
+          ['events', events, blocks.events],
+        ] as const
+      ).map(([group, groupCards, block]) =>
+        block ? (
+          <AttemptPlacedOnBlockView
+            key={group}
+            missionIndex={missionIndex}
+            group={group}
+            name={name}
+            cards={groupCards}
+            block={block}
+            width={width}
+            onOpen={() => onOpen(group)}
+          />
+        ) : null,
+      )}
+    </div>
+  );
+}
+
+function AttemptPlacedOnBlockView({
+  missionIndex,
+  group,
+  name,
+  cards,
+  block,
+  width,
+  onOpen,
+}: {
+  missionIndex: number;
+  group: PlacedOnGroup;
+  name: string;
+  cards: CardInstance[];
+  block: AttemptPlacedOnBlock;
+  width: number;
+  onOpen: () => void;
+}) {
+  const { noun } = PLACED_ON_GROUP[group];
+  return (
+    <div
+      data-testid={`attempt-placed-on-${group}-${missionIndex}`}
+      aria-label={`The ${noun}s placed on ${name}: ${cards.map((c) => cardDisplayName(c.card)).join(', ')}`}
+      className="relative touch-manipulation cursor-pointer"
+      style={{ ...NO_CALLOUT_STYLE, height: block.height }}
+      onClick={onOpen}
+    >
+      {cards.map((card, i) => (
+        <AttemptPlacedOnCard
+          key={card.id}
+          card={card}
+          top={i * block.step}
+          zIndex={i + 1}
+          width={width}
+          height={block.cardHeight}
+        />
+      ))}
+    </div>
+  );
+}
+
+// A card of the column: the art crop of a table card, and a hold previews it, as on a strip (#1099).
+function AttemptPlacedOnCard({
+  card,
+  top,
+  zIndex,
+  width,
+  height,
+}: {
+  card: CardInstance;
+  top: number;
+  zIndex: number;
+  width: number;
+  height: number;
+}) {
+  const holdListeners = useCardHold(card.id);
+  return (
+    <div data-testid="attempt-placed-on-card" className="absolute inset-x-0" style={{ top, zIndex }} {...holdListeners}>
+      <TableCardImage instance={card} width={width} height={height} className="rounded-sm" />
     </div>
   );
 }

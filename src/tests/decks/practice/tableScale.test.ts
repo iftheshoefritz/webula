@@ -25,6 +25,7 @@ import {
   badgeStripHeight,
   missionCardHeight,
   missionColumnHeight,
+  shipCardWidth,
   shipRowLineHeight,
   underMissionStackRoom,
 } from '../../../app/decks/practice/MissionRow';
@@ -267,6 +268,31 @@ describe('computeAttemptLayout (#1164)', () => {
           sizes.shipRows * shipRowLineHeight(sizes.shipScale, false),
         );
       expect(middle).toBeLessThanOrEqual(available);
+    });
+
+    // Issue #1180: the column of the cards placed on the mission, at the inputs of ?fixture=attempt.
+    it('fits the column of the placed cards at 667x375, from the middle column and never below the floor', () => {
+      const crew = { count: 12, space: true };
+      const without = computeAttemptLayout(MIN_SCREEN.width, available, false, 1, floor, crew);
+      const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 1, floor, crew, true);
+      expect(without.placedOnWidth).toBe(0);
+      expect(sizes.placedOnWidth).toBe(shipCardWidth(floor));
+      expect(sizes.missionScale).toBeGreaterThanOrEqual(floor);
+      expect(usedWidth(sizes, false) + sizes.placedOnWidth + ATTEMPT_GAP).toBeLessThanOrEqual(MIN_SCREEN.width);
+      expect(slice(sizes)).toBeGreaterThanOrEqual(ATTEMPT_PERSONNEL_MIN_SLICE);
+    });
+
+    it('takes the column from the slack of the middle column, and leaves the mission as it was', () => {
+      const tableHeight = 700;
+      const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+      const floor = computeDesktopTableScale(1440, tableHeight, desktopColumn);
+      const without = computeAttemptLayout(1440, available, true, 1, floor, { count: 2, space: true });
+      const sizes = computeAttemptLayout(1440, available, true, 1, floor, { count: 2, space: true }, true);
+      // The bisection of the height bound starts from another width, so allow its precision.
+      expect(sizes.missionScale).toBeCloseTo(without.missionScale, 4);
+      expect(Math.round(72 * sizes.missionScale)).toBe(Math.round(72 * without.missionScale));
+      expect(sizes.shipsWidth).toBe(without.shipsWidth);
+      expect(usedWidth(sizes, true) + sizes.placedOnWidth + ATTEMPT_GAP).toBeLessThanOrEqual(1440);
     });
 
     // Issue #1177: at a space mission the ships sit in one column as wide as the mission.

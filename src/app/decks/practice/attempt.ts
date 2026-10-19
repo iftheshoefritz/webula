@@ -79,6 +79,24 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
     .map((c) => ({ type: 'move', id: c.id, to: 'dilemmaStack' }));
 }
 
+// The cards `?fixture=attempt` and `?fixture=attempt-choose` place on Bilana System (#1180), so the
+// attempt layout shows its column of the placed cards with no setup drags: the
+// `FIXTURE_ATTEMPT_PLACED` dilemmas of the pile below the ones `fixtureAttemptStack` takes, then the
+// first `FIXTURE_ATTEMPT_PLACED` events of the draw deck, and of the core when the draw deck has too
+// few, as the fixture deck's has none. The hand keeps its cards and ids.
+export const FIXTURE_ATTEMPT_PLACED = 2;
+
+export function fixtureAttemptPlacedOn(table: TableState): Extract<TableAction, { type: 'move' }>[] {
+  const mission = table.missions[FIXTURE_SHIP_SLOT]?.mission;
+  if (!mission) return [];
+  const to = { zone: 'on' as const, targetId: mission.id };
+  const dilemmas = table.dilemmaPile.slice(FIXTURE_DILEMMA_STACK, FIXTURE_DILEMMA_STACK + FIXTURE_ATTEMPT_PLACED);
+  const events = [...table.drawDeck, ...table.core]
+    .filter((c) => c.card.type === 'event')
+    .slice(0, FIXTURE_ATTEMPT_PLACED);
+  return [...dilemmas, ...events].map((c) => ({ type: 'move', id: c.id, to }));
+}
+
 // The key of the view of an attempt (#1164, #1189): its identity, the mission and the ship, and not
 // its phase or its count, so a change of either keeps the full table the player chose. Null with no
 // attempt in progress.
