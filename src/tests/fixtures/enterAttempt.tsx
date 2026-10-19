@@ -16,11 +16,12 @@ export const mockAttemptMission = {
 // The dilemma stack mounts only in the attempt layout (#1170). This puts an attempt at
 // `missionIndex` into the game the page saved, and renders `page` again, which restores the game in
 // the attempt layout, with the game menu closed. The slot must hold a mission card, or the restore drops the attempt.
-export const enterAttempt = async (page: React.ReactElement, missionIndex = 0) => {
+// `fields` sets more of the attempt, such as `phase: 'choose'` (#1191).
+export const enterAttempt = async (page: React.ReactElement, missionIndex = 0, fields: Record<string, unknown> = {}) => {
   // The key of the builder deck's game, `PRACTICE_GAME_KEY` in `PracticeTable.tsx`.
   const key = 'practiceGame';
   const save = JSON.parse(localStorage.getItem(key)!);
-  save.table.attempt = { missionIndex, personnel: 0, subtract: 0 };
+  save.table.attempt = { missionIndex, personnel: 0, subtract: 0, ...fields };
   localStorage.setItem(key, JSON.stringify(save));
   cleanup();
   await act(async () => {

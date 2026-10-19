@@ -1805,6 +1805,13 @@ function PracticeDrawContent() {
     dispatch({ type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
   };
 
+  // The Draw dilemma button of the dilemma choice (#1191): the counted draw of #1189, which adds 1 to
+  // `attempt.drawn`, and then the dilemma hand opens as its arc, so the card drawn can go to the stack.
+  const drawChoiceDilemma = () => {
+    dispatch({ type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand', counted: true });
+    setOpenHand('dilemmaHand');
+  };
+
   // Raises the turn counter by one and unstops every stopped personnel card on the table (#718).
   const nextTurn = () => {
     dispatch({ type: 'nextTurn' });
@@ -2598,6 +2605,8 @@ function PracticeDrawContent() {
                   onToggleSelect={toggleCardSelection}
                   onSetStopped={setStoppedForSelection}
                   onShuffle={(location) => dispatch({ type: 'shuffle', location })}
+                  canDrawDilemma={dilemmaPile.length > 0}
+                  onDrawDilemma={drawChoiceDilemma}
                   dilemmaStack={
                     table.attempt.phase === 'choose' ? (
                       <DilemmaStackFaceUp

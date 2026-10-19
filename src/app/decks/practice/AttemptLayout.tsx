@@ -24,6 +24,10 @@
 // the right the attempting personnel as one face-down pile with a count (`attempt-personnel-pile`),
 // above the ships, one to a row. The pile is not a drop target and previews nothing; the row of the
 // personnel, its buttons and its droppable are not mounted, nor is the away team badge.
+//
+// In the dilemma choice the strip also holds the Draw dilemma button and the count of the dilemmas
+// drawn (#1191, `AttemptDrawDilemma`). The strip sits at the top, so the open dilemma hand arc,
+// which rises from the bottom edge, never covers the button.
 
 import { ReactNode } from 'react';
 import CountBadge from './CountBadge';
@@ -34,6 +38,7 @@ import {
   MissionCard,
   PileBadge,
   PlacedOnGroup,
+  DilemmaIcon,
   ShipRow,
   badgeStripHeight,
   crewDropId,
@@ -66,6 +71,8 @@ export default function AttemptLayout({
   onToggleSelect,
   onSetStopped,
   onShuffle,
+  canDrawDilemma,
+  onDrawDilemma,
 }: {
   attempt: Attempt;
   slot: MissionSlot;
@@ -92,6 +99,9 @@ export default function AttemptLayout({
   onSetStopped: (ids: string[], stopped: boolean) => void;
   // The row's Shuffle (#1179): the crew of the attempting ship, or the away team of the mission.
   onShuffle: (location: ShuffleLocation) => void;
+  // The Draw dilemma button of the dilemma choice (#1191): false while the dilemma pile is empty.
+  canDrawDilemma: boolean;
+  onDrawDilemma: () => void;
 }) {
   const { missionIndex } = attempt;
   const {
@@ -196,6 +206,9 @@ export default function AttemptLayout({
         <span data-testid="attempt-draw-spend" className="whitespace-nowrap text-sm font-bold">
           draw/spend {drawSpend(attempt.personnel, attempt.subtract)}
         </span>
+        {attempt.phase === 'choose' && (
+          <AttemptDrawDilemma attempt={attempt} canDraw={canDrawDilemma} onDraw={onDrawDilemma} />
+        )}
         <div className="ml-auto flex flex-row gap-2">
           <button
             type="button"
@@ -284,6 +297,44 @@ export default function AttemptLayout({
         {dilemmaStack}
       </div>
       )}
+    </div>
+  );
+}
+
+// The Draw dilemma button and the count beside it (#1191), one group, so that a phase button can sit
+// beside it later. Each tap draws one dilemma into the dilemma hand as the counted choice-phase draw
+// (#1189); the button is disabled only while the dilemma pile is empty, as Reveal top is (#1078), and
+// never at N. The count goes on past N, in amber once it does.
+export function AttemptDrawDilemma({
+  attempt,
+  canDraw,
+  onDraw,
+}: {
+  attempt: Attempt;
+  canDraw: boolean;
+  onDraw: () => void;
+}) {
+  const n = drawSpend(attempt.personnel, attempt.subtract);
+  const over = attempt.drawn > n;
+  return (
+    <div className="flex shrink-0 flex-row items-center gap-2">
+      <button
+        type="button"
+        data-testid="attempt-draw-dilemma"
+        onClick={onDraw}
+        disabled={!canDraw}
+        className="btn-primary whitespace-nowrap flex items-center justify-center gap-1 !px-3 !py-1 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <DilemmaIcon className="w-4 h-4" />
+        Draw dilemma
+      </button>
+      <span
+        data-testid="attempt-drawn-count"
+        data-over={over ? 'true' : undefined}
+        className={`whitespace-nowrap text-sm font-bold ${over ? 'text-amber-400' : ''}`}
+      >
+        Drawn {attempt.drawn} of {n}
+      </span>
     </div>
   );
 }
