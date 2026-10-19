@@ -466,8 +466,10 @@ The attempting personnel show as whole cards, face up, in a row of the middle co
 badge, above the ships: `data-zone` and `data-testid` `attempt-away-team-<i>`. At a space mission it is
 the crew of the attempting ship, beside the ships: `attempt-crew-<the ship's id>`, and the away team
 badge stays above the ships. The row reads the live away team or crew, the equipment too, in order, and
-the frozen numbers of the attempt do not change. Its cards overlap, and it wraps to 2 rows when 1 row
-would show less than 12 px of each card (`ATTEMPT_PERSONNEL_MIN_SLICE`, `computeAttemptLayout`). Each
+the frozen numbers of the attempt do not change. Its cards show side by side, at most 6 to a row
+(`ATTEMPT_PERSONNEL_MAX_PER_ROW`), fewer when the width runs out. The row wraps to a second row when
+the first is full, and its cards overlap only when both rows are full (#1178, `attemptPersonnelLines`,
+`computeAttemptLayout`). At a planet mission on a short screen the cards shrink so that 2 rows fit. Each
 card carries its `data-card-id`. A tap selects a card, a hold previews it, and below the row
 `attempt-row-stop` (Stop or Unstop, while personnel are selected) and `attempt-row-stop-all` (while
 an unstopped personnel is in the row) set `stopped`. `attempt-row-shuffle`, last in that line and shown while the row holds a card, shuffles the away team or the crew (#1179). A drop on the away team row routes as a drop on

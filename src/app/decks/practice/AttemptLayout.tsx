@@ -83,8 +83,17 @@ export default function AttemptLayout({
   onShuffle: (location: ShuffleLocation) => void;
 }) {
   const { missionIndex } = attempt;
-  const { missionScale, shipScale, shipRows, shipsWidth, shipRowsWidth, personnelCardWidth, personnelRows, personnelWidth } =
-    sizes;
+  const {
+    missionScale,
+    shipScale,
+    shipRows,
+    shipsWidth,
+    shipRowsWidth,
+    personnelCardWidth,
+    personnelRows,
+    personnelFirstRow,
+    personnelWidth,
+  } = sizes;
   const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
   const missionName = slot.mission ? cardDisplayName(slot.mission.card) : 'Mission';
   const ship = attempt.shipId ? slot.ships.find((s) => s.id === attempt.shipId) : undefined;
@@ -182,6 +191,7 @@ export default function AttemptLayout({
                     cards={ship.crew ?? []}
                     cardWidth={personnelCardWidth}
                     rows={personnelRows}
+                    firstRow={personnelFirstRow}
                     width={personnelWidth}
                     selectedIds={selectedIds}
                     onToggleSelect={onToggleSelect}
@@ -201,6 +211,7 @@ export default function AttemptLayout({
                 cards={slot.awayTeam}
                 cardWidth={personnelCardWidth}
                 rows={personnelRows}
+                firstRow={personnelFirstRow}
                 width={personnelWidth}
                 selectedIds={selectedIds}
                 onToggleSelect={onToggleSelect}
