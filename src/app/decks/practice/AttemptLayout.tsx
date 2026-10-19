@@ -31,7 +31,7 @@
 
 import { ReactNode } from 'react';
 import CountBadge from './CountBadge';
-import type { Attempt, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
+import type { Attempt, AttemptPhase, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
 import { drawSpend } from './drawSpend';
 import {
   MISSION_COLUMN_GAP,
@@ -73,6 +73,7 @@ export default function AttemptLayout({
   onShuffle,
   canDrawDilemma,
   onDrawDilemma,
+  onSetPhase,
 }: {
   attempt: Attempt;
   slot: MissionSlot;
@@ -102,6 +103,8 @@ export default function AttemptLayout({
   // The Draw dilemma button of the dilemma choice (#1191): false while the dilemma pile is empty.
   canDrawDilemma: boolean;
   onDrawDilemma: () => void;
+  // The phase button of the strip (#1192): Face dilemmas in the choice, Back to choosing in the facing.
+  onSetPhase: (phase: AttemptPhase) => void;
 }) {
   const { missionIndex } = attempt;
   const {
@@ -209,7 +212,26 @@ export default function AttemptLayout({
         {attempt.phase === 'choose' && (
           <AttemptDrawDilemma attempt={attempt} canDraw={canDrawDilemma} onDraw={onDrawDilemma} />
         )}
-        <div className="ml-auto flex flex-row gap-2">
+        <div className="ml-auto flex shrink-0 flex-row gap-2">
+          {attempt.phase === 'choose' ? (
+            <button
+              type="button"
+              data-testid="attempt-face-dilemmas"
+              onClick={() => onSetPhase('face')}
+              className="btn-primary whitespace-nowrap !px-2 !py-1 text-xs"
+            >
+              Face dilemmas
+            </button>
+          ) : (
+            <button
+              type="button"
+              data-testid="attempt-back-to-choosing"
+              onClick={() => onSetPhase('choose')}
+              className="btn-primary bg-none bg-white/[0.05] whitespace-nowrap !px-2 !py-1 text-xs"
+            >
+              Back to choosing
+            </button>
+          )}
           <button
             type="button"
             data-testid="attempt-view-full-table"
