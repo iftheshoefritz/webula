@@ -306,3 +306,99 @@ describe('the text of the game log (#1065)', () => {
     expect(gameLogText([])).toBe(EMPTY_LOG_TEXT);
   });
 });
+
+describe('gameReducer: undo (#1194)', () => {
+  const data = instance('c1', 'Data');
+  const worf = instance('c2', 'Worf');
+  const riker = instance('c3', 'Riker');
+  const moab = instance('m1', 'Moab IV', 'up', 'mission');
+
+  it('goes back to the table from before a move, and drops its entry', () => {
+    const start = table({ hand: [data] });
+    const moved = run(start, { type: 'nextTurn' }, { type: 'move', id: 'c1', to: 'core' });
+    const undone = gameReducer(moved, { type: 'undo' });
+    expect(undone.table).toBe(moved.undo[1]);
+    expect(undone.table.hand).toEqual([data]);
+    expect(undone.table.core).toEqual([]);
+    expect(undone.log.map(logEntryText)).toEqual(['Started turn 2']);
+    expect(undone.undo).toHaveLength(1);
+  });
+
+  it('brings back the order from before a shuffle, and the faces of a shuffled dilemma pile', () => {
+    const shuffledDeck = run(table({ drawDeck: [data, worf, riker] }), { type: 'shuffle', location: 'drawDeck' });
+    expect(shuffledDeck.table.drawDeck.map((c) => c.id)).toEqual(['c3', 'c2', 'c1']);
+    expect(gameReducer(shuffledDeck, { type: 'undo' }).table.drawDeck.map((c) => c.id)).toEqual(['c1', 'c2', 'c3']);
+
+    const pile = [instance('d1', 'Up', 'up', 'dilemma'), instance('d2', 'Down', 'down', 'dilemma')];
+    const shuffledPile = run(table({ dilemmaPile: pile }), { type: 'shuffle', location: 'dilemmaPile' });
+    expect(shuffledPile.table.dilemmaPile.every((c) => c.face === 'down')).toBe(true);
+    expect(gameReducer(shuffledPile, { type: 'undo' }).table.dilemmaPile).toEqual(pile);
+  });
+
+  it('undoes a download, its moves and its shuffle, as one step', () => {
+    const start = table({ drawDeck: [data, worf, riker] });
+    const downloaded = run(start, {
+      type: 'batch',
+      actions: [
+        { type: 'move', id: 'c1', to: 'hand' },
+        { type: 'shuffle', location: 'drawDeck' },
+      ],
+    });
+    const undone = gameReducer(downloaded, { type: 'undo' });
+    expect(undone.table).toBe(start);
+    expect(undone.log).toEqual([]);
+  });
+
+  it('goes back across the next turn and a whole attempt, one entry at a time', () => {
+    const start = table({
+      turn: 1,
+      missions: slots([{ mission: moab, awayTeam: [{ ...data, stopped: true }] }]),
+      dilemmaPile: [instance('d1', 'Dilemma', 'down', 'dilemma')],
+    });
+    const actions: GameAction[] = [
+      { type: 'nextTurn' },
+      { type: 'startAttempt', missionIndex: 0, personnel: 1, subtract: 0 },
+      { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand', counted: true },
+      { type: 'setAttemptPhase', phase: 'face' },
+      { type: 'endAttempt' },
+    ];
+    const states = actions.reduce<GameState[]>((acc, a) => [...acc, gameReducer(acc[acc.length - 1], a)], [initialGameState(start)]);
+    expect(states[states.length - 1].log).toHaveLength(actions.length);
+    for (let i = states.length - 1; i > 0; i--) {
+      const undone = gameReducer(states[i], { type: 'undo' });
+      expect(undone.table).toBe(states[i - 1].table);
+      expect(undone.log).toEqual(states[i - 1].log);
+    }
+  });
+
+  it('does nothing with an empty log, nor after a reset or a restore', () => {
+    const empty = initialGameState(table({ hand: [data] }));
+    expect(gameReducer(empty, { type: 'undo' })).toBe(empty);
+    const played = run(table({ hand: [data] }), { type: 'move', id: 'c1', to: 'core' });
+    const restored = gameReducer(played, { type: 'restore', state: table() });
+    expect(restored.undo).toEqual([]);
+    expect(gameReducer(restored, { type: 'undo' })).toBe(restored);
+    const reset = gameReducer(played, { type: 'reset', cards: [], missions: [], dilemmas: [] });
+    expect(reset.undo).toEqual([]);
+  });
+
+  it('keeps one snapshot per entry, and none for an action that makes no entry', () => {
+    const state = run(
+      table({ hand: [data, worf], drawDeck: [riker, instance('c4', 'Troi')] }),
+      { type: 'move', id: 'c1', to: 'hand' },
+      { type: 'move', id: 'c1', to: 'core' },
+      { type: 'move', id: 'nope', to: 'core' },
+      { type: 'shuffle', location: 'drawDeck' },
+      { type: 'drawCard', from: 'drawDeck', to: 'hand' }
+    );
+    expect(state.log).toHaveLength(3);
+    expect(state.undo).toHaveLength(3);
+  });
+
+  it('keeps the shuffle order out of the text of the log', () => {
+    const state = run(table({ drawDeck: [data, worf, riker] }), { type: 'shuffle', location: 'drawDeck' });
+    const text = gameLogText(state.log);
+    expect(text).toBe('Turn 1\n- Shuffled the draw deck');
+    expect(JSON.stringify(state.log)).not.toMatch(/c1|c2|c3|Data|Worf|Riker/);
+  });
+});

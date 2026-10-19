@@ -7,6 +7,11 @@
 // wording can change without a change to the stored entries. An entry holds only what the text
 // needs: the display names of the cards, captured when the action ran, and never a card id that
 // must be looked up later, or the order a shuffle made.
+//
+// Beside each entry the log keeps the table from just before its action, for undo only (#1194).
+// Those snapshots are the structured record of every random result: the order a shuffle replaced
+// and the faces a shuffle of the dilemma pile turned down. The text never reads them, so the UI
+// never shows them, and the save never holds them.
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import {
@@ -72,11 +77,18 @@ export type LogEntry = { turn: number } & (
 // Flip or Download. They apply through `tableReducer` in order, the same as one dispatch each, and
 // make one entry. `unseen` says the player did not see the cards' faces: a drag that showed the
 // card back (#814).
-export type GameAction = TableAction | { type: 'batch'; actions: TableAction[]; unseen?: boolean };
+// `undo` (#1194) takes back the player action of the last log entry, and makes no entry of its own.
+export type GameAction =
+  | TableAction
+  | { type: 'batch'; actions: TableAction[]; unseen?: boolean }
+  | { type: 'undo' };
 
 export interface GameState {
   table: TableState;
   log: LogEntry[];
+  // The table from just before the action of each entry of `log`, in the same order, so both have
+  // the same length. Undo goes back to the last one.
+  undo: TableState[];
 }
 
 const missionName = (state: TableState, index: number): string => {
@@ -243,7 +255,11 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
 // The entry one player action makes, or null when it changed nothing the log records. `after` is
 // the table once every action of the batch applied. The entry belongs to the turn after the
 // action, so the entry of `nextTurn` heads the group of the new turn.
-export function logEntryFor(before: TableState, action: GameAction, after: TableState): LogEntry | null {
+export function logEntryFor(
+  before: TableState,
+  action: Exclude<GameAction, { type: 'undo' }>,
+  after: TableState,
+): LogEntry | null {
   let body: EntryBody | null;
   if (action.type === 'batch') {
     const moves = action.actions.filter((a): a is Extract<TableAction, { type: 'move' }> => a.type === 'move');
@@ -270,20 +286,28 @@ export function logEntryFor(before: TableState, action: GameAction, after: Table
   return body ? ({ ...body, turn: after.turn } as LogEntry) : null;
 }
 
-export const initialGameState = (table: TableState): GameState => ({ table, log: [] });
+export const initialGameState = (table: TableState): GameState => ({ table, log: [], undo: [] });
 
 // The page's reducer: the table, through `tableReducer`, and the log beside it. The log is built
 // here, in the reducer, and not in an effect: StrictMode runs a reducer twice, and an append in an
 // effect or a handler would log twice. An action that changes nothing returns the same state.
+// Each entry keeps the table from before its action, and `undo` goes back to it and drops the
+// entry (#1194). An action that makes no entry keeps no snapshot, so the undo of the next entry
+// takes it back too. A deal, a reset and a restore empty both, so undo never goes past a deal.
 export function gameReducer(state: GameState, action: GameAction): GameState {
+  if (action.type === 'undo') {
+    if (!state.undo.length) return state;
+    return { table: state.undo[state.undo.length - 1], log: state.log.slice(0, -1), undo: state.undo.slice(0, -1) };
+  }
   if (action.type === 'reset' || action.type === 'resetWithPiles' || action.type === 'restore') {
-    return { table: tableReducer(state.table, action), log: [] };
+    return { table: tableReducer(state.table, action), log: [], undo: [] };
   }
   const actions = action.type === 'batch' ? action.actions : [action];
   const table = actions.reduce(tableReducer, state.table);
   const entry = logEntryFor(state.table, action, table);
   if (table === state.table && !entry) return state;
-  return { table, log: entry ? [...state.log, entry] : state.log };
+  if (!entry) return { ...state, table };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table] };
 }
 
 // The text of a place, with "the", the same words as the labels of the card list panel.

@@ -432,6 +432,16 @@ A tap anywhere on the ship, the counter of the cards on it too, opens its crew p
 
 A drag out of the core onto a ship has failed once. See #701.
 
+### Undo
+
+The undo button, `data-testid="undo-button"` (#1194), sits in the top-left column under the menu
+button and the fullscreen button. Its `aria-label` and `title` read "Undo: <the last log entry>",
+and it is disabled while the log is empty. A tap takes back the action of the last log entry and
+removes the entry. With a fine pointer, Ctrl+Z or Cmd+Z does the same. The undo history lives in
+memory beside the log, so a reload empties it. To compare the order of the draw deck before and
+after an undo, read it from the save:
+`JSON.parse(localStorage.getItem('practiceGame:fixture=piles')).table.drawDeck.map(c => c.id)`.
+
 ### A mission attempt
 
 An **Attempt** button (`data-testid="attempt-button"`, #1163) shows in the away team panel of a

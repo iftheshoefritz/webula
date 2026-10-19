@@ -83,7 +83,7 @@ import { missionIndexFromAttemptAwayTeamDropId, shipIdFromAttemptCrewDropId } fr
 import { AttemptPanel, attemptDefaults, attemptViewKey, canAttempt, fixtureAttempt, fixtureAttemptPlacedOn, fixtureAttemptStack } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
-import { gameReducer, initialGameState } from './gameLog';
+import { gameReducer, initialGameState, logEntryText } from './gameLog';
 import { CardHoldProvider, NO_CALLOUT_STYLE, PLACE_ON_HOLD_MS, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
 import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHoldContext';
 import { FLAT_ROW_MAX_OFFSET, flatRowWidths, useElementWidth } from './flatRowWidths';
@@ -162,6 +162,25 @@ function FullscreenIcon({ exit }: { exit: boolean }) {
   );
 }
 
+// A curved arrow back to the left: the undo button (#1194).
+function UndoIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-4 h-4"
+      aria-hidden="true"
+    >
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </svg>
+  );
+}
+
 // A home for the controls that act on the whole game rather than one zone (#722): Reset, and
 // Load deck (#780), which opens the Drive picker. Reset throws away the current game, so it
 // confirms first via `window.confirm`, the same confirm-before-destroy pattern
@@ -189,6 +208,9 @@ function FullscreenIcon({ exit }: { exit: boolean }) {
 // into the game layer, still shows. Where the browser has no Fullscreen API for a `<div>`, such as
 // iPhone Safari, it shows how to add the app to the home screen instead (#1127), and it is hidden
 // in an app already added to the home screen that has no Fullscreen API either.
+//
+// The undo button (#1194) sits under those two. It takes back the player action of the last log
+// entry, and its label names that entry. It is disabled while the log is empty.
 const SPLASH_ITEM_CLASS =
   'block w-full rounded-md border border-white/10 bg-bg-secondary px-6 py-2.5 text-center text-base text-text-secondary hover:bg-white/[0.1] hover:text-text-primary';
 
@@ -207,6 +229,8 @@ function GameMenu({
   deckName,
   offline,
   update,
+  undoLabel,
+  onUndo,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -222,6 +246,9 @@ function GameMenu({
   deckName: string;
   offline: ReturnType<typeof useOfflineDecks>;
   update: ServiceWorkerUpdate;
+  // "Undo: <the last entry>", or null while the log is empty.
+  undoLabel: string | null;
+  onUndo: () => void;
 }) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -367,6 +394,17 @@ function GameMenu({
             <FullscreenIcon exit={fullscreen.isFullscreen} />
           </button>
         )}
+        <button
+          type="button"
+          onClick={onUndo}
+          disabled={!undoLabel}
+          aria-label={undoLabel ?? 'Undo'}
+          title={undoLabel ?? 'Nothing to undo'}
+          data-testid="undo-button"
+          className="btn-icon btn-icon-sm disabled:cursor-default disabled:opacity-40"
+        >
+          <UndoIcon />
+        </button>
       </div>
     </>
   );
@@ -1815,6 +1853,31 @@ function PracticeDrawContent() {
     setOpenHand('dilemmaHand');
   };
 
+  // The undo button and Ctrl/Cmd+Z (#1194): the table goes back to the snapshot of the last log
+  // entry, and the entry leaves the log. A panel, a hand or a selection may point at cards the
+  // undone table holds elsewhere, so every one of them closes, as after a drag from outside them.
+  const lastLogEntry = game.log.length ? game.log[game.log.length - 1] : null;
+  const handleUndo = () => {
+    if (draggingRef.current || !game.undo.length) return;
+    closePanelsAfterDrag(null, game.undo[game.undo.length - 1]);
+    setSelectedCardIds([]);
+    dispatch({ type: 'undo' });
+  };
+  const handleUndoRef = useRef(handleUndo);
+  handleUndoRef.current = handleUndo;
+  useEffect(() => {
+    if (!finePointer) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'z' || !(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      event.preventDefault();
+      handleUndoRef.current();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [finePointer]);
+
   // The phase button of the attempt strip (#1192). Facing the dilemmas sends the dilemma hand to the
   // pile, so its arc closes too; going back to the choice leaves the hand as it is.
   const setAttemptPhase = (phase: AttemptPhase) => {
@@ -2495,6 +2558,8 @@ function PracticeDrawContent() {
           deckName={dealtDeckName()}
           offline={offlineDecks}
           update={serviceWorkerUpdate}
+          undoLabel={lastLogEntry ? `Undo: ${logEntryText(lastLogEntry)}` : null}
+          onUndo={handleUndo}
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
