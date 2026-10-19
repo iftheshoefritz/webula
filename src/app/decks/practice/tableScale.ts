@@ -290,19 +290,22 @@ export interface AttemptLayoutSizes {
   // the mission, with the crew row beside it (#1165, #1177).
   shipRowsWidth: number;
   // The row of the attempting personnel (#1165): the width of one whole card, the rows it fills
-  // (1 or 2), and the width it may take.
+  // (1 or 2), the cards of the first row (#1178), and the width it may take.
   personnelCardWidth: number;
   personnelRows: number;
+  personnelFirstRow: number;
   personnelWidth: number;
 }
 
 // Issue #1165: the attempting personnel show as a row of whole cards, the away team at a planet
 // mission in place of the away team badge, and the crew of the attempting ship beside the ships at
-// a space mission. The cards overlap, as the core's and the brig's do, but each shows at least this
-// much past the next one, so it stays visible and tappable; below that the row wraps to 2 rows,
-// when the height has room for them.
+// a space mission. The cards fill a row side by side, then wrap to a second row, and overlap only
+// when both rows are full (#1178), as the core's and the brig's do, but each shows at least this
+// much past the next one, so it stays visible and tappable.
 export const ATTEMPT_PERSONNEL_MIN_SLICE = 12; // px
 export const ATTEMPT_PERSONNEL_MAX_ROWS = 2;
+// The most cards a row holds side by side (#1178): the row is never wider than this many cards.
+export const ATTEMPT_PERSONNEL_MAX_PER_ROW = 6;
 // The line of the row's Stop, Unstop, Stop all and Shuffle buttons, below its cards.
 export const ATTEMPT_PERSONNEL_BUTTONS_HEIGHT = 18; // px
 
@@ -317,13 +320,27 @@ export interface AttemptPersonnel {
 export const attemptPersonnelHeight = (cardWidth: number, rows: number): number =>
   rows * fullCardHeight(cardWidth) + (rows - 1) * SHIP_ROW_GAP;
 
-// The rows a row of `count` cards fills in `width` (#1165): 1, unless 1 row would show less than
-// the minimum slice of each card and 2 rows fit in `height`.
-export function attemptPersonnelRows(count: number, cardWidth: number, width: number, height: number): number {
-  if (count <= 1) return 1;
-  const offset = Math.floor((width - cardWidth) / (count - 1));
-  if (offset >= ATTEMPT_PERSONNEL_MIN_SLICE) return 1;
-  return attemptPersonnelHeight(cardWidth, ATTEMPT_PERSONNEL_MAX_ROWS) <= height ? ATTEMPT_PERSONNEL_MAX_ROWS : 1;
+export interface AttemptPersonnelLines {
+  rows: number;
+  // The cards of the first row; the second row holds the rest.
+  firstRow: number;
+  width: number;
+}
+
+// The lines a row of `count` cards fills when it may take `room` px across and `height` down
+// (#1178). A row holds as many whole cards side by side as `room` allows, at most
+// `ATTEMPT_PERSONNEL_MAX_PER_ROW`. The cards fill the first row, then wrap to a second, and overlap
+// only when both rows are full, then sharing the cards about evenly. With no height for 2 rows, the
+// cards overlap in 1.
+export function attemptPersonnelLines(count: number, cardWidth: number, room: number, height: number): AttemptPersonnelLines {
+  const perRow = Math.max(1, Math.min(ATTEMPT_PERSONNEL_MAX_PER_ROW, Math.floor(room / cardWidth)));
+  const widest = Math.max(cardWidth, Math.min(ATTEMPT_PERSONNEL_MAX_PER_ROW * cardWidth, Math.floor(room)));
+  if (count <= perRow) return { rows: 1, firstRow: count, width: cardWidth * Math.max(1, count) };
+  if (attemptPersonnelHeight(cardWidth, ATTEMPT_PERSONNEL_MAX_ROWS) > height) {
+    return { rows: 1, firstRow: count, width: widest };
+  }
+  if (count <= ATTEMPT_PERSONNEL_MAX_ROWS * perRow) return { rows: 2, firstRow: perRow, width: cardWidth * perRow };
+  return { rows: 2, firstRow: Math.ceil(count / ATTEMPT_PERSONNEL_MAX_ROWS), width: widest };
 }
 
 // The height of the attempted mission's column at a scale: room for the slivers of the dilemmas
@@ -345,8 +362,13 @@ export const attemptMissionColumnHeight = (scale: number): number =>
 //
 // At a space mission (#1177) the ships sit in a column exactly as wide as the mission, 2 to a row as
 // under a mission on the table, so the mission and the ships share the width as two card-wide
-// columns. The crew row beside them gets the rest, up to its natural width, and any width past that
-// stays empty, the columns centred.
+// columns. The crew row beside them may take the rest, and takes what its lines need
+// (`attemptPersonnelLines`, at most 6 cards wide, #1178); any width past that stays empty, the
+// columns centred.
+//
+// When the personnel need 2 rows and 2 rows of cards as wide as a ship at the floor scale do not
+// fit the height, as at a planet mission on a short screen, the cards shrink until 2 rows fit
+// (#1178).
 // The floor of the attempt layout: the scale the missions draw at on the normal table, unless the
 // whole mission card is too tall for `availableHeight` at that scale, and then the largest scale at
 // which it fits, never below the table scale. The mission row gives the dilemma stack no width
@@ -377,41 +399,59 @@ export function computeAttemptLayout(
   const personnelHeightRoom = space
     ? availableHeight - badgeStripHeight(floor) - MISSION_COLUMN_GAP - buttonsRoom
     : availableHeight - MISSION_COLUMN_GAP - shipRowLineHeight(floor, desktop) - buttonsRoom;
-  const personnelCardWidth = Math.max(
-    1,
-    Math.min(shipCardWidth(floor), Math.floor((Math.max(0, personnelHeightRoom) * 120) / 167)),
-  );
-  const minPersonnelWidth =
-    personnelCardWidth + Math.max(0, Math.ceil(count / ATTEMPT_PERSONNEL_MAX_ROWS) - 1) * ATTEMPT_PERSONNEL_MIN_SLICE;
-  const naturalPersonnelWidth = personnelCardWidth * Math.max(1, count);
-  const minMiddleWidth = !personnel
-    ? minShipsWidth
-    : space
-      ? minShipsWidth + ATTEMPT_GAP + minPersonnelWidth
-      : Math.max(minShipsWidth, minPersonnelWidth);
+  const cardWidthFor = (height: number): number =>
+    Math.max(1, Math.min(shipCardWidth(floor), Math.floor((Math.max(0, height) * 120) / 167)));
+  const oneRowCardWidth = cardWidthFor(personnelHeightRoom);
+  const twoRowCardWidth = cardWidthFor((personnelHeightRoom - SHIP_ROW_GAP) / ATTEMPT_PERSONNEL_MAX_ROWS);
 
-  // At a space mission the ships column is as wide as the mission (#1177), so the width that bounds
-  // the mission's scale is shared by two card-wide columns, next to the crew row at its minimum.
-  const missionWidthScale = space
-    ? (availableWidth - ATTEMPT_GAP - minPersonnelWidth) / (2 * TABLE_CARD_WIDTH)
-    : (availableWidth - minMiddleWidth) / TABLE_CARD_WIDTH;
-  const missionScale = Math.max(floor, fitColumnScale(missionWidthScale, availableHeight, attemptMissionColumnHeight));
-  const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
+  const widths = (personnelCardWidth: number) => {
+    const twoRows = Math.ceil(count / ATTEMPT_PERSONNEL_MAX_ROWS);
+    const minPersonnelWidth = Math.min(
+      personnelCardWidth + Math.max(0, twoRows - 1) * ATTEMPT_PERSONNEL_MIN_SLICE,
+      personnelCardWidth * Math.max(1, Math.min(twoRows, ATTEMPT_PERSONNEL_MAX_PER_ROW)),
+    );
+    const minMiddleWidth = !personnel
+      ? minShipsWidth
+      : space
+        ? minShipsWidth + ATTEMPT_GAP + minPersonnelWidth
+        : Math.max(minShipsWidth, minPersonnelWidth);
+
+    // At a space mission the ships column is as wide as the mission (#1177), so the width that bounds
+    // the mission's scale is shared by two card-wide columns, next to the crew row at its minimum.
+    const missionWidthScale = space
+      ? (availableWidth - ATTEMPT_GAP - minPersonnelWidth) / (2 * TABLE_CARD_WIDTH)
+      : (availableWidth - minMiddleWidth) / TABLE_CARD_WIDTH;
+    const missionScale = Math.max(floor, fitColumnScale(missionWidthScale, availableHeight, attemptMissionColumnHeight));
+    const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
+    const middleWidth = space
+      ? Math.max(0, Math.floor(availableWidth - 2 * missionWidth - ATTEMPT_GAP))
+      : Math.max(minMiddleWidth, Math.floor(availableWidth - missionWidth));
+    const lines = personnel
+      ? attemptPersonnelLines(count, personnelCardWidth, middleWidth, personnelHeightRoom)
+      : { rows: 0, firstRow: 0, width: 0 };
+    return { missionScale, missionWidth, middleWidth, lines };
+  };
+  let personnelCardWidth = oneRowCardWidth;
+  let fitted = widths(personnelCardWidth);
+  // Cards too tall for 2 rows, and too many for 1 row with no overlap: shrink them so 2 rows fit.
+  if (personnel && twoRowCardWidth < oneRowCardWidth && fitted.lines.width < count * personnelCardWidth) {
+    personnelCardWidth = twoRowCardWidth;
+    fitted = widths(personnelCardWidth);
+  }
+  const { missionScale, missionWidth, middleWidth, lines } = fitted;
+  const personnelRows = lines.rows;
   let shipsWidth: number;
   let shipRowsWidth: number;
   let personnelWidth: number;
   if (space) {
     shipRowsWidth = missionWidth;
-    personnelWidth = Math.max(0, Math.min(naturalPersonnelWidth, Math.floor(availableWidth - 2 * missionWidth - ATTEMPT_GAP)));
+    personnelWidth = Math.min(lines.width, middleWidth);
     shipsWidth = shipRowsWidth + ATTEMPT_GAP + personnelWidth;
   } else {
-    shipsWidth = Math.max(minMiddleWidth, Math.floor(availableWidth - missionWidth));
-    personnelWidth = personnel ? Math.min(naturalPersonnelWidth, shipsWidth) : 0;
+    shipsWidth = middleWidth;
+    personnelWidth = personnel ? Math.min(lines.width, shipsWidth) : 0;
     shipRowsWidth = shipsWidth;
   }
-  const personnelRows = personnel
-    ? attemptPersonnelRows(count, personnelCardWidth, personnelWidth, personnelHeightRoom)
-    : 0;
 
   // The middle column: the away team badge, or the row of the away team, then the rows of ships.
   const aboveShips =
@@ -448,6 +488,7 @@ export function computeAttemptLayout(
     shipRowsWidth,
     personnelCardWidth,
     personnelRows,
+    personnelFirstRow: lines.firstRow,
     personnelWidth,
   };
 }
@@ -513,9 +554,12 @@ export function useAttemptLayout(
 
   if (sizes) return sizes;
   // Before the measure, and in jsdom: the sizes at `scale`, with the personnel row as wide as its
-  // cards edge to edge.
+  // cards edge to edge, at most 6 cards to a row and 2 rows (#1178).
   const cardWidth = shipCardWidth(scale);
-  const personnelWidth = personnel ? cardWidth * Math.max(1, personnel.count) : 0;
+  const fallbackLines = personnel
+    ? attemptPersonnelLines(personnel.count, cardWidth, ATTEMPT_PERSONNEL_MAX_PER_ROW * cardWidth, Infinity)
+    : { rows: 0, firstRow: 0, width: 0 };
+  const personnelWidth = fallbackLines.width;
   const shipRowsWidth = personnel?.space ? Math.round(TABLE_CARD_WIDTH * scale) : Math.max(shipRowWidth(scale, 2), personnelWidth);
   const shipsWidth = personnel?.space ? shipRowsWidth + ATTEMPT_GAP + personnelWidth : shipRowsWidth;
   return {
@@ -525,7 +569,8 @@ export function useAttemptLayout(
     shipsWidth,
     shipRowsWidth,
     personnelCardWidth: cardWidth,
-    personnelRows: personnel ? 1 : 0,
+    personnelRows: fallbackLines.rows,
+    personnelFirstRow: fallbackLines.firstRow,
     personnelWidth,
   };
 }

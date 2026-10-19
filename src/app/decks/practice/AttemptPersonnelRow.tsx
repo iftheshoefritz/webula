@@ -3,8 +3,9 @@
 // The row of the attempting personnel (#1165), in the attempt layout (`AttemptLayout.tsx`): at a
 // planet mission the away team, in place of the away team badge, and at a space mission the crew
 // of the attempting ship, beside the ships. It shows every card of the place, the equipment too, in
-// its stored order, as whole cards that overlap like the core's and the brig's (`FlatCardRow.tsx`),
-// in 1 or 2 rows (`computeAttemptLayout`, `tableScale.ts`). The row has no rules of its own: it reads
+// its stored order, as whole cards in 1 or 2 rows (`computeAttemptLayout`, `tableScale.ts`). The
+// cards fill the first row side by side, wrap to the second, and overlap like the core's and the
+// brig's (`FlatCardRow.tsx`) only when both rows are full (#1178). The row has no rules of its own: it reads
 // the live away team or crew, and the numbers of the attempt stay frozen (#1163).
 //
 // A card works as it does in the away team panel or the crew panel: a hold shows the preview, a tap
@@ -45,12 +46,12 @@ export function shipIdFromAttemptCrewDropId(id: string): string | null {
   return match ? match[1] : null;
 }
 
-// The rows the cards fill: the first rows hold an equal share, and the last the rest.
-function splitIntoRows(cards: CardInstance[], rows: number): CardInstance[][] {
-  const perRow = Math.ceil(cards.length / rows);
-  return Array.from({ length: rows }, (_, row) => cards.slice(row * perRow, (row + 1) * perRow)).filter(
-    (rowCards, row) => row === 0 || rowCards.length > 0
-  );
+// The rows the cards fill: the first row holds `firstRow` cards, as the layout gives it (#1178), and
+// the second the rest.
+function splitIntoRows(cards: CardInstance[], rows: number, firstRow: number): CardInstance[][] {
+  if (rows <= 1) return [cards];
+  const first = Math.max(1, firstRow);
+  return [cards.slice(0, first), cards.slice(first)].filter((rowCards, row) => row === 0 || rowCards.length > 0);
 }
 
 export default function AttemptPersonnelRow({
@@ -61,6 +62,7 @@ export default function AttemptPersonnelRow({
   cards,
   cardWidth,
   rows,
+  firstRow,
   width,
   selectedIds,
   onToggleSelect,
@@ -77,6 +79,8 @@ export default function AttemptPersonnelRow({
   cards: CardInstance[];
   cardWidth: number;
   rows: number;
+  // The cards of the first row, when `rows` is 2.
+  firstRow: number;
   width: number;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
@@ -90,7 +94,7 @@ export default function AttemptPersonnelRow({
   const landedNonce = useLandedNonce(landedKey);
   const { selectedPersonnel, allSelectedStopped, unstoppedPersonnel } = stopButtons(cards, selectedIds);
   const cardHeight = fullCardHeight(cardWidth);
-  const lines = splitIntoRows(cards, Math.max(1, Math.min(rows, ATTEMPT_PERSONNEL_MAX_ROWS)));
+  const lines = splitIntoRows(cards, Math.min(rows, ATTEMPT_PERSONNEL_MAX_ROWS), firstRow);
   const buttonClassName = 'btn-primary whitespace-nowrap h-full !px-2 !py-0 text-[10px] leading-none';
 
   return (
