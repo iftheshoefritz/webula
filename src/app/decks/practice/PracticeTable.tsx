@@ -975,12 +975,15 @@ function DilemmaStackTopCard({
   onOpen,
   zIndex,
   cardWidth,
+  left = 0,
 }: {
   topCard: CardInstance;
   count: number;
   onOpen: () => void;
   zIndex: number;
   cardWidth: number;
+  // The face-up stack of the dilemma choice (#1190) draws every card this way, side by side.
+  left?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
   // A revealed card previews like any other face-up card on the table: a mouse hover or a press
@@ -993,17 +996,18 @@ function DilemmaStackTopCard({
       ref={setNodeRef}
       data-card-id={topCard.id}
       onClick={onOpen}
-      aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
+      aria-label={dilemmaStackLabel(count)}
       style={{
         ...NO_CALLOUT_STYLE,
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         opacity: isDragging ? 0.5 : 1,
         bottom: 0,
+        left,
         zIndex,
       }}
       {...attributes}
       {...holdListeners}
-      className="absolute left-0 rounded-lg focus:outline-none touch-none"
+      className="absolute rounded-lg focus:outline-none touch-none"
     >
       <img
         src={`/cardimages/${topCard.card.imagefile}.jpg`}
@@ -1059,6 +1063,9 @@ function DilemmaStackTopCard({
 // the zone grows taller when the scale leaves it shorter than one of those wider cards. A phone or
 // a tablet keeps the narrow zone.
 // The two widths are set in `tableScale.ts`, whose desktop scale (#992) leaves room for the zone.
+//
+// #1190: this fan is the stack of the facing phase only. In the dilemma choice every card is face
+// up, and `DilemmaStackFaceUp` below draws the stack instead, side by side and always visible.
 
 // The height of a mission column with the ship rows `useMissionScale` reserves, on a desktop (#992)
 // and on a touch screen. Defined once at module level, so the hook's effect does not run again on
@@ -1069,6 +1076,19 @@ const touchMissionColumnHeight = (scale: number): number =>
   missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
 const dilemmaStackCardHeight = (cardWidth: number) => Math.round((cardWidth * 167) / 120); // px, the card's own aspect ratio
 const DILEMMA_STACK_MAX_OFFSET = 24; // px, the largest gap between fanned cards
+
+// The parts that make the dilemma stack a drop target, shared by the facing phase's fan and the
+// face-up stack of the dilemma choice (#1190). Only one of the two is mounted at a time, so
+// `dilemmaStack` stays one droppable.
+function useDilemmaStackZone() {
+  const { setNodeRef, isOver } = useDroppable({ id: 'dilemmaStack' });
+  const draggedType = useDraggedCardType();
+  const highlight = highlightState('dilemmaStack', draggedType, isOver);
+  const landedNonce = useLandedNonce('dilemmaStack');
+  return { setNodeRef, highlight, landedNonce };
+}
+
+const dilemmaStackLabel = (count: number) => `Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`;
 
 function DilemmaStackPile({
   stack,
@@ -1088,10 +1108,7 @@ function DilemmaStackPile({
   // The attempt layout (#1164) makes the zone as tall as the attempted mission card.
   minHeight?: number;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: 'dilemmaStack' });
-  const draggedType = useDraggedCardType();
-  const highlight = highlightState('dilemmaStack', draggedType, isOver);
-  const landedNonce = useLandedNonce('dilemmaStack');
+  const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone();
   const cardWidth = DILEMMA_STACK_CARD_WIDTH * (desktop ? DILEMMA_STACK_DESKTOP_WIDTH_FACTOR : 1);
   const cardHeight = dilemmaStackCardHeight(cardWidth);
   const height = Math.max(Math.round((TABLE_CARD_ART_HEIGHT + SMALL_CARD_ART_HEIGHT) * scale), desktop ? cardHeight : 0, minHeight);
@@ -1118,7 +1135,7 @@ function DilemmaStackPile({
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`}
+        aria-label={dilemmaStackLabel(count)}
         aria-hidden={revealed || undefined}
         tabIndex={revealed ? -1 : undefined}
         className="absolute inset-0 w-full h-full rounded-lg focus:outline-none"
@@ -1163,6 +1180,74 @@ function DilemmaStackPile({
           <RevealIcon className="w-3 h-3" />
         </button>
       )}
+    </div>
+  );
+}
+
+// Issue #1190: the dilemma stack of the dilemma choice (`Attempt.phase === 'choose'`), in the
+// middle of the attempt layout. Every card shows its own face, left to right in stack order, the
+// first dilemma faced first, edge to edge while they fit the width and overlapped past that, a
+// later card on top. Each card previews on a hold or a hover, opens the stack's panel on a tap, and
+// drags off the stack, as the revealed top card of the fan does. The zone shows even when it is
+// empty: `dilemmaStackVisible` (#742) applies only to the fan.
+function DilemmaStackFaceUp({
+  stack,
+  onOpen,
+  width,
+  height,
+  cardWidth,
+}: {
+  stack: CardInstance[];
+  onOpen: () => void;
+  width: number;
+  height: number;
+  cardWidth: number;
+}) {
+  const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone();
+  const count = stack.length;
+  const offset = offsetFor(count, cardWidth, width, cardWidth);
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-zone="dilemmaStack"
+      data-highlight={highlight}
+      data-landed={landedNonce !== null || undefined}
+      style={{ width, height }}
+      className={`relative rounded-lg ${highlightClassName(highlight)}`}
+    >
+      <LandedRing nonce={landedNonce} />
+      {/* Covers the space the cards leave, so a tap there opens the panel too. Each card carries
+          the same label, so this one is hidden from the accessibility tree once a card shows. */}
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={dilemmaStackLabel(count)}
+        aria-hidden={count > 0 || undefined}
+        tabIndex={count > 0 ? -1 : undefined}
+        className="absolute inset-0 w-full h-full rounded-lg focus:outline-none"
+      >
+        {count === 0 && (
+          <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
+            Dilemma stack
+          </div>
+        )}
+      </button>
+      {stack.map((card, i) => (
+        <DilemmaStackTopCard
+          key={card.id}
+          topCard={card}
+          count={count}
+          onOpen={onOpen}
+          zIndex={i + 1}
+          cardWidth={cardWidth}
+          left={i * offset}
+        />
+      ))}
+      <span className="absolute -top-1 -right-1 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none" style={{ height: 14, zIndex: count + 1 }}>
+        <DilemmaIcon />
+        {count > 0 && <span className="text-[8px] font-bold">{count}</span>}
+      </span>
     </div>
   );
 }
@@ -2234,7 +2319,8 @@ function PracticeDrawContent() {
   // #742: the dilemma stack zone is only useful once one of these is true — it holds a card, its
   // own hand is open (so there's somewhere to drag a dilemma from), or a dilemma is being dragged
   // right now (so it's a valid drop target mid-drag, the same `draggingInstance` check the
-  // dilemma pile's own top/bottom split already uses for `showPositionLabel`).
+  // dilemma pile's own top/bottom split already uses for `showPositionLabel`). The face-up stack of
+  // the dilemma choice (#1190) ignores it and always shows.
   const dilemmaStackVisible =
     dilemmaStack.length > 0 || openHand === 'dilemmaHand' || draggingInstance?.card.type === 'dilemma';
   draggingRef.current = draggingInstance !== null;
@@ -2494,6 +2580,7 @@ function PracticeDrawContent() {
                   attempt={table.attempt}
                   slot={missions[table.attempt.missionIndex]}
                   sizes={attemptSizes}
+                  personnelCount={attemptPersonnelCards?.length ?? 0}
                   desktop={finePointer}
                   layoutRef={setAttemptLayoutEl}
                   stripRef={setAttemptStrip}
@@ -2512,6 +2599,15 @@ function PracticeDrawContent() {
                   onSetStopped={setStoppedForSelection}
                   onShuffle={(location) => dispatch({ type: 'shuffle', location })}
                   dilemmaStack={
+                    table.attempt.phase === 'choose' ? (
+                      <DilemmaStackFaceUp
+                        stack={dilemmaStack}
+                        onOpen={() => openOnlyFlatZone('dilemmaStack')}
+                        width={attemptSizes.choice.stackWidth}
+                        height={attemptSizes.choice.stackHeight}
+                        cardWidth={attemptSizes.choice.stackCardWidth}
+                      />
+                    ) : (
                     <DilemmaStackPile
                       stack={dilemmaStack}
                       onOpen={() => openOnlyFlatZone('dilemmaStack')}
@@ -2521,6 +2617,7 @@ function PracticeDrawContent() {
                       desktop={finePointer}
                       minHeight={missionCardHeight(attemptSizes.missionScale, true)}
                     />
+                    )
                   }
                 />
               ) : (

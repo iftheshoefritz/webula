@@ -456,6 +456,17 @@ card face down and sends every card of the dilemma hand to the bottom of the dil
 in hand order; to `'choose'` it turns the stack face up and moves no card. Each is one log entry. A
 save from before #1189 restores in `'face'` with `drawn` 0. No button switches the phase yet.
 
+In `'choose'` the attempt layout draws the dilemma choice (#1190): the mission on the left at the
+facing phase's scale (`computeAttemptChoiceLayout` keeps the `missionScale` of `computeAttemptLayout`),
+the dilemma stack face up in the middle, and on the right the attempting personnel as one face-down
+pile, `data-testid="attempt-personnel-pile"`, with a count of the crew or the away team, above the
+ships of the mission's ship row, one to a row. The stack is still the droppable `dilemmaStack`, shows
+even when it is empty, and draws every card's face side by side, overlapped only past its width; each
+card previews on a hold, opens the stack's panel on a tap, and drags off the stack. The pile has no
+`data-zone` and no `data-card-id`: it is not a drop target, and a hold on it previews nothing. The
+personnel row, its Stop, Stop all and Shuffle buttons, its droppable and the away team badge are not
+mounted in `'choose'`. `?fixture=attempt-choose` opens in this layout.
+
 Every drop target in the attempt layout keeps its id: `mission-on-<i>`, `mission-under-<i>`,
 `ship-row-<i>` and `crew-<id>` with `<i>` the mission's own slot index, and `dilemmaStack`. The mission
 row is not mounted during the attempt layout, so the targets of the other missions do not exist then:
