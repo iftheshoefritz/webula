@@ -1,5 +1,6 @@
 import {
   ATTEMPT_GAP,
+  ATTEMPT_STACK_LABEL_HEIGHT,
   ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
   ATTEMPT_PERSONNEL_MIN_SLICE,
   ATTEMPT_STRIP_HEIGHT,
@@ -203,7 +204,6 @@ describe('computeAttemptLayout (#1164)', () => {
 
   it('never draws the mission or the ships below the floor, nor the ships above the mission', () => {
     for (const [width, height, ships] of [
-      [MIN_SCREEN.width, 100, 1],
       [MIN_SCREEN.width, 198, 6],
       [1440, 600, 0],
       [1440, 600, 12],
@@ -214,6 +214,14 @@ describe('computeAttemptLayout (#1164)', () => {
       expect(sizes.shipScale).toBeGreaterThanOrEqual(floor);
       expect(sizes.shipScale).toBeLessThanOrEqual(sizes.missionScale);
     }
+  });
+
+  // Issue #1203: the height wins over the floor.
+  it('draws the mission below the floor when the whole card does not fit the height at it', () => {
+    const sizes = computeAttemptLayout(MIN_SCREEN.width, 100, false, 1, 1.3);
+    expect(sizes.missionScale).toBeLessThan(1.3);
+    expect(attemptMissionColumnHeight(sizes.missionScale)).toBeLessThanOrEqual(100);
+    expect(sizes.shipScale).toBeLessThanOrEqual(sizes.missionScale);
   });
 
   it('gives more ships more rows, as far as the height allows', () => {
@@ -442,4 +450,61 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
     // 3 dilemmas sit edge to edge, every one readable.
     expect(offsetFor(3, choice.stackCardWidth, choice.stackWidth, choice.stackCardWidth)).toBe(choice.stackCardWidth);
   });
+});
+
+// Issue #1203: in both phases, the body's top padding and its tallest column fit the height above
+// the bottom row, so the attempt layout never pushes the bottom row off the screen.
+describe('the attempt layout fits the height above the bottom row (#1203)', () => {
+  const touchColumn = (scale: number) => missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
+  const desktopColumn = (scale: number) => missionColumnHeight(scale, true, DESKTOP_RESERVED_SHIP_ROWS);
+  const buttonsRoom = 4 + ATTEMPT_PERSONNEL_BUTTONS_HEIGHT;
+  const shipRowsHeight = (rows: number, scale: number, desktop: boolean) =>
+    rows * shipRowLineHeight(scale, desktop) + (rows - 1) * 4;
+  // The bottom row of the practice table is about 125 px tall at the minimum screen, and the table
+  // has 16 px of padding above and below.
+  const screens = [
+    { name: '667x375', width: MIN_SCREEN.width, height: MIN_SCREEN.height, desktop: false },
+    { name: '800x600', width: 800, height: 600, desktop: false },
+    { name: 'a desktop at 800x600', width: 800, height: 600, desktop: true },
+    { name: 'a short screen', width: MIN_SCREEN.width, height: 300, desktop: false },
+  ];
+  const cases = [
+    { name: 'a space mission with a crew of 12 and 1 ship', ships: 1, personnel: { count: 12, space: true } },
+    { name: 'a planet mission with an away team of 20 and no ship', ships: 0, personnel: { count: 20, space: false } },
+    { name: 'a planet mission with an away team of 20 and 5 ships', ships: 5, personnel: { count: 20, space: false } },
+  ];
+
+  for (const screen of screens) {
+    const tableScale = screen.desktop ? 1 : computeTableScale(screen.width, screen.height);
+    const tableHeight = screen.height - 32 - 125;
+    const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const rowScale = screen.desktop
+      ? computeDesktopTableScale(screen.width, tableHeight, desktopColumn)
+      : computeTouchMissionScale(screen.width, tableHeight, touchColumn, tableScale);
+    const floor = attemptFloorScale(rowScale, available, tableScale);
+
+    it.each(cases)(`fits $name on ${screen.name}, in both phases`, ({ ships, personnel }) => {
+      const face = computeAttemptLayout(screen.width, available, screen.desktop, ships, floor, personnel);
+      const padding = underMissionStackRoom(face.missionScale, true);
+      expect(padding + face.columnHeight).toBeLessThanOrEqual(available + 0.5);
+
+      // The facing phase: the mission, the middle column and the dilemma stack.
+      const personnelHeight = attemptPersonnelHeight(face.personnelCardWidth, face.personnelRows) + buttonsRoom;
+      const ships_ = shipRowsHeight(face.shipRows, face.shipScale, screen.desktop);
+      const middle = personnel.space
+        ? badgeStripHeight(face.missionScale) + 4 + Math.max(personnelHeight, ships_)
+        : personnelHeight + 4 + ships_;
+      const stack = missionCardHeight(face.missionScale, true);
+      expect(attemptMissionColumnHeight(face.missionScale)).toBeLessThanOrEqual(available + 0.5);
+      expect(padding + Math.max(middle, stack)).toBeLessThanOrEqual(available + 0.5);
+
+      // The choice phase: the mission, the stack, and the pile above its ships.
+      const choice = computeAttemptChoiceLayout(screen.width, available, screen.desktop, ships, floor, face);
+      const right =
+        fullCardHeight(choice.pileCardWidth) + 4 + shipRowsHeight(choice.shipRows, choice.shipScale, screen.desktop);
+      expect(padding + Math.max(choice.stackHeight, right)).toBeLessThanOrEqual(available + 0.5);
+      // The stack's cards fit below the line of its end labels (#1204).
+      expect(ATTEMPT_STACK_LABEL_HEIGHT + fullCardHeight(choice.stackCardWidth)).toBeLessThanOrEqual(choice.stackHeight);
+    });
+  }
 });

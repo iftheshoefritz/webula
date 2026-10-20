@@ -81,7 +81,7 @@ import { LAYER_CARD_LIST_PANEL } from '../../../lib/layers';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
-import { dilemmaStackInsertPoint } from './dilemmaStackInsert';
+import { DILEMMA_STACK_CHOICE_END_LABELS, dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
 import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderStyle } from './TableCard';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
@@ -555,6 +555,7 @@ export default function CardListPanel({
   onDiscard,
   onDownload,
   revealEnd = 'top',
+  choosingDilemmas = false,
   onReveal,
   canRevealTop = false,
   canRevealBottom = false,
@@ -596,6 +597,9 @@ export default function CardListPanel({
   // The reveal panel only (#1070, #1078): the end of the pile its cards come from, which sets the
   // title and the end labels of the row.
   revealEnd?: 'top' | 'bottom';
+  // The dilemma stack's panel only (#1204): the attempt is in the dilemma choice, so the end labels
+  // name the dilemmas faced first and last, as the row of the choice layout does.
+  choosingDilemmas?: boolean;
   // The reveal panel only (#1070, #1078): shows one more card from the top or the bottom of the
   // pile. Its presence shows the "Reveal top" and "Reveal bottom" buttons, even with no card in
   // the panel; `canRevealTop` and `canRevealBottom` say whether each one can reveal a card.
@@ -741,10 +745,22 @@ export default function CardListPanel({
         // its other end is not an end of the pile.
         <div className="flex flex-row justify-between">
           <span className={stackEndLabelClassName}>
-            {isRevealPanel ? (revealEnd === 'bottom' ? 'Drawn earlier' : 'Top (drawn first)') : 'Top (revealed first)'}
+            {isRevealPanel
+              ? revealEnd === 'bottom'
+                ? 'Drawn earlier'
+                : 'Top (drawn first)'
+              : choosingDilemmas
+              ? DILEMMA_STACK_CHOICE_END_LABELS.first
+              : 'Top (revealed first)'}
           </span>
           <span className={stackEndLabelClassName}>
-            {isRevealPanel ? (revealEnd === 'bottom' ? 'Bottom (drawn last)' : 'Drawn later') : 'Bottom (revealed last)'}
+            {isRevealPanel
+              ? revealEnd === 'bottom'
+                ? 'Bottom (drawn last)'
+                : 'Drawn later'
+              : choosingDilemmas
+              ? DILEMMA_STACK_CHOICE_END_LABELS.last
+              : 'Bottom (revealed last)'}
           </span>
         </div>
       )}

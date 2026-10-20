@@ -10,6 +10,7 @@ import {
   DragOverEvent,
   DragOverlay,
   DragStartEvent,
+  useDndContext,
   useDraggable,
   useDroppable,
 } from '@dnd-kit/core';
@@ -97,6 +98,7 @@ import {
   DILEMMA_STACK_DESKTOP_WIDTH_FACTOR,
   DESKTOP_RESERVED_SHIP_ROWS,
   TOUCH_RESERVED_SHIP_ROWS,
+  ATTEMPT_STACK_LABEL_HEIGHT,
   desktopMissionSlotBudget,
   useAttemptLayout,
   useMissionScale,
@@ -114,6 +116,13 @@ import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
+import {
+  DILEMMA_STACK_CHOICE_END_LABELS,
+  DILEMMA_STACK_ROW_END,
+  dilemmaStackRowInsertPoint,
+  dilemmaStackRowSlotId,
+  dilemmaStackRowTarget,
+} from './dilemmaStackInsert';
 import { createCenterOnPointerModifier } from './centerOnPointer';
 import { useFullscreen } from './useFullscreen';
 import { TapDebugOverlay, useDebugTaps } from './TapDebugOverlay';
@@ -1118,10 +1127,10 @@ const DILEMMA_STACK_MAX_OFFSET = 24; // px, the largest gap between fanned cards
 // The parts that make the dilemma stack a drop target, shared by the facing phase's fan and the
 // face-up stack of the dilemma choice (#1190). Only one of the two is mounted at a time, so
 // `dilemmaStack` stays one droppable.
-function useDilemmaStackZone() {
+function useDilemmaStackZone(overARowSlot = false) {
   const { setNodeRef, isOver } = useDroppable({ id: 'dilemmaStack' });
   const draggedType = useDraggedCardType();
-  const highlight = highlightState('dilemmaStack', draggedType, isOver);
+  const highlight = highlightState('dilemmaStack', draggedType, isOver || overARowSlot);
   const landedNonce = useLandedNonce('dilemmaStack');
   return { setNodeRef, highlight, landedNonce };
 }
@@ -1136,6 +1145,7 @@ function DilemmaStackPile({
   scale,
   desktop,
   minHeight = 0,
+  maxHeight = Infinity,
 }: {
   stack: CardInstance[];
   onOpen: () => void;
@@ -1143,13 +1153,18 @@ function DilemmaStackPile({
   visible: boolean;
   scale: number;
   desktop: boolean;
-  // The attempt layout (#1164) makes the zone as tall as the attempted mission card.
+  // The attempt layout (#1164) makes the zone as tall as the attempted mission card, and never
+  // taller than the height its columns fit (#1203).
   minHeight?: number;
+  maxHeight?: number;
 }) {
   const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone();
   const cardWidth = DILEMMA_STACK_CARD_WIDTH * (desktop ? DILEMMA_STACK_DESKTOP_WIDTH_FACTOR : 1);
   const cardHeight = dilemmaStackCardHeight(cardWidth);
-  const height = Math.max(Math.round((TABLE_CARD_ART_HEIGHT + SMALL_CARD_ART_HEIGHT) * scale), desktop ? cardHeight : 0, minHeight);
+  const height = Math.min(
+    maxHeight,
+    Math.max(Math.round((TABLE_CARD_ART_HEIGHT + SMALL_CARD_ART_HEIGHT) * scale), desktop ? cardHeight : 0, minHeight),
+  );
   const count = stack.length;
   const topCard = stack[0];
   const revealed = topCard?.face === 'up';
@@ -1228,6 +1243,11 @@ function DilemmaStackPile({
 // later card on top. Each card previews on a hold or a hover, opens the stack's panel on a tap, and
 // drags off the stack, as the revealed top card of the fan does. The zone shows even when it is
 // empty: `dilemmaStackVisible` (#742) applies only to the fan.
+//
+// #1204: a line above the cards labels the two ends, "Faced first" and "Faced last", and each card
+// is a drop target of its own (`DilemmaStackRowSlot`), so a drop puts a dilemma between two cards.
+// A marker shows where, from the same rule the drop reads (`dilemmaStackRowInsertPoint`), as the
+// marker of the stack's panel does (#956).
 function DilemmaStackFaceUp({
   stack,
   onOpen,
@@ -1241,9 +1261,22 @@ function DilemmaStackFaceUp({
   height: number;
   cardWidth: number;
 }) {
-  const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone();
+  const { active, over } = useDndContext();
+  const overId = over ? String(over.id) : null;
+  const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone(dilemmaStackRowTarget(overId) !== null);
+  const draggedType = useDraggedCardType();
   const count = stack.length;
   const offset = offsetFor(count, cardWidth, width, cardWidth);
+  const cardHeight = dilemmaStackCardHeight(cardWidth);
+  const insert =
+    draggedType === 'dilemma'
+      ? dilemmaStackRowInsertPoint(
+          stack.map((card) => card.id),
+          active ? cardIdOfDraggable(active.id) : null,
+          overId
+        )
+      : null;
+  const markLeft = insert === null ? 0 : insert.boundary >= count ? (count - 1) * offset + cardWidth : insert.boundary * offset;
 
   return (
     <div
@@ -1271,6 +1304,17 @@ function DilemmaStackFaceUp({
           </div>
         )}
       </button>
+      {count > 0 && (
+        // The right label keeps clear of the count badge in the corner.
+        <div
+          data-testid="dilemma-stack-end-labels"
+          className="absolute top-0 left-0 right-0 flex flex-row justify-between items-center pr-7 pointer-events-none text-[10px] font-bold uppercase tracking-wide text-text-secondary leading-none whitespace-nowrap"
+          style={{ height: ATTEMPT_STACK_LABEL_HEIGHT }}
+        >
+          <span>{DILEMMA_STACK_CHOICE_END_LABELS.first}</span>
+          <span>{DILEMMA_STACK_CHOICE_END_LABELS.last}</span>
+        </div>
+      )}
       {stack.map((card, i) => (
         <DilemmaStackTopCard
           key={card.id}
@@ -1282,11 +1326,48 @@ function DilemmaStackFaceUp({
           left={i * offset}
         />
       ))}
+      {/* The drop targets: the part of each card no later card covers, and the last card split in
+          two halves, the right one the end of the stack. */}
+      {stack.map((card, i) => (
+        <DilemmaStackRowSlot
+          key={card.id}
+          id={dilemmaStackRowSlotId(card.id)}
+          left={i * offset}
+          width={i === count - 1 ? cardWidth / 2 : offset}
+        />
+      ))}
+      {count > 0 && (
+        <DilemmaStackRowSlot id={DILEMMA_STACK_ROW_END} left={(count - 1) * offset + cardWidth / 2} width={cardWidth / 2} />
+      )}
+      {insert && (
+        <div
+          data-testid="dilemma-stack-insert-indicator"
+          data-slot={insert.slot}
+          aria-hidden="true"
+          className="absolute bottom-0 w-1 -translate-x-1/2 rounded-full bg-accent pointer-events-none"
+          style={{ left: markLeft, height: cardHeight, zIndex: count + 2 }}
+        />
+      )}
       <span className="absolute -top-1 -right-1 flex items-center gap-0.5 rounded-full bg-black/50 px-1 text-text-primary leading-none pointer-events-none" style={{ height: 14, zIndex: count + 1 }}>
         <DilemmaIcon />
         {count > 0 && <span className="text-[8px] font-bold">{count}</span>}
       </span>
     </div>
+  );
+}
+
+// One drop target of the face-up row (#1204). It takes no pointer events, so a press still
+// reaches the card under it; dnd-kit finds it by its rect.
+function DilemmaStackRowSlot({ id, left, width }: { id: string; left: number; width: number }) {
+  const { setNodeRef } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      data-zone={id}
+      aria-hidden="true"
+      className="absolute top-0 bottom-0 pointer-events-none"
+      style={{ left, width }}
+    />
   );
 }
 
@@ -2306,6 +2387,23 @@ function PracticeDrawContent() {
       }
     }
 
+    // A drop on a card of the face-up row of the dilemma choice (#1204), or on its end. The row's
+    // targets exist only while it shows. A card of the stack moves to the marked place, as the
+    // reorder of the panel above does. A card from anywhere else enters the stack at the marked
+    // place below, through the plain move to `dilemmaStack` and a reorder after it.
+    const rowTarget = over ? dilemmaStackRowTarget(String(over.id)) : null;
+    const rowInsert = rowTarget
+      ? dilemmaStackRowInsertPoint(
+          dilemmaStack.map((c) => c.id),
+          id,
+          String(over!.id)
+        )
+      : null;
+    if (rowTarget && dragOrigin?.zone === 'dilemmaStack') {
+      if (rowInsert) dispatch({ type: 'reorder', zone: 'dilemmaStack', id, overId: dilemmaStack[rowInsert.slot].id });
+      return;
+    }
+
     // A drop on the dilemma pile's or the draw pile's top half (#607, #743) puts the group first
     // in the pile, in front of its existing cards; the bottom half (the default, `position`
     // undefined) puts it last. This branch does not depend on a dragged card's type
@@ -2323,15 +2421,22 @@ function PracticeDrawContent() {
     // target does not accept is simply left out here — it stays in its panel, same as a lone
     // card dropped somewhere it does not fit already did.
     const actions: Extract<TableAction, { type: 'move' }>[] = [];
+    const targetOver = rowTarget ? { ...over!, id: 'dilemmaStack' } : over;
     orderedGroup.forEach((instance) => {
-      const target = computeMoveTargetForInstance(over, instance, table, armedTargetId);
+      const target = computeMoveTargetForInstance(targetOver, instance, table, armedTargetId);
       if (target) actions.push({ type: 'move', id: instance.id, to: target, position });
     });
+    // Each move appends its card to the stack. A reorder onto the card that sat at the marked place
+    // then puts it right before that card, so the group keeps its order there (#1204).
+    const beforeId = rowInsert ? dilemmaStack[rowInsert.boundary]?.id : undefined;
+    const reorders: TableAction[] = beforeId
+      ? actions.map((action) => ({ type: 'reorder', zone: 'dilemmaStack', id: action.id, overId: beforeId }))
+      : [];
 
     // One batch applies every card's own action through `tableReducer` in order, so it reaches
     // the same end state `tableReducer`, replayed below, predicts, and makes one log entry
     // (#1065). A drag that showed the card back logs its cards as unseen.
-    if (actions.length > 0) dispatch({ type: 'batch', actions, unseen: draggingShowsBack });
+    if (actions.length > 0) dispatch({ type: 'batch', actions: [...actions, ...reorders], unseen: draggingShowsBack });
     markLanded(actions);
 
     // `tableReducer` is a pure function (#675): replaying the same actions here, on the side,
@@ -2340,7 +2445,7 @@ function PracticeDrawContent() {
     // a card. A drag that dispatched no move (nothing was over a valid drop target, for every
     // card in the group) leaves `table` itself as the outcome: nothing moved, so nothing in any
     // panel changed either.
-    const nextTable = actions.reduce((state, action) => tableReducer(state, action), table);
+    const nextTable = [...actions, ...reorders].reduce((state, action) => tableReducer(state, action), table);
 
     // A card that actually moved is no longer in the panel it was selected in, so it drops out
     // of the selection (#677); a card the drop target did not accept stays selected, same as it
@@ -2701,6 +2806,7 @@ function PracticeDrawContent() {
                       scale={attemptSizes.missionScale}
                       desktop={finePointer}
                       minHeight={missionCardHeight(attemptSizes.missionScale, true)}
+                      maxHeight={Math.floor(attemptSizes.columnHeight)}
                     />
                     )
                   }
@@ -3004,6 +3110,7 @@ function PracticeDrawContent() {
                 <CardListPanel
                   location={openFlatLocation}
                   cards={openPanelCards ?? []}
+                  choosingDilemmas={table.attempt?.phase === 'choose'}
                   onClose={() => {
                     setOpenFlatLocation(null);
                     setSelectedCardIds([]);
