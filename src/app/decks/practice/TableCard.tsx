@@ -72,16 +72,17 @@ export function cardBorderStyle(cardWidth: number): CSSProperties {
 }
 // The frame trim of a mission's touch crop (#1175). The image prints a black frame 17 px wide on its
 // 357 px width, on the top and both sides (measured on the mission images: 16 to 18 px), thicker
-// than the border. The crop draws the image larger than its box, so that the box's edges cut the
-// printed frame down to the border's thickness, and shifts it up and left by the same amount, so
-// that exactly `cardBorderWidth` of black shows on the top and both sides, all of it under the
-// border. The bottom of the box cuts the image below its art as before, under the same border.
+// than the border. The crop draws the image larger than its box and shifts it up and left, so that
+// the box's top, left and right edges fall on the inner edge of that frame and none of it shows. The
+// border is drawn around the outside of the box, so it covers none of the image (the owner's call
+// on #1175). The bottom of the box cuts the image below its art, as before.
 export const MISSION_IMAGE_FRAME_SHARE = 17 / 357; // of the image's width
 export function missionCropImage(cardWidth: number): { imageWidth: number; shift: number } {
-  const border = cardBorderWidth(cardWidth);
-  const imageWidth = (cardWidth - 2 * border) / (1 - 2 * MISSION_IMAGE_FRAME_SHARE);
-  return { imageWidth, shift: imageWidth * MISSION_IMAGE_FRAME_SHARE - border };
+  const imageWidth = cardWidth / (1 - 2 * MISSION_IMAGE_FRAME_SHARE);
+  return { imageWidth, shift: imageWidth * MISSION_IMAGE_FRAME_SHARE };
 }
+// The radius of `rounded-md`, the corners of a table card's box.
+const TABLE_CARD_RADIUS = 6;
 
 // The border of a card that is 56 px wide (`w-14`), the card of a pile and of a drag.
 export const PILE_CARD_BORDER_STYLE = cardBorderStyle(56);
@@ -212,9 +213,10 @@ export function TableCardImage({
   const src = isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance);
   const alt = isFaceDown ? 'Face-down card' : cardDisplayName(card);
   if (trimFrame) {
-    // The image is larger than the box, which clips it, so the border lies on the box's edges, over
-    // the image, as an overlay of its own.
+    // The image is larger than the box, which clips it. The border is a ring around the outside of
+    // the box, with corners that follow the box's.
     const { imageWidth, shift } = missionCropImage(width);
+    const border = cardBorderWidth(width);
     return (
       <div className="relative w-full" style={{ height }}>
         <div className={`relative w-full h-full overflow-hidden bg-black/20 ${className}`}>
@@ -224,12 +226,12 @@ export function TableCardImage({
             className={`absolute max-w-none h-auto ${looks}`}
             style={{ ...NO_CALLOUT_STYLE, width: imageWidth, left: -shift, top: -shift }}
           />
-          <div
-            data-testid="card-border"
-            className={`absolute inset-0 pointer-events-none ${className}`}
-            style={{ border: `${cardBorderWidth(width)}px solid black` }}
-          />
         </div>
+        <div
+          data-testid="card-border"
+          className="absolute pointer-events-none"
+          style={{ inset: -border, border: `${border}px solid black`, borderRadius: TABLE_CARD_RADIUS + border }}
+        />
       </div>
     );
   }

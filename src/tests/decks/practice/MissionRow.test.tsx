@@ -966,14 +966,12 @@ describe('missionSpanLayout (#1133)', () => {
   const SCALES = [1, 375 / 320, 105 / 72, 97 / 72, 2.4];
   const card = (scale: number) => {
     const width = Math.round(72 * scale);
-    const border = Math.max(2, Math.round((width * 6) / 240));
-    // The crop draws the image larger and shifted, to trim its printed frame, 17 px of its 357 (#1175).
-    const imageWidth = (width - 2 * border) / (1 - (2 * 17) / 357);
+    // The crop draws the image larger and shifted, to cut off its printed frame, 17 px of its 357 (#1175).
+    const imageWidth = width / (1 - (2 * 17) / 357);
     return {
       width,
-      border,
       imageWidth,
-      shift: (imageWidth * 17) / 357 - border,
+      shift: (imageWidth * 17) / 357,
       fullHeight: Math.round((width * 167) / 120),
       artHeight: Math.round(64 * scale),
     };
@@ -1013,12 +1011,12 @@ describe('missionSpanLayout (#1133)', () => {
     expect(chromeRadius).toBeCloseTo((imageWidth * 28.5) / 357, 5);
   });
 
-  it.each(SCALES)('fills the plate down to the card\'s border and cuts the disc there at scale %s (#1140, #1175)', (scale) => {
+  it.each(SCALES)('fills the plate down to the bottom of the box and cuts the disc there at scale %s (#1140, #1175)', (scale) => {
     const { top, height, plateBottom } = missionSpanLayout(scale);
-    const { artHeight, border } = card(scale);
-    // The black border is 6 of 240 of the card width, at least 2 px. The plate reaches half a pixel
-    // into it, and the span ends there, so the border covers the disc as it covers the chrome.
-    expect(top + plateBottom).toBe(artHeight - border + 0.5);
+    const { artHeight } = card(scale);
+    // The border is outside the box, so the plate runs to the box's bottom edge, and the span ends
+    // there: the box cuts the disc at the same line as the chrome of both rings.
+    expect(top + plateBottom).toBe(artHeight);
     expect(height).toBe(plateBottom);
   });
 

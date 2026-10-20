@@ -36,23 +36,21 @@ describe('the black card border (#983)', () => {
   });
 });
 
-// #1175: the image prints a black frame 17 px wide on its 357 px width, thicker than the border, so
-// the touch crop of a mission draws the image larger and shifted, to show only the border's
-// thickness of black on every side.
+// #1175: the image prints a black frame 17 px wide on its 357 px width, so the touch crop of a mission
+// draws the image larger and shifted, to cut the whole printed frame off at the box's edges, and draws
+// the border around the outside of the box.
 describe('the trimmed frame of a mission crop (#1175)', () => {
-  it.each([72, 84, 97, 105, 173])('shows exactly the border of the printed frame at a width of %s', (width) => {
-    const border = cardBorderWidth(width);
+  it.each([72, 84, 97, 105, 173])('cuts the printed frame off at the box edges at a width of %s', (width) => {
     const { imageWidth, shift } = missionCropImage(width);
     const frame = (imageWidth * 17) / 357;
-    // The top and the left: the frame ends at the inner edge of the border.
-    expect(frame - shift).toBeCloseTo(border, 5);
-    // The right: the image's right edge, less its frame, ends at the inner edge of the border.
-    expect(width - (imageWidth - shift - frame)).toBeCloseTo(border, 5);
+    // The top and the left: the frame ends at the box's edge.
+    expect(frame - shift).toBeCloseTo(0, 5);
+    // The right: the image's right edge, less its frame, ends at the box's edge.
+    expect(imageWidth - shift - frame).toBeCloseTo(width, 5);
     expect(imageWidth).toBeGreaterThan(width);
-    expect(shift).toBeGreaterThan(0);
   });
 
-  it('draws the image wider than the box and shifted, under a border on the box', () => {
+  it('draws the image wider than the box and shifted, with the border outside the box', () => {
     render(<TableCard instance={instance} width={105} artHeight={93} trimFrame />);
     const img = screen.getByAltText('Moab IV');
     const { imageWidth, shift } = missionCropImage(105);
@@ -60,7 +58,11 @@ describe('the trimmed frame of a mission crop (#1175)', () => {
     expect(img.style.left).toBe(`${-shift}px`);
     expect(img.style.top).toBe(`${-shift}px`);
     expect(img.style.outline).toBe('');
-    expect(screen.getByTestId('card-border').style.border).toBe('3px solid black');
+    const border = screen.getByTestId('card-border');
+    expect(border.style.border).toBe('3px solid black');
+    expect(border.style.inset).toBe('-3px');
+    // The ring is outside the box that clips the image, so it covers none of it.
+    expect(border.parentElement).not.toBe(img.parentElement);
   });
 
   it('draws the whole card as before', () => {
