@@ -1,5 +1,6 @@
 import {
   ATTEMPT_GAP,
+  ATTEMPT_STACK_LABEL_HEIGHT,
   ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
   ATTEMPT_PERSONNEL_MIN_SLICE,
   ATTEMPT_STRIP_HEIGHT,
@@ -502,6 +503,8 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
       const right =
         fullCardHeight(choice.pileCardWidth) + 4 + shipRowsHeight(choice.shipRows, choice.shipScale, screen.desktop);
       expect(padding + Math.max(choice.stackHeight, right)).toBeLessThanOrEqual(available + 0.5);
+      // The stack's cards fit below the line of its end labels (#1204).
+      expect(ATTEMPT_STACK_LABEL_HEIGHT + fullCardHeight(choice.stackCardWidth)).toBeLessThanOrEqual(choice.stackHeight);
     });
   }
 });

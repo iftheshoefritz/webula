@@ -588,11 +588,15 @@ export function computeAttemptLayout(
 // changes; the dilemma stack, face up, every card readable; and a right column with the attempting
 // personnel as one face-down pile, above the ships of the mission's ship row, one ship wide. The
 // stack takes the width the personnel row and the narrow facing stack take in the facing phase.
+// The line of the end labels above the cards of the choice phase's stack (#1204), in px.
+export const ATTEMPT_STACK_LABEL_HEIGHT = 14;
+
 export interface AttemptChoiceSizes {
   // The scale of the mission card: the facing phase's `missionScale`.
   missionScale: number;
   // The face-up stack: the zone's width and height, and the width of one whole card in it. The
-  // cards sit edge to edge while they fit, and overlap past that.
+  // cards sit edge to edge while they fit, and overlap past that, below the line of the end labels
+  // (`ATTEMPT_STACK_LABEL_HEIGHT`, #1204).
   stackWidth: number;
   stackHeight: number;
   stackCardWidth: number;
@@ -632,10 +636,14 @@ export function computeAttemptChoiceLayout(
   const rowsFitting = Math.max(1, Math.floor((shipsFree + SHIP_ROW_GAP) / (shipLine + SHIP_ROW_GAP)));
   const rowsNeeded = Math.max(1, Math.ceil(shipCount / shipsPerRow(floor, rightWidth)));
 
-  // The stack: every width the mission and the right column leave, as tall as the mission card.
+  // The stack: every width the mission and the right column leave, as tall as the mission card. Its
+  // cards take the height the line of the end labels leaves.
   const stackWidth = Math.max(1, Math.floor(availableWidth - missionWidth - rightWidth));
   const stackHeight = missionCardHeight(missionScale, true);
-  const stackCardWidth = Math.max(1, Math.min(stackWidth, Math.floor((stackHeight * 120) / 167)));
+  const stackCardWidth = Math.max(
+    1,
+    Math.min(stackWidth, Math.floor((Math.max(0, stackHeight - ATTEMPT_STACK_LABEL_HEIGHT) * 120) / 167)),
+  );
   return {
     missionScale,
     stackWidth,
