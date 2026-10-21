@@ -139,7 +139,7 @@ const slot: MissionSlot = {
 };
 
 const face = computeAttemptLayout(667, 280, false, 0, 1);
-const sizes = { ...face, choice: computeAttemptChoiceLayout(667, 280, false, 0, 1, face) };
+const sizes = { ...face, choice: computeAttemptChoiceLayout(667, 280, false, 0, 1, face, true) };
 
 const renderLayout = (attempt: Attempt, onSetPhase: (phase: Attempt['phase']) => void) => {
   const noop = () => {};

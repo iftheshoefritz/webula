@@ -42,7 +42,7 @@ const attempt = (phase: Attempt['phase']): Attempt => ({ missionIndex: 2, person
 const renderLayout = (slot: MissionSlot, phase: Attempt['phase'] = 'face', onOpenPlacedOn = jest.fn()) => {
   const placed = (slot.mission?.placedOn?.length ?? 0) > 0;
   const face = computeAttemptLayout(667, 280, false, 0, 1, undefined, placed);
-  const sizes = { ...face, choice: computeAttemptChoiceLayout(667, 280, false, 0, 1, face) };
+  const sizes = { ...face, choice: computeAttemptChoiceLayout(667, 280, false, 0, 1, face, true) };
   const noop = () => {};
   render(
     <AttemptLayout

@@ -22,7 +22,9 @@
 // The dilemma choice (#1190, `attempt.phase === 'choose'`) draws a body of its own: the mission at
 // the same scale; the dilemma stack, face up and as wide as the width allows, in the middle; and on
 // the right the attempting personnel as one face-down pile with a count (`attempt-personnel-pile`),
-// above the ships, one to a row. The pile is not a drop target and previews nothing; the row of the
+// above the ships, one to a row. At a planet mission (#1222) the pile is a crop of the card back the
+// size of a stack card, level with the stack's cards, and the ships stand in a column right of it.
+// The pile is not a drop target and previews nothing; the row of the
 // personnel, its buttons and its droppable are not mounted, nor is the away team badge.
 //
 // The cards placed on the attempted mission (#1180) show in a column right of the mission card, as
@@ -202,31 +204,51 @@ export default function AttemptLayout({
       {dilemmaStack}
       <div
         data-testid="attempt-ships"
-        className="flex flex-col items-center"
-        style={{ width: choice.rightWidth, gap: MISSION_COLUMN_GAP }}
+        className={`flex ${choice.pileCropped ? 'flex-row items-start' : 'flex-col items-center'}`}
+        style={{ width: choice.rightWidth, gap: choice.pileCropped ? ATTEMPT_GAP : MISSION_COLUMN_GAP }}
       >
+        {/* At a planet mission (#1222) the pile is a stack card's crop of the card back, in a slot as
+            tall as the stack, at its bottom, so it lines up with the stack's cards. */}
         <div
-          data-testid="attempt-personnel-pile"
-          aria-label={`Attempting personnel, ${personnelCount} card${personnelCount === 1 ? '' : 's'}`}
-          className="relative"
-          style={{ width: choice.pileCardWidth }}
+          className="flex flex-col justify-end"
+          style={choice.pileCropped ? { width: choice.pileCardWidth, height: choice.stackHeight } : undefined}
         >
-          <img
-            src="/cardimages/cardback.jpg"
-            width={120}
-            height={167}
-            alt=""
-            className="pointer-events-none rounded-lg shadow-lg h-auto"
-            style={{ ...cardBorderStyle(choice.pileCardWidth), width: choice.pileCardWidth }}
-          />
-          <CountBadge count={personnelCount} />
+          <div
+            data-testid="attempt-personnel-pile"
+            aria-label={`Attempting personnel, ${personnelCount} card${personnelCount === 1 ? '' : 's'}`}
+            className="relative"
+            style={{ width: choice.pileCardWidth }}
+          >
+            {choice.pileCropped ? (
+              <div className="overflow-hidden rounded-md shadow-lg" style={{ height: choice.pileCardHeight }}>
+                <img
+                  src="/cardimages/cardback.jpg"
+                  width={120}
+                  height={167}
+                  alt=""
+                  className="pointer-events-none w-full h-full object-cover object-top"
+                  style={cardBorderStyle(choice.pileCardWidth)}
+                />
+              </div>
+            ) : (
+              <img
+                src="/cardimages/cardback.jpg"
+                width={120}
+                height={167}
+                alt=""
+                className="pointer-events-none rounded-lg shadow-lg h-auto"
+                style={{ ...cardBorderStyle(choice.pileCardWidth), width: choice.pileCardWidth }}
+              />
+            )}
+            <CountBadge count={personnelCount} />
+          </div>
         </div>
         <ShipRow
           missionIndex={missionIndex}
           ships={slot.ships}
           onShipClick={onShipClick}
           onOpenShipRow={onOpenShipRow}
-          columnWidth={choice.rightWidth}
+          columnWidth={choice.pileCropped ? choice.shipColumnWidth : choice.rightWidth}
           scale={choice.shipScale}
           availableRows={choice.shipRows}
           desktop={desktop}
