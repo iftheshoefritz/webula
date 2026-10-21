@@ -145,9 +145,9 @@ export function useShipRowCount(
 // lives only in the attempt layout (#1170), so the mission row gives it no width. It is never below 1. The ship rows past the reserved ones still come from
 // `useShipRowCount`, which measures the gap that is left.
 //
-// The dilemma stack on a desktop (#988) is a fixed width that does not grow with the scale, so it
-// is set here, and `computeAttemptLayout` and `DilemmaStackPile` read it from here.
-export const DILEMMA_STACK_CARD_WIDTH = 56; // px, the zone's own width on a touch screen
+// The facing phase's dilemma stack (#988, #1208) is never narrower than a fixed width, two times as
+// wide on a desktop, and `computeAttemptLayout` sizes the mission against that width.
+export const DILEMMA_STACK_CARD_WIDTH = 56; // px, the zone's least width on a touch screen
 export const DILEMMA_STACK_DESKTOP_WIDTH_FACTOR = 2;
 export const DESKTOP_RESERVED_SHIP_ROWS = 2;
 
@@ -299,6 +299,12 @@ export interface AttemptLayoutSizes {
   // The column of the cards placed on the mission (#1180), right of the mission card, or 0 with
   // nothing placed on it.
   placedOnWidth: number;
+  // The dilemma stack of the facing phase (#1208): the zone's width, every width the other columns
+  // leave and never less than `DILEMMA_STACK_CARD_WIDTH`, its height, and the width of one whole card,
+  // as tall as the zone unless the zone is too narrow for it and the slivers of the cards behind it.
+  stackWidth: number;
+  stackHeight: number;
+  stackCardWidth: number;
   // The height every column of the body fits, in both phases (#1203): `attemptColumnHeight`.
   columnHeight: number;
 }
@@ -354,6 +360,11 @@ export const ATTEMPT_PERSONNEL_CARD_WIDTH = 69; // px
 // The width of the area's scrollbar (`scrollbar-visible`, `globals.css`), kept beside the cards
 // while the area scrolls, so the scrollbar never pushes a card to the next row.
 export const ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH = 6; // px
+// The most crops a row of the facing phase holds (#1208): a wider area keeps them 4 across, and
+// the dilemma stack takes the width past that.
+export const ATTEMPT_PERSONNEL_MAX_COLUMNS = 4;
+// The width the facing stack keeps right of its top card for the slivers of the cards behind it.
+export const ATTEMPT_STACK_SLIVER_ROOM = 12; // px
 // The line of the row's Stop, Unstop, Stop all and Shuffle buttons, below its cards.
 export const ATTEMPT_PERSONNEL_BUTTONS_HEIGHT = 18; // px
 
@@ -394,7 +405,8 @@ export interface AttemptPersonnelGrid {
 export function attemptPersonnelGrid(count: number, cardWidth: number, room: number, heightRoom: number): AttemptPersonnelGrid {
   const rowHeight = attemptPersonnelCropHeight(cardWidth);
   const visibleFitting = Math.max(1, Math.floor((heightRoom + SHIP_ROW_GAP) / (rowHeight + SHIP_ROW_GAP)));
-  const across = (width: number) => Math.max(1, Math.floor((width + SHIP_ROW_GAP) / (cardWidth + SHIP_ROW_GAP)));
+  const across = (width: number) =>
+    Math.min(ATTEMPT_PERSONNEL_MAX_COLUMNS, Math.max(1, Math.floor((width + SHIP_ROW_GAP) / (cardWidth + SHIP_ROW_GAP))));
   let columns = Math.min(Math.max(1, count), across(room));
   let rows = Math.max(1, Math.ceil(count / columns));
   const scrolls = rows > visibleFitting;
@@ -451,15 +463,15 @@ export const attemptColumnHeight = (availableHeight: number, missionScale: numbe
 //
 // The mission card has the width first: it grows, as far as the height allows, into the width left
 // once the middle column keeps room for 2 ships at the floor scale, and for one crop of the
-// attempting personnel (`personnel`, #1165, #1205). The middle column takes the rest
-// of the width, and the ships grow in it until they no longer fit with no overlap in the rows the
+// attempting personnel (`personnel`, #1165, #1205), and the dilemma stack its least width. The
+// middle column then takes what its personnel area, at most 4 crops across, and 2 ships at the floor
+// scale need, and the ships grow in it until they no longer fit with no overlap in the rows the
 // height has room for, never past the mission's scale. With no `personnel`, the middle column holds
-// the away team badge and the ships only.
+// the away team badge and the ships only. The dilemma stack takes every width past that (#1208).
 //
 // At a space mission (#1177) the ships sit in a column exactly as wide as the mission, 2 to a row as
 // under a mission on the table, so the mission and the ships share the width as two card-wide
-// columns. The crew row beside them may take the rest, and takes what its rows need
-// (`attemptPersonnelGrid`, #1205); any width past that stays empty, the columns centred.
+// columns. The crew row beside them takes what its rows need (`attemptPersonnelGrid`, #1205).
 //
 // The personnel area takes every whole row of crops that fits the height its column keeps for it
 // (`personnelHeightRoom`), and the rest scroll (#1205). At a planet mission that is the whole
@@ -530,26 +542,37 @@ export function computeAttemptLayout(
     Math.max(floor, fitColumnScale(missionWidthScale, availableHeight, attemptMissionColumnHeight)),
   );
   const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
-  const middleWidth = space
+  // The room the middle column may take; it takes only what it needs of it (#1208).
+  const middleRoom = space
     ? Math.max(0, Math.floor(availableWidth - 2 * missionWidth - ATTEMPT_GAP))
     : Math.max(minMiddleWidth, Math.floor(availableWidth - missionWidth));
   // At a space mission the badge strip above the crew draws at the mission's scale, not the floor.
   const gridHeightRoom = space ? personnelHeightRoom + badgeStripHeight(floor) - badgeStripHeight(missionScale) : personnelHeightRoom;
   const grid = personnel
-    ? attemptPersonnelGrid(count, personnelCardWidth, middleWidth, gridHeightRoom)
+    ? attemptPersonnelGrid(count, personnelCardWidth, middleRoom, gridHeightRoom)
     : { columns: 0, visibleRows: 0, width: 0, height: 0 };
   let shipsWidth: number;
   let shipRowsWidth: number;
   let personnelWidth: number;
   if (space) {
     shipRowsWidth = missionWidth;
-    personnelWidth = Math.min(grid.width, middleWidth);
+    personnelWidth = Math.min(grid.width, middleRoom);
     shipsWidth = shipRowsWidth + ATTEMPT_GAP + personnelWidth;
   } else {
-    shipsWidth = middleWidth;
+    shipsWidth = Math.min(middleRoom, Math.max(minShipsWidth, personnel ? grid.width : 0));
     personnelWidth = personnel ? Math.min(grid.width, shipsWidth) : 0;
     shipRowsWidth = shipsWidth;
   }
+
+  // The dilemma stack of the facing phase (#1208) takes the width the mission and the middle column
+  // leave, the least width it was kept too. Its top card is a whole card as tall as the mission card,
+  // narrower when the zone has no room for it and the slivers of the cards behind it.
+  const stackWidth = Math.max(dilemmaStackWidth, Math.floor(availableWidth + dilemmaStackWidth - missionWidth - shipsWidth));
+  const stackHeight = Math.max(1, Math.min(missionCardHeight(missionScale, true), Math.floor(columnHeight)));
+  const stackCardWidth = Math.max(
+    1,
+    Math.min(Math.floor((stackHeight * TABLE_CARD_WIDTH) / 167), stackWidth - ATTEMPT_STACK_SLIVER_ROOM),
+  );
 
   // The middle column: the away team badge, or the row of the away team, then the rows of ships.
   const aboveShips = personnel && !space ? grid.height + buttonsRoom : badgeStripHeight(missionScale);
@@ -590,6 +613,9 @@ export function computeAttemptLayout(
     personnelWidth,
     personnelHeight: grid.height,
     placedOnWidth,
+    stackWidth,
+    stackHeight,
+    stackCardWidth,
     columnHeight,
   };
 }
@@ -599,7 +625,7 @@ export function computeAttemptLayout(
 // changes; the dilemma stack, face up, every card readable; and a right column with the attempting
 // personnel as one face-down pile, above the ships of the mission's ship row, one ship wide. At a
 // planet mission the pile is the size of a stack card, and the ships stand right of it (#1222). The
-// stack takes the width the personnel row and the narrow facing stack take in the facing phase.
+// stack takes the width the middle column and the facing stack take in the facing phase.
 // The line of the end labels above the cards of the choice phase's stack (#1204), in px.
 export const ATTEMPT_STACK_LABEL_HEIGHT = 14;
 // The empty space outside each end of the choice phase's stack, the "Faced first" end and the
@@ -844,6 +870,9 @@ export function useAttemptLayout(
     personnelWidth,
     personnelHeight: fallbackGrid.height,
     placedOnWidth: placedOn ? attemptPlacedOnWidth(scale) : 0,
+    stackWidth: Math.floor((stackHeight * TABLE_CARD_WIDTH) / 167) + ATTEMPT_STACK_SLIVER_ROOM,
+    stackHeight,
+    stackCardWidth: Math.floor((stackHeight * TABLE_CARD_WIDTH) / 167),
     choice: {
       missionScale: scale,
       stackWidth: 3 * stackCardWidth,
