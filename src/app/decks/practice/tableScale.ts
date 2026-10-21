@@ -602,11 +602,15 @@ export function computeAttemptLayout(
 // stack takes the width the personnel row and the narrow facing stack take in the facing phase.
 // The line of the end labels above the cards of the choice phase's stack (#1204), in px.
 export const ATTEMPT_STACK_LABEL_HEIGHT = 14;
+// The empty space outside each end of the choice phase's stack, the "Faced first" end and the
+// "Faced last" end, on top of `ATTEMPT_GAP` (#1220), in px. It comes out of the stack's width.
+export const ATTEMPT_STACK_SIDE_GAP = 16;
 
 export interface AttemptChoiceSizes {
   // The scale of the mission card: the facing phase's `missionScale`.
   missionScale: number;
-  // The face-up stack: the zone's width and height, and the width and height of one card in it,
+  // The face-up stack: the zone's width and height, less the space outside each end
+  // (`ATTEMPT_STACK_SIDE_GAP`, #1220), and the width and height of one card in it,
   // drawn as the art crop of a table card (#1221). The cards sit edge to edge while they fit, and
   // overlap past that, below the line of the end labels (`ATTEMPT_STACK_LABEL_HEIGHT`, #1204).
   stackWidth: number;
@@ -655,7 +659,9 @@ export function computeAttemptChoiceLayout(
   const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
   // The column of the placed cards (#1180) keeps the facing phase's width, and the stack gives it up.
   const placedOnRoom = face.placedOnWidth > 0 ? face.placedOnWidth + ATTEMPT_GAP : 0;
-  const availableWidth = gameLayerWidth - CONTENT_PADDING - MENU_BUTTON_GUTTER - 2 * ATTEMPT_GAP - placedOnRoom;
+  // The space outside both ends of the stack (#1220) comes out of the stack's width.
+  const availableWidth =
+    gameLayerWidth - CONTENT_PADDING - MENU_BUTTON_GUTTER - 2 * ATTEMPT_GAP - 2 * ATTEMPT_STACK_SIDE_GAP - placedOnRoom;
 
   const shipLine = shipRowLineHeight(floor, desktop);
   const stackHeight = missionCardHeight(missionScale, true);
@@ -704,10 +710,11 @@ export function computeAttemptChoiceLayout(
   const rowsFitting = Math.max(1, Math.floor((shipsFree + SHIP_ROW_GAP) / (shipLine + SHIP_ROW_GAP)));
   const rowsNeeded = Math.max(1, Math.ceil(shipCount / shipsPerRow(floor, rightWidth)));
 
-  // The stack: every width the mission and the right column leave, as tall as the mission card. Its
-  // cards are art crops (#1221) and take the height the line of the end labels leaves.
+  // The stack: every width the mission, the right column and the space outside its ends leave, as tall as the mission card. Its
+  // cards are art crops (#1221) and take the height the line of the end labels leaves, no wider than
+  // lets 3 of them sit edge to edge (#1220).
   const stackWidth = Math.max(1, Math.floor(availableWidth - missionWidth - rightWidth));
-  const { stackCardWidth, stackCardHeight } = attemptStackCropSize(stackHeight, stackWidth);
+  const { stackCardWidth, stackCardHeight } = attemptStackCropSize(stackHeight, Math.max(1, Math.floor(stackWidth / 3)));
   return {
     missionScale,
     stackWidth,

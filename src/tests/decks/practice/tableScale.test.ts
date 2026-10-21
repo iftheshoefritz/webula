@@ -1,6 +1,7 @@
 import {
   ATTEMPT_GAP,
   ATTEMPT_STACK_LABEL_HEIGHT,
+  ATTEMPT_STACK_SIDE_GAP,
   ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
   ATTEMPT_PERSONNEL_CARD_WIDTH,
   ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH,
@@ -449,10 +450,10 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
     const choice = computeAttemptChoiceLayout(MIN_SCREEN.width, available, false, ships, floor, face, personnel.space);
     expect(choice.missionScale).toBe(face.missionScale);
     const missionWidth = Math.round(72 * choice.missionScale);
-    // The padding, the menu gutter, the mission, the stack, the right column and the two gaps.
-    expect(32 + 20 + missionWidth + choice.stackWidth + choice.rightWidth + 2 * ATTEMPT_GAP).toBeLessThanOrEqual(
-      MIN_SCREEN.width,
-    );
+    // The padding, the menu gutter, the mission, the stack, the space outside its ends (#1220), the
+    // right column and the two gaps.
+    const used = 32 + 20 + missionWidth + choice.stackWidth + 2 * ATTEMPT_STACK_SIDE_GAP + choice.rightWidth + 2 * ATTEMPT_GAP;
+    expect(used).toBeLessThanOrEqual(MIN_SCREEN.width);
     expect(attemptMissionColumnHeight(choice.missionScale)).toBeLessThanOrEqual(available + 1);
     // The pile and the rows of ships fit the height below the slivers' room: below one another at a
     // space mission, side by side at a planet mission (#1222).
@@ -468,9 +469,14 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
     expect(choice.stackCardHeight).toBe(attemptPersonnelCropHeight(choice.stackCardWidth));
     expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeLessThanOrEqual(choice.stackHeight);
     // At a planet mission the pile is as wide as a stack card (#1222), so there the width can bind
-    // first: the stack and the pile then hold 4 cards edge to edge.
+    // first: the stack and the pile then hold 4 cards edge to edge. At a space mission the width binds
+    // when 3 cards as tall as the zone allows would not sit edge to edge beside the space outside the
+    // stack's ends (#1220).
     if (personnel.space) {
-      expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeGreaterThan(choice.stackHeight - 2);
+      expect(
+        ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight > choice.stackHeight - 2 ||
+          choice.stackCardWidth === Math.floor(choice.stackWidth / 3),
+      ).toBe(true);
     } else {
       expect(choice.stackWidth + choice.pileCardWidth).toBeLessThan(4 * (choice.stackCardWidth + 1));
     }
@@ -491,11 +497,25 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
     expect(choice.shipColumnWidth).toBe(shipRowWidth(choice.shipScale, 1));
     expect(choice.rightWidth).toBe(choice.pileCardWidth + ATTEMPT_GAP + choice.shipColumnWidth);
     const missionWidth = Math.round(72 * choice.missionScale);
-    expect(32 + 20 + missionWidth + choice.stackWidth + choice.rightWidth + 2 * ATTEMPT_GAP).toBeLessThanOrEqual(
-      MIN_SCREEN.width,
-    );
+    expect(
+      32 + 20 + missionWidth + choice.stackWidth + 2 * ATTEMPT_STACK_SIDE_GAP + choice.rightWidth + 2 * ATTEMPT_GAP,
+    ).toBeLessThanOrEqual(MIN_SCREEN.width);
     const shipRows = choice.shipRows * shipRowLineHeight(choice.shipScale, false) + (choice.shipRows - 1) * 4;
     expect(shipRows).toBeLessThanOrEqual(face.columnHeight);
+  });
+
+  // Issue #1220: the space outside both ends of the stack comes out of the stack's width, so the
+  // other columns keep theirs.
+  it.each([
+    ['a planet mission', 0, { count: 20, space: false }],
+    ['a space mission', 1, { count: 12, space: true }],
+  ])('leaves a space outside both ends of the stack at %s', (_name, ships, personnel) => {
+    const face = computeAttemptLayout(MIN_SCREEN.width, available, false, ships, floor, personnel);
+    const choice = computeAttemptChoiceLayout(MIN_SCREEN.width, available, false, ships, floor, face, personnel.space);
+    expect(ATTEMPT_STACK_SIDE_GAP).toBeGreaterThanOrEqual(16);
+    const missionWidth = Math.round(72 * choice.missionScale);
+    const available_ = MIN_SCREEN.width - 32 - 20 - 2 * ATTEMPT_GAP - 2 * ATTEMPT_STACK_SIDE_GAP;
+    expect(choice.stackWidth).toBe(available_ - missionWidth - choice.rightWidth);
   });
 
   it('keeps the whole ship-sized pile above the ships at a space mission', () => {
