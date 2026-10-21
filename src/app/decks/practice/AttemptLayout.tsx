@@ -134,9 +134,9 @@ export default function AttemptLayout({
     shipsWidth,
     shipRowsWidth,
     personnelCardWidth,
-    personnelRows,
-    personnelFirstRow,
+    personnelColumns,
     personnelWidth,
+    personnelHeight,
     placedOnWidth,
   } = sizes;
   const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
@@ -328,9 +328,9 @@ export default function AttemptLayout({
                     label={`Crew of ${cardDisplayName(ship.card)}`}
                     cards={ship.crew ?? []}
                     cardWidth={personnelCardWidth}
-                    rows={personnelRows}
-                    firstRow={personnelFirstRow}
+                    columns={personnelColumns}
                     width={personnelWidth}
+                    height={personnelHeight}
                     selectedIds={selectedIds}
                     onToggleSelect={onToggleSelect}
                     onSetStopped={onSetStopped}
@@ -348,9 +348,9 @@ export default function AttemptLayout({
                 label="Away team"
                 cards={slot.awayTeam}
                 cardWidth={personnelCardWidth}
-                rows={personnelRows}
-                firstRow={personnelFirstRow}
+                columns={personnelColumns}
                 width={personnelWidth}
+                height={personnelHeight}
                 selectedIds={selectedIds}
                 onToggleSelect={onToggleSelect}
                 onSetStopped={onSetStopped}
