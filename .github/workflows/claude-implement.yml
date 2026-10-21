@@ -94,6 +94,13 @@ jobs:
                This starts the "Claude Visual Check" workflow. That workflow runs the acceptance checks of the issue in the browser, writes the "## Visual Verification" section, and marks the pull request ready for review.
                Then write a short comment on the pull request that says what the smoke check showed, and which acceptance checks the visual check still needs to run.
 
+            Do the work in this session, not in background agents. This run ends the moment you
+            end a turn, and every background agent ends with it: its changes are never committed
+            and never pushed. A run on #1223 ended that way, after it started two background
+            agents to fix tests and wrote "I'm waiting for the two test-fixing agents to finish".
+            If you start an agent anyway, start it in the foreground, and never end a turn while
+            an agent runs. Never end a turn before the pull request of step 4 is open and pushed.
+
             Never add the "ready-for-dev" label to an issue, and never create an issue that
             carries it. Only a person applies that label. A bot that applies it starts the
             Claude Issue Implementation workflow, which then stops at once with "Workflow
