@@ -478,6 +478,10 @@ a tap is `setAttemptPhase` to `'choose'`, so the stack turns face up and the cho
 it leaves the dilemma hand as it is. The button group does not shrink, so on a narrow screen the status
 text gives way first.
 
+The dilemma stack's panel reorders the stack only in `'choose'` (#1209). In `'face'` it keeps the row
+and its end labels, but its cards carry no `data-zone`, a drag shows no insertion mark and hides the
+panel as every other flat panel does, and it has no Shuffle. A drag out of it still lands anywhere.
+
 In `'choose'` the attempt layout draws the dilemma choice (#1190): the mission on the left at the
 facing phase's scale (`computeAttemptChoiceLayout` keeps the `missionScale` of `computeAttemptLayout`),
 the dilemma stack face up in the middle, and on the right the attempting personnel as one face-down

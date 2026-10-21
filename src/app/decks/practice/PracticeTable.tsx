@@ -2385,7 +2385,8 @@ function PracticeDrawContent() {
     // move-out triggers below (`closePanelsAfterDrag`, clearing `selectedCardIds`), since the
     // card never leaves the zone it was selected in.
     // The reveal panel (#1070) reorders its pile the same way: its cards are the top of the pile,
-    // so a move between two of them moves no unrevealed card.
+    // so a move between two of them moves no unrevealed card. The stack reorders only in the
+    // dilemma choice (#1209): in the facing phase `orderedPanel` is null for its panel.
     if (over && orderedPanel && dragOrigin?.zone === orderedPanel.zone) {
       const overId = String(over.id);
       if (overId !== id && orderedPanel.cards.some((c) => c.id === overId)) {
@@ -2592,10 +2593,12 @@ function PracticeDrawContent() {
   // as before this popup started staying visible for it.
   // The reveal panel of a pile's top cards (#1070) is the other ordered panel, and works the same
   // way. `orderedPanel` names whichever of the two is open: its zone, its cards and its location.
+  // The stack's panel counts only in the dilemma choice (#1209): in the facing phase nothing
+  // reorders the stack, so its panel hides during a drag like every other flat panel.
   const orderedPanel: { zone: ReorderZone; cards: CardInstance[]; location: PanelLocation } | null =
     openReveal && revealedCards
       ? { zone: openReveal.pile, cards: revealedCards, location: `${openReveal.pile}Reveal` }
-      : openFlatLocation === 'dilemmaStack'
+      : openFlatLocation === 'dilemmaStack' && table.attempt?.phase === 'choose'
       ? { zone: 'dilemmaStack', cards: dilemmaStack, location: 'dilemmaStack' }
       : null;
   const dragFromOrderedPanel =
@@ -3125,8 +3128,12 @@ function PracticeDrawContent() {
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onSelectIds={setSelectedCardIds}
+                  // In the facing phase nothing reorders the dilemma stack, Shuffle neither (#1209).
                   onShuffle={
-                    openFlatLocation === 'discard' ? undefined : () => dispatch({ type: 'shuffle', location: openFlatLocation })
+                    openFlatLocation === 'discard' ||
+                    (openFlatLocation === 'dilemmaStack' && table.attempt?.phase !== 'choose')
+                      ? undefined
+                      : () => dispatch({ type: 'shuffle', location: openFlatLocation })
                   }
                   // A card in a deck pile is never stopped (#902), so the draw deck's and the dilemma
                   // pile's panels get no Stop button, and neither does the discard's.

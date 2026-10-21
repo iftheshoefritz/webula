@@ -24,9 +24,17 @@ const makeCard = (n: number): CardInstance =>
 
 const cards = [0, 1, 2, 3].map(makeCard);
 
-const renderPanel = (location: PanelLocation = 'dilemmaStack') =>
+// The stack reorders only in the dilemma choice (#1209), so the tests of the mark choose.
+const renderPanel = (location: PanelLocation = 'dilemmaStack', choosingDilemmas = true) =>
   render(
-    <CardListPanel location={location} cards={cards} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} />
+    <CardListPanel
+      location={location}
+      cards={cards}
+      choosingDilemmas={choosingDilemmas}
+      onClose={() => {}}
+      selectedIds={[]}
+      onToggleSelect={() => {}}
+    />
   );
 
 const indicator = () => document.body.querySelector('[data-testid="dilemma-stack-insert-indicator"]') as HTMLElement | null;
@@ -119,5 +127,42 @@ describe('Practice draw: the dilemma stack panel marks where a reorder drop land
     mockOver = { id: 'd2' };
     renderPanel('core');
     expect(indicator()).toBeNull();
+  });
+});
+
+describe('Practice draw: the dilemma stack panel in the facing phase (#1209)', () => {
+  afterEach(() => {
+    mockActive = null;
+    mockOver = null;
+  });
+
+  it('shows no mark during a drag over a card', () => {
+    mockActive = { id: 'panel:d0' };
+    mockOver = { id: 'd2' };
+    renderPanel('dilemmaStack', false);
+    expect(indicator()).toBeNull();
+  });
+
+  it('gives no card a data-zone, and still shows the row in order', () => {
+    renderPanel('dilemmaStack', false);
+    const panel = document.querySelector('[data-testid="card-list-panel-dilemmaStack"]')!;
+    expect(panel.querySelectorAll('[data-zone]')).toHaveLength(0);
+    expect(Array.from(panel.querySelectorAll('[data-card-id]')).map((el) => el.getAttribute('data-card-id'))).toEqual([
+      'd0',
+      'd1',
+      'd2',
+      'd3',
+    ]);
+  });
+
+  it('gives each card a data-zone equal to its id in the dilemma choice', () => {
+    renderPanel('dilemmaStack', true);
+    const panel = document.querySelector('[data-testid="card-list-panel-dilemmaStack"]')!;
+    expect(Array.from(panel.querySelectorAll('[data-zone]')).map((el) => el.getAttribute('data-zone'))).toEqual([
+      'd0',
+      'd1',
+      'd2',
+      'd3',
+    ]);
   });
 });

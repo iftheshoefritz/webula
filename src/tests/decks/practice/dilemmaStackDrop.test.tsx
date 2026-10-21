@@ -160,6 +160,10 @@ describe('Practice table: the dilemma stack (#630)', () => {
     });
   });
 
+  // The panel's own Shuffle button, the one with the word on it: the attempt row's Shuffle is an icon.
+  const panelShuffleButtons = () =>
+    screen.queryAllByRole('button', { name: /^Shuffle$/ }).filter((b) => b.textContent?.trim() === 'Shuffle');
+
   // Draws both dilemma copies into the dilemma hand and opens it, so its cards are draggable.
   const setupOpenDilemmaHand = async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockDeck));
@@ -502,10 +506,15 @@ describe('Practice table: the dilemma stack (#630)', () => {
       mockOnDragEnd!({ active: { id: secondId }, over: { id: 'dilemmaStack' } });
     });
 
-    // Open the stack popup and drag secondId onto firstId, moving it ahead of firstId.
+    // Open the stack popup, go back to the dilemma choice, the one phase that reorders the stack
+    // (#1209), and drag secondId onto firstId, moving it ahead of firstId.
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 2 cards, tap to open' }));
     });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-back-to-choosing'));
+    });
+    expect(panelShuffleButtons()).toHaveLength(1);
     await act(async () => {
       mockOnDragStart!({ active: { id: secondId } });
     });
@@ -527,11 +536,59 @@ describe('Practice table: the dilemma stack (#630)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Close dilemma stack' }));
     });
     await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-face-dilemmas'));
+    });
+    await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 2 cards, tap to open' }));
     });
     stackPanel = document.body.querySelector('[data-testid="card-list-panel-dilemmaStack"]');
     cardIds = Array.from(stackPanel!.querySelectorAll('[data-card-id]')).map((el) => el.getAttribute('data-card-id'));
     expect(cardIds).toEqual([secondId, firstId]);
+  });
+
+  // #1209: in the facing phase nothing reorders the stack. The same drop leaves the order alone,
+  // and the panel shows no Shuffle.
+  it('does not reorder the stack in the facing phase, and its popup shows no Shuffle', async () => {
+    await setupOpenDilemmaHand();
+    const [firstId, secondId] = mockDraggableIds;
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: firstId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
+    });
+    const closedHand = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
+    if (closedHand) {
+      await act(async () => {
+        fireEvent.click(closedHand);
+      });
+    }
+    await act(async () => {
+      mockOnDragStart!({ active: { id: secondId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: secondId }, over: { id: 'dilemmaStack' } });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 2 cards, tap to open' }));
+    });
+    let stackPanel = document.body.querySelector('[data-testid="card-list-panel-dilemmaStack"]')!;
+    expect(panelShuffleButtons()).toHaveLength(0);
+
+    await act(async () => {
+      mockOnDragStart!({ active: { id: secondId } });
+    });
+    await act(async () => {
+      mockOnDragEnd!({ active: { id: secondId }, over: { id: firstId } });
+    });
+
+    stackPanel = document.body.querySelector('[data-testid="card-list-panel-dilemmaStack"]')!;
+    const cardIds = Array.from(stackPanel.querySelectorAll('[data-card-id]')).map((el) => el.getAttribute('data-card-id'));
+    expect(cardIds).toEqual([firstId, secondId]);
+    const save = JSON.parse(localStorage.getItem('practiceGame')!);
+    expect(save.table.dilemmaStack.map((c: { id: string }) => c.id)).toEqual([firstId, secondId]);
   });
 
   // #632: the reorder detection must not swallow an ordinary drag out of the popup onto a real
