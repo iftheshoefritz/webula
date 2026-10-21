@@ -220,6 +220,10 @@ function UndoIcon() {
 //
 // The undo button (#1194) sits under those two. It takes back the player action of the last log
 // entry, and its label names that entry. It is disabled while the log is empty.
+//
+// In fullscreen on an iPad the browser draws its own close X and shrink button over the top-left
+// corner, so the column moves down below them, all three buttons together (#1207). Everywhere else
+// it stays at `top-2`, in and out of fullscreen.
 const SPLASH_ITEM_CLASS =
   'block w-full rounded-md border border-white/10 bg-bg-secondary px-6 py-2.5 text-center text-base text-text-secondary hover:bg-white/[0.1] hover:text-text-primary';
 
@@ -363,7 +367,10 @@ function GameMenu({
         </div>
       )}
       <div
-        className={`absolute top-2 left-2 flex flex-col gap-1 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
+        data-testid="corner-buttons"
+        className={`absolute ${
+          fullscreen.isFullscreen && fullscreen.systemControlsInset ? 'top-14' : 'top-2'
+        } left-2 flex flex-col gap-1 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
       >
         <button
           type="button"

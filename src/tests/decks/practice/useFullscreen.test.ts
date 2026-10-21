@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { useFullscreen } from '../../../app/decks/practice/useFullscreen';
+import { runsOnIos, useFullscreen } from '../../../app/decks/practice/useFullscreen';
 
 // jsdom has no Fullscreen API, so each test defines the parts it needs on `document` (#921).
 const setDocument = (key: string, value: unknown) =>
@@ -115,5 +115,20 @@ describe('useFullscreen (#921)', () => {
     expect(result.current.enabled).toBe(true);
     act(() => result.current.toggle());
     expect(webkitRequest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('runsOnIos (#1207)', () => {
+  const mac = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+
+  it('is true on an iPad, and on a Mac with touch points, which is iPadOS Safari', () => {
+    expect(runsOnIos('Mozilla/5.0 (iPad; CPU OS 16_0 like Mac OS X) AppleWebKit/605.1.15')).toBe(true);
+    expect(runsOnIos(mac, 5)).toBe(true);
+  });
+
+  it('is false on a Mac with no touch points, desktop Chrome and Android', () => {
+    expect(runsOnIos(mac, 0)).toBe(false);
+    expect(runsOnIos('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36')).toBe(false);
+    expect(runsOnIos('Mozilla/5.0 (Linux; Android 14) Chrome/120.0 Mobile Safari/537.36', 5)).toBe(false);
   });
 });

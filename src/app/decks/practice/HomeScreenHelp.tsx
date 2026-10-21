@@ -1,13 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
+import { runsOnIos } from './useFullscreen';
 
 export type HomeScreenPlatform = 'iosSafari' | 'iosOther' | 'android' | 'other';
 
-// The browser the instructions fit (#1127). iPadOS Safari reports a Mac, so a Mac with touch
-// points counts as iOS. Every iOS browser other than Safari names itself in the user agent.
+// The browser the instructions fit (#1127). Every iOS browser other than Safari names itself in
+// the user agent.
 export function homeScreenPlatform(userAgent: string, maxTouchPoints = 0): HomeScreenPlatform {
-  const ios = /iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
-  if (ios) return /CriOS|FxiOS|EdgiOS|OPiOS|GSA\//.test(userAgent) ? 'iosOther' : 'iosSafari';
+  if (runsOnIos(userAgent, maxTouchPoints)) return /CriOS|FxiOS|EdgiOS|OPiOS|GSA\//.test(userAgent) ? 'iosOther' : 'iosSafari';
   if (/Android/.test(userAgent)) return 'android';
   return 'other';
 }
