@@ -1,5 +1,6 @@
 // #1176: a personnel drawn as the art crop shows its icons in a column at the left of the art and
-// its integrity, cunning and strength in a band along the bottom, styled like the mission's chrome.
+// its integrity, cunning and strength in a band along the bottom, in the boxes the card prints
+// there, the word beside the number (#1219).
 jest.mock('@dnd-kit/core', () => ({
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false }),
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
@@ -12,7 +13,10 @@ import CardListPanel, { PanelLocation } from '../../../app/decks/practice/CardLi
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderWidth } from '../../../app/decks/practice/TableCard';
 import {
+  ATTRIBUTE_BOX_FILLS,
   PERSONNEL_MAX_ICONS,
+  attributeBoxFill,
+  attributeLabelLength,
   personnelIconCodes,
   personnelOverlayLayout,
 } from '../../../app/decks/practice/PersonnelOverlay';
@@ -27,6 +31,7 @@ const makeCard = (n: number, overrides: Record<string, unknown> = {}, instance: 
       collectorsinfo: `1U0${n}`,
       originalName: `Card ${n}`,
       type: 'personnel',
+      affiliation: 'federation',
       name: `card ${n}`,
       imagefile: `card_${n}`,
       icons: '[cmd][tos][pa][au]',
@@ -66,11 +71,12 @@ describe('personnelIconCodes', () => {
 });
 
 describe('personnelOverlayLayout', () => {
-  // A panel card at scale 1, and at the minimum screen, 667x375: round(72 x 375/320 x 1.5) = 126.
-  it.each([108, 126, 200])('fits four icons between the affiliation icon and the band at width %s', (width) => {
+  // The attempt row's 69, a panel card at scale 1, at the minimum screen, 667x375:
+  // round(72 x 375/320 x 1.5) = 126, and a large one.
+  it.each([69, 108, 126, 200])('fits four icons above three boxes inside the border at width %s', (width) => {
     const cropHeight = artCropHeight(width);
     const border = cardBorderWidth(width);
-    const { iconTop, iconSize, iconGap, iconLeft, bandTop, bandHeight, discLefts, backing } = personnelOverlayLayout(
+    const { iconTop, iconSize, iconGap, iconLeft, bandTop, bandHeight, boxLefts, boxWidth } = personnelOverlayLayout(
       width,
       cropHeight,
       border
@@ -80,12 +86,39 @@ describe('personnelOverlayLayout', () => {
     expect(iconLeft).toBeGreaterThan(border);
     const columnBottom = iconTop + PERSONNEL_MAX_ICONS * iconSize + (PERSONNEL_MAX_ICONS - 1) * iconGap;
     expect(columnBottom).toBeLessThanOrEqual(bandTop);
-    expect(bandTop + bandHeight).toBe(cropHeight - border);
-    expect(iconSize).toBeGreaterThanOrEqual(12);
-    // The three discs sit inside the card's border and do not touch.
-    expect(discLefts[0]).toBeGreaterThanOrEqual(border);
-    expect(discLefts[2] + backing).toBeLessThanOrEqual(width - border);
-    expect(discLefts[1] - discLefts[0]).toBeGreaterThan(backing);
+    expect(bandTop + bandHeight).toBeLessThan(cropHeight - border);
+    // The three boxes sit inside the card's border, on its centre, and do not touch.
+    expect(boxLefts[0]).toBeGreaterThan(border);
+    expect(boxLefts[2] + boxWidth).toBeLessThan(width - border);
+    expect(Math.abs(boxLefts[0] - (width - boxLefts[2] - boxWidth))).toBeLessThanOrEqual(1);
+    expect(boxLefts[1] - boxLefts[0]).toBeGreaterThan(boxWidth);
+    expect(boxLefts[2] - boxLefts[1]).toBe(boxLefts[1] - boxLefts[0]);
+  });
+});
+
+describe('attributeLabelLength', () => {
+  it('leaves a word that fits beside its number at its own width', () => {
+    expect(attributeLabelLength('Integrity', '6', { boxWidth: 200, line: 1, pad: 2, fontSize: 10 })).toBeUndefined();
+  });
+
+  it('squeezes a word that does not fit into the width its box leaves', () => {
+    const layout = personnelOverlayLayout(69, artCropHeight(69), cardBorderWidth(69));
+    const length = attributeLabelLength('Integrity', '6', layout);
+    expect(length).toBeGreaterThan(0);
+    expect(length).toBeLessThan(layout.boxWidth - layout.fontSize);
+  });
+});
+
+describe('attributeBoxFill', () => {
+  it('fills the boxes with the colour of the affiliation', () => {
+    expect(attributeBoxFill('federation')).toBe(ATTRIBUTE_BOX_FILLS.federation);
+    expect(attributeBoxFill('Klingon')).toBe(ATTRIBUTE_BOX_FILLS.klingon);
+    expect(attributeBoxFill('non-aligned')).toBe(ATTRIBUTE_BOX_FILLS['non-aligned']);
+  });
+
+  it('falls back to grey for an affiliation it has no colour for', () => {
+    expect(attributeBoxFill('q continuum')).toBe(ATTRIBUTE_BOX_FILLS.borg);
+    expect(attributeBoxFill(undefined)).toBe(ATTRIBUTE_BOX_FILLS.borg);
   });
 });
 
@@ -98,8 +131,21 @@ describe('Practice table: the personnel overlay in the crew and away team panels
     expect(screen.getByTestId('personnel-integrity').textContent).toBe('6');
     expect(screen.getByTestId('personnel-cunning').textContent).toBe('7');
     expect(screen.getByTestId('personnel-strength').textContent).toBe('5');
+    expect(screen.getByTestId('personnel-integrity-label').textContent).toBe('Integrity');
+    expect(screen.getByTestId('personnel-cunning-label').textContent).toBe('Cunning');
+    expect(screen.getByTestId('personnel-strength-label').textContent).toBe('Strength');
+    expect(screen.getByTestId('personnel-cunning-label').getAttribute('style')).toContain('small-caps');
+    expect(screen.getByTestId('personnel-cunning-fill').getAttribute('fill')).toBe(ATTRIBUTE_BOX_FILLS.federation);
     expect(screen.getByRole('img', { name: 'Integrity 6, Cunning 7, Strength 5' })).toBeTruthy();
     expect(screen.getByTestId('personnel-overlay').className).toMatch(/pointer-events-none/);
+  });
+
+  it("fills the boxes with the colour of the personnel's affiliation", () => {
+    renderPanel([makeCard(0, { affiliation: 'romulan' })]);
+
+    for (const attribute of ['integrity', 'cunning', 'strength']) {
+      expect(screen.getByTestId(`personnel-${attribute}-fill`).getAttribute('fill')).toBe(ATTRIBUTE_BOX_FILLS.romulan);
+    }
   });
 
   it('draws no icon column for a personnel with no icons', () => {

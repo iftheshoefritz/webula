@@ -5,11 +5,11 @@
 // prints left of its skill box and the integrity, cunning and strength it prints along its bottom,
 // so the crop draws them again from the card data: the icons in a column at the left of the art,
 // below the affiliation icon the crop already shows, and the three attributes in a band along the
-// bottom, built from the mission's chrome: a grey plate under a silver rail, broken by a ringed
-// black disc for each number. Only a cropped, face-up personnel draws it: the whole card prints
-// both, so a desktop panel, the core, the brig and the attempt row draw none.
-
-import type { CSSProperties } from 'react';
+// bottom, drawn as the card prints them (#1219): three boxes, each a black frame with a silver line
+// along its top and its bottom, filled with the colour of the affiliation, and in it the word in
+// white small capitals, "Integrity", "Cunning" or "Strength", and the number right of it. Only a
+// cropped, face-up personnel draws it: the whole card prints both, so a desktop panel, the core and
+// the brig draw none.
 import auIcon from '../../../../public/icons/icon_au.gif';
 import cmdIcon from '../../../../public/icons/icon_command.gif';
 import ds9Icon from '../../../../public/icons/icon_ds9.png';
@@ -22,28 +22,6 @@ import terokNorIcon from '../../../../public/icons/icon_teroknor.gif';
 import tngIcon from '../../../../public/icons/icon_tng.png';
 import tosIcon from '../../../../public/icons/icon_tos.png';
 import voyagerIcon from '../../../../public/icons/icon_voyager.png';
-
-// The chrome of a mission's span (#1133), shared with the personnel band.
-// The rail: a bright, a darker and a bright band, as the card prints its bars.
-export const CHROME_RAIL_IMAGE =
-  'linear-gradient(to bottom, #6b7280 0%, #f3f4f6 14%, #a1a7b0 34%, #4b5563 42%, #6b7280 50%, #4b5563 58%, #a1a7b0 66%, #e5e7eb 86%, #6b7280 100%)';
-// The grey of the requirements box, a little lighter at the top.
-export const CHROME_PLATE_IMAGE = 'linear-gradient(to bottom, #d4d5d8, #b9babe)';
-// The silver ring: brighter at the top left, darker at the bottom right.
-export const CHROME_RING_IMAGE = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
-// The height of a digit of the numeral's font, as a share of its font size, measured in Chromium.
-export const CHROME_DIGIT_EM = 0.78;
-// The numeral is upright and skewed about its own centre, as the card's numerals lean. An italic
-// font, or the slant a browser makes of an upright one, leans about the baseline, which moves the
-// digit off the centre of the ring by a different amount in every font. The box is trimmed to the
-// digit itself, so the flex centring puts the digit, not its line box, at the middle of the ring.
-// React's `CSSProperties` does not type the text-box properties yet.
-export const CHROME_NUMERAL_STYLE = {
-  display: 'inline-block',
-  transform: 'skewX(-12deg)',
-  textBoxTrim: 'trim-both',
-  textBoxEdge: 'cap alphabetic',
-} as CSSProperties;
 
 // The icon files are imported as modules, so they land in `_next/static` and the service worker
 // precaches them for offline play (#1051). The codes are those of `CARD_ICON_IMAGES`
@@ -83,13 +61,48 @@ const ICON_COLUMN_TOP = 0.2;
 const ICON_COLUMN_LEFT = 0.035;
 const ICON_SIZE = 0.11;
 const ICON_GAP = 0.016;
-const BAND_DISC = 0.16; // the backing's diameter, as large as the band
-const BAND_RAIL = 18 / 357; // as the mission's rail
-const BAND_BACKING_EDGE = 4 / 357; // the black between the ring and the bars, as the mission's
-const BAND_NUMERAL = 19 / 44; // of the backing's diameter, as the mission's span
-const BAND_DISC_CENTRES = [0.2, 0.5, 0.8]; // integrity, cunning, strength, left to right
+// The card prints its boxes 71 of 357 wide and 23 tall, with wide margins. On a crop 69 to 130 px
+// wide the words would be 2 to 4 px tall at that size, so the boxes take the whole width, less a
+// gap at either side and between them, and are taller.
+const BOX_GAP = 0.02;
+const BOX_HEIGHT = 0.13;
+const BOX_FONT = 0.62; // the capital's font size, of the box's height
+// The width of a glyph of a condensed sans, as a share of its font size: the estimate of a word's
+// width, past which `textLength` squeezes it into its box, as the card's condensed face is narrow.
+const GLYPH_EM = 0.55;
+const SMALL_CAP_SCALE = 0.8; // the size of a small capital, of a capital
 
 export const PERSONNEL_MAX_ICONS = 4;
+
+export const ATTRIBUTES = ['integrity', 'cunning', 'strength'] as const;
+const attributeName = (attribute: string): string => attribute[0].toUpperCase() + attribute.slice(1);
+
+// The fill of the boxes, by affiliation: the median colour of the boxes on the scans of each
+// affiliation's personnel. An affiliation with no entry gets the Borg's grey.
+export const ATTRIBUTE_BOX_FILLS: Record<string, string> = {
+  bajoran: '#432542',
+  borg: '#686973',
+  cardassian: '#4a4e68',
+  dominion: '#2d1f2f',
+  federation: '#3a87ad',
+  ferengi: '#b58124',
+  klingon: '#780d1b',
+  'non-aligned': '#8f7940',
+  romulan: '#10462c',
+  starfleet: '#0e6292',
+  vidiian: '#8d8c41',
+  xindi: '#44716a',
+};
+
+export function attributeBoxFill(affiliation: unknown): string {
+  const key = typeof affiliation === 'string' ? affiliation.trim().toLowerCase() : '';
+  return ATTRIBUTE_BOX_FILLS[key] ?? ATTRIBUTE_BOX_FILLS.borg;
+}
+
+// The width of a word in small capitals at `fontSize`, by the estimate of `GLYPH_EM`: the first
+// letter a capital, the rest small capitals.
+const smallCapsWidth = (word: string, fontSize: number): number =>
+  word.length === 0 ? 0 : fontSize * GLYPH_EM * (1 + SMALL_CAP_SCALE * (word.length - 1));
 
 // The geometry of the overlay on a crop `cropHeight` tall of a card `width` wide, whose border is
 // `border` wide. Every length is a share of the width, so the overlay scales with the card.
@@ -104,36 +117,49 @@ export function personnelOverlayLayout(
   iconGap: number;
   bandTop: number;
   bandHeight: number;
-  backing: number;
-  ring: number;
-  rim: number;
-  rail: number;
+  boxLefts: number[];
+  boxWidth: number;
+  line: number;
+  pad: number;
   fontSize: number;
-  discLefts: number[];
 } {
-  // The disc sits on whole pixels, so the ring and the numeral do not blur against each other.
-  const backing = Math.max(8, Math.round(width * BAND_DISC));
-  const ring = backing - 2 * Math.max(1, Math.round(width * BAND_BACKING_EDGE));
-  const bandTop = cropHeight - border - backing;
-  const rail = Math.max(2, Math.round(width * BAND_RAIL));
+  const inner = width - 2 * border;
+  const gap = Math.max(1, Math.round(width * BOX_GAP));
+  const boxWidth = Math.floor((inner - 4 * gap) / 3);
+  // The pixels left over go to the margins, so the three boxes sit on the card's centre.
+  const first = border + Math.floor((inner - 3 * boxWidth - 2 * gap) / 2);
+  const boxHeight = Math.max(7, Math.round(width * BOX_HEIGHT));
   return {
     iconTop: Math.round(width * ICON_COLUMN_TOP),
     iconLeft: Math.max(border + 1, Math.round(width * ICON_COLUMN_LEFT)),
     iconSize: Math.round(width * ICON_SIZE),
     iconGap: Math.max(1, Math.round(width * ICON_GAP)),
-    bandTop,
-    bandHeight: backing,
-    backing,
-    ring,
-    rim: Math.max(1, Math.round(ring / 12)),
-    rail,
-    fontSize: Math.round(((backing * BAND_NUMERAL) / CHROME_DIGIT_EM) * 10) / 10,
-    discLefts: BAND_DISC_CENTRES.map((share) => Math.round(width * share - backing / 2)),
+    bandTop: cropHeight - border - gap - boxHeight,
+    bandHeight: boxHeight,
+    boxLefts: [0, 1, 2].map((index) => first + index * (boxWidth + gap)),
+    boxWidth,
+    // The silver lines, and the black between them and the fill: each about a fourteenth of the
+    // box's height, as the card prints them.
+    line: Math.max(1, Math.round(boxHeight / 14)),
+    pad: Math.max(1, Math.round(boxHeight * 0.2)),
+    fontSize: Math.round(boxHeight * BOX_FONT * 10) / 10,
   };
 }
 
-const ATTRIBUTES = ['integrity', 'cunning', 'strength'] as const;
-const attributeName = (attribute: string): string => attribute[0].toUpperCase() + attribute.slice(1);
+// The `textLength` of a box's word: none when the word fits beside its number, or else the width
+// left, which squeezes it in.
+export function attributeLabelLength(
+  label: string,
+  value: string,
+  layout: Pick<ReturnType<typeof personnelOverlayLayout>, 'boxWidth' | 'line' | 'pad' | 'fontSize'>
+): number | undefined {
+  const { boxWidth, line, pad, fontSize } = layout;
+  const room = boxWidth - 2 * line - 3 * pad - fontSize * GLYPH_EM * value.length;
+  return smallCapsWidth(label, fontSize) <= room ? undefined : Math.max(1, Math.floor(room));
+}
+
+// The face of the words and the numbers: the card's is a bold, condensed sans.
+const ATTRIBUTE_FONT_FAMILY = '"Futura Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
 // The overlay. It takes no pointer events, is not a droppable, and has no `data-zone` or
 // `data-card-id`: a tap, a hold and a drop on it reach the card under it. `className` carries the
@@ -145,17 +171,18 @@ export default function PersonnelOverlay({
   border,
   className = '',
 }: {
-  card: { icons?: unknown; integrity?: unknown; cunning?: unknown; strength?: unknown };
+  card: { icons?: unknown; affiliation?: unknown; integrity?: unknown; cunning?: unknown; strength?: unknown };
   width: number;
   cropHeight: number;
   border: number;
   className?: string;
 }) {
   const layout = personnelOverlayLayout(width, cropHeight, border);
-  const { iconTop, iconLeft, iconSize, iconGap, bandTop, bandHeight, backing, ring, rim, rail, fontSize } = layout;
+  const { iconTop, iconLeft, iconSize, iconGap, bandTop, bandHeight, boxLefts, boxWidth, line, pad, fontSize } = layout;
   const codes = personnelIconCodes(card.icons).slice(0, PERSONNEL_MAX_ICONS);
   const values = ATTRIBUTES.map((attribute) => String(card[attribute] ?? '').trim());
-  const centre = backing / 2;
+  const fill = attributeBoxFill(card.affiliation);
+  const middle = bandHeight / 2;
   return (
     <div
       data-testid="personnel-overlay"
@@ -180,43 +207,63 @@ export default function PersonnelOverlay({
           ))}
         </div>
       )}
-      <div
+      <svg
         data-testid="personnel-attributes"
         role="img"
         aria-label={ATTRIBUTES.map((attribute, index) => `${attributeName(attribute)} ${values[index]}`).join(', ')}
-        className="absolute"
-        style={{ top: bandTop, left: border, right: border, height: bandHeight }}
+        className="absolute left-0 overflow-visible"
+        style={{ top: bandTop }}
+        width={width}
+        height={bandHeight}
+        fontFamily={ATTRIBUTE_FONT_FAMILY}
+        fontWeight={700}
+        fontSize={fontSize}
       >
-        <div
-          data-testid="personnel-attributes-plate"
-          className="absolute inset-x-0 bottom-0"
-          style={{ top: centre, backgroundImage: CHROME_PLATE_IMAGE }}
-        />
-        <div
-          data-testid="personnel-attributes-rail"
-          className="absolute inset-x-0"
-          style={{ top: centre - rail / 2, height: rail, backgroundImage: CHROME_RAIL_IMAGE }}
-        />
-        {values.map((value, index) => (
-          // The black backing, which breaks the rail.
-          <div
-            key={ATTRIBUTES[index]}
-            className="absolute top-0 rounded-full bg-black flex items-center justify-center"
-            style={{ left: layout.discLefts[index] - border, width: backing, height: backing }}
-          >
-            <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: CHROME_RING_IMAGE }}>
-              <div
-                className="w-full h-full rounded-full bg-black flex items-center justify-center font-sans font-bold leading-none text-white"
-                style={{ fontSize }}
+        {ATTRIBUTES.map((attribute, index) => {
+          const left = boxLefts[index];
+          const label = attributeName(attribute);
+          const labelLength = attributeLabelLength(label, values[index], layout);
+          return (
+            <g key={attribute} data-testid={`personnel-${attribute}-box`}>
+              {/* The shadow the box casts down and to the right. */}
+              <rect x={left + line} y={line} width={boxWidth} height={bandHeight} fill="rgba(0,0,0,0.6)" />
+              {/* The black frame, a silver line along its top and its bottom, and the fill inside. */}
+              <rect x={left} y={0} width={boxWidth} height={bandHeight} fill="#000" />
+              <rect x={left} y={0} width={boxWidth} height={line} fill="#f3f4f6" />
+              <rect x={left} y={bandHeight - line} width={boxWidth} height={line} fill="#f3f4f6" />
+              <rect
+                data-testid={`personnel-${attribute}-fill`}
+                x={left + line}
+                y={2 * line}
+                width={boxWidth - 2 * line}
+                height={bandHeight - 4 * line}
+                fill={fill}
+              />
+              <text
+                data-testid={`personnel-${attribute}-label`}
+                x={left + line + pad}
+                y={middle}
+                dominantBaseline="central"
+                fill="#fff"
+                style={{ fontVariant: 'small-caps' }}
+                {...(labelLength === undefined ? {} : { textLength: labelLength, lengthAdjust: 'spacingAndGlyphs' })}
               >
-                <span data-testid={`personnel-${ATTRIBUTES[index]}`} style={CHROME_NUMERAL_STYLE}>
-                  {value}
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+                {label}
+              </text>
+              <text
+                data-testid={`personnel-${attribute}`}
+                x={left + boxWidth - line - pad}
+                y={middle}
+                dominantBaseline="central"
+                textAnchor="end"
+                fill="#fff"
+              >
+                {values[index]}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
