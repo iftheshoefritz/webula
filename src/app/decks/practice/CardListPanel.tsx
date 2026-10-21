@@ -258,6 +258,8 @@ const closeLabel = (location: PanelLocation, revealEnd: 'top' | 'bottom' = 'top'
 // (`dilemmaStackInsertPoint`). It shows nothing over the dragged card's own slot, over the row's
 // empty space, or outside the panel: none of those drops reorders. The mark is a thin accent bar
 // that takes no pointer events and carries no `data-zone`: it is not a drop target.
+// With `reorderable` false, the dilemma stack in the facing phase (#1209), the cards are no drop
+// targets and the row draws no mark: the row only shows the order.
 function DilemmaStackRow({
   cards,
   selectedIds,
@@ -265,6 +267,7 @@ function DilemmaStackRow({
   cardWidth,
   cardHeight,
   markFaceDown,
+  reorderable,
 }: {
   cards: CardInstance[];
   selectedIds: string[];
@@ -272,13 +275,16 @@ function DilemmaStackRow({
   cardWidth: number;
   cardHeight: number;
   markFaceDown: boolean;
+  reorderable: boolean;
 }) {
   const { active, over } = useDndContext();
-  const insert = dilemmaStackInsertPoint(
-    cards.map((instance) => instance.id),
-    active ? cardIdOfDraggable(active.id) : null,
-    over ? String(over.id) : null
-  );
+  const insert = reorderable
+    ? dilemmaStackInsertPoint(
+        cards.map((instance) => instance.id),
+        active ? cardIdOfDraggable(active.id) : null,
+        over ? String(over.id) : null
+      )
+    : null;
 
   return (
     <OverlapRow
@@ -303,7 +309,7 @@ function DilemmaStackRow({
           onToggleSelect={() => onToggleSelect(instance.id)}
           cardWidth={cardWidth}
           cardHeight={cardHeight}
-          reorderable
+          reorderable={reorderable}
           markFaceDown={markFaceDown}
         />
       )}
@@ -659,11 +665,13 @@ export default function CardListPanel({
   // many of them into the same bounded width every other bottom-row zone already fits into, so
   // every card stays reachable at that viewport. Each card also becomes a drop target of its own
   // (`reorderable` on `CardListPanelCard`), so a drop on top of a neighbour reorders the stack instead
-  // of leaving the zone.
+  // of leaving the zone. That holds only in the dilemma choice (`choosingDilemmas`): in the facing
+  // phase the stack's row shows the order and nothing reorders it (#1209).
   // The reveal panel (#1070) uses the same ordered row: its cards are the top or the bottom of the
   // pile (#1078), in order, and a drop on a neighbour reorders the pile.
   const isRevealPanel = isRevealLocation(location);
   const isOrdered = location === 'dilemmaStack' || isRevealPanel;
+  const isReorderable = isRevealPanel || (location === 'dilemmaStack' && choosingDilemmas);
   // The stack's row is `OverlapRow` (#802), the same component the open fan uses. Its width
   // bound is the row's own measured width, not a card-count guess (#632's browser-check
   // follow-up): a guess of six cards let the sixth card fall outside the panel at 568 x 320, and a
@@ -792,6 +800,7 @@ export default function CardListPanel({
           cardWidth={cardWidth}
           cardHeight={cardHeight}
           markFaceDown={markFaceDown}
+          reorderable={isReorderable}
         />
       ) : (
         cards.map((instance) => (
