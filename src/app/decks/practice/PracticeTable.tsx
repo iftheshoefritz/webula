@@ -65,7 +65,6 @@ import MissionRow, {
   DilemmaIcon,
   SHIP_ROW_GAP,
   missionIndexFromDropId,
-  missionCardHeight,
   missionColumnHeight,
   missionHalfFromDropId,
   PlacedOnGroup,
@@ -92,10 +91,8 @@ import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { PanelLocation, RevealIcon, ShuffleIcon } from './CardListPanel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
-import { PILE_CARD_BORDER_STYLE, cardBorderStyle, SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
+import { PILE_CARD_BORDER_STYLE, cardBorderStyle, SMALL_CARD_WIDTH } from './TableCard';
 import {
-  DILEMMA_STACK_CARD_WIDTH,
-  DILEMMA_STACK_DESKTOP_WIDTH_FACTOR,
   DESKTOP_RESERVED_SHIP_ROWS,
   TOUCH_RESERVED_SHIP_ROWS,
   ATTEMPT_STACK_LABEL_HEIGHT,
@@ -1095,31 +1092,23 @@ function DilemmaStackTopCard({
 // for a reorder — this reveals only the current top card, on the table itself, unchanged from
 // this issue's own scope.
 //
-// #742: hidden (kept in the DOM, `visibility: hidden`, so the reserved column's width never
-// moves the mission row beside it) whenever it isn't useful — the stack is empty, the dilemma
+// #742: hidden (kept in the DOM, `visibility: hidden`, so its width never moves the columns beside
+// it) whenever it isn't useful — the stack is empty, the dilemma
 // hand is closed, and no dilemma is being dragged — and shown again the moment any one of those
 // stops being true, the same `visibility`/`pointerEvents` pattern the closed hand's own fan uses
 // (`CardHand.tsx`). `visibility: hidden` alone already keeps it out of the accessibility tree, so
-// no separate `aria-hidden` is needed. Its height is a mission card's own art height plus its
-// ship row's height, not one card's height, so a dragged dilemma has a bigger target to hit; both
-// pieces scale with `scale` the same way `MissionRow.tsx` scales the mission column beside it.
+// no separate `aria-hidden` is needed.
 //
-// #752: drawn as a vertical fan of normal-sized cards rather than one card-back stretched over
-// the whole zone. Each card keeps its own 120x167 art's true aspect ratio — the same fixed-width,
-// `h-auto` treatment `DiscardPileCard` above already uses — instead of `object-cover` against a
-// forced height. `dilemmaStack[0]`, the top of the physical stack, sits lowest in the zone and
-// frontmost; each later index sits `offset` px higher and one layer further back, so the bottom
-// of the physical stack sits highest — the reverse of `UnderMissionStack`'s own stacking order
-// (`MissionRow.tsx`), which fans its last-added card lowest instead. `offsetFor` (`overlapOffset.ts`)
-// bounds that offset so any number of cards still fits inside the zone's own (unscaled) height.
+// #1208: drawn as a row, the attempt layout's facing phase being the only place it mounts (#1170).
+// `dilemmaStack[0]`, the dilemma being faced, sits on the left, a whole card as tall as the
+// mission card, and frontmost; each later card sits to its right, face down, in stack order and one
+// layer further back, edge to edge while they fit the zone and overlapped past that (`offsetFor`).
+// `computeAttemptLayout` (`tableScale.ts`) gives the zone every width the mission and the
+// personnel area leave, so a desktop and a touch screen follow the same rule.
 //
-// #988: on a desktop (`useFinePointer`, #946) the zone and its cards are two times as wide, and
-// the zone grows taller when the scale leaves it shorter than one of those wider cards. A phone or
-// a tablet keeps the narrow zone.
-// The two widths are set in `tableScale.ts`, whose desktop scale (#992) leaves room for the zone.
-//
-// #1190: this fan is the stack of the facing phase only. In the dilemma choice every card is face
-// up, and `DilemmaStackFaceUp` below draws the stack instead, side by side and always visible.
+// #1190: this row is the stack of the facing phase only. In the dilemma choice every card is face
+// up, and `DilemmaStackFaceUp` below draws the stack instead, always visible, with a drop target
+// between every two cards (#1204).
 
 // The height of a mission column with the ship rows `useMissionScale` reserves, on a desktop (#992)
 // and on a touch screen. Defined once at module level, so the hook's effect does not run again on
@@ -1129,9 +1118,8 @@ const desktopMissionColumnHeight = (scale: number): number =>
 const touchMissionColumnHeight = (scale: number): number =>
   missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
 const dilemmaStackCardHeight = (cardWidth: number) => Math.round((cardWidth * 167) / 120); // px, the card's own aspect ratio
-const DILEMMA_STACK_MAX_OFFSET = 24; // px, the largest gap between fanned cards
 
-// The parts that make the dilemma stack a drop target, shared by the facing phase's fan and the
+// The parts that make the dilemma stack a drop target, shared by the facing phase's row and the
 // face-up stack of the dilemma choice (#1190). Only one of the two is mounted at a time, so
 // `dilemmaStack` stays one droppable.
 function useDilemmaStackZone(overARowSlot = false) {
@@ -1149,33 +1137,24 @@ function DilemmaStackPile({
   onOpen,
   onReveal,
   visible,
-  scale,
-  desktop,
-  minHeight = 0,
-  maxHeight = Infinity,
+  width,
+  height,
+  cardWidth,
 }: {
   stack: CardInstance[];
   onOpen: () => void;
   onReveal: () => void;
   visible: boolean;
-  scale: number;
-  desktop: boolean;
-  // The attempt layout (#1164) makes the zone as tall as the attempted mission card, and never
-  // taller than the height its columns fit (#1203).
-  minHeight?: number;
-  maxHeight?: number;
+  // The zone's width and height, and the width of one whole card (`computeAttemptLayout`, #1208).
+  width: number;
+  height: number;
+  cardWidth: number;
 }) {
   const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone();
-  const cardWidth = DILEMMA_STACK_CARD_WIDTH * (desktop ? DILEMMA_STACK_DESKTOP_WIDTH_FACTOR : 1);
-  const cardHeight = dilemmaStackCardHeight(cardWidth);
-  const height = Math.min(
-    maxHeight,
-    Math.max(Math.round((TABLE_CARD_ART_HEIGHT + SMALL_CARD_ART_HEIGHT) * scale), desktop ? cardHeight : 0, minHeight),
-  );
   const count = stack.length;
   const topCard = stack[0];
   const revealed = topCard?.face === 'up';
-  const offset = offsetFor(count, cardHeight, height, DILEMMA_STACK_MAX_OFFSET);
+  const offset = offsetFor(count, cardWidth, width, cardWidth);
 
   return (
     <div
@@ -1183,14 +1162,14 @@ function DilemmaStackPile({
       data-zone="dilemmaStack"
       data-highlight={highlight}
       data-landed={landedNonce !== null || undefined}
-      style={{ width: cardWidth, height, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}
+      style={{ width, height, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}
       className={`relative rounded-lg ${highlightClassName(highlight)}`}
     >
       <LandedRing nonce={landedNonce} />
-      {/* Covers the whole box underneath the fan (below), so a tap anywhere the fan doesn't
+      {/* Covers the whole box underneath the row (below), so a tap anywhere the row doesn't
           cover still opens the panel. Once the top card is revealed, `DilemmaStackTopCard`
           below carries the same label as the control the player actually sees and taps, so this
-          one is hidden from the accessibility tree — it stays clickable for the fan's own
+          one is hidden from the accessibility tree — it stays clickable for the row's own
           non-interactive back-card area, just not separately announced. */}
       <button
         type="button"
@@ -1217,8 +1196,8 @@ function DilemmaStackPile({
             width={120}
             height={167}
             alt={i === 0 ? 'Face-down dilemma stack' : ''}
-            className="pointer-events-none absolute left-0 rounded-lg shadow-lg h-auto"
-            style={{ ...cardBorderStyle(cardWidth), width: cardWidth, bottom: i * offset, zIndex: count - i }}
+            className="pointer-events-none absolute bottom-0 rounded-lg shadow-lg h-auto"
+            style={{ ...cardBorderStyle(cardWidth), width: cardWidth, left: i * offset, zIndex: count - i }}
           />
         )
       )}
@@ -2810,10 +2789,9 @@ function PracticeDrawContent() {
                       onOpen={() => openOnlyFlatZone('dilemmaStack')}
                       onReveal={() => dispatch({ type: 'flip', id: dilemmaStack[0].id })}
                       visible={dilemmaStackVisible}
-                      scale={attemptSizes.missionScale}
-                      desktop={finePointer}
-                      minHeight={missionCardHeight(attemptSizes.missionScale, true)}
-                      maxHeight={Math.floor(attemptSizes.columnHeight)}
+                      width={attemptSizes.stackWidth}
+                      height={attemptSizes.stackHeight}
+                      cardWidth={attemptSizes.stackCardWidth}
                     />
                     )
                   }

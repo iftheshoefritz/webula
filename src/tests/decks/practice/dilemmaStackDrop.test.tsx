@@ -232,10 +232,10 @@ describe('Practice table: the dilemma stack (#630)', () => {
     expect(cardIds).toEqual([firstId, secondId]);
   });
 
-  // #752: the stack draws every card at its own normal, unstretched shape, fanned vertically —
-  // the top of the physical stack (index 0) lowest and frontmost, each later card higher and
-  // further back — rather than one card back stretched over the whole zone.
-  it('draws the stack as a fan of normal-sized, unstretched cards with the top card frontmost', async () => {
+  // #752: the stack draws every card at its own normal, unstretched shape, rather than one card
+  // back stretched over the whole zone. #1208: in a row, the top of the physical stack (index 0)
+  // on the left and frontmost, each later card further right and further back.
+  it('draws the stack as a row of normal-sized, unstretched cards with the top card left and frontmost (#1208)', async () => {
     const fanDeck = {
       [mockDilemmaCard.collectorsinfo]: { count: 4, row: mockDilemmaCard },
       [mockEventCard.collectorsinfo]: { count: 1, row: mockEventCard },
@@ -293,11 +293,11 @@ describe('Practice table: the dilemma stack (#630)', () => {
     expect(stackZone).not.toBeNull();
     const images = ids.map((id) => stackZone.querySelector(`img[data-card-id="${id}"]`) as HTMLImageElement);
 
-    // Every card keeps its own normal shape: a fixed width with `h-auto`, not `object-cover`
+    // Every card keeps its own normal shape: one width with `h-auto`, not `object-cover`
     // against a forced height.
     images.forEach((img) => {
       expect(img).not.toBeNull();
-      expect(img).toHaveStyle({ width: '56px' });
+      expect(img.style.width).toBe(images[0].style.width);
       expect(img.className).toContain('h-auto');
       expect(img.className).not.toContain('object-cover');
     });
@@ -307,22 +307,21 @@ describe('Practice table: the dilemma stack (#630)', () => {
     expect(images[0].alt).toBe('Face-down dilemma stack');
     images.slice(1).forEach((img) => expect(img.alt).toBe(''));
 
-    // Front-to-back order: `ids[0]` sits lowest (smallest offset from the zone's bottom) and
-    // frontmost (highest z-index); each later card sits higher and further back.
+    // #1208: a row in stack order. `ids[0]` sits on the left and frontmost (highest z-index); each
+    // later card sits further right and further back.
+    expect(parseInt(images[0].style.left, 10)).toBe(0);
     for (let i = 0; i < images.length - 1; i++) {
-      const bottomA = parseInt(images[i].style.bottom, 10);
-      const bottomB = parseInt(images[i + 1].style.bottom, 10);
-      expect(bottomB).toBeGreaterThan(bottomA);
+      const leftA = parseInt(images[i].style.left, 10);
+      const leftB = parseInt(images[i + 1].style.left, 10);
+      expect(leftB).toBeGreaterThan(leftA);
 
       const zA = Number(images[i].style.zIndex);
       const zB = Number(images[i + 1].style.zIndex);
       expect(zA).toBeGreaterThan(zB);
     }
 
-    // The whole fan still fits inside the zone's own height.
-    const zoneHeight = parseInt(stackZone.style.height, 10);
-    const lastBottom = parseInt(images[images.length - 1].style.bottom, 10);
-    expect(lastBottom).toBeLessThan(zoneHeight);
+    // Every card sits on the zone's bottom edge.
+    images.forEach((img) => expect(img.className).toContain('bottom-0'));
   });
 
   it('a tap on the stack opens its panel and closes another open panel (#711)', async () => {
@@ -614,45 +613,6 @@ describe('Practice table: the dilemma stack (#630)', () => {
       mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
     });
     expect(stackZone()).toHaveStyle({ visibility: 'visible' });
-  });
-
-  // #988: on a desktop the stack and its cards are two times as wide. A touch screen keeps 56 px.
-  it('keeps its 56 px width on a touch screen', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId] = mockDraggableIds;
-    await act(async () => {
-      mockOnDragStart!({ active: { id: firstId } });
-    });
-    await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
-    });
-
-    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
-    expect(stackZone).toHaveStyle({ width: '56px' });
-    expect(stackZone.querySelector(`img[data-card-id="${firstId}"]`)).toHaveStyle({ width: '56px' });
-  });
-
-  it('is two times as wide under (pointer: fine)', async () => {
-    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
-      matches: query === '(pointer: fine)',
-      media: query,
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-    }));
-    await setupOpenDilemmaHand();
-    const [firstId] = mockDraggableIds;
-    await act(async () => {
-      mockOnDragStart!({ active: { id: firstId } });
-    });
-    await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
-    });
-
-    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
-    expect(stackZone).toHaveStyle({ width: '112px' });
-    expect(stackZone.querySelector(`img[data-card-id="${firstId}"]`)).toHaveStyle({ width: '112px' });
-    // The zone is at least as tall as one of the wider cards (112 x 167 / 120).
-    expect(parseInt(stackZone.style.height, 10)).toBeGreaterThanOrEqual(156);
   });
 
   // #751: a separate reveal control turns the stack's own top card face up in place, one card at

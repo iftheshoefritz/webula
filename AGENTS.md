@@ -459,7 +459,11 @@ back the mission row (#1170). The log gets one entry: "Ended the attempt at <mis
 table, the ships column `attempt-ships` (the away team badge, then every ship of that mission's ship
 row), and the dilemma stack. At a space mission the ships sit in a column exactly as wide as the
 mission, 2 to a row, with the crew row beside them (#1177). The bottom row does not change. The dilemma stack mounts only here
-(#1170), so the `dilemmaStack` drop target exists only in the attempt layout.
+(#1170), so the `dilemmaStack` drop target exists only in the attempt layout. In `'face'` the stack is a row
+(#1208): the top card, `stack[0]`, whole on the left and as tall as the mission card, and the other
+cards face down to its right, overlapped past the width. It takes the width the mission, the
+placed-on column and the personnel area leave; the personnel area keeps at most 4 crops a row, and
+the mission shrinks, never below the floor, until one whole top card fits beside it.
 
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
 dilemmas. Start begins in `'choose'`, with `Attempt.drawn` 0. The choice-phase draw, `drawCard` from
