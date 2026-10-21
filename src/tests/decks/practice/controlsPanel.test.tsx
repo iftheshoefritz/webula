@@ -31,6 +31,31 @@ describe('controls.ts (#1088)', () => {
   });
 });
 
+describe('the Mission attempt section (#1224)', () => {
+  it('holds a row for each control of an attempt, the stack order and the reveal too', () => {
+    const ids = CONTROL_ROWS.filter((row) => row.section === 'Mission attempt').map((row) => row.id);
+    for (const id of [
+      'start-attempt',
+      'draw-dilemma',
+      'dilemma-into-stack',
+      'order-dilemma-stack',
+      'face-dilemmas',
+      'reveal-top-dilemma',
+      'attempt-personnel-buttons',
+      'attempt-full-table',
+      'attempt-done',
+    ]) {
+      expect(ids).toContain(id);
+    }
+  });
+
+  it('comes after Piles and panels and before More than one card', () => {
+    const at = (section: string) => CONTROL_SECTIONS.indexOf(section as (typeof CONTROL_SECTIONS)[number]);
+    expect(at('Mission attempt')).toBe(at('Piles and panels') + 1);
+    expect(at('More than one card')).toBe(at('Mission attempt') + 1);
+  });
+});
+
 describe('ControlsPanel (#1088)', () => {
   it('renders every row, under a heading for each section', () => {
     mockPointer(false);

@@ -5,7 +5,14 @@
 // When the gesture is the same for touch and for a mouse, `touch` and `mouse` hold the same
 // string, and the panel shows it once. The words follow `docs/ubiquitous-language.md`.
 
-export const CONTROL_SECTIONS = ['Basics', 'Missions and ships', 'Piles and panels', 'More than one card', 'Buttons'] as const;
+export const CONTROL_SECTIONS = [
+  'Basics',
+  'Missions and ships',
+  'Piles and panels',
+  'Mission attempt',
+  'More than one card',
+  'Buttons',
+] as const;
 
 export type ControlSection = (typeof CONTROL_SECTIONS)[number];
 
@@ -129,11 +136,84 @@ export const CONTROL_ROWS: ControlRow[] = [
     action: 'Look at the top or bottom of a pile',
     ...both('The eye button, then Reveal top or Reveal bottom. Nothing moves.'),
   },
+
+  // Mission attempt (#1224)
+  {
+    id: 'start-attempt',
+    section: 'Mission attempt',
+    action: 'Start an attempt',
+    touch:
+      'Tap the bottom half of a planet mission to open its away team, or tap a ship at a space mission to open its crew, then tap Attempt. ' +
+      'Set the personnel and the number to subtract, read "draw/spend N", and tap Start.',
+    mouse:
+      'Click the bottom half of a planet mission to open its away team, or click a ship at a space mission to open its crew, then click Attempt. ' +
+      'Set the personnel and the number to subtract, read "draw/spend N", and click Start.',
+  },
+  {
+    id: 'draw-dilemma',
+    section: 'Mission attempt',
+    action: 'Draw dilemma',
+    ...both(
+      'In the dilemma choice, each Draw dilemma draws one dilemma into the dilemma hand and opens it. ' +
+        'The count beside it, "Drawn 3 of 9", does not stop you at N: past it, it turns amber.'
+    ),
+  },
+  {
+    id: 'dilemma-into-stack',
+    section: 'Mission attempt',
+    action: 'Choose a dilemma',
+    ...both(
+      'In the dilemma choice, drag a dilemma from the dilemma hand onto the face-up dilemma stack. ' +
+        'It goes in before the card you drop it on, or last on the right end, and a marker shows where.'
+    ),
+  },
   {
     id: 'order-dilemma-stack',
-    section: 'Piles and panels',
+    section: 'Mission attempt',
     action: 'Order the dilemma stack',
-    ...both('During an attempt, open it and drag the dilemmas. The first card is revealed first.'),
+    ...both(
+      'Only in the dilemma choice: drag a dilemma along the stack, or open the stack and drag it there. ' +
+        'The card on the left, "Faced first", is revealed first.'
+    ),
+  },
+  {
+    id: 'face-dilemmas',
+    section: 'Mission attempt',
+    action: 'Face dilemmas, Back to choosing',
+    ...both(
+      'Face dilemmas turns the dilemma stack face down and puts the dilemma hand at the bottom of the dilemma pile. ' +
+        'Back to choosing turns the stack face up again.'
+    ),
+  },
+  {
+    id: 'reveal-top-dilemma',
+    section: 'Mission attempt',
+    action: 'Reveal top dilemma',
+    ...both('While facing dilemmas, the button on the dilemma stack turns its top card over.'),
+  },
+  {
+    id: 'attempt-personnel-buttons',
+    section: 'Mission attempt',
+    action: 'Stop, Stop all, Shuffle',
+    touch:
+      'While facing dilemmas, under the attempting personnel: tap cards to select them, then Stop or Unstop. Stop all stops every one, and Shuffle shuffles the away team or the crew.',
+    mouse:
+      'While facing dilemmas, under the attempting personnel: click cards to select them, then Stop or Unstop. Stop all stops every one, and Shuffle shuffles the away team or the crew.',
+  },
+  {
+    id: 'attempt-full-table',
+    section: 'Mission attempt',
+    action: 'View full table, Back to attempt',
+    ...both(
+      'View full table shows the whole table and the attempt goes on. The full table shows no dilemma stack: ' +
+        'Back to attempt, on the attempted mission, returns to the attempt.'
+    ),
+  },
+  {
+    id: 'attempt-done',
+    section: 'Mission attempt',
+    action: 'Done',
+    ...both('Moves every dilemma still in the dilemma stack under the mission, face up, and ends the attempt.'),
   },
 
   // More than one card
@@ -174,12 +254,6 @@ export const CONTROL_ROWS: ControlRow[] = [
     section: 'Buttons',
     action: 'Shuffle',
     ...both('On the draw deck, the dilemma pile, and in a panel.'),
-  },
-  {
-    id: 'reveal-top-dilemma',
-    section: 'Buttons',
-    action: 'Reveal top dilemma',
-    ...both('During an attempt, the button on the dilemma stack turns its top card over.'),
   },
   {
     id: 'selection-buttons',
