@@ -164,8 +164,12 @@ describe('Practice table: the dilemma stack (#630)', () => {
   const panelShuffleButtons = () =>
     screen.queryAllByRole('button', { name: /^Shuffle$/ }).filter((b) => b.textContent?.trim() === 'Shuffle');
 
-  // Draws both dilemma copies into the dilemma hand and opens it, so its cards are draggable.
-  const setupOpenDilemmaHand = async () => {
+  // The ids of the dilemma pile, top first, when the attempt starts. A test drags the pile's top card
+  // (#814) onto the stack: the attempt is in the facing phase, which shows no dilemma hand (#1223).
+  let pileIds: string[] = [];
+
+  // Starts an attempt at mission 0 in the facing phase, with both dilemma copies in the dilemma pile.
+  const setupAttempt = async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockDeck));
 
     await act(async () => {
@@ -174,28 +178,19 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await enterAttempt(<PracticeDrawPage />);
     await drawOpeningHand();
     mockDraggableIds.length = 0;
+    pileIds = JSON.parse(localStorage.getItem('practiceGame')!).table.dilemmaPile.map((card: { id: string }) => card.id);
+  };
 
-    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
+  // Goes back to the dilemma choice (#1192), where the dilemma hand shows, empty too (#1223).
+  const backToChoosing = async () => {
     await act(async () => {
-      fireEvent.click(drawDilemmaButton);
+      fireEvent.click(screen.getByTestId('attempt-back-to-choosing'));
     });
-    await act(async () => {
-      fireEvent.click(drawDilemmaButton);
-    });
-
-    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
-    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
-    const closedDilemmaHandButton = screen.queryByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i });
-    if (closedDilemmaHandButton) {
-      await act(async () => {
-        fireEvent.click(closedDilemmaHandButton);
-      });
-    }
   };
 
   it('moves a dropped dilemma onto the stack, appending a second drop after the first', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId, secondId] = mockDraggableIds;
+    await setupAttempt();
+    const [firstId, secondId] = pileIds;
 
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
@@ -254,27 +249,12 @@ describe('Practice table: the dilemma stack (#630)', () => {
     await drawOpeningHand();
     mockDraggableIds.length = 0;
 
-    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
-    for (let i = 0; i < 4; i++) {
-      await act(async () => {
-        fireEvent.click(drawDilemmaButton);
-      });
-    }
-
-    const closedDilemmaHandButton = screen.queryByRole('button', { name: /^dilemma hand, 4 cards, tap to open$/i });
-    if (closedDilemmaHandButton) {
-      await act(async () => {
-        fireEvent.click(closedDilemmaHandButton);
-      });
-    }
-
-    // The open dilemma hand draws as an arc (#1150), which renders again once it has measured its
-    // bounds, so the mock sees each card's `useDraggable` more than once.
-    const ids = [...new Set(mockDraggableIds)];
+    const ids: string[] = JSON.parse(localStorage.getItem('practiceGame')!).table.dilemmaPile.map((card: { id: string }) => card.id);
     expect(ids).toHaveLength(4);
 
-    // Drop all 4 dilemmas onto the stack, in order, so it ends up as `ids` itself (a drop always
-    // appends to the bottom, #630): `ids[0]` is the top of the stack, `ids[3]` the bottom.
+    // Drop all 4 dilemmas off the top of the dilemma pile onto the stack, in order, so it ends up
+    // as `ids` itself (a drop always appends to the bottom, #630): `ids[0]` is the top of the
+    // stack, `ids[3]` the bottom.
     for (let i = 0; i < ids.length; i++) {
       await act(async () => {
         mockOnDragStart!({ active: { id: ids[i] } });
@@ -282,15 +262,6 @@ describe('Practice table: the dilemma stack (#630)', () => {
       await act(async () => {
         mockOnDragEnd!({ active: { id: ids[i] }, over: { id: 'dilemmaStack' } });
       });
-      const remaining = ids.length - 1 - i;
-      const closedHand = screen.queryByRole('button', {
-        name: new RegExp(`^dilemma hand, ${remaining} cards?, tap to open$`, 'i'),
-      });
-      if (closedHand) {
-        await act(async () => {
-          fireEvent.click(closedHand);
-        });
-      }
     }
 
     const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
@@ -330,8 +301,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
   });
 
   it('a tap on the stack opens its panel and closes another open panel (#711)', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId] = mockDraggableIds;
+    await setupAttempt();
+    const [firstId] = pileIds;
 
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
@@ -374,8 +345,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
   });
 
   it('a tap on a card in the stack panel shows it face up, with no Flip button (#819)', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId] = mockDraggableIds;
+    await setupAttempt();
+    const [firstId] = pileIds;
 
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
@@ -403,8 +374,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
   // #631: the dilemma hand is now a drop target even with no cards in it, so a dilemma dragged
   // from the stack popup always has somewhere to land.
   it('moves a dilemma dropped on the (empty) dilemma hand from the stack popup, face up, without reordering the rest of the stack', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId, secondId] = mockDraggableIds;
+    await setupAttempt();
+    const [firstId, secondId] = pileIds;
 
     // Move both dilemmas onto the stack, leaving the dilemma hand empty.
     await act(async () => {
@@ -428,14 +399,18 @@ describe('Practice table: the dilemma stack (#630)', () => {
       mockOnDragEnd!({ active: { id: secondId }, over: { id: 'dilemmaStack' } });
     });
 
+    // The dilemma hand shows only in the dilemma choice (#1223).
+    expect(document.body.querySelector('[data-zone="dilemmaHand"]')).toBeNull();
+    await backToChoosing();
     const emptyDilemmaHandButton = screen.getByRole('button', { name: /^dilemma hand, 0 cards, tap to open$/i });
     expect(emptyDilemmaHandButton).toBeInTheDocument();
     expect(document.body.querySelector('[data-zone="dilemmaHand"]')).not.toBeNull();
 
     // Open the stack popup and drag the first card dropped (now at the bottom of the stack, see
-    // the appending test above) back onto the empty dilemma hand.
+    // the appending test above) back onto the empty dilemma hand. The face-up stack of the choice
+    // draws each card as its own button (#1190).
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Dilemma stack, 2 cards, tap to open' }));
+      fireEvent.click(screen.getAllByRole('button', { name: 'Dilemma stack, 2 cards, tap to open' })[0]);
     });
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
@@ -480,8 +455,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
   // #632: a drop inside the stack popup, on top of another card still in the stack, reorders the
   // stack rather than moving the dropped card out of it.
   it('reorders the stack when one card is dropped on another inside the popup, and the order survives closing and reopening it', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId, secondId] = mockDraggableIds;
+    await setupAttempt();
+    const [firstId, secondId] = pileIds;
 
     // Move both dilemmas onto the stack, in order: the stack starts as [firstId, secondId]
     // (appending to the bottom, #630).
@@ -549,8 +524,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
   // #1209: in the facing phase nothing reorders the stack. The same drop leaves the order alone,
   // and the panel shows no Shuffle.
   it('does not reorder the stack in the facing phase, and its popup shows no Shuffle', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId, secondId] = mockDraggableIds;
+    await setupAttempt();
+    const [firstId, secondId] = pileIds;
 
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
@@ -594,8 +569,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
   // #632: the reorder detection must not swallow an ordinary drag out of the popup onto a real
   // zone — here, under a mission, same as a dilemma dragged from anywhere else (#606, #733).
   it('still moves a dilemma dragged from the stack popup onto a mission card, not a reorder', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId] = mockDraggableIds;
+    await setupAttempt();
+    const [firstId] = pileIds;
 
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
@@ -625,41 +600,20 @@ describe('Practice table: the dilemma stack (#630)', () => {
     expect(stackZone).toHaveStyle({ visibility: 'hidden' });
   });
 
-  // #742: the zone hides once it isn't useful — the stack is empty, the dilemma hand is closed,
-  // and no dilemma is being dragged — and shows again as soon as any one of those changes.
-  it('hides the empty stack zone until the dilemma hand opens or a dilemma is dragged, and stays visible after a drop', async () => {
-    localStorage.setItem('currentDeck', JSON.stringify(mockDeck));
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
-    await enterAttempt(<PracticeDrawPage />);
-    await drawOpeningHand();
-    mockDraggableIds.length = 0;
+  // #742: the zone hides once it isn't useful — the stack is empty and no dilemma is being
+  // dragged — and shows again as soon as either changes. The facing phase shows no dilemma hand
+  // (#1223), so the hand no longer shows it.
+  it('hides the empty stack zone until a dilemma is dragged, and stays visible after a drop', async () => {
+    await setupAttempt();
+    const [firstId] = pileIds;
 
-    // A fresh attempt: no dilemmas drawn, the dilemma hand closed. The zone stays in the DOM (its
-    // column keeps the attempt layout in place) but is hidden.
+    // A fresh attempt: no dilemmas in the stack. The zone stays in the DOM (its column keeps the
+    // attempt layout in place) but is hidden.
     const stackZone = () => document.body.querySelector('[data-zone="dilemmaStack"]');
     expect(stackZone()).not.toBeNull();
     expect(stackZone()).toHaveStyle({ visibility: 'hidden' });
 
-    // Opening the (still empty) dilemma hand shows the zone.
-    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
-    await act(async () => {
-      fireEvent.click(drawDilemmaButton);
-    });
-    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
-    // hand is closed.
-    const closedHand6 = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
-    if (closedHand6) {
-      await act(async () => {
-        fireEvent.click(closedHand6);
-      });
-    }
-    expect(stackZone()).toHaveStyle({ visibility: 'visible' });
-
-    // Dragging that dilemma closes the hand (`handleDragStart`), but the zone stays visible for
-    // the rest of the drag.
-    const [firstId] = mockDraggableIds;
+    // Dragging a dilemma off the dilemma pile shows the zone for the rest of the drag.
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
     });
@@ -675,8 +629,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
   // #988: on a desktop the stack and its cards are two times as wide. A touch screen keeps 56 px.
   it('keeps its 56 px width on a touch screen', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId] = mockDraggableIds;
+    await setupAttempt();
+    const [firstId] = pileIds;
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
     });
@@ -696,8 +650,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
       addEventListener: jest.fn(),
       removeEventListener: jest.fn(),
     }));
-    await setupOpenDilemmaHand();
-    const [firstId] = mockDraggableIds;
+    await setupAttempt();
+    const [firstId] = pileIds;
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
     });
@@ -719,8 +673,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
     // Draws both dilemma copies, drops the first one onto the (now empty) stack, and reveals it —
     // the shared starting point for the drag-off-the-stack tests below.
     const setupRevealedTopCard = async () => {
-      await setupOpenDilemmaHand();
-      const [firstId, secondId] = mockDraggableIds;
+      await setupAttempt();
+      const [firstId, secondId] = pileIds;
 
       await act(async () => {
         mockOnDragStart!({ active: { id: firstId } });
@@ -737,8 +691,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
     };
 
     it('shows its own art in place of the card back, and the tap-to-open panel still works unchanged', async () => {
-      await setupOpenDilemmaHand();
-      const [firstId] = mockDraggableIds;
+      await setupAttempt();
+      const [firstId] = pileIds;
       // The second dilemma copy stays in the open hand throughout, showing its own art there
       // too (`ZONE_FACE.dilemmaHand` is face up) — scope every query below to the stack's own
       // zone so that card's art is never mistaken for the stack's.
@@ -774,8 +728,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
     // #1080: the eye is a 24 px target beside the tap-to-open button, not inside it, so a tap on
     // it flips the top card and opens no panel.
     it('the eye is a 24 px sibling of the tap-to-open button, and a tap on it opens no panel', async () => {
-      await setupOpenDilemmaHand();
-      const [firstId] = mockDraggableIds;
+      await setupAttempt();
+      const [firstId] = pileIds;
       const stackZone = () => document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
 
       await act(async () => {
@@ -860,8 +814,9 @@ describe('Practice table: the dilemma stack (#630)', () => {
       expect(screen.queryByRole('button', { name: /Dilemma stack, 1 card, tap to open/i })).not.toBeInTheDocument();
     });
 
-    it('drags to the dilemma hand', async () => {
+    it('drags to the dilemma hand, which shows in the dilemma choice (#1223)', async () => {
       const { firstId } = await setupRevealedTopCard();
+      await backToChoosing();
 
       await act(async () => {
         mockOnDragStart!({ active: { id: firstId } });
@@ -870,9 +825,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
         mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaHand' } });
       });
 
-      // The second dilemma copy is already sitting in the dilemma hand (drawn alongside the
-      // first, #630's own setup), so the hand now holds both.
-      expect(screen.getByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Dilemma stack, 1 card, tap to open/i })).not.toBeInTheDocument();
     });
 
@@ -886,7 +839,7 @@ describe('Practice table: the dilemma stack (#630)', () => {
         mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemma-pile-bottom' } });
       });
 
-      expect(screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Dilemma pile top' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Dilemma stack, 1 card, tap to open/i })).not.toBeInTheDocument();
     });
 
@@ -905,8 +858,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
     });
 
     it('leaves the stack with one fewer card and its new top card still face down', async () => {
-      await setupOpenDilemmaHand();
-      const [firstId, secondId] = mockDraggableIds;
+      await setupAttempt();
+      const [firstId, secondId] = pileIds;
 
       // Both copies onto the stack: [firstId, secondId] (appending to the bottom, #630), so
       // firstId is the top, revealed and dragged off; secondId, never flipped, is left behind.

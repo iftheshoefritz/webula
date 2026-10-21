@@ -28,7 +28,7 @@ export const CONTROL_ROWS: ControlRow[] = [
     id: 'draw-card',
     section: 'Basics',
     action: 'Draw a card',
-    ...both('Tap the draw deck. A tap on the dilemma pile draws into the dilemma hand.'),
+    ...both('Tap the draw deck.'),
   },
   {
     id: 'open-hand',
@@ -120,7 +120,7 @@ export const CONTROL_ROWS: ControlRow[] = [
     section: 'Piles and panels',
     action: 'Download',
     ...both(
-      'The Download button of the draw deck or the dilemma pile, select cards, then Download. They go into the hand, and the pile shuffles.'
+      'The Download button of the draw deck or the dilemma pile, select cards, then Download. They go into the hand, and the pile shuffles. The dilemma pile\'s Download works only in the dilemma choice of an attempt.'
     ),
   },
   {

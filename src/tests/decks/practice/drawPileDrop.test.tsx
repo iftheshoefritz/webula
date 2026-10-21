@@ -270,9 +270,10 @@ describe('Practice draw: dropping a card on the draw deck (#743)', () => {
     expect(drawPile().getAttribute('data-pile-count')).toBe('3');
     expect(drawPile().querySelector(`[data-card-id="${topId}"]`)).not.toBeNull();
 
-    // Every half keeps a name that says which pile, which half, and that a tap draws.
+    // Every half keeps a name that says which pile and which half, and a draw deck half that a tap
+    // draws. A tap on the dilemma pile draws nothing (#1223).
     expect(screen.getByRole('button', { name: 'Draw deck top, tap to draw' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Dilemma pile bottom, tap to draw' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dilemma pile bottom' })).toBeInTheDocument();
   });
 
   it('reads 0 on the draw pile wrapper once the pile is empty', async () => {

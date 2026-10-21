@@ -61,6 +61,7 @@ import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
+import { enterDilemmaChoice, mockAttemptMission } from '../../fixtures/enterAttempt';
 import CardListPanel from '../../../app/decks/practice/CardListPanel';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
@@ -88,7 +89,8 @@ const card = (collectorsinfo: string, name: string, type: string, pile: string) 
 // The test draws seven cards into the hand, so ten leave three in the draw deck.
 const drawCards = Array.from({ length: 10 }, (_, i) => card(`1U0${10 + i}`, `draw ${i + 1}`, 'equipment', 'draw'));
 const dilemmaCards = [1, 2, 3].map((n) => card(`1U10${n}`, `dilemma ${n}`, 'dilemma', 'dilemma'));
-const allCards = [...drawCards, ...dilemmaCards];
+// A mission for the dilemma choice, the only place the dilemma hand shows (#1223).
+const allCards = [...drawCards, ...dilemmaCards, mockAttemptMission];
 const mockDeck = Object.fromEntries(allCards.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
 
 const handCount = (label: string): number | null => {
@@ -111,7 +113,8 @@ const panelNames = (location: string) =>
 
 // #827: the draw deck's and the dilemma pile's panels have a Download button. It moves the
 // selected cards into the matching hand, closes the panel, clears the selection, and then
-// shuffles the rest of the pile. The hand stays closed.
+// shuffles the rest of the pile. The hand stays closed. The dilemma hand shows only in the dilemma
+// choice of an attempt (#1223), so the tests open the panel there.
 describe.each([
   { pile: 'drawDeck', label: 'draw deck', hand: 'hand', otherHand: 'dilemma hand' },
   { pile: 'dilemmaPile', label: 'dilemma pile', hand: 'dilemma hand', otherHand: 'hand' },
@@ -156,6 +159,7 @@ describe.each([
       render(<PracticeDrawPage />);
     });
     await drawOpeningHand();
+    await enterDilemmaChoice(<PracticeDrawPage />);
     mockDraggableIds.length = 0;
     await click(`Download from the ${label}`);
   };
@@ -262,6 +266,19 @@ describe('Practice table: panels with no Download button (#827)', () => {
       fireEvent.click(screen.getByAltText('Discard pile').parentElement!);
     });
     expect(panelFor('discard')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Download' })).toBeNull();
+  });
+
+  // The dilemma pile's Download moves cards into the dilemma hand, which the full table does not
+  // show (#1223), so its panel lists the pile with no Download button there.
+  it('shows none in the dilemma pile panel on the full table', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    await drawOpeningHand();
+    await click('Download from the dilemma pile');
+    expect(panelNames('dilemmaPile')).toHaveLength(3);
+    await act(async () => { fireEvent.click(panelCard(panelNames('dilemmaPile')[0]!)); });
     expect(screen.queryByRole('button', { name: 'Download' })).toBeNull();
   });
 });

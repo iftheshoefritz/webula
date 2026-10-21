@@ -265,7 +265,7 @@ gives the reason, so that the next reader does not open the same issue again.
 | Name | Reason to keep it |
 |---|---|
 | `reportsto`, the search fields `reportsto:` and `rt:` | The rulebook says that you play a card at a headquarters mission. But `reportsto:` is a search field that players type, and other *Star Trek* CCG tools use the same word. A rename breaks every saved search and every bookmark. |
-| `dilemmaHand` | The rulebook does not name the place, because in a game it exists only inside one mission attempt. This codebase does not model the phases of a turn, so the dilemma hand exists all the time and needs a name. |
+| `dilemmaHand` | The rulebook does not name the place, because in a game it exists only inside one mission attempt. The model keeps the zone at all times, but the table shows the dilemma hand only in the dilemma choice of an attempt (#1223). |
 | `shipRow`, `MissionSlot` | They name a layout of the screen, not a game concept. The rulebook has no word because the table is a picture, not a rule. |
 | `SMALL_CARD_WIDTH`, `SMALL_CARD_ART_HEIGHT` | A size of the screen, not a card type. The small card is not a ship: it sizes a ship in the ship row, but also every card of any type in the core and the brig, and part of the height of the dilemma stack. The names were `SHIP_CARD_WIDTH` and `SHIP_CARD_ART_HEIGHT` until #931. They sit in `TableCard.tsx` beside `TABLE_CARD_WIDTH` and `TABLE_CARD_ART_HEIGHT`, the larger size. |
 | `SCORE_MAX = 140` | The win score is 100 in a normal game, but certain cards change it. This codebase does not model those cards. It only allows a higher maximum, so the counter can show a score above 100. |

@@ -62,6 +62,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { dilemmaHandIds, drawChoiceDilemma, enterDilemmaChoice, mockAttemptMission } from '../../fixtures/enterAttempt';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 
@@ -93,8 +94,10 @@ const mockPersonnelDeck = {
   [mockPersonnelCard.collectorsinfo]: { count: 1, row: mockPersonnelCard },
 };
 
+// The dilemma hand shows only in the dilemma choice of an attempt (#1223), which needs a mission.
 const mockDilemmaDeck = {
   [mockDilemmaCard.collectorsinfo]: { count: 2, row: mockDilemmaCard },
+  [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission },
 };
 
 // Issue #644: the closed hand (and the closed dilemma hand) are real drop targets, so a card
@@ -186,14 +189,10 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await enterDilemmaChoice(<PracticeDrawPage />);
 
-    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
-    await act(async () => {
-      fireEvent.click(drawDilemmaButton);
-    });
-    await act(async () => {
-      fireEvent.click(drawDilemmaButton);
-    });
+    await drawChoiceDilemma();
+    await drawChoiceDilemma();
 
     // #740 keeps a hand open after a drag out of it, so this tap only runs when the
     // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
@@ -203,7 +202,7 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
         fireEvent.click(closedDilemmaHandButton);
       });
     }
-    const [firstId] = mockDraggableIds;
+    const [firstId] = dilemmaHandIds();
 
     // Put one dilemma under mission-0 (#733: a dilemma dropped on a mission always goes under
     // it), leaving one dilemma in the dilemma hand.
@@ -248,14 +247,15 @@ describe('Practice draw: dropping a table card back into the hand (#644)', () =>
   // #631: the dilemma hand used to render nothing at zero cards, so it had no drop target for a
   // dilemma dragged back from the stack popup until the player drew one. A fresh table, before
   // any dilemma is drawn, already puts the dilemma hand in that state.
-  it('marks the (empty) dilemma hand with the data-zone selector even before any dilemma is drawn', async () => {
-    localStorage.setItem('currentDeck', JSON.stringify(mockPersonnelDeck));
+  it('marks the (empty) dilemma hand of the dilemma choice with the data-zone selector even before any dilemma is drawn', async () => {
+    localStorage.setItem('currentDeck', JSON.stringify(mockDilemmaDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
-    (extractDrawDeck as jest.Mock).mockReturnValue([mockPersonnelCard]);
+    (extractDrawDeck as jest.Mock).mockReturnValue([]);
 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await enterDilemmaChoice(<PracticeDrawPage />);
 
     expect(screen.getByRole('button', { name: /^dilemma hand, 0 cards, tap to open$/i })).toBeInTheDocument();
     expect(document.body.querySelector('[data-zone="dilemmaHand"]')).not.toBeNull();

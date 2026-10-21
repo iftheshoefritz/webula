@@ -204,14 +204,16 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
     await click(/Away team, 2 cards, tap to open/i);
   };
 
-  // Drops both dilemmas from the dilemma hand under the first mission, where they go face up, and
+  // The id of the dilemma pile's top card, which drags off the pile (#814). The full table has no
+  // dilemma hand to draw it into (#1223).
+  const dilemmaPileTopId = (): string => JSON.parse(localStorage.getItem('practiceGame')!).table.dilemmaPile[0].id;
+
+  // Drops both dilemmas from the dilemma pile under the first mission, where they go face up, and
   // opens that pile's panel.
   const openUnderMission = async () => {
     await renderWithDeck([], mockDilemmaCards);
-    for (const name of ['Cardassian Trap', 'Hard Time']) {
-      await click('Dilemma pile top, tap to draw');
-      await openClosedHand(/^dilemma hand, \d+ cards?, tap to open$/i);
-      await drop(cardIdFor(name), 'mission-under-0');
+    for (let i = 0; i < 2; i++) {
+      await drop(dilemmaPileTopId(), 'mission-under-0');
     }
     await click(/Under the mission pile, 2 cards, tap to open/i);
   };
@@ -303,9 +305,7 @@ describe('Practice table: the card list panel Flip button (#762)', () => {
     // The stack mounts only in the attempt layout (#1170).
     await renderWithDeck([], [mockDilemmaCard, mockAttemptMission]);
     await enterAttempt(<PracticeDrawPage />);
-    await click('Dilemma pile top, tap to draw');
-    await openClosedHand(/^dilemma hand, 1 card, tap to open$/i);
-    await drop(cardIdFor('Cardassian Trap'), 'dilemmaStack');
+    await drop(dilemmaPileTopId(), 'dilemmaStack');
 
     const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
     expect(stackZone.querySelector('img')).toHaveAttribute('src', CARD_BACK);

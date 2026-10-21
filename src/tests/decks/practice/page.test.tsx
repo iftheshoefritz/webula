@@ -37,6 +37,7 @@ import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
+import { drawChoiceDilemma, enterDilemmaChoice, mockAttemptMission } from '../../fixtures/enterAttempt';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
@@ -501,7 +502,6 @@ describe('PracticeDrawPage', () => {
       'hand',
       'core',
       'brig',
-      'dilemmaHand',
       'dilemma-pile-top',
       'dilemma-pile-bottom',
     ]);
@@ -730,57 +730,114 @@ describe('PracticeDrawPage', () => {
       await drawOpeningHand();
     };
 
-    it('starts with every dilemma in the dilemma pile and an empty dilemma hand', async () => {
+    it('starts with every dilemma in the dilemma pile, and shows no dilemma hand on the full table (#1223)', async () => {
       await renderWithDilemmas();
 
       // The two drop halves (#607) split the old single button; the count now sits in their
       // shared, non-interactive wrapper instead of either button's own text.
       const dilemmaPile = document.body.querySelector('[data-testid="dilemma-pile"]');
       expect(dilemmaPile!.textContent).toContain('3');
-      // The dilemma hand renders even at zero cards (#631), as a drop target for a dilemma
-      // dragged back from the stack popup, so it shows disabled with a "0 cards" label instead
-      // of not rendering at all.
-      expect(screen.getByRole('button', { name: /^dilemma hand, 0 cards, tap to open$/i })).toBeDisabled();
+      // The dilemma hand shows only in the dilemma choice of an attempt (#1223).
+      expect(screen.queryByRole('button', { name: /^dilemma hand/i })).toBeNull();
+      expect(document.body.querySelector('[data-zone="dilemmaHand"]')).toBeNull();
     });
 
-    it('draws one dilemma into the dilemma hand on a tap', async () => {
+    it('draws no dilemma on a tap on either half of the dilemma pile (#1223)', async () => {
       await renderWithDilemmas();
+      const saved = () => JSON.parse(localStorage.getItem('practiceGame')!).table;
+
+      for (const name of ['Dilemma pile top', 'Dilemma pile bottom']) {
+        await act(async () => {
+          fireEvent.click(screen.getByRole('button', { name }));
+        });
+      }
+
+      expect(saved().dilemmaPile).toHaveLength(3);
+      expect(saved().dilemmaHand).toHaveLength(0);
+      expect(document.body.querySelector('[data-testid="dilemma-pile"]')!.textContent).toContain('3');
+      expect(screen.queryByTestId('dilemmaHand-arc')).toBeNull();
+    });
+
+    it('still draws one card into the hand on a tap on the draw deck', async () => {
+      await renderWithDilemmas();
+      const before = JSON.parse(localStorage.getItem('practiceGame')!).table.hand.length;
 
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /dilemma pile top, tap to draw/i }));
+        fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
       });
 
-      expect(document.body.querySelector('[data-testid="dilemma-pile"]')!.textContent).toContain('2');
-      expect(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i })).toBeInTheDocument();
+      expect(JSON.parse(localStorage.getItem('practiceGame')!).table.hand).toHaveLength(before + 1);
     });
 
     it('closes the open hand when the dilemma hand opens', async () => {
-      await renderWithDilemmas();
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({
+          ...mockManyDeck,
+          [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission },
+          ...Object.fromEntries(dilemmaCards.map((c) => [c.collectorsinfo, { count: 1, row: c }])),
+        }),
+      );
+      (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+      (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
+      await act(async () => {
+        render(<PracticeDrawPage />);
+      });
+      await drawOpeningHand();
+      await enterDilemmaChoice(<PracticeDrawPage />);
+      await drawChoiceDilemma();
+      // Draw dilemma opens the dilemma hand; close it, so the hand can open first.
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Close dilemma hand' }));
+      });
 
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /dilemma pile top, tap to draw/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i }));
       });
-      // #740 keeps a hand open after a drag out of it, so this tap only runs when the
-      // hand is closed.
-      const closedHand2 = screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i });
-      if (closedHand2) {
-        await act(async () => {
-          fireEvent.click(closedHand2);
-        });
-      }
       expect(screen.queryByRole('button', { name: /^hand, 7 cards, tap to open$/i })).not.toBeInTheDocument();
 
-      // #740 keeps a hand open after a drag out of it, so this tap only runs when the
-      // hand is closed.
-      const closedHand3 = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
-      if (closedHand3) {
-        await act(async () => {
-          fireEvent.click(closedHand3);
-        });
-      }
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i }));
+      });
 
       // The ordinary hand is closed again, so its closed button is back.
       expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
+    });
+
+    it('shows the dilemma hand in the dilemma choice, and not after View full table or Face dilemmas', async () => {
+      localStorage.setItem(
+        'currentDeck',
+        JSON.stringify({
+          ...mockManyDeck,
+          [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission },
+          ...Object.fromEntries(dilemmaCards.map((c) => [c.collectorsinfo, { count: 1, row: c }])),
+        }),
+      );
+      (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+      (extractDrawDeck as jest.Mock).mockReturnValue(mockManyCards);
+      await act(async () => {
+        render(<PracticeDrawPage />);
+      });
+      await enterDilemmaChoice(<PracticeDrawPage />);
+      expect(screen.getByRole('button', { name: /^dilemma hand, 0 cards, tap to open$/i })).toBeDisabled();
+      await drawChoiceDilemma();
+      expect(screen.getByTestId('dilemmaHand-arc')).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('attempt-view-full-table'));
+      });
+      expect(screen.queryByTestId('dilemmaHand-arc')).toBeNull();
+      expect(document.body.querySelector('[data-zone="dilemmaHand"]')).toBeNull();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('attempt-back-to-attempt'));
+      });
+      expect(screen.getByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i })).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('attempt-face-dilemmas'));
+      });
+      expect(document.body.querySelector('[data-zone="dilemmaHand"]')).toBeNull();
     });
   });
 
