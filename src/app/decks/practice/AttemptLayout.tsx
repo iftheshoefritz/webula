@@ -62,6 +62,7 @@ import { TABLE_CARD_WIDTH, TableCardImage, cardBorderStyle } from './TableCard';
 import {
   ATTEMPT_GAP,
   ATTEMPT_PLACED_ON_BLOCK_GAP,
+  ATTEMPT_STACK_SIDE_GAP,
   ATTEMPT_STRIP_GUTTER,
   ATTEMPT_STRIP_HEIGHT,
   AttemptPlacedOnBlock,
@@ -201,7 +202,11 @@ export default function AttemptLayout({
       style={{ gap: ATTEMPT_GAP, paddingTop: underMissionStackRoom(missionScale, true) }}
     >
       {missionColumn}
-      {dilemmaStack}
+      {/* The empty space outside the "Faced first" and "Faced last" ends of the stack (#1220), outside
+          its drop zone. */}
+      <div data-testid="attempt-stack-margin" className="flex-none" style={{ marginLeft: ATTEMPT_STACK_SIDE_GAP, marginRight: ATTEMPT_STACK_SIDE_GAP }}>
+        {dilemmaStack}
+      </div>
       <div
         data-testid="attempt-ships"
         className={`flex ${choice.pileCropped ? 'flex-row items-start' : 'flex-col items-center'}`}
