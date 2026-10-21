@@ -106,6 +106,13 @@ import { DOUBLE_TAP_MS, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 // worker precaches it for offline play (#1051).
 import eventIcon from '../../../../public/icons/icon_event.gif';
 import dualIcon from '../../../../public/icons/icon_dual.gif';
+import {
+  CHROME_DIGIT_EM,
+  CHROME_NUMERAL_STYLE,
+  CHROME_PLATE_IMAGE,
+  CHROME_RAIL_IMAGE,
+  CHROME_RING_IMAGE,
+} from './PersonnelOverlay';
 import { CANCEL_RADIUS } from './releaseCancel';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
@@ -402,8 +409,7 @@ const MISSION_SPAN_BACKING = 2 * MISSION_SPAN_CHROME_RADIUS; // of the card widt
 const MISSION_SPAN_BACKING_EDGE = 4 / 357; // of the card width: the black between the ring and the bars
 const MISSION_SPAN_NUMERAL = 19 / 44; // of the backing's diameter, as the card prints it
 const MISSION_SPAN_RAIL = 18 / 357; // of the card width
-// The height of a digit of the numeral's font, as a share of its font size, measured in Chromium.
-const MISSION_SPAN_DIGIT_EM = 0.78;
+const MISSION_SPAN_DIGIT_EM = CHROME_DIGIT_EM;
 
 export function missionSpanLayout(scale: number): {
   top: number;
@@ -455,24 +461,11 @@ export function missionSpanLayout(scale: number): {
   };
 }
 
-// The rail: a bright, a darker and a bright band, as the card prints its bars.
-const MISSION_SPAN_RAIL_IMAGE =
-  'linear-gradient(to bottom, #6b7280 0%, #f3f4f6 14%, #a1a7b0 34%, #4b5563 42%, #6b7280 50%, #4b5563 58%, #a1a7b0 66%, #e5e7eb 86%, #6b7280 100%)';
-// The grey of the requirements box, a little lighter at the top.
-const MISSION_SPAN_PLATE_IMAGE = 'linear-gradient(to bottom, #d4d5d8, #b9babe)';
-// The silver ring: brighter at the top left, darker at the bottom right.
-const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
-// The numeral is upright and skewed about its own centre, as the card's numerals lean. An italic
-// font, or the slant a browser makes of an upright one, leans about the baseline, which moves the
-// digit off the centre of the ring by a different amount in every font. The box is trimmed to the
-// digit itself, so the flex centring puts the digit, not its line box, at the middle of the ring.
-// React's `CSSProperties` does not type the text-box properties yet.
-const NUMERAL_STYLE = {
-  display: 'inline-block',
-  transform: 'skewX(-12deg)',
-  textBoxTrim: 'trim-both',
-  textBoxEdge: 'cap alphabetic',
-} as CSSProperties;
+// The rail, the plate, the ring and the numeral are shared with the personnel band (#1176).
+const MISSION_SPAN_RAIL_IMAGE = CHROME_RAIL_IMAGE;
+const MISSION_SPAN_PLATE_IMAGE = CHROME_PLATE_IMAGE;
+const MISSION_SPAN_RING = CHROME_RING_IMAGE;
+const NUMERAL_STYLE = CHROME_NUMERAL_STYLE;
 
 // The overlay. It takes no pointer events and is not a droppable, and has no `data-zone` or
 // `data-card-id`: a tap, a hold and a drop on it reach the mission card and its halves under it.
