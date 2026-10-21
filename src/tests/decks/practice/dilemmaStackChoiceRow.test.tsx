@@ -80,15 +80,17 @@ const stackIds = (): string[] => saved().table.dilemmaStack.map((c: { id: string
 const handIds = (): string[] => saved().table.dilemmaHand.map((c: { id: string }) => c.id);
 
 // Deals the deck, moves 3 dilemmas of the pile into the stack and 2 into the dilemma hand, and starts
-// an attempt in `phase`.
-async function dealChoice(phase: 'choose' | 'face' = 'choose') {
+// an attempt in `phase`. `revealTop` turns the top card of the stack face up, as the fan's Reveal does.
+async function dealChoice(phase: 'choose' | 'face' = 'choose', revealTop = false) {
   localStorage.setItem('currentDeck', JSON.stringify(mockDeck));
   await act(async () => {
     render(<PracticeDrawPage />);
   });
   const save = saved();
   const pile = save.table.dilemmaPile;
-  save.table.dilemmaStack = pile.slice(0, 3).map((c: object) => ({ ...c, face: phase === 'choose' ? 'up' : 'down' }));
+  save.table.dilemmaStack = pile
+    .slice(0, 3)
+    .map((c: object, i: number) => ({ ...c, face: phase === 'choose' || (revealTop && i === 0) ? 'up' : 'down' }));
   save.table.dilemmaHand = pile.slice(3, 5).map((c: object) => ({ ...c, face: 'up' }));
   save.table.dilemmaPile = pile.slice(5);
   localStorage.setItem(KEY, JSON.stringify(save));
@@ -216,5 +218,36 @@ describe('Practice table: the dilemma stack of the dilemma choice (#1204)', () =
       mockOnDragStart!({ active: { id: a } });
     });
     expect(screen.getByTestId('dilemma-stack-insert-indicator')).toHaveAttribute('data-slot', '2');
+  });
+
+  // #1221: the row draws each card as the art crop of a table card, and the marker is as tall as one.
+  it('draws each card of the row as the art crop of a table card', async () => {
+    await dealChoice();
+    const [, b] = stackIds();
+    const zone = document.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+    const cards = stackIds().map((id) => zone.querySelector(`[data-card-id="${id}"]`) as HTMLElement);
+    expect(cards.every(Boolean)).toBe(true);
+    for (const card of cards) {
+      const img = card.querySelector('img')!;
+      expect(img).toHaveClass('object-cover', 'object-top');
+      expect(img).not.toHaveClass('h-auto');
+    }
+    const cropHeight = (cards[0].querySelector('img')!.parentElement!.parentElement as HTMLElement).style.height;
+    expect(parseFloat(cropHeight)).toBeGreaterThan(0);
+
+    const [d] = handIds();
+    mockDndContext = { active: { id: d }, over: { id: dilemmaStackRowSlotId(b) } };
+    await act(async () => {
+      mockOnDragStart!({ active: { id: d } });
+    });
+    expect(screen.getByTestId('dilemma-stack-insert-indicator').style.height).toBe(cropHeight);
+  });
+
+  it('keeps the whole card for the revealed top card of the facing fan', async () => {
+    await dealChoice('face', true);
+    const [a] = stackIds();
+    const img = document.querySelector(`[data-zone="dilemmaStack"] [data-card-id="${a}"] img`)!;
+    expect(img).toHaveClass('h-auto');
+    expect(img).not.toHaveClass('object-top');
   });
 });
