@@ -541,15 +541,18 @@ Every drop target in the attempt layout keeps its id: `mission-on-<i>`, `mission
 row is not mounted during the attempt layout, so the targets of the other missions do not exist then:
 tap View full table to bring them back.
 
-The attempting personnel show as whole cards, face up, in a row of the middle column (#1165,
-`AttemptPersonnelRow.tsx`). At a planet mission the row is the away team, in place of the away team
+The attempting personnel show as cropped table cards, face up, in an area of the middle column (#1165,
+#1205, `AttemptPersonnelRow.tsx`). At a planet mission the row is the away team, in place of the away team
 badge, above the ships: `data-zone` and `data-testid` `attempt-away-team-<i>`. At a space mission it is
 the crew of the attempting ship, beside the ships: `attempt-crew-<the ship's id>`, and the away team
 badge stays above the ships. The row reads the live away team or crew, the equipment too, in order, and
-the frozen numbers of the attempt do not change. Its cards show side by side, at most 6 to a row
-(`ATTEMPT_PERSONNEL_MAX_PER_ROW`), fewer when the width runs out. The row wraps to a second row when
-the first is full, and its cards overlap only when both rows are full (#1178, `attemptPersonnelLines`,
-`computeAttemptLayout`). At a planet mission on a short screen the cards shrink so that 2 rows fit. Each
+the frozen numbers of the attempt do not change. Each card is the art crop with the personnel format
+of #1176, 69 px wide on every screen (`ATTEMPT_PERSONNEL_CARD_WIDTH`), so 4 fit across the crew row at
+667×375 and more across a wider area, side by side with no overlap, in as many rows as they need
+(`attemptPersonnelGrid`, `computeAttemptLayout`). The area shows the whole rows that fit the height,
+at 667×375 one, and scrolls to the rest, `data-testid="<the row's id>-scroll"`. While it scrolls it
+carries `PANEL_SCROLLS_ATTRIBUTE` and its cards `touch-action: pan-y`, as a scrolling card list panel
+does: a touch whose first move is vertical scrolls it, and one sideways drags the card. Each
 card carries its `data-card-id`. A tap selects a card, a hold previews it, and below the row
 `attempt-row-stop` (Stop or Unstop, while personnel are selected) and `attempt-row-stop-all` (while
 an unstopped personnel is in the row) set `stopped`. `attempt-row-shuffle`, last in that line and shown while the row holds a card, shuffles the away team or the crew (#1179). A drop on the away team row routes as a drop on

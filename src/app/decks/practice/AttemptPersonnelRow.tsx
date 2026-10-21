@@ -3,10 +3,15 @@
 // The row of the attempting personnel (#1165), in the attempt layout (`AttemptLayout.tsx`): at a
 // planet mission the away team, in place of the away team badge, and at a space mission the crew
 // of the attempting ship, beside the ships. It shows every card of the place, the equipment too, in
-// its stored order, as whole cards in 1 or 2 rows (`computeAttemptLayout`, `tableScale.ts`). The
-// cards fill the first row side by side, wrap to the second, and overlap like the core's and the
-// brig's (`FlatCardRow.tsx`) only when both rows are full (#1178). The row has no rules of its own: it reads
-// the live away team or crew, and the numbers of the attempt stay frozen (#1163).
+// its stored order, as the art crops of table cards with the personnel format of #1176, side by
+// side with no overlap, in as many rows as they need (#1205, `attemptPersonnelGrid`, `tableScale.ts`).
+// The area shows the whole rows that fit, and scrolls to the rest; the buttons stay below it, out of
+// the scroll. The row has no rules of its own: it reads the live away team or crew, and the numbers
+// of the attempt stay frozen (#1163).
+//
+// While the area scrolls it carries `PANEL_SCROLLS_ATTRIBUTE` and its cards `touch-action: pan-y`,
+// as a scrolling card list panel does (#788, `panelScrollSensor.ts`): a touch whose first move is
+// mostly up or down scrolls the area, and one mostly sideways drags the card.
 //
 // A card works as it does in the away team panel or the crew panel: a hold shows the preview, a tap
 // selects it, and the selection gets Stop or Unstop (#681), with Stop all (#995) beside them, from
@@ -21,17 +26,18 @@
 // under their own id: while the attempt layout shows, no other element of the table draws them,
 // and a panel's copies drag under `panelDraggableId`.
 
+import { useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
-import TableCard, { fullCardHeight } from './TableCard';
-import { offsetFor } from './overlapOffset';
+import TableCard from './TableCard';
 import { SHIP_ROW_GAP } from './MissionRow';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { stopButtons } from './stopRules';
-import { ShuffleIcon } from './CardListPanel';
-import { ATTEMPT_PERSONNEL_BUTTONS_HEIGHT, ATTEMPT_PERSONNEL_MAX_ROWS, attemptPersonnelHeight } from './tableScale';
+import { ShuffleIcon, panelScrollClassName, useScrollsVertically } from './CardListPanel';
+import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
+import { ATTEMPT_PERSONNEL_BUTTONS_HEIGHT, attemptPersonnelCropHeight } from './tableScale';
 
 export const attemptAwayTeamDropId = (missionIndex: number): string => `attempt-away-team-${missionIndex}`;
 export const attemptCrewDropId = (shipId: string): string => `attempt-crew-${shipId}`;
@@ -46,13 +52,7 @@ export function shipIdFromAttemptCrewDropId(id: string): string | null {
   return match ? match[1] : null;
 }
 
-// The rows the cards fill: the first row holds `firstRow` cards, as the layout gives it (#1178), and
-// the second the rest.
-function splitIntoRows(cards: CardInstance[], rows: number, firstRow: number): CardInstance[][] {
-  if (rows <= 1) return [cards];
-  const first = Math.max(1, firstRow);
-  return [cards.slice(0, first), cards.slice(first)].filter((rowCards, row) => row === 0 || rowCards.length > 0);
-}
+export const attemptPersonnelScrollTestId = (dropId: string): string => `${dropId}-scroll`;
 
 export default function AttemptPersonnelRow({
   dropId,
@@ -61,9 +61,9 @@ export default function AttemptPersonnelRow({
   label,
   cards,
   cardWidth,
-  rows,
-  firstRow,
+  columns,
   width,
+  height,
   selectedIds,
   onToggleSelect,
   onSetStopped,
@@ -77,11 +77,11 @@ export default function AttemptPersonnelRow({
   // The name of the place, for the empty row and the screen reader.
   label: string;
   cards: CardInstance[];
+  // The width of one crop, the crops of a row, and the area's width and height (#1205).
   cardWidth: number;
-  rows: number;
-  // The cards of the first row, when `rows` is 2.
-  firstRow: number;
+  columns: number;
   width: number;
+  height: number;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
   onSetStopped: (ids: string[], stopped: boolean) => void;
@@ -93,8 +93,9 @@ export default function AttemptPersonnelRow({
   const highlight = highlightState(kind, draggedType, isOver);
   const landedNonce = useLandedNonce(landedKey);
   const { selectedPersonnel, allSelectedStopped, unstoppedPersonnel } = stopButtons(cards, selectedIds);
-  const cardHeight = fullCardHeight(cardWidth);
-  const lines = splitIntoRows(cards, Math.min(rows, ATTEMPT_PERSONNEL_MAX_ROWS), firstRow);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrolls = useScrollsVertically(scrollRef, cards.length > 0, [cards.length, cardWidth, columns, height]);
+  const cardHeight = attemptPersonnelCropHeight(cardWidth);
   const buttonClassName = 'btn-primary whitespace-nowrap h-full !px-2 !py-0 text-[10px] leading-none';
 
   return (
@@ -109,47 +110,45 @@ export default function AttemptPersonnelRow({
         className={`relative flex flex-col items-center rounded ${
           cards.length === 0 ? 'border-2 border-dashed border-white/20' : ''
         } ${highlightClassName(highlight)}`}
-        style={{
-          width,
-          height: attemptPersonnelHeight(cardWidth, lines.length),
-          gap: SHIP_ROW_GAP,
-        }}
+        style={{ width, height }}
       >
         {cards.length === 0 && (
           <span className="m-auto text-center text-[10px] leading-tight text-text-muted">{label}</span>
         )}
-        {cards.length > 0 &&
-          lines.map((lineCards, line) => {
-            const offset = offsetFor(lineCards.length, cardWidth, width, cardWidth);
-            const first = lines.slice(0, line).reduce((sum, l) => sum + l.length, 0);
-            return (
-              <div
-                key={line}
-                className="relative"
-                style={{ width: cardWidth + offset * (lineCards.length - 1), height: cardHeight }}
-              >
-                {lineCards.map((instance, idx) => {
-                  const selected = selectedIds.includes(instance.id);
-                  return (
-                    <div
-                      key={instance.id}
-                      className={`absolute top-0 rounded-md ${selected ? 'ring-2 ring-accent' : ''}`}
-                      style={{ left: idx * offset, zIndex: first + idx + 1 }}
-                    >
-                      <TableCard
-                        instance={instance}
-                        onClick={() => onToggleSelect(instance.id)}
-                        width={cardWidth}
-                        uncropped
-                        draggable
-                        showFace
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+        {cards.length > 0 && (
+          <div
+            ref={scrollRef}
+            data-testid={attemptPersonnelScrollTestId(dropId)}
+            {...{ [PANEL_SCROLLS_ATTRIBUTE]: scrolls ? 'true' : undefined }}
+            className={`h-full w-full overscroll-contain ${panelScrollClassName(scrolls)}`}
+          >
+            <div
+              className="grid justify-center"
+              style={{ gridTemplateColumns: `repeat(${Math.max(1, columns)}, ${cardWidth}px)`, gap: SHIP_ROW_GAP }}
+            >
+              {cards.map((instance) => {
+                const selected = selectedIds.includes(instance.id);
+                return (
+                  <div key={instance.id} className="relative" style={{ width: cardWidth, height: cardHeight }}>
+                    <TableCard
+                      instance={instance}
+                      onClick={() => onToggleSelect(instance.id)}
+                      width={cardWidth}
+                      artHeight={cardHeight}
+                      draggable
+                      showFace
+                      panY={scrolls}
+                    />
+                    {/* Inside the card, so the scroller's edge never clips the ring. */}
+                    {selected && (
+                      <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-inset ring-accent" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <LandedRing nonce={landedNonce} />
       </div>
       <div className="flex flex-row justify-center" style={{ gap: SHIP_ROW_GAP, height: ATTEMPT_PERSONNEL_BUTTONS_HEIGHT }}>

@@ -166,7 +166,7 @@ export function panelScrollClassName(scrolls: boolean): string {
 // Whether the element overflows its height (#788, #932). Re-measured when the element resizes
 // and when `deps` change (the element keeps its capped height while its content grows). jsdom
 // reports 0 for both heights, so the Jest tests see an element that fits.
-function useScrollsVertically(ref: RefObject<HTMLElement | null>, enabled: boolean, deps: unknown[]): boolean {
+export function useScrollsVertically(ref: RefObject<HTMLElement | null>, enabled: boolean, deps: unknown[]): boolean {
   const [scrolls, setScrolls] = useState(false);
   useEffect(() => {
     const el = ref.current;
