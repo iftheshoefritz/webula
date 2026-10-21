@@ -92,7 +92,7 @@ import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { PanelLocation, RevealIcon, ShuffleIcon } from './CardListPanel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
-import { PILE_CARD_BORDER_STYLE, cardBorderStyle, SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT } from './TableCard';
+import { PILE_CARD_BORDER_STYLE, cardBorderStyle, SMALL_CARD_ART_HEIGHT, SMALL_CARD_WIDTH, TABLE_CARD_ART_HEIGHT, TableCardImage } from './TableCard';
 import {
   DILEMMA_STACK_CARD_WIDTH,
   DILEMMA_STACK_DESKTOP_WIDTH_FACTOR,
@@ -1030,6 +1030,7 @@ function DilemmaStackTopCard({
   zIndex,
   cardWidth,
   left = 0,
+  cropHeight,
 }: {
   topCard: CardInstance;
   count: number;
@@ -1038,6 +1039,9 @@ function DilemmaStackTopCard({
   cardWidth: number;
   // The face-up stack of the dilemma choice (#1190) draws every card this way, side by side.
   left?: number;
+  // The face-up stack of the dilemma choice draws each card as the art crop of a table card, this
+  // tall (#1221). The fan's revealed top card leaves it out and shows the whole card.
+  cropHeight?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
   // A revealed card previews like any other face-up card on the table: a mouse hover or a press
@@ -1061,16 +1065,22 @@ function DilemmaStackTopCard({
       }}
       {...attributes}
       {...holdListeners}
-      className="absolute rounded-lg focus:outline-none touch-none"
+      className={`absolute ${cropHeight === undefined ? 'rounded-lg' : 'rounded-md'} focus:outline-none touch-none`}
     >
-      <img
-        src={`/cardimages/${topCard.card.imagefile}.jpg`}
-        width={120}
-        height={167}
-        alt={cardDisplayName(topCard.card)}
-        className="pointer-events-none rounded-lg shadow-lg h-auto"
-        style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth }}
-      />
+      {cropHeight === undefined ? (
+        <img
+          src={`/cardimages/${topCard.card.imagefile}.jpg`}
+          width={120}
+          height={167}
+          alt={cardDisplayName(topCard.card)}
+          className="pointer-events-none rounded-lg shadow-lg h-auto"
+          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth }}
+        />
+      ) : (
+        <div className="pointer-events-none shadow-lg rounded-md" style={{ width: cardWidth }}>
+          <TableCardImage instance={topCard} width={cardWidth} height={cropHeight} />
+        </div>
+      )}
     </button>
   );
 }
@@ -1245,7 +1255,8 @@ function DilemmaStackPile({
 }
 
 // Issue #1190: the dilemma stack of the dilemma choice (`Attempt.phase === 'choose'`), in the
-// middle of the attempt layout. Every card shows its own face, left to right in stack order, the
+// middle of the attempt layout. Every card shows its own face as the art crop of a table card
+// (#1221), the crop of the placed-on column, left to right in stack order, the
 // first dilemma faced first, edge to edge while they fit the width and overlapped past that, a
 // later card on top. Each card previews on a hold or a hover, opens the stack's panel on a tap, and
 // drags off the stack, as the revealed top card of the fan does. The zone shows even when it is
@@ -1261,12 +1272,14 @@ function DilemmaStackFaceUp({
   width,
   height,
   cardWidth,
+  cardHeight,
 }: {
   stack: CardInstance[];
   onOpen: () => void;
   width: number;
   height: number;
   cardWidth: number;
+  cardHeight: number;
 }) {
   const { active, over } = useDndContext();
   const overId = over ? String(over.id) : null;
@@ -1274,7 +1287,6 @@ function DilemmaStackFaceUp({
   const draggedType = useDraggedCardType();
   const count = stack.length;
   const offset = offsetFor(count, cardWidth, width, cardWidth);
-  const cardHeight = dilemmaStackCardHeight(cardWidth);
   const insert =
     draggedType === 'dilemma'
       ? dilemmaStackRowInsertPoint(
@@ -1331,6 +1343,7 @@ function DilemmaStackFaceUp({
           zIndex={i + 1}
           cardWidth={cardWidth}
           left={i * offset}
+          cropHeight={cardHeight}
         />
       ))}
       {/* The drop targets: the part of each card no later card covers, and the last card split in
@@ -2806,6 +2819,7 @@ function PracticeDrawContent() {
                         width={attemptSizes.choice.stackWidth}
                         height={attemptSizes.choice.stackHeight}
                         cardWidth={attemptSizes.choice.stackCardWidth}
+                        cardHeight={attemptSizes.choice.stackCardHeight}
                       />
                     ) : (
                     <DilemmaStackPile

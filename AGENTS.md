@@ -487,7 +487,8 @@ facing phase's scale (`computeAttemptChoiceLayout` keeps the `missionScale` of `
 the dilemma stack face up in the middle, and on the right the attempting personnel as one face-down
 pile, `data-testid="attempt-personnel-pile"`, with a count of the crew or the away team, above the
 ships of the mission's ship row, one to a row. The stack is still the droppable `dilemmaStack`, shows
-even when it is empty, and draws every card's face side by side, overlapped only past its width; each
+even when it is empty, and draws every card face up as the art crop of a table card (#1221), the crop of the placed-on
+column, side by side, overlapped only past its width; each
 card previews on a hold, opens the stack's panel on a tap, and drags off the stack. The pile has no
 `data-zone` and no `data-card-id`: it is not a drop target, and a hold on it previews nothing. The
 personnel row, its Stop, Stop all and Shuffle buttons, its droppable and the away team badge are not

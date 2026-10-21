@@ -457,10 +457,13 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
     const right =
       fullCardHeight(choice.pileCardWidth) + 4 + choice.shipRows * shipRowLineHeight(choice.shipScale, false);
     expect(right).toBeLessThanOrEqual(available - underMissionStackRoom(choice.missionScale, true));
-    // The stack is wider than the facing phase's fan, and its cards are as tall as the zone allows.
+    // The stack is wider than the facing phase's fan, and its cards are art crops (#1221), as tall as
+    // the zone below the end labels allows.
     expect(choice.stackWidth).toBeGreaterThan(56);
     expect(choice.stackCardWidth).toBeLessThanOrEqual(choice.stackWidth);
-    expect(fullCardHeight(choice.stackCardWidth)).toBeLessThanOrEqual(choice.stackHeight + 1);
+    expect(choice.stackCardHeight).toBe(attemptPersonnelCropHeight(choice.stackCardWidth));
+    expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeLessThanOrEqual(choice.stackHeight);
+    expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeGreaterThan(choice.stackHeight - 2);
     expect(choice.stackHeight).toBe(missionCardHeight(choice.missionScale, true));
     // 3 dilemmas sit edge to edge, every one readable.
     expect(offsetFor(3, choice.stackCardWidth, choice.stackWidth, choice.stackCardWidth)).toBe(choice.stackCardWidth);
@@ -519,7 +522,8 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
         fullCardHeight(choice.pileCardWidth) + 4 + shipRowsHeight(choice.shipRows, choice.shipScale, screen.desktop);
       expect(padding + Math.max(choice.stackHeight, right)).toBeLessThanOrEqual(available + 0.5);
       // The stack's cards fit below the line of its end labels (#1204).
-      expect(ATTEMPT_STACK_LABEL_HEIGHT + fullCardHeight(choice.stackCardWidth)).toBeLessThanOrEqual(choice.stackHeight);
+      expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeLessThanOrEqual(choice.stackHeight);
+      expect(choice.stackCardWidth).toBeLessThanOrEqual(choice.stackWidth);
     });
   }
 });
