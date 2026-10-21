@@ -99,3 +99,86 @@ describe('the fullscreen button where fullscreen is not available (#1127)', () =
     }
   });
 });
+
+// iPadOS draws its own close X over the top-left corner of a fullscreen element, so the corner
+// column moves below it there, and only there (#1207).
+describe('the corner column in fullscreen (#1207)', () => {
+  const ipad = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+  const chrome = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+  const originalRequest = HTMLElement.prototype.requestFullscreen;
+
+  const setNavigator = (userAgent: string, maxTouchPoints: number) => {
+    Object.defineProperty(navigator, 'userAgent', { configurable: true, value: userAgent });
+    Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, value: maxTouchPoints });
+  };
+
+  beforeEach(() => {
+    mockSearchParams = new URLSearchParams('menu=0');
+    localStorage.clear();
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      })),
+    });
+    setDocument('fullscreenEnabled', true);
+    setDocument('fullscreenElement', null);
+    HTMLElement.prototype.requestFullscreen = function (this: HTMLElement) {
+      setDocument('fullscreenElement', this);
+      document.dispatchEvent(new Event('fullscreenchange'));
+      return Promise.resolve();
+    };
+    setDocument('exitFullscreen', () => {
+      setDocument('fullscreenElement', null);
+      document.dispatchEvent(new Event('fullscreenchange'));
+      return Promise.resolve();
+    });
+  });
+
+  afterEach(() => {
+    HTMLElement.prototype.requestFullscreen = originalRequest;
+    for (const key of ['fullscreenEnabled', 'fullscreenElement', 'exitFullscreen']) {
+      delete (document as unknown as Record<string, unknown>)[key];
+    }
+    delete (navigator as unknown as Record<string, unknown>).userAgent;
+    delete (navigator as unknown as Record<string, unknown>).maxTouchPoints;
+  });
+
+  const enterAndLeave = async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const column = screen.getByTestId('corner-buttons');
+    const button = screen.getByTestId('fullscreen-button');
+    const before = { column: column.className, button: button.className };
+    fireEvent.click(button);
+    expect(button).toHaveAccessibleName('Exit fullscreen');
+    const during = { column: column.className, button: button.className };
+    fireEvent.click(button);
+    expect(button).toHaveAccessibleName('Enter fullscreen');
+    const after = { column: column.className, button: button.className };
+    return { before, during, after };
+  };
+
+  it('moves the column below the system controls on an iPad, only while fullscreen', async () => {
+    setNavigator(ipad, 5);
+    const { before, during, after } = await enterAndLeave();
+    expect(before.column).toMatch(/\btop-2\b/);
+    expect(during.column).toMatch(/\btop-14\b/);
+    expect(during.column).not.toMatch(/\btop-2\b/);
+    expect(after.column).toBe(before.column);
+    expect(during.button).toBe(before.button);
+  });
+
+  it('keeps the column where it is in fullscreen on every other browser', async () => {
+    setNavigator(chrome, 0);
+    const { before, during, after } = await enterAndLeave();
+    expect(before.column).toMatch(/\btop-2\b/);
+    expect(during.column).toBe(before.column);
+    expect(after.column).toBe(before.column);
+    expect(during.button).toBe(before.button);
+  });
+});

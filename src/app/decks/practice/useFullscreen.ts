@@ -33,6 +33,19 @@ export function runsStandalone(): boolean {
   );
 }
 
+// True on iOS and iPadOS (#1127). iPadOS Safari reports a Mac, so a Mac with touch points counts.
+export function runsOnIos(userAgent: string, maxTouchPoints = 0): boolean {
+  return /iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
+}
+
+// True where the browser draws its own fullscreen controls, a close X and a shrink button, over the
+// top-left corner of a fullscreen element (#1207): iPadOS, in every browser, since all run WebKit.
+// The page cannot move them, so the corner column moves below them while the table is fullscreen.
+// iPhone has no element fullscreen for a `<div>`, so it never gets that far.
+export function drawsSystemFullscreenControls(): boolean {
+  return runsOnIos(navigator.userAgent, navigator.maxTouchPoints);
+}
+
 // What the fullscreen button does (#1127): `fullscreen` toggles fullscreen, `homeScreen` shows how
 // to add the app to the home screen, and `none` hides the button. An installed app with no
 // Fullscreen API hides it, because it already shows no browser bars.
@@ -50,11 +63,14 @@ export function useFullscreen(element: HTMLElement | null) {
   const [enabled, setEnabled] = useState(false);
   const [standalone, setStandalone] = useState<boolean | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // False on the server and on the first render too, so the pre-rendered page matches (#1207).
+  const [systemControlsInset, setSystemControlsInset] = useState(false);
 
   useEffect(() => {
     setEnabled(fullscreenEnabled(element));
     // Unknown until the element mounts, so the button does not show the wrong mode for a render.
     setStandalone(element ? runsStandalone() : null);
+    setSystemControlsInset(drawsSystemFullscreenControls());
     const onChange = () => setIsFullscreen(element !== null && fullscreenElement() === element);
     onChange();
     document.addEventListener('fullscreenchange', onChange);
@@ -84,5 +100,5 @@ export function useFullscreen(element: HTMLElement | null) {
 
   const mode: FullscreenButtonMode = enabled ? 'fullscreen' : standalone === false ? 'homeScreen' : 'none';
 
-  return { enabled, mode, standalone, isFullscreen, toggle };
+  return { enabled, mode, standalone, isFullscreen, systemControlsInset, toggle };
 }
