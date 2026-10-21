@@ -29,6 +29,7 @@ import {
   missionColumnHeight,
   shipCardWidth,
   shipRowLineHeight,
+  shipRowWidth,
   underMissionStackRoom,
 } from '../../../app/decks/practice/MissionRow';
 import { offsetFor } from '../../../app/decks/practice/overlapOffset';
@@ -445,7 +446,7 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
     ['a space mission with 1 ship and a crew of 12', 1, { count: 12, space: true }],
   ])('fits the minimum screen at %s, with the mission at the facing scale', (_name, ships, personnel) => {
     const face = computeAttemptLayout(MIN_SCREEN.width, available, false, ships, floor, personnel);
-    const choice = computeAttemptChoiceLayout(MIN_SCREEN.width, available, false, ships, floor, face);
+    const choice = computeAttemptChoiceLayout(MIN_SCREEN.width, available, false, ships, floor, face, personnel.space);
     expect(choice.missionScale).toBe(face.missionScale);
     const missionWidth = Math.round(72 * choice.missionScale);
     // The padding, the menu gutter, the mission, the stack, the right column and the two gaps.
@@ -453,9 +454,12 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
       MIN_SCREEN.width,
     );
     expect(attemptMissionColumnHeight(choice.missionScale)).toBeLessThanOrEqual(available + 1);
-    // The pile and the rows of ships below it fit the height below the slivers' room.
-    const right =
-      fullCardHeight(choice.pileCardWidth) + 4 + choice.shipRows * shipRowLineHeight(choice.shipScale, false);
+    // The pile and the rows of ships fit the height below the slivers' room: below one another at a
+    // space mission, side by side at a planet mission (#1222).
+    const shipsHeight = choice.shipRows * shipRowLineHeight(choice.shipScale, false);
+    const right = personnel.space
+      ? fullCardHeight(choice.pileCardWidth) + 4 + shipsHeight
+      : Math.max(choice.stackHeight, shipsHeight);
     expect(right).toBeLessThanOrEqual(available - underMissionStackRoom(choice.missionScale, true));
     // The stack is wider than the facing phase's fan, and its cards are art crops (#1221), as tall as
     // the zone below the end labels allows.
@@ -463,10 +467,45 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
     expect(choice.stackCardWidth).toBeLessThanOrEqual(choice.stackWidth);
     expect(choice.stackCardHeight).toBe(attemptPersonnelCropHeight(choice.stackCardWidth));
     expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeLessThanOrEqual(choice.stackHeight);
-    expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeGreaterThan(choice.stackHeight - 2);
+    // At a planet mission the pile is as wide as a stack card (#1222), so there the width can bind
+    // first: the stack and the pile then hold 4 cards edge to edge.
+    if (personnel.space) {
+      expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeGreaterThan(choice.stackHeight - 2);
+    } else {
+      expect(choice.stackWidth + choice.pileCardWidth).toBeLessThan(4 * (choice.stackCardWidth + 1));
+    }
     expect(choice.stackHeight).toBe(missionCardHeight(choice.missionScale, true));
     // 3 dilemmas sit edge to edge, every one readable.
     expect(offsetFor(3, choice.stackCardWidth, choice.stackWidth, choice.stackCardWidth)).toBe(choice.stackCardWidth);
+  });
+
+  // Issue #1222: at a planet mission the pile is the size of a stack card, and the ships stand in a
+  // column of their own right of it.
+  it.each([0, 1, 5])('gives the pile the size of a stack card at a planet mission with %i ships', (ships) => {
+    const personnel = { count: 20, space: false };
+    const face = computeAttemptLayout(MIN_SCREEN.width, available, false, ships, floor, personnel);
+    const choice = computeAttemptChoiceLayout(MIN_SCREEN.width, available, false, ships, floor, face, false);
+    expect(choice.pileCropped).toBe(true);
+    expect(choice.pileCardWidth).toBe(choice.stackCardWidth);
+    expect(choice.pileCardHeight).toBe(choice.stackCardHeight);
+    expect(choice.shipColumnWidth).toBe(shipRowWidth(choice.shipScale, 1));
+    expect(choice.rightWidth).toBe(choice.pileCardWidth + ATTEMPT_GAP + choice.shipColumnWidth);
+    const missionWidth = Math.round(72 * choice.missionScale);
+    expect(32 + 20 + missionWidth + choice.stackWidth + choice.rightWidth + 2 * ATTEMPT_GAP).toBeLessThanOrEqual(
+      MIN_SCREEN.width,
+    );
+    const shipRows = choice.shipRows * shipRowLineHeight(choice.shipScale, false) + (choice.shipRows - 1) * 4;
+    expect(shipRows).toBeLessThanOrEqual(face.columnHeight);
+  });
+
+  it('keeps the whole ship-sized pile above the ships at a space mission', () => {
+    const personnel = { count: 12, space: true };
+    const face = computeAttemptLayout(MIN_SCREEN.width, available, false, 1, floor, personnel);
+    const choice = computeAttemptChoiceLayout(MIN_SCREEN.width, available, false, 1, floor, face, true);
+    expect(choice.pileCropped).toBe(false);
+    expect(choice.shipColumnWidth).toBe(0);
+    expect(choice.pileCardWidth).toBeLessThanOrEqual(shipCardWidth(choice.shipScale));
+    expect(choice.pileCardHeight).toBe(fullCardHeight(choice.pileCardWidth));
   });
 });
 
@@ -517,9 +556,11 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
       expect(padding + Math.max(middle, stack)).toBeLessThanOrEqual(available + 0.5);
 
       // The choice phase: the mission, the stack, and the pile above its ships.
-      const choice = computeAttemptChoiceLayout(screen.width, available, screen.desktop, ships, floor, face);
-      const right =
-        fullCardHeight(choice.pileCardWidth) + 4 + shipRowsHeight(choice.shipRows, choice.shipScale, screen.desktop);
+      const choice = computeAttemptChoiceLayout(screen.width, available, screen.desktop, ships, floor, face, personnel.space);
+      const shipsHeight = shipRowsHeight(choice.shipRows, choice.shipScale, screen.desktop);
+      const right = personnel.space
+        ? fullCardHeight(choice.pileCardWidth) + 4 + shipsHeight
+        : Math.max(choice.stackHeight, shipsHeight);
       expect(padding + Math.max(choice.stackHeight, right)).toBeLessThanOrEqual(available + 0.5);
       // The stack's cards fit below the line of its end labels (#1204).
       expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeLessThanOrEqual(choice.stackHeight);

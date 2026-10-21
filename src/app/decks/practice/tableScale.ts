@@ -597,7 +597,8 @@ export function computeAttemptLayout(
 // Issue #1190: the layout of the dilemma choice (`Attempt.phase === 'choose'`, #1189). Left to
 // right: the mission, at exactly the facing phase's scale, so it does not move when the phase
 // changes; the dilemma stack, face up, every card readable; and a right column with the attempting
-// personnel as one face-down pile, above the ships of the mission's ship row, one ship wide. The
+// personnel as one face-down pile, above the ships of the mission's ship row, one ship wide. At a
+// planet mission the pile is the size of a stack card, and the ships stand right of it (#1222). The
 // stack takes the width the personnel row and the narrow facing stack take in the facing phase.
 // The line of the end labels above the cards of the choice phase's stack (#1204), in px.
 export const ATTEMPT_STACK_LABEL_HEIGHT = 14;
@@ -612,9 +613,17 @@ export interface AttemptChoiceSizes {
   stackHeight: number;
   stackCardWidth: number;
   stackCardHeight: number;
-  // The right column: its width, the width of the face-down pile, and the ships below it.
+  // The right part: its whole width, the face-down pile's card, and the ships, one to a row. At a
+  // space mission the pile is a whole card back as wide as a ship, above the ships. At a planet mission
+  // (#1222) the pile is a crop of the card back exactly the size of a stack card, its bottom edge level
+  // with the bottom edge of the stack's cards, and the ships stand in a column of their own right of
+  // it, `shipColumnWidth` wide (0 at a space mission).
   rightWidth: number;
   pileCardWidth: number;
+  pileCardHeight: number;
+  // Whether the pile is a crop, the size of a stack card (a planet mission, #1222).
+  pileCropped: boolean;
+  shipColumnWidth: number;
   shipScale: number;
   shipRows: number;
 }
@@ -638,6 +647,8 @@ export function computeAttemptChoiceLayout(
   shipCount: number,
   floorScale: number,
   face: AttemptLayoutSizes,
+  // Whether the attempt is at a space mission; at a planet mission the pile is a stack card (#1222).
+  space: boolean,
 ): AttemptChoiceSizes {
   const { missionScale, columnHeight } = face;
   const floor = Math.min(Math.max(1, floorScale), missionScale);
@@ -646,9 +657,44 @@ export function computeAttemptChoiceLayout(
   const placedOnRoom = face.placedOnWidth > 0 ? face.placedOnWidth + ATTEMPT_GAP : 0;
   const availableWidth = gameLayerWidth - CONTENT_PADDING - MENU_BUTTON_GUTTER - 2 * ATTEMPT_GAP - placedOnRoom;
 
-  // The right column: the pile, as wide as a ship at the floor scale, less when one line of ships
-  // below it would not fit the height; then the ships, one to a row, in the rows that fit.
   const shipLine = shipRowLineHeight(floor, desktop);
+  const stackHeight = missionCardHeight(missionScale, true);
+
+  if (!space) {
+    // A planet mission (#1222): the pile is a crop of the card back the size of a stack card, and the
+    // ships stand in a column of their own right of it, one ship wide, top-aligned, in the rows that
+    // fit the whole height. The stack card takes its width from the height, and when the stack would
+    // not hold 3 cards of that width edge to edge beside a pile as wide, the stack cards and the pile
+    // shrink together to the width there is.
+    const shipColumnWidth = shipRowWidth(floor, 1);
+    const pairRoom = availableWidth - missionWidth - ATTEMPT_GAP - shipColumnWidth;
+    const fromHeight = attemptStackCropSize(stackHeight, Infinity).stackCardWidth;
+    const { stackCardWidth, stackCardHeight } = attemptStackCropSize(
+      stackHeight,
+      Math.max(1, Math.min(fromHeight, Math.floor(pairRoom / 4))),
+    );
+    const rightWidth = stackCardWidth + ATTEMPT_GAP + shipColumnWidth;
+    const rowsFitting = Math.max(1, Math.floor((columnHeight + SHIP_ROW_GAP) / (shipLine + SHIP_ROW_GAP)));
+    const rowsNeeded = Math.max(1, Math.ceil(shipCount / shipsPerRow(floor, shipColumnWidth)));
+    return {
+      missionScale,
+      stackWidth: Math.max(stackCardWidth, Math.floor(availableWidth - missionWidth - rightWidth)),
+      stackHeight,
+      stackCardWidth,
+      stackCardHeight,
+      rightWidth,
+      pileCardWidth: stackCardWidth,
+      pileCardHeight: stackCardHeight,
+      pileCropped: true,
+      shipColumnWidth,
+      shipScale: floor,
+      shipRows: Math.min(rowsNeeded, rowsFitting),
+    };
+  }
+
+  // A space mission: the right column holds the pile, as wide as a ship at the floor scale, less
+  // when one line of ships below it would not fit the height; then the ships, one to a row, in the
+  // rows that fit.
   const pileCardWidth = Math.max(
     1,
     Math.min(shipCardWidth(floor), Math.floor((Math.max(0, columnHeight - MISSION_COLUMN_GAP - shipLine) * 120) / 167)),
@@ -661,7 +707,6 @@ export function computeAttemptChoiceLayout(
   // The stack: every width the mission and the right column leave, as tall as the mission card. Its
   // cards are art crops (#1221) and take the height the line of the end labels leaves.
   const stackWidth = Math.max(1, Math.floor(availableWidth - missionWidth - rightWidth));
-  const stackHeight = missionCardHeight(missionScale, true);
   const { stackCardWidth, stackCardHeight } = attemptStackCropSize(stackHeight, stackWidth);
   return {
     missionScale,
@@ -671,6 +716,9 @@ export function computeAttemptChoiceLayout(
     stackCardHeight,
     rightWidth,
     pileCardWidth,
+    pileCardHeight: fullCardHeight(pileCardWidth),
+    pileCropped: false,
+    shipColumnWidth: 0,
     shipScale: floor,
     shipRows: Math.min(rowsNeeded, rowsFitting),
   };
@@ -727,7 +775,15 @@ export function useAttemptLayout(
         personnel,
         placedOn,
       );
-      const choice = computeAttemptChoiceLayout(gameLayer.clientWidth, availableHeight, desktop, shipCount, floor, face);
+      const choice = computeAttemptChoiceLayout(
+        gameLayer.clientWidth,
+        availableHeight,
+        desktop,
+        shipCount,
+        floor,
+        face,
+        personnel?.space ?? false,
+      );
       setSizes({ ...face, choice });
     };
     measure();
@@ -787,8 +843,21 @@ export function useAttemptLayout(
       stackHeight,
       stackCardWidth,
       stackCardHeight,
-      rightWidth: shipRowWidth(scale, 1),
-      pileCardWidth: cardWidth,
+      ...(personnel?.space
+        ? {
+            rightWidth: shipRowWidth(scale, 1),
+            pileCardWidth: cardWidth,
+            pileCardHeight: fullCardHeight(cardWidth),
+            pileCropped: false,
+            shipColumnWidth: 0,
+          }
+        : {
+            rightWidth: stackCardWidth + ATTEMPT_GAP + shipRowWidth(scale, 1),
+            pileCardWidth: stackCardWidth,
+            pileCardHeight: stackCardHeight,
+            pileCropped: true,
+            shipColumnWidth: shipRowWidth(scale, 1),
+          }),
       shipScale: scale,
       shipRows: 1,
     },
