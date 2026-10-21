@@ -83,7 +83,8 @@ import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
 import { DILEMMA_STACK_CHOICE_END_LABELS, dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
-import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderStyle } from './TableCard';
+import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderStyle, cardBorderWidth } from './TableCard';
+import PersonnelOverlay, { hasPersonnelOverlay } from './PersonnelOverlay';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
 import OverlapRow from './OverlapRow';
 import { artCropHeight, CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, PANEL_TOP_INSET, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
@@ -377,7 +378,7 @@ function CardListPanelCard({
           // cropped by `object-cover object-top`, never squashed.
           <div
             data-testid="panel-card-art"
-            className="rounded-md shadow-md overflow-hidden"
+            className="relative rounded-md shadow-md overflow-hidden"
             style={{ ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
           >
             <img
@@ -388,6 +389,17 @@ function CardListPanelCard({
               className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
               style={NO_CALLOUT_STYLE}
             />
+            {/* #1176: the icons and the attributes the crop cuts off. The panel shows the face of
+                a face-down away team (#964), so the overlay shows on it too. */}
+            {hasPersonnelOverlay(card) && (
+              <PersonnelOverlay
+                card={card}
+                width={cardWidth}
+                cropHeight={cardHeight}
+                border={cardBorderWidth(cardWidth)}
+                className={instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}
+              />
+            )}
           </div>
         ) : (
           // The whole card image, frame and text included (#806), not the cropped art the table

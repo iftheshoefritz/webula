@@ -29,6 +29,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
+import PersonnelOverlay, { hasPersonnelOverlay } from './PersonnelOverlay';
 
 export const TABLE_CARD_WIDTH = 72; // px
 // px, crops the card image down to roughly its art box. At this width the full card image is
@@ -198,6 +199,16 @@ export function TableCardImage({
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
         />
       </div>
+      {/* #1176: a cropped personnel draws the icons and the attributes the crop cuts off. */}
+      {!uncropped && !isFaceDown && hasPersonnelOverlay(card) && (
+        <PersonnelOverlay
+          card={card}
+          width={width}
+          cropHeight={height}
+          border={cardBorderWidth(width)}
+          className={`${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+        />
+      )}
     </div>
   );
 }
