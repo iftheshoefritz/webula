@@ -62,6 +62,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { dilemmaHandIds, drawChoiceDilemma, enterDilemmaChoice, mockAttemptMission } from '../../fixtures/enterAttempt';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 
@@ -79,8 +80,10 @@ const mockDilemmaCard = {
   count: 2,
 };
 
+// A mission in slot 0 for the dilemma choice, where the dilemma hand shows (#1223).
 const mockDilemmaDeck = {
   [mockDilemmaCard.collectorsinfo]: { count: 2, row: mockDilemmaCard },
+  [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission },
 };
 
 // Issue #733 took the per-mission dilemma stack (`MissionSlot.dilemma`, #605) out of the table
@@ -120,36 +123,35 @@ describe('Practice table: a dilemma dropped on a mission goes under it (#606, #7
     });
   });
 
-  // Renders the page with a deck holding 2 copies of a dilemma, draws both into the dilemma
-  // hand, and opens it so its cards are draggable.
+  // Renders the page with a deck holding 2 copies of a dilemma, enters the dilemma choice of an
+  // attempt at mission 0, the only place the dilemma hand shows (#1223), and draws both dilemmas into
+  // the dilemma hand, which opens it, so its cards are draggable.
   const setupOpenDilemmaHand = async () => {
     localStorage.setItem('currentDeck', JSON.stringify(mockDilemmaDeck));
 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    await enterDilemmaChoice(<PracticeDrawPage />);
 
-    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
-    await act(async () => {
-      fireEvent.click(drawDilemmaButton);
-    });
-    await act(async () => {
-      fireEvent.click(drawDilemmaButton);
-    });
+    await drawChoiceDilemma();
+    await drawChoiceDilemma();
+  };
 
-    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
-    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
-    const closedDilemmaHandButton = screen.queryByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i });
-    if (closedDilemmaHandButton) {
-      await act(async () => {
-        fireEvent.click(closedDilemmaHandButton);
-      });
-    }
+  // Renders the full table, where every mission is mounted, and returns the id of the dilemma
+  // pile's top card, which drags off the pile (#814).
+  const setupDilemmaPile = async (): Promise<string> => {
+    localStorage.setItem('currentDeck', JSON.stringify(mockDilemmaDeck));
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    return JSON.parse(localStorage.getItem('practiceGame')!).table.dilemmaPile[0].id;
   };
 
   it('puts a dilemma dragged out of the dilemma hand under the mission, not in a stack', async () => {
     await setupOpenDilemmaHand();
-    const [firstId] = mockDraggableIds;
+    const [firstId] = dilemmaHandIds();
 
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
@@ -165,8 +167,7 @@ describe('Practice table: a dilemma dropped on a mission goes under it (#606, #7
   });
 
   it('moves a dilemma from under one mission to under another', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId] = mockDraggableIds;
+    const firstId = await setupDilemmaPile();
 
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
@@ -190,8 +191,7 @@ describe('Practice table: a dilemma dropped on a mission goes under it (#606, #7
   });
 
   it('names the mission on the under-the-mission stack, for practice_drag.sh (#920)', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId] = mockDraggableIds;
+    const firstId = await setupDilemmaPile();
 
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
@@ -209,10 +209,9 @@ describe('Practice table: a dilemma dropped on a mission goes under it (#606, #7
   });
 
   it('moves the discard pile\'s top dilemma under a mission when dragged there (#606 review)', async () => {
-    await setupOpenDilemmaHand();
-    const [firstId] = mockDraggableIds;
+    const firstId = await setupDilemmaPile();
 
-    // Discard the dilemma from the dilemma hand first, so it sits on top of the discard pile.
+    // Discard the dilemma from the dilemma pile first, so it sits on top of the discard pile.
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
     });

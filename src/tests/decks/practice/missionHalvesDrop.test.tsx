@@ -146,19 +146,9 @@ describe('Practice table: the two drop halves of a mission card (#871)', () => {
     return id!;
   };
 
-  // Draws the dilemma into the dilemma hand and opens it, and returns the dilemma's id.
-  const drawDilemma = async () => {
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' }));
-    });
-    const closedDilemmaHand = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
-    if (closedDilemmaHand) {
-      await act(async () => {
-        fireEvent.click(closedDilemmaHand);
-      });
-    }
-    return cardId('cardassian trap');
-  };
+  // Returns the id of the dilemma, the dilemma pile's top card, which drags off the pile (#814). The
+  // full table has no dilemma hand to draw it into (#1223).
+  const drawDilemma = async () => JSON.parse(localStorage.getItem('practiceGame')!).table.dilemmaPile[0].id as string;
 
   const drop = async (id: string, overId: string) => {
     await act(async () => {

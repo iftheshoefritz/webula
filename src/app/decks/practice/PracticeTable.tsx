@@ -684,7 +684,8 @@ function DiscardPile({
 // exactly half its height and the full width, so both halves together cover the whole card and
 // neither changes the card's footprint. A tap on either half draws, same as tapping anywhere on
 // the old single button; `disabled` here only stops the tap (`useDroppable`'s geometry, and so a
-// drop, works on a disabled button same as an enabled one, #607 review).
+// drop, works on a disabled button same as an enabled one, #607 review). With no `onDraw` (the
+// dilemma pile, #1223) a tap draws nothing, and the half is only a drop target.
 function PileHalf({
   dropId,
   label,
@@ -699,7 +700,7 @@ function PileHalf({
   label: string;
   position: 'top' | 'bottom';
   count: number;
-  onDraw: () => void;
+  onDraw?: () => void;
   showLabel: boolean;
   zoneKind: ZoneKind;
   pileName: string;
@@ -715,7 +716,7 @@ function PileHalf({
       data-highlight={highlight}
       onClick={onDraw}
       disabled={count === 0}
-      aria-label={`${pileName} ${position}, tap to draw`}
+      aria-label={onDraw ? `${pileName} ${position}, tap to draw` : `${pileName} ${position}`}
       className={`absolute inset-x-0 ${position === 'top' ? 'top-0' : 'bottom-0'} h-1/2 focus:outline-none disabled:cursor-not-allowed ${highlightClassName(
         highlight
       )} ${position === 'top' ? 'rounded-t-lg' : 'rounded-b-lg'}`}
@@ -888,13 +889,11 @@ function PileTopCardDrag({ topCard, children }: { topCard: CardInstance; childre
 function DilemmaPileButton({
   count,
   topCard,
-  onDraw,
   showPositionLabel,
   shuffleCount,
 }: {
   count: number;
   topCard: CardInstance | undefined;
-  onDraw: () => void;
   showPositionLabel: boolean;
   shuffleCount: number;
 }) {
@@ -906,7 +905,6 @@ function DilemmaPileButton({
         label="Top"
         position="top"
         count={count}
-        onDraw={onDraw}
         showLabel={showPositionLabel}
         zoneKind="dilemmaPile"
         pileName="Dilemma pile"
@@ -916,7 +914,6 @@ function DilemmaPileButton({
         label="Bottom"
         position="bottom"
         count={count}
-        onDraw={onDraw}
         showLabel={showPositionLabel}
         zoneKind="dilemmaPile"
         pileName="Dilemma pile"
@@ -1566,6 +1563,12 @@ function PracticeDrawContent() {
     if (!attemptKey) setFullTableFor(null);
   }, [attemptKey]);
   const attemptLayoutShows = attemptKey !== null && fullTableFor !== attemptKey;
+  // The dilemma hand shows only in the dilemma choice of the attempt layout (#1223): the full table
+  // has no dilemma hand and no tap to draw a dilemma.
+  const dilemmaHandShows = attemptLayoutShows && table.attempt?.phase === 'choose';
+  useEffect(() => {
+    if (!dilemmaHandShows) setOpenHand((open) => (open === 'dilemmaHand' ? null : open));
+  }, [dilemmaHandShows]);
   // The cards of the row of the attempting personnel (#1165): the away team at a planet mission,
   // the crew of the attempting ship at a space mission. Null with no attempt, or no attempt layout.
   const attemptPersonnelCards: CardInstance[] | null = (() => {
@@ -1941,10 +1944,6 @@ function PracticeDrawContent() {
 
   const drawOne = () => {
     dispatch({ type: 'drawCard', from: 'drawDeck', to: 'hand' });
-  };
-
-  const drawDilemma = () => {
-    dispatch({ type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
   };
 
   // The Draw dilemma button of the dilemma choice (#1191): the counted draw of #1189, which adds 1 to
@@ -2522,13 +2521,12 @@ function PracticeDrawContent() {
   };
 
   const isEmpty = deckEmpty;
-  // #742: the dilemma stack zone is only useful once one of these is true — it holds a card, its
-  // own hand is open (so there's somewhere to drag a dilemma from), or a dilemma is being dragged
-  // right now (so it's a valid drop target mid-drag, the same `draggingInstance` check the
-  // dilemma pile's own top/bottom split already uses for `showPositionLabel`). The face-up stack of
-  // the dilemma choice (#1190) ignores it and always shows.
-  const dilemmaStackVisible =
-    dilemmaStack.length > 0 || openHand === 'dilemmaHand' || draggingInstance?.card.type === 'dilemma';
+  // #742: the dilemma stack zone is only useful once one of these is true — it holds a card, or a
+  // dilemma is being dragged right now (so it's a valid drop target mid-drag, the same
+  // `draggingInstance` check the dilemma pile's own top/bottom split already uses for
+  // `showPositionLabel`). The face-up stack of the dilemma choice (#1190) ignores it and always
+  // shows, and the dilemma hand shows only there (#1223).
+  const dilemmaStackVisible = dilemmaStack.length > 0 || draggingInstance?.card.type === 'dilemma';
   draggingRef.current = draggingInstance !== null;
   const previewCardId = heldCardId ?? hoveredCardId;
   const held = previewCardId ? findInstanceAnywhere(table, previewCardId) : null;
@@ -2973,8 +2971,6 @@ function PracticeDrawContent() {
                       passthroughZone={[
                         DRAW_PILE_TOP_DROPPABLE_ID,
                         DRAW_PILE_BOTTOM_DROPPABLE_ID,
-                        DILEMMA_PILE_TOP_DROPPABLE_ID,
-                        DILEMMA_PILE_BOTTOM_DROPPABLE_ID,
                         'attempt-draw-dilemma',
                       ]}
                       selectedIds={selectedCardIds}
@@ -3019,39 +3015,39 @@ function PracticeDrawContent() {
 
                 {/* The dilemma pile stays the rightmost zone, with the closed dilemma hand
                     immediately to its left, on the inside of the row (#604). The dilemma hand
-                    renders even with no cards (#631), as a drop target for a dilemma dragged back
-                    from the stack popup — `CardHand`'s closed row shows an empty placeholder in
-                    that state, the same as the draw deck and the dilemma stack. */}
+                    shows only in the dilemma choice (#1223), and there even with no cards (#631),
+                    as a drop target for a dilemma dragged back from the stack — `CardHand`'s
+                    closed row shows an empty placeholder in that state. */}
                 <div className="ml-auto flex flex-row items-end gap-2">
-                  <CardHand
-                    instances={dilemmaHand}
-                    open={openHand === 'dilemmaHand'}
-                    onOpen={() => setOpenHand('dilemmaHand')}
-                    onClose={() => {
-                      setOpenHand(null);
-                      setSelectedCardIds([]);
-                    }}
-                    dragging={draggingInstance !== null}
-                    portalContainer={gameLayer}
-                    zone="dilemmaHand"
-                    label="dilemma hand"
-                    openCardWidth={viewerCardWidth}
-                    bottomInset={panelBottom}
-                    passthroughZone={[
-                      DRAW_PILE_TOP_DROPPABLE_ID,
-                      DRAW_PILE_BOTTOM_DROPPABLE_ID,
-                      DILEMMA_PILE_TOP_DROPPABLE_ID,
-                      DILEMMA_PILE_BOTTOM_DROPPABLE_ID,
-                      'attempt-draw-dilemma',
-                    ]}
-                    selectedIds={selectedCardIds}
-                    onToggleSelect={toggleCardSelection}
-                    onSelectIds={setSelectedCardIds}
-                    onSendSelected={(position) => sendHandSelectionToDeck('dilemmaHand', position)}
-                    deckLabel="dilemma pile"
-                    arcBetween={HAND_ARC_BETWEEN}
-                    finePointer={finePointer}
-                  />
+                  {dilemmaHandShows && (
+                    <CardHand
+                      instances={dilemmaHand}
+                      open={openHand === 'dilemmaHand'}
+                      onOpen={() => setOpenHand('dilemmaHand')}
+                      onClose={() => {
+                        setOpenHand(null);
+                        setSelectedCardIds([]);
+                      }}
+                      dragging={draggingInstance !== null}
+                      portalContainer={gameLayer}
+                      zone="dilemmaHand"
+                      label="dilemma hand"
+                      openCardWidth={viewerCardWidth}
+                      bottomInset={panelBottom}
+                      passthroughZone={[
+                        DRAW_PILE_TOP_DROPPABLE_ID,
+                        DRAW_PILE_BOTTOM_DROPPABLE_ID,
+                        'attempt-draw-dilemma',
+                      ]}
+                      selectedIds={selectedCardIds}
+                      onToggleSelect={toggleCardSelection}
+                      onSelectIds={setSelectedCardIds}
+                      onSendSelected={(position) => sendHandSelectionToDeck('dilemmaHand', position)}
+                      deckLabel="dilemma pile"
+                      arcBetween={HAND_ARC_BETWEEN}
+                      finePointer={finePointer}
+                    />
+                  )}
 
                   {/* Dilemma pile, with the same stacked buttons as the draw deck (#1070). The
                       Shuffle button has its own accessible name, so it is told apart from the
@@ -3069,7 +3065,6 @@ function PracticeDrawContent() {
                     <DilemmaPileButton
                       count={dilemmaPile.length}
                       topCard={dilemmaPile[0]}
-                      onDraw={drawDilemma}
                       showPositionLabel={draggingInstance?.card.type === 'dilemma'}
                       shuffleCount={shuffleCounts.dilemmaPile}
                     />
@@ -3157,8 +3152,10 @@ function PracticeDrawContent() {
                       : setStoppedForSelection
                   }
                   onDiscard={openFlatLocation === 'discard' ? undefined : discardSelection}
+                  // The dilemma pile's Download moves cards into the dilemma hand, so it is offered only
+                  // while the dilemma hand shows (#1223).
                   onDownload={
-                    isDownloadPile(openFlatLocation)
+                    isDownloadPile(openFlatLocation) && (openFlatLocation === 'drawDeck' || dilemmaHandShows)
                       ? (ids) => downloadSelection(openFlatLocation, ids)
                       : undefined
                   }

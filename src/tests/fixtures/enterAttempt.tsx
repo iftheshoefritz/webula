@@ -35,3 +35,20 @@ export const enterAttempt = async (page: React.ReactElement, missionIndex = 0, f
     });
   }
 };
+
+// The dilemma hand shows only in the dilemma choice of an attempt (#1223), and the Draw dilemma
+// button is the only tap that draws into it. This enters the choice at `missionIndex`, whose slot
+// must hold a mission card, as `enterAttempt` does.
+export const enterDilemmaChoice = (page: React.ReactElement, missionIndex = 0) =>
+  enterAttempt(page, missionIndex, { phase: 'choose', drawn: 0 });
+
+// The counted draw of the dilemma choice (#1191), which opens the dilemma hand as its arc.
+export const drawChoiceDilemma = async () => {
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('attempt-draw-dilemma'));
+  });
+};
+
+// The ids of the cards in the dilemma hand of the builder deck's saved game, in hand order.
+export const dilemmaHandIds = (): string[] =>
+  JSON.parse(localStorage.getItem('practiceGame')!).table.dilemmaHand.map((card: { id: string }) => card.id);

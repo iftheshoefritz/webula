@@ -65,6 +65,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { dilemmaHandIds, drawChoiceDilemma, enterDilemmaChoice, mockAttemptMission } from '../../fixtures/enterAttempt';
 import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
@@ -107,6 +108,12 @@ const mockManyDeck = {
   [mockShipCard.collectorsinfo]: { count: 1, row: mockShipCard },
   [mockPersonnelCard.collectorsinfo]: { count: 1, row: mockPersonnelCard },
   [mockDilemmaCard.collectorsinfo]: { count: 1, row: mockDilemmaCard },
+};
+
+// The dilemma hand shows only in the dilemma choice of an attempt (#1223), which needs a mission.
+const mockChoiceDeck = {
+  ...mockManyDeck,
+  [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission },
 };
 
 const missionZoneIds = ['mission-under-0', 'mission-under-1', 'mission-under-2', 'mission-under-3', 'mission-under-4'];
@@ -251,14 +258,17 @@ describe('Practice table: valid-zone highlight during a drag (#608)', () => {
   // Issue #644: the hand accepts any card type (advisory, like the core and the discard pile);
   // the dilemma hand only accepts dilemmas (like the dilemma pile).
   it('highlights the hand while dragging a personnel card, but not the dilemma hand', async () => {
-    await setupOpenHand([mockPersonnelCard]);
-    const [personnelId] = mockDraggableIds;
+    localStorage.setItem('currentDeck', JSON.stringify(mockChoiceDeck));
+    (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockPersonnelCard]);
 
-    // Draw the deck's dilemma into the dilemma hand, so its closed row (a drop target) exists.
-    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
     await act(async () => {
-      fireEvent.click(drawDilemmaButton);
+      render(<PracticeDrawPage />);
     });
+    await drawOpeningHand();
+    // The dilemma choice shows the dilemma hand, a drop target even while it is empty.
+    await enterDilemmaChoice(<PracticeDrawPage />);
+    const [personnelId] = JSON.parse(localStorage.getItem('practiceGame')!).table.hand.map((card: { id: string }) => card.id);
 
     await act(async () => {
       mockOnDragStart!({ active: { id: personnelId } });
@@ -269,29 +279,17 @@ describe('Practice table: valid-zone highlight during a drag (#608)', () => {
   });
 
   it('highlights the dilemma hand while dragging a dilemma out of it', async () => {
-    localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
+    localStorage.setItem('currentDeck', JSON.stringify(mockChoiceDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
     (extractDrawDeck as jest.Mock).mockReturnValue([]);
 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
-    await drawOpeningHand();
-    mockDraggableIds.length = 0;
+    await enterDilemmaChoice(<PracticeDrawPage />);
 
-    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
-    await act(async () => {
-      fireEvent.click(drawDilemmaButton);
-    });
-    // #740 keeps a hand open after a drag out of it, so this tap only runs when the
-    // hand is closed — after a drag that emptied it, or a drag that started elsewhere.
-    const closedDilemmaHandButton = screen.queryByRole('button', { name: /^dilemma hand, 1 card, tap to open$/i });
-    if (closedDilemmaHandButton) {
-      await act(async () => {
-        fireEvent.click(closedDilemmaHandButton);
-      });
-    }
-    const [dilemmaId] = mockDraggableIds;
+    await drawChoiceDilemma();
+    const [dilemmaId] = dilemmaHandIds();
 
     await act(async () => {
       mockOnDragStart!({ active: { id: dilemmaId } });

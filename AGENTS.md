@@ -318,8 +318,10 @@ The practice table has four fixtures. Each one deals the same table on every loa
 A tap on the closed hand opens it as an arc along the bottom edge of the screen
 (`data-testid="hand-arc"`, `handArc.ts`, #1125): about half of each card is below the edge, more in
 touch mode, where the arc sits 20% of its visible height lower (`ARC_TOUCH_LOWER`, #1149), and the
-arc stays between the draw deck and the dilemma pile, over the core and the brig. A tap on the closed
-dilemma hand opens it as the same arc, in the same gap (`data-testid="dilemmaHand-arc"`, #1150). A press on a card of the arc becomes a drag only after
+arc stays between the draw deck and the dilemma pile, over the core and the brig. The dilemma hand
+shows only in the attempt layout in `'choose'` (#1223): the full table has no dilemma hand, and a tap on
+the dilemma pile draws nothing. A tap on the closed dilemma hand opens it as the same arc, in the same
+gap (`data-testid="dilemmaHand-arc"`, #1150). A press on a card of the arc becomes a drag only after
 20 px (`HAND_ARC_DRAG_ACTIVATION_DISTANCE`, #1131), not 8, so a thumb that drifts near the bottom
 edge still gets the hold preview.
 

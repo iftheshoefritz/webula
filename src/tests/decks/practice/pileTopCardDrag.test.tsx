@@ -169,14 +169,14 @@ describe('Practice table: dragging the top card off the draw deck or the dilemma
 
   it("moves the dilemma pile's top card into the core, face up, and out of the dilemma pile", async () => {
     await setup();
-    const dilemmaTop = document.body.querySelector('[aria-label="Dilemma pile top, tap to draw"]')!;
+    const dilemmaTop = document.body.querySelector('[aria-label="Dilemma pile top"]')!;
     const topId = dilemmaTop.closest('[data-card-id]')!.getAttribute('data-card-id')!;
     expect(mockPileDraggableIds).toContain(topId);
 
     await drag(topId, 'core');
 
     expect(within(coreZone()).getByRole('button', { name: 'Cardassian Trap' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Dilemma pile top' })).toBeDisabled();
   });
 
   it("keeps the draw deck's top card face down when it lands in a face-down zone", async () => {

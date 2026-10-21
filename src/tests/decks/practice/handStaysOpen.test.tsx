@@ -61,6 +61,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
+import { dilemmaHandIds, drawChoiceDilemma, enterDilemmaChoice, mockAttemptMission } from '../../fixtures/enterAttempt';
 import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
@@ -211,7 +212,11 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
   });
 
   it('stays open, showing the remaining dilemma, after one of two dilemmas is dragged onto a mission', async () => {
-    const deck = { [mockDilemmaCard.collectorsinfo]: { count: 2, row: mockDilemmaCard } };
+    // The dilemma hand shows only in the dilemma choice of an attempt (#1223), which needs a mission.
+    const deck = {
+      [mockDilemmaCard.collectorsinfo]: { count: 2, row: mockDilemmaCard },
+      [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission },
+    };
     localStorage.setItem('currentDeck', JSON.stringify(deck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
     (extractDrawDeck as jest.Mock).mockReturnValue([]);
@@ -219,16 +224,10 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     await act(async () => {
       render(<PracticeDrawPage />);
     });
-    await drawOpeningHand();
-    mockDraggableIds.length = 0;
+    await enterDilemmaChoice(<PracticeDrawPage />);
 
-    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
-    await act(async () => {
-      fireEvent.click(drawDilemmaButton);
-    });
-    await act(async () => {
-      fireEvent.click(drawDilemmaButton);
-    });
+    await drawChoiceDilemma();
+    await drawChoiceDilemma();
 
     // #740 keeps a hand open after a drag out of it, so this tap only runs when the
     // hand is closed.
@@ -238,7 +237,7 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
         fireEvent.click(closedHand3);
       });
     }
-    const [firstId] = mockDraggableIds;
+    const [firstId] = dilemmaHandIds();
 
     await act(async () => {
       mockOnDragStart!({ active: { id: firstId } });
@@ -254,7 +253,11 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
   });
 
   it('opens the dilemma hand as an arc, the same as the hand (#1150)', async () => {
-    const deck = { [mockDilemmaCard.collectorsinfo]: { count: 2, row: mockDilemmaCard } };
+    // The dilemma hand shows only in the dilemma choice of an attempt (#1223), which needs a mission.
+    const deck = {
+      [mockDilemmaCard.collectorsinfo]: { count: 2, row: mockDilemmaCard },
+      [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission },
+    };
     localStorage.setItem('currentDeck', JSON.stringify(deck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
     (extractDrawDeck as jest.Mock).mockReturnValue([]);
@@ -262,14 +265,13 @@ describe('Practice draw: the open hand stays open after a drag out of it (#740)'
     await act(async () => {
       render(<PracticeDrawPage />);
     });
-    await drawOpeningHand();
+    await enterDilemmaChoice(<PracticeDrawPage />);
 
-    const drawDilemmaButton = screen.getByRole('button', { name: 'Dilemma pile top, tap to draw' });
+    await drawChoiceDilemma();
+    await drawChoiceDilemma();
+    // Draw dilemma opened the dilemma hand (#1191); close it, so a tap opens it again.
     await act(async () => {
-      fireEvent.click(drawDilemmaButton);
-    });
-    await act(async () => {
-      fireEvent.click(drawDilemmaButton);
+      fireEvent.click(screen.getByRole('button', { name: 'Close dilemma hand' }));
     });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^dilemma hand, 2 cards, tap to open$/i }));
