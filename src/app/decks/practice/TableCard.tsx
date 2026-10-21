@@ -96,6 +96,7 @@ export default function TableCard({
   turnedScale,
   turnable = false,
   showFace = false,
+  panY = false,
 }: {
   instance: CardInstance;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
@@ -123,6 +124,10 @@ export default function TableCard({
   // Draws a face-down card face up, as the away team panel does (#964): the row of the attempting
   // personnel (#1165) shows the away team, which is stored face down, to its owner.
   showFace?: boolean;
+  // A draggable card inside an area that scrolls (#1205) takes `touch-action: pan-y`, as a card of a
+  // scrolling card list panel does (#788), so a touch pan scrolls the area. The area carries
+  // `PANEL_SCROLLS_ATTRIBUTE`, so a sideways first move still drags.
+  panY?: boolean;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down' && !showFace;
@@ -144,7 +149,7 @@ export default function TableCard({
       onClick={onClick}
       {...attributes}
       {...(holdable ? holdListeners : listeners)}
-      className={`flex flex-col items-center focus:outline-none ${draggable ? 'touch-none' : 'touch-manipulation'} ${
+      className={`flex flex-col items-center focus:outline-none ${draggable ? (panY ? 'touch-pan-y' : 'touch-none') : 'touch-manipulation'} ${
         turnable ? 'motion-safe:transition-transform motion-reduce:transition-none' : ''
       }`}
       style={{
