@@ -471,6 +471,10 @@ describe('the facing stack (#1208)', () => {
         expect(sizes.stackHeight).toBeLessThanOrEqual(missionCardHeight(sizes.missionScale, true));
         expect(Math.round((sizes.stackCardWidth * 167) / 120)).toBeLessThanOrEqual(sizes.stackHeight + 1);
         expect(sizes.stackCardWidth + ATTEMPT_STACK_SLIVER_ROOM).toBeLessThanOrEqual(sizes.stackWidth);
+        // The card is as tall as the zone unless the width caps it: a 120×167 card, not 72 wide.
+        expect(sizes.stackCardWidth).toBe(
+          Math.min(Math.floor((sizes.stackHeight * 120) / 167), sizes.stackWidth - ATTEMPT_STACK_SLIVER_ROOM),
+        );
       });
 
       it(`keeps 4 crops a row and the mission's scale in both phases at ${label}`, () => {

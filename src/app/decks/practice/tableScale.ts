@@ -571,7 +571,7 @@ export function computeAttemptLayout(
   const stackHeight = Math.max(1, Math.min(missionCardHeight(missionScale, true), Math.floor(columnHeight)));
   const stackCardWidth = Math.max(
     1,
-    Math.min(Math.floor((stackHeight * TABLE_CARD_WIDTH) / 167), stackWidth - ATTEMPT_STACK_SLIVER_ROOM),
+    Math.min(Math.floor((stackHeight * 120) / 167), stackWidth - ATTEMPT_STACK_SLIVER_ROOM),
   );
 
   // The middle column: the away team badge, or the row of the away team, then the rows of ships.
@@ -870,9 +870,9 @@ export function useAttemptLayout(
     personnelWidth,
     personnelHeight: fallbackGrid.height,
     placedOnWidth: placedOn ? attemptPlacedOnWidth(scale) : 0,
-    stackWidth: Math.floor((stackHeight * TABLE_CARD_WIDTH) / 167) + ATTEMPT_STACK_SLIVER_ROOM,
+    stackWidth: Math.floor((stackHeight * 120) / 167) + ATTEMPT_STACK_SLIVER_ROOM,
     stackHeight,
-    stackCardWidth: Math.floor((stackHeight * TABLE_CARD_WIDTH) / 167),
+    stackCardWidth: Math.floor((stackHeight * 120) / 167),
     choice: {
       missionScale: scale,
       stackWidth: 3 * stackCardWidth,
