@@ -5,6 +5,7 @@ import {
   ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
   ATTEMPT_PERSONNEL_CARD_WIDTH,
   ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH,
+  ATTEMPT_STACK_SLIVER_ROOM,
   ATTEMPT_STRIP_HEIGHT,
   attemptFloorScale,
   attemptPersonnelHeight,
@@ -369,10 +370,10 @@ describe('computeAttemptLayout (#1164)', () => {
       expect(fourAcross + ATTEMPT_PERSONNEL_CARD_WIDTH + 4).toBeGreaterThan(room);
     });
 
-    it('fits more crops across a planet mission, at the same width', () => {
+    it('keeps 4 crops across a planet mission, at the same width (#1208)', () => {
       const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 0, floor, { count: 20, space: false });
       expect(sizes.personnelCardWidth).toBe(ATTEMPT_PERSONNEL_CARD_WIDTH);
-      expect(sizes.personnelColumns).toBeGreaterThan(4);
+      expect(sizes.personnelColumns).toBe(4);
     });
 
     it('keeps the crop width on a larger screen', () => {
@@ -382,7 +383,7 @@ describe('computeAttemptLayout (#1164)', () => {
       for (const space of [true, false]) {
         const sizes = computeAttemptLayout(1440, available, true, 1, floor, { count: 20, space });
         expect(sizes.personnelCardWidth).toBe(ATTEMPT_PERSONNEL_CARD_WIDTH);
-        expect(sizes.personnelColumns).toBeGreaterThanOrEqual(4);
+        expect(sizes.personnelColumns).toBe(4);
       }
     });
 
@@ -431,6 +432,72 @@ describe('computeAttemptLayout (#1164)', () => {
 
 // Issue #1190: the dilemma choice keeps the facing phase's mission scale and gives the stack in the
 // middle the width the personnel row takes in the facing phase.
+// Issue #1208: the dilemma stack of the facing phase takes the width the mission, the placed-on
+// column and the middle column leave, and the mission keeps the size it had against the narrow stack.
+describe('the facing stack (#1208)', () => {
+  const touchColumn = (scale: number) => missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
+  const screens = [
+    { width: MIN_SCREEN.width, height: MIN_SCREEN.height, tableHeight: 250 },
+    { width: 1133, height: 744, tableHeight: 600 },
+  ];
+  const cases = [
+    { personnel: { count: 12, space: true }, placedOn: true },
+    { personnel: { count: 20, space: false }, placedOn: false },
+  ];
+  for (const screen of screens) {
+    const tableScale = computeTableScale(screen.width, screen.height);
+    const available = screen.tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const floor = attemptFloorScale(
+      computeTouchMissionScale(screen.width, screen.tableHeight, touchColumn, tableScale),
+      available,
+      tableScale,
+    );
+    for (const { personnel, placedOn } of cases) {
+      const label = `${screen.width}x${screen.height}, ${personnel.space ? 'a space' : 'a planet'} mission`;
+      const sizes = computeAttemptLayout(screen.width, available, false, 1, floor, personnel, placedOn);
+
+      it(`fits the width and takes what is left at ${label}`, () => {
+        const used =
+          32 + 20 + Math.round(72 * sizes.missionScale) +
+          (sizes.placedOnWidth > 0 ? sizes.placedOnWidth + ATTEMPT_GAP : 0) +
+          sizes.shipsWidth + sizes.stackWidth + 2 * ATTEMPT_GAP;
+        expect(used).toBeLessThanOrEqual(screen.width);
+        expect(used).toBeGreaterThan(screen.width - 2);
+        expect(sizes.stackWidth).toBeGreaterThanOrEqual(56);
+      });
+
+      it(`draws a whole top card no taller than the zone, beside the slivers, at ${label}`, () => {
+        expect(sizes.stackHeight).toBeLessThanOrEqual(sizes.columnHeight);
+        expect(sizes.stackHeight).toBeLessThanOrEqual(missionCardHeight(sizes.missionScale, true));
+        expect(Math.round((sizes.stackCardWidth * 167) / 120)).toBeLessThanOrEqual(sizes.stackHeight + 1);
+        expect(sizes.stackCardWidth + ATTEMPT_STACK_SLIVER_ROOM).toBeLessThanOrEqual(sizes.stackWidth);
+        // The card is as tall as the zone unless the width caps it: a 120×167 card, not 72 wide.
+        expect(sizes.stackCardWidth).toBe(
+          Math.min(Math.floor((sizes.stackHeight * 120) / 167), sizes.stackWidth - ATTEMPT_STACK_SLIVER_ROOM),
+        );
+      });
+
+      it(`keeps 4 crops a row and the mission's scale in both phases at ${label}`, () => {
+        expect(sizes.personnelColumns).toBeLessThanOrEqual(4);
+        const choice = computeAttemptChoiceLayout(screen.width, available, false, 1, floor, sizes, personnel.space);
+        expect(choice.missionScale).toBe(sizes.missionScale);
+      });
+    }
+  }
+
+  it('is wider than the narrow stack wherever the middle column leaves width', () => {
+    const tableHeight = 600;
+    const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const tableScale = computeTableScale(1133, 744);
+    const floor = attemptFloorScale(computeTouchMissionScale(1133, tableHeight, touchColumn, tableScale), available, tableScale);
+    for (const personnel of [{ count: 12, space: true }, { count: 20, space: false }]) {
+      expect(computeAttemptLayout(1133, available, false, 1, floor, personnel, true).stackWidth).toBeGreaterThan(56);
+    }
+    // The planet mission's away team stops at 4 crops, and the stack takes the rest.
+    expect(computeAttemptLayout(1133, available, false, 1, floor, { count: 20, space: false }).stackWidth).toBeGreaterThan(300);
+  });
+});
+
 describe('computeAttemptChoiceLayout (#1190)', () => {
   const touchColumn = (scale: number) => missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
   const minTableScale = computeTableScale(MIN_SCREEN.width, MIN_SCREEN.height);

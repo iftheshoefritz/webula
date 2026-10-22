@@ -231,10 +231,10 @@ describe('Practice table: the dilemma stack (#630)', () => {
     expect(cardIds).toEqual([firstId, secondId]);
   });
 
-  // #752: the stack draws every card at its own normal, unstretched shape, fanned vertically —
-  // the top of the physical stack (index 0) lowest and frontmost, each later card higher and
-  // further back — rather than one card back stretched over the whole zone.
-  it('draws the stack as a fan of normal-sized, unstretched cards with the top card frontmost', async () => {
+  // #752: the stack draws every card at its own normal, unstretched shape, rather than one card back
+  // stretched over the whole zone. #1208: in a row, the top of the physical stack (index 0) on the
+  // left and frontmost, each later card further right and further back.
+  it('draws the stack as a row of normal-sized, unstretched cards with the top card frontmost', async () => {
     const fanDeck = {
       [mockDilemmaCard.collectorsinfo]: { count: 4, row: mockDilemmaCard },
       [mockEventCard.collectorsinfo]: { count: 1, row: mockEventCard },
@@ -270,34 +270,37 @@ describe('Practice table: the dilemma stack (#630)', () => {
 
     // Every card keeps its own normal shape: a fixed width with `h-auto`, not `object-cover`
     // against a forced height.
+    const cardWidth = images[0].style.width;
     images.forEach((img) => {
       expect(img).not.toBeNull();
-      expect(img).toHaveStyle({ width: '56px' });
+      expect(img.style.width).toBe(cardWidth);
+      expect(img.className).toContain('bottom-0');
       expect(img.className).toContain('h-auto');
       expect(img.className).not.toContain('object-cover');
     });
 
     // `ids[0]`, the top of the physical stack, is the only one with an accessible name; the rest
-    // are decorative, sitting behind it in the fan.
+    // are decorative, sitting behind it in the row.
     expect(images[0].alt).toBe('Face-down dilemma stack');
     images.slice(1).forEach((img) => expect(img.alt).toBe(''));
 
-    // Front-to-back order: `ids[0]` sits lowest (smallest offset from the zone's bottom) and
-    // frontmost (highest z-index); each later card sits higher and further back.
+    // Front-to-back order: `ids[0]` sits on the left and frontmost (highest z-index); each later
+    // card sits further right and further back.
     for (let i = 0; i < images.length - 1; i++) {
-      const bottomA = parseInt(images[i].style.bottom, 10);
-      const bottomB = parseInt(images[i + 1].style.bottom, 10);
-      expect(bottomB).toBeGreaterThan(bottomA);
+      const leftA = parseInt(images[i].style.left, 10);
+      const leftB = parseInt(images[i + 1].style.left, 10);
+      expect(leftB).toBeGreaterThan(leftA);
 
       const zA = Number(images[i].style.zIndex);
       const zB = Number(images[i + 1].style.zIndex);
       expect(zA).toBeGreaterThan(zB);
     }
 
-    // The whole fan still fits inside the zone's own height.
-    const zoneHeight = parseInt(stackZone.style.height, 10);
-    const lastBottom = parseInt(images[images.length - 1].style.bottom, 10);
-    expect(lastBottom).toBeLessThan(zoneHeight);
+    // The whole row fits inside the zone's own width, and the top card inside its height.
+    const zoneWidth = parseInt(stackZone.style.width, 10);
+    const lastLeft = parseInt(images[images.length - 1].style.left, 10);
+    expect(lastLeft + parseInt(cardWidth, 10)).toBeLessThanOrEqual(zoneWidth);
+    expect(Math.round((parseInt(cardWidth, 10) * 167) / 120)).toBeLessThanOrEqual(parseInt(stackZone.style.height, 10));
   });
 
   it('a tap on the stack opens its panel and closes another open panel (#711)', async () => {
@@ -627,8 +630,8 @@ describe('Practice table: the dilemma stack (#630)', () => {
     expect(stackZone()).toHaveStyle({ visibility: 'visible' });
   });
 
-  // #988: on a desktop the stack and its cards are two times as wide. A touch screen keeps 56 px.
-  it('keeps its 56 px width on a touch screen', async () => {
+  // #1208: the zone is wider than its one whole card, which keeps room for the cards behind it.
+  it('is wider than its top card', async () => {
     await setupAttempt();
     const [firstId] = pileIds;
     await act(async () => {
@@ -639,31 +642,9 @@ describe('Practice table: the dilemma stack (#630)', () => {
     });
 
     const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
-    expect(stackZone).toHaveStyle({ width: '56px' });
-    expect(stackZone.querySelector(`img[data-card-id="${firstId}"]`)).toHaveStyle({ width: '56px' });
-  });
-
-  it('is two times as wide under (pointer: fine)', async () => {
-    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
-      matches: query === '(pointer: fine)',
-      media: query,
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-    }));
-    await setupAttempt();
-    const [firstId] = pileIds;
-    await act(async () => {
-      mockOnDragStart!({ active: { id: firstId } });
-    });
-    await act(async () => {
-      mockOnDragEnd!({ active: { id: firstId }, over: { id: 'dilemmaStack' } });
-    });
-
-    const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
-    expect(stackZone).toHaveStyle({ width: '112px' });
-    expect(stackZone.querySelector(`img[data-card-id="${firstId}"]`)).toHaveStyle({ width: '112px' });
-    // The zone is at least as tall as one of the wider cards (112 x 167 / 120).
-    expect(parseInt(stackZone.style.height, 10)).toBeGreaterThanOrEqual(156);
+    const card = stackZone.querySelector(`img[data-card-id="${firstId}"]`) as HTMLElement;
+    expect(parseInt(stackZone.style.width, 10)).toBeGreaterThan(parseInt(card.style.width, 10));
+    expect(card).toHaveStyle({ left: '0px' });
   });
 
   // #751: a separate reveal control turns the stack's own top card face up in place, one card at
