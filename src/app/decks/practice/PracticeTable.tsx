@@ -1102,10 +1102,11 @@ function DilemmaStackTopCard({
 // `visibility: hidden` alone already keeps it out of the accessibility tree, so no separate
 // `aria-hidden` is needed.
 //
-// #1208: the stack of the facing phase draws as a row as wide as `computeAttemptLayout` leaves it
+// #1208: the stack of the facing phase draws as a row as wide as `computeAttemptLayout` gives it
 // (`stackWidth`), as tall as the mission card. `dilemmaStack[0]`, the dilemma being faced, sits on
 // the left and in front, a whole card; each later card sits face down to its right, one layer
-// further back, edge to edge while they fit and overlapped past that (`offsetFor`). It keeps the one
+// further back, overlapped to fit (`offsetFor`). The zone is the top card and at most a fifth of
+// its width more (#1218), so the cards behind it show as slivers. It keeps the one
 // `dilemmaStack` drop target: nothing reorders the stack in this phase, so it has no slots.
 //
 // #1190: this row is the stack of the facing phase only. In the dilemma choice every card is face

@@ -467,11 +467,12 @@ back the mission row (#1170). The log gets one entry: "Ended the attempt at <mis
 <cards> under <mission>", or only its first part when the stack was empty. Below the strip, left to right: the attempted mission, drawn whole and larger than on the
 table, the ships column `attempt-ships` (the away team badge, then every ship of that mission's ship
 row), and the dilemma stack. At a space mission the ships sit in a column exactly as wide as the
-mission, 2 to a row, with the crew row beside them (#1177). In `'face'` the dilemma stack is a row that takes the width the
-mission, the placed-on column and the middle column leave, never less than 56 px (112 on a desktop),
-and the personnel area keeps at most 4 crops a row (`ATTEMPT_PERSONNEL_MAX_COLUMNS`, #1208): `stack[0]`
-is a whole card on the left and in front, and every later card is face down to its right, overlapped
-past the width. The mission keeps the size it has against the 56 px stack. The bottom row does not change. The dilemma stack mounts only here
+mission, 2 to a row, with the crew row beside them (#1177). In `'face'` the dilemma stack is one
+whole card, `stack[0]`, as tall as the mission card, and every later card face down to its right as a
+sliver: the zone is at most 1.2 times as wide as its top card (`attemptFacingStackSize`, #1218). The
+mission grows only while the personnel area keeps 3 cards at the crew panel's width, so it stops
+growing where it would take their width, and the dilemma choice, which keeps the facing phase's
+`missionScale`, draws the same mission. The bottom row does not change. The dilemma stack mounts only here
 (#1170), so the `dilemmaStack` drop target exists only in the attempt layout.
 
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
@@ -570,14 +571,16 @@ badge, above the ships: `data-zone` and `data-testid` `attempt-away-team-<i>`. A
 the crew of the attempting ship, beside the ships: `attempt-crew-<the ship's id>`, and the away team
 badge stays above the ships. The row reads the live away team or crew, the equipment too, in order, and
 the frozen numbers of the attempt do not change. Each card is the art crop with the personnel format
-of #1176, 69 px wide on every screen (`ATTEMPT_PERSONNEL_CARD_WIDTH`), so 4 fit across the crew row at
-667×375 and more across a wider area, side by side with no overlap, in as many rows as they need
-(`attemptPersonnelGrid`, `computeAttemptLayout`). The area shows the whole rows that fit the height,
-at 667×375 one, and scrolls to the rest, `data-testid="<the row's id>-scroll"`. While it scrolls it
+of #1176, 3 to a row with the crew panel's 8 px gap (#1218, `attemptPersonnelGrid`, `computeAttemptLayout`),
+as wide as a card of the crew panel on the full table (`viewerCardSize`, a desktop too), or less where
+the screen lacks the room: at 667×375 about 81 px at `?fixture=attempt` and about 63 px at a planet
+mission, where the height binds. The area is 3 cards wide even with fewer cards. It fills the height
+it has and, when the cards do not all fit, shows at least a quarter of a card of the second row, and
+scrolls to the rest, `data-testid="<the row's id>-scroll"`. While it scrolls it
 carries `PANEL_SCROLLS_ATTRIBUTE` and its cards `touch-action: pan-y`, as a scrolling card list panel
 does: a touch whose first move is vertical scrolls it, and one sideways drags the card. Each
-card carries its `data-card-id`. A tap selects a card, a hold previews it, and below the row
-`attempt-row-stop` (Stop or Unstop, while personnel are selected) and `attempt-row-stop-all` (while
+card carries its `data-card-id`. A tap selects a card, a hold previews it, and above the row, as in
+the crew panel, `attempt-row-stop` (Stop or Unstop, while personnel are selected) and `attempt-row-stop-all` (while
 an unstopped personnel is in the row) set `stopped`. `attempt-row-shuffle`, last in that line and shown while the row holds a card, shuffles the away team or the crew (#1179). A drop on the away team row routes as a drop on
 `mission-on-<i>`: a personnel or an equipment joins the away team, a ship goes to the ship row, any
 other card is placed on the mission card. A drop on the crew row routes as a drop on `crew-<id>`. At a

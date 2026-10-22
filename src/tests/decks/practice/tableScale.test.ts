@@ -3,12 +3,13 @@ import {
   ATTEMPT_STACK_LABEL_HEIGHT,
   ATTEMPT_STACK_SIDE_GAP,
   ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
-  ATTEMPT_PERSONNEL_CARD_WIDTH,
+  ATTEMPT_PERSONNEL_GAP,
   ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH,
   ATTEMPT_STACK_SLIVER_ROOM,
   ATTEMPT_STRIP_HEIGHT,
   attemptFloorScale,
-  attemptPersonnelHeight,
+  attemptPersonnelCardWidth,
+  attemptPersonnelWidth,
   AttemptLayoutSizes,
   DESKTOP_RESERVED_SHIP_ROWS,
   attemptMissionColumnHeight,
@@ -36,6 +37,7 @@ import {
 } from '../../../app/decks/practice/MissionRow';
 import { offsetFor } from '../../../app/decks/practice/overlapOffset';
 import { fullCardHeight } from '../../../app/decks/practice/TableCard';
+import { viewerCardSize } from '../../../app/decks/practice/viewerCardSize';
 
 // #630: the dilemma stack's own reserved column widens computeTableScale's width budget from 5
 // mission columns and 4 gaps to 6 columns (the stack's own) and 5 gaps.
@@ -173,8 +175,8 @@ describe('computeAttemptLayout (#1164)', () => {
   const minTableScale = computeTableScale(MIN_SCREEN.width, MIN_SCREEN.height);
   // The width the layout's parts take: the padding, the menu gutter, the mission card, the ships
   // column, the dilemma stack and the two gaps.
-  const usedWidth = (sizes: AttemptLayoutSizes, desktop: boolean) =>
-    32 + 20 + Math.round(72 * sizes.missionScale) + sizes.shipsWidth + 56 * (desktop ? 2 : 1) + 2 * ATTEMPT_GAP;
+  const usedWidth = (sizes: AttemptLayoutSizes) =>
+    32 + 20 + Math.round(72 * sizes.missionScale) + sizes.shipsWidth + sizes.stackWidth + 2 * ATTEMPT_GAP;
 
   it('draws the mission larger than the mission row does at the minimum screen, and fits it', () => {
     // A 375 px table leaves about 250 px above the bottom row, and the strip and its gap take 52.
@@ -189,7 +191,7 @@ describe('computeAttemptLayout (#1164)', () => {
     const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 1, floor);
     expect(sizes.missionScale).toBeGreaterThanOrEqual(floor);
     expect(attemptMissionColumnHeight(sizes.missionScale)).toBeLessThanOrEqual(available + 1);
-    expect(usedWidth(sizes, false)).toBeLessThanOrEqual(MIN_SCREEN.width);
+    expect(usedWidth(sizes)).toBeLessThanOrEqual(MIN_SCREEN.width);
     // The whole card is taller than the art crop the mission row draws.
     expect(missionCardHeight(sizes.missionScale, true)).toBeGreaterThan(missionCardHeight(rowScale, false));
     expect(ATTEMPT_STRIP_HEIGHT).toBeGreaterThanOrEqual(60 - 16);
@@ -203,7 +205,7 @@ describe('computeAttemptLayout (#1164)', () => {
     expect(sizes.missionScale).toBeGreaterThan(floor);
     expect(attemptMissionColumnHeight(sizes.missionScale)).toBeLessThanOrEqual(available);
     expect(attemptMissionColumnHeight(sizes.missionScale + 0.01)).toBeGreaterThan(available);
-    expect(usedWidth(sizes, true)).toBeLessThanOrEqual(1440);
+    expect(usedWidth(sizes)).toBeLessThanOrEqual(1440);
   });
 
   it('never draws the mission or the ships below the floor, nor the ships above the mission', () => {
@@ -250,11 +252,11 @@ describe('computeAttemptLayout (#1164)', () => {
     // The rows the area's cards need, and the room a row of `columns` crops takes, its gaps too.
     const rowsNeeded = (sizes: AttemptLayoutSizes, count: number) => Math.ceil(count / sizes.personnelColumns);
     const rowWidth = (sizes: AttemptLayoutSizes) =>
-      sizes.personnelColumns * sizes.personnelCardWidth + (sizes.personnelColumns - 1) * 4;
+      sizes.personnelColumns * sizes.personnelCardWidth + (sizes.personnelColumns - 1) * ATTEMPT_PERSONNEL_GAP;
 
     it('fits 20 away team cards at 667x375, clear of the dilemma stack, in rows that scroll', () => {
       const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 0, floor, { count: 20, space: false });
-      expect(usedWidth(sizes, false)).toBeLessThanOrEqual(MIN_SCREEN.width);
+      expect(usedWidth(sizes)).toBeLessThanOrEqual(MIN_SCREEN.width);
       expect(sizes.personnelWidth).toBeLessThanOrEqual(sizes.shipsWidth);
       expect(rowWidth(sizes)).toBeLessThanOrEqual(sizes.personnelWidth);
       // The area, its buttons and one line of ships fit the height below the strip.
@@ -266,7 +268,7 @@ describe('computeAttemptLayout (#1164)', () => {
 
     it('fits a crew of 12 beside the ships at a space mission', () => {
       const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 1, floor, { count: 12, space: true });
-      expect(usedWidth(sizes, false)).toBeLessThanOrEqual(MIN_SCREEN.width);
+      expect(usedWidth(sizes)).toBeLessThanOrEqual(MIN_SCREEN.width);
       expect(sizes.shipRowsWidth + ATTEMPT_GAP + sizes.personnelWidth).toBeLessThanOrEqual(sizes.shipsWidth);
       expect(sizes.shipScale).toBeGreaterThanOrEqual(floor);
       const middle =
@@ -287,20 +289,22 @@ describe('computeAttemptLayout (#1164)', () => {
       expect(without.placedOnWidth).toBe(0);
       expect(sizes.placedOnWidth).toBe(shipCardWidth(floor));
       expect(sizes.missionScale).toBeGreaterThanOrEqual(floor);
-      expect(usedWidth(sizes, false) + sizes.placedOnWidth + ATTEMPT_GAP).toBeLessThanOrEqual(MIN_SCREEN.width);
+      expect(usedWidth(sizes) + sizes.placedOnWidth + ATTEMPT_GAP).toBeLessThanOrEqual(MIN_SCREEN.width);
     });
 
-    it('takes the column from the slack of the middle column, and leaves the mission as it was', () => {
+    // Issue #1218: the mission grows only until the personnel area binds, so on a wide screen the
+    // column of the placed cards takes its width from the mission, and the personnel keep theirs.
+    it('takes the column from the mission on a wide screen, and leaves the personnel as they were', () => {
       const tableHeight = 700;
       const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
       const floor = computeDesktopTableScale(1440, tableHeight, desktopColumn);
-      const without = computeAttemptLayout(1440, available, true, 1, floor, { count: 2, space: true });
-      const sizes = computeAttemptLayout(1440, available, true, 1, floor, { count: 2, space: true }, true);
-      // The bisection of the height bound starts from another width, so allow its precision.
-      expect(sizes.missionScale).toBeCloseTo(without.missionScale, 4);
-      expect(Math.round(72 * sizes.missionScale)).toBe(Math.round(72 * without.missionScale));
-      expect(sizes.shipsWidth).toBe(without.shipsWidth);
-      expect(usedWidth(sizes, true) + sizes.placedOnWidth + ATTEMPT_GAP).toBeLessThanOrEqual(1440);
+      const panel = viewerCardSize(1, true).width;
+      const without = computeAttemptLayout(1440, available, true, 1, floor, { count: 2, space: true }, false, panel);
+      const sizes = computeAttemptLayout(1440, available, true, 1, floor, { count: 2, space: true }, true, panel);
+      expect(sizes.missionScale).toBeLessThan(without.missionScale);
+      expect(sizes.missionScale).toBeGreaterThanOrEqual(floor);
+      expect(sizes.personnelCardWidth).toBe(without.personnelCardWidth);
+      expect(usedWidth(sizes) + sizes.placedOnWidth + ATTEMPT_GAP).toBeLessThanOrEqual(1440);
     });
 
     // Issue #1177: at a space mission the ships sit in one column as wide as the mission.
@@ -308,12 +312,7 @@ describe('computeAttemptLayout (#1164)', () => {
       const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 1, floor, { count: 12, space: true });
       expect(sizes.shipRowsWidth).toBe(Math.round(72 * sizes.missionScale));
       expect(sizes.shipScale).toBe(sizes.missionScale);
-      // The mission is height-bound here, so its scale does not shrink for the ships column.
-      expect(sizes.missionScale).toBeCloseTo(
-        Math.max(floor, fitColumnScale(10, available, attemptMissionColumnHeight)),
-        5,
-      );
-      expect(usedWidth(sizes, false)).toBeLessThanOrEqual(MIN_SCREEN.width);
+      expect(usedWidth(sizes)).toBeLessThanOrEqual(MIN_SCREEN.width);
     });
 
     it('keeps the ships column as wide as the mission on a wide screen with a small crew', () => {
@@ -322,9 +321,10 @@ describe('computeAttemptLayout (#1164)', () => {
       const floor = computeDesktopTableScale(1440, tableHeight, desktopColumn);
       const sizes = computeAttemptLayout(1440, available, true, 1, floor, { count: 2, space: true });
       expect(sizes.shipRowsWidth).toBe(Math.round(72 * sizes.missionScale));
-      expect(sizes.personnelWidth).toBe(sizes.personnelCardWidth * 2 + 4);
+      // 3 cards wide with a crew of 2 (#1218).
+      expect(sizes.personnelWidth).toBe(attemptPersonnelWidth(sizes.personnelCardWidth));
       expect(sizes.shipsWidth).toBe(sizes.shipRowsWidth + ATTEMPT_GAP + sizes.personnelWidth);
-      expect(usedWidth(sizes, true)).toBeLessThanOrEqual(1440);
+      expect(usedWidth(sizes)).toBeLessThanOrEqual(1440);
     });
 
     it('fits many ships down the one column between the floor and the mission scale', () => {
@@ -336,104 +336,180 @@ describe('computeAttemptLayout (#1164)', () => {
       expect(ships).toBeLessThanOrEqual(available);
     });
 
-    // Issue #1205: cropped table cards of one fixed width, 4 to a row in the crew row of a space
-    // mission at the minimum screen, in rows that scroll. The body is the one the browser measures
-    // at 667x375, as in the #1203 tests below: a bottom row about 125 px tall.
-    const minAvailable = MIN_SCREEN.height - 32 - 125 - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
-    const minFloor = attemptFloorScale(
-      computeTouchMissionScale(MIN_SCREEN.width, MIN_SCREEN.height - 32 - 125, touchColumn, minTableScale),
-      minAvailable,
-      minTableScale,
-    );
-    it('shows the crew of ?fixture=attempt at 667x375 as crops 4 to a row, with no overlap, in rows that scroll', () => {
-      // 652: the game layer of headless Chromium at 667, less the page's scrollbar.
-      for (const [width, placedOn] of [[667, true], [667, false], [652, true], [652, false]] as const) {
-        const sizes = computeAttemptLayout(width, minAvailable, false, 1, minFloor, { count: 12, space: true }, placedOn);
-        expect(sizes.personnelCardWidth).toBe(ATTEMPT_PERSONNEL_CARD_WIDTH);
-        expect(sizes.personnelColumns).toBe(4);
-        expect(sizes.personnelWidth).toBe(4 * ATTEMPT_PERSONNEL_CARD_WIDTH + 3 * 4 + ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH);
-        expect(sizes.personnelVisibleRows).toBeGreaterThanOrEqual(1);
-        expect(sizes.personnelVisibleRows).toBeLessThan(3);
-        expect(sizes.personnelHeight).toBe(
-          sizes.personnelVisibleRows * attemptPersonnelCropHeight(ATTEMPT_PERSONNEL_CARD_WIDTH) + (sizes.personnelVisibleRows - 1) * 4,
-        );
-      }
-    });
-
-    it.each([667, 652])('measures the width at the fixture at %i: a 5th crop would not fit the crew row', (width) => {
-      // The room the crew row may take at ?fixture=attempt: the width less the mission and the ships column.
-      const sizes = computeAttemptLayout(width, minAvailable, false, 1, minFloor, { count: 12, space: true }, true);
-      const room =
-        width - 32 - 20 - 3 * ATTEMPT_GAP - 56 - sizes.placedOnWidth - ATTEMPT_GAP - 2 * Math.round(72 * sizes.missionScale);
-      const fourAcross = 4 * ATTEMPT_PERSONNEL_CARD_WIDTH + 3 * 4 + ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH;
-      expect(fourAcross).toBeLessThanOrEqual(room);
-      expect(fourAcross + ATTEMPT_PERSONNEL_CARD_WIDTH + 4).toBeGreaterThan(room);
-    });
-
-    it('keeps 4 crops across a planet mission, at the same width (#1208)', () => {
-      const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 0, floor, { count: 20, space: false });
-      expect(sizes.personnelCardWidth).toBe(ATTEMPT_PERSONNEL_CARD_WIDTH);
-      expect(sizes.personnelColumns).toBe(4);
-    });
-
-    it('keeps the crop width on a larger screen', () => {
-      const tableHeight = 700;
-      const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
-      const floor = computeDesktopTableScale(1440, tableHeight, desktopColumn);
-      for (const space of [true, false]) {
-        const sizes = computeAttemptLayout(1440, available, true, 1, floor, { count: 20, space });
-        expect(sizes.personnelCardWidth).toBe(ATTEMPT_PERSONNEL_CARD_WIDTH);
-        expect(sizes.personnelColumns).toBe(4);
-      }
-    });
-
-    it('takes all the planet column but one line of ships for the area', () => {
+    it('takes all the planet column but one line of ships and the buttons for the area', () => {
       const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 5, floor, { count: 40, space: false });
       const room = sizes.columnHeight - 4 - shipRowLineHeight(floor, false) - 4 - ATTEMPT_PERSONNEL_BUTTONS_HEIGHT;
-      const row = attemptPersonnelCropHeight(sizes.personnelCardWidth);
       expect(sizes.personnelHeight).toBeLessThanOrEqual(room);
-      expect(sizes.personnelHeight + 4 + row).toBeGreaterThan(room);
+      // The area fills the height it has, not only whole rows (#1218).
+      expect(sizes.personnelHeight).toBe(Math.floor(room));
       expect(sizes.shipRows).toBe(1);
-    });
-
-    it('shrinks the crops only when one row does not fit the height', () => {
-      const height = 120;
-      const sizes = computeAttemptLayout(MIN_SCREEN.width, height, false, 1, floor, { count: 8, space: false });
-      expect(sizes.personnelCardWidth).toBeLessThan(ATTEMPT_PERSONNEL_CARD_WIDTH);
-      expect(sizes.personnelVisibleRows).toBe(1);
-      const middle =
-        sizes.personnelHeight + 4 + ATTEMPT_PERSONNEL_BUTTONS_HEIGHT + 4 + shipRowLineHeight(sizes.shipScale, false);
-      expect(middle).toBeLessThanOrEqual(height);
     });
   });
 
-  describe('attemptPersonnelGrid (#1205)', () => {
+  describe('attemptPersonnelGrid (#1205, #1218)', () => {
     const crop = attemptPersonnelCropHeight(40);
+    const width = 3 * 40 + 2 * ATTEMPT_PERSONNEL_GAP + ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH;
 
-    it('holds as many crops to a row as fit, and every row when they all fit the height', () => {
-      expect(attemptPersonnelGrid(5, 40, 130, 1000)).toEqual({ columns: 3, visibleRows: 2, width: 128, height: 2 * crop + 4 });
-      expect(attemptPersonnelGrid(2, 40, 2000, 1000)).toEqual({ columns: 2, visibleRows: 1, width: 84, height: crop });
+    it('holds 3 crops to a row, and is as tall as its rows when they fit the height', () => {
+      expect(attemptPersonnelGrid(5, 40, 1000)).toEqual({ columns: 3, visibleRows: 2, width, height: 2 * crop + 8 });
     });
 
-    it('shows the whole rows that fit the height and keeps the scrollbar beside the cards', () => {
-      const grid = attemptPersonnelGrid(12, 40, 172, 2 * crop + 4);
+    it('stays 3 crops wide with fewer cards', () => {
+      expect(attemptPersonnelGrid(1, 40, 1000)).toEqual({ columns: 3, visibleRows: 1, width, height: crop });
+      expect(attemptPersonnelGrid(2, 40, 1000).width).toBe(width);
+    });
+
+    it('fills the height it has, and counts a row that shows in part', () => {
+      const grid = attemptPersonnelGrid(12, 40, crop + 8 + 10);
+      expect(grid.height).toBe(crop + 8 + 10);
       expect(grid.visibleRows).toBe(2);
-      // 4 crops fit 172 px, but not beside the scrollbar, so the row holds 3.
-      expect(grid.columns).toBe(3);
-      expect(grid.width).toBe(3 * 40 + 2 * 4 + ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH);
-      expect(grid.height).toBe(2 * crop + 4);
     });
 
     it('shows at least 1 row', () => {
-      expect(attemptPersonnelGrid(8, 40, 2000, 10).visibleRows).toBe(1);
+      expect(attemptPersonnelGrid(8, 40, 10).visibleRows).toBe(1);
+    });
+  });
+
+  describe('attemptPersonnelCardWidth (#1218)', () => {
+    it('keeps the peek of the second row in the height when the cards need more than one row', () => {
+      for (const room of [60, 98, 124, 300]) {
+        const width = attemptPersonnelCardWidth(12, room, 1000);
+        const crop = attemptPersonnelCropHeight(width);
+        expect(crop + ATTEMPT_PERSONNEL_GAP + 0.25 * crop).toBeLessThanOrEqual(room);
+        const wider = attemptPersonnelCropHeight(width + 1);
+        expect(wider + ATTEMPT_PERSONNEL_GAP + 0.25 * wider).toBeGreaterThan(room);
+      }
+    });
+
+    it('needs no peek for one row', () => {
+      const width = attemptPersonnelCardWidth(3, 98, 1000);
+      expect(attemptPersonnelCropHeight(width)).toBeLessThanOrEqual(98);
+      expect(attemptPersonnelCropHeight(width + 1)).toBeGreaterThan(98);
+    });
+
+    it('is never wider than the most it is given', () => {
+      expect(attemptPersonnelCardWidth(12, 1000, 127)).toBe(127);
     });
   });
 });
 
-// Issue #1190: the dilemma choice keeps the facing phase's mission scale and gives the stack in the
-// middle the width the personnel row takes in the facing phase.
-// Issue #1208: the dilemma stack of the facing phase takes the width the mission, the placed-on
-// column and the middle column leave, and the mission keeps the size it had against the narrow stack.
+// Issue #1218: in the facing phase the stack is one card and its slivers, and the personnel get 3
+// cards to a row, as wide as the crew panel's where the screen has the room, with the peek of a
+// second row, and the mission grows only while the personnel keep that width.
+describe('the personnel and the stack of the facing phase (#1218)', () => {
+  const touchColumn = (scale: number) => missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
+  const desktopColumn = (scale: number) => missionColumnHeight(scale, true, DESKTOP_RESERVED_SHIP_ROWS);
+  const buttonsRoom = 4 + ATTEMPT_PERSONNEL_BUTTONS_HEIGHT;
+  // The table heights: the 218 px the browser measures at 667x375 below a bottom row about 125 px
+  // tall, and the 250 px of the other tests.
+  const screens = [
+    { name: '667x375', width: MIN_SCREEN.width, height: MIN_SCREEN.height, tableHeight: 218, desktop: false },
+    { name: '667x375, 250 px tall', width: MIN_SCREEN.width, height: MIN_SCREEN.height, tableHeight: 250, desktop: false },
+    { name: '1024x768', width: 1024, height: 768, tableHeight: 768 - 32 - 160, desktop: false },
+    { name: '1920x1080', width: 1920, height: 1080, tableHeight: 1080 - 32 - 200, desktop: false },
+    { name: 'a desktop at 1024x768', width: 1024, height: 768, tableHeight: 768 - 32 - 125, desktop: true },
+    { name: 'a desktop at 1440x900', width: 1440, height: 900, tableHeight: 900 - 32 - 125, desktop: true },
+    { name: 'a desktop at 1920x1080', width: 1920, height: 1080, tableHeight: 1080 - 32 - 125, desktop: true },
+  ];
+  const cases = [
+    { name: 'a planet mission with an away team of 20', ships: 0, personnel: { count: 20, space: false }, placedOn: false },
+    { name: 'a space mission with a crew of 12', ships: 1, personnel: { count: 12, space: true }, placedOn: false },
+    { name: 'a space mission with a crew of 12 and placed cards', ships: 1, personnel: { count: 12, space: true }, placedOn: true },
+    { name: 'a space mission with a crew of 2', ships: 1, personnel: { count: 2, space: true }, placedOn: false },
+  ];
+
+  for (const screen of screens) {
+    const tableScale = screen.desktop ? 1 : computeTableScale(screen.width, screen.height);
+    const available = screen.tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const rowScale = screen.desktop
+      ? computeDesktopTableScale(screen.width, screen.tableHeight, desktopColumn)
+      : computeTouchMissionScale(screen.width, screen.tableHeight, touchColumn, tableScale);
+    const floor = attemptFloorScale(rowScale, available, tableScale);
+    const panel = viewerCardSize(computeTableScale(screen.width, screen.height), screen.desktop).width;
+
+    it.each(cases)(`lays out $name on ${screen.name}`, ({ ships, personnel, placedOn }) => {
+      const sizes = computeAttemptLayout(screen.width, available, screen.desktop, ships, floor, personnel, placedOn, panel);
+      // 3 cards to a row, never wider than the crew panel's, 3 cards wide with fewer cards too.
+      expect(sizes.personnelColumns).toBe(3);
+      expect(sizes.personnelCardWidth).toBeLessThanOrEqual(panel);
+      expect(sizes.personnelWidth).toBe(3 * sizes.personnelCardWidth + 2 * 8 + ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH);
+      // The peek: at least a quarter of a card of the second row when the cards do not all fit.
+      const crop = attemptPersonnelCropHeight(sizes.personnelCardWidth);
+      if (personnel.count > 3) {
+        expect(sizes.personnelHeight).toBeGreaterThanOrEqual(crop + 8 + 0.25 * crop - 1);
+        expect(sizes.personnelVisibleRows).toBeGreaterThanOrEqual(2);
+      } else {
+        expect(sizes.personnelHeight).toBe(crop);
+      }
+      // The stack is at most 1.2 times its top card.
+      expect(sizes.stackWidth).toBeLessThanOrEqual(1.2 * sizes.stackCardWidth);
+      expect(sizes.stackWidth).toBe(sizes.stackCardWidth + Math.min(ATTEMPT_STACK_SLIVER_ROOM, Math.floor(0.2 * sizes.stackCardWidth)));
+      // The widths fit the game layer.
+      const used =
+        32 + 20 + Math.round(72 * sizes.missionScale) +
+        (sizes.placedOnWidth > 0 ? sizes.placedOnWidth + ATTEMPT_GAP : 0) +
+        sizes.shipsWidth + sizes.stackWidth + 2 * ATTEMPT_GAP;
+      expect(used).toBeLessThanOrEqual(screen.width);
+      // The heights fit below the slivers' room.
+      const shipsHeight = sizes.shipRows * shipRowLineHeight(sizes.shipScale, screen.desktop) + (sizes.shipRows - 1) * 4;
+      const middle = personnel.space
+        ? badgeStripHeight(sizes.missionScale) + 4 + Math.max(buttonsRoom + sizes.personnelHeight, shipsHeight)
+        : buttonsRoom + sizes.personnelHeight + 4 + shipsHeight;
+      expect(underMissionStackRoom(sizes.missionScale, true) + middle).toBeLessThanOrEqual(available + 0.5);
+      expect(sizes.missionScale).toBeGreaterThanOrEqual(Math.min(floor, sizes.missionScale));
+      // The choice phase keeps the mission's scale and fits the width.
+      const choice = computeAttemptChoiceLayout(screen.width, available, screen.desktop, ships, floor, sizes, personnel.space);
+      expect(choice.missionScale).toBe(sizes.missionScale);
+      expect(
+        32 + 20 + Math.round(72 * choice.missionScale) +
+          (sizes.placedOnWidth > 0 ? sizes.placedOnWidth + ATTEMPT_GAP : 0) +
+          choice.stackWidth + 2 * ATTEMPT_STACK_SIDE_GAP + choice.rightWidth + 2 * ATTEMPT_GAP,
+      ).toBeLessThanOrEqual(screen.width);
+    });
+  }
+
+  it('gives the cards the width of the crew panel where the screen has the room', () => {
+    const tableHeight = 900 - 32 - 125;
+    const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const floor = computeDesktopTableScale(1440, tableHeight, desktopColumn);
+    const panel = viewerCardSize(computeTableScale(1440, 900), true).width;
+    expect(panel).toBe(170);
+    for (const personnel of [{ count: 20, space: false }, { count: 12, space: true }]) {
+      expect(computeAttemptLayout(1440, available, true, 1, floor, personnel, false, panel).personnelCardWidth).toBe(panel);
+    }
+  });
+
+  it('stops the mission growing where its growth would take the width the personnel need', () => {
+    const tableHeight = 900 - 32 - 125;
+    const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const floor = computeDesktopTableScale(1440, tableHeight, desktopColumn);
+    const crew = { count: 12, space: true };
+    const sizes = computeAttemptLayout(1440, available, true, 1, floor, crew, false, 170);
+    const smallCards = computeAttemptLayout(1440, available, true, 1, floor, crew, false, 100);
+    expect(sizes.personnelCardWidth).toBe(170);
+    expect(smallCards.missionScale).toBeGreaterThan(sizes.missionScale);
+    expect(sizes.missionScale).toBeGreaterThanOrEqual(floor);
+  });
+
+  it('shrinks the cards to the width there is when the floor leaves too little, and keeps 3 to a row', () => {
+    const tableHeight = 768 - 32 - 160;
+    const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const tableScale = computeTableScale(1024, 768);
+    const floor = attemptFloorScale(computeTouchMissionScale(1024, tableHeight, touchColumn, tableScale), available, tableScale);
+    const panel = viewerCardSize(tableScale).width;
+    const sizes = computeAttemptLayout(1024, available, false, 1, floor, { count: 12, space: true }, true, panel);
+    expect(sizes.personnelCardWidth).toBeLessThan(panel);
+    expect(sizes.personnelColumns).toBe(3);
+    expect(sizes.missionScale).toBeCloseTo(floor, 5);
+    const used =
+      32 + 20 + Math.round(72 * sizes.missionScale) + sizes.placedOnWidth + ATTEMPT_GAP + sizes.shipsWidth + sizes.stackWidth + 2 * ATTEMPT_GAP;
+    expect(used).toBeLessThanOrEqual(1024);
+    expect(used + 3).toBeGreaterThan(1024);
+  });
+});
+
+// Issue #1208: the dilemma stack of the facing phase draws a whole top card beside the slivers of
+// the cards behind it. Issue #1218: it is no wider than that.
 describe('the facing stack (#1208)', () => {
   const touchColumn = (scale: number) => missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
   const screens = [
@@ -454,48 +530,19 @@ describe('the facing stack (#1208)', () => {
     );
     for (const { personnel, placedOn } of cases) {
       const label = `${screen.width}x${screen.height}, ${personnel.space ? 'a space' : 'a planet'} mission`;
-      const sizes = computeAttemptLayout(screen.width, available, false, 1, floor, personnel, placedOn);
-
-      it(`fits the width and takes what is left at ${label}`, () => {
-        const used =
-          32 + 20 + Math.round(72 * sizes.missionScale) +
-          (sizes.placedOnWidth > 0 ? sizes.placedOnWidth + ATTEMPT_GAP : 0) +
-          sizes.shipsWidth + sizes.stackWidth + 2 * ATTEMPT_GAP;
-        expect(used).toBeLessThanOrEqual(screen.width);
-        expect(used).toBeGreaterThan(screen.width - 2);
-        expect(sizes.stackWidth).toBeGreaterThanOrEqual(56);
-      });
+      const sizes = computeAttemptLayout(screen.width, available, false, 1, floor, personnel, placedOn, viewerCardSize(tableScale).width);
 
       it(`draws a whole top card no taller than the zone, beside the slivers, at ${label}`, () => {
         expect(sizes.stackHeight).toBeLessThanOrEqual(sizes.columnHeight);
         expect(sizes.stackHeight).toBeLessThanOrEqual(missionCardHeight(sizes.missionScale, true));
         expect(Math.round((sizes.stackCardWidth * 167) / 120)).toBeLessThanOrEqual(sizes.stackHeight + 1);
-        expect(sizes.stackCardWidth + ATTEMPT_STACK_SLIVER_ROOM).toBeLessThanOrEqual(sizes.stackWidth);
-        // The card is as tall as the zone unless the width caps it: a 120×167 card, not 72 wide.
-        expect(sizes.stackCardWidth).toBe(
-          Math.min(Math.floor((sizes.stackHeight * 120) / 167), sizes.stackWidth - ATTEMPT_STACK_SLIVER_ROOM),
-        );
-      });
-
-      it(`keeps 4 crops a row and the mission's scale in both phases at ${label}`, () => {
-        expect(sizes.personnelColumns).toBeLessThanOrEqual(4);
-        const choice = computeAttemptChoiceLayout(screen.width, available, false, 1, floor, sizes, personnel.space);
-        expect(choice.missionScale).toBe(sizes.missionScale);
+        // The card is as tall as the zone: a 120×167 card, not 72 wide.
+        expect(sizes.stackCardWidth).toBe(Math.floor((sizes.stackHeight * 120) / 167));
+        expect(sizes.stackWidth - sizes.stackCardWidth).toBeLessThanOrEqual(ATTEMPT_STACK_SLIVER_ROOM);
+        expect(sizes.stackWidth).toBeLessThanOrEqual(1.2 * sizes.stackCardWidth);
       });
     }
   }
-
-  it('is wider than the narrow stack wherever the middle column leaves width', () => {
-    const tableHeight = 600;
-    const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
-    const tableScale = computeTableScale(1133, 744);
-    const floor = attemptFloorScale(computeTouchMissionScale(1133, tableHeight, touchColumn, tableScale), available, tableScale);
-    for (const personnel of [{ count: 12, space: true }, { count: 20, space: false }]) {
-      expect(computeAttemptLayout(1133, available, false, 1, floor, personnel, true).stackWidth).toBeGreaterThan(56);
-    }
-    // The planet mission's away team stops at 4 crops, and the stack takes the rest.
-    expect(computeAttemptLayout(1133, available, false, 1, floor, { count: 20, space: false }).stackWidth).toBeGreaterThan(300);
-  });
 });
 
 describe('computeAttemptChoiceLayout (#1190)', () => {
