@@ -48,7 +48,7 @@
     "@testing-library/react": "^16.3.3",
     "@types/jest": "^30.0.0",
     "@types/node": "24.19.2",
-    "@types/node-fetch": "^2.6.9",
+    "@types/node-fetch": "^2.6.13",
     "@types/react": "18.2.34",
     "agent-browser": "0.39.1",
     "jest": "^30.5.2",
