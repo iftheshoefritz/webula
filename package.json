@@ -28,7 +28,7 @@
     "googleapis": "^129.0.0",
     "lodash": "^4.17.21",
     "next": "^15.3.0",
-    "next-auth": "^4.24.5",
+    "next-auth": "^4.24.15",
     "postcss": "^8.4.21",
     "posthog-js": "^1.362.0",
     "posthog-node": "^5.29.2",
