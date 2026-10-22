@@ -1474,11 +1474,6 @@
     "@posthog/types" "^1.416.0"
     preact "^10.29.3"
 
-"@posthog/core@1.25.2":
-  version "1.25.2"
-  resolved "https://registry.yarnpkg.com/@posthog/core/-/core-1.25.2.tgz#94a7b7ae44739fa945eaf688126f9af3435473d7"
-  integrity sha512-h2FO7ut/BbfwpAXWpwdDHTzQgUo9ibDFEs6ZO+3cI3KPWQt5XwczK1OLAuPprcjm8T/jl0SH8jSFo5XdU4RbTg==
-
 "@posthog/core@^1.59.3":
   version "1.59.3"
   resolved "https://registry.yarnpkg.com/@posthog/core/-/core-1.59.3.tgz#008190c2fb4cce2471728d5c60ff3169341ec5fe"
@@ -6009,12 +6004,12 @@ posthog-js@^1.438.15:
     web-vitals "^6.2.1"
     web-vitals-soft-navs "npm:web-vitals@6.2.1"
 
-posthog-node@^5.29.2:
-  version "5.29.2"
-  resolved "https://registry.yarnpkg.com/posthog-node/-/posthog-node-5.29.2.tgz#081394948c1c7dd9b13f2838d31b09585da4802c"
-  integrity sha512-rI7kkF0XqDc0G1qjx+Hb4iuY9NAlL+XQNoGOpnEpRNTUcXvjY6WlsRGZ9m2whgc39emrrYdszi/YT8wZkr2xsg==
+posthog-node@^5.56.4:
+  version "5.56.4"
+  resolved "https://registry.yarnpkg.com/posthog-node/-/posthog-node-5.56.4.tgz#6b1eb5d3c90afc9d441a4186ea8aa848c45a86cc"
+  integrity sha512-oVn/HxJZK/xen+u51nwyEpWnN4UEQox4GOSwBOp5OGli3x7Soz7Jler+CatGQsAehQuVPas2432hAarXNyxoWA==
   dependencies:
-    "@posthog/core" "1.25.2"
+    "@posthog/core" "^1.59.3"
 
 preact-render-to-string@^5.1.19:
   version "5.2.6"
