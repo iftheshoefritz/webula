@@ -30,7 +30,7 @@
     "next": "^15.3.0",
     "next-auth": "^4.24.15",
     "postcss": "^8.4.21",
-    "posthog-js": "^1.362.0",
+    "posthog-js": "^1.438.15",
     "posthog-node": "^5.29.2",
     "react": "18.2.0",
     "react-chartjs-2": "^5.2.0",
