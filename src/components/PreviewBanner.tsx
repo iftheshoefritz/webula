@@ -13,7 +13,10 @@ export function PreviewBanner({ isPreview }: PreviewBannerProps) {
       <a href="/decks/practice?fixture=1" className="text-blue-700 underline hover:text-blue-900">/decks/practice?fixture=1</a>
       <a href="/decks/practice?fixture=1&reset=1" className="text-blue-700 underline hover:text-blue-900">/decks/practice?fixture=1&amp;reset=1</a>
       <a href="/decks/reports?fixture=1" className="text-blue-700 underline hover:text-blue-900">/decks/reports?fixture=1</a>
+      {/* NextAuth route handlers, not pages: they need a full page load, not <Link>. */}
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a href="/api/auth/signin" className="text-blue-700 underline hover:text-blue-900">/api/auth/signin</a>
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a href="/api/auth/signout" className="text-blue-700 underline hover:text-blue-900">/api/auth/signout</a>
       <a href="/test-error" className="text-blue-700 underline hover:text-blue-900">/test-error</a>
       <a href="/test-error?trigger=client" className="text-blue-700 underline hover:text-blue-900">/test-error?trigger=client</a>
