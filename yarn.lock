@@ -6139,10 +6139,10 @@ react-tooltip@^5.28.0:
     "@floating-ui/dom" "^1.6.1"
     classnames "^2.3.0"
 
-react-virtuoso@^4.18.3:
-  version "4.18.3"
-  resolved "https://registry.yarnpkg.com/react-virtuoso/-/react-virtuoso-4.18.3.tgz#12e69600c258bc6e6bd31c2516942ef08700deac"
-  integrity sha512-fLz/peHAx4Eu0DLHurFEEI7Y6n5CqEoxBh04rgJM9yMuOJah2a9zWg/MUOmZLcp7zuWYorXq5+5bf3IRgkNvWg==
+react-virtuoso@^4.18.19:
+  version "4.18.19"
+  resolved "https://registry.yarnpkg.com/react-virtuoso/-/react-virtuoso-4.18.19.tgz#1cc918ba0179550f0129edd05af0d3855ec6c64b"
+  integrity sha512-dewyZisA5IiQTldh7eHM5KpI+qxi0nKRVYi2iM01XmPkNa5tjvVUKJKAIc6ted1hAK1/NFlXuhXpVYqGHHdcdQ==
 
 react@18.2.0:
   version "18.2.0"
