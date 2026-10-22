@@ -43,20 +43,18 @@
     "tailwindcss": "^3.3.1"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.4.2",
-    "@testing-library/react": "^14.2.1",
-    "@types/jest": "^29.5.12",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/jest": "^30.0.0",
     "@types/node": "24.19.2",
     "@types/node-fetch": "^2.6.9",
     "@types/react": "18.2.34",
     "agent-browser": "0.39.1",
-    "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
+    "jest": "^30.5.2",
+    "jest-environment-jsdom": "^30.5.2",
     "serwist": "^9.5.13",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.0"
-  },
-  "resolutions": {
-    "jest-environment-jsdom/jsdom": "26.1.0"
   }
 }
