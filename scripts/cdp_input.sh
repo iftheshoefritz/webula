@@ -13,7 +13,7 @@
 #
 # The work is done by `cdp_input.mjs`; this wrapper only finds the browser's
 # DevTools URL with `npx agent-browser get cdp-url` and runs Node with
-# `--experimental-websocket`, the built-in WebSocket of Node 20. No package is
+# `--experimental-websocket`. Node 24 has a global WebSocket anyway. No package is
 # needed. Each command prints the pointer events the page saw.
 #
 # For a touch drag of a card to a place on the practice table, use
