@@ -235,7 +235,10 @@ describe('the phase button on the table (#1192)', () => {
     table = savedTable();
     expect(table.attempt?.phase).toBe('choose');
     expect(table.dilemmaStack.map((c) => c.face)).toEqual(['up', 'up']);
-    expect(screen.getByTestId('attempt-personnel-pile')).toBeInTheDocument();
+    // A space mission: the ship shows, and no pile (#1235).
+    expect(screen.queryByTestId('attempt-personnel-pile')).toBeNull();
+    const ship = table.missions[2].ships[0];
+    expect(screen.getByTestId('attempt-ships').querySelector(`[data-card-id="${ship.id}"]`)).not.toBeNull();
     expect(screen.getByTestId('attempt-face-dilemmas')).toBeInTheDocument();
   });
 });

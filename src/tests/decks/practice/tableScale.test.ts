@@ -522,12 +522,10 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
     const used = 32 + 20 + missionWidth + choice.stackWidth + 2 * ATTEMPT_STACK_SIDE_GAP + choice.rightWidth + 2 * ATTEMPT_GAP;
     expect(used).toBeLessThanOrEqual(MIN_SCREEN.width);
     expect(attemptMissionColumnHeight(choice.missionScale)).toBeLessThanOrEqual(available + 1);
-    // The pile and the rows of ships fit the height below the slivers' room: below one another at a
-    // space mission, side by side at a planet mission (#1222).
+    // The rows of ships fit the height below the slivers' room: alone at a space mission (#1235),
+    // beside the pile at a planet mission (#1222).
     const shipsHeight = choice.shipRows * shipRowLineHeight(choice.shipScale, false);
-    const right = personnel.space
-      ? fullCardHeight(choice.pileCardWidth) + 4 + shipsHeight
-      : Math.max(choice.stackHeight, shipsHeight);
+    const right = personnel.space ? shipsHeight : Math.max(choice.stackHeight, shipsHeight);
     expect(right).toBeLessThanOrEqual(available - underMissionStackRoom(choice.missionScale, true));
     // The stack is wider than the facing phase's fan, and its cards are art crops (#1221), as tall as
     // the zone below the end labels allows.
@@ -558,7 +556,7 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
     const personnel = { count: 20, space: false };
     const face = computeAttemptLayout(MIN_SCREEN.width, available, false, ships, floor, personnel);
     const choice = computeAttemptChoiceLayout(MIN_SCREEN.width, available, false, ships, floor, face, false);
-    expect(choice.pileCropped).toBe(true);
+    expect(choice.hasPile).toBe(true);
     expect(choice.pileCardWidth).toBe(choice.stackCardWidth);
     expect(choice.pileCardHeight).toBe(choice.stackCardHeight);
     expect(choice.shipColumnWidth).toBe(shipRowWidth(choice.shipScale, 1));
@@ -585,14 +583,23 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
     expect(choice.stackWidth).toBe(available_ - missionWidth - choice.rightWidth);
   });
 
-  it('keeps the whole ship-sized pile above the ships at a space mission', () => {
+  // Issue #1235: a space mission has no pile, so the right column is one ship wide and its ships
+  // take the whole height.
+  it.each([1, 5])('shows no pile at a space mission with %i ships, only the ships', (ships) => {
     const personnel = { count: 12, space: true };
-    const face = computeAttemptLayout(MIN_SCREEN.width, available, false, 1, floor, personnel);
-    const choice = computeAttemptChoiceLayout(MIN_SCREEN.width, available, false, 1, floor, face, true);
-    expect(choice.pileCropped).toBe(false);
-    expect(choice.shipColumnWidth).toBe(0);
-    expect(choice.pileCardWidth).toBeLessThanOrEqual(shipCardWidth(choice.shipScale));
-    expect(choice.pileCardHeight).toBe(fullCardHeight(choice.pileCardWidth));
+    const face = computeAttemptLayout(MIN_SCREEN.width, available, false, ships, floor, personnel);
+    const choice = computeAttemptChoiceLayout(MIN_SCREEN.width, available, false, ships, floor, face, true);
+    expect(choice.hasPile).toBe(false);
+    expect(choice.pileCardWidth).toBe(0);
+    expect(choice.pileCardHeight).toBe(0);
+    expect(choice.rightWidth).toBe(shipRowWidth(choice.shipScale, 1));
+    expect(choice.shipColumnWidth).toBe(choice.rightWidth);
+    const line = shipRowLineHeight(choice.shipScale, false);
+    expect(choice.shipRows * line + (choice.shipRows - 1) * 4).toBeLessThanOrEqual(face.columnHeight);
+    // The rows the pile used to leave: the ships below a pile as wide as a ship.
+    const oldPile = Math.min(shipCardWidth(choice.shipScale), Math.floor(((face.columnHeight - 4 - line) * 120) / 167));
+    const oldRows = Math.max(1, Math.floor((face.columnHeight - fullCardHeight(oldPile) - 4 + 4) / (line + 4)));
+    expect(choice.shipRows).toBeGreaterThanOrEqual(Math.min(ships, oldRows));
   });
 });
 
@@ -642,7 +649,7 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
       expect(attemptMissionColumnHeight(face.missionScale)).toBeLessThanOrEqual(available + 0.5);
       expect(padding + Math.max(middle, stack)).toBeLessThanOrEqual(available + 0.5);
 
-      // The choice phase: the mission, the stack, and the pile above its ships.
+      // The choice phase: the mission, the stack, and the ships, beside the pile at a planet mission.
       const choice = computeAttemptChoiceLayout(screen.width, available, screen.desktop, ships, floor, face, personnel.space);
       const shipsHeight = shipRowsHeight(choice.shipRows, choice.shipScale, screen.desktop);
       const right = personnel.space
