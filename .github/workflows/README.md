@@ -86,7 +86,7 @@ searching for them again.
 
 An agent that installs the dependencies itself spends turns on it, and its first `yarn test` fails with an error that reads like a broken test. `agent-browser` is a devDependency for the same reason: `npx agent-browser` then runs the local copy, and downloads nothing.
 
-`agent-browser` is pinned to `0.27.0`, the last release with no `engines` field. Every release from `0.27.1` needs Node 24, and CI runs Node 20, so a later version fails `yarn install --frozen-lockfile` with "The engine node is incompatible with this module". To move to a later `agent-browser`, raise the Node version in `ci.yml` and in the three agent workflows first, and raise the Node version of the Vercel project to match.
+`agent-browser` is pinned to `0.39.1`. Every release from `0.27.1` needs Node 24, so `ci.yml` and the three agent workflows run Node 24, and `engines.node` in `package.json` is `24.x`, which Vercel follows too (#1238). On an older Node, `yarn install --frozen-lockfile` fails with "The engine node is incompatible with this module". To change the Node major, change it in all four workflows and in `engines.node` together.
 
 ---
 
