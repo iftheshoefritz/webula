@@ -1,6 +1,7 @@
 // #1176: a personnel drawn as the art crop shows its icons in a column at the left of the art and
 // its integrity, cunning and strength in a band along the bottom, in the boxes the card prints
-// there, the word beside the number (#1219).
+// there, the word beside the number (#1219). On a small crop the band is one box with the numbers
+// only, "6 / 7 / 5" (#1254).
 jest.mock('@dnd-kit/core', () => ({
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, isDragging: false }),
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
@@ -12,8 +13,9 @@ import { render, screen } from '@testing-library/react';
 import CardListPanel, { PanelLocation } from '../../../app/decks/practice/CardListPanel';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderWidth } from '../../../app/decks/practice/TableCard';
-import {
+import PersonnelOverlay, {
   ATTRIBUTE_BOX_FILLS,
+  GLYPH_EM,
   PERSONNEL_MAX_ICONS,
   attributeBoxFill,
   attributeLabelLength,
@@ -97,6 +99,34 @@ describe('personnelOverlayLayout', () => {
   });
 });
 
+describe('personnelOverlayLayout: the form of the band (#1254)', () => {
+  const layoutAt = (width: number) => personnelOverlayLayout(width, artCropHeight(width), cardBorderWidth(width));
+
+  it.each([69, 108, 126])('draws the numbers only, in one box, at width %s', (width) => {
+    expect(layoutAt(width).shape).toBe('numbers');
+  });
+
+  it.each([200, 238])('draws the three labelled boxes at width %s', (width) => {
+    expect(layoutAt(width).shape).toBe('labelled');
+  });
+
+  it.each([69, 126])('puts the one box inside the border, on the centre, at the bottom of the crop at width %s', (width) => {
+    const border = cardBorderWidth(width);
+    const { numbersLeft, numbersWidth, boxLefts, boxWidth, bandTop, bandHeight } = layoutAt(width);
+    expect(numbersLeft).toBe(boxLefts[0]);
+    expect(numbersLeft + numbersWidth).toBe(boxLefts[2] + boxWidth);
+    expect(numbersLeft).toBeGreaterThan(border);
+    expect(numbersLeft + numbersWidth).toBeLessThan(width - border);
+    expect(Math.abs(numbersLeft - (width - numbersLeft - numbersWidth))).toBeLessThanOrEqual(1);
+    expect(bandTop + bandHeight).toBe(artCropHeight(width));
+  });
+
+  it('fits two-digit values in the one box at width 69', () => {
+    const { numbersWidth, line, pad, fontSize } = layoutAt(69);
+    expect('10 / 12 / 11'.length * GLYPH_EM * fontSize).toBeLessThanOrEqual(numbersWidth - 2 * line - 2 * pad);
+  });
+});
+
 describe('attributeLabelLength', () => {
   it('leaves a word that fits beside its number at its own width', () => {
     expect(attributeLabelLength('Integrity', '6', { boxWidth: 200, line: 1, pad: 2, fontSize: 10 })).toBeUndefined();
@@ -123,8 +153,19 @@ describe('attributeBoxFill', () => {
   });
 });
 
+const renderOverlay = (width: number, overrides: Record<string, unknown> = {}) =>
+  render(
+    <PersonnelOverlay
+      card={makeCard(0, overrides).card}
+      width={width}
+      cropHeight={artCropHeight(width)}
+      border={cardBorderWidth(width)}
+    />
+  );
+
 describe('Practice table: the personnel overlay in the crew and away team panels (#1176)', () => {
-  it.each<PanelLocation>(['awayTeam', 'crew'])('draws the icons and the attributes of a %s personnel', (location) => {
+  // A panel card at scale 1 is 108 px wide (`viewerCardSize(1)`), a small crop: one box (#1254).
+  it.each<PanelLocation>(['awayTeam', 'crew'])('draws the icons and the numbers of a %s personnel in one box', (location) => {
     renderPanel([makeCard(0)], true, location);
 
     const icons = screen.getByTestId('personnel-icons').querySelectorAll('img');
@@ -132,17 +173,40 @@ describe('Practice table: the personnel overlay in the crew and away team panels
     expect(screen.getByTestId('personnel-integrity').textContent).toBe('6');
     expect(screen.getByTestId('personnel-cunning').textContent).toBe('7');
     expect(screen.getByTestId('personnel-strength').textContent).toBe('5');
-    expect(screen.getByTestId('personnel-integrity-label').textContent).toBe('Integrity');
-    expect(screen.getByTestId('personnel-cunning-label').textContent).toBe('Cunning');
-    expect(screen.getByTestId('personnel-strength-label').textContent).toBe('Strength');
-    expect(screen.getByTestId('personnel-cunning-label').getAttribute('style')).toContain('small-caps');
-    expect(screen.getByTestId('personnel-cunning-fill').getAttribute('fill')).toBe(ATTRIBUTE_BOX_FILLS.federation);
+    expect(screen.getByTestId('personnel-attributes-numbers').textContent).toBe('6 / 7 / 5');
+    expect(screen.getByTestId('personnel-attributes-numbers').getAttribute('text-anchor')).toBe('middle');
+    expect(screen.queryByTestId('personnel-integrity-label')).toBeNull();
+    expect(screen.queryByTestId('personnel-cunning-box')).toBeNull();
+    expect(screen.getByTestId('personnel-attributes-fill').getAttribute('fill')).toBe(ATTRIBUTE_BOX_FILLS.federation);
     expect(screen.getByRole('img', { name: 'Integrity 6, Cunning 7, Strength 5' })).toBeTruthy();
     expect(screen.getByTestId('personnel-overlay').className).toMatch(/pointer-events-none/);
   });
 
+  it.each([69, 126])('draws one box with no words at width %s', (width) => {
+    renderOverlay(width, { affiliation: 'romulan', integrity: '10', cunning: '12', strength: '11' });
+
+    expect(screen.getByTestId('personnel-attributes-numbers').textContent).toBe('10 / 12 / 11');
+    expect(screen.queryByTestId('personnel-strength-label')).toBeNull();
+    expect(screen.getByTestId('personnel-attributes-fill').getAttribute('fill')).toBe(ATTRIBUTE_BOX_FILLS.romulan);
+    expect(screen.getByRole('img', { name: 'Integrity 10, Cunning 12, Strength 11' })).toBeTruthy();
+  });
+
+  it('draws the three labelled boxes on a large crop (#1219)', () => {
+    renderOverlay(238);
+
+    expect(screen.queryByTestId('personnel-attributes-box')).toBeNull();
+    expect(screen.getByTestId('personnel-integrity').textContent).toBe('6');
+    expect(screen.getByTestId('personnel-cunning').textContent).toBe('7');
+    expect(screen.getByTestId('personnel-strength').textContent).toBe('5');
+    expect(screen.getByTestId('personnel-integrity-label').textContent).toBe('Integrity');
+    expect(screen.getByTestId('personnel-cunning-label').textContent).toBe('Cunning');
+    expect(screen.getByTestId('personnel-strength-label').textContent).toBe('Strength');
+    expect(screen.getByTestId('personnel-cunning-label').getAttribute('style')).toContain('small-caps');
+    expect(screen.getByRole('img', { name: 'Integrity 6, Cunning 7, Strength 5' })).toBeTruthy();
+  });
+
   it("fills the boxes with the colour of the personnel's affiliation", () => {
-    renderPanel([makeCard(0, { affiliation: 'romulan' })]);
+    renderOverlay(238, { affiliation: 'romulan' });
 
     for (const attribute of ['integrity', 'cunning', 'strength']) {
       expect(screen.getByTestId(`personnel-${attribute}-fill`).getAttribute('fill')).toBe(ATTRIBUTE_BOX_FILLS.romulan);

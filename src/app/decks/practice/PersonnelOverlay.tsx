@@ -1,13 +1,19 @@
 'use client';
 
+import React from 'react';
+
 // The format of a personnel table card (#1176), the counterpart of the mission's span (#1133,
 // #1141, `MissionSpan` in `MissionRow.tsx`). The art crop cuts off the column of icons the card
 // prints left of its skill box and the integrity, cunning and strength it prints along its bottom,
 // so the crop draws them again from the card data: the icons in a column at the left of the art,
 // below the affiliation icon the crop already shows, and the three attributes in a band whose bottom
-// is the bottom edge of the crop (#1236), drawn as the card prints them (#1219): three boxes, each a black frame with a silver line
-// along its top and its bottom, filled with the colour of the affiliation, and in it the word in
-// white small capitals, "Integrity", "Cunning" or "Strength", and the number right of it. Only a
+// is the bottom edge of the crop (#1236). On a larger crop the band is drawn as the card prints it
+// (#1219): three boxes, each a black frame with a silver line along its top and its bottom, filled
+// with the colour of the affiliation, and in it the word in white small capitals, "Integrity",
+// "Cunning" or "Strength", and the number right of it. On a small crop, where those words are too
+// small to read, it is one box of the same frame and fill, as wide as the three together, with only
+// the numbers in the card's order, "6 / 6 / 5" (#1254). The layout picks the form from its own font
+// size, so every place that draws the band follows one rule. Only a
 // cropped, face-up personnel draws it, the brig's too (#1234): the whole card prints both, so a
 // desktop panel draws none.
 import auIcon from '../../../../public/icons/icon_au.gif';
@@ -67,9 +73,12 @@ const ICON_GAP = 0.016;
 const BOX_GAP = 0.02;
 const BOX_HEIGHT = 0.13;
 const BOX_FONT = 0.62; // the capital's font size, of the box's height
+// The font size below which the band drops the words and draws the numbers alone in one box
+// (#1254): every crop at the minimum screen, 667x375, and none of a panel at 1024x768.
+const NUMBERS_ONLY_BELOW_FONT = 12;
 // The width of a glyph of a condensed sans, as a share of its font size: the estimate of a word's
 // width, past which `textLength` squeezes it into its box, as the card's condensed face is narrow.
-const GLYPH_EM = 0.55;
+export const GLYPH_EM = 0.55;
 const SMALL_CAP_SCALE = 0.8; // the size of a small capital, of a capital
 
 export const PERSONNEL_MAX_ICONS = 4;
@@ -124,6 +133,9 @@ export function personnelOverlayLayout(
   line: number;
   pad: number;
   fontSize: number;
+  shape: 'labelled' | 'numbers';
+  numbersLeft: number;
+  numbersWidth: number;
 } {
   const inner = width - 2 * border;
   const gap = Math.max(1, Math.round(width * BOX_GAP));
@@ -131,6 +143,7 @@ export function personnelOverlayLayout(
   // The pixels left over go to the margins, so the three boxes sit on the card's centre.
   const first = border + Math.floor((inner - 3 * boxWidth - 2 * gap) / 2);
   const boxHeight = Math.max(7, Math.round(width * BOX_HEIGHT));
+  const fontSize = Math.round(boxHeight * BOX_FONT * 10) / 10;
   return {
     iconTop: Math.round(width * ICON_COLUMN_TOP),
     iconLeft: Math.max(border + 1, Math.round(width * ICON_COLUMN_LEFT)),
@@ -144,7 +157,12 @@ export function personnelOverlayLayout(
     // box's height, as the card prints them.
     line: Math.max(1, Math.round(boxHeight / 14)),
     pad: Math.max(1, Math.round(boxHeight * 0.2)),
-    fontSize: Math.round(boxHeight * BOX_FONT * 10) / 10,
+    fontSize,
+    shape: fontSize < NUMBERS_ONLY_BELOW_FONT ? 'numbers' : 'labelled',
+    // The one box of the numbers form spans the three boxes, from the left of the first to the
+    // right of the third.
+    numbersLeft: first,
+    numbersWidth: 3 * boxWidth + 2 * gap,
   };
 }
 
@@ -163,6 +181,36 @@ export function attributeLabelLength(
 // The face of the words and the numbers: the card's is a bold, condensed sans.
 const ATTRIBUTE_FONT_FAMILY = '"Futura Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
+// The frame of a box of the band, `width` wide.
+function AttributeBoxFrame({
+  left,
+  width,
+  height,
+  line,
+  fill,
+  fillTestId,
+}: {
+  left: number;
+  width: number;
+  height: number;
+  line: number;
+  fill: string;
+  fillTestId: string;
+}) {
+  return (
+    <>
+      {/* The shadow the box casts to the right. It stops at the bottom of the band, which is the
+          bottom of the crop (#1236). */}
+      <rect x={left + line} y={line} width={width} height={height - line} fill="rgba(0,0,0,0.6)" />
+      {/* The black frame, a silver line along its top and its bottom, and the fill inside. */}
+      <rect x={left} y={0} width={width} height={height} fill="#000" />
+      <rect x={left} y={0} width={width} height={line} fill="#f3f4f6" />
+      <rect x={left} y={height - line} width={width} height={line} fill="#f3f4f6" />
+      <rect data-testid={fillTestId} x={left + line} y={2 * line} width={width - 2 * line} height={height - 4 * line} fill={fill} />
+    </>
+  );
+}
+
 // The overlay. It takes no pointer events, is not a droppable, and has no `data-zone` or
 // `data-card-id`: a tap, a hold and a drop on it reach the card under it. `className` carries the
 // stopped look, so a stopped personnel greys out whole (#679).
@@ -180,7 +228,7 @@ export default function PersonnelOverlay({
   className?: string;
 }) {
   const layout = personnelOverlayLayout(width, cropHeight, border);
-  const { iconTop, iconLeft, iconSize, iconGap, bandHeight, boxLefts, boxWidth, line, pad, fontSize } = layout;
+  const { iconTop, iconLeft, iconSize, iconGap, bandHeight, boxLefts, boxWidth, line, pad, fontSize, shape } = layout;
   const codes = personnelIconCodes(card.icons).slice(0, PERSONNEL_MAX_ICONS);
   const values = ATTRIBUTES.map((attribute) => String(card[attribute] ?? '').trim());
   const fill = attributeBoxFill(card.affiliation);
@@ -220,51 +268,74 @@ export default function PersonnelOverlay({
         fontWeight={700}
         fontSize={fontSize}
       >
-        {ATTRIBUTES.map((attribute, index) => {
-          const left = boxLefts[index];
-          const label = attributeName(attribute);
-          const labelLength = attributeLabelLength(label, values[index], layout);
-          return (
-            <g key={attribute} data-testid={`personnel-${attribute}-box`}>
-              {/* The shadow the box casts to the right. It stops at the bottom of the band, which is
-                  the bottom of the crop (#1236). */}
-              <rect x={left + line} y={line} width={boxWidth} height={bandHeight - line} fill="rgba(0,0,0,0.6)" />
-              {/* The black frame, a silver line along its top and its bottom, and the fill inside. */}
-              <rect x={left} y={0} width={boxWidth} height={bandHeight} fill="#000" />
-              <rect x={left} y={0} width={boxWidth} height={line} fill="#f3f4f6" />
-              <rect x={left} y={bandHeight - line} width={boxWidth} height={line} fill="#f3f4f6" />
-              <rect
-                data-testid={`personnel-${attribute}-fill`}
-                x={left + line}
-                y={2 * line}
-                width={boxWidth - 2 * line}
-                height={bandHeight - 4 * line}
-                fill={fill}
-              />
-              <text
-                data-testid={`personnel-${attribute}-label`}
-                x={left + line + pad}
-                y={middle}
-                dominantBaseline="central"
-                fill="#fff"
-                style={{ fontVariant: 'small-caps' }}
-                {...(labelLength === undefined ? {} : { textLength: labelLength, lengthAdjust: 'spacingAndGlyphs' })}
-              >
-                {label}
-              </text>
-              <text
-                data-testid={`personnel-${attribute}`}
-                x={left + boxWidth - line - pad}
-                y={middle}
-                dominantBaseline="central"
-                textAnchor="end"
-                fill="#fff"
-              >
-                {values[index]}
-              </text>
-            </g>
-          );
-        })}
+        {shape === 'numbers' ? (
+          <g data-testid="personnel-attributes-box">
+            <AttributeBoxFrame
+              left={layout.numbersLeft}
+              width={layout.numbersWidth}
+              height={bandHeight}
+              line={line}
+              fill={fill}
+              fillTestId="personnel-attributes-fill"
+            />
+            {/* The numbers alone, centred, with " / " between them outside their tspans, so the
+                text of each test id is the bare value. */}
+            <text
+              data-testid="personnel-attributes-numbers"
+              x={layout.numbersLeft + layout.numbersWidth / 2}
+              y={middle}
+              dominantBaseline="central"
+              textAnchor="middle"
+              fill="#fff"
+            >
+              {ATTRIBUTES.map((attribute, index) => (
+                <React.Fragment key={attribute}>
+                  {index > 0 && ' / '}
+                  <tspan data-testid={`personnel-${attribute}`}>{values[index]}</tspan>
+                </React.Fragment>
+              ))}
+            </text>
+          </g>
+        ) : (
+          ATTRIBUTES.map((attribute, index) => {
+            const left = boxLefts[index];
+            const label = attributeName(attribute);
+            const labelLength = attributeLabelLength(label, values[index], layout);
+            return (
+              <g key={attribute} data-testid={`personnel-${attribute}-box`}>
+                <AttributeBoxFrame
+                  left={left}
+                  width={boxWidth}
+                  height={bandHeight}
+                  line={line}
+                  fill={fill}
+                  fillTestId={`personnel-${attribute}-fill`}
+                />
+                <text
+                  data-testid={`personnel-${attribute}-label`}
+                  x={left + line + pad}
+                  y={middle}
+                  dominantBaseline="central"
+                  fill="#fff"
+                  style={{ fontVariant: 'small-caps' }}
+                  {...(labelLength === undefined ? {} : { textLength: labelLength, lengthAdjust: 'spacingAndGlyphs' })}
+                >
+                  {label}
+                </text>
+                <text
+                  data-testid={`personnel-${attribute}`}
+                  x={left + boxWidth - line - pad}
+                  y={middle}
+                  dominantBaseline="central"
+                  textAnchor="end"
+                  fill="#fff"
+                >
+                  {values[index]}
+                </text>
+              </g>
+            );
+          })
+        )}
       </svg>
     </div>
   );
