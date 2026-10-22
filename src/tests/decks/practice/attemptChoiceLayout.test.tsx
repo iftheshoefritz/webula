@@ -1,5 +1,5 @@
 // Issue #1190: the layout of the dilemma choice, with the stack face up in the middle and the
-// attempting personnel as one face-down pile.
+// attempting personnel as one face-down pile at a planet mission only (#1235).
 let mockSearchParamsValue = new URLSearchParams();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace: jest.fn() }),
@@ -66,7 +66,7 @@ jest.mock('@dnd-kit/core', () => {
 });
 
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
 import { getSession } from 'next-auth/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import useDataFetching from '../../../hooks/useDataFetching';
@@ -157,15 +157,16 @@ describe('the layout of the dilemma choice (#1190)', () => {
     }
   });
 
-  it('shows the crew as one face-down pile with a count, and no row or its buttons', async () => {
+  // Issue #1235: at a space mission the right side holds only the ship row, whose crew badge shows
+  // the count of the crew, and no face-down pile.
+  it('shows only the ship with its crew badge at a space mission, and no pile, row or its buttons', async () => {
     await dealChoice();
     const ship = savedTable().missions[2].ships[0];
-    const pile = screen.getByTestId('attempt-personnel-pile');
-    expect(pile).toHaveTextContent(String((ship.crew ?? []).length));
-    expect(pile.getAttribute('aria-label')).toBe(`Attempting personnel, ${(ship.crew ?? []).length} cards`);
-    expect(pile.querySelector('img')!.getAttribute('src')).toMatch(/cardback/);
-    expect(pile.closest('[data-zone]')).toBeNull();
-    expect(pile.querySelector('[data-card-id]')).toBeNull();
+    const crew = (ship.crew ?? []).length;
+    expect(screen.queryByTestId('attempt-personnel-pile')).toBeNull();
+    const ships = screen.getByTestId('attempt-ships');
+    expect(ships.querySelector(`[data-card-id="${ship.id}"]`)).not.toBeNull();
+    expect(within(ships).getByLabelText(new RegExp(` crew, ${crew} cards$`))).toHaveTextContent(String(crew));
     expect(screen.queryByTestId('attempt-row-stop')).toBeNull();
     expect(screen.queryByTestId('attempt-row-stop-all')).toBeNull();
     expect(screen.queryByTestId('attempt-row-shuffle')).toBeNull();

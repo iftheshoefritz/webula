@@ -495,11 +495,12 @@ panel as every other flat panel does, and it has no Shuffle. A drag out of it st
 
 In `'choose'` the attempt layout draws the dilemma choice (#1190): the mission on the left at the
 facing phase's scale (`computeAttemptChoiceLayout` keeps the `missionScale` of `computeAttemptLayout`),
-the dilemma stack face up in the middle, with an empty space of `ATTEMPT_STACK_SIDE_GAP` (16 px) outside each end, outside its drop zone and taken from its width (#1220), and on the right the attempting personnel as one face-down
-pile, `data-testid="attempt-personnel-pile"`, with a count of the crew or the away team, above the
-ships of the mission's ship row, one to a row. At a planet mission (#1222) the pile is a crop of the
-card back exactly the size of a stack card, its bottom edge level with the stack cards' bottom edge,
-and the ship row, mounted even when empty, stands in a column of its own right of it. Where the width
+the dilemma stack face up in the middle, with an empty space of `ATTEMPT_STACK_SIDE_GAP` (16 px) outside each end, outside its drop zone and taken from its width (#1220), and on the right the ships of the mission's ship row, one to a row. At a planet mission the
+attempting personnel show there too, as one face-down pile, `data-testid="attempt-personnel-pile"`,
+with a count of the away team (#1222): a crop of the card back exactly the size of a stack card, its
+bottom edge level with the stack cards' bottom edge, and the ship row, mounted even when empty, stands
+in a column of its own right of it. A space mission has no pile (#1235): the right side holds only the
+ship row, and the ship's crew badge shows the count of the crew. Where the width
 is short, as at 667×375, the stack cards and the pile shrink together so 3 stack cards still sit edge
 to edge. At a space mission the stack cards shrink the same way (#1220). The stack is still the droppable `dilemmaStack`, shows
 even when it is empty, and draws every card face up as the art crop of a table card (#1221), the crop of the placed-on

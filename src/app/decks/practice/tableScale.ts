@@ -643,16 +643,17 @@ export interface AttemptChoiceSizes {
   stackHeight: number;
   stackCardWidth: number;
   stackCardHeight: number;
-  // The right part: its whole width, the face-down pile's card, and the ships, one to a row. At a
-  // space mission the pile is a whole card back as wide as a ship, above the ships. At a planet mission
-  // (#1222) the pile is a crop of the card back exactly the size of a stack card, its bottom edge level
-  // with the bottom edge of the stack's cards, and the ships stand in a column of their own right of
-  // it, `shipColumnWidth` wide (0 at a space mission).
+  // The right part: its whole width, the face-down pile's card, and the ships, one to a row, in a
+  // column `shipColumnWidth` wide. At a planet mission (#1222) the pile is a crop of the card back
+  // exactly the size of a stack card, its bottom edge level with the bottom edge of the stack's cards,
+  // and the ship column stands right of it. A space mission has no pile (#1235): the player knows the
+  // crew is on the ship, whose crew badge shows the count, so the right part is the ship column alone
+  // and the pile's sizes are 0.
   rightWidth: number;
   pileCardWidth: number;
   pileCardHeight: number;
-  // Whether the pile is a crop, the size of a stack card (a planet mission, #1222).
-  pileCropped: boolean;
+  // Whether the right part shows the pile: a planet mission only (#1235).
+  hasPile: boolean;
   shipColumnWidth: number;
   shipScale: number;
   shipRows: number;
@@ -717,23 +718,17 @@ export function computeAttemptChoiceLayout(
       rightWidth,
       pileCardWidth: stackCardWidth,
       pileCardHeight: stackCardHeight,
-      pileCropped: true,
+      hasPile: true,
       shipColumnWidth,
       shipScale: floor,
       shipRows: Math.min(rowsNeeded, rowsFitting),
     };
   }
 
-  // A space mission: the right column holds the pile, as wide as a ship at the floor scale, less
-  // when one line of ships below it would not fit the height; then the ships, one to a row, in the
-  // rows that fit.
-  const pileCardWidth = Math.max(
-    1,
-    Math.min(shipCardWidth(floor), Math.floor((Math.max(0, columnHeight - MISSION_COLUMN_GAP - shipLine) * 120) / 167)),
-  );
-  const rightWidth = Math.max(pileCardWidth, shipRowWidth(floor, 1));
-  const shipsFree = columnHeight - fullCardHeight(pileCardWidth) - MISSION_COLUMN_GAP;
-  const rowsFitting = Math.max(1, Math.floor((shipsFree + SHIP_ROW_GAP) / (shipLine + SHIP_ROW_GAP)));
+  // A space mission: no pile (#1235). The right column holds only the ships, one to a row, in the
+  // rows that fit the whole height.
+  const rightWidth = shipRowWidth(floor, 1);
+  const rowsFitting = Math.max(1, Math.floor((columnHeight + SHIP_ROW_GAP) / (shipLine + SHIP_ROW_GAP)));
   const rowsNeeded = Math.max(1, Math.ceil(shipCount / shipsPerRow(floor, rightWidth)));
 
   // The stack: every width the mission, the right column and the space outside its ends leave, as tall as the mission card. Its
@@ -748,10 +743,10 @@ export function computeAttemptChoiceLayout(
     stackCardWidth,
     stackCardHeight,
     rightWidth,
-    pileCardWidth,
-    pileCardHeight: fullCardHeight(pileCardWidth),
-    pileCropped: false,
-    shipColumnWidth: 0,
+    pileCardWidth: 0,
+    pileCardHeight: 0,
+    hasPile: false,
+    shipColumnWidth: rightWidth,
     shipScale: floor,
     shipRows: Math.min(rowsNeeded, rowsFitting),
   };
@@ -843,7 +838,6 @@ export function useAttemptLayout(
   if (sizes) return sizes;
   // Before the measure, and in jsdom: the sizes at `scale`, with the personnel area 4 crops wide and
   // tall enough for all of them (#1205).
-  const cardWidth = shipCardWidth(scale);
   const fallbackGrid = personnel
     ? attemptPersonnelGrid(
         personnel.count,
@@ -882,16 +876,16 @@ export function useAttemptLayout(
       ...(personnel?.space
         ? {
             rightWidth: shipRowWidth(scale, 1),
-            pileCardWidth: cardWidth,
-            pileCardHeight: fullCardHeight(cardWidth),
-            pileCropped: false,
-            shipColumnWidth: 0,
+            pileCardWidth: 0,
+            pileCardHeight: 0,
+            hasPile: false,
+            shipColumnWidth: shipRowWidth(scale, 1),
           }
         : {
             rightWidth: stackCardWidth + ATTEMPT_GAP + shipRowWidth(scale, 1),
             pileCardWidth: stackCardWidth,
             pileCardHeight: stackCardHeight,
-            pileCropped: true,
+            hasPile: true,
             shipColumnWidth: shipRowWidth(scale, 1),
           }),
       shipScale: scale,

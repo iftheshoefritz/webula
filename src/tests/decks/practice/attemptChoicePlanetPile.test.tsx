@@ -86,11 +86,10 @@ describe('the personnel pile of the dilemma choice at a planet mission (#1222)',
     expect(right.querySelector('[data-zone="ship-row-0"]')).not.toBeNull();
   });
 
-  it('keeps the whole card back above the ships at a space mission', () => {
-    const choice = renderChoice(true);
-    const pile = screen.getByTestId('attempt-personnel-pile');
-    expect(pile.style.width).toBe(`${choice.pileCardWidth}px`);
-    expect(pile.querySelector('img')!.className).toContain('h-auto');
+  // Issue #1235: a space mission has no pile, only the ships.
+  it('shows no pile at a space mission, only the ships', () => {
+    renderChoice(true);
+    expect(screen.queryByTestId('attempt-personnel-pile')).toBeNull();
     expect(screen.getByTestId('attempt-ships').className).toContain('flex-col');
   });
 });
