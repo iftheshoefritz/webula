@@ -153,9 +153,10 @@ CI runs the three commands as three parallel jobs, `test`, `typecheck` and
 `build`, so a red check tells you which one failed. Run them independently while
 you work.
 
-Vercel runs all three in one chain. The `buildCommand` in `vercel.json` is
-`NODE_ENV=test yarn test --ci && yarn typecheck && yarn build`, so a test
-failure or a type error stops the deployment before the build starts.
+Vercel runs two of them in one chain. The `buildCommand` in `vercel.json` is
+`yarn typecheck && yarn build`, so a type error stops the deployment before the
+build starts. Vercel runs no Jest (#1250): a test failure does not stop a
+deployment, and the CI `test` job is the only test gate.
 
 ### To read why a workflow run failed
 
