@@ -86,7 +86,8 @@ describe('personnelOverlayLayout', () => {
     expect(iconLeft).toBeGreaterThan(border);
     const columnBottom = iconTop + PERSONNEL_MAX_ICONS * iconSize + (PERSONNEL_MAX_ICONS - 1) * iconGap;
     expect(columnBottom).toBeLessThanOrEqual(bandTop);
-    expect(bandTop + bandHeight).toBeLessThan(cropHeight - border);
+    // The band ends at the bottom edge of the crop (#1236).
+    expect(bandTop + bandHeight).toBe(cropHeight);
     // The three boxes sit inside the card's border, on its centre, and do not touch.
     expect(boxLefts[0]).toBeGreaterThan(border);
     expect(boxLefts[2] + boxWidth).toBeLessThan(width - border);
@@ -185,6 +186,21 @@ describe('Practice table: the personnel overlay on a table card (#1176)', () => 
     render(<TableCard instance={makeCard(0)} />);
 
     expect(screen.getByTestId('personnel-overlay')).toBeTruthy();
+  });
+
+  it('anchors the band to the bottom of the crop, clipped to its rounded corners (#1236)', () => {
+    render(<TableCard instance={makeCard(0)} />);
+
+    const band = screen.getByTestId('personnel-attributes');
+    expect(band.getAttribute('class')).toMatch(/\bbottom-0\b/);
+    expect(band.getAttribute('style') ?? '').not.toMatch(/top/);
+    const height = Number(band.getAttribute('height'));
+    for (const rect of Array.from(band.querySelectorAll('rect'))) {
+      expect(Number(rect.getAttribute('y')) + Number(rect.getAttribute('height'))).toBeLessThanOrEqual(height);
+    }
+    const clip = screen.getByTestId('personnel-overlay').parentElement!;
+    expect(clip.className).toMatch(/overflow-hidden/);
+    expect(clip.className).toMatch(/rounded-md/);
   });
 
   it('draws none on a whole card, a face-down card, or another type', () => {

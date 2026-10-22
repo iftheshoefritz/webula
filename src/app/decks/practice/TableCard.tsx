@@ -196,24 +196,26 @@ export function TableCardImage({
   const isFaceDown = face === 'down' && !showFace;
   return (
     <div className="relative w-full" style={{ height }}>
-      <div className={`w-full h-full overflow-hidden bg-black/20 ${className}`}>
+      <div className={`relative w-full h-full overflow-hidden bg-black/20 ${className}`}>
         <img
           src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
           alt={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
           className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
         />
+        {/* #1176: a cropped personnel draws the icons and the attributes the crop cuts off. It sits
+            in the clipped box, so its band, on the bottom of the crop (#1236), keeps to the crop's
+            rounded corners. */}
+        {!uncropped && !isFaceDown && hasPersonnelOverlay(card) && (
+          <PersonnelOverlay
+            card={card}
+            width={width}
+            cropHeight={height}
+            border={cardBorderWidth(width)}
+            className={`${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+          />
+        )}
       </div>
-      {/* #1176: a cropped personnel draws the icons and the attributes the crop cuts off. */}
-      {!uncropped && !isFaceDown && hasPersonnelOverlay(card) && (
-        <PersonnelOverlay
-          card={card}
-          width={width}
-          cropHeight={height}
-          border={cardBorderWidth(width)}
-          className={`${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
-        />
-      )}
     </div>
   );
 }
