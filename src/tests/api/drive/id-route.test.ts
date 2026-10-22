@@ -7,17 +7,15 @@ const mockGetToken = jest.fn();
 
 jest.mock('next-auth/jwt', () => ({ getToken: (...args: unknown[]) => mockGetToken(...args) }));
 
-jest.mock('googleapis', () => ({
-  google: {
-    auth: {
-      OAuth2: jest.fn().mockImplementation(() => ({ setCredentials: jest.fn() })),
-    },
-    drive: jest.fn().mockImplementation(() => ({
-      files: {
-        update: (...args: unknown[]) => mockFilesUpdate(...args),
-      },
-    })),
+jest.mock('@googleapis/drive', () => ({
+  auth: {
+    OAuth2: jest.fn().mockImplementation(() => ({ setCredentials: jest.fn() })),
   },
+  drive: jest.fn().mockImplementation(() => ({
+    files: {
+      update: (...args: unknown[]) => mockFilesUpdate(...args),
+    },
+  })),
 }));
 
 import { PUT } from '../../../app/api/drive/[id]/route';

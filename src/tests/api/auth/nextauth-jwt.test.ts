@@ -2,11 +2,9 @@
  * @jest-environment node
  */
 
-jest.mock('googleapis', () => ({
-  google: {
-    auth: {
-      OAuth2: jest.fn().mockImplementation(() => ({ setCredentials: jest.fn() })),
-    },
+jest.mock('@googleapis/drive', () => ({
+  auth: {
+    OAuth2: jest.fn().mockImplementation(() => ({ setCredentials: jest.fn() })),
   },
 }));
 

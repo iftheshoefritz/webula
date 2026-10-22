@@ -1,4 +1,4 @@
-import type { drive_v3 } from 'googleapis';
+import type { drive_v3 } from '@googleapis/drive';
 import { DECK_MIME_TYPE } from './mimeTypes';
 
 // Custom Drive appProperties key used to make trekCC imports idempotent: re-importing

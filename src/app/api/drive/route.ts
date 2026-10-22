@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import * as google from '@googleapis/drive';
 import { getToken } from "next-auth/jwt"
 import { refreshAccessToken } from '../auth/refreshToken';
 import { writeDeckIdempotent } from './idempotentWrite';
