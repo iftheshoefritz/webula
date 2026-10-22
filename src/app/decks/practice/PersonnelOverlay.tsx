@@ -4,8 +4,8 @@
 // #1141, `MissionSpan` in `MissionRow.tsx`). The art crop cuts off the column of icons the card
 // prints left of its skill box and the integrity, cunning and strength it prints along its bottom,
 // so the crop draws them again from the card data: the icons in a column at the left of the art,
-// below the affiliation icon the crop already shows, and the three attributes in a band along the
-// bottom, drawn as the card prints them (#1219): three boxes, each a black frame with a silver line
+// below the affiliation icon the crop already shows, and the three attributes in a band whose bottom
+// is the bottom edge of the crop (#1236), drawn as the card prints them (#1219): three boxes, each a black frame with a silver line
 // along its top and its bottom, filled with the colour of the affiliation, and in it the word in
 // white small capitals, "Integrity", "Cunning" or "Strength", and the number right of it. Only a
 // cropped, face-up personnel draws it: the whole card prints both, so a desktop panel, the core and
@@ -105,7 +105,9 @@ const smallCapsWidth = (word: string, fontSize: number): number =>
   word.length === 0 ? 0 : fontSize * GLYPH_EM * (1 + SMALL_CAP_SCALE * (word.length - 1));
 
 // The geometry of the overlay on a crop `cropHeight` tall of a card `width` wide, whose border is
-// `border` wide. Every length is a share of the width, so the overlay scales with the card.
+// `border` wide. Every length is a share of the width, so the overlay scales with the card. The band
+// ends at the bottom of the crop (#1236), over the card's border there, so no art or frame shows
+// under it.
 export function personnelOverlayLayout(
   width: number,
   cropHeight: number,
@@ -134,7 +136,7 @@ export function personnelOverlayLayout(
     iconLeft: Math.max(border + 1, Math.round(width * ICON_COLUMN_LEFT)),
     iconSize: Math.round(width * ICON_SIZE),
     iconGap: Math.max(1, Math.round(width * ICON_GAP)),
-    bandTop: cropHeight - border - gap - boxHeight,
+    bandTop: cropHeight - boxHeight,
     bandHeight: boxHeight,
     boxLefts: [0, 1, 2].map((index) => first + index * (boxWidth + gap)),
     boxWidth,
@@ -178,7 +180,7 @@ export default function PersonnelOverlay({
   className?: string;
 }) {
   const layout = personnelOverlayLayout(width, cropHeight, border);
-  const { iconTop, iconLeft, iconSize, iconGap, bandTop, bandHeight, boxLefts, boxWidth, line, pad, fontSize } = layout;
+  const { iconTop, iconLeft, iconSize, iconGap, bandHeight, boxLefts, boxWidth, line, pad, fontSize } = layout;
   const codes = personnelIconCodes(card.icons).slice(0, PERSONNEL_MAX_ICONS);
   const values = ATTRIBUTES.map((attribute) => String(card[attribute] ?? '').trim());
   const fill = attributeBoxFill(card.affiliation);
@@ -211,8 +213,7 @@ export default function PersonnelOverlay({
         data-testid="personnel-attributes"
         role="img"
         aria-label={ATTRIBUTES.map((attribute, index) => `${attributeName(attribute)} ${values[index]}`).join(', ')}
-        className="absolute left-0 overflow-visible"
-        style={{ top: bandTop }}
+        className="absolute left-0 bottom-0 overflow-visible"
         width={width}
         height={bandHeight}
         fontFamily={ATTRIBUTE_FONT_FAMILY}
@@ -225,8 +226,9 @@ export default function PersonnelOverlay({
           const labelLength = attributeLabelLength(label, values[index], layout);
           return (
             <g key={attribute} data-testid={`personnel-${attribute}-box`}>
-              {/* The shadow the box casts down and to the right. */}
-              <rect x={left + line} y={line} width={boxWidth} height={bandHeight} fill="rgba(0,0,0,0.6)" />
+              {/* The shadow the box casts to the right. It stops at the bottom of the band, which is
+                  the bottom of the crop (#1236). */}
+              <rect x={left + line} y={line} width={boxWidth} height={bandHeight - line} fill="rgba(0,0,0,0.6)" />
               {/* The black frame, a silver line along its top and its bottom, and the fill inside. */}
               <rect x={left} y={0} width={boxWidth} height={bandHeight} fill="#000" />
               <rect x={left} y={0} width={boxWidth} height={line} fill="#f3f4f6" />
