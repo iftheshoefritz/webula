@@ -136,6 +136,11 @@ that step catches three more classes of error:
 2. ESLint errors.
 3. Errors thrown at build time while Next.js pre-renders the static pages.
 
+`next build` prints an ESLint crash, such as `Error while loading rule`, and goes on, so
+a crash lints nothing and still passes. Keep `eslint` at 8.40.0 or later:
+`@next/eslint-plugin-next` 15 reads `context.cwd`, which older ESLint lacks, and every
+file crashed on 8.36.0 (#1233).
+
 `next build` compiles every file that `tsconfig.json` includes, and then drops
 each diagnostic from a file that matches `*.test.*`, `*.spec.*`, `__tests__/` or
 `__mocks__/` (`runTypeCheck` in `node_modules/next/dist/lib/typescript/`). So a

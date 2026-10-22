@@ -34,7 +34,6 @@ export const onRequestError: Instrumentation.onRequestError = async (
 
   // Use require() so the posthog-node module (and its transitive deps) are
   // only loaded on Node, never in the edge bundle.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { getPostHogServer } = require('./lib/posthogServer') as typeof import('./lib/posthogServer');
   const posthog = getPostHogServer();
   if (!posthog) {
