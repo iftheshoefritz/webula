@@ -570,8 +570,8 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
     expect(coreZone().className).toEqual(expect.stringContaining('border-dashed'));
     // The core no longer keeps a fixed width (#1029): it grows with its cards, and during a drag it
-    // keeps the 56px minimum box size, the same as the brig.
-    expect(coreZone().style.width).toBe('56px');
+    // keeps the 56px minimum box size, the same as the brig. One 90px art crop (#1234) is wider.
+    expect(coreZone().style.width).toBe('90px');
     expect(coreZone().style.height).toBe('80px');
   });
 
@@ -603,7 +603,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     });
 
     expect(brigZone().className).toEqual(expect.stringContaining('border-dashed'));
-    expect(brigZone().style.width).toBe('56px');
+    expect(brigZone().style.width).toBe('90px');
     expect(brigZone().style.height).toBe('80px');
   });
 
@@ -611,7 +611,7 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
   // bottom row. jsdom has no layout, so the test gives the shared box a measured width.
   it('grows the core with each card up to the 4th, and the brig with its cards, into the free space (#1029)', async () => {
     const clientWidth = jest.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
-      return this.dataset.testid === 'flat-rows' ? 400 : 0;
+      return this.dataset.testid === 'flat-rows' ? 600 : 0;
     });
     const mockEventCards = [1, 2, 3, 4].map((n) => ({
       collectorsinfo: `1U10${n}`,
@@ -658,8 +658,8 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
 
       coreWidths.push(parseFloat(coreZone().style.width));
     }
-    // 34px cards, 36px apart: no overlap, and no cap at three cards.
-    expect(coreWidths).toEqual([34, 70, 106, 142]);
+    // 90px art crops (#1234), 92px apart: no overlap, and no cap at three cards.
+    expect(coreWidths).toEqual([90, 182, 274, 366]);
 
     // The brig, unaffected by #676, still grows with the cards it holds: drag two of the same
     // cards back out of the core and into the brig instead.

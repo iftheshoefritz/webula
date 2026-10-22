@@ -1,6 +1,6 @@
 'use client';
 
-// A flat drop zone whose cards show as a row of small, overlapping table cards, rather than a
+// A flat drop zone whose cards show as a row of overlapping art crops of table cards, rather than a
 // single top card (`DiscardPile` in `page.tsx`) or a positional column (`ShipRow`,
 // `MissionRow.tsx`). Used by the core and the brig (#603): a card of any type dropped on either
 // lands there face up, and every card already in the zone, not just the most recent one, stays
@@ -10,7 +10,7 @@
 // reachable.
 //
 // A tap on any card here opens `CardListPanel` for the whole zone (#640), showing every card at a
-// larger size — the small size here makes a card hard to read in place. A tap on a card inside
+// larger size — the crop here hides the card's text. A tap on a card inside
 // that panel selects it, the same as in a mission's personnel/event/dilemma piles.
 //
 // Each card here can take a placed card (#810): it has a droppable of its own, `onDropId`.
@@ -24,7 +24,8 @@
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { landedBumpClassName } from './LandedZoneContext';
-import TableCard, { SMALL_CARD_WIDTH, fullCardHeight } from './TableCard';
+import TableCard from './TableCard';
+import { FLAT_CARD_HEIGHT, FLAT_CARD_WIDTH, PILE_CARD_HEIGHT } from './flatRowWidths';
 import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { usePlaceOnHold } from './PlaceOnHoldContext';
@@ -89,8 +90,8 @@ function PlacedOnTargetCard({
       <TableCard
         instance={instance}
         onClick={onCount > 0 ? () => onOpenPlacedOn(instance.id) : onOpen}
-        width={SMALL_CARD_WIDTH}
-        uncropped
+        width={FLAT_CARD_WIDTH}
+        artHeight={FLAT_CARD_HEIGHT}
         draggable
       />
       {onCount > 0 && <PlacedOnBadge name={cardDisplayName(instance.card)} count={onCount} landedNonce={landedNonce} />}
@@ -148,14 +149,15 @@ export default function FlatCardRow({
     );
   }
 
-  const offset = offsetFor(cards.length, SMALL_CARD_WIDTH, maxWidth, maxOffset);
-  const rowWidth = SMALL_CARD_WIDTH + offset * (cards.length - 1);
-  // Each card shows whole, not cropped to its art (#926), so the row is as tall as a full card.
-  const cardHeight = fullCardHeight(SMALL_CARD_WIDTH);
+  const offset = offsetFor(cards.length, FLAT_CARD_WIDTH, maxWidth, maxOffset);
+  const rowWidth = FLAT_CARD_WIDTH + offset * (cards.length - 1);
+  // Each card is the art crop, as tall as the draw deck's card (#1234), so the row is that tall too.
+  const cardHeight = FLAT_CARD_HEIGHT;
 
   // During a drag, keep the dashed outline and the full box size the empty zone uses (56x80,
   // "w-14 h-20" above), rather than shrinking to the card row's own size, so the drop target
-  // does not shrink out from under the pointer (#635). The cards sit at the row's bottom edge, and
+  // does not shrink out from under the pointer (#635). The cards are as tall as that box (#1234), so
+  // only its width still grows a row of one card. The cards sit at the row's bottom edge, and
   // the table's bottom row is `items-end`, so the row grows upward away from them and each card
   // stays under the pointer (or the finger) when the drag starts (#831). Anchored at the top, the
   // cards jumped up by the growth, and the pointer that was on a card was then on the zone.
@@ -168,7 +170,7 @@ export default function FlatCardRow({
       className={`relative rounded ${dragging ? 'rounded-lg border-2 border-dashed border-white/20' : ''} ${highlightClassName(highlight)}`}
       style={{
         width: dragging ? Math.max(rowWidth, 56) : rowWidth,
-        height: dragging ? Math.max(cardHeight, 80) : cardHeight,
+        height: dragging ? Math.max(cardHeight, PILE_CARD_HEIGHT) : cardHeight,
       }}
     >
       {cards.map((instance, idx) => (
