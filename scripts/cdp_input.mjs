@@ -30,7 +30,7 @@
 // `--first <dx>,<dy>` sets that first move (#1093). A drag out of a card list panel that scrolls
 // needs a first move mostly sideways (`panelScrollSensor.ts`), and the default one is mostly up.
 //
-// agent-browser 0.27.0 drives only a mouse, and `agent-browser keydown Shift` does not set
+// agent-browser drives only a mouse, and `agent-browser keydown Shift` does not set
 // `shiftKey` on the mouse events that follow. CDP does both:
 //
 // - `Input.dispatchMouseEvent` with `modifiers` (Alt=1, Ctrl=2, Meta=4, Shift=8) delivers pointer

@@ -343,8 +343,9 @@ To keep the bottom of the page clear, start the dev server with `NEXT_PUBLIC_AGE
 and downloads nothing. In CI the dependencies are installed before the agent starts. Do not
 run `yarn install`.
 
-The version is pinned to `0.27.0`, the last release with no `engines` field. Every release
-from `0.27.1` needs Node 24, and CI runs Node 20. Do not raise the version on its own.
+The version is pinned to `0.39.1`. Every release from `0.27.1` declares `engines: { node: ">=24" }`,
+so it installs only on Node 24, which CI, the agent workflows and `engines.node` in `package.json`
+all use (#1238).
 
 To check drag and drop on the practice table, use the script. It takes a card ID and a target name, and it prints the zone the card is in after the drag. The target name is a `data-zone`, or, when no element has that `data-zone`, a `data-testid` (#1026). It is a name, not a CSS selector. A `data-testid` marks a place that is not a drop target of its own, so to aim at one means to drop at that spot: the droppable under the spot routes the drop.
 
@@ -629,9 +630,9 @@ stays in desktop mode until the next `close`. To check the touch half of a compa
 
 ### Touch, modifier keys, and screen size
 
-`agent-browser` 0.27.0 drives only a mouse, and it reports a screen of 800×600. For the rest,
+`agent-browser` drives only a mouse, and it reports a screen of 800×600. For the rest,
 use `scripts/cdp_input.sh` (#1035). It sends raw CDP input to the open page on one connection
-(Node 20 with `--experimental-websocket`, no package), and prints the pointer events the page
+(the built-in `WebSocket` of Node 24, no package), and prints the pointer events the page
 saw, with their pointer type, their modifier keys and the element they hit. A point is `<x> <y>`
 or a CSS selector, whose centre is the point.
 
