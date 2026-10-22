@@ -423,10 +423,6 @@ function GameMenu({
   );
 }
 
-interface ScreenOrientationWithLock extends ScreenOrientation {
-  lock?(orientation: string): Promise<void>;
-}
-
 function RotateDeviceOverlay() {
   return (
     <div className="fixed inset-0 z-50 bg-[#131713] flex flex-col items-center justify-center gap-4 text-text-primary">
@@ -1786,11 +1782,11 @@ function PracticeDrawContent() {
     const handler = (e: MediaQueryListEvent) => setIsPortrait(e.matches);
     mql.addEventListener('change', handler);
 
-    (screen.orientation as ScreenOrientationWithLock)?.lock?.('landscape')?.catch(() => {});
+    screen.orientation?.lock?.('landscape')?.catch(() => {});
 
     return () => {
       mql.removeEventListener('change', handler);
-      (screen.orientation as ScreenOrientationWithLock)?.unlock?.();
+      screen.orientation?.unlock?.();
     };
   }, []);
 
