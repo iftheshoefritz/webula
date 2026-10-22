@@ -84,16 +84,44 @@ describe('FlatCardRow', () => {
     }
   });
 
-  // #926: the core and the brig show the whole card, frame and all, not the art crop.
-  it.each(['core', 'brig'] as const)('shows the whole card in the %s, not the art crop', (zone) => {
+  // #1234: the core and the brig show the art crop, as tall as the draw deck's card (80 px).
+  it.each(['core', 'brig'] as const)('shows the art crop in the %s, as tall as the draw deck', (zone) => {
     renderRow(zone, null);
 
     const img = document.querySelector('[data-card-id="card-1"] img') as HTMLElement;
-    expect(img).toHaveClass('object-contain');
-    expect(img).not.toHaveClass('object-cover');
-    // 34 px wide at the card image's 120x167 ratio.
-    expect(img.parentElement!.parentElement).toHaveStyle({ height: '47px' });
-    expect(row(zone)).toHaveStyle({ height: '47px' });
+    expect(img).toHaveClass('object-cover');
+    expect(img).not.toHaveClass('object-contain');
+    expect(img.parentElement!.parentElement).toHaveStyle({ height: '80px' });
+    // 80 px tall at the crop's 72:64 ratio.
+    expect(document.querySelector('[data-card-id="card-1"]')).toHaveStyle({ width: '90px' });
+    expect(row(zone)).toHaveStyle({ height: '80px' });
+  });
+
+  it('draws the attribute band of a personnel in the brig, and none on an event', () => {
+    const personnel: CardInstance = {
+      id: 'card-3',
+      card: { name: 'Worf', imagefile: 'card-3', type: 'personnel', integrity: '6', cunning: '5', strength: '8' },
+      face: 'up',
+    };
+    const { container } = render(
+      <DraggedCardTypeProvider value={null}>
+        <PlaceOnHoldProvider value={NO_PLACE_ON_HOLD}>
+          <FlatCardRow
+            zone="brig"
+            label="brig"
+            cards={[personnel, card('card-4', 'Event')]}
+            maxWidth={200}
+            maxOffset={40}
+            onOpen={() => {}}
+            onOpenPlacedOn={() => {}}
+          />
+        </PlaceOnHoldProvider>
+      </DraggedCardTypeProvider>
+    );
+
+    const band = (id: string) => container.querySelector(`[data-card-id="${id}"] [data-testid="personnel-attributes"]`);
+    expect(band('card-3')).toBeInTheDocument();
+    expect(band('card-4')).toBeNull();
   });
 });
 
@@ -104,16 +132,16 @@ describe('flatRowWidths', () => {
   });
 
   it('lets both rows grow with no extra overlap when they fit', () => {
-    const { core, brig } = flatRowWidths(400, 4, 3);
-    // 4 core cards take 142px and 3 brig cards 106px, with no overlap past the usual gap.
-    expect(core).toBeGreaterThanOrEqual(142);
-    expect(brig).toBeGreaterThanOrEqual(106);
+    const { core, brig } = flatRowWidths(700, 4, 3);
+    // 4 core cards take 366px and 3 brig cards 274px, with no overlap past the usual gap.
+    expect(core).toBeGreaterThanOrEqual(366);
+    expect(brig).toBeGreaterThanOrEqual(274);
   });
 
   it('splits a small space between the two rows, so they fit it', () => {
-    // About the space the 568 px table leaves the two rows.
-    const { core, brig } = flatRowWidths(182, 4, 3);
-    expect(core + brig + FLAT_ROW_GAP).toBeLessThanOrEqual(182);
+    // About the space the 667 px table leaves the two rows.
+    const { core, brig } = flatRowWidths(260, 4, 3);
+    expect(core + brig + FLAT_ROW_GAP).toBeLessThanOrEqual(260);
     expect(core).toBeGreaterThan(brig);
   });
 });

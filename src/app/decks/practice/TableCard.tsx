@@ -38,8 +38,7 @@ export const TABLE_CARD_WIDTH = 72; // px
 export const TABLE_CARD_ART_HEIGHT = 64; // px
 
 // The small card size. It is not a ship's size: it sizes a ship in a mission's ship row
-// (`MissionRow.tsx`, which grows it with `scale`), every card of any type in the core and the brig
-// (`FlatCardRow.tsx`, which does not grow it, #717), a ship preview's crew row (#600), and part of
+// (`MissionRow.tsx`, which grows it with `scale`), a ship preview's crew row (#600), and part of
 // the height of the dilemma stack (`page.tsx`). Given at its base (scale-1) size.
 export const SMALL_CARD_WIDTH = 34; // px
 export const SMALL_CARD_ART_HEIGHT = 32; // px, scaled down from TABLE_CARD_ART_HEIGHT to match

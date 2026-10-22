@@ -8,8 +8,8 @@
 // is the bottom edge of the crop (#1236), drawn as the card prints them (#1219): three boxes, each a black frame with a silver line
 // along its top and its bottom, filled with the colour of the affiliation, and in it the word in
 // white small capitals, "Integrity", "Cunning" or "Strength", and the number right of it. Only a
-// cropped, face-up personnel draws it: the whole card prints both, so a desktop panel, the core and
-// the brig draw none.
+// cropped, face-up personnel draws it, the brig's too (#1234): the whole card prints both, so a
+// desktop panel draws none.
 import auIcon from '../../../../public/icons/icon_au.gif';
 import cmdIcon from '../../../../public/icons/icon_command.gif';
 import ds9Icon from '../../../../public/icons/icon_ds9.png';
