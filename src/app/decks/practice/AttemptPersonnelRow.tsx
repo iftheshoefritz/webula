@@ -5,8 +5,9 @@
 // of the attempting ship, beside the ships. It shows every card of the place, the equipment too, in
 // its stored order, as the art crops of table cards with the personnel format of #1176, side by
 // side with no overlap, in as many rows as they need (#1205, `attemptPersonnelGrid`, `tableScale.ts`).
-// The area shows the whole rows that fit, and scrolls to the rest; the buttons stay below it, out of
-// the scroll. The row has no rules of its own: it reads the live away team or crew, and the numbers
+// Issue #1218: 3 to a row, as wide as the cards of the crew panel where the screen has the room, with
+// the panel's 8 px gap. The area fills the height it has and shows part of the second row, and
+// scrolls to the rest. The buttons sit above it, as in the crew panel, out of the scroll. The row has no rules of its own: it reads the live away team or crew, and the numbers
 // of the attempt stay frozen (#1163).
 //
 // While the area scrolls it carries `PANEL_SCROLLS_ATTRIBUTE` and its cards `touch-action: pan-y`,
@@ -37,7 +38,7 @@ import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { stopButtons } from './stopRules';
 import { ShuffleIcon, panelScrollClassName, useScrollsVertically } from './CardListPanel';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
-import { ATTEMPT_PERSONNEL_BUTTONS_HEIGHT, attemptPersonnelCropHeight } from './tableScale';
+import { ATTEMPT_PERSONNEL_BUTTONS_HEIGHT, ATTEMPT_PERSONNEL_GAP, attemptPersonnelCropHeight } from './tableScale';
 
 export const attemptAwayTeamDropId = (missionIndex: number): string => `attempt-away-team-${missionIndex}`;
 export const attemptCrewDropId = (shipId: string): string => `attempt-crew-${shipId}`;
@@ -77,7 +78,7 @@ export default function AttemptPersonnelRow({
   // The name of the place, for the empty row and the screen reader.
   label: string;
   cards: CardInstance[];
-  // The width of one crop, the crops of a row, and the area's width and height (#1205).
+  // The width of one crop, the crops of a row, and the area's width and height (#1205, #1218).
   cardWidth: number;
   columns: number;
   width: number;
@@ -100,57 +101,6 @@ export default function AttemptPersonnelRow({
 
   return (
     <div className="flex flex-col items-center" style={{ width, gap: SHIP_ROW_GAP }}>
-      <div
-        ref={setNodeRef}
-        data-zone={dropId}
-        data-testid={dropId}
-        data-highlight={highlight}
-        data-landed={landedNonce !== null || undefined}
-        aria-label={`${label}, ${cards.length} card${cards.length === 1 ? '' : 's'}`}
-        className={`relative flex flex-col items-center rounded ${
-          cards.length === 0 ? 'border-2 border-dashed border-white/20' : ''
-        } ${highlightClassName(highlight)}`}
-        style={{ width, height }}
-      >
-        {cards.length === 0 && (
-          <span className="m-auto text-center text-[10px] leading-tight text-text-muted">{label}</span>
-        )}
-        {cards.length > 0 && (
-          <div
-            ref={scrollRef}
-            data-testid={attemptPersonnelScrollTestId(dropId)}
-            {...{ [PANEL_SCROLLS_ATTRIBUTE]: scrolls ? 'true' : undefined }}
-            className={`h-full w-full overscroll-contain ${panelScrollClassName(scrolls)}`}
-          >
-            <div
-              className="grid justify-center"
-              style={{ gridTemplateColumns: `repeat(${Math.max(1, columns)}, ${cardWidth}px)`, gap: SHIP_ROW_GAP }}
-            >
-              {cards.map((instance) => {
-                const selected = selectedIds.includes(instance.id);
-                return (
-                  <div key={instance.id} className="relative" style={{ width: cardWidth, height: cardHeight }}>
-                    <TableCard
-                      instance={instance}
-                      onClick={() => onToggleSelect(instance.id)}
-                      width={cardWidth}
-                      artHeight={cardHeight}
-                      draggable
-                      showFace
-                      panY={scrolls}
-                    />
-                    {/* Inside the card, so the scroller's edge never clips the ring. */}
-                    {selected && (
-                      <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-inset ring-accent" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        <LandedRing nonce={landedNonce} />
-      </div>
       <div className="flex flex-row justify-center" style={{ gap: SHIP_ROW_GAP, height: ATTEMPT_PERSONNEL_BUTTONS_HEIGHT }}>
         {selectedPersonnel.length > 0 && (
           <button
@@ -183,6 +133,57 @@ export default function AttemptPersonnelRow({
             Shuffle
           </button>
         )}
+      </div>
+      <div
+        ref={setNodeRef}
+        data-zone={dropId}
+        data-testid={dropId}
+        data-highlight={highlight}
+        data-landed={landedNonce !== null || undefined}
+        aria-label={`${label}, ${cards.length} card${cards.length === 1 ? '' : 's'}`}
+        className={`relative flex flex-col items-center rounded ${
+          cards.length === 0 ? 'border-2 border-dashed border-white/20' : ''
+        } ${highlightClassName(highlight)}`}
+        style={{ width, height }}
+      >
+        {cards.length === 0 && (
+          <span className="m-auto text-center text-[10px] leading-tight text-text-muted">{label}</span>
+        )}
+        {cards.length > 0 && (
+          <div
+            ref={scrollRef}
+            data-testid={attemptPersonnelScrollTestId(dropId)}
+            {...{ [PANEL_SCROLLS_ATTRIBUTE]: scrolls ? 'true' : undefined }}
+            className={`h-full w-full overscroll-contain ${panelScrollClassName(scrolls)}`}
+          >
+            <div
+              className="grid justify-center"
+              style={{ gridTemplateColumns: `repeat(${Math.max(1, columns)}, ${cardWidth}px)`, gap: ATTEMPT_PERSONNEL_GAP }}
+            >
+              {cards.map((instance) => {
+                const selected = selectedIds.includes(instance.id);
+                return (
+                  <div key={instance.id} className="relative" style={{ width: cardWidth, height: cardHeight }}>
+                    <TableCard
+                      instance={instance}
+                      onClick={() => onToggleSelect(instance.id)}
+                      width={cardWidth}
+                      artHeight={cardHeight}
+                      draggable
+                      showFace
+                      panY={scrolls}
+                    />
+                    {/* Inside the card, so the scroller's edge never clips the ring. */}
+                    {selected && (
+                      <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-inset ring-accent" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <LandedRing nonce={landedNonce} />
       </div>
     </div>
   );
