@@ -203,7 +203,7 @@ export default function AttemptLayout({
       style={{ gap: ATTEMPT_GAP, paddingTop: underMissionStackRoom(missionScale, true) }}
     >
       {missionColumn}
-      {/* The empty space outside the "Faced first" and "Faced last" ends of the stack (#1220), outside
+      {/* The empty space outside the "First" and "Last" ends of the stack (#1220), outside
           its drop zone. */}
       <div data-testid="attempt-stack-margin" className="flex-none" style={{ marginLeft: ATTEMPT_STACK_SIDE_GAP, marginRight: ATTEMPT_STACK_SIDE_GAP }}>
         {dilemmaStack}

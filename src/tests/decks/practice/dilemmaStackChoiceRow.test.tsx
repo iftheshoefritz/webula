@@ -129,11 +129,11 @@ describe('Practice table: the dilemma stack of the dilemma choice (#1204)', () =
     });
   });
 
-  it('labels the two ends of the row "Faced first" and "Faced last"', async () => {
+  it('labels the two ends of the row "First" and "Last"', async () => {
     await dealChoice();
     const labels = screen.getByTestId('dilemma-stack-end-labels');
-    expect(labels.children[0]).toHaveTextContent('Faced first');
-    expect(labels.children[1]).toHaveTextContent('Faced last');
+    expect(labels.children[0]).toHaveTextContent('First');
+    expect(labels.children[1]).toHaveTextContent('Last');
   });
 
   it('moves a card of the stack to the place of the card it drops on, as the panel does', async () => {
@@ -186,8 +186,8 @@ describe('Practice table: the dilemma stack of the dilemma choice (#1204)', () =
       fireEvent.click(screen.getAllByRole('button', { name: /^Dilemma stack, 3 cards/ })[0]);
     });
     const choosing = screen.getByTestId('card-list-panel-dilemmaStack');
-    expect(within(choosing).getByText('Faced first')).toBeInTheDocument();
-    expect(within(choosing).getByText('Faced last')).toBeInTheDocument();
+    expect(within(choosing).getByText('First')).toBeInTheDocument();
+    expect(within(choosing).getByText('Last')).toBeInTheDocument();
   });
 
   it('keeps the labels of the panel in the facing phase', async () => {
@@ -198,7 +198,7 @@ describe('Practice table: the dilemma stack of the dilemma choice (#1204)', () =
     const facing = screen.getByTestId('card-list-panel-dilemmaStack');
     expect(within(facing).getByText('Top (revealed first)')).toBeInTheDocument();
     expect(within(facing).getByText('Bottom (revealed last)')).toBeInTheDocument();
-    expect(within(facing).queryByText('Faced first')).toBeNull();
+    expect(within(facing).queryByText('First')).toBeNull();
   });
 
   it('marks where a dragged dilemma lands: before the card it is over, or at the end', async () => {
