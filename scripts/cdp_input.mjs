@@ -51,6 +51,9 @@
 const CALL_TIMEOUT_MS = 5000;
 const STEP_PX = 8;
 const STEP_WAIT_MS = 16;
+// The pause between a mouse command's first move and its press. A press within a frame of the
+// move hits a hover preview the previous call left open, and only closes it (#1256).
+const HOVER_SETTLE_MS = 100;
 // The first move of a drag. The `PointerSensor` in `page.tsx` needs 8 px before a drag starts,
 // so a single large move does not start it (see the mid-drag section of AGENTS.md).
 const FIRST_MOVE = { dx: 4, dy: -8 };
@@ -293,7 +296,10 @@ async function main() {
     const press = command === 'touch-drag' ? (p) => touch('touchStart', p) : (p) => mouse('mousePressed', p, true);
     const move = command === 'touch-drag' ? (p) => touch('touchMove', p) : (p) => mouse('mouseMoved', p, true);
     const release = command === 'touch-drag' ? (p) => touch('touchEnd', p) : (p) => mouse('mouseReleased', p, false);
-    if (command === 'mouse-drag') await mouse('mouseMoved', from, false);
+    if (command === 'mouse-drag') {
+      await mouse('mouseMoved', from, false);
+      await sleep(HOVER_SETTLE_MS);
+    }
     await press(from);
     const first = { x: from.x + FIRST_MOVE.dx, y: from.y + FIRST_MOVE.dy };
     await move(first);
@@ -330,7 +336,10 @@ async function main() {
     if (waypoints.length === 0) fail(`${command} needs at least one waypoint: <x>,<y>,<hold-ms>.`);
     const touchPath = command === 'touch-path';
     const move = touchPath ? (p) => touch('touchMove', p) : (p) => mouse('mouseMoved', p, true);
-    if (!touchPath) await mouse('mouseMoved', from, false);
+    if (!touchPath) {
+      await mouse('mouseMoved', from, false);
+      await sleep(HOVER_SETTLE_MS);
+    }
     await (touchPath ? touch('touchStart', from) : mouse('mousePressed', from, true));
     let at = { x: from.x + firstMove.dx, y: from.y + firstMove.dy };
     await move(at);
@@ -348,12 +357,14 @@ async function main() {
   } else if (command === 'click') {
     const p = await takePoint();
     await mouse('mouseMoved', p, false);
+    await sleep(HOVER_SETTLE_MS);
     await mouse('mousePressed', p, true);
     await mouse('mouseReleased', p, false);
     lines.push(`click at ${p.x} ${p.y}`);
   } else if (command === 'double-click') {
     const p = await takePoint();
     await mouse('mouseMoved', p, false);
+    await sleep(HOVER_SETTLE_MS);
     const start = Date.now();
     await mouse('mousePressed', p, true);
     await mouse('mouseReleased', p, false);
