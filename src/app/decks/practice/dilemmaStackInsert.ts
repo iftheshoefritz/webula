@@ -62,4 +62,4 @@ export function dilemmaStackRowInsertPoint(
 
 // The words at the two ends of the stack while the dilemmas are chosen (#1204): on the row of the
 // choice layout, and on the stack's panel in that phase.
-export const DILEMMA_STACK_CHOICE_END_LABELS = { first: 'Faced first', last: 'Faced last' } as const;
+export const DILEMMA_STACK_CHOICE_END_LABELS = { first: 'First', last: 'Last' } as const;

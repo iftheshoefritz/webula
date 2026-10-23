@@ -173,7 +173,7 @@ export const CONTROL_ROWS: ControlRow[] = [
     action: 'Order the dilemma stack',
     ...both(
       'Only in the dilemma choice: drag a dilemma along the stack, or open the stack and drag it there. ' +
-        'The card on the left, "Faced first", is revealed first.'
+        'The card on the left, "First", is revealed first.'
     ),
   },
   {

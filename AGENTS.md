@@ -512,8 +512,8 @@ card previews on a hold, opens the stack's panel on a tap, and drags off the sta
 personnel row, its Stop, Stop all and Shuffle buttons, its droppable and the away team badge are not
 mounted in `'choose'`. `?fixture=attempt-choose` opens in this layout.
 
-The face-up stack of `'choose'` labels its two ends on a line above its cards, "Faced first" on the
-left and "Faced last" on the right (`data-testid="dilemma-stack-end-labels"`, #1204), and the stack's
+The face-up stack of `'choose'` labels its two ends on a line above its cards, "First" on the
+left and "Last" on the right (`data-testid="dilemma-stack-end-labels"`, #1204, #1266), and the stack's
 panel uses the same words while the phase is `'choose'`; in `'face'` it keeps "Top (revealed first)"
 and "Bottom (revealed last)". Each card of the row has a drop target of its own,
 `stack-slot-<the card's id>`, over the part of the card no later card covers, and the right half of

@@ -628,8 +628,8 @@ export function computeAttemptLayout(
 // stack takes the width the middle column and the facing stack take in the facing phase.
 // The line of the end labels above the cards of the choice phase's stack (#1204), in px.
 export const ATTEMPT_STACK_LABEL_HEIGHT = 14;
-// The empty space outside each end of the choice phase's stack, the "Faced first" end and the
-// "Faced last" end, on top of `ATTEMPT_GAP` (#1220), in px. It comes out of the stack's width.
+// The empty space outside each end of the choice phase's stack, the "First" end and the
+// "Last" end, on top of `ATTEMPT_GAP` (#1220), in px. It comes out of the stack's width.
 export const ATTEMPT_STACK_SIDE_GAP = 16;
 
 export interface AttemptChoiceSizes {

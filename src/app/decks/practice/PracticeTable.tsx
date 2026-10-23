@@ -1231,7 +1231,7 @@ function DilemmaStackPile({
 // drags off the stack, as the revealed top card of the fan does. The zone shows even when it is
 // empty: `dilemmaStackVisible` (#742) applies only to the fan.
 //
-// #1204: a line above the cards labels the two ends, "Faced first" and "Faced last", and each card
+// #1204: a line above the cards labels the two ends, "First" and "Last", and each card
 // is a drop target of its own (`DilemmaStackRowSlot`), so a drop puts a dilemma between two cards.
 // A marker shows where, from the same rule the drop reads (`dilemmaStackRowInsertPoint`), as the
 // marker of the stack's panel does (#956).

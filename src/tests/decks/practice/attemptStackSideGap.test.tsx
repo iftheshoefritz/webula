@@ -1,4 +1,4 @@
-// Issue #1220: in the dilemma choice, an empty space outside the "Faced first" and "Faced last" ends
+// Issue #1220: in the dilemma choice, an empty space outside the "First" and "Last" ends
 // of the dilemma stack, outside its drop zone, between it and the columns beside it.
 import React from 'react';
 import { render, screen } from '@testing-library/react';
