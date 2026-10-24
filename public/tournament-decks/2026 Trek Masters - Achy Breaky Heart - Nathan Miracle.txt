@@ -1,0 +1,62 @@
+Deck:
+3	Vidiian Harvester
+1	Playing by the Rules
+1	Emanations
+2	Culling Raid
+3	Face Off
+2	Expedient Opportunity
+2	Organ Harvesting
+1	Alvera Tree Ritual
+2	Vidiian Grappling Claw
+1	Code of the Ushaan
+1	Klingon Tea Ceremony
+3	Psychological Pressure
+2	Christening *VP
+2	Tacking Into the Wind *VP
+2	Honatta
+1	The Doctor Shmullus
+3	Bridon
+1	Danara Pel Loving Life
+3	Delanh
+1	Dereth Justifying the Means
+1	Drapanas Outbreak Historian
+3	Hophalin
+1	Kes Getting Back
+3	Monala
+3	Morulla
+1	Motura Eminent Sculptor
+1	Nadirum Grim Reaper
+2	Sethis Punctilious Warden
+2	Sulan Chief Surgeon
+2	Telari
+1	Thaden Procurement Specialist
+1	Redemption Medical Vessel
+2	Solace Bio-Matter Collector
+2	Vidiian Cruiser
+Dilemmas:
+2	Morphogenic Virus
+1	If Shoe Fits, Wear It!
+2	Becalmed
+1	Covert Ambush
+1	Polywater Intoxication
+3	Organ Theft
+1	He Wasn't Nice
+1	Inequitable Exchange
+2	The Alien's Graveyard
+1	Prisoner of the Exile
+2	The Killing Game
+2	Restricted Area
+2	Tsiolkovsky Infection
+2	Ungracious Hosts
+2	Whisper in the Dark
+2	Timescape *VP
+2	Secret Identity *VP
+2	Sylvia *VP
+3	Hippocratic Oath
+2	Skeleton Crew *VP
+Missions:
+1	Adelaar System Battle Reconnaissance (FOW)
+1	Ilari Oust Warlord
+1	System J-25 Premature Encounter
+1	Mokra-Controlled Planet Exploit Strife
+1	Vidiia Locus of Infection

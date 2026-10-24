@@ -1,0 +1,78 @@
+Deck:
+1	Engineering PADD
+2	Security Drills
+2	Tampering With Time
+2	Hindrance
+2	Ohhhh! Nothing Happened!
+1	Machinations
+1	The Manheim Effect
+3	Historical Monitor
+2	Cluttering Irrelevancies
+1	Daniels Timeless Guardian
+1	Anthony Braxton Forward-thinking Recruiter
+1	Naomi Wildman Astrometrics Officer
+1	Icheb Second Officer
+1	Juel Ducane Above Reproach
+3	Marris
+1	Seven of Nine Undercover Operative
+2	Simmons
+1	Julian Bashir Nostalgic Doctor
+1	Jean-Luc Picard Vintner
+1	William T. Riker Wistful Admiral
+1	Kathryn Janeway Regretful Leader
+3	Chakotay Bridge Between Two Crews
+3	Revised Chakotay Imposturous First Officer
+1	Revised Doctor Mass Murderer
+1	Beverly Crusher Captain Picard
+2	Data Lucasian Chair
+2	U.S.S. Relativity Federation Timeship
+1	U.S.S. Wells
+1	U.S.S. Relativity Federation Timeship *VP
+Dilemmas:
+1	Breaking the Ice
+1	Ardent Predator
+1	Adopted Authority
+1	Ghosts of Reality
+2	An Issue of Trust
+1	Artificial Ability
+1	Local Trouble
+1	In Development
+1	Shared Hallucination
+1	Nothing to Lose
+1	Chula: The Dice
+1	Chula: The Chandra
+1	Intimidation
+1	Hard of Heart
+1	Excalbian Drama
+1	Polywater Intoxication
+2	The Caretaker's "Guests"
+1	Fesarius Bluff
+1	The Captain's "Guest"
+1	Insurrection
+1	Moral Choice
+1	Inquest
+1	Mr. Tricorder
+1	Miner Revolt
+1	Pitching In
+1	We'll Never Know
+1	Rush Job
+1	Blended
+1	Unknown Microorganism
+2	Gomtuu Shock Wave
+1	Outclassed
+1	Center of Attention
+1	No Kill I
+1	Where No One Has Gone Before
+1	Picking Up the Pieces
+1	Racial Tension
+1	Zero Hour
+1	Rogue Borg Ambush
+2	Personal Duty
+1	Temptation
+1	Dignitaries and Witnesses *VP
+Missions:
+1	Sector 97 Explore Black Cluster (Promo)
+1	Tarod IX Investigate Massacre (Promo)
+1	Curnab Sector Prevent Historical Disruption
+1	Metron Arena Resolve Standing Conflict
+1	Moab IV Avert Danger

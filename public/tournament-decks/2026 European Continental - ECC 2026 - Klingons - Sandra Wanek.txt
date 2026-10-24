@@ -1,0 +1,90 @@
+Deck:
+1	Emergency Transport Unit *VP
+1	Emergency Transport Unit
+1	The Sword of Kahless (R2)
+1	The Sword of Kahless *VP
+2	Expedient Opportunity
+2	Tacking Into the Wind
+2	Distant Exploration
+1	Unexpected Difficulties (Promo)
+1	Unexpected Difficulties
+3	BaH!
+1	Brutal Struggle
+1	Let Honor Guide You
+1	Distant Exploration *VP
+2	A Day Long Remembered
+2	The Promise
+1	Azetbur Visionary Chancellor *VP
+1	Klag Second Officer *VP
+1	Gonik
+1	Woteln
+2	Soto (Klingon)
+1	Vekma Impartial Appraiser
+2	Kamok
+3	Kar'meth
+1	Kohlar Pilgrim Commander (FOW)
+3	Nirok
+1	Toral Son of Duras
+1	M'tokra
+2	Neelix "Fearless Warrior"
+1	Tom Paris Father of the Kuvah'magh
+1	T'Greth Pilgrim Contender
+1	Khos
+1	B'Etor Ambitious Renegade
+2	William T. Riker Exchange Officer
+1	Gowron Leader of the High Council
+2	Kahmis
+1	I.K.S. Vor'cha (BP)
+3	I.K.S. Voq'leng Ship of Prophecy
+1	I.K.S. Rotarran Ship of Tears
+Dilemmas:
+1	Breaking the Ice
+1	Adopted Authority
+1	Logical Solution
+1	Archaic Snare
+3	Ghosts of Reality
+1	Timescape (Promo)
+2	Causal Recursion
+1	Rascals
+2	More of Gravy Than of Grave
+1	Outclassed *A
+2	Local Trouble
+2	In Development
+1	V'Ger
+2	Nothing to Lose
+1	The Dal'Rok *A
+1	Dragon's Teeth (FOW)
+2	Telepathology
+1	Healing Hand
+1	Intimidation
+1	Cornered
+1	Polywater Intoxication
+1	The Phase
+1	The Caretaker's "Guests"
+1	Moral Choice
+1	Neurogenic Field
+1	Miner Revolt
+2	Pitching In
+1	Soul Searching
+2	Simulated Prey
+1	We'll Never Know
+1	What Lies Beneath
+1	Gomtuu Shock Wave
+1	Necessary Execution
+2	Unconventional Consideration
+1	Agonizing Encounter *VP
+1	Rogue Borg Ambush
+1	Secret Identity
+1	Tsiolkovsky Infection
+1	Whisper in the Dark
+1	Triage
+1	Gomtuu Shock Wave *VP
+1	Where No One Has Gone Before *VP
+1	Manufactured Triumph *VP
+1	The Weak Will Perish *VP
+Missions:
+1	Axiana Secure Colony
+1	Kelsid II Establish Settlement
+1	Qo'noS Heart of the Empire (MAH)
+1	Ilari Oust Warlord
+1	System J-25 Premature Encounter

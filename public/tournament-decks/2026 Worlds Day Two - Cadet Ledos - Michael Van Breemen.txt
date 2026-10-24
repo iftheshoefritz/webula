@@ -1,0 +1,91 @@
+Deck:
+1	Playing by the Rules
+1	Disadvantage Into Advantage *VP
+1	Tacking Into the Wind *VP
+3	Reprimand
+2	Uninvited
+2	Bridge Officer's Test
+1	Beverly Crusher Encouraging Commander
+1	Edward Jellico Brusque Martinet
+1	Bevvox Ancient Intellect
+1	Mark Jameson Senior Mission Specialist
+1	Kurros Brilliant Tactician
+1	Sarin Charmer
+1	Shras Passionate Plenipotentiary
+1	Thelev "Andorian" Terrorist
+1	Julian Bashir Visiting Colleague
+1	Seven of Nine Immersed in Chaos
+1	Spock Maverick Diplomat
+1	Jean-Luc Picard Genial Captain
+1	Mitena Haro Planted Observer
+1	Errol
+1	Brathaw First Mate
+1	Sakonna Puzzled Interrogator
+1	Geordi La Forge Resolute Presence
+1	Richard Galen Legendary Archaeologist
+1	William T. Riker Wistful Admiral
+1	Nicholas Locarno Nova Squadron Leader
+1	Sito Jaxa Nova Squadron Pilot
+1	Wesley Crusher Nova Squadron Pilot
+1	Calisthenics Opponent
+1	Dorian Collins Acting Chief Petty Officer
+1	Karen Farris Rigorous Leader
+1	Riley Shepard Confident Cadet
+1	Data Lucasian Chair *VP
+1	Tim Watters Valiant Captain
+1	Reginald Barclay Exceeding Limits *VP
+1	Andrea Brand Academy Superintendent
+1	Jean Hajar Nova Squadron Navigator *VP
+1	Rabal
+1	Guinan Listener *VP
+2	U.S.S. Enterprise-D Diplomatic Envoy (BP)
+1	U.S.S. Enterprise-E Flagship of the Federation (BP)
+Dilemmas:
+2	Adopted Authority (SS)
+1	Breaking the Ice
+1	Abrasive Allies
+1	Alternatives to Fighting
+1	Morphogenic Virus
+1	Ghosts of Reality
+1	Causal Recursion
+1	Ingenious Jury-rig
+2	Becalmed
+1	Dereliction of Duty
+1	Divergent Goals
+2	More of Gravy Than of Grave
+2	Dead Ringer
+1	Nothing to Lose
+1	Royale Casino: Craps
+1	Healing Hand
+1	Pivotal Destiny
+1	Overindulgence
+1	Honorable Pursuit
+1	Insurrection
+1	Suspicion
+2	The Alien's Graveyard
+1	The Clown: Go Away (IDR)
+1	"Rapid Progress"
+1	Stripped Down *AP
+2	Slightly Overbooked
+1	Outclassed
+3	Vault of Tomorrow
+1	Agonizing Encounter *VP
+1	The Caretaker's "Guests" *VP
+2	Timescape *VP
+1	Secret Identity *VP
+1	Gomtuu Shock Wave *VP
+1	Where No One Has Gone Before *VP
+1	The Dal'Rok *VP
+1	Pitching In *VP
+1	Excalbian Drama *VP
+1	Inferiority *VP
+1	Polywater Intoxication *VP
+1	Outmatched *VP
+1	Intimidation *VP
+2	In Development *VP
+Missions:
+1	Parliament Attend Diplomatic Conference
+1	Earth Cradle of the Federation (MAH)
+1	Ledos Preserve Isolated Culture
+1	Titan Flight Range Practice Orbital Maneuvers
+1	Gelyan Moon Harness Omega Particle

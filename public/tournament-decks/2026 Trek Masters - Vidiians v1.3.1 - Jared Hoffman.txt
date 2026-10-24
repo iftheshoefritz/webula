@@ -1,0 +1,83 @@
+Deck:
+2	Vidiian Harvester
+3	Culling Raid
+3	Downfallen Civilization
+1	Face Off
+3	Organ Harvesting
+1	Vidiian Grappling Claw
+2	Vidiian Organ Bank
+2	Unexpected Difficulties
+3	Christening *VP
+1	Escape (SS)
+2	Honatta
+1	The Doctor Shmullus
+2	Bridon
+1	Danara Pel Ethical Hematologist
+2	Delanh
+1	Dereth Determined Honatta
+2	Dilanum
+1	Drapanas Outbreak Historian
+3	Drenol
+1	Hophalin
+1	Kes Getting Back
+2	Losarus
+3	Maleth
+1	Motura Eminent Sculptor
+1	Nadirum Grim Reaper
+3	Nirata
+1	Sethis Punctilious Warden
+1	Sinaren
+1	Sulan Chief Surgeon
+3	Telari
+1	Thaden Procurement Specialist
+3	Solace Bio-Matter Collector
+2	Vidiian Cruiser
+Dilemmas:
+1	Breaking the Ice
+2	Adopted Authority
+1	A Taste of Armageddon
+1	Garak Has Some Issues
+1	Morphogenic Virus
+1	Ghosts of Reality
+1	In Development (SS)
+1	Ingenious Jury-rig
+1	Becalmed
+1	Rascals
+1	More of Gravy Than of Grave
+1	Local Trouble
+1	Dragon's Teeth
+1	Environmental Contaminants
+1	Telepathology
+1	Chula: The Chandra
+1	Intimidation
+1	Pivotal Destiny
+1	Overindulgence
+1	Malfunctioning Generator
+1	Polywater Intoxication
+3	Organ Theft
+1	Suspected Minority
+1	Hard Time
+1	The Caretaker's "Guests"
+1	Inequitable Exchange
+1	Gorgan
+1	Ominous Presence
+1	Simulated Prey
+1	Outmatched
+1	Prisoner of the Exile
+1	The Needs of the Many
+3	Vault of Tomorrow
+1	Equipment Malfunction
+1	Secret Identity
+3	Timescape *VP
+1	Gomtuu Shock Wave *VP
+1	Where No One Has Gone Before *VP
+1	The Dal'Rok *VP
+2	The Weak Will Perish *VP
+1	Pitching In *VP
+1	Old Differences *VP
+Missions:
+1	Norcadia Prime Shore Leave
+1	Alpha 5 Approach Transport Crash Survivor (IDR)
+1	Ledos Preserve Isolated Culture
+1	Ocampa System Salvage Debris
+1	Vidiia Locus of Infection

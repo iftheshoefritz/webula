@@ -1,0 +1,78 @@
+Deck:
+1	Borg Nanoprobes
+1	Emanations
+1	Overrun
+1	Regeneration Alcoves (FOW)
+3	Unexpected Difficulties *VP
+1	Particle 010
+1	Strength in Numbers
+1	Foresight
+2	U.S.S. Enterprise-J
+3	Psychological Pressure
+1	Surprise Party
+3	Reprimand
+2	Ascertain
+2	Adapt
+3	Purification Drone
+1	Orum Awoken From the Nightmare
+1	Seven of Nine Prodigal Daughter
+2	Teleportation Drone
+1	Four of Nine Heuristics Drone (FOW)
+1	Eleven of Eighteen Augmentation Drone
+3	Quantum Drone
+1	Two of Two Adaptation Drone
+2	Countermeasure Drone
+1	Three of Nine Tactician Drone
+3	Two of Nine Transtator Drone
+2	Fourth Neonatal Drone
+2	Third Neonatal Drone
+1	Allocation Drone
+1	Appraisal Drone
+1	Archival Drone
+2	Borg Queen Guardian of the Hive
+1	Cartography Drone
+3	Computation Drone
+2	Continuity Drone
+2	Evaluation Drone
+1	Guidance Drone
+1	Preservation Drone
+2	Research Drone
+1	Queen's Borg Sphere Contingency Vessel
+1	Borg Queen's Vessel Borg Flagship
+Dilemmas:
+3	Back to Basics
+2	If Shoe Fits, Wear It!
+1	An Issue of Trust
+1	Nothing to Lose
+1	Chula: The Chandra
+2	Healing Hand
+3	Polywater Intoxication
+2	Flare of Rage
+1	Hard Time
+1	Inequitable Exchange
+2	Frozen by Fear
+2	The Alien's Graveyard
+2	Neurogenic Field
+2	Night Terrors
+2	Staffing Shortage
+3	The Weak Will Perish
+2	Prisoner of the Exile
+3	Spatial Interphase
+2	The Killing Game
+2	Spatial Distortions
+2	Unfair Terms
+2	Sylvia
+2	Well-Prepared Defenses
+2	The Phage
+1	The Dal'Rok
+2	Timescape
+2	The Dreamer and the Dream
+2	Whisper in the Dark
+2	Tsiolkovsky Infection *VP
+3	Inferiority *VP
+Missions:
+1	Northwest Passage Resist Extradimensional Invasion
+1	Alpha 5 Approach Transport Crash Survivor (IDR)
+1	Grid 986 Destroy Transwarp Hub
+1	Gelyan Moon Harness Omega Particle
+1	Unicomplex Root of the Hive Mind *VP

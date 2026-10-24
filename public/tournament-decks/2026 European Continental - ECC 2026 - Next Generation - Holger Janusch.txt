@@ -1,0 +1,84 @@
+Deck:
+2	Emergency Transport Unit *VP
+1	Unexpected Difficulties (Promo)
+2	Machinations
+2	Endangered
+3	Field Studies
+2	Running a Tight Ship
+2	Surprise Party
+2	How Would You Like a Trip to Romulus?
+1	Inspiring Leader
+2	Security Drills *VP
+3	Tacking Into the Wind *VP
+1	Beverly Crusher Encouraging Commander
+1	Miles O'Brien Conn Officer
+1	Edward Jellico Brusque Martinet
+1	Worf Chief of Security
+1	Leonardo da Vinci Renaissance Man
+1	Erik Pressman Stern Authoritarian
+3	Fredericks
+2	Jean-Luc Picard Genial Captain
+2	Rachel Garrett Restoring the Past
+1	Robin Lefler Pragmatic Specialist
+1	Richard Castillo Assuming Command
+1	Morgan Bateson Confident Commander
+1	Dr. Leah Brahms Holographic Representation
+2	Lwaxana Troi Extravagant Ambassador
+1	Data Lucasian Chair
+1	Katherine Pulaski Chief Medical Officer
+1	Sarek Logical Being
+1	Norah Satie Starfleet Investigator
+1	Kathryn Janeway Wry Admiral
+2	U.S.S. Enterprise-D Explorer
+2	U.S.S. Enterprise-C Temporal Linchpin
+Dilemmas:
+2	A Klingon Matter
+2	Breaking the Ice
+1	Artificial Wormhole
+1	Dark Page
+2	Chula: The Game
+1	Dramatis Personae
+1	Ferengi Locator Bomb
+1	Shared Hallucination
+1	Chula: Trickery
+1	Chula: The Dice
+1	Healing Hand
+1	Galileo Grounded
+1	Financial Pitfall
+1	Chula: Unfortunate Roll
+2	Family
+1	Back Room Dealings
+1	Chula: Move Along Home
+1	Pillage and Plunder
+1	Frozen by Fear
+1	Assassination Attempt
+1	Information Extraction
+1	Oh No!
+1	The Clown: Go Away (IDR)
+1	The Clown: Go Away
+1	Shipboard Fire
+2	We'll Never Know
+1	Occupational Hazards
+1	The First Duty
+2	What Lies Beneath
+1	Warm Welcome
+1	Stripped Down *AP
+1	Bynars' Password
+1	Captain's Holiday
+1	Center of Attention
+1	Chula: Echoes
+1	Guess Who's Coming to Dinner?
+1	The Clown: On His Throne
+1	Lack of Preparation
+1	Toe to Toe
+1	Guess Who's Coming to Dinner? (Promo)
+1	The Dal'Rok
+1	Dangerous Liaisons
+1	Vastly Outnumbered
+1	Back Room Dealings *VP
+Missions:
+1	Praxis Offer Assistance
+1	Earth Cradle of the Federation *VP
+1	Outpost Delta Zero-Five Investigate Destruction
+1	Volan III Investigate Maquis Activity
+1	Delphi Ardu IV The Last Outpost *VP

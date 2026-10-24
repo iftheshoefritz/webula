@@ -1,0 +1,58 @@
+Deck:
+3	Condition Red
+3	Energize
+3	Unexpected Difficulties (Promo)
+3	These Are The Voyages
+1	Machinations
+2	Machinations (R2)
+3	Getting Under Your Skin
+2	Power Shift
+1	Power Shift *VP
+2	Escape
+2	Praxus
+2	Chief O'Brien
+1	Neral Seasoned Politician
+1	Karina Hindering Analyst
+1	The Viceroy Advisor to the Praetor *VP
+3	Donatra Honorable Commander
+1	Letant Sneering Liaison
+1	Mendak Duplicitous Admiral
+3	Ptol
+1	Jean-Luc Picard Bearer of Ill Tidings
+1	Data From the City of Rateg
+1	Rekar Tool of the Tal'Shiar
+2	The Viceroy Advisor to the Praetor
+1	Koval Chairman of the Tal Shiar
+3	Mareth
+3	Relam
+3	Bird-of-Prey
+2	Phoenix Risen From the Ashes
+Dilemmas:
+2	Agonizing Encounter
+2	All-Consuming Evil
+2	Harsh Conditions (Promo)
+1	The Clown: Guillotine *A
+1	Timescape (Promo)
+1	All-Consuming Evil *VP
+1	Distress Call
+2	Full Security Alert
+3	Inferiority
+1	The Captain's "Guest"
+1	Insurrection
+1	Hard Time *VP
+2	Gomtuu Shock Wave
+1	Outclassed
+3	Center of Attention
+1	Where No One Has Gone Before
+2	The Clown: Guillotine
+1	Zero Hour
+2	Secret Identity
+2	Tsiolkovsky Infection
+2	Whisper in the Dark
+1	Personal Duty
+Missions:
+1	Sector 21396 Commandeer Prototype
+1	Near Marva IV Elude Federation Forces
+1	Iconia Iconia Investigation
+1	Khitomer Khitomer Investigation
+1	Romulus Seat of Power

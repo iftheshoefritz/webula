@@ -1,0 +1,73 @@
+Deck:
+1	Playing by the Rules
+1	Code of the Ushaan
+3	Unexpected Difficulties *VP
+2	The Enemy of My Enemy
+3	Uninvited
+2	Escape
+3	The Central Command *VP
+1	Seska Pragmatic Agent
+1	Doran
+2	Danig Kell
+3	Damar Ambitious Glinn
+3	Tugat
+1	Makbar State Jurist
+1	Mitena Haro Planted Observer
+3	Telle Macet's Aide
+2	Dukat Cardassian Representative
+2	Broca "Leader" of the Cardassian Union
+3	Elim Garak Crafty Underling
+1	Mardel Overseer
+1	Nador Curious Commander
+3	Enabran Tain "Retired" Spymaster *VP
+2	Ezri Tigan Soldier of Fortune *VP
+1	Shran In Archer's Debt *VP
+3	Mila Trusted Confidante *VP
+1	Ari
+2	Ocett Dogged Rival
+3	Parn
+3	Rogesh
+2	Julian Bashir Displaced Doctor
+3	Alliance Galor
+3	Regency 1 Alliance Flagship
+3	Rokassa Tampering Vessel
+3	Groumall Inauspicious Command *VP
+Dilemmas:
+1	Agonizing Encounter
+1	Breaking the Ice
+1	Morphogenic Virus
+2	Ghosts of Reality
+1	In Development (SS)
+1	Causal Recursion
+2	Becalmed
+1	Dereliction of Duty
+1	Compromised Experiment
+1	More of Gravy Than of Grave
+1	Nothing to Lose
+1	The Dal'Rok *A
+2	Intimidation
+2	Overindulgence
+1	Insurrection
+2	The Alien's Graveyard
+1	Moral Choice
+2	Gorgan
+2	"Rapid Progress"
+1	Outmatched
+1	Vault of Tomorrow
+2	Secret Identity
+3	Tactical Disadvantage *VP
+2	Timescape *VP
+2	Back to Basics *VP
+2	The Dreamer and the Dream *VP
+1	Excalbian Drama *VP
+1	Inferiority *VP
+1	Polywater Intoxication *VP
+2	Adopted Authority *VP
+2	Skeleton Crew *VP
+1	New Face
+Missions:
+1	Cardassia Prime Hardscrabble World (MAH)
+1	Bajoran Exosphere Deliver Evidence
+1	Kreetassa Perform Intricate Ritual
+1	Rura Penthe Escape Gulag
+1	T'Lani III Eliminate Harvesters

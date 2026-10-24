@@ -1,0 +1,78 @@
+Deck:
+2	Thirst for Knowledge
+2	Christening
+1	Indebtedness
+1	Finding Our Way *VP
+1	Unexpected Difficulties
+2	Security Drills *VP
+2	Field Studies *VP
+1	Tacking Into the Wind *VP
+1	Surprise Party
+1	Infinite Combinations
+3	Homeward Bound
+1	Persis Loyal Daughter *AP
+1	Thelev "Andorian" Terrorist
+2	Juliet Jurot
+1	Noah Lessing Driven Officer
+1	Icheb Second Officer
+3	Chakotay Steadfast Commander
+2	Thompson
+3	Kathryn Janeway Mindful Keeper
+1	Mitena Haro Planted Observer
+2	Mitchell
+1	Mortimer Harren Reclusive Genius
+2	Tom Paris Competitive Pilot
+1	Tal Celes Imprecise Analyst
+2	William Telfer Misguided Hypochondriac
+2	Carlson
+1	Harry Kim Diligent Ensign
+1	Kes Experienced Ocampa
+1	Mariah Henley
+1	Tricia Jenkins Relaxed Pilot
+1	B'Elanna Torres Straightforward Engineer
+3	Revised Chakotay Imposturous First Officer
+1	Marie Kaplan Observant Officer
+1	Marquay
+1	Stadi Focused
+1	The Doctor Emergency Medical Hologram
+1	Tuvix Symbiogenesis
+1	Sigmund Freud Father of Psychoanalysis
+1	Tuvok Chief of Security *VP
+1	Seven of Nine Efficient Analyst *VP
+3	U.S.S. Voyager Home Away From Home *VP
+2	Delta Flyer Rebuilt "Hot Rod"
+Dilemmas:
+2	Adopted Authority
+3	Ghosts of Reality
+2	Chula: The Game
+1	Dereliction of Duty
+2	Local Trouble
+1	Overburdened
+2	Nothing to Lose
+1	Chula: The Dice
+2	Intimidation
+1	Two-Dimensional Creatures
+1	Pillage and Plunder
+1	Unbelievable Emergency
+1	The First Duty
+2	Blended
+1	Gomtuu Shock Wave
+2	Unconventional Consideration
+3	Chula: Pick One to Save Two
+1	The Dal'Rok
+1	Rogue Borg Ambush
+2	Personal Duty (R2)
+1	Secret Identity *VP
+1	Where No One Has Gone Before *VP
+1	An Issue of Trust *VP
+2	Tsiolkovsky Infection *VP
+2	Whisper in the Dark *VP
+3	The Weak Will Perish *VP
+2	Chula: The Chandra *VP
+2	In Development *VP
+Missions:
+1	Caretaker's Array Protect Ocampa (MAH)
+1	Alsuran Sector Utilize Abandoned Relay Station
+1	Orlitus Cluster Astronomical Survey (FOW)
+1	Ocampa System Salvage Debris
+1	Marayna's Nebula Inversion Mystery

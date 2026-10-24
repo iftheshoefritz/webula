@@ -1,0 +1,86 @@
+Deck:
+2	Thirst for Knowledge
+1	Finding Our Way
+2	Unexpected Difficulties
+3	Running a Tight Ship
+3	Homeward Bound
+2	Seven of Nine Reclaimed Drone *AP
+1	Chell Incessant Chatterbox
+1	Juliet Jurot
+1	Noah Lessing Driven Officer
+3	Chakotay Steadfast Commander
+1	Kathryn Janeway Mindful Keeper
+1	Mitchell
+1	Mortimer Harren Reclusive Genius
+2	Tom Paris Competitive Pilot
+1	Tal Celes Imprecise Analyst
+1	William Telfer Misguided Hypochondriac
+1	Harry Kim Diligent Ensign
+1	Doyle
+1	Dr. Crell Moset Medical Consultant Program
+1	Rollins Trusted Subordinate
+3	Tricia Jenkins Relaxed Pilot
+1	William T. Riker Surprised Witness
+1	Cavit Apprehensive First Officer
+1	Joe Carey Next In Line
+1	Revised Chakotay Imposturous First Officer
+1	Revised Doctor Mass Murderer
+1	Lyndsay Ballard Back From the Dead
+1	Revised Neelix Hedgehog Ops Officer
+1	Stadi Focused
+1	Kes Curious Ocampa
+1	Tuvok Chief of Security *VP
+1	Kathryn Janeway Mindful Keeper *VP
+1	Neelix Valued Guide *VP
+1	Naomi Wildman Obliging Assistant
+1	U.S.S. Voyager Home Away From Home (BP)
+1	U.S.S. Voyager Home Away From Home *VP
+1	Delta Flyer Rebuilt "Hot Rod"
+1	U.S.S. Voyager Home Away From Home
+Dilemmas:
+1	Adopted Authority (SS)
+1	A Pattern of Lies
+1	Breaking the Ice
+1	Adopted Authority
+1	Morphogenic Virus
+2	Ghosts of Reality
+1	An Issue of Trust
+1	Causal Recursion
+2	Becalmed
+1	Dereliction of Duty
+2	More of Gravy Than of Grave
+1	In Development
+2	Brave Words
+1	Nothing to Lose
+1	Telepathology
+1	Chula: The Chandra
+1	Intimidation
+1	Polywater Intoxication
+1	Suspected Minority
+1	Insurrection
+1	Show Trial
+1	The Clown: Go Away (IDR)
+1	Pitching In
+1	The Weak Will Perish
+1	Outclassed
+2	Well-Prepared Defenses
+2	Vault of Tomorrow
+1	Racial Tension
+1	Zero Hour
+1	Skeleton Crew
+1	Personal Duty (R2)
+3	Timescape *VP
+1	Back to Basics *VP
+1	Necessary Execution *VP
+1	Moral Choice *VP
+1	Greater Needs *VP
+1	Excalbian Drama *VP
+1	Skeleton Crew *VP
+1	In Development *VP
+1	New Face
+Missions:
+1	Caretaker's Array Protect Ocampa (MAH)
+1	Alsuran Sector Utilize Abandoned Relay Station
+1	Orlitus Cluster Astronomical Survey
+1	Plasma Storm Depths Search for Missing Vessel
+1	Marayna's Nebula Inversion Mystery

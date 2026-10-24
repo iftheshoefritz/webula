@@ -1,0 +1,75 @@
+Deck:
+2	Unyielding
+2	Quintessence
+2	The New Resistance
+3	Unimatrix Zero
+1	U.S.S. Enterprise-J
+2	Neural Transceiver
+3	Standard Punishment
+1	Locutus Almost Human
+1	B'Elanna Torres Mostly Assimilated
+1	Eight of Eleven Laura
+1	Five of Twelve Axum
+2	Kathryn Janeway Mostly Assimilated
+2	Seven of Nine Annika
+2	Three of Twelve Specialty Drone
+1	Six of Ten Korok
+1	Tuvok Mostly Assimilated
+1	Two of Two Adaptation Drone
+3	Requisitions Drone
+2	Three of Nine Tactician Drone
+1	Two of Nine Transtator Drone
+1	First Unstable
+1	Fourth Neonatal Drone
+1	Third Neonatal Drone
+3	Reconnaissance Drone
+2	Queen's Borg Sphere Contingency Vessel
+3	Sphere 117 Renegade Borg Sphere
+Dilemmas:
+1	Ardent Predator
+1	Adversarial Trial
+1	Adopted Authority
+1	No Kill I *A
+1	Artificial Ability
+1	Distress Call
+1	Healing Hand
+1	Excalbian Drama
+3	Inferiority
+1	Polywater Intoxication
+1	Honorable Pursuit
+1	Standing Trial
+1	Heart to Heart
+1	Contaminating a Culture
+1	Fesarius Bluff
+1	The Captain's "Guest"
+1	Assassination Attempt
+1	Unbelievable Emergency
+1	Moral Choice
+1	Show Trial
+1	Exposed Power Relay
+1	Occupational Hazards
+1	Rush Job
+3	Counterinsurgency Program
+1	Gomtuu Shock Wave
+1	Nose to Nose
+1	Outclassed
+1	Neural Parasites
+1	Sylvia
+1	Agonizing Encounter *VP
+1	Zero Hour
+1	The Dal'Rok
+1	Dangerous Liaisons
+1	Tsiolkovsky Infection
+1	So Many Enemies
+1	Whisper in the Dark
+1	Temptation
+1	Necessary Execution *VP
+1	Tsiolkovsky Infection *VP
+1	Whisper in the Dark *VP
+1	The Weak Will Perish *VP
+Missions:
+1	Unimatrix 116 Assimilate Starship
+1	Nudios Reestablish Neural Cooperative
+1	Fluidic Space Assault on Species 8472
+1	Akusei Belt Hunt Alien
+1	Unicomplex Root of the Hive Mind

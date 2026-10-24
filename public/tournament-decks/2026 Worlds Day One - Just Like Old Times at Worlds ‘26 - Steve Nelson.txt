@@ -1,0 +1,75 @@
+Deck:
+1	Earring of Li Nalas
+2	Resistance Rifle
+2	Bajoran Phaser Pistol
+1	Tacking Into the Wind
+3	Invocation of Kosst Amojan
+2	Indebtedness
+1	Surprise Party
+3	Just Like Old Times
+1	Bridge Officer's Test
+1	Stricken Dumb
+1	Natural Instincts
+1	Escape
+1	Covenant *VP
+1	Romara Cal Personal Physician
+1	Kira Taban Husband and Father
+2	Paenol Resistance Soldier
+1	Kira Nerys Ambitious Ally
+3	Heler
+1	Okala Ahnlo Unsung Hero
+1	Azeni Meressa Resistance Spy
+1	Furel Resistance Scout
+2	Orta Resistance Leader
+2	Surmak Ren Resistance Doctor
+1	Zayra Bigoted Witness
+1	Dukat Pah-Wraith Puppet
+1	Day Kannu Field Colonel
+1	Krim Thoughtful Tactician
+1	Kulan Militia Soldier
+1	Razka Karn Scavenger
+1	Treyam Militia Soldier
+1	Winn Adami Devious Manipulator
+1	Odo Wayward Link
+1	Tahna Los Voice of the Kohn-Ma
+1	Li Nalas Legend of Bajor
+1	Lupaza Resistance Fighter
+1	Shakaar Edon Resistance Leader
+1	Fontaine Enigmatic Rebel
+1	Rinnak Pire
+1	Xhosa Sponsored Transport
+2	Te'nari Resistance Flagship
+1	Bajoran Scout Vessel
+Dilemmas:
+1	Arena
+1	Adopted Authority
+1	Bread and Circuses
+1	Arresting Display
+1	Ghosts of Reality
+1	Left Behind
+2	More of Gravy Than of Grave
+1	In Development (IDR)
+1	Nothing to Lose
+1	Chula: The Chandra
+2	Healing Hand
+1	Intimidation
+1	Disgraceful Assault
+1	Polywater Intoxication
+1	Threading the Needle
+1	Hard Time
+1	The Alien's Graveyard
+1	Miner Revolt
+1	Pitching In
+1	Pattern Loss
+1	Pest Control
+1	Unknown Microorganism
+1	The Weak Will Perish
+1	Mugato
+1	The Dal'Rok
+3	Hippocratic Oath
+Missions:
+1	Bajor Blessed of the Prophets
+1	Metron Arena Resolve Standing Conflict
+1	Starbase 718 Investigate Cryosatellite
+1	Cardassian Outskirts Kressari Rendezvous
+1	Cardassia IV Rescue Prisoners

@@ -1,0 +1,76 @@
+Deck:
+2	Helping Hand
+2	Accumulated Knowledge
+2	Tampering With Time
+3	Relative Dimensions
+1	Henry Archer Trailblazing Engineer
+1	Shran Exchange Officer
+1	John Frederick Paxton Man of His Word
+1	Judith Hume
+2	Jane Taylor
+1	Mercer
+1	Paul Mayweather Burdened with Command
+1	Sim Sacrificial Lamb
+2	Wixiban Old Friend
+1	Danica Erickson Well Read
+1	Hoshi Sato Damaged Linguist
+1	Ajur Temporal Thief
+1	Boratus Temporal Thief
+1	Josiah Clarke
+1	Fiona McKenzie Experienced Corporal
+1	Gannet Brooks Undercover Operative
+1	Charles Tucker III Damaged Engineer
+3	Jonathan Archer Damaged Captain
+1	Malcolm Reed Damaged Security Officer
+1	Phlox Damaged Doctor
+1	Markus Forbes Extraction Specialist
+2	Daniels Timeline Protector
+1	T'Pol Damaged Science Officer
+1	Travis Mayweather Damaged Navigator
+1	A. G. Robinson Prototype Captain
+2	Nathan Samuels Earth Minister
+1	Brennan Scott
+1	Jeffrey Pierce On The Edge
+2	D'Vela
+1	Stewart Rivers Patriotic Engineer
+1	Soval Idealist
+1	Goval Follower of the One
+3	Morik
+2	Enterprise Damaged Starship
+3	Assimilator Rogue Borg Vessel
+Dilemmas:
+1	Agonizing Encounter
+1	Breaking the Ice
+3	Adopted Authority
+1	Alternatives to Fighting
+1	A Bad Case of par'Mach
+1	Garak Has Some Issues
+1	Morphogenic Virus
+1	Ghosts of Reality
+1	An Issue of Trust
+1	Becalmed
+3	Dereliction of Duty
+2	More of Gravy Than of Grave
+2	In Development (IDR)
+1	Nothing to Lose
+1	Healing Hand
+3	Intimidation
+2	Discommendation
+1	Overindulgence
+3	Polywater Intoxication
+2	Hard Time
+1	Insurrection
+1	The Alien's Graveyard
+2	Moral Choice
+1	The Weak Will Perish
+3	Gomtuu Shock Wave
+1	Necessary Execution
+1	The Dal'Rok
+2	Personal Duty (R2)
+1	The Weak Will Perish *VP
+Missions:
+1	Kulob II Investigate Anachronism
+1	Ruhka III Investigate Refinery
+1	Vokau Belt Investigate Derelict
+1	Earth Humanity's Home
+1	Kovalaan Nebula Navigate Xindi Corridor

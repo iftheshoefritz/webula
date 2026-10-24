@@ -1,0 +1,76 @@
+Deck:
+1	Keevan (SS)
+1	Emergency Transport Unit *VP
+2	Ferengi Computer
+1	Emanations
+3	At What Cost? (IDR)
+1	Deal With the Count Man
+1	Self-Replicating Roadblock
+1	Call to Arms
+1	Rule of Acquisition #76
+2	Optimism
+1	Worth the Price
+3	Quark's Advice
+1	Captain on the Bridge
+1	Tacking Into the Wind *VP
+1	Rule of Acquisition #6 *VP
+2	Call of the Nagus *VP
+1	Surprise Party
+3	Reprimand
+1	Fajo's Menagerie
+1	Rule of Acquisition #33 *VP
+1	James T. Kirk Dubious Duplicate
+1	Gint Avaricious Author
+2	Omag "Fat Ferengi"
+1	DaiMon Solok Cargo Runner
+1	Tallus Blustering Pursuer
+1	Brunt Acting Grand Nagus
+1	Bok Vengeful DaiMon
+1	Rata Profiteer
+1	Nog Bar Owner
+1	Tog Lecherous DaiMon
+1	Grebnedlog Pakled Captain
+3	Ishka Moogie *VP
+1	Julian Bashir Displaced Doctor
+1	Benjamin Sisko Preserving History
+2	Kurdon (BP)
+1	Ehrehin Avenger
+1	Redemption Medical Vessel
+1	Assimilated Transport
+2	Personal Transport
+1	Shuttlepod One Reliable Transport
+Dilemmas:
+1	Alternatives to Fighting
+1	Garak Has Some Issues
+1	Ghosts of Reality
+1	Ingenious Jury-rig
+1	More of Gravy Than of Grave
+1	Dead Ringer
+1	Nothing to Lose
+1	Healing Hand
+3	The Alien's Graveyard
+2	The Clown: Go Away (IDR)
+2	Pitching In
+3	The Clown: Cloaking Device
+3	The Clown: Fear Incarnate
+3	Well-Prepared Defenses
+1	Secret Identity
+2	Timescape *VP
+1	Gomtuu Shock Wave *VP
+1	The Dreamer and the Dream *VP
+1	The Clown: Guillotine *VP
+3	The Weak Will Perish *VP
+3	Moral Choice *VP
+1	Chula: The Chandra *VP
+3	Greater Needs *VP
+1	Polywater Intoxication *VP
+2	Adopted Authority *VP
+2	Skeleton Crew *VP
+1	Outmatched *VP
+1	In Development *VP
+Missions:
+1	Parliament Attend Diplomatic Conference
+1	Ferenginar Financial Hub (MAH)
+1	Ledos Preserve Isolated Culture
+1	Gelyan Moon Harness Omega Particle
+1	Sector 21396 Commandeer Prototype *VP

@@ -1,0 +1,65 @@
+Deck:
+1	Second Edition
+2	New Life
+3	Quantum Incursions
+2	VIP Welcome
+1	Surprise Party
+3	Christening *VP
+3	I Need A Little Counseling
+1	Sito Jaxa Undercover "Terrorist"
+1	Reginald Barclay Exceeding Limits
+1	Julian Bashir Visiting Colleague
+2	Molly O'Brien Time's Orphan
+2	Alyssa Ogawa Chief Medical Officer
+3	Andro
+2	Deanna Troi Par'Mach'kai
+1	Tasha Yar Tactical Officer
+1	Spock Maverick Diplomat
+3	Worf First Officer
+3	Guinan Battleship Bartender
+2	Laavros Kreetassan Civil Servant
+1	Beverly Crusher Battleship Doctor
+2	Data Battleship Officer
+1	Geordi La Forge Battleship Engineer
+2	Jean-Luc Picard Battleship Captain
+3	Dr. Leah Brahms Holographic Representation
+1	Keiko O'Brien Botanist
+1	Katherine Pulaski Chief Medical Officer
+1	Wesley Crusher Battleship Helmsman
+2	William T. Riker Battleship First Officer
+1	Tuvok Coldly Logical Soldier
+3	Shelley
+1	Robin Lefler Mission Specialist
+1	U.S.S. Oberth
+1	U.S.S. Pasteur Medical Ship
+Dilemmas:
+1	Morphogenic Virus
+2	Clashing Values
+2	Becalmed
+1	Derelict Robot
+2	Nothing to Lose
+1	Healing Hand
+1	Overindulgence
+3	Polywater Intoxication
+1	Honorable Pursuit
+1	The Captain's "Guest"
+1	Moral Choice
+1	Pitching In
+1	Peremptory Plea
+3	The Weak Will Perish
+1	Necessary Execution
+1	Unconventional Consideration
+3	Reflections
+3	Overwhelmed
+2	Timescape
+2	Where No One Has Gone Before *VP
+2	Back to Basics *VP
+2	Counterinsurgency Program *VP
+1	Temptation *VP
+1	Excalbian Drama *VP
+Missions:
+1	Earth Cradle of the Federation *VP
+1	Aldea Aid Legendary Civilization
+1	Ligon II Obtain Vaccine
+1	Beta Cassius Treat Plague Ship
+1	Vaytan Host Metaphasic Shielding Test

@@ -1,0 +1,63 @@
+Deck:
+1	Orb of Prophecy and Change
+3	Change of Venue
+3	Christening
+1	Tacking Into the Wind
+3	Common Ground
+3	These Are The Voyages
+3	Bridge Officer's Test
+1	Data Proud Father
+1	Vash Duplicitous Damsel
+1	Mark Jameson Senior Mission Specialist
+1	William T. Riker Skilled Commander
+1	Thelev "Andorian" Terrorist
+1	Julian Bashir Visiting Colleague
+1	Lwaxana Troi Psychic Tutor
+2	Martinez
+1	Beverly Crusher Principled Physician
+1	Spock Maverick Diplomat
+1	Deanna Troi Principled Heart
+1	Doctor Chaotica Ruler of the Cosmos
+1	Tolian Soran Renegade Scientist *VP
+1	Daneeka Reassuring Physician
+1	E.M.H. Program
+1	Rachel Garrett Displaced Captain
+3	Jean-Luc Picard Vintner *VP
+1	Mot The Barber
+1	Ezri Tigan Soldier of Fortune *VP
+1	Geordi La Forge Conn Officer
+1	Lenara Kahn Wormhole Theorist
+1	Tim Watters Valiant Captain
+1	Leonard H. McCoy Remarkable Man *VP
+1	Andrea Brand Academy Superintendent
+1	Martin
+1	Marouk Sovereign of Acamar
+1	Regana Tosh
+1	U.S.S. Enterprise-D Diplomatic Envoy (BP)
+1	Cousteau Captain's Yacht
+1	U.S.S. Enterprise-E Federation Envoy
+Dilemmas:
+2	Adopted Authority (SS)
+3	All-Consuming Evil
+1	Ghosts of Reality
+1	Nothing to Lose
+2	Where No One Has Gone Before *A
+1	The Dal'Rok *A
+1	Bold Plan
+1	Cornered
+1	Excalbian Drama
+1	Polywater Intoxication
+1	Suspected Minority
+3	The Clown: Guillotine
+2	Well-Prepared Defenses
+2	Telepathic Deception
+1	Rogue Borg Ambush
+1	Secret Identity *VP
+2	The Weak Will Perish *VP
+2	Guess Who's Coming to Dinner? *VP
+Missions:
+1	Kavis Alpha Research Binary Star
+1	Earth Cradle of the Federation
+1	Parvenium System Investigate Alien Probe
+1	Beta Lankal Medical Relief
+1	Tarella Plague Planet

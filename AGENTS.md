@@ -115,6 +115,20 @@ The script:
 
 The script is idempotent — safe to re-run after every card data update.
 
+### `scripts/deckpadd_to_lackey.js`
+
+Converts trekcc.org DeckPADD deck files to the LackeyCCG deck format that the deck
+builder reads. The comment at the top of the script describes both formats and the
+command.
+
+`public/tournament-decks/` holds the converted decks of the 2026 tournaments.
+`index.json` in that folder lists them, with the event, the player and the trekcc
+deck ID. When you add a deck file, add its row to `index.json`.
+
+The DeckPADD download (`/decklists/?mode=download&deckID=<id>`) needs a trekcc.org
+login, and Cloudflare blocks `curl`. Get the files from a browser where the owner
+is logged in, with `fetch` inside the page.
+
 ## Validation
 
 Before you open or update a PR, run all three commands. All three must pass.

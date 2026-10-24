@@ -1,0 +1,96 @@
+Deck:
+2	TR-116 Rifle
+1	Miracle Working
+1	The Killers Are Here
+1	Alvera Tree Ritual
+2	Coordinated Counterattack
+1	Assassination Plot
+1	Surprise Party
+1	Tacking Into the Wind *VP
+2	Driven
+1	Odo Vigilant Staffer
+1	Christine Chapel Clandestine Vessel
+1	Christopher Pike Bold Commander
+2	Spock Statesman
+1	Sonak Recommended Science Officer
+1	Burke Xenophobic Yeoman
+1	Hikaru Sulu Experienced Helmsman
+1	Ilia Finest Navigator in Starfleet
+1	Thelev "Andorian" Terrorist
+1	James T. Kirk Experienced Commander
+1	Leonard H. McCoy Experienced Advisor
+1	Seven of Nine Immersed in Chaos
+1	Montgomery Scott Experienced Engineer
+1	Samno Petty Officer
+1	Number One Reputable Officer
+1	William Smillie Commander in Chief
+1	Valeris Co-Conspirator
+1	Spock Experienced Officer
+1	John Harriman Captain of the Enterprise
+1	Patrick West Co-Conspirator
+1	Willard Decker Recommended Replacement
+1	Ronald Tracey Delusional Captain
+1	Pavel A. Chekov Experienced Adept
+1	Uhura Experienced Technician
+1	Nilz Baris Agricultural Undersecretary
+1	Karl Jaeger
+1	Evans
+2	Nagata
+1	George Stocker Starbase Commodore
+1	Jadzia Dax Communications Staffer
+1	Mark Piper
+1	Benjamin Finney Bitter Records Officer
+1	Matt Decker Vengeful Commodore
+1	Ezri Tigan Soldier of Fortune *VP
+1	Sigmund Freud Father of Psychoanalysis
+1	Benjamin Sisko Command Staffer *VP
+3	S'rrel *VP
+1	Sarek Vulcan Delegate *VP
+1	Nel Apgar Temperamental Researcher
+3	U.S.S. Enterprise-A Olive Branch
+1	U.S.S. Enterprise-B Ill-Prepared Successor
+1	U.S.S. Exeter Fleet's Finest
+1	Phoenix Risen From the Ashes *VP
+1	U.S.S. Enterprise Where She Belongs *VP
+Dilemmas:
+1	Adversarial Trial
+1	Arresting Display
+1	A Bad Case of par'Mach
+1	Morphogenic Virus
+1	Shields Up!
+1	Artificial Wormhole
+1	Dark Page
+1	Conflict of Interests
+2	V'Ger
+1	Dragon's Teeth
+1	The Big Goodbye
+1	Intimidation
+1	Discommendation
+1	Cornered
+1	Two-Dimensional Creatures
+1	Greater Needs
+1	The Alien's Graveyard
+1	Tak Tak Negotiations
+1	Pitching In
+1	Soul Searching
+1	"Rapid Progress"
+1	Rush Job
+1	Weight of Command
+1	Blended
+2	Unconventional Consideration
+1	Shocking Betrayal
+1	Vault of Tomorrow
+1	Guess Who's Coming to Dinner? (Promo)
+1	Timescape
+2	Rogue Borg Ambush
+1	Tactical Disadvantage *VP
+1	Secret Identity *VP
+1	Back to Basics *VP
+1	Chula: The Chandra *VP
+1	Polywater Intoxication *VP
+Missions:
+1	Khitomer Sabotage Peace Conference
+1	Neutral Sector Support Gorkon Initiative
+1	Sherman's Planet Agricultural Assessment
+1	Earth Lush and Beautiful Home
+1	Sector 21396 Commandeer Prototype

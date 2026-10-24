@@ -1,0 +1,79 @@
+Deck:
+1	Orb of Contemplation
+1	Orb of Prophecy and Change
+1	Orb of Time
+1	Change of Venue
+3	Unexpected Difficulties *VP
+3	In the Pah-wraith's Wake
+3	Invocation of Kosst Amojan
+3	These Are The Voyages
+3	Bajoran Gratitude Festival
+3	Days of Atonement
+1	Rescue Captives
+2	Defend It and Hope
+2	Stunning Reversal
+2	Bridge Officer's Test
+2	Jadzia Dax Elder
+2	Yassim Vocal Martyr
+1	Latara
+3	Sorad
+1	Odo Stalwart Ally
+1	Kira Taban Husband and Father
+1	Kira Nerys Ambitious Ally
+1	Kira Nerys Rescuer
+1	Benjamin Sisko Man of Two Worlds
+1	Winn Adami Uneasy Shepherd
+2	Mullibok Gnarled and Battered Old Tree
+1	Kira Nerys Pious Major
+1	Leeta Union Member
+1	Dukat Pah-Wraith Puppet
+1	Akorem Laan Revered Poet
+3	Borum Selfless Hero
+1	The Sirah The Storyteller
+3	Bareil Antos Esteemed Vedek
+2	Dohlem
+3	Li Nalas Legend of Bajor
+2	Opaka Kai of Bajor
+1	Ranjen Koral Student of B'hala
+2	Shakaar Edon Resistance Leader
+1	Krim Thoughtful Tactician *VP
+2	Vedek Assembly Transport
+3	Xhosa Sponsored Transport
+Dilemmas:
+1	Agonizing Encounter
+1	Breaking the Ice
+2	Code Forty-Seven
+1	Adopted Authority
+1	A Bad Case of par'Mach
+2	Morphogenic Virus
+1	Ghosts of Reality
+2	An Issue of Trust
+2	Becalmed
+3	Dereliction of Duty
+1	More of Gravy Than of Grave
+1	In Development (IDR)
+2	Healing Hand
+2	Intimidation
+1	Pivotal Destiny
+1	Overindulgence
+1	Suspected Minority
+1	The Caretaker's "Guests"
+1	Suspicion
+2	Moral Choice
+2	Slightly Overbooked
+2	Gomtuu Shock Wave
+2	Unfair Terms
+2	Vault of Tomorrow
+1	Timescape
+2	Personal Duty
+1	Quarren Labor Shortage
+1	Secret Identity *VP
+3	Swashbuckler at Heart *VP
+2	Polywater Intoxication *VP
+3	Skeleton Crew *VP
+Missions:
+1	Bajor Blessed of the Prophets (MAH)
+1	Metron Arena Resolve Standing Conflict
+1	Pullock V Off-World Raid
+1	Bringloid V Aid Lost Colony
+1	Denorios Belt Locate Celestial Temple *VP

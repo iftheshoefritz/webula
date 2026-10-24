@@ -1,0 +1,49 @@
+Deck:
+2	Christening
+2	Born for Conquest
+3	All-Out War
+3	Ferocity
+2	We Will Not Surrender
+3	Coordinated Attack
+3	Ja'chuq
+1	Kruge Instinctive Commander
+3	K'rad
+1	Filuz
+1	Kravin
+3	Kerla Military Advisor
+1	Worf Son of Mogh
+1	Ezri Tigan Soldier of Fortune
+1	Tolian Soran Renegade Scientist
+1	Kargan Rash Captain
+1	William T. Riker Exchange Officer
+3	Sark
+1	Larg Piece of Baktag
+1	K'nera Klingon Defense Force Commander
+3	Kahmis
+1	I.K.S. Vorn Ship of Traitors
+1	I.K.S. Chontay On the Hunt
+1	I.K.S. Qam-Chee
+1	I.K.S. Hegh'ta
+1	I.K.S. Lukara
+Dilemmas:
+1	Archaic Snare
+3	Causal Recursion
+1	Shared Hallucination
+1	Healing Hand
+3	Pivotal Destiny
+3	Inferiority
+1	Honorable Pursuit
+1	Hard Time
+2	Insurrection
+1	Journey to the Past
+1	The Clown: Go Away (IDR)
+14	Infestation
+1	Where No One Has Gone Before
+1	Temporal Conduit
+1	The Dal'Rok
+Missions:
+1	Iota Geminorum IV Relocate Polygeminus Grex
+1	Maranga IV Ecological Crisis
+1	Delta Pavonis Secure Expansion
+1	Qo'noS Heart of the Empire
+1	Kavis Alpha Research Binary Star *VP
