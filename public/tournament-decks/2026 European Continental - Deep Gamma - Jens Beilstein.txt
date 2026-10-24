@@ -1,0 +1,80 @@
+Deck:
+1	Lingering Grief
+1	Security Drills
+1	Unexpected Difficulties *VP
+2	Defensive Upgrades
+1	The Manheim Effect
+1	Unexpected Difficulties
+1	These Are The Voyages *VP
+1	Holding Cell *VP
+1	Cal Hudson Nostalgic Rebel
+1	Latara
+2	Jadzia Dax Exhilarated Explorer
+1	Odo Stalwart Ally
+1	Weyoun Hologram Inquisitor's Tool
+1	Julian Bashir Man of Principle
+2	Worf Honorable Explorer
+1	Melora Pazlar Independent Personality
+1	Bareil Antos Selfless Scapegoat (CM)
+1	Luther Sloan Man of Action (SS)
+1	Kira Nerys Defiant Leader
+1	Nog Defiant Captain (SS)
+2	Enrique Muniz Dependable Troubleshooter
+1	Sarish Rez Ministerial Adjutant
+1	George Primmin Starfleet Security
+2	Quark Vastly Outnumbered
+1	Opaka Healer
+1	Benjamin Sisko Enlightened Supervisor
+1	Elizabeth Lense Valedictorian
+1	Lojal Investigative Ambassador
+1	Paxton Reese Stellar Cartographer
+1	William Ross "Temporary" Ally
+1	Elim Garak Federation Agent
+1	Miles O'Brien Repair Chief
+1	Lwaxana Troi Extraordinary Ambassador *VP
+1	Li Nalas Legend of Bajor
+1	Lucsly Temporal Investigator
+1	U.S.S. Centaur Patrolling Ship
+1	Xhosa Sponsored Transport
+1	U.S.S. Defiant Repurposed Warship *VP
+1	U.S.S. Bellerophon Conference Host
+Dilemmas:
+1	Ghosts of Reality
+1	Becalmed
+2	More of Gravy Than of Grave
+1	In Development
+1	V'Ger
+1	Nothing to Lose
+1	Royale Casino: Craps
+1	Where No One Has Gone Before *A
+1	Overindulgence
+2	Excalbian Drama
+1	Dead Weight
+1	Threading the Needle
+1	Fesarius Bluff
+1	The Captain's "Guest"
+1	Insurrection
+2	The Alien's Graveyard
+1	Moral Choice
+1	"Rapid Progress"
+1	Stripped Down *AP
+1	Gomtuu Shock Wave
+1	Picking Up the Pieces
+1	Guess Who's Coming to Dinner? (Promo)
+2	Rogue Borg Ambush
+2	Secret Identity
+1	The Dreamer and the Dream
+1	Personal Duty
+2	An Issue of Trust *VP
+1	Back Room Dealings *VP
+1	Temptation *VP
+1	Pitching In *VP
+2	Adopted Authority *VP
+1	Intimidation *VP
+1	New Face
+Missions:
+1	Argratha Rehabilitate Convict
+1	Rakhari Approach Extradite Political Refugee
+1	Torga IV Strained Negotiations
+1	Mouth of the Wormhole Deep Space 9 (Promo)
+1	Idran System Survey Star System

@@ -1,0 +1,53 @@
+Deck:
+3	Omnipotent Armament
+2	Delivery Boy
+3	Parting Thought
+2	Field Studies *VP
+2	Fajo's Menagerie
+3	Ja'chuq *VP
+1	Mark Jameson Senior Mission Specialist
+1	Marouk Placing Orders
+1	Molly O'Brien Time's Orphan
+1	Jean-Luc Picard Genial Captain
+1	Anij Guiding Light
+1	Artim Inspirational Child
+1	Sojef Pacifistic Luddite
+1	William T. Riker Wistful Admiral
+1	Vash Treasure Hunter *VP
+1	Tolian Soran Renegade Scientist *VP
+1	Rachel Garrett Displaced Captain
+1	Mot The Barber
+1	Alexander Rozhenko K'mtar *VP
+1	Ezri Tigan Soldier of Fortune *VP
+1	Vic Fontaine Vegas Crooner
+1	Seth Matthews Red Squad Cadet
+1	Stefan DeSeve Disillusioned Expatriate *VP
+2	Kahmis
+2	U.S.S. Enterprise-D Diplomatic Envoy
+Dilemmas:
+1	Ghosts of Reality
+1	Causal Recursion
+1	Ingenious Jury-rig
+3	Becalmed
+3	Parallel Romance
+3	Interstellar Exigence
+1	The Alien's Graveyard
+1	Stripped Down *AP
+2	Slightly Overbooked
+2	Vault of Tomorrow
+1	The Caretaker's "Guests" *VP
+3	Timescape *VP
+1	Secret Identity *VP
+1	The Dal'Rok *VP
+1	Inferiority *VP
+1	Polywater Intoxication *VP
+3	Adopted Authority *VP
+3	Hippocratic Oath
+1	Outmatched *VP
+1	In Development *VP
+Missions:
+1	Ba'ku Planet Safeguard Civilization
+1	Parliament Attend Diplomatic Conference
+1	Earth Cradle of the Federation (MAH)
+1	Qo'noS Heart of the Empire (MAH)
+1	Barzan Wormhole Wormhole Negotiations *VP

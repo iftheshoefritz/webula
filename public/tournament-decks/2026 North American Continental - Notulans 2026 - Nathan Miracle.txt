@@ -1,0 +1,55 @@
+Deck:
+1	Emergency Transport Unit *VP
+3	The Reman Mines
+3	Christening *VP
+3	Tacking Into the Wind *VP
+2	Escape (SS)
+1	Shinzon Reman Leader *AP
+1	The Pendari Champion Electrifying Favorite *VAP
+3	Leodis
+1	B-4 Irresistible Bait
+3	Venoxis
+1	Norman Locus of the Hive Mind
+1	Data From the City of Rateg *VP
+1	Duras Romulan Conspirator
+1	L'Kor Ranking Elder
+3	Toq
+1	Satan's Robot Dangerous Minion
+1	Ruk Old One Servitor
+1	Lore The One
+1	B'Etor Romulan Conspirator
+1	Seven of Nine Notorious Scapegoat
+1	Lursa Romulan Conspirator
+3	Jorvas
+1	The Viceroy Shinzon's Protector
+3	Thexor
+1	Pi Off Course
+3	Romulan Scout Vessel
+Dilemmas:
+2	Adopted Authority (SS)
+1	Aceton Assimilators
+1	A Bad Case of par'Mach
+2	Garak Has Some Issues
+2	Ghosts of Reality
+2	Becalmed
+2	Divergent Goals
+2	More of Gravy Than of Grave
+1	Dragon's Teeth
+1	Nothing to Lose
+2	Hall of Mirrors
+1	Telepathology
+2	Parallel Romance
+1	Overindulgence
+2	Malfunctioning Generator
+1	Revealed
+2	Isolated Detachment
+2	The Alien's Graveyard
+1	Know Thy Enemy
+3	The Weak Will Perish
+2	New Face
+Missions:
+1	Andorian-Tellarite Border Provoke Interstellar Incident
+1	Starbase 718 Investigate Cryosatellite
+1	Duronom Deliver Prisoners
+1	Romulus Seat of Power
+1	Remus Supervise Dilithium Mine *VP

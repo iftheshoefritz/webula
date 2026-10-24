@@ -1,0 +1,85 @@
+Deck:
+1	Alvera Tree Ritual
+1	Tacking Into the Wind
+2	These Are The Voyages
+3	Endangered
+1	The Manheim Effect
+1	The Trial Never Ended
+2	Unexpected Difficulties
+1	U.S.S. Enterprise-J *VP
+1	Surprise Party
+2	Order of the Bat'leth
+1	Point Blank Strike
+1	Precise Attack *VP
+1	Fitting In
+1	Bridge Officer's Test
+2	Relentless
+3	The Promise
+3	Gowron Sole Leader of the Empire
+2	Kruge Instinctive Commander
+1	Kortar Slayer of Gods
+1	Colonel Worf Compassionate Advocate
+1	Kurn Son of Mogh
+2	Klag Second Officer
+1	Kang Vigilant Commander
+1	Khod Conniving Captain
+1	K'Temoc Long Slumbering Commander
+2	Chang Gorkon's Chief of Staff
+1	Koloth Ingratiating Captain
+1	Gorkon Visionary Chancellor
+1	Kor Courageous Governor
+1	Korax Instigator
+1	Worf Governor of H'atoria
+1	Kras Merciless Officer
+1	Ro'suv
+1	Koral Dour Smuggler
+2	William T. Riker Exchange Officer
+2	Kahmis
+1	Nu'Daq Tenacious Rival
+2	I.K.S. Qel'Poh Clandestine Vessel
+3	D-7 Battlecruiser
+Dilemmas:
+1	Agonizing Encounter
+1	Ardent Predator
+1	A Taste of Armageddon
+1	If Shoe Fits, Wear It!
+1	Ghosts of Reality
+1	An Issue of Trust
+1	Name and Shame
+1	In Development
+1	Overburdened
+1	Ostensible Malfunction
+1	Chula: The Chandra
+1	Healing Hand
+1	Intimidation
+1	Honorable Pursuit
+1	Hard Time
+1	The Captain's "Guest"
+1	Assassination Attempt
+1	Show Trial
+1	Pitching In
+1	Soul Searching
+1	Simulated Prey
+1	The Weak Will Perish (FOW)
+1	Necessary Execution
+1	Prisoner of the Exile
+1	The Killing Game
+1	The Needs of the Many
+1	Guess Who's Coming to Dinner?
+1	Vian Test
+1	Restricted Area
+2	The Dreamer and the Dream
+1	Whisper in the Dark
+1	Skeleton Crew (Promo)
+1	Secret Identity *VP
+1	Back to Basics *VP
+1	Back Room Dealings *VP
+1	Occupational Hazards *VP
+1	Polywater Intoxication *VP
+1	Adopted Authority *VP
+Missions:
+1	Vulcan Deliver Ancient Artifact
+1	Andorian-Tellarite Border Provoke Interstellar Incident
+1	Monac Shipyards Honor the Fallen
+1	Valt Minor Brute Force
+1	Qo'noS Heart of the Empire

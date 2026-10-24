@@ -1,0 +1,84 @@
+Deck:
+2	Emergency Transport Unit *VP
+2	Borg Nanoprobes
+1	Playing by the Rules
+3	Downfallen Civilization
+1	Alvera Tree Ritual
+3	Unexpected Difficulties *VP
+1	U.S.S. Enterprise-J *VP
+2	Tacking Into the Wind *VP
+3	Reprimand
+3	Honatta
+1	Escape *VP
+2	Bevvox Ancient Intellect
+1	Fennim Incisive Physician
+2	Kurros Brilliant Tactician
+2	Sullin Gifted Researcher
+3	The Artificial Intelligence Soul of an Artist
+2	Bridon
+1	Danara Pel Loving Life
+1	Dereth Determined Honatta
+3	Drapanas Outbreak Historian
+2	Drenol
+1	Kes Getting Back
+2	Losarus
+1	Sulan Chief Surgeon
+3	Telari
+1	Thaden Procurement Specialist
+3	Think Tank Ship Ivory Tower
+1	Redemption Medical Vessel
+Dilemmas:
+1	Agonizing Encounter
+3	Ghosts of Reality
+1	An Old Debt
+1	Ingenious Jury-rig
+3	Dereliction of Duty
+1	More of Gravy Than of Grave
+1	Outclassed *A
+1	In Development
+1	In Development (IDR)
+1	Dragon's Teeth (FOW)
+1	Discommendation
+1	Identity Theft
+1	He Wasn't Nice
+1	Inequitable Exchange
+3	The Alien's Graveyard
+1	Hard Time *VP
+1	Unconventional Consideration
+1	The Killing Game
+3	Well-Prepared Defenses
+1	Vault of Tomorrow
+1	Restricted Area
+3	Equipment Malfunction
+1	Timescape
+2	Personal Duty *VP
+1	Timescape *VP
+1	Secret Identity *VP
+3	Where No One Has Gone Before *VP
+1	Swashbuckler at Heart *VP
+3	Necessary Execution *VP
+1	Tsiolkovsky Infection *VP
+1	Whisper in the Dark *VP
+1	Artificial Ability *VP
+1	Sylvia *VP
+1	The Dal'Rok *VP
+1	Counterinsurgency Program *VP
+2	Harsh Conditions *VP
+3	The Weak Will Perish *VP
+1	Moral Choice *VP
+1	Chula: The Chandra *VP
+1	Occupational Hazards *VP
+1	Inferiority *VP
+1	Polywater Intoxication *VP
+1	Old Differences *VP
+1	Adopted Authority *VP
+3	Hippocratic Oath
+1	Outmatched *VP
+1	Intimidation *VP
+1	In Development *VP
+Missions:
+1	Alpha 5 Approach Transport Crash Survivor (IDR)
+1	Sha Ka Ree Quest for Infinite Knowledge
+1	Vilmor II Hunt for DNA Program
+1	Devolin System Pegasus Search
+1	Vidiia Locus of Infection *VP

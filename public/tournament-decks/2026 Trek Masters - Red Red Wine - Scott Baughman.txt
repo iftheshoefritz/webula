@@ -1,0 +1,59 @@
+Deck:
+1	Playing by the Rules
+1	New Life
+1	Emanations
+2	Unexpected Difficulties *VP
+1	I Don't Like to Lose
+2	The Trial Never Ended
+1	VIP Welcome
+1	Exceed Engine Output *VP
+2	Security Drills *VP
+2	These Are The Voyages *VP
+1	Disadvantage Into Advantage *VP
+2	Tacking Into the Wind *VP
+1	Sense of Obligation
+2	Escape *VP
+2	Garvey
+1	Lwaxana Troi Psychic Tutor
+1	Martinez
+1	Alyssa Ogawa Chief Medical Officer
+1	Worf First Officer
+1	Guinan Battleship Bartender
+1	Geordi La Forge Battleship Engineer
+1	Daneeka Reassuring Physician
+1	Keiko O'Brien Botanist
+1	Data Lucasian Chair
+2	Orfil Quinteros
+3	Jean-Luc Picard Vintner *VP
+1	Wesley Crusher Battleship Helmsman
+1	William T. Riker Battleship First Officer
+1	Leonard H. McCoy Remarkable Man *VP
+3	Shelley
+1	Beverly Crusher Chief Physician *VP
+1	Deanna Troi Guide and Conscience *VP
+2	U.S.S. Excelsior (BP)
+1	U.S.S. Pasteur Medical Ship *A
+3	U.S.S. Enterprise-D Federation Flagship *VP
+Dilemmas:
+1	Becalmed
+2	Dereliction of Duty
+1	More of Gravy Than of Grave
+1	Environmental Contaminants
+2	Dead Weight
+1	Show Trial
+1	Pest Control
+3	The Killing Game
+1	Agonizing Encounter *VP
+2	Formal Hearing *VP
+3	Overwhelmed *VP
+2	Swashbuckler at Heart *VP
+2	Tsiolkovsky Infection *VP
+2	Whisper in the Dark *VP
+3	Sylvia *VP
+3	Temptation *VP
+Missions:
+1	Earth Cradle of the Federation *VP
+1	Gamma 7 Sector Enforce Quarantine
+1	Ceti Alpha V Find Lifeless World
+1	Archer IV Survey New World
+1	Parvenium System Investigate Alien Probe (Promo)

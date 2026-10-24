@@ -1,0 +1,79 @@
+Deck:
+1	Keevan (SS)
+2	Vulcan Tricorder
+3	Trellium-D *VP
+2	Humanity's Worst Enemy
+3	Rousing Reminiscence
+3	Accumulated Knowledge
+1	Vulcan Mindmeld
+1	Code of the Ushaan
+3	Spatial Reconfiguration
+2	Tacking Into the Wind
+1	Self-Replicating Roadblock
+1	Hurried Departure
+1	Noble Intentions
+1	Preeminent Precision
+1	These Are The Voyages
+3	Fajo's Menagerie
+3	Grav-Plating Trap *VP
+1	Henry Archer Trailblazing Engineer
+1	Daniel Greaves Strongman
+3	Emanuel Stevens
+3	John Frederick Paxton Man of His Word
+1	Paul Mayweather Burdened with Command
+1	Susan Khouri Humane Caregiver
+2	Josiah Clarke
+1	T'Pol Overbearing Observer
+3	Jonathan Archer Damaged Captain
+1	Phlox Damaged Doctor
+3	Daniels Timeline Protector
+1	Brennan Scott
+1	Charles Tucker III Chief Engineer
+1	Logan Black
+1	Soval Idealist
+1	Jeremiah Hayes Diligent Major
+3	D'Vela *VP
+3	Enterprise Damaged Starship *VP
+1	Phoenix Risen From the Ashes *VP
+2	Columbia The Second Warp Five Ship *VP
+1	Shuttlepod One Reliable Transport
+1	Shuttlepod Two Landing Craft
+Dilemmas:
+2	Adopted Authority (SS)
+1	Garak Has Some Issues
+1	Morphogenic Virus
+1	Ghosts of Reality
+1	Ingenious Jury-rig
+3	Hazardous Materials
+1	More of Gravy Than of Grave
+1	Dead Ringer
+1	Nothing to Lose
+1	Discommendation
+1	Overindulgence
+2	The Alien's Graveyard
+2	The Clown: Go Away (IDR)
+1	Racial Tension (FOW)
+2	Gorgan
+2	Pitching In
+1	Simulated Prey
+3	The Clown: Cloaking Device
+3	The Clown: Fear Incarnate
+1	Vault of Tomorrow
+1	Secret Identity
+1	The Clown: Bitter Medicine *VP
+2	Timescape *VP
+1	Gomtuu Shock Wave *VP
+1	The Clown: Guillotine *VP
+1	Whisper in the Dark *VP
+1	Sylvia *VP
+3	The Weak Will Perish *VP
+1	Moral Choice *VP
+1	Polywater Intoxication *VP
+2	Skeleton Crew *VP
+1	Outmatched *VP
+Missions:
+1	Earth Humanity's Home (MAH)
+1	Nimbus III Hostage Crisis
+1	Ledos Preserve Isolated Culture
+1	Kovalaan Nebula Navigate Xindi Corridor
+1	Sector 21396 Commandeer Prototype *VP

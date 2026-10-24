@@ -1,0 +1,84 @@
+Deck:
+1	Holding Cell *VP
+3	Common Purpose *VP
+1	Tacking Into the Wind *VP
+1	Old Feelings
+3	Common Enemy
+1	Stricken Dumb
+1	Jadzia Dax Conversant Veteran
+1	Jean-Luc Picard Compassionate Advocate
+1	Odo "Kodrak the Unenthused"
+1	Bareil Antos Selfless Scapegoat
+1	Elim Garak Plain, Simple Tailor (SS)
+1	Olamu
+1	Kira Nerys Ambitious Ally
+1	Melora Pazlar Independent Personality
+1	Miles O'Brien Vastly Outnumbered
+1	L.M.H. Mark I Scintillating Personality
+1	Enrique Muniz Dependable Troubleshooter
+1	Sarish Rez Ministerial Adjutant
+1	Cretak Friendly Envoy
+3	Quark Vastly Outnumbered
+1	Boq'ta
+1	Benjamin Sisko Enlightened Supervisor
+1	Elizabeth Lense Valedictorian
+1	Charles Whatley Professional Admiral
+1	Lojal Investigative Ambassador
+1	Martok Welcome Presence
+1	T'Rul Guarded Attache
+1	Paxton Reese Stellar Cartographer
+1	Delvok
+1	Varria Lavishly Rewarded Aide
+1	Shandor
+1	Timicin Irresolute Scientist
+1	Li Nalas Legend of Bajor *VP
+1	U.S.S. Centaur Patrolling Ship
+1	Xhosa Sponsored Transport
+Dilemmas:
+1	Breaking the Ice
+1	Adopted Authority (SS)
+1	Abrasive Allies
+1	Alternatives to Fighting
+1	Ghosts of Reality
+1	Causal Recursion
+1	Ingenious Jury-rig
+2	Becalmed
+1	Dereliction of Duty
+1	Divergent Goals
+2	More of Gravy Than of Grave
+2	Dead Ringer
+1	Nothing to Lose
+1	Royale Casino: Craps
+1	Healing Hand
+1	Overindulgence
+1	Honorable Pursuit
+1	Insurrection
+1	Suspicion
+2	The Alien's Graveyard
+1	The Clown: Go Away (IDR)
+1	"Rapid Progress"
+1	Slightly Overbooked
+1	Outclassed
+3	Vault of Tomorrow
+1	Agonizing Encounter *VP
+1	Stripped Down *VP
+1	The Caretaker's "Guests" *VP
+3	Timescape *VP
+1	Secret Identity *VP
+1	Gomtuu Shock Wave *VP
+1	Where No One Has Gone Before *VP
+1	The Dal'Rok *VP
+1	Pitching In *VP
+1	Excalbian Drama *VP
+1	Inferiority *VP
+1	Polywater Intoxication *VP
+1	Adopted Authority *VP
+1	Outmatched *VP
+1	Intimidation *VP
+2	In Development *VP
+Missions:
+1	Nimbus III Staff Backwater Embassy
+1	The Celestial Temple Seek Prophetic Guidance
+1	Near Starbase 105 Identify Temporal Disturbance
+1	Ledos Preserve Isolated Culture
+1	Mouth of the Wormhole Deep Space 9 *VP

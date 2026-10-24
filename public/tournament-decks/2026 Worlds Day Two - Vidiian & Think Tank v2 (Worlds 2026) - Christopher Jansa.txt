@@ -1,0 +1,80 @@
+Deck:
+2	Borg Nanoprobes
+1	Playing by the Rules
+2	U.S.S. Enterprise-J *A
+2	Tacking Into the Wind
+3	Reprimand
+3	Honatta
+2	Bridge Officer's Test
+3	Escape
+1	Persis Loyal Daughter *AP
+2	Bevvox Ancient Intellect
+1	Fennim Incisive Physician
+2	Kurros Brilliant Tactician
+2	Sullin Gifted Researcher
+2	The Artificial Intelligence Soul of an Artist
+1	The Doctor Shmullus
+2	Bridon
+1	Danara Pel Loving Life
+1	Dereth Determined Honatta
+3	Drapanas Outbreak Historian
+2	Drenol
+2	Kes Getting Back
+2	Losarus
+2	Sinaren
+1	Sulan Chief Surgeon
+3	Telari
+1	Thaden Procurement Specialist
+1	Julian Bashir Rebel Captain
+3	Redemption Medical Vessel
+3	Vidiian Interceptor
+Dilemmas:
+1	Artistic License
+1	Garak Has Some Issues
+1	Morphogenic Virus
+2	Ghosts of Reality
+1	Becalmed
+2	Dereliction of Duty
+1	Compromised Experiment
+1	Divisive Patron
+1	More of Gravy Than of Grave
+1	Nothing to Lose
+1	Telepathology
+1	Healing Hand
+1	Intimidation
+1	Pivotal Destiny
+1	Interstellar Exigence
+1	Honorable Pursuit
+1	Suspected Minority
+1	The Caretaker's "Guests"
+1	Insurrection
+2	The Alien's Graveyard
+2	Slightly Overbooked
+2	Unfair Terms
+3	Vault of Tomorrow
+1	Zero Hour
+1	Stripped Down *VP
+1	Secret Identity
+3	Timescape *VP
+1	Secret Identity *VP
+1	Swashbuckler at Heart *VP
+1	An Issue of Trust *VP
+1	The Dal'Rok *VP
+1	The Weak Will Perish *VP
+2	Moral Choice *VP
+1	Chula: The Chandra *VP
+1	Pitching In *VP
+1	Excalbian Drama *VP
+1	Inferiority *VP
+1	Polywater Intoxication *VP
+2	Adopted Authority *VP
+1	Outmatched *VP
+1	In Development *VP
+1	Equipment Malfunction *VP
+1	New Face
+Missions:
+1	Alpha 5 Approach Transport Crash Survivor (IDR)
+1	Sha Ka Ree Quest for Infinite Knowledge
+1	Vidiia Locus of Infection
+1	Vilmor II Hunt for DNA Program
+1	Devolin System Pegasus Search

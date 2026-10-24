@@ -1,0 +1,82 @@
+Deck:
+2	Vulcan Tricorder
+3	Trellium-D *VP
+3	Accumulated Knowledge
+3	Vulcan Mindmeld
+1	At What Cost? *VP
+2	Spatial Reconfiguration
+2	Tacking Into the Wind
+3	Straight and Steady
+1	Desperate Sacrifice
+1	How Would You Like a Trip to Romulus? *VP
+2	Unexpected Difficulties
+2	Surprise Party
+3	Second Breakfast
+3	Fajo's Menagerie
+2	Bridge Officer's Test
+2	Grav-Plating Trap *VP
+2	Escape
+1	Charles Tucker III Horse Trader
+1	Leonardo da Vinci Renaissance Man
+1	V'Las Treacherous Administrator
+1	Emanuel Stevens
+1	John Frederick Paxton Man of His Word
+1	Jhamel Strong Sister
+2	William T. Riker Stirring Confidant
+1	Gannet Brooks Undercover Operative *VP
+1	Elder T'Pol Displaced Survivor
+1	Danica Erickson Well Read
+1	Karyn Archer Displaced Descendant
+1	Lorian Displaced Descendant
+1	Rossi
+2	T'Pol Overbearing Observer
+3	Jonathan Archer Damaged Captain
+2	Phlox Damaged Doctor
+1	Delvok
+1	T'Les Syrrannite
+1	A. G. Robinson Prototype Captain
+1	Shran In Archer's Debt
+2	Soval Vulcan Ambassador
+1	Hoshi Sato Uneasy Educator
+1	Malcolm Reed Weapons Expert
+1	Maxwell Forrest Starfleet Executive
+1	Williams Starfleet Commander
+1	Future Enterprise Displaced Starship
+3	Enterprise Damaged Starship
+1	Columbia The Second Warp Five Ship
+Dilemmas:
+1	Agonizing Encounter
+1	Ardent Predator
+1	Adopted Authority
+3	A Taste of Armageddon
+2	Ghosts of Reality
+1	Becalmed
+3	Hazardous Materials
+1	Macrovirus
+2	Elemental Instability
+1	Telepathology
+1	Chula: The Chandra
+1	Healing Hand
+1	Intimidation
+1	Honorable Pursuit
+1	The Phase
+1	Back Room Dealings
+1	The Caretaker's "Guests"
+2	Insurrection
+1	The Alien's Graveyard
+1	Gorgan
+1	Pitching In
+3	Simulated Prey
+1	Old Differences
+1	The Oracle's Punishment
+1	Necessary Execution
+1	Guess Who's Coming to Dinner?
+2	Skeleton Crew
+1	An Issue of Trust *VP
+1	In Development *VP
+Missions:
+1	Jupiter Test Experimental Engine
+1	Kulob II Investigate Anachronism
+1	Ruhka III Investigate Refinery
+1	Earth Humanity's Home
+1	Draylax System Investigate Stalled Ship

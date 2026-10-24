@@ -1,0 +1,90 @@
+Deck:
+1	Keevan (SS)
+2	Hyperspanner
+2	Medical Teams
+3	Common Cause
+1	Holding Cell
+2	Unexpected Difficulties *VP
+3	Common Purpose *VP
+2	Tacking Into the Wind *VP
+1	Confessions in the Pale Moonlight *VP
+2	Common Enemy
+2	Bridge Officer's Test
+1	Jean-Luc Picard Compassionate Advocate
+1	William Ross "Temporary" Ally *VP
+1	Jadzia Dax Exhilarated Explorer
+1	Miles O'Brien Friendly Repairman
+1	Kasidy Yates Freighter Captain
+1	Nog Drill Instructor
+1	Kira Nerys Ambitious Ally
+1	Worf Honorable Explorer
+1	Melora Pazlar Independent Personality
+1	Julian Bashir "Frontier" Physician (SS)
+1	Keiko O'Brien Pah-Wraith Hostage
+1	L.M.H. Mark I Scintillating Personality
+1	Enrique Muniz Dependable Troubleshooter
+1	Sarish Rez Ministerial Adjutant
+1	George Primmin Starfleet Security
+1	Quark Vastly Outnumbered
+2	Boq'ta
+1	Elim Garak Cold-Blooded Mastermind
+1	Benjamin Sisko Enlightened Supervisor
+1	Elizabeth Lense Valedictorian
+1	Lojal Investigative Ambassador
+1	Lwaxana Troi Extraordinary Ambassador
+1	Martok Welcome Presence
+1	T'Rul Guarded Attache
+1	Luther Sloan Man of Action *VP
+1	Vic Fontaine Vegas Crooner
+1	Opaka Healer *VP
+1	Li Nalas Legend of Bajor
+1	Krim Thoughtful Tactician *VP
+1	Marouk Sovereign of Acamar
+1	U.S.S. Centaur Patrolling Ship
+1	U.S.S. Enterprise-D Humanitarian Envoy
+1	Xhosa Sponsored Transport
+1	U.S.S. Sao Paulo NCC-75633
+Dilemmas:
+1	Adopted Authority
+1	Alternatives to Fighting
+1	Garak Has Some Issues
+1	Morphogenic Virus
+1	Ghosts of Reality
+1	Causal Recursion
+2	Becalmed
+1	Covert Extraction
+2	Dereliction of Duty
+1	More of Gravy Than of Grave
+1	Dead Ringer
+1	In Development (IDR)
+1	Nothing to Lose
+1	Intimidation
+1	Pivotal Destiny
+1	Discommendation
+1	Pillage and Plunder (IDR)
+1	Suspected Minority
+1	Insurrection
+1	The Alien's Graveyard
+1	Cultural Differences
+1	Soul Searching
+1	The First Duty (IDR)
+1	Hard Time *VP
+1	Weight of Command
+1	Miner Revolt *VP
+1	Outclassed
+1	Zero Hour
+1	Personal Duty *VP
+1	Timescape *VP
+1	Gomtuu Shock Wave *VP
+1	Necessary Execution *VP
+2	The Weak Will Perish *VP
+2	Moral Choice *VP
+1	Chula: The Chandra *VP
+1	Occupational Hazards *VP
+1	Polywater Intoxication *VP
+Missions:
+1	Argratha Rehabilitate Convict
+1	Rakhari Approach Extradite Political Refugee
+1	Torga IV Strained Negotiations
+1	Outpost Delta Zero-Five Investigate Destruction
+1	Mouth of the Wormhole Deep Space 9

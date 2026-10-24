@@ -1,0 +1,71 @@
+Deck:
+3	Keevan
+3	Miracle Working
+1	Tacking Into the Wind
+3	These Are The Voyages
+1	Unexpected Difficulties
+3	Mission Accomplished *VP
+1	Bridge Officer's Test
+1	Hawk Conn Officer
+2	Edward Jellico Brusque Martinet
+1	Mark Jameson Senior Mission Specialist
+3	James T. Kirk Living Legend
+3	Jean-Luc Picard Genial Captain
+1	Mitena Haro Planted Observer
+1	Worf Principled Warrior
+1	Geordi La Forge Resolute Presence
+1	Jaresh-Inyo Federation President
+1	William T. Riker Wistful Admiral
+1	Dr. Leah Brahms Holographic Representation
+3	Lwaxana Troi Extravagant Ambassador
+1	Montgomery Scott Relic
+1	Boothby Groundskeeper
+2	Jean Hajar Nova Squadron Navigator
+1	Nicholas Locarno Nova Squadron Leader
+1	Sito Jaxa Nova Squadron Pilot
+1	Wesley Crusher Nova Squadron Pilot
+1	Data Lucasian Chair
+1	Mot The Barber
+1	Sirna Kolrami Famed Strategist
+1	Ezri Tigan Soldier of Fortune
+1	Jadzia Dax Soldier of Fortune
+1	Julian Bashir Rebel Captain
+1	Persis Loyal Daughter
+1	Dorian Collins Acting Chief Petty Officer
+1	Karen Farris Rigorous Leader
+1	Riley Shepard Confident Cadet
+1	Seth Matthews Red Squad Cadet
+2	Tim Watters Valiant Captain
+1	Maques Cairn Delegate
+1	Aaron Conor Born Leader
+1	Reginald Barclay Exceeding Limits *VP
+1	Marouk Sovereign of Acamar
+3	U.S.S. Enterprise-D Diplomatic Envoy
+2	U.S.S. Valiant Red Squad Training Ship
+1	U.S.S. Excelsior
+Dilemmas:
+2	Morphogenic Virus
+2	An Issue of Trust
+1	Lending a Hand
+2	Becalmed
+3	Dereliction of Duty
+2	In Development (IDR)
+2	Intimidation
+1	Pivotal Destiny
+2	Overindulgence
+2	Suspected Minority
+2	Moral Choice
+2	Gomtuu Shock Wave
+2	Stripped Down
+2	Murder Investigation
+2	Vault of Tomorrow
+2	Personal Duty
+3	Swashbuckler at Heart *VP
+3	Polywater Intoxication *VP
+3	Skeleton Crew *VP
+Missions:
+1	Ba'ku Planet Safeguard Civilization
+1	Bilana System Evaluate Soliton Wave
+1	Titan Flight Range Practice Orbital Maneuvers
+1	Vandros IV Destroy Iconian Gateway
+1	Earth Cradle of the Federation

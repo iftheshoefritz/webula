@@ -1,0 +1,60 @@
+Deck:
+2	Security Drills
+2	Coordinated Counterattack
+2	Escape *VP
+2	Driven
+1	Christopher Pike Bold Commander
+3	James T. Kirk Original Thinker
+1	Spock Trainee Instructor
+2	Hikaru Sulu Experienced Helmsman
+1	Ilia Finest Navigator in Starfleet
+2	Nanu Ari
+1	Montgomery Scott Experienced Engineer
+1	Number One Reputable Officer
+1	John Harriman Captain of the Enterprise
+1	Willard Decker Recommended Replacement
+1	Ronald Tracey Delusional Captain
+1	Laurence T. Stone Portmaster
+1	Uhura Experienced Technician
+1	Worf Clandestine Staffer
+1	Nilz Baris Agricultural Undersecretary
+1	Pavel A. Chekov Young Navigator *VP
+2	Benjamin Sisko Command Staffer
+1	George Stocker Starbase Commodore
+1	Jadzia Dax Communications Staffer
+2	Leonard H. McCoy Chief Medical Officer
+1	Matt Decker Vengeful Commodore
+1	Sarek Vulcan Delegate
+1	Weyoun "Defective" Clone
+1	Gav Diplomat
+2	Shran In Archer's Debt *VP
+1	Silik Chameleon *VP
+2	U.S.S. Constitution
+3	U.S.S. Enterprise Where She Belongs *VP
+Dilemmas:
+2	Arresting Display
+1	Ghosts of Reality
+1	Where No One Has Gone Before *A
+1	Healing Hand
+1	Intimidation
+1	Honorable Pursuit
+2	He Wasn't Nice
+3	Infinite Diversity
+2	Inequitable Exchange
+2	Tak Tak Negotiations
+3	"Rapid Progress"
+2	Shocking Betrayal
+2	Psychokinetic Control
+1	Rogue Borg Ambush
+1	Personal Duty *VP
+1	Gomtuu Shock Wave *VP
+1	An Issue of Trust *VP
+1	The Dal'Rok *VP
+1	Moral Choice *VP
+1	Polywater Intoxication *VP
+Missions:
+1	Ba'ku Planet Safeguard Civilization
+1	Alpha 5 Approach Transport Crash Survivor
+1	Metreon Cloud Engage Enemy Ship
+1	Earth Lush and Beautiful Home
+1	Volan III Investigate Maquis Activity

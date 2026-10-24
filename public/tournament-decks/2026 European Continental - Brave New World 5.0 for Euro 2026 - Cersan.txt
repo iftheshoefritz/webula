@@ -1,0 +1,76 @@
+Deck:
+2	Emergency Transport Unit *VP
+3	Trellium-D
+1	Playing by the Rules
+3	Accumulated Knowledge
+2	Respect in Diversity
+1	Unexpected Difficulties *VP
+1	Tacking Into the Wind
+1	Disruptive Presence
+2	That's the Last Time
+1	Surprise Party
+1	Relative Dimensions
+2	Escape *VP
+1	Bridge Officer's Test
+3	Grav-Plating Trap *VP
+1	Fitting In *VP
+1	Henry Archer Trailblazing Engineer
+1	Shran Exchange Officer
+1	Sim Sacrificial Lamb
+1	Gannet Brooks Undercover Operative *VP
+2	Elder T'Pol Displaced Survivor
+2	Greer
+1	Hoshi Sato Damaged Linguist
+2	Karyn Archer Displaced Descendant
+3	Jonathan Archer Novice Mediator
+2	Lorian Displaced Descendant
+1	Malcolm Reed Damaged Security Officer
+2	Phlox Damaged Doctor
+1	Markus Forbes Extraction Specialist
+1	Daniels Timeline Protector
+1	T'Pol Damaged Science Officer
+1	Travis Mayweather Damaged Navigator
+1	A. G. Robinson Prototype Captain
+3	Nathan Samuels Earth Minister
+1	Burrows Diagnostic Tech
+2	Charles Tucker III Chief Engineer
+1	Erika Hernandez Comparable Captain
+1	Daniel Leonard Cautious Admiral
+1	Logan Black
+1	D'Vela
+1	Soval Idealist
+1	Williams Starfleet Commander
+2	Future Enterprise Displaced Starship
+2	Enterprise Damaged Starship *VP
+1	Columbia The Second Warp Five Ship *VP
+1	Shuttlepod Two Landing Craft
+Dilemmas:
+2	A Bad Case of par'Mach
+2	Morphogenic Virus
+2	An Issue of Trust
+1	Lending a Hand
+2	Becalmed
+3	Dereliction of Duty
+2	More of Gravy Than of Grave
+2	Alluring Spy (FOW)
+2	In Development (IDR)
+1	Healing Hand
+1	Intimidation
+1	Pivotal Destiny
+1	Overindulgence
+2	Revealed
+1	Suspected Minority
+1	Moral Choice
+2	Gomtuu Shock Wave
+1	Stripped Down
+2	Vault of Tomorrow
+3	Skeleton Crew
+2	Personal Duty
+1	Secret Identity *VP
+3	Polywater Intoxication *VP
+Missions:
+1	Jupiter Test Experimental Engine
+1	Ruhka III Investigate Refinery
+1	Organia Secure Strategic Base
+1	Sphere 41 Eliminate Sphere Network
+1	Earth Humanity's Home

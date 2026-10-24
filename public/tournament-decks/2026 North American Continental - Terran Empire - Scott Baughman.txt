@@ -1,0 +1,81 @@
+Deck:
+2	Agonizer
+1	Hypospray (IDR)
+2	Second Edition
+2	Watch Dog
+1	Tacking Into the Wind *VP
+2	Standard Punishment
+2	Lustful Distraction *VP
+2	William Gardner
+1	Benjamin Sisko Outlaw
+2	Jonathan Archer Defiant Commander
+2	Nadia Myers
+1	A. G. Robinson Prototype Captain
+1	Slar Gorn Slave Master
+1	Tuvok Coldly Logical Soldier
+1	Ezri Tigan Soldier of Fortune *VP
+1	Gav Diplomat
+2	Brennan Scott
+1	Skalaar Bounty Hunter
+1	Charles Tucker III Competent Engineer
+1	Hoshi Sato Captain's Woman
+2	Logan Black
+2	D'Vela
+1	Malcolm Reed Enthusiastic Major
+1	Kelby Industrious Engineer
+1	Maximilian Forrest Confident Captain
+1	Phlox Sadistic Physiologist
+1	Soval Idealist
+1	T'Pol Not a Slave
+1	Travis Mayweather Opportunistic Sergeant
+1	Julian Bashir Rebel Captain *VP
+1	Durg
+1	Sybok Fanatical Missionary *VP
+2	Starship Defiant Ripe for the Taking
+1	Defiant Mirror Warship *VP
+1	Sarajevo Starfleet Vessel
+1	Shuttlepod One Reliable Transport
+1	I.S.S. Avenger Admiral's Ship
+1	I.S.S. Enterprise Terran Flagship
+Dilemmas:
+1	A Pattern of Lies
+1	Artistic License
+2	Ghosts of Reality
+1	More of Gravy Than of Grave
+1	Shared Hallucination
+1	Dead Ringer
+1	Nothing to Lose
+1	Royale Casino: Craps
+1	Dragon's Teeth (FOW)
+1	Healing Hand
+1	Discommendation
+1	Overindulgence
+1	Honorable Pursuit
+1	Racial Tension (FOW)
+1	Distraction
+1	"Rapid Progress"
+1	Unknown Microorganism
+2	Reflections
+2	Vault of Tomorrow
+1	Agonizing Encounter *VP
+1	The Dreamer and the Dream (R2)
+1	Timescape *VP
+2	Secret Identity *VP
+1	Gomtuu Shock Wave *VP
+2	Swashbuckler at Heart *VP
+2	Harsh Conditions *VP
+1	Moral Choice *VP
+1	After Action Report
+1	Polywater Intoxication *VP
+2	Old Differences *VP
+1	Rogue Borg Ambush *VP
+1	Adopted Authority *VP
+1	Skeleton Crew *VP
+1	Distress Call *VP
+1	New Face
+Missions:
+1	Earth Humanity's Home (MAH)
+1	Andorian-Tellarite Border Provoke Interstellar Incident
+1	Jupiter Test Experimental Engine
+1	Starbase 718 Investigate Cryosatellite
+1	Organia Secure Strategic Base *VP

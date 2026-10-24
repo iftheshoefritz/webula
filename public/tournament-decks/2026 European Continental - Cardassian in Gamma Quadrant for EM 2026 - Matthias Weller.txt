@@ -1,0 +1,100 @@
+Deck:
+3	Emergency Transport Unit
+2	Cardassian Protectorate
+1	Alvera Tree Ritual
+1	Tacking Into the Wind
+1	Self-Replicating Roadblock
+2	The Die Is Cast
+2	Ensnared
+1	Unexpected Difficulties
+2	The Enemy of My Enemy
+3	The Central Command
+1	Grav-Plating Trap
+1	Comfort Women
+1	Seska Pragmatic Agent
+1	Jasad
+1	Doran
+1	Korinas Observer from the Obsidian Order
+1	Danig Kell
+3	Damar Ambitious Glinn
+2	Telle Macet's Aide
+1	Dukat Cardassian Representative
+1	Gollek
+3	Enabran Tain "Retired" Spymaster
+1	Goran
+2	Parek Privileged Legate
+1	Tekeny Ghemor Prominent Official
+1	Jadzia Dax Soldier of Fortune
+1	Gav Diplomat
+1	Tolian Soran Renegade Scientist
+1	Aamin Marritza Honorable Patriot
+2	Mila Trusted Confidante
+1	Mavek Science Officer
+1	Vekor
+1	Jakin
+2	Ari
+1	Danar Irascible Gul
+1	Elim Garak Agent of the Obsidian Order
+1	Madred Calculating Captor
+1	Ocett Dogged Rival
+1	Parn
+1	Nel Apgar Temperamental Researcher
+3	Groumall Inauspicious Command
+3	Galor
+2	Keldon Advanced
+1	Prakesh
+Dilemmas:
+1	Back to Basics
+2	Adopted Authority
+1	Artistic License
+1	Alternatives to Fighting
+1	Archaic Snare
+1	Cutting Remark
+1	Garak Has Some Issues
+2	An Issue of Trust
+1	Artificial Ability
+1	Becalmed
+1	Covert Extraction
+1	Divisive Patron
+1	In Development
+1	Nothing to Lose
+1	Royale Casino: Craps
+1	Chula: The Dice
+2	Chula: The Chandra
+1	Intimidation
+2	Discommendation
+1	Full Security Alert
+1	Excalbian Drama
+2	Polywater Intoxication
+2	Back Room Dealings
+1	Hard Time
+1	Fesarius Bluff
+1	Insurrection
+1	Inquest
+1	Shaken Confidence
+1	Miner Revolt
+1	Pitching In
+1	Ominous Presence
+1	Outmatched
+1	The Oracle's Punishment
+1	Gomtuu Shock Wave
+1	Center of Attention
+2	Guess Who's Coming to Dinner?
+1	Tactical Disadvantage
+1	Swashbuckler at Heart
+1	Racial Tension
+2	Timescape
+2	Rogue Borg Ambush
+1	Talosian Trial
+2	Secret Identity
+1	Magnetic Field Disruptions
+1	Personal Duty
+1	Triage
+2	The Weak Will Perish *VP
+2	Hippocratic Oath
+Missions:
+1	Deep Space Station K-7 Monitor Federation Commerce
+1	Rura Penthe Escape Gulag
+1	Internment Camp 371 Rescue Prisoners of War
+1	Callinon VII Access Relay Station
+1	Cardassia Prime Hardscrabble World

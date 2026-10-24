@@ -1,0 +1,55 @@
+Deck:
+2	Debate Over Dinner
+1	Security Drills
+3	Christening
+1	Finding Our Way *VP
+1	Neelix Culinary Usurper
+1	Sullin Gifted Researcher
+2	Carlson
+2	Mariah Henley
+1	Telek R'Mor Anachronistic Visitor
+1	Rollins Trusted Subordinate
+3	Tricia Jenkins Relaxed Pilot
+1	William T. Riker Surprised Witness
+1	B'Elanna Torres Straightforward Engineer *VP
+1	Cavit Apprehensive First Officer
+1	Harry Kim Eager to Please
+1	Larson Security Team Member
+1	Marie Kaplan Observant Officer
+2	Marquay
+1	Seska Cardassian Agent
+1	Tuvok Chief of Security
+1	Kes Curious Ocampa
+1	Ambassador Gral High-Ranking Official
+1	Sigmund Freud Father of Psychoanalysis
+1	Kathryn Janeway Mindful Keeper *VP
+3	U.S.S. Voyager Home Away From Home
+1	Delta Flyer Innovative Vessel
+Dilemmas:
+1	Ghosts of Reality
+3	Chula: The Game
+2	In Development
+2	Chula: The Chandra
+1	Intimidation
+1	Chula: Unfortunate Roll
+1	Moral Choice
+1	Gomtuu Shock Wave
+1	Chula: Echoes
+1	Where No One Has Gone Before
+3	Chula: Pick One to Save Two
+1	Picking Up the Pieces
+2	Well-Prepared Defenses
+1	Vault of Tomorrow
+1	Timescape
+1	Personal Duty
+1	The Dal'Rok *VP
+2	The Weak Will Perish *VP
+1	Greater Needs *VP
+1	Polywater Intoxication *VP
+1	New Face
+Missions:
+1	System L-374 Intercept Planet Killer
+1	Ilari Oust Warlord
+1	Ledos Preserve Isolated Culture
+1	Ocampa System Salvage Debris
+1	Caretaker's Array Protect Ocampa

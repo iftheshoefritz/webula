@@ -1,0 +1,73 @@
+Deck:
+1	Science PADD
+1	Borg Nanoprobes
+3	Miracle Working
+3	Resilience
+1	Finding Our Way
+3	Unexpected Difficulties
+3	Security Drills *VP
+3	Christening *VP
+1	Tacking Into the Wind *VP
+1	Surprise Party
+2	Cluttering Irrelevancies
+2	Bridge Officer's Test
+1	Juliet Jurot
+1	Qatai Determined Hunter
+3	Chakotay Bridge Between Two Crews (FOW)
+1	Harry Kim Eager to Please (FOW)
+1	Kathryn Janeway Forceful Captain (FOW)
+1	Dr. Crell Moset Medical Consultant Program
+1	Rollins Trusted Subordinate
+3	Tricia Jenkins Relaxed Pilot
+1	William T. Riker Surprised Witness
+1	B'Elanna Torres Straightforward Engineer *VP
+1	Stadi Focused
+1	The Doctor Emergency Command Hologram
+1	Hugh Rogue Borg
+1	Tuvok Chief of Security *VP
+1	Lore The One *VP
+1	Crosis Fanatical Lieutenant
+1	Seven of Nine Efficient Analyst *VP
+1	B-4 Dangerous Simpleton *VP
+1	Data Loyal Brother *VP
+3	Revised Chakotay Imposturous First Officer *VP
+1	Naomi Wildman Obliging Assistant
+3	U.S.S. Voyager Home Away From Home (BP)
+1	Delta Flyer Innovative Vessel (FOW)
+Dilemmas:
+1	Adopted Authority (SS)
+1	Artistic License
+2	A Bad Case of par'Mach
+1	Morphogenic Virus
+2	Ghosts of Reality
+1	Causal Recursion
+2	Becalmed
+2	Dereliction of Duty
+1	More of Gravy Than of Grave
+3	In Development (IDR)
+1	Royale Casino: Craps
+1	Dragon's Teeth (FOW)
+1	Telepathology
+3	Parallel Romance
+1	Intimidation
+1	Overindulgence
+1	Inequitable Exchange
+1	The Alien's Graveyard
+3	Well-Prepared Defenses
+1	Where No One Has Gone Before *VP
+3	Swashbuckler at Heart *VP
+2	The Dreamer and the Dream *VP
+1	An Issue of Trust *VP
+2	Tsiolkovsky Infection *VP
+2	Whisper in the Dark *VP
+1	The Weak Will Perish *VP
+1	Moral Choice *VP
+1	Polywater Intoxication *VP
+2	Edo Probe
+2	New Face
+Missions:
+1	Caretaker's Array Protect Ocampa (MAH)
+1	Alpha 5 Approach Transport Crash Survivor (IDR)
+1	Ilari Oust Warlord
+1	Ledos Preserve Isolated Culture
+1	Ocampa System Salvage Debris
