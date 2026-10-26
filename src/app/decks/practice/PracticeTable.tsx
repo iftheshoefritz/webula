@@ -1,6 +1,15 @@
 'use client';
 
-import React, { Suspense, useEffect, useEffectEvent, useMemo, useReducer, useRef, useState } from 'react';
+import React, {
+  Suspense,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -268,10 +277,13 @@ function GameMenu({
   const [view, setView] = useState<'items' | 'offline'>('items');
   const onEscape = useEffectEvent(() => onClose());
 
-  // The splash opens on the item list every time.
-  useEffect(() => {
+  // The splash opens on the item list every time: the view goes back to the list when it closes,
+  // adjusted during render on the change of `open`.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) setView('items');
-  }, [open]);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -431,6 +443,18 @@ function GameMenu({
     </>
   );
 }
+
+// Whether the screen is in portrait, kept up to date by the media query's `change` event. The
+// server render, and a browser with no `matchMedia`, count as landscape.
+const PORTRAIT_QUERY = '(orientation: portrait)';
+const subscribePortrait = (onChange: () => void) => {
+  if (typeof window.matchMedia !== 'function') return () => {};
+  const mql = window.matchMedia(PORTRAIT_QUERY);
+  mql.addEventListener('change', onChange);
+  return () => mql.removeEventListener('change', onChange);
+};
+const isPortraitNow = (): boolean =>
+  typeof window.matchMedia === 'function' && Boolean(window.matchMedia(PORTRAIT_QUERY).matches);
 
 function RotateDeviceOverlay() {
   return (
@@ -1449,7 +1473,7 @@ function PracticeDrawContent() {
     }),
     []
   );
-  const [isPortrait, setIsPortrait] = useState(false);
+  const isPortrait = useSyncExternalStore(subscribePortrait, isPortraitNow, () => false);
   // The game menu (#722): open on every load (#781), so a new player finds the game controls.
   // Nothing is stored; the first press outside the menu closes it. `menu=0` in the URL starts
   // it closed (#1028), so a browser check's first drag is not covered by the splash. It is read
@@ -1544,16 +1568,23 @@ function PracticeDrawContent() {
   // attempt, a restored game, or a reload opens in the attempt layout.
   const attemptKey = attemptViewKey(table.attempt);
   const [fullTableFor, setFullTableFor] = useState<string | null>(null);
-  useEffect(() => {
+  // The choice is cleared when the attempt ends, so a new attempt at the same mission and ship opens
+  // in the attempt layout. Adjusted during render on the change of `attemptKey`.
+  const [prevAttemptKey, setPrevAttemptKey] = useState(attemptKey);
+  if (attemptKey !== prevAttemptKey) {
+    setPrevAttemptKey(attemptKey);
     if (!attemptKey) setFullTableFor(null);
-  }, [attemptKey]);
+  }
   const attemptLayoutShows = attemptKey !== null && fullTableFor !== attemptKey;
   // The dilemma hand shows only in the dilemma choice of the attempt layout (#1223): the full table
   // has no dilemma hand and no tap to draw a dilemma.
   const dilemmaHandShows = attemptLayoutShows && table.attempt?.phase === 'choose';
-  useEffect(() => {
-    if (!dilemmaHandShows) setOpenHand((open) => (open === 'dilemmaHand' ? null : open));
-  }, [dilemmaHandShows]);
+  // The dilemma hand closes for good when it stops showing, adjusted during render on the change.
+  const [prevDilemmaHandShows, setPrevDilemmaHandShows] = useState(dilemmaHandShows);
+  if (dilemmaHandShows !== prevDilemmaHandShows) {
+    setPrevDilemmaHandShows(dilemmaHandShows);
+    if (!dilemmaHandShows && openHand === 'dilemmaHand') setOpenHand(null);
+  }
   // The cards of the row of the attempting personnel (#1165): the away team at a planet mission,
   // the crew of the attempting ship at a space mission. Null with no attempt, or no attempt layout.
   const attemptPersonnelCards: CardInstance[] | null = (() => {
@@ -1583,10 +1614,13 @@ function PracticeDrawContent() {
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
   // `openPile` tracks a mission's open pile: a piece of UI state with no effect on the table.
   const [openFlatLocation, setOpenFlatLocation] = useState<FlatPanelLocation | null>(null);
-  // The dilemma stack mounts only in the attempt layout (#1170), so its panel closes with it.
-  useEffect(() => {
-    if (!attemptLayoutShows) setOpenFlatLocation((open) => (open === 'dilemmaStack' ? null : open));
-  }, [attemptLayoutShows]);
+  // The dilemma stack mounts only in the attempt layout (#1170), so its panel closes with it,
+  // adjusted during render on the change of `attemptLayoutShows`.
+  const [prevAttemptLayoutShows, setPrevAttemptLayoutShows] = useState(attemptLayoutShows);
+  if (attemptLayoutShows !== prevAttemptLayoutShows) {
+    setPrevAttemptLayoutShows(attemptLayoutShows);
+    if (!attemptLayoutShows && openFlatLocation === 'dilemmaStack') setOpenFlatLocation(null);
+  }
   // Which ship's crew panel (#664) is open, if any, named by the ship's own instance id (not a
   // mission index, since a ship stays reachable by its own id regardless of which mission's ship
   // row currently holds it — the same reasoning `crewDropId` already follows). Tracked the same
@@ -1814,15 +1848,8 @@ function PracticeDrawContent() {
   }, [table, dealtDeck, loadedDeck, driveFileId, dilemmaDriveFileId, gameKey]);
 
   useEffect(() => {
-    const mql = window.matchMedia('(orientation: portrait)');
-    setIsPortrait(mql.matches);
-    const handler = (e: MediaQueryListEvent) => setIsPortrait(e.matches);
-    mql.addEventListener('change', handler);
-
     screen.orientation?.lock?.('landscape')?.catch(() => {});
-
     return () => {
-      mql.removeEventListener('change', handler);
       screen.orientation?.unlock?.();
     };
   }, []);

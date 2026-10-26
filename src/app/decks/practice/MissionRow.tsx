@@ -80,7 +80,7 @@
 // happens on the mission card's own drop target; a tap on its slivers opens its panel, the same as
 // a tap on the top half (#1012).
 
-import { CSSProperties, JSX, ReactNode, useEffect, useRef } from 'react';
+import { CSSProperties, JSX, ReactNode, useEffect, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import type { Attempt, CardInstance, MissionPileName, MissionSlot } from './tableReducer';
 import { AttemptOverlay, BackToAttemptButton } from './AttemptPanel';
@@ -577,7 +577,7 @@ function PlacedOnStrip({
   cards: CardInstance[];
   layout: ReturnType<typeof placedOnStripLayout>;
   completed: boolean;
-  onTap: (event: React.MouseEvent<HTMLElement>) => void;
+  onTap: (event: React.MouseEvent<HTMLElement>, group: PlacedOnGroup) => void;
 }) {
   if (cards.length === 0) return null;
   const shown = cards.slice(-PLACED_ON_STRIP_MAX_VISIBLE);
@@ -596,7 +596,7 @@ function PlacedOnStrip({
       }}
       onClick={(event) => {
         event.stopPropagation();
-        onTap(event);
+        onTap(event, group);
       }}
     >
       {shown.map((card, i) => (
@@ -893,11 +893,19 @@ function BadgeStrip({
 // dilemmas share the landed key `on-<mission id>`, so the badge whose count grew with that nonce
 // bumps, and the other does not (#1081).
 function useGroupLandedNonce(landedNonce: number | null, count: number): number | null {
-  const lastCount = useRef(count);
-  const ownNonce = useRef<number | null>(null);
-  if (landedNonce !== null && count > lastCount.current) ownNonce.current = landedNonce;
-  lastCount.current = count;
-  return landedNonce !== null && ownNonce.current === landedNonce ? landedNonce : null;
+  const [lastCount, setLastCount] = useState(count);
+  const [ownNonce, setOwnNonce] = useState<number | null>(null);
+  // React's pattern for storing information from previous renders: adjust the state during render
+  // when the count changes, so the nonce is the group's own in the same render.
+  let own = ownNonce;
+  if (count !== lastCount) {
+    setLastCount(count);
+    if (landedNonce !== null && count > lastCount) {
+      own = landedNonce;
+      setOwnNonce(landedNonce);
+    }
+  }
+  return landedNonce !== null && own === landedNonce ? landedNonce : null;
 }
 
 // The under-the-mission stack shows at most two slivers (#917); the count on the stack, and the
@@ -1179,7 +1187,8 @@ function isTopHalfTap(event: React.MouseEvent<HTMLElement>): boolean {
 // The halves span the slot's reserved width (#1060), so on a desktop a drop anywhere on a turned
 // mission lands; they are not turned with the card, so they stay a top and a bottom half.
 function MissionHalfTarget({
-  droppable,
+  setNodeRef,
+  isOver,
   dropId,
   half,
   label,
@@ -1189,7 +1198,8 @@ function MissionHalfTarget({
   reach = 0,
   side,
 }: {
-  droppable: ReturnType<typeof useDroppable>;
+  setNodeRef: (element: HTMLElement | null) => void;
+  isOver: boolean;
   dropId: string;
   half: MissionHalf;
   label: string;
@@ -1206,12 +1216,12 @@ function MissionHalfTarget({
   // half and the column only.
   side?: { gap: number; width: number };
 }) {
-  const highlight = highlightState('mission', draggedType, split ? droppable.isOver : eitherOver);
+  const highlight = highlightState('mission', draggedType, split ? isOver : eitherOver);
   if (side) {
     const partClassName = `absolute ${split ? highlightClassName(highlight) : ''}`;
     return (
       <div
-        ref={droppable.setNodeRef}
+        ref={setNodeRef}
         data-zone={dropId}
         data-highlight={highlight}
         className="absolute left-0 top-0 pointer-events-none"
@@ -1221,7 +1231,7 @@ function MissionHalfTarget({
           className={`${partClassName} left-0 bottom-0 rounded-b-lg`}
           style={{ right: side.gap + side.width, height: `calc(50% + ${reach / 2}px)` }}
         >
-          {split && droppable.isOver && (
+          {split && isOver && (
             <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white bg-black/60 rounded">
               {label}
             </span>
@@ -1233,7 +1243,7 @@ function MissionHalfTarget({
   }
   return (
     <div
-      ref={droppable.setNodeRef}
+      ref={setNodeRef}
       data-zone={dropId}
       data-highlight={highlight}
       className={`absolute inset-x-0 h-1/2 pointer-events-none ${half === 'under' ? 'top-0 rounded-t-lg' : 'bottom-0 rounded-b-lg'} ${
@@ -1245,7 +1255,7 @@ function MissionHalfTarget({
           : undefined
       }
     >
-      {split && droppable.isOver && (
+      {split && isOver && (
         <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white bg-black/60 rounded">
           {label}
         </span>
@@ -1290,13 +1300,15 @@ export function MissionCard({
   // draws no strips, and its bottom half reaches over the column.
   placedOnColumn?: { gap: number; width: number };
 }) {
-  const onDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
-  const underDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'under') });
+  const { setNodeRef: setOnNodeRef, isOver: onIsOver } = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
+  const { setNodeRef: setUnderNodeRef, isOver: underIsOver } = useDroppable({
+    id: missionHalfDropId(missionIndex, 'under'),
+  });
   const draggedType = useDraggedCardType();
   // Only a dilemma tells the two halves apart (#871), so only a dilemma drag shows them apart.
   // For any other type the whole card highlights while the pointer is over either half.
   const split = draggedType === 'dilemma';
-  const eitherOver = onDrop.isOver || underDrop.isOver;
+  const eitherOver = onIsOver || underIsOver;
   const highlight = highlightState('mission', draggedType, eitherOver);
   const { mission, awayTeam, underMission } = slot;
   // The cards placed on the mission card (#813), such as the events at the mission.
@@ -1358,6 +1370,12 @@ export function MissionCard({
       if (count > 0) onOpenPile(missionIndex, pile);
     });
   };
+  // A tap on a strip (#1099) opens the panel of its group, through the same `pendingTap`.
+  const onStripTap = (event: React.MouseEvent<HTMLElement>, group: PlacedOnGroup) => {
+    if (!mission) return;
+    const missionId = mission.id;
+    deferTap(event, () => onOpenPlacedOn(missionId, group));
+  };
   const stripLayout = placedOnStripLayout(scale);
 
   return (
@@ -1399,7 +1417,8 @@ export function MissionCard({
                 onSetCompleted={onSetMissionCompleted}
               />
               <MissionHalfTarget
-                droppable={onDrop}
+                setNodeRef={setOnNodeRef}
+                isOver={onIsOver}
                 dropId={missionHalfDropId(missionIndex, 'on')}
                 half="on"
                 label="On"
@@ -1410,7 +1429,8 @@ export function MissionCard({
                 side={placedOnColumn}
               />
               <MissionHalfTarget
-                droppable={underDrop}
+                setNodeRef={setUnderNodeRef}
+                isOver={underIsOver}
                 dropId={missionHalfDropId(missionIndex, 'under')}
                 half="under"
                 label="Under"
@@ -1439,7 +1459,7 @@ export function MissionCard({
                     cards={placedOn.filter((c) => placedOnGroupOf(c) === group)}
                     layout={stripLayout}
                     completed={completed}
-                    onTap={(event) => deferTap(event, () => onOpenPlacedOn(mission.id, group))}
+                    onTap={onStripTap}
                   />
                 ))}
                 {/* The span, which the touch crop cuts off (#1133). It turns with the card. */}
@@ -1473,7 +1493,8 @@ export function MissionCard({
               Mission
               {/* With no mission card to place on, a dilemma goes under the mission from either half. */}
               <MissionHalfTarget
-                droppable={onDrop}
+                setNodeRef={setOnNodeRef}
+                isOver={onIsOver}
                 dropId={missionHalfDropId(missionIndex, 'on')}
                 half="on"
                 label="Under"
@@ -1483,7 +1504,8 @@ export function MissionCard({
                 reach={onReach}
               />
               <MissionHalfTarget
-                droppable={underDrop}
+                setNodeRef={setUnderNodeRef}
+                isOver={underIsOver}
                 dropId={missionHalfDropId(missionIndex, 'under')}
                 half="under"
                 label="Under"

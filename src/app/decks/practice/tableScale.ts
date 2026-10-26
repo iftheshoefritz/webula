@@ -230,13 +230,13 @@ export function useMissionScale(
   desktopColumnHeight: (scale: number) => number,
   touchColumnHeight: (scale: number) => number,
 ): number {
-  const [missionScale, setMissionScale] = useState<number | null>(null);
+  // The measure, with the elements it was measured for: when an element unmounts and a new one
+  // mounts, the first render uses `scale` and not the measure of the old elements.
+  const [measured, setMeasured] = useState<{ value: number; elements: readonly HTMLElement[] } | null>(null);
 
   useEffect(() => {
-    if (!gameLayer || !missionRows || !bottomRow) {
-      setMissionScale(null);
-      return;
-    }
+    if (!gameLayer || !missionRows || !bottomRow) return;
+    const elements = [gameLayer, missionRows, bottomRow];
     const measure = () => {
       const content = missionRows.parentElement ?? gameLayer;
       const paddingBottom = parseFloat(getComputedStyle(content).paddingBottom) || 0;
@@ -245,11 +245,12 @@ export function useMissionScale(
         paddingBottom -
         bottomRow.getBoundingClientRect().height -
         missionRows.getBoundingClientRect().top;
-      setMissionScale(
-        desktop
+      setMeasured({
+        value: desktop
           ? computeDesktopTableScale(gameLayer.clientWidth, availableHeight, desktopColumnHeight)
           : computeTouchMissionScale(gameLayer.clientWidth, availableHeight, touchColumnHeight, scale),
-      );
+        elements,
+      });
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -258,7 +259,12 @@ export function useMissionScale(
     return () => observer.disconnect();
   }, [desktop, scale, gameLayer, missionRows, bottomRow, desktopColumnHeight, touchColumnHeight]);
 
-  return missionScale ?? scale;
+  return measured && measuredFor(measured.elements, [gameLayer, missionRows, bottomRow]) ? measured.value : scale;
+}
+
+// True when a measure taken for `measured` still belongs to the `current` elements, all mounted.
+function measuredFor(measured: readonly HTMLElement[], current: readonly (HTMLElement | null)[]): boolean {
+  return measured.length === current.length && current.every((element, i) => element !== null && element === measured[i]);
 }
 
 // Issue #1164: the attempt layout. While an attempt is in progress the table shows, in place of the
@@ -812,17 +818,17 @@ export function useAttemptLayout(
   desktopColumnHeight: (scale: number) => number,
   touchColumnHeight: (scale: number) => number,
 ): AttemptSizes {
-  const [sizes, setSizes] = useState<AttemptSizes | null>(null);
+  // The measure, with the elements it was measured for, as in `useMissionScale`: the attempt layout
+  // mounts many times in one game, and each mount starts from the fallback.
+  const [measured, setMeasured] = useState<{ value: AttemptSizes; elements: readonly HTMLElement[] } | null>(null);
   const personnelCount = personnel?.count;
   const personnelSpace = personnel?.space;
 
   useEffect(() => {
     const personnel =
       personnelCount === undefined ? undefined : { count: personnelCount, space: personnelSpace ?? false };
-    if (!gameLayer || !layout || !strip || !bottomRow) {
-      setSizes(null);
-      return;
-    }
+    if (!gameLayer || !layout || !strip || !bottomRow) return;
+    const elements = [gameLayer, layout, strip, bottomRow];
     const measure = () => {
       const content = layout.parentElement ?? gameLayer;
       const paddingBottom = parseFloat(getComputedStyle(content).paddingBottom) || 0;
@@ -852,7 +858,7 @@ export function useAttemptLayout(
         face,
         personnel?.space ?? false,
       );
-      setSizes({ ...face, choice });
+      setMeasured({ value: { ...face, choice }, elements });
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -875,7 +881,7 @@ export function useAttemptLayout(
     touchColumnHeight,
   ]);
 
-  if (sizes) return sizes;
+  if (measured && measuredFor(measured.elements, [gameLayer, layout, strip, bottomRow])) return measured.value;
   // Before the measure, and in jsdom: the sizes at `scale`, with the personnel area 3 crew panel
   // cards wide and tall enough for all of them (#1218).
   const fallbackCardWidth = viewerCardSize(scale, desktop).width;
