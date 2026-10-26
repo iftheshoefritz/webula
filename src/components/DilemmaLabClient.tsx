@@ -15,6 +15,12 @@ import {
   scoreStack,
 } from '../lib/dilemmaBot/search';
 import type { SearchRequest, SearchResponse } from '../lib/dilemmaBot/search.worker';
+import type { CardData } from '../lib/loadCards';
+import CardPreview from '../app/decks/practice/CardPreview';
+import { TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH, TableCardImage } from '../app/decks/practice/TableCard';
+import { HOLD_DELAY_MS, HOVER_DELAY_MS } from '../app/decks/practice/useCardHold';
+import type { PreviewSide } from '../app/decks/practice/useCardHold';
+import type { CardInstance } from '../app/decks/practice/tableReducer';
 
 export interface LabMission {
   name: string;
@@ -41,6 +47,8 @@ interface Props {
   missions: LabMission[];
   personnel: LabPersonnel[];
   decks: LabDeck[];
+  /** The card data row of each dilemma of the pile, for its image. */
+  dilemmaCards: Record<DilemmaId, CardData>;
 }
 
 const title = (id: DilemmaId) => DILEMMA_BY_ID[id].title;
@@ -80,7 +88,7 @@ function useSearchWorker(onResponse: (r: LabResponse) => void) {
   };
 }
 
-export default function DilemmaLabClient({ missions, personnel, decks }: Props) {
+export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCards }: Props) {
   const byName = useMemo(() => new Map(personnel.map((p) => [p.originalName, p])), [personnel]);
 
   const [missionName, setMissionName] = useState('');
@@ -360,9 +368,10 @@ export default function DilemmaLabClient({ missions, personnel, decks }: Props) 
             Draw N dilemmas
           </button>
           <span className="text-sm text-text-secondary" data-testid="lab-drawn">
-            Drawn: {drawn.length ? drawn.map(title).join(', ') : 'nothing yet'}
+            {drawn.length ? `${drawn.length} dilemmas drawn. Hold or hover a card to preview it.` : 'Nothing drawn yet.'}
           </span>
         </div>
+        {drawn.length > 0 && <DrawnCards drawn={drawn} cards={dilemmaCards} />}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {OPPONENT_DILEMMAS.map((d) => (
             <label key={d.id} className="flex items-center gap-1">
@@ -408,6 +417,84 @@ export default function DilemmaLabClient({ missions, personnel, decks }: Props) 
           </details>
         )}
       </section>
+    </div>
+  );
+}
+
+interface Preview {
+  instance: CardInstance;
+  side: PreviewSide;
+  /** A hold dims the page; a mouse hover does not, as on the practice table (#985). */
+  dim: boolean;
+}
+
+/**
+ * Each drawn dilemma, duplicates too, as the art crop of a table card. A press and hold (touch or
+ * pen) or a mouse hover shows the card in `CardPreview`, with the delays of the practice table.
+ * The practice table's `useCardHold` needs its page's provider, so the lab keeps this smaller copy.
+ */
+function DrawnCards({ drawn, cards }: { drawn: DilemmaId[]; cards: Record<DilemmaId, CardData> }) {
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancel = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  const later = (ms: number, next: Preview) => {
+    cancel();
+    timer.current = setTimeout(() => setPreview(next), ms);
+  };
+
+  // The preview takes the edge away from the press point (#879).
+  const side = (x: number): PreviewSide => (x > window.innerWidth / 2 ? 'left' : 'right');
+
+  // A hold ends wherever the pointer is released.
+  useEffect(() => {
+    const end = () => {
+      cancel();
+      setPreview((p) => (p?.dim ? null : p));
+    };
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    window.addEventListener('touchend', end);
+    return () => {
+      cancel();
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      window.removeEventListener('touchend', end);
+    };
+  }, []);
+
+  return (
+    <div className="flex flex-wrap gap-2" data-testid="lab-drawn-cards">
+      {drawn.map((id, i) => {
+        const instance: CardInstance = { id: `drawn-${i}`, card: cards[id], face: 'up' };
+        return (
+          <div
+            key={instance.id}
+            data-testid={`lab-drawn-card-${id}`}
+            className="select-none touch-manipulation"
+            style={{ width: TABLE_CARD_WIDTH }}
+            title={title(id)}
+            onContextMenu={(e) => e.preventDefault()}
+            onPointerDown={(e) => {
+              if (e.pointerType !== 'mouse') later(HOLD_DELAY_MS, { instance, side: side(e.clientX), dim: true });
+            }}
+            onPointerEnter={(e) => {
+              if (e.pointerType === 'mouse' && e.buttons === 0) later(HOVER_DELAY_MS, { instance, side: side(e.clientX), dim: false });
+            }}
+            onPointerLeave={(e) => {
+              if (e.pointerType !== 'mouse') return;
+              cancel();
+              setPreview((p) => (p && !p.dim ? null : p));
+            }}
+          >
+            <TableCardImage instance={instance} width={TABLE_CARD_WIDTH} height={TABLE_CARD_ART_HEIGHT} />
+          </div>
+        );
+      })}
+      {preview && <CardPreview instance={preview.instance} side={preview.side} dim={preview.dim} />}
     </div>
   );
 }

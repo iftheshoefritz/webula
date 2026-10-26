@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { loadCards } from '../../lib/loadCards';
+import { CardData, loadCards } from '../../lib/loadCards';
+import { DilemmaId, OPPONENT_DILEMMAS } from '../../lib/dilemmaBot/opponentPile';
 import DilemmaLabClient, { LabDeck, LabMission, LabPersonnel } from '../../components/DilemmaLabClient';
 
 export const metadata: Metadata = { title: 'Dilemma bot lab – Webula' };
@@ -41,6 +42,12 @@ export default function DilemmaLabPage() {
     });
   }
 
+  // The card data strips the leading zeros of a number in the collector's info and lowercases it.
+  const collectorsKey = (info: string) => info.replace(/(^|[^0-9])0+(\d+)/g, '$1$2').toLowerCase();
+  const dilemmaCards = Object.fromEntries(
+    OPPONENT_DILEMMAS.map((d) => [d.id, data.find((c) => c.collectorsinfo === collectorsKey(d.collectorsInfo))]),
+  ) as Record<DilemmaId, CardData>;
+
   const folder = join(process.cwd(), 'public', 'tournament-decks');
   const index: TournamentDeckRow[] = JSON.parse(readFileSync(join(folder, 'index.json'), 'utf-8'));
   const personnelNames = new Set(personnel.map((p) => p.originalName));
@@ -61,5 +68,5 @@ export default function DilemmaLabPage() {
     return deck;
   });
 
-  return <DilemmaLabClient missions={missions} personnel={personnel} decks={decks} />;
+  return <DilemmaLabClient missions={missions} personnel={personnel} decks={decks} dilemmaCards={dilemmaCards} />;
 }
