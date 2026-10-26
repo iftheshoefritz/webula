@@ -499,6 +499,12 @@ growing where it would take their width, and the dilemma choice, which keeps the
 `missionScale`, draws the same mission. The bottom row does not change. The dilemma stack mounts only here
 (#1170), so the `dilemmaStack` drop target exists only in the attempt layout.
 
+In a bot game (`?fixture=bot`), Start opens straight into `'face'` (#1299). The popup stays open,
+with Start reading "The bot is choosing…", while the bot draws Draw dilemmas and chooses a stack
+within Spend; then one `botAttempt` action starts the attempt with the chosen stack face down and the
+other drawn dilemmas at the bottom of the dilemma pile, face up. It makes one log entry, and one undo
+takes it all back. The strip of a bot game has no Draw dilemma, no drawn count and no phase button.
+
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
 dilemmas. Start begins in `'choose'`, with `Attempt.drawn` 0. The choice-phase draw, `drawCard` from
 the dilemma pile to the dilemma hand with `counted: true`, adds 1 to `drawn`, and it never stops at

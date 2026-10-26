@@ -254,6 +254,9 @@ export default function AttemptLayout({
 
   // A bot game's attempt keeps the Draw and Spend the player set (#1291); any other attempt has N.
   const drawSpendN = drawSpend(attempt.personnel, attempt.subtract);
+  // Only a bot game's attempt has the bot's numbers (#1291). The bot draws and chooses at Start
+  // (#1299), so its strip has no Draw dilemma, no drawn count and no phase button.
+  const botGame = attempt.botDraw !== undefined;
   return (
     // `min-h-0` and the bodies' `overflow-y-clip` are a safety net (#1203): the sizes fit the height
     // above the bottom row (`attemptColumnHeight`), and should a column still be too tall, the body
@@ -272,11 +275,11 @@ export default function AttemptLayout({
         <span data-testid="attempt-draw-spend" className="whitespace-nowrap text-sm font-bold">
           {drawSpendText(attempt.botDraw ?? drawSpendN, attempt.botSpend ?? drawSpendN)}
         </span>
-        {attempt.phase === 'choose' && (
+        {!botGame && attempt.phase === 'choose' && (
           <AttemptDrawDilemma attempt={attempt} canDraw={canDrawDilemma} onDraw={onDrawDilemma} />
         )}
         <div className="ml-auto flex shrink-0 flex-row gap-1">
-          {attempt.phase === 'choose' ? (
+          {botGame ? null : attempt.phase === 'choose' ? (
             <button
               type="button"
               data-testid="attempt-face-dilemmas"

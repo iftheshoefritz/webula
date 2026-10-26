@@ -79,6 +79,7 @@ import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
 import { AttemptDialog } from './AttemptPanel';
+import { useBotAttemptStart } from './useBotAttemptStart';
 import AttemptLayout from './AttemptLayout';
 import { missionIndexFromAttemptAwayTeamDropId, shipIdFromAttemptCrewDropId } from './AttemptPersonnelRow';
 import { AttemptPanel, attemptDefaults, attemptViewKey, canAttempt, fixtureAttempt, fixtureAttemptPlacedOn, fixtureAttemptStack } from './attempt';
@@ -1972,9 +1973,10 @@ function PracticeDrawContent() {
   // The undo button and Ctrl/Cmd+Z (#1194): the table goes back to the snapshot of the last log
   // entry, and the entry leaves the log. A panel, a hand or a selection may point at cards the
   // undone table holds elsewhere, so every one of them closes, as after a drag from outside them.
+  // Nothing is undone while the bot chooses its stack (#1299): its reply needs the table it drew from.
   const lastLogEntry = game.log.length ? game.log[game.log.length - 1] : null;
   const handleUndo = () => {
-    if (draggingRef.current || !game.undo.length) return;
+    if (draggingRef.current || botStart.choosing || !game.undo.length) return;
     closePanelsAfterDrag(null, game.undo[game.undo.length - 1]);
     setSelectedCardIds([]);
     dispatch({ type: 'undo' });
@@ -2578,6 +2580,19 @@ function PracticeDrawContent() {
   // The Attempt button of the open away team or crew panel (#1163), given only where `canAttempt` says yes.
   const attemptFrom = (panel: AttemptPanel) => (canAttempt(table, panel) ? () => setAttemptPopup(panel) : undefined);
   const attemptDefaultsOpen = attemptPopup ? attemptDefaults(table, attemptPopup) : null;
+  // The popup's Start closes it and every panel, and clears the selection.
+  const closeAfterStart = () => {
+    setAttemptPopup(null);
+    setOpenPile(null);
+    setOpenCrewShipId(null);
+    setSelectedCardIds([]);
+  };
+  // Start in a bot game (#1299): the bot draws and chooses its stack, then one `botAttempt` starts
+  // the attempt in `'face'`. While it chooses, the popup stays open and undo does nothing.
+  const botStart = useBotAttemptStart(table, (action) => {
+    dispatch(action);
+    closeAfterStart();
+  });
   const openPlacedOnTarget = openPlacedOnTargetId ? findInstanceAnywhere(table, openPlacedOnTargetId)?.instance : null;
   // The cards of whichever card list panel is currently open, if any — only one panel is ever open
   // at a time. Used both to build a multi-select drag's group (`handleDragStart`) and to pass
@@ -2712,13 +2727,18 @@ function PracticeDrawContent() {
             personnel={attemptDefaultsOpen.personnel}
             subtract={attemptDefaultsOpen.subtract}
             bot={table.opponent === 'bot'}
-            onCancel={() => setAttemptPopup(null)}
-            onStart={(personnel, subtract, bot) => {
-              dispatch({ type: 'startAttempt', ...attemptDefaultsOpen, personnel, subtract, ...bot });
+            choosing={botStart.choosing}
+            onCancel={() => {
+              botStart.cancel();
               setAttemptPopup(null);
-              setOpenPile(null);
-              setOpenCrewShipId(null);
-              setSelectedCardIds([]);
+            }}
+            onStart={(personnel, subtract, bot) => {
+              if (bot && table.opponent === 'bot') {
+                botStart.start({ ...attemptDefaultsOpen, personnel, subtract, ...bot });
+                return;
+              }
+              dispatch({ type: 'startAttempt', ...attemptDefaultsOpen, personnel, subtract, ...bot });
+              closeAfterStart();
             }}
           />
         )}

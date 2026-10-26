@@ -300,8 +300,8 @@ that. Until #834 lands, this stays a known gap, not a bug to fix.
 
 The dilemma bot (#1282) chooses the dilemma stack for the opponent in the dilemma choice. It
 lives in `src/lib/dilemmaBot/`. The page `/dilemma-lab` lets you test it. The practice table deals
-the Chula pile as the dilemma pile of a bot game (#1289), but the bot does not choose a stack there
-yet.
+the Chula pile as the dilemma pile of a bot game (#1289), and there Start lets the bot choose the
+stack (#1299).
 
 | Game term | Code | Note |
 |---|---|---|
@@ -319,3 +319,4 @@ yet.
 | the bot's draw on the table | `drawFromDilemmaPile(pile, count)` in `tableReducer.ts`; `drawnDilemmaIds(rows)` in `botAttempt.ts` | Up to D draws from the dilemma pile, with the shuffle of a face-up top card before each draw (#1283). It is random, so the page calls it, not the reducer. `drawnDilemmaIds` gives the `DilemmaId` of each drawn card, in draw order; a card with none is left out. |
 | the map back from the bot's stack to the drawn cards | `stackCardIds(drawn, stack)` in `botAttempt.ts` | Each `DilemmaId` of the chosen stack takes the first drawn card of that id not taken yet, so the stack's order holds and two copies of a title stay apart. |
 | the search of the bot | `useSearchWorker` in `useSearchWorker.ts`; `answerSearch`, `SearchRequest`, `SearchResponse` in `searchRequest.ts`; `search.worker.ts` | Shared by `/dilemma-lab` and the practice table. The worker and the main-thread fallback both answer with `answerSearch`. The kind `'table'` runs `chooseStack` with no baseline; the lab's `'choose'` and `'full'` score a 2,000-play baseline too. |
+| the bot's dilemma choice on the table | `botAttempt` (a `TableAction` and a `LogEntry` kind) in `tableReducer.ts` and `gameLog.ts`; `useBotAttemptStart` in `useBotAttemptStart.ts` | Start in a bot game (#1299). The page draws the bot's dilemmas, asks the search for the stack with the popup's Spend, and then dispatches one `botAttempt`: it starts the attempt, puts the drawn cards in the dilemma hand, moves the chosen ones to the stack in the bot's order, and switches to `'face'`, so the rest go to the bottom of the dilemma pile face up. One log entry counts the cards drawn and stacked without naming the stack, and one undo takes it all back. While the bot chooses, Start reads "The bot is choosing…" and undo does nothing. |
