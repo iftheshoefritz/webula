@@ -5,6 +5,7 @@ import { randomLegalStack } from '../../../lib/dilemmaBot/search';
 import { SearchRequest, answerSearch } from '../../../lib/dilemmaBot/searchRequest';
 import { seededRandom } from '../../../lib/dilemmaBot/simulator';
 import { useSearchWorker } from '../../../lib/dilemmaBot/useSearchWorker';
+import { useLatest } from '../../../hooks/useLatest';
 import { attemptingCards } from './attempt';
 import { CardInstance, TableAction, TableState, drawFromDilemmaPile } from './tableReducer';
 
@@ -34,10 +35,8 @@ export function useBotAttemptStart(table: TableState, onAction: (action: BotAtte
   const [choosing, setChoosing] = useState(false);
   const pending = useRef<Pending | null>(null);
   const nextId = useRef(0);
-  const tableRef = useRef(table);
-  tableRef.current = table;
-  const onActionRef = useRef(onAction);
-  onActionRef.current = onAction;
+  const tableRef = useLatest(table);
+  const onActionRef = useLatest(onAction);
 
   const clear = () => {
     pending.current = null;

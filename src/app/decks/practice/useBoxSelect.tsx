@@ -1,4 +1,5 @@
 import React, { RefObject, useEffect, useRef, useState } from 'react';
+import { useLatest } from '../../../hooks/useLatest';
 import { swallowClickOf } from './useCardHold';
 
 // Issue #993: on a desktop the player selects more than one card at once by a drag of the mouse.
@@ -52,10 +53,8 @@ export function useBoxSelect(
   onSelect: ((ids: string[]) => void) | undefined
 ) {
   const [box, setBox] = useState<Box | null>(null);
-  const selectedRef = useRef(selectedIds);
-  selectedRef.current = selectedIds;
-  const onSelectRef = useRef(onSelect);
-  onSelectRef.current = onSelect;
+  const selectedRef = useLatest(selectedIds);
+  const onSelectRef = useLatest(onSelect);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => () => cleanupRef.current?.(), []);

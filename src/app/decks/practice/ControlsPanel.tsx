@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import ControlClip from './ControlClip';
 import { CONTROL_ROWS, clipFiles, controlsBySection, type ControlColumn, type ControlRow } from './controls';
@@ -20,12 +20,11 @@ export default function ControlsPanel({ onClose, rows = CONTROL_ROWS }: { onClos
   // `useFinePointer` reports only after the first render.
   const [picked, setPicked] = useState<ControlColumn | null>(null);
   const column: ControlColumn = picked ?? (finePointer ? 'mouse' : 'touch');
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  const onEscape = useEffectEvent(() => onClose());
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current();
+      if (event.key === 'Escape') onEscape();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);

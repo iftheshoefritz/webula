@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { EMPTY_LOG_TEXT, gameLogText, LogEntry, logByTurn, logEntryText } from './gameLog';
 
@@ -11,12 +11,11 @@ const COPY_FEEDBACK_MS = 1500;
 export default function GameLogPanel({ log, onClose }: { log: LogEntry[]; onClose: () => void }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  const onEscape = useEffectEvent(() => onClose());
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current();
+      if (event.key === 'Escape') onEscape();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {

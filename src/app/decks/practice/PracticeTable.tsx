@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useEffectEvent, useMemo, useReducer, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -265,9 +265,8 @@ function GameMenu({
   // A game against the dilemma bot (#1289).
   botGame: boolean;
 }) {
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
   const [view, setView] = useState<'items' | 'offline'>('items');
+  const onEscape = useEffectEvent(() => onClose());
 
   // The splash opens on the item list every time.
   useEffect(() => {
@@ -279,7 +278,7 @@ function GameMenu({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (view === 'offline') setView('items');
-      else onCloseRef.current();
+      else onEscape();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -1970,32 +1969,6 @@ function PracticeDrawContent() {
     setOpenHand('dilemmaHand');
   };
 
-  // The undo button and Ctrl/Cmd+Z (#1194): the table goes back to the snapshot of the last log
-  // entry, and the entry leaves the log. A panel, a hand or a selection may point at cards the
-  // undone table holds elsewhere, so every one of them closes, as after a drag from outside them.
-  // Nothing is undone while the bot chooses its stack (#1299): its reply needs the table it drew from.
-  const lastLogEntry = game.log.length ? game.log[game.log.length - 1] : null;
-  const handleUndo = () => {
-    if (draggingRef.current || botStart.choosing || !game.undo.length) return;
-    closePanelsAfterDrag(null, game.undo[game.undo.length - 1]);
-    setSelectedCardIds([]);
-    dispatch({ type: 'undo' });
-  };
-  const handleUndoRef = useRef(handleUndo);
-  handleUndoRef.current = handleUndo;
-  useEffect(() => {
-    if (!finePointer) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'z' || !(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
-      event.preventDefault();
-      handleUndoRef.current();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [finePointer]);
-
   // The phase button of the attempt strip (#1192). Facing the dilemmas sends the dilemma hand to the
   // pile, so its arc closes too; going back to the choice leaves the hand as it is.
   const setAttemptPhase = (phase: AttemptPhase) => {
@@ -2236,7 +2209,10 @@ function PracticeDrawContent() {
     // A drag can start from the open hand or from a ship already on a mission's ship row
     // (#599); `findInstanceAnywhere` locates a card regardless of which one it is.
     const found = findInstanceAnywhere(table, id);
-    if (!found) return;
+    if (!found) {
+      draggingRef.current = false;
+      return;
+    }
     if (found.zone === 'hand' || found.zone === 'dilemmaHand') {
       // A drag from an open hand closes it at once; the DragOverlay carries the card under
       // the pointer for the rest of the drag, so the source card can stay put in the (now
@@ -2401,6 +2377,7 @@ function PracticeDrawContent() {
     // `handleDragStart`'s own `findInstanceAnywhere` lookup would).
     const group = draggingGroup.length > 0 ? draggingGroup : dragOrigin ? [dragOrigin.instance] : [];
     setDraggingInstance(null);
+    draggingRef.current = false;
     setDraggingGroup([]);
     // An open card list panel (#602), including the core's/the brig's own panel (#640) and a ship's
     // crew panel (#664), closes after a drag, unless the drag started from a card inside it and
@@ -2527,6 +2504,7 @@ function PracticeDrawContent() {
   // every card it held before the drag, so it stays open, and the hand it started from reopens.
   const cancelDrag = (dragOrigin: { instance: CardInstance; zone: TableZone } | null) => {
     setDraggingInstance(null);
+    draggingRef.current = false;
     setDraggingGroup([]);
     closePanelsAfterDrag(dragOrigin, table);
   };
@@ -2545,7 +2523,6 @@ function PracticeDrawContent() {
   // `showPositionLabel`). The face-up stack of the dilemma choice (#1190) ignores it and always
   // shows, and the dilemma hand shows only there (#1223).
   const dilemmaStackVisible = dilemmaStack.length > 0 || draggingInstance?.card.type === 'dilemma';
-  draggingRef.current = draggingInstance !== null;
   const previewCardId = heldCardId ?? hoveredCardId;
   const held = previewCardId ? findInstanceAnywhere(table, previewCardId) : null;
   // A hover ends when its card moves away from the pointer (#784): a card that a table change
@@ -2593,6 +2570,30 @@ function PracticeDrawContent() {
     dispatch(action);
     closeAfterStart();
   });
+  // The undo button and Ctrl/Cmd+Z (#1194): the table goes back to the snapshot of the last log
+  // entry, and the entry leaves the log. A panel, a hand or a selection may point at cards the
+  // undone table holds elsewhere, so every one of them closes, as after a drag from outside them.
+  // Nothing is undone while the bot chooses its stack (#1299): its reply needs the table it drew from.
+  const lastLogEntry = game.log.length ? game.log[game.log.length - 1] : null;
+  const handleUndo = () => {
+    if (draggingRef.current || botStart.choosing || !game.undo.length) return;
+    closePanelsAfterDrag(null, game.undo[game.undo.length - 1]);
+    setSelectedCardIds([]);
+    dispatch({ type: 'undo' });
+  };
+  const undoFromKeyboard = useEffectEvent(() => handleUndo());
+  useEffect(() => {
+    if (!finePointer) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'z' || !(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      event.preventDefault();
+      undoFromKeyboard();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [finePointer]);
   const openPlacedOnTarget = openPlacedOnTargetId ? findInstanceAnywhere(table, openPlacedOnTargetId)?.instance : null;
   // The cards of whichever card list panel is currently open, if any — only one panel is ever open
   // at a time. Used both to build a multi-select drag's group (`handleDragStart`) and to pass
