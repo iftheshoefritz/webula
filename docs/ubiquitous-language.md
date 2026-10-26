@@ -246,7 +246,7 @@ So the code has no name for these rulebook terms:
 - the turn segments: play and draw cards, execute orders, discard excess cards
 - counters, and the cost of a card in counters
 - the orders: beam personnel, move a ship, attempt a mission, order actions
-- mission requirements, overcoming a dilemma (the practice table models a mission attempt only as `TableState.attempt`, and facing dilemmas only as a phase of it, `Attempt.phase`, see [section 4](#4-the-practice-table))
+- overcoming a dilemma (the dilemma bot checks the mission requirements, see [section 9](#9-the-dilemma-bot); the practice table models a mission attempt only as `TableState.attempt`, and facing dilemmas only as a phase of it, `Attempt.phase`, see [section 4](#4-the-practice-table))
 - command and owner, "your" and "an opponent's"
 - combat, engagement, damage, captive
 - present, equipped with, response action, prevent, replace, exchange
@@ -295,3 +295,20 @@ each key at 3. Two versions of one card, such as a card and its `*VP` reprint, h
 
 A count by title needs a field that holds the title alone, and no field does. #834 tracks
 that. Until #834 lands, this stays a known gap, not a bug to fix.
+
+## 9. The dilemma bot
+
+The dilemma bot (#1282) chooses the dilemma stack for the opponent in the dilemma choice. It
+lives in `src/lib/dilemmaBot/`. The page `/dilemma-lab` lets you test it. The practice table does
+not use it yet.
+
+| Game term | Code | Note |
+|---|---|---|
+| the opponent's dilemma pile | `OPPONENT_DILEMMAS`, `opponentPile()` in `opponentPile.ts` | A fixed pile: 3 copies of each of 9 Chula dilemmas. |
+| the mission requirements | `RequirementBranch`, `parseRequirementBranches`, `meetsRequirements` in `requirements.ts` | The skills and the attribute checks, such as `Cunning>34`. `parseMissionRequirements` in `src/lib/missionRequirements.ts` reads the skills only. |
+| the attempting personnel, and the copies of Chula: The Game on the mission | `BotAttempt` in `simulator.ts` | **This is not `Attempt` of the practice table** (`TableState.attempt`). |
+| a legal dilemma stack | `isLegalStack`, `legalStacks` in `search.ts` | Drawn dilemmas only, no title twice, a total cost of N or less. |
+| the probability that a stack fails the attempt | `StackScore.pFail` | |
+| lasting damage | `StackScore.damage` | Not a rulebook term. The average number of personnel returned to the hand. A stop does not count: stopped personnel are unstopped each turn. |
+| the dilemmas a stack puts under the mission | `StackScore.under` | Every dilemma of the stack except Chula: The Game, faced or not. |
+
