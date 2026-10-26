@@ -104,6 +104,16 @@ const openPicker = async () => {
   });
 };
 
+// A whole deck loads in two steps (#1290): Missions + draw on the deck, then Dilemmas on the same deck.
+const loadWholeDeck = async () => {
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Load the missions and draw deck of My Drive deck' }));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Load the dilemmas of My Drive deck' }));
+  });
+};
+
 describe('Load deck in the practice game menu (#780)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -169,7 +179,7 @@ describe('Load deck in the practice game menu (#780)', () => {
     await renderPage();
 
     expect(screen.getByText('Your decks')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load the missions and draw deck of My Drive deck' })).toBeInTheDocument();
     expect(window.location.search).toBe('');
   });
 
@@ -187,11 +197,10 @@ describe('Load deck in the practice game menu (#780)', () => {
     expect(await drawPileIds()).toHaveLength(10);
 
     await openPicker();
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' }));
-    });
+    await loadWholeDeck();
 
     expect(fetchMock).toHaveBeenCalledWith('/api/drive/file-1', expect.objectContaining({ method: 'GET' }));
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/drive/file-1')).toHaveLength(1);
     expect(deckFromTsv).toHaveBeenCalledWith('drive deck tsv', builderCards);
     expect(screen.queryByText('Your decks')).not.toBeInTheDocument();
     expect(await drawPileIds()).toHaveLength(20);
@@ -213,16 +222,14 @@ describe('Load deck in the practice game menu (#780)', () => {
     await renderPage();
 
     await openPicker();
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' }));
-    });
+    await loadWholeDeck();
 
     expect(fetchMock).not.toHaveBeenCalledWith('/api/drive/file-1', expect.anything());
-    expect(screen.getByText('Your decks')).toBeInTheDocument();
+    expect(screen.getByText('Dilemmas for My Drive deck')).toBeInTheDocument();
     await act(async () => {
       fireEvent.click(screen.getByText('×'));
     });
-    expect(screen.queryByText('Your decks')).not.toBeInTheDocument();
+    expect(screen.queryByText('Dilemmas for My Drive deck')).not.toBeInTheDocument();
     expect(await drawPileIds()).toHaveLength(10);
   });
 
@@ -237,9 +244,7 @@ describe('Load deck in the practice game menu (#780)', () => {
     await renderPage();
 
     await openPicker();
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Load the whole deck My Drive deck' }));
-    });
+    await loadWholeDeck();
 
     expect(deckFromTsv).not.toHaveBeenCalled();
     expect(await drawPileIds()).toHaveLength(10);

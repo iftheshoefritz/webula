@@ -1870,47 +1870,54 @@ function PracticeDrawContent() {
     drive.openPicker();
   };
 
-  // The picker's choice of deck. Confirms first, since a load throws away the current game.
-  const loadDriveDeck = async (file: { id: string; name?: string }) => {
-    if (!window.confirm('Load this deck? This will throw away the current game.')) return;
-    const tsv = await drive.fetchDeckTsv(file);
-    if (tsv === null) return;
-    const deck = deckFromTsv(tsv, data);
+  // The base deck of the picker's step 2 (#1114, #1290): the missions and draw deck of a Drive deck,
+  // or of the deck dealt now. Confirms first, since a load throws away the current game, and gives
+  // null when the player declines or the fetch fails.
+  const confirmAndFetchBaseDeck = async (
+    source: MissionsAndDrawSource
+  ): Promise<{ deck: DeckList; fileId: string | undefined; name: string } | null> => {
+    if (!window.confirm('Load this deck? This will throw away the current game.')) return null;
+    if (source.kind === 'current') {
+      return { deck: dealtDeck, fileId: loadedDeck ? driveFileId : undefined, name: dealtDeckName() };
+    }
+    const tsv = await drive.fetchDeckTsv(source.file);
+    if (tsv === null) return null;
+    return { deck: deckFromTsv(tsv, data), fileId: source.file.id, name: source.file.name };
+  };
+
+  // The picker's step 2 (#1114): the missions and draw deck of step 1 with the dilemmas of a Drive
+  // deck, the step-1 deck's own too, which deals that whole deck (#1290). Confirms once, then deals
+  // the combined deck, which Reset deals again and the save keeps as a Drive game.
+  const loadDriveDilemmas = async (source: MissionsAndDrawSource, dilemmaFile: { id: string; name: string }) => {
+    const base = await confirmAndFetchBaseDeck(source);
+    if (base === null) return;
+    const sameDeck = source.kind === 'drive' && source.file.id === dilemmaFile.id;
+    let deck = base.deck;
+    if (!sameDeck) {
+      const dilemmaTsv = await drive.fetchDeckTsv(dilemmaFile);
+      if (dilemmaTsv === null) return;
+      deck = mergeDeckPiles(base.deck, deckFromTsv(dilemmaTsv, data), ['dilemmaPile']);
+    }
     setLoadedDeck(deck);
-    setDriveFileId(file.id);
-    setDilemmaDriveFileId(undefined);
-    setDriveFileName(file.name);
+    setDriveFileId(base.fileId);
+    setDilemmaDriveFileId(sameDeck ? undefined : dilemmaFile.id);
+    setDriveFileName(sameDeck ? base.name : `${base.name} + ${dilemmaFile.name} dilemmas`);
     dealDeck(deck);
     drive.closePicker();
   };
 
-  // The picker's step 2 (#1114): the missions and draw deck of a Drive deck, or of the deck dealt
-  // now, with the dilemmas of another Drive deck. Confirms once, then deals the combined deck,
-  // which Reset deals again and the save keeps as a Drive game.
-  const loadDriveDilemmas = async (source: MissionsAndDrawSource, dilemmaFile: { id: string; name: string }) => {
-    if (!window.confirm('Load this deck? This will throw away the current game.')) return;
-    let baseDeck: DeckList;
-    let baseFileId: string | undefined;
-    let baseName: string;
-    if (source.kind === 'drive') {
-      const tsv = await drive.fetchDeckTsv(source.file);
-      if (tsv === null) return;
-      baseDeck = deckFromTsv(tsv, data);
-      baseFileId = source.file.id;
-      baseName = source.file.name;
-    } else {
-      baseDeck = dealtDeck;
-      baseFileId = loadedDeck ? driveFileId : undefined;
-      baseName = dealtDeckName();
-    }
-    const dilemmaTsv = await drive.fetchDeckTsv(dilemmaFile);
-    if (dilemmaTsv === null) return;
-    const deck = mergeDeckPiles(baseDeck, deckFromTsv(dilemmaTsv, data), ['dilemmaPile']);
+  // Step 2's Play against the bot (#1290): the missions and draw deck of step 1 with the Chula pile
+  // of the dilemma bot as the dilemma pile, and the bot-game flag of #1289. The name stays the
+  // base deck's, since the game menu adds "vs the bot" itself.
+  const playDriveBot = async (source: MissionsAndDrawSource) => {
+    const base = await confirmAndFetchBaseDeck(source);
+    if (base === null) return;
+    const deck = mergeDeckPiles(base.deck, chulaPileDeck(data), ['dilemmaPile']);
     setLoadedDeck(deck);
-    setDriveFileId(baseFileId);
-    setDilemmaDriveFileId(dilemmaFile.id);
-    setDriveFileName(`${baseName} + ${dilemmaFile.name} dilemmas`);
-    dealDeck(deck);
+    setDriveFileId(base.fileId);
+    setDilemmaDriveFileId(undefined);
+    setDriveFileName(base.name);
+    dealDeck(deck, false, null, 'bot');
     drive.closePicker();
   };
 
@@ -2729,8 +2736,8 @@ function PracticeDrawContent() {
         {drive.showPicker && online && (
           <PracticeDeckPicker
             driveFiles={drive.driveFiles}
-            onLoad={loadDriveDeck}
             onLoadDilemmas={loadDriveDilemmas}
+            onPlayBot={playDriveBot}
             canKeepCurrent={canKeepCurrentMissionsAndDraw}
             inProgress={drive.loading}
             onClose={drive.closePicker}

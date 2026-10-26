@@ -19,10 +19,11 @@ type Props = {
   onSignIn: () => void
   browsedFolder: DriveFile | null
   onBrowseFolder: (folder: DriveFile | null) => void
-  // Step 1's Load whole deck: deals all of the deck.
-  onLoad: (file: DriveFile) => void
   // Step 2's Load dilemmas: deals the missions and draw deck of step 1 with this deck's dilemmas.
   onLoadDilemmas: (source: MissionsAndDrawSource, dilemmaFile: DriveFile) => void
+  // Step 2's Play against the bot (#1290): deals the missions and draw deck of step 1 with the
+  // dilemma bot's Chula pile.
+  onPlayBot: (source: MissionsAndDrawSource) => void
   // Whether a deck with missions or a draw deck is dealt now, for "Keep the current missions and draw deck".
   canKeepCurrent: boolean
   onClose: () => void
@@ -42,10 +43,10 @@ const TEXT_BUTTON_CLASS =
 // no decks it links to the deck builder, in the same tab, since the home-screen app has no tab bar
 // (#922). Each deck's Edit button opens it in the deck builder (#1111).
 //
-// It loads in two steps (#1114). Step 1 picks the missions and draw deck: a whole deck loads at
-// once, while "Missions and draw deck only", or keeping the current ones, moves on to step 2, which
-// picks the deck whose dilemmas join them. Nothing loads until the last choice, so a close at
-// either step keeps the game.
+// It loads in two steps (#1114, #1290). Step 1 picks the missions and draw deck, of a deck or the
+// current ones, and step 2 picks the deck whose dilemmas join them, the step-1 deck too for its
+// whole deck, or Play against the bot. Nothing loads until the last choice, so a close at either
+// step keeps the game.
 export const PracticeDeckPicker: React.FC<Props> = ({
   driveFiles,
   inProgress,
@@ -54,8 +55,8 @@ export const PracticeDeckPicker: React.FC<Props> = ({
   onSignIn,
   browsedFolder,
   onBrowseFolder,
-  onLoad,
   onLoadDilemmas,
+  onPlayBot,
   canKeepCurrent,
   onClose,
 }) => {
@@ -72,24 +73,14 @@ export const PracticeDeckPicker: React.FC<Props> = ({
 
   const deckActions = (file: DriveFile) =>
     source === null ? (
-      <>
-        <button
-          type="button"
-          aria-label={`Load the whole deck ${file.name}`}
-          className={TEXT_BUTTON_CLASS}
-          onClick={() => onLoad(file)}
-        >
-          Whole deck
-        </button>
-        <button
-          type="button"
-          aria-label={`Load the missions and draw deck of ${file.name}`}
-          className={TEXT_BUTTON_CLASS}
-          onClick={() => setSource({ kind: 'drive', file })}
-        >
-          Missions + draw
-        </button>
-      </>
+      <button
+        type="button"
+        aria-label={`Load the missions and draw deck of ${file.name}`}
+        className={TEXT_BUTTON_CLASS}
+        onClick={() => setSource({ kind: 'drive', file })}
+      >
+        Missions + draw
+      </button>
     ) : (
       <button
         type="button"
@@ -116,14 +107,25 @@ export const PracticeDeckPicker: React.FC<Props> = ({
               Keep the current missions and draw deck
             </button>
           ) : (
-            <button
-              type="button"
-              aria-label="Back"
-              className={TEXT_BUTTON_CLASS}
-              onClick={() => setSource(null)}
-            >
-              <FaArrowLeft className="inline mr-1" />Back
-            </button>
+            <>
+              <button
+                type="button"
+                aria-label="Back"
+                className={TEXT_BUTTON_CLASS}
+                onClick={() => setSource(null)}
+              >
+                <FaArrowLeft className="inline mr-1" />Back
+              </button>
+              <button
+                type="button"
+                aria-label="Play against the bot"
+                data-testid="practice-deck-picker-play-bot"
+                className={TEXT_BUTTON_CLASS}
+                onClick={() => onPlayBot(source)}
+              >
+                Play against the bot
+              </button>
+            </>
           )}
         </div>
       )}

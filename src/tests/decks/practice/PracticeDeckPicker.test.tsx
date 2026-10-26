@@ -12,8 +12,8 @@ const baseProps = {
   onSignIn: jest.fn(),
   browsedFolder: null,
   onBrowseFolder: jest.fn(),
-  onLoad: jest.fn(),
   onLoadDilemmas: jest.fn(),
+  onPlayBot: jest.fn(),
   canKeepCurrent: true,
   onClose: jest.fn(),
 };
@@ -54,9 +54,11 @@ describe('PracticeDeckPicker (#1109)', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
-  it('gives each deck two Load buttons and an Edit link, and nothing else', () => {
+  it('gives each deck one Load button, Missions + draw, and an Edit link, and nothing else (#1290)', () => {
     render(<PracticeDeckPicker {...baseProps} driveFiles={files} />);
-    expect(screen.getByRole('button', { name: 'Load the whole deck Root Deck' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Load the whole deck/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Whole deck')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Play against the bot' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Load the missions and draw deck of Root Deck' })).toBeInTheDocument();
     expect(screen.queryByText('Folder Deck')).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
@@ -66,7 +68,7 @@ describe('PracticeDeckPicker (#1109)', () => {
     expect(screen.queryByText('New folder')).not.toBeInTheDocument();
     expect(screen.getAllByRole('link')).toHaveLength(1);
     const deckRow = screen.getByText('Root Deck').closest('li')!;
-    expect(within(deckRow).getAllByRole('button')).toHaveLength(2);
+    expect(within(deckRow).getAllByRole('button')).toHaveLength(1);
     expect(within(deckRow).getAllByRole('link')).toHaveLength(1);
     const folderRow = screen.getByText('Tournament').closest('li')!;
     expect(within(folderRow).getAllByRole('button')).toHaveLength(1);
@@ -85,12 +87,14 @@ describe('PracticeDeckPicker (#1109)', () => {
     expect(href.searchParams.get('name')).toBe('Borg & Co');
   });
 
-  it('calls onLoad with the deck on Load whole deck', () => {
-    const onLoad = jest.fn();
-    render(<PracticeDeckPicker {...baseProps} driveFiles={files} onLoad={onLoad} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Load the whole deck Root Deck' }));
-    expect(onLoad).toHaveBeenCalledWith(files[1]);
-    expect(onLoad.mock.calls[0]).toHaveLength(1);
+  it('deals nothing on Missions + draw, and moves on to step 2 (#1290)', () => {
+    const onLoadDilemmas = jest.fn();
+    const onPlayBot = jest.fn();
+    render(<PracticeDeckPicker {...baseProps} driveFiles={files} onLoadDilemmas={onLoadDilemmas} onPlayBot={onPlayBot} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Load the missions and draw deck of Root Deck' }));
+    expect(onLoadDilemmas).not.toHaveBeenCalled();
+    expect(onPlayBot).not.toHaveBeenCalled();
+    expect(screen.getByText('Dilemmas for Root Deck')).toBeInTheDocument();
   });
 
   it('opens a folder, and the back row returns to the root', () => {
@@ -100,7 +104,7 @@ describe('PracticeDeckPicker (#1109)', () => {
     expect(onBrowseFolder).toHaveBeenCalledWith(folder);
 
     rerender(<PracticeDeckPicker {...baseProps} driveFiles={files} onBrowseFolder={onBrowseFolder} browsedFolder={folder} />);
-    expect(screen.getByRole('button', { name: 'Load the whole deck Folder Deck' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load the missions and draw deck of Folder Deck' })).toBeInTheDocument();
     expect(screen.queryByText('Root Deck')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTitle('Tournament'));
     expect(onBrowseFolder).toHaveBeenLastCalledWith(null);
@@ -130,9 +134,9 @@ describe('PracticeDeckPicker, the two-step load (#1114)', () => {
   });
 
   it('moves to step 2 for a deck\'s missions and draw deck, and loads its pick of dilemmas', () => {
-    const onLoad = jest.fn();
+    const onPlayBot = jest.fn();
     const onLoadDilemmas = jest.fn();
-    render(<PracticeDeckPicker {...baseProps} driveFiles={decks} onLoad={onLoad} onLoadDilemmas={onLoadDilemmas} />);
+    render(<PracticeDeckPicker {...baseProps} driveFiles={decks} onPlayBot={onPlayBot} onLoadDilemmas={onLoadDilemmas} />);
     fireEvent.click(screen.getByRole('button', { name: 'Load the missions and draw deck of Deck A' }));
 
     expect(screen.getByText('Dilemmas for Deck A')).toBeInTheDocument();
@@ -142,7 +146,34 @@ describe('PracticeDeckPicker, the two-step load (#1114)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Load the dilemmas of Deck B' }));
     expect(onLoadDilemmas).toHaveBeenCalledWith({ kind: 'drive', file: decks[0] }, decks[1]);
-    expect(onLoad).not.toHaveBeenCalled();
+    expect(onPlayBot).not.toHaveBeenCalled();
+  });
+
+  it('lists the step-1 deck at step 2, and its Dilemmas loads that whole deck (#1290)', () => {
+    const onLoadDilemmas = jest.fn();
+    render(<PracticeDeckPicker {...baseProps} driveFiles={decks} onLoadDilemmas={onLoadDilemmas} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Load the missions and draw deck of Deck A' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Load the dilemmas of Deck A' }));
+    expect(onLoadDilemmas).toHaveBeenCalledWith({ kind: 'drive', file: decks[0] }, decks[0]);
+  });
+
+  it('shows Play against the bot above the list at step 2, and calls onPlayBot with the source (#1290)', () => {
+    const onPlayBot = jest.fn();
+    const onLoadDilemmas = jest.fn();
+    render(<PracticeDeckPicker {...baseProps} driveFiles={decks} onPlayBot={onPlayBot} onLoadDilemmas={onLoadDilemmas} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Load the missions and draw deck of Deck A' }));
+    const bot = screen.getByTestId('practice-deck-picker-play-bot');
+    expect(bot).toHaveAccessibleName('Play against the bot');
+    expect(bot.compareDocumentPosition(screen.getByText('Deck B')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Load the dilemmas of Deck B' })).toBeInTheDocument();
+    fireEvent.click(bot);
+    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'drive', file: decks[0] });
+    expect(onLoadDilemmas).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(keepCurrent());
+    fireEvent.click(screen.getByRole('button', { name: 'Play against the bot' }));
+    expect(onPlayBot).toHaveBeenLastCalledWith({ kind: 'current' });
   });
 
   it('moves to step 2 for the current missions and draw deck', () => {
@@ -156,21 +187,21 @@ describe('PracticeDeckPicker, the two-step load (#1114)', () => {
   });
 
   it('returns to step 1 on Back, and a close at step 2 loads nothing', () => {
-    const onLoad = jest.fn();
+    const onPlayBot = jest.fn();
     const onLoadDilemmas = jest.fn();
     const onClose = jest.fn();
     render(
-      <PracticeDeckPicker {...baseProps} driveFiles={decks} onLoad={onLoad} onLoadDilemmas={onLoadDilemmas} onClose={onClose} />
+      <PracticeDeckPicker {...baseProps} driveFiles={decks} onPlayBot={onPlayBot} onLoadDilemmas={onLoadDilemmas} onClose={onClose} />
     );
     fireEvent.click(screen.getByRole('button', { name: 'Load the missions and draw deck of Deck A' }));
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(screen.getByText('Your decks')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Load the whole deck Deck A' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load the missions and draw deck of Deck A' })).toBeInTheDocument();
 
     fireEvent.click(keepCurrent());
     fireEvent.click(screen.getByText('×'));
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(onLoad).not.toHaveBeenCalled();
+    expect(onPlayBot).not.toHaveBeenCalled();
     expect(onLoadDilemmas).not.toHaveBeenCalled();
   });
 });
