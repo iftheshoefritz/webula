@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 interface UseScrollVisibilityOptions {
   hideDelay?: number;
-  target?: React.RefObject<HTMLElement>;
+  target?: React.RefObject<HTMLElement | null>;
   suspended?: boolean;
 }
 

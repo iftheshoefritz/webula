@@ -80,7 +80,7 @@
 // happens on the mission card's own drop target; a tap on its slivers opens its panel, the same as
 // a tap on the top half (#1012).
 
-import { CSSProperties, ReactNode, useEffect, useRef } from 'react';
+import { CSSProperties, JSX, ReactNode, useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import type { Attempt, CardInstance, MissionPileName, MissionSlot } from './tableReducer';
 import { AttemptOverlay, BackToAttemptButton } from './AttemptPanel';
