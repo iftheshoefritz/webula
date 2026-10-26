@@ -8,6 +8,16 @@ import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import { CardDef } from '../types';
 import type { CardData } from '../lib/loadCards';
 import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
+import { isEarlyAccessUser } from '../lib/featureFlags';
+import {
+  fetchTournamentDeckText,
+  fetchTournamentDecks,
+  findTournamentDeck,
+  groupTournamentDecks,
+  isTournamentDeckId,
+  tournamentDeckTitle,
+} from '../lib/tournamentDecks';
+import type { TournamentDeck } from '../lib/tournamentDecks';
 
 export interface Session {
   accessToken: string;
@@ -48,8 +58,22 @@ export function urlWithoutDriveFileParams(location: { pathname: string; search: 
   return `${location.pathname}${query ? `?${query}` : ''}${location.hash}`;
 }
 
+// The deck builder's Save target. `source` is the trekcc.org page of a loaded tournament deck (#1310).
+export interface DeckFileRecord {
+  id: string | null;
+  name: string;
+  source?: string;
+}
+
+// A deck's text: a tournament deck from `public/tournament-decks/`, any other id from Drive.
+async function fetchDeckText(id: string): Promise<string> {
+  if (isTournamentDeckId(id)) return fetchTournamentDeckText(id);
+  const response = await fetch(`/api/drive/${id}`, { method: 'GET', credentials: 'include' });
+  return response.json();
+}
+
 export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad, clearDirty, deckIsEmpty }: UseDriveSyncParams) {
-  const [deckFile, setDeckFile] = useLocalStorage<{ id: string | null; name: string }>('deckFile', { id: null, name: 'My deck' });
+  const [deckFile, setDeckFile] = useLocalStorage<DeckFileRecord>('deckFile', { id: null, name: 'My deck' });
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false);
@@ -74,6 +98,18 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
   // because handleFileLoad parses it against `data`.
   const [pendingDriveFile, setPendingDriveFile] = useState<{ id: string; name: string; contents: string } | null>(null);
   const [pendingDriveWarning, setPendingDriveWarning] = useState(false);
+  const [tournamentDecks, setTournamentDecks] = useState<TournamentDeck[]>([]);
+
+  // The "Tournament decks" folder shows only to an early-access user with Drive scope (#1286).
+  const showTournamentDecks = !!session?.hasDriveScope && isEarlyAccessUser(session?.user?.email);
+
+  // The index is fetched only when the folder will show: the picker is open in load mode.
+  useEffect(() => {
+    if (!showDrivePicker || !showTournamentDecks || drivePickerMode !== 'load' || tournamentDecks.length > 0) return;
+    fetchTournamentDecks().then(setTournamentDecks).catch(() => {
+      // The folder stays empty, and the Drive files still list.
+    });
+  }, [showDrivePicker, showTournamentDecks, drivePickerMode, tournamentDecks.length]);
 
   useEffect(() => {
     (async () => {
@@ -146,6 +182,11 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
 
   const resetDeckFile = () => {
     setDeckFile({ id: null, name: 'My deck' });
+  };
+
+  // A deck that replaces the current one drops the trekcc.org link of a tournament deck.
+  const clearDeckSource = () => {
+    setDeckFile((prev) => (prev?.source ? { id: prev.id, name: prev.name } : prev));
   };
 
   // A single selected file keeps today's behaviour (load into the builder). Selecting more
@@ -266,11 +307,18 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
   const fetchDriveFile = async (driveFile: { id: string; name: string }, piles?: DeckPile[]) => {
     posthog.capture('deckBuilder.driveFileLoad.start');
     setLoadingFromGDrive(true);
-    const response = await fetch(`/api/drive/${driveFile.id}`, { method: 'GET', credentials: 'include' });
-    const json = await response.json();
+    const contents = await fetchDeckText(driveFile.id);
 
-    if (!piles) setDeckFile(driveFile);
-    handleFileLoad(driveFile.name, json, piles);
+    if (isTournamentDeckId(driveFile.id)) {
+      // A tournament deck has no Drive file, so Save opens Save As (#1310).
+      const deck = findTournamentDeck(tournamentDecks, driveFile.id);
+      const name = deck ? tournamentDeckTitle(deck) : driveFile.name;
+      handleFileLoad(name, contents, piles);
+      if (!piles) setDeckFile({ id: null, name, source: deck?.source });
+    } else {
+      handleFileLoad(driveFile.name, contents, piles);
+      if (!piles) setDeckFile(driveFile);
+    }
     setLoadingFromGDrive(false);
     setShowDrivePicker(false);
     posthog.capture('deckBuilder.driveFileLoad.end');
@@ -279,9 +327,8 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
   const fetchCompareDriveFile = async (driveFile: { id: string; name: string }) => {
     posthog.capture('deckBuilder.compareDeckLoad.start');
     setLoadingFromGDrive(true);
-    const response = await fetch(`/api/drive/${driveFile.id}`, { method: 'GET', credentials: 'include' });
-    const json = await response.json();
-    const incoming = deckFromTsv(json, data);
+    const contents = await fetchDeckText(driveFile.id);
+    const incoming = deckFromTsv(contents, data);
     const rows = Object.keys(incoming)
       .map((collectorsinfo) => incoming[collectorsinfo].row)
       .filter((row) => row.count > 0);
@@ -456,7 +503,10 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     session,
     deckFile,
     resetDeckFile,
+    clearDeckSource,
     driveFiles,
+    showTournamentDecks,
+    tournamentEvents: groupTournamentDecks(tournamentDecks),
     showDrivePicker,
     drivePickerMode,
     browsedFolder,

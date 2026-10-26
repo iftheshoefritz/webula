@@ -7,9 +7,18 @@ import { DriveSignInRows } from './drivePicker/DriveSignInRows';
 import { DRIVE_LIST_ROW_CLASS } from './drivePicker/DriveListRow';
 import { DriveBackRow, isFolder, useDriveFolderView } from './drivePicker/useDriveFolderView';
 import type { DriveFile } from './drivePicker/useDriveFolderView';
+import { tournamentDeckId, tournamentDeckTitle } from '../lib/tournamentDecks';
+import type { TournamentDeck, TournamentEvent } from '../lib/tournamentDecks';
 
 const MAX_COMPARE_SELECTION = 5;
 const MIN_COMPARE_SELECTION = 0;
+
+type PickerMode = 'load' | 'compare' | 'compare-multi' | 'reports';
+
+// The modes that list the read-only "Tournament decks" folder (#1310).
+const TOURNAMENT_DECK_MODES: PickerMode[] = ['load'];
+
+export const TOURNAMENT_FOLDER_NAME = 'Tournament decks';
 
 type PickerProps = {
   driveFiles: Array<any>
@@ -25,7 +34,7 @@ type PickerProps = {
    * 'compare-multi' selects 2-5 decks via checkboxes and confirms via onConfirmSelection.
    * 'reports' lists saved Reports, with per-row load and rename actions instead of decks.
    */
-  mode?: 'load' | 'compare' | 'compare-multi' | 'reports'
+  mode?: PickerMode
   /** Called with the full list of selected files when the user confirms a 'compare-multi' selection. */
   onConfirmSelection?: (files: DriveFile[]) => void
   /** Files that should start pre-checked in 'compare-multi' mode, e.g. when re-opening to add more decks. */
@@ -40,7 +49,14 @@ type PickerProps = {
   onBrowseFolder?: (folder: DriveFile | null) => void
   /** Called with a deck file and the id of the folder to move it into ('appDataFolder' for root), in 'load' mode. */
   onMoveFile?: (file: DriveFile, targetParentId: string) => void
+  /** The early-access gate of the "Tournament decks" folder (#1310): true lists it, in the modes that show it. */
+  showTournamentDecks?: boolean
+  /** The tournament decks, by event. They are read-only and stay out of `driveFiles`. */
+  tournamentEvents?: TournamentEvent[]
 }
+
+// Where the picker is inside the "Tournament decks" folder: its root (`event` null) or one event.
+type TournamentView = { event: string | null } | null;
 
 type LoadMode = 'full' | DeckPile;
 
@@ -73,6 +89,8 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   browsedFolder = null,
   onBrowseFolder,
   onMoveFile,
+  showTournamentDecks = false,
+  tournamentEvents = [],
 }) => {
   const [driveLoadModes, setDriveLoadModes] = useState<Record<string, LoadMode>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
@@ -83,11 +101,17 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [movingFile, setMovingFile] = useState<(DriveFile & { parents?: string[] }) | null>(null);
+  const [tournamentView, setTournamentView] = useState<TournamentView>(null);
 
   // 'reports' lists a different Drive file kind with no folder concept, so it stays
   // folder-blind; every other mode browses folders the same way.
   const { isBrowsingFolder, deckFiles, folders, rootFolders, visibleDeckFiles } =
     useDriveFolderView(driveFiles, browsedFolder, { supportsFolders: mode !== 'reports' });
+  const showTournamentFolder = showTournamentDecks && TOURNAMENT_DECK_MODES.includes(mode) && !isBrowsingFolder;
+  const isBrowsingTournament = showTournamentFolder && tournamentView !== null;
+  const browsedEvent = isBrowsingTournament && tournamentView.event !== null
+    ? tournamentEvents.find((e) => e.event === tournamentView.event)
+    : undefined;
 
   const startCreateFolder = () => {
     setCreatingFolder(true);
@@ -170,6 +194,42 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     onConfirmSelection?.(selectedFiles);
   };
 
+  // A tournament deck's row (#1310): its name and player, and the load controls of the mode. It
+  // is read-only, so it has no delete, rename or move action.
+  const renderTournamentDeckRow = (deck: TournamentDeck) => {
+    const id = tournamentDeckId(deck);
+    const label = `${deck.deckName} - ${deck.player}`;
+    return (
+      <li key={id} className={DRIVE_LIST_ROW_CLASS} data-testid="tournament-deck-row">
+        <span className="flex-1 min-w-0 px-3 truncate" title={label}>
+          {deck.deckName} <span className="text-text-secondary">- {deck.player}</span>
+        </span>
+        <div className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
+          {mode === 'load' && (
+            <select
+              className="input w-auto text-sm py-1 px-2"
+              aria-label={`Load mode for ${label}`}
+              value={driveLoadModes[id] ?? 'full'}
+              onChange={(e) => setDriveLoadModes((prev) => ({ ...prev, [id]: e.target.value as LoadMode }))}
+            >
+              {PILE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          )}
+          <button
+            type="button"
+            aria-label={`Load ${label}`}
+            className="btn-icon btn-icon-sm"
+            onClick={() => handleDriveFileSelect({ id, name: tournamentDeckTitle(deck) })}
+          >
+            <FaFolderOpen/>
+          </button>
+        </div>
+      </li>
+    );
+  };
+
   const title = mode === 'compare-multi' ? 'Compare decks'
     : mode === 'compare' ? 'Compare deck'
     : mode === 'reports' ? 'Your Reports'
@@ -188,6 +248,29 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                     {inProgress && (
                       <li className="text-text-primary px-3 py-1">please wait...</li>
                     )}
+                    {!inProgress && isBrowsingTournament && (
+                      <DriveBackRow
+                        folder={{ id: 'tournament', name: browsedEvent?.event ?? TOURNAMENT_FOLDER_NAME }}
+                        onBack={() => setTournamentView(browsedEvent ? { event: null } : null)}
+                      />
+                    )}
+                    {!inProgress && isBrowsingTournament && !browsedEvent && tournamentEvents.map((event) => (
+                      <li key={event.event} className={DRIVE_LIST_ROW_CLASS}>
+                        <button
+                          type="button"
+                          className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
+                          onClick={() => setTournamentView({ event: event.event })}
+                          title={event.event}
+                        >
+                          <FaFolder className="inline mr-2" />{event.event}
+                        </button>
+                      </li>
+                    ))}
+                    {!inProgress && isBrowsingTournament && !browsedEvent && tournamentEvents.length === 0 && (
+                      <li className="text-text-primary px-3 py-1">please wait...</li>
+                    )}
+                    {!inProgress && browsedEvent?.decks.map((deck) => renderTournamentDeckRow(deck))}
+                    {!isBrowsingTournament && (<>
                     {!inProgress && isBrowsingFolder && (
                       <DriveBackRow folder={browsedFolder!} onBack={() => onBrowseFolder?.(null)} />
                     )}
@@ -237,7 +320,19 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                         )}
                       </li>
                     )}
-                    {!inProgress && visibleDeckFiles.length === 0 && rootFolders.length === 0 && (
+                    {!inProgress && showTournamentFolder && (
+                      <li className={DRIVE_LIST_ROW_CLASS}>
+                        <button
+                          type="button"
+                          className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
+                          onClick={() => setTournamentView({ event: null })}
+                          title={TOURNAMENT_FOLDER_NAME}
+                        >
+                          <FaFolder className="inline mr-2" />{TOURNAMENT_FOLDER_NAME}
+                        </button>
+                      </li>
+                    )}
+                    {!inProgress && visibleDeckFiles.length === 0 && rootFolders.length === 0 && !showTournamentFolder && (
                       <li className="text-text-primary px-3 py-1">no files found</li>
                     )}
                     {!inProgress && rootFolders.map((folder: {id: string, name: string}) => (
@@ -415,6 +510,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                         </div>
                       </li>
                     ))}
+                    </>)}
                   </>
                 )}
               </ul>
