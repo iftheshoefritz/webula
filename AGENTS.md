@@ -137,36 +137,40 @@ Before you open or update a PR, run all four commands. All four must pass.
 yarn test       # Jest test suite
 yarn typecheck  # tsc --noEmit -p . : the types of every file, the tests too
 yarn lint       # eslint . : ESLint 9 with the flat config, eslint.config.mjs
-yarn build      # type checks of the app code, ESLint, and static page pre-render
+yarn build      # next build --webpack : the types of every file, and static page pre-render
 ```
 
 `yarn test` alone is not enough. It does not check types: `next/jest` compiles
 with SWC, which strips the types, so a test with a type error still runs and
 passes.
 
-`yarn build` alone is not enough either. Vercel deploys with `yarn build`, and
-that step catches three more classes of error:
+`yarn build` alone is not enough either. It does not lint: Next.js 16 removed
+`next lint` and stopped linting in `next build` (#372), so `yarn lint` is the only
+lint check. Vercel deploys with `yarn build`, and that step catches two more
+classes of error:
 
-1. TypeScript type errors in the app code, not in the tests.
-2. ESLint errors.
-3. Errors thrown at build time while Next.js pre-renders the static pages.
+1. TypeScript type errors in every file that `tsconfig.json` includes, the tests too.
+   Next.js 15 dropped the diagnostics of test files, so a type error in a test
+   passed the build, and 103 of them piled up on `main` that way before
+   `yarn typecheck` existed (#1062). Next.js 16 runs `tsc` over the whole project.
+2. Errors thrown at build time while Next.js pre-renders the static pages.
 
-`next build` prints an ESLint crash, such as `Error while loading rule`, and goes on, so
-a crash lints nothing and still passes. `yarn lint` runs the ESLint CLI, `eslint .`,
-and fails on a crash (#370). ESLint is on 9, with the flat config `eslint.config.mjs`,
-which brings in `next/core-web-vitals` through `FlatCompat` because
-`eslint-config-next` 15 ships only an eslintrc config. It ignores `.next/`, `public/`
-(the built `sw.js`), `node_modules/` and `coverage/`. Do not move to ESLint 10 while
-`eslint-config-next` is on 15: the `@rushstack/eslint-patch` it loads throws under
-ESLint 10. An `eslint-disable` comment for a rule that reports nothing is a warning.
+`yarn build` builds with webpack, `next build --webpack`, and not with Turbopack, the
+default of Next.js 16. `@serwist/next` builds the service worker, `public/sw.js`, in a
+`webpack` function of `next.config.mjs`, and a Turbopack build refuses a config with a
+`webpack` key. `yarn dev` runs on Turbopack: the Serwist plugin is disabled in
+development and builds no worker there. So the two bundlers differ. A CSS `@import url(...)`,
+for one, must come before every rule under Turbopack, and webpack let it follow the
+Tailwind imports.
 
-`next build` compiles every file that `tsconfig.json` includes, and then drops
-each diagnostic from a file that matches `*.test.*`, `*.spec.*`, `__tests__/` or
-`__mocks__/` (`runTypeCheck` in `node_modules/next/dist/lib/typescript/`). So a
-type error in a test passes the build. 103 of them piled up on `main` that way
-before `yarn typecheck` existed (#1062). A helper a test imports, such as
-`src/tests/fixtures/makeCardData.ts`, is not a test file, so the build does
-check it.
+`yarn lint` runs the ESLint CLI, `eslint .`, and fails on a crash such as
+`Error while loading rule` (#370). ESLint is on 9, with the flat config
+`eslint.config.mjs`, which imports the flat config of `eslint-config-next/core-web-vitals`
+directly. It ignores `.next/`, `public/` (the built `sw.js`), `node_modules/` and
+`coverage/`. `eslint-config-next` 16 brings `eslint-plugin-react-hooks` 7, and three of
+its React Compiler rules, `react-hooks/refs`, `react-hooks/set-state-in-effect` and
+`react-hooks/preserve-manual-memoization`, are set to warn until #1302 fixes what they
+report. An `eslint-disable` comment for a rule that reports nothing is a warning.
 
 CI runs the four commands as four parallel jobs, `test`, `typecheck`, `lint`
 and `build`, so a red check tells you which one failed. Run them independently while
@@ -866,7 +870,7 @@ No CI job runs the recorder. When you change a gesture that a clip shows, run th
 that row and commit the new files in the same PR. `controlClipFiles.test.ts` fails when a row
 sets `clip` and a file is missing or over 200 KB.
 
-Do not run `yarn build` while the dev server runs. It overwrites the `.next` cache the dev server uses, and the server then needs a restart.
+`next dev` writes to `.next/dev` under Next.js 16, and `next build` writes to the rest of `.next`, so a `yarn build` while the dev server runs no longer breaks the server (#372). `yarn start` still cannot run beside `yarn dev`: both use port 3000.
 
 ## Fixing bugs
 When asked to fix a bug do your best to write a test that fails without the bug fix. Weigh up the cost and brittleness of writing the test and comment in the PR with the circumstances that made you feel like you couldn't write a useful test. 
@@ -876,7 +880,7 @@ When asked to fix a bug do your best to write a test that fails without the bug 
 When asked to fix or update an existing pull request:
 1. Check out the PR's existing branch (do NOT create a new branch from main).
 2. Make targeted changes on top of the existing commits.
-3. Run `yarn test` and `yarn build`, then fix any failures.
+3. Run `yarn test`, `yarn typecheck`, `yarn lint` and `yarn build`, then fix any failures.
 4. Commit with a message like `fix: <short description> (follow-up for #<pr-number>)`.
 5. Push to the same branch — this will update the open PR automatically.
 6. Do NOT open a new PR unless explicitly asked.
@@ -888,3 +892,13 @@ If you do not have permission to push to the original branch:
 2. Commit your changes there.
 3. Open a new PR targeting the original PR's branch as the base (not main).
 4. Describe the new PR as a fix/follow-up for the original PR number.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
