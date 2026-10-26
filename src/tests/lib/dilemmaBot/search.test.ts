@@ -73,6 +73,13 @@ describe('drawDilemmas', () => {
     expect(withGame.filter((id) => id !== 'game').length).toBeLessThan(6);
   });
 
+  it('returns the dilemmas in the order drawn: a draw of N is the top N of the same shuffled pile', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const wholePile = drawDilemmas(27, 0, 0, seededRandom(seed));
+      for (const n of [2, 6, 12]) expect(drawDilemmas(n, 0, 0, seededRandom(seed))).toEqual(wholePile.slice(0, n));
+    }
+  });
+
   it('leaves out the copies of Chula: The Game on the mission', () => {
     for (let seed = 0; seed < 20; seed++) {
       expect(drawDilemmas(24, 3, 0, seededRandom(seed))).not.toContain('game');

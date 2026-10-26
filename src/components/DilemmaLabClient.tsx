@@ -368,7 +368,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
             Draw N dilemmas
           </button>
           <span className="text-sm text-text-secondary" data-testid="lab-drawn">
-            {drawn.length ? `${drawn.length} dilemmas drawn. Hold or hover a card to preview it.` : 'Nothing drawn yet.'}
+            {drawn.length ? `${drawn.length} dilemmas drawn, in the order drawn: the first on the left. Hold or hover a card to preview it.` : 'Nothing drawn yet.'}
           </span>
         </div>
         {drawn.length > 0 && <DrawnCards drawn={drawn} cards={dilemmaCards} />}
@@ -474,7 +474,8 @@ function DrawnCards({ drawn, cards }: { drawn: DilemmaId[]; cards: Record<Dilemm
           <div
             key={instance.id}
             data-testid={`lab-drawn-card-${id}`}
-            className="select-none touch-manipulation"
+            data-draw-index={i + 1}
+            className="relative select-none touch-manipulation"
             style={{ width: TABLE_CARD_WIDTH }}
             title={title(id)}
             onContextMenu={(e) => e.preventDefault()}
@@ -491,6 +492,9 @@ function DrawnCards({ drawn, cards }: { drawn: DilemmaId[]; cards: Record<Dilemm
             }}
           >
             <TableCardImage instance={instance} width={TABLE_CARD_WIDTH} height={TABLE_CARD_ART_HEIGHT} />
+            <span className="absolute bottom-1 right-1 bg-black/70 text-text-primary text-xs font-medium px-1 rounded pointer-events-none">
+              {i + 1}
+            </span>
           </div>
         );
       })}
