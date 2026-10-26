@@ -2,9 +2,9 @@
 
 ## CI (`ci.yml`)
 **Event:** `push` or `pull_request` on any branch
-**Action:** Three parallel jobs, no Claude. The `test` job runs `yarn test --ci`. The `typecheck` job runs `yarn typecheck` (`tsc --noEmit -p .`), which checks the types of every file, the tests too. The `build` job runs `yarn build`, which checks the types of the app code but not of the tests, runs ESLint, and pre-renders the static pages. The Vercel deployment runs all three (#1062).
+**Action:** Four parallel jobs, no Claude. The `test` job runs `yarn test --ci`. The `typecheck` job runs `yarn typecheck` (`tsc --noEmit -p .`), which checks the types of every file, the tests too. The `lint` job runs `yarn lint` (`eslint .`), the only lint check. The `build` job runs `yarn build` (`next build --webpack`), which checks the types of every file too, does not lint, and pre-renders the static pages (#372). The Vercel deployment runs `yarn typecheck && yarn build`, and no Jest and no lint (#1062, #1250).
 
-Vercel chains the three through the `buildCommand` in `vercel.json`, so a test failure or a type error stops the deployment.
+Vercel chains the two through the `buildCommand` in `vercel.json`, so a type error stops the deployment. A test failure or a lint error does not: CI gates those.
 
 The `ignoreCommand` in `vercel.json` skips the Vercel build for a commit whose message starts with `wip:`. A person can use that prefix to push unfinished work. The implementation workflow does not use it: it runs the tests and the build before its first push (#951).
 
@@ -51,7 +51,7 @@ workflow that can create or label an issue.
 
 ## Claude Issue Implementation (`claude-implement.yml`)
 **Event:** Issue labeled `ready-for-dev`
-**Action:** Claude implements the feature/fix and runs `yarn test`, `yarn typecheck` and `yarn build`. Then it creates a branch, commits, pushes, and opens a draft PR targeting `main` with `Closes #<issue>`. Then it does a short smoke check in the browser, and hands the PR to `claude-visual-check.yml` with the `visual-check` label.
+**Action:** Claude implements the feature/fix and runs `yarn test`, `yarn typecheck`, `yarn lint` and `yarn build`. Then it creates a branch, commits, pushes, and opens a draft PR targeting `main` with `Closes #<issue>`. Then it does a short smoke check in the browser, and hands the PR to `claude-visual-check.yml` with the `visual-check` label.
 
 The PR opens before the browser check for three reasons:
 
@@ -96,7 +96,7 @@ An agent that installs the dependencies itself spends turns on it, and its first
 
 The check is a separate workflow because it used most of the turns of `claude-implement.yml` and ran last. Run 35314198627 on issue #605 stopped at the turn limit with the code complete, both checks green, and the `## Visual Verification` section still on "Pending.". A separate run gets its own turn limit, and the branch is already pushed, so it risks nothing.
 
-If an acceptance check fails on a bug, Claude fixes the bug, runs `yarn test`, `yarn typecheck` and `yarn build`, pushes to the same branch, and runs the check again. If it cannot fix it, the PR stays a draft and gets the `needs-human-input` label.
+If an acceptance check fails on a bug, Claude fixes the bug, runs `yarn test`, `yarn typecheck`, `yarn lint` and `yarn build`, pushes to the same branch, and runs the check again. If it cannot fix it, the PR stays a draft and gets the `needs-human-input` label.
 
 `claude-implement.yml` adds the `visual-check` label as `claude[bot]`, so this workflow sets `allowed_bots: "claude[bot]"`. Without it the action refuses the run with "Workflow initiated by non-human actor". The list names one bot, so no other App can start the run.
 
@@ -117,7 +117,7 @@ The attribution footer that starts with 🤖 `Generated with` is not part of any
 
 ## Agent Review (`agent-review.yml`)
 **Event:** PR labeled `agent-review`
-**Action:** Claude fetches all unresolved review comments, and either makes code changes or replies to the thread. For a code change, it runs `yarn test`, `yarn typecheck` and `yarn build`, commits, and pushes. Then, if the change affects a page, it checks only the review items in the browser. It posts a summary comment and removes the `agent-review` label.
+**Action:** Claude fetches all unresolved review comments, and either makes code changes or replies to the thread. For a code change, it runs `yarn test`, `yarn typecheck`, `yarn lint` and `yarn build`, commits, and pushes. Then, if the change affects a page, it checks only the review items in the browser. It posts a summary comment and removes the `agent-review` label.
 
 The push comes before the browser check for the same reason as in the implementation workflow. A run on PR #611 made a correct fix and stopped at the turn limit before it committed, so the fix was lost.
 

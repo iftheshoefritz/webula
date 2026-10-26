@@ -1,20 +1,20 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
-
-// eslint-config-next 15 ships only an eslintrc config, so FlatCompat brings it in.
-// Config 16 has a flat config of its own, and the Next.js 16 upgrade (#372) swaps
-// this for its direct import.
-const compat = new FlatCompat({
-  baseDirectory: dirname(fileURLToPath(import.meta.url)),
-});
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 
 const eslintConfig = [
   {
     // public/ holds the built service worker, sw.js, and no source.
     ignores: [".next/**", "public/**", "node_modules/**", "coverage/**"],
   },
-  ...compat.extends("next/core-web-vitals"),
+  ...nextCoreWebVitals,
+  {
+    // eslint-config-next 16 brings eslint-plugin-react-hooks 7, whose React Compiler rules
+    // report errors across the practice table. They warn until #1302 fixes them.
+    rules: {
+      "react-hooks/refs": "warn",
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/preserve-manual-memoization": "warn",
+    },
+  },
 ];
 
 export default eslintConfig;
