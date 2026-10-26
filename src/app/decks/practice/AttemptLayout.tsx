@@ -43,7 +43,7 @@
 import { ReactNode } from 'react';
 import CountBadge from './CountBadge';
 import type { Attempt, AttemptPhase, CardInstance, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
-import { drawSpend } from './drawSpend';
+import { drawSpend, drawSpendText } from './drawSpend';
 import {
   MISSION_COLUMN_GAP,
   MissionCard,
@@ -252,6 +252,8 @@ export default function AttemptLayout({
     </div>
   );
 
+  // A bot game's attempt keeps the Draw and Spend the player set (#1291); any other attempt has N.
+  const drawSpendN = drawSpend(attempt.personnel, attempt.subtract);
   return (
     // `min-h-0` and the bodies' `overflow-y-clip` are a safety net (#1203): the sizes fit the height
     // above the bottom row (`attemptColumnHeight`), and should a column still be too tall, the body
@@ -268,7 +270,7 @@ export default function AttemptLayout({
           {ship && ` with ${cardDisplayName(ship.card)}`}
         </span>
         <span data-testid="attempt-draw-spend" className="whitespace-nowrap text-sm font-bold">
-          draw/spend {drawSpend(attempt.personnel, attempt.subtract)}
+          {drawSpendText(attempt.botDraw ?? drawSpendN, attempt.botSpend ?? drawSpendN)}
         </span>
         {attempt.phase === 'choose' && (
           <AttemptDrawDilemma attempt={attempt} canDraw={canDrawDilemma} onDraw={onDrawDilemma} />

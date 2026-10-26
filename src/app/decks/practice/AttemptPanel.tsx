@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
-import { drawSpend } from './drawSpend';
+import { drawSpend, drawSpendText } from './drawSpend';
 
 // An empty or invalid field reads as 0.
 const wholeNumber = (text: string): number => {
@@ -47,22 +47,28 @@ function NumberField({
 
 // The attempt popup (#1163): the two numbers of a mission attempt, both editable, and the result,
 // draw/spend N, live as the player edits. Start confirms the numbers as shown; Cancel, Escape and a
-// tap on the backdrop close it with nothing changed.
+// tap on the backdrop close it with nothing changed. In a bot game (#1291) two more fields set the
+// bot's Draw and Spend: each shows N until the player edits it, and keeps the player's number after.
 export function AttemptDialog({
   mission,
   personnel,
   subtract,
+  bot = false,
   onStart,
   onCancel,
 }: {
   mission: string;
   personnel: number;
   subtract: number;
-  onStart: (personnel: number, subtract: number) => void;
+  bot?: boolean;
+  onStart: (personnel: number, subtract: number, bot?: { botDraw: number; botSpend: number }) => void;
   onCancel: () => void;
 }) {
   const [personnelText, setPersonnelText] = useState(String(personnel));
   const [subtractText, setSubtractText] = useState(String(subtract));
+  // null until the player edits the field: it then shows N, derived on each render.
+  const [drawText, setDrawText] = useState<string | null>(null);
+  const [spendText, setSpendText] = useState<string | null>(null);
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
 
@@ -76,6 +82,13 @@ export function AttemptDialog({
 
   const p = wholeNumber(personnelText);
   const s = wholeNumber(subtractText);
+  const n = drawSpend(p, s);
+  const shownDraw = drawText ?? String(n);
+  const shownSpend = spendText ?? String(n);
+  // `wholeNumber` reads empty text as 0, so the check is on the text: the field keeps only digits.
+  const botValid = !bot || (shownDraw !== '' && shownSpend !== '');
+  const d = bot ? wholeNumber(shownDraw) : n;
+  const sp = bot ? wholeNumber(shownSpend) : n;
   return (
     <>
       <button type="button" className={`fixed inset-0 ${LAYER_MODAL_BACKDROP} bg-black/40`} onClick={onCancel} aria-label="Cancel the attempt" />
@@ -89,13 +102,25 @@ export function AttemptDialog({
         <NumberField label="Personnel" testId="attempt-personnel" value={personnelText} onChange={setPersonnelText} />
         <NumberField label="Subtract" testId="attempt-subtract" value={subtractText} onChange={setSubtractText} />
         <p data-testid="attempt-result" className="text-center text-base font-semibold text-text-primary">
-          draw/spend {drawSpend(p, s)}
+          {drawSpendText(d, sp)}
         </p>
+        {bot && (
+          <>
+            <NumberField label="Draw" testId="attempt-bot-draw" value={shownDraw} onChange={setDrawText} />
+            <NumberField label="Spend" testId="attempt-bot-spend" value={shownSpend} onChange={setSpendText} />
+          </>
+        )}
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onCancel} className="btn-primary bg-none bg-white/[0.05]">
             Cancel
           </button>
-          <button type="button" onClick={() => onStart(p, s)} className="btn-primary" data-testid="attempt-start">
+          <button
+            type="button"
+            onClick={() => (bot ? onStart(p, s, { botDraw: d, botSpend: sp }) : onStart(p, s))}
+            disabled={!botValid}
+            className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+            data-testid="attempt-start"
+          >
             Start
           </button>
         </div>
