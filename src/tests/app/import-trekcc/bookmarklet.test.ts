@@ -55,7 +55,6 @@ describe('bookmarklet script', () => {
     });
     global.fetch = mockFetch as any;
 
-    // eslint-disable-next-line no-new-func
     new Function(BOOKMARKLET_SOURCE)();
     await flushPromises();
     await flushPromises();
@@ -67,7 +66,6 @@ describe('bookmarklet script', () => {
   it('shows a multi-select overlay with a checkbox per deck plus "select all" when there are multiple decks', () => {
     document.body.innerHTML = twoDeckHtml();
 
-    // eslint-disable-next-line no-new-func
     new Function(BOOKMARKLET_SOURCE)();
 
     const checkboxes = document.querySelectorAll('input[type="checkbox"]');
@@ -81,7 +79,6 @@ describe('bookmarklet script', () => {
   it('"select all" checks and unchecks every per-deck checkbox', () => {
     document.body.innerHTML = twoDeckHtml();
 
-    // eslint-disable-next-line no-new-func
     new Function(BOOKMARKLET_SOURCE)();
 
     const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
@@ -99,7 +96,6 @@ describe('bookmarklet script', () => {
   it('alerts and does not import when clicking Import selected with nothing checked', () => {
     document.body.innerHTML = twoDeckHtml();
 
-    // eslint-disable-next-line no-new-func
     new Function(BOOKMARKLET_SOURCE)();
 
     importSelectedButton().click();
@@ -118,7 +114,6 @@ describe('bookmarklet script', () => {
     });
     global.fetch = mockFetch as any;
 
-    // eslint-disable-next-line no-new-func
     new Function(BOOKMARKLET_SOURCE)();
 
     const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
@@ -151,7 +146,6 @@ describe('bookmarklet script', () => {
     });
     global.fetch = mockFetch as any;
 
-    // eslint-disable-next-line no-new-func
     new Function(BOOKMARKLET_SOURCE)();
 
     const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
