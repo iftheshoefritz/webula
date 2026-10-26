@@ -309,6 +309,6 @@ not use it yet.
 | the attempting personnel, and the copies of Chula: The Game on the mission | `BotAttempt` in `simulator.ts` | **This is not `Attempt` of the practice table** (`TableState.attempt`). |
 | a legal dilemma stack | `isLegalStack`, `legalStacks` in `search.ts` | Drawn dilemmas only, no title twice, a total cost of N or less. |
 | the probability that a stack fails the attempt | `StackScore.pFail` | |
-| lasting damage | `StackScore.damage` | Not a rulebook term. 1 for each stopped personnel, `RETURN_WEIGHT` (1.5) for each personnel returned to the hand. |
+| lasting damage | `StackScore.damage` | Not a rulebook term. The average number of personnel returned to the hand. A stop does not count: stopped personnel are unstopped each turn. |
 | the dilemmas a stack puts under the mission | `StackScore.under` | Every dilemma of the stack except Chula: The Game, faced or not. |
 

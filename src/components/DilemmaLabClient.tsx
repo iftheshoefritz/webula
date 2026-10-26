@@ -564,14 +564,14 @@ function DrawnCards({ drawn, cards }: { drawn: DilemmaId[]; cards: Record<Dilemm
 }
 
 const DAMAGE_HELP =
-  'Lasting damage is the harm a stack leaves after the attempt, averaged over its plays: 1 for each personnel stopped, 1.5 for each one returned to the hand. Higher is better for the dilemma player.';
+  'Lasting damage is the average number of personnel a stack returns to the hand, over its plays. Stops do not count: a stopped personnel is unstopped at the start of the next turn.';
 
 function DamageHelp() {
   return (
     <p className="text-text-secondary" data-testid="lab-damage-help">
-      {DAMAGE_HELP} It breaks ties between stacks with the same P(fail). When no stack can fail (P(fail) under 5%),
-      damage alone ranks them, and when some stack is all but sure to fail (90% or more), damage ranks those stacks.
-      A damage of 3.00 means a play leaves, on average, what 3 stopped personnel would.
+      {DAMAGE_HELP} It breaks ties between stacks with the same P(fail), and a tie after that goes to the stack with
+      fewer dilemmas under the mission. When no stack can fail (P(fail) under 5%), damage alone ranks them, and when
+      some stack is all but sure to fail (90% or more), damage ranks those stacks.
     </p>
   );
 }

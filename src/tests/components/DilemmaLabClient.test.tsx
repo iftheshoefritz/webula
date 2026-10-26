@@ -98,7 +98,7 @@ describe('DilemmaLabClient search feedback', () => {
 
     fireEvent.click(screen.getByTestId('lab-choose'));
     expect(screen.queryByTestId('lab-full-hint')).toBeNull();
-    expect(screen.getByTestId('lab-damage-help')).toHaveTextContent('1 for each personnel stopped');
+    expect(screen.getByTestId('lab-damage-help')).toHaveTextContent('Stops do not count');
     expect(screen.getByTestId('lab-full')).toBeEnabled();
 
     fireEvent.click(screen.getByTestId('lab-full'));

@@ -9,6 +9,7 @@ import {
   legalStacks,
   randomLegalStack,
   rankScores,
+  scoreStack,
   StackScore,
 } from '../../../lib/dilemmaBot/search';
 import { BotAttempt, BotPersonnel, seededRandom } from '../../../lib/dilemmaBot/simulator';
@@ -88,6 +89,29 @@ describe('drawDilemmas', () => {
 
   it('leaves out the dilemmas under the mission', () => {
     expect(drawDilemmas(27, 0, 5, seededRandom(1))).toHaveLength(22);
+  });
+});
+
+describe('scoreStack', () => {
+  const three: BotPersonnel[] = [0, 1, 2].map((k) => ({
+    name: `T${k}`,
+    cost: 2,
+    attrs: [5, 5, 5],
+    skills: BOT_SKILLS.map(() => 0),
+  }));
+  const attempt: BotAttempt = {
+    personnel: three,
+    requirements: parseRequirementBranches('Cunning>0')!,
+    gameOnMission: 0,
+    choice: 'best',
+  };
+
+  it('counts no lasting damage for a stack that only stops: stops reset every turn', () => {
+    expect(scoreStack(attempt, ['trickery'], 50, 1).damage).toBe(0);
+  });
+
+  it('counts each personnel returned to the hand as lasting damage', () => {
+    expect(scoreStack(attempt, ['pickOne'], 50, 1).damage).toBe(1);
   });
 });
 

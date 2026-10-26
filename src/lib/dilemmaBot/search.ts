@@ -58,8 +58,6 @@ function shuffle<T>(items: T[], rand: Rand): T[] {
   return items;
 }
 
-/** A personnel returned to the hand is worth more than one stop and less than two. */
-export const RETURN_WEIGHT = 1.5;
 /** From this P(fail) the bot is confident, and takes the most lasting damage among the sure stacks. */
 export const CONFIDENT = 0.9;
 /** Below this best P(fail) no stack can fail the attempt, and the bot takes the most lasting damage. */
@@ -69,7 +67,10 @@ export interface StackScore {
   stack: DilemmaId[];
   /** The probability that the stack fails the attempt. */
   pFail: number;
-  /** The average lasting damage: 1 for each stop, `RETURN_WEIGHT` for each return to the hand. */
+  /**
+   * The average lasting damage: the personnel returned to the hand. A stop does not count, because a stopped
+   * personnel is unstopped at the start of the next turn, so stops would only reward a bigger stack.
+   */
   damage: number;
   /** The dilemmas the stack puts under the mission: every one except Chula: The Game. */
   under: number;
@@ -89,7 +90,7 @@ export function scoreStack(attempt: BotAttempt, stack: DilemmaId[], plays: numbe
   for (let r = 0; r < plays; r++) {
     const result = playStack(attempt, stack, seededRandom(seed * 7919 + r));
     if (result.fail) fails++;
-    damage += result.stopped + RETURN_WEIGHT * result.returned;
+    damage += result.returned;
   }
   return { stack, pFail: fails / plays, damage: damage / plays, under: underCount(stack), plays };
 }
