@@ -59,10 +59,12 @@ const pct = (p: number) => `${(p * 100).toFixed(1)}%`;
 type LabResponse = SearchResponse & { thread: 'background' | 'main' };
 
 /** The search off the main thread, or on it when the browser has no worker. */
-function useSearchWorker(onResponse: (r: LabResponse) => void) {
+function useSearchWorker(onResponse: (r: LabResponse) => void, onError: (message: string) => void) {
   const worker = useRef<Worker | null>(null);
   const handler = useRef(onResponse);
   handler.current = onResponse;
+  const errorHandler = useRef(onError);
+  errorHandler.current = onError;
   useEffect(() => () => worker.current?.terminate(), []);
 
   return (request: SearchRequest) => {
@@ -70,6 +72,13 @@ function useSearchWorker(onResponse: (r: LabResponse) => void) {
       try {
         worker.current = new Worker(new URL('../lib/dilemmaBot/search.worker.ts', import.meta.url));
         worker.current.onmessage = (e: MessageEvent<SearchResponse>) => handler.current({ ...e.data, thread: 'background' });
+        // A worker that throws sends no message, so the page must hear of it here, or it waits for ever.
+        worker.current.onerror = (e: ErrorEvent) => {
+          e.preventDefault();
+          worker.current?.terminate();
+          worker.current = null;
+          errorHandler.current(e.message || 'The search failed.');
+        };
       } catch {
         worker.current = null;
       }
@@ -105,7 +114,9 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
   const [chosen, setChosen] = useState<LabResponse | null>(null);
   const [full, setFull] = useState<LabResponse | null>(null);
   const [running, setRunning] = useState<SearchRequest['kind'] | null>(null);
+  const [searchError, setSearchError] = useState('');
   const requestId = useRef(0);
+  const fullRef = useRef<HTMLDivElement>(null);
 
   const deck = deckIndex === null ? null : decks[deckIndex];
   // The deck's missions, in the order of its list.
@@ -140,11 +151,20 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
     if (response.kind === 'choose') setChosen(response);
     else setFull(response);
     setRunning(null);
+  }, (error) => {
+    setRunning(null);
+    setSearchError(`The search failed: ${error}`);
   });
+
+  // The full search's result shows below the buttons; bring it into view when it arrives.
+  useEffect(() => {
+    if (full) fullRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+  }, [full]);
 
   const run = (kind: SearchRequest['kind']) => {
     if (!attempt) return;
     requestId.current++;
+    setSearchError('');
     setRunning(kind);
     search({ id: requestId.current, kind, attempt, drawn, n, seed });
   };
@@ -410,7 +430,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
         <h2 className="text-lg font-semibold">4. The bot&apos;s choice</h2>
         <div className="flex flex-wrap gap-2">
           <button
-            className="btn-primary"
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!attempt || crew.length === 0 || running !== null}
             onClick={() => run('choose')}
             data-testid="lab-choose"
@@ -418,7 +438,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
             {running === 'choose' ? 'Choosing…' : 'Choose the stack'}
           </button>
           <button
-            className="btn-primary"
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!chosen || running !== null}
             onClick={() => run('full')}
             data-testid="lab-full"
@@ -427,8 +447,25 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
           </button>
         </div>
         {!attempt && <p className="text-sm text-text-secondary">Choose a deck, then a mission whose requirements the bot reads.</p>}
+        {attempt && !chosen && running === null && (
+          <p className="text-sm text-text-secondary" data-testid="lab-full-hint">
+            The full search checks the bot&apos;s choice, so choose the stack first.
+          </p>
+        )}
+        {running && (
+          <p className="text-sm" role="status" data-testid="lab-status">
+            {running === 'choose'
+              ? 'The bot is choosing a stack…'
+              : `Playing each of the ${stackCount.toLocaleString()} legal stacks 500 times…`}
+          </p>
+        )}
+        {searchError && <p className="text-sm text-red-400" data-testid="lab-search-error">{searchError}</p>}
+        {chosen && full && (
+          <div ref={fullRef}>
+            <Comparison chosen={chosen.result} full={full} />
+          </div>
+        )}
         {chosen && <ResultView response={chosen} />}
-        {chosen && full && <Comparison chosen={chosen.result} full={full} />}
         {samples.length > 0 && (
           <details className="text-sm">
             <summary className="cursor-pointer">Three sample plays of the chosen stack</summary>
@@ -526,6 +563,19 @@ function DrawnCards({ drawn, cards }: { drawn: DilemmaId[]; cards: Record<Dilemm
   );
 }
 
+const DAMAGE_HELP =
+  'Lasting damage is the harm a stack leaves after the attempt, averaged over its plays: 1 for each personnel stopped, 1.5 for each one returned to the hand. Higher is better for the dilemma player.';
+
+function DamageHelp() {
+  return (
+    <p className="text-text-secondary" data-testid="lab-damage-help">
+      {DAMAGE_HELP} It breaks ties between stacks with the same P(fail). When no stack can fail (P(fail) under 5%),
+      damage alone ranks them, and when some stack is all but sure to fail (90% or more), damage ranks those stacks.
+      A damage of 3.00 means a play leaves, on average, what 3 stopped personnel would.
+    </p>
+  );
+}
+
 function ScoreLine({ score }: { score: StackScore }) {
   return (
     <span>
@@ -544,6 +594,7 @@ function ResultView({ response }: { response: LabResponse }) {
       <p>
         <ScoreLine score={result.best} />
       </p>
+      <DamageHelp />
       <p className="text-text-secondary">
         Decision mode: {result.mode}. Method: {result.method} search, {result.stackCount.toLocaleString()} legal stacks,{' '}
         {result.plays.toLocaleString()} plays, <span data-testid="lab-ms">{ms.toFixed(0)} ms</span> on the{' '}
@@ -565,7 +616,7 @@ function RankTable({ ranked, caption }: { ranked: StackScore[]; caption: string 
         <tr>
           <th>Stack</th>
           <th>P(fail)</th>
-          <th>Damage</th>
+          <th title={DAMAGE_HELP}>Damage</th>
           <th>Under</th>
           <th>Plays</th>
         </tr>

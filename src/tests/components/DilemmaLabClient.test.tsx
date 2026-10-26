@@ -1,7 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import DilemmaLabClient, { LabDeck, LabMission } from '../../components/DilemmaLabClient';
-import type { DilemmaId } from '../../lib/dilemmaBot/opponentPile';
+import DilemmaLabClient, { LabDeck, LabMission, LabPersonnel } from '../../components/DilemmaLabClient';
+import { OPPONENT_DILEMMAS, type DilemmaId } from '../../lib/dilemmaBot/opponentPile';
+import { makeCardData } from '../fixtures/makeCardData';
 import type { CardData } from '../../lib/loadCards';
 
 const missions: LabMission[] = [
@@ -57,5 +58,51 @@ describe('DilemmaLabClient mission choice', () => {
 
     fireEvent.change(screen.getByTestId('lab-deck'), { target: { value: '' } });
     expect(screen.queryByTestId('lab-mission')).toBeNull();
+  });
+});
+
+const physicist: LabPersonnel = {
+  originalName: 'Physicist',
+  name: 'Physicist',
+  cost: '2',
+  integrity: '6',
+  cunning: '31',
+  strength: '5',
+  skills: 'Physics, 2 Science',
+};
+
+const dilemmaCards = Object.fromEntries(
+  OPPONENT_DILEMMAS.map((d) => [d.id, makeCardData({ name: d.title, originalName: d.title, type: 'dilemma' })]),
+) as Record<DilemmaId, CardData>;
+
+describe('DilemmaLabClient search feedback', () => {
+  const renderWithCrew = () => {
+    render(
+      <DilemmaLabClient
+        missions={missions}
+        personnel={[physicist]}
+        decks={[{ label: 'Deck three', personnel: ['Physicist'], missions: ['Delta'] }]}
+        dilemmaCards={dilemmaCards}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('lab-deck'), { target: { value: '0' } });
+    fireEvent.click(screen.getByTestId('lab-random-crew'));
+    fireEvent.change(screen.getByTestId('lab-n'), { target: { value: '2' } });
+    fireEvent.click(screen.getByTestId('lab-draw'));
+  };
+
+  it('says why the full search waits on the bot, then shows its result and explains damage', () => {
+    renderWithCrew();
+    expect(screen.getByTestId('lab-full')).toBeDisabled();
+    expect(screen.getByTestId('lab-full-hint')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('lab-choose'));
+    expect(screen.queryByTestId('lab-full-hint')).toBeNull();
+    expect(screen.getByTestId('lab-damage-help')).toHaveTextContent('1 for each personnel stopped');
+    expect(screen.getByTestId('lab-full')).toBeEnabled();
+
+    fireEvent.click(screen.getByTestId('lab-full'));
+    expect(screen.getByTestId('lab-comparison')).toBeInTheDocument();
+    expect(screen.queryByTestId('lab-status')).toBeNull();
   });
 });
