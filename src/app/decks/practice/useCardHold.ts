@@ -40,6 +40,7 @@
 import { createContext, useContext, useEffect, useRef } from 'react';
 import type { useDraggable } from '@dnd-kit/core';
 import { CANCEL_RADIUS } from './releaseCancel';
+import { useLatest } from '../../../hooks/useLatest';
 
 type DraggableListeners = ReturnType<typeof useDraggable>['listeners'];
 
@@ -155,8 +156,7 @@ export function swallowClickOf(down: PointerEvent) {
 // hold's `onPointerDown` calls dnd-kit's own `onPointerDown` too, so neither replaces the other.
 export function useCardHold(id: string, listeners?: DraggableListeners) {
   const callbacks = useContext(CardHoldContext);
-  const callbacksRef = useRef(callbacks);
-  callbacksRef.current = callbacks;
+  const callbacksRef = useLatest(callbacks);
   // Set once a hold has fired, so the `click` that can follow its release does not also run the
   // card's tap handler (a selection toggle, or a crew panel). Cleared by that click, on the next
   // press, or `HELD_CLICK_WINDOW_MS` after the release.
@@ -167,8 +167,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
   const cleanupRef = useRef<((press?: PointerEvent) => void) | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
   const hoveredRef = useRef(false);
-  const idRef = useRef(id);
-  idRef.current = id;
+  const idRef = useLatest(id);
 
   const stopSwallowing = () => {
     swallowClickRef.current = false;

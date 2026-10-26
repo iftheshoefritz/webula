@@ -588,6 +588,33 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
       expect(preview('First Contact')).toBeNull();
     });
 
+    // #1306: the drag handlers alone set `draggingRef`, so each end of a drag must clear it.
+    it.each([
+      ['a drop', (id: string) => mockOnDragEnd!({ active: { id }, over: { id: 'core' }, delta: { x: 0, y: -300 } } as any)],
+      ['a release within the cancel radius', (id: string) => mockOnDragEnd!({ active: { id }, over: { id: 'core' }, delta: { x: 9, y: 0 } } as any)],
+      ['onDragCancel', () => mockOnDragCancel!()],
+    ])('a hover after %s shows its preview', async (_name, endDrag) => {
+      await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
+      const [id] = mockDraggableIds;
+      act(() => {
+        mockOnDragStart!({ active: { id } });
+      });
+      act(() => endDrag(id));
+      enter(screen.getByRole('button', { name: 'First Contact' }));
+      wait(HOVER_DELAY_MS);
+      expect(preview('First Contact')).toBeInTheDocument();
+    });
+
+    it('a hover after a drag start that finds no card shows its preview', async () => {
+      await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
+      act(() => {
+        mockOnDragStart!({ active: { id: 'no-such-card' } });
+      });
+      enter(screen.getByRole('button', { name: 'First Contact' }));
+      wait(HOVER_DELAY_MS);
+      expect(preview('First Contact')).toBeInTheDocument();
+    });
+
     it('a hover, then a hold on the same card, then a release with no move closes the preview (#784)', async () => {
       await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
       const mission = screen.getByRole('button', { name: 'First Contact' });

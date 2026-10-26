@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { drawSpend, drawSpendText } from './drawSpend';
 
@@ -73,12 +73,11 @@ export function AttemptDialog({
   // null until the player edits the field: it then shows N, derived on each render.
   const [drawText, setDrawText] = useState<string | null>(null);
   const [spendText, setSpendText] = useState<string | null>(null);
-  const onCancelRef = useRef(onCancel);
-  onCancelRef.current = onCancel;
+  const onEscape = useEffectEvent(() => onCancel());
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancelRef.current();
+      if (event.key === 'Escape') onEscape();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
