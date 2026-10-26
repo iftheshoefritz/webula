@@ -335,6 +335,22 @@ describe('gameReducer: undo (#1194)', () => {
     expect(gameReducer(shuffledPile, { type: 'undo' }).table.dilemmaPile).toEqual(pile);
   });
 
+  it('undoes a draw that shuffled the dilemma pile, the draw and the shuffle as one step (#1283)', () => {
+    const pile = [instance('d1', 'Up', 'up', 'dilemma'), instance('d2', 'Down', 'down', 'dilemma'), instance('d3', 'Low', 'up', 'dilemma')];
+    const start = table({ dilemmaPile: pile });
+    const drawn = run(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
+    // The mocked shuffleArray reverses the pile.
+    expect(drawn.table.dilemmaHand.map((c) => c.id)).toEqual(['d3']);
+    expect(drawn.table.dilemmaPile.every((c) => c.face === 'down')).toBe(true);
+    expect(drawn.log.map(logEntryText)).toEqual([
+      'Shuffled the dilemma pile, then drew a dilemma from the dilemma pile into the dilemma hand',
+    ]);
+
+    const undone = gameReducer(drawn, { type: 'undo' });
+    expect(undone.table).toEqual(start);
+    expect(undone.log).toEqual([]);
+  });
+
   it('undoes a download, its moves and its shuffle, as one step', () => {
     const start = table({ drawDeck: [data, worf, riker] });
     const downloaded = run(start, {

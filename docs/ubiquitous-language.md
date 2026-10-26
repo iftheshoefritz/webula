@@ -140,7 +140,7 @@ missions, at least two of them not headquarters; at least 20 dilemmas; at least
 | discard pile | `'discard'` | |
 | core | `'core'` | The rulebook puts events here. The zone takes any card type. |
 | brig | `'brig'` | The rulebook holds captives here. The highlight accepts personnel. |
-| dilemma pile | `'dilemmaPile'` | |
+| dilemma pile | `'dilemmaPile'` | A dilemma not chosen for a stack goes to the bottom face up. A `drawCard` that reaches a face-up dilemma on top first shuffles the whole pile face down, as the rulebook says (`drawReshuffles`, #1283), and the draw's log entry names the shuffle. A face-up card lower in the pile does not trigger it. |
 | dilemma stack | `'dilemmaStack'` | The stack for one mission attempt. Index 0 is revealed first. During the dilemma choice its ends read "First" and "Last" (`DILEMMA_STACK_CHOICE_END_LABELS`, #1204, #1266), and a drop on the face-up row puts a dilemma between two cards. A dilemma lands in it face up during the dilemma choice (`Attempt.phase === 'choose'`), and face down at every other time (`ZONE_FACE.dilemmaStack`, #1189). It exists only during an attempt, in the attempt layout (#1170): the mission row and the full table during an attempt show no stack, and a restored save with stack cards and no attempt sends them to the bottom of the dilemma pile, face down. |
 | — | `'dilemmaHand'` | No rulebook term. A face-up working area for dilemmas. See [section 7](#7-names-kept-and-why). |
 

@@ -155,6 +155,70 @@ describe('tableReducer', () => {
     });
   });
 
+  describe('a draw that reaches a face-up dilemma (#1283)', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    // With Math.random at 0, shuffleArray turns [a, b, c] into [b, c, a].
+    const pile = () => [
+      instance('d1', card('A'), 'up'),
+      instance('d2', card('B'), 'down'),
+      instance('d3', card('C'), 'up'),
+    ];
+
+    it('shuffles the whole pile face down, then draws the new top card', () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0);
+      const start = { ...initialTableState, dilemmaPile: pile() };
+
+      const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
+
+      expect(state.dilemmaHand.map((c) => c.id)).toEqual(['d2']);
+      expect(state.dilemmaHand[0].face).toBe('up');
+      expect(state.dilemmaPile.map((c) => c.id)).toEqual(['d3', 'd1']);
+      expect(state.dilemmaPile.every((c) => c.face === 'down')).toBe(true);
+    });
+
+    it('does not shuffle when the top card is face down, even with a face-up card lower down', () => {
+      const random = jest.spyOn(Math, 'random');
+      const [a, b, c] = pile();
+      const start = { ...initialTableState, dilemmaPile: [b, a, c] };
+
+      const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
+
+      expect(random).not.toHaveBeenCalled();
+      expect(state.dilemmaHand).toEqual([{ ...b, face: 'up' }]);
+      expect(state.dilemmaPile).toEqual([a, c]);
+      expect(state.dilemmaPile[1].face).toBe('up');
+    });
+
+    it('counts a reshuffling draw of the dilemma choice', () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0);
+      const start = {
+        ...initialTableState,
+        dilemmaPile: pile(),
+        attempt: { missionIndex: 0, personnel: 5, subtract: 0, phase: 'choose' as const, drawn: 2 },
+      };
+
+      const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand', counted: true });
+
+      expect(state.attempt!.drawn).toBe(3);
+      expect(state.dilemmaHand.map((c) => c.id)).toEqual(['d2']);
+      expect(state.dilemmaPile.every((c) => c.face === 'down')).toBe(true);
+    });
+
+    it('never shuffles the draw deck', () => {
+      const random = jest.spyOn(Math, 'random');
+      const top = instance('a', card('Tricorder'), 'up');
+      const rest = instance('b', card('Phaser'), 'up');
+      const start = { ...initialTableState, drawDeck: [top, rest] };
+
+      const state = tableReducer(start, { type: 'drawCard', from: 'drawDeck', to: 'hand' });
+
+      expect(random).not.toHaveBeenCalled();
+      expect(state.drawDeck).toEqual([rest]);
+      expect(state.hand).toEqual([top]);
+    });
+  });
+
   describe('reset with dilemmas (#604)', () => {
     it('puts every dilemma in the dilemma pile and deals none to the dilemma hand', () => {
       const dilemmas = [instance('d1', card('A')), instance('d2', card('B')), instance('d3', card('C'))];

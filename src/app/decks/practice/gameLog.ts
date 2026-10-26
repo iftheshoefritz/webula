@@ -16,6 +16,7 @@
 import { cardDisplayName } from '../../../lib/cardCount';
 import {
   cardsAt,
+  drawReshuffles,
   findInstanceAnywhere,
   MoveTarget,
   ReorderZone,
@@ -51,7 +52,9 @@ export interface LogMove {
 }
 
 export type LogEntry = { turn: number } & (
-  | { kind: 'draw'; from: 'drawDeck' | 'dilemmaPile'; to: 'hand' | 'dilemmaHand' }
+  // A draw that reached a face-up dilemma shuffled the dilemma pile first (#1283), and `shuffled`
+  // says so.
+  | { kind: 'draw'; from: 'drawDeck' | 'dilemmaPile'; to: 'hand' | 'dilemmaHand'; shuffled?: true }
   // One player action, so one entry, even when its cards went to more than one place (a group
   // dropped on a mission sends a ship to the ship row and a personnel to the away team). A
   // download shuffles the pile after its moves, and `shuffled` names it.
@@ -183,7 +186,12 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
   switch (action.type) {
     case 'drawCard':
       if (after === before) return null;
-      return { kind: 'draw', from: action.from as 'drawDeck' | 'dilemmaPile', to: action.to as 'hand' | 'dilemmaHand' };
+      return {
+        kind: 'draw',
+        from: action.from as 'drawDeck' | 'dilemmaPile',
+        to: action.to as 'hand' | 'dilemmaHand',
+        ...(drawReshuffles(before, action) ? { shuffled: true as const } : {}),
+      };
     case 'move': {
       const moves = moveEntry(before, [action], false);
       return moves.length ? { kind: 'move', moves } : null;
@@ -362,10 +370,10 @@ const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text
 // The text of one entry, one sentence with no full stop.
 export function logEntryText(entry: LogEntry): string {
   switch (entry.kind) {
-    case 'draw':
-      return entry.from === 'drawDeck'
-        ? `Drew a card from ${placeText({ kind: entry.from })} into ${placeText({ kind: entry.to })}`
-        : `Drew a dilemma from ${placeText({ kind: entry.from })} into ${placeText({ kind: entry.to })}`;
+    case 'draw': {
+      const drew = `drew a ${entry.from === 'drawDeck' ? 'card' : 'dilemma'} from ${placeText({ kind: entry.from })} into ${placeText({ kind: entry.to })}`;
+      return entry.shuffled ? `Shuffled ${placeText({ kind: entry.from })}, then ${drew}` : capitalize(drew);
+    }
     case 'move': {
       const moves = entry.moves.map(
         (m) => `${cardsText(m.cards)} from ${placeText(m.from)} to ${destinationText(m)}`
