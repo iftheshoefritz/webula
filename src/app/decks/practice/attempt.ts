@@ -20,15 +20,26 @@ export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 
 // not a planet mission. `parseCardData` lower-cases the card data, so `missiontype` is `s`, `p` or `h`.
 function attemptCards(table: TableState, panel: AttemptPanel): { missionIndex: number; cards: CardInstance[] } | null {
   if (panel.kind === 'awayTeam') {
-    const slot = table.missions[panel.missionIndex];
-    if (slot?.mission?.card?.missiontype !== 'p') return null;
-    return { missionIndex: panel.missionIndex, cards: slot.awayTeam };
+    const cards = attemptingCards(table, panel.missionIndex);
+    return cards && { missionIndex: panel.missionIndex, cards };
   }
   const found = findInstanceAnywhere(table, panel.shipId);
   if (!found || typeof found.zone === 'string' || found.zone.zone !== 'shipRow') return null;
   const missionIndex = found.zone.missionIndex;
-  if (table.missions[missionIndex]?.mission?.card?.missiontype !== 's') return null;
-  return { missionIndex, cards: found.instance.crew ?? [] };
+  const cards = attemptingCards(table, missionIndex, panel.shipId);
+  return cards && { missionIndex, cards };
+}
+
+// The attempting cards of an attempt at `missionIndex` (#1298), as an attempt names them: the away
+// team at a planet mission, with no `shipId`, or the crew of the ship `shipId` on that mission's ship
+// row at a space mission. Null when the mission is not of that type or the ship is not there. The bot
+// reads the attempt's personnel from these.
+export function attemptingCards(table: TableState, missionIndex: number, shipId?: string): CardInstance[] | null {
+  const slot = table.missions[missionIndex];
+  if (shipId === undefined) return slot?.mission?.card?.missiontype === 'p' ? slot.awayTeam : null;
+  if (slot?.mission?.card?.missiontype !== 's') return null;
+  const ship = slot.ships.find((s) => s.id === shipId);
+  return ship ? ship.crew ?? [] : null;
 }
 
 const unstoppedPersonnel = (cards: CardInstance[]): number =>

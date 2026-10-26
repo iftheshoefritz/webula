@@ -563,11 +563,33 @@ const unstopFor = (location: MoveTarget, c: CardInstance): CardInstance =>
 const shuffledDilemmaPile = (cards: CardInstance[]): CardInstance[] =>
   shuffleArray(cards).map((c) => ({ ...c, face: ZONE_FACE.dilemmaPile }));
 
+// The top-card rule of #1283, shared by `drawReshuffles` and `drawFromDilemmaPile`.
+const topFaceUp = (pile: CardInstance[]): boolean => pile[0]?.face === 'up';
+
 // A draw that reaches a face-up dilemma on top of the dilemma pile shuffles the whole pile first
 // (#1283): "any time a player reaches a face up card in his or her dilemma pile, that player
 // shuffles the entire pile". Only the top card decides, and the draw deck never shuffles.
 export const drawReshuffles = (state: TableState, action: Extract<TableAction, { type: 'drawCard' }>): boolean =>
-  action.from === 'dilemmaPile' && state.dilemmaPile[0]?.face === 'up';
+  action.from === 'dilemmaPile' && topFaceUp(state.dilemmaPile);
+
+// Up to `count` draws from the dilemma pile (#1298), for the bot's draw: the cards drawn, in draw
+// order, and the pile after. Before each draw, a face-up top card shuffles the pile as `drawCard`
+// does, so a card returned face up to the bottom shuffles the pile when a later draw reaches it. It
+// stops when the pile is empty. It is random through `shuffleArray`, so the page calls it, never the
+// reducer. The drawn cards keep the face they had in the pile.
+export function drawFromDilemmaPile(
+  pile: CardInstance[],
+  count: number
+): { drawn: CardInstance[]; pile: CardInstance[] } {
+  const drawn: CardInstance[] = [];
+  let rest = pile;
+  while (drawn.length < count && rest.length > 0) {
+    if (topFaceUp(rest)) rest = shuffledDilemmaPile(rest);
+    drawn.push(rest[0]);
+    rest = rest.slice(1);
+  }
+  return { drawn, pile: rest };
+}
 
 export function tableReducer(state: TableState, action: TableAction): TableState {
   switch (action.type) {
