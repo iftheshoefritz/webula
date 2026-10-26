@@ -121,7 +121,7 @@ describe('useScrollVisibility', () => {
     const div = document.createElement('div');
     document.body.appendChild(div);
     const ref = createRef<HTMLElement>();
-    (ref as React.MutableRefObject<HTMLElement>).current = div;
+    ref.current = div;
     Object.defineProperty(div, 'scrollTop', { configurable: true, value: 100 });
 
     const { result } = renderHook(() => useScrollVisibility({ target: ref, hideDelay: 500 }));
@@ -147,7 +147,7 @@ describe('useScrollVisibility', () => {
     const div = document.createElement('div');
     document.body.appendChild(div);
     const ref = createRef<HTMLElement>();
-    (ref as React.MutableRefObject<HTMLElement>).current = div;
+    ref.current = div;
     Object.defineProperty(div, 'scrollTop', { configurable: true, value: 100 });
 
     const { result } = renderHook(() => useScrollVisibility({ target: ref, hideDelay: 500 }));

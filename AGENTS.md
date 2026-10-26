@@ -27,7 +27,7 @@ yarn test:watch # Run tests in watch mode
 
 ### Tech Stack
 - Next.js 14 with App Router
-- React 18 with TypeScript
+- React 19 with TypeScript
 - Tailwind CSS for styling
 - NextAuth.js for Google OAuth authentication
 - Jest with React Testing Library for tests

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type JSX } from 'react';
 import { textAbbreviations, numericAbbreviations } from '../lib/constants';
 
 type HelpProps = {
