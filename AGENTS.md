@@ -168,8 +168,8 @@ before `yarn typecheck` existed (#1062). A helper a test imports, such as
 `src/tests/fixtures/makeCardData.ts`, is not a test file, so the build does
 check it.
 
-CI runs three of them as three parallel jobs, `test`, `typecheck` and
-`build`, so a red check tells you which one failed. Run them independently while
+CI runs the four commands as four parallel jobs, `test`, `typecheck`, `lint`
+and `build`, so a red check tells you which one failed. Run them independently while
 you work.
 
 Vercel runs two of them in one chain. The `buildCommand` in `vercel.json` is
