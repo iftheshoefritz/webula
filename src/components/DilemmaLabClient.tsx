@@ -4,17 +4,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { DILEMMA_BY_ID, DilemmaId, OPPONENT_DILEMMAS } from '../lib/dilemmaBot/opponentPile';
 import { meetsRequirements, parseRequirementBranches } from '../lib/dilemmaBot/requirements';
 import { BotAttempt, PlayerChoice, botPersonnelOf, playStack, seededRandom } from '../lib/dilemmaBot/simulator';
-import {
-  SearchResult,
-  StackScore,
-  chooseStack,
-  drawDilemmas,
-  fullSearch,
-  legalStacks,
-  randomLegalStack,
-  scoreStack,
-} from '../lib/dilemmaBot/search';
-import type { SearchRequest, SearchResponse } from '../lib/dilemmaBot/search.worker';
+import { SearchResult, StackScore, drawDilemmas, legalStacks } from '../lib/dilemmaBot/search';
+import type { SearchRequest, SearchResponse } from '../lib/dilemmaBot/searchRequest';
+import { ThreadedSearchResponse, useSearchWorker } from '../lib/dilemmaBot/useSearchWorker';
 import type { CardData } from '../lib/loadCards';
 import CardPreview from '../app/decks/practice/CardPreview';
 import { TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH, TableCardImage } from '../app/decks/practice/TableCard';
@@ -56,46 +48,10 @@ const stackText = (stack: DilemmaId[]) => (stack.length ? stack.map(title).join(
 const pct = (p: number) => `${(p * 100).toFixed(1)}%`;
 
 /** A search result, and the thread it ran on. */
-type LabResponse = SearchResponse & { thread: 'background' | 'main' };
+type LabResponse = ThreadedSearchResponse;
 
-/** The search off the main thread, or on it when the browser has no worker. */
-function useSearchWorker(onResponse: (r: LabResponse) => void, onError: (message: string) => void) {
-  const worker = useRef<Worker | null>(null);
-  const handler = useRef(onResponse);
-  handler.current = onResponse;
-  const errorHandler = useRef(onError);
-  errorHandler.current = onError;
-  useEffect(() => () => worker.current?.terminate(), []);
-
-  return (request: SearchRequest) => {
-    if (!worker.current && typeof Worker !== 'undefined') {
-      try {
-        worker.current = new Worker(new URL('../lib/dilemmaBot/search.worker.ts', import.meta.url));
-        worker.current.onmessage = (e: MessageEvent<SearchResponse>) => handler.current({ ...e.data, thread: 'background' });
-        // A worker that throws sends no message, so the page must hear of it here, or it waits for ever.
-        worker.current.onerror = (e: ErrorEvent) => {
-          e.preventDefault();
-          worker.current?.terminate();
-          worker.current = null;
-          errorHandler.current(e.message || 'The search failed.');
-        };
-      } catch {
-        worker.current = null;
-      }
-    }
-    if (worker.current) {
-      worker.current.postMessage(request);
-      return;
-    }
-    const { attempt, drawn, n, seed } = request;
-    const start = performance.now();
-    const result =
-      request.kind === 'choose' ? chooseStack(attempt, drawn, n, seed) : fullSearch(attempt, legalStacks(drawn, n), 500, seed);
-    const ms = performance.now() - start;
-    const baseline = scoreStack(attempt, randomLegalStack(drawn, n, seededRandom(seed)), 2000, seed + 1);
-    handler.current({ id: request.id, kind: request.kind, result, baseline, ms, thread: 'main' });
-  };
-}
+/** The lab's two searches; `'table'` is the practice table's. */
+type LabKind = Exclude<SearchRequest['kind'], 'table'>;
 
 export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCards }: Props) {
   const byName = useMemo(() => new Map(personnel.map((p) => [p.originalName, p])), [personnel]);
@@ -113,7 +69,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
   const [message, setMessage] = useState('');
   const [chosen, setChosen] = useState<LabResponse | null>(null);
   const [full, setFull] = useState<LabResponse | null>(null);
-  const [running, setRunning] = useState<SearchRequest['kind'] | null>(null);
+  const [running, setRunning] = useState<LabKind | null>(null);
   const [searchError, setSearchError] = useState('');
   const requestId = useRef(0);
   const fullRef = useRef<HTMLDivElement>(null);
@@ -161,7 +117,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
     if (full) fullRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
   }, [full]);
 
-  const run = (kind: SearchRequest['kind']) => {
+  const run = (kind: LabKind) => {
     if (!attempt) return;
     requestId.current++;
     setSearchError('');
@@ -600,9 +556,11 @@ function ResultView({ response }: { response: LabResponse }) {
         {result.plays.toLocaleString()} plays, <span data-testid="lab-ms">{ms.toFixed(0)} ms</span> on the{' '}
         <span data-testid="lab-thread">{thread}</span> thread.
       </p>
-      <p className="text-text-secondary">
-        A random legal stack, the baseline: {stackText(baseline.stack)}: <ScoreLine score={baseline} />.
-      </p>
+      {baseline && (
+        <p className="text-text-secondary">
+          A random legal stack, the baseline: {stackText(baseline.stack)}: <ScoreLine score={baseline} />.
+        </p>
+      )}
       <RankTable ranked={result.ranked.slice(0, 10)} caption="The best stacks of the last round" />
     </div>
   );
