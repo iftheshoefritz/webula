@@ -94,7 +94,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
   const [missionName, setMissionName] = useState('');
   const [crew, setCrew] = useState<string[]>([]);
   const [addName, setAddName] = useState('');
-  const [deckIndex, setDeckIndex] = useState(0);
+  const [deckIndex, setDeckIndex] = useState<number | null>(null);
   const [crewSize, setCrewSize] = useState(9);
   const [n, setN] = useState(6);
   const [gameOnMission, setGameOnMission] = useState(0);
@@ -107,7 +107,16 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
   const [running, setRunning] = useState<SearchRequest['kind'] | null>(null);
   const requestId = useRef(0);
 
-  const mission = missions.find((m) => m.name === missionName);
+  const deck = deckIndex === null ? null : decks[deckIndex];
+  // The deck's missions, in the order of its list.
+  const deckMissions = useMemo(
+    () =>
+      deck
+        ? deck.missions.map((name) => missions.find((m) => m.name === name)).filter((m): m is LabMission => !!m)
+        : [],
+    [deck, missions],
+  );
+  const mission = deckMissions.find((m) => m.name === missionName);
   const branches = useMemo(() => (mission ? parseRequirementBranches(mission.requirements) : null), [mission]);
   const crewPersonnel = useMemo(
     () => crew.map((name) => byName.get(name)).filter((p): p is LabPersonnel => !!p).map(botPersonnelOf),
@@ -149,19 +158,25 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
   const toggleTitle = (id: DilemmaId) =>
     setDrawn((d) => (d.includes(id) ? d.filter((x) => x !== id) : [...d, id]));
 
+  // The mission list follows the deck: a new deck starts on its first mission that the bot reads.
+  const chooseDeck = (index: number | null) => {
+    setDeckIndex(index);
+    const next = index === null ? undefined : decks[index];
+    const readable = next
+      ? next.missions.find((name) => parseRequirementBranches(missions.find((m) => m.name === name)?.requirements ?? ''))
+      : undefined;
+    setMissionName(readable ?? '');
+    setCrew([]);
+    setMessage('');
+  };
+
   const randomCrew = () => {
-    const deck = decks[deckIndex];
     if (!deck) return;
     const rand = seededRandom(Date.now() >>> 0);
-    let target = mission;
-    if (!target || !deck.missions.includes(target.name)) {
-      const readable = deck.missions.filter((name) => parseRequirementBranches(missions.find((m) => m.name === name)!.requirements));
-      const pick = readable[Math.floor(rand() * readable.length)];
-      target = missions.find((m) => m.name === pick);
-    }
-    const targetBranches = target ? parseRequirementBranches(target.requirements) : null;
+    const target = mission;
+    const targetBranches = branches;
     if (!target || !targetBranches) {
-      setMessage('This deck has no mission that the bot can read.');
+      setMessage('Choose a mission of this deck whose requirements the bot reads.');
       return;
     }
     const size = Math.min(crewSize, deck.personnel.length);
@@ -173,7 +188,6 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
       }
       const group = pool.slice(0, size);
       if (meetsRequirements(targetBranches, group.map((name) => botPersonnelOf(byName.get(name)!)))) {
-        setMissionName(target.name);
         setCrew(group);
         setMessage('');
         return;
@@ -207,25 +221,41 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
       <header>
         <h1 className="text-2xl font-bold">Dilemma bot lab</h1>
         <p className="text-sm text-text-secondary">
-          Set a mission, a crew and N. The bot draws from its Chula pile and chooses an ordered dilemma stack (#1282).
+          Choose a deck, one of its missions, a crew and N. The bot draws from its Chula pile and chooses an ordered dilemma stack (#1282).
         </p>
       </header>
 
       <section className="surface p-4 flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">1. The mission</h2>
-        <input
-          className="input"
-          list="lab-missions"
-          value={missionName}
-          onChange={(e) => setMissionName(e.target.value)}
-          placeholder="Mission name"
-          data-testid="lab-mission"
-        />
-        <datalist id="lab-missions">
-          {missions.map((m) => (
-            <option key={m.name} value={m.name} />
+        <h2 className="text-lg font-semibold">1. The deck and the mission</h2>
+        <select
+          className="input max-w-md"
+          value={deckIndex ?? ''}
+          onChange={(e) => chooseDeck(e.target.value === '' ? null : Number(e.target.value))}
+          data-testid="lab-deck"
+        >
+          <option value="">Choose a tournament deck</option>
+          {decks.map((d, i) => (
+            <option key={d.label} value={i}>
+              {d.label}
+            </option>
           ))}
-        </datalist>
+        </select>
+        {deck && (
+          <select
+            className="input max-w-md"
+            value={missionName}
+            onChange={(e) => setMissionName(e.target.value)}
+            data-testid="lab-mission"
+          >
+            <option value="">Choose a mission of this deck</option>
+            {deckMissions.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.name}
+                {parseRequirementBranches(m.requirements) ? '' : ' (the bot cannot read its requirements)'}
+              </option>
+            ))}
+          </select>
+        )}
         {mission && (
           <p className="text-sm" data-testid="lab-requirements">
             Requirements: {mission.requirements}{' '}
@@ -241,13 +271,6 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
       <section className="surface p-4 flex flex-col gap-3">
         <h2 className="text-lg font-semibold">2. The crew</h2>
         <div className="flex flex-wrap gap-2 items-center">
-          <select className="input max-w-md" value={deckIndex} onChange={(e) => setDeckIndex(Number(e.target.value))}>
-            {decks.map((d, i) => (
-              <option key={d.label} value={i}>
-                {d.label}
-              </option>
-            ))}
-          </select>
           <label className="text-sm flex items-center gap-1">
             Size
             <input
@@ -259,7 +282,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
               onChange={(e) => setCrewSize(Number(e.target.value))}
             />
           </label>
-          <button className="btn-primary" onClick={randomCrew} data-testid="lab-random-crew">
+          <button className="btn-primary" onClick={randomCrew} disabled={!mission} data-testid="lab-random-crew">
             Random crew from this deck
           </button>
         </div>
@@ -403,7 +426,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
             {running === 'full' ? 'Searching…' : 'Check with the full search (500 plays of every stack)'}
           </button>
         </div>
-        {!attempt && <p className="text-sm text-text-secondary">Choose a mission whose requirements the bot reads.</p>}
+        {!attempt && <p className="text-sm text-text-secondary">Choose a deck, then a mission whose requirements the bot reads.</p>}
         {chosen && <ResultView response={chosen} />}
         {chosen && full && <Comparison chosen={chosen.result} full={full} />}
         {samples.length > 0 && (
