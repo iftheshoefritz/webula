@@ -552,10 +552,20 @@ const isOffTable = (location: MoveTarget): boolean => typeof location === 'strin
 const unstopFor = (location: MoveTarget, c: CardInstance): CardInstance =>
   c.stopped && isOffTable(location) ? { ...c, stopped: undefined } : c;
 
+// A shuffle of the dilemma pile turns its face-up dilemmas face down again (#987).
+const shuffledDilemmaPile = (cards: CardInstance[]): CardInstance[] =>
+  shuffleArray(cards).map((c) => ({ ...c, face: ZONE_FACE.dilemmaPile }));
+
+// A draw that reaches a face-up dilemma on top of the dilemma pile shuffles the whole pile first
+// (#1283): "any time a player reaches a face up card in his or her dilemma pile, that player
+// shuffles the entire pile". Only the top card decides, and the draw deck never shuffles.
+export const drawReshuffles = (state: TableState, action: Extract<TableAction, { type: 'drawCard' }>): boolean =>
+  action.from === 'dilemmaPile' && state.dilemmaPile[0]?.face === 'up';
+
 export function tableReducer(state: TableState, action: TableAction): TableState {
   switch (action.type) {
     case 'drawCard': {
-      const source = state[action.from];
+      const source = drawReshuffles(state, action) ? shuffledDilemmaPile(state.dilemmaPile) : state[action.from];
       if (source.length === 0) return state;
       const [top, ...rest] = source;
       return {
@@ -683,12 +693,10 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // `ShuffleLocation` ('core' | 'brig' | CrewLocation | MissionPileLocation) is a subset of
       // `MoveTarget`, so `cardsAt`/`withCardsAt` already read and write the right array for it.
       const cards = cardsAt(state, action.location);
-      // A shuffle of the dilemma pile turns its face-up dilemmas face down again (#987).
-      const shuffled = shuffleArray(cards);
       return withCardsAt(
         state,
         action.location,
-        action.location === 'dilemmaPile' ? shuffled.map((c) => ({ ...c, face: ZONE_FACE.dilemmaPile })) : shuffled
+        action.location === 'dilemmaPile' ? shuffledDilemmaPile(cards) : shuffleArray(cards)
       );
     }
 

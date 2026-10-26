@@ -506,6 +506,11 @@ a tap is `setAttemptPhase` to `'choose'`, so the stack turns face up and the cho
 it leaves the dilemma hand as it is. The button group does not shrink, so on a narrow screen the status
 text gives way first.
 
+A `drawCard` from the dilemma pile whose top card is face up first shuffles the whole pile face down,
+and then draws the new top card (#1283, `drawReshuffles` in `tableReducer.ts`). The draw's log entry
+reads "Shuffled the dilemma pile, then drew a dilemma …", and one undo takes back both. A face-up card
+lower in the pile does not shuffle, and the draw deck never does.
+
 The dilemma stack's panel reorders the stack only in `'choose'` (#1209). In `'face'` it keeps the row
 and its end labels, but its cards carry no `data-zone`, a drag shows no insertion mark and hides the
 panel as every other flat panel does, and it has no Shuffle. A drag out of it still lands anywhere.
