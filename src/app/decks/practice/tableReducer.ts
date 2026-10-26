@@ -242,6 +242,19 @@ export type TableAction =
   // pile, face up, in hand order. To `'choose'` it turns the stack face up and moves no card. Does
   // nothing with no attempt in progress, or when the attempt is already in that phase.
   | { type: 'setAttemptPhase'; phase: AttemptPhase }
+  // Start in a bot game (#1299): one player action. The page drew the dilemmas and the bot chose the
+  // stack before the dispatch, so the reducer stays deterministic. `pile` is the dilemma pile after
+  // the draw, `drawn` the ids of the drawn cards in draw order, taken out of the current pile, and
+  // `stack` the ids the bot put in the stack, in stack order. `random` says the bot chose at random.
+  // It refuses exactly when `startAttempt` does, and when a drawn id is not in the pile.
+  | ({ type: 'botAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'botDraw' | 'botSpend'> & {
+      botDraw: number;
+      botSpend: number;
+      pile: CardInstance[];
+      drawn: string[];
+      stack: string[];
+      random: boolean;
+    })
   // Ends the attempt in progress, and moves every dilemma still in the dilemma stack under the
   // attempted mission, face up, in stack order (#1170). Does nothing when no attempt is in progress.
   | { type: 'endAttempt' }
@@ -847,6 +860,24 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         dilemmaPile: [...state.dilemmaPile, ...state.dilemmaHand.map((c) => ({ ...c, face: 'up' as Face }))],
         dilemmaHand: [],
       };
+    }
+
+    case 'botAttempt': {
+      const { missionIndex, shipId, personnel, subtract, botDraw, botSpend, pile, drawn, stack } = action;
+      const started = tableReducer(state, { type: 'startAttempt', missionIndex, shipId, personnel, subtract, botDraw, botSpend });
+      if (started === state) return state;
+      const drawnCards = drawn.map((id) => state.dilemmaPile.find((c) => c.id === id));
+      if (drawnCards.some((c) => !c) || pile.length + drawn.length !== state.dilemmaPile.length) return state;
+      // The drawn cards enter the dilemma hand as the choice-phase draw puts them, counted, then the
+      // bot's stack moves in, and the switch to `'face'` turns it face down and returns the rest.
+      const withHand: TableState = {
+        ...started,
+        dilemmaPile: pile,
+        dilemmaHand: [...started.dilemmaHand, ...drawnCards.map((c) => ({ ...c!, face: entryFace(started, 'dilemmaHand') }))],
+        attempt: { ...started.attempt!, drawn: drawn.length },
+      };
+      const stacked = stack.reduce<TableState>((s, id) => tableReducer(s, { type: 'move', id, to: 'dilemmaStack' }), withHand);
+      return tableReducer(stacked, { type: 'setAttemptPhase', phase: 'face' });
     }
 
     case 'endAttempt': {

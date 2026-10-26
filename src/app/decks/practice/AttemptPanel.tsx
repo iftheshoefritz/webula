@@ -49,11 +49,14 @@ function NumberField({
 // draw/spend N, live as the player edits. Start confirms the numbers as shown; Cancel, Escape and a
 // tap on the backdrop close it with nothing changed. In a bot game (#1291) two more fields set the
 // bot's Draw and Spend: each shows N until the player edits it, and keeps the player's number after.
+// While the bot chooses its stack (#1299, `choosing`), Start reads "The bot is choosing…" and is
+// disabled; Cancel, Escape and the backdrop still close the popup.
 export function AttemptDialog({
   mission,
   personnel,
   subtract,
   bot = false,
+  choosing = false,
   onStart,
   onCancel,
 }: {
@@ -61,6 +64,7 @@ export function AttemptDialog({
   personnel: number;
   subtract: number;
   bot?: boolean;
+  choosing?: boolean;
   onStart: (personnel: number, subtract: number, bot?: { botDraw: number; botSpend: number }) => void;
   onCancel: () => void;
 }) {
@@ -117,11 +121,11 @@ export function AttemptDialog({
           <button
             type="button"
             onClick={() => (bot ? onStart(p, s, { botDraw: d, botSpend: sp }) : onStart(p, s))}
-            disabled={!botValid}
+            disabled={!botValid || choosing}
             className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
             data-testid="attempt-start"
           >
-            Start
+            {choosing ? 'The bot is choosing…' : 'Start'}
           </button>
         </div>
       </div>
