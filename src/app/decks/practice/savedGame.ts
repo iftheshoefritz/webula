@@ -9,7 +9,7 @@
 import { DeckList } from '../../../types';
 import { CardInstance, TableState, Zone, ZONE_FACE, initialTableState } from './tableReducer';
 
-export const SAVED_GAME_VERSION = 1;
+export const SAVED_GAME_VERSION = 2;
 
 export type SavedGameSource = 'builder' | 'drive';
 
@@ -128,7 +128,10 @@ export const fingerprint = (deck: DeckList): string =>
 // One step per version, each taking a save of that version to the next one. A new version adds
 // its step here, the same way `withCurrentPiles` (#837) and `withBackImageFiles` (#765) repair
 // an older deck on load.
-const MIGRATIONS: Record<number, (save: any) => any> = {};
+const MIGRATIONS: Record<number, (save: any) => any> = {
+  // Version 2 (#1289) adds `table.opponent`. A save of version 1 has none, which is a game of one player.
+  1: (save) => ({ ...save, version: 2 }),
+};
 
 const migrate = (save: any): SavedGame | null => {
   let current = save;
@@ -213,6 +216,8 @@ export function fromSavedGame(json: string, currentDeck: DeckList): RestoredGame
   // An attempt saved before #1189 opened in the layout of facing dilemmas, so it restores in that
   // phase, with no dilemma drawn.
   else table.attempt = { ...table.attempt!, phase: table.attempt!.phase ?? 'face', drawn: table.attempt!.drawn ?? 0 };
+  // A bot game (#1289) is the only opponent.
+  if (table.opponent !== 'bot') delete table.opponent;
   // The dilemma stack holds cards only during an attempt (#1170). A save with stack cards and no
   // attempt, such as one from before #1170, sends them to the bottom of the dilemma pile, face down.
   if (!table.attempt && table.dilemmaStack.length) {
