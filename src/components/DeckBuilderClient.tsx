@@ -89,6 +89,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     pendingShareTitle,
     setPendingShareContent,
     setPendingShareWarning,
+    // A full load drops the trekcc.org link of a tournament deck (#1310). The callback runs only
+    // on a load, after useDriveSync below has given clearDeckSource its value.
+    onFullLoad: () => clearDeckSource(),
   });
 
   useEffect(() => {
@@ -144,7 +147,10 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     session,
     deckFile,
     resetDeckFile,
+    clearDeckSource,
     driveFiles,
+    showTournamentDecks,
+    tournamentEvents,
     showDrivePicker,
     drivePickerMode,
     browsedFolder,
@@ -504,6 +510,19 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     </div>
   );
 
+  // The trekcc.org page of a loaded tournament deck (#1310).
+  const deckSourceLink = deckFile?.source ? (
+    <a
+      href={deckFile.source}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="shrink-0 text-sm text-accent hover:underline"
+      data-testid="deck-source-link"
+    >
+      View on trekcc.org
+    </a>
+  ) : null;
+
   const deckPanel = (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-2 pt-2">
       <Tooltip id="button-tooltip" />
@@ -533,6 +552,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               </span>
               <FaPencilAlt className="shrink-0 text-text-disabled text-xs" />
             </button>
+            {deckSourceLink}
             <button
               className="btn-icon"
               onClick={openDeckPicker}
@@ -665,6 +685,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
             />
           </div>
+          {deckSourceLink}
           <div className="flex justify-start items-center space-x-2">
             <button
               className="btn-icon"
@@ -1399,6 +1420,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       {showDrivePicker && (
         <DrivePickerModal
           driveFiles={driveFiles}
+          showTournamentDecks={showTournamentDecks}
+          tournamentEvents={tournamentEvents}
           loadDriveFile={drivePickerMode === 'compare' ? fetchCompareDriveFile : fetchDriveFile}
           deleteDriveFile={deleteDriveFile}
           onRenameFile={renameDriveFile}

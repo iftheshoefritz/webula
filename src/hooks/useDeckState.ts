@@ -23,6 +23,8 @@ interface UseDeckStateParams {
   pendingShareTitle: string | null;
   setPendingShareContent: (content: string | null) => void;
   setPendingShareWarning: (warning: boolean) => void;
+  /** Called on every load that replaces the whole deck: a Drive file, a file upload, a shared deck. */
+  onFullLoad?: () => void;
 }
 
 export function useDeckState({
@@ -32,6 +34,7 @@ export function useDeckState({
   pendingShareTitle,
   setPendingShareContent,
   setPendingShareWarning,
+  onFullLoad,
 }: UseDeckStateParams) {
   const [localCurrentDeck, setLocalCurrentDeck] = useLocalStorage<DeckList>('currentDeck', {});
   const [fixtureCurrentDeck, setFixtureCurrentDeck] = useState<DeckList>({});
@@ -67,6 +70,7 @@ export function useDeckState({
     const incoming = deckFromTsv(contents, data);
     const next = piles ? mergeDeckPiles(currentDeck, incoming, piles) : incoming;
     setCurrentDeck(next);
+    if (!piles) onFullLoad?.();
     if (name && !piles) {
       setDeckTitle(name.replace('.txt', ''));
       setMissionBranchSelections({});
