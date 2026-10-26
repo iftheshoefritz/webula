@@ -2704,9 +2704,10 @@ function PracticeDrawContent() {
             mission={cardDisplayName(missions[attemptDefaultsOpen.missionIndex].mission!.card)}
             personnel={attemptDefaultsOpen.personnel}
             subtract={attemptDefaultsOpen.subtract}
+            bot={table.opponent === 'bot'}
             onCancel={() => setAttemptPopup(null)}
-            onStart={(personnel, subtract) => {
-              dispatch({ type: 'startAttempt', ...attemptDefaultsOpen, personnel, subtract });
+            onStart={(personnel, subtract, bot) => {
+              dispatch({ type: 'startAttempt', ...attemptDefaultsOpen, personnel, subtract, ...bot });
               setAttemptPopup(null);
               setOpenPile(null);
               setOpenCrewShipId(null);
