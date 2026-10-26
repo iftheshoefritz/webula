@@ -170,6 +170,10 @@ export interface Attempt {
   subtract: number;
   phase: AttemptPhase;
   drawn: number;
+  // A bot game's draw and spend (#1291), set by the player in the popup. Absent in a game with a
+  // deck's dilemmas, where both are N.
+  botDraw?: number;
+  botSpend?: number;
 }
 
 // The score counter's range (#719) and the amount each button press changes it by.
@@ -790,10 +794,19 @@ export function tableReducer(state: TableState, action: TableAction): TableState
 
     case 'startAttempt': {
       if (state.attempt || !state.missions[action.missionIndex]?.mission) return state;
-      const { missionIndex, shipId, personnel, subtract } = action;
+      const { missionIndex, shipId, personnel, subtract, botDraw, botSpend } = action;
       return {
         ...state,
-        attempt: { missionIndex, ...(shipId ? { shipId } : {}), personnel, subtract, phase: 'choose', drawn: 0 },
+        attempt: {
+          missionIndex,
+          ...(shipId ? { shipId } : {}),
+          personnel,
+          subtract,
+          ...(botDraw !== undefined ? { botDraw } : {}),
+          ...(botSpend !== undefined ? { botSpend } : {}),
+          phase: 'choose',
+          drawn: 0,
+        },
       };
     }
 

@@ -158,7 +158,7 @@ const isCount = (value: unknown): boolean => typeof value === 'number' && Number
 const isValidAttempt = (table: TableState): boolean => {
   const attempt: unknown = table.attempt;
   if (!isObject(attempt)) return false;
-  const { missionIndex, shipId, personnel, subtract, phase, drawn } = attempt;
+  const { missionIndex, shipId, personnel, subtract, phase, drawn, botDraw, botSpend } = attempt;
   return (
     Number.isInteger(missionIndex) &&
     !!table.missions[missionIndex]?.mission &&
@@ -167,7 +167,10 @@ const isValidAttempt = (table: TableState): boolean => {
     isCount(subtract) &&
     // A save from before #1189 has no `phase` and no `drawn`.
     (phase === undefined || phase === 'choose' || phase === 'face') &&
-    (drawn === undefined || isCount(drawn))
+    (drawn === undefined || isCount(drawn)) &&
+    // A bot game's draw and spend (#1291).
+    (botDraw === undefined || isCount(botDraw)) &&
+    (botSpend === undefined || isCount(botSpend))
   );
 };
 
