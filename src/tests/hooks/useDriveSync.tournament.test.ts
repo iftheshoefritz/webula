@@ -131,3 +131,43 @@ describe('useDriveSync – loading a tournament deck (#1310)', () => {
     expect(result.current.drive.showTournamentDecks).toBe(false);
   });
 });
+
+describe('useDriveSync – comparing a tournament deck (#1311)', () => {
+  const savedEnv = process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS;
+
+  beforeEach(() => {
+    localStorage.clear();
+    resetTournamentDecksCache();
+    process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = 'early@example.com';
+    (getSession as jest.Mock).mockResolvedValue({
+      user: { name: 'E', email: 'early@example.com' },
+      expires: '2999-01-01T00:00:00Z',
+      hasDriveScope: true,
+    });
+    global.fetch = jest.fn((url: string) => {
+      if (url === '/tournament-decks/index.json') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([ledos]) });
+      }
+      if (url === `/tournament-decks/${encodeURIComponent(ledos.file)}`) {
+        return Promise.resolve({ ok: true, text: () => Promise.resolve(TOURNAMENT_TSV) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ files: [] }) });
+    }) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = savedEnv;
+  });
+
+  it('fetches the index in compare mode, and sets the compare deck under its title', async () => {
+    const { result } = renderHook(() => useBuilder());
+    await waitFor(() => expect(result.current.drive.session).not.toBeNull());
+    await act(async () => { await result.current.drive.openComparePicker(); });
+    await waitFor(() => expect(result.current.drive.tournamentEvents).toHaveLength(1));
+    await act(async () => { await result.current.drive.fetchCompareDriveFile({ id: ledosId, name: 'ignored' }); });
+    expect(result.current.drive.compareDeckName).toBe(ledosTitle);
+    expect(result.current.drive.compareDeckRows.map((row) => row.collectorsinfo).sort()).toEqual(['1E1', '1M1']);
+    expect(result.current.deck.deckTitle).not.toBe(ledosTitle);
+    expect(result.current.drive.showDrivePicker).toBe(false);
+  });
+});
