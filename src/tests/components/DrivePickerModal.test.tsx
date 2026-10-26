@@ -801,9 +801,81 @@ describe('DrivePickerModal – the Tournament decks folder (#1310)', () => {
     expect(loadDriveFile).toHaveBeenLastCalledWith({ id, name }, ['mission']);
   });
 
-  it.each(['compare', 'compare-multi', 'reports'] as const)('shows no folder in %s mode', (mode) => {
-    render(<DrivePickerModal {...gatedProps} mode={mode} />);
+  it('shows no folder in reports mode', () => {
+    render(<DrivePickerModal {...gatedProps} mode="reports" />);
     expect(screen.queryByText('Tournament decks')).not.toBeInTheDocument();
+  });
+
+  it.each(['compare', 'compare-multi'] as const)('lists the folder, its events and decks in %s mode (#1311)', (mode) => {
+    render(<DrivePickerModal {...gatedProps} mode={mode} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
+    expect(screen.getByText('Common Ledos Deck')).toBeInTheDocument();
+    expect(screen.getByText(/Michael Van Breemen/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(Rename|Delete|Move)/ })).not.toBeInTheDocument();
+  });
+
+  it('loads a tournament deck under its title in compare mode, with no pile choice (#1311)', () => {
+    const loadDriveFile = jest.fn();
+    render(<DrivePickerModal {...gatedProps} mode="compare" loadDriveFile={loadDriveFile} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Load Common Ledos Deck - Michael Van Breemen' }));
+    expect(loadDriveFile).toHaveBeenCalledWith({
+      id: `tournament:${ledos.file}`,
+      name: 'Common Ledos Deck - Michael Van Breemen - 2026 Worlds Day One',
+    });
+  });
+
+  it('confirms the checked tournament decks with the Drive decks in compare-multi mode (#1311)', () => {
+    const onConfirmSelection = jest.fn();
+    render(
+      <DrivePickerModal {...gatedProps} mode="compare-multi" driveFiles={[driveDeck]} onConfirmSelection={onConfirmSelection} />
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Drive Deck' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Common Ledos Deck - Michael Van Breemen' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Compare 2 decks' }));
+    expect(onConfirmSelection).toHaveBeenCalledWith([
+      driveDeck,
+      { id: `tournament:${ledos.file}`, name: 'Common Ledos Deck - Michael Van Breemen - 2026 Worlds Day One' },
+    ]);
+  });
+
+  it('checks a pre-selected tournament deck again, and keeps it on confirm (#1311)', () => {
+    const onConfirmSelection = jest.fn();
+    const borgRef = { id: `tournament:${borg.file}`, name: 'Big Borg Worlds - Eric R - 2026 Trek Masters' };
+    render(
+      <DrivePickerModal
+        {...gatedProps}
+        mode="compare-multi"
+        preSelectedFiles={[borgRef]}
+        onConfirmSelection={onConfirmSelection}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: '2026 Trek Masters' }));
+    expect(screen.getByRole('checkbox', { name: 'Select Big Borg Worlds - Eric R' })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Compare 1 deck' }));
+    expect(onConfirmSelection).toHaveBeenCalledWith([borgRef]);
+  });
+
+  it('keeps a pre-selected tournament deck on confirm before the index loads (#1311)', () => {
+    const onConfirmSelection = jest.fn();
+    const borgRef = { id: `tournament:${borg.file}`, name: 'Big Borg Worlds - Eric R - 2026 Trek Masters' };
+    render(
+      <DrivePickerModal
+        {...gatedProps}
+        tournamentEvents={[]}
+        mode="compare-multi"
+        preSelectedFiles={[borgRef]}
+        onConfirmSelection={onConfirmSelection}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Compare 1 deck' }));
+    expect(onConfirmSelection).toHaveBeenCalledWith([borgRef]);
   });
 
   it('shows no folder with the gate off', () => {

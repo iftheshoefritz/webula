@@ -7,7 +7,7 @@ import { DriveSignInRows } from './drivePicker/DriveSignInRows';
 import { DRIVE_LIST_ROW_CLASS } from './drivePicker/DriveListRow';
 import { DriveBackRow, isFolder, useDriveFolderView } from './drivePicker/useDriveFolderView';
 import type { DriveFile } from './drivePicker/useDriveFolderView';
-import { tournamentDeckId, tournamentDeckTitle } from '../lib/tournamentDecks';
+import { isTournamentDeckId, tournamentDeckId, tournamentDeckTitle } from '../lib/tournamentDecks';
 import type { TournamentDeck, TournamentEvent } from '../lib/tournamentDecks';
 
 const MAX_COMPARE_SELECTION = 5;
@@ -15,8 +15,9 @@ const MIN_COMPARE_SELECTION = 0;
 
 type PickerMode = 'load' | 'compare' | 'compare-multi' | 'reports';
 
-// The modes that list the read-only "Tournament decks" folder (#1310).
-const TOURNAMENT_DECK_MODES: PickerMode[] = ['load'];
+// The modes that list the read-only "Tournament decks" folder (#1310, #1311). 'reports' lists
+// saved Reports, not decks, so it never does.
+const TOURNAMENT_DECK_MODES: PickerMode[] = ['load', 'compare', 'compare-multi'];
 
 export const TOURNAMENT_FOLDER_NAME = 'Tournament decks';
 
@@ -191,7 +192,17 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   };
   const handleConfirmSelection = () => {
     const selectedFiles = driveFiles.filter((f: DriveFile) => selectedIds.has(f.id));
-    onConfirmSelection?.(selectedFiles);
+    // A tournament deck is not in `driveFiles` (#1311). It confirms under its title, or under the
+    // name it was pre-selected with while the index has not loaded.
+    const selectedTournamentDecks = Array.from(selectedIds)
+      .filter(isTournamentDeckId)
+      .map((id) => {
+        const deck = tournamentEvents.flatMap((e) => e.decks).find((d) => tournamentDeckId(d) === id);
+        if (deck) return { id, name: tournamentDeckTitle(deck) };
+        return preSelectedFiles.find((f) => f.id === id);
+      })
+      .filter((f): f is DriveFile => !!f);
+    onConfirmSelection?.([...selectedFiles, ...selectedTournamentDecks]);
   };
 
   // A tournament deck's row (#1310): its name and player, and the load controls of the mode. It
@@ -199,6 +210,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   const renderTournamentDeckRow = (deck: TournamentDeck) => {
     const id = tournamentDeckId(deck);
     const label = `${deck.deckName} - ${deck.player}`;
+    const file = { id, name: tournamentDeckTitle(deck) };
     return (
       <li key={id} className={DRIVE_LIST_ROW_CLASS} data-testid="tournament-deck-row">
         <span className="flex-1 min-w-0 px-3 truncate" title={label}>
@@ -217,14 +229,25 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
               ))}
             </select>
           )}
-          <button
-            type="button"
-            aria-label={`Load ${label}`}
-            className="btn-icon btn-icon-sm"
-            onClick={() => handleDriveFileSelect({ id, name: tournamentDeckTitle(deck) })}
-          >
-            <FaFolderOpen/>
-          </button>
+          {mode === 'compare-multi' ? (
+            <input
+              type="checkbox"
+              aria-label={`Select ${label}`}
+              className="mr-2"
+              checked={selectedIds.has(id)}
+              disabled={!selectedIds.has(id) && selectedIds.size >= MAX_COMPARE_SELECTION}
+              onChange={() => toggleFileSelection(file)}
+            />
+          ) : (
+            <button
+              type="button"
+              aria-label={`Load ${label}`}
+              className="btn-icon btn-icon-sm"
+              onClick={() => handleDriveFileSelect(file)}
+            >
+              <FaFolderOpen/>
+            </button>
+          )}
         </div>
       </li>
     );

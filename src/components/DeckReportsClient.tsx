@@ -18,6 +18,14 @@ import { CardDef } from '../types';
 import { deckFromTsv } from '../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV, PRACTICE_DECK_TSV_2 } from '../lib/practiceDeck';
 import type { CardData } from '../lib/loadCards';
+import { isEarlyAccessUser } from '../lib/featureFlags';
+import {
+  fetchTournamentDeckText,
+  fetchTournamentDecks,
+  groupTournamentDecks,
+  isTournamentDeckId,
+} from '../lib/tournamentDecks';
+import type { TournamentDeck } from '../lib/tournamentDecks';
 
 interface Session {
   accessToken: string;
@@ -48,7 +56,7 @@ function rowsFromTsv(tsv: string, data: CardData[]): CardDef[] {
 // Fetches the content for each deck ref, reusing already-loaded rows when a ref matches
 // a deck that's already in state. A ref whose file can no longer be fetched (e.g. deleted
 // from Drive since a Report was saved) surfaces as a per-deck load error rather than
-// failing the whole load.
+// failing the whole load. A tournament deck's ref loads from `public/tournament-decks/` (#1311).
 async function fetchDeckRefs(
   files: { id: string; name: string }[],
   data: CardData[],
@@ -59,6 +67,10 @@ async function fetchDeckRefs(
       const existing = cachedDecks.find((d) => d.id === file.id);
       if (existing) return existing;
       try {
+        if (isTournamentDeckId(file.id)) {
+          const text = await fetchTournamentDeckText(file.id);
+          return { id: file.id, name: file.name, rows: rowsFromTsv(text, data) };
+        }
         const response = await fetch(`/api/drive/${file.id}`, { method: 'GET', credentials: 'include' });
         if (!response.ok) throw new Error('Failed to load deck');
         const json = await response.json();
@@ -85,6 +97,18 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
   const [loadingReports, setLoadingReports] = useState(false);
   const [reportName, setReportName] = useState('');
   const [savingReport, setSavingReport] = useState(false);
+  const [tournamentDecks, setTournamentDecks] = useState<TournamentDeck[]>([]);
+
+  // The "Tournament decks" folder shows only to an early-access user with Drive scope (#1286).
+  const showTournamentDecks = !!session?.hasDriveScope && isEarlyAccessUser(session?.user?.email);
+
+  // The index is fetched only when the folder will show: the deck picker is open.
+  useEffect(() => {
+    if (!showDrivePicker || !showTournamentDecks || tournamentDecks.length > 0) return;
+    fetchTournamentDecks().then(setTournamentDecks).catch(() => {
+      // The folder stays empty, and the Drive files still list.
+    });
+  }, [showDrivePicker, showTournamentDecks, tournamentDecks.length]);
 
   useEffect(() => {
     if (!isFixture || data.length === 0) return;
@@ -479,6 +503,8 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
           isSignedIn={!!session}
           hasDriveScope={session?.hasDriveScope ?? false}
           mode="compare-multi"
+          showTournamentDecks={showTournamentDecks}
+          tournamentEvents={groupTournamentDecks(tournamentDecks)}
           onConfirmSelection={handleConfirmSelection}
           preSelectedFiles={decks.map((d) => ({ id: d.id, name: d.name }))}
           browsedFolder={browsedFolder}

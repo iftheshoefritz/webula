@@ -103,13 +103,13 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
   // The "Tournament decks" folder shows only to an early-access user with Drive scope (#1286).
   const showTournamentDecks = !!session?.hasDriveScope && isEarlyAccessUser(session?.user?.email);
 
-  // The index is fetched only when the folder will show: the picker is open in load mode.
+  // The index is fetched only when the folder will show: the picker is open, in load or compare mode.
   useEffect(() => {
-    if (!showDrivePicker || !showTournamentDecks || drivePickerMode !== 'load' || tournamentDecks.length > 0) return;
+    if (!showDrivePicker || !showTournamentDecks || tournamentDecks.length > 0) return;
     fetchTournamentDecks().then(setTournamentDecks).catch(() => {
       // The folder stays empty, and the Drive files still list.
     });
-  }, [showDrivePicker, showTournamentDecks, drivePickerMode, tournamentDecks.length]);
+  }, [showDrivePicker, showTournamentDecks, tournamentDecks.length]);
 
   useEffect(() => {
     (async () => {
@@ -333,7 +333,9 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
       .map((collectorsinfo) => incoming[collectorsinfo].row)
       .filter((row) => row.count > 0);
     setCompareDeckRows(rows);
-    setCompareDeckName(driveFile.name);
+    // A tournament deck compares under its title, `<deckName> - <player> - <event>` (#1311).
+    const deck = isTournamentDeckId(driveFile.id) ? findTournamentDeck(tournamentDecks, driveFile.id) : undefined;
+    setCompareDeckName(deck ? tournamentDeckTitle(deck) : driveFile.name);
     setLoadingFromGDrive(false);
     setShowDrivePicker(false);
     posthog.capture('deckBuilder.compareDeckLoad.end');
