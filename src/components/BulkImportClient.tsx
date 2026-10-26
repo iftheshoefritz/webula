@@ -109,7 +109,6 @@ export default function BulkImportClient() {
         setError(err?.message || 'Failed to load your imported decks');
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareId]);
 
   const handleSignIn = () => {

@@ -131,11 +131,12 @@ is logged in, with `fetch` inside the page.
 
 ## Validation
 
-Before you open or update a PR, run all three commands. All three must pass.
+Before you open or update a PR, run all four commands. All four must pass.
 
 ```bash
 yarn test       # Jest test suite
 yarn typecheck  # tsc --noEmit -p . : the types of every file, the tests too
+yarn lint       # eslint . : ESLint 9 with the flat config, eslint.config.mjs
 yarn build      # type checks of the app code, ESLint, and static page pre-render
 ```
 
@@ -151,9 +152,13 @@ that step catches three more classes of error:
 3. Errors thrown at build time while Next.js pre-renders the static pages.
 
 `next build` prints an ESLint crash, such as `Error while loading rule`, and goes on, so
-a crash lints nothing and still passes. Keep `eslint` at 8.40.0 or later:
-`@next/eslint-plugin-next` 15 reads `context.cwd`, which older ESLint lacks, and every
-file crashed on 8.36.0 (#1233).
+a crash lints nothing and still passes. `yarn lint` runs the ESLint CLI, `eslint .`,
+and fails on a crash (#370). ESLint is on 9, with the flat config `eslint.config.mjs`,
+which brings in `next/core-web-vitals` through `FlatCompat` because
+`eslint-config-next` 15 ships only an eslintrc config. It ignores `.next/`, `public/`
+(the built `sw.js`), `node_modules/` and `coverage/`. Do not move to ESLint 10 while
+`eslint-config-next` is on 15: the `@rushstack/eslint-patch` it loads throws under
+ESLint 10. An `eslint-disable` comment for a rule that reports nothing is a warning.
 
 `next build` compiles every file that `tsconfig.json` includes, and then drops
 each diagnostic from a file that matches `*.test.*`, `*.spec.*`, `__tests__/` or
@@ -163,8 +168,8 @@ before `yarn typecheck` existed (#1062). A helper a test imports, such as
 `src/tests/fixtures/makeCardData.ts`, is not a test file, so the build does
 check it.
 
-CI runs the three commands as three parallel jobs, `test`, `typecheck` and
-`build`, so a red check tells you which one failed. Run them independently while
+CI runs the four commands as four parallel jobs, `test`, `typecheck`, `lint`
+and `build`, so a red check tells you which one failed. Run them independently while
 you work.
 
 Vercel runs two of them in one chain. The `buildCommand` in `vercel.json` is

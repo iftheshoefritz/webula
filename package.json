@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "jest",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit -p ."
@@ -24,7 +24,7 @@
     "chart.js": "^4.5.1",
     "d3": "^7.9.0",
     "encoding": "^0.1.13",
-    "eslint": "8.57.1",
+    "eslint": "^9.39.0",
     "eslint-config-next": "^15.3.0",
     "lodash": "^4.18.1",
     "next": "^15.3.0",
@@ -42,6 +42,7 @@
     "tailwindcss": "^3.3.1"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
