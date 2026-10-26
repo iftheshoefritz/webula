@@ -30,6 +30,7 @@ import {
 import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
+import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
@@ -241,6 +242,7 @@ function GameMenu({
   update,
   undoLabel,
   onUndo,
+  botGame,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -259,6 +261,8 @@ function GameMenu({
   // "Undo: <the last entry>", or null while the log is empty.
   undoLabel: string | null;
   onUndo: () => void;
+  // A game against the dilemma bot (#1289).
+  botGame: boolean;
 }) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -302,6 +306,11 @@ function GameMenu({
             </div>
           ) : (
             <div className="grid w-full max-w-[16rem] grid-cols-1 gap-2 landscape:max-w-[28rem] landscape:grid-cols-2">
+              {botGame && (
+                <p data-testid="game-menu-bot-game" className="text-center text-sm text-text-secondary landscape:col-span-2">
+                  {deckName} vs the bot
+                </p>
+              )}
               {update.updateReady && (
                 <div
                   role="status"
@@ -1382,7 +1391,10 @@ function PracticeDrawContent() {
   const attemptFixturePhase: AttemptPhase | null =
     fixture === 'attempt' ? 'face' : fixture === 'attempt-choose' ? 'choose' : null;
   const isAttemptFixture = attemptFixturePhase !== null;
-  const isFixture = fixture === '1' || isPilesFixture || isAttemptFixture;
+  // `?fixture=bot` (#1289) deals the piles table as a bot game, with the Chula pile in place of the
+  // deck's dilemmas.
+  const isBotFixture = fixture === 'bot';
+  const isFixture = fixture === '1' || isPilesFixture || isAttemptFixture || isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
   // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
   // Browser checks use it with `?fixture=1` to start from the same table every time.
@@ -1615,6 +1627,9 @@ function PracticeDrawContent() {
   // currentDeck. It is kept in page state only: localStorage.currentDeck is the deck builder's
   // working copy and may hold unsaved edits.
   const [loadedDeck, setLoadedDeck] = useState<DeckList | null>(null);
+  // Whether the game dealt now is a bot game (#1289), so Reset of `loadedDeck` deals a bot game
+  // again. A bot game's `loadedDeck` already holds the Chula pile. Every deal sets it.
+  const [botGame, setBotGame] = useState(false);
   // The deck as it was dealt (#779), for the game menu's read-only Decklist panel. Every deal
   // goes through `dealDeck`, so this holds the fixture deck, the builder's deck, or a deck loaded
   // from Drive, whichever the table plays now.
@@ -1657,7 +1672,13 @@ function PracticeDrawContent() {
   // default numbers, and moves the top dilemmas of the pile into the dilemma stack (#1170), as one
   // player action and so one log entry, of cards the player did not see. `tableReducer` is pure and `resetWithPiles` ignores the state it gets, so a
   // second run of the deal gives the table the page gets, and with it the ship's instance id.
-  const dealDeck = (deck: DeckList, fixturePiles = false, fixtureAttemptPhase: AttemptPhase | null = null) => {
+  // A bot game (#1289) gets a deck that already holds the Chula pile, and `opponent: 'bot'`.
+  const dealDeck = (
+    deck: DeckList,
+    fixturePiles = false,
+    fixtureAttemptPhase: AttemptPhase | null = null,
+    opponent?: 'bot'
+  ) => {
     const cards = extractDrawDeck(deck);
     const deal: TableAction = {
       type: fixturePiles ? 'resetWithPiles' : 'reset',
@@ -1669,6 +1690,7 @@ function PracticeDrawContent() {
       dilemmas: createCardInstances(
         fixturePiles ? extractDilemmas(deck) : shuffleArray(extractDilemmas(deck))
       ),
+      ...(opponent ? { opponent } : {}),
     };
     dispatch(deal);
     if (fixtureAttemptPhase) {
@@ -1688,9 +1710,17 @@ function PracticeDrawContent() {
     }
     setDeckEmpty(isDeckEmpty(deck));
     setDealtDeck(deck);
+    setBotGame(opponent === 'bot');
     setDealtOffline(!isBrowserOnline());
     setOpenHand(null);
     saveReadyRef.current = true;
+  };
+
+  // The deck of the fixture route, which the deal and the restore share. The bot fixture's holds the
+  // Chula pile in place of the fixture deck's dilemmas (#1289).
+  const fixtureDeck = (): DeckList => {
+    const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
+    return isBotFixture ? mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']) : deck;
   };
 
   // Restores the game saved under `gameKey` (#976). Returns false when there is none, or
@@ -1703,7 +1733,7 @@ function PracticeDrawContent() {
       if (!raw) return false;
       let currentDeck: DeckList;
       if (isFixture) {
-        currentDeck = deckFromTsv(PRACTICE_DECK_TSV, data);
+        currentDeck = fixtureDeck();
       } else {
         const currentRaw = localStorage.getItem('currentDeck');
         currentDeck = currentRaw ? JSON.parse(currentRaw) : {};
@@ -1713,6 +1743,7 @@ function PracticeDrawContent() {
       seedInstanceIds(restored.maxInstanceId);
       dispatch({ type: 'restore', state: restored.table });
       setDealtDeck(restored.dealtDeck);
+      setBotGame(restored.table.opponent === 'bot');
       setDealtOffline(!isBrowserOnline());
       setDeckEmpty(isDeckEmpty(restored.dealtDeck));
       if (restored.source === 'drive') {
@@ -1729,13 +1760,18 @@ function PracticeDrawContent() {
 
   const initDeck = () => {
     if (loadedDeck) {
-      dealDeck(loadedDeck);
+      dealDeck(loadedDeck, false, null, botGame ? 'bot' : undefined);
       return;
     }
 
     if (isFixture) {
       if (loading || data.length === 0) return;
-      dealDeck(deckFromTsv(PRACTICE_DECK_TSV, data), isPilesFixture || isAttemptFixture, attemptFixturePhase);
+      dealDeck(
+        fixtureDeck(),
+        isPilesFixture || isAttemptFixture || isBotFixture,
+        attemptFixturePhase,
+        isBotFixture ? 'bot' : undefined
+      );
       return;
     }
 
@@ -2659,6 +2695,7 @@ function PracticeDrawContent() {
           update={serviceWorkerUpdate}
           undoLabel={lastLogEntry ? `Undo: ${logEntryText(lastLogEntry)}` : null}
           onUndo={handleUndo}
+          botGame={table.opponent === 'bot'}
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}

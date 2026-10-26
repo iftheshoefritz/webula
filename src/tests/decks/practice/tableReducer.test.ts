@@ -1301,6 +1301,19 @@ describe('resetWithPiles (#802)', () => {
     ].flatMap((c) => [c, ...(c.placedOn ?? [])]);
   const allIds = (state: ReturnType<typeof tableReducer>) => allCards(state).map((c) => c.id);
 
+  it('keeps the bot game flag of the action, and leaves it absent without one (#1289)', () => {
+    const bot = tableReducer(initialTableState, { type: 'resetWithPiles', ...payload(), opponent: 'bot' });
+    expect(bot.opponent).toBe('bot');
+    expect('opponent' in tableReducer(bot, { type: 'resetWithPiles', ...payload() })).toBe(false);
+    expect(tableReducer(initialTableState, { type: 'reset', ...payload(), opponent: 'bot' }).opponent).toBe('bot');
+    expect('opponent' in tableReducer(bot, { type: 'reset', ...payload() })).toBe(false);
+  });
+
+  it('keeps the bot game flag through an action that is not a new game (#1289)', () => {
+    const bot = tableReducer(initialTableState, { type: 'reset', ...payload(), opponent: 'bot' });
+    expect(tableReducer(bot, { type: 'nextTurn' }).opponent).toBe('bot');
+  });
+
   it('places twenty personnel on one mission and a ship with twelve crew on another', () => {
     const state = tableReducer(initialTableState, { type: 'resetWithPiles', ...payload() });
     expect(state.missions[0].awayTeam).toHaveLength(20);

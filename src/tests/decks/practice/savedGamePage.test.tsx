@@ -51,8 +51,11 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import { getSession, signIn } from 'next-auth/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import useDataFetching from '../../../hooks/useDataFetching';
-import { deckFromTsv, extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
+import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
+import { OPPONENT_DILEMMAS, collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
+import { toSavedGame } from '../../../app/decks/practice/savedGame';
+import { createCardInstances, tableReducer, initialTableState } from '../../../app/decks/practice/tableReducer';
 
 const makeCards = (n: number, prefix: string) =>
   Array.from({ length: n }, (_, i) => ({
@@ -388,6 +391,104 @@ describe('Saved practice game (#976)', () => {
     mockSearchParamsValue = new URLSearchParams();
     await renderPage();
     expect(await drawPileCount()).toBe(10);
+  });
+
+  describe('a bot game (#1289)', () => {
+    // The 9 Chula dilemmas in the card data, keyed by collector's info as the loader keys them.
+    const chulaRows = OPPONENT_DILEMMAS.map((d) => ({
+      collectorsinfo: collectorsKey(d.collectorsInfo),
+      originalName: d.title,
+      name: d.title.toLowerCase(),
+      imagefile: `chula_${d.id}`,
+      type: 'dilemma',
+    }));
+    const chulaKeys = new Set(chulaRows.map((r) => r.collectorsinfo));
+    const dilemmaKeys = (save: any) => [
+      ...save.table.dilemmaPile,
+      ...save.table.missions.flatMap((slot: any) => slot.underMission),
+    ].map((c: any) => c.key);
+    const openMenuAndReset = async () => {
+      // The splash opens on every load (#781), so the button opens it only when it is closed.
+      if (!screen.queryByTestId('game-menu-splash')) {
+        await act(async () => {
+          fireEvent.click(screen.getByRole('button', { name: 'Game menu' }));
+        });
+      }
+      expect(screen.getByTestId('game-menu-bot-game')).toHaveTextContent(/vs the bot/);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+      });
+    };
+
+    beforeEach(() => {
+      (useDataFetching as jest.Mock).mockReturnValue({ data: [...builderCards, ...chulaRows], loading: false });
+    });
+
+    it('deals ?fixture=bot with the Chula pile in place of the deck\'s dilemmas, keeps it on a reload, and Reset deals it again', async () => {
+      mockAttemptDeck();
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+      mockSearchParamsValue = new URLSearchParams('fixture=bot&reset=1');
+      const first = await renderPage();
+      const dealt = JSON.parse(localStorage.getItem('practiceGame:fixture=bot')!);
+      expect(dealt.table.opponent).toBe('bot');
+      const keys = dilemmaKeys(dealt);
+      expect(keys).toHaveLength(27);
+      expect(keys.every((k: string) => chulaKeys.has(k))).toBe(true);
+      // The fixture deals in pile order: the 3 dilemmas under Bilana System are the first Chula card.
+      expect(dealt.table.missions[2].underMission.map((c: any) => c.key)).toEqual(
+        Array(3).fill(collectorsKey(OPPONENT_DILEMMAS[0].collectorsInfo)),
+      );
+      await drawOne();
+      first.unmount();
+
+      // A reload without reset=1 restores the bot game: the merged deck matches the save.
+      mockSearchParamsValue = new URLSearchParams('fixture=bot');
+      await renderPage();
+      const restored = JSON.parse(localStorage.getItem('practiceGame:fixture=bot')!);
+      expect(restored.table.opponent).toBe('bot');
+      expect(restored.table.hand).toHaveLength(dealt.table.hand.length + 1);
+
+      await openMenuAndReset();
+      const reset = JSON.parse(localStorage.getItem('practiceGame:fixture=bot')!);
+      expect(reset.table.opponent).toBe('bot');
+      expect(reset.table.hand).toHaveLength(dealt.table.hand.length);
+      expect(dilemmaKeys(reset).every((k: string) => chulaKeys.has(k))).toBe(true);
+    });
+
+    it('deals a restored Drive bot game again on Reset, with a new shuffle of the Chula pile', async () => {
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+      const chulaDeck = Object.fromEntries(
+        chulaRows.map((r) => [r.collectorsinfo, { count: 3, row: { ...r, count: 3, pile: 'dilemmaPile' } }]),
+      );
+      const deck = { ...driveDeck, ...chulaDeck };
+      const table = tableReducer(initialTableState, {
+        type: 'reset',
+        cards: createCardInstances(driveCards),
+        missions: [],
+        dilemmas: createCardInstances(chulaRows.flatMap((r) => Array(3).fill({ ...r, count: 3, pile: 'dilemmaPile' }))),
+        opponent: 'bot',
+      });
+      localStorage.setItem('practiceGame', JSON.stringify(toSavedGame(table, deck, 'drive', 'file-1')));
+
+      await renderPage();
+      (shuffleArray as jest.Mock).mockClear();
+      await openMenuAndReset();
+      const reset = JSON.parse(localStorage.getItem('practiceGame')!);
+      expect(reset.source).toBe('drive');
+      expect(reset.table.opponent).toBe('bot');
+      expect(dilemmaKeys(reset)).toHaveLength(27);
+      expect(dilemmaKeys(reset).every((k: string) => chulaKeys.has(k))).toBe(true);
+      const shuffledDilemmas = (shuffleArray as jest.Mock).mock.calls.find(([cards]) =>
+        cards.length === 27 && cards.every((c: any) => chulaKeys.has(c.collectorsinfo)),
+      );
+      expect(shuffledDilemmas).toBeDefined();
+    });
+
+    it('shows no bot line in the menu of a game of one player', async () => {
+      await renderPage();
+      expect(screen.getByTestId('game-menu-splash')).toBeInTheDocument();
+      expect(screen.queryByTestId('game-menu-bot-game')).toBeNull();
+    });
   });
 
   it('deals a new fixture game with ?fixture=1&reset=1', async () => {

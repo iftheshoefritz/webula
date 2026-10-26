@@ -32,6 +32,9 @@ export const OPPONENT_DILEMMAS: BotDilemma[] = [
 
 export const COPIES_OF_EACH = 3;
 
+/** The card data strips the leading zeros of a number in the collector's info and lowercases it. */
+export const collectorsKey = (info: string) => info.replace(/(^|[^0-9])0+(\d+)/g, '$1$2').toLowerCase();
+
 export const DILEMMA_BY_ID: Record<DilemmaId, BotDilemma> = Object.fromEntries(
   OPPONENT_DILEMMAS.map((d) => [d.id, d]),
 ) as Record<DilemmaId, BotDilemma>;

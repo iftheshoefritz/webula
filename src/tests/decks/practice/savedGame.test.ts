@@ -116,6 +116,27 @@ describe('savedGame', () => {
     expect(fromSavedGame(JSON.stringify(save), deck)).toBeNull();
   });
 
+  it('keeps the bot game flag (#1289)', () => {
+    const json = JSON.stringify(toSavedGame({ ...dealtTable(), opponent: 'bot' }, deck, 'builder'));
+    expect(fromSavedGame(json, deck)!.table.opponent).toBe('bot');
+    expect('opponent' in fromSavedGame(JSON.stringify(toSavedGame(dealtTable(), deck, 'builder')), deck)!.table).toBe(false);
+  });
+
+  it('restores a version-1 save with no bot game flag, and drops a later version (#1289)', () => {
+    const save: any = toSavedGame(dealtTable(), deck, 'builder');
+    const restored = fromSavedGame(JSON.stringify({ ...save, version: 1 }), deck);
+    expect(restored).not.toBeNull();
+    expect(restored!.table.opponent).toBeUndefined();
+    expect(restored!.table).toEqual(dealtTable());
+    expect(fromSavedGame(JSON.stringify({ ...save, version: 3 }), deck)).toBeNull();
+  });
+
+  it('drops an opponent that is not the bot (#1289)', () => {
+    const save: any = toSavedGame(dealtTable(), deck, 'builder');
+    save.table.opponent = 'human';
+    expect('opponent' in fromSavedGame(JSON.stringify(save), deck)!.table).toBe(false);
+  });
+
   it('drops a save with a card whose key is not in the saved deck', () => {
     const save = toSavedGame(dealtTable(), deck, 'drive');
     save.table.hand[0].key = 'missing';

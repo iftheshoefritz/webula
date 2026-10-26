@@ -299,12 +299,15 @@ that. Until #834 lands, this stays a known gap, not a bug to fix.
 ## 9. The dilemma bot
 
 The dilemma bot (#1282) chooses the dilemma stack for the opponent in the dilemma choice. It
-lives in `src/lib/dilemmaBot/`. The page `/dilemma-lab` lets you test it. The practice table does
-not use it yet.
+lives in `src/lib/dilemmaBot/`. The page `/dilemma-lab` lets you test it. The practice table deals
+the Chula pile as the dilemma pile of a bot game (#1289), but the bot does not choose a stack there
+yet.
 
 | Game term | Code | Note |
 |---|---|---|
 | the opponent's dilemma pile | `OPPONENT_DILEMMAS`, `opponentPile()` in `opponentPile.ts` | A fixed pile: 3 copies of each of 9 Chula dilemmas. |
+| the Chula pile on the table | `chulaPileDeck(data)`, `dilemmaIdOf(row)` in `chulaPile.ts`, `collectorsKey` in `opponentPile.ts` | The pile as a `DeckList` of card rows, 27 cards, each found by its collector's info, not its title, since other versions such as `Chula: The Dice (Promo)` share it. `dilemmaIdOf` maps a card back to its `DilemmaId`, or gives `null`. |
+| a game against the bot | `TableState.opponent: 'bot'` | Not a rulebook term. Absent in a game of one player. Only a new game sets or clears it. A bot game's dealt deck is the player's deck with the Chula pile in place of its dilemmas. `?fixture=bot` deals one. |
 | the mission requirements | `RequirementBranch`, `parseRequirementBranches`, `meetsRequirements` in `requirements.ts` | The skills and the attribute checks, such as `Cunning>34`. `parseMissionRequirements` in `src/lib/missionRequirements.ts` reads the skills only. |
 | the attempting personnel, and the copies of Chula: The Game on the mission | `BotAttempt` in `simulator.ts` | **This is not `Attempt` of the practice table** (`TableState.attempt`). |
 | a legal dilemma stack | `isLegalStack`, `legalStacks` in `search.ts` | Drawn dilemmas only, no title twice, a total cost of N or less. |

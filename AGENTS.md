@@ -304,7 +304,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has four fixtures. Each one deals the same table on every load.
+The practice table has five fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -334,6 +334,11 @@ The practice table has four fixtures. Each one deals the same table on every loa
   and starts the same attempt, and stops in the dilemma choice: phase `'choose'`, `drawn` 0, an empty
   dilemma stack and an empty dilemma hand.
   It keeps its game under `practiceGame:fixture=attempt-choose`.
+- `?fixture=bot` (#1289) deals the `?fixture=piles` table, the same cards and the same ids, as a bot
+  game (`TableState.opponent: 'bot'`): the Chula pile of the dilemma bot (`chulaPileDeck`) takes the
+  place of the deck's dilemmas, in pile order, with no shuffle, so the 3 dilemmas under Bilana System
+  are Chula dilemmas. It keeps its game under `practiceGame:fixture=bot`. The game menu of a bot game
+  shows "<deck> vs the bot" (`data-testid="game-menu-bot-game"`), and Reset deals a bot game again.
 
 A tap on the closed hand opens it as an arc along the bottom edge of the screen
 (`data-testid="hand-arc"`, `handArc.ts`, #1125): about half of each card is below the edge, more in

@@ -147,6 +147,9 @@ export interface TableState {
   score: number;
   // The mission attempt in progress (#1163), or absent when none is. Only one runs at a time.
   attempt?: Attempt;
+  // A game against the dilemma bot (#1289), whose dilemma pile is the Chula pile. Absent in a game
+  // of one player. Only a new game (`reset`, `resetWithPiles`) sets or clears it.
+  opponent?: 'bot';
 }
 
 // A mission attempt (#1163): the mission's slot index, the attempting ship at a space mission
@@ -238,7 +241,7 @@ export type TableAction =
   // Ends the attempt in progress, and moves every dilemma still in the dilemma stack under the
   // attempted mission, face up, in stack order (#1170). Does nothing when no attempt is in progress.
   | { type: 'endAttempt' }
-  | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] }
+  | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[]; opponent?: 'bot' }
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
   // state, and the caller passes its max instance ID to `seedInstanceIds` first.
   | { type: 'restore'; state: TableState }
@@ -253,7 +256,7 @@ export type TableAction =
   // the dilemma pile, where `fixtureAttemptStack` takes them for `?fixture=attempt`. The cards come
   // from the deck itself, taken in deck order, so a deck in a fixed order places the same cards
   // every time.
-  | { type: 'resetWithPiles'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[] };
+  | { type: 'resetWithPiles'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[]; opponent?: 'bot' };
 
 export const FIXTURE_HAND = 7;
 export const FIXTURE_AWAY_TEAM = 20;
@@ -852,6 +855,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         missions,
         turn: 1,
         score: 0,
+        ...(action.opponent ? { opponent: action.opponent } : {}),
       };
     }
 
