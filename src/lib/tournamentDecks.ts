@@ -11,6 +11,9 @@ export type TournamentDeck = {
   player: string
   file: string
   source: string
+  // True when the deck's owner gave permission for Webula to show it to every user, not only
+  // to the users with early access.
+  authorizedUse: boolean
 }
 
 export type TournamentEvent = { event: string; decks: TournamentDeck[] }

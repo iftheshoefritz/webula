@@ -689,6 +689,7 @@ describe('DeckReportsClient – tournament decks (#1311)', () => {
     player: 'Michael Van Breemen',
     file: '2026 Worlds Day One - Common Ledos Deck - Michael Van Breemen.txt',
     source: 'https://www.trekcc.org/decklists/?mode=viewdeck&deckID=54412',
+    authorizedUse: false,
   };
   const ledosRef = {
     id: `tournament:${ledos.file}`,

@@ -25,6 +25,7 @@ const ledos = {
   player: 'Michael Van Breemen',
   file: '2026 Worlds Day One - Common Ledos Deck - Michael Van Breemen.txt',
   source: 'https://www.trekcc.org/decklists/?mode=viewdeck&deckID=54412',
+  authorizedUse: false,
 };
 const ledosId = `tournament:${ledos.file}`;
 const ledosTitle = 'Common Ledos Deck - Michael Van Breemen - 2026 Worlds Day One';
