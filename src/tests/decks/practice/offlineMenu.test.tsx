@@ -155,6 +155,18 @@ describe('the offline items of the game menu (#1052)', () => {
     expect(screen.queryByTestId('game-menu-splash')).not.toBeInTheDocument();
   });
 
+  it('reopens on the item list after it closed in the Offline sub-view', async () => {
+    await renderPage();
+    expect(screen.getByTestId('offline-decks-list')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Game menu' }));
+    expect(screen.queryByTestId('game-menu-splash')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Game menu' }));
+    expect(screen.getByTestId('game-menu-splash')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+    expect(screen.queryByTestId('offline-decks-list')).not.toBeInTheDocument();
+  });
+
   it('keeps a download counting after Back, and shows the count on the Offline item', async () => {
     let report: (p: { done: number; total: number; bytes: number }) => void = () => {};
     mockMakeDeckOffline.mockImplementation((_name, _d, _data, onProgress) => {

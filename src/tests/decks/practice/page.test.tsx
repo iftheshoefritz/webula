@@ -1094,17 +1094,19 @@ describe('PracticeDrawPage', () => {
   // Orientation: simulating a MediaQueryListEvent with matches: true causes the overlay to appear
   it('overlay appears when a portrait MediaQueryListEvent fires', async () => {
     let capturedHandler: ((e: MediaQueryListEvent) => void) | null = null;
+    // The page reads `matches` again when the event fires, as a real `MediaQueryList` would report it.
+    let portrait = false;
 
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: jest.fn().mockImplementation((query: string) => ({
-        matches: false,
+        matches: query === '(orientation: portrait)' && portrait,
         media: query,
         onchange: null,
         addListener: jest.fn(),
         removeListener: jest.fn(),
         addEventListener: jest.fn().mockImplementation((_event: string, handler: (e: MediaQueryListEvent) => void) => {
-          capturedHandler = handler;
+          if (query === '(orientation: portrait)') capturedHandler = handler;
         }),
         removeEventListener: jest.fn(),
         dispatchEvent: jest.fn(),
@@ -1123,6 +1125,7 @@ describe('PracticeDrawPage', () => {
 
     // Fire portrait event
     await act(async () => {
+      portrait = true;
       capturedHandler!({ matches: true } as MediaQueryListEvent);
     });
 
