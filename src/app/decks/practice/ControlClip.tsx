@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { ClipFiles } from './controls';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 
 export const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
@@ -10,12 +11,8 @@ export const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 export default function ControlClip({ files, label }: { files: ClipFiles; label: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
-  // Read after the mount, so the pre-rendered page and the first render agree.
-  const [reducedMotion, setReducedMotion] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    setReducedMotion(typeof window.matchMedia === 'function' && window.matchMedia(REDUCED_MOTION_QUERY).matches);
-  }, []);
+  // Null on the server and through hydration, so the pre-rendered page and the first render agree.
+  const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY, null);
 
   useEffect(() => {
     const video = videoRef.current;

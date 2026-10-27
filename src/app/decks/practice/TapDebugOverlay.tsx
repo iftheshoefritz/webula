@@ -8,24 +8,35 @@
 // `?debugTaps=1` turns it on and `?debugTaps=0` turns it off. The choice is stored, so it lasts
 // past a reload and a navigation that drops the parameter.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 
 export const DEBUG_TAPS_KEY = 'practiceDebugTaps';
 // How many of the latest taps keep their dot.
 export const DEBUG_TAP_DOTS = 5;
 
+// Off on the server and through hydration. The parameter is stored when React subscribes, outside
+// render, and React reads the snapshot again after it subscribes, so the snapshot sees the write.
 export function useDebugTaps(param: string | null): boolean {
-  const [on, setOn] = useState(false);
-  useEffect(() => {
+  const subscribe = useCallback(
+    () => {
+      try {
+        if (param === '1') localStorage.setItem(DEBUG_TAPS_KEY, '1');
+        else if (param === '0') localStorage.removeItem(DEBUG_TAPS_KEY);
+      } catch {
+        // No storage: the snapshot falls back to the parameter.
+      }
+      return () => {};
+    },
+    [param]
+  );
+  const getSnapshot = useCallback(() => {
     try {
-      if (param === '1') localStorage.setItem(DEBUG_TAPS_KEY, '1');
-      else if (param === '0') localStorage.removeItem(DEBUG_TAPS_KEY);
-      setOn(localStorage.getItem(DEBUG_TAPS_KEY) === '1');
+      return localStorage.getItem(DEBUG_TAPS_KEY) === '1';
     } catch {
-      setOn(param === '1');
+      return param === '1';
     }
   }, [param]);
-  return on;
+  return useSyncExternalStore(subscribe, getSnapshot, () => false);
 }
 
 type Tap = { id: number; x: number; y: number; target: string };

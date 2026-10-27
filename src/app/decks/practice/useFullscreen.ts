@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
 // The Fullscreen API with Safari's prefixed names (#921). iPadOS Safari and older desktop Safari
 // only have the `webkit` names. iPhone Safari has neither for a `<div>`, so `enabled` is false
@@ -58,28 +58,37 @@ function fullscreenElement(): Element | null {
 
 // Puts `element` into fullscreen and takes it out again. `isFullscreen` follows
 // `fullscreenchange`, so it is right after the player leaves with Escape or a system gesture too.
-export function useFullscreen(element: HTMLElement | null) {
-  // False on the server and on the first render, so the pre-rendered page has no button.
-  const [enabled, setEnabled] = useState(false);
-  const [standalone, setStandalone] = useState<boolean | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  // False on the server and on the first render too, so the pre-rendered page matches (#1207).
-  const [systemControlsInset, setSystemControlsInset] = useState(false);
+const subscribeNothing = () => () => {};
 
-  useEffect(() => {
-    setEnabled(fullscreenEnabled(element));
-    // Unknown until the element mounts, so the button does not show the wrong mode for a render.
-    setStandalone(element ? runsStandalone() : null);
-    setSystemControlsInset(drawsSystemFullscreenControls());
-    const onChange = () => setIsFullscreen(element !== null && fullscreenElement() === element);
-    onChange();
-    document.addEventListener('fullscreenchange', onChange);
-    document.addEventListener('webkitfullscreenchange', onChange);
-    return () => {
-      document.removeEventListener('fullscreenchange', onChange);
-      document.removeEventListener('webkitfullscreenchange', onChange);
-    };
-  }, [element]);
+const subscribeFullscreenChange = (onChange: () => void) => {
+  document.addEventListener('fullscreenchange', onChange);
+  document.addEventListener('webkitfullscreenchange', onChange);
+  return () => {
+    document.removeEventListener('fullscreenchange', onChange);
+    document.removeEventListener('webkitfullscreenchange', onChange);
+  };
+};
+
+export function useFullscreen(element: HTMLElement | null) {
+  // False on the server and through hydration, so the pre-rendered page has no button.
+  const enabled = useSyncExternalStore(
+    subscribeNothing,
+    useCallback(() => fullscreenEnabled(element), [element]),
+    () => false
+  );
+  // Unknown until the element mounts, so the button does not show the wrong mode for a render.
+  const standalone = useSyncExternalStore<boolean | null>(
+    subscribeNothing,
+    useCallback(() => (element ? runsStandalone() : null), [element]),
+    () => null
+  );
+  const isFullscreen = useSyncExternalStore(
+    subscribeFullscreenChange,
+    useCallback(() => element !== null && fullscreenElement() === element, [element]),
+    () => false
+  );
+  // False on the server and through hydration too, so the pre-rendered page matches (#1207).
+  const systemControlsInset = useSyncExternalStore(subscribeNothing, drawsSystemFullscreenControls, () => false);
 
   const toggle = useCallback(() => {
     if (!element) return;

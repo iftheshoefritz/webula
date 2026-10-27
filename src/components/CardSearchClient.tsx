@@ -7,6 +7,7 @@ import SearchPills, { parseFilters } from './SearchPills';
 import SearchResults from './SearchResults';
 import useFilterData from '../hooks/useFilterData';
 import useScrollVisibility from '../hooks/useScrollVisibility';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import type { CardData } from '../lib/loadCards';
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import { PreviewBanner } from './PreviewBanner';
@@ -50,15 +51,7 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
   const [overlayHeight, setOverlayHeight] = useState(112); // 7rem fallback
   const [compactBarHeight, setCompactBarHeight] = useState(52); // fallback
   const [mobileOverlayHeight, setMobileOverlayHeight] = useState(160); // fallback
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 639px)');
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    setIsMobile(mq.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
+  const isMobile = useMediaQuery('(max-width: 639px)', false);
 
   useEffect(() => {
     const el = overlayRef.current;

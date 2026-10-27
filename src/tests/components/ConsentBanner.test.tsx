@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import ConsentBanner from '../../components/ConsentBanner';
 
 jest.mock('next/link', () => {
@@ -64,5 +64,22 @@ describe('ConsentBanner', () => {
     await renderBanner();
 
     expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument();
+  });
+
+  it('hides the banner on Accept, and a remount does not show it again', async () => {
+    await renderBanner();
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+    expect(localStorage.getItem('analytics_consent')).toBe('true');
+
+    await renderBanner();
+    expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+  });
+
+  it('hides the banner on Decline', async () => {
+    await renderBanner();
+    fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+    expect(screen.queryByRole('button', { name: 'Decline' })).not.toBeInTheDocument();
+    expect(localStorage.getItem('analytics_consent')).toBe('false');
   });
 });

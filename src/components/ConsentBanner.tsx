@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import posthog from 'posthog-js';
 
 // Preview deployments and the dev server of an agent browser check (NEXT_PUBLIC_AGENT_BROWSER=1) have
@@ -13,16 +13,19 @@ function bannerIsDisabled() {
   );
 }
 
-export default function ConsentBanner() {
-  const [visible, setVisible] = useState(false);
+// A change in another tab fires `storage`; a write in this tab sets `answered` instead.
+const subscribeStorage = (onChange: () => void) => {
+  window.addEventListener('storage', onChange);
+  return () => window.removeEventListener('storage', onChange);
+};
 
-  useEffect(() => {
-    if (bannerIsDisabled()) return;
-    const consent = localStorage.getItem('analytics_consent');
-    if (consent === null) {
-      setVisible(true);
-    }
-  }, []);
+const consentNeeded = () => !bannerIsDisabled() && localStorage.getItem('analytics_consent') === null;
+
+export default function ConsentBanner() {
+  // Hidden on the server and through hydration, so the pre-rendered page has no banner.
+  const needed = useSyncExternalStore(subscribeStorage, consentNeeded, () => false);
+  const [answered, setAnswered] = useState(false);
+  const visible = needed && !answered;
 
   function accept() {
     localStorage.setItem('analytics_consent', 'true');
@@ -34,12 +37,12 @@ export default function ConsentBanner() {
     if (key) {
       posthog.init(key, { api_host: host, capture_pageview: false });
     }
-    setVisible(false);
+    setAnswered(true);
   }
 
   function decline() {
     localStorage.setItem('analytics_consent', 'false');
-    setVisible(false);
+    setAnswered(true);
   }
 
   if (!visible) return null;
