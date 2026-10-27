@@ -132,4 +132,38 @@ describe('DeckBuilderClient – Mission carousel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Previous mission' }));
     expect(screen.getByText('5 / 5')).toBeInTheDocument();
   });
+
+  // The index is clamped when the number of missions changes, and only then (#1309).
+  it('moves to the last mission when the mission it shows is removed', async () => {
+    const m1 = makeMission('1U001', 'Mission Alpha');
+    const m2 = makeMission('1U002', 'Mission Beta');
+    const m3 = makeMission('1U003', 'Mission Gamma');
+
+    localStorage.setItem(
+      'currentDeck',
+      JSON.stringify({
+        '1U001': { count: 1, row: m1 },
+        '1U002': { count: 1, row: m2 },
+        '1U003': { count: 1, row: m3 },
+      })
+    );
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[m1, m2, m3] as any} columns={[]} />);
+    });
+
+    const nextButton = screen.getByRole('button', { name: 'Next mission' });
+    fireEvent.click(nextButton);
+    fireEvent.click(nextButton);
+    expect(screen.getByText('3 / 5')).toBeInTheDocument();
+
+    // The desktop grid has a Remove button of its own; the carousel's comes last.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove Mission Gamma' }).at(-1)!);
+    expect(screen.getByText('2 / 5')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Remove Mission Beta' })).toHaveLength(2);
+
+    // Next still reaches the empty slots past the last mission.
+    fireEvent.click(nextButton);
+    expect(screen.getByText('3 / 5')).toBeInTheDocument();
+  });
 });

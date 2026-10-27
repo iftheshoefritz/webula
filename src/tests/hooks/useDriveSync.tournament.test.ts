@@ -37,10 +37,6 @@ function useBuilder() {
   const deck = useDeckState({
     data,
     isFixture: false,
-    pendingShareContent: null,
-    pendingShareTitle: null,
-    setPendingShareContent: () => {},
-    setPendingShareWarning: () => {},
     onFullLoad: () => drive.clearDeckSource(),
   });
   const drive = useDriveSync({
@@ -48,6 +44,7 @@ function useBuilder() {
     deckTitle: deck.deckTitle,
     createLackeyTSV: () => '',
     handleFileLoad: deck.handleFileLoad,
+    loadDeckInRender: deck.loadDeckInRender,
     clearDirty: deck.clearDirty,
     deckIsEmpty: Object.keys(deck.currentDeck).length === 0,
   });

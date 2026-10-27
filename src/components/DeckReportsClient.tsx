@@ -110,13 +110,16 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
     });
   }, [showDrivePicker, showTournamentDecks, tournamentDecks.length]);
 
-  useEffect(() => {
-    if (!isFixture || data.length === 0) return;
+  // The fixture decks are built in render from the card data, once for each `data`. The decks can
+  // still be edited through setDecks, and an edit lasts until `data` changes.
+  const [fixtureDecksData, setFixtureDecksData] = useState<typeof data | null>(null);
+  if (isFixture && data.length > 0 && data !== fixtureDecksData) {
+    setFixtureDecksData(data);
     setDecks([
       { id: 'fixture-1', name: 'Fixture deck A', rows: rowsFromTsv(PRACTICE_DECK_TSV, data) },
       { id: 'fixture-2', name: 'Fixture deck B', rows: rowsFromTsv(PRACTICE_DECK_TSV_2, data) },
     ]);
-  }, [isFixture, data]);
+  }
 
   useEffect(() => {
     if (isFixture) return;

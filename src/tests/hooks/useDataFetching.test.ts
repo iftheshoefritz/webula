@@ -161,6 +161,18 @@ describe('useDataFetching', () => {
     expect(result.current.data[0].name).toBe('jean-luc picard');
   });
 
+  it('gives filteredData the same rows as data, and the lower-cased headers as columns (#1309)', async () => {
+    const tsv = buildTsv([baseRow, { ...baseRow, Name: 'Phaser', CollectorsInfo: '1R002' }]);
+    global.fetch = jest.fn().mockResolvedValue({ text: async () => tsv } as any);
+
+    const { result } = renderHook(() => useDataFetching());
+
+    await waitFor(() => expect(result.current.data.length).toBe(2));
+    expect(result.current.filteredData).toHaveLength(2);
+    result.current.filteredData.forEach((row, i) => expect(row).toBe(result.current.data[i]));
+    expect(result.current.columns).toEqual(['name', 'collectorsinfo', 'type', 'keywords', 'imagefile']);
+  });
+
   describe('mission/dilemmatype field normalization', () => {
     it('clears mission field for non-Mission cards', async () => {
       const tsv = buildTsv([{ ...baseRow, Type: 'Personnel', Mission: 'planet', DilemmaType: '' }]);

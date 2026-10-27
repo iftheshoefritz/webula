@@ -82,17 +82,20 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     decrementIncluded,
     clearDeck,
     handleFileLoad,
+    loadDeckInRender,
   } = useDeckState({
     data,
     isFixture,
-    pendingShareContent,
-    pendingShareTitle,
-    setPendingShareContent,
-    setPendingShareWarning,
     // A full load drops the trekcc.org link of a tournament deck (#1310). The callback runs only
     // on a load, after useDriveSync below has given clearDeckSource its value.
     onFullLoad: () => clearDeckSource(),
   });
+
+  const currentDeckRows = useMemo(() => {
+    return Object.keys(currentDeck)
+      .map((collectorsinfo) => currentDeck[collectorsinfo].row)
+      .filter((row) => row.count > 0);
+  }, [currentDeck]);
 
   useEffect(() => {
     (async () => {
@@ -195,9 +198,24 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     deckTitle,
     createLackeyTSV,
     handleFileLoad,
+    loadDeckInRender,
     clearDirty,
     deckIsEmpty: Object.keys(currentDeck).length === 0,
   });
+
+  // A `?share=` deck waits for the card data. Then it loads in render when the deck is empty, and
+  // asks first otherwise. The decision is made once for each shared deck and `data`.
+  const [decidedShare, setDecidedShare] = useState<{ content: string; data: typeof data } | null>(null);
+  if (pendingShareContent && data.length > 0 && (decidedShare?.content !== pendingShareContent || decidedShare.data !== data)) {
+    setDecidedShare({ content: pendingShareContent, data });
+    if (Object.keys(currentDeck).length === 0) {
+      loadDeckInRender(pendingShareTitle || 'shared-deck', pendingShareContent);
+      clearDeckSource();
+      setPendingShareContent(null);
+    } else {
+      setPendingShareWarning(true);
+    }
+  }
 
   const exportLackeyDeckToDisk = () => {
     posthog.capture('deckBuilder.lackeyExport.start');
@@ -276,12 +294,6 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       setTimeout(() => { setShareState('idle'); setShareError(null); }, 3000);
     }
   };
-
-  const currentDeckRows = useMemo(() => {
-    return Object.keys(currentDeck)
-      .map((collectorsinfo) => currentDeck[collectorsinfo].row)
-      .filter((row) => row.count > 0);
-  }, [currentDeck]);
 
   const practiceHref = isFixture ? '/decks/practice?fixture=1' : '/decks/practice';
   const drawDeckEmpty = !currentDeckRows.some((row) => row.pile === 'drawDeck');
@@ -364,9 +376,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
   const missions = currentDeckRows.filter((row) => row.pile === 'mission');
 
-  useEffect(() => {
-    setMissionIndex((i) => Math.min(i, Math.max(0, missions.length - 1)));
-  }, [missions.length]);
+  // The index is clamped only when the number of missions changes, so Previous and Next still
+  // reach the empty slots. The count it was last clamped against is kept to see the change in render.
+  const [clampedMissionCount, setClampedMissionCount] = useState(missions.length);
+  if (missions.length !== clampedMissionCount) {
+    setClampedMissionCount(missions.length);
+    setMissionIndex(Math.min(missionIndex, Math.max(0, missions.length - 1)));
+  }
 
   // Compute available HQ/reportsto filter options from the deck contents.
   // Regular HQ missions (missiontype='h') use their name as the reportsto key.

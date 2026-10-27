@@ -96,11 +96,14 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
     ? { personnel: crewPersonnel, requirements: branches, gameOnMission, choice }
     : null;
 
-  // A result belongs to the inputs it came from.
-  useEffect(() => {
+  // A result belongs to the inputs it came from: when one changes, both results clear in render.
+  const inputs = [missionName, crew, n, gameOnMission, choice, drawn] as const;
+  const [resultInputs, setResultInputs] = useState(inputs);
+  if (inputs.some((input, i) => input !== resultInputs[i])) {
+    setResultInputs(inputs);
     setChosen(null);
     setFull(null);
-  }, [missionName, crew, n, gameOnMission, choice, drawn]);
+  }
 
   const search = useSearchWorker((response) => {
     if (response.id !== requestId.current) return;

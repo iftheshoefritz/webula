@@ -39,6 +39,8 @@ interface UseDriveSyncParams {
   deckTitle: string;
   createLackeyTSV: () => string;
   handleFileLoad: (name: string, contents: string, piles?: DeckPile[]) => void;
+  /** The load of useDeckState that a render may call: it only sets state. */
+  loadDeckInRender: (name: string, contents: string) => void;
   clearDirty: () => void;
   deckIsEmpty: boolean;
 }
@@ -72,7 +74,7 @@ async function fetchDeckText(id: string): Promise<string> {
   return response.json();
 }
 
-export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad, clearDirty, deckIsEmpty }: UseDriveSyncParams) {
+export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad, loadDeckInRender, clearDirty, deckIsEmpty }: UseDriveSyncParams) {
   const [deckFile, setDeckFile] = useLocalStorage<DeckFileRecord>('deckFile', { id: null, name: 'My deck' });
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
@@ -158,16 +160,20 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     handleFileLoad(file.name, file.contents);
   };
 
-  useEffect(() => {
-    if (!pendingDriveFile || data.length === 0) return;
+  // Once the card data is in, the deck loads in render when the deck builder is empty or holds that
+  // same Drive file, and asks first otherwise. The decision is made once for each deck and `data`.
+  const [decidedDriveFile, setDecidedDriveFile] = useState<{ file: typeof pendingDriveFile; data: CardData[] } | null>(null);
+  if (pendingDriveFile && data.length > 0 && (decidedDriveFile?.file !== pendingDriveFile || decidedDriveFile.data !== data)) {
+    setDecidedDriveFile({ file: pendingDriveFile, data });
     if (deckIsEmpty || deckFile?.id === pendingDriveFile.id) {
-      loadPendingDriveFile(pendingDriveFile);
+      // The new deck file has no source, so the deck needs no onFullLoad.
+      setDeckFile({ id: pendingDriveFile.id, name: pendingDriveFile.name });
+      loadDeckInRender(pendingDriveFile.name, pendingDriveFile.contents);
       setPendingDriveFile(null);
     } else {
       setPendingDriveWarning(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingDriveFile, data]);
+  }
 
   const confirmPendingDriveFile = () => {
     if (pendingDriveFile) loadPendingDriveFile(pendingDriveFile);

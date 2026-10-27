@@ -707,3 +707,31 @@ describe('useFilterData — playable:currentDeck (reportsto superset)', () => {
     expect(result).toHaveLength(0);
   });
 });
+
+// The filtered rows are a memoised value, not state that an effect fills (#1309).
+describe('useFilterData — derived from its inputs', () => {
+  const picard = makeCard({ name: 'picard' });
+  const ro = makeCard({ name: 'ensign ro' });
+
+  it('returns the rows of a new search query on the rerender that brings it', () => {
+    const { result, rerender } = renderHook(({ q }) => useFilterData(false, [picard, ro], columns, q), {
+      initialProps: { q: 'name:picard' },
+    });
+    expect(result.current.map((c) => c.name)).toEqual(['picard']);
+    rerender({ q: 'name:ro' });
+    expect(result.current.map((c) => c.name)).toEqual(['ensign ro']);
+  });
+
+  it('reports a result once, and not again on a rerender with equal inputs', () => {
+    const posthog = jest.requireMock('posthog-js').default;
+    posthog.capture.mockClear();
+    const data = [picard, ro];
+    const { rerender } = renderHook(({ q }) => useFilterData(false, data, columns, q), {
+      initialProps: { q: 'name:picard' },
+    });
+    expect(posthog.capture).toHaveBeenCalledTimes(1);
+    expect(posthog.capture).toHaveBeenCalledWith('deckBuilder.setFiltered', { q: 'name:picard' });
+    rerender({ q: 'name:picard' });
+    expect(posthog.capture).toHaveBeenCalledTimes(1);
+  });
+});
