@@ -1,5 +1,6 @@
 import React from 'react';
 import { act, render, screen } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import CardPreview, { FACE_DOWN_LABEL } from '../../../app/decks/practice/CardPreview';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import { FINE_POINTER_QUERY, useFinePointer } from '../../../app/decks/practice/useFinePointer';
@@ -42,25 +43,32 @@ describe('useFinePointer (#946)', () => {
     setMatchMedia(original);
   });
 
-  function mockMatchMedia(matches: boolean) {
+  function mockMatchMedia(initial: boolean) {
     const listeners: ((e: MediaQueryListEvent) => void)[] = [];
+    const state = { matches: initial };
     const matchMedia = jest.fn((query: string) => ({
-      matches: query === FINE_POINTER_QUERY && matches,
+      matches: query === FINE_POINTER_QUERY && state.matches,
       media: query,
       addEventListener: (_: string, l: (e: MediaQueryListEvent) => void) => listeners.push(l),
       removeEventListener: jest.fn(),
     }));
     setMatchMedia(matchMedia as unknown as typeof window.matchMedia);
-    return { matchMedia, listeners };
+    return { matchMedia, listeners, state };
   }
 
   it('is true on a desktop and follows a change of the pointer', () => {
-    const { matchMedia, listeners } = mockMatchMedia(true);
+    const { matchMedia, listeners, state } = mockMatchMedia(true);
     render(<Probe />);
     expect(matchMedia).toHaveBeenCalledWith('(pointer: fine)');
     expect(screen.getByTestId('fine')).toHaveTextContent('true');
+    state.matches = false;
     act(() => listeners.forEach((l) => l({ matches: false } as MediaQueryListEvent)));
     expect(screen.getByTestId('fine')).toHaveTextContent('false');
+  });
+
+  it('is false in a server render, even on a desktop (#1207)', () => {
+    mockMatchMedia(true);
+    expect(renderToString(<Probe />)).toContain('false');
   });
 
   it('is false on a touch device', () => {

@@ -1,7 +1,8 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import ControlsPanel from '../../../app/decks/practice/ControlsPanel';
-import { REDUCED_MOTION_QUERY } from '../../../app/decks/practice/ControlClip';
+import { renderToString } from 'react-dom/server';
+import ControlClip, { REDUCED_MOTION_QUERY } from '../../../app/decks/practice/ControlClip';
 import { CONTROL_ROWS, clipFiles, type ControlRow } from '../../../app/decks/practice/controls';
 
 // #1090: the playback of a row's clip in the Controls panel. These tests use rows made here, so
@@ -124,6 +125,14 @@ describe('ControlClip in the Controls panel (#1090)', () => {
 
     fireEvent.click(video);
     expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders on the server with reduced motion unknown: no loop and no tap to play (#1308)', () => {
+    mockMedia({ reducedMotion: true });
+    const html = renderToString(<ControlClip files={clipFiles(clipRow, 'touch')!} label="A test gesture" />);
+    expect(html).toContain('data-testid="control-clip"');
+    expect(html).not.toContain('loop');
+    expect(html).not.toContain('cursor-pointer');
   });
 
   it('hides the video on an error and keeps the row text', () => {

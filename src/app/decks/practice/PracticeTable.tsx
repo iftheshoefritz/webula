@@ -8,7 +8,6 @@ import React, {
   useReducer,
   useRef,
   useState,
-  useSyncExternalStore,
 } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -38,6 +37,7 @@ import {
 } from '../deckBuilderUtils';
 import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
 import { cardDisplayName } from '../../../lib/cardCount';
@@ -443,18 +443,6 @@ function GameMenu({
     </>
   );
 }
-
-// Whether the screen is in portrait, kept up to date by the media query's `change` event. The
-// server render, and a browser with no `matchMedia`, count as landscape.
-const PORTRAIT_QUERY = '(orientation: portrait)';
-const subscribePortrait = (onChange: () => void) => {
-  if (typeof window.matchMedia !== 'function') return () => {};
-  const mql = window.matchMedia(PORTRAIT_QUERY);
-  mql.addEventListener('change', onChange);
-  return () => mql.removeEventListener('change', onChange);
-};
-const isPortraitNow = (): boolean =>
-  typeof window.matchMedia === 'function' && Boolean(window.matchMedia(PORTRAIT_QUERY).matches);
 
 function RotateDeviceOverlay() {
   return (
@@ -1473,7 +1461,8 @@ function PracticeDrawContent() {
     }),
     []
   );
-  const isPortrait = useSyncExternalStore(subscribePortrait, isPortraitNow, () => false);
+  // The server render, and a browser with no `matchMedia`, count as landscape.
+  const isPortrait = useMediaQuery('(orientation: portrait)', false);
   // The game menu (#722): open on every load (#781), so a new player finds the game controls.
   // Nothing is stored; the first press outside the menu closes it. `menu=0` in the URL starts
   // it closed (#1028), so a browser check's first drag is not covered by the splash. It is read

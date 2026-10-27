@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { VirtuosoGrid, Virtuoso } from "react-virtuoso";
 import { CardDef, DeckList } from "../types";
 import { AFFILIATION_ICONS } from "../lib/missionRequirements";
+import { useIsClient } from "../hooks/useMediaQuery";
 
 const INLINE_ICON_MAP: Record<string, string> = {
   // Personnel/card icons
@@ -123,13 +124,9 @@ export default function SearchResults({
 }: SearchResultsProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [imageStyle, setImageStyle] = useState({});
-  const [mounted, setMounted] = useState(false);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   // SSR guard: document.body doesn't exist during server-side rendering
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsClient();
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleHover = useCallback(
     (
