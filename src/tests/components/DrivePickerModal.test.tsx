@@ -726,6 +726,7 @@ describe('DrivePickerModal – the Tournament decks folder (#1310)', () => {
     player,
     file: `${event} - ${deckName} - ${player}.txt`,
     source: 'https://www.trekcc.org/decklists/?mode=viewdeck&deckID=2',
+    authorizedUse: false,
   });
   const ledos = tournamentDeck('2026 Worlds Day One', 'Common Ledos Deck', 'Michael Van Breemen');
   const borg = tournamentDeck('2026 Trek Masters', 'Big Borg Worlds', 'Eric R');

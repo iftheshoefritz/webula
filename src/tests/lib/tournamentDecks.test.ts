@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   fetchTournamentDeckText,
   fetchTournamentDecks,
@@ -18,6 +20,7 @@ const deck = (event: string, deckName: string, player: string): TournamentDeck =
   player,
   file: `${event} - ${deckName} - ${player}.txt`,
   source: 'https://www.trekcc.org/decklists/?mode=viewdeck&deckID=2',
+  authorizedUse: false,
 });
 
 describe('tournamentDecks', () => {
@@ -64,5 +67,13 @@ describe('tournamentDecks', () => {
     await expect(fetchTournamentDecks()).resolves.toEqual(decks);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith('/tournament-decks/index.json');
+  });
+
+  it('gives every row of the real index an authorizedUse of true or false', () => {
+    const rows = JSON.parse(
+      readFileSync(join(process.cwd(), 'public', 'tournament-decks', 'index.json'), 'utf-8')
+    ) as TournamentDeck[];
+    const missing = rows.filter((row) => typeof row.authorizedUse !== 'boolean').map((row) => row.file);
+    expect(missing).toEqual([]);
   });
 });

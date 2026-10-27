@@ -125,6 +125,10 @@ command.
 `index.json` in that folder lists them, with the event, the player and the trekcc
 deck ID. When you add a deck file, add its row to `index.json`.
 
+The `authorizedUse` field of a row is `true` only when the deck's owner gave Webula
+permission to show the deck to every user. Give a new row `false` until the owner
+agrees. A deck with `false` is for the users with early access only.
+
 The DeckPADD download (`/decklists/?mode=download&deckID=<id>`) needs a trekcc.org
 login, and Cloudflare blocks `curl`. Get the files from a browser where the owner
 is logged in, with `fetch` inside the page.
