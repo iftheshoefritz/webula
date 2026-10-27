@@ -105,4 +105,16 @@ describe('DilemmaLabClient search feedback', () => {
     expect(screen.getByTestId('lab-comparison')).toBeInTheDocument();
     expect(screen.queryByTestId('lab-status')).toBeNull();
   });
+
+  // A result belongs to the inputs it came from (#1309).
+  it('clears both results when an input changes', () => {
+    renderWithCrew();
+    fireEvent.click(screen.getByTestId('lab-choose'));
+    fireEvent.click(screen.getByTestId('lab-full'));
+    expect(screen.getByTestId('lab-comparison')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('lab-n'), { target: { value: '3' } });
+    expect(screen.queryByTestId('lab-comparison')).toBeNull();
+    expect(screen.getByTestId('lab-full-hint')).toBeInTheDocument();
+  });
 });

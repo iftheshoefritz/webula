@@ -19,10 +19,6 @@ import { PRACTICE_DECK_TSV } from '../lib/practiceDeck';
 interface UseDeckStateParams {
   data: CardData[];
   isFixture: boolean;
-  pendingShareContent: string | null;
-  pendingShareTitle: string | null;
-  setPendingShareContent: (content: string | null) => void;
-  setPendingShareWarning: (warning: boolean) => void;
   /** Called on every load that replaces the whole deck: a Drive file, a file upload, a shared deck. */
   onFullLoad?: () => void;
 }
@@ -30,10 +26,6 @@ interface UseDeckStateParams {
 export function useDeckState({
   data,
   isFixture,
-  pendingShareContent,
-  pendingShareTitle,
-  setPendingShareContent,
-  setPendingShareWarning,
   onFullLoad,
 }: UseDeckStateParams) {
   const [localCurrentDeck, setLocalCurrentDeck] = useLocalStorage<DeckList>('currentDeck', {});
@@ -59,36 +51,47 @@ export function useDeckState({
     setIsDirty(true);
   }, [currentDeck, deckTitle]);
 
-  useEffect(() => {
-    if (!isFixture || data.length === 0) return;
+  // The fixture deck is built in render from the card data, once for each `data`. It can still be
+  // edited through setCurrentDeck, and an edit lasts until `data` changes.
+  const [fixtureDeckData, setFixtureDeckData] = useState<CardData[] | null>(null);
+  if (isFixture && data.length > 0 && data !== fixtureDeckData) {
+    setFixtureDeckData(data);
     setFixtureCurrentDeck(deckFromTsv(PRACTICE_DECK_TSV, data));
-  }, [data, isFixture]);
+  }
 
-  const handleFileLoad = (name: string, contents: string, piles?: DeckPile[]) => {
-    posthog.capture('deckBuilder.handleFileLoad.start');
-
+  // Sets the state of a load and nothing more.
+  const setLoadedDeck = (name: string, contents: string, piles?: DeckPile[]) => {
     const incoming = deckFromTsv(contents, data);
     const next = piles ? mergeDeckPiles(currentDeck, incoming, piles) : incoming;
     setCurrentDeck(next);
-    if (!piles) onFullLoad?.();
     if (name && !piles) {
       setDeckTitle(name.replace('.txt', ''));
       setMissionBranchSelections({});
     }
+  };
+
+  const handleFileLoad = (name: string, contents: string, piles?: DeckPile[]) => {
+    posthog.capture('deckBuilder.handleFileLoad.start');
+    setLoadedDeck(name, contents, piles);
+    if (!piles) onFullLoad?.();
     posthog.capture('deckBuilder.handleFileLoad.finish', { lines: Object.keys(currentDeck).length });
   };
 
+  // A load that a render makes: a `?share=` deck or a `?driveFile=` deck once the card data is in.
+  // It only sets state, so it neither reports nor calls onFullLoad; the caller clears the deck's
+  // source itself. The report waits for the load to commit, in the effect below, so a render that
+  // runs twice or is thrown away reports nothing extra.
+  const [renderLoad, setRenderLoad] = useState<{ lines: number } | null>(null);
+  const loadDeckInRender = (name: string, contents: string) => {
+    setLoadedDeck(name, contents);
+    setRenderLoad({ lines: Object.keys(currentDeck).length });
+  };
+
   useEffect(() => {
-    if (!pendingShareContent || data.length === 0) return;
-    const deckIsEmpty = Object.keys(currentDeck).length === 0;
-    if (deckIsEmpty) {
-      handleFileLoad(pendingShareTitle || 'shared-deck', pendingShareContent);
-      setPendingShareContent(null);
-    } else {
-      setPendingShareWarning(true);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingShareContent, data]);
+    if (!renderLoad) return;
+    posthog.capture('deckBuilder.handleFileLoad.start');
+    posthog.capture('deckBuilder.handleFileLoad.finish', { lines: renderLoad.lines });
+  }, [renderLoad]);
 
   const incrementIncluded = useCallback(
     (row: CardDef) => {
@@ -152,6 +155,7 @@ export function useDeckState({
     decrementIncluded,
     clearDeck,
     handleFileLoad,
+    loadDeckInRender,
   };
 }
 

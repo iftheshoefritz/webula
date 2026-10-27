@@ -167,10 +167,10 @@ Tailwind imports.
 `Error while loading rule` (#370). ESLint is on 9, with the flat config
 `eslint.config.mjs`, which imports the flat config of `eslint-config-next/core-web-vitals`
 directly. It ignores `.next/`, `public/` (the built `sw.js`), `node_modules/` and
-`coverage/`. `eslint-config-next` 16 brings `eslint-plugin-react-hooks` 7, and three of
-its React Compiler rules, `react-hooks/refs`, `react-hooks/set-state-in-effect` and
-`react-hooks/preserve-manual-memoization`, are set to warn until #1302 fixes what they
-report. An `eslint-disable` comment for a rule that reports nothing is a warning.
+`coverage/`. `eslint-config-next` 16 brings `eslint-plugin-react-hooks` 7, and its React
+Compiler rules, `react-hooks/refs`, `react-hooks/set-state-in-effect` and
+`react-hooks/preserve-manual-memoization` among them, are at their `eslint-config-next`
+defaults, errors (#1302). An `eslint-disable` comment for a rule that reports nothing is a warning.
 
 CI runs the four commands as four parallel jobs, `test`, `typecheck`, `lint`
 and `build`, so a red check tells you which one failed. Run them independently while

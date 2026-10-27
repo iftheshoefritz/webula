@@ -21,9 +21,12 @@ export default function BulkImportClient() {
   const callbackUrl = shareId ? `/import-trekcc/bulk?share=${shareId}` : '/import-trekcc/bulk';
 
   const [decks, setDecks] = useState<DeckPayload[] | null>(null);
-  const [status, setStatus] = useState<'loading' | 'needs-signin' | 'saving' | 'done' | 'error'>('loading');
+  const [fetchStatus, setStatus] = useState<'loading' | 'needs-signin' | 'saving' | 'done' | 'error'>('loading');
   const [results, setResults] = useState<DeckResult[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [fetchError, setError] = useState<string | null>(null);
+  // With no import batch there is nothing to fetch, and the page shows the error.
+  const status = shareId ? fetchStatus : 'error';
+  const error = shareId ? fetchError : 'Missing import batch — try the bookmarklet again.';
 
   const saveDecks = async (decksToSave: DeckPayload[]) => {
     setStatus('saving');
@@ -84,11 +87,7 @@ export default function BulkImportClient() {
   };
 
   useEffect(() => {
-    if (!shareId) {
-      setStatus('error');
-      setError('Missing import batch — try the bookmarklet again.');
-      return;
-    }
+    if (!shareId) return;
     (async () => {
       try {
         const pasteResponse = await fetch(`/api/share?id=${shareId}`);
