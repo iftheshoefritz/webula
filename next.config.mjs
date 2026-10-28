@@ -42,6 +42,12 @@ const nextConfig = {
   // button sits in the bottom-left corner and covers page elements there, such as the practice
   // draw pile. Build errors still show.
   devIndicators: process.env.NEXT_PUBLIC_AGENT_BROWSER === '1' ? false : undefined,
+  // The routes of the Championship decks read the top-level `championship-decks/` folder with a
+  // computed path, which the trace does not follow, so the folder is named here (#1327).
+  outputFileTracingIncludes: {
+    '/api/championship-decks': ['./championship-decks/**/*'],
+    '/api/championship-decks/*': ['./championship-decks/**/*'],
+  },
   env: {
     // Vercel sets VERCEL_ENV on the server only. Expose it so client components can tell a
     // preview deployment from production.

@@ -57,6 +57,7 @@ import React from 'react';
 import { render, act, screen, fireEvent } from '@testing-library/react';
 import { signIn } from 'next-auth/react';
 import DeckBuilderClient from '../../components/DeckBuilderClient';
+import { resetChampionshipDecksCache } from '../../lib/championshipDecks';
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,9 @@ describe('DeckBuilderClient – Drive scope signIn', () => {
     localStorage.clear();
     capturedOnSignIn = null;
     mockSearchParamsValue = new URLSearchParams();
+    // The picker fetches the Championship decks index for a signed-out user too (#1327).
+    resetChampionshipDecksCache();
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => [] }) as unknown as typeof fetch;
   });
 
   it('shows save button even when not logged in and triggers signIn with drive scope when clicked', async () => {

@@ -12,6 +12,7 @@ interface ChampionshipDeckRow {
   deckName: string;
   player: string;
   file: string;
+  authorizedUse: boolean;
 }
 
 /** A page to test the dilemma bot (#1282): set a mission, a crew and N, and see the stack it chooses. */
@@ -46,8 +47,12 @@ export default function DilemmaLabPage() {
     OPPONENT_DILEMMAS.map((d) => [d.id, data.find((c) => c.collectorsinfo === collectorsKey(d.collectorsInfo))]),
   ) as Record<DilemmaId, CardData>;
 
-  const folder = join(process.cwd(), 'public', 'championship-decks');
-  const index: ChampionshipDeckRow[] = JSON.parse(readFileSync(join(folder, 'index.json'), 'utf-8'));
+  // The page is public and static, so it lists only the decks whose owners gave permission to show
+  // them to every user (#1327). The others' labels and names never reach its HTML.
+  const folder = join(process.cwd(), 'championship-decks');
+  const index: ChampionshipDeckRow[] = (
+    JSON.parse(readFileSync(join(folder, 'index.json'), 'utf-8')) as ChampionshipDeckRow[]
+  ).filter((row) => row.authorizedUse);
   const personnelNames = new Set(personnel.map((p) => p.originalName));
   const missionNames = new Set(missions.map((m) => m.name));
   const decks: LabDeck[] = index.map((row) => {

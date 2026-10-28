@@ -58,7 +58,7 @@ type PickerProps = {
   onBrowseFolder?: (folder: DriveFile | null) => void
   /** Called with a deck file and the id of the folder to move it into ('appDataFolder' for root), in 'load' mode. */
   onMoveFile?: (file: DriveFile, targetParentId: string) => void
-  /** The early-access gate of the "Championship decks" folder (#1310): true lists it, in the modes that show it. */
+  /** True lists the "Championship decks" folder, in the modes that show it, with or without Drive (#1310, #1327). */
   showChampionshipDecks?: boolean
   /** The Championship decks, by event. They are read-only and stay out of `driveFiles`. */
   championshipEvents?: ChampionshipEvent[]
@@ -295,6 +295,47 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     );
   };
 
+  // The "Championship decks" folder needs no Drive (#1327): it shows to a user without Drive scope,
+  // or not signed in at all, below the sign-in rows. Inside it, the back row, the events, and the
+  // decks of the event browsed.
+  const championshipBrowseRows = isBrowsingChampionship && (
+    <>
+      <DriveBackRow
+        folder={{ id: 'championship', name: browsedEvent?.event ?? CHAMPIONSHIP_FOLDER_NAME }}
+        onBack={() => setPublicFolderView(browsedEvent ? { folder: 'championship', event: null } : null)}
+      />
+      {!browsedEvent && championshipEvents.map((event) => (
+        <li key={event.event} className={DRIVE_LIST_ROW_CLASS}>
+          <button
+            type="button"
+            className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
+            onClick={() => setPublicFolderView({ folder: 'championship', event: event.event })}
+            title={event.event}
+          >
+            <FaFolder className="inline mr-2" />{event.event}
+          </button>
+        </li>
+      ))}
+      {!browsedEvent && championshipEvents.length === 0 && (
+        <li className="text-text-primary px-3 py-1">please wait...</li>
+      )}
+      {browsedEvent?.decks.map((deck) => renderChampionshipDeckRow(deck))}
+    </>
+  );
+
+  const championshipFolderRow = showChampionshipFolder && (
+    <li className={DRIVE_LIST_ROW_CLASS}>
+      <button
+        type="button"
+        className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
+        onClick={() => setPublicFolderView({ folder: 'championship', event: null })}
+        title={CHAMPIONSHIP_FOLDER_NAME}
+      >
+        <FaFolder className="inline mr-2" />{CHAMPIONSHIP_FOLDER_NAME}
+      </button>
+    </li>
+  );
+
   const title = mode === 'compare-multi' ? 'Compare decks'
     : mode === 'compare' ? 'Compare deck'
     : mode === 'reports' ? 'Your Reports'
@@ -307,34 +348,18 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
             <div className="max-h-64 overflow-y-auto overflow-x-hidden">
               <ul className="w-full divide-y divide-white/[0.06]">
                 {!isSignedIn || !hasDriveScope ? (
-                  <DriveSignInRows isSignedIn={isSignedIn} hasDriveScope={hasDriveScope} onSignIn={onSignIn} />
+                  isBrowsingChampionship ? championshipBrowseRows : (
+                    <>
+                      <DriveSignInRows isSignedIn={isSignedIn} hasDriveScope={hasDriveScope} onSignIn={onSignIn} />
+                      {championshipFolderRow}
+                    </>
+                  )
                 ) : (
                   <>
                     {inProgress && (
                       <li className="text-text-primary px-3 py-1">please wait...</li>
                     )}
-                    {!inProgress && isBrowsingChampionship && (
-                      <DriveBackRow
-                        folder={{ id: 'championship', name: browsedEvent?.event ?? CHAMPIONSHIP_FOLDER_NAME }}
-                        onBack={() => setPublicFolderView(browsedEvent ? { folder: 'championship', event: null } : null)}
-                      />
-                    )}
-                    {!inProgress && isBrowsingChampionship && !browsedEvent && championshipEvents.map((event) => (
-                      <li key={event.event} className={DRIVE_LIST_ROW_CLASS}>
-                        <button
-                          type="button"
-                          className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
-                          onClick={() => setPublicFolderView({ folder: 'championship', event: event.event })}
-                          title={event.event}
-                        >
-                          <FaFolder className="inline mr-2" />{event.event}
-                        </button>
-                      </li>
-                    ))}
-                    {!inProgress && isBrowsingChampionship && !browsedEvent && championshipEvents.length === 0 && (
-                      <li className="text-text-primary px-3 py-1">please wait...</li>
-                    )}
-                    {!inProgress && browsedEvent?.decks.map((deck) => renderChampionshipDeckRow(deck))}
+                    {!inProgress && championshipBrowseRows}
                     {!inProgress && isBrowsingBeginner && (
                       <DriveBackRow folder={{ id: 'beginner', name: BEGINNER_FOLDER_NAME }} onBack={() => setPublicFolderView(null)} />
                     )}
@@ -392,18 +417,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                         )}
                       </li>
                     )}
-                    {!inProgress && showChampionshipFolder && (
-                      <li className={DRIVE_LIST_ROW_CLASS}>
-                        <button
-                          type="button"
-                          className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
-                          onClick={() => setPublicFolderView({ folder: 'championship', event: null })}
-                          title={CHAMPIONSHIP_FOLDER_NAME}
-                        >
-                          <FaFolder className="inline mr-2" />{CHAMPIONSHIP_FOLDER_NAME}
-                        </button>
-                      </li>
-                    )}
+                    {!inProgress && championshipFolderRow}
                     {!inProgress && showBeginnerFolder && (
                       <li className={DRIVE_LIST_ROW_CLASS}>
                         <button
@@ -600,7 +614,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
               </ul>
             </div>
           </div>
-          {mode === 'compare-multi' && isSignedIn && hasDriveScope && (
+          {mode === 'compare-multi' && ((isSignedIn && hasDriveScope) || showChampionshipFolder) && (
             <div className="flex items-center justify-between pt-3">
               <span className="text-text-secondary text-sm">{selectedIds.size} selected</span>
               <button

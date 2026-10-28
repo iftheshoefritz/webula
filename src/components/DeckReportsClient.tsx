@@ -18,8 +18,7 @@ import { CardDef } from '../types';
 import { deckFromTsv } from '../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV, PRACTICE_DECK_TSV_2 } from '../lib/practiceDeck';
 import type { CardData } from '../lib/loadCards';
-import { isEarlyAccessUser } from '../lib/featureFlags';
-import { fetchChampionshipDecks, groupChampionshipDecks } from '../lib/championshipDecks';
+import { fetchChampionshipDecks, groupChampionshipDecks, visibleChampionshipDecks } from '../lib/championshipDecks';
 import type { ChampionshipDeck } from '../lib/championshipDecks';
 import { fetchBeginnerDecks, visibleBeginnerDecks } from '../lib/beginnerDecks';
 import type { BeginnerDeck } from '../lib/beginnerDecks';
@@ -95,18 +94,29 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
   const [loadingReports, setLoadingReports] = useState(false);
   const [reportName, setReportName] = useState('');
   const [savingReport, setSavingReport] = useState(false);
-  const [championshipDecks, setChampionshipDecks] = useState<ChampionshipDeck[]>([]);
+  // The index rows the API route gave, and the email they were fetched for (#1327).
+  const [fetchedChampionshipDecks, setFetchedChampionshipDecks] =
+    useState<{ email: string; decks: ChampionshipDeck[] } | null>(null);
+  const championshipEmail = session?.user?.email ?? '';
 
-  // The "Championship decks" folder shows only to an early-access user with Drive scope (#1286).
-  const showChampionshipDecks = !!session?.hasDriveScope && isEarlyAccessUser(session?.user?.email);
+  // The "Championship decks" folder shows to every user, a signed-out user too, when it holds a deck
+  // that `visibleChampionshipDecks` lets the user see (#1327). The route filters the index already;
+  // the filter here is a second line. Rows fetched for another email do not show.
+  const championshipDecks = fetchedChampionshipDecks?.email === championshipEmail
+    ? visibleChampionshipDecks(fetchedChampionshipDecks.decks, championshipEmail)
+    : [];
+  const showChampionshipDecks = championshipDecks.length > 0;
 
-  // The index is fetched only when the folder will show: the deck picker is open.
+  // The index is fetched only when the folder can show: the deck picker is open. It is fetched again
+  // when the signed-in email changes.
   useEffect(() => {
-    if (!showDrivePicker || !showChampionshipDecks || championshipDecks.length > 0) return;
-    fetchChampionshipDecks().then(setChampionshipDecks).catch(() => {
-      // The folder stays empty, and the Drive files still list.
-    });
-  }, [showDrivePicker, showChampionshipDecks, championshipDecks.length]);
+    if (!showDrivePicker || fetchedChampionshipDecks?.email === championshipEmail) return;
+    fetchChampionshipDecks(championshipEmail)
+      .then((decks) => setFetchedChampionshipDecks({ email: championshipEmail, decks }))
+      .catch(() => {
+        // The folder stays hidden, and the Drive files still list.
+      });
+  }, [showDrivePicker, championshipEmail, fetchedChampionshipDecks?.email]);
 
   // The "Beginner decks" folder shows to every user with Drive scope (#1323).
   const [allBeginnerDecks, setAllBeginnerDecks] = useState<BeginnerDeck[]>([]);

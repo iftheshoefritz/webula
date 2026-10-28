@@ -121,14 +121,25 @@ Converts trekcc.org DeckPADD deck files to the LackeyCCG deck format that the de
 builder reads. The comment at the top of the script describes both formats and the
 command.
 
-`public/championship-decks/` holds the converted Championship decks, the decks of the 2026
-championship events.
-`index.json` in that folder lists them, with the event, the player and the trekcc
-deck ID. When you add a deck file, add its row to `index.json`.
+`championship-decks/`, at the top of the repository, holds the converted Championship decks,
+the decks of the 2026 championship events. It is not under `public/`, and neither its
+`index.json` nor a deck file has a public URL (#1327). `index.json` in that folder lists them,
+with the event, the player and the trekcc deck ID. When you add a deck file, add its row to
+`index.json`. A test fails when `public/` holds a Championship deck file.
 
 The `authorizedUse` field of a row is `true` only when the deck's owner gave Webula
 permission to show the deck to every user. Give a new row `false` until the owner
 agrees. A deck with `false` is for the users with early access only.
+
+Two API routes serve the folder, and both apply `visibleChampionshipDecks`
+(`src/lib/championshipDecks.ts`) to the caller's email from the NextAuth JWT:
+`/api/championship-decks` returns the rows the caller may see, and
+`/api/championship-decks/<file>` returns the text of a deck the caller may see, and a 404 for
+anything else. An early-access user gets every row; any other user, a signed-out user too, only
+the `authorizedUse` rows. So an `authorizedUse: false` deck is served only to early-access
+users. `outputFileTracingIncludes` in `next.config.mjs` puts the folder into the routes'
+function bundle, so check a change to it with `yarn build && yarn start`. The dilemma lab
+reads the folder at build time and lists only the `authorizedUse` decks.
 
 `public/beginner-decks/` holds the converted Beginner Decks of trekcc.org, by Lucas
 Thompson (https://www.trekcc.org/articles/?viewArticle=2715). `index.json` in that folder

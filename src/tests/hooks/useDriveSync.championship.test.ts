@@ -65,10 +65,10 @@ describe('useDriveSync – loading a Championship deck (#1310)', () => {
       hasDriveScope: true,
     });
     global.fetch = jest.fn((url: string) => {
-      if (url === '/championship-decks/index.json') {
+      if (url === '/api/championship-decks') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve([ledos]) });
       }
-      if (url === `/championship-decks/${encodeURIComponent(ledos.file)}`) {
+      if (url === `/api/championship-decks/${encodeURIComponent(ledos.file)}`) {
         return Promise.resolve({ ok: true, text: () => Promise.resolve(CHAMPIONSHIP_TSV) });
       }
       if (url.startsWith('/api/drive/')) {
@@ -85,9 +85,9 @@ describe('useDriveSync – loading a Championship deck (#1310)', () => {
   async function openPickerWithDecks() {
     const hook = renderHook(() => useBuilder());
     await waitFor(() => expect(hook.result.current.drive.session).not.toBeNull());
-    expect(hook.result.current.drive.showChampionshipDecks).toBe(true);
     await act(async () => { await hook.result.current.drive.openDeckPicker(); });
     await waitFor(() => expect(hook.result.current.drive.championshipEvents).toHaveLength(1));
+    expect(hook.result.current.drive.showChampionshipDecks).toBe(true);
     return hook;
   }
 
@@ -122,11 +122,35 @@ describe('useDriveSync – loading a Championship deck (#1310)', () => {
     expect(result.current.deck.deckTitle).toBe('upload');
   });
 
-  it('shows no folder to a signed-in user who is not on the list', async () => {
+  it('shows a user who is not on the list only the authorizedUse decks (#1327)', async () => {
     process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = 'someone-else@example.com';
     const { result } = renderHook(() => useBuilder());
     await waitFor(() => expect(result.current.drive.session).not.toBeNull());
+    await act(async () => { await result.current.drive.openDeckPicker(); });
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/championship-decks'));
+    // The route answers with the hidden deck too; the client filter is a second line.
     expect(result.current.drive.showChampionshipDecks).toBe(false);
+    expect(result.current.drive.championshipEvents).toEqual([]);
+  });
+
+  it('shows a signed-out user the authorizedUse decks, and loads one (#1327)', async () => {
+    (getSession as jest.Mock).mockResolvedValue(null);
+    const permitted = { ...ledos, authorizedUse: true };
+    const { result } = renderHook(() => useBuilder());
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url === '/api/championship-decks') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([permitted]) });
+      }
+      if (url === `/api/championship-decks/${encodeURIComponent(ledos.file)}`) {
+        return Promise.resolve({ ok: true, text: () => Promise.resolve(CHAMPIONSHIP_TSV) });
+      }
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+    await act(async () => { await result.current.drive.openDeckPicker(); });
+    await waitFor(() => expect(result.current.drive.showChampionshipDecks).toBe(true));
+    expect(result.current.drive.championshipEvents).toEqual([{ event: ledos.event, decks: [permitted] }]);
+    await act(async () => { await result.current.drive.fetchDriveFile({ id: ledosId, name: ledosTitle }); });
+    expect(result.current.deck.deckTitle).toBe(ledosTitle);
   });
 });
 
@@ -143,10 +167,10 @@ describe('useDriveSync – comparing a Championship deck (#1311)', () => {
       hasDriveScope: true,
     });
     global.fetch = jest.fn((url: string) => {
-      if (url === '/championship-decks/index.json') {
+      if (url === '/api/championship-decks') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve([ledos]) });
       }
-      if (url === `/championship-decks/${encodeURIComponent(ledos.file)}`) {
+      if (url === `/api/championship-decks/${encodeURIComponent(ledos.file)}`) {
         return Promise.resolve({ ok: true, text: () => Promise.resolve(CHAMPIONSHIP_TSV) });
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ files: [] }) });

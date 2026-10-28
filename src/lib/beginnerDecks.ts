@@ -55,7 +55,7 @@ export const visibleBeginnerDecks = (decks: BeginnerDeck[], email: string | null
 
 export const beginnerDeckUrl = (id: string) => publicDeckFileUrl(BEGINNER_DECKS_PATH, beginnerDeckFile(id) ?? '');
 
-const index = publicDeckIndex<BeginnerDeck>(BEGINNER_DECKS_PATH, 'Beginner deck');
+const index = publicDeckIndex<BeginnerDeck>(`${BEGINNER_DECKS_PATH}/index.json`, 'Beginner deck');
 
 // The index, fetched once a session. A failed fetch is not cached, so the next call tries again.
 export const fetchBeginnerDecks = () => index.fetch();
