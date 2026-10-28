@@ -20,12 +20,12 @@ import { PRACTICE_DECK_TSV, PRACTICE_DECK_TSV_2 } from '../lib/practiceDeck';
 import type { CardData } from '../lib/loadCards';
 import { isEarlyAccessUser } from '../lib/featureFlags';
 import {
-  fetchTournamentDeckText,
-  fetchTournamentDecks,
-  groupTournamentDecks,
-  isTournamentDeckId,
-} from '../lib/tournamentDecks';
-import type { TournamentDeck } from '../lib/tournamentDecks';
+  fetchChampionshipDeckText,
+  fetchChampionshipDecks,
+  groupChampionshipDecks,
+  isChampionshipDeckId,
+} from '../lib/championshipDecks';
+import type { ChampionshipDeck } from '../lib/championshipDecks';
 
 interface Session {
   accessToken: string;
@@ -56,7 +56,7 @@ function rowsFromTsv(tsv: string, data: CardData[]): CardDef[] {
 // Fetches the content for each deck ref, reusing already-loaded rows when a ref matches
 // a deck that's already in state. A ref whose file can no longer be fetched (e.g. deleted
 // from Drive since a Report was saved) surfaces as a per-deck load error rather than
-// failing the whole load. A tournament deck's ref loads from `public/tournament-decks/` (#1311).
+// failing the whole load. A Championship deck's ref loads from `public/championship-decks/` (#1311).
 async function fetchDeckRefs(
   files: { id: string; name: string }[],
   data: CardData[],
@@ -67,8 +67,8 @@ async function fetchDeckRefs(
       const existing = cachedDecks.find((d) => d.id === file.id);
       if (existing) return existing;
       try {
-        if (isTournamentDeckId(file.id)) {
-          const text = await fetchTournamentDeckText(file.id);
+        if (isChampionshipDeckId(file.id)) {
+          const text = await fetchChampionshipDeckText(file.id);
           return { id: file.id, name: file.name, rows: rowsFromTsv(text, data) };
         }
         const response = await fetch(`/api/drive/${file.id}`, { method: 'GET', credentials: 'include' });
@@ -97,18 +97,18 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
   const [loadingReports, setLoadingReports] = useState(false);
   const [reportName, setReportName] = useState('');
   const [savingReport, setSavingReport] = useState(false);
-  const [tournamentDecks, setTournamentDecks] = useState<TournamentDeck[]>([]);
+  const [championshipDecks, setChampionshipDecks] = useState<ChampionshipDeck[]>([]);
 
-  // The "Tournament decks" folder shows only to an early-access user with Drive scope (#1286).
-  const showTournamentDecks = !!session?.hasDriveScope && isEarlyAccessUser(session?.user?.email);
+  // The "Championship decks" folder shows only to an early-access user with Drive scope (#1286).
+  const showChampionshipDecks = !!session?.hasDriveScope && isEarlyAccessUser(session?.user?.email);
 
   // The index is fetched only when the folder will show: the deck picker is open.
   useEffect(() => {
-    if (!showDrivePicker || !showTournamentDecks || tournamentDecks.length > 0) return;
-    fetchTournamentDecks().then(setTournamentDecks).catch(() => {
+    if (!showDrivePicker || !showChampionshipDecks || championshipDecks.length > 0) return;
+    fetchChampionshipDecks().then(setChampionshipDecks).catch(() => {
       // The folder stays empty, and the Drive files still list.
     });
-  }, [showDrivePicker, showTournamentDecks, tournamentDecks.length]);
+  }, [showDrivePicker, showChampionshipDecks, championshipDecks.length]);
 
   // The fixture decks are built in render from the card data, once for each `data`. The decks can
   // still be edited through setDecks, and an edit lasts until `data` changes.
@@ -506,8 +506,8 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
           isSignedIn={!!session}
           hasDriveScope={session?.hasDriveScope ?? false}
           mode="compare-multi"
-          showTournamentDecks={showTournamentDecks}
-          tournamentEvents={groupTournamentDecks(tournamentDecks)}
+          showChampionshipDecks={showChampionshipDecks}
+          championshipEvents={groupChampionshipDecks(championshipDecks)}
           onConfirmSelection={handleConfirmSelection}
           preSelectedFiles={decks.map((d) => ({ id: d.id, name: d.name }))}
           browsedFolder={browsedFolder}

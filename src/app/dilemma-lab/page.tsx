@@ -7,7 +7,7 @@ import DilemmaLabClient, { LabDeck, LabMission, LabPersonnel } from '../../compo
 
 export const metadata: Metadata = { title: 'Dilemma bot lab – Webula' };
 
-interface TournamentDeckRow {
+interface ChampionshipDeckRow {
   event: string;
   deckName: string;
   player: string;
@@ -46,8 +46,8 @@ export default function DilemmaLabPage() {
     OPPONENT_DILEMMAS.map((d) => [d.id, data.find((c) => c.collectorsinfo === collectorsKey(d.collectorsInfo))]),
   ) as Record<DilemmaId, CardData>;
 
-  const folder = join(process.cwd(), 'public', 'tournament-decks');
-  const index: TournamentDeckRow[] = JSON.parse(readFileSync(join(folder, 'index.json'), 'utf-8'));
+  const folder = join(process.cwd(), 'public', 'championship-decks');
+  const index: ChampionshipDeckRow[] = JSON.parse(readFileSync(join(folder, 'index.json'), 'utf-8'));
   const personnelNames = new Set(personnel.map((p) => p.originalName));
   const missionNames = new Set(missions.map((m) => m.name));
   const decks: LabDeck[] = index.map((row) => {

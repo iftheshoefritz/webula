@@ -86,7 +86,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   } = useDeckState({
     data,
     isFixture,
-    // A full load drops the trekcc.org link of a tournament deck (#1310). The callback runs only
+    // A full load drops the trekcc.org link of a Championship deck (#1310). The callback runs only
     // on a load, after useDriveSync below has given clearDeckSource its value.
     onFullLoad: () => clearDeckSource(),
   });
@@ -152,8 +152,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     resetDeckFile,
     clearDeckSource,
     driveFiles,
-    showTournamentDecks,
-    tournamentEvents,
+    showChampionshipDecks,
+    championshipEvents,
     showDrivePicker,
     drivePickerMode,
     browsedFolder,
@@ -526,7 +526,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     </div>
   );
 
-  // The trekcc.org page of a loaded tournament deck (#1310).
+  // The trekcc.org page of a loaded Championship deck (#1310).
   const deckSourceLink = deckFile?.source ? (
     <a
       href={deckFile.source}
@@ -1436,8 +1436,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       {showDrivePicker && (
         <DrivePickerModal
           driveFiles={driveFiles}
-          showTournamentDecks={showTournamentDecks}
-          tournamentEvents={tournamentEvents}
+          showChampionshipDecks={showChampionshipDecks}
+          championshipEvents={championshipEvents}
           loadDriveFile={drivePickerMode === 'compare' ? fetchCompareDriveFile : fetchDriveFile}
           deleteDriveFile={deleteDriveFile}
           onRenameFile={renameDriveFile}
