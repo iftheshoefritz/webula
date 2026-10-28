@@ -9,15 +9,11 @@ import { CardDef } from '../types';
 import type { CardData } from '../lib/loadCards';
 import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
 import { isEarlyAccessUser } from '../lib/featureFlags';
-import {
-  fetchChampionshipDeckText,
-  fetchChampionshipDecks,
-  findChampionshipDeck,
-  groupChampionshipDecks,
-  isChampionshipDeckId,
-  championshipDeckTitle,
-} from '../lib/championshipDecks';
+import { fetchChampionshipDecks, groupChampionshipDecks } from '../lib/championshipDecks';
 import type { ChampionshipDeck } from '../lib/championshipDecks';
+import { fetchBeginnerDecks, visibleBeginnerDecks } from '../lib/beginnerDecks';
+import type { BeginnerDeck } from '../lib/beginnerDecks';
+import { fetchPublicDeckText, findPublicDeck, isPublicDeckId } from '../lib/publicDecks';
 
 export interface Session {
   accessToken: string;
@@ -67,9 +63,9 @@ export interface DeckFileRecord {
   source?: string;
 }
 
-// A deck's text: a Championship deck from `public/championship-decks/`, any other id from Drive.
+// A deck's text: a public deck from its folder under `public/`, any other id from Drive.
 async function fetchDeckText(id: string): Promise<string> {
-  if (isChampionshipDeckId(id)) return fetchChampionshipDeckText(id);
+  if (isPublicDeckId(id)) return fetchPublicDeckText(id);
   const response = await fetch(`/api/drive/${id}`, { method: 'GET', credentials: 'include' });
   return response.json();
 }
@@ -112,6 +108,19 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
       // The folder stays empty, and the Drive files still list.
     });
   }, [showDrivePicker, showChampionshipDecks, championshipDecks.length]);
+
+  // The "Beginner decks" folder shows to every user with Drive scope (#1323). A user sees the decks
+  // that `visibleBeginnerDecks` allows.
+  const [allBeginnerDecks, setAllBeginnerDecks] = useState<BeginnerDeck[]>([]);
+  const beginnerDecks = visibleBeginnerDecks(allBeginnerDecks, session?.user?.email);
+  const showBeginnerDecks = !!session?.hasDriveScope;
+
+  useEffect(() => {
+    if (!showDrivePicker || !showBeginnerDecks || allBeginnerDecks.length > 0) return;
+    fetchBeginnerDecks().then(setAllBeginnerDecks).catch(() => {
+      // The folder stays empty, and the Drive files still list.
+    });
+  }, [showDrivePicker, showBeginnerDecks, allBeginnerDecks.length]);
 
   useEffect(() => {
     (async () => {
@@ -315,10 +324,10 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     setLoadingFromGDrive(true);
     const contents = await fetchDeckText(driveFile.id);
 
-    if (isChampionshipDeckId(driveFile.id)) {
-      // A Championship deck has no Drive file, so Save opens Save As (#1310).
-      const deck = findChampionshipDeck(championshipDecks, driveFile.id);
-      const name = deck ? championshipDeckTitle(deck) : driveFile.name;
+    if (isPublicDeckId(driveFile.id)) {
+      // A public deck has no Drive file, so Save opens Save As (#1310, #1323).
+      const deck = findPublicDeck(driveFile.id, championshipDecks, allBeginnerDecks);
+      const name = deck ? deck.title : driveFile.name;
       handleFileLoad(name, contents, piles);
       if (!piles) setDeckFile({ id: null, name, source: deck?.source });
     } else {
@@ -339,9 +348,9 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
       .map((collectorsinfo) => incoming[collectorsinfo].row)
       .filter((row) => row.count > 0);
     setCompareDeckRows(rows);
-    // A Championship deck compares under its title, `<deckName> - <player> - <event>` (#1311).
-    const deck = isChampionshipDeckId(driveFile.id) ? findChampionshipDeck(championshipDecks, driveFile.id) : undefined;
-    setCompareDeckName(deck ? championshipDeckTitle(deck) : driveFile.name);
+    // A public deck compares under its title (#1311, #1323).
+    const deck = findPublicDeck(driveFile.id, championshipDecks, allBeginnerDecks);
+    setCompareDeckName(deck ? deck.title : driveFile.name);
     setLoadingFromGDrive(false);
     setShowDrivePicker(false);
     posthog.capture('deckBuilder.compareDeckLoad.end');
@@ -515,6 +524,8 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     driveFiles,
     showChampionshipDecks,
     championshipEvents: groupChampionshipDecks(championshipDecks),
+    showBeginnerDecks: showBeginnerDecks && (beginnerDecks.length > 0 || allBeginnerDecks.length === 0),
+    beginnerDecks,
     showDrivePicker,
     drivePickerMode,
     browsedFolder,

@@ -124,6 +124,7 @@ import { render, act, screen, fireEvent } from '@testing-library/react';
 import { getSession, signIn } from 'next-auth/react';
 import DeckReportsClient from '../../components/DeckReportsClient';
 import { resetChampionshipDecksCache } from '../../lib/championshipDecks';
+import { resetBeginnerDecksCache } from '../../lib/beginnerDecks';
 
 const fakeSession = {
   accessToken: 'tok',
@@ -790,6 +791,69 @@ describe('DeckReportsClient – Championship decks (#1311)', () => {
     expect(fetchMock).toHaveBeenCalledWith(ledosUrl);
     expect(fetchMock).not.toHaveBeenCalledWith(`/api/drive/${legacyLedosRef.id}`, expect.anything());
     expect(screen.getByText(ledosRef.name)).toBeInTheDocument();
+    expect(screen.queryByText(/failed to load this deck/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('DeckReportsClient – Beginner Decks (#1323)', () => {
+  const savedEnv = process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS;
+  const klingon = {
+    deckId: 41764,
+    deckName: 'Klingon Beginner Deck',
+    player: 'Lucas Thompson',
+    file: 'Klingon Beginner Deck - Lucas Thompson.txt',
+    source: 'https://www.trekcc.org/decklists/?mode=viewdeck&deckID=41764',
+    complexity: 1,
+    style: 'Mission Solver/Speed',
+    article: 'Glory to you, and your house!',
+    articleUrl: 'https://www.trekcc.org/articles/?viewArticle=2732',
+    authorizedUse: true,
+  };
+  const klingonRef = { id: `beginner:${klingon.file}`, name: 'Klingon Beginner Deck - Lucas Thompson' };
+  const klingonUrl = `/beginner-decks/${encodeURIComponent(klingon.file)}`;
+  let fetchMock: jest.Mock;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetBeginnerDecksCache();
+    resetChampionshipDecksCache();
+    mockSearchParamsValue = new URLSearchParams();
+    window.history.pushState({}, '', '/decks/reports');
+    capturedPropsByMode = {};
+    process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = 'someone-else@example.com';
+    fetchMock = jest.fn((url: string) => {
+      if (url === '/beginner-decks/index.json') {
+        return Promise.resolve({ ok: true, json: async () => [klingon] });
+      }
+      if (url === klingonUrl) {
+        return Promise.resolve({ ok: true, text: async () => '1\tTest Card' });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ files: [] }) });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = savedEnv;
+  });
+
+  it('passes the folder to the deck picker of a user without early access, and loads a confirmed deck from its public path', async () => {
+    (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
+    });
+    const props = capturedPropsByMode['compare-multi'];
+    expect(props.showBeginnerDecks).toBe(true);
+    expect(props.beginnerDecks).toEqual([klingon]);
+    await act(async () => {
+      await props.onConfirmSelection([klingonRef]);
+    });
+    expect(fetchMock).toHaveBeenCalledWith(klingonUrl);
+    expect(fetchMock).not.toHaveBeenCalledWith(`/api/drive/${klingonRef.id}`, expect.anything());
+    expect(screen.getByText(klingonRef.name)).toBeInTheDocument();
     expect(screen.queryByText(/failed to load this deck/i)).not.toBeInTheDocument();
   });
 });
