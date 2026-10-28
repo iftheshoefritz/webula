@@ -126,9 +126,10 @@ The deck builder UI shows the three tabs as "Missions", "Dilemmas" and "Draw".
 
 A **Championship deck** is a deck that a player played at a trekcc.org championship event,
 such as the 2026 World Championship. It is not a rulebook term. The code calls the concept
-`ChampionshipDeck` (`src/lib/championshipDecks.ts`), the files live in
-`public/championship-decks/`, and the deck picker lists them in a read-only folder,
-"Championship decks". The id of such a deck is `championship:<file name>`. A deck report
+`ChampionshipDeck` (`src/lib/championshipDecks.ts`), the files live in the top-level
+`championship-decks/` folder, served by `/api/championship-decks` (#1327), and the deck picker
+lists them in a read-only folder, "Championship decks". A user without early access sees only
+the decks with `authorizedUse`. The id of such a deck is `championship:<file name>`. A deck report
 saved before #1326 holds the old prefix, `tournament:`, and both prefixes resolve to the
 same file. The `tournamentId` field of `index.json` keeps trekcc.org's word: it is trekcc's
 ID of the event.

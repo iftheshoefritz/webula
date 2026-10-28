@@ -1,8 +1,11 @@
-// The 2026 Championship decks of `public/championship-decks/` (#1286, #1310): a read-only source of
-// decks that the deck picker lists beside the Drive files. Each deck gets an id of its own, the
+// The 2026 Championship decks of the top-level `championship-decks/` folder (#1286, #1310): a
+// read-only source of decks that the deck picker lists beside the Drive files. The folder is not
+// under `public/`: `/api/championship-decks` serves its index and its files, each only to a user who
+// may see it (#1327). Each deck gets an id of its own, the
 // `championship:` prefix and the file name, so it never collides with a Drive id and a loader can
 // tell the two apart.
 
+import { isEarlyAccessUser } from './featureFlags';
 import { fetchPublicDeckFile, publicDeckFileUrl, publicDeckIndex } from './publicDeckFolder';
 
 export type ChampionshipDeck = {
@@ -25,7 +28,8 @@ const CHAMPIONSHIP_ID_PREFIX = 'championship:';
 // so the id check accepts it and the file name extraction strips it.
 const LEGACY_ID_PREFIX = 'tournament:';
 const ID_PREFIXES = [CHAMPIONSHIP_ID_PREFIX, LEGACY_ID_PREFIX];
-const CHAMPIONSHIP_DECKS_PATH = '/championship-decks';
+// The API route of the index; a deck's text is `<path>/<file name>`.
+export const CHAMPIONSHIP_DECKS_PATH = '/api/championship-decks';
 
 export const championshipDeckId = (deck: Pick<ChampionshipDeck, 'file'>) => `${CHAMPIONSHIP_ID_PREFIX}${deck.file}`;
 
@@ -47,6 +51,11 @@ export function currentChampionshipDeckId(id: string) {
 // The title a loaded Championship deck gets: `<deckName> - <player> - <event>`.
 export const championshipDeckTitle = (deck: Pick<ChampionshipDeck, 'deckName' | 'player' | 'event'>) =>
   `${deck.deckName} - ${deck.player} - ${deck.event}`;
+
+// The decks a user sees (#1327): an early-access user sees every deck, any other user, a signed-out
+// user too, only the decks with `authorizedUse`. The API routes and the deck picker both use it.
+export const visibleChampionshipDecks = (decks: ChampionshipDeck[], email: string | null | undefined) =>
+  isEarlyAccessUser(email) ? decks : decks.filter((deck) => deck.authorizedUse);
 
 // The decks grouped by event, the events and the decks of each in index order.
 export function groupChampionshipDecks(decks: ChampionshipDeck[]): ChampionshipEvent[] {
@@ -72,8 +81,9 @@ export function championshipDeckUrl(id: string) {
 
 const index = publicDeckIndex<ChampionshipDeck>(CHAMPIONSHIP_DECKS_PATH, 'Championship deck');
 
-// The index, fetched once a session. A failed fetch is not cached, so the next call tries again.
-export const fetchChampionshipDecks = () => index.fetch();
+// The rows the signed-in user may see, fetched once a session for each email, so a sign-in change
+// never shows the list fetched before it. A failed fetch is not cached, so the next call tries again.
+export const fetchChampionshipDecks = (email: string | null | undefined) => index.fetch(email ?? '');
 
 // Forgets the cached index; for the tests.
 export const resetChampionshipDecksCache = () => index.reset();

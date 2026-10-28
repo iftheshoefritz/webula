@@ -903,8 +903,47 @@ describe('DrivePickerModal – the Championship decks folder (#1310)', () => {
     expect(screen.getByText('no files found')).toBeInTheDocument();
   });
 
-  it('shows only the sign-in rows to a signed-out user', () => {
-    render(<DrivePickerModal {...gatedProps} isSignedIn={false} hasDriveScope={false} />);
+  it('shows the folder below the sign-in rows to a signed-out user, and loads a deck from it (#1327)', () => {
+    const loadDriveFile = jest.fn();
+    render(<DrivePickerModal {...gatedProps} isSignedIn={false} hasDriveScope={false} loadDriveFile={loadDriveFile} />);
+    expect(screen.getByText(/sign in with google/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
+    expect(screen.queryByText(/sign in with google/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Load Common Ledos Deck - Michael Van Breemen' }));
+    expect(loadDriveFile).toHaveBeenCalledWith(
+      expect.objectContaining({ id: `championship:${ledos.file}` }),
+      undefined,
+    );
+  });
+
+  it('shows the folder to a signed-in user without Drive scope, in compare mode too (#1327)', () => {
+    const loadDriveFile = jest.fn();
+    render(<DrivePickerModal {...gatedProps} mode="compare" hasDriveScope={false} loadDriveFile={loadDriveFile} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
+    fireEvent.click(screen.getByRole('button', { name: '2026 Trek Masters' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Load / }));
+    expect(loadDriveFile).toHaveBeenCalledWith(expect.objectContaining({ id: `championship:${borg.file}` }));
+  });
+
+  it('lets a signed-out user compare Championship decks in compare-multi mode (#1327)', () => {
+    const onConfirmSelection = jest.fn();
+    render(<DrivePickerModal {...gatedProps} mode="compare-multi" isSignedIn={false} hasDriveScope={false} onConfirmSelection={onConfirmSelection} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
+    fireEvent.click(screen.getByRole('button', { name: '2026 Trek Masters' }));
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: '2026 Trek Masters' }));
+    fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: /compare 2 decks/i }));
+    expect(onConfirmSelection).toHaveBeenCalledWith([
+      expect.objectContaining({ id: `championship:${borg.file}` }),
+      expect.objectContaining({ id: `championship:${ledos.file}` }),
+    ]);
+  });
+
+  it('shows no folder to a signed-out user when it holds no deck for them', () => {
+    render(<DrivePickerModal {...baseProps} isSignedIn={false} hasDriveScope={false} showChampionshipDecks={false} />);
     expect(screen.getByText(/sign in with google/i)).toBeInTheDocument();
     expect(screen.queryByText('Championship decks')).not.toBeInTheDocument();
   });

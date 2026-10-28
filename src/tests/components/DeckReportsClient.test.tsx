@@ -120,7 +120,7 @@ jest.mock('../../components/DrivePickerModal', () => ({
 // ── Imports ──────────────────────────────────────────────────────────────────
 
 import React from 'react';
-import { render, act, screen, fireEvent } from '@testing-library/react';
+import { render, act, screen, fireEvent, waitFor } from '@testing-library/react';
 import { getSession, signIn } from 'next-auth/react';
 import DeckReportsClient from '../../components/DeckReportsClient';
 import { resetChampionshipDecksCache } from '../../lib/championshipDecks';
@@ -174,6 +174,9 @@ describe('DeckReportsClient', () => {
     capturedCardsInCommonDecks = null;
     capturedCharacteristicCompareTableDecks = [];
     capturedIconCompareTableDecks = [];
+    // The picker fetches the Championship decks index for a signed-out user too (#1327).
+    resetChampionshipDecksCache();
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => [] }) as unknown as typeof fetch;
   });
 
   it('shows an empty state before any deck is picked, and renders the skills/cards-in-common tables with 0 decks', async () => {
@@ -698,7 +701,7 @@ describe('DeckReportsClient – Championship decks (#1311)', () => {
   };
   // The id a Report saved before the rename holds (#1326).
   const legacyLedosRef = { ...ledosRef, id: `tournament:${ledos.file}` };
-  const ledosUrl = `/championship-decks/${encodeURIComponent(ledos.file)}`;
+  const ledosUrl = `/api/championship-decks/${encodeURIComponent(ledos.file)}`;
   let fetchMock: jest.Mock;
 
   beforeEach(() => {
@@ -709,7 +712,7 @@ describe('DeckReportsClient – Championship decks (#1311)', () => {
     capturedPropsByMode = {};
     process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = 'test@example.com';
     fetchMock = jest.fn((url: string) => {
-      if (url === '/championship-decks/index.json') {
+      if (url === '/api/championship-decks') {
         return Promise.resolve({ ok: true, json: async () => [ledos] });
       }
       if (url === ledosUrl) {
@@ -745,17 +748,31 @@ describe('DeckReportsClient – Championship decks (#1311)', () => {
   it('passes the gate and the events to the deck picker of an early-access user', async () => {
     (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
     await openDeckPicker();
+    await waitFor(() => expect(capturedPropsByMode['compare-multi'].showChampionshipDecks).toBe(true));
     const props = capturedPropsByMode['compare-multi'];
     expect(props.showChampionshipDecks).toBe(true);
     expect(props.championshipEvents).toEqual([{ event: ledos.event, decks: [ledos] }]);
   });
 
-  it('closes the gate to a signed-in user who is not on the list', async () => {
+  it('hides a deck without authorizedUse from a signed-in user who is not on the list (#1327)', async () => {
     process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = 'someone-else@example.com';
     (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
     await openDeckPicker();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/championship-decks'));
     expect(capturedPropsByMode['compare-multi'].showChampionshipDecks).toBe(false);
-    expect(fetchMock).not.toHaveBeenCalledWith('/championship-decks/index.json');
+    expect(capturedPropsByMode['compare-multi'].championshipEvents).toEqual([]);
+  });
+
+  it('shows a signed-out user the authorizedUse decks (#1327)', async () => {
+    const permitted = { ...ledos, authorizedUse: true };
+    const other = { ...ledos, event: 'Other event', file: 'other.txt' };
+    fetchMock.mockImplementation((url: string) => url === '/api/championship-decks'
+      ? Promise.resolve({ ok: true, json: async () => [permitted, other] })
+      : Promise.resolve({ ok: true, json: async () => ({ files: [] }) }));
+    (getSession as jest.Mock).mockResolvedValueOnce(null);
+    await openDeckPicker();
+    await waitFor(() => expect(capturedPropsByMode['compare-multi'].showChampionshipDecks).toBe(true));
+    expect(capturedPropsByMode['compare-multi'].championshipEvents).toEqual([{ event: ledos.event, decks: [permitted] }]);
   });
 
   it('loads a confirmed Championship deck from its public path, beside a Drive deck', async () => {

@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import {
   fetchChampionshipDeckText,
@@ -11,6 +11,7 @@ import {
   championshipDeckUrl,
   currentChampionshipDeckId,
   findChampionshipDeck,
+  visibleChampionshipDecks,
 } from '../../lib/championshipDecks';
 import type { ChampionshipDeck } from '../../lib/championshipDecks';
 
@@ -66,7 +67,7 @@ describe('championshipDecks', () => {
 
   it('encodes a file name with spaces and non-ASCII characters', async () => {
     const id = championshipDeckId({ file: "2026 Worlds - Kazon's Rüstung - Zoë.txt" });
-    expect(championshipDeckUrl(id)).toBe(`/championship-decks/${encodeURIComponent("2026 Worlds - Kazon's Rüstung - Zoë.txt")}`);
+    expect(championshipDeckUrl(id)).toBe(`/api/championship-decks/${encodeURIComponent("2026 Worlds - Kazon's Rüstung - Zoë.txt")}`);
     expect(championshipDeckUrl(id)).toContain('2026%20Worlds');
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('Deck:') });
     global.fetch = fetchMock as unknown as typeof fetch;
@@ -74,19 +75,54 @@ describe('championshipDecks', () => {
     expect(fetchMock).toHaveBeenCalledWith(championshipDeckUrl(id));
   });
 
-  it('fetches the index once a session', async () => {
+  it('fetches the index from the API route once a session for each email (#1327)', async () => {
     const decks = [deck('E', 'D', 'P')];
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(decks) });
     global.fetch = fetchMock as unknown as typeof fetch;
-    await expect(fetchChampionshipDecks()).resolves.toEqual(decks);
-    await expect(fetchChampionshipDecks()).resolves.toEqual(decks);
+    await expect(fetchChampionshipDecks(null)).resolves.toEqual(decks);
+    await expect(fetchChampionshipDecks(undefined)).resolves.toEqual(decks);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith('/championship-decks/index.json');
+    expect(fetchMock).toHaveBeenCalledWith('/api/championship-decks');
+    await fetchChampionshipDecks('someone@example.com');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  describe('visibleChampionshipDecks (#1327)', () => {
+    const original = process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS;
+    beforeEach(() => { process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = 'early@example.com'; });
+    afterEach(() => { process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = original; });
+
+    const permitted = { ...deck('A', 'one', 'p1'), authorizedUse: true };
+    const hidden = deck('B', 'two', 'p2');
+
+    it('gives an early-access user every deck', () => {
+      expect(visibleChampionshipDecks([permitted, hidden], 'Early@example.com')).toEqual([permitted, hidden]);
+    });
+
+    it('gives any other user, a signed-out user too, only the authorizedUse decks', () => {
+      expect(visibleChampionshipDecks([permitted, hidden], 'other@example.com')).toEqual([permitted]);
+      expect(visibleChampionshipDecks([permitted, hidden], null)).toEqual([permitted]);
+    });
+
+    it('drops an event with no visible deck from the grouping', () => {
+      expect(groupChampionshipDecks(visibleChampionshipDecks([permitted, hidden], null)).map((e) => e.event)).toEqual(['A']);
+    });
+  });
+
+  it('keeps no Championship deck file under public/ (#1327)', () => {
+    const rows = JSON.parse(
+      readFileSync(join(process.cwd(), 'championship-decks', 'index.json'), 'utf-8')
+    ) as ChampionshipDeck[];
+    const names = new Set(rows.map((row) => row.file));
+    const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+      entry.isDirectory() ? (entry.name === 'cardimages' ? [] : walk(join(dir, entry.name))) : [entry.name]);
+    const publicFiles = walk(join(process.cwd(), 'public'));
+    expect(publicFiles.filter((name) => names.has(name))).toEqual([]);
   });
 
   it('gives every row of the real index an authorizedUse of true or false', () => {
     const rows = JSON.parse(
-      readFileSync(join(process.cwd(), 'public', 'championship-decks', 'index.json'), 'utf-8')
+      readFileSync(join(process.cwd(), 'championship-decks', 'index.json'), 'utf-8')
     ) as ChampionshipDeck[];
     const missing = rows.filter((row) => typeof row.authorizedUse !== 'boolean').map((row) => row.file);
     expect(missing).toEqual([]);
