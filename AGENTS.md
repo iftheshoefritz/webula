@@ -121,7 +121,8 @@ Converts trekcc.org DeckPADD deck files to the LackeyCCG deck format that the de
 builder reads. The comment at the top of the script describes both formats and the
 command.
 
-`public/tournament-decks/` holds the converted decks of the 2026 tournaments.
+`public/championship-decks/` holds the converted Championship decks, the decks of the 2026
+championship events.
 `index.json` in that folder lists them, with the event, the player and the trekcc
 deck ID. When you add a deck file, add its row to `index.json`.
 

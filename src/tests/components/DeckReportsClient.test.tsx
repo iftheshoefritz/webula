@@ -123,7 +123,7 @@ import React from 'react';
 import { render, act, screen, fireEvent } from '@testing-library/react';
 import { getSession, signIn } from 'next-auth/react';
 import DeckReportsClient from '../../components/DeckReportsClient';
-import { resetTournamentDecksCache } from '../../lib/tournamentDecks';
+import { resetChampionshipDecksCache } from '../../lib/championshipDecks';
 
 const fakeSession = {
   accessToken: 'tok',
@@ -679,7 +679,7 @@ describe('DeckReportsClient – saved Reports', () => {
   });
 });
 
-describe('DeckReportsClient – tournament decks (#1311)', () => {
+describe('DeckReportsClient – Championship decks (#1311)', () => {
   const savedEnv = process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS;
   const ledos = {
     event: '2026 Worlds Day One',
@@ -692,21 +692,23 @@ describe('DeckReportsClient – tournament decks (#1311)', () => {
     authorizedUse: false,
   };
   const ledosRef = {
-    id: `tournament:${ledos.file}`,
+    id: `championship:${ledos.file}`,
     name: 'Common Ledos Deck - Michael Van Breemen - 2026 Worlds Day One',
   };
-  const ledosUrl = `/tournament-decks/${encodeURIComponent(ledos.file)}`;
+  // The id a Report saved before the rename holds (#1326).
+  const legacyLedosRef = { ...ledosRef, id: `tournament:${ledos.file}` };
+  const ledosUrl = `/championship-decks/${encodeURIComponent(ledos.file)}`;
   let fetchMock: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    resetTournamentDecksCache();
+    resetChampionshipDecksCache();
     mockSearchParamsValue = new URLSearchParams();
     window.history.pushState({}, '', '/decks/reports');
     capturedPropsByMode = {};
     process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = 'test@example.com';
     fetchMock = jest.fn((url: string) => {
-      if (url === '/tournament-decks/index.json') {
+      if (url === '/championship-decks/index.json') {
         return Promise.resolve({ ok: true, json: async () => [ledos] });
       }
       if (url === ledosUrl) {
@@ -714,6 +716,9 @@ describe('DeckReportsClient – tournament decks (#1311)', () => {
       }
       if (url === '/api/drive/report-1') {
         return Promise.resolve({ ok: true, json: async () => ({ decks: [ledosRef] }) });
+      }
+      if (url === '/api/drive/report-legacy') {
+        return Promise.resolve({ ok: true, json: async () => ({ decks: [legacyLedosRef] }) });
       }
       if (url === '/api/drive/file-1') {
         return Promise.resolve({ ok: true, json: async () => '1\tTest Card' });
@@ -740,19 +745,19 @@ describe('DeckReportsClient – tournament decks (#1311)', () => {
     (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
     await openDeckPicker();
     const props = capturedPropsByMode['compare-multi'];
-    expect(props.showTournamentDecks).toBe(true);
-    expect(props.tournamentEvents).toEqual([{ event: ledos.event, decks: [ledos] }]);
+    expect(props.showChampionshipDecks).toBe(true);
+    expect(props.championshipEvents).toEqual([{ event: ledos.event, decks: [ledos] }]);
   });
 
   it('closes the gate to a signed-in user who is not on the list', async () => {
     process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = 'someone-else@example.com';
     (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
     await openDeckPicker();
-    expect(capturedPropsByMode['compare-multi'].showTournamentDecks).toBe(false);
-    expect(fetchMock).not.toHaveBeenCalledWith('/tournament-decks/index.json');
+    expect(capturedPropsByMode['compare-multi'].showChampionshipDecks).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalledWith('/championship-decks/index.json');
   });
 
-  it('loads a confirmed tournament deck from its public path, beside a Drive deck', async () => {
+  it('loads a confirmed Championship deck from its public path, beside a Drive deck', async () => {
     (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
     await openDeckPicker();
     await act(async () => {
@@ -765,13 +770,25 @@ describe('DeckReportsClient – tournament decks (#1311)', () => {
     expect(screen.queryByText(/failed to load this deck/i)).not.toBeInTheDocument();
   });
 
-  it('loads a saved Report that holds a tournament deck', async () => {
+  it('loads a saved Report that holds a Championship deck', async () => {
     window.history.pushState({}, '', '/decks/reports?report=report-1');
     (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
     await act(async () => {
       render(<DeckReportsClient data={testData} />);
     });
     expect(fetchMock).toHaveBeenCalledWith(ledosUrl);
+    expect(screen.getByText(ledosRef.name)).toBeInTheDocument();
+    expect(screen.queryByText(/failed to load this deck/i)).not.toBeInTheDocument();
+  });
+
+  it('loads a saved Report that holds an old tournament: id (#1326)', async () => {
+    window.history.pushState({}, '', '/decks/reports?report=report-legacy');
+    (getSession as jest.Mock).mockResolvedValueOnce(fakeSession);
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+    expect(fetchMock).toHaveBeenCalledWith(ledosUrl);
+    expect(fetchMock).not.toHaveBeenCalledWith(`/api/drive/${legacyLedosRef.id}`, expect.anything());
     expect(screen.getByText(ledosRef.name)).toBeInTheDocument();
     expect(screen.queryByText(/failed to load this deck/i)).not.toBeInTheDocument();
   });

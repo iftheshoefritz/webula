@@ -455,10 +455,10 @@ describe('DrivePickerModal – creating a folder in load mode', () => {
 
     fireEvent.click(screen.getByText('New folder'));
     const input = screen.getByRole('textbox', { name: /new folder name/i });
-    fireEvent.change(input, { target: { value: 'Tournament Decks' } });
+    fireEvent.change(input, { target: { value: 'My Archive' } });
     fireEvent.click(screen.getByRole('button', { name: /save new folder/i }));
 
-    expect(onCreateFolder).toHaveBeenCalledWith('Tournament Decks');
+    expect(onCreateFolder).toHaveBeenCalledWith('My Archive');
     expect(screen.queryByRole('textbox', { name: /new folder name/i })).not.toBeInTheDocument();
   });
 
@@ -717,8 +717,8 @@ describe('DrivePickerModal – layer (#897)', () => {
   });
 });
 
-describe('DrivePickerModal – the Tournament decks folder (#1310)', () => {
-  const tournamentDeck = (event: string, deckName: string, player: string) => ({
+describe('DrivePickerModal – the Championship decks folder (#1310)', () => {
+  const championshipDeck = (event: string, deckName: string, player: string) => ({
     event,
     tournamentId: 1,
     deckId: 2,
@@ -728,25 +728,25 @@ describe('DrivePickerModal – the Tournament decks folder (#1310)', () => {
     source: 'https://www.trekcc.org/decklists/?mode=viewdeck&deckID=2',
     authorizedUse: false,
   });
-  const ledos = tournamentDeck('2026 Worlds Day One', 'Common Ledos Deck', 'Michael Van Breemen');
-  const borg = tournamentDeck('2026 Trek Masters', 'Big Borg Worlds', 'Eric R');
-  const tournamentEvents = [
+  const ledos = championshipDeck('2026 Worlds Day One', 'Common Ledos Deck', 'Michael Van Breemen');
+  const borg = championshipDeck('2026 Trek Masters', 'Big Borg Worlds', 'Eric R');
+  const championshipEvents = [
     { event: '2026 Trek Masters', decks: [borg] },
     { event: '2026 Worlds Day One', decks: [ledos] },
   ];
-  const gatedProps = { ...baseProps, showTournamentDecks: true, tournamentEvents };
+  const gatedProps = { ...baseProps, showChampionshipDecks: true, championshipEvents };
   const driveFolder = { id: 'f1', name: 'My Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
   const driveDeck = { id: 'd1', name: 'Drive Deck', parents: ['appDataFolder'] };
 
   it('lists the folder at the root in load mode, and no "no files found"', () => {
     render(<DrivePickerModal {...gatedProps} />);
-    expect(screen.getByRole('button', { name: 'Tournament decks' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Championship decks' })).toBeInTheDocument();
     expect(screen.queryByText('no files found')).not.toBeInTheDocument();
   });
 
   it('lists one folder per event in order, and the deck name and player inside an event', () => {
     render(<DrivePickerModal {...gatedProps} driveFiles={[driveFolder, driveDeck]} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
     const events = screen.getAllByRole('button').map((b) => b.textContent);
     expect(events.indexOf('2026 Trek Masters')).toBeLessThan(events.indexOf('2026 Worlds Day One'));
     expect(screen.queryByText('Drive Deck')).not.toBeInTheDocument();
@@ -761,40 +761,40 @@ describe('DrivePickerModal – the Tournament decks folder (#1310)', () => {
 
   it('goes back from an event to the folder, and from the folder to the root', () => {
     render(<DrivePickerModal {...gatedProps} driveFiles={[driveDeck]} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
     fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
     fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
     expect(screen.getByRole('button', { name: '2026 Trek Masters' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
     expect(screen.getByText('Drive Deck')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tournament decks' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Championship decks' })).toBeInTheDocument();
   });
 
-  it('shows no delete, rename or move action on a tournament row', () => {
+  it('shows no delete, rename or move action on a championship row', () => {
     render(<DrivePickerModal {...gatedProps} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
     expect(screen.queryByRole('button', { name: /^(Rename|Delete)/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
-    const row = screen.getByTestId('tournament-deck-row');
+    const row = screen.getByTestId('championship-deck-row');
     const labels = Array.from(row.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'));
     expect(labels).toEqual(['Load Common Ledos Deck - Michael Van Breemen']);
   });
 
-  it('never lists the tournament folders as Move destinations', () => {
+  it('never lists the championship folders as Move destinations', () => {
     render(<DrivePickerModal {...gatedProps} driveFiles={[driveFolder, driveDeck]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Move Drive Deck' }));
     expect(screen.getByRole('button', { name: 'Move to My Folder' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Move to (Tournament decks|2026)/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Move to (Championship decks|2026)/ })).not.toBeInTheDocument();
   });
 
-  it('loads a deck by its tournament id with the chosen pile', () => {
+  it('loads a deck by its championship id with the chosen pile', () => {
     const loadDriveFile = jest.fn();
     render(<DrivePickerModal {...gatedProps} loadDriveFile={loadDriveFile} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
     fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
     const label = 'Common Ledos Deck - Michael Van Breemen';
     fireEvent.click(screen.getByRole('button', { name: `Load ${label}` }));
-    const id = `tournament:${ledos.file}`;
+    const id = `championship:${ledos.file}`;
     const name = 'Common Ledos Deck - Michael Van Breemen - 2026 Worlds Day One';
     expect(loadDriveFile).toHaveBeenLastCalledWith({ id, name }, undefined);
     fireEvent.change(screen.getByRole('combobox', { name: `Load mode for ${label}` }), { target: { value: 'mission' } });
@@ -804,50 +804,50 @@ describe('DrivePickerModal – the Tournament decks folder (#1310)', () => {
 
   it('shows no folder in reports mode', () => {
     render(<DrivePickerModal {...gatedProps} mode="reports" />);
-    expect(screen.queryByText('Tournament decks')).not.toBeInTheDocument();
+    expect(screen.queryByText('Championship decks')).not.toBeInTheDocument();
   });
 
   it.each(['compare', 'compare-multi'] as const)('lists the folder, its events and decks in %s mode (#1311)', (mode) => {
     render(<DrivePickerModal {...gatedProps} mode={mode} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
     fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
     expect(screen.getByText('Common Ledos Deck')).toBeInTheDocument();
     expect(screen.getByText(/Michael Van Breemen/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^(Rename|Delete|Move)/ })).not.toBeInTheDocument();
   });
 
-  it('loads a tournament deck under its title in compare mode, with no pile choice (#1311)', () => {
+  it('loads a Championship deck under its title in compare mode, with no pile choice (#1311)', () => {
     const loadDriveFile = jest.fn();
     render(<DrivePickerModal {...gatedProps} mode="compare" loadDriveFile={loadDriveFile} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
     fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Load Common Ledos Deck - Michael Van Breemen' }));
     expect(loadDriveFile).toHaveBeenCalledWith({
-      id: `tournament:${ledos.file}`,
+      id: `championship:${ledos.file}`,
       name: 'Common Ledos Deck - Michael Van Breemen - 2026 Worlds Day One',
     });
   });
 
-  it('confirms the checked tournament decks with the Drive decks in compare-multi mode (#1311)', () => {
+  it('confirms the checked Championship decks with the Drive decks in compare-multi mode (#1311)', () => {
     const onConfirmSelection = jest.fn();
     render(
       <DrivePickerModal {...gatedProps} mode="compare-multi" driveFiles={[driveDeck]} onConfirmSelection={onConfirmSelection} />
     );
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select Drive Deck' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
     fireEvent.click(screen.getByRole('button', { name: '2026 Worlds Day One' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select Common Ledos Deck - Michael Van Breemen' }));
     fireEvent.click(screen.getByRole('button', { name: 'Compare 2 decks' }));
     expect(onConfirmSelection).toHaveBeenCalledWith([
       driveDeck,
-      { id: `tournament:${ledos.file}`, name: 'Common Ledos Deck - Michael Van Breemen - 2026 Worlds Day One' },
+      { id: `championship:${ledos.file}`, name: 'Common Ledos Deck - Michael Van Breemen - 2026 Worlds Day One' },
     ]);
   });
 
-  it('checks a pre-selected tournament deck again, and keeps it on confirm (#1311)', () => {
+  it('checks a pre-selected Championship deck again, and keeps it on confirm (#1311)', () => {
     const onConfirmSelection = jest.fn();
-    const borgRef = { id: `tournament:${borg.file}`, name: 'Big Borg Worlds - Eric R - 2026 Trek Masters' };
+    const borgRef = { id: `championship:${borg.file}`, name: 'Big Borg Worlds - Eric R - 2026 Trek Masters' };
     render(
       <DrivePickerModal
         {...gatedProps}
@@ -856,20 +856,38 @@ describe('DrivePickerModal – the Tournament decks folder (#1310)', () => {
         onConfirmSelection={onConfirmSelection}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Tournament decks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
     fireEvent.click(screen.getByRole('button', { name: '2026 Trek Masters' }));
     expect(screen.getByRole('checkbox', { name: 'Select Big Borg Worlds - Eric R' })).toBeChecked();
     fireEvent.click(screen.getByRole('button', { name: 'Compare 1 deck' }));
     expect(onConfirmSelection).toHaveBeenCalledWith([borgRef]);
   });
 
-  it('keeps a pre-selected tournament deck on confirm before the index loads (#1311)', () => {
+  it('checks the row of a pre-selected old tournament: id, and confirms it under the new id (#1326)', () => {
     const onConfirmSelection = jest.fn();
-    const borgRef = { id: `tournament:${borg.file}`, name: 'Big Borg Worlds - Eric R - 2026 Trek Masters' };
+    const name = 'Big Borg Worlds - Eric R - 2026 Trek Masters';
     render(
       <DrivePickerModal
         {...gatedProps}
-        tournamentEvents={[]}
+        mode="compare-multi"
+        preSelectedFiles={[{ id: `tournament:${borg.file}`, name }]}
+        onConfirmSelection={onConfirmSelection}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
+    fireEvent.click(screen.getByRole('button', { name: '2026 Trek Masters' }));
+    expect(screen.getByRole('checkbox', { name: 'Select Big Borg Worlds - Eric R' })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Compare 1 deck' }));
+    expect(onConfirmSelection).toHaveBeenCalledWith([{ id: `championship:${borg.file}`, name }]);
+  });
+
+  it('keeps a pre-selected Championship deck on confirm before the index loads (#1311)', () => {
+    const onConfirmSelection = jest.fn();
+    const borgRef = { id: `championship:${borg.file}`, name: 'Big Borg Worlds - Eric R - 2026 Trek Masters' };
+    render(
+      <DrivePickerModal
+        {...gatedProps}
+        championshipEvents={[]}
         mode="compare-multi"
         preSelectedFiles={[borgRef]}
         onConfirmSelection={onConfirmSelection}
@@ -880,14 +898,14 @@ describe('DrivePickerModal – the Tournament decks folder (#1310)', () => {
   });
 
   it('shows no folder with the gate off', () => {
-    render(<DrivePickerModal {...baseProps} tournamentEvents={tournamentEvents} />);
-    expect(screen.queryByText('Tournament decks')).not.toBeInTheDocument();
+    render(<DrivePickerModal {...baseProps} championshipEvents={championshipEvents} />);
+    expect(screen.queryByText('Championship decks')).not.toBeInTheDocument();
     expect(screen.getByText('no files found')).toBeInTheDocument();
   });
 
   it('shows only the sign-in rows to a signed-out user', () => {
     render(<DrivePickerModal {...gatedProps} isSignedIn={false} hasDriveScope={false} />);
     expect(screen.getByText(/sign in with google/i)).toBeInTheDocument();
-    expect(screen.queryByText('Tournament decks')).not.toBeInTheDocument();
+    expect(screen.queryByText('Championship decks')).not.toBeInTheDocument();
   });
 });

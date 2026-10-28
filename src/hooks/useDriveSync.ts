@@ -10,14 +10,14 @@ import type { CardData } from '../lib/loadCards';
 import { FOLDER_MIME_TYPE } from '../app/api/drive/mimeTypes';
 import { isEarlyAccessUser } from '../lib/featureFlags';
 import {
-  fetchTournamentDeckText,
-  fetchTournamentDecks,
-  findTournamentDeck,
-  groupTournamentDecks,
-  isTournamentDeckId,
-  tournamentDeckTitle,
-} from '../lib/tournamentDecks';
-import type { TournamentDeck } from '../lib/tournamentDecks';
+  fetchChampionshipDeckText,
+  fetchChampionshipDecks,
+  findChampionshipDeck,
+  groupChampionshipDecks,
+  isChampionshipDeckId,
+  championshipDeckTitle,
+} from '../lib/championshipDecks';
+import type { ChampionshipDeck } from '../lib/championshipDecks';
 
 export interface Session {
   accessToken: string;
@@ -60,16 +60,16 @@ export function urlWithoutDriveFileParams(location: { pathname: string; search: 
   return `${location.pathname}${query ? `?${query}` : ''}${location.hash}`;
 }
 
-// The deck builder's Save target. `source` is the trekcc.org page of a loaded tournament deck (#1310).
+// The deck builder's Save target. `source` is the trekcc.org page of a loaded Championship deck (#1310).
 export interface DeckFileRecord {
   id: string | null;
   name: string;
   source?: string;
 }
 
-// A deck's text: a tournament deck from `public/tournament-decks/`, any other id from Drive.
+// A deck's text: a Championship deck from `public/championship-decks/`, any other id from Drive.
 async function fetchDeckText(id: string): Promise<string> {
-  if (isTournamentDeckId(id)) return fetchTournamentDeckText(id);
+  if (isChampionshipDeckId(id)) return fetchChampionshipDeckText(id);
   const response = await fetch(`/api/drive/${id}`, { method: 'GET', credentials: 'include' });
   return response.json();
 }
@@ -100,18 +100,18 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
   // because handleFileLoad parses it against `data`.
   const [pendingDriveFile, setPendingDriveFile] = useState<{ id: string; name: string; contents: string } | null>(null);
   const [pendingDriveWarning, setPendingDriveWarning] = useState(false);
-  const [tournamentDecks, setTournamentDecks] = useState<TournamentDeck[]>([]);
+  const [championshipDecks, setChampionshipDecks] = useState<ChampionshipDeck[]>([]);
 
-  // The "Tournament decks" folder shows only to an early-access user with Drive scope (#1286).
-  const showTournamentDecks = !!session?.hasDriveScope && isEarlyAccessUser(session?.user?.email);
+  // The "Championship decks" folder shows only to an early-access user with Drive scope (#1286).
+  const showChampionshipDecks = !!session?.hasDriveScope && isEarlyAccessUser(session?.user?.email);
 
   // The index is fetched only when the folder will show: the picker is open, in load or compare mode.
   useEffect(() => {
-    if (!showDrivePicker || !showTournamentDecks || tournamentDecks.length > 0) return;
-    fetchTournamentDecks().then(setTournamentDecks).catch(() => {
+    if (!showDrivePicker || !showChampionshipDecks || championshipDecks.length > 0) return;
+    fetchChampionshipDecks().then(setChampionshipDecks).catch(() => {
       // The folder stays empty, and the Drive files still list.
     });
-  }, [showDrivePicker, showTournamentDecks, tournamentDecks.length]);
+  }, [showDrivePicker, showChampionshipDecks, championshipDecks.length]);
 
   useEffect(() => {
     (async () => {
@@ -190,7 +190,7 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     setDeckFile({ id: null, name: 'My deck' });
   };
 
-  // A deck that replaces the current one drops the trekcc.org link of a tournament deck.
+  // A deck that replaces the current one drops the trekcc.org link of a Championship deck.
   const clearDeckSource = () => {
     setDeckFile((prev) => (prev?.source ? { id: prev.id, name: prev.name } : prev));
   };
@@ -315,10 +315,10 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     setLoadingFromGDrive(true);
     const contents = await fetchDeckText(driveFile.id);
 
-    if (isTournamentDeckId(driveFile.id)) {
-      // A tournament deck has no Drive file, so Save opens Save As (#1310).
-      const deck = findTournamentDeck(tournamentDecks, driveFile.id);
-      const name = deck ? tournamentDeckTitle(deck) : driveFile.name;
+    if (isChampionshipDeckId(driveFile.id)) {
+      // A Championship deck has no Drive file, so Save opens Save As (#1310).
+      const deck = findChampionshipDeck(championshipDecks, driveFile.id);
+      const name = deck ? championshipDeckTitle(deck) : driveFile.name;
       handleFileLoad(name, contents, piles);
       if (!piles) setDeckFile({ id: null, name, source: deck?.source });
     } else {
@@ -339,9 +339,9 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
       .map((collectorsinfo) => incoming[collectorsinfo].row)
       .filter((row) => row.count > 0);
     setCompareDeckRows(rows);
-    // A tournament deck compares under its title, `<deckName> - <player> - <event>` (#1311).
-    const deck = isTournamentDeckId(driveFile.id) ? findTournamentDeck(tournamentDecks, driveFile.id) : undefined;
-    setCompareDeckName(deck ? tournamentDeckTitle(deck) : driveFile.name);
+    // A Championship deck compares under its title, `<deckName> - <player> - <event>` (#1311).
+    const deck = isChampionshipDeckId(driveFile.id) ? findChampionshipDeck(championshipDecks, driveFile.id) : undefined;
+    setCompareDeckName(deck ? championshipDeckTitle(deck) : driveFile.name);
     setLoadingFromGDrive(false);
     setShowDrivePicker(false);
     posthog.capture('deckBuilder.compareDeckLoad.end');
@@ -513,8 +513,8 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     resetDeckFile,
     clearDeckSource,
     driveFiles,
-    showTournamentDecks,
-    tournamentEvents: groupTournamentDecks(tournamentDecks),
+    showChampionshipDecks,
+    championshipEvents: groupChampionshipDecks(championshipDecks),
     showDrivePicker,
     drivePickerMode,
     browsedFolder,

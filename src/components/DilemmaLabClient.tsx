@@ -212,7 +212,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
           onChange={(e) => chooseDeck(e.target.value === '' ? null : Number(e.target.value))}
           data-testid="lab-deck"
         >
-          <option value="">Choose a tournament deck</option>
+          <option value="">Choose a Championship deck</option>
           {decks.map((d, i) => (
             <option key={d.label} value={i}>
               {d.label}
