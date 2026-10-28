@@ -3,6 +3,8 @@
 // `championship:` prefix and the file name, so it never collides with a Drive id and a loader can
 // tell the two apart.
 
+import { fetchPublicDeckFile, publicDeckFileUrl, publicDeckIndex } from './publicDeckFolder';
+
 export type ChampionshipDeck = {
   event: string
   tournamentId: number
@@ -63,36 +65,17 @@ export function findChampionshipDeck(decks: ChampionshipDeck[], id: string) {
   return file === null ? undefined : decks.find((deck) => deck.file === file);
 }
 
-// The URL of a deck's text. The file names hold spaces and non-ASCII characters.
+// The URL of a deck's text.
 export function championshipDeckUrl(id: string) {
-  return `${CHAMPIONSHIP_DECKS_PATH}/${encodeURIComponent(championshipDeckFile(id) ?? '')}`;
+  return publicDeckFileUrl(CHAMPIONSHIP_DECKS_PATH, championshipDeckFile(id) ?? '');
 }
 
-let indexRequest: Promise<ChampionshipDeck[]> | null = null;
+const index = publicDeckIndex<ChampionshipDeck>(CHAMPIONSHIP_DECKS_PATH, 'Championship deck');
 
 // The index, fetched once a session. A failed fetch is not cached, so the next call tries again.
-export function fetchChampionshipDecks(): Promise<ChampionshipDeck[]> {
-  if (!indexRequest) {
-    indexRequest = fetch(`${CHAMPIONSHIP_DECKS_PATH}/index.json`)
-      .then((response) => {
-        if (!response.ok) throw new Error(`Championship deck index: ${response.status}`);
-        return response.json() as Promise<ChampionshipDeck[]>;
-      })
-      .catch((error) => {
-        indexRequest = null;
-        throw error;
-      });
-  }
-  return indexRequest;
-}
+export const fetchChampionshipDecks = () => index.fetch();
 
 // Forgets the cached index; for the tests.
-export function resetChampionshipDecksCache() {
-  indexRequest = null;
-}
+export const resetChampionshipDecksCache = () => index.reset();
 
-export async function fetchChampionshipDeckText(id: string): Promise<string> {
-  const response = await fetch(championshipDeckUrl(id));
-  if (!response.ok) throw new Error(`Championship deck: ${response.status}`);
-  return response.text();
-}
+export const fetchChampionshipDeckText = (id: string) => fetchPublicDeckFile(championshipDeckUrl(id), 'Championship deck');

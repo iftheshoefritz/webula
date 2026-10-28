@@ -133,6 +133,13 @@ saved before #1326 holds the old prefix, `tournament:`, and both prefixes resolv
 same file. The `tournamentId` field of `index.json` keeps trekcc.org's word: it is trekcc's
 ID of the event.
 
+A **Beginner Deck** is one of the starter decks of trekcc.org by Lucas Thompson. It is not a
+rulebook term. The code calls the concept `BeginnerDeck` (`src/lib/beginnerDecks.ts`), the
+files live in `public/beginner-decks/`, and the deck picker lists them flat in a read-only
+folder, "Beginner decks" (#1323). The id of such a deck is `beginner:<file name>`. The
+Championship decks and the Beginner Decks together are the **public decks**
+(`src/lib/publicDecks.ts`).
+
 Deck building limits from the rulebook, for a check you may add later: five
 missions, at least two of them not headquarters; at least 20 dilemmas; at least
 35 deck cards; at most three copies of one card title.

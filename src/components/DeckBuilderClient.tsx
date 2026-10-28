@@ -154,6 +154,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     driveFiles,
     showChampionshipDecks,
     championshipEvents,
+    showBeginnerDecks,
+    beginnerDecks,
     showDrivePicker,
     drivePickerMode,
     browsedFolder,
@@ -1438,6 +1440,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           driveFiles={driveFiles}
           showChampionshipDecks={showChampionshipDecks}
           championshipEvents={championshipEvents}
+          showBeginnerDecks={showBeginnerDecks}
+          beginnerDecks={beginnerDecks}
           loadDriveFile={drivePickerMode === 'compare' ? fetchCompareDriveFile : fetchDriveFile}
           deleteDriveFile={deleteDriveFile}
           onRenameFile={renameDriveFile}

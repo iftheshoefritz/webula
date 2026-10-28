@@ -19,13 +19,11 @@ import { deckFromTsv } from '../app/decks/deckBuilderUtils';
 import { PRACTICE_DECK_TSV, PRACTICE_DECK_TSV_2 } from '../lib/practiceDeck';
 import type { CardData } from '../lib/loadCards';
 import { isEarlyAccessUser } from '../lib/featureFlags';
-import {
-  fetchChampionshipDeckText,
-  fetchChampionshipDecks,
-  groupChampionshipDecks,
-  isChampionshipDeckId,
-} from '../lib/championshipDecks';
+import { fetchChampionshipDecks, groupChampionshipDecks } from '../lib/championshipDecks';
 import type { ChampionshipDeck } from '../lib/championshipDecks';
+import { fetchBeginnerDecks, visibleBeginnerDecks } from '../lib/beginnerDecks';
+import type { BeginnerDeck } from '../lib/beginnerDecks';
+import { fetchPublicDeckText, isPublicDeckId } from '../lib/publicDecks';
 
 interface Session {
   accessToken: string;
@@ -56,7 +54,7 @@ function rowsFromTsv(tsv: string, data: CardData[]): CardDef[] {
 // Fetches the content for each deck ref, reusing already-loaded rows when a ref matches
 // a deck that's already in state. A ref whose file can no longer be fetched (e.g. deleted
 // from Drive since a Report was saved) surfaces as a per-deck load error rather than
-// failing the whole load. A Championship deck's ref loads from `public/championship-decks/` (#1311).
+// failing the whole load. A public deck's ref loads from its folder under `public/` (#1311, #1323).
 async function fetchDeckRefs(
   files: { id: string; name: string }[],
   data: CardData[],
@@ -67,8 +65,8 @@ async function fetchDeckRefs(
       const existing = cachedDecks.find((d) => d.id === file.id);
       if (existing) return existing;
       try {
-        if (isChampionshipDeckId(file.id)) {
-          const text = await fetchChampionshipDeckText(file.id);
+        if (isPublicDeckId(file.id)) {
+          const text = await fetchPublicDeckText(file.id);
           return { id: file.id, name: file.name, rows: rowsFromTsv(text, data) };
         }
         const response = await fetch(`/api/drive/${file.id}`, { method: 'GET', credentials: 'include' });
@@ -109,6 +107,18 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
       // The folder stays empty, and the Drive files still list.
     });
   }, [showDrivePicker, showChampionshipDecks, championshipDecks.length]);
+
+  // The "Beginner decks" folder shows to every user with Drive scope (#1323).
+  const [allBeginnerDecks, setAllBeginnerDecks] = useState<BeginnerDeck[]>([]);
+  const beginnerDecks = visibleBeginnerDecks(allBeginnerDecks, session?.user?.email);
+  const showBeginnerDecks = !!session?.hasDriveScope && (beginnerDecks.length > 0 || allBeginnerDecks.length === 0);
+
+  useEffect(() => {
+    if (!showDrivePicker || !session?.hasDriveScope || allBeginnerDecks.length > 0) return;
+    fetchBeginnerDecks().then(setAllBeginnerDecks).catch(() => {
+      // The folder stays empty, and the Drive files still list.
+    });
+  }, [showDrivePicker, session?.hasDriveScope, allBeginnerDecks.length]);
 
   // The fixture decks are built in render from the card data, once for each `data`. The decks can
   // still be edited through setDecks, and an edit lasts until `data` changes.
@@ -508,6 +518,8 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
           mode="compare-multi"
           showChampionshipDecks={showChampionshipDecks}
           championshipEvents={groupChampionshipDecks(championshipDecks)}
+          showBeginnerDecks={showBeginnerDecks}
+          beginnerDecks={beginnerDecks}
           onConfirmSelection={handleConfirmSelection}
           preSelectedFiles={decks.map((d) => ({ id: d.id, name: d.name }))}
           browsedFolder={browsedFolder}

@@ -909,3 +909,148 @@ describe('DrivePickerModal – the Championship decks folder (#1310)', () => {
     expect(screen.queryByText('Championship decks')).not.toBeInTheDocument();
   });
 });
+
+describe('DrivePickerModal – the Beginner decks folder (#1323)', () => {
+  const beginnerDeck = (deckName: string, complexity: number, style: string) => ({
+    deckId: 1,
+    deckName,
+    player: 'Lucas Thompson',
+    file: `${deckName} - Lucas Thompson.txt`,
+    source: 'https://www.trekcc.org/decklists/?mode=viewdeck&deckID=1',
+    complexity,
+    style,
+    article: 'An article',
+    articleUrl: 'https://www.trekcc.org/articles/?viewArticle=1',
+    authorizedUse: true,
+  });
+  const klingon = beginnerDeck('Klingon Beginner Deck', 1, 'Mission Solver/Speed');
+  const tng = beginnerDeck('TNG Beginner Deck', 3, 'Mission Solver/Midrange');
+  const klingonId = `beginner:${klingon.file}`;
+  const klingonTitle = 'Klingon Beginner Deck - Lucas Thompson';
+  const ledos = {
+    event: '2026 Worlds Day One',
+    tournamentId: 1,
+    deckId: 2,
+    deckName: 'Common Ledos Deck',
+    player: 'Michael Van Breemen',
+    file: '2026 Worlds Day One - Common Ledos Deck - Michael Van Breemen.txt',
+    source: 'https://www.trekcc.org/decklists/?mode=viewdeck&deckID=2',
+    authorizedUse: false,
+  };
+  const gatedProps = { ...baseProps, showBeginnerDecks: true, beginnerDecks: [klingon, tng] };
+  const driveFolder = { id: 'f1', name: 'My Folder', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
+  const driveDeck = { id: 'd1', name: 'Drive Deck', parents: ['appDataFolder'] };
+
+  it.each(['load', 'compare', 'compare-multi'] as const)('lists the folder at the root in %s mode', (mode) => {
+    render(<DrivePickerModal {...gatedProps} mode={mode} />);
+    expect(screen.getByRole('button', { name: 'Beginner decks' })).toBeInTheDocument();
+    expect(screen.queryByText('no files found')).not.toBeInTheDocument();
+  });
+
+  it('shows no folder in reports mode, inside a Drive folder, or with the gate off', () => {
+    const { unmount } = render(<DrivePickerModal {...gatedProps} mode="reports" />);
+    expect(screen.queryByText('Beginner decks')).not.toBeInTheDocument();
+    unmount();
+    const browsed = render(<DrivePickerModal {...gatedProps} driveFiles={[driveFolder]} browsedFolder={driveFolder} />);
+    expect(screen.queryByText('Beginner decks')).not.toBeInTheDocument();
+    browsed.unmount();
+    render(<DrivePickerModal {...baseProps} beginnerDecks={[klingon]} />);
+    expect(screen.queryByText('Beginner decks')).not.toBeInTheDocument();
+    expect(screen.getByText('no files found')).toBeInTheDocument();
+  });
+
+  it('lists the decks flat with their name, level and style, and goes back to the root', () => {
+    render(<DrivePickerModal {...gatedProps} driveFiles={[driveFolder, driveDeck]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Beginner decks' }));
+    const rows = screen.getAllByTestId('beginner-deck-row');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent('Klingon Beginner Deck — Level 1 · Mission Solver/Speed');
+    expect(rows[1]).toHaveTextContent('TNG Beginner Deck — Level 3 · Mission Solver/Midrange');
+    expect(screen.queryByText('Drive Deck')).not.toBeInTheDocument();
+    expect(screen.queryByText('My Folder')).not.toBeInTheDocument();
+    expect(screen.queryByText('New folder')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Beginner decks' }));
+    expect(screen.getByText('Drive Deck')).toBeInTheDocument();
+    expect(screen.queryByTestId('beginner-deck-row')).not.toBeInTheDocument();
+  });
+
+  it('shows please wait while the list is empty', () => {
+    render(<DrivePickerModal {...gatedProps} beginnerDecks={[]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Beginner decks' }));
+    expect(screen.getByText('please wait...')).toBeInTheDocument();
+  });
+
+  it('gives a row only the Load button, and no link', () => {
+    render(<DrivePickerModal {...gatedProps} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Beginner decks' }));
+    const row = screen.getAllByTestId('beginner-deck-row')[0];
+    const labels = Array.from(row.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'));
+    expect(labels).toEqual(['Load Klingon Beginner Deck']);
+    expect(row.querySelector('a')).toBeNull();
+  });
+
+  it('never lists the folder as a Move destination', () => {
+    render(<DrivePickerModal {...gatedProps} driveFiles={[driveFolder, driveDeck]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Move Drive Deck' }));
+    expect(screen.queryByRole('button', { name: 'Move to Beginner decks' })).not.toBeInTheDocument();
+  });
+
+  it('loads a deck by its beginner id with the chosen pile', () => {
+    const loadDriveFile = jest.fn();
+    render(<DrivePickerModal {...gatedProps} loadDriveFile={loadDriveFile} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Beginner decks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Load Klingon Beginner Deck' }));
+    expect(loadDriveFile).toHaveBeenLastCalledWith({ id: klingonId, name: klingonTitle }, undefined);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Load mode for Klingon Beginner Deck' }), { target: { value: 'mission' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Load Klingon Beginner Deck' }));
+    expect(loadDriveFile).toHaveBeenLastCalledWith({ id: klingonId, name: klingonTitle }, ['mission']);
+  });
+
+  it('confirms the checked Beginner decks with the Drive decks in compare-multi mode', () => {
+    const onConfirmSelection = jest.fn();
+    render(
+      <DrivePickerModal {...gatedProps} mode="compare-multi" driveFiles={[driveDeck]} onConfirmSelection={onConfirmSelection} />
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Drive Deck' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Beginner decks' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Klingon Beginner Deck' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Compare 2 decks' }));
+    expect(onConfirmSelection).toHaveBeenCalledWith([driveDeck, { id: klingonId, name: klingonTitle }]);
+  });
+
+  it('keeps a pre-selected Beginner deck on confirm before the index loads', () => {
+    const onConfirmSelection = jest.fn();
+    const ref = { id: klingonId, name: klingonTitle };
+    render(
+      <DrivePickerModal
+        {...gatedProps}
+        beginnerDecks={[]}
+        mode="compare-multi"
+        preSelectedFiles={[ref]}
+        onConfirmSelection={onConfirmSelection}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Compare 1 deck' }));
+    expect(onConfirmSelection).toHaveBeenCalledWith([ref]);
+  });
+
+  it('lists the Championship decks folder beside it, and each opens on its own', () => {
+    render(
+      <DrivePickerModal
+        {...gatedProps}
+        showChampionshipDecks
+        championshipEvents={[{ event: ledos.event, decks: [ledos] }]}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
+    expect(screen.queryByRole('button', { name: 'Beginner decks' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: ledos.event }));
+    expect(screen.getByTestId('championship-deck-row')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: ledos.event }));
+    fireEvent.click(screen.getByRole('button', { name: 'Championship decks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Beginner decks' }));
+    expect(screen.getAllByTestId('beginner-deck-row')).toHaveLength(2);
+    expect(screen.queryByTestId('championship-deck-row')).not.toBeInTheDocument();
+  });
+});
