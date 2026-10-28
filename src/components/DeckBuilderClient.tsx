@@ -504,7 +504,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
           </div>
           <button
             onClick={() => setViewMode(viewMode === 'image' ? 'list' : 'image')}
-            className="btn-icon mt-1 flex-shrink-0"
+            className="btn-icon mt-1 shrink-0"
             title={viewMode === 'image' ? 'Switch to list view' : 'Switch to image view'}
             aria-label={viewMode === 'image' ? 'Switch to list view' : 'Switch to image view'}
           >
@@ -556,7 +556,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             autoFocus
             onChange={(e) => setDeckTitle(e.target.value)}
             onBlur={() => setMobileTitleEditing(false)}
-            className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
+            className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-hidden focus:border-accent/40"
           />
         ) : (
           <div className="flex items-center space-x-2">
@@ -700,7 +700,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               onChange={(e) => {
                 setDeckTitle(e.target.value);
               }}
-              className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
+              className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-hidden focus:border-accent/40"
             />
           </div>
           {deckSourceLink}
@@ -896,7 +896,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
         </div>
 
         {/* Main content area */}
-        <div className={`flex-grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0 ${mobileView !== 'analysis' ? 'hidden lg:block' : ''}`}>
+        <div className={`grow lg:w-3/4 overflow-y-scroll pb-16 lg:pb-0 ${mobileView !== 'analysis' ? 'hidden lg:block' : ''}`}>
           {/* Mobile-only header for Analysis tab: title + controls in one row, matching the deck tab */}
           <div className="lg:hidden shrink-0 border-b border-border bg-bg-secondary px-2 py-2">
             {mobileTitleEditing ? (
@@ -908,7 +908,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 autoFocus
                 onChange={(e) => setDeckTitle(e.target.value)}
                 onBlur={() => setMobileTitleEditing(false)}
-                className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
+                className="bg-white/[0.05] text-text-primary font-body font-bold py-2 px-4 rounded my-0 border border-white/10 w-full placeholder:text-text-disabled focus:outline-hidden focus:border-accent/40"
               />
             ) : (
               <div className="flex items-center space-x-2">
@@ -1003,7 +1003,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             <div className="hidden lg:flex space-x-4 overflow-x-scroll">
               {Array.from({ length: 5 }, (_, i) => missions[i] ?? null).map((row, i) =>
                 row ? (
-                  <div key={row.collectorsinfo} className="flex-shrink-0 flex flex-col items-center w-56">
+                  <div key={row.collectorsinfo} className="shrink-0 flex flex-col items-center w-56">
                     <div className="relative group w-full">
                       <img
                         src={`/cardimages/${row.imagefile}.jpg`}
@@ -1035,7 +1035,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 ) : (
                   <div
                     key={`empty-${i}`}
-                    className="flex-shrink-0 w-56 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 p-3"
+                    className="shrink-0 w-56 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 p-3"
                     style={{ aspectRatio: '165/229' }}
                   >
                     <span className="text-xs text-text-secondary mb-1">Add mission</span>
@@ -1079,7 +1079,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                   ‹
                 </button>
                 {missions[missionIndex] ? (
-                  <div className="relative flex-shrink-0">
+                  <div className="relative shrink-0">
                     <img
                       src={`/cardimages/${missions[missionIndex].imagefile}.jpg`}
                       width={165}
@@ -1100,7 +1100,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                   </div>
                 ) : (
                   <div
-                    className="flex-shrink-0 w-72 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 p-4"
+                    className="shrink-0 w-72 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 p-4"
                     style={{ aspectRatio: '165/229' }}
                   >
                     <span className="text-xs text-text-secondary mb-1">Add mission</span>

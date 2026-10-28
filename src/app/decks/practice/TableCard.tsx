@@ -148,7 +148,7 @@ export default function TableCard({
       onClick={onClick}
       {...attributes}
       {...(holdable ? holdListeners : listeners)}
-      className={`flex flex-col items-center focus:outline-none ${draggable ? (panY ? 'touch-pan-y' : 'touch-none') : 'touch-manipulation'} ${
+      className={`flex flex-col items-center focus:outline-hidden ${draggable ? (panY ? 'touch-pan-y' : 'touch-none') : 'touch-manipulation'} ${
         turnable ? 'motion-safe:transition-transform motion-reduce:transition-none' : ''
       }`}
       style={{

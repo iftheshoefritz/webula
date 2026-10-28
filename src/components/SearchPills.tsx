@@ -695,7 +695,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 onChange={(e) => setSkillsSearch(e.target.value)}
                 placeholder="Search skills..."
                 className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
-                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           rounded-md text-text-primary placeholder-text-muted outline-hidden
                            focus:border-accent/50"
                 autoFocus
               />
@@ -733,7 +733,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 onChange={(e) => setAffiliationSearch(e.target.value)}
                 placeholder="Search affiliations..."
                 className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
-                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           rounded-md text-text-primary placeholder-text-muted outline-hidden
                            focus:border-accent/50"
                 autoFocus
               />
@@ -777,7 +777,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 onChange={(e) => setSetSearch(e.target.value)}
                 placeholder="Search sets..."
                 className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
-                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           rounded-md text-text-primary placeholder-text-muted outline-hidden
                            focus:border-accent/50"
                 autoFocus
               />
@@ -815,7 +815,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 onChange={(e) => setQuadrantSearch(e.target.value)}
                 placeholder="Search quadrants..."
                 className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
-                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           rounded-md text-text-primary placeholder-text-muted outline-hidden
                            focus:border-accent/50"
                 autoFocus
               />
@@ -853,7 +853,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 onChange={(e) => setTypeSearch(e.target.value)}
                 placeholder="Search types..."
                 className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
-                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           rounded-md text-text-primary placeholder-text-muted outline-hidden
                            focus:border-accent/50"
                 autoFocus
               />
@@ -891,7 +891,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 onChange={(e) => setSimpleTypeaheadSearch(e.target.value)}
                 placeholder={activeSimpleTypeahead.placeholder}
                 className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
-                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           rounded-md text-text-primary placeholder-text-muted outline-hidden
                            focus:border-accent/50"
                 autoFocus
               />
@@ -943,7 +943,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSubmitTextInputFilter(); }}
                 placeholder={`Enter ${activeTextInputFilter}...`}
                 className="w-full px-2 py-1 mb-2 text-[16px] bg-white/[0.05] border border-white/10
-                           rounded-md text-text-primary placeholder-text-muted outline-none
+                           rounded-md text-text-primary placeholder-text-muted outline-hidden
                            focus:border-accent/50"
                 autoFocus
               />

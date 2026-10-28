@@ -366,7 +366,7 @@ function CardListPanelCard({
         onClick={onToggleSelect}
         {...attributes}
         {...holdListeners}
-        className={`relative flex flex-col items-center gap-0.5 focus:outline-none ${
+        className={`relative flex flex-col items-center gap-0.5 focus:outline-hidden ${
           gridScrolls ? 'touch-pan-y' : 'touch-none'
         } w-full rounded-md ${
           selected ? 'ring-2 ring-accent' : ''
@@ -437,7 +437,7 @@ function CardListPanelCard({
           onClick={onToggleSelect}
           aria-pressed
           aria-label={`Deselect ${cardDisplayName(card)}`}
-          className="absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none bg-accent border-accent text-white"
+          className="absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-hidden bg-accent border-accent text-white"
         >
           ✓
         </button>

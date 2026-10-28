@@ -309,7 +309,7 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
                 placeholder="Report name"
                 value={reportName}
                 onChange={(e) => setReportName(e.target.value)}
-                className="bg-white/[0.05] text-text-primary text-sm py-1.5 px-2 rounded border border-white/10 placeholder:text-text-disabled focus:outline-none focus:border-accent/40"
+                className="bg-white/[0.05] text-text-primary text-sm py-1.5 px-2 rounded border border-white/10 placeholder:text-text-disabled focus:outline-hidden focus:border-accent/40"
               />
               <button
                 type="button"

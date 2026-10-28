@@ -114,7 +114,7 @@ function DraggableFanCard({
         {...holdListeners}
         {...attributes}
         data-card-id={instance.id}
-        className={`block focus:outline-none touch-none rounded-lg ${selected ? 'ring-2 ring-accent' : ''}`}
+        className={`block focus:outline-hidden touch-none rounded-lg ${selected ? 'ring-2 ring-accent' : ''}`}
         style={{
           ...NO_CALLOUT_STYLE,
           transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
@@ -139,7 +139,7 @@ function DraggableFanCard({
           onClick={onToggleSelect}
           aria-pressed
           aria-label={`Deselect ${cardDisplayName(card)}`}
-          className="absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-none bg-accent border-accent text-white"
+          className="absolute top-0.5 right-0.5 w-4 h-4 rounded border flex items-center justify-center text-[9px] leading-none focus:outline-hidden bg-accent border-accent text-white"
         >
           ✓
         </button>
@@ -314,7 +314,7 @@ export default function CardHand({
         onClick={onOpen}
         disabled={open || count === 0}
         aria-label={`${label}, ${count} card${count === 1 ? '' : 's'}, tap to open`}
-        className={`relative focus:outline-none disabled:cursor-default ${open ? '' : highlightClassName(highlight)}`}
+        className={`relative focus:outline-hidden disabled:cursor-default ${open ? '' : highlightClassName(highlight)}`}
         style={{ width: closedWidth, height: CARD_HEIGHT, visibility: open ? 'hidden' : 'visible' }}
       >
         {count === 0 ? (
