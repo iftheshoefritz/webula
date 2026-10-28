@@ -24,10 +24,19 @@
 # apply. A check of a desktop feature sees the wrong layout.
 #
 # This script starts Chromium with the Blink settings
-# `primaryPointerType=4;availablePointerTypes=4` (4 is a fine pointer) and
-# `primaryHoverType=2;availableHoverTypes=2` (2 is a pointer that hovers). The
+# `primaryPointerType=4,availablePointerTypes=4` (4 is a fine pointer) and
+# `primaryHoverType=2,availableHoverTypes=2` (2 is a pointer that hovers). The
 # settings change the device the browser reports, so JavaScript and CSS media
-# queries agree. Do not patch `window.matchMedia` with `--init-script` instead:
+# queries agree.
+#
+# `--blink-settings` takes its settings separated by commas. Chrome applies only
+# the first setting of a list separated by semicolons, and only the last of two
+# `--blink-settings` flags. agent-browser splits `--args` on every comma, so the
+# flag cannot go through `--args`. The script writes a small wrapper around the
+# browser that adds the flag, and starts agent-browser with
+# `--executable-path` set to the wrapper (#375). The browser is
+# `$AGENT_BROWSER_EXECUTABLE_PATH`, or else the first of `google-chrome`,
+# `chromium` and `chromium-browser` on the PATH. Do not patch `window.matchMedia` with `--init-script` instead:
 # that changes what JavaScript sees and nothing else, so CSS still sees
 # `pointer: none`, and the page draws a layout no real device draws.
 #
@@ -62,16 +71,31 @@ if [ -z "$URL" ]; then
   exit 2
 fi
 
+BROWSER="${AGENT_BROWSER_EXECUTABLE_PATH:-}"
+if [ -z "$BROWSER" ]; then
+  BROWSER=$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)
+fi
+if [ -z "$BROWSER" ]; then
+  echo "No Chrome found. Set AGENT_BROWSER_EXECUTABLE_PATH to the browser agent-browser uses." >&2
+  exit 1
+fi
+WRAPPER="${TMPDIR:-/tmp}/agent-browser-desktop-chrome"
+cat > "$WRAPPER" <<WRAPPER_EOF
+#!/usr/bin/env bash
+exec "$BROWSER" '--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2' "\$@"
+WRAPPER_EOF
+chmod +x "$WRAPPER"
+
 # The `--args` value is split on commas, so a comma separates two flags, and no
 # flag may hold a comma of its own.
-FLAG='--blink-settings=primaryPointerType=4;availablePointerTypes=4;primaryHoverType=2;availableHoverTypes=2'
+ARGS=()
 if [ -n "$SCREEN" ]; then
-  FLAG="$FLAG,--screen-info={$SCREEN}"
+  ARGS=(--args "--screen-info={$SCREEN}")
 fi
 
 npx agent-browser close --all >/dev/null 2>&1
 
-if ! npx agent-browser --args "$FLAG" open "$URL"; then
+if ! npx agent-browser --executable-path "$WRAPPER" "${ARGS[@]}" open "$URL"; then
   echo "agent-browser could not open $URL" >&2
   exit 1
 fi

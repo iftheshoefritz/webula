@@ -668,8 +668,10 @@ bash scripts/agent_browser_desktop.sh 'http://localhost:3000/decks/practice?fixt
 ```
 
 Quote the URL, because it holds `&`. The script starts Chromium with
-`--blink-settings=primaryPointerType=4;availablePointerTypes=4;primaryHoverType=2;availableHoverTypes=2`,
-then prints `pointer: fine = true` and `hover: hover = true` and exits 0, or prints `false` and
+`--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2`,
+through a wrapper around Chrome that it passes as `--executable-path`, because agent-browser splits
+`--args` on every comma and Chrome reads only the first setting of a list separated by semicolons.
+It then prints `pointer: fine = true` and `hover: hover = true` and exits 0, or prints `false` and
 exits 1. The flag changes the device
 the browser reports, so JavaScript and CSS agree. Use this script and no other method. Do not
 patch `window.matchMedia` with `--init-script`: that changes only what JavaScript sees, CSS still
