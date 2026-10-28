@@ -18,7 +18,7 @@ export function OfflineDeckList({ decks, onChoose }: { decks: OfflineDeck[]; onC
       <ul data-testid="offline-deck-choices" className="w-full divide-y divide-white/[0.06]">
         {decks.map((d) => (
           <DriveListRow key={d.fingerprint} name={d.name}>
-            <div className="flex items-center gap-2 whitespace-nowrap flex-shrink-0">
+            <div className="flex items-center gap-2 whitespace-nowrap shrink-0">
               <span className="text-xs text-text-muted">{formatBytes(d.bytes)}</span>
               <button
                 type="button"

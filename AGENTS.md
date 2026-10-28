@@ -28,7 +28,7 @@ yarn test:watch # Run tests in watch mode
 ### Tech Stack
 - Next.js 14 with App Router
 - React 19 with TypeScript
-- Tailwind CSS for styling
+- Tailwind CSS 4 for styling, through `@tailwindcss/postcss` (`postcss.config.js`). The theme stays in `tailwind.config.js`, which `src/styles/globals.css` loads with `@config` (#375)
 - NextAuth.js for Google OAuth authentication
 - Jest with React Testing Library for tests
 
@@ -679,13 +679,18 @@ bash scripts/agent_browser_desktop.sh 'http://localhost:3000/decks/practice?fixt
 ```
 
 Quote the URL, because it holds `&`. The script starts Chromium with
-`--blink-settings=primaryPointerType=4;availablePointerTypes=4`, then prints
-`pointer: fine = true` and exits 0, or prints `false` and exits 1. The flag changes the device
+`--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2`,
+through a wrapper around Chrome that it passes as `--executable-path`, because agent-browser splits
+`--args` on every comma and Chrome reads only the first setting of a list separated by semicolons.
+It then prints `pointer: fine = true` and `hover: hover = true` and exits 0, or prints `false` and
+exits 1. The flag changes the device
 the browser reports, so JavaScript and CSS agree. Use this script and no other method. Do not
 patch `window.matchMedia` with `--init-script`: that changes only what JavaScript sees, CSS still
 sees `pointer: none`, and the page draws a layout no real device draws.
 
-The mode gives a fine pointer, not a hover media query: `(hover: hover)` stays false.
+The mode gives a fine pointer and a pointer that hovers, so `(hover: hover)` matches too. Tailwind
+4 applies a `hover:` class only under `@media (hover: hover)` (#375), so a plain
+`npx agent-browser open`, the touch layout, shows no hover state at all.
 
 The script closes every `agent-browser` session first, because `--args` applies only when the
 daemon starts and is ignored silently otherwise. Any earlier page state in the browser is gone.

@@ -222,7 +222,7 @@ export default function SearchResults({
             <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
           </div>
           {currentDeck && (
-            <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white rounded-full px-2 py-1">
+            <div className="absolute top-0 right-0 bg-black/50 text-white rounded-full px-2 py-1">
               {currentDeck[row.collectorsinfo]?.row?.count || 0}
             </div>
           )}
@@ -332,7 +332,7 @@ export default function SearchResults({
           <div className="flex items-center h-7 gap-2 min-w-0">
             {/* Icon + cost/points grouped with no gap between them */}
             {(leftIcon || showCost || showPoints) && (
-              <span className="flex items-center flex-shrink-0">
+              <span className="flex items-center shrink-0">
                 {leftIcon}
                 {showCost && (
                   <span className="text-lg font-bold font-mono text-text-primary w-6 text-center leading-none">
@@ -354,7 +354,7 @@ export default function SearchResults({
               {row.unique === 'y' && <span>·</span>}{row.name}
             </span>
             {deckCount !== null && deckCount > 0 && (
-              <div className="ml-auto flex items-center gap-0.5 bg-black/70 rounded-full px-1 flex-shrink-0">
+              <div className="ml-auto flex items-center gap-0.5 bg-black/70 rounded-full px-1 shrink-0">
                 <button
                   onClick={(e) => { e.stopPropagation(); onCardDeselected?.(e as any, row); }}
                   className="w-5 h-5 flex items-center justify-center text-white text-base leading-none"

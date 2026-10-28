@@ -164,7 +164,7 @@ export const PracticeDeckPicker: React.FC<Props> = ({
               ))}
               {visibleDeckFiles.map((file) => (
                 <DriveListRow key={file.id} name={file.name}>
-                  <div className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
+                  <div className="flex items-center gap-1 whitespace-nowrap shrink-0">
                     {deckActions(file)}
                     <Link
                       href={editDeckHref(file)}

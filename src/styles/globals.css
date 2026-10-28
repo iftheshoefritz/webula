@@ -1,9 +1,37 @@
 /* A url @import must come before every rule, so before the rules the Tailwind imports bring in. */
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono&display=swap');
 
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
+@import 'tailwindcss';
+
+/* The theme still lives in tailwind.config.js (#375). */
+@config '../../tailwind.config.js';
+
+/* Tailwind 4 changed three defaults of its base styles. These rules keep the Tailwind 3 ones
+   (#375): a border with no colour is gray-200, not the text colour; a placeholder is gray-400, not
+   the text colour at half opacity; and a button shows the pointer cursor, not the default one. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+}
 
 @layer components {
   /* ==================== */
@@ -30,17 +58,20 @@
   /* INPUTS               */
   /* ==================== */
 
-  .input {
+  /* Tailwind 4 lets `@apply` name only utilities, so `input-search` shares the rule of `input`
+     instead of applying it, and stays a component (#375). */
+  .input,
+  .input-search {
     @apply w-full
            bg-white/[0.05] border border-white/10 rounded-lg
            px-3.5 py-2.5
            text-[16px] text-text-primary font-body
            placeholder:text-text-disabled
-           focus:outline-none focus:border-accent/40;
+           focus:outline-hidden focus:border-accent/40;
   }
 
   .input-search {
-    @apply input font-mono pr-10;
+    @apply font-mono pr-10;
   }
 
   .input-search-icon {
@@ -54,7 +85,7 @@
 
   .syntax-panel {
     @apply mt-3 p-3
-           surface-elevated rounded-xl
+           bg-black/30 rounded-xl
            border border-white/[0.04];
   }
 
@@ -94,15 +125,16 @@
   }
 
   .page-header {
-    @apply px-4 py-4 border-b border-white/[0.06] flex-shrink-0;
+    @apply px-4 py-4 border-b border-white/[0.06] shrink-0;
   }
 
-  .page-scroll {
+  .page-scroll,
+  .page-scroll-padded {
     @apply flex-1 overflow-y-auto overflow-x-hidden;
   }
 
   .page-scroll-padded {
-    @apply page-scroll px-4 py-4;
+    @apply px-4 py-4;
   }
 
   /* ==================== */

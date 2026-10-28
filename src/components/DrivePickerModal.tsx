@@ -231,7 +231,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   // 'compare-multi', a Load button otherwise. A public deck is read-only, so its row has no delete,
   // rename or move action.
   const renderPublicDeckControls = (file: DriveFile, label: string) => (
-    <div className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
+    <div className="flex items-center gap-1 whitespace-nowrap shrink-0">
       {mode === 'load' && (
         <select
           className="input w-auto text-sm py-1 px-2"
@@ -517,7 +517,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                         ) : (
                           <span className="flex-1 min-w-0 px-3 truncate" title={file.name}>{file.name}</span>
                         )}
-                        <div className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
+                        <div className="flex items-center gap-1 whitespace-nowrap shrink-0">
                           {mode === 'load' && (
                             <select
                               className="input w-auto text-sm py-1 px-2"

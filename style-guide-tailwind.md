@@ -114,14 +114,19 @@ module.exports = {
 
 ## Base Styles
 
-Add to your global CSS file:
+Add to your global CSS file. The project runs Tailwind CSS 4, which loads the configuration above
+with `@config`. A url `@import` must come before every rule, so it comes first.
+
+Tailwind 4 lets `@apply` name only utilities, not a class of `@layer components`. Where an example
+below applies one component class inside another (`@apply input`, `@apply surface-elevated`,
+`@apply page-scroll`), `src/styles/globals.css` lists both classes on one rule, or copies the
+utilities, instead.
 
 ```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono&display=swap');
+
+@import 'tailwindcss';
+@config '../../tailwind.config.js';
 
 @layer base {
   body {
@@ -350,7 +355,7 @@ Add to your global CSS file:
            px-3.5 py-2.5
            text-lg text-text-primary font-body
            placeholder:text-text-disabled
-           focus:outline-none focus:border-accent/40;
+           focus:outline-hidden focus:border-accent/40;
   }
   
   .input-search {
@@ -419,7 +424,7 @@ Add to your global CSS file:
            border-t border-white/[0.06]
            surface-elevated
            flex justify-between items-center
-           flex-shrink-0;
+           shrink-0;
   }
   
   .bottom-bar-text {
@@ -471,7 +476,7 @@ Add to your global CSS file:
   }
   
   .page-header {
-    @apply px-4 py-4 border-b border-white/[0.06] flex-shrink-0;
+    @apply px-4 py-4 border-b border-white/[0.06] shrink-0;
   }
   
   .page-scroll {

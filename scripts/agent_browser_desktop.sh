@@ -23,14 +23,25 @@
 # false, and the CSS `[@media(pointer:fine)]` rules of `CardPreview` do not
 # apply. A check of a desktop feature sees the wrong layout.
 #
-# This script starts Chromium with the Blink setting
-# `primaryPointerType=4;availablePointerTypes=4` (4 is a fine pointer). The
-# setting changes the device the browser reports, so JavaScript and CSS media
-# queries agree. Do not patch `window.matchMedia` with `--init-script` instead:
+# This script starts Chromium with the Blink settings
+# `primaryPointerType=4,availablePointerTypes=4` (4 is a fine pointer) and
+# `primaryHoverType=2,availableHoverTypes=2` (2 is a pointer that hovers). The
+# settings change the device the browser reports, so JavaScript and CSS media
+# queries agree.
+#
+# `--blink-settings` takes its settings separated by commas. Chrome applies only
+# the first setting of a list separated by semicolons, and only the last of two
+# `--blink-settings` flags. agent-browser splits `--args` on every comma, so the
+# flag cannot go through `--args`. The script writes a small wrapper around the
+# browser that adds the flag, and starts agent-browser with
+# `--executable-path` set to the wrapper (#375). The browser is
+# `$AGENT_BROWSER_EXECUTABLE_PATH`, or else the first of `google-chrome`,
+# `chromium` and `chromium-browser` on the PATH. Do not patch `window.matchMedia` with `--init-script` instead:
 # that changes what JavaScript sees and nothing else, so CSS still sees
 # `pointer: none`, and the page draws a layout no real device draws.
 #
-# The mode gives a fine pointer only. `(hover: hover)` stays false.
+# Tailwind 4 applies a `hover:` class only under `@media (hover: hover)`
+# (#375), so without the hover settings no hover state of the page shows.
 #
 # agent-browser runs a daemon, and launch options such as `--args` apply only
 # when the daemon starts. With a daemon already running, they are ignored. So
@@ -41,8 +52,8 @@
 # the same daemon and stays in desktop mode. To go back to the touch layout,
 # run `npx agent-browser close` and open the page again without this script.
 #
-# After the load the script prints `pointer: fine = <true|false>`, and exits 1
-# when it is false.
+# After the load the script prints `pointer: fine = <true|false>` and
+# `hover: hover = <true|false>`, and exits 1 when either is false.
 set -u
 
 SCREEN=""
@@ -60,16 +71,31 @@ if [ -z "$URL" ]; then
   exit 2
 fi
 
+BROWSER="${AGENT_BROWSER_EXECUTABLE_PATH:-}"
+if [ -z "$BROWSER" ]; then
+  BROWSER=$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)
+fi
+if [ -z "$BROWSER" ]; then
+  echo "No Chrome found. Set AGENT_BROWSER_EXECUTABLE_PATH to the browser agent-browser uses." >&2
+  exit 1
+fi
+WRAPPER="${TMPDIR:-/tmp}/agent-browser-desktop-chrome"
+cat > "$WRAPPER" <<WRAPPER_EOF
+#!/usr/bin/env bash
+exec "$BROWSER" '--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2' "\$@"
+WRAPPER_EOF
+chmod +x "$WRAPPER"
+
 # The `--args` value is split on commas, so a comma separates two flags, and no
 # flag may hold a comma of its own.
-FLAG='--blink-settings=primaryPointerType=4;availablePointerTypes=4'
+ARGS=()
 if [ -n "$SCREEN" ]; then
-  FLAG="$FLAG,--screen-info={$SCREEN}"
+  ARGS=(--args "--screen-info={$SCREEN}")
 fi
 
 npx agent-browser close --all >/dev/null 2>&1
 
-if ! npx agent-browser --args "$FLAG" open "$URL"; then
+if ! npx agent-browser --executable-path "$WRAPPER" "${ARGS[@]}" open "$URL"; then
   echo "agent-browser could not open $URL" >&2
   exit 1
 fi
@@ -77,6 +103,8 @@ npx agent-browser wait --load load >/dev/null 2>&1
 
 FINE=$(npx agent-browser eval "matchMedia('(pointer: fine)').matches" 2>&1 | tail -1 | tr -d '"')
 echo "pointer: fine = $FINE"
+HOVER=$(npx agent-browser eval "matchMedia('(hover: hover)').matches" 2>&1 | tail -1 | tr -d '"')
+echo "hover: hover = $HOVER"
 if [ -n "$SCREEN" ]; then
   SIZE=$(npx agent-browser eval "screen.width+'x'+screen.height" 2>&1 | tail -1 | tr -d '"')
   echo "screen = $SIZE"
@@ -87,5 +115,9 @@ if [ -n "$SCREEN" ]; then
 fi
 if [ "$FINE" != "true" ]; then
   echo "The page does not see a fine pointer, so it draws the touch layout." >&2
+  exit 1
+fi
+if [ "$HOVER" != "true" ]; then
+  echo "The page does not see a pointer that hovers, so no hover: class applies." >&2
   exit 1
 fi

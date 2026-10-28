@@ -51,6 +51,14 @@ module.exports = {
       },
 
       fontFamily: {
+        // Tailwind 3's default sans stack. Under @config, Tailwind 4 falls back to an
+        // older stack with no ui-sans-serif or system-ui, which changes the page's
+        // default font and font-sans on Linux and Android (#375).
+        sans: [
+          'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"',
+          'Roboto', '"Helvetica Neue"', 'Arial', '"Noto Sans"', 'sans-serif',
+          '"Apple Color Emoji"', '"Segoe UI Emoji"', '"Segoe UI Symbol"', '"Noto Color Emoji"',
+        ],
         display: ['Oswald', 'sans-serif'],
         body: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
         mono: ['IBM Plex Mono', 'monospace'],

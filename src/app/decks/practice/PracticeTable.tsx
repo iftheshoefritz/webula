@@ -731,7 +731,7 @@ function PileHalf({
       onClick={onDraw}
       disabled={count === 0}
       aria-label={onDraw ? `${pileName} ${position}, tap to draw` : `${pileName} ${position}`}
-      className={`absolute inset-x-0 ${position === 'top' ? 'top-0' : 'bottom-0'} h-1/2 focus:outline-none disabled:cursor-not-allowed ${highlightClassName(
+      className={`absolute inset-x-0 ${position === 'top' ? 'top-0' : 'bottom-0'} h-1/2 focus:outline-hidden disabled:cursor-not-allowed ${highlightClassName(
         highlight
       )} ${position === 'top' ? 'rounded-t-lg' : 'rounded-b-lg'}`}
     >
@@ -1076,7 +1076,7 @@ function DilemmaStackTopCard({
       }}
       {...attributes}
       {...holdListeners}
-      className={`absolute ${cropHeight === undefined ? 'rounded-lg' : 'rounded-md'} focus:outline-none touch-none`}
+      className={`absolute ${cropHeight === undefined ? 'rounded-lg' : 'rounded-md'} focus:outline-hidden touch-none`}
     >
       {cropHeight === undefined ? (
         <img
@@ -1199,7 +1199,7 @@ function DilemmaStackPile({
         aria-label={dilemmaStackLabel(count)}
         aria-hidden={revealed || undefined}
         tabIndex={revealed ? -1 : undefined}
-        className="absolute inset-0 w-full h-full rounded-lg focus:outline-none"
+        className="absolute inset-0 w-full h-full rounded-lg focus:outline-hidden"
       >
         {count === 0 && (
           <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
@@ -1235,7 +1235,7 @@ function DilemmaStackPile({
           type="button"
           onClick={onReveal}
           aria-label="Reveal top dilemma"
-          className="absolute -bottom-1 -left-1 w-6 h-6 rounded-full bg-black/90 border border-white shadow-md flex items-center justify-center text-text-primary focus:outline-none"
+          className="absolute -bottom-1 -left-1 w-6 h-6 rounded-full bg-black/90 border border-white shadow-md flex items-center justify-center text-text-primary focus:outline-hidden"
           style={{ zIndex: count + 1 }}
         >
           <RevealIcon className="w-3 h-3" />
@@ -1306,7 +1306,7 @@ function DilemmaStackFaceUp({
         aria-label={dilemmaStackLabel(count)}
         aria-hidden={count > 0 || undefined}
         tabIndex={count > 0 ? -1 : undefined}
-        className="absolute inset-0 w-full h-full rounded-lg focus:outline-none"
+        className="absolute inset-0 w-full h-full rounded-lg focus:outline-hidden"
       >
         {count === 0 && (
           <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
