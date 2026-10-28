@@ -1,0 +1,57 @@
+Deck:
+1	Spiteful Strategy
+2	Our Death is Glory to the Founders (SS)
+1	Crippling Strike
+1	Martok Founder False Flag Officer
+1	Crom Open-minded
+1	Inglatu Tulaberry Merchant
+1	Arak'Taral Suspicious Second
+1	Rayva Bureaucratic Ally
+1	Umat'Adan Eager Fifth
+1	Borath Psychological Researcher
+1	Founder Leader Forbidding Judge
+1	Ikat'ika Honorable Warrior
+2	Imat'Korex
+1	Kilana Dissembling Envoy
+1	Limara'Son Fierce Soldier
+3	Rak'tazan
+3	Tozara'Kesh
+1	Varen'agor
+1	Weyoun Loyal Subject of the Dominion
+1	Yelgrun Blunt Negotiator
+1	Remata'Klan Unit Leader *VP
+1	Odo The Great Link's Savior *VP
+1	Ixtana'Rax Honored Elder *VP
+1	Keevan Conniving Liar *VP
+2	Dominion Battleship *VP
+3	Jem'Hadar Warship
+Dilemmas:
+1	Dark Page (IDR)
+2	In Development (IDR)
+1	Healing Hand
+2	Intimidation
+1	Hard of Heart
+1	Mark of Gideon (ID)
+1	Honorable Pursuit
+1	Show Trial
+2	Inquest
+1	Know Thy Enemy
+2	Miner Revolt
+1	The Needs of the Few
+1	Unconventional Consideration
+1	Outclassed
+1	Gomtuu Shock Wave *VP
+1	Back Room Dealings *VP
+1	Moral Choice *VP
+2	Chula: The Chandra *VP
+1	Guess Who's Coming to Dinner? *VP
+1	Polywater Intoxication *VP
+2	Old Differences *VP
+1	Rogue Borg Ambush *VP
+2	Adopted Authority *VP
+Missions:
+1	Obatta Cluster Stage Covert Fleet
+1	Founders' Homeworld Contingent Refuge
+1	Stakoron Strait Patrol Shipping Lane
+1	Teplan Prime Subjugate Planet
+1	Torga IV Strained Negotiations

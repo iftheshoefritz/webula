@@ -1,0 +1,56 @@
+Deck:
+2	Tacking Into the Wind *VP
+3	The Central Command *VP
+1	Seska Pragmatic Agent
+1	Persis Loyal Daughter *AP
+1	The Pendari Champion Electrifying Favorite *VAP
+1	Dukat Prefect of Bajor
+1	Damar Ambitious Glinn
+1	Seven of Nine Immersed in Chaos
+1	Telle Macet's Aide
+1	Gollek
+3	Tajor
+3	Enabran Tain "Retired" Spymaster
+1	Parek Privileged Legate
+1	Mardel Overseer
+1	Madred Persistent Inquisitor
+1	Nador Curious Commander
+1	Tolian Soran Renegade Scientist *VP
+1	Evek Harsh Interrogator
+1	Elim Garak Agent of the Obsidian Order *VP
+1	Mila Trusted Confidante *VP
+1	Danar Irascible Gul
+1	Lemec Posturing Negotiator
+1	Rogesh
+3	Galor
+2	Keldon Advanced
+Dilemmas:
+1	Dark Page (IDR)
+2	In Development (IDR)
+2	Chula: The Chandra
+2	Intimidation
+1	Hard of Heart
+1	Cardassian Processing
+1	Mark of Gideon (ID)
+1	Honorable Pursuit
+1	Show Trial
+2	Inquest
+2	Miner Revolt
+1	The Needs of the Few
+1	Unconventional Consideration
+1	Outclassed
+1	No Kill I
+1	Gomtuu Shock Wave *VP
+1	Back Room Dealings *VP
+1	Moral Choice *VP
+1	Guess Who's Coming to Dinner? *VP
+1	Polywater Intoxication *VP
+2	Old Differences *VP
+1	Rogue Borg Ambush *VP
+2	Adopted Authority *VP
+Missions:
+1	Deep Space Station K-7 Monitor Federation Commerce
+1	Kreetassa Perform Intricate Ritual
+1	T'Lani III Eliminate Harvesters
+1	Orias Security Cordon Intercept Renegade
+1	Cardassia Prime Hardscrabble World *VP

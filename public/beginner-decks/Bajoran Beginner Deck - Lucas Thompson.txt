@@ -1,0 +1,58 @@
+Deck:
+1	Orb of the Emissary
+1	Orb of Prophecy and Change
+1	Orb of Time
+3	Days of Atonement
+3	Accession
+1	Akorem Laan Misguided Mystic
+1	Miles O'Brien Ill-Equipped Storyteller
+1	Benjamin Sisko Corporeal Intercessor
+1	Kasidy Yates Resolute Bride
+1	Ke Hovath The Sirah
+1	Opaka Healer
+1	Odo Curzon Odo
+1	Solbor Faithful Attendant *VP
+1	Kira Nerys Lela
+1	Shakaar Edon First Minister of Bajor
+1	Dukat Anjohl Tennan
+1	Surmak Ren Medical Administrator
+1	Treyam Militia Soldier
+1	Bareil Antos Esteemed Vedek *VP
+1	Jadzia Dax Elder *VP
+1	Li Nalas Legend of Bajor
+1	Ranjen Koral Student of B'hala
+2	Shandor
+3	Weld Ram
+3	Vedek Assembly Transport (BP)
+1	Xhosa Sponsored Transport
+Dilemmas:
+2	More of Gravy Than of Grave
+2	In Development (IDR)
+1	Environmental Contaminants
+1	Healing Hand
+2	Intimidation
+1	Hard of Heart
+1	Mark of Gideon (ID)
+1	Honorable Pursuit
+1	Show Trial
+2	Inquest
+2	Miner Revolt
+1	The Weak Will Perish
+1	The Needs of the Few
+1	Unconventional Consideration
+1	Outclassed
+1	Gomtuu Shock Wave *VP
+1	Back Room Dealings *VP
+1	Moral Choice *VP
+1	Chula: The Chandra *VP
+1	Guess Who's Coming to Dinner? *VP
+1	Polywater Intoxication *VP
+1	Old Differences *VP
+1	Rogue Borg Ambush *VP
+2	Adopted Authority *VP
+Missions:
+1	The Celestial Temple Seek Prophetic Guidance
+1	Bajor Blessed of the Prophets
+1	Selay Transport Delegations
+1	Volan III Investigate Maquis Activity
+1	Gateway Historical Research *VP

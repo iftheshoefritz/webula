@@ -1,0 +1,62 @@
+Deck:
+2	Common Cause
+2	Common Purpose
+1	Common Enemy
+1	Sorad
+1	Kasidy Yates Freighter Captain
+1	Nog Drill Instructor
+1	Sfreett Deadly Flower
+1	Jadzia Dax Science Officer (SS)
+1	Leeta Devoted Wife
+1	Sarish Rez Ministerial Adjutant
+1	Benjamin Sisko Enlightened Supervisor
+1	Lwaxana Troi Extraordinary Ambassador
+1	Martok Welcome Presence
+1	T'Rul Guarded Attache
+1	Paxton Reese Stellar Cartographer
+1	Kira Nerys Colonel Kira *VP
+1	Quark Little Green Man *VP
+1	Rom Younger Brother
+1	Flink
+1	Vic Fontaine Vegas Crooner
+1	Julian Bashir "Unnatural Freak"
+1	Elim Garak Plain, Simple Tailor
+1	Worf Defiant Commander *VP
+1	Jakin
+2	Hoya
+1	Paulson
+1	Odo Curzon Odo *VP
+1	U.S.S. Centaur Patrolling Ship
+1	U.S.S. Ganges One of the First
+1	Bajoran Scout Vessel
+2	U.S.S. Akira
+Dilemmas:
+1	Abrasive Allies
+1	Dark Page
+2	In Development (IDR)
+1	Healing Hand
+2	Intimidation
+1	Hard of Heart
+1	Mark of Gideon (ID)
+1	Honorable Pursuit
+1	Show Trial
+2	Inquest
+2	Miner Revolt
+1	The Needs of the Few
+1	Unconventional Consideration
+1	Outclassed
+1	Gomtuu Shock Wave *VP
+1	Back Room Dealings *VP
+1	Moral Choice *VP
+2	Chula: The Chandra *VP
+1	Guess Who's Coming to Dinner? *VP
+1	Polywater Intoxication *VP
+2	Old Differences *VP
+1	Rogue Borg Ambush *VP
+2	Adopted Authority *VP
+Missions:
+1	Ba'ku Planet Safeguard Civilization
+1	Torga IV Strained Negotiations
+1	Outpost Delta Zero-Five Investigate Destruction
+1	Mouth of the Wormhole Deep Space 9 *VP
+1	Crensen Gap Protect the Escapees *VP

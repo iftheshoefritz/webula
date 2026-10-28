@@ -129,6 +129,12 @@ The `authorizedUse` field of a row is `true` only when the deck's owner gave Web
 permission to show the deck to every user. Give a new row `false` until the owner
 agrees. A deck with `false` is for the users with early access only.
 
+`public/beginner-decks/` holds the converted Beginner Decks of trekcc.org, by Lucas
+Thompson (https://www.trekcc.org/articles/?viewArticle=2715). `index.json` in that folder
+lists them in the order of the article, with the trekcc deck ID, the complexity level (1 to
+5), the deck style and the strategy article of each deck. The author gave Webula permission
+to show these decks to every user, so every row has an `authorizedUse` of `true`.
+
 The DeckPADD download (`/decklists/?mode=download&deckID=<id>`) needs a trekcc.org
 login, and Cloudflare blocks `curl`. Get the files from a browser where the owner
 is logged in, with `fetch` inside the page.

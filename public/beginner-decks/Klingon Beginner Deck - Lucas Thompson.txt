@@ -1,0 +1,58 @@
+Deck:
+1	BaH!
+1	Bridge Officer's Test
+2	Relentless
+2	The Promise
+1	Gowron Sole Leader of the Empire
+2	Ortakin
+1	Kortar Slayer of Gods
+2	Filuz
+1	Kurn Son of Mogh
+1	Azetbur Visionary Chancellor
+1	Klag Second Officer
+1	Gorkon Visionary Chancellor
+1	Koral Dour Smuggler
+1	Jadzia Dax Sworn Ally
+1	William T. Riker Exchange Officer *VP
+1	Worf Son of Mogh *VP
+1	Dokar
+1	K'nera Klingon Defense Force Commander
+3	Kahmis
+1	Meraht
+1	Nu'Daq Tenacious Rival
+2	T'vis
+1	Vorax
+1	I.K.S. Rotarran Ship of Tears *VP
+1	I.K.S. K'Vort
+3	I.K.S. Vor'cha
+Dilemmas:
+1	Dark Page
+2	In Development (IDR)
+1	Healing Hand
+2	Intimidation
+1	Hard of Heart
+1	Mark of Gideon (ID)
+1	Honorable Pursuit
+1	Show Trial
+2	Inquest
+2	Miner Revolt
+1	The Needs of the Few
+1	Unconventional Consideration
+1	Outclassed
+1	No Kill I
+1	Gomtuu Shock Wave *VP
+1	An Issue of Trust *VP
+1	Back Room Dealings *VP
+1	Moral Choice *VP
+2	Chula: The Chandra *VP
+1	Guess Who's Coming to Dinner? *VP
+1	Polywater Intoxication *VP
+1	Old Differences *VP
+1	Rogue Borg Ambush *VP
+2	Adopted Authority *VP
+Missions:
+1	Andorian-Tellarite Border Provoke Interstellar Incident
+1	Crensen Gap Protect the Escapees
+1	Valt Minor Brute Force
+1	Cardassia IV Rescue Prisoners
+1	Qo'noS Heart of the Empire *VP

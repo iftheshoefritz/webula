@@ -1,0 +1,59 @@
+Deck:
+1	Biogenic Weapon *VP
+1	Uninvited
+3	Cascade Virus
+1	Ayala Patriot
+1	Tom Paris "Starfleet Observer"
+1	Shras Passionate Plenipotentiary
+1	Tuvok Undercover
+1	Qatai Determined Hunter
+1	Teero Anaydis Misguided Vedek
+1	Seska Complicated Loyalties
+1	Vance Sympathetic Pilot
+2	Berman
+1	Amaros Freedom Fighter
+1	Piller
+2	Taylor
+1	Tolian Soran Renegade Scientist *VP
+1	Michael Eddington Loyal Leader
+1	Kasidy Yates Conflicted Captain
+1	Ro Laren Maquis Sympathizer
+1	Cal Hudson Attache to the Demilitarized Zone
+1	Chakotay Freedom Fighter
+1	Thomas Riker Defiant Leader
+1	Kalita Maquis Pilot
+1	M'vil
+1	Reide
+1	B'Elanna Torres Creative Engineer
+1	Santos Squad Leader *VP
+1	Fantine Raid Vanguard
+1	Maquis Raider
+1	Valjean
+1	U.S.S. Defiant Stolen Warship
+Dilemmas:
+3	All-Consuming Evil
+1	Covert Extraction
+3	Tragic Turn
+1	Casualties
+2	Overburdened
+1	Environmental Contaminants
+3	Bold Plan
+1	Compassionate Interference
+1	Hull Breach
+1	The Clown: Celebration
+1	The Clown: Fear Incarnate
+1	Last Gasp
+1	The Weak Will Perish
+1	The Needs of the Few
+1	Security Weapons
+2	Toe to Toe
+1	Secret Identity *VP
+3	The Clown: Guillotine *VP
+1	The Dal'Rok *VP
+1	Entanglement *VP
+Missions:
+1	Alpha 5 Approach Transport Crash Survivor (IDR)
+1	Near Marva IV Elude Federation Forces
+1	Athos IV Maquis Base
+1	Cardassia IV Rescue Prisoners
+1	Nequencia System Sensitive Search

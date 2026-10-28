@@ -1,0 +1,59 @@
+Deck:
+1	Data's Emotion Chip
+2	Stella!
+1	Signs of Sentience
+1	Data Proud Father
+1	Julian Bashir Visiting Colleague
+1	Benjamin Maxwell Misguided Maverick
+1	Jean-Luc Picard Defense Counsel
+3	Alice 471
+1	Harcourt Fenton Mudd Swindler, Conman, Liar, Rogue
+1	Ilia Probing Simulacrum
+1	James T. Kirk Dubious Duplicate
+1	Norman Locus of the Hive Mind
+1	Rayna Kapec Developing Android
+1	Roger Korby A Shadow of His Former Self
+1	Juliana Tainer Unknowing Automaton
+1	Bruce Maddox Chair of Robotics
+1	Lal Beloved
+1	Ira Graves Noted Molecular Cyberneticist
+1	Noonien Soong Often-Wrong
+1	Ruk Old One Servitor
+3	Soong-type Android
+1	Lore The One *VP
+1	B-4 Dangerous Simpleton *VP
+1	Barron
+1	Jack Crusher Beloved Father
+3	U.S.S. Excelsior (BP)
+2	U.S.S. Oberth
+Dilemmas:
+1	Brothers
+1	Becalmed
+2	In Development (IDR)
+1	Environmental Contaminants
+1	Healing Hand
+2	Intimidation
+1	Polywater Intoxication
+1	Mark of Gideon (ID)
+1	The Phase
+1	Show Trial
+2	Inquest
+2	Miner Revolt
+1	The Weak Will Perish
+1	Unconventional Consideration
+1	Outclassed
+1	No Kill I
+1	Guess Who's Coming to Dinner? (Promo)
+1	Gomtuu Shock Wave *VP
+1	Back Room Dealings *VP
+1	Moral Choice *VP
+2	Chula: The Chandra *VP
+1	Old Differences *VP
+1	Rogue Borg Ambush *VP
+2	Adopted Authority *VP
+Missions:
+1	Earth Cradle of the Federation *VP
+1	Alpha 5 Approach Transport Crash Survivor (IDR)
+1	Iconia Iconia Investigation
+1	Tarod IX Investigate Massacre
+1	Sector 1156 Investigate Rogue Comet
