@@ -1,0 +1,53 @@
+Deck:
+1	They're Still Coming Through!
+1	Vendetta
+1	To Rule in Hell
+3	Waken Superior Sleeper
+1	Moment of Triumph
+2	Rodriguez
+1	Joachim Sensible Challenger
+3	Khan Noonien Singh Superior Sleeper
+2	Kravin
+1	Ling Herculean Adjutant
+1	Pavel A. Chekov Hapless Puppet
+1	Joaquin Superhuman Lieutenant
+3	Kati
+1	McPherson
+3	Otto
+2	Julian Bashir Rebel Captain *VP
+1	Silik Chameleon *VP
+1	Aaron Conor Born Leader
+1	Roga Danar Decorated Subhadar
+1	Hannah Bates Biosphere Expert
+3	U.S.S. Enterprise Superior Starship
+1	Assimilator Rogue Borg Vessel
+Dilemmas:
+2	In Development (IDR)
+1	Space Seed
+1	Environmental Contaminants
+1	Healing Hand
+2	Intimidation
+1	Hard of Heart
+1	Mark of Gideon (ID)
+1	Show Trial
+2	Inquest
+2	Miner Revolt
+1	Peremptory Plea
+1	The Weak Will Perish
+1	The Needs of the Few
+1	Unconventional Consideration
+1	Outclassed
+1	Gomtuu Shock Wave *VP
+1	Back Room Dealings *VP
+1	Moral Choice *VP
+2	Chula: The Chandra *VP
+1	Guess Who's Coming to Dinner? *VP
+1	Polywater Intoxication *VP
+2	Old Differences *VP
+2	Adopted Authority *VP
+Missions:
+1	Ceti Alpha V Forge Settlement (MAH)
+1	Genesis Planet Analyze Unstable World
+1	Regula Exact Vengeance
+1	Metron Arena Resolve Standing Conflict
+1	Archer IV Survey New World

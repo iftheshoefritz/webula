@@ -1,0 +1,57 @@
+Deck:
+3	Disadvantage Into Advantage *VP
+2	Cluttering Irrelevancies
+1	Ro Laren Proven Expert
+1	Lwaxana Troi Psychic Tutor
+1	Fredericks
+1	Spock Maverick Diplomat
+1	Worf First Officer
+1	Rachel Garrett Restoring the Past
+1	Richard Castillo Assuming Command
+1	Beverly Crusher Battleship Doctor
+1	Data Battleship Officer
+1	Geordi La Forge Battleship Engineer
+1	Jean-Luc Picard Battleship Captain
+1	Dr. Leah Brahms Holographic Representation
+2	E.M.H. Program
+1	Wesley Crusher Battleship Helmsman
+1	William T. Riker Battleship First Officer
+1	Sigmund Freud Father of Psychoanalysis
+1	Reginald Barclay Exceeding Limits *VP
+1	Davies
+1	Elizabeth Shelby Formidable Presence
+3	Shelley
+1	Pran Tainer Atrean Seismologist
+1	Regana Tosh
+1	U.S.S. Enterprise-D Diplomatic Envoy (BP)
+1	U.S.S. Enterprise-C Temporal Linchpin
+3	U.S.S. Excelsior
+Dilemmas:
+1	Dark Page
+2	In Development (IDR)
+2	Intimidation
+1	Hard of Heart
+1	Mark of Gideon (ID)
+1	Honorable Pursuit
+1	Show Trial
+2	Inquest
+2	Miner Revolt
+1	The Needs of the Few
+1	Unconventional Consideration
+1	Outclassed
+1	No Kill I
+1	Gomtuu Shock Wave *VP
+1	Back Room Dealings *VP
+1	Moral Choice *VP
+2	Chula: The Chandra *VP
+1	Guess Who's Coming to Dinner? *VP
+2	Polywater Intoxication *VP
+2	Old Differences *VP
+1	Rogue Borg Ambush *VP
+2	Adopted Authority *VP
+Missions:
+1	Earth Cradle of the Federation *VP
+1	Sector 39-J Investigate Annihilation
+1	Alpha 5 Approach Transport Crash Survivor (IDR)
+1	Moab IV Avert Danger
+1	Lapideas System Geological Survey

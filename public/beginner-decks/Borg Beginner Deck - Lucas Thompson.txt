@@ -1,0 +1,47 @@
+Deck:
+1	Biological Distinctiveness
+3	The Will of the Collective
+3	Changed History *VP
+3	Cyber Drone
+3	Purification Drone
+3	Connectivity Drone
+1	Seven of Nine Representative of the Hive (FOW)
+2	Nine of Seventeen Multiplexor Drone
+1	Quantum Drone
+1	Logistics Drone
+1	Three of Nine Tactician Drone
+2	Facilitation Drone
+2	Reconnaissance Drone
+2	Computation Drone
+1	Locutus Voice of the Borg
+1	Borg Queen Perfectionist *VP
+1	Locutus' Borg Cube *VP
+3	Borg Cube
+1	Queen's Borg Cube *VP
+Dilemmas:
+3	All-Consuming Evil
+1	Covert Extraction
+3	Tragic Turn
+1	Casualties
+2	Overburdened
+1	Environmental Contaminants
+3	Bold Plan
+1	Compassionate Interference
+1	Hull Breach
+1	The Clown: Celebration
+1	The Clown: Fear Incarnate
+1	Last Gasp
+1	The Weak Will Perish
+1	Security Weapons
+2	Toe to Toe
+1	Tactical Disadvantage *VP
+1	Secret Identity *VP
+3	The Clown: Guillotine *VP
+1	The Dal'Rok *VP
+1	Entanglement *VP
+Missions:
+1	Axiana Secure Colony
+1	Sakari Colony Assimilate Resources
+1	Kelsid II Establish Settlement
+1	Grid 986 Destroy Transwarp Hub
+1	Unicomplex Root of the Hive Mind *VP

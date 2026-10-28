@@ -1,0 +1,61 @@
+Deck:
+1	Thirst for Knowledge
+1	Field Studies *VP
+3	Homeward Bound
+1	Chell Incessant Chatterbox
+1	Vorik Unflappable
+1	Equinox Doctor Unethical Medical Hologram
+1	Qatai Determined Hunter
+1	Rudolph Ransom Devious Captain
+1	Chakotay Steadfast Commander
+1	Harry Kim Eager to Please (FOW)
+1	Kathryn Janeway Forceful Captain (FOW)
+1	Mitchell
+1	The Doctor Emergency Medical Hologram (FOW)
+1	Mortimer Harren Reclusive Genius
+1	Tom Paris Competitive Pilot
+1	Tal Celes Imprecise Analyst
+1	William Telfer Misguided Hypochondriac
+1	Neelix Valued Guide
+1	Carlson
+1	Kes Curious Ocampa (FOW)
+1	Mariah Henley
+1	Rollins Trusted Subordinate
+1	B'Elanna Torres Straightforward Engineer *VP
+1	Lyndsay Ballard Back From the Dead
+1	Tuvok Chief of Security *VP
+1	Seven of Nine Efficient Analyst *VP
+1	Naomi Wildman Obliging Assistant
+1	Brull Encampment Leader
+3	U.S.S. Voyager Home Away From Home (BP)
+2	Delta Flyer Rebuilt "Hot Rod"
+Dilemmas:
+1	Dark Page (IDR)
+1	Brave Words
+2	In Development (IDR)
+2	Intimidation
+1	Hard of Heart
+1	Honorable Pursuit
+1	Show Trial
+2	Inquest
+2	Miner Revolt
+1	The Needs of the Few
+1	Unconventional Consideration
+1	Outclassed
+1	No Kill I
+1	Restricted Area
+1	Gomtuu Shock Wave *VP
+1	Back Room Dealings *VP
+1	Moral Choice *VP
+2	Chula: The Chandra *VP
+1	Guess Who's Coming to Dinner? *VP
+1	Polywater Intoxication *VP
+2	Old Differences *VP
+1	Rogue Borg Ambush *VP
+2	Adopted Authority *VP
+Missions:
+1	Alsuran Sector Utilize Abandoned Relay Station
+1	Orlitus Cluster Astronomical Survey
+1	Plasma Storm Depths Search for Missing Vessel
+1	Marayna's Nebula Inversion Mystery
+1	Caretaker's Array Protect Ocampa

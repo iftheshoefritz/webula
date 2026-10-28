@@ -1,0 +1,63 @@
+Deck:
+1	Unexpected Difficulties *VP
+2	Driven
+1	Christopher Pike Bold Commander
+1	Ishara Yar Deceitful Soldier *VAP
+1	Sfreett Deadly Flower
+1	Number One Reputable Officer
+1	Ronald Tracey Delusional Captain
+1	Errol
+1	Helen Noel Enterprise Psychiatrist
+1	Giotto Security Chief
+1	Nilz Baris Agricultural Undersecretary
+1	Areel Shaw
+1	Pavel A. Chekov Young Navigator *VP
+1	Evans
+1	Tolian Soran Renegade Scientist *VP
+1	George Stocker Starbase Commodore
+1	Hikaru Sulu Senior Helmsman
+1	James T. Kirk Highly-Decorated Captain
+1	Janice Rand Captain's Yeoman
+2	Josephs
+1	Leonard H. McCoy Chief Medical Officer
+1	Matt Decker Vengeful Commodore
+1	Montgomery Scott Chief Engineer
+1	Spock Science Officer
+1	Uhura Skilled Technician
+1	Macius
+1	Benjamin Sisko Command Staffer *VP
+1	Jakin
+1	U.S.S. Enterprise-B Ill-Prepared Successor
+1	U.S.S. Constellation Dead Hulk
+1	U.S.S. Enterprise Beautiful Lady
+2	U.S.S. Constitution *VP
+Dilemmas:
+1	Dark Page (IDR)
+2	In Development (IDR)
+1	Healing Hand
+2	Intimidation
+1	Hard of Heart
+1	Mark of Gideon (ID)
+1	Honorable Pursuit
+1	Show Trial
+2	Inquest
+2	Miner Revolt
+1	The Needs of the Few
+1	Unconventional Consideration
+1	Outclassed
+1	Gomtuu Shock Wave *VP
+1	Back Room Dealings *VP
+1	Moral Choice *VP
+2	Chula: The Chandra *VP
+1	Guess Who's Coming to Dinner? *VP
+1	Excalbian Drama *VP
+1	Polywater Intoxication *VP
+2	Old Differences *VP
+1	Rogue Borg Ambush *VP
+2	Adopted Authority *VP
+Missions:
+1	Starbase 718 Investigate Cryosatellite
+1	Rigel X Locate Mysterious Contact
+1	Organia Secure Strategic Base
+1	Braslota System Advanced Battle Simulation
+1	Earth Lush and Beautiful Home *VP

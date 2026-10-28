@@ -1,0 +1,58 @@
+Deck:
+3	Accumulated Knowledge
+1	Disinterested Visitant
+2	Fitting In *VP
+1	Hoshi Sato Uneasy Educator *VP
+1	Danica Erickson Well Read
+1	Jonathan Archer Novice Mediator
+2	Josiah Clarke
+2	Nadia Myers
+2	Rossi
+1	T'Pol Overbearing Observer
+1	Malcolm Reed Protocol Pioneer
+1	Markus Forbes Extraction Specialist
+1	Phlox Alien Physiologist *VP
+1	Tolian Soran Renegade Scientist *VP
+1	Soval Vulcan Ambassador
+1	Charles Tucker III Chief Engineer
+1	Erika Hernandez Comparable Captain
+2	D'Vela
+1	Maxwell Forrest Starfleet Executive
+1	McDermott
+1	Travis Mayweather Space Boomer
+1	Williams Starfleet Commander
+1	Nel Apgar Temperamental Researcher
+1	Future Enterprise Displaced Starship
+2	Columbia The Second Warp Five Ship *VP
+1	Enterprise Finally Ready to Swim
+1	Sarajevo Starfleet Vessel
+Dilemmas:
+1	Dark Page
+2	In Development
+1	Healing Hand
+2	Intimidation
+1	Hard of Heart
+1	Mark of Gideon (ID)
+1	Honorable Pursuit
+1	Show Trial
+2	Inquest
+2	Miner Revolt
+1	The Needs of the Few
+1	Outclassed
+1	No Kill I
+1	Guess Who's Coming to Dinner?
+1	Timescape *VP
+1	Gomtuu Shock Wave *VP
+1	Back Room Dealings *VP
+1	Moral Choice *VP
+2	Chula: The Chandra *VP
+1	Polywater Intoxication *VP
+2	Old Differences *VP
+1	Rogue Borg Ambush *VP
+2	Adopted Authority *VP
+Missions:
+1	Alpha 5 Approach Transport Crash Survivor
+1	Jupiter Test Experimental Engine
+1	Terra Nova Reestablish Communications
+1	Ruhka III Investigate Refinery
+1	Earth Humanity's Home *VP

@@ -1,0 +1,61 @@
+Deck:
+1	Rule of Acquisition #76
+2	Rule of Acquisition #141
+2	Quark's Advice
+1	Rule of Acquisition #6 *VP
+1	Rule of Acquisition #33 *VP
+1	Obol
+1	Benjamin Sisko Grand Proxy
+1	Gaila Arms Dealer
+1	Reyga Young Scientist
+1	Gint Avaricious Author
+1	Stol Wealthy Cousin
+1	Jadzia Dax Tongo Player
+1	Yedrin Dax Heir Apostate
+1	Arridor "Great Sage"
+1	Brunt FCA Liquidator
+1	Kol
+1	Krunk
+1	Letek
+1	Nog Bar Owner
+2	Par Lenor Lascivious Emissary
+1	Rom Professional Soldier
+1	Taar Bristling DaiMon
+1	Zek The Grand Nagus
+1	Shran In Archer's Debt *VP
+1	Lore The One *VP
+1	Quark True Ferengi *VP
+1	Pran Tainer Atrean Seismologist
+1	Kurdon (BP)
+3	D'kora Marauder
+1	Personal Transport
+Dilemmas:
+2	Adopted Authority
+1	Dark Page (IDR)
+1	Covert Extraction
+2	In Development
+2	Chula: The Chandra
+2	Intimidation
+1	Mark of Gideon (ID)
+1	Pillage and Plunder (IDR)
+1	Back Room Dealings
+1	Show Trial
+2	Inquest
+2	Miner Revolt
+1	Unconventional Consideration
+1	Outclassed
+1	No Kill I
+1	Unwanted Guests
+1	Secret Identity *VP
+1	Gomtuu Shock Wave *VP
+1	Moral Choice *VP
+1	Guess Who's Coming to Dinner? *VP
+1	Polywater Intoxication *VP
+2	Old Differences *VP
+1	Rogue Borg Ambush *VP
+Missions:
+1	Ferenginar Financial Hub (MAH)
+1	Ligos Outskirts Falsify Distress Signal
+1	Miesiac Purchase Moon
+1	Second Moon of Bajor VIII Acquire Illicit Explosives
+1	Parsion III Feldomite Rush
