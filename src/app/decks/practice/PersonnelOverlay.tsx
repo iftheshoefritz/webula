@@ -245,6 +245,22 @@ export function shipLabelTier(
   return width >= SHIP_THREE_LETTERS_MIN_WIDTH && fits('three') ? 'three' : fits('one') ? 'one' : 'none';
 }
 
+// The words of the ship band are measured against a condensed face (`GLYPH_EM`). A device without
+// one draws them in a wider fallback, such as Arial, where "RNG" ran into its digit on a 127 px crop
+// (follow-up of #1348). So a word that the estimate lets stand at its own width is measured once it
+// draws, and squeezed to the room left of its number, `pad` clear of it, only when it is wider.
+export function fitShipLabel(box: SVGGElement | null, pad: number): void {
+  const [label, number] = box ? Array.from(box.querySelectorAll('text')) : [];
+  if (!label || !number || typeof label.getComputedTextLength !== 'function') return;
+  label.removeAttribute('textLength');
+  label.removeAttribute('lengthAdjust');
+  const room = Number(number.getAttribute('x')) - number.getComputedTextLength() - pad - Number(label.getAttribute('x'));
+  if (room > 0 && label.getComputedTextLength() > room) {
+    label.setAttribute('textLength', String(Math.floor(room)));
+    label.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+  }
+}
+
 // The face of the words and the numbers: the card's is a bold, condensed sans.
 const ATTRIBUTE_FONT_FAMILY = '"Futura Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -318,7 +334,11 @@ function AttributeBand({
         const left = boxLefts[index];
         const labelLength = attributeLabelLength(label, value, layout, smallCaps);
         return (
-          <g key={key} data-testid={`${prefix}-${key}-box`}>
+          <g
+            key={key}
+            data-testid={`${prefix}-${key}-box`}
+            ref={smallCaps || label === '' || labelLength !== undefined ? undefined : (box) => fitShipLabel(box, pad)}
+          >
             <AttributeBoxFrame
               left={left}
               width={boxWidth}

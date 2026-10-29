@@ -23,6 +23,7 @@ import PersonnelOverlay, {
   PERSONNEL_MAX_ICONS,
   attributeBoxFill,
   attributeLabelLength,
+  fitShipLabel,
   personnelIconCodes,
   personnelOverlayLayout,
   shipLabelTier,
@@ -448,6 +449,38 @@ describe('Practice table: the ship band keeps its letters as the crop grows (#13
     expect(screen.getByTestId('ship-weapons-label').textContent).toBe('WPN');
     expect(screen.getByTestId('ship-shields-label').textContent).toBe('SHD');
     ['range', 'weapons', 'shields'].forEach((a) => expectNoUnreadableSqueeze(screen.getByTestId(`ship-${a}-label`)));
+  });
+
+  // A device without the condensed face draws "RNG" wider than the estimate, so the band measures a
+  // word once it draws and squeezes it only when it would reach its number (follow-up of #1348).
+  describe('fitShipLabel', () => {
+    const box = (labelWidth: number) => {
+      const ns = 'http://www.w3.org/2000/svg';
+      const g = document.createElementNS(ns, 'g') as SVGGElement;
+      const label = document.createElementNS(ns, 'text');
+      const number = document.createElementNS(ns, 'text');
+      label.setAttribute('x', '9');
+      number.setAttribute('x', '39');
+      Object.assign(label, { getComputedTextLength: () => labelWidth });
+      Object.assign(number, { getComputedTextLength: () => 7 });
+      g.append(label, number);
+      return { g, label };
+    };
+
+    it('squeezes a word that would run into its number to the room left of it', () => {
+      // The 127 px crop at 667x375 in Arial: "RNG" draws 27.5 px wide, and the room is 39 - 7 - 1 - 9 = 22.
+      const { g, label } = box(27.5);
+      fitShipLabel(g, 1);
+      expect(label.getAttribute('textLength')).toBe('22');
+      expect(label.getAttribute('lengthAdjust')).toBe('spacingAndGlyphs');
+    });
+
+    it('leaves a word that fits at its own width', () => {
+      const { g, label } = box(20);
+      label.setAttribute('textLength', '5');
+      fitShipLabel(g, 1);
+      expect(label.getAttribute('textLength')).toBeNull();
+    });
   });
 
   it('squeezes no word below the least share at any width that draws it', () => {
