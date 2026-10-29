@@ -34,6 +34,9 @@ import { fixtureOpponent, sideIsEmpty, sidePersonnelCount } from './opponent';
 import { OpponentPanel, OpponentStrip, sideCards } from './OpponentView';
 import type { OpponentPanelContent } from './OpponentView';
 import type { OpponentSideSummary } from './MissionRow';
+import { missionSlotWidth } from './MissionRow';
+import { OpponentMissionRow, RowSwitch } from './OpponentMissionRow';
+import type { Player } from './opponent';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
@@ -1397,6 +1400,8 @@ function PracticeDrawContent() {
   const opponentOn = searchParams.get('opponent') === '1';
   const opponent = useMemo(() => (opponentOn ? fixtureOpponent(data) : null), [opponentOn, data]);
   const [opponentPanel, setOpponentPanel] = useState<OpponentPanelContent | null>(null);
+  // Option A of the spike: which of the two mission rows shows. Page state, like the open panels.
+  const [rowShown, setRowShown] = useState<Player>('you');
   const serviceWorkerUpdate = useServiceWorker();
   // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
   // entry per player action, so a handler whose action moves several cards dispatches one `batch`.
@@ -2787,7 +2792,14 @@ function PracticeDrawContent() {
                   half={opponent}
                   onOpenCore={() => setOpponentPanel({ title: "Opponent's core", theirs: opponent.core, show: 'theirs' })}
                   onOpenBrig={() => setOpponentPanel({ title: "Opponent's brig", theirs: opponent.brig, show: 'theirs' })}
-                />
+                >
+                  <RowSwitch
+                    showing={rowShown}
+                    onShow={setRowShown}
+                    yourSides={missions.map((slot) => ({ awayTeam: slot.awayTeam, ships: slot.ships }))}
+                    half={opponent}
+                  />
+                </OpponentStrip>
               )}
               {opponentPanel && (
                 <OpponentPanel
@@ -2859,6 +2871,22 @@ function PracticeDrawContent() {
                 className="flex flex-row gap-2 justify-center items-start"
                 style={{ paddingTop: underMissionHeadroom(missionScale, finePointer) }}
               >
+                {opponent && rowShown === 'opponent' ? (
+                  <OpponentMissionRow
+                    half={opponent}
+                    scale={missionScale}
+                    slotWidth={missionSlotWidth(missionScale, finePointer, desktopMissionSlotBudget(gameLayerWidth))}
+                    onOpenLocation={(index) => {
+                      const mission = opponent.missions[index];
+                      setOpponentPanel({
+                        title: mission ? cardDisplayName(mission.card) : `Opponent's mission ${index + 1}`,
+                        theirs: sideCards(opponent.sidesAtTheirs[index]),
+                        yours: sideCards(opponent.yourSidesAtTheirs[index]),
+                        show: 'theirs',
+                      });
+                    }}
+                  />
+                ) : (
                 <MissionRow
                   missions={missions}
                   onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
@@ -2877,6 +2905,7 @@ function PracticeDrawContent() {
                   slotBudget={desktopMissionSlotBudget(gameLayerWidth)}
                   opponentSides={opponentSidesAtYours}
                 />
+                )}
               </div>
                 </>
               )}
