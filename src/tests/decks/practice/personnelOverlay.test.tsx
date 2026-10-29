@@ -17,13 +17,17 @@ import PersonnelOverlay, {
   ATTRIBUTE_BOX_FILLS,
   GLYPH_EM,
   MIN_LABEL_SQUEEZE,
+  SHIP_THREE_LETTERS_MIN_WIDTH,
+  ShipLabelTier,
   ShipOverlay,
   PERSONNEL_MAX_ICONS,
   attributeBoxFill,
   attributeLabelLength,
+  fitShipLabel,
   personnelIconCodes,
   personnelOverlayLayout,
   shipLabelTier,
+  shipOverlayLayout,
 } from '../../../app/decks/practice/PersonnelOverlay';
 import { artCropHeight } from '../../../app/decks/practice/viewerCardSize';
 
@@ -306,10 +310,11 @@ describe('Practice table: the ship band (#1336)', () => {
     render(<TableCard instance={makeShip(0)} />);
 
     expect(screen.getByTestId('ship-overlay').className).toMatch(/pointer-events-none/);
-    // A table card at scale 1 is a small crop, where the band draws one letter.
-    expect(screen.getByTestId('ship-range-label').textContent).toBe('R');
-    expect(screen.getByTestId('ship-weapons-label').textContent).toBe('W');
-    expect(screen.getByTestId('ship-shields-label').textContent).toBe('S');
+    // A table card at scale 1 is 72 px wide, the size of a personnel crop, where the band draws
+    // three letters (#1348).
+    expect(screen.getByTestId('ship-range-label').textContent).toBe('RNG');
+    expect(screen.getByTestId('ship-weapons-label').textContent).toBe('WPN');
+    expect(screen.getByTestId('ship-shields-label').textContent).toBe('SHD');
     expect(screen.getByTestId('ship-range').textContent).toBe('7');
     expect(screen.getByTestId('ship-weapons').textContent).toBe('8');
     expect(screen.getByTestId('ship-shields').textContent).toBe('9');
@@ -394,8 +399,10 @@ describe('Practice table: the words of the ship band fit their boxes (#1336)', (
     expect(screen.getByRole('img', { name: 'Range 7, Weapons 8, Shields 9' })).toBeTruthy();
   });
 
+  // The ship's own pad (#1348) fits one letter beside two digits at 49 px, so the numbers draw alone
+  // only on a smaller crop.
   it('draws the numbers alone, centred in their boxes, where not even one letter fits', () => {
-    renderShipOverlay(49, { range: '10', weapons: '12', shields: '11' });
+    renderShipOverlay(43, { range: '10', weapons: '12', shields: '11' });
 
     expect(screen.getByTestId('ship-attributes').getAttribute('data-label-tier')).toBe('none');
     for (const attribute of ['range', 'weapons', 'shields']) {
@@ -407,9 +414,86 @@ describe('Practice table: the words of the ship band fit their boxes (#1336)', (
   });
 
   it('picks one tier for the whole band, by its longest number', () => {
-    const layout = personnelOverlayLayout(106, artCropHeight(106), cardBorderWidth(106));
+    const layout = shipOverlayLayout(106, artCropHeight(106), cardBorderWidth(106));
     expect(shipLabelTier({ range: '7', weapons: '8', shields: '9' }, layout)).toBe('three');
     expect(shipLabelTier({ range: '7', weapons: '10', shields: '9' }, layout)).toBe('one');
+  });
+});
+
+// #1348: the words never lose letters as the crop grows, and the tier and the squeeze agree.
+describe('Practice table: the ship band keeps its letters as the crop grows (#1348)', () => {
+  const TIER_ORDER: Record<ShipLabelTier, number> = { none: 0, one: 1, three: 2 };
+  const widths = Array.from({ length: 238 - 49 + 1 }, (_, index) => 49 + index);
+  const tierAt = (width: number, values = { range: '7', weapons: '8', shields: '9' }) =>
+    shipLabelTier(values, shipOverlayLayout(width, artCropHeight(width), cardBorderWidth(width)));
+
+  it('never draws fewer letters on a wider crop, with one-digit values', () => {
+    widths.slice(1).forEach((width) => {
+      expect(TIER_ORDER[tierAt(width)]).toBeGreaterThanOrEqual(TIER_ORDER[tierAt(width - 1)]);
+    });
+  });
+
+  it('draws one letter below the threshold and three letters from it on', () => {
+    expect(tierAt(49)).toBe('one');
+    expect(tierAt(SHIP_THREE_LETTERS_MIN_WIDTH - 1)).toBe('one');
+    widths
+      .filter((width) => width >= SHIP_THREE_LETTERS_MIN_WIDTH)
+      .forEach((width) => expect([width, tierAt(width)]).toEqual([width, 'three']));
+  });
+
+  it('draws "RNG", "WPN" and "SHD" at width 126, none squeezed unreadably', () => {
+    renderShipOverlay(126);
+
+    expect(screen.getByTestId('ship-attributes').getAttribute('data-label-tier')).toBe('three');
+    expect(screen.getByTestId('ship-range-label').textContent).toBe('RNG');
+    expect(screen.getByTestId('ship-weapons-label').textContent).toBe('WPN');
+    expect(screen.getByTestId('ship-shields-label').textContent).toBe('SHD');
+    ['range', 'weapons', 'shields'].forEach((a) => expectNoUnreadableSqueeze(screen.getByTestId(`ship-${a}-label`)));
+  });
+
+  // A device without the condensed face draws "RNG" wider than the estimate, so the band measures a
+  // word once it draws and squeezes it only when it would reach its number (follow-up of #1348).
+  describe('fitShipLabel', () => {
+    const box = (labelWidth: number) => {
+      const ns = 'http://www.w3.org/2000/svg';
+      const g = document.createElementNS(ns, 'g') as SVGGElement;
+      const label = document.createElementNS(ns, 'text');
+      const number = document.createElementNS(ns, 'text');
+      label.setAttribute('x', '9');
+      number.setAttribute('x', '39');
+      Object.assign(label, { getComputedTextLength: () => labelWidth });
+      Object.assign(number, { getComputedTextLength: () => 7 });
+      g.append(label, number);
+      return { g, label };
+    };
+
+    it('squeezes a word that would run into its number to the room left of it', () => {
+      // The 127 px crop at 667x375 in Arial: "RNG" draws 27.5 px wide, and the room is 39 - 7 - 1 - 9 = 22.
+      const { g, label } = box(27.5);
+      fitShipLabel(g, 1);
+      expect(label.getAttribute('textLength')).toBe('22');
+      expect(label.getAttribute('lengthAdjust')).toBe('spacingAndGlyphs');
+    });
+
+    it('leaves a word that fits at its own width', () => {
+      const { g, label } = box(20);
+      label.setAttribute('textLength', '5');
+      fitShipLabel(g, 1);
+      expect(label.getAttribute('textLength')).toBeNull();
+    });
+  });
+
+  it('squeezes no word below the least share at any width that draws it', () => {
+    for (const width of widths) {
+      for (const values of [{ range: '7', weapons: '8', shields: '9' }, { range: '10', weapons: '12', shields: '11' }]) {
+        const { unmount } = renderShipOverlay(width, values);
+        ['range', 'weapons', 'shields'].forEach((a) => {
+          const label = screen.queryByTestId(`ship-${a}-label`);
+          if (label) expectNoUnreadableSqueeze(label);
+        });
+        unmount();
+      }
+    }
   });
 });
 
