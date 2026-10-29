@@ -19,7 +19,11 @@
 // shields, which the crop cuts off too: the same boxes, fill and height rule, and the words in plain
 // capitals. It has no icon column. The band picks its words by what fits, never by a squeeze that
 // leaves them unreadable: "RNG", "WPN" and "SHD" where they fit, else "R", "W" and "S", else the
-// numbers alone (`shipLabelTier`).
+// numbers alone (`shipLabelTier`). The ship band has a horizontal spacing of its own,
+// `shipOverlayLayout` (#1348): with the personnel's pad, three plain capitals beside one digit fill
+// about 0.71 of the room on every abbreviated crop, just under `MIN_LABEL_SQUEEZE`, so the words
+// flipped between three letters and one with the rounding of each width. Its plain capitals and
+// short words need no inset as wide as the personnel's small capitals do.
 import auIcon from '../../../../public/icons/icon_au.gif';
 import cmdIcon from '../../../../public/icons/icon_command.gif';
 import ds9Icon from '../../../../public/icons/icon_ds9.png';
@@ -114,6 +118,13 @@ const shipLabel = (attribute: (typeof SHIP_ATTRIBUTES)[number], tier: ShipLabelT
 // reads; the capitals of "WPN" are wider glyphs and take a little more.
 export const MIN_LABEL_SQUEEZE = 0.75;
 
+// The pad of the ship band, of the box's height: half the personnel's (#1348).
+const SHIP_PAD = 0.1;
+// The narrowest crop that draws the ship's three-letter words (#1348). From it on, "RNG", "WPN" and
+// "SHD" fit beside one digit at every width with `SHIP_PAD`; below it they fit at 50 to 53 px and not
+// at 54 or 55, and a ship smaller than a personnel crop draws one letter.
+export const SHIP_THREE_LETTERS_MIN_WIDTH = 56;
+
 // The fill of the boxes, by affiliation: the median colour of the boxes on the scans of each
 // affiliation's personnel. An affiliation with no entry gets the Borg's grey.
 export const ATTRIBUTE_BOX_FILLS: Record<string, string> = {
@@ -206,19 +217,32 @@ export function attributeLabelLength(
   return width <= room ? undefined : Math.max(1, Math.floor(room));
 }
 
+// The layout of the ship band (#1348): the personnel's, with the ship's own pad. The tier, the
+// squeeze and the places of the words and the numbers all read this pad.
+export function shipOverlayLayout(
+  width: number,
+  cropHeight: number,
+  border: number
+): ReturnType<typeof personnelOverlayLayout> & { width: number } {
+  const layout = personnelOverlayLayout(width, cropHeight, border);
+  return { ...layout, pad: Math.max(1, Math.round(layout.bandHeight * SHIP_PAD)), width };
+}
+
 // The longest form of the ship's words that fits every box of the band (#1336): a word fits when
 // its plain-capitals width, squeezed to no less than `MIN_LABEL_SQUEEZE` of it, fits beside its number.
+// It reads the spacing of `shipOverlayLayout`, and draws three letters only from
+// `SHIP_THREE_LETTERS_MIN_WIDTH` on, so the words never lose letters as the crop grows (#1348).
 export function shipLabelTier(
   values: Record<(typeof SHIP_ATTRIBUTES)[number], string>,
-  layout: Pick<ReturnType<typeof personnelOverlayLayout>, 'boxWidth' | 'line' | 'pad' | 'fontSize'>
+  layout: Pick<ReturnType<typeof shipOverlayLayout>, 'boxWidth' | 'line' | 'pad' | 'fontSize' | 'width'>
 ): ShipLabelTier {
-  const { boxWidth, line, pad, fontSize } = layout;
+  const { boxWidth, line, pad, fontSize, width } = layout;
   const fits = (tier: ShipLabelTier) =>
     SHIP_ATTRIBUTES.every((attribute) => {
       const room = boxWidth - 2 * line - 3 * pad - fontSize * GLYPH_EM * values[attribute].length;
       return capitalsWidth(shipLabel(attribute, tier), fontSize) * MIN_LABEL_SQUEEZE <= room;
     });
-  return fits('three') ? 'three' : fits('one') ? 'one' : 'none';
+  return width >= SHIP_THREE_LETTERS_MIN_WIDTH && fits('three') ? 'three' : fits('one') ? 'one' : 'none';
 }
 
 // The face of the words and the numbers: the card's is a bold, condensed sans.
@@ -410,7 +434,7 @@ export function ShipOverlay({
   border: number;
   className?: string;
 }) {
-  const layout = personnelOverlayLayout(width, cropHeight, border);
+  const layout = shipOverlayLayout(width, cropHeight, border);
   const values = {
     range: String(card.range ?? '').trim(),
     weapons: String(card.weapons ?? '').trim(),
