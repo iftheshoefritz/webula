@@ -156,4 +156,13 @@ describe('planeTiltStyle', () => {
     expect([100 + bx, 40 + by]).toEqual([hinge.x, hinge.y]);
     expect([60 + rx, 600 + ry]).toEqual([hinge.x, hinge.y]);
   });
+
+  it('takes the camera of the table: its tilt and its perspective, the 18° table by default (#1823)', () => {
+    const hinge = { x: 640, y: 700 };
+    expect(planeTiltStyle(hinge, 0, 0).transform).toBe('perspective(1200px) rotateX(18deg)');
+    const camera = { tiltDeg: 28, perspective: 1200 };
+    const board = planeTiltStyle(hinge, 100, 40, camera);
+    expect(board.transform).toBe('perspective(1200px) rotateX(28deg)');
+    expect(board.transformOrigin).toBe(planeTiltStyle(hinge, 100, 40).transformOrigin);
+  });
 });

@@ -107,6 +107,10 @@ import { CHULA_BOT_PILE_ID, CHULA_BOT_PILE_NAME, botPileDeckOf } from '../../../
 import type { BotPileChoice, BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
 import { useBotPiles } from './useBotPiles';
 import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
+import { botOpponent, fixtureOpponent, sideIsEmpty, sidePersonnelCount } from './opponent';
+import { OpponentPanel, OpponentStrip, sideCards } from './OpponentView';
+import type { OpponentPanelContent } from './OpponentView';
+import type { OpponentSideSummary } from './MissionRow';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_LOAD_WARNING, LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
@@ -287,7 +291,7 @@ import { landedZoneKey } from './landedZoneKey';
 import { dragPlayPlaces, highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 import { playPlacesOf } from './playPlaces';
 import { PILE_CARD_EDGE, pileCastShadow, pileDepth, pileLayers } from './pileDepth';
-import { TABLE_3D_CLASS, layoutPosition, planeTiltStyle, type Point } from './table3d';
+import { TABLE_3D_CLASS, layoutPosition, planeTiltStyle, type Point, type TableCamera } from './table3d';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
 import { ResolveStep, ResolvingMini, ResolvingPanel } from './ResolvingPanel';
@@ -1275,6 +1279,7 @@ function TablePlane({
   matTop = 0,
   className,
   testId,
+  camera,
   children,
 }: {
   hingeBox: HTMLElement | null;
@@ -1282,6 +1287,8 @@ function TablePlane({
   mat?: boolean;
   matTop?: number;
   className?: string;
+  // The camera of the table (#1823); every part of one table takes the same one.
+  camera?: TableCamera;
   testId: string;
   children: React.ReactNode;
 }) {
@@ -1312,7 +1319,7 @@ function TablePlane({
     };
   }, [on, el, hingeBox]);
   if (!on) return <div className={className}>{children}</div>;
-  const style = geometry ? planeTiltStyle(geometry.hinge, geometry.pos.x, geometry.pos.y) : undefined;
+  const style = geometry ? planeTiltStyle(geometry.hinge, geometry.pos.x, geometry.pos.y, camera) : undefined;
   return (
     <div ref={setEl} data-testid={testId} className={`relative ${className ?? ''}`} style={style}>
       {mat && geometry && (
@@ -2495,11 +2502,19 @@ function PracticeDrawContent() {
   const data: any[] = useWithPlaytestCards(publicData);
   const playtestSettled = usePlaytestCards().settled;
   const completeData = useCompleteData(data, !loading && playtestSettled);
+  // Spike for #1182: `?opponent=1` deals a fixture opponent beside the player's table, read only.
+  // It is page state derived from the card data, not part of the reducer or the save. In a bot game
+  // the bot takes the opponent's half instead (#1823, `botOpponent`), derived from the table below.
+  const opponentOn = searchParams.get('opponent') === '1';
+  const fixtureOpponentHalf = useMemo(() => (opponentOn ? fixtureOpponent(data) : null), [opponentOn, data]);
+  const [opponentPanel, setOpponentPanel] = useState<OpponentPanelContent | null>(null);
   const serviceWorkerUpdate = useServiceWorker();
   // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
   // entry per player action, so a handler whose action moves several cards dispatches one `batch`.
   const [game, dispatchGame] = useReducer(gameReducer, initialTableState, initialGameState);
   const table = game.table;
+  // The opponent's half (#1182 spike): the bot's in a bot game (#1823), else the fixture opponent.
+  const opponent = opponentOn ? (botOpponent(table) ?? fixtureOpponentHalf) : null;
   // Every shuffle result is chosen here, before the dispatch, and the action carries it (#1401), so
   // `tableReducer` calls no random function and a saved undo or redo step holds the same order.
   // The counter of the turn's counters (#1607) is a setting of the device, not of the saved game.
@@ -2787,6 +2802,26 @@ function PracticeDrawContent() {
   // View full table. Page state, not part of the save: the attempt the player chose the full table
   // for, by its identity (#1189), so a change of phase or a draw keeps the full table, and a new
   // attempt, a restored game, or a reload opens in the attempt layout.
+  // The opponent's side of each of the player's 5 locations, for the two-part badges (#1182 spike).
+  const opponentSidesAtYours: (OpponentSideSummary | undefined)[] | undefined = opponent?.sidesAtYours.map(
+    (side, idx) => {
+      if (sideIsEmpty(side)) return undefined;
+      const slot = missions[idx];
+      const yours = slot ? { awayTeam: slot.awayTeam, ships: slot.ships } : { awayTeam: [], ships: [] };
+      return {
+        personnel: sidePersonnelCount(side),
+        ships: side.ships.length,
+        contested: !sideIsEmpty(yours),
+        onOpen: () =>
+          setOpponentPanel({
+            title: slot?.mission ? cardDisplayName(slot.mission.card) : `Mission ${idx + 1}`,
+            theirs: sideCards(side),
+            yours: sideCards(yours),
+            show: 'theirs',
+          }),
+      };
+    },
+  );
   const attemptKey = attemptViewKey(table.attempt);
   const [fullTableFor, setFullTableFor] = useState<string | null>(null);
   // The choice is cleared when the attempt ends, so a new attempt at the same mission and ship opens
@@ -5188,6 +5223,21 @@ function PracticeDrawContent() {
                 full-bleed under both. The scale hooks read the bottom padding from the computed
                 style, and get the side insets as numbers. */}
             <div className="flex flex-col flex-1 p-4" style={contentPadding(safeArea)}>
+              {opponent && !attemptLayoutShows && (
+                <OpponentStrip
+                  half={opponent}
+                  onOpenCore={() => setOpponentPanel({ title: "Opponent's core", theirs: opponent.core, show: 'theirs' })}
+                  onOpenBrig={() => setOpponentPanel({ title: opponent.kind === 'bot' ? "The bot's brig" : "Opponent's brig", theirs: opponent.brig, show: 'theirs' })}
+                />
+              )}
+              {opponentPanel && (
+                <OpponentPanel
+                  content={opponentPanel}
+                  onSwitch={(show) => setOpponentPanel({ ...opponentPanel, show })}
+                  onClose={() => setOpponentPanel(null)}
+                  cardWidth={viewerCardWidth}
+                />
+              )}
               {/* The attempt layout (#1164) in place of the mission row while an attempt is in
                   progress. Only one of the two is mounted, so each droppable is mounted once: the
                   parked attempt layout of #1342 mounts only the row, with its droppable disabled. */}
@@ -5297,6 +5347,7 @@ function PracticeDrawContent() {
                   shipRows={shipRows}
                   desktop={finePointer}
                   slotBudget={desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE)}
+                  opponentSides={opponentSidesAtYours}
                 />
                 </TablePlane>
               </div>
