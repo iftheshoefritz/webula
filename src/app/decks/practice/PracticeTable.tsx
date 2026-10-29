@@ -34,6 +34,9 @@ import { fixtureOpponent, sideIsEmpty, sidePersonnelCount } from './opponent';
 import { OpponentPanel, OpponentStrip, sideCards } from './OpponentView';
 import type { OpponentPanelContent } from './OpponentView';
 import type { OpponentSideSummary } from './MissionRow';
+import { missionSlotWidth } from './MissionRow';
+import { OpponentMissionRow, mirroredSlots, presence } from './OpponentMissionRow';
+import { ZoomTable } from './ZoomTable';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
@@ -1511,6 +1514,11 @@ function PracticeDrawContent() {
   // Issue #930: the ship rows take a second and a third row of ships when the gap between the
   // mission rows and the bottom row has room for them.
   const [missionRows, setMissionRows] = useState<HTMLDivElement | null>(null);
+  // Option C of the spike (#1182): with an opponent, the mission rows sit on a zoomable canvas, so
+  // the mission scale and the ship rows measure the canvas's viewport, which a zoom does not move.
+  const [zoomViewport, setZoomViewport] = useState<HTMLDivElement | null>(null);
+  const missionArea = opponentOn ? zoomViewport : missionRows;
+  const [zoomControls, setZoomControls] = useState<HTMLSpanElement | null>(null);
   // Issue #992: on a desktop the missions and the ships show the whole card, and grow into a large
   // gap above the bottom row. A phone or a tablet keeps the art crop, and grows it into that gap
   // the same way, never below the table scale.
@@ -1518,7 +1526,7 @@ function PracticeDrawContent() {
     finePointer,
     scale,
     gameLayer,
-    missionRows,
+    missionArea,
     bottomRow,
     desktopMissionColumnHeight,
     touchMissionColumnHeight,
@@ -1526,14 +1534,16 @@ function PracticeDrawContent() {
   // Issue #1060: every desktop mission slot reserves the width of a turned mission, as far as the
   // width of the table allows.
   const gameLayerWidth = useElementWidth(gameLayer);
-  const shipRows = useShipRowCount(
-    missionRows,
+  const measuredShipRows = useShipRowCount(
+    missionArea,
     bottomRow,
     shipRowLineHeight(missionScale, finePointer),
     SHIP_ROW_GAP,
     Math.max(0, ...missions.map((slot) => slot.ships.length)),
     shipsPerRow(missionScale),
   );
+  // The viewport leaves no gap to measure, and the mission scale already reserves its rows.
+  const shipRows = opponentOn ? Math.max(TOUCH_RESERVED_SHIP_ROWS, measuredShipRows) : measuredShipRows;
   // Issue #1164: an attempt in progress shows the attempt layout in place of the mission row, until
   // View full table. Page state, not part of the save: the attempt the player chose the full table
   // for, by its identity (#1189), so a change of phase or a draw keeps the full table, and a new
@@ -2652,11 +2662,33 @@ function PracticeDrawContent() {
     return <RotateDeviceOverlay />;
   }
 
+  // The player's mission row, on its own or on the zoomable table of the spike (#1182).
+  const yourMissionRow = (
+    <MissionRow
+      missions={missions}
+      onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
+      onShipClick={handleShipClick}
+      onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
+      onOpenPlacedOn={openOnlyPlacedOnPanel}
+      onFlipMission={(id) => dispatch({ type: 'flipMission', id })}
+      onSetMissionCompleted={(missionIndex, completed) =>
+        dispatch({ type: 'setMissionCompleted', missionIndex, completed })
+      }
+      attempt={table.attempt}
+      onBackToAttempt={() => setFullTableFor(null)}
+      scale={missionScale}
+      shipRows={shipRows}
+      desktop={finePointer}
+      slotBudget={desktopMissionSlotBudget(gameLayerWidth)}
+      opponentSides={opponentSidesAtYours}
+    />
+  );
+
   return (
     <>
-      {/* Scroll room only. Mobile Safari hides its toolbar when the document scrolls, and keeps it
-          hidden only while the document is taller than the toolbar-hidden viewport (100lvh). An
-          app added to the home screen has no toolbar, and a scrolled document there takes a tap
+    {/* Scroll room only. Mobile Safari hides its toolbar when the document scrolls, and keeps it
+        hidden only while the document is taller than the toolbar-hidden viewport (100lvh). An
+        app added to the home screen has no toolbar, and a scrolled document there takes a tap
           above the finger, so it gets no spacer (#1155). */}
       {fullscreen.standalone !== true && (
         <div aria-hidden="true" data-testid="practice-scroll-spacer" className="h-[calc(100lvh+120px)]" />
@@ -2787,7 +2819,10 @@ function PracticeDrawContent() {
                   half={opponent}
                   onOpenCore={() => setOpponentPanel({ title: "Opponent's core", theirs: opponent.core, show: 'theirs' })}
                   onOpenBrig={() => setOpponentPanel({ title: "Opponent's brig", theirs: opponent.brig, show: 'theirs' })}
-                />
+                  roomBelow={4}
+                >
+                  <span ref={setZoomControls} className="ml-auto" />
+                </OpponentStrip>
               )}
               {opponentPanel && (
                 <OpponentPanel
@@ -2854,30 +2889,49 @@ function PracticeDrawContent() {
                   across the full width. The dilemma stack lives only in the attempt layout
                   (#1170), so the full table shows none, during an attempt too. The row moves
                   down once the dilemmas under a mission poke out past the padding above it (#968). */}
+              {opponent ? (
+                <ZoomTable
+                  viewportRef={setZoomViewport}
+                  controlsSlot={zoomControls}
+                  yourRowRef={setMissionRows}
+                  theirCells={mirroredSlots().map((i) => presence(opponent.yourSidesAtTheirs[i], opponent.sidesAtTheirs[i]))}
+                  yourCells={missions.map((slot, i) =>
+                    presence({ awayTeam: slot.awayTeam, ships: slot.ships }, opponent.sidesAtYours[i]),
+                  )}
+                  theirRow={
+                    <OpponentMissionRow
+                      half={opponent}
+                      scale={missionScale}
+                      slotWidth={missionSlotWidth(missionScale, finePointer, desktopMissionSlotBudget(gameLayerWidth))}
+                      onOpenLocation={(index) => {
+                        const mission = opponent.missions[index];
+                        setOpponentPanel({
+                          title: mission ? cardDisplayName(mission.card) : `Opponent's mission ${index + 1}`,
+                          theirs: sideCards(opponent.sidesAtTheirs[index]),
+                          yours: sideCards(opponent.yourSidesAtTheirs[index]),
+                          show: 'theirs',
+                        });
+                      }}
+                    />
+                  }
+                  yourRow={
+                  <div
+                    className="flex flex-row gap-2 justify-center items-start"
+                    style={{ paddingTop: underMissionHeadroom(missionScale, finePointer) }}
+                  >
+                    {yourMissionRow}
+                  </div>
+                  }
+                />
+              ) : (
               <div
                 ref={setMissionRows}
                 className="flex flex-row gap-2 justify-center items-start"
                 style={{ paddingTop: underMissionHeadroom(missionScale, finePointer) }}
               >
-                <MissionRow
-                  missions={missions}
-                  onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
-                  onShipClick={handleShipClick}
-                  onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
-                  onOpenPlacedOn={openOnlyPlacedOnPanel}
-                  onFlipMission={(id) => dispatch({ type: 'flipMission', id })}
-                  onSetMissionCompleted={(missionIndex, completed) =>
-                    dispatch({ type: 'setMissionCompleted', missionIndex, completed })
-                  }
-                  attempt={table.attempt}
-                  onBackToAttempt={() => setFullTableFor(null)}
-                  scale={missionScale}
-                  shipRows={shipRows}
-                  desktop={finePointer}
-                  slotBudget={desktopMissionSlotBudget(gameLayerWidth)}
-                  opponentSides={opponentSidesAtYours}
-                />
+                {yourMissionRow}
               </div>
+              )}
                 </>
               )}
 
