@@ -15,6 +15,7 @@ import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderWidth } from '../../../app/decks/practice/TableCard';
 import PersonnelOverlay, {
   ATTRIBUTE_BOX_FILLS,
+  ShipOverlay,
   PERSONNEL_MAX_ICONS,
   attributeBoxFill,
   attributeLabelLength,
@@ -275,5 +276,107 @@ describe('Practice table: the personnel overlay on a table card (#1176)', () => 
 
     rerender(<TableCard instance={makeCard(0, { type: 'ship' })} />);
     expect(screen.queryByTestId('personnel-overlay')).toBeNull();
+  });
+});
+
+// #1336: a cropped ship draws its range, weapons and shields in the same band, with the words
+// "RNG", "WPN" and "SHD" in plain capitals on every crop size, and no icon column.
+const makeShip = (n: number, overrides: Record<string, unknown> = {}, instance: Partial<CardInstance> = {}) =>
+  makeCard(
+    n,
+    { type: 'Ship', icons: '[stf]', integrity: '', cunning: '', strength: '', range: '7', weapons: '8', shields: '9', ...overrides },
+    instance
+  );
+
+const renderShipOverlay = (width: number, overrides: Record<string, unknown> = {}) =>
+  render(
+    <ShipOverlay
+      card={makeShip(0, overrides).card}
+      width={width}
+      cropHeight={artCropHeight(width)}
+      border={cardBorderWidth(width)}
+    />
+  );
+
+describe('Practice table: the ship band (#1336)', () => {
+  it('draws the band over a cropped face-up ship, with its words and numbers and no icons', () => {
+    render(<TableCard instance={makeShip(0)} />);
+
+    expect(screen.getByTestId('ship-overlay').className).toMatch(/pointer-events-none/);
+    expect(screen.getByTestId('ship-range-label').textContent).toBe('RNG');
+    expect(screen.getByTestId('ship-weapons-label').textContent).toBe('WPN');
+    expect(screen.getByTestId('ship-shields-label').textContent).toBe('SHD');
+    expect(screen.getByTestId('ship-range').textContent).toBe('7');
+    expect(screen.getByTestId('ship-weapons').textContent).toBe('8');
+    expect(screen.getByTestId('ship-shields').textContent).toBe('9');
+    expect(screen.getByTestId('ship-weapons-label').getAttribute('style') ?? '').not.toContain('small-caps');
+    expect(screen.getByRole('img', { name: 'Range 7, Weapons 8, Shields 9' })).toBeTruthy();
+    expect(screen.queryByTestId('personnel-icons')).toBeNull();
+    expect(screen.queryByTestId('personnel-overlay')).toBeNull();
+  });
+
+  it.each([69, 126, 200, 238])('keeps the capital words and the height rule of the band at width %s', (width) => {
+    renderShipOverlay(width);
+
+    expect(screen.getByTestId('ship-range-label').textContent).toBe('RNG');
+    expect(screen.getByTestId('ship-weapons-label').textContent).toBe('WPN');
+    expect(screen.getByTestId('ship-shields-label').textContent).toBe('SHD');
+    const { bandHeight } = personnelOverlayLayout(width, artCropHeight(width), cardBorderWidth(width));
+    expect(Number(screen.getByTestId('ship-attributes').getAttribute('height'))).toBe(bandHeight);
+  });
+
+  it("fills the boxes with the colour of the ship's affiliation", () => {
+    renderShipOverlay(126, { affiliation: 'romulan' });
+
+    for (const attribute of ['range', 'weapons', 'shields']) {
+      expect(screen.getByTestId(`ship-${attribute}-fill`).getAttribute('fill')).toBe('#10462c');
+    }
+  });
+
+  it('draws the band on a cropped ship in a card list panel', () => {
+    renderPanel([makeShip(0)]);
+
+    expect(screen.getByTestId('ship-attributes')).toBeTruthy();
+    expect(screen.queryByTestId('personnel-overlay')).toBeNull();
+  });
+
+  it('draws none on a whole ship, a face-down ship, or a personnel', () => {
+    const { rerender } = render(<TableCard instance={makeShip(0)} uncropped />);
+    expect(screen.queryByTestId('ship-overlay')).toBeNull();
+
+    rerender(<TableCard instance={makeShip(0, {}, { face: 'down' })} />);
+    expect(screen.queryByTestId('ship-overlay')).toBeNull();
+
+    rerender(<TableCard instance={makeCard(0)} />);
+    expect(screen.queryByTestId('ship-overlay')).toBeNull();
+    expect(screen.getByTestId('personnel-overlay')).toBeTruthy();
+  });
+
+  it('greys the band of a stopped ship at full opacity, as a stopped personnel (#1339)', () => {
+    render(<TableCard instance={makeShip(0, {}, { stopped: true })} />);
+
+    const overlay = screen.getByTestId('ship-overlay');
+    expect(overlay.className).toMatch(/\bgrayscale\b/);
+    expect(overlay.className).not.toMatch(/\bopacity-/);
+  });
+});
+
+describe('attributeLabelLength: plain capitals (#1336)', () => {
+  it('squeezes "WPN" beside a two-digit value on a small crop', () => {
+    const layout = personnelOverlayLayout(69, artCropHeight(69), cardBorderWidth(69));
+    expect(attributeLabelLength('WPN', '12', layout, false)).toBeGreaterThan(0);
+  });
+
+  it('leaves "WPN" alone where it fits', () => {
+    const layout = personnelOverlayLayout(238, artCropHeight(238), cardBorderWidth(238));
+    expect(attributeLabelLength('WPN', '8', layout, false)).toBeUndefined();
+  });
+
+  it('measures plain capitals wider than small capitals', () => {
+    // The room is 29 - 2 - 6 - 5.5 = 15.5: "WPN" in small capitals is 5.5 x 2.6 = 14.3 wide and
+    // fits, in plain capitals it is 16.5 wide and does not.
+    const layout = { boxWidth: 29, line: 1, pad: 2, fontSize: 10 };
+    expect(attributeLabelLength('WPN', '1', layout, true)).toBeUndefined();
+    expect(attributeLabelLength('WPN', '1', layout, false)).toBe(15);
   });
 });

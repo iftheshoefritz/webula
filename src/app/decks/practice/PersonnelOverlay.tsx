@@ -14,6 +14,10 @@
 // every place that draws the band follows one rule. Only a
 // cropped, face-up personnel draws it, the brig's too (#1234): the whole card prints both, so a
 // desktop panel draws none.
+//
+// A cropped, face-up ship draws the same band (#1336), `ShipOverlay`, with its range, weapons and
+// shields, which the crop cuts off too: the same boxes, fill and height rule, but the words are
+// always "RNG", "WPN" and "SHD", in plain capitals, on every crop size. It has no icon column.
 import auIcon from '../../../../public/icons/icon_au.gif';
 import cmdIcon from '../../../../public/icons/icon_command.gif';
 import ds9Icon from '../../../../public/icons/icon_ds9.png';
@@ -59,6 +63,11 @@ export function hasPersonnelOverlay(card: { type?: unknown } | undefined): boole
   return typeof card?.type === 'string' && card.type.toLowerCase() === 'personnel';
 }
 
+// Whether a card draws the ship's band over its crop (#1336): a ship, face up where it is drawn.
+export function hasShipOverlay(card: { type?: unknown } | undefined): boolean {
+  return typeof card?.type === 'string' && card.type.toLowerCase() === 'ship';
+}
+
 // The shares of the card width. The affiliation icon the crop shows sits in about the top fifth of
 // the card's width, so the column starts below it.
 const ICON_COLUMN_TOP = 0.2;
@@ -87,6 +96,14 @@ export const ATTRIBUTES = ['integrity', 'cunning', 'strength'] as const;
 const attributeName = (attribute: string): string => attribute[0].toUpperCase() + attribute.slice(1);
 const attributeAbbreviation = (attribute: string): string => attributeName(attribute).slice(0, 3);
 
+// The ship's attributes and the owner's words for them (#1336).
+export const SHIP_ATTRIBUTES = ['range', 'weapons', 'shields'] as const;
+const SHIP_ATTRIBUTE_LABELS: Record<(typeof SHIP_ATTRIBUTES)[number], string> = {
+  range: 'RNG',
+  weapons: 'WPN',
+  shields: 'SHD',
+};
+
 // The fill of the boxes, by affiliation: the median colour of the boxes on the scans of each
 // affiliation's personnel. An affiliation with no entry gets the Borg's grey.
 export const ATTRIBUTE_BOX_FILLS: Record<string, string> = {
@@ -113,6 +130,9 @@ export function attributeBoxFill(affiliation: unknown): string {
 // letter a capital, the rest small capitals.
 const smallCapsWidth = (word: string, fontSize: number): number =>
   word.length === 0 ? 0 : fontSize * GLYPH_EM * (1 + SMALL_CAP_SCALE * (word.length - 1));
+
+// The width of a word in plain capitals at `fontSize`, such as the ship's "WPN" (#1336).
+const capitalsWidth = (word: string, fontSize: number): number => fontSize * GLYPH_EM * word.length;
 
 // The geometry of the overlay on a crop `cropHeight` tall of a card `width` wide, whose border is
 // `border` wide. Every length is a share of the width, so the overlay scales with the card. The band
@@ -163,15 +183,17 @@ export function personnelOverlayLayout(
 }
 
 // The `textLength` of a box's word: none when the word fits beside its number, or else the width
-// left, which squeezes it in.
+// left, which squeezes it in. `smallCaps` false measures the word in plain capitals.
 export function attributeLabelLength(
   label: string,
   value: string,
-  layout: Pick<ReturnType<typeof personnelOverlayLayout>, 'boxWidth' | 'line' | 'pad' | 'fontSize'>
+  layout: Pick<ReturnType<typeof personnelOverlayLayout>, 'boxWidth' | 'line' | 'pad' | 'fontSize'>,
+  smallCaps = true
 ): number | undefined {
   const { boxWidth, line, pad, fontSize } = layout;
   const room = boxWidth - 2 * line - 3 * pad - fontSize * GLYPH_EM * value.length;
-  return smallCapsWidth(label, fontSize) <= room ? undefined : Math.max(1, Math.floor(room));
+  const width = smallCaps ? smallCapsWidth(label, fontSize) : capitalsWidth(label, fontSize);
+  return width <= room ? undefined : Math.max(1, Math.floor(room));
 }
 
 // The face of the words and the numbers: the card's is a bold, condensed sans.
@@ -207,6 +229,78 @@ function AttributeBoxFrame({
   );
 }
 
+// The band of three attribute boxes, shared by the personnel and the ship (#1336). The test ids are
+// `<prefix>-attributes`, `<prefix>-<attribute>-box`, `-fill`, `-label` and `<prefix>-<attribute>`.
+function AttributeBand({
+  prefix,
+  attributes,
+  smallCaps,
+  layout,
+  fill,
+  width,
+}: {
+  prefix: string;
+  attributes: { key: string; name: string; label: string; value: string }[];
+  smallCaps: boolean;
+  layout: ReturnType<typeof personnelOverlayLayout>;
+  fill: string;
+  width: number;
+}) {
+  const { bandHeight, boxLefts, boxWidth, line, pad, fontSize } = layout;
+  // The baseline that puts the capitals and the digits on the middle of the box, with as much fill
+  // above them as below: `central` centres the em box, whose descender space pushes them up.
+  const baseline = bandHeight / 2 + (fontSize * CAP_HEIGHT) / 2;
+  return (
+    <svg
+      data-testid={`${prefix}-attributes`}
+      role="img"
+      aria-label={attributes.map(({ name, value }) => `${name} ${value}`).join(', ')}
+      className="absolute left-0 bottom-0 overflow-visible"
+      width={width}
+      height={bandHeight}
+      fontFamily={ATTRIBUTE_FONT_FAMILY}
+      fontWeight={700}
+      fontSize={fontSize}
+    >
+      {attributes.map(({ key, label, value }, index) => {
+        const left = boxLefts[index];
+        const labelLength = attributeLabelLength(label, value, layout, smallCaps);
+        return (
+          <g key={key} data-testid={`${prefix}-${key}-box`}>
+            <AttributeBoxFrame
+              left={left}
+              width={boxWidth}
+              height={bandHeight}
+              line={line}
+              fill={fill}
+              fillTestId={`${prefix}-${key}-fill`}
+            />
+            <text
+              data-testid={`${prefix}-${key}-label`}
+              x={left + line + pad}
+              y={baseline}
+              fill="#fff"
+              style={smallCaps ? { fontVariant: 'small-caps' } : undefined}
+              {...(labelLength === undefined ? {} : { textLength: labelLength, lengthAdjust: 'spacingAndGlyphs' })}
+            >
+              {label}
+            </text>
+            <text
+              data-testid={`${prefix}-${key}`}
+              x={left + boxWidth - line - pad}
+              y={baseline}
+              textAnchor="end"
+              fill="#fff"
+            >
+              {value}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 // The overlay. It takes no pointer events, is not a droppable, and has no `data-zone` or
 // `data-card-id`: a tap, a hold and a drop on it reach the card under it. `className` carries the
 // stopped look, `STOPPED_OVERLAY_CLASSNAME`: grey but opaque, so nothing under the band shows
@@ -225,13 +319,14 @@ export default function PersonnelOverlay({
   className?: string;
 }) {
   const layout = personnelOverlayLayout(width, cropHeight, border);
-  const { iconTop, iconLeft, iconSize, iconGap, bandHeight, boxLefts, boxWidth, line, pad, fontSize, abbreviated } = layout;
+  const { iconTop, iconLeft, iconSize, iconGap, abbreviated } = layout;
   const codes = personnelIconCodes(card.icons).slice(0, PERSONNEL_MAX_ICONS);
-  const values = ATTRIBUTES.map((attribute) => String(card[attribute] ?? '').trim());
-  const fill = attributeBoxFill(card.affiliation);
-  // The baseline that puts the capitals and the digits on the middle of the box, with as much fill
-  // above them as below: `central` centres the em box, whose descender space pushes them up.
-  const baseline = bandHeight / 2 + (fontSize * CAP_HEIGHT) / 2;
+  const attributes = ATTRIBUTES.map((attribute) => ({
+    key: attribute,
+    name: attributeName(attribute),
+    label: abbreviated ? attributeAbbreviation(attribute) : attributeName(attribute),
+    value: String(card[attribute] ?? '').trim(),
+  }));
   return (
     <div
       data-testid="personnel-overlay"
@@ -256,54 +351,50 @@ export default function PersonnelOverlay({
           ))}
         </div>
       )}
-      <svg
-        data-testid="personnel-attributes"
-        role="img"
-        aria-label={ATTRIBUTES.map((attribute, index) => `${attributeName(attribute)} ${values[index]}`).join(', ')}
-        className="absolute left-0 bottom-0 overflow-visible"
+      <AttributeBand
+        prefix="personnel"
+        attributes={attributes}
+        smallCaps
+        layout={layout}
+        fill={attributeBoxFill(card.affiliation)}
         width={width}
-        height={bandHeight}
-        fontFamily={ATTRIBUTE_FONT_FAMILY}
-        fontWeight={700}
-        fontSize={fontSize}
-      >
-        {ATTRIBUTES.map((attribute, index) => {
-          const left = boxLefts[index];
-          const label = abbreviated ? attributeAbbreviation(attribute) : attributeName(attribute);
-          const labelLength = attributeLabelLength(label, values[index], layout);
-          return (
-            <g key={attribute} data-testid={`personnel-${attribute}-box`}>
-              <AttributeBoxFrame
-                left={left}
-                width={boxWidth}
-                height={bandHeight}
-                line={line}
-                fill={fill}
-                fillTestId={`personnel-${attribute}-fill`}
-              />
-              <text
-                data-testid={`personnel-${attribute}-label`}
-                x={left + line + pad}
-                y={baseline}
-                fill="#fff"
-                style={{ fontVariant: 'small-caps' }}
-                {...(labelLength === undefined ? {} : { textLength: labelLength, lengthAdjust: 'spacingAndGlyphs' })}
-              >
-                {label}
-              </text>
-              <text
-                data-testid={`personnel-${attribute}`}
-                x={left + boxWidth - line - pad}
-                y={baseline}
-                textAnchor="end"
-                fill="#fff"
-              >
-                {values[index]}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+      />
+    </div>
+  );
+}
+
+// The ship's overlay (#1336): the band alone, with "RNG", "WPN" and "SHD" on every crop size. It
+// takes no pointer events and the same `className` as the personnel overlay.
+export function ShipOverlay({
+  card,
+  width,
+  cropHeight,
+  border,
+  className = '',
+}: {
+  card: { affiliation?: unknown; range?: unknown; weapons?: unknown; shields?: unknown };
+  width: number;
+  cropHeight: number;
+  border: number;
+  className?: string;
+}) {
+  const layout = personnelOverlayLayout(width, cropHeight, border);
+  const attributes = SHIP_ATTRIBUTES.map((attribute) => ({
+    key: attribute,
+    name: attributeName(attribute),
+    label: SHIP_ATTRIBUTE_LABELS[attribute],
+    value: String(card[attribute] ?? '').trim(),
+  }));
+  return (
+    <div data-testid="ship-overlay" className={`absolute inset-0 pointer-events-none ${className}`}>
+      <AttributeBand
+        prefix="ship"
+        attributes={attributes}
+        smallCaps={false}
+        layout={layout}
+        fill={attributeBoxFill(card.affiliation)}
+        width={width}
+      />
     </div>
   );
 }
