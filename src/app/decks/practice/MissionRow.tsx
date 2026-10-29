@@ -845,6 +845,80 @@ function ShipCrewBadge({
   );
 }
 
+// The opponent's part of a two-part badge (#1182 spike): the opponent's personnel at this location,
+// with a ship icon and the count of their ships when they have any there. It sits right of the
+// player's own away team badge, joined to it, in the opponent's tint, so the pair reads `12 | 4`.
+// It is a tap target only (it opens the read-only panel of the opponent's side): no `data-zone`,
+// and not under any drop target's reach, since the player cannot act on the opponent's cards.
+export const OPPONENT_TINT_CLASS = 'bg-rose-800/90 text-rose-50';
+
+export function ShipIcon({ className = 'w-2 h-2' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M2 13l8-2 4-6h3l-2 6 7 1v2l-7 1 2 6h-3l-4-6-8-2z" />
+    </svg>
+  );
+}
+
+export function OpponentSideBadge({
+  testId,
+  personnel,
+  ships,
+  onOpen,
+  height,
+}: {
+  testId: string;
+  personnel: number;
+  ships: number;
+  onOpen?: () => void;
+  height: number;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      onClick={onOpen}
+      aria-label={`Opponent here: ${personnel} personnel, ${ships} ship${ships === 1 ? '' : 's'}${onOpen ? ', tap to see them' : ''}`}
+      className={`relative z-20 flex items-center gap-px rounded-full px-0.5 leading-none ${OPPONENT_TINT_CLASS}`}
+      style={{ height: height - 2 }}
+    >
+      <PersonnelIcon />
+      <span className="text-[8px] font-bold">{personnel}</span>
+      {ships > 0 && (
+        <>
+          <ShipIcon />
+          <span className="text-[8px] font-bold">{ships}</span>
+        </>
+      )}
+    </button>
+  );
+}
+
+// The contested mark (#1182 spike): both players have cards at the location. A small two-tone
+// diamond on the card's top-left corner, so the player sees where the sides meet without reading
+// the counts.
+export function ContestedMark({ testId, size }: { testId: string; size: number }) {
+  return (
+    <span
+      data-testid={testId}
+      aria-label="Contested: both players have cards here"
+      className="absolute -top-1 -left-1 z-30 pointer-events-none rotate-45 border border-white/80 shadow"
+      style={{
+        width: size,
+        height: size,
+        background: 'linear-gradient(135deg, rgb(14 165 233) 50%, rgb(225 29 72) 50%)',
+      }}
+    />
+  );
+}
+
+export interface OpponentSideSummary {
+  personnel: number;
+  ships: number;
+  contested: boolean;
+  onOpen: () => void;
+}
+
 type PlacedOnBadge = { group: PlacedOnGroup; count: number; landedNonce: number | null };
 
 // The away team badge, and to its right the count of the events placed on the mission card
@@ -857,6 +931,7 @@ function BadgeStrip({
   placedOn,
   height,
   showAwayTeam,
+  opponent,
 }: {
   missionIndex: number;
   awayTeamCount: number;
@@ -865,10 +940,23 @@ function BadgeStrip({
   height: number;
   // The attempt layout (#1164) shows the away team badge in the ships column instead.
   showAwayTeam: boolean;
+  // The opponent's side of this location (#1182 spike), when they have cards here.
+  opponent?: OpponentSideSummary;
 }) {
   return (
     <div className="w-full flex items-center justify-center gap-0.5" style={{ height }}>
-      {showAwayTeam && (
+      {showAwayTeam && opponent ? (
+        <span data-testid={`two-part-badge-${missionIndex}`} className="flex items-center gap-px">
+          <PileBadge missionIndex={missionIndex} pile="awayTeam" count={awayTeamCount} onOpen={onOpenPile} height={height} />
+          <OpponentSideBadge
+            testId={`opponent-side-${missionIndex}`}
+            personnel={opponent.personnel}
+            ships={opponent.ships}
+            onOpen={opponent.onOpen}
+            height={height}
+          />
+        </span>
+      ) : showAwayTeam && (
         <PileBadge missionIndex={missionIndex} pile="awayTeam" count={awayTeamCount} onOpen={onOpenPile} height={height} />
       )}
       {placedOn?.badges
@@ -1270,6 +1358,7 @@ export function MissionCard({
   slotWidth,
   showAwayTeam = true,
   placedOnColumn,
+  opponent,
 }: {
   missionIndex: number;
   slot: MissionSlot;
@@ -1289,6 +1378,8 @@ export function MissionCard({
   // The column of the placed cards beside the card in the attempt layout (#1180): the card then
   // draws no strips, and its bottom half reaches over the column.
   placedOnColumn?: { gap: number; width: number };
+  // The opponent's side of this location (#1182 spike).
+  opponent?: OpponentSideSummary;
 }) {
   const onDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
   const underDrop = useDroppable({ id: missionHalfDropId(missionIndex, 'under') });
@@ -1460,6 +1551,7 @@ export function MissionCard({
                 {mission.card.backimagefile && (
                   <MissionFlipButton mission={mission} height={badgeHeight} onFlip={onFlipMission} />
                 )}
+                {opponent?.contested && <ContestedMark testId={`contested-${missionIndex}`} size={Math.round(badgeHeight * 0.7)} />}
               </div>
               {/* The attempt in progress (#1163), above the card and its drop halves, upright on a
                   turned mission. */}
@@ -1518,6 +1610,7 @@ export function MissionCard({
         }
         height={badgeHeight}
         showAwayTeam={showAwayTeam}
+        opponent={opponent}
       />
     </>
   );
@@ -1537,6 +1630,7 @@ function MissionColumn({
   shipRows,
   desktop,
   slotWidth,
+  opponent,
 }: {
   missionIndex: number;
   slot: MissionSlot;
@@ -1551,6 +1645,7 @@ function MissionColumn({
   shipRows: number;
   desktop: boolean;
   slotWidth: number;
+  opponent?: OpponentSideSummary;
 }) {
   return (
     <div className="flex flex-col items-center" style={{ width: slotWidth, gap: COLUMN_GAP }}>
@@ -1565,6 +1660,7 @@ function MissionColumn({
         scale={scale}
         uncropped={desktop}
         slotWidth={slotWidth}
+        opponent={opponent}
       />
       <ShipRow
         missionIndex={missionIndex}
@@ -1594,6 +1690,7 @@ export default function MissionRow({
   shipRows = 1,
   desktop = false,
   slotBudget = Infinity,
+  opponentSides,
 }: {
   missions: MissionSlot[];
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
@@ -1623,6 +1720,9 @@ export default function MissionRow({
   // Issue #1060: the width the row can give one desktop slot (`desktopMissionSlotBudget`,
   // `tableScale.ts`). Unbounded by default.
   slotBudget?: number;
+  // The opponent's side of each of the 5 locations (#1182 spike), or undefined with no opponent.
+  // An entry is undefined where the opponent has nothing, and the plain badge shows.
+  opponentSides?: (OpponentSideSummary | undefined)[];
 }) {
   const slotWidth = missionSlotWidth(scale, desktop, slotBudget);
   return (
@@ -1642,6 +1742,7 @@ export default function MissionRow({
           onOpenPlacedOn={onOpenPlacedOn}
           onFlipMission={onFlipMission}
           onSetMissionCompleted={onSetMissionCompleted}
+          opponent={opponentSides?.[idx]}
           attemptOverlay={
             attempt?.missionIndex === idx ? <BackToAttemptButton onBack={onBackToAttempt} /> : undefined
           }

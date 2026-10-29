@@ -30,6 +30,10 @@ import {
 import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
+import { fixtureOpponent, sideIsEmpty, sidePersonnelCount } from './opponent';
+import { OpponentPanel, OpponentStrip, sideCards } from './OpponentView';
+import type { OpponentPanelContent } from './OpponentView';
+import type { OpponentSideSummary } from './MissionRow';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
@@ -1388,6 +1392,11 @@ function PracticeDrawContent() {
   const isReset = searchParams.get('reset') === '1';
   const debugTaps = useDebugTaps(searchParams.get('debugTaps'));
   const { data, loading } = useDataFetching();
+  // Spike for #1182: `?opponent=1` deals a fixture opponent beside the player's table, read only.
+  // It is page state derived from the card data, not part of the reducer or the save.
+  const opponentOn = searchParams.get('opponent') === '1';
+  const opponent = useMemo(() => (opponentOn ? fixtureOpponent(data) : null), [opponentOn, data]);
+  const [opponentPanel, setOpponentPanel] = useState<OpponentPanelContent | null>(null);
   const serviceWorkerUpdate = useServiceWorker();
   // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
   // entry per player action, so a handler whose action moves several cards dispatches one `batch`.
@@ -1529,6 +1538,26 @@ function PracticeDrawContent() {
   // View full table. Page state, not part of the save: the attempt the player chose the full table
   // for, by its identity (#1189), so a change of phase or a draw keeps the full table, and a new
   // attempt, a restored game, or a reload opens in the attempt layout.
+  // The opponent's side of each of the player's 5 locations, for the two-part badges (#1182 spike).
+  const opponentSidesAtYours: (OpponentSideSummary | undefined)[] | undefined = opponent?.sidesAtYours.map(
+    (side, idx) => {
+      if (sideIsEmpty(side)) return undefined;
+      const slot = missions[idx];
+      const yours = slot ? { awayTeam: slot.awayTeam, ships: slot.ships } : { awayTeam: [], ships: [] };
+      return {
+        personnel: sidePersonnelCount(side),
+        ships: side.ships.length,
+        contested: !sideIsEmpty(yours),
+        onOpen: () =>
+          setOpponentPanel({
+            title: slot?.mission ? cardDisplayName(slot.mission.card) : `Mission ${idx + 1}`,
+            theirs: sideCards(side),
+            yours: sideCards(yours),
+            show: 'theirs',
+          }),
+      };
+    },
+  );
   const attemptKey = attemptViewKey(table.attempt);
   const [fullTableFor, setFullTableFor] = useState<string | null>(null);
   useEffect(() => {
@@ -2753,6 +2782,21 @@ function PracticeDrawContent() {
             <CardHoldProvider value={cardHold}>
             <PlaceOnHoldProvider value={placeOnHold}>
             <div className="flex flex-col flex-1 p-4">
+              {opponent && !attemptLayoutShows && (
+                <OpponentStrip
+                  half={opponent}
+                  onOpenCore={() => setOpponentPanel({ title: "Opponent's core", theirs: opponent.core, show: 'theirs' })}
+                  onOpenBrig={() => setOpponentPanel({ title: "Opponent's brig", theirs: opponent.brig, show: 'theirs' })}
+                />
+              )}
+              {opponentPanel && (
+                <OpponentPanel
+                  content={opponentPanel}
+                  onSwitch={(show) => setOpponentPanel({ ...opponentPanel, show })}
+                  onClose={() => setOpponentPanel(null)}
+                  cardWidth={viewerCardWidth}
+                />
+              )}
               {/* The attempt layout (#1164) in place of the mission row while an attempt is in
                   progress. Only one of the two is mounted, so each droppable is mounted once. */}
               {attemptLayoutShows && table.attempt ? (
@@ -2831,6 +2875,7 @@ function PracticeDrawContent() {
                   shipRows={shipRows}
                   desktop={finePointer}
                   slotBudget={desktopMissionSlotBudget(gameLayerWidth)}
+                  opponentSides={opponentSidesAtYours}
                 />
               </div>
                 </>
