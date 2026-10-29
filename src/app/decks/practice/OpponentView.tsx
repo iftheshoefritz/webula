@@ -199,7 +199,8 @@ export function OpponentPanel({
               }`}
               style={{ width: cardWidth }}
             >
-              <TableCardImage instance={instance} width={cardWidth} height={artCropHeight(cardWidth)} />
+              {/* An away team is stored face down, and its panel shows it face up (#964). */}
+              <TableCardImage instance={instance} width={cardWidth} height={artCropHeight(cardWidth)} showFace />
             </div>
           ))}
         </div>
