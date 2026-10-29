@@ -39,8 +39,18 @@
 // In the dilemma choice the strip also holds the Draw dilemma button and the count of the dilemmas
 // drawn (#1191, `AttemptDrawDilemma`). The strip sits at the top, so the open dilemma hand arc,
 // which rises from the bottom edge, never covers the button.
+//
+// View full table is a hold target during a drag from the row of the attempting personnel in the
+// facing phase (#1342): a droppable of its own, `VIEW_FULL_TABLE_HOLD_ID`, that no drop route takes,
+// so a release on it moves nothing, and a hold of `PLACE_ON_HOLD_MS` on it switches to the full table
+// mid-drag (`PracticeTable`). It has no `data-zone`. The switch parks this layout until the drag
+// ends (`parked`): out of flow, hidden and with no pointer events, it keeps only the row at its
+// place in the tree, so the card the press started on stays in the document, and renders none of
+// its other droppables, since the full table mounts the same ids; the row's droppable is disabled.
 
 import { ReactNode } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { highlightClassName } from './zoneAccepts';
 import type { AttemptMoveDestination } from './attempt';
 import CountBadge from './CountBadge';
 import type { Attempt, AttemptPhase, CardInstance, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
@@ -75,7 +85,12 @@ import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { cardDisplayName } from '../../../lib/cardCount';
 import AttemptPersonnelRow, { attemptAwayTeamDropId, attemptCrewDropId } from './AttemptPersonnelRow';
 
+// The droppable of View full table (#1342): a hold target, not a zone, so no drop route accepts it.
+export const VIEW_FULL_TABLE_HOLD_ID = 'attempt-view-full-table-hold';
+
 export default function AttemptLayout({
+  parked = false,
+  viewFullTableHoldEnabled = false,
   attempt,
   slot,
   sizes,
@@ -102,6 +117,11 @@ export default function AttemptLayout({
   onDrawDilemma,
   onSetPhase,
 }: {
+  // Parked for the rest of a drag after the hold over View full table (#1342): hidden, with only
+  // the row of the attempting personnel mounted.
+  parked?: boolean;
+  // A drag from the row runs in the facing phase, so View full table takes the hold (#1342).
+  viewFullTableHoldEnabled?: boolean;
   attempt: Attempt;
   slot: MissionSlot;
   sizes: AttemptSizes;
@@ -268,7 +288,14 @@ export default function AttemptLayout({
     // `min-h-0` and the bodies' `overflow-y-clip` are a safety net (#1203): the sizes fit the height
     // above the bottom row (`attemptColumnHeight`), and should a column still be too tall, the body
     // clips it rather than push the bottom row off the screen.
-    <div ref={layoutRef} data-testid="attempt-layout" className="flex min-h-0 flex-col" style={{ gap: ATTEMPT_GAP }}>
+    <div
+      ref={layoutRef}
+      data-testid={parked ? 'attempt-layout-parked' : 'attempt-layout'}
+      aria-hidden={parked || undefined}
+      className={`flex min-h-0 flex-col ${parked ? 'invisible pointer-events-none fixed left-0 top-0' : ''}`}
+      style={{ gap: ATTEMPT_GAP }}
+    >
+      {parked ? null : (
       <div
         ref={stripRef}
         data-testid="attempt-strip"
@@ -305,14 +332,7 @@ export default function AttemptLayout({
               Back to choosing
             </button>
           )}
-          <button
-            type="button"
-            data-testid="attempt-view-full-table"
-            onClick={onViewFullTable}
-            className="btn-primary bg-none bg-white/[0.05] whitespace-nowrap !px-2 !py-1 text-xs"
-          >
-            View full table
-          </button>
+          <ViewFullTableButton onClick={onViewFullTable} holdEnabled={viewFullTableHoldEnabled} />
           <button
             type="button"
             data-testid="attempt-done"
@@ -323,6 +343,7 @@ export default function AttemptLayout({
           </button>
         </div>
       </div>
+      )}
 
       {attempt.phase === 'choose' ? choiceBody : (
       <div
@@ -330,7 +351,7 @@ export default function AttemptLayout({
         className="flex min-h-0 flex-row justify-center items-start overflow-y-clip"
         style={{ gap: ATTEMPT_GAP, paddingTop: underMissionStackRoom(missionScale, true) }}
       >
-        {missionColumn}
+        {parked ? null : missionColumn}
         <div
           data-testid="attempt-ships"
           className="flex flex-col items-center"
@@ -338,6 +359,7 @@ export default function AttemptLayout({
         >
           {attempt.shipId ? (
             <>
+              {parked ? null : (
               <div className="flex items-center justify-center" style={{ height: badgeStripHeight(missionScale) }}>
                 <PileBadge
                   missionIndex={missionIndex}
@@ -347,10 +369,12 @@ export default function AttemptLayout({
                   height={badgeStripHeight(missionScale)}
                 />
               </div>
+              )}
               <div className="flex flex-row items-start" style={{ gap: ATTEMPT_GAP }}>
-                <div style={{ width: shipRowsWidth }}>{ships}</div>
+                <div style={{ width: shipRowsWidth }}>{parked ? null : ships}</div>
                 {ship && (
                   <AttemptPersonnelRow
+                    disabled={parked}
                     dropId={attemptCrewDropId(ship.id)}
                     landedKey={crewDropId(ship.id)}
                     kind="ship"
@@ -373,6 +397,7 @@ export default function AttemptLayout({
           ) : (
             <>
               <AttemptPersonnelRow
+                disabled={parked}
                 dropId={attemptAwayTeamDropId(missionIndex)}
                 landedKey={missionPileDropId(missionIndex, 'awayTeam')}
                 kind="mission"
@@ -389,14 +414,32 @@ export default function AttemptLayout({
                 moveDestinations={moveDestinations}
                 onMoveSelection={onMoveSelection}
               />
-              {ships}
+              {parked ? null : ships}
             </>
           )}
         </div>
-        {dilemmaStack}
+        {parked ? null : dilemmaStack}
       </div>
       )}
     </div>
+  );
+}
+
+// View full table (#1342). During a drag it may take the hold, it shows the table's rings: `valid`,
+// and `over` while the pointer is on it. Every other drag never sees its droppable.
+function ViewFullTableButton({ onClick, holdEnabled }: { onClick: () => void; holdEnabled: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id: VIEW_FULL_TABLE_HOLD_ID, disabled: !holdEnabled });
+  const highlight = holdEnabled ? (isOver ? 'over' : 'valid') : undefined;
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      data-testid="attempt-view-full-table"
+      onClick={onClick}
+      className={`btn-primary bg-none bg-white/[0.05] whitespace-nowrap !px-2 !py-1 text-xs ${highlightClassName(highlight)}`}
+    >
+      View full table
+    </button>
   );
 }
 

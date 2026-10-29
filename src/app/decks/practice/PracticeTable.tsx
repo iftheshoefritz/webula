@@ -89,7 +89,7 @@ import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
 import { AttemptDialog } from './AttemptPanel';
 import { useBotAttemptStart } from './useBotAttemptStart';
-import AttemptLayout from './AttemptLayout';
+import AttemptLayout, { VIEW_FULL_TABLE_HOLD_ID } from './AttemptLayout';
 import { missionIndexFromAttemptAwayTeamDropId, shipIdFromAttemptCrewDropId } from './AttemptPersonnelRow';
 import {
   AttemptMoveDestination,
@@ -1226,6 +1226,20 @@ const desktopMissionColumnHeight = (scale: number): number =>
 const touchMissionColumnHeight = (scale: number): number =>
   missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
 
+// Measures every droppable again while the attempt layout is parked (#1342). The full table mounts
+// mid-drag, and dnd-kit measures each droppable as it registers, before the mission scale and the
+// bottom row size themselves, so it measures again on each change of the sizes, a frame after it
+// commits.
+function RemeasureDroppables({ sizes }: { sizes: unknown[] }) {
+  const { measureDroppableContainers } = useDndContext();
+  const key = JSON.stringify(sizes);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => measureDroppableContainers([]));
+    return () => cancelAnimationFrame(frame);
+  }, [key, measureDroppableContainers]);
+  return null;
+}
+
 // The parts that make the dilemma stack a drop target, shared by the facing phase's fan and the
 // face-up stack of the dilemma choice (#1190). Only one of the two is mounted at a time, so
 // `dilemmaStack` stays one droppable.
@@ -1650,6 +1664,13 @@ function PracticeDrawContent() {
     if (!attemptKey) setFullTableFor(null);
   }
   const attemptLayoutShows = attemptKey !== null && fullTableFor !== attemptKey;
+  // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
+  // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
+  // drag ends: hidden, with only the row, so the node the press started on stays in the document
+  // (WebKit sends a touch's events to it, as `CardHand` explains) and no droppable mounts twice.
+  const [parkedFor, setParkedFor] = useState<string | null>(null);
+  const attemptLayoutParked = !attemptLayoutShows && parkedFor !== null && parkedFor === attemptKey;
+  const viewFullTableTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The dilemma hand shows only in the dilemma choice of the attempt layout (#1223): the full table
   // has no dilemma hand and no tap to draw a dilemma.
   const dilemmaHandShows = attemptLayoutShows && table.attempt?.phase === 'choose';
@@ -2294,10 +2315,39 @@ function PracticeDrawContent() {
     if (placeOnHoldRef.current !== NO_PLACE_ON_HOLD) setPlaceOnHold(NO_PLACE_ON_HOLD);
   };
 
+  const clearViewFullTableHold = () => {
+    if (viewFullTableTimerRef.current) clearTimeout(viewFullTableTimerRef.current);
+    viewFullTableTimerRef.current = null;
+  };
+
+  // The hold over View full table (#1342) is open to a drag from the row of the attempting
+  // personnel, in the facing phase only.
+  const viewFullTableHoldEnabled =
+    attemptLayoutShows &&
+    table.attempt?.phase === 'face' &&
+    draggingInstance !== null &&
+    (attemptPersonnelCards?.some((c) => c.id === draggingInstance.id) ?? false);
+
   // The pointer moved onto a new drop target (#1029). Over a card in the core or the brig, other
   // than the dragged card, a timer starts, and after `PLACE_ON_HOLD_MS` it arms that card. Any
   // change of target clears the timer and the armed card, so a drop then goes to the zone again.
   const handleDragOver = (event: DragOverEvent) => {
+    // Over View full table (#1342), a timer of `PLACE_ON_HOLD_MS` switches to the full table and
+    // parks the attempt layout; any other target clears it. The button unmounts with the switch,
+    // and the new target that dnd-kit then reports clears nothing that still runs.
+    if (viewFullTableHoldEnabled && event.over?.id === VIEW_FULL_TABLE_HOLD_ID) {
+      if (!viewFullTableTimerRef.current) {
+        const key = attemptKey;
+        viewFullTableTimerRef.current = setTimeout(() => {
+          viewFullTableTimerRef.current = null;
+          if (!draggingRef.current || !key) return;
+          setParkedFor(key);
+          setFullTableFor(key);
+        }, PLACE_ON_HOLD_MS);
+      }
+    } else {
+      clearViewFullTableHold();
+    }
     const targetId = event.over ? targetIdFromOnDropId(String(event.over.id)) : null;
     if (targetId === placeOnHoldRef.current.overTargetId) return;
     clearPlaceOnHold();
@@ -2312,6 +2362,7 @@ function PracticeDrawContent() {
   useEffect(
     () => () => {
       if (placeOnTimerRef.current) clearTimeout(placeOnTimerRef.current);
+      if (viewFullTableTimerRef.current) clearTimeout(viewFullTableTimerRef.current);
     },
     []
   );
@@ -2482,6 +2533,8 @@ function PracticeDrawContent() {
     pressRef.current = null;
     const { armedTargetId } = placeOnHoldRef.current;
     clearPlaceOnHold();
+    clearViewFullTableHold();
+    setParkedFor(null);
     // A release still within the cancel radius of the press point is not a choice of a
     // target (#774, #825): the drag cancels before anything else runs, so no card moves, and the hand
     // or the panel it started from opens again.
@@ -2630,6 +2683,8 @@ function PracticeDrawContent() {
   const handleDragCancel = () => {
     closePreviews();
     clearPlaceOnHold();
+    clearViewFullTableHold();
+    setParkedFor(null);
     pressRef.current = null;
     cancelDrag(draggingInstance ? findInstanceAnywhere(table, draggingInstance.id) : null);
   };
@@ -2939,9 +2994,12 @@ function PracticeDrawContent() {
             <PlaceOnHoldProvider value={placeOnHold}>
             <div className="flex flex-col flex-1 p-4">
               {/* The attempt layout (#1164) in place of the mission row while an attempt is in
-                  progress. Only one of the two is mounted, so each droppable is mounted once. */}
-              {attemptLayoutShows && table.attempt ? (
+                  progress. Only one of the two is mounted, so each droppable is mounted once: the
+                  parked attempt layout of #1342 mounts only the row, with its droppable disabled. */}
+              {(attemptLayoutShows || attemptLayoutParked) && table.attempt ? (
                 <AttemptLayout
+                  parked={!attemptLayoutShows}
+                  viewFullTableHoldEnabled={viewFullTableHoldEnabled}
                   attempt={table.attempt}
                   slot={missions[table.attempt.missionIndex]}
                   sizes={attemptSizes}
@@ -2991,7 +3049,11 @@ function PracticeDrawContent() {
                     )
                   }
                 />
-              ) : (
+              ) : null}
+              {attemptLayoutParked && (
+                <RemeasureDroppables sizes={[scale, missionScale, shipRows, flatWidths, panelBottom]} />
+              )}
+              {!attemptLayoutShows && (
                 <>
               {/* Mission row: 5 positional slots dealt face up on a new game and on reset (#597),
                   across the full width. The dilemma stack lives only in the attempt layout
