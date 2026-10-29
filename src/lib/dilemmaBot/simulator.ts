@@ -1,5 +1,5 @@
 import { DilemmaId } from './opponentPile';
-import { personnelGainsOf } from './gains';
+import { AttemptedMission, gainHoldsAt, personnelGainsOf } from './gains';
 import { BOT_SKILLS, RequirementBranch, RequirementPersonnel, SKILL_INDEX, meetsRequirements } from './requirements';
 
 // The simulator of the dilemma bot (#1282, #1287). It plays one ordered dilemma stack against the
@@ -7,8 +7,9 @@ import { BOT_SKILLS, RequirementBranch, RequirementPersonnel, SKILL_INDEX, meets
 
 /**
  * `attrs` and `skills` are the dilemma profile: what every check of a dilemma reads, with the gains
- * "while this personnel is facing a dilemma" (#1349). `requirementProfile` is what the
- * mission-requirements check after the last dilemma reads.
+ * "while this personnel is facing a dilemma" (#1349) and "while … attempting a mission" (#1350).
+ * `requirementProfile` is what the mission-requirements check after the last dilemma reads: the base
+ * and the "attempting" gains.
  */
 export interface BotPersonnel {
   name: string;
@@ -61,7 +62,10 @@ const OFFICER = SKILL_INDEX.officer;
 const LEADERSHIP = SKILL_INDEX.leadership;
 const HONOR = SKILL_INDEX.honor;
 
-/** A personnel of the card data (lowercased by `parseCardData`) as the bot reads it. */
+/**
+ * A personnel of the card data (lowercased by `parseCardData`) as the bot reads it, attempting
+ * `mission` (`attemptedMissionOf`). With no mission, only the gains with no mission condition count.
+ */
 export function botPersonnelOf(card: {
   originalName?: string;
   name: string;
@@ -71,7 +75,7 @@ export function botPersonnelOf(card: {
   strength: string | number;
   skills: string | number;
   gametext?: string | number;
-}): BotPersonnel {
+}, mission?: AttemptedMission): BotPersonnel {
   const skills = new Array(BOT_SKILLS.length).fill(0);
   const pattern = /(\d+\s+)?([a-z]+)/g;
   let match: RegExpExecArray | null;
@@ -82,17 +86,20 @@ export function botPersonnelOf(card: {
   const attrs: [number, number, number] = [Number(card.integrity) || 0, Number(card.cunning) || 0, Number(card.strength) || 0];
   // Both profiles are built here, once, never per play: `chooseStack` runs up to 500 × 500 plays.
   const facing = { skills: skills.slice(), attrs: [...attrs] as [number, number, number] };
+  const requirement = { skills: skills.slice(), attrs: [...attrs] as [number, number, number] };
   for (const gain of personnelGainsOf(card)) {
-    if (gain.condition !== 'facing') continue;
-    gain.skills.forEach((level, i) => (facing.skills[i] += level));
-    gain.attrs.forEach((delta, i) => (facing.attrs[i] += delta));
+    if (!gainHoldsAt(gain, mission)) continue;
+    for (const profile of gain.condition === 'attempting' ? [facing, requirement] : [facing]) {
+      gain.skills.forEach((level, i) => (profile.skills[i] += level));
+      gain.attrs.forEach((delta, i) => (profile.attrs[i] += delta));
+    }
   }
   return {
     name: card.originalName ?? card.name,
     cost: Number(card.cost) || 0,
     attrs: facing.attrs,
     skills: facing.skills,
-    requirementProfile: { skills, attrs },
+    requirementProfile: requirement,
   };
 }
 
