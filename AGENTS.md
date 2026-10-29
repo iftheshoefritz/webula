@@ -157,7 +157,7 @@ Before you open or update a PR, run all four commands. All four must pass.
 
 ```bash
 yarn test       # Jest test suite
-yarn typecheck  # tsc --noEmit -p . : the types of every file, the tests too
+yarn typecheck  # tsc --noEmit -p . on TypeScript 7 : the types of every file, the tests too
 yarn lint       # eslint . : ESLint 9 with the flat config, eslint.config.mjs
 yarn build      # next build --webpack : the types of every file, and static page pre-render
 ```
@@ -176,6 +176,21 @@ classes of error:
    passed the build, and 103 of them piled up on `main` that way before
    `yarn typecheck` existed (#1062). Next.js 16 runs `tsc` over the whole project.
 2. Errors thrown at build time while Next.js pre-renders the static pages.
+
+The two type checks run two versions of TypeScript (#1240). `yarn typecheck` runs
+TypeScript 7, the native compiler, from the alias devDependency `typescript-7`
+(`"typescript-7": "npm:typescript@^7.0.2"`), by path:
+`node node_modules/typescript-7/bin/tsc --noEmit -p .`. Every tool that loads
+`typescript` as a library keeps TypeScript 6, the `typescript` devDependency: ESLint
+through `typescript-eslint` (which `eslint-config-next` brings), `next build`, which
+resolves `typescript/package.json` and runs that package's `tsc`, `ts-node` for
+`jest.config.ts`, and the editor plugin `next`. TypeScript 7 has no compiler API, and
+`typescript-eslint` throws "does not support TS 7.0" on it. #1270 tracks moving
+`typescript` itself to 7 and dropping the alias, once `typescript-eslint` supports it. A
+change must pass both checks. Both packages ship a `tsc` bin and yarn links only one of
+them into `node_modules/.bin`, so do not rely on a bare `tsc`: run the compiler by its
+path, `node node_modules/typescript/bin/tsc` for 6 or
+`node node_modules/typescript-7/bin/tsc` for 7.
 
 `yarn build` builds with webpack, `next build --webpack`, and not with Turbopack, the
 default of Next.js 16. `@serwist/next` builds the service worker, `public/sw.js`, in a
