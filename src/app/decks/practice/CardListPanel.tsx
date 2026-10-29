@@ -83,7 +83,7 @@ import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
 import { DILEMMA_STACK_CHOICE_END_LABELS, dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
-import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderStyle, cardBorderWidth } from './TableCard';
+import TableCard, { STOPPED_IMAGE_CLASSNAME, STOPPED_OVERLAY_CLASSNAME, cardBorderStyle, cardBorderWidth } from './TableCard';
 import PersonnelOverlay, { hasPersonnelOverlay } from './PersonnelOverlay';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
 import OverlapRow from './OverlapRow';
@@ -403,7 +403,7 @@ function CardListPanelCard({
                 width={cardWidth}
                 cropHeight={cardHeight}
                 border={cardBorderWidth(cardWidth)}
-                className={instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}
+                className={instance.stopped ? STOPPED_OVERLAY_CLASSNAME : ''}
               />
             )}
           </div>

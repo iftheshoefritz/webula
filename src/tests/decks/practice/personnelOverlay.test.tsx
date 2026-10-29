@@ -222,7 +222,10 @@ describe('Practice table: the personnel overlay in the crew and away team panels
   it('greys the overlay of a stopped personnel', () => {
     renderPanel([makeCard(0, {}, { stopped: true })]);
 
-    expect(screen.getByTestId('personnel-overlay').className).toContain(STOPPED_IMAGE_CLASSNAME);
+    const overlay = screen.getByTestId('personnel-overlay');
+    expect(overlay.className).toMatch(/\bgrayscale\b/);
+    // At full opacity, so the card under the band does not show through (#1339).
+    expect(overlay.className).not.toMatch(/\bopacity-/);
   });
 
   it('shows the overlay of a face-down away team member, whose face the panel shows (#964)', () => {
@@ -252,6 +255,15 @@ describe('Practice table: the personnel overlay on a table card (#1176)', () => 
     const clip = screen.getByTestId('personnel-overlay').parentElement!;
     expect(clip.className).toMatch(/overflow-hidden/);
     expect(clip.className).toMatch(/rounded-md/);
+  });
+
+  it('greys the overlay of a stopped personnel at full opacity, and greys and fades its art (#1339)', () => {
+    const { container } = render(<TableCard instance={makeCard(0, {}, { stopped: true })} />);
+
+    const overlay = screen.getByTestId('personnel-overlay');
+    expect(overlay.className).toMatch(/\bgrayscale\b/);
+    expect(overlay.className).not.toMatch(/\bopacity-/);
+    expect(container.querySelector('img')!.className).toContain(STOPPED_IMAGE_CLASSNAME);
   });
 
   it('draws none on a whole card, a face-down card, or another type', () => {

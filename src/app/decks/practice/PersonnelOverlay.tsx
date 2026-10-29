@@ -209,7 +209,8 @@ function AttributeBoxFrame({
 
 // The overlay. It takes no pointer events, is not a droppable, and has no `data-zone` or
 // `data-card-id`: a tap, a hold and a drop on it reach the card under it. `className` carries the
-// stopped look, so a stopped personnel greys out whole (#679).
+// stopped look, `STOPPED_OVERLAY_CLASSNAME`: grey but opaque, so nothing under the band shows
+// through (#1339), while the art under it greys and fades (#679).
 export default function PersonnelOverlay({
   card,
   width,
