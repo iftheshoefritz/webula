@@ -8,6 +8,10 @@
 // - A pinch, Ctrl + the mouse wheel, or the − and + buttons zoom between "fit", where both rows
 //   and all 10 locations show at once, and `MAX_ZOOM`, where one location fills much of the screen.
 // - A drag on the bare table pans. A drag that starts on a card is still a card drag.
+// - During a card drag, holding the card near an edge of the table pans that way, so a ship
+//   dragged from the player's row toward the top edge slides the opponent's row into view, at any
+//   zoom. The opponent strip above the table counts as the top edge. The bottom row below the table
+//   has drop targets of its own, so it never pans.
 // - The minimap, in the opponent strip, draws all 10 locations, coloured by who is there, and an
 //   outline of the part on screen. A tap or a drag on it moves the view there. It is flatter than
 //   the table (its own scale on each axis), so it fits the 20 px strip and covers no card.
@@ -18,6 +22,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useDndContext, useDndMonitor } from '@dnd-kit/core';
 import type { ReactNode } from 'react';
 import { PRESENCE_STYLE } from './OpponentMissionRow';
 import type { Presence } from './OpponentMissionRow';
@@ -28,6 +33,10 @@ const MINIMAP_WIDTH = 84; // px
 const MINIMAP_HEIGHT = 20; // px, the opponent strip's height
 // A gap between the two rows, the middle of the table.
 const TABLE_MIDDLE = 12; // px
+// Pan at the edge during a drag: the band along each edge of the table where a dragged card slides
+// the canvas, and the speed at the edge itself, which falls to 0 at the inner side of the band.
+const EDGE_ZONE = 40; // px
+const EDGE_SPEED = 6; // px a frame
 
 interface View {
   z: number;
@@ -264,6 +273,60 @@ export function ZoomTable({
           y1: Math.min(sizes.ch, (sizes.vh - current.ty) / current.z),
         }
       : { x0: 0, y0: 0, x1: 0, y1: 0 };
+  // Pan at the edge during a card drag. dnd-kit reports the drag's movement, not the pointer, so the
+  // pointer is the press point plus that movement.
+  const { droppableContainers, measureDroppableContainers } = useDndContext();
+  const dragPointer = useRef<{ x: number; y: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const endDrag = () => {
+    dragPointer.current = null;
+    setDragging(false);
+  };
+  useDndMonitor({
+    onDragStart: () => setDragging(true),
+    onDragMove: (event) => {
+      const press = event.activatorEvent as PointerEvent | null;
+      if (!press || typeof press.clientX !== 'number') return;
+      dragPointer.current = { x: press.clientX + event.delta.x, y: press.clientY + event.delta.y };
+    },
+    onDragEnd: endDrag,
+    onDragCancel: endDrag,
+  });
+  useEffect(() => {
+    if (!dragging || !viewport) return;
+    // The speed for a pointer `distance` px inside an edge, or past it.
+    const push = (distance: number) =>
+      distance < EDGE_ZONE ? EDGE_SPEED * (1 - Math.max(0, distance) / EDGE_ZONE) : 0;
+    let frame = 0;
+    const tick = () => {
+      frame = requestAnimationFrame(tick);
+      const pointer = dragPointer.current;
+      const { sizes, current } = stateRef.current;
+      if (!pointer || !sizes || !current) return;
+      const rect = viewport.getBoundingClientRect();
+      if (pointer.y > rect.bottom) return;
+      const vx = push(pointer.x - rect.left) - push(rect.right - pointer.x);
+      const vy = push(pointer.y - rect.top) - push(rect.bottom - pointer.y);
+      if (vx === 0 && vy === 0) return;
+      const next = clampView({ ...current, tx: current.tx + vx, ty: current.ty + vy }, sizes);
+      if (next.tx === current.tx && next.ty === current.ty) return;
+      stateRef.current.current = next;
+      setView(next);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [dragging, viewport]);
+  // dnd-kit measures the drop targets when a drag starts and when a container scrolls, not when a
+  // transform moves them, so each pan during a drag measures them again.
+  const tx = current?.tx;
+  const ty = current?.ty;
+  const z = current?.z;
+  useLayoutEffect(() => {
+    if (!dragging) return;
+    measureDroppableContainers(droppableContainers.getEnabled().map((container) => container.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a new pan or zoom is the trigger
+  }, [dragging, tx, ty, z]);
+
   const zoomBy = (factor: number) => {
     if (!sizes || !current) return;
     zoomAt(current.z * factor, sizes.vw / 2, sizes.vh / 2);
@@ -279,7 +342,9 @@ export function ZoomTable({
       <div
         ref={canvasRef}
         data-testid="zoom-canvas"
-        className={`absolute left-0 top-0 w-full ${gesturing ? '' : 'motion-safe:transition-transform motion-safe:duration-200'}`}
+        className={`absolute left-0 top-0 w-full ${
+          gesturing || dragging ? '' : 'motion-safe:transition-transform motion-safe:duration-200'
+        }`}
         style={{
           transformOrigin: '0 0',
           transform: current ? `translate(${current.tx}px, ${current.ty}px) scale(${current.z})` : undefined,

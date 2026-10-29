@@ -188,6 +188,9 @@ export type TableAction =
   // unordered from the player's point of view, so nothing else needs it.
   | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom' }
   | { type: 'flip'; id: string }
+  // Spike for #1182: one of the player's ships leaves the table for an opponent's mission, which
+  // the page keeps beside the table (`opponent.ts`). Only a ship on a ship row can leave.
+  | { type: 'leaveTable'; id: string }
   // Turns a double-sided mission over (#765): toggles its `flipped` flag. Does nothing to a
   // mission with no `backimagefile`, or to a card that is not a mission card in its slot.
   | { type: 'flipMission'; id: string }
@@ -643,6 +646,11 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       return discardedOn.length ? { ...moved, discard: [...moved.discard, ...discardedOn] } : moved;
     }
 
+    case 'leaveTable': {
+      const from = findShipRow(state, action.id);
+      if (!from) return state;
+      return withCardsAt(state, from, cardsAt(state, from).filter((c) => c.id !== action.id));
+    }
     case 'flip': {
       const found = findInstanceAnywhere(state, action.id);
       if (!found) return state;

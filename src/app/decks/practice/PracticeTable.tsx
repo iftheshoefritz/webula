@@ -30,12 +30,13 @@ import {
 import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
-import { fixtureOpponent, sideIsEmpty, sidePersonnelCount } from './opponent';
+import { fixtureOpponent, sideIsEmpty, sidePersonnelCount, withYourShipsAtTheirs } from './opponent';
+import type { YourShipMove } from './opponent';
 import { OpponentPanel, OpponentStrip, sideCards } from './OpponentView';
 import type { OpponentPanelContent } from './OpponentView';
 import type { OpponentSideSummary } from './MissionRow';
 import { missionSlotWidth } from './MissionRow';
-import { OpponentMissionRow, mirroredSlots, presence } from './OpponentMissionRow';
+import { OpponentMissionRow, mirroredSlots, presence, theirMissionIndexFromDropId } from './OpponentMissionRow';
 import { ZoomTable } from './ZoomTable';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
@@ -1398,7 +1399,13 @@ function PracticeDrawContent() {
   // Spike for #1182: `?opponent=1` deals a fixture opponent beside the player's table, read only.
   // It is page state derived from the card data, not part of the reducer or the save.
   const opponentOn = searchParams.get('opponent') === '1';
-  const opponent = useMemo(() => (opponentOn ? fixtureOpponent(data) : null), [opponentOn, data]);
+  const fixtureHalf = useMemo(() => (opponentOn ? fixtureOpponent(data) : null), [opponentOn, data]);
+  // The player's ships moved to an opponent's mission (option C). Page state, like the opponent.
+  const [yourShipMoves, setYourShipMoves] = useState<YourShipMove[]>([]);
+  const opponent = useMemo(
+    () => (fixtureHalf ? withYourShipsAtTheirs(fixtureHalf, yourShipMoves) : null),
+    [fixtureHalf, yourShipMoves],
+  );
   const [opponentPanel, setOpponentPanel] = useState<OpponentPanelContent | null>(null);
   const serviceWorkerUpdate = useServiceWorker();
   // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
@@ -2395,6 +2402,20 @@ function PracticeDrawContent() {
     const group = draggingGroup.length > 0 ? draggingGroup : dragOrigin ? [dragOrigin.instance] : [];
     setDraggingInstance(null);
     setDraggingGroup([]);
+
+    // A drop on an opponent's mission (#1182 spike, option C) takes one of the player's ships on a
+    // ship row, with its crew, and refuses every other card.
+    const theirIndex = over ? theirMissionIndexFromDropId(String(over.id)) : null;
+    if (theirIndex !== null) {
+      const ship = missions.flatMap((slot) => slot.ships).find((c) => c.id === id);
+      if (!ship) {
+        cancelDrag(dragOrigin);
+        return;
+      }
+      dispatch({ type: 'leaveTable', id });
+      setYourShipMoves((moves) => [...moves, { index: theirIndex, ship }]);
+      return;
+    }
     // An open card list panel (#602), including the core's/the brig's own panel (#640) and a ship's
     // crew panel (#664), closes after a drag, unless the drag started from a card inside it and
     // it still holds a card after the drop (#675).

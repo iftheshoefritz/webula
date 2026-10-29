@@ -117,3 +117,19 @@ export function fixtureOpponent(data: any[]): OpponentHalf | null {
     score: 15,
   };
 }
+
+// One of the player's ships, with its crew, now at the opponent's mission `index` (#1182 spike): a
+// drag from the player's row onto that mission (`ZoomTable.tsx`, option C).
+export interface YourShipMove {
+  index: number;
+  ship: CardInstance;
+}
+
+export function withYourShipsAtTheirs(half: OpponentHalf, moves: YourShipMove[]): OpponentHalf {
+  if (moves.length === 0) return half;
+  const yourSidesAtTheirs = half.yourSidesAtTheirs.map((side, index) => ({
+    ...side,
+    ships: [...side.ships, ...moves.filter((m) => m.index === index).map((m) => m.ship)],
+  }));
+  return { ...half, yourSidesAtTheirs };
+}
