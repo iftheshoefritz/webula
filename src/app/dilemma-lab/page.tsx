@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CardData, loadCards } from '../../lib/loadCards';
 import { DilemmaId, OPPONENT_DILEMMAS, collectorsKey } from '../../lib/dilemmaBot/opponentPile';
-import { personnelGainsOf } from '../../lib/dilemmaBot/gains';
+import { attemptedMissionOf, personnelGainsOf } from '../../lib/dilemmaBot/gains';
 import DilemmaLabClient, { LabDeck, LabMission, LabPersonnel } from '../../components/DilemmaLabClient';
 
 export const metadata: Metadata = { title: 'Dilemma bot lab – Webula' };
@@ -24,7 +24,7 @@ export default function DilemmaLabPage() {
   const missionsByName = new Map<string, LabMission>();
   for (const c of data) {
     if (c.type !== 'mission' || c.missiontype === 'h' || missionsByName.has(c.originalName)) continue;
-    missionsByName.set(c.originalName, { name: c.originalName, requirements: String(c.skills) });
+    missionsByName.set(c.originalName, { name: c.originalName, requirements: String(c.skills), ...attemptedMissionOf(c) });
   }
   const missions = Array.from(missionsByName.values());
 

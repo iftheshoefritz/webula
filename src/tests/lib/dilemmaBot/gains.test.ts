@@ -1,7 +1,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { PersonnelGain, parseGains, personnelGainsOf } from '../../../lib/dilemmaBot/gains';
+import { PersonnelGain, attemptedMissionOf, parseGains, personnelGainsOf } from '../../../lib/dilemmaBot/gains';
 import { BOT_SKILLS, parseRequirementBranches } from '../../../lib/dilemmaBot/requirements';
+import { BotCardRow, botAttemptOf } from '../../../lib/dilemmaBot/botAttempt';
 import { BotAttempt, botPersonnelOf, playStack, requirementProfileOf, seededRandom } from '../../../lib/dilemmaBot/simulator';
 
 // The rows are read by hand and lowercased as `parseCardData` does: Jest does not load the real d3.
@@ -22,7 +23,10 @@ const data = (() => {
 
 const ATTRIBUTE_NAMES = ['integrity', 'cunning', 'strength'];
 
-/** A gain in a form to read in review: "facing: attributes +1; diplomacy, 2 leadership". */
+/**
+ * A gain in a form to read in review: "facing: attributes +1; diplomacy, 2 leadership", or with its
+ * mission condition, "attempting space: attributes +1; diplomacy, law", "facing [dq]: attributes +4".
+ */
 function gainText(gain: PersonnelGain): string {
   const [i, c, s] = gain.attrs;
   const attrs =
@@ -30,7 +34,17 @@ function gainText(gain: PersonnelGain): string {
       ? [`attributes +${i}`]
       : gain.attrs.flatMap((d, k) => (d ? [`${ATTRIBUTE_NAMES[k]} +${d}`] : []));
   const skills = gain.skills.flatMap((n, k) => (n ? [n > 1 ? `${n} ${BOT_SKILLS[k]}` : BOT_SKILLS[k]] : []));
-  return `${gain.condition}: ${[attrs.join(', '), skills.join(', ')].filter(Boolean).join('; ')}`;
+  const m = gain.mission;
+  const mission = m
+    ? [
+        m.missiontype === 's' ? 'space' : m.missiontype === 'p' ? 'planet' : '',
+        m.quadrant ? `[${m.quadrant}q]` : '',
+        m.minPoints !== undefined ? `${m.minPoints}+ points` : '',
+        m.maxPoints !== undefined ? `${m.maxPoints}- points` : '',
+      ].filter(Boolean)
+    : [];
+  const head = [gain.condition, ...mission].join(' ');
+  return `${head}: ${[attrs.join(', '), skills.join(', ')].filter(Boolean).join('; ')}`;
 }
 
 const gainsOf = (gametext: string) => parseGains(gametext).map(gainText);
@@ -76,12 +90,58 @@ describe('parseGains', () => {
       'while this personnel is facing a dilemma, he is cunning +1 for each equipment he is equipped with (limit +3).',
       'while this personnel is facing a dilemma, he is cunning -2 and loses astrometrics and navigation.',
       'while this personnel is facing a dilemma, if another gatherer is present, this personnel is attributes +1.',
-      'while this personnel is facing a dilemma at a [dq] mission, she is attributes +4.',
       'while this personnel is facing a dilemma that requires officer or security at a [dq] mission, he is attributes +2 and gains security.',
       'while this personnel is facing a dilemma and you have a [maq] personnel present, this personnel is attributes +1 and gains intelligence.',
       'while this personnel is facing a dilemma, each of your security personnel present is strength +1.',
       'each of your other [baj] personnel present is integrity +1 (or +2 while facing a dilemma).',
       'while this personnel is facing a dilemma, he gains flying.',
+    ]) {
+      expect(gainsOf(text)).toEqual([]);
+    }
+  });
+
+  it('reads an attempting clause at every mission, at a space or planet mission, and in a quadrant', () => {
+    expect(gainsOf('while this personnel is attempting a mission, he gains navigation.')).toEqual(['attempting: navigation']);
+    expect(gainsOf('while this personnel is attempting a space mission, he is attributes +1 and gains diplomacy and law.')).toEqual([
+      'attempting space: attributes +1; diplomacy, law',
+    ]);
+    expect(gainsOf('while this personnel is attempting a planet mission, she gains programming.')).toEqual([
+      'attempting planet: programming',
+    ]);
+    expect(gainsOf('while this personnel is attempting an [aq] mission, he is attributes +1.')).toEqual([
+      'attempting [aq]: attributes +1',
+    ]);
+    expect(gainsOf('while attempting a mission, this personnel gains honor.')).toEqual(['attempting: honor']);
+  });
+
+  it('reads the points of the attempted mission', () => {
+    expect(gainsOf('while this personnel is attempting a mission worth 50 or more points, he is cunning +1 and gains 2 leadership.')).toEqual([
+      'attempting 50+ points: cunning +1; 2 leadership',
+    ]);
+    expect(gainsOf('while this personnel is attempting a mission worth 30 or fewer points, he is attributes +1.')).toEqual([
+      'attempting 30- points: attributes +1',
+    ]);
+  });
+
+  it('reads a facing clause at a quadrant mission, with a comma and without one', () => {
+    expect(gainsOf('while this personnel is facing a dilemma at a [dq] mission, she is attributes +4.')).toEqual([
+      'facing [dq]: attributes +4',
+    ]);
+    expect(gainsOf('while this personnel is facing a dilemma at a [dq] mission he gains security, transporters, and treachery.')).toEqual([
+      'facing [dq]: security, transporters, treachery',
+    ]);
+  });
+
+  it('gives no gain for an attempting clause with a choice, a count or another qualifier', () => {
+    for (const text of [
+      'while this personnel is attempting a mission, you may make him attributes +2 until the end of this mission attempt.',
+      'while this personnel is attempting a mission, he is attributes +1 for each non-ferengi personnel present (limit +3).',
+      'while this personnel is attempting a mission with an event on it, he is attributes +2.',
+      'while this personnel is attempting a region: briar patch mission, he is attributes +1.',
+      'while this personnel is attempting a planet mission and the first mission you completed this game was a space mission, she gains exobiology and geology.',
+      'while this personnel is attempting a [dq] mission, she and each dissident personnel present are attributes +1.',
+      'while this personnel is attempting a mission, if there are three or less dilemmas beneath that mission, he is attributes +1.',
+      'while this personnel is attempting a mission, your [sf] human personnel present are integrity +1.',
     ]) {
       expect(gainsOf(text)).toEqual([]);
     }
@@ -99,7 +159,11 @@ describe('the gains of the card data', () => {
       'facing: strength +2; security',
     ]);
     expect(personnelGainsOf(byName('Kira Nerys Starfleet Emissary'))).toEqual([]);
-    expect(personnelGainsOf(byName('Kathryn Janeway Forceful Captain'))).toEqual([]);
+    expect(personnelGainsOf(byName('Kathryn Janeway Forceful Captain')).map(gainText)).toEqual(['facing [dq]: attributes +4']);
+    expect(personnelGainsOf(byName('William T. Riker Wistful Admiral')).map(gainText)).toEqual([
+      'attempting space: attributes +1; diplomacy, law',
+    ]);
+    expect(personnelGainsOf(byName('Selar Frontier Physician')).map(gainText)).toEqual(['attempting planet: programming']);
   });
 
   // Every personnel the parser or the override table gives a gain, so a wrong parse shows in review.
@@ -111,33 +175,54 @@ describe('the gains of the card data', () => {
       if (gains.length) lines.add(`${c.originalName} | ${gains.map(gainText).join(' | ')}`);
     }
     expect(Array.from(lines).sort()).toEqual([
+      'Beverly Crusher Captain Picard *VP | attempting 40+ points: attributes +1; medical',
+      'Beverly Crusher Captain Picard | attempting 40+ points: attributes +1; medical',
+      'Bevvox Ancient Intellect | attempting 50+ points: cunning +1; 2 anthropology',
+      'Bronok | attempting 30- points: attributes +1',
       'Charles Tucker III "Trip" (Promo) | facing: leadership, security',
       'Charles Tucker III "Trip" | facing: leadership, security',
+      'Cyber Drone | attempting [dq]: attributes +2',
       'Data Aspirer (Promo) | facing: integrity +2; honor',
       'Data Aspirer | facing: integrity +2; honor',
       'Donatra Compassionate Patriot | facing: honor, security',
       'Dorian Collins Acting Chief Petty Officer | facing: attributes +1; anthropology, engineer, geology, honor, transporters',
+      'Dr. Leah Brahms Holographic Representation | attempting space: attributes +1; engineer',
       'Gilora Rejal Subspace Researcher | facing: physics, science',
+      'Isotope Drone | attempting 50+ points: attributes +2',
       'Jadzia Dax Science Officer (SS) | facing: geology, physics',
       'Jadzia Dax Science Officer *VP | facing: geology, physics',
       'Jadzia Dax Science Officer | facing: geology, physics',
       'Jean Hajar Nova Squadron Navigator *VP | facing: attributes +1; astrometrics, navigation, physics, security, transporters',
       'Jean Hajar Nova Squadron Navigator | facing: attributes +1; astrometrics, navigation, physics, security, transporters',
       'Karen Farris Rigorous Leader | facing: attributes +1; astrometrics, engineer, leadership, officer, security',
+      'Kathryn Janeway Forceful Captain (FOW) | facing [dq]: attributes +4',
+      'Kathryn Janeway Forceful Captain *A | facing [dq]: attributes +4',
+      'Kathryn Janeway Forceful Captain | facing [dq]: attributes +4',
+      'Kurros Brilliant Tactician | attempting 50+ points: cunning +1; 2 leadership',
+      'Latara | attempting [gq]: honor, security',
+      'Morak Pilgrim Cynic | facing [dq]: security, transporters, treachery',
+      'Neelix Morale Officer (FOW) | facing [dq]: acquisition, honor',
+      'Neelix Morale Officer | facing [dq]: acquisition, honor',
       'Nicholas Locarno Nova Squadron Leader | facing: diplomacy, leadership, navigation, officer, treachery',
       'Riley Shepard Confident Cadet | facing: attributes +1; biology, 2 navigation, programming, security',
       'Rom Diagnostic and Repair Technician | facing: attributes +1; astrometrics, honor, physics',
+      'Scout Drone | attempting [aq]: attributes +1',
+      'Selar Frontier Physician | attempting planet: programming',
       'Seth Matthews Red Squad Cadet | facing: exobiology, science',
+      'Seven of Nine Ideal Candidate | attempting 50+ points: cunning +2; exobiology',
       'Seven of Nine Representative of the Hive (FOW) | facing: strength +2; security',
       'Seven of Nine Representative of the Hive (Promo) | facing: strength +2; security',
       'Seven of Nine Representative of the Hive | facing: strength +2; security',
       'Sito Jaxa Nova Squadron Pilot | facing: attributes +1; engineer, navigation, programming, science, transporters',
+      'Sullin Gifted Researcher | attempting 50+ points: cunning +1; 2 transporters',
       'Tim Watters Valiant Captain | facing: attributes +1; diplomacy, 2 leadership, officer, physics',
+      'Tuvok Mostly Assimilated | facing [dq]: law, leadership, officer, security',
       'Wesley Crusher Prodigy | facing: engineer, exobiology, navigation, science',
       'William Ross "Temporary" Ally *VP | facing: intelligence, treachery',
       'William Ross "Temporary" Ally | facing: intelligence, treachery',
       'William T. Riker Number One *VP | facing: anthropology, security',
       'William T. Riker Number One | facing: anthropology, security',
+      'William T. Riker Wistful Admiral | attempting space: attributes +1; diplomacy, law',
     ]);
   });
 });
@@ -174,14 +259,14 @@ describe('the two profiles in a play', () => {
     // The group meets 2 Officer and Medical only with the gains, which the requirements check leaves out.
     expect(result.fail).toBe(true);
 
-    const plain = { ...attempt, personnel: [row(''), row(''), row('')].map(botPersonnelOf) };
+    const plain = { ...attempt, personnel: [row(''), row(''), row('')].map((c) => botPersonnelOf(c)) };
     expect(playStack(plain, ['trickery'], seededRandom(1)).stopped).toBe(3);
   });
 
   it('changes a dilemma attribute check and not the requirements check', () => {
     // Move Along Home stops all three when the highest Strength is even: 7 + 2 = 9 is odd.
     const strength = 'while this personnel is facing a dilemma, he is strength +2.';
-    const group = [row(strength, '', [5, 5, 7]), row(strength, '', [5, 5, 7]), row(strength, '', [5, 5, 7])].map(botPersonnelOf);
+    const group = [row(strength, '', [5, 5, 7]), row(strength, '', [5, 5, 7]), row(strength, '', [5, 5, 7])].map((c) => botPersonnelOf(c));
     const attempt: BotAttempt = {
       personnel: group,
       requirements: parseRequirementBranches('Strength>21')!,
@@ -193,7 +278,75 @@ describe('the two profiles in a play', () => {
     // 3 × 7 = 21 is not above 21; the gained 3 × 9 = 27 would be.
     expect(result.fail).toBe(true);
 
-    const even = { ...attempt, personnel: [row('', '', [5, 5, 8]), row('', '', [5, 5, 8]), row('', '', [5, 5, 8])].map(botPersonnelOf) };
+    const even = { ...attempt, personnel: [row('', '', [5, 5, 8]), row('', '', [5, 5, 8]), row('', '', [5, 5, 8])].map((c) => botPersonnelOf(c)) };
     expect(playStack(even, ['moveAlongHome'], seededRandom(1)).stopped).toBe(3);
+  });
+});
+
+describe('the gains while attempting a mission (#1350)', () => {
+  const NAVIGATION = 'while this personnel is attempting a space mission, he gains navigation.';
+  const SPACE = { missiontype: 's', quadrant: 'a', points: '35' };
+  const PLANET = { missiontype: 'p', quadrant: 'a', points: '35' };
+
+  it('counts an attempting gain in both profiles, and only at a mission of its type', () => {
+    const atSpace = botPersonnelOf(row(NAVIGATION), SPACE);
+    expect(skillOf(atSpace.skills, 'navigation')).toBe(1);
+    expect(skillOf(requirementProfileOf(atSpace).skills, 'navigation')).toBe(1);
+
+    for (const p of [botPersonnelOf(row(NAVIGATION), PLANET), botPersonnelOf(row(NAVIGATION))]) {
+      expect(skillOf(p.skills, 'navigation')).toBe(0);
+      expect(skillOf(requirementProfileOf(p).skills, 'navigation')).toBe(0);
+    }
+  });
+
+  it('counts a facing gain at a [dq] mission in the dilemma profile only, and only in that quadrant', () => {
+    const janeway = 'while this personnel is facing a dilemma at a [dq] mission, she is attributes +4.';
+    const atDelta = botPersonnelOf(row(janeway), { ...SPACE, quadrant: 'd' });
+    expect(atDelta.attrs).toEqual([9, 9, 9]);
+    expect(requirementProfileOf(atDelta).attrs).toEqual([5, 5, 5]);
+    expect(botPersonnelOf(row(janeway), SPACE).attrs).toEqual([5, 5, 5]);
+  });
+
+  it('reads the points of the mission', () => {
+    const fifty = 'while this personnel is attempting a mission worth 50 or more points, he is attributes +2.';
+    expect(botPersonnelOf(row(fifty), { ...SPACE, points: '50' }).attrs).toEqual([7, 7, 7]);
+    expect(botPersonnelOf(row(fifty), { ...SPACE, points: 40 }).attrs).toEqual([5, 5, 5]);
+  });
+
+  it('changes a dilemma check and the requirements check at a space mission, and neither at a planet mission', () => {
+    // Move Along Home stops all three when the highest Strength is even: 8 + 1 = 9 is odd.
+    const strength = 'while this personnel is attempting a space mission, he is strength +1 and gains navigation.';
+    const group = (mission: typeof SPACE) =>
+      [row(strength, '', [5, 5, 8]), row(strength, '', [5, 5, 8]), row(strength, '', [5, 5, 8])].map((c) =>
+        botPersonnelOf(c, mission),
+      );
+    const attempt = (mission: typeof SPACE): BotAttempt => ({
+      personnel: group(mission),
+      // 3 × 8 = 24 is not above 24, and the base crew has no Navigation.
+      requirements: parseRequirementBranches('Navigation, Strength>24')!,
+      gameOnMission: 0,
+      choice: 'best',
+    });
+
+    const space = playStack(attempt(SPACE), ['moveAlongHome'], seededRandom(1));
+    expect(space).toMatchObject({ stopped: 0, fail: false });
+
+    const planet = playStack(attempt(PLANET), ['moveAlongHome'], seededRandom(1));
+    expect(planet.stopped).toBe(3);
+    expect(planet.fail).toBe(true);
+    expect(playStack(attempt(PLANET), [], seededRandom(1)).fail).toBe(true);
+  });
+
+  it('gives the table and the lab the same profiles for the same crew at the same mission', () => {
+    const byName = (name: string) => data.find((c) => c.originalName === name)!;
+    const riker = { ...byName('William T. Riker Wistful Admiral'), type: 'personnel' } as unknown as BotCardRow;
+    const mission = { ...data.find((c) => c.type === 'mission' && c.mission === 's' && c.skills)!, missiontype: 's' };
+    const table = botAttemptOf([{ card: riker }], mission, []) as BotAttempt;
+    expect(table.personnel).toEqual([botPersonnelOf(riker, attemptedMissionOf(mission))]);
+    expect(requirementProfileOf(table.personnel[0]).skills).not.toEqual(requirementProfileOf(botPersonnelOf(riker)).skills);
+
+    const planet = { ...mission, missiontype: 'p' };
+    const atPlanet = botAttemptOf([{ card: riker }], planet, []) as BotAttempt;
+    expect(atPlanet.personnel).toEqual([botPersonnelOf(riker)]);
   });
 });

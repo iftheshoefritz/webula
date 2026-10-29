@@ -14,6 +14,7 @@ import {
 import { SearchResult, StackScore, drawDilemmas, legalStacks } from '../lib/dilemmaBot/search';
 import type { SearchRequest, SearchResponse } from '../lib/dilemmaBot/searchRequest';
 import { ThreadedSearchResponse, useSearchWorker } from '../lib/dilemmaBot/useSearchWorker';
+import type { AttemptedMission } from '../lib/dilemmaBot/gains';
 import type { CardData } from '../lib/loadCards';
 import CardPreview from '../app/decks/practice/CardPreview';
 import { TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH, TableCardImage } from '../app/decks/practice/TableCard';
@@ -21,7 +22,8 @@ import { HOLD_DELAY_MS, HOVER_DELAY_MS } from '../app/decks/practice/useCardHold
 import type { PreviewSide } from '../app/decks/practice/useCardHold';
 import type { CardInstance } from '../app/decks/practice/tableReducer';
 
-export interface LabMission {
+/** A mission, with the fields of its row that the gains read (`attemptedMissionOf`), as the table passes them. */
+export interface LabMission extends AttemptedMission {
   name: string;
   requirements: string;
 }
@@ -95,8 +97,12 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
   const mission = deckMissions.find((m) => m.name === missionName);
   const branches = useMemo(() => (mission ? parseRequirementBranches(mission.requirements) : null), [mission]);
   const crewPersonnel = useMemo(
-    () => crew.map((name) => byName.get(name)).filter((p): p is LabPersonnel => !!p).map(botPersonnelOf),
-    [crew, byName],
+    () =>
+      crew
+        .map((name) => byName.get(name))
+        .filter((p): p is LabPersonnel => !!p)
+        .map((p) => botPersonnelOf(p, mission)),
+    [crew, byName, mission],
   );
   const meets = branches ? meetsRequirements(branches, crewPersonnel.map(requirementProfileOf)) : false;
   const under = Math.max(0, crew.length - n);
@@ -175,7 +181,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
       const group = pool.slice(0, size);
-      if (meetsRequirements(targetBranches, group.map((name) => requirementProfileOf(botPersonnelOf(byName.get(name)!))))) {
+      if (meetsRequirements(targetBranches, group.map((name) => requirementProfileOf(botPersonnelOf(byName.get(name)!, target))))) {
         setCrew(group);
         setMessage('');
         return;
