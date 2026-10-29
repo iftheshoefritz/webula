@@ -406,8 +406,10 @@ describe('PracticeDrawPage', () => {
     });
     await drawOpeningHand();
 
-    // 10-card deck: 7 dealt into the hand, 3 left in the pile.
-    expect(screen.getByText('3')).toBeInTheDocument();
+    // 10-card deck: 7 dealt into the hand, 3 left in the pile. The turn number (#1337) is also
+    // a "1", so the count is read inside the draw pile.
+    const drawPile = screen.getByTestId('draw-pile');
+    expect(within(drawPile).getByText('3')).toBeInTheDocument();
 
     const drawPileButton = screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' });
 
@@ -415,7 +417,7 @@ describe('PracticeDrawPage', () => {
       await act(async () => {
         fireEvent.click(drawPileButton);
       });
-      expect(screen.getByText(String(remaining))).toBeInTheDocument();
+      expect(within(drawPile).getByText(String(remaining))).toBeInTheDocument();
     }
 
     // The pile shows its "Empty" placeholder rather than a "0" badge once exhausted, and its
