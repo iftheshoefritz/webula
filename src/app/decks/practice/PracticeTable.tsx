@@ -34,6 +34,9 @@ import { fixtureOpponent, sideIsEmpty, sidePersonnelCount } from './opponent';
 import { OpponentPanel, OpponentStrip, sideCards } from './OpponentView';
 import type { OpponentPanelContent } from './OpponentView';
 import type { OpponentSideSummary } from './MissionRow';
+import { missionSlotWidth } from './MissionRow';
+import { OpponentCompactRow } from './OpponentCompactRow';
+import { TABLE_CARD_WIDTH } from './TableCard';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
@@ -2787,6 +2790,24 @@ function PracticeDrawContent() {
                   half={opponent}
                   onOpenCore={() => setOpponentPanel({ title: "Opponent's core", theirs: opponent.core, show: 'theirs' })}
                   onOpenBrig={() => setOpponentPanel({ title: "Opponent's brig", theirs: opponent.brig, show: 'theirs' })}
+                  roomBelow={6}
+                />
+              )}
+              {/* Option B of the spike: the opponent's missions, compact, above the player's. */}
+              {opponent && !attemptLayoutShows && (
+                <OpponentCompactRow
+                  half={opponent}
+                  slotWidth={missionSlotWidth(missionScale, finePointer, desktopMissionSlotBudget(gameLayerWidth))}
+                  cardWidth={Math.round(TABLE_CARD_WIDTH * missionScale)}
+                  onOpenLocation={(index) => {
+                    const mission = opponent.missions[index];
+                    setOpponentPanel({
+                      title: mission ? cardDisplayName(mission.card) : `Opponent's mission ${index + 1}`,
+                      theirs: sideCards(opponent.sidesAtTheirs[index]),
+                      yours: sideCards(opponent.yourSidesAtTheirs[index]),
+                      show: 'theirs',
+                    });
+                  }}
                 />
               )}
               {opponentPanel && (

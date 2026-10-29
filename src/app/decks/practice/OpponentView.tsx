@@ -58,17 +58,21 @@ export function OpponentStrip({
   onOpenCore,
   onOpenBrig,
   children,
+  roomBelow = STRIP_SLIVER_ROOM,
 }: {
   half: OpponentHalf;
   onOpenCore: () => void;
   onOpenBrig: () => void;
   children?: ReactNode;
+  // The room below the strip: a layout that puts something else between the strip and the
+  // mission row gives that the sliver room instead.
+  roomBelow?: number;
 }) {
   return (
     <div
       data-testid="opponent-strip"
       className="flex items-center gap-2 text-[10px] leading-none text-rose-50 shrink-0"
-      style={{ height: OPPONENT_STRIP_HEIGHT, marginLeft: STRIP_LEFT_GUTTER, marginRight: STRIP_LEFT_GUTTER, marginBottom: STRIP_SLIVER_ROOM }}
+      style={{ height: OPPONENT_STRIP_HEIGHT, marginLeft: STRIP_LEFT_GUTTER, marginRight: STRIP_LEFT_GUTTER, marginBottom: roomBelow }}
     >
       <span className={`flex items-center gap-2 rounded-full px-2 h-full ${OPPONENT_TINT_CLASS}`}>
         <span className="font-semibold uppercase tracking-wide text-[9px]">Opponent</span>
