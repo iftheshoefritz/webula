@@ -16,8 +16,10 @@
 // desktop panel draws none.
 //
 // A cropped, face-up ship draws the same band (#1336), `ShipOverlay`, with its range, weapons and
-// shields, which the crop cuts off too: the same boxes, fill and height rule, but the words are
-// always "RNG", "WPN" and "SHD", in plain capitals, on every crop size. It has no icon column.
+// shields, which the crop cuts off too: the same boxes, fill and height rule, and the words in plain
+// capitals. It has no icon column. The band picks its words by what fits, never by a squeeze that
+// leaves them unreadable: "RNG", "WPN" and "SHD" where they fit, else "R", "W" and "S", else the
+// numbers alone (`shipLabelTier`).
 import auIcon from '../../../../public/icons/icon_au.gif';
 import cmdIcon from '../../../../public/icons/icon_command.gif';
 import ds9Icon from '../../../../public/icons/icon_ds9.png';
@@ -103,6 +105,14 @@ const SHIP_ATTRIBUTE_LABELS: Record<(typeof SHIP_ATTRIBUTES)[number], string> = 
   weapons: 'WPN',
   shields: 'SHD',
 };
+// The forms of the ship's words, longest first: three letters, one letter, or none.
+export type ShipLabelTier = 'three' | 'one' | 'none';
+const shipLabel = (attribute: (typeof SHIP_ATTRIBUTES)[number], tier: ShipLabelTier): string =>
+  tier === 'three' ? SHIP_ATTRIBUTE_LABELS[attribute] : tier === 'one' ? SHIP_ATTRIBUTE_LABELS[attribute][0] : '';
+// The least share of its own width that `textLength` may squeeze a ship's word to. The personnel band
+// squeezes "Int" to about 0.82 to 0.88 of its width on the crops of the brig and the panels, where it
+// reads; the capitals of "WPN" are wider glyphs and take a little more.
+export const MIN_LABEL_SQUEEZE = 0.75;
 
 // The fill of the boxes, by affiliation: the median colour of the boxes on the scans of each
 // affiliation's personnel. An affiliation with no entry gets the Borg's grey.
@@ -196,6 +206,21 @@ export function attributeLabelLength(
   return width <= room ? undefined : Math.max(1, Math.floor(room));
 }
 
+// The longest form of the ship's words that fits every box of the band (#1336): a word fits when
+// its plain-capitals width, squeezed to no less than `MIN_LABEL_SQUEEZE` of it, fits beside its number.
+export function shipLabelTier(
+  values: Record<(typeof SHIP_ATTRIBUTES)[number], string>,
+  layout: Pick<ReturnType<typeof personnelOverlayLayout>, 'boxWidth' | 'line' | 'pad' | 'fontSize'>
+): ShipLabelTier {
+  const { boxWidth, line, pad, fontSize } = layout;
+  const fits = (tier: ShipLabelTier) =>
+    SHIP_ATTRIBUTES.every((attribute) => {
+      const room = boxWidth - 2 * line - 3 * pad - fontSize * GLYPH_EM * values[attribute].length;
+      return capitalsWidth(shipLabel(attribute, tier), fontSize) * MIN_LABEL_SQUEEZE <= room;
+    });
+  return fits('three') ? 'three' : fits('one') ? 'one' : 'none';
+}
+
 // The face of the words and the numbers: the card's is a bold, condensed sans.
 const ATTRIBUTE_FONT_FAMILY = '"Futura Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -238,6 +263,7 @@ function AttributeBand({
   layout,
   fill,
   width,
+  labelTier,
 }: {
   prefix: string;
   attributes: { key: string; name: string; label: string; value: string }[];
@@ -245,6 +271,7 @@ function AttributeBand({
   layout: ReturnType<typeof personnelOverlayLayout>;
   fill: string;
   width: number;
+  labelTier?: ShipLabelTier;
 }) {
   const { bandHeight, boxLefts, boxWidth, line, pad, fontSize } = layout;
   // The baseline that puts the capitals and the digits on the middle of the box, with as much fill
@@ -261,6 +288,7 @@ function AttributeBand({
       fontFamily={ATTRIBUTE_FONT_FAMILY}
       fontWeight={700}
       fontSize={fontSize}
+      data-label-tier={labelTier}
     >
       {attributes.map(({ key, label, value }, index) => {
         const left = boxLefts[index];
@@ -275,21 +303,24 @@ function AttributeBand({
               fill={fill}
               fillTestId={`${prefix}-${key}-fill`}
             />
-            <text
-              data-testid={`${prefix}-${key}-label`}
-              x={left + line + pad}
-              y={baseline}
-              fill="#fff"
-              style={smallCaps ? { fontVariant: 'small-caps' } : undefined}
-              {...(labelLength === undefined ? {} : { textLength: labelLength, lengthAdjust: 'spacingAndGlyphs' })}
-            >
-              {label}
-            </text>
+            {label !== '' && (
+              <text
+                data-testid={`${prefix}-${key}-label`}
+                x={left + line + pad}
+                y={baseline}
+                fill="#fff"
+                style={smallCaps ? { fontVariant: 'small-caps' } : undefined}
+                {...(labelLength === undefined ? {} : { textLength: labelLength, lengthAdjust: 'spacingAndGlyphs' })}
+              >
+                {label}
+              </text>
+            )}
+            {/* With no word, the number sits on the middle of its box. */}
             <text
               data-testid={`${prefix}-${key}`}
-              x={left + boxWidth - line - pad}
+              x={label === '' ? left + boxWidth / 2 : left + boxWidth - line - pad}
               y={baseline}
-              textAnchor="end"
+              textAnchor={label === '' ? 'middle' : 'end'}
               fill="#fff"
             >
               {value}
@@ -363,8 +394,9 @@ export default function PersonnelOverlay({
   );
 }
 
-// The ship's overlay (#1336): the band alone, with "RNG", "WPN" and "SHD" on every crop size. It
-// takes no pointer events and the same `className` as the personnel overlay.
+// The ship's overlay (#1336): the band alone, with the words of `shipLabelTier`. It takes no pointer
+// events and the same `className` as the personnel overlay. The `aria-label` names every attribute
+// in full in every tier.
 export function ShipOverlay({
   card,
   width,
@@ -379,11 +411,17 @@ export function ShipOverlay({
   className?: string;
 }) {
   const layout = personnelOverlayLayout(width, cropHeight, border);
+  const values = {
+    range: String(card.range ?? '').trim(),
+    weapons: String(card.weapons ?? '').trim(),
+    shields: String(card.shields ?? '').trim(),
+  };
+  const labelTier = shipLabelTier(values, layout);
   const attributes = SHIP_ATTRIBUTES.map((attribute) => ({
     key: attribute,
     name: attributeName(attribute),
-    label: SHIP_ATTRIBUTE_LABELS[attribute],
-    value: String(card[attribute] ?? '').trim(),
+    label: shipLabel(attribute, labelTier),
+    value: values[attribute],
   }));
   return (
     <div data-testid="ship-overlay" className={`absolute inset-0 pointer-events-none ${className}`}>
@@ -391,6 +429,7 @@ export function ShipOverlay({
         prefix="ship"
         attributes={attributes}
         smallCaps={false}
+        labelTier={labelTier}
         layout={layout}
         fill={attributeBoxFill(card.affiliation)}
         width={width}

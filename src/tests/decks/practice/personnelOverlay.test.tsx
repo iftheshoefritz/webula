@@ -15,12 +15,15 @@ import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import TableCard, { STOPPED_IMAGE_CLASSNAME, cardBorderWidth } from '../../../app/decks/practice/TableCard';
 import PersonnelOverlay, {
   ATTRIBUTE_BOX_FILLS,
+  GLYPH_EM,
+  MIN_LABEL_SQUEEZE,
   ShipOverlay,
   PERSONNEL_MAX_ICONS,
   attributeBoxFill,
   attributeLabelLength,
   personnelIconCodes,
   personnelOverlayLayout,
+  shipLabelTier,
 } from '../../../app/decks/practice/PersonnelOverlay';
 import { artCropHeight } from '../../../app/decks/practice/viewerCardSize';
 
@@ -279,8 +282,8 @@ describe('Practice table: the personnel overlay on a table card (#1176)', () => 
   });
 });
 
-// #1336: a cropped ship draws its range, weapons and shields in the same band, with the words
-// "RNG", "WPN" and "SHD" in plain capitals on every crop size, and no icon column.
+// #1336: a cropped ship draws its range, weapons and shields in the same band, with words in plain
+// capitals that fit their boxes ("RNG", "R", or none), and no icon column.
 const makeShip = (n: number, overrides: Record<string, unknown> = {}, instance: Partial<CardInstance> = {}) =>
   makeCard(
     n,
@@ -303,9 +306,10 @@ describe('Practice table: the ship band (#1336)', () => {
     render(<TableCard instance={makeShip(0)} />);
 
     expect(screen.getByTestId('ship-overlay').className).toMatch(/pointer-events-none/);
-    expect(screen.getByTestId('ship-range-label').textContent).toBe('RNG');
-    expect(screen.getByTestId('ship-weapons-label').textContent).toBe('WPN');
-    expect(screen.getByTestId('ship-shields-label').textContent).toBe('SHD');
+    // A table card at scale 1 is a small crop, where the band draws one letter.
+    expect(screen.getByTestId('ship-range-label').textContent).toBe('R');
+    expect(screen.getByTestId('ship-weapons-label').textContent).toBe('W');
+    expect(screen.getByTestId('ship-shields-label').textContent).toBe('S');
     expect(screen.getByTestId('ship-range').textContent).toBe('7');
     expect(screen.getByTestId('ship-weapons').textContent).toBe('8');
     expect(screen.getByTestId('ship-shields').textContent).toBe('9');
@@ -315,12 +319,9 @@ describe('Practice table: the ship band (#1336)', () => {
     expect(screen.queryByTestId('personnel-overlay')).toBeNull();
   });
 
-  it.each([69, 126, 200, 238])('keeps the capital words and the height rule of the band at width %s', (width) => {
+  it.each([49, 69, 126, 200, 238])('keeps the height rule of the band at width %s', (width) => {
     renderShipOverlay(width);
 
-    expect(screen.getByTestId('ship-range-label').textContent).toBe('RNG');
-    expect(screen.getByTestId('ship-weapons-label').textContent).toBe('WPN');
-    expect(screen.getByTestId('ship-shields-label').textContent).toBe('SHD');
     const { bandHeight } = personnelOverlayLayout(width, artCropHeight(width), cardBorderWidth(width));
     expect(Number(screen.getByTestId('ship-attributes').getAttribute('height'))).toBe(bandHeight);
   });
@@ -358,6 +359,57 @@ describe('Practice table: the ship band (#1336)', () => {
     const overlay = screen.getByTestId('ship-overlay');
     expect(overlay.className).toMatch(/\bgrayscale\b/);
     expect(overlay.className).not.toMatch(/\bopacity-/);
+  });
+});
+
+// No word is squeezed below `MIN_LABEL_SQUEEZE` of its natural width, the plain-capitals estimate.
+const expectNoUnreadableSqueeze = (label: Element) => {
+  const length = label.getAttribute('textLength');
+  if (length === null) return;
+  const natural = Number(label.closest('svg')!.getAttribute('font-size')) * GLYPH_EM * (label.textContent ?? '').length;
+  expect(Number(length)).toBeGreaterThanOrEqual(Math.floor(natural * MIN_LABEL_SQUEEZE));
+};
+
+describe('Practice table: the words of the ship band fit their boxes (#1336)', () => {
+  it('draws "RNG", "WPN" and "SHD" where three letters fit, at width 106', () => {
+    renderShipOverlay(106);
+
+    expect(screen.getByTestId('ship-attributes').getAttribute('data-label-tier')).toBe('three');
+    expect(screen.getByTestId('ship-range-label').textContent).toBe('RNG');
+    expect(screen.getByTestId('ship-weapons-label').textContent).toBe('WPN');
+    expect(screen.getByTestId('ship-shields-label').textContent).toBe('SHD');
+    ['range', 'weapons', 'shields'].forEach((a) => expectNoUnreadableSqueeze(screen.getByTestId(`ship-${a}-label`)));
+    expect(screen.getByRole('img', { name: 'Range 7, Weapons 8, Shields 9' })).toBeTruthy();
+  });
+
+  it('draws "R", "W" and "S" on the 49 px table crop at 667x375', () => {
+    renderShipOverlay(49);
+
+    expect(screen.getByTestId('ship-attributes').getAttribute('data-label-tier')).toBe('one');
+    expect(screen.getByTestId('ship-range-label').textContent).toBe('R');
+    expect(screen.getByTestId('ship-weapons-label').textContent).toBe('W');
+    expect(screen.getByTestId('ship-shields-label').textContent).toBe('S');
+    ['range', 'weapons', 'shields'].forEach((a) => expectNoUnreadableSqueeze(screen.getByTestId(`ship-${a}-label`)));
+    expect(screen.getByTestId('ship-weapons').textContent).toBe('8');
+    expect(screen.getByRole('img', { name: 'Range 7, Weapons 8, Shields 9' })).toBeTruthy();
+  });
+
+  it('draws the numbers alone, centred in their boxes, where not even one letter fits', () => {
+    renderShipOverlay(49, { range: '10', weapons: '12', shields: '11' });
+
+    expect(screen.getByTestId('ship-attributes').getAttribute('data-label-tier')).toBe('none');
+    for (const attribute of ['range', 'weapons', 'shields']) {
+      expect(screen.queryByTestId(`ship-${attribute}-label`)).toBeNull();
+      expect(screen.getByTestId(`ship-${attribute}`).getAttribute('text-anchor')).toBe('middle');
+    }
+    expect(screen.getByTestId('ship-weapons').textContent).toBe('12');
+    expect(screen.getByRole('img', { name: 'Range 10, Weapons 12, Shields 11' })).toBeTruthy();
+  });
+
+  it('picks one tier for the whole band, by its longest number', () => {
+    const layout = personnelOverlayLayout(106, artCropHeight(106), cardBorderWidth(106));
+    expect(shipLabelTier({ range: '7', weapons: '8', shields: '9' }, layout)).toBe('three');
+    expect(shipLabelTier({ range: '7', weapons: '10', shields: '9' }, layout)).toBe('one');
   });
 });
 
