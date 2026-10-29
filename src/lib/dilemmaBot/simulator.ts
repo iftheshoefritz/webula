@@ -1,9 +1,15 @@
 import { DilemmaId } from './opponentPile';
-import { BOT_SKILLS, RequirementBranch, SKILL_INDEX, meetsRequirements } from './requirements';
+import { personnelGainsOf } from './gains';
+import { BOT_SKILLS, RequirementBranch, RequirementPersonnel, SKILL_INDEX, meetsRequirements } from './requirements';
 
 // The simulator of the dilemma bot (#1282, #1287). It plays one ordered dilemma stack against the
 // attempting personnel, with random selections from `rand`, and checks the mission requirements after.
 
+/**
+ * `attrs` and `skills` are the dilemma profile: what every check of a dilemma reads, with the gains
+ * "while this personnel is facing a dilemma" (#1349). `requirementProfile` is what the
+ * mission-requirements check after the last dilemma reads.
+ */
 export interface BotPersonnel {
   name: string;
   cost: number;
@@ -11,6 +17,13 @@ export interface BotPersonnel {
   attrs: [number, number, number];
   /** The level of each skill, indexed as `BOT_SKILLS`. Honor is a skill in the card data. */
   skills: number[];
+  /** The requirements profile. Absent means the same as the dilemma profile. */
+  requirementProfile?: RequirementPersonnel;
+}
+
+/** The profile of `p` that the mission-requirements check reads. */
+export function requirementProfileOf(p: BotPersonnel): RequirementPersonnel {
+  return p.requirementProfile ?? p;
 }
 
 /** The player's choice in Chula: Pick One to Save Two. */
@@ -57,6 +70,7 @@ export function botPersonnelOf(card: {
   cunning: string | number;
   strength: string | number;
   skills: string | number;
+  gametext?: string | number;
 }): BotPersonnel {
   const skills = new Array(BOT_SKILLS.length).fill(0);
   const pattern = /(\d+\s+)?([a-z]+)/g;
@@ -65,11 +79,20 @@ export function botPersonnelOf(card: {
     const i = SKILL_INDEX[match[2]];
     if (i !== undefined) skills[i] += match[1] ? parseInt(match[1], 10) : 1;
   }
+  const attrs: [number, number, number] = [Number(card.integrity) || 0, Number(card.cunning) || 0, Number(card.strength) || 0];
+  // Both profiles are built here, once, never per play: `chooseStack` runs up to 500 × 500 plays.
+  const facing = { skills: skills.slice(), attrs: [...attrs] as [number, number, number] };
+  for (const gain of personnelGainsOf(card)) {
+    if (gain.condition !== 'facing') continue;
+    gain.skills.forEach((level, i) => (facing.skills[i] += level));
+    gain.attrs.forEach((delta, i) => (facing.attrs[i] += delta));
+  }
   return {
     name: card.originalName ?? card.name,
     cost: Number(card.cost) || 0,
-    attrs: [Number(card.integrity) || 0, Number(card.cunning) || 0, Number(card.strength) || 0],
-    skills,
+    attrs: facing.attrs,
+    skills: facing.skills,
+    requirementProfile: { skills, attrs },
   };
 }
 
@@ -85,6 +108,7 @@ export function playStack(
   trace?: (line: string) => void,
 ): PlayResult {
   const { personnel: group, requirements } = attempt;
+  const requirementGroup = group.map(requirementProfileOf);
   const n = group.length;
   const alive = new Uint8Array(n).fill(1);
   let live = n;
@@ -192,7 +216,7 @@ export function playStack(
       }
       case 'pickOne': {
         const ks = select(3);
-        const option = attempt.choice === 'random' ? Math.floor(rand() * (ks.length + 1)) - 1 : bestPickOne(attempt, alive, ks);
+        const option = attempt.choice === 'random' ? Math.floor(rand() * (ks.length + 1)) - 1 : bestPickOne(requirements, requirementGroup, alive, ks);
         if (option < 0) {
           stopAll(ks, `selects ${ks.map(name).join(', ')}; the player stops all`);
         } else {
@@ -206,20 +230,26 @@ export function playStack(
     }
   }
 
-  const fail = !meetsRequirements(requirements, group, alive);
+  const fail = !meetsRequirements(requirements, requirementGroup, alive);
   trace?.(fail ? 'The attempt fails.' : 'The unstopped personnel meet the mission requirements.');
   return { fail, stopped, returned };
 }
 
 /**
  * The player's best choice without sight of the rest of the stack: return the first personnel whose
- * loss keeps the mission requirements met; when no return does, stop all three, which is no lasting damage.
+ * loss keeps the mission requirements met, read on the requirements profiles in `group`; when no
+ * return does, stop all three, which is no lasting damage.
  * Returns the index into `ks` to return, or -1 to stop all three.
  */
-function bestPickOne(attempt: BotAttempt, alive: Uint8Array, ks: number[]): number {
+function bestPickOne(
+  requirements: RequirementBranch[],
+  group: RequirementPersonnel[],
+  alive: Uint8Array,
+  ks: number[],
+): number {
   for (let i = 0; i < ks.length; i++) {
     alive[ks[i]] = 0;
-    const ok = meetsRequirements(attempt.requirements, attempt.personnel, alive);
+    const ok = meetsRequirements(requirements, group, alive);
     alive[ks[i]] = 1;
     if (ok) return i;
   }

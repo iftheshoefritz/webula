@@ -3,7 +3,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { DILEMMA_BY_ID, DilemmaId, OPPONENT_DILEMMAS } from '../lib/dilemmaBot/opponentPile';
 import { meetsRequirements, parseRequirementBranches } from '../lib/dilemmaBot/requirements';
-import { BotAttempt, PlayerChoice, botPersonnelOf, playStack, seededRandom } from '../lib/dilemmaBot/simulator';
+import {
+  BotAttempt,
+  PlayerChoice,
+  botPersonnelOf,
+  playStack,
+  requirementProfileOf,
+  seededRandom,
+} from '../lib/dilemmaBot/simulator';
 import { SearchResult, StackScore, drawDilemmas, legalStacks } from '../lib/dilemmaBot/search';
 import type { SearchRequest, SearchResponse } from '../lib/dilemmaBot/searchRequest';
 import { ThreadedSearchResponse, useSearchWorker } from '../lib/dilemmaBot/useSearchWorker';
@@ -27,6 +34,8 @@ export interface LabPersonnel {
   cunning: string;
   strength: string;
   skills: string;
+  /** The game text, only for a personnel with a gain the bot reads (`personnelGainsOf`). */
+  gametext?: string;
 }
 
 export interface LabDeck {
@@ -89,7 +98,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
     () => crew.map((name) => byName.get(name)).filter((p): p is LabPersonnel => !!p).map(botPersonnelOf),
     [crew, byName],
   );
-  const meets = branches ? meetsRequirements(branches, crewPersonnel) : false;
+  const meets = branches ? meetsRequirements(branches, crewPersonnel.map(requirementProfileOf)) : false;
   const under = Math.max(0, crew.length - n);
   const stackCount = useMemo(() => legalStacks(drawn, n).length, [drawn, n]);
   const attempt: BotAttempt | null = branches
@@ -166,7 +175,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
       const group = pool.slice(0, size);
-      if (meetsRequirements(targetBranches, group.map((name) => botPersonnelOf(byName.get(name)!)))) {
+      if (meetsRequirements(targetBranches, group.map((name) => requirementProfileOf(botPersonnelOf(byName.get(name)!))))) {
         setCrew(group);
         setMessage('');
         return;

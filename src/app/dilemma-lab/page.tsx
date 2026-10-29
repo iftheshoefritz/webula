@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CardData, loadCards } from '../../lib/loadCards';
 import { DilemmaId, OPPONENT_DILEMMAS, collectorsKey } from '../../lib/dilemmaBot/opponentPile';
+import { personnelGainsOf } from '../../lib/dilemmaBot/gains';
 import DilemmaLabClient, { LabDeck, LabMission, LabPersonnel } from '../../components/DilemmaLabClient';
 
 export const metadata: Metadata = { title: 'Dilemma bot lab – Webula' };
@@ -40,6 +41,8 @@ export default function DilemmaLabPage() {
       cunning: String(c.cunning),
       strength: String(c.strength),
       skills: String(c.skills),
+      // The page sends the game text only where the bot reads a gain from it, to keep its HTML small.
+      ...(personnelGainsOf(c).length ? { gametext: String(c.gametext) } : {}),
     });
   }
 
