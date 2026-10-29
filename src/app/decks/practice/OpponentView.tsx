@@ -199,7 +199,7 @@ export function OpponentPanel({
             />
           ))}
         </div>
-        {theirs && (
+        {theirs && cards.some((instance) => instance.card.type === 'ship') && (
           <p className="pt-1 text-[10px] text-rose-200">
             <ShipIcon className="inline w-2.5 h-2.5" /> A ship is followed by its crew.
           </p>
