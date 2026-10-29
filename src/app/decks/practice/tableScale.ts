@@ -178,18 +178,28 @@ export const TOUCH_RESERVED_SHIP_ROWS = 2;
 // The game menu and fullscreen buttons sit in the top left corner, over the table (`left-2`, 24 px
 // wide, so they end 32 px in). The mission row is centred, so a row that keeps its left edge 4 px
 // clear of them leaves this much more than the content padding free on each side.
-const MENU_BUTTON_GUTTER = 20; // px, each side
+export const MENU_BUTTON_GUTTER = 20; // px, each side
+// Issue #1337: on the full touch table the turn and score controls sit in a column left of the
+// mission row, below the corner buttons. The row reserves this much past the content padding on its
+// left, in place of `MENU_BUTTON_GUTTER`, and keeps the gutter on its right, so it is offset right of
+// centre. At the minimum screen the width bound is then still a 105 px mission, the size the
+// height-bound row drew at before the counters left the bottom row.
+export const TOUCH_CONTROLS_COLUMN = 56; // px
 
+// `leftReserve` is the space kept left of the row past the content padding: `MENU_BUTTON_GUTTER`, or
+// `TOUCH_CONTROLS_COLUMN` on the full touch table.
 export function computeTouchMissionScale(
   gameLayerWidth: number,
   availableHeight: number,
   columnHeight: (scale: number) => number,
   tableScale: number,
+  leftReserve: number = MENU_BUTTON_GUTTER,
 ): number {
   const availableWidth =
     gameLayerWidth -
     CONTENT_PADDING -
-    2 * MENU_BUTTON_GUTTER -
+    leftReserve -
+    MENU_BUTTON_GUTTER -
     MISSION_ROW_GAP * (MISSION_SLOTS - 1);
   const widthScale = availableWidth / MISSION_SLOTS / TABLE_CARD_WIDTH;
   return Math.max(tableScale, fitColumnScale(widthScale, availableHeight, columnHeight));
@@ -248,7 +258,13 @@ export function useMissionScale(
       setMeasured({
         value: desktop
           ? computeDesktopTableScale(gameLayer.clientWidth, availableHeight, desktopColumnHeight)
-          : computeTouchMissionScale(gameLayer.clientWidth, availableHeight, touchColumnHeight, scale),
+          : computeTouchMissionScale(
+              gameLayer.clientWidth,
+              availableHeight,
+              touchColumnHeight,
+              scale,
+              TOUCH_CONTROLS_COLUMN,
+            ),
         elements,
       });
     };

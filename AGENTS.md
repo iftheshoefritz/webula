@@ -322,10 +322,17 @@ layout that must fit the minimum screen must fit it at that scale.
 The missions and the ships draw at a larger scale of their own,
 `missionScale` (`useMissionScale`, `tableScale.ts`). On a touch screen they grow until a mission
 column with two rows of ships fills the height above the bottom row, as far as the width allows
-the five missions, the four gaps between them and a 20 px gutter each side for the menu buttons, and
-never below the table scale (`computeTouchMissionScale`). The mission row holds no dilemma stack
+the five missions, the four gaps between them, a 20 px gutter on the right, and on the left a 56 px
+column (`TOUCH_CONTROLS_COLUMN`) for the turn and score controls, and never below the table scale
+(`computeTouchMissionScale`). The mission row holds no dilemma stack
 (#1170): the stack lives only in the attempt layout. A desktop does the same with the whole card
 (#992). At 667×375 a mission is about 105 px wide, where the table scale alone gives 84.
+
+On a touch screen the turn and score controls sit in that left column, below the menu, fullscreen
+and undo buttons (`data-testid="turn-score-column"`, #1337): the turn over the next-turn button, then
+the score over minus and plus. They show on the full table only, not in the attempt layout. A desktop
+keeps them in the bottom row, the score above the discard and the turn above the draw deck. Either
+way they keep `data-testid="turn-counter"` and `"score-counter"`.
 
 `agent-browser` opens an 800×600 page. To check that a layout fits the minimum screen, set the
 size first:
