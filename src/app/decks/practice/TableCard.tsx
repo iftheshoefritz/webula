@@ -29,7 +29,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
-import PersonnelOverlay, { hasPersonnelOverlay } from './PersonnelOverlay';
+import PersonnelOverlay, { ShipOverlay, hasPersonnelOverlay, hasShipOverlay } from './PersonnelOverlay';
 
 export const TABLE_CARD_WIDTH = 72; // px
 // px, crops the card image down to roughly its art box. At this width the full card image is
@@ -212,6 +212,16 @@ export function TableCardImage({
             rounded corners. */}
         {!uncropped && !isFaceDown && hasPersonnelOverlay(card) && (
           <PersonnelOverlay
+            card={card}
+            width={width}
+            cropHeight={height}
+            border={cardBorderWidth(width)}
+            className={`${instance.stopped ? STOPPED_OVERLAY_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+          />
+        )}
+        {/* #1336: a cropped ship draws the range, weapons and shields the crop cuts off. */}
+        {!uncropped && !isFaceDown && hasShipOverlay(card) && (
+          <ShipOverlay
             card={card}
             width={width}
             cropHeight={height}
