@@ -668,6 +668,17 @@ nowhere: to aim a drop at the away team, aim at `mission-on-<i>`.
 bash scripts/practice_drag.sh card-1 attempt-away-team-0   # prints attempt-away-team-0
 ```
 
+While a card of the row is selected, the line of buttons above it also holds **Move to…**,
+`data-testid="attempt-row-move-to"` (#1341). A tap opens a list above the table,
+`data-testid="attempt-move-to-menu"`, with a backdrop: the hand, the top and the bottom of the draw
+deck, the discard, the core and the brig, then, for each other mission slot that holds a mission,
+its away team and the crew of each ship of its ship row (`attemptMoveDestinations` in `attempt.ts`).
+Each entry is `attempt-move-to-<key>`: `hand`, `drawDeck-top`, `drawDeck-bottom`, `discard`, `core`,
+`brig`, `awayTeam-<i>` and `crew-<the ship's id>`. Nothing at the attempted mission is listed. A tap
+on an entry moves every selected card of the row there, in row order, with the `move` a drop there
+dispatches, in one log entry that one undo takes back, and closes the list. The frozen numbers of the
+attempt stay. The row shows only in `'face'`, so Move to… does too.
+
 View full table shows the normal table, and the attempt goes on: the overlay on the mission card,
 `attempt-overlay-<index>`, then holds only `attempt-back-to-attempt`, "Back to attempt", which returns to
 the attempt layout. The full table shows no dilemma stack: go back to the attempt to use it. Which view shows is page state, not part of the save. It is keyed on the

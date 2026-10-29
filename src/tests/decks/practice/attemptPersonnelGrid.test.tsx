@@ -38,6 +38,8 @@ describe('AttemptPersonnelRow grid (#1205)', () => {
         onToggleSelect={() => {}}
         onSetStopped={() => {}}
         onShuffle={() => {}}
+        moveDestinations={[]}
+        onMoveSelection={() => {}}
       />
     );
 

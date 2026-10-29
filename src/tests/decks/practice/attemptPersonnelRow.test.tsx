@@ -294,6 +294,111 @@ describe('the row of the attempting personnel (#1165)', () => {
   });
 });
 
+describe('Move to… of the attempt row (#1341)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.clear();
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [{ collectorsinfo: '1U001', originalName: 'X', type: 'equipment', name: 'x', imagefile: 'x', pile: 'drawDeck', count: 1 }], loading: false });
+    (getSession as jest.Mock).mockResolvedValue(null);
+    mockAttemptDeck();
+  });
+
+  const crewCard = (shipId: string, id: string) =>
+    document.querySelector(`[data-zone="${attemptCrewDropId(shipId)}"] [data-card-id="${id}"]`)!;
+
+  it('shows only while a card of the row is selected, and moves it to the hand', async () => {
+    await dealAttempt();
+    const ship = savedTable().missions[2].ships[0];
+    const [a] = ship.crew ?? [];
+    const drawSpend = screen.getByTestId('attempt-draw-spend').textContent;
+    expect(screen.queryByTestId('attempt-row-move-to')).toBeNull();
+    await act(async () => {
+      fireEvent.click(crewCard(ship.id, a.id));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-row-move-to'));
+    });
+    expect(screen.getByTestId('attempt-move-to-menu')).toBeInTheDocument();
+    // Nothing at the attempted mission: neither its away team nor the attempting ship's crew.
+    expect(screen.queryByTestId('attempt-move-to-awayTeam-2')).toBeNull();
+    expect(screen.queryByTestId(`attempt-move-to-crew-${ship.id}`)).toBeNull();
+    expect(screen.getByTestId('attempt-move-to-awayTeam-0')).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-move-to-hand'));
+    });
+    expect(screen.queryByTestId('attempt-move-to-menu')).toBeNull();
+    expect(rowIds(attemptCrewDropId(ship.id))).not.toContain(a.id);
+    expect(savedTable().hand.map((c) => c.id)).toContain(a.id);
+    // The selection is empty, so the button is gone.
+    expect(screen.queryByTestId('attempt-row-move-to')).toBeNull();
+    expect(screen.getByTestId('attempt-draw-spend').textContent).toBe(drawSpend);
+  });
+
+  it('moves two cards to the top of the draw deck in row order, in one log entry that one undo takes back', async () => {
+    await dealAttempt();
+    const ship = savedTable().missions[2].ships[0];
+    const [a, b] = ship.crew ?? [];
+    const before = rowIds(attemptCrewDropId(ship.id));
+    const drawSpend = screen.getByTestId('attempt-draw-spend').textContent;
+    const undoLabel = () => screen.getByTestId('undo-button').getAttribute('aria-label');
+    const lastEntry = undoLabel();
+    await act(async () => {
+      fireEvent.click(crewCard(ship.id, b.id));
+      fireEvent.click(crewCard(ship.id, a.id));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-row-move-to'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-move-to-drawDeck-top'));
+    });
+    expect(savedTable().drawDeck.slice(0, 2).map((c) => c.id)).toEqual([a.id, b.id]);
+    expect(rowIds(attemptCrewDropId(ship.id))).toEqual(before.filter((id) => id !== a.id && id !== b.id));
+    expect(undoLabel()).toMatch(/^Undo: Moved .* to the top of the draw deck/);
+    expect(screen.getByTestId('attempt-draw-spend').textContent).toBe(drawSpend);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('undo-button'));
+    });
+    expect(rowIds(attemptCrewDropId(ship.id))).toEqual(before);
+    expect(undoLabel()).toBe(lastEntry);
+  });
+
+  it("moves a card to another mission's away team", async () => {
+    await dealAttempt();
+    const ship = savedTable().missions[2].ships[0];
+    const [a] = ship.crew ?? [];
+    const team = savedTable().missions[0].awayTeam.length;
+    await act(async () => {
+      fireEvent.click(crewCard(ship.id, a.id));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-row-move-to'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-move-to-awayTeam-0'));
+    });
+    expect(savedTable().missions[0].awayTeam.length).toBe(team + 1);
+    expect(savedTable().missions[0].awayTeam.map((c) => c.id)).toContain(a.id);
+    expect(rowIds(attemptCrewDropId(ship.id))).not.toContain(a.id);
+  });
+
+  it('closes the list with no move on a tap on the backdrop', async () => {
+    await dealAttempt(true);
+    const [a] = savedTable().missions[0].awayTeam;
+    await act(async () => {
+      fireEvent.click(document.querySelector(`[data-zone="attempt-away-team-0"] [data-card-id="${a.id}"]`)!);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-row-move-to'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText('Close the Move to list'));
+    });
+    expect(screen.queryByTestId('attempt-move-to-menu')).toBeNull();
+    expect(rowIds(attemptAwayTeamDropId(0))).toContain(a.id);
+  });
+});
+
 describe('the drop ids of the rows (#1165)', () => {
   it('parse back, and do not read as a crew or a mission drop id', () => {
     expect(missionIndexFromAttemptAwayTeamDropId(attemptAwayTeamDropId(3))).toBe(3);

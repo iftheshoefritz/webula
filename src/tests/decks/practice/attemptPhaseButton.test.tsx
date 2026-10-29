@@ -165,6 +165,8 @@ const renderLayout = (attempt: Attempt, onSetPhase: (phase: Attempt['phase']) =>
       onToggleSelect={noop}
       onSetStopped={noop}
       onShuffle={noop}
+      moveDestinations={[]}
+      onMoveSelection={noop}
       canDrawDilemma
       onDrawDilemma={noop}
       onSetPhase={onSetPhase}

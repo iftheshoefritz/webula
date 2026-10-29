@@ -91,7 +91,17 @@ import { AttemptDialog } from './AttemptPanel';
 import { useBotAttemptStart } from './useBotAttemptStart';
 import AttemptLayout from './AttemptLayout';
 import { missionIndexFromAttemptAwayTeamDropId, shipIdFromAttemptCrewDropId } from './AttemptPersonnelRow';
-import { AttemptPanel, attemptDefaults, attemptViewKey, canAttempt, fixtureAttempt, fixtureAttemptPlacedOn, fixtureAttemptStack } from './attempt';
+import {
+  AttemptMoveDestination,
+  AttemptPanel,
+  attemptDefaults,
+  attemptMoveDestinations,
+  attemptViewKey,
+  canAttempt,
+  fixtureAttempt,
+  fixtureAttemptPlacedOn,
+  fixtureAttemptStack,
+} from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
 import { gameReducer, initialGameState, logEntryText } from './gameLog';
@@ -2072,6 +2082,23 @@ function PracticeDrawContent() {
     setSelectedCardIds([]);
   };
 
+  // Moves the selected cards of the attempt row to a destination of its Move to… list (#1341), in
+  // row order, with the `move` a drop there dispatches, as one batch: one log entry, one undo. The
+  // selection is shared by the whole table, so only the ids in the row move. The top of the draw
+  // deck goes through `sendCardsToDeck`, which keeps the row's order there.
+  const moveAttemptSelection = (destination: AttemptMoveDestination) => {
+    const ids = (attemptPersonnelCards ?? []).filter((c) => selectedCardIds.includes(c.id)).map((c) => c.id);
+    if (ids.length === 0) return;
+    if (destination.to === 'drawDeck' && destination.position) {
+      sendCardsToDeck('drawDeck', ids, destination.position);
+    } else {
+      const actions: Extract<TableAction, { type: 'move' }>[] = ids.map((id) => ({ type: 'move', id, to: destination.to }));
+      dispatch({ type: 'batch', actions });
+      markLanded(actions);
+    }
+    setSelectedCardIds([]);
+  };
+
   // A tap on a ship opens its crew panel, which shows the ship in its own section above the
   // crew (#832). A ship with no crew opens the panel too, with an empty crew area.
   const handleShipClick = (shipId: string) => {
@@ -2861,6 +2888,8 @@ function PracticeDrawContent() {
                   onToggleSelect={toggleCardSelection}
                   onSetStopped={setStoppedForSelection}
                   onShuffle={(location) => dispatch({ type: 'shuffle', location })}
+                  moveDestinations={attemptMoveDestinations(table)}
+                  onMoveSelection={moveAttemptSelection}
                   canDrawDilemma={dilemmaPile.length > 0}
                   onDrawDilemma={drawChoiceDilemma}
                   onSetPhase={setAttemptPhase}

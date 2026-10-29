@@ -46,6 +46,8 @@ function layout(attempt: Attempt, { canDrawDilemma = true, onDrawDilemma = () =>
       onToggleSelect={noop}
       onSetStopped={noop}
       onShuffle={noop}
+      moveDestinations={[]}
+      onMoveSelection={noop}
       canDrawDilemma={canDrawDilemma}
       onDrawDilemma={onDrawDilemma}
       onSetPhase={noop}
