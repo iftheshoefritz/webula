@@ -63,6 +63,7 @@ export function shipIdFromAttemptCrewDropId(id: string): string | null {
 export const attemptPersonnelScrollTestId = (dropId: string): string => `${dropId}-scroll`;
 
 export default function AttemptPersonnelRow({
+  disabled = false,
   dropId,
   landedKey,
   kind,
@@ -79,6 +80,8 @@ export default function AttemptPersonnelRow({
   moveDestinations,
   onMoveSelection,
 }: {
+  // The row of a parked attempt layout (#1342) takes no drop.
+  disabled?: boolean;
   dropId: string;
   // The landed key of a move into the place (`landedZoneKey.ts`), so the row plays the landed cue.
   landedKey: string;
@@ -101,7 +104,7 @@ export default function AttemptPersonnelRow({
   moveDestinations: AttemptMoveDestination[];
   onMoveSelection: (destination: AttemptMoveDestination) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: dropId });
+  const { setNodeRef, isOver } = useDroppable({ id: dropId, disabled });
   const draggedType = useDraggedCardType();
   const highlight = highlightState(kind, draggedType, isOver);
   const landedNonce = useLandedNonce(landedKey);
