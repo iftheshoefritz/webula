@@ -50,6 +50,8 @@ describe('the space outside the ends of the dilemma choice stack (#1220)', () =>
         onToggleSelect={noop}
         onSetStopped={noop}
         onShuffle={noop}
+        moveDestinations={[]}
+        onMoveSelection={noop}
         canDrawDilemma
         onDrawDilemma={noop}
         onSetPhase={noop}

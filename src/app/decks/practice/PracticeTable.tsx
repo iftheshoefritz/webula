@@ -91,7 +91,17 @@ import { AttemptDialog } from './AttemptPanel';
 import { useBotAttemptStart } from './useBotAttemptStart';
 import AttemptLayout from './AttemptLayout';
 import { missionIndexFromAttemptAwayTeamDropId, shipIdFromAttemptCrewDropId } from './AttemptPersonnelRow';
-import { AttemptPanel, attemptDefaults, attemptViewKey, canAttempt, fixtureAttempt, fixtureAttemptPlacedOn, fixtureAttemptStack } from './attempt';
+import {
+  AttemptMoveDestination,
+  AttemptPanel,
+  attemptDefaults,
+  attemptMoveDestinations,
+  attemptViewKey,
+  canAttempt,
+  fixtureAttempt,
+  fixtureAttemptPlacedOn,
+  fixtureAttemptStack,
+} from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
 import { gameReducer, initialGameState, logEntryText } from './gameLog';
@@ -107,6 +117,8 @@ import {
   DESKTOP_RESERVED_SHIP_ROWS,
   TOUCH_RESERVED_SHIP_ROWS,
   ATTEMPT_STACK_LABEL_HEIGHT,
+  MENU_BUTTON_GUTTER,
+  TOUCH_CONTROLS_COLUMN,
   desktopMissionSlotBudget,
   useAttemptLayout,
   useMissionScale,
@@ -441,6 +453,79 @@ function GameMenu({
         </button>
       </div>
     </>
+  );
+}
+
+// Issue #1337: the turn and score controls of the touch table, in the column left of the mission row
+// (`TOUCH_CONTROLS_COLUMN`), below the corner buttons: the turn over the next-turn button, then the
+// score over minus and plus. They are table content, not part of `corner-buttons`, so a card list
+// panel and the hand arc cover them as they covered the counters of the bottom row. `compact`, for
+// the lower corner buttons of `systemControlsInset`, hides the labels and draws smaller buttons.
+// The left edge of the column, `left-2`, and its width, which stops 4 px short of the mission row.
+const CONTROLS_COLUMN_LEFT = 8; // px
+const CONTROLS_COLUMN_WIDTH = 16 + TOUCH_CONTROLS_COLUMN - CONTROLS_COLUMN_LEFT - 4; // px
+// Below the three corner buttons (24 px each, 4 px apart) at `top-2`, or at `top-14` with the inset.
+const CONTROLS_COLUMN_TOP = 8 + 80 + 8; // px
+const CONTROLS_COLUMN_TOP_INSET = 56 + 80 + 8; // px
+
+function TurnScoreColumn({
+  turn,
+  score,
+  onNextTurn,
+  onAdjustScore,
+  compact,
+}: {
+  turn: number;
+  score: number;
+  onNextTurn: () => void;
+  onAdjustScore: (delta: number) => void;
+  compact: boolean;
+}) {
+  const label = compact ? 'sr-only' : 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted';
+  const number = compact ? 'text-sm leading-5 font-semibold' : 'text-lg leading-6 font-semibold';
+  const button = `btn-icon w-full ${compact ? 'h-6 text-xs' : 'h-8'} disabled:opacity-50 disabled:cursor-not-allowed`;
+  return (
+    <div
+      data-testid="turn-score-column"
+      className={`absolute flex flex-col ${compact ? 'gap-2' : 'gap-3'}`}
+      style={{
+        left: CONTROLS_COLUMN_LEFT,
+        top: compact ? CONTROLS_COLUMN_TOP_INSET : CONTROLS_COLUMN_TOP,
+        width: CONTROLS_COLUMN_WIDTH,
+      }}
+    >
+      <div className="flex flex-col items-center gap-1">
+        <div data-testid="turn-counter" className="text-center text-text-primary">
+          <span className={label}>Turn</span> <span className={number}>{turn}</span>
+        </div>
+        <button className={button} onClick={onNextTurn} aria-label="Next turn">
+          <FaForward />
+        </button>
+      </div>
+      <div className="flex flex-col items-center gap-1">
+        <div data-testid="score-counter" className="text-center text-text-primary">
+          <span className={label}>Score</span> <span className={number}>{score}</span>
+        </div>
+        <div className="flex w-full items-center gap-1">
+          <button
+            className={button}
+            onClick={() => onAdjustScore(-SCORE_STEP)}
+            disabled={score <= SCORE_MIN}
+            aria-label="Decrease score"
+          >
+            -
+          </button>
+          <button
+            className={button}
+            onClick={() => onAdjustScore(SCORE_STEP)}
+            disabled={score >= SCORE_MAX}
+            aria-label="Increase score"
+          >
+            +
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2072,6 +2157,23 @@ function PracticeDrawContent() {
     setSelectedCardIds([]);
   };
 
+  // Moves the selected cards of the attempt row to a destination of its Move to… list (#1341), in
+  // row order, with the `move` a drop there dispatches, as one batch: one log entry, one undo. The
+  // selection is shared by the whole table, so only the ids in the row move. The top of the draw
+  // deck goes through `sendCardsToDeck`, which keeps the row's order there.
+  const moveAttemptSelection = (destination: AttemptMoveDestination) => {
+    const ids = (attemptPersonnelCards ?? []).filter((c) => selectedCardIds.includes(c.id)).map((c) => c.id);
+    if (ids.length === 0) return;
+    if (destination.to === 'drawDeck' && destination.position) {
+      sendCardsToDeck('drawDeck', ids, destination.position);
+    } else {
+      const actions: Extract<TableAction, { type: 'move' }>[] = ids.map((id) => ({ type: 'move', id, to: destination.to }));
+      dispatch({ type: 'batch', actions });
+      markLanded(actions);
+    }
+    setSelectedCardIds([]);
+  };
+
   // A tap on a ship opens its crew panel, which shows the ship in its own section above the
   // crew (#832). A ship with no crew opens the panel too, with an empty crew area.
   const handleShipClick = (shipId: string) => {
@@ -2861,6 +2963,8 @@ function PracticeDrawContent() {
                   onToggleSelect={toggleCardSelection}
                   onSetStopped={setStoppedForSelection}
                   onShuffle={(location) => dispatch({ type: 'shuffle', location })}
+                  moveDestinations={attemptMoveDestinations(table)}
+                  onMoveSelection={moveAttemptSelection}
                   canDrawDilemma={dilemmaPile.length > 0}
                   onDrawDilemma={drawChoiceDilemma}
                   onSetPhase={setAttemptPhase}
@@ -2896,7 +3000,12 @@ function PracticeDrawContent() {
               <div
                 ref={setMissionRows}
                 className="flex flex-row gap-2 justify-center items-start"
-                style={{ paddingTop: underMissionHeadroom(missionScale, finePointer) }}
+                style={{
+                  paddingTop: underMissionHeadroom(missionScale, finePointer),
+                  // Touch keeps the column left of the row free for the turn and score controls
+                  // (#1337), the reservation `useMissionScale` sized the row for.
+                  ...(finePointer ? {} : { paddingLeft: TOUCH_CONTROLS_COLUMN, paddingRight: MENU_BUTTON_GUTTER }),
+                }}
               >
                 <MissionRow
                   missions={missions}
@@ -2916,6 +3025,15 @@ function PracticeDrawContent() {
                   slotBudget={desktopMissionSlotBudget(gameLayerWidth)}
                 />
               </div>
+              {!finePointer && (
+                <TurnScoreColumn
+                  turn={turn}
+                  score={score}
+                  onNextTurn={nextTurn}
+                  onAdjustScore={adjustScore}
+                  compact={fullscreen.isFullscreen && fullscreen.systemControlsInset}
+                />
+              )}
                 </>
               )}
 
@@ -2929,10 +3047,12 @@ function PracticeDrawContent() {
                 <div className="flex flex-row items-end gap-2">
                   {/* Discard, with the score counter above it (#753) rather than beside it. The
                       turn counter sits above the draw deck the same way (#1079), so each pile is
-                      centred under its buttons and the row fits a 568 px table. */}
+                      centred under its buttons and the row fits a 568 px table. Only a desktop
+                      keeps them here: touch shows them in the column left of the missions (#1337). */}
                   <div className="flex flex-col items-center gap-1">
                     {/* Score counter (#719): shows the current score, and plus/minus buttons
                         that change it by SCORE_STEP points, clamped by the reducer to 0-140. */}
+                    {finePointer && (
                     <div className="flex flex-col items-center gap-1">
                       <span data-testid="score-counter" className="text-xs text-text-muted">
                         Score {score}
@@ -2956,6 +3076,7 @@ function PracticeDrawContent() {
                         </button>
                       </div>
                     </div>
+                    )}
 
                     <DiscardPile
                       topCard={discard[discard.length - 1]}
@@ -2982,6 +3103,7 @@ function PracticeDrawContent() {
                     <div data-testid="draw-deck-column" className="flex flex-col items-center gap-1">
                       {/* Turn counter (#718): shows the current turn, and a button that raises it
                           by one and unstops every stopped personnel card on the table. */}
+                      {finePointer && (
                       <div className="flex flex-col items-center gap-1">
                         <span data-testid="turn-counter" className="text-xs text-text-muted">
                           Turn {turn}
@@ -2994,6 +3116,7 @@ function PracticeDrawContent() {
                           <FaForward />
                         </button>
                       </div>
+                      )}
 
                       {/* The draw deck (#743): the same top/bottom drop-half split as the dilemma
                           pile, so a card dragged from any zone can be filed back in at either

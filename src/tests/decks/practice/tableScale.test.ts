@@ -19,6 +19,7 @@ import {
   computeShipRowCount,
   computeTableScale,
   computeTouchMissionScale,
+  TOUCH_CONTROLS_COLUMN,
   desktopMissionSlotBudget,
   fitColumnScale,
   MIN_SCREEN,
@@ -153,6 +154,14 @@ describe('computeTouchMissionScale', () => {
     expect(computeTouchMissionScale(MIN_SCREEN.width, 250, column, minTableScale)).toBeGreaterThan(withStack(250));
     // Where the height binds, the scale stays the same.
     expect(computeTouchMissionScale(MIN_SCREEN.width, 150, column, minTableScale)).toBeCloseTo(withStack(150), 5);
+  });
+
+  it('keeps a 105 px mission at the minimum screen with the turn and score column reserved (#1337)', () => {
+    // (667 - 32 padding - 56 controls column - 20 menu button gutter - 4 gaps of 8) / (5 * 72)
+    const scale = computeTouchMissionScale(MIN_SCREEN.width, 5000, column, 1, TOUCH_CONTROLS_COLUMN);
+    expect(scale).toBeCloseTo((667 - 32 - 56 - 20 - 32) / 360, 5);
+    // The width of a mission before the counters left the bottom row, measured at 667x375.
+    expect(scale * 72).toBeGreaterThanOrEqual(105);
   });
 
   it('grows until the column with two rows of ships fills the height', () => {

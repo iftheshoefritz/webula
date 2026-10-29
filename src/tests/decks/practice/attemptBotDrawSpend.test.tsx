@@ -132,6 +132,8 @@ describe('the attempt strip in a bot game (#1291)', () => {
         onToggleSelect={noop}
         onSetStopped={noop}
         onShuffle={noop}
+        moveDestinations={[]}
+        onMoveSelection={noop}
         canDrawDilemma
         onDrawDilemma={noop}
         onSetPhase={noop}

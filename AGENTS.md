@@ -322,10 +322,17 @@ layout that must fit the minimum screen must fit it at that scale.
 The missions and the ships draw at a larger scale of their own,
 `missionScale` (`useMissionScale`, `tableScale.ts`). On a touch screen they grow until a mission
 column with two rows of ships fills the height above the bottom row, as far as the width allows
-the five missions, the four gaps between them and a 20 px gutter each side for the menu buttons, and
-never below the table scale (`computeTouchMissionScale`). The mission row holds no dilemma stack
+the five missions, the four gaps between them, a 20 px gutter on the right, and on the left a 56 px
+column (`TOUCH_CONTROLS_COLUMN`) for the turn and score controls, and never below the table scale
+(`computeTouchMissionScale`). The mission row holds no dilemma stack
 (#1170): the stack lives only in the attempt layout. A desktop does the same with the whole card
 (#992). At 667×375 a mission is about 105 px wide, where the table scale alone gives 84.
+
+On a touch screen the turn and score controls sit in that left column, below the menu, fullscreen
+and undo buttons (`data-testid="turn-score-column"`, #1337): the turn over the next-turn button, then
+the score over minus and plus. They show on the full table only, not in the attempt layout. A desktop
+keeps them in the bottom row, the score above the discard and the turn above the draw deck. Either
+way they keep `data-testid="turn-counter"` and `"score-counter"`.
 
 `agent-browser` opens an 800×600 page. To check that a layout fits the minimum screen, set the
 size first:
@@ -667,6 +674,17 @@ nowhere: to aim a drop at the away team, aim at `mission-on-<i>`.
 # on ?fixture=piles, in an attempt at Moab IV, where card-1 is the Tricorder in the hand
 bash scripts/practice_drag.sh card-1 attempt-away-team-0   # prints attempt-away-team-0
 ```
+
+While a card of the row is selected, the line of buttons above it also holds **Move to…**,
+`data-testid="attempt-row-move-to"` (#1341). A tap opens a list above the table,
+`data-testid="attempt-move-to-menu"`, with a backdrop: the hand, the top and the bottom of the draw
+deck, the discard, the core and the brig, then, for each other mission slot that holds a mission,
+its away team and the crew of each ship of its ship row (`attemptMoveDestinations` in `attempt.ts`).
+Each entry is `attempt-move-to-<key>`: `hand`, `drawDeck-top`, `drawDeck-bottom`, `discard`, `core`,
+`brig`, `awayTeam-<i>` and `crew-<the ship's id>`. Nothing at the attempted mission is listed. A tap
+on an entry moves every selected card of the row there, in row order, with the `move` a drop there
+dispatches, in one log entry that one undo takes back, and closes the list. The frozen numbers of the
+attempt stay. The row shows only in `'face'`, so Move to… does too.
 
 View full table shows the normal table, and the attempt goes on: the overlay on the mission card,
 `attempt-overlay-<index>`, then holds only `attempt-back-to-attempt`, "Back to attempt", which returns to

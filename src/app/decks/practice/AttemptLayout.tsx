@@ -41,6 +41,7 @@
 // which rises from the bottom edge, never covers the button.
 
 import { ReactNode } from 'react';
+import type { AttemptMoveDestination } from './attempt';
 import CountBadge from './CountBadge';
 import type { Attempt, AttemptPhase, CardInstance, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
 import { drawSpend, drawSpendText } from './drawSpend';
@@ -95,6 +96,8 @@ export default function AttemptLayout({
   onToggleSelect,
   onSetStopped,
   onShuffle,
+  moveDestinations,
+  onMoveSelection,
   canDrawDilemma,
   onDrawDilemma,
   onSetPhase,
@@ -124,6 +127,10 @@ export default function AttemptLayout({
   onSetStopped: (ids: string[], stopped: boolean) => void;
   // The row's Shuffle (#1179): the crew of the attempting ship, or the away team of the mission.
   onShuffle: (location: ShuffleLocation) => void;
+  // The row's Move to… (#1341): the destinations of `attemptMoveDestinations`, and the move of the
+  // row's selected cards to one of them.
+  moveDestinations: AttemptMoveDestination[];
+  onMoveSelection: (destination: AttemptMoveDestination) => void;
   // The Draw dilemma button of the dilemma choice (#1191): false while the dilemma pile is empty.
   canDrawDilemma: boolean;
   onDrawDilemma: () => void;
@@ -357,6 +364,8 @@ export default function AttemptLayout({
                     onToggleSelect={onToggleSelect}
                     onSetStopped={onSetStopped}
                     onShuffle={() => onShuffle({ zone: 'crew', shipId: ship.id })}
+                    moveDestinations={moveDestinations}
+                    onMoveSelection={onMoveSelection}
                   />
                 )}
               </div>
@@ -377,6 +386,8 @@ export default function AttemptLayout({
                 onToggleSelect={onToggleSelect}
                 onSetStopped={onSetStopped}
                 onShuffle={() => onShuffle({ zone: 'missionPile', missionIndex, pile: 'awayTeam' })}
+                moveDestinations={moveDestinations}
+                onMoveSelection={onMoveSelection}
               />
               {ships}
             </>
