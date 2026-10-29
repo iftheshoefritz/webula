@@ -9,7 +9,8 @@ import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { cardDisplayName } from '../../../lib/cardCount';
 import type { CardInstance } from './tableReducer';
-import { faceUpImageSrc } from './TableCard';
+import { TableCardImage } from './TableCard';
+import { artCropHeight } from './viewerCardSize';
 import { DilemmaIcon, OPPONENT_TINT_CLASS, ShipIcon } from './MissionRow';
 import type { LocationSide, OpponentHalf } from './opponent';
 
@@ -127,8 +128,10 @@ export interface OpponentPanelContent {
 }
 
 // The read-only panel (#1182 spike): the cards of one side of a location, or the opponent's core or
-// brig, with a "Yours" · "Theirs" switch where the location has both. The opponent's cards show on a
-// rose surface with a rose ring, so they do not look like cards the player can drag. A real build
+// brig, with a "Yours" · "Theirs" switch where the location has both. Each card is the cropped table
+// card at the panel's card size, as in the player's own card list panels, with the personnel
+// attributes the crop cuts off. The opponent's cards show on a rose surface with a rose ring, so
+// they do not look like cards the player can drag. A real build
 // would add the switch to `CardListPanel` instead of a second kind of popup; the spike keeps it apart
 // so the drag code of `CardListPanel` stays untouched.
 export function OpponentPanel({
@@ -187,16 +190,18 @@ export function OpponentPanel({
         <div className="overflow-y-auto flex flex-wrap gap-1.5">
           {cards.length === 0 && <span className="p-4 text-xs text-text-muted">No cards here.</span>}
           {cards.map((instance) => (
-            <img
+            <div
               key={instance.id}
-              src={faceUpImageSrc(instance)}
-              alt={cardDisplayName(instance.card)}
-              draggable={false}
-              className={`rounded ${instance.card.type === 'ship' ? 'ring-2 ring-amber-400' : ''} ${
+              data-testid={`opponent-panel-card-${instance.id}`}
+              aria-label={cardDisplayName(instance.card)}
+              className={`rounded-md ${instance.card.type === 'ship' ? 'ring-2 ring-amber-400' : ''} ${
                 theirs ? 'opacity-90 saturate-75' : ''
               }`}
               style={{ width: cardWidth }}
-            />
+            >
+              {/* An away team is stored face down, and its panel shows it face up (#964). */}
+              <TableCardImage instance={instance} width={cardWidth} height={artCropHeight(cardWidth)} showFace />
+            </div>
           ))}
         </div>
         {theirs && cards.some((instance) => instance.card.type === 'ship') && (
