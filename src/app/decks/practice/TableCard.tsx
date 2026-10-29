@@ -50,8 +50,13 @@ export const fullCardHeight = (width: number): number => Math.round((width * 167
 // disabled UI element, everywhere it appears — here, in a card list panel (`CardListPanel.tsx`, which
 // also covers a ship's crew panel), and in the large preview (`CardPreview.tsx`). A face-down
 // stopped card shows the card back with this same style, since it applies to the `<img>`
-// regardless of which image it renders.
+// regardless of which image it renders. The art greys and fades; the personnel overlay over a
+// crop only greys (`STOPPED_OVERLAY_CLASSNAME`).
 export const STOPPED_IMAGE_CLASSNAME = 'grayscale opacity-50';
+
+// The stopped look of the personnel overlay (#1339): grey, at full opacity. An overlay at 50%
+// opacity let the card's own printed attribute box show through the band.
+export const STOPPED_OVERLAY_CLASSNAME = 'grayscale';
 
 // The look of a completed mission's card (#991): darker, but in full colour, so it does not read
 // as stopped.
@@ -211,7 +216,7 @@ export function TableCardImage({
             width={width}
             cropHeight={height}
             border={cardBorderWidth(width)}
-            className={`${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+            className={`${instance.stopped ? STOPPED_OVERLAY_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
           />
         )}
       </div>
