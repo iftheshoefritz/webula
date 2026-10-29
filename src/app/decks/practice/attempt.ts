@@ -8,9 +8,11 @@ import {
   findInstanceAnywhere,
   FIXTURE_DILEMMA_STACK,
   FIXTURE_SHIP_SLOT,
+  MoveTarget,
   TableAction,
   TableState,
 } from './tableReducer';
+import { cardDisplayName } from '../../../lib/cardCount';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
 export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 'crew'; shipId: string };
@@ -40,6 +42,49 @@ export function attemptingCards(table: TableState, missionIndex: number, shipId?
   if (slot?.mission?.card?.missiontype !== 's') return null;
   const ship = slot.ships.find((s) => s.id === shipId);
   return ship ? ship.crew ?? [] : null;
+}
+
+// A destination of the attempt row's Move to… list (#1341): the `move` a tap dispatches for each
+// selected card, the label, and a key for the entry's `data-testid`.
+export interface AttemptMoveDestination {
+  key: string;
+  label: string;
+  to: MoveTarget;
+  position?: 'top' | 'bottom';
+}
+
+// The destinations of Move to… in the facing phase (#1341), in order: the six places of the bottom
+// row, then, for each other mission slot that holds a mission, its away team and the crew of each
+// ship of its ship row. Nothing at the attempted mission, so never the row the cards are in, and
+// nothing under a mission. Empty with no attempt or outside `'face'`.
+export function attemptMoveDestinations(table: TableState): AttemptMoveDestination[] {
+  const { attempt } = table;
+  if (!attempt || attempt.phase !== 'face') return [];
+  const destinations: AttemptMoveDestination[] = [
+    { key: 'hand', label: 'Hand', to: 'hand' },
+    { key: 'drawDeck-top', label: 'Top of the draw deck', to: 'drawDeck', position: 'top' },
+    { key: 'drawDeck-bottom', label: 'Bottom of the draw deck', to: 'drawDeck', position: 'bottom' },
+    { key: 'discard', label: 'Discard', to: 'discard' },
+    { key: 'core', label: 'Core', to: 'core' },
+    { key: 'brig', label: 'Brig', to: 'brig' },
+  ];
+  table.missions.forEach((slot, missionIndex) => {
+    if (missionIndex === attempt.missionIndex || !slot.mission) return;
+    const mission = cardDisplayName(slot.mission.card);
+    destinations.push({
+      key: `awayTeam-${missionIndex}`,
+      label: `Away team at ${mission}`,
+      to: { zone: 'missionPile', missionIndex, pile: 'awayTeam' },
+    });
+    for (const ship of slot.ships) {
+      destinations.push({
+        key: `crew-${ship.id}`,
+        label: `Crew of ${cardDisplayName(ship.card)} at ${mission}`,
+        to: { zone: 'crew', shipId: ship.id },
+      });
+    }
+  });
+  return destinations;
 }
 
 const unstoppedPersonnel = (cards: CardInstance[]): number =>

@@ -56,6 +56,8 @@ const renderChoice = (space: boolean) => {
       onToggleSelect={noop}
       onSetStopped={noop}
       onShuffle={noop}
+      moveDestinations={[]}
+      onMoveSelection={noop}
       canDrawDilemma
       onDrawDilemma={noop}
       onSetPhase={noop}

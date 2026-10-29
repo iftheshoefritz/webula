@@ -17,7 +17,11 @@
 // A card works as it does in the away team panel or the crew panel: a hold shows the preview, a tap
 // selects it, and the selection gets Stop or Unstop (#681), with Stop all (#995) beside them, from
 // the same rules (`stopRules.ts`). Shuffle (#1179) comes last, as in the panel's row of controls
-// (#880): it shuffles the whole place, never the selection, and shows while the row holds a card. The away team is stored face down, and the row shows it face up,
+// (#880): it shuffles the whole place, never the selection, and shows while the row holds a card.
+// Move to… (#1341) shows while a card of the row is selected, the equipment too, and opens a list of
+// the places the selection can go (`attemptMoveDestinations`), above the table with a backdrop, in a portal, so it
+// adds no zone to the layout. A tap on a place moves the selection there and closes the list; a tap
+// on the backdrop, Escape, or any change of the selection closes it too. The away team is stored face down, and the row shows it face up,
 // as the panel does (#964). A stopped personnel shows greyed out (#679).
 //
 // The row is a droppable of its own: dnd-kit keeps one registration per id, and the ship's art
@@ -27,7 +31,8 @@
 // under their own id: while the attempt layout shows, no other element of the table draws them,
 // and a panel's copies drag under `panelDraggableId`.
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import TableCard from './TableCard';
@@ -38,6 +43,8 @@ import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { stopButtons } from './stopRules';
 import { ShuffleIcon, panelScrollClassName, useScrollsVertically } from './CardListPanel';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
+import type { AttemptMoveDestination } from './attempt';
+import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { ATTEMPT_PERSONNEL_BUTTONS_HEIGHT, ATTEMPT_PERSONNEL_GAP, attemptPersonnelCropHeight } from './tableScale';
 
 export const attemptAwayTeamDropId = (missionIndex: number): string => `attempt-away-team-${missionIndex}`;
@@ -69,6 +76,8 @@ export default function AttemptPersonnelRow({
   onToggleSelect,
   onSetStopped,
   onShuffle,
+  moveDestinations,
+  onMoveSelection,
 }: {
   dropId: string;
   // The landed key of a move into the place (`landedZoneKey.ts`), so the row plays the landed cue.
@@ -88,6 +97,9 @@ export default function AttemptPersonnelRow({
   onSetStopped: (ids: string[], stopped: boolean) => void;
   // Shuffles the stored order of the place the row shows.
   onShuffle: () => void;
+  // Move to… (#1341): the places the row's selection can go, and the move to one of them.
+  moveDestinations: AttemptMoveDestination[];
+  onMoveSelection: (destination: AttemptMoveDestination) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dropId });
   const draggedType = useDraggedCardType();
@@ -97,6 +109,11 @@ export default function AttemptPersonnelRow({
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrolls = useScrollsVertically(scrollRef, cards.length > 0, [cards.length, cardWidth, columns, height]);
   const cardHeight = attemptPersonnelCropHeight(cardWidth);
+  // The list is open for one selection of the row: any change of the selection closes it.
+  const selectedInRow = cards.filter((instance) => selectedIds.includes(instance.id)).map((instance) => instance.id);
+  const selectionKey = selectedInRow.join(' ');
+  const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
+  const moveMenuOpen = selectedInRow.length > 0 && moveMenuFor === selectionKey;
   const buttonClassName = 'btn-primary whitespace-nowrap h-full !px-2 !py-0 text-[10px] leading-none';
 
   return (
@@ -133,7 +150,60 @@ export default function AttemptPersonnelRow({
             Shuffle
           </button>
         )}
+        {selectedInRow.length > 0 && moveDestinations.length > 0 && (
+          <button
+            type="button"
+            data-testid="attempt-row-move-to"
+            aria-haspopup="menu"
+            aria-expanded={moveMenuOpen}
+            onClick={() => setMoveMenuFor(selectionKey)}
+            className={buttonClassName}
+          >
+            Move to…
+          </button>
+        )}
       </div>
+      {moveMenuOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <>
+            <button
+              type="button"
+              className={`fixed inset-0 ${LAYER_MODAL_BACKDROP} bg-black/40`}
+              onClick={() => setMoveMenuFor(null)}
+              aria-label="Close the Move to list"
+            />
+            <div
+              role="menu"
+              aria-label={`Move ${selectedInRow.length} card${selectedInRow.length === 1 ? '' : 's'} to`}
+              data-testid="attempt-move-to-menu"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setMoveMenuFor(null);
+              }}
+              className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex max-h-[90vh] w-[min(18rem,90vw)] -translate-x-1/2 -translate-y-1/2 flex-col gap-1 overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-bg-secondary p-2 shadow-lg`}
+            >
+              <h2 className="px-1 text-xs font-semibold text-text-primary">
+                Move {selectedInRow.length} card{selectedInRow.length === 1 ? '' : 's'} to
+              </h2>
+              {moveDestinations.map((destination) => (
+                <button
+                  key={destination.key}
+                  type="button"
+                  role="menuitem"
+                  data-testid={`attempt-move-to-${destination.key}`}
+                  onClick={() => {
+                    setMoveMenuFor(null);
+                    onMoveSelection(destination);
+                  }}
+                  className="rounded px-2 py-1 text-left text-xs text-text-primary hover:bg-white/10"
+                >
+                  {destination.label}
+                </button>
+              ))}
+            </div>
+          </>,
+          document.body
+        )}
       <div
         ref={setNodeRef}
         data-zone={dropId}

@@ -66,6 +66,8 @@ const renderLayout = (slot: MissionSlot, phase: Attempt['phase'] = 'face', onOpe
       onToggleSelect={noop}
       onSetStopped={noop}
       onShuffle={noop}
+      moveDestinations={[]}
+      onMoveSelection={noop}
       canDrawDilemma
       onDrawDilemma={noop}
       onSetPhase={noop}
