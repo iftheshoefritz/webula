@@ -40,15 +40,16 @@
 // drawn (#1191, `AttemptDrawDilemma`). The strip sits at the top, so the open dilemma hand arc,
 // which rises from the bottom edge, never covers the button.
 //
-// View full table is a hold target during a drag from the row of the attempting personnel in the
-// facing phase (#1342): a droppable of its own, `VIEW_FULL_TABLE_HOLD_ID`, that no drop route takes,
-// so a release on it moves nothing, and a hold of `PLACE_ON_HOLD_MS` on it switches to the full table
-// mid-drag (`PracticeTable`). It has no `data-zone`. The switch parks this layout until the drag
+// The whole strip is the View full table hold target during a drag from the row of the attempting
+// personnel in the facing phase (#1342, #1368: the button alone was too small to land a drag on): a
+// droppable of its own, `VIEW_FULL_TABLE_HOLD_ID`, that no drop route takes, so a release on it moves
+// nothing, and a hold of `PLACE_ON_HOLD_MS` on it switches to the full table mid-drag
+// (`PracticeTable`). `collisionDetection` reaches it only with the pointer inside the strip. It has no `data-zone`. The switch parks this layout until the drag
 // ends (`parked`): out of flow, hidden and with no pointer events, it keeps only the row at its
 // place in the tree, so the card the press started on stays in the document, and renders none of
 // its other droppables, since the full table mounts the same ids; the row's droppable is disabled.
 
-import { ReactNode } from 'react';
+import { ReactNode, useCallback } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { highlightClassName } from './zoneAccepts';
 import type { AttemptMoveDestination } from './attempt';
@@ -85,8 +86,9 @@ import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { cardDisplayName } from '../../../lib/cardCount';
 import AttemptPersonnelRow, { attemptAwayTeamDropId, attemptCrewDropId } from './AttemptPersonnelRow';
 
-// The droppable of View full table (#1342): a hold target, not a zone, so no drop route accepts it.
-export const VIEW_FULL_TABLE_HOLD_ID = 'attempt-view-full-table-hold';
+import { VIEW_FULL_TABLE_HOLD_ID } from './viewFullTableHold';
+
+export { VIEW_FULL_TABLE_HOLD_ID };
 
 export default function AttemptLayout({
   parked = false,
@@ -120,7 +122,8 @@ export default function AttemptLayout({
   // Parked for the rest of a drag after the hold over View full table (#1342): hidden, with only
   // the row of the attempting personnel mounted.
   parked?: boolean;
-  // A drag from the row runs in the facing phase, so View full table takes the hold (#1342).
+  // A drag from the row runs in the facing phase, so the strip takes the View full table hold
+  // (#1342, #1368).
   viewFullTableHoldEnabled?: boolean;
   attempt: Attempt;
   slot: MissionSlot;
@@ -284,6 +287,21 @@ export default function AttemptLayout({
   // Only a bot game's attempt has the bot's numbers (#1291). The bot draws and chooses at Start
   // (#1299), so its strip has no Draw dilemma, no drawn count and no phase button.
   const botGame = attempt.botDraw !== undefined;
+  // The View full table hold (#1342) covers the whole strip (#1368). During a drag that may take it,
+  // the strip shows the table's rings: `valid`, and `over` while the pointer is on it. Every other
+  // drag never sees its droppable.
+  const { setNodeRef: setHoldRef, isOver: holdOver } = useDroppable({
+    id: VIEW_FULL_TABLE_HOLD_ID,
+    disabled: !viewFullTableHoldEnabled,
+  });
+  const stripHighlight = viewFullTableHoldEnabled ? (holdOver ? 'over' : 'valid') : undefined;
+  const setStripRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      setHoldRef(element);
+      stripRef(element);
+    },
+    [setHoldRef, stripRef],
+  );
   return (
     // `min-h-0` and the bodies' `overflow-y-clip` are a safety net (#1203): the sizes fit the height
     // above the bottom row (`attemptColumnHeight`), and should a column still be too tall, the body
@@ -297,9 +315,9 @@ export default function AttemptLayout({
     >
       {parked ? null : (
       <div
-        ref={stripRef}
+        ref={setStripRef}
         data-testid="attempt-strip"
-        className="flex flex-row items-center gap-1 rounded bg-black/40 px-2 text-text-primary"
+        className={`flex flex-row items-center gap-1 rounded bg-black/40 px-2 text-text-primary ${highlightClassName(stripHighlight)}`}
         style={{ height: ATTEMPT_STRIP_HEIGHT, marginLeft: ATTEMPT_STRIP_GUTTER }}
       >
         <span data-testid="attempt-status" className="min-w-0 truncate text-xs">
@@ -332,7 +350,14 @@ export default function AttemptLayout({
               Back to choosing
             </button>
           )}
-          <ViewFullTableButton onClick={onViewFullTable} holdEnabled={viewFullTableHoldEnabled} />
+          <button
+            type="button"
+            data-testid="attempt-view-full-table"
+            onClick={onViewFullTable}
+            className="btn-primary bg-none bg-white/[0.05] whitespace-nowrap !px-2 !py-1 text-xs"
+          >
+            View full table
+          </button>
           <button
             type="button"
             data-testid="attempt-done"
@@ -422,24 +447,6 @@ export default function AttemptLayout({
       </div>
       )}
     </div>
-  );
-}
-
-// View full table (#1342). During a drag it may take the hold, it shows the table's rings: `valid`,
-// and `over` while the pointer is on it. Every other drag never sees its droppable.
-function ViewFullTableButton({ onClick, holdEnabled }: { onClick: () => void; holdEnabled: boolean }) {
-  const { setNodeRef, isOver } = useDroppable({ id: VIEW_FULL_TABLE_HOLD_ID, disabled: !holdEnabled });
-  const highlight = holdEnabled ? (isOver ? 'over' : 'valid') : undefined;
-  return (
-    <button
-      ref={setNodeRef}
-      type="button"
-      data-testid="attempt-view-full-table"
-      onClick={onClick}
-      className={`btn-primary bg-none bg-white/[0.05] whitespace-nowrap !px-2 !py-1 text-xs ${highlightClassName(highlight)}`}
-    >
-      View full table
-    </button>
   );
 }
 

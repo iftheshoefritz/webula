@@ -252,6 +252,25 @@ describe('a hold over View full table during a drag from the attempt row (#1342)
     expect(screen.getByTestId('attempt-back-to-attempt')).toBeInTheDocument();
   });
 
+  it('rings the whole strip, not the button, only during a drag from the row (#1368)', async () => {
+    await renderFixture('attempt');
+    const strip = screen.getByTestId('attempt-strip');
+    const ringed = (element: HTMLElement) => element.classList.contains('ring-1') || element.classList.contains('ring-2');
+    expect(ringed(strip)).toBe(false);
+
+    const [handId] = savedTable().hand.map((c) => c.id);
+    await start(handId);
+    expect(ringed(screen.getByTestId('attempt-strip'))).toBe(false);
+    await end(handId, null);
+
+    const [id] = crewIds();
+    await start(id);
+    expect(ringed(screen.getByTestId('attempt-strip'))).toBe(true);
+    expect(ringed(screen.getByTestId('attempt-view-full-table'))).toBe(false);
+    await end(id, null);
+    expect(ringed(screen.getByTestId('attempt-strip'))).toBe(false);
+  });
+
   it('never switches for a drag that did not start in the row', async () => {
     await renderFixture('attempt');
     const [id] = savedTable().hand.map((c) => c.id);

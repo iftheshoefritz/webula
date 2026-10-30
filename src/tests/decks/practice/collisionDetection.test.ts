@@ -1,5 +1,6 @@
 import { rectIntersection, ClientRect, DroppableContainer } from '@dnd-kit/core';
 import { collisionDetection } from '../../../app/decks/practice/collisionDetection';
+import { VIEW_FULL_TABLE_HOLD_ID } from '../../../app/decks/practice/viewFullTableHold';
 
 // A ship's crew zone (34x26 px) sits nested inside its ship row, which sits inside a mission
 // column. `rectIntersection`'s own ranking, by overlap ratio, favours whichever enclosing zone
@@ -119,5 +120,27 @@ describe('collisionDetection', () => {
     const result = collisionDetection(argsFor(collisionRect, rects));
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('ship-row-0');
+  });
+
+  describe('the View full table hold over the attempt strip (#1368)', () => {
+    const rects = {
+      [VIEW_FULL_TABLE_HOLD_ID]: rect(60, 0, 600, 44),
+      'mission-under-2': rect(60, 52, 100, 70),
+    };
+
+    it('returns the hold while the pointer is inside the strip', () => {
+      const result = collisionDetection(argsFor(rect(200, 10, 56, 78), rects, { x: 228, y: 20 }));
+      expect(result.map((c) => c.id)).toEqual([VIEW_FULL_TABLE_HOLD_ID]);
+    });
+
+    it('returns nothing when the pointer is in a gap and the card rect touches only the strip', () => {
+      const result = collisionDetection(argsFor(rect(300, 10, 56, 78), rects, { x: 328, y: 48 }));
+      expect(result).toEqual([]);
+    });
+
+    it('returns only the real zone when the card rect touches the strip and that zone', () => {
+      const result = collisionDetection(argsFor(rect(120, 10, 56, 78), rects, { x: 170, y: 48 }));
+      expect(result.map((c) => c.id)).toEqual(['mission-under-2']);
+    });
   });
 });
