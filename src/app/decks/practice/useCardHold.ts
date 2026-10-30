@@ -12,7 +12,9 @@
 // waits for `HAND_ARC_DRAG_ACTIVATION_DISTANCE` before the timer fires as well (#1131).
 // Inside a card list panel whose grid scrolls, a touch or pen press goes to `PanelScrollSensor`
 // instead (#788), which decides at the same distance: a vertical first move scrolls the grid,
-// and the browser's `pointercancel` ends the hold.
+// and the browser's `pointercancel` ends the hold. Once the hold has fired there, the press
+// never scrolls: the page cancels its `touchmove`s, and any move past the held distance drags
+// the card, up and down too (#1367).
 //
 // The events that end a hold are listened to on `window`/`document`, not on the card, so the
 // hold ends wherever the pointer is released. The preview takes no pointer events, so it never
@@ -96,6 +98,12 @@ let heldPress: PointerEvent | null = null;
 
 export function isHeldPress(press: Event | null | undefined): boolean {
   return press != null && press === heldPress;
+}
+
+// The press whose hold is in force now, if any. The table's touch-scroll guard
+// (`useTouchScrollGuard`) reads it on every `touchmove`, since it sees no `pointerdown` (#1367).
+export function currentHeldPress(): PointerEvent | null {
+  return heldPress;
 }
 
 // The side of the screen the preview takes: the one away from the press point (#879), so a

@@ -16,14 +16,31 @@
 //
 // Once a press's hold has fired (`useCardHold`), the sensor ignores that constraint and waits for
 // a move past `HELD_DRAG_ACTIVATION_DISTANCE` instead (#925). The hold's preview is up by then, so
-// a twitch keeps it, and a clear move still slides from the preview into a drag.
+// a twitch keeps it, and a clear move still slides from the preview into a drag. Inside a
+// scrolling grid the held press skips the direction rule too, so a move straight up or down drags
+// the card (#1367). The player tells the two apart by the preview: a swipe that does not wait for
+// it scrolls, and a press that waits for it drags in any direction.
+//
+// With `pan-y` on the card the browser would still take a vertical move as its own pan, and send
+// `pointercancel` before the held press got 24 px. So `useTouchScrollGuard` keeps a non-passive
+// `touchmove` listener on `document` for the life of the table, and cancels every `touchmove`
+// while a held touch press inside a scrolling grid is in force, or a drag that started there
+// runs. It is there before the touch starts, so the browser treats the touch as cancelable.
+// A press with no hold is left alone, so a quick swipe scrolls.
 //
 // A press on a card of the hand arc waits for `HAND_ARC_DRAG_ACTIVATION_DISTANCE` (#1131), the
 // distance `useCardHold` waits for before it gives the hold up, so a thumb that drifts near the
 // bottom edge still gets the preview.
+import { useEffect } from 'react';
 import { PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { isInScrollingPanel, panelGestureFor } from './panelGesture';
-import { DRAG_ACTIVATION_DISTANCE, dragActivationDistanceFor, isHeldPress, isInHandArc } from './useCardHold';
+import {
+  DRAG_ACTIVATION_DISTANCE,
+  currentHeldPress,
+  dragActivationDistanceFor,
+  isHeldPress,
+  isInHandArc,
+} from './useCardHold';
 
 // dnd-kit declares these members private, so the subclass reaches them through this shape.
 type SensorInternals = {
@@ -34,7 +51,6 @@ type SensorInternals = {
   handleMove: (event: Event) => void;
   handleCancel: () => void;
   detach: () => void;
-  stopTouchScroll?: () => void;
 };
 
 export class PanelScrollSensor extends PointerSensor {}
@@ -43,7 +59,32 @@ export class PanelScrollSensor extends PointerSensor {}
 // `onPointerDown` per draggable, the last sensor's, so a second pointer sensor after it would
 // take every press away from it.
 export function useTableSensors() {
+  useTouchScrollGuard();
   return useSensors(useSensor(PanelScrollSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } }));
+}
+
+// The sensor whose drag started inside a scrolling grid, while that drag runs.
+let scrollingPanelDrag: SensorInternals | null = null;
+
+function isTouchInScrollingPanel(press: Event): boolean {
+  return (press as PointerEvent).pointerType !== 'mouse' && isInScrollingPanel(press.target);
+}
+
+// Whether the page must hold still for the `touchmove` in progress (#1367).
+export function blocksTouchScroll(): boolean {
+  if (scrollingPanelDrag) return true;
+  const held = currentHeldPress();
+  return held !== null && isTouchInScrollingPanel(held);
+}
+
+export function useTouchScrollGuard() {
+  useEffect(() => {
+    const guard = (e: TouchEvent) => {
+      if (e.cancelable && blocksTouchScroll()) e.preventDefault();
+    };
+    document.addEventListener('touchmove', guard, { passive: false });
+    return () => document.removeEventListener('touchmove', guard);
+  }, []);
 }
 
 const base = PointerSensor.prototype as unknown as SensorInternals;
@@ -51,8 +92,7 @@ const sensor = PanelScrollSensor.prototype as unknown as SensorInternals;
 
 // Whether the press that started this sensor is a touch or pen press inside a scrolling grid.
 function splitsScrollFromDrag(sensorInstance: SensorInternals): boolean {
-  const press = sensorInstance.props.event as PointerEvent;
-  return press.pointerType !== 'mouse' && isInScrollingPanel(press.target);
+  return isTouchInScrollingPanel(sensorInstance.props.event);
 }
 
 // The base constructor binds `this.handleMove`, so it picks up this override.
@@ -76,19 +116,13 @@ sensor.handleMove = function (this: SensorInternals, event: Event) {
 };
 
 // With `pan-y` on the card, a drag that started sideways must not turn into a pan when it later
-// moves up or down. A non-passive `touchmove` listener holds the page still for the rest of it.
+// moves up or down. `useTouchScrollGuard` holds the page still while this drag runs.
 sensor.handleStart = function (this: SensorInternals) {
   base.handleStart.call(this);
-  if (!this.activated || this.stopTouchScroll || !splitsScrollFromDrag(this)) return;
-  const preventScroll = (e: TouchEvent) => {
-    if (e.cancelable) e.preventDefault();
-  };
-  document.addEventListener('touchmove', preventScroll, { passive: false });
-  this.stopTouchScroll = () => document.removeEventListener('touchmove', preventScroll);
+  if (this.activated && splitsScrollFromDrag(this)) scrollingPanelDrag = this;
 };
 
 sensor.detach = function (this: SensorInternals) {
-  this.stopTouchScroll?.();
-  this.stopTouchScroll = undefined;
+  if (scrollingPanelDrag === this) scrollingPanelDrag = null;
   base.detach.call(this);
 };

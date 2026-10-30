@@ -666,7 +666,10 @@ as many cards as fit it, never fewer than 3 (#1365). The mission grows only whil
 it has and, when the cards do not all fit, shows at least a quarter of a card of the second row, and
 scrolls to the rest, `data-testid="<the row's id>-scroll"`. While it scrolls it
 carries `PANEL_SCROLLS_ATTRIBUTE` and its cards `touch-action: pan-y`, as a scrolling card list panel
-does: a touch whose first move is vertical scrolls it, and one sideways drags the card. Each
+does: a touch whose first move is vertical scrolls it, and one sideways drags the card. A press held
+until its preview fires drags the card in any direction, up to the strip too, and never scrolls the
+row (#1367): the table cancels the `touchmove`s of that press (`useTouchScrollGuard`). A card list
+panel that scrolls works the same way. Each
 card carries its `data-card-id`. A tap selects a card, a hold previews it, and above the row, as in
 the crew panel, `attempt-row-stop` (Stop or Unstop, while personnel are selected) and `attempt-row-stop-all` (while
 an unstopped personnel is in the row) set `stopped`. `attempt-row-shuffle`, last in that line and shown while the row holds a card, shuffles the away team or the crew (#1179). A drop on the away team row routes as a drop on
