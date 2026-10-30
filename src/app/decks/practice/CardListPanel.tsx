@@ -388,6 +388,7 @@ function CardListPanelCard({
             style={{ ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
           >
             <img
+              draggable={false}
               src={`/cardimages/${card.imagefile}.jpg`}
               width={CARD_IMAGE_WIDTH}
               height={CARD_IMAGE_HEIGHT}
@@ -422,6 +423,7 @@ function CardListPanelCard({
           // card shows: the panel is where the player reads the card. The height comes from the
           // image's own ratio (`fullCardHeight`), so the image is never squashed.
           <img
+            draggable={false}
             src={`/cardimages/${card.imagefile}.jpg`}
             width={CARD_IMAGE_WIDTH}
             height={CARD_IMAGE_HEIGHT}
@@ -537,6 +539,7 @@ function PanelHost({
         style={NO_CALLOUT_STYLE}
       >
         <img
+          draggable={false}
           src={`/cardimages/${card.imagefile}.jpg`}
           width={CARD_IMAGE_WIDTH}
           height={CARD_IMAGE_HEIGHT}

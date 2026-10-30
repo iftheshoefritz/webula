@@ -124,6 +124,7 @@ function DraggableFanCard({
         aria-label={cardDisplayName(card)}
       >
         <img
+          draggable={false}
           src={`/cardimages/${card.imagefile}.jpg`}
           width={120}
           height={167}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
-import { CardHoldProvider, useCardHold, HOLD_DELAY_MS, HOVER_DELAY_MS, HELD_CLICK_WINDOW_MS } from '../../../app/decks/practice/useCardHold';
+import { CardHoldProvider, useCardHold, NO_CALLOUT_STYLE, HOLD_DELAY_MS, HOVER_DELAY_MS, HELD_CLICK_WINDOW_MS } from '../../../app/decks/practice/useCardHold';
 
 // jsdom has no PointerEvent, so `fireEvent.pointerMove` would drop `clientX`/`clientY`.
 if (typeof window.PointerEvent === 'undefined') {
@@ -76,6 +76,12 @@ describe('useCardHold', () => {
     expect(held()).toBe('card-1');
     fireEvent.pointerUp(window);
     expect(held()).toBe('none');
+  });
+
+  it('cancels a native drag that starts on the card, and the style stops the image drag (#1271)', () => {
+    render(<Harness />);
+    expect(fireEvent.dragStart(card())).toBe(false);
+    expect(NO_CALLOUT_STYLE.WebkitUserDrag).toBe('none');
   });
 
   it('a release before 500 ms shows nothing and still taps', () => {

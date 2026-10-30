@@ -262,6 +262,32 @@ describe('Practice draw: press and hold a card to preview it (#763)', () => {
     expect(preview('First Contact')).toBeNull();
   });
 
+  // #1271: a long press on an image that iOS can drag lifts a snapshot of the whole image, squashed
+  // into the art crop's box, and it plays back onto the card at the release. Every held card image
+  // refuses that drag, and a `dragstart` from it is cancelled.
+  const expectNoNativeDrag = (image: Element | null) => {
+    expect(image).not.toBeNull();
+    expect(image!.getAttribute('draggable')).toBe('false');
+    // `fireEvent` returns false when a handler called `preventDefault`.
+    expect(fireEvent.dragStart(image!)).toBe(false);
+  };
+
+  it("a mission card's image refuses the native drag (#1271)", async () => {
+    await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
+    expectNoNativeDrag(screen.getByRole('button', { name: 'First Contact' }).querySelector('img'));
+  });
+
+  it("the images of a ship and a card list panel card refuse the native drag (#1271)", async () => {
+    await setupOpenHand([mockShipCard, mockPersonnelCard]);
+    const [shipId, personnelId] = mockDraggableIds;
+    drag(shipId, 'mission-under-2');
+    drag(personnelId, `crew-${shipId}`);
+    const ship = screen.getByRole('button', { name: 'U.S.S. Relativity' });
+    expectNoNativeDrag(ship.querySelector('img'));
+    tap(ship);
+    expectNoNativeDrag(screen.getByTestId('card-list-panel-crew').querySelector('[aria-label="Data"] img'));
+  });
+
   it('a release before 500 ms shows no preview', async () => {
     await setupOpenHand([mockEquipmentCard], [mockMissionCard]);
     fireEvent.pointerDown(screen.getByRole('button', { name: 'First Contact' }), { button: 0 });
