@@ -7,6 +7,7 @@ import {
   gainHoldsAt,
   passesPartnerTest,
   personnelGainsOf,
+  personnelLossOf,
   tableConditionHolds,
 } from './gains';
 import { BOT_SKILLS, RequirementBranch, RequirementPersonnel, SKILL_INDEX, meetsRequirements } from './requirements';
@@ -156,7 +157,9 @@ export function partnerTraitsOf(card: TraitsRow, skills: number[] = baseSkillsOf
  * `mission` (`attemptedMissionOf`). With no mission, only the gains with no mission condition count.
  * A gain that needs a partner is kept in `partnerGains`, not counted: only `withPartnerGains`, which
  * sees the group, counts it. A gain with a table condition counts while the condition holds on the
- * table of `facts` (#1352); with no facts, the dilemma lab's case, it always counts.
+ * table of `facts` (#1352); with no facts, the dilemma lab's case, it always counts. While the condition
+ * of a skill loss holds on the same terms (#1360), every skill is 0 in both profiles and the gains of
+ * the loss's next ability do not count; `traits` keep the printed skills.
  */
 export function botPersonnelOf(card: TraitsRow & {
   originalName?: string;
@@ -173,7 +176,11 @@ export function botPersonnelOf(card: TraitsRow & {
   const facing = { skills: skills.slice(), attrs: [...attrs] as [number, number, number] };
   const requirement = { skills: skills.slice(), attrs: [...attrs] as [number, number, number] };
   const partnerGains: PersonnelGain[] = [];
+  const loss = personnelLossOf(card);
+  const lost = loss !== null && tableConditionHolds(loss.table, facts);
+  if (lost) for (const profile of [facing, requirement]) profile.skills.fill(0);
   for (const gain of personnelGainsOf(card)) {
+    if (lost && loss.nextAbility && gain.nextAbility) continue;
     if (!gainHoldsAt(gain, mission) || (gain.table && !tableConditionHolds(gain.table, facts))) continue;
     if (gain.partner) {
       partnerGains.push(gain);

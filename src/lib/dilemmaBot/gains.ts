@@ -6,7 +6,8 @@ import { BOT_SKILLS, SKILL_INDEX } from './requirements';
 // #1340): "while this personnel is facing a dilemma, …" and "while this personnel is attempting a
 // mission, …", each perhaps narrowed to a kind of mission, and "while this personnel is present with
 // <partner>, …" (#1356, part 3a), and the heads that read the player's own table: completed missions,
-// the discard pile and the core (#1352, part 4). The gain is plain data: it crosses into the search Web Worker with
+// the discard pile and the core (#1352, part 4), and the loss of every skill "while you command a [bor]
+// non-dissident personnel" (#1360). The gain and the loss are plain data: it crosses into the search Web Worker with
 // the `BotAttempt`.
 
 /**
@@ -48,6 +49,8 @@ export interface PartnerTest {
   icons?: string[];
   /** Words the partner's keywords or species must each hold: "dissident", "android". */
   traits?: string[];
+  /** "non-dissident": words the partner's keywords and species must not hold. */
+  notTraits?: string[];
   /** Skills the partner's base skills must each hold, indexed as `BOT_SKILLS`: "honor". */
   skills?: number[];
   /** A prefix of the partner's lowercased name, from "{odo}". */
@@ -78,13 +81,14 @@ export interface PartnerTraits {
 
 /**
  * A condition of a gain on the player's own table (#1352): the number of completed missions (perhaps
- * of one `missiontype`), of the discard pile's cards that pass one of `anyOf`, or of the events in the
- * core, is at least `min` and at most `max`.
+ * of one `missiontype`), of the discard pile's cards that pass one of `anyOf`, of the events in the
+ * core, or of the personnel the player commands that pass one of `anyOf` (#1360), is at least `min`
+ * and at most `max`.
  */
 export interface TableCondition {
-  count: 'completedMissions' | 'discardPile' | 'coreEvents';
+  count: 'completedMissions' | 'discardPile' | 'coreEvents' | 'commanded';
   missiontype?: 'p' | 's';
-  /** `'discardPile'`: the tests a counted card passes one of. `[{}]` counts every card. */
+  /** `'discardPile'` and `'commanded'`: the tests a counted card passes one of. `[{}]` counts every card. */
   anyOf?: PartnerTest[];
   min?: number;
   max?: number;
@@ -101,6 +105,11 @@ export interface BotTableFacts {
   discardPile: PartnerTraits[];
   /** The number of events in the core. */
   coreEvents: number;
+  /**
+   * The printed traits of each personnel the player commands (#1360): every away team and every ship's
+   * crew, at every mission. The brig does not count.
+   */
+  commanded: PartnerTraits[];
 }
 
 export interface PersonnelGain {
@@ -115,6 +124,19 @@ export interface PersonnelGain {
   skills: number[];
   /** The change of Integrity, Cunning, Strength. */
   attrs: [number, number, number];
+  /** The gain is the "next ability" of a `SkillLoss`: it is lost with the skills while the loss holds. */
+  nextAbility?: true;
+}
+
+/**
+ * "While you command a [bor] non-dissident personnel, this personnel loses all of his skills and his
+ * next ability" (#1360): while `table` holds, every skill of the personnel is 0 in both profiles, and,
+ * with `nextAbility`, the gains marked `nextAbility` do not count. The printed skills of its
+ * `PartnerTraits` stay.
+ */
+export interface SkillLoss {
+  table: TableCondition;
+  nextAbility: boolean;
 }
 
 const ATTRIBUTE_WORDS: Record<string, number[]> = {
@@ -209,6 +231,11 @@ function parsePartnerTest(text: string, inPile = false): { test: PartnerTest; co
   for (const word of words) {
     if (inPile && word === 'personnel') test.personnel = true;
     if (word === 'personnel' || (inPile && /^cards?$/.test(word))) continue;
+    const notTrait = /^non-([a-z]+)$/.exec(word);
+    if (notTrait && PARTNER_TRAIT_WORDS.has(notTrait[1])) {
+      (test.notTraits ??= []).push(notTrait[1]);
+      continue;
+    }
     const negated = /^non-(\[[a-z]+\])$/.exec(word);
     if (negated) {
       const affiliation = AFFILIATION_ABBREVIATIONS[negated[1]];
@@ -265,6 +292,7 @@ export function passesPartnerTest(test: PartnerTest, traits: PartnerTraits): boo
     (!test.notAffiliation || !traits.affiliation.includes(test.notAffiliation)) &&
     (!test.icons || test.icons.every((icon) => traits.icons.includes(icon))) &&
     (!test.traits || test.traits.every((word) => traits.keywords.includes(word) || traits.species.includes(word))) &&
+    (!test.notTraits || !test.notTraits.some((word) => traits.keywords.includes(word) || traits.species.includes(word))) &&
     (!test.skills || test.skills.every((i) => traits.skills[i] > 0)) &&
     (!test.title || traits.name === test.title || traits.name.startsWith(`${test.title} `)) &&
     (!test.personnel || traits.type === 'personnel')
@@ -322,7 +350,9 @@ export function tableConditionHolds(condition: TableCondition, facts?: BotTableF
       ? facts.completedMissions.filter((t) => !condition.missiontype || t === condition.missiontype).length
       : condition.count === 'discardPile'
         ? facts.discardPile.filter((card) => condition.anyOf!.some((test) => passesPartnerTest(test, card))).length
-        : facts.coreEvents;
+        : condition.count === 'commanded'
+          ? facts.commanded.filter((card) => condition.anyOf!.some((test) => passesPartnerTest(test, card))).length
+          : facts.coreEvents;
   return (condition.min === undefined || n >= condition.min) && (condition.max === undefined || n <= condition.max);
 }
 
@@ -339,6 +369,11 @@ function missionConditionOf(head: string): MissionCondition | undefined {
   return Object.keys(mission).length ? mission : undefined;
 }
 
+// "While you command a [bor] non-dissident personnel, this personnel loses all of his skills[ and his
+// next ability]" (#1360). It ends before the sentence's period, so the next match starts at it.
+const LOSS =
+  /while you command (an? [^,.]+? personnel), this personnel loses all of (?:his|her) skills( and (?:his|her) next ability)?(?=\.|$)/;
+
 /**
  * The gains a lowercased game text gives its own personnel. A clause whose mission has another
  * qualifier ("that requires …", "with an event on it", "region: …", "[kli]") gives none: the clause
@@ -349,6 +384,13 @@ function missionConditionOf(head: string): MissionCondition | undefined {
  */
 export function parseGains(gametext: string): PersonnelGain[] {
   const gains: PersonnelGain[] = [];
+  // The sentence after a loss's own is its "next ability": a gain that starts there is marked. A match
+  // starts at the period before its "while", which is the end of the loss's sentence.
+  const loss = LOSS.exec(gametext);
+  const next = loss?.[2] ? loss.index + loss[0].length : -1;
+  const nextEnd = next < 0 ? -1 : gametext.indexOf('.', next + 1);
+  const mark = (gain: PersonnelGain, index: number): PersonnelGain =>
+    next >= 0 && index >= next && (nextEnd < 0 || index < nextEnd) ? { ...gain, nextAbility: true } : gain;
   for (const match of gametext.matchAll(WHILE)) {
     const head = match[1];
     const partnerText = match[2] ?? match[3];
@@ -356,15 +398,23 @@ export function parseGains(gametext: string): PersonnelGain[] {
     if (partner === null) continue;
     const condition = head.startsWith('facing') ? 'facing' : 'attempting';
     const gain = parseGainClause(match[4], condition, partner ? undefined : missionConditionOf(head), partner);
-    if (gain) gains.push(gain);
+    if (gain) gains.push(mark(gain, match.index));
   }
   // A table gain is `'attempting'`: nothing in a play changes the table, so it holds for the whole attempt.
   for (const match of gametext.matchAll(TABLE_WHILE)) {
     const table = tableConditionOf(match[1]);
     const gain = table && parseGainClause(match[2], 'attempting');
-    if (gain) gains.push({ ...gain, table });
+    if (gain) gains.push(mark({ ...gain, table }, match.index));
   }
   return gains;
+}
+
+/** The loss of a lowercased game text, or null. */
+export function parseSkillLoss(gametext: string): SkillLoss | null {
+  const match = LOSS.exec(gametext);
+  const personnel = match && parsePartner(match[1]);
+  if (!personnel) return null;
+  return { table: { count: 'commanded', anyOf: personnel.anyOf, min: personnel.count }, nextAbility: Boolean(match![2]) };
 }
 
 /** Whether `gain` holds at `mission`. With no mission, only a gain with no mission condition holds. */
@@ -400,4 +450,9 @@ GAIN_OVERRIDES['rom undercover spy (ss)'] = ROM_UNDERCOVER_SPY;
 /** The gains of a lowercased card row: its override when it has one, else its parsed game text. */
 export function personnelGainsOf(card: { name: string; gametext?: string | number }): PersonnelGain[] {
   return GAIN_OVERRIDES[stripVersionSuffix(card.name)] ?? parseGains(String(card.gametext ?? '').toLowerCase());
+}
+
+/** The skill loss of a lowercased card row (#1360), or null. Its gains of the next ability carry `nextAbility`. */
+export function personnelLossOf(card: { name: string; gametext?: string | number }): SkillLoss | null {
+  return parseSkillLoss(String(card.gametext ?? '').toLowerCase());
 }

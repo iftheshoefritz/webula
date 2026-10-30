@@ -48,12 +48,16 @@ export function attemptingCards(table: TableState, missionIndex: number, shipId?
 
 // What the dilemma bot's table conditions read of the table as a bot attempt starts (#1352): the type
 // of each completed mission, the traits and the type of each discard pile card, and the number of
-// events in the core. A card with no row counts nowhere.
+// events in the core, and the traits of each personnel the player commands: every away team and
+// every ship's crew, at every mission, never the brig (#1360). A card with no row counts nowhere.
 export function botTableFactsOf(table: TableState): BotTableFacts {
   return {
     completedMissions: table.missions.flatMap((s) => (s.completed && s.mission?.card ? [String(s.mission.card.missiontype)] : [])),
     discardPile: table.discard.flatMap((c) => (c.card ? [{ ...partnerTraitsOf(c.card), type: String(c.card.type) }] : [])),
     coreEvents: table.core.filter((c) => c.card?.type === 'event').length,
+    commanded: table.missions
+      .flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])])
+      .flatMap((c) => (c.card?.type === 'personnel' ? [partnerTraitsOf(c.card)] : [])),
   };
 }
 

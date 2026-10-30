@@ -37,7 +37,7 @@ export interface LabPersonnel {
   cunning: string;
   strength: string;
   skills: string;
-  /** The game text, only for a personnel with a gain the bot reads (`personnelGainsOf`). */
+  /** The game text, only for a personnel with a gain or a skill loss the bot reads (`personnelGainsOf`, `personnelLossOf`). */
   gametext?: string;
   /** The printed traits a partner test reads, for every personnel, each only when not empty. */
   affiliation?: string;

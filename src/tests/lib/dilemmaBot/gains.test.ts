@@ -6,10 +6,12 @@ import {
   PartnerRequirement,
   PartnerTest,
   PersonnelGain,
+  SkillLoss,
   TableCondition,
   attemptedMissionOf,
   parseGains,
   personnelGainsOf,
+  personnelLossOf,
 } from '../../../lib/dilemmaBot/gains';
 import { AFFILIATION_ABBREVIATIONS } from '../../../lib/deckPlayability';
 import { BOT_SKILLS, RequirementBranch, parseRequirementBranches } from '../../../lib/dilemmaBot/requirements';
@@ -57,6 +59,7 @@ const testText = (t: PartnerTest) =>
     ...(t.icons ?? []),
     ...(t.skills ?? []).map((i) => BOT_SKILLS[i]),
     ...(t.traits ?? []),
+    ...(t.notTraits ?? []).map((w) => `non-${w}`),
     t.title ? `{${t.title}}` : '',
     t.personnel ? 'personnel' : '',
   ]
@@ -79,6 +82,7 @@ function tableText(t: TableCondition): string {
     return `${range} completed ${t.missiontype === 's' ? 'space ' : t.missiontype === 'p' ? 'planet ' : ''}missions`;
   }
   if (t.count === 'coreEvents') return `${range} events in core`;
+  if (t.count === 'commanded') return `${range} ${t.anyOf!.map(testText).join(' or ')} commanded`;
   return `${range} ${t.anyOf!.map(testText).join(' or ') || 'cards'} in discard`;
 }
 
@@ -86,7 +90,8 @@ function tableText(t: TableCondition): string {
  * A gain in a form to read in review: "facing: attributes +1; diplomacy, 2 leadership", or with its
  * mission condition, "attempting space: attributes +1; diplomacy, law", "facing [dq]: attributes +4".
  * A partner gain reads "present with [rom] dissident: …", or "facing with [maq]: …" for the facing form.
- * A table gain, always `'attempting'`, reads "while no completed missions: …" (#1352).
+ * A table gain, always `'attempting'`, reads "while no completed missions: …" (#1352). A gain of the
+ * next ability of a skill loss ends in " (next ability)" (#1360).
  */
 function gainText(gain: PersonnelGain): string {
   const [i, c, s] = gain.attrs;
@@ -109,8 +114,11 @@ function gainText(gain: PersonnelGain): string {
     : gain.table
       ? `while ${tableText(gain.table)}`
       : [gain.condition, ...mission].join(' ');
-  return `${head}: ${[attrs.join(', '), skills.join(', ')].filter(Boolean).join('; ')}`;
+  return `${head}: ${[attrs.join(', '), skills.join(', ')].filter(Boolean).join('; ')}${gain.nextAbility ? ' (next ability)' : ''}`;
 }
+
+/** A skill loss in a form to read in review: "loses skills while 1+ [bor] non-dissident commanded, and next ability". */
+const lossText = (loss: SkillLoss) => `loses skills while ${tableText(loss.table)}${loss.nextAbility ? ', and next ability' : ''}`;
 
 const gainsOf = (gametext: string) => parseGains(gametext).map(gainText);
 
@@ -229,17 +237,20 @@ describe('the gains of the card data', () => {
     expect(personnelGainsOf(byName('Selar Frontier Physician')).map(gainText)).toEqual(['attempting planet: programming']);
   });
 
-  // Every personnel the parser or the override table gives a gain, so a wrong parse shows in review.
+  // Every personnel the parser or the override table gives a gain or a skill loss (#1360), so a wrong
+  // parse shows in review.
   it('lists every personnel with a gain', () => {
     const lines = new Set<string>();
     for (const c of data) {
       if (c.type !== 'personnel') continue;
-      const gains = personnelGainsOf(c);
-      if (gains.length) lines.add(`${c.originalName} | ${gains.map(gainText).join(' | ')}`);
+      const loss = personnelLossOf(c);
+      const parts = [...(loss ? [lossText(loss)] : []), ...personnelGainsOf(c).map(gainText)];
+      if (parts.length) lines.add(`${c.originalName} | ${parts.join(' | ')}`);
     }
     expect(Array.from(lines).sort()).toEqual([
       'Akorem Laan Revered Poet | while 2+ [baj] personnel in discard: attributes +2',
       'Anneli | while 1+ events in core: attributes +1',
+      "B'Elanna Torres Mostly Assimilated | loses skills while 1+ [bor] non-dissident commanded, and next ability",
       'Beverly Crusher Captain Picard *VP | attempting 40+ points: attributes +1; medical',
       'Beverly Crusher Captain Picard | attempting 40+ points: attributes +1; medical',
       'Bevvox Ancient Intellect | attempting 50+ points: cunning +1; 2 anthropology',
@@ -256,6 +267,8 @@ describe('the gains of the card data', () => {
       'Donatra Compassionate Patriot | facing: honor, security',
       'Dorian Collins Acting Chief Petty Officer | facing: attributes +1; anthropology, engineer, geology, honor, transporters',
       'Dr. Leah Brahms Holographic Representation | attempting space: attributes +1; engineer',
+      'Eight of Eleven Laura | loses skills while 1+ [bor] non-dissident commanded, and next ability',
+      'Five of Twelve Axum | loses skills while 1+ [bor] non-dissident commanded, and next ability',
       'Gilora Rejal Subspace Researcher | facing: physics, science',
       'Hideaki Chang Conscientious Corporal | present with 3 maco: attributes +1',
       'Isotope Drone | attempting 50+ points: attributes +2',
@@ -273,16 +286,19 @@ describe('the gains of the card data', () => {
       'Kathryn Janeway Forceful Captain (FOW) | facing [dq]: attributes +4',
       'Kathryn Janeway Forceful Captain *A | facing [dq]: attributes +4',
       'Kathryn Janeway Forceful Captain | facing [dq]: attributes +4',
+      'Kathryn Janeway Mostly Assimilated | loses skills while 1+ [bor] non-dissident commanded, and next ability',
       'Kira Nerys Bit of a Fighter | while 10+ cards in discard: cunning +1; diplomacy, leadership, officer',
       'Kulan Militia Soldier | while 1+ navigation personnel in discard: navigation',
       'Kurros Brilliant Tactician | attempting 50+ points: cunning +1; 2 leadership',
       'Latara | attempting [gq]: honor, security',
+      'Locutus Almost Human | loses skills while 1+ [bor] non-dissident commanded, and next ability',
       'Morak Pilgrim Cynic | facing [dq]: security, transporters, treachery',
       'Motura Eminent Sculptor | while 1- completed missions: attributes +1',
       'Nadia Myers | while 1+ completed space missions: navigation | while 2+ completed space missions: attributes +2',
       'Neelix Morale Officer (FOW) | facing [dq]: acquisition, honor',
       'Neelix Morale Officer | facing [dq]: acquisition, honor',
       'Nicholas Locarno Nova Squadron Leader | facing: diplomacy, leadership, navigation, officer, treachery',
+      'One Peerless | loses skills while 1+ [bor] non-dissident commanded',
       'Quark Little Green Man *VP | present with [pa]: attributes +1; acquisition, diplomacy, treachery',
       'Quark Little Green Man | present with [pa]: attributes +1; acquisition, diplomacy, treachery',
       'Riley Shepard Confident Cadet | facing: attributes +1; biology, 2 navigation, programming, security',
@@ -295,21 +311,23 @@ describe('the gains of the card data', () => {
       'Scout Drone | attempting [aq]: attributes +1',
       'Selar Frontier Physician | attempting planet: programming',
       'Seth Matthews Red Squad Cadet | facing: exobiology, science',
-      'Seven of Nine Annika *VP | attempting [dq]: attributes +1',
-      'Seven of Nine Annika | attempting [dq]: attributes +1',
+      'Seven of Nine Annika *VP | loses skills while 1+ [bor] non-dissident commanded, and next ability | attempting [dq]: attributes +1 (next ability)',
+      'Seven of Nine Annika | loses skills while 1+ [bor] non-dissident commanded, and next ability | attempting [dq]: attributes +1 (next ability)',
       'Seven of Nine Ideal Candidate | attempting 50+ points: cunning +2; exobiology',
       'Seven of Nine Representative of the Hive (FOW) | facing: strength +2; security',
       'Seven of Nine Representative of the Hive (Promo) | facing: strength +2; security',
       'Seven of Nine Representative of the Hive | facing: strength +2; security',
       'Sito Jaxa Nova Squadron Pilot | facing: attributes +1; engineer, navigation, programming, science, transporters',
+      'Six of Ten Korok | loses skills while 1+ [bor] non-dissident commanded, and next ability',
       'Stefan DeSeve Disillusioned Expatriate *VP | present with dissident or [fed] [cmd]: attributes +1',
       'Stefan DeSeve Disillusioned Expatriate | present with dissident or [fed] [cmd]: attributes +1',
       'Sullin Gifted Researcher | attempting 50+ points: cunning +1; 2 transporters',
       "T'Pol Subcommander | present with human: diplomacy, exobiology",
       'The Doctor Shmullus | while no completed missions: medical, programming',
+      'Third of Five Altruistic Individual | loses skills while 1+ [bor] non-dissident commanded, and next ability',
       'Tim Watters Valiant Captain | facing: attributes +1; diplomacy, 2 leadership, officer, physics',
       'Treyam Militia Soldier | while 1+ medical personnel in discard: medical',
-      'Tuvok Mostly Assimilated | facing [dq]: law, leadership, officer, security',
+      'Tuvok Mostly Assimilated | loses skills while 1+ [bor] non-dissident commanded, and next ability | facing [dq]: law, leadership, officer, security (next ability)',
       'Tuvok Undercover *VP | facing with [maq]: attributes +1; intelligence',
       'Tuvok Undercover | facing with [maq]: attributes +1; intelligence',
       'Varis Sul Tetrarch of the Paqu | while 1+ [baj] leadership personnel in discard: diplomacy, leadership',
@@ -742,6 +760,7 @@ describe('the gains on the player table (#1352)', () => {
     completedMissions: [],
     discardPile: [],
     coreEvents: 0,
+    commanded: [],
     ...overrides,
   });
   const both = (p: ReturnType<typeof botPersonnelOf>, skill: string) => [skillOf(p.skills, skill), skillOf(requirementProfileOf(p).skills, skill)];
@@ -841,5 +860,61 @@ describe('the gains on the player table (#1352)', () => {
     const event = traitsOf('Anneli', 'event');
     expect(skillOf(botPersonnelOf(kira, undefined, facts({ discardPile: new Array(9).fill(event) })).skills, 'officer')).toBe(0);
     expect(skillOf(botPersonnelOf(kira, undefined, facts({ discardPile: new Array(10).fill(event) })).skills, 'officer')).toBe(1);
+  });
+});
+
+describe('the skill loss while you command a [bor] non-dissident personnel (#1360)', () => {
+  const byName = (name: string) => data.find((c) => c.originalName === name)! as unknown as BotCardRow;
+  const facts = (commanded: string[]): BotTableFacts => ({
+    completedMissions: [],
+    discardPile: [],
+    coreEvents: 0,
+    commanded: commanded.map((name) => partnerTraitsOf(byName(name))),
+  });
+  const DQ = attemptedMissionOf({ missiontype: 'p', quadrant: 'd', points: '35' });
+  const tuvok = byName('Tuvok Mostly Assimilated');
+  const printed = botPersonnelOf({ ...tuvok, gametext: '' });
+  const levels = (p: ReturnType<typeof botPersonnelOf>) => [p.skills, requirementProfileOf(p).skills];
+  const none = new Array(BOT_SKILLS.length).fill(0);
+
+  it('reads the loss, its condition and its next ability', () => {
+    expect(personnelLossOf(tuvok)).toEqual({
+      table: { count: 'commanded', anyOf: [{ affiliation: 'borg', notTraits: ['dissident'] }], min: 1 },
+      nextAbility: true,
+    });
+    expect(personnelLossOf(byName('One Peerless'))?.nextAbility).toBe(false);
+    expect(personnelLossOf(byName('Cyber Drone'))).toBeNull();
+    // A gain in a sentence other than the next one is no part of the loss.
+    expect(
+      parseGains(
+        'while you command a [bor] non-dissident personnel, this personnel loses all of his skills and his next ability. when you play this personnel, draw a card. while this personnel is facing a dilemma, he gains honor.',
+      ).map((g) => g.nextAbility),
+    ).toEqual([undefined]);
+  });
+
+  it('takes every skill of Tuvok and his [dq] gain while the player commands a Borg non-Dissident', () => {
+    const lost = botPersonnelOf(tuvok, DQ, facts(['Tuvok Mostly Assimilated', 'Cyber Drone']));
+    expect(levels(lost)).toEqual([none, none]);
+    // The partner tests of other personnel still read his printed skills.
+    expect(lost.traits!.skills).toEqual(printed.skills);
+  });
+
+  it('keeps his skills and his [dq] gain while the player commands only Borg Dissidents, himself included', () => {
+    const kept = botPersonnelOf(tuvok, DQ, facts(['Tuvok Mostly Assimilated', 'Seven of Nine Annika']));
+    expect(levels(kept)[1]).toEqual(printed.skills);
+    for (const skill of ['law', 'leadership', 'officer']) expect(skillOf(kept.skills, skill)).toBe(1);
+    expect(skillOf(kept.skills, 'security')).toBe(2);
+  });
+
+  it('takes his skills in the lab, which has no table', () => {
+    expect(levels(botPersonnelOf(tuvok))).toEqual([none, none]);
+    expect(levels(botPersonnelOf(tuvok, DQ))).toEqual([none, none]);
+  });
+
+  it('drops the attributes of Seven of Nine, Annika, the gain of her next ability, with her skills', () => {
+    const seven = byName('Seven of Nine Annika');
+    const base = botPersonnelOf({ ...seven, gametext: '' });
+    expect(botPersonnelOf(seven, DQ, facts(['Cyber Drone'])).attrs).toEqual(base.attrs);
+    expect(botPersonnelOf(seven, DQ, facts([])).attrs).toEqual(base.attrs.map((n) => n + 1));
   });
 });
