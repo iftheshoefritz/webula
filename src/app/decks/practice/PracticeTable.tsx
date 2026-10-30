@@ -553,6 +553,8 @@ const DISCARD_DROPPABLE_ID = 'discard';
 // whole-card `dilemmaPile` droppable #605 added, which only ever appended to the bottom.
 // #630: the dilemma stack joins this list too — a single whole-card droppable, appending to the
 // bottom, the same as the other zones here, unlike the dilemma pile's own top/bottom halves.
+// #1369: the dilemma stack is the one zone of this list whose rule is not advisory: like the ship
+// row (#886), it takes only a dilemma, so its highlight and its routing agree.
 const FLAT_DROP_ZONES: readonly Zone[] = [DISCARD_DROPPABLE_ID, 'core', 'brig', 'hand', 'dilemmaHand', 'dilemmaStack'];
 
 // The dilemma pile's two drop targets (#607): a drop on the top half puts the card first in
@@ -596,6 +598,7 @@ function computeMoveTargetForInstance(
   if (!over) return null;
 
   if (FLAT_DROP_ZONES.includes(String(over.id) as Zone)) {
+    if (over.id === 'dilemmaStack' && instance.card.type !== 'dilemma') return null;
     return over.id as Zone;
   }
 

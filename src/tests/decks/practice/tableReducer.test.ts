@@ -605,12 +605,19 @@ describe('tableReducer', () => {
     });
 
     it('moves a card into the dilemma stack face down (#733)', () => {
-      const moved = instance('d1', card('Chula The Chandra'), 'up');
+      const moved = instance('d1', { ...card('Chula The Chandra'), type: 'dilemma' }, 'up');
       const start = { ...initialTableState, discard: [moved] };
       const state = tableReducer(start, { type: 'move', id: 'd1', to: 'dilemmaStack' });
 
       expect(state.discard).toEqual([]);
       expect(state.dilemmaStack).toEqual([{ ...moved, face: 'down' }]);
+    });
+
+    it('refuses to move a card that is not a dilemma into the dilemma stack (#1369)', () => {
+      for (const type of ['personnel', 'event', 'ship', undefined]) {
+        const start = { ...initialTableState, hand: [instance('c1', { ...card('Not a dilemma'), type }, 'up')] };
+        expect(tableReducer(start, { type: 'move', id: 'c1', to: 'dilemmaStack' })).toBe(start);
+      }
     });
   });
 
