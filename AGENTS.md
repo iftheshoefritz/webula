@@ -689,6 +689,10 @@ on an entry moves every selected card of the row there, in row order, with the `
 dispatches, in one log entry that one undo takes back, and closes the list. The frozen numbers of the
 attempt stay. The row shows only in `'face'`, so Move to… does too.
 
+During a drag of a card from the row, the whole attempt strip, `attempt-strip`, is a hold target
+(#1342, #1368): it shows the `valid` ring, and a rest of `PLACE_ON_HOLD_MS` anywhere in it switches
+to the full table mid-drag, so the drop can land there. A release on the strip moves nothing.
+
 View full table shows the normal table, and the attempt goes on: the overlay on the mission card,
 `attempt-overlay-<index>`, then holds only `attempt-back-to-attempt`, "Back to attempt", which returns to
 the attempt layout. The full table shows no dilemma stack: go back to the attempt to use it. Which view shows is page state, not part of the save. It is keyed on the
