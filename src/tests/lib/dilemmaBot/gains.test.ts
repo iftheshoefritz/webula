@@ -8,6 +8,7 @@ import {
   PersonnelGain,
   SkillLoss,
   TableCondition,
+  asSphere117Dissident,
   attemptedMissionOf,
   parseGains,
   personnelGainsOf,
@@ -18,6 +19,8 @@ import { BOT_SKILLS, RequirementBranch, parseRequirementBranches } from '../../.
 import { chooseStack, scoreStack } from '../../../lib/dilemmaBot/search';
 import { DilemmaId } from '../../../lib/dilemmaBot/opponentPile';
 import { BotCardRow, botAttemptOf } from '../../../lib/dilemmaBot/botAttempt';
+import { botTableFactsOf } from '../../../app/decks/practice/attempt';
+import { CardInstance, initialTableState, MissionSlot, TableState } from '../../../app/decks/practice/tableReducer';
 import {
   BotAttempt,
   botPersonnelOf,
@@ -909,6 +912,60 @@ describe('the skill loss while you command a [bor] non-dissident personnel (#136
   it('takes his skills in the lab, which has no table', () => {
     expect(levels(botPersonnelOf(tuvok))).toEqual([none, none]);
     expect(levels(botPersonnelOf(tuvok, DQ))).toEqual([none, none]);
+  });
+
+  describe('with Sphere 117, Renegade Borg Sphere (#1363)', () => {
+    const inst = (id: string, name: string): CardInstance => ({ id, card: byName(name), face: 'up' });
+    const dq = byName('Nudios Reestablish Neural Cooperative');
+    const aq = data.find((c) => c.type === 'mission' && c.quadrant === 'a')!;
+    // Tuvok at mission 0, a Cyber Drone on a ship at mission 1, the ship Sphere 117 unless `ship` says otherwise.
+    const tableOf = ({ quadrant = 'd', ship = 'Sphere 117 Renegade Borg Sphere', crew = ['Cyber Drone'] } = {}): TableState => {
+      const slot = (overrides: Partial<MissionSlot>): MissionSlot => ({ mission: null, ships: [], awayTeam: [], underMission: [], ...overrides });
+      const missionOf = (i: number) => ({ id: `m${i}`, card: i === 4 && quadrant !== 'd' ? aq : dq, face: 'up' as const });
+      return {
+        ...initialTableState,
+        missions: [
+          slot({ mission: missionOf(0), awayTeam: [inst('t', 'Tuvok Mostly Assimilated')] }),
+          slot({ mission: missionOf(1), ships: [{ ...inst('s', ship), crew: crew.map((name, i) => inst(`c${i}`, name)) }] }),
+          slot({ mission: missionOf(2) }),
+          slot({ mission: missionOf(3) }),
+          slot({ mission: missionOf(4) }),
+        ],
+      };
+    };
+    const tuvokAt = (t: TableState) => botPersonnelOf(tuvok, DQ, botTableFactsOf(t));
+
+    it('turns a commanded Drone into a Dissident while Sphere 117 holds, and leaves it alone otherwise', () => {
+      const drone = (t: TableState) => botTableFactsOf(t).commanded.find((c) => c.name === 'cyber drone')!.keywords;
+      expect(drone(tableOf())).toContain('dissident');
+      expect(drone(tableOf())).not.toContain('drone');
+      expect(drone(tableOf({ quadrant: 'a' }))).toEqual(['drone']);
+      expect(drone(tableOf({ ship: 'Cyber Drone' }))).toEqual(['drone']);
+      expect(asSphere117Dissident(partnerTraitsOf(byName('Borg Queen Bringer of Order'))).keywords).not.toContain('dissident');
+    });
+
+    it('keeps Tuvok\'s skills and his [dq] gain when his only [Bor] non-Dissident is a Drone', () => {
+      const kept = tuvokAt(tableOf());
+      expect(levels(kept)[1]).toEqual(printed.skills);
+      expect(skillOf(kept.skills, 'security')).toBe(2);
+    });
+
+    it('takes his skills with a non-[DQ] mission, with no Sphere 117, or with a Borg Queen', () => {
+      expect(levels(tuvokAt(tableOf({ quadrant: 'a' })))).toEqual([none, none]);
+      expect(levels(tuvokAt(tableOf({ ship: 'Cyber Drone' })))).toEqual([none, none]);
+      expect(levels(tuvokAt(tableOf({ crew: ['Cyber Drone', 'Borg Queen Bringer of Order'] })))).toEqual([none, none]);
+    });
+
+    it('ignores an empty mission slot', () => {
+      const t = tableOf();
+      const half: TableState = { ...t, missions: t.missions.map((s, i) => (i === 4 ? { ...s, mission: null } : s)) };
+      expect(levels(tuvokAt(half))[1]).toEqual(printed.skills);
+    });
+
+    it('keeps his skills in the lab only when the deck says Sphere 117 holds', () => {
+      expect(levels(botPersonnelOf(tuvok, DQ, undefined, true))[1]).toEqual(printed.skills);
+      expect(levels(botPersonnelOf(tuvok, DQ, undefined, false))).toEqual([none, none]);
+    });
   });
 
   it('drops the attributes of Seven of Nine, Annika, the gain of her next ability, with her skills', () => {

@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CardData, loadCards } from '../../lib/loadCards';
 import { DilemmaId, OPPONENT_DILEMMAS, collectorsKey } from '../../lib/dilemmaBot/opponentPile';
-import { attemptedMissionOf, personnelGainsOf, personnelLossOf } from '../../lib/dilemmaBot/gains';
+import { attemptedMissionOf, isSphere117, personnelGainsOf, personnelLossOf, sphere117Holds } from '../../lib/dilemmaBot/gains';
 import DilemmaLabClient, { LabDeck, LabMission, LabPersonnel } from '../../components/DilemmaLabClient';
 
 export const metadata: Metadata = { title: 'Dilemma bot lab – Webula' };
@@ -64,9 +64,14 @@ export default function DilemmaLabPage() {
   ).filter((row) => row.authorizedUse);
   const personnelNames = new Set(personnel.map((p) => p.originalName));
   const missionNames = new Set(missions.map((m) => m.name));
+  // The quadrant of every mission, the headquarters too, for the condition of Sphere 117 (#1363).
+  const quadrantByName = new Map<string, string>();
+  for (const c of data) if (c.type === 'mission' && !quadrantByName.has(c.originalName)) quadrantByName.set(c.originalName, String(c.quadrant ?? ''));
   const decks: LabDeck[] = index.map((row) => {
     const deck: LabDeck = { label: `${row.event}: ${row.deckName} (${row.player})`, personnel: [], missions: [] };
     let section = '';
+    let hasSphere = false;
+    const quadrants: string[] = [];
     for (const line of readFileSync(join(folder, row.file), 'utf-8').split('\n')) {
       if (/^\w+:\s*$/.test(line)) {
         section = line.trim();
@@ -75,8 +80,14 @@ export default function DilemmaLabPage() {
       const name = /^\d+\t(.+?)\s*$/.exec(line)?.[1];
       if (!name) continue;
       if (section === 'Deck:' && personnelNames.has(name) && !deck.personnel.includes(name)) deck.personnel.push(name);
-      if (section === 'Missions:' && missionNames.has(name)) deck.missions.push(name);
+      if (section === 'Deck:' && isSphere117({ originalName: name })) hasSphere = true;
+      if (section === 'Missions:') {
+        if (missionNames.has(name)) deck.missions.push(name);
+        // A mission the card data does not name is not a [DQ] mission.
+        quadrants.push(quadrantByName.get(name) ?? '');
+      }
     }
+    if (sphere117Holds(hasSphere, quadrants)) deck.sphere117 = true;
     return deck;
   });
 
