@@ -97,7 +97,7 @@ describe('the table facts of a bot attempt (#1352)', () => {
   const DOCTOR = 'while you do not command a completed mission, this personnel gains medical and programming.';
   const MEDICAL = BOT_SKILLS.indexOf('medical');
 
-  it('reads the completed missions, the discard pile and the events in the core, and nothing of the brig', () => {
+  it('reads the completed missions, the discard pile, the events in the core and the commanded personnel, and nothing of the brig', () => {
     const t = table();
     const withCards: TableState = {
       ...t,
@@ -115,7 +115,9 @@ describe('the table facts of a bot attempt (#1352)', () => {
     ]);
     expect(facts.discardPile[0].skills[BOT_SKILLS.indexOf('navigation')]).toBe(1);
     expect(facts.coreEvents).toBe(2);
-    expect(botTableFactsOf(table())).toEqual({ completedMissions: [], discardPile: [], coreEvents: 0 });
+    // Every away team and every crew, at every mission, the stopped personnel too: no equipment, no brig (#1360).
+    expect(facts.commanded.map((c) => c.name)).toEqual(['away one', 'away two', 'not crew', 'crew one', 'crew two']);
+    expect(botTableFactsOf({ ...table(), missions: [] })).toEqual({ completedMissions: [], discardPile: [], coreEvents: 0, commanded: [] });
   });
 
   it('counts a table gain while its condition holds on the table, and always without facts', () => {
