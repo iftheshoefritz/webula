@@ -126,4 +126,24 @@ describe('useDriveSync – the Beginner Decks (#1323)', () => {
     expect(result.current.drive.compareDeckName).toBe(klingonTitle);
     expect(result.current.drive.compareDeckRows.map((row) => row.collectorsinfo).sort()).toEqual(['1E1', '1M1']);
   });
+
+  describe('without Drive (#1387)', () => {
+    it.each([
+      ['a signed-out user', null],
+      ['a user without the Drive scope', { user: { name: 'U', email: 'user@example.com' }, expires: '2999-01-01T00:00:00Z', hasDriveScope: false }],
+    ])('shows the folder to %s and loads a deck from it', async (_label, session) => {
+      (getSession as jest.Mock).mockResolvedValue(session);
+      const { result } = renderHook(() => useBuilder());
+      await waitFor(() => expect(getSession).toHaveBeenCalled());
+      await act(async () => { await result.current.drive.openDeckPicker(); });
+      await waitFor(() => expect(result.current.drive.showBeginnerDecks).toBe(true));
+      expect(fetchMock).toHaveBeenCalledWith('/beginner-decks/index.json');
+      expect(result.current.drive.beginnerDecks).toEqual([klingon]);
+
+      await act(async () => { await result.current.drive.fetchDriveFile({ id: klingonId, name: klingonTitle }); });
+      expect(fetchMock).not.toHaveBeenCalledWith(expect.stringMatching(/^\/api\/drive/), expect.anything());
+      expect(result.current.deck.deckTitle).toBe(klingonTitle);
+      expect(Object.keys(result.current.deck.currentDeck).sort()).toEqual(['1E1', '1M1']);
+    });
+  });
 });

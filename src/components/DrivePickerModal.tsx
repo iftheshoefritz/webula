@@ -62,7 +62,7 @@ type PickerProps = {
   showChampionshipDecks?: boolean
   /** The Championship decks, by event. They are read-only and stay out of `driveFiles`. */
   championshipEvents?: ChampionshipEvent[]
-  /** True lists the "Beginner decks" folder (#1323), in the modes that show it. */
+  /** True lists the "Beginner decks" folder (#1323), in the modes that show it, with or without Drive (#1387). */
   showBeginnerDecks?: boolean
   /** The Beginner Decks the user sees. They are read-only and stay out of `driveFiles`. */
   beginnerDecks?: BeginnerDeck[]
@@ -336,6 +336,31 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     </li>
   );
 
+  // The "Beginner decks" folder needs no Drive either (#1387): it shows below the Championship
+  // folder, with or without Drive. Inside it, the back row and the decks.
+  const beginnerBrowseRows = isBrowsingBeginner && (
+    <>
+      <DriveBackRow folder={{ id: 'beginner', name: BEGINNER_FOLDER_NAME }} onBack={() => setPublicFolderView(null)} />
+      {beginnerDecks.length === 0 && (
+        <li className="text-text-primary px-3 py-1">please wait...</li>
+      )}
+      {beginnerDecks.map((deck) => renderBeginnerDeckRow(deck))}
+    </>
+  );
+
+  const beginnerFolderRow = showBeginnerFolder && (
+    <li className={DRIVE_LIST_ROW_CLASS}>
+      <button
+        type="button"
+        className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
+        onClick={() => setPublicFolderView({ folder: 'beginner' })}
+        title={BEGINNER_FOLDER_NAME}
+      >
+        <FaFolder className="inline mr-2" />{BEGINNER_FOLDER_NAME}
+      </button>
+    </li>
+  );
+
   const title = mode === 'compare-multi' ? 'Compare decks'
     : mode === 'compare' ? 'Compare deck'
     : mode === 'reports' ? 'Your Reports'
@@ -348,10 +373,12 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
             <div className="max-h-64 overflow-y-auto overflow-x-hidden">
               <ul className="w-full divide-y divide-white/[0.06]">
                 {!isSignedIn || !hasDriveScope ? (
-                  isBrowsingChampionship ? championshipBrowseRows : (
+                  isBrowsingChampionship ? championshipBrowseRows
+                  : isBrowsingBeginner ? beginnerBrowseRows : (
                     <>
                       <DriveSignInRows isSignedIn={isSignedIn} hasDriveScope={hasDriveScope} onSignIn={onSignIn} />
                       {championshipFolderRow}
+                      {beginnerFolderRow}
                     </>
                   )
                 ) : (
@@ -360,13 +387,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                       <li className="text-text-primary px-3 py-1">please wait...</li>
                     )}
                     {!inProgress && championshipBrowseRows}
-                    {!inProgress && isBrowsingBeginner && (
-                      <DriveBackRow folder={{ id: 'beginner', name: BEGINNER_FOLDER_NAME }} onBack={() => setPublicFolderView(null)} />
-                    )}
-                    {!inProgress && isBrowsingBeginner && beginnerDecks.length === 0 && (
-                      <li className="text-text-primary px-3 py-1">please wait...</li>
-                    )}
-                    {!inProgress && isBrowsingBeginner && beginnerDecks.map((deck) => renderBeginnerDeckRow(deck))}
+                    {!inProgress && beginnerBrowseRows}
                     {!isBrowsingPublicFolder && (<>
                     {!inProgress && isBrowsingFolder && (
                       <DriveBackRow folder={browsedFolder!} onBack={() => onBrowseFolder?.(null)} />
@@ -418,18 +439,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                       </li>
                     )}
                     {!inProgress && championshipFolderRow}
-                    {!inProgress && showBeginnerFolder && (
-                      <li className={DRIVE_LIST_ROW_CLASS}>
-                        <button
-                          type="button"
-                          className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
-                          onClick={() => setPublicFolderView({ folder: 'beginner' })}
-                          title={BEGINNER_FOLDER_NAME}
-                        >
-                          <FaFolder className="inline mr-2" />{BEGINNER_FOLDER_NAME}
-                        </button>
-                      </li>
-                    )}
+                    {!inProgress && beginnerFolderRow}
                     {!inProgress && visibleDeckFiles.length === 0 && rootFolders.length === 0 && !showChampionshipFolder && !showBeginnerFolder && (
                       <li className="text-text-primary px-3 py-1">no files found</li>
                     )}
@@ -614,7 +624,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
               </ul>
             </div>
           </div>
-          {mode === 'compare-multi' && ((isSignedIn && hasDriveScope) || showChampionshipFolder) && (
+          {mode === 'compare-multi' && ((isSignedIn && hasDriveScope) || showChampionshipFolder || showBeginnerFolder) && (
             <div className="flex items-center justify-between pt-3">
               <span className="text-text-secondary text-sm">{selectedIds.size} selected</span>
               <button

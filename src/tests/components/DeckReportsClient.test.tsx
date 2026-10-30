@@ -873,4 +873,20 @@ describe('DeckReportsClient – Beginner Decks (#1323)', () => {
     expect(screen.getByText(klingonRef.name)).toBeInTheDocument();
     expect(screen.queryByText(/failed to load this deck/i)).not.toBeInTheDocument();
   });
+
+  it.each([
+    ['a signed-out user', null],
+    ['a user without the Drive scope', { ...fakeSession, hasDriveScope: false }],
+  ])('passes the folder to the deck picker of %s (#1387)', async (_label, session) => {
+    (getSession as jest.Mock).mockResolvedValueOnce(session);
+    await act(async () => {
+      render(<DeckReportsClient data={testData} />);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /select decks/i }));
+    });
+    await waitFor(() => expect(capturedPropsByMode['compare-multi'].showBeginnerDecks).toBe(true));
+    expect(fetchMock).toHaveBeenCalledWith('/beginner-decks/index.json');
+    expect(capturedPropsByMode['compare-multi'].beginnerDecks).toEqual([klingon]);
+  });
 });
