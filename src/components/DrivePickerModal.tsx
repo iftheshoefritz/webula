@@ -5,15 +5,11 @@ import { LAYER_MODAL } from '../lib/layers';
 import { DriveModalShell } from './drivePicker/DriveModalShell';
 import { DriveSignInRows } from './drivePicker/DriveSignInRows';
 import { DRIVE_LIST_ROW_CLASS } from './drivePicker/DriveListRow';
+import { usePublicFolders } from './drivePicker/usePublicFolders';
 import { DriveBackRow, isFolder, useDriveFolderView } from './drivePicker/useDriveFolderView';
 import type { DriveFile } from './drivePicker/useDriveFolderView';
-import {
-  championshipDeckId,
-  championshipDeckTitle,
-  currentChampionshipDeckId,
-} from '../lib/championshipDecks';
-import type { ChampionshipDeck, ChampionshipEvent } from '../lib/championshipDecks';
-import { beginnerDeckDetails, beginnerDeckId, beginnerDeckTitle } from '../lib/beginnerDecks';
+import { currentChampionshipDeckId } from '../lib/championshipDecks';
+import type { ChampionshipEvent } from '../lib/championshipDecks';
 import type { BeginnerDeck } from '../lib/beginnerDecks';
 import { findPublicDeck, isPublicDeckId } from '../lib/publicDecks';
 
@@ -26,8 +22,7 @@ type PickerMode = 'load' | 'compare' | 'compare-multi' | 'reports';
 // and "Beginner decks" (#1323). 'reports' lists saved Reports, not decks, so it never does.
 const CHAMPIONSHIP_DECK_MODES: PickerMode[] = ['load', 'compare', 'compare-multi'];
 
-export const CHAMPIONSHIP_FOLDER_NAME = 'Championship decks';
-export const BEGINNER_FOLDER_NAME = 'Beginner decks';
+export { CHAMPIONSHIP_FOLDER_NAME, BEGINNER_FOLDER_NAME } from './drivePicker/usePublicFolders';
 
 type PickerProps = {
   driveFiles: Array<any>
@@ -67,10 +62,6 @@ type PickerProps = {
   /** The Beginner Decks the user sees. They are read-only and stay out of `driveFiles`. */
   beginnerDecks?: BeginnerDeck[]
 }
-
-// Which folder of public decks the picker is inside, if any: the "Championship decks" folder, at its
-// root (`event` null) or in one event, or the "Beginner decks" folder, which has no event level.
-type PublicFolderView = { folder: 'championship'; event: string | null } | { folder: 'beginner' } | null;
 
 type LoadMode = 'full' | DeckPile;
 
@@ -118,7 +109,6 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [movingFile, setMovingFile] = useState<(DriveFile & { parents?: string[] }) | null>(null);
-  const [publicFolderView, setPublicFolderView] = useState<PublicFolderView>(null);
 
   // 'reports' lists a different Drive file kind with no folder concept, so it stays
   // folder-blind; every other mode browses folders the same way.
@@ -127,13 +117,6 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   const showPublicFolders = CHAMPIONSHIP_DECK_MODES.includes(mode) && !isBrowsingFolder;
   const showChampionshipFolder = showChampionshipDecks && showPublicFolders;
   const showBeginnerFolder = showBeginnerDecks && showPublicFolders;
-  const championshipView = showChampionshipFolder && publicFolderView?.folder === 'championship' ? publicFolderView : null;
-  const isBrowsingChampionship = championshipView !== null;
-  const isBrowsingBeginner = showBeginnerFolder && publicFolderView?.folder === 'beginner';
-  const isBrowsingPublicFolder = isBrowsingChampionship || isBrowsingBeginner;
-  const browsedEvent = championshipView !== null && championshipView.event !== null
-    ? championshipEvents.find((e) => e.event === championshipView.event)
-    : undefined;
 
   const startCreateFolder = () => {
     setCreatingFolder(true);
@@ -266,100 +249,15 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
     </div>
   );
 
-  // A Championship deck's row (#1310): its name and player, and the load controls of the mode.
-  const renderChampionshipDeckRow = (deck: ChampionshipDeck) => {
-    const id = championshipDeckId(deck);
-    const label = `${deck.deckName} - ${deck.player}`;
-    return (
-      <li key={id} className={DRIVE_LIST_ROW_CLASS} data-testid="championship-deck-row">
-        <span className="flex-1 min-w-0 px-3 truncate" title={label}>
-          {deck.deckName} <span className="text-text-secondary">- {deck.player}</span>
-        </span>
-        {renderPublicDeckControls({ id, name: championshipDeckTitle(deck) }, label)}
-      </li>
-    );
-  };
-
-  // A Beginner Deck's row (#1323): its name, its complexity level and its style, and the load
-  // controls of the mode. It has no link to the strategy article (#1325).
-  const renderBeginnerDeckRow = (deck: BeginnerDeck) => {
-    const id = beginnerDeckId(deck);
-    const details = beginnerDeckDetails(deck);
-    return (
-      <li key={id} className={DRIVE_LIST_ROW_CLASS} data-testid="beginner-deck-row">
-        <span className="flex-1 min-w-0 px-3 truncate" title={`${deck.deckName} — ${details}`}>
-          {deck.deckName} <span className="text-text-secondary">— {details}</span>
-        </span>
-        {renderPublicDeckControls({ id, name: beginnerDeckTitle(deck) }, deck.deckName)}
-      </li>
-    );
-  };
-
-  // The "Championship decks" folder needs no Drive (#1327): it shows to a user without Drive scope,
-  // or not signed in at all, below the sign-in rows. Inside it, the back row, the events, and the
-  // decks of the event browsed.
-  const championshipBrowseRows = isBrowsingChampionship && (
-    <>
-      <DriveBackRow
-        folder={{ id: 'championship', name: browsedEvent?.event ?? CHAMPIONSHIP_FOLDER_NAME }}
-        onBack={() => setPublicFolderView(browsedEvent ? { folder: 'championship', event: null } : null)}
-      />
-      {!browsedEvent && championshipEvents.map((event) => (
-        <li key={event.event} className={DRIVE_LIST_ROW_CLASS}>
-          <button
-            type="button"
-            className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
-            onClick={() => setPublicFolderView({ folder: 'championship', event: event.event })}
-            title={event.event}
-          >
-            <FaFolder className="inline mr-2" />{event.event}
-          </button>
-        </li>
-      ))}
-      {!browsedEvent && championshipEvents.length === 0 && (
-        <li className="text-text-primary px-3 py-1">please wait...</li>
-      )}
-      {browsedEvent?.decks.map((deck) => renderChampionshipDeckRow(deck))}
-    </>
-  );
-
-  const championshipFolderRow = showChampionshipFolder && (
-    <li className={DRIVE_LIST_ROW_CLASS}>
-      <button
-        type="button"
-        className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
-        onClick={() => setPublicFolderView({ folder: 'championship', event: null })}
-        title={CHAMPIONSHIP_FOLDER_NAME}
-      >
-        <FaFolder className="inline mr-2" />{CHAMPIONSHIP_FOLDER_NAME}
-      </button>
-    </li>
-  );
-
-  // The "Beginner decks" folder needs no Drive either (#1387): it shows below the Championship
-  // folder, with or without Drive. Inside it, the back row and the decks.
-  const beginnerBrowseRows = isBrowsingBeginner && (
-    <>
-      <DriveBackRow folder={{ id: 'beginner', name: BEGINNER_FOLDER_NAME }} onBack={() => setPublicFolderView(null)} />
-      {beginnerDecks.length === 0 && (
-        <li className="text-text-primary px-3 py-1">please wait...</li>
-      )}
-      {beginnerDecks.map((deck) => renderBeginnerDeckRow(deck))}
-    </>
-  );
-
-  const beginnerFolderRow = showBeginnerFolder && (
-    <li className={DRIVE_LIST_ROW_CLASS}>
-      <button
-        type="button"
-        className="flex-1 min-w-0 px-3 text-left text-text-primary hover:text-text-secondary truncate"
-        onClick={() => setPublicFolderView({ folder: 'beginner' })}
-        title={BEGINNER_FOLDER_NAME}
-      >
-        <FaFolder className="inline mr-2" />{BEGINNER_FOLDER_NAME}
-      </button>
-    </li>
-  );
+  // The "Championship decks" and "Beginner decks" folders need no Drive (#1327, #1387): they show
+  // to a user without Drive scope, or not signed in at all, below the sign-in rows.
+  const { isBrowsingPublicFolder, browseRows: publicBrowseRows, folderRows: publicFolderRows } = usePublicFolders({
+    showChampionship: showChampionshipFolder,
+    championshipEvents,
+    showBeginner: showBeginnerFolder,
+    beginnerDecks,
+    renderDeckControls: renderPublicDeckControls,
+  });
 
   const title = mode === 'compare-multi' ? 'Compare decks'
     : mode === 'compare' ? 'Compare deck'
@@ -373,12 +271,10 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
             <div className="max-h-64 overflow-y-auto overflow-x-hidden">
               <ul className="w-full divide-y divide-white/[0.06]">
                 {!isSignedIn || !hasDriveScope ? (
-                  isBrowsingChampionship ? championshipBrowseRows
-                  : isBrowsingBeginner ? beginnerBrowseRows : (
+                  isBrowsingPublicFolder ? publicBrowseRows : (
                     <>
                       <DriveSignInRows isSignedIn={isSignedIn} hasDriveScope={hasDriveScope} onSignIn={onSignIn} />
-                      {championshipFolderRow}
-                      {beginnerFolderRow}
+                      {publicFolderRows}
                     </>
                   )
                 ) : (
@@ -386,8 +282,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                     {inProgress && (
                       <li className="text-text-primary px-3 py-1">please wait...</li>
                     )}
-                    {!inProgress && championshipBrowseRows}
-                    {!inProgress && beginnerBrowseRows}
+                    {!inProgress && publicBrowseRows}
                     {!isBrowsingPublicFolder && (<>
                     {!inProgress && isBrowsingFolder && (
                       <DriveBackRow folder={browsedFolder!} onBack={() => onBrowseFolder?.(null)} />
@@ -438,8 +333,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                         )}
                       </li>
                     )}
-                    {!inProgress && championshipFolderRow}
-                    {!inProgress && beginnerFolderRow}
+                    {!inProgress && publicFolderRows}
                     {!inProgress && visibleDeckFiles.length === 0 && rootFolders.length === 0 && !showChampionshipFolder && !showBeginnerFolder && (
                       <li className="text-text-primary px-3 py-1">no files found</li>
                     )}
