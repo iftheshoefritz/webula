@@ -60,11 +60,9 @@ import {
   MISSION_COLUMN_GAP,
   MissionCard,
   PLACED_ON_GROUP,
-  PileBadge,
   PlacedOnGroup,
   DilemmaIcon,
   ShipRow,
-  badgeStripHeight,
   crewDropId,
   missionCardHeight,
   missionPileDropId,
@@ -371,10 +369,12 @@ export default function AttemptLayout({
       )}
 
       {attempt.phase === 'choose' ? choiceBody : (
+      // The facing body fills the row (#1365): the mission lines up with the strip on the left, the
+      // stack ends at the content padding on the right, and the middle column takes the rest.
       <div
         data-testid="attempt-body"
-        className="flex min-h-0 flex-row justify-center items-start overflow-y-clip"
-        style={{ gap: ATTEMPT_GAP, paddingTop: underMissionStackRoom(missionScale, true) }}
+        className="flex min-h-0 flex-row justify-start items-start overflow-y-clip"
+        style={{ gap: ATTEMPT_GAP, paddingTop: underMissionStackRoom(missionScale, true), marginLeft: ATTEMPT_STRIP_GUTTER }}
       >
         {parked ? null : missionColumn}
         <div
@@ -383,18 +383,9 @@ export default function AttemptLayout({
           style={{ width: shipsWidth, gap: MISSION_COLUMN_GAP }}
         >
           {attempt.shipId ? (
+            // A space mission shows no away team badge above the ships (#1365): Move to… and View
+            // full table reach the away team.
             <>
-              {parked ? null : (
-              <div className="flex items-center justify-center" style={{ height: badgeStripHeight(missionScale) }}>
-                <PileBadge
-                  missionIndex={missionIndex}
-                  pile="awayTeam"
-                  count={slot.awayTeam.length}
-                  onOpen={onOpenPile}
-                  height={badgeStripHeight(missionScale)}
-                />
-              </div>
-              )}
               <div className="flex flex-row items-start" style={{ gap: ATTEMPT_GAP }}>
                 <div style={{ width: shipRowsWidth }}>{parked ? null : ships}</div>
                 {ship && (

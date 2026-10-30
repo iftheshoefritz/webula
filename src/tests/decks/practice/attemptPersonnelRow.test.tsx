@@ -169,11 +169,11 @@ describe('the row of the attempting personnel (#1165)', () => {
     expect(first.getAttribute('src')).not.toMatch(/cardback/);
   });
 
-  it('shows the crew of the attempting ship at a space mission, and keeps the away team badge', async () => {
+  it('shows the crew of the attempting ship at a space mission, with no away team badge (#1365)', async () => {
     await dealAttempt();
     const ship = savedTable().missions[2].ships[0];
     expect(rowIds(attemptCrewDropId(ship.id))).toEqual((ship.crew ?? []).map((c) => c.id));
-    expect(screen.getByTestId('mission-pile-awayTeam-2')).toBeInTheDocument();
+    expect(screen.queryByTestId('mission-pile-awayTeam-2')).toBeNull();
     expect(document.querySelector('[data-zone^="attempt-away-team-"]')).toBeNull();
   });
 
