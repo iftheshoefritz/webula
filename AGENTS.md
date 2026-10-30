@@ -537,9 +537,11 @@ mission's name, and the ship's at a space mission), `attempt-draw-spend`, the bu
 dilemma stack under the attempted mission, face up and in stack order, ends the attempt, and brings
 back the mission row (#1170). The log gets one entry: "Ended the attempt at <mission>, and moved
 <cards> under <mission>", or only its first part when the stack was empty. Below the strip, left to right: the attempted mission, drawn whole and larger than on the
-table, the ships column `attempt-ships` (the away team badge, then every ship of that mission's ship
-row), and the dilemma stack. At a space mission the ships sit in a column exactly as wide as the
-mission, 2 to a row, with the crew row beside them (#1177). In `'face'` the dilemma stack is one
+table, the ships column `attempt-ships` (the away team row, then every ship of that mission's ship
+row), and the dilemma stack. In `'face'` the body fills the row (#1365): the mission lines up with the
+strip's left edge, the stack ends at the content padding on the right, and the personnel row takes
+all the width between. At a space mission the ships sit 2 to a row in a column only as wide as its
+widest row of ships, with the crew row beside them (#1177, #1365), and no away team badge shows. In `'face'` the dilemma stack is one
 whole card, `stack[0]`, as tall as the mission card, and every later card face down to its right as a
 sliver: the zone is at most 1.2 times as wide as its top card (`attemptFacingStackSize`, #1218). The
 mission grows only while the personnel area keeps 3 cards at the crew panel's width, so it stops
@@ -651,13 +653,15 @@ tap View full table to bring them back.
 The attempting personnel show as cropped table cards, face up, in an area of the middle column (#1165,
 #1205, `AttemptPersonnelRow.tsx`). At a planet mission the row is the away team, in place of the away team
 badge, above the ships: `data-zone` and `data-testid` `attempt-away-team-<i>`. At a space mission it is
-the crew of the attempting ship, beside the ships: `attempt-crew-<the ship's id>`, and the away team
-badge stays above the ships. The row reads the live away team or crew, the equipment too, in order, and
+the crew of the attempting ship, beside the ships: `attempt-crew-<the ship's id>`, with no away team
+badge (#1365): Move to… and View full table reach the away team. The row reads the live away team or crew, the equipment too, in order, and
 the frozen numbers of the attempt do not change. Each card is the art crop with the personnel format
-of #1176, 3 to a row with the crew panel's 8 px gap (#1218, `attemptPersonnelGrid`, `computeAttemptLayout`),
-as wide as a card of the crew panel on the full table (`viewerCardSize`, a desktop too), or less where
-the screen lacks the room: at 667×375 about 81 px at `?fixture=attempt` and about 63 px at a planet
-mission, where the height binds. The area is 3 cards wide even with fewer cards. It fills the height
+of #1176, with the crew panel's 8 px gap (#1218, `attemptPersonnelGrid`, `attemptPersonnelFit`,
+`computeAttemptLayout`), as wide as a card of the crew panel on the full table (`viewerCardSize`, a
+desktop too), or less where the screen lacks the room: at 667×375 about 98 px, 3 to a row, at
+`?fixture=attempt` and about 62 px, 5 to a row, at a planet mission, where the height binds. The area
+takes all the width the mission, the ships and the stack leave, even with fewer cards, and a row holds
+as many cards as fit it, never fewer than 3 (#1365). The mission grows only while 3 would fit. It fills the height
 it has and, when the cards do not all fit, shows at least a quarter of a card of the second row, and
 scrolls to the rest, `data-testid="<the row's id>-scroll"`. While it scrolls it
 carries `PANEL_SCROLLS_ATTRIBUTE` and its cards `touch-action: pan-y`, as a scrolling card list panel
@@ -667,8 +671,8 @@ the crew panel, `attempt-row-stop` (Stop or Unstop, while personnel are selected
 an unstopped personnel is in the row) set `stopped`. `attempt-row-shuffle`, last in that line and shown while the row holds a card, shuffles the away team or the crew (#1179). A drop on the away team row routes as a drop on
 `mission-on-<i>`: a personnel or an equipment joins the away team, a ship goes to the ship row, any
 other card is placed on the mission card. A drop on the crew row routes as a drop on `crew-<id>`. At a
-space mission the away team badge sits outside the mission's bottom half, so a drop on the badge lands
-nowhere: to aim a drop at the away team, aim at `mission-on-<i>`.
+space mission the facing body has no away team badge (#1365): to aim a drop at the away team, aim at
+`mission-on-<i>`.
 
 ```bash
 # on ?fixture=piles, in an attempt at Moab IV, where card-1 is the Tricorder in the hand
