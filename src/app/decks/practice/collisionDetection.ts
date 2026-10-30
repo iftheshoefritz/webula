@@ -1,4 +1,5 @@
 import { Collision, CollisionDetection, pointerWithin, rectIntersection } from '@dnd-kit/core';
+import { VIEW_FULL_TABLE_HOLD_ID } from './viewFullTableHold';
 
 // Two stages, and the order between them is the whole point.
 //
@@ -24,6 +25,10 @@ import { Collision, CollisionDetection, pointerWithin, rectIntersection } from '
 // inside a 72x26 px row, so a dragged card's rect touches the ship almost anywhere in the row,
 // and every such drop boarded the ship regardless of where the player aimed.
 //
+// Stage 2 never returns the View full table hold (#1368): it covers the whole attempt strip, and a
+// dragged card whose rect only grazes the strip, with the pointer in a gap below it, would start the
+// switch to the full table. The hold is reached only with the pointer inside the strip.
+//
 // A separate module, not defined inline in `page.tsx`: Next.js only allows a page module to
 // export the page's own default component and a small fixed set of named exports (`metadata`,
 // `generateStaticParams`, and the like), so a plain named export here fails the production build
@@ -33,7 +38,7 @@ const overlapRatio = (collision: Collision): number => (collision.data as { valu
 export const collisionDetection: CollisionDetection = (args) => {
   const withinPointer = pointerWithin(args);
   if (withinPointer.length > 0) return withinPointer;
-  const intersections = rectIntersection(args);
+  const intersections = rectIntersection(args).filter((collision) => collision.id !== VIEW_FULL_TABLE_HOLD_ID);
   if (intersections.length <= 1) return intersections;
   const areaOf = (id: Collision['id']): number => {
     const rect = args.droppableRects.get(id);
