@@ -73,7 +73,8 @@
 // scroll picked the card up instead (#788). So once the grid overflows, its cards take
 // `touch-action: pan-y` and the grid carries `PANEL_SCROLLS_ATTRIBUTE`, which hands a touch or
 // pen press there to `PanelScrollSensor` (`panelScrollSensor.ts`): a first move mostly up or down
-// scrolls, a first move mostly sideways drags. A grid that fits keeps `touch-none` and a drag in
+// scrolls, a first move mostly sideways drags, and a press held until its preview fires drags in
+// any direction (#1367). A grid that fits keeps `touch-none` and a drag in
 // any direction.
 
 import React, { RefObject, useEffect, useRef, useState } from 'react';

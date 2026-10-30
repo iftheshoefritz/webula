@@ -12,7 +12,8 @@
 //
 // While the area scrolls it carries `PANEL_SCROLLS_ATTRIBUTE` and its cards `touch-action: pan-y`,
 // as a scrolling card list panel does (#788, `panelScrollSensor.ts`): a touch whose first move is
-// mostly up or down scrolls the area, and one mostly sideways drags the card.
+// mostly up or down scrolls the area, and one mostly sideways drags the card. A press held until
+// its preview fires drags the card in any direction, up to the strip too, and never scrolls (#1367).
 //
 // A card works as it does in the away team panel or the crew panel: a hold shows the preview, a tap
 // selects it, and the selection gets Stop or Unstop (#681), with Stop all (#995) beside them, from
