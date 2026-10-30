@@ -1165,6 +1165,7 @@ function DilemmaStackTopCard({
     >
       {cropHeight === undefined ? (
         <img
+          draggable={false}
           src={`/cardimages/${topCard.card.imagefile}.jpg`}
           width={120}
           height={167}

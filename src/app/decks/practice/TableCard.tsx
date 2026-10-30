@@ -202,6 +202,7 @@ export function TableCardImage({
     <div className="relative w-full" style={{ height }}>
       <div className={`relative w-full h-full overflow-hidden bg-black/20 ${className}`}>
         <img
+          draggable={false}
           src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
           alt={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
           className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
