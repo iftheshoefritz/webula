@@ -1,6 +1,7 @@
 import React, { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { drawSpend, drawSpendText } from './drawSpend';
+import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
 // An empty or invalid field reads as 0.
 const wholeNumber = (text: string): number => {
@@ -99,7 +100,8 @@ export function AttemptDialog({
         role="dialog"
         aria-label={`Attempt ${mission}`}
         data-testid="attempt-dialog"
-        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex max-h-[95vh] w-[min(18rem,90vw)] -translate-x-1/2 -translate-y-1/2 flex-col gap-2 overflow-y-auto rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
+        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex -translate-x-1/2 -translate-y-1/2 flex-col gap-2 overflow-y-auto rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
+        style={{ maxHeight: safeModalMaxHeight(95), width: safeModalWidth('18rem') }}
       >
         <h2 className="text-sm font-semibold text-text-primary">Attempt {mission}</h2>
         <NumberField label="Personnel" testId="attempt-personnel" value={personnelText} onChange={setPersonnelText} />

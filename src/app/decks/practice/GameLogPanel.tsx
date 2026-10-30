@@ -1,6 +1,7 @@
 import React, { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { EMPTY_LOG_TEXT, gameLogText, LogEntry, logByTurn, logEntryText } from './gameLog';
+import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
 // How long the Copy button says "Copied" or "Copy failed".
 const COPY_FEEDBACK_MS = 1500;
@@ -42,7 +43,8 @@ export default function GameLogPanel({ log, onClose }: { log: LogEntry[]; onClos
         role="dialog"
         aria-label="Game log"
         data-testid="game-log"
-        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex max-h-[85vh] w-[min(28rem,90vw)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
+        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex -translate-x-1/2 -translate-y-1/2 flex-col rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
+        style={{ maxHeight: safeModalMaxHeight(85), width: safeModalWidth('28rem') }}
       >
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-text-primary">Game log</h2>

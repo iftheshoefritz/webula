@@ -18,6 +18,7 @@ import { LAYER_CARD_PREVIEW } from '../../../lib/layers';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { STOPPED_IMAGE_CLASSNAME, cardBorderStyle, faceUpImageSrc } from './TableCard';
 import type { PreviewSide } from './useCardHold';
+import { safeAreaMargins } from './useSafeAreaInsets';
 
 // The "Face down" badge, shared with the card list panel's mark on a face-down card (#826).
 export const FACE_DOWN_LABEL = 'Face down';
@@ -50,6 +51,8 @@ export default function CardPreview({
 }) {
   const { card, face } = instance;
   const edge = side === 'left' ? 'left-4' : 'right-4';
+  // Issue #1384: the image and the badge keep 1rem clear of the safe-area inset of their side.
+  const edgeInset = safeAreaMargins(side === 'left' ? 'left' : 'right');
 
   return (
     <div
@@ -64,11 +67,11 @@ export default function CardPreview({
         className={`absolute ${edge} top-1/2 -translate-y-1/2 ${PREVIEW_IMAGE_SIZE_CLASSNAME} w-auto rounded-lg shadow-2xl ${
           instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''
         }`}
-        style={PREVIEW_BORDER_STYLE}
+        style={{ ...PREVIEW_BORDER_STYLE, ...edgeInset }}
       />
 
       {markFaceDown && face === 'down' && (
-        <span className={`absolute ${edge} ${PREVIEW_BADGE_TOP_CLASSNAME} ${FACE_DOWN_BADGE_CLASSNAME}`}>
+        <span className={`absolute ${edge} ${PREVIEW_BADGE_TOP_CLASSNAME} ${FACE_DOWN_BADGE_CLASSNAME}`} style={edgeInset}>
           {FACE_DOWN_LABEL}
         </span>
       )}

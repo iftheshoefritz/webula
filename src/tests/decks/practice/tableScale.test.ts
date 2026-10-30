@@ -185,6 +185,39 @@ describe('computeTouchMissionScale', () => {
   });
 });
 
+// Issue #1384: the content column pads itself by the left and the right safe-area insets, so the
+// width math reserves them, and at insets 0 nothing changes.
+describe('the side safe-area insets (#1384)', () => {
+  const column = (scale: number) => missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
+  const desktopColumn = (scale: number) => missionColumnHeight(scale, true, DESKTOP_RESERVED_SHIP_ROWS);
+
+  it('computeTouchMissionScale with insets 0 equals the result without them', () => {
+    for (const [width, height] of [[MIN_SCREEN.width, 250], [812, 260], [1280, 600]]) {
+      expect(computeTouchMissionScale(width, height, column, 1, TOUCH_CONTROLS_COLUMN, 0)).toBe(
+        computeTouchMissionScale(width, height, column, 1, TOUCH_CONTROLS_COLUMN),
+      );
+    }
+  });
+
+  it('computeTouchMissionScale reserves left 47 and right 47 at 812x375', () => {
+    const withInsets = computeTouchMissionScale(812, 5000, column, 1, TOUCH_CONTROLS_COLUMN, 94);
+    expect(withInsets).toBe(computeTouchMissionScale(812 - 94, 5000, column, 1, TOUCH_CONTROLS_COLUMN));
+    // (812 - 94 insets - 32 padding - 56 controls column - 20 menu button gutter - 4 gaps of 8) / (5 * 72)
+    expect(withInsets).toBeCloseTo((812 - 94 - 32 - 56 - 20 - 32) / 360, 5);
+    expect(withInsets).toBeLessThan(computeTouchMissionScale(812, 5000, column, 1, TOUCH_CONTROLS_COLUMN));
+  });
+
+  it('computeTableScale, desktopMissionSlotBudget and computeDesktopTableScale reserve them too', () => {
+    expect(computeTableScale(812, 375, 21, 0)).toBe(computeTableScale(812, 375, 21));
+    expect(computeTableScale(1400, 2000, 0, 94)).toBe(computeTableScale(1400 - 94, 2000));
+    expect(desktopMissionSlotBudget(1280, 0)).toBe(desktopMissionSlotBudget(1280));
+    expect(desktopMissionSlotBudget(1280, 94)).toBe(desktopMissionSlotBudget(1280 - 94));
+    expect(computeDesktopTableScale(1280, 5000, desktopColumn, 94)).toBe(
+      computeDesktopTableScale(1280 - 94, 5000, desktopColumn),
+    );
+  });
+});
+
 // Issue #1164: the attempt layout sizes the attempted mission, drawn whole, and the ships beside it
 // from the space below its strip.
 describe('computeAttemptLayout (#1164)', () => {

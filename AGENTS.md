@@ -320,8 +320,20 @@ Only the practice route sets `viewport-fit=cover`, through the `viewport` export
 `width=device-width, initial-scale=1`. On an iPhone the table then draws under the home indicator, and
 `useSafeAreaInsets` reads the four `env(safe-area-inset-*)` values from a probe element. The bottom row
 rises by the bottom inset (the content column's bottom padding grows by it), the page background stays
-full-bleed, and `computeTableScale` measures the height above the inset. Headless Chromium, a desktop
-and Android give an inset of 0 on every side, so there the table draws as before.
+full-bleed, and `computeTableScale` measures the height above the inset. The other three sides work
+the same way (#1384): the content column's padding grows by the inset of each side, and the scale
+math (`computeTableScale`, `computeTouchMissionScale`, `desktopMissionSlotBudget`,
+`computeDesktopTableScale`, `useAttemptLayout`) gets the left and right insets together as one
+number, `insetSides`, and works with the width less it, so `TOUCH_CONTROLS_COLUMN`,
+`MENU_BUTTON_GUTTER` and `ATTEMPT_STRIP_GUTTER` stay constants measured from the content edge.
+`corner-buttons` and `turn-score-column` move right by the left inset and down by the top inset,
+on top of `top-14` under `systemControlsInset`. The fixed overlays take the insets in CSS, as
+`env(safe-area-inset-*)` margins or paddings (`safeAreaMargins`, `SAFE_INSET_CSS` in
+`useSafeAreaInsets.ts`): the `CardListPanel` box below `PANEL_TOP_INSET` and inside
+`VIEWER_TOP_INSET` on each side, the `CardPreview` image and badge, the flat fan and its controls row,
+and the game menu splash. The centred modals size themselves with `safeModalWidth` and
+`safeModalMaxHeight`. Headless Chromium, a desktop and Android give an inset of 0 on every side, so
+there the table draws as before.
 
 The card sizes in `MissionRow.tsx` and `TableCard.tsx` are still the sizes at scale 1, and scale 1
 is still a 320 px tall table. At 667×375 the table draws at a scale of 375/320, about 1.17. A

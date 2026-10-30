@@ -129,7 +129,7 @@ import { usePanelBottomInset } from './panelBottomInset';
 import { useToolbarScrollRoom } from './toolbarScrollRoom';
 import { viewerCardSize } from './viewerCardSize';
 import { useFinePointer } from './useFinePointer';
-import { useSafeAreaInsets } from './useSafeAreaInsets';
+import { SAFE_INSET_CSS, type SafeAreaInsets, safeAreaMargins, useSafeAreaInsets } from './useSafeAreaInsets';
 import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
@@ -318,6 +318,13 @@ function GameMenu({
           aria-label="Game menu"
           data-testid="game-menu-splash"
           className={`fixed inset-0 ${LAYER_MENU_SPLASH} flex flex-col items-center justify-center bg-[#131713]/95 px-8`}
+          // Clear of the safe-area insets (#1384): the backdrop stays full-bleed, the items move in.
+          style={{
+            paddingTop: SAFE_INSET_CSS.top,
+            paddingRight: `calc(2rem + ${SAFE_INSET_CSS.right})`,
+            paddingBottom: SAFE_INSET_CSS.bottom,
+            paddingLeft: `calc(2rem + ${SAFE_INSET_CSS.left})`,
+          }}
         >
           {view === 'offline' ? (
             <div className="flex max-h-full w-full max-w-[16rem] flex-col gap-2 overflow-y-auto landscape:max-w-[24rem]">
@@ -402,6 +409,8 @@ function GameMenu({
         className={`absolute ${
           fullscreen.isFullscreen && fullscreen.systemControlsInset ? 'top-14' : 'top-2'
         } left-2 flex flex-col gap-1 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
+        // Below the top safe-area inset and right of the left one (#1384), on top of `top-14`.
+        style={safeAreaMargins('top', 'left')}
       >
         <button
           type="button"
@@ -462,10 +471,22 @@ function GameMenu({
 // score over minus and plus. They are table content, not part of `corner-buttons`, so a card list
 // panel and the hand arc cover them as they covered the counters of the bottom row. `compact`, for
 // the lower corner buttons of `systemControlsInset`, hides the labels and draws smaller buttons.
+// The content column's `p-4`, grown by the safe-area insets (#1383, #1384): only the sides with an
+// inset get an inline padding, so the DOM is unchanged where every inset is 0.
+function contentPadding(insets: SafeAreaInsets): React.CSSProperties | undefined {
+  const style: React.CSSProperties = {};
+  if (insets.top > 0) style.paddingTop = `calc(1rem + ${insets.top}px)`;
+  if (insets.right > 0) style.paddingRight = `calc(1rem + ${insets.right}px)`;
+  if (insets.bottom > 0) style.paddingBottom = `calc(1rem + ${insets.bottom}px)`;
+  if (insets.left > 0) style.paddingLeft = `calc(1rem + ${insets.left}px)`;
+  return Object.keys(style).length > 0 ? style : undefined;
+}
+
 // The left edge of the column, `left-2`, and its width, which stops 4 px short of the mission row.
 const CONTROLS_COLUMN_LEFT = 8; // px
 const CONTROLS_COLUMN_WIDTH = 16 + TOUCH_CONTROLS_COLUMN - CONTROLS_COLUMN_LEFT - 4; // px
 // Below the three corner buttons (24 px each, 4 px apart) at `top-2`, or at `top-14` with the inset.
+// Like the corner buttons, the column moves in by the top and the left safe-area insets (#1384).
 const CONTROLS_COLUMN_TOP = 8 + 80 + 8; // px
 const CONTROLS_COLUMN_TOP_INSET = 56 + 80 + 8; // px
 
@@ -493,6 +514,7 @@ function TurnScoreColumn({
         left: CONTROLS_COLUMN_LEFT,
         top: compact ? CONTROLS_COLUMN_TOP_INSET : CONTROLS_COLUMN_TOP,
         width: CONTROLS_COLUMN_WIDTH,
+        ...safeAreaMargins('top', 'left'),
       }}
     >
       <div className="flex flex-col items-center gap-1">
@@ -1617,7 +1639,10 @@ function PracticeDrawContent() {
   // bottom row rises by the bottom safe-area inset, and the table scale measures the safe height.
   // Every inset is 0 off an iPhone.
   const safeArea = useSafeAreaInsets();
-  const scale = useTableScale(gameLayer, safeArea.bottom);
+  // Issue #1384: the content column pads itself by the side insets too, so every width the scale
+  // math works with is the game layer's less both of them.
+  const safeAreaSides = safeArea.left + safeArea.right;
+  const scale = useTableScale(gameLayer, safeArea.bottom, safeAreaSides);
   const fullscreen = useFullscreen(gameLayer);
   // #1068: keeps room to scroll the browser's toolbar away again after it comes back. In an app
   // added to the home screen it pins the document's scroll at 0 instead (#1155).
@@ -1647,6 +1672,7 @@ function PracticeDrawContent() {
     bottomRow,
     desktopMissionColumnHeight,
     touchMissionColumnHeight,
+    safeAreaSides,
   );
   // Issue #1060: every desktop mission slot reserves the width of a turned mission, as far as the
   // width of the table allows.
@@ -1712,6 +1738,7 @@ function PracticeDrawContent() {
     (table.attempt ? missions[table.attempt.missionIndex]?.mission?.placedOn?.length ?? 0 : 0) > 0,
     desktopMissionColumnHeight,
     touchMissionColumnHeight,
+    safeAreaSides,
   );
   const [openPile, setOpenPile] = useState<{ missionIndex: number; pile: MissionPileName } | null>(null);
   // Which of the core's/the brig's own card list panel (#640), or the draw pile's/the dilemma pile's
@@ -3001,10 +3028,11 @@ function PracticeDrawContent() {
             <LandedZoneProvider value={landedZones}>
             <CardHoldProvider value={cardHold}>
             <PlaceOnHoldProvider value={placeOnHold}>
-            {/* The bottom padding grows by the bottom safe-area inset (#1383), so the bottom row
-                clears the home indicator and the background stays full-bleed under it. The scale
-                hooks read this padding from the computed style. */}
-            <div className="flex flex-col flex-1 p-4" style={safeArea.bottom > 0 ? { paddingBottom: `calc(1rem + ${safeArea.bottom}px)` } : undefined}>
+            {/* Each padding grows by the safe-area inset of its side (#1383, #1384), so the bottom
+                row clears the home indicator, the table clears the notch, and the background stays
+                full-bleed under both. The scale hooks read the bottom padding from the computed
+                style, and get the side insets as numbers. */}
+            <div className="flex flex-col flex-1 p-4" style={contentPadding(safeArea)}>
               {/* The attempt layout (#1164) in place of the mission row while an attempt is in
                   progress. Only one of the two is mounted, so each droppable is mounted once: the
                   parked attempt layout of #1342 mounts only the row, with its droppable disabled. */}
@@ -3096,7 +3124,7 @@ function PracticeDrawContent() {
                   scale={missionScale}
                   shipRows={shipRows}
                   desktop={finePointer}
-                  slotBudget={desktopMissionSlotBudget(gameLayerWidth)}
+                  slotBudget={desktopMissionSlotBudget(gameLayerWidth, safeAreaSides)}
                 />
               </div>
               {!finePointer && (

@@ -3,6 +3,7 @@ import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import ControlClip from './ControlClip';
 import { CONTROL_ROWS, clipFiles, controlsBySection, type ControlColumn, type ControlRow } from './controls';
 import { useFinePointer } from './useFinePointer';
+import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
 const COLUMNS: { column: ControlColumn; label: string }[] = [
   { column: 'touch', label: 'Touch' },
@@ -38,7 +39,8 @@ export default function ControlsPanel({ onClose, rows = CONTROL_ROWS }: { onClos
         aria-label="Controls"
         data-testid="controls-panel"
         data-column={column}
-        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex max-h-[85vh] w-[min(32rem,90vw)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
+        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex -translate-x-1/2 -translate-y-1/2 flex-col rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
+        style={{ maxHeight: safeModalMaxHeight(85), width: safeModalWidth('32rem') }}
       >
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-text-primary">Controls</h2>

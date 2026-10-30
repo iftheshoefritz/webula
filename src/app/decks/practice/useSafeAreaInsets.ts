@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 
 // Issue #1383: the safe-area insets of the screen, in CSS px. The practice route sets
 // `viewport-fit=cover` (`page.tsx`), so on an iPhone the table draws under the home indicator and
@@ -60,3 +60,32 @@ export function useSafeAreaInsets(): SafeAreaInsets {
 
   return insets;
 }
+
+// Issue #1384: the four insets as CSS, for a position that CSS alone sets (a fixed overlay, a corner
+// control). They are 0 where there is no inset, so a margin of one of them changes nothing there.
+export const SAFE_INSET_CSS = {
+  top: 'env(safe-area-inset-top, 0px)',
+  right: 'env(safe-area-inset-right, 0px)',
+  bottom: 'env(safe-area-inset-bottom, 0px)',
+  left: 'env(safe-area-inset-left, 0px)',
+} as const;
+
+// Margins that move an absolutely or fixed positioned element in from the edges it is placed
+// against by the insets of those edges; with both offsets of an axis set, they shrink it instead.
+export function safeAreaMargins(...sides: (keyof typeof SAFE_INSET_CSS)[]): CSSProperties {
+  const style: CSSProperties = {};
+  for (const side of sides) {
+    if (side === 'top') style.marginTop = SAFE_INSET_CSS.top;
+    if (side === 'right') style.marginRight = SAFE_INSET_CSS.right;
+    if (side === 'bottom') style.marginBottom = SAFE_INSET_CSS.bottom;
+    if (side === 'left') style.marginLeft = SAFE_INSET_CSS.left;
+  }
+  return style;
+}
+
+// The size of a modal centred on the viewport (#1384): `max` at most, and `vw` per cent of the
+// viewport's width, or `vh` of its height, less the insets of both sides, so it keeps clear of them.
+export const safeModalWidth = (max: string, vw = 90): string =>
+  `min(${max}, calc(${vw}vw - ${SAFE_INSET_CSS.left} - ${SAFE_INSET_CSS.right}))`;
+export const safeModalMaxHeight = (vh: number): string =>
+  `calc(${vh}vh - ${SAFE_INSET_CSS.top} - ${SAFE_INSET_CSS.bottom})`;

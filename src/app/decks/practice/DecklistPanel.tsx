@@ -3,6 +3,7 @@ import { DeckList } from '../../../types';
 import { LAYER_CARD_PREVIEW, LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import DeckListItem from '../../../components/DeckListItem';
 import { cardPileFor, DeckPile } from '../deckBuilderUtils';
+import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
 const PILES: { pile: DeckPile; title: string }[] = [
   { pile: 'mission', title: 'Missions' },
@@ -44,7 +45,8 @@ export default function DecklistPanel({ deck, onClose }: { deck: DeckList; onClo
       <div
         role="dialog"
         aria-label="Decklist"
-        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} max-h-[85vh] w-[min(24rem,90vw)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
+        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
+        style={{ maxHeight: safeModalMaxHeight(85), width: safeModalWidth('24rem') }}
       >
         {PILES.map(({ pile, title }) => {
           const entries = byPile[pile];

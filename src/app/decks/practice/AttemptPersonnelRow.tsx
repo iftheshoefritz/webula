@@ -50,6 +50,7 @@ import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 import type { AttemptMoveDestination } from './attempt';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { ATTEMPT_PERSONNEL_BUTTONS_HEIGHT, ATTEMPT_PERSONNEL_GAP, attemptPersonnelCropHeight } from './tableScale';
+import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
 export const attemptAwayTeamDropId = (missionIndex: number): string => `attempt-away-team-${missionIndex}`;
 export const attemptCrewDropId = (shipId: string): string => `attempt-crew-${shipId}`;
@@ -199,7 +200,8 @@ export default function AttemptPersonnelRow({
               onKeyDown={(event) => {
                 if (event.key === 'Escape') setMoveMenuFor(null);
               }}
-              className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex max-h-[90vh] w-[min(18rem,90vw)] -translate-x-1/2 -translate-y-1/2 flex-col gap-1 overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-bg-secondary p-2 shadow-lg`}
+              className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex -translate-x-1/2 -translate-y-1/2 flex-col gap-1 overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-bg-secondary p-2 shadow-lg`}
+              style={{ maxHeight: safeModalMaxHeight(90), width: safeModalWidth('18rem') }}
             >
               <h2 className="px-1 text-xs font-semibold text-text-primary">
                 Move {selectedInRow.length} card{selectedInRow.length === 1 ? '' : 's'} to

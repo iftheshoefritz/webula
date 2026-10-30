@@ -93,6 +93,7 @@ import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
 import { stopButtons } from './stopRules';
+import { safeAreaMargins } from './useSafeAreaInsets';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -712,7 +713,8 @@ export default function CardListPanel({
   // through (`pointer-events-none`) to the backdrop, and only the panel inside it takes them.
   // The side insets are `VIEWER_TOP_INSET`. The top inset is `PANEL_TOP_INSET` (#1068), which keeps
   // the controls row of a full panel out of the top band where iOS Safari takes a tap to show its
-  // toolbar. The bottom inset is `bottomInset`, just above the bottom row (#828).
+  // toolbar. The bottom inset is `bottomInset`, just above the bottom row (#828). The top and the
+  // side insets grow by the safe-area insets of their edges (#1384), as margins of the box.
   // `justify-end` anchors the panel's bottom edge there, so a panel grows upward as it gains cards
   // and leaves no empty band above the bottom row.
   const insetClassName = 'absolute flex flex-col items-center justify-end pointer-events-none';
@@ -851,6 +853,7 @@ export default function CardListPanel({
           left: VIEWER_TOP_INSET,
           right: VIEWER_TOP_INSET,
           bottom: bottomInset,
+          ...safeAreaMargins('top', 'left', 'right'),
         }}
       >
       <div className={layoutClassName}>
