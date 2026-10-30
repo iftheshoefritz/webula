@@ -78,10 +78,12 @@ export interface AttemptMoveDestination {
   position?: 'top' | 'bottom';
 }
 
-// The destinations of Move to… in the facing phase (#1341), in order: the six places of the bottom
-// row, then, for each other mission slot that holds a mission, its away team and the crew of each
-// ship of its ship row. Nothing at the attempted mission, so never the row the cards are in, and
-// nothing under a mission. Empty with no attempt or outside `'face'`.
+// The destinations of Move to… in the facing phase (#1341, #1370), in order: the six places of the
+// bottom row, then the away team of each other mission slot whose mission is a planet mission or a
+// headquarters (a space mission has no away team), then the crew of every ship of the player, in
+// mission order and then ship-row order, the ships at the attempted mission too. Never the
+// attempting ship, the row the cards are in, never the attempted mission's away team, and nothing
+// under a mission. Empty with no attempt or outside `'face'`.
 export function attemptMoveDestinations(table: TableState): AttemptMoveDestination[] {
   const { attempt } = table;
   if (!attempt || attempt.phase !== 'face') return [];
@@ -94,14 +96,19 @@ export function attemptMoveDestinations(table: TableState): AttemptMoveDestinati
     { key: 'brig', label: 'Brig', to: 'brig' },
   ];
   table.missions.forEach((slot, missionIndex) => {
-    if (missionIndex === attempt.missionIndex || !slot.mission) return;
-    const mission = cardDisplayName(slot.mission.card);
+    const type = slot.mission?.card?.missiontype;
+    if (missionIndex === attempt.missionIndex || !slot.mission || (type !== 'p' && type !== 'h')) return;
     destinations.push({
       key: `awayTeam-${missionIndex}`,
-      label: `Away team at ${mission}`,
+      label: `Away team at ${cardDisplayName(slot.mission.card)}`,
       to: { zone: 'missionPile', missionIndex, pile: 'awayTeam' },
     });
+  });
+  table.missions.forEach((slot) => {
+    if (!slot.mission) return;
+    const mission = cardDisplayName(slot.mission.card);
     for (const ship of slot.ships) {
+      if (ship.id === attempt.shipId) continue;
       destinations.push({
         key: `crew-${ship.id}`,
         label: `Crew of ${cardDisplayName(ship.card)} at ${mission}`,

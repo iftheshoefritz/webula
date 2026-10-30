@@ -678,10 +678,13 @@ bash scripts/practice_drag.sh card-1 attempt-away-team-0   # prints attempt-away
 While a card of the row is selected, the line of buttons above it also holds **Move to…**,
 `data-testid="attempt-row-move-to"` (#1341). A tap opens a list above the table,
 `data-testid="attempt-move-to-menu"`, with a backdrop: the hand, the top and the bottom of the draw
-deck, the discard, the core and the brig, then, for each other mission slot that holds a mission,
-its away team and the crew of each ship of its ship row (`attemptMoveDestinations` in `attempt.ts`).
-Each entry is `attempt-move-to-<key>`: `hand`, `drawDeck-top`, `drawDeck-bottom`, `discard`, `core`,
-`brig`, `awayTeam-<i>` and `crew-<the ship's id>`. Nothing at the attempted mission is listed. A tap
+deck, the discard, the core and the brig, then the away team of each other mission slot whose mission
+is a planet mission or a headquarters, never a space mission, then the crew of every ship of the
+player, "Crew of <ship> at <mission>", in mission order and then ship-row order, the ships at the
+attempted mission too (#1370, `attemptMoveDestinations` in `attempt.ts`). The attempting ship, the row
+the cards are in, and the attempted mission's away team are never listed. Each entry is
+`attempt-move-to-<key>`: `hand`, `drawDeck-top`, `drawDeck-bottom`, `discard`, `core`, `brig`,
+`awayTeam-<i>` and `crew-<the ship's id>`. A tap
 on an entry moves every selected card of the row there, in row order, with the `move` a drop there
 dispatches, in one log entry that one undo takes back, and closes the list. The frozen numbers of the
 attempt stay. The row shows only in `'face'`, so Move to… does too.
