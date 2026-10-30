@@ -10,7 +10,7 @@ import {
   playStack,
   requirementProfileOf,
   seededRandom,
-  withPartnerGains,
+  partnerGroupOf,
 } from '../lib/dilemmaBot/simulator';
 import { SearchResult, StackScore, drawDilemmas, legalStacks } from '../lib/dilemmaBot/search';
 import type { SearchRequest, SearchResponse } from '../lib/dilemmaBot/searchRequest';
@@ -102,9 +102,9 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
   );
   const mission = deckMissions.find((m) => m.name === missionName);
   const branches = useMemo(() => (mission ? parseRequirementBranches(mission.requirements) : null), [mission]);
-  const crewPersonnel = useMemo(
+  const crewGroup = useMemo(
     () =>
-      withPartnerGains(
+      partnerGroupOf(
         crew
           .map((name) => byName.get(name))
           .filter((p): p is LabPersonnel => !!p)
@@ -112,11 +112,12 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
       ),
     [crew, byName, mission],
   );
+  const crewPersonnel = crewGroup.personnel;
   const meets = branches ? meetsRequirements(branches, crewPersonnel.map(requirementProfileOf)) : false;
   const under = Math.max(0, crew.length - n);
   const stackCount = useMemo(() => legalStacks(drawn, n).length, [drawn, n]);
   const attempt: BotAttempt | null = branches
-    ? { personnel: crewPersonnel, requirements: branches, gameOnMission, choice }
+    ? { ...crewGroup, requirements: branches, gameOnMission, choice }
     : null;
 
   // A result belongs to the inputs it came from: when one changes, both results clear in render.
@@ -189,7 +190,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
       const group = pool.slice(0, size);
-      const profiles = withPartnerGains(group.map((name) => botPersonnelOf(byName.get(name)!, target))).map(requirementProfileOf);
+      const profiles = partnerGroupOf(group.map((name) => botPersonnelOf(byName.get(name)!, target))).personnel.map(requirementProfileOf);
       if (meetsRequirements(targetBranches, profiles)) {
         setCrew(group);
         setMessage('');

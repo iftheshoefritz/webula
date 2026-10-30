@@ -2,7 +2,7 @@ import { dilemmaIdOf } from './chulaPile';
 import { DilemmaId } from './opponentPile';
 import { parseRequirementBranches } from './requirements';
 import { AttemptedMission, attemptedMissionOf } from './gains';
-import { BotAttempt, botPersonnelOf, withPartnerGains } from './simulator';
+import { BotAttempt, botPersonnelOf, partnerGroupOf } from './simulator';
 
 // The pure inputs of a bot attempt on the practice table (#1298). They read card rows and flags, not
 // the table, so this file imports nothing from the practice table: the page hands it the cards.
@@ -23,7 +23,7 @@ export const RANDOM_CHOICE = 'random';
  * The `BotAttempt` of an attempt on the table: the unstopped personnel of `cards` (equipment and every
  * other type left out), each with the gains it has at `mission`, the requirements of `mission`, and
  * the copies of Chula: The Game in `placedOn`, the rows placed on the mission. The partner gains are
- * settled against the group as the attempt starts (`withPartnerGains`). `RANDOM_CHOICE` when the requirements cannot be read.
+ * settled against the group as the attempt starts, and kept live for `playStack` (`partnerGroupOf`). `RANDOM_CHOICE` when the requirements cannot be read.
  */
 export function botAttemptOf(
   cards: ReadonlyArray<BotAttemptingCard>,
@@ -34,7 +34,7 @@ export function botAttemptOf(
   if (!requirements) return RANDOM_CHOICE;
   const attempted = attemptedMissionOf(mission);
   return {
-    personnel: withPartnerGains(
+    ...partnerGroupOf(
       cards
         .filter((c): c is { card: BotCardRow; stopped?: boolean } => c.card?.type === 'personnel' && !c.stopped)
         .map((c) => botPersonnelOf(c.card, attempted)),
