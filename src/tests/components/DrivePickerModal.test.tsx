@@ -1092,4 +1092,66 @@ describe('DrivePickerModal – the Beginner decks folder (#1323)', () => {
     expect(screen.getAllByTestId('beginner-deck-row')).toHaveLength(2);
     expect(screen.queryByTestId('championship-deck-row')).not.toBeInTheDocument();
   });
+
+  describe('without Drive (#1387)', () => {
+    const noDrive = [
+      ['signed out', { isSignedIn: false, hasDriveScope: false }],
+      ['signed in without the Drive scope', { isSignedIn: true, hasDriveScope: false }],
+    ] as const;
+
+    it.each(noDrive)('lists the folder below the sign-in rows and the Championship folder when %s', (_label, auth) => {
+      render(
+        <DrivePickerModal
+          {...gatedProps}
+          {...auth}
+          showChampionshipDecks
+          championshipEvents={[{ event: ledos.event, decks: [ledos] }]}
+        />
+      );
+      const championship = screen.getByRole('button', { name: 'Championship decks' });
+      const beginner = screen.getByRole('button', { name: 'Beginner decks' });
+      expect(championship.compareDocumentPosition(beginner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(screen.getByText(/sign in with google|grant google drive access/i)).toBeInTheDocument();
+    });
+
+    it.each(noDrive)('opens the folder in place of the sign-in rows and loads a deck when %s', (_label, auth) => {
+      const loadDriveFile = jest.fn();
+      render(<DrivePickerModal {...gatedProps} {...auth} loadDriveFile={loadDriveFile} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Beginner decks' }));
+      expect(screen.getAllByTestId('beginner-deck-row')).toHaveLength(2);
+      expect(screen.queryByText(/sign in with google|grant google drive access/i)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Load Klingon Beginner Deck' }));
+      expect(loadDriveFile).toHaveBeenLastCalledWith({ id: klingonId, name: klingonTitle }, undefined);
+      fireEvent.click(screen.getByRole('button', { name: 'Beginner decks' }));
+      expect(screen.queryByTestId('beginner-deck-row')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Beginner decks' })).toBeInTheDocument();
+    });
+
+    it('confirms checked decks in compare-multi mode when signed out', () => {
+      const onConfirmSelection = jest.fn();
+      render(
+        <DrivePickerModal
+          {...gatedProps}
+          isSignedIn={false}
+          hasDriveScope={false}
+          mode="compare-multi"
+          onConfirmSelection={onConfirmSelection}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Beginner decks' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Select Klingon Beginner Deck' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Select TNG Beginner Deck' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Compare 2 decks' }));
+      expect(onConfirmSelection).toHaveBeenCalledWith([
+        { id: klingonId, name: klingonTitle },
+        { id: `beginner:${tng.file}`, name: 'TNG Beginner Deck - Lucas Thompson' },
+      ]);
+    });
+
+    it('shows no folder in reports mode when signed out', () => {
+      render(<DrivePickerModal {...gatedProps} isSignedIn={false} hasDriveScope={false} mode="reports" />);
+      expect(screen.queryByText('Beginner decks')).not.toBeInTheDocument();
+    });
+  });
 });
+

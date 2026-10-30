@@ -118,17 +118,18 @@ export default function DeckReportsClient({ data }: DeckReportsClientProps) {
       });
   }, [showDrivePicker, championshipEmail, fetchedChampionshipDecks?.email]);
 
-  // The "Beginner decks" folder shows to every user with Drive scope (#1323).
+  // The "Beginner decks" folder shows to every user, a signed-out user too (#1323, #1387), when it
+  // holds a deck that `visibleBeginnerDecks` lets the user see. Keep in step with `useDriveSync`.
   const [allBeginnerDecks, setAllBeginnerDecks] = useState<BeginnerDeck[]>([]);
   const beginnerDecks = visibleBeginnerDecks(allBeginnerDecks, session?.user?.email);
-  const showBeginnerDecks = !!session?.hasDriveScope && (beginnerDecks.length > 0 || allBeginnerDecks.length === 0);
+  const showBeginnerDecks = beginnerDecks.length > 0;
 
   useEffect(() => {
-    if (!showDrivePicker || !session?.hasDriveScope || allBeginnerDecks.length > 0) return;
+    if (!showDrivePicker || allBeginnerDecks.length > 0) return;
     fetchBeginnerDecks().then(setAllBeginnerDecks).catch(() => {
-      // The folder stays empty, and the Drive files still list.
+      // The folder stays hidden, and the Drive files still list.
     });
-  }, [showDrivePicker, session?.hasDriveScope, allBeginnerDecks.length]);
+  }, [showDrivePicker, allBeginnerDecks.length]);
 
   // The fixture decks are built in render from the card data, once for each `data`. The decks can
   // still be edited through setDecks, and an edit lasts until `data` changes.

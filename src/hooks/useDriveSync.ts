@@ -119,18 +119,20 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
       });
   }, [showDrivePicker, championshipEmail, fetchedChampionshipDecks?.email]);
 
-  // The "Beginner decks" folder shows to every user with Drive scope (#1323). A user sees the decks
-  // that `visibleBeginnerDecks` allows.
+  // The "Beginner decks" folder shows to every user, a signed-out user too (#1323, #1387), when it
+  // holds a deck that `visibleBeginnerDecks` lets the user see.
   const [allBeginnerDecks, setAllBeginnerDecks] = useState<BeginnerDeck[]>([]);
   const beginnerDecks = visibleBeginnerDecks(allBeginnerDecks, session?.user?.email);
-  const showBeginnerDecks = !!session?.hasDriveScope;
+  const showBeginnerDecks = beginnerDecks.length > 0;
 
+  // The index is a static file that does not depend on the user, so it is fetched once, when the
+  // picker first opens.
   useEffect(() => {
-    if (!showDrivePicker || !showBeginnerDecks || allBeginnerDecks.length > 0) return;
+    if (!showDrivePicker || allBeginnerDecks.length > 0) return;
     fetchBeginnerDecks().then(setAllBeginnerDecks).catch(() => {
-      // The folder stays empty, and the Drive files still list.
+      // The folder stays hidden, and the Drive files still list.
     });
-  }, [showDrivePicker, showBeginnerDecks, allBeginnerDecks.length]);
+  }, [showDrivePicker, allBeginnerDecks.length]);
 
   useEffect(() => {
     (async () => {
@@ -534,7 +536,7 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     driveFiles,
     showChampionshipDecks,
     championshipEvents: groupChampionshipDecks(championshipDecks),
-    showBeginnerDecks: showBeginnerDecks && (beginnerDecks.length > 0 || allBeginnerDecks.length === 0),
+    showBeginnerDecks,
     beginnerDecks,
     showDrivePicker,
     drivePickerMode,
