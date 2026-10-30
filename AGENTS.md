@@ -658,8 +658,9 @@ badge (#1365): Move to… and View full table reach the away team. The row reads
 the frozen numbers of the attempt do not change. Each card is the art crop with the personnel format
 of #1176, with the crew panel's 8 px gap (#1218, `attemptPersonnelGrid`, `attemptPersonnelFit`,
 `computeAttemptLayout`), as wide as a card of the crew panel on the full table (`viewerCardSize`, a
-desktop too), or less where the screen lacks the room: at 667×375 about 98 px, 3 to a row, at
-`?fixture=attempt` and about 62 px, 5 to a row, at a planet mission, where the height binds. The area
+desktop too), or less where the screen lacks the room: at 667×375 about 74 px, 3 to a row, at
+`?fixture=attempt`, and about 87 px, 3 to a row, at Moab IV on `?fixture=piles`; on a 1280 px desktop
+the away team of Moab IV shows 4 to a row. The area
 takes all the width the mission, the ships and the stack leave, even with fewer cards, and a row holds
 as many cards as fit it, never fewer than 3 (#1365). The mission grows only while 3 would fit. It fills the height
 it has and, when the cards do not all fit, shows at least a quarter of a card of the second row, and
