@@ -6,6 +6,7 @@ import {
   ARC_TOUCH_MIN_VISIBLE,
   ARC_TOUCH_OPTIONS,
   ArcLayout,
+  arcTouchMinVisible,
   handArcLayout,
 } from '../../../app/decks/practice/handArc';
 
@@ -183,15 +184,16 @@ describe('handArcLayout lower (#1149)', () => {
   });
 });
 
+// How far above `bottom` each card's lowest top corner sits.
+const topClearances = (layout: ArcLayout, bottom: number) =>
+  layout.cards.map((card) =>
+    Math.min(
+      bottom - corner(card, -layout.cardWidth / 2, -layout.cardHeight / 2).y,
+      bottom - corner(card, layout.cardWidth / 2, -layout.cardHeight / 2).y,
+    ),
+  );
+
 describe('handArcLayout on a touch screen (#1380)', () => {
-  // How far above `bottom` each card's lowest top corner sits.
-  const topClearances = (layout: ArcLayout, bottom: number) =>
-    layout.cards.map((card) =>
-      Math.min(
-        bottom - corner(card, -layout.cardWidth / 2, -layout.cardHeight / 2).y,
-        bottom - corner(card, layout.cardWidth / 2, -layout.cardHeight / 2).y,
-      ),
-    );
   const highestCorner = (layout: ArcLayout, bottom: number) =>
     Math.max(
       ...layout.cards.flatMap((card) =>
@@ -240,5 +242,31 @@ describe('handArcLayout on a touch screen (#1380)', () => {
   it('leaves the desktop arc as it was', () => {
     const input = { count: 7, cardWidth: 126, maxStep: 135, left: 230, right: 590, bottom: 375 };
     expect(handArcLayout(input)).toEqual(handArcLayout({ ...input, lower: 0, sag: ARC_SAG, maxAngle: ARC_MAX_ANGLE, minVisible: 0 }));
+  });
+});
+
+// Issue #1383: the touch floor follows the bottom safe-area inset, the home indicator's.
+describe('arcTouchMinVisible (#1383)', () => {
+  it('keeps the 20 px band as a minimum and adds the 44 px of a touch target', () => {
+    expect(arcTouchMinVisible(0)).toBe(64);
+    expect(arcTouchMinVisible(10)).toBe(64);
+    expect(arcTouchMinVisible(34)).toBe(78);
+    expect(ARC_TOUCH_MIN_VISIBLE).toBe(arcTouchMinVisible(0));
+    expect(ARC_TOUCH_OPTIONS.minVisible).toBe(ARC_TOUCH_MIN_VISIBLE);
+  });
+
+  it.each([2, 7, 12])('keeps both top corners of every card of %i at least 78 px above the edge at an inset of 34', (count) => {
+    const floor = arcTouchMinVisible(34);
+    const layout = handArcLayout({
+      count,
+      cardWidth: 126,
+      maxStep: 135,
+      left: 230,
+      right: 590,
+      bottom: 375,
+      ...ARC_TOUCH_OPTIONS,
+      minVisible: floor,
+    });
+    for (const clearance of topClearances(layout, 375)) expect(clearance).toBeGreaterThanOrEqual(floor - 0.01);
   });
 });

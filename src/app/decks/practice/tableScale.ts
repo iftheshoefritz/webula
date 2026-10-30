@@ -64,24 +64,26 @@ const MISSION_ROW_GAP = 8; // px
 // Issue #630: the dilemma stack sits in a reserved column to the right of the five mission
 // columns, so the width budget reserves one more column and one more gap for it — 6 columns and
 // 5 gaps, not 5 and 4.
-export function computeTableScale(gameLayerWidth: number, gameLayerHeight: number): number {
-  const heightScale = gameLayerHeight / BASELINE_HEIGHT;
+// Issue #1383: the height is the safe height, the game layer's minus the bottom safe-area inset,
+// since the bottom row rises by that inset. At an inset of 0 the scale is as before.
+export function computeTableScale(gameLayerWidth: number, gameLayerHeight: number, insetBottom = 0): number {
+  const heightScale = (gameLayerHeight - insetBottom) / BASELINE_HEIGHT;
   const availableWidth = gameLayerWidth - CONTENT_PADDING - MISSION_ROW_GAP * MISSION_SLOTS;
   const widthScale = availableWidth / (TABLE_CARD_WIDTH * (MISSION_SLOTS + 1));
   return Math.max(1, Math.min(heightScale, widthScale));
 }
 
-export function useTableScale(gameLayer: HTMLElement | null): number {
+export function useTableScale(gameLayer: HTMLElement | null, insetBottom = 0): number {
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
     if (!gameLayer) return;
-    const measure = () => setScale(computeTableScale(gameLayer.clientWidth, gameLayer.clientHeight));
+    const measure = () => setScale(computeTableScale(gameLayer.clientWidth, gameLayer.clientHeight, insetBottom));
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(gameLayer);
     return () => observer.disconnect();
-  }, [gameLayer]);
+  }, [gameLayer, insetBottom]);
 
   return scale;
 }

@@ -67,6 +67,13 @@ describe('computeTableScale (#630)', () => {
     expect(expectedWidthScale).toBeGreaterThan(1);
     expect(computeTableScale(gameLayerWidth, gameLayerHeight)).toBeCloseTo(expectedWidthScale, 5);
   });
+
+  // #1383: the bottom row rises by the bottom safe-area inset, so the scale measures the safe height.
+  it('measures the height above the bottom safe-area inset', () => {
+    expect(computeTableScale(1024, 700, 0)).toBe(computeTableScale(1024, 700));
+    expect(computeTableScale(1024, 700, 34)).toBe(computeTableScale(1024, 666));
+    expect(computeTableScale(1024, 700, 34)).toBeLessThan(computeTableScale(1024, 700));
+  });
 });
 
 // #930: one more row of ships costs one ship card's art height plus the gap between two rows.

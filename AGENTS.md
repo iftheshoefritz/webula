@@ -315,6 +315,14 @@ The smallest screen the practice table supports is an iPhone SE (2nd generation)
 667×375 CSS px (`MIN_SCREEN` in `tableScale.ts`). It was the first-generation iPhone SE, 568×320,
 before. Some comments and older issues still name 568×320. Read those as the old minimum.
 
+Only the practice route sets `viewport-fit=cover`, through the `viewport` export of
+`src/app/decks/practice/page.tsx` (#1383); the root layout's `viewport` export gives every other page
+`width=device-width, initial-scale=1`. On an iPhone the table then draws under the home indicator, and
+`useSafeAreaInsets` reads the four `env(safe-area-inset-*)` values from a probe element. The bottom row
+rises by the bottom inset (the content column's bottom padding grows by it), the page background stays
+full-bleed, and `computeTableScale` measures the height above the inset. Headless Chromium, a desktop
+and Android give an inset of 0 on every side, so there the table draws as before.
+
 The card sizes in `MissionRow.tsx` and `TableCard.tsx` are still the sizes at scale 1, and scale 1
 is still a 320 px tall table. At 667×375 the table draws at a scale of 375/320, about 1.17. A
 layout that must fit the minimum screen must fit it at that scale.
@@ -397,8 +405,9 @@ A tap on the closed hand opens it as an arc along the bottom edge of the screen
 (`data-testid="hand-arc"`, `handArc.ts`, #1125): about half of each card is below the edge, more in
 touch mode, where the arc sits 20% of its visible height lower (`ARC_TOUCH_LOWER`, #1149). In touch
 mode the arc is also flatter, with no sag and an end angle of 7° (`ARC_TOUCH_OPTIONS`), and the
-lowest top corner of every card stays at least 64 px above the bottom edge (`ARC_TOUCH_MIN_VISIBLE`,
-#1380), clear of the iOS edge gesture; a desktop arc keeps its sag and its 14°. The
+lowest top corner of every card stays at least `max(20, the bottom safe-area inset) + 44` px above
+the bottom edge (`arcTouchMinVisible`, #1380, #1383), clear of the iOS edge gesture: 64 px at an inset
+of 0 (`ARC_TOUCH_MIN_VISIBLE`), 78 at 34; a desktop arc keeps its sag and its 14°. The
 arc stays between the draw deck and the dilemma pile, over the core and the brig. The dilemma hand
 shows only in the attempt layout in `'choose'` (#1223): the full table has no dilemma hand, and a tap on
 the dilemma pile draws nothing. A tap on the closed dilemma hand opens it as the same arc, in the same

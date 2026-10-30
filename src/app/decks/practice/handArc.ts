@@ -2,8 +2,8 @@
 // player holds a fanned hand of cards. Each card's centre sits near the bottom edge, so about half
 // of each card is below the screen, and on a touch screen the arc sits lower still (#1149). The cards near the ends of the arc turn outward and sit lower
 // than the ones in the middle. On a touch screen the arc is flatter, with no sag and half the turn,
-// and every card's lowest top corner stays at least `ARC_TOUCH_MIN_VISIBLE` above the bottom edge,
-// clear of the iOS edge gesture (#1380). The arc stays between `left` and `right`, the right edge of the draw
+// and every card's lowest top corner stays at least `arcTouchMinVisible` of the bottom safe-area
+// inset above the bottom edge, clear of the iOS edge gesture (#1380, #1383). The arc stays between `left` and `right`, the right edge of the draw
 // deck and the left edge of the dilemma pile, so it never covers either pile.
 
 // The angle of a card at either end of the arc, at most, in degrees.
@@ -20,7 +20,7 @@ export const ARC_TOP_OVERLAP = 0.04;
 
 // Issue #1149: how far the arc sits lower on a touch screen, as a part of its visible height, so
 // each card shows 20% less of itself above the bottom edge.
-// Issue #1380 caps that drop, so it never takes a card below `ARC_TOUCH_MIN_VISIBLE`.
+// Issue #1380 caps that drop, so it never takes a card below the touch floor, `arcTouchMinVisible`.
 export const ARC_TOUCH_LOWER = 0.2;
 
 // Issue #1380: the touch arc. The ends sit no lower than the middle and turn half as far, so an
@@ -28,10 +28,20 @@ export const ARC_TOUCH_LOWER = 0.2;
 export const ARC_TOUCH_SAG = 0;
 export const ARC_TOUCH_MAX_ANGLE = 7;
 // Issue #1380: how far above the bottom edge the lowest top corner of every card sits, at least, on
-// a touch screen: a band of 20 px for the iOS edge gesture plus the 44 px of a touch target.
-export const ARC_TOUCH_MIN_VISIBLE = 64;
+// a touch screen: a band for the iOS edge gesture plus the 44 px of a touch target. Issue #1383:
+// the band is the bottom safe-area inset, the home indicator's, and never less than 20 px.
+export const ARC_TOUCH_EDGE_BAND = 20;
+export const ARC_TOUCH_TARGET = 44;
 
-// The options `CardHand` passes to `handArcLayout` with a coarse pointer.
+export function arcTouchMinVisible(insetBottom: number): number {
+  return Math.max(ARC_TOUCH_EDGE_BAND, insetBottom) + ARC_TOUCH_TARGET;
+}
+
+// The touch floor at a bottom inset of 0: 64 px.
+export const ARC_TOUCH_MIN_VISIBLE = arcTouchMinVisible(0);
+
+// The options `CardHand` passes to `handArcLayout` with a coarse pointer, with `minVisible` set to
+// `arcTouchMinVisible` of the bottom inset.
 export const ARC_TOUCH_OPTIONS = {
   lower: ARC_TOUCH_LOWER,
   sag: ARC_TOUCH_SAG,
