@@ -43,6 +43,11 @@ export default function DilemmaLabPage() {
       skills: String(c.skills),
       // The page sends the game text only where the bot reads a gain from it, to keep its HTML small.
       ...(personnelGainsOf(c).length ? { gametext: String(c.gametext) } : {}),
+      // Any personnel can be a partner of another's gain (#1356), so every one carries its traits.
+      ...(c.affiliation ? { affiliation: String(c.affiliation) } : {}),
+      ...(c.species ? { species: String(c.species) } : {}),
+      ...(c.keywords ? { keywords: String(c.keywords) } : {}),
+      ...(c.icons ? { icons: String(c.icons) } : {}),
     });
   }
 

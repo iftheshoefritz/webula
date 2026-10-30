@@ -38,7 +38,7 @@ const aboardShipWithIcon = (icon: string): DeckPredicate => (_card, deckRows) =>
 // affiliation abbreviation known to appear in card gametext, including ones
 // not yet exercised by any DECK_PLAYABILITY entry, so future cards work
 // without another one-off fix.
-const AFFILIATION_ABBREVIATIONS: Record<string, string> = {
+export const AFFILIATION_ABBREVIATIONS: Record<string, string> = {
   '[baj]': 'bajoran',
   '[bor]': 'borg',
   '[car]': 'cardassian',

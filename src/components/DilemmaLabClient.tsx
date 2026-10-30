@@ -10,6 +10,7 @@ import {
   playStack,
   requirementProfileOf,
   seededRandom,
+  withPartnerGains,
 } from '../lib/dilemmaBot/simulator';
 import { SearchResult, StackScore, drawDilemmas, legalStacks } from '../lib/dilemmaBot/search';
 import type { SearchRequest, SearchResponse } from '../lib/dilemmaBot/searchRequest';
@@ -38,6 +39,11 @@ export interface LabPersonnel {
   skills: string;
   /** The game text, only for a personnel with a gain the bot reads (`personnelGainsOf`). */
   gametext?: string;
+  /** The printed traits a partner test reads, for every personnel, each only when not empty. */
+  affiliation?: string;
+  species?: string;
+  keywords?: string;
+  icons?: string;
 }
 
 export interface LabDeck {
@@ -98,10 +104,12 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
   const branches = useMemo(() => (mission ? parseRequirementBranches(mission.requirements) : null), [mission]);
   const crewPersonnel = useMemo(
     () =>
-      crew
-        .map((name) => byName.get(name))
-        .filter((p): p is LabPersonnel => !!p)
-        .map((p) => botPersonnelOf(p, mission)),
+      withPartnerGains(
+        crew
+          .map((name) => byName.get(name))
+          .filter((p): p is LabPersonnel => !!p)
+          .map((p) => botPersonnelOf(p, mission)),
+      ),
     [crew, byName, mission],
   );
   const meets = branches ? meetsRequirements(branches, crewPersonnel.map(requirementProfileOf)) : false;
@@ -181,7 +189,8 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
       const group = pool.slice(0, size);
-      if (meetsRequirements(targetBranches, group.map((name) => requirementProfileOf(botPersonnelOf(byName.get(name)!, target))))) {
+      const profiles = withPartnerGains(group.map((name) => botPersonnelOf(byName.get(name)!, target))).map(requirementProfileOf);
+      if (meetsRequirements(targetBranches, profiles)) {
         setCrew(group);
         setMessage('');
         return;
