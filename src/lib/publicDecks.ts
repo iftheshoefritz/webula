@@ -1,9 +1,9 @@
 // One dispatch for the decks of the public folders (#1323): is an id a public deck's, where is its
 // text, and what title and trekcc.org page does it load with.
 
-import { championshipDeckTitle, fetchChampionshipDeckText, findChampionshipDeck, isChampionshipDeckId } from './championshipDecks';
+import { championshipDeckId, championshipDeckTitle, fetchChampionshipDeckText, findChampionshipDeck, isChampionshipDeckId } from './championshipDecks';
 import type { ChampionshipDeck } from './championshipDecks';
-import { beginnerDeckTitle, fetchBeginnerDeckText, findBeginnerDeck, isBeginnerDeckId } from './beginnerDecks';
+import { beginnerDeckId, beginnerDeckTitle, fetchBeginnerDeckText, findBeginnerDeck, isBeginnerDeckId } from './beginnerDecks';
 import type { BeginnerDeck } from './beginnerDecks';
 
 export const isPublicDeckId = (id: string) => isChampionshipDeckId(id) || isBeginnerDeckId(id);
@@ -29,3 +29,11 @@ export function findPublicDeck(
   }
   return undefined;
 }
+
+// A public deck as the `{ id, name }` of a Drive file, the name its title (#1389), so the practice
+// table's Load deck handlers take it as they take a Drive deck.
+export const championshipPickerFile = (deck: ChampionshipDeck) =>
+  ({ id: championshipDeckId(deck), name: championshipDeckTitle(deck) });
+
+export const beginnerPickerFile = (deck: BeginnerDeck) =>
+  ({ id: beginnerDeckId(deck), name: beginnerDeckTitle(deck) });
