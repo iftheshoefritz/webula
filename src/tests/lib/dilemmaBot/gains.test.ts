@@ -9,12 +9,15 @@ import {
   personnelGainsOf,
 } from '../../../lib/dilemmaBot/gains';
 import { AFFILIATION_ABBREVIATIONS } from '../../../lib/deckPlayability';
-import { BOT_SKILLS, parseRequirementBranches } from '../../../lib/dilemmaBot/requirements';
+import { BOT_SKILLS, RequirementBranch, parseRequirementBranches } from '../../../lib/dilemmaBot/requirements';
+import { chooseStack, scoreStack } from '../../../lib/dilemmaBot/search';
+import { DilemmaId } from '../../../lib/dilemmaBot/opponentPile';
 import { BotCardRow, botAttemptOf } from '../../../lib/dilemmaBot/botAttempt';
 import {
   BotAttempt,
   botPersonnelOf,
   partnerGainEntriesOf,
+  partnerGroupOf,
   playStack,
   requirementProfileOf,
   seededRandom,
@@ -573,5 +576,129 @@ describe('the partner gains of a group (#1356)', () => {
     // A stopped Dissident is left out of the group, so Troi has no partner.
     const stopped = botAttemptOf([{ card: troi }, { card: dissident, stopped: true }], mission, []) as BotAttempt;
     expect(skillOf(requirementProfileOf(stopped.personnel[0]).skills, 'leadership')).toBe(0);
+  });
+});
+
+describe('the partner gains in a play (#1357)', () => {
+  const byName = (name: string) => ({ ...data.find((c) => c.originalName === name)!, type: 'personnel' }) as unknown as BotCardRow;
+  const troi = byName('Deanna Troi Major Rakal'); // 6/5/4; with a Dissident 7/6/5 and Intelligence, Leadership, Security
+  const dissident = byName('N\'Vek Soldier of the Underground'); // [Rom], Dissident, 4/5/6
+  const jural = byName('Jural'); // 4/6/5, no Security
+  const tuvok = byName('Tuvok Undercover'); // 6/7/7; facing with a [Maq] 7/8/8 and Intelligence
+  const maquis = byName('Cal Hudson Convincing Recruiter'); // [Maq], 4/6/6
+  // A personnel with no partner text, Integrity 4 and Cunning 4.
+  const low = data.find(
+    (c) => c.type === 'personnel' && c.integrity === '4' && c.cunning === '4' && !c.gametext.includes('present'),
+  )! as unknown as BotCardRow;
+
+  /** `rand` that returns `values` in turn, then 0. */
+  const scripted = (...values: number[]) => () => values.shift() ?? 0;
+  const branch = (skill: string): RequirementBranch[] => [
+    { skills: BOT_SKILLS.map((s) => (s === skill ? 1 : 0)), attrs: [-1, -1, -1] },
+  ];
+  const attemptOf = (cards: BotCardRow[], requirements: RequirementBranch[] = [], gameOnMission = 0): BotAttempt => ({
+    ...partnerGroupOf(cards.map((c) => botPersonnelOf(c))),
+    requirements,
+    gameOnMission,
+    choice: 'best',
+  });
+  const traceOf = (attempt: BotAttempt, stack: DilemmaId[], rand: () => number) => {
+    const lines: string[] = [];
+    const result = playStack(attempt, stack, rand, (line) => lines.push(line));
+    return { ...result, lines };
+  };
+
+  it('keeps live data only for the personnel with a gain some partners can meet', () => {
+    const { livePartners } = attemptOf([troi, dissident, jural]);
+    expect(livePartners).toEqual([expect.objectContaining({ personnel: 0, gains: [expect.objectContaining({ partners: [1], count: 1, attempting: true })] })]);
+    expect(livePartners![0].base.attrs).toEqual([6, 5, 4]);
+    // Jural needs a Gul, and nobody is one.
+    expect(attemptOf([troi, jural]).livePartners).toBeUndefined();
+  });
+
+  it('counts Troi\'s gain at the first dilemma, with the Dissident unstopped', () => {
+    const { lines } = traceOf(attemptOf([troi, dissident, jural]), ['unfortunateRoll'], scripted());
+    expect(lines.some((l) => l.includes('total Integrity 15: stops Deanna Troi'))).toBe(true);
+  });
+
+  it('checks the dilemma that stops the Dissident with the gain', () => {
+    const attempt = attemptOf([troi, dissident, low]);
+    const { lines } = traceOf(attempt, ['echoes'], scripted());
+    expect(lines.some((l) => l.includes('highest Cunning 6') && l.includes('stops'))).toBe(true);
+  });
+
+  it('drops the gain from the next dilemma on, after Echoes stops the Dissident', () => {
+    const attempt = attemptOf([troi, dissident, jural, maquis]);
+    // Echoes selects the Dissident, Jural and Cal Hudson: highest Cunning 6, even, so it stops them.
+    const { lines } = traceOf(attempt, ['echoes', 'unfortunateRoll'], scripted(0.3, 0.4, 0.6));
+    expect(lines.some((l) => l.includes('highest Cunning 6') && l.includes('stops') && !l.includes('Troi'))).toBe(true);
+    expect(lines.some((l) => l.includes('total Integrity 6: even, no effect'))).toBe(true);
+  });
+
+  it('drops the gain at the dilemma after Chula: The Game stops the Dissident', () => {
+    // The copy on the mission stops pool[1], the Dissident, before the first dilemma.
+    const { lines } = traceOf(attemptOf([troi, dissident, jural], [], 1), ['unfortunateRoll'], scripted(0.4));
+    expect(lines.some((l) => l.includes('Chula: The Game on the mission stops N\'Vek'))).toBe(true);
+    expect(lines.some((l) => l.includes('total Integrity 10: even, no effect'))).toBe(true);
+  });
+
+  it('meets a requirement only Troi\'s gain gives while the Dissident is unstopped after the last dilemma', () => {
+    const security = branch('security');
+    expect(playStack(attemptOf([troi, dissident, jural], security), [], scripted()).fail).toBe(false);
+    // The copy of Chula: The Game stops pool[1], the Dissident, then pool[2] of the rest, Jural.
+    expect(playStack(attemptOf([troi, dissident, jural], security, 1), ['game'], scripted(0.4)).fail).toBe(true);
+    expect(playStack(attemptOf([troi, dissident, jural], security, 1), ['game'], scripted(0.9)).fail).toBe(false);
+  });
+
+  it('predicts the requirements check in Pick One to Save Two with the gains of the set it tests', () => {
+    // The selection is Troi, the Dissident and Jural, in that order. Returning the Dissident ends the gain.
+    const { fail, lines } = traceOf(attemptOf([troi, dissident, jural], branch('security')), ['pickOne'], scripted());
+    expect(lines.some((l) => l.endsWith('the player returns Jural to the hand'))).toBe(true);
+    expect(fail).toBe(false);
+  });
+
+  it('drops the gain from the next dilemma on, after Pick One returns the Dissident', () => {
+    const attempt = { ...attemptOf([troi, dissident, jural]), choice: 'random' as const };
+    const { lines } = traceOf(attempt, ['pickOne', 'unfortunateRoll'], scripted(0, 0, 0, 0.5));
+    expect(lines.some((l) => l.includes('the player returns N\'Vek'))).toBe(true);
+    expect(lines.some((l) => l.includes('total Integrity 10: even, no effect'))).toBe(true);
+  });
+
+  it('drops Tuvok\'s gain in the dilemma checks when his [Maq] partner is stopped, and never counts it in the requirements', () => {
+    const lowIntegrity = botPersonnelOf(low).attrs[0];
+    const attempt = attemptOf([tuvok, maquis, low], branch('intelligence'), 1);
+    const { fail, lines } = traceOf(attempt, ['unfortunateRoll'], scripted(0.4));
+    expect(lines.some((l) => l.includes('Chula: The Game on the mission stops Cal Hudson'))).toBe(true);
+    expect(lines.some((l) => l.includes(`total Integrity ${6 + lowIntegrity}`))).toBe(true);
+    expect(fail).toBe(true);
+    expect(playStack(attemptOf([tuvok, maquis, low], branch('intelligence')), [], scripted()).fail).toBe(true);
+  });
+
+  describe('a crew with no "present with" text', () => {
+    const crew = data
+      .filter((c) => c.type === 'personnel' && !c.gametext.includes('present'))
+      .slice(0, 12) as unknown as BotCardRow[];
+    const found = data.find((c) => c.type === 'mission' && c.skills && parseRequirementBranches(c.skills))!;
+    const mission = { ...found, missiontype: found.mission };
+    const drawn: DilemmaId[] = ['echoes', 'dice', 'pickOne', 'chandra', 'trickery', 'unfortunateRoll', 'precipice', 'game', 'moveAlongHome', 'echoes', 'dice', 'pickOne'];
+
+    it('carries no partner data, and plays as a hand-built attempt of the same personnel', () => {
+      const table = botAttemptOf(crew.map((card) => ({ card })), mission, []) as BotAttempt;
+      expect(table.livePartners).toBeUndefined();
+      const hand: BotAttempt = {
+        personnel: crew.map((c) => botPersonnelOf(c, attemptedMissionOf(mission))),
+        requirements: table.requirements,
+        gameOnMission: 0,
+        choice: 'best',
+      };
+      expect(scoreStack(table, drawn.slice(0, 6), 200, 3)).toEqual(scoreStack(hand, drawn.slice(0, 6), 200, 3));
+    });
+
+    it('chooses a stack for 12 personnel within a generous time bound', () => {
+      const table = botAttemptOf(crew.map((card) => ({ card })), mission, []) as BotAttempt;
+      const start = Date.now();
+      chooseStack(table, drawn, 12, 1);
+      expect(Date.now() - start).toBeLessThan(20000);
+    });
   });
 });

@@ -40,6 +40,31 @@ export interface BotAttempt {
   /** The copies of Chula: The Game already on the mission. */
   gameOnMission: number;
   choice: PlayerChoice;
+  /**
+   * The personnel whose partner gains `playStack` settles again before each dilemma (#1357), from
+   * `partnerGroupOf`. Absent or empty: no personnel has a partner gain, and `playStack` reads
+   * `personnel` as it is.
+   */
+  livePartners?: LivePartnerProfile[];
+}
+
+/** A partner gain that some partners of the group can meet, as plain numbers for `playStack`. */
+export interface LivePartnerGain {
+  skills: number[];
+  attrs: [number, number, number];
+  /** `'attempting'`: it counts in the requirement profile too. `'facing'`: in the dilemma profile only. */
+  attempting: boolean;
+  /** The indexes into `BotAttempt.personnel` of the partners that pass its test. */
+  partners: number[];
+  count: number;
+}
+
+/** A personnel of `BotAttempt.personnel` with partner gains, and its profiles without them. */
+export interface LivePartnerProfile {
+  personnel: number;
+  base: Profile;
+  baseRequirement: Profile;
+  gains: LivePartnerGain[];
 }
 
 export interface PlayResult {
@@ -66,7 +91,7 @@ const OFFICER = SKILL_INDEX.officer;
 const LEADERSHIP = SKILL_INDEX.leadership;
 const HONOR = SKILL_INDEX.honor;
 
-interface Profile {
+export interface Profile {
   skills: number[];
   attrs: [number, number, number];
 }
@@ -171,29 +196,56 @@ export function partnerGainEntriesOf(group: ReadonlyArray<BotPersonnel>): Partne
 }
 
 /**
- * `group` with each partner gain whose count of partners is met counted in the profiles its condition
- * names, against the whole group as the attempt starts, every personnel unstopped. Call it once per
- * group: the table's `botAttemptOf` and the lab both do.
+ * The group step (#1356, #1357): `personnel` is `group` with each partner gain whose count of partners
+ * is met counted in the profiles its condition names, against the whole group as the attempt starts,
+ * every personnel unstopped. `livePartners` keeps, for `playStack`, the base profiles and the gains
+ * of each personnel with a gain that some partners can meet, so it can settle them again against the
+ * unstopped personnel before each dilemma. Call it once per group: the table's `botAttemptOf` and the
+ * lab both do.
  */
-export function withPartnerGains(group: BotPersonnel[]): BotPersonnel[] {
+export function partnerGroupOf(group: BotPersonnel[]): Pick<BotAttempt, 'personnel' | 'livePartners'> {
   const met = partnerGainEntriesOf(group).filter((e) => e.partners.length >= e.count);
-  if (!met.length) return group;
+  if (!met.length) return { personnel: group };
   const out = group.slice();
-  for (const { personnel: k, gain } of met) {
+  const live = new Map<number, LivePartnerProfile>();
+  for (const { personnel: k, gain, partners, count } of met) {
     const p = out[k];
     const requirement = requirementProfileOf(p);
     const facing: Profile = { skills: p.skills.slice(), attrs: [...p.attrs] as [number, number, number] };
     const required: Profile = { skills: requirement.skills.slice(), attrs: [...requirement.attrs] as [number, number, number] };
-    for (const profile of gain.condition === 'attempting' ? [facing, required] : [facing]) addGain(profile, gain);
+    const attempting = gain.condition === 'attempting';
+    for (const profile of attempting ? [facing, required] : [facing]) addGain(profile, gain);
     out[k] = { ...p, attrs: facing.attrs, skills: facing.skills, requirementProfile: required };
+
+    if (!live.has(k)) {
+      const base = requirementProfileOf(group[k]);
+      live.set(k, {
+        personnel: k,
+        base: { skills: group[k].skills.slice(), attrs: [...group[k].attrs] as [number, number, number] },
+        baseRequirement: { skills: base.skills.slice(), attrs: [...base.attrs] as [number, number, number] },
+        gains: [],
+      });
+    }
+    live.get(k)!.gains.push({ skills: gain.skills.slice(), attrs: [...gain.attrs] as [number, number, number], attempting, partners, count });
   }
-  return out;
+  return { personnel: out, livePartners: Array.from(live.values()) };
+}
+
+/** The personnel of `partnerGroupOf(group)`: the partner gains settled as the attempt starts. */
+export function withPartnerGains(group: BotPersonnel[]): BotPersonnel[] {
+  return partnerGroupOf(group).personnel;
 }
 
 /**
  * Play `stack` once. Before each dilemma, each copy of Chula: The Game on the mission stops one random
  * unstopped personnel: every title of the pile begins with "Chula". When every personnel is stopped, the
  * rest of the stack is not faced. `trace`, when given, gets one line for each event.
+ *
+ * With `attempt.livePartners`, the partner gains are live (#1357): after those stops, and only when a
+ * personnel was stopped or returned since, each dilemma profile with partner gains is settled again
+ * against the unstopped personnel, so a partner that a dilemma removes ends the gain from the next
+ * dilemma on. The requirements check reads the `'attempting'` gains settled against the final unstopped
+ * personnel, and `bestPickOne` against each set it tests.
  */
 export function playStack(
   attempt: BotAttempt,
@@ -201,7 +253,8 @@ export function playStack(
   rand: Rand,
   trace?: (line: string) => void,
 ): PlayResult {
-  const { personnel: group, requirements } = attempt;
+  const { requirements, livePartners } = attempt;
+  let group = attempt.personnel;
   const requirementGroup = group.map(requirementProfileOf);
   const n = group.length;
   const alive = new Uint8Array(n).fill(1);
@@ -211,10 +264,44 @@ export function playStack(
   let copies = attempt.gameOnMission;
   const name = (k: number) => group[k].name;
 
+  // The working profiles of the personnel with partner gains, allocated once per play. Every other
+  // index reads the attempt's own profiles.
+  const partnered = livePartners?.length ? livePartners : null;
+  let dirty = false;
+  if (partnered) {
+    group = group.slice();
+    for (const { personnel: k } of partnered) {
+      const p = group[k];
+      group[k] = { name: p.name, cost: p.cost, attrs: [...p.attrs] as [number, number, number], skills: p.skills.slice() };
+      const r = requirementGroup[k];
+      requirementGroup[k] = { attrs: [...r.attrs] as [number, number, number], skills: r.skills.slice() };
+    }
+    dirty = true;
+  }
+  /** Settle the dilemma profiles, or with `requirement` the requirement profiles, against `alive`. */
+  const settle = (requirement: boolean) => {
+    for (const { personnel: k, base, baseRequirement, gains } of partnered!) {
+      const from = requirement ? baseRequirement : base;
+      const to = requirement ? requirementGroup[k] : group[k];
+      for (let i = 0; i < from.skills.length; i++) to.skills[i] = from.skills[i];
+      for (let i = 0; i < 3; i++) to.attrs[i] = from.attrs[i];
+      for (const gain of gains) {
+        if (requirement && !gain.attempting) continue;
+        let present = 0;
+        for (const j of gain.partners) present += alive[j];
+        if (present < gain.count) continue;
+        for (let i = 0; i < gain.skills.length; i++) to.skills[i] += gain.skills[i];
+        for (let i = 0; i < 3; i++) to.attrs[i] += gain.attrs[i];
+      }
+    }
+  };
+  const settleRequirements = partnered ? () => settle(true) : undefined;
+
   const stop = (k: number) => {
     alive[k] = 0;
     live--;
     stopped++;
+    dirty = true;
   };
   const stopAll = (ks: number[], why: string) => {
     ks.forEach(stop);
@@ -244,6 +331,10 @@ export function playStack(
       trace?.(`  Chula: The Game on the mission stops ${name(k)}`);
     }
     if (live === 0) continue;
+    if (dirty && partnered) {
+      settle(false);
+      dirty = false;
+    }
 
     switch (id) {
       case 'game':
@@ -310,13 +401,14 @@ export function playStack(
       }
       case 'pickOne': {
         const ks = select(3);
-        const option = attempt.choice === 'random' ? Math.floor(rand() * (ks.length + 1)) - 1 : bestPickOne(requirements, requirementGroup, alive, ks);
+        const option = attempt.choice === 'random' ? Math.floor(rand() * (ks.length + 1)) - 1 : bestPickOne(requirements, requirementGroup, alive, ks, settleRequirements);
         if (option < 0) {
           stopAll(ks, `selects ${ks.map(name).join(', ')}; the player stops all`);
         } else {
           alive[ks[option]] = 0;
           live--;
           returned++;
+          dirty = true;
           trace?.(`  selects ${ks.map(name).join(', ')}; the player returns ${name(ks[option])} to the hand`);
         }
         break;
@@ -324,6 +416,7 @@ export function playStack(
     }
   }
 
+  settleRequirements?.();
   const fail = !meetsRequirements(requirements, requirementGroup, alive);
   trace?.(fail ? 'The attempt fails.' : 'The unstopped personnel meet the mission requirements.');
   return { fail, stopped, returned };
@@ -332,7 +425,8 @@ export function playStack(
 /**
  * The player's best choice without sight of the rest of the stack: return the first personnel whose
  * loss keeps the mission requirements met, read on the requirements profiles in `group`; when no
- * return does, stop all three, which is no lasting damage.
+ * return does, stop all three, which is no lasting damage. `settle`, when given, settles the partner
+ * gains of `group` against `alive` before each test.
  * Returns the index into `ks` to return, or -1 to stop all three.
  */
 function bestPickOne(
@@ -340,9 +434,11 @@ function bestPickOne(
   group: RequirementPersonnel[],
   alive: Uint8Array,
   ks: number[],
+  settle?: () => void,
 ): number {
   for (let i = 0; i < ks.length; i++) {
     alive[ks[i]] = 0;
+    settle?.();
     const ok = meetsRequirements(requirements, group, alive);
     alive[ks[i]] = 1;
     if (ok) return i;
