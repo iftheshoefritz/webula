@@ -118,8 +118,16 @@ const CardHoldContext = createContext<CardHoldCallbacks | null>(null);
 
 export const CardHoldProvider = CardHoldContext.Provider;
 
-// Stops iOS Safari's image callout and text selection on a long press, on the card and its art.
-export const NO_CALLOUT_STYLE = { WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' } as const;
+// Stops iOS Safari's image callout, text selection and native image drag on a long press, on the
+// card and its art. The drag lifts a snapshot of the whole image, drawn squashed into the box of an
+// art crop, and it plays back onto the card at the release of a hold (#1271). csstype has no
+// `WebkitUserDrag`, so the type names it here; React writes it as `-webkit-user-drag`.
+export const NO_CALLOUT_STYLE: {
+  readonly WebkitTouchCallout: 'none';
+  readonly WebkitUserSelect: 'none';
+  readonly userSelect: 'none';
+  readonly WebkitUserDrag: 'none';
+} = { WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', WebkitUserDrag: 'none' };
 
 type PointerHandler = (event: React.PointerEvent) => void;
 
@@ -308,6 +316,13 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     if (callbacksRef.current) event.preventDefault();
   };
 
+  // A native drag of an image inside the card (#1271). WebKit on iOS fires `dragstart` before it
+  // lifts the image, so cancelling it stops the lift. dnd-kit works from pointer events and never
+  // uses HTML5 drag, so this does not touch it.
+  const onDragStart = (event: React.DragEvent) => {
+    event.preventDefault();
+  };
+
   const onPointerEnter: PointerHandler = (event) => {
     if (event.pointerType !== 'mouse' || event.buttons !== 0) return;
     if (!callbacksRef.current) return;
@@ -322,5 +337,5 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
 
   const onPointerLeave: PointerHandler = () => endHover();
 
-  return { ...listeners, onPointerDown, onPointerEnter, onPointerLeave, onClickCapture, onContextMenu };
+  return { ...listeners, onPointerDown, onPointerEnter, onPointerLeave, onClickCapture, onContextMenu, onDragStart };
 }

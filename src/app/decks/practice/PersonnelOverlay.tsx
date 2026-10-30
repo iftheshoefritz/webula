@@ -415,6 +415,7 @@ export default function PersonnelOverlay({
         >
           {codes.map((code, index) => (
             <img
+              draggable={false}
               key={`${code}-${index}`}
               data-icon={code}
               src={PERSONNEL_ICON_IMAGES[code].src}
