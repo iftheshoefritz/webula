@@ -1,9 +1,10 @@
 // Issue #1298: the pure inputs of a bot attempt on the practice table.
 import { RANDOM_CHOICE, botAttemptOf, drawnDilemmaIds, stackCardIds } from '../../../lib/dilemmaBot/botAttempt';
 import { collectorsKey, DILEMMA_BY_ID, DilemmaId } from '../../../lib/dilemmaBot/opponentPile';
-import { attemptingCards } from '../../../app/decks/practice/attempt';
+import { attemptingCards, botTableFactsOf } from '../../../app/decks/practice/attempt';
 import { CardInstance, initialTableState, MissionSlot, TableState } from '../../../app/decks/practice/tableReducer';
 import { BotAttempt } from '../../../lib/dilemmaBot/simulator';
+import { BOT_SKILLS } from '../../../lib/dilemmaBot/requirements';
 
 const row = (name: string, type: string, extra: Record<string, string> = {}) => ({
   name: name.toLowerCase(),
@@ -89,6 +90,43 @@ describe('botAttemptOf (#1298)', () => {
   it('gives the random marker for requirements it cannot read', () => {
     const t = table();
     expect(botAttemptOf(attemptingCards(t, 1, 's1')!, t.missions[1].mission!.card, [])).toBe(RANDOM_CHOICE);
+  });
+});
+
+describe('the table facts of a bot attempt (#1352)', () => {
+  const DOCTOR = 'while you do not command a completed mission, this personnel gains medical and programming.';
+  const MEDICAL = BOT_SKILLS.indexOf('medical');
+
+  it('reads the completed missions, the discard pile and the events in the core, and nothing of the brig', () => {
+    const t = table();
+    const withCards: TableState = {
+      ...t,
+      missions: t.missions.map((s, i) => (i === 1 ? { ...s, completed: true } : s)),
+      discard: [inst('d1', row('Navigator', 'personnel', { skills: 'Navigation', affiliation: 'bajoran' })), inst('d2', row('Event', 'event'))],
+      core: [inst('k1', row('Event One', 'event')), inst('k2', row('Event Two', 'event')), inst('k3', row('Gear', 'equipment'))],
+      brig: [inst('b1', row('Captive', 'personnel'))],
+    };
+
+    const facts = botTableFactsOf(withCards);
+    expect(facts.completedMissions).toEqual(['s']);
+    expect(facts.discardPile.map((c) => [c.name, c.type, c.affiliation])).toEqual([
+      ['navigator', 'personnel', 'bajoran'],
+      ['event', 'event', ''],
+    ]);
+    expect(facts.discardPile[0].skills[BOT_SKILLS.indexOf('navigation')]).toBe(1);
+    expect(facts.coreEvents).toBe(2);
+    expect(botTableFactsOf(table())).toEqual({ completedMissions: [], discardPile: [], coreEvents: 0 });
+  });
+
+  it('counts a table gain while its condition holds on the table, and always without facts', () => {
+    const cards = [{ card: row('Doctor', 'personnel', { skills: 'Medical', gametext: DOCTOR }) }];
+    const medicalOf = (attempt: unknown) => (attempt as BotAttempt).personnel[0].skills[MEDICAL];
+    const t = table();
+    const done: TableState = { ...t, missions: t.missions.map((s, i) => (i === 0 ? { ...s, completed: true } : s)) };
+
+    expect(medicalOf(botAttemptOf(cards, { skills: REQUIREMENTS }, [], botTableFactsOf(t)))).toBe(2);
+    expect(medicalOf(botAttemptOf(cards, { skills: REQUIREMENTS }, [], botTableFactsOf(done)))).toBe(1);
+    expect(medicalOf(botAttemptOf(cards, { skills: REQUIREMENTS }, []))).toBe(2);
   });
 });
 

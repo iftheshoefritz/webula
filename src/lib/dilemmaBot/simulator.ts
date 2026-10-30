@@ -1,5 +1,14 @@
 import { DilemmaId } from './opponentPile';
-import { AttemptedMission, PartnerTraits, PersonnelGain, gainHoldsAt, passesPartnerTest, personnelGainsOf } from './gains';
+import {
+  AttemptedMission,
+  BotTableFacts,
+  PartnerTraits,
+  PersonnelGain,
+  gainHoldsAt,
+  passesPartnerTest,
+  personnelGainsOf,
+  tableConditionHolds,
+} from './gains';
 import { BOT_SKILLS, RequirementBranch, RequirementPersonnel, SKILL_INDEX, meetsRequirements } from './requirements';
 
 // The simulator of the dilemma bot (#1282, #1287). It plays one ordered dilemma stack against the
@@ -108,40 +117,64 @@ const listOf = (value: string | number | undefined, separator: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+/** The fields of a card row that `partnerTraitsOf` reads. */
+export interface TraitsRow {
+  name: string;
+  skills?: string | number;
+  affiliation?: string | number;
+  species?: string | number;
+  keywords?: string | number;
+  icons?: string | number;
+}
+
+/** The levels of the printed skills of a card row, indexed as `BOT_SKILLS`. */
+function baseSkillsOf(text: string | number | undefined): number[] {
+  const skills = new Array(BOT_SKILLS.length).fill(0);
+  const pattern = /(\d+\s+)?([a-z]+)/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(String(text ?? '').toLowerCase())) !== null) {
+    const i = SKILL_INDEX[match[2]];
+    if (i !== undefined) skills[i] += match[1] ? parseInt(match[1], 10) : 1;
+  }
+  return skills;
+}
+
+/** The printed traits of a card row that a `PartnerTest` reads: a partner's, or a discard pile card's. */
+export function partnerTraitsOf(card: TraitsRow, skills: number[] = baseSkillsOf(card.skills)): PartnerTraits {
+  return {
+    name: card.name.toLowerCase(),
+    affiliation: String(card.affiliation ?? '').toLowerCase(),
+    species: listOf(card.species, '/'),
+    keywords: listOf(card.keywords, '.'),
+    icons: String(card.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [],
+    skills,
+  };
+}
+
 /**
  * A personnel of the card data (lowercased by `parseCardData`) as the bot reads it, attempting
  * `mission` (`attemptedMissionOf`). With no mission, only the gains with no mission condition count.
  * A gain that needs a partner is kept in `partnerGains`, not counted: only `withPartnerGains`, which
- * sees the group, counts it.
+ * sees the group, counts it. A gain with a table condition counts while the condition holds on the
+ * table of `facts` (#1352); with no facts, the dilemma lab's case, it always counts.
  */
-export function botPersonnelOf(card: {
+export function botPersonnelOf(card: TraitsRow & {
   originalName?: string;
-  name: string;
   cost: string | number;
   integrity: string | number;
   cunning: string | number;
   strength: string | number;
   skills: string | number;
   gametext?: string | number;
-  affiliation?: string | number;
-  species?: string | number;
-  keywords?: string | number;
-  icons?: string | number;
-}, mission?: AttemptedMission): BotPersonnel {
-  const skills = new Array(BOT_SKILLS.length).fill(0);
-  const pattern = /(\d+\s+)?([a-z]+)/g;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(String(card.skills).toLowerCase())) !== null) {
-    const i = SKILL_INDEX[match[2]];
-    if (i !== undefined) skills[i] += match[1] ? parseInt(match[1], 10) : 1;
-  }
+}, mission?: AttemptedMission, facts?: BotTableFacts): BotPersonnel {
+  const skills = baseSkillsOf(card.skills);
   const attrs: [number, number, number] = [Number(card.integrity) || 0, Number(card.cunning) || 0, Number(card.strength) || 0];
   // Both profiles are built here, once, never per play: `chooseStack` runs up to 500 × 500 plays.
   const facing = { skills: skills.slice(), attrs: [...attrs] as [number, number, number] };
   const requirement = { skills: skills.slice(), attrs: [...attrs] as [number, number, number] };
   const partnerGains: PersonnelGain[] = [];
   for (const gain of personnelGainsOf(card)) {
-    if (!gainHoldsAt(gain, mission)) continue;
+    if (!gainHoldsAt(gain, mission) || (gain.table && !tableConditionHolds(gain.table, facts))) continue;
     if (gain.partner) {
       partnerGains.push(gain);
       continue;
@@ -154,14 +187,7 @@ export function botPersonnelOf(card: {
     attrs: facing.attrs,
     skills: facing.skills,
     requirementProfile: requirement,
-    traits: {
-      name: card.name.toLowerCase(),
-      affiliation: String(card.affiliation ?? '').toLowerCase(),
-      species: listOf(card.species, '/'),
-      keywords: listOf(card.keywords, '.'),
-      icons: String(card.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [],
-      skills,
-    },
+    traits: partnerTraitsOf(card, skills),
     ...(partnerGains.length ? { partnerGains } : {}),
   };
 }

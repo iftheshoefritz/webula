@@ -1,7 +1,7 @@
 import { dilemmaIdOf } from './chulaPile';
 import { DilemmaId } from './opponentPile';
 import { parseRequirementBranches } from './requirements';
-import { AttemptedMission, attemptedMissionOf } from './gains';
+import { AttemptedMission, BotTableFacts, attemptedMissionOf } from './gains';
 import { BotAttempt, botPersonnelOf, partnerGroupOf } from './simulator';
 
 // The pure inputs of a bot attempt on the practice table (#1298). They read card rows and flags, not
@@ -22,13 +22,15 @@ export const RANDOM_CHOICE = 'random';
 /**
  * The `BotAttempt` of an attempt on the table: the unstopped personnel of `cards` (equipment and every
  * other type left out), each with the gains it has at `mission`, the requirements of `mission`, and
- * the copies of Chula: The Game in `placedOn`, the rows placed on the mission. The partner gains are
+ * the copies of Chula: The Game in `placedOn`, the rows placed on the mission. A gain with a table
+ * condition reads `facts`, the player's table (#1352); with none, it counts. The partner gains are
  * settled against the group as the attempt starts, and kept live for `playStack` (`partnerGroupOf`). `RANDOM_CHOICE` when the requirements cannot be read.
  */
 export function botAttemptOf(
   cards: ReadonlyArray<BotAttemptingCard>,
   mission: { skills?: string | number } & AttemptedMission,
-  placedOn: ReadonlyArray<{ collectorsinfo?: string } | null | undefined>
+  placedOn: ReadonlyArray<{ collectorsinfo?: string } | null | undefined>,
+  facts?: BotTableFacts
 ): BotAttempt | typeof RANDOM_CHOICE {
   const requirements = parseRequirementBranches(String(mission.skills ?? ''));
   if (!requirements) return RANDOM_CHOICE;
@@ -37,7 +39,7 @@ export function botAttemptOf(
     ...partnerGroupOf(
       cards
         .filter((c): c is { card: BotCardRow; stopped?: boolean } => c.card?.type === 'personnel' && !c.stopped)
-        .map((c) => botPersonnelOf(c.card, attempted)),
+        .map((c) => botPersonnelOf(c.card, attempted, facts)),
     ),
     requirements,
     gameOnMission: placedOn.filter((row) => dilemmaIdOf(row) === 'game').length,

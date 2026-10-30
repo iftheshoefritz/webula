@@ -13,6 +13,8 @@ import {
   TableState,
 } from './tableReducer';
 import { cardDisplayName } from '../../../lib/cardCount';
+import { BotTableFacts } from '../../../lib/dilemmaBot/gains';
+import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
 export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 'crew'; shipId: string };
@@ -42,6 +44,17 @@ export function attemptingCards(table: TableState, missionIndex: number, shipId?
   if (slot?.mission?.card?.missiontype !== 's') return null;
   const ship = slot.ships.find((s) => s.id === shipId);
   return ship ? ship.crew ?? [] : null;
+}
+
+// What the dilemma bot's table conditions read of the table as a bot attempt starts (#1352): the type
+// of each completed mission, the traits and the type of each discard pile card, and the number of
+// events in the core. A card with no row counts nowhere.
+export function botTableFactsOf(table: TableState): BotTableFacts {
+  return {
+    completedMissions: table.missions.flatMap((s) => (s.completed && s.mission?.card ? [String(s.mission.card.missiontype)] : [])),
+    discardPile: table.discard.flatMap((c) => (c.card ? [{ ...partnerTraitsOf(c.card), type: String(c.card.type) }] : [])),
+    coreEvents: table.core.filter((c) => c.card?.type === 'event').length,
+  };
 }
 
 // A destination of the attempt row's Move to… list (#1341): the `move` a tap dispatches for each

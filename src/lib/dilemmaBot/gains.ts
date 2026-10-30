@@ -5,7 +5,8 @@ import { BOT_SKILLS, SKILL_INDEX } from './requirements';
 // The skills and attributes a personnel gains from its own game text (#1349, #1350, parts 1 and 2 of
 // #1340): "while this personnel is facing a dilemma, …" and "while this personnel is attempting a
 // mission, …", each perhaps narrowed to a kind of mission, and "while this personnel is present with
-// <partner>, …" (#1356, part 3a). The gain is plain data: it crosses into the search Web Worker with
+// <partner>, …" (#1356, part 3a), and the heads that read the player's own table: completed missions,
+// the discard pile and the core (#1352, part 4). The gain is plain data: it crosses into the search Web Worker with
 // the `BotAttempt`.
 
 /**
@@ -51,6 +52,8 @@ export interface PartnerTest {
   skills?: number[];
   /** A prefix of the partner's lowercased name, from "{odo}". */
   title?: string;
+  /** The card is a personnel: "personnel" in a test of the discard pile, which holds every type. */
+  personnel?: boolean;
 }
 
 /** "present with <partner>": `count` different other personnel, each passing one of `anyOf`. */
@@ -69,6 +72,35 @@ export interface PartnerTraits {
   icons: string[];
   /** The base skills, indexed as `BOT_SKILLS`. */
   skills: number[];
+  /** The card type, for a card of the discard pile (`BotTableFacts`); a `personnel` test reads it. */
+  type?: string;
+}
+
+/**
+ * A condition of a gain on the player's own table (#1352): the number of completed missions (perhaps
+ * of one `missiontype`), of the discard pile's cards that pass one of `anyOf`, or of the events in the
+ * core, is at least `min` and at most `max`.
+ */
+export interface TableCondition {
+  count: 'completedMissions' | 'discardPile' | 'coreEvents';
+  missiontype?: 'p' | 's';
+  /** `'discardPile'`: the tests a counted card passes one of. `[{}]` counts every card. */
+  anyOf?: PartnerTest[];
+  min?: number;
+  max?: number;
+}
+
+/**
+ * What the table conditions read of the player's table as an attempt starts (#1352), built by the
+ * practice table. The dilemma lab has no table and passes none: every table condition then holds.
+ */
+export interface BotTableFacts {
+  /** The `missiontype` of each completed mission. */
+  completedMissions: string[];
+  /** The printed traits and the type of each card of the discard pile. */
+  discardPile: PartnerTraits[];
+  /** The number of events in the core. */
+  coreEvents: number;
 }
 
 export interface PersonnelGain {
@@ -77,6 +109,8 @@ export interface PersonnelGain {
   mission?: MissionCondition;
   /** Absent: the gain needs no partner. Present: the group step `withPartnerGains` settles it. */
   partner?: PartnerRequirement;
+  /** Absent: the gain needs nothing of the table. Present: it holds while `tableConditionHolds`. */
+  table?: TableCondition;
   /** The levels gained of each skill, indexed as `BOT_SKILLS`. */
   skills: number[];
   /** The change of Integrity, Cunning, Strength. */
@@ -157,11 +191,15 @@ export const PARTNER_TRAIT_WORDS = new Set([
   'vulcan',
 ]);
 
-const COUNT_WORDS: Record<string, number> = { a: 1, an: 1, your: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+const COUNT_WORDS: Record<string, number> = { a: 1, an: 1, your: 1, two: 2, three: 3, four: 4, five: 5, six: 6, ten: 10 };
 
-/** One alternative of a partner, such as "three [pa] personnel" or "an honor klingon". */
-function parsePartnerTest(text: string): { test: PartnerTest; count: number } | null {
-  const words = text.trim().split(/\s+/);
+/**
+ * One alternative of a partner, such as "three [pa] personnel" or "an honor klingon". `inPile`: a test
+ * of the discard pile's cards, where "personnel" is a test of the type, "cards" means any card, and
+ * "ten or more" is a count.
+ */
+function parsePartnerTest(text: string, inPile = false): { test: PartnerTest; count: number } | null {
+  const words = (inPile ? text.trim().replace(/^(six|ten) or more /, '$1 ') : text.trim()).split(/\s+/);
   const count = COUNT_WORDS[words[0]];
   if (count !== undefined) words.shift();
   const test: PartnerTest = {};
@@ -169,7 +207,8 @@ function parsePartnerTest(text: string): { test: PartnerTest; count: number } | 
   const traits: string[] = [];
   const skills: number[] = [];
   for (const word of words) {
-    if (word === 'personnel') continue;
+    if (inPile && word === 'personnel') test.personnel = true;
+    if (word === 'personnel' || (inPile && /^cards?$/.test(word))) continue;
     const negated = /^non-(\[[a-z]+\])$/.exec(word);
     if (negated) {
       const affiliation = AFFILIATION_ABBREVIATIONS[negated[1]];
@@ -204,15 +243,15 @@ function parsePartnerTest(text: string): { test: PartnerTest; count: number } | 
   if (icons.length) test.icons = icons;
   if (traits.length) test.traits = traits;
   if (skills.length) test.skills = skills;
-  return Object.keys(test).length ? { test, count: count ?? 1 } : null;
+  return inPile || Object.keys(test).length ? { test, count: count ?? 1 } : null;
 }
 
 /**
  * The partner of "present with <partner>" or "you have <partner> present": one or more alternatives
  * joined by "or", each with the same count. Null for a partner the bot cannot read.
  */
-export function parsePartner(text: string): PartnerRequirement | null {
-  const alternatives = text.split(/\s+or\s+/).map(parsePartnerTest);
+export function parsePartner(text: string, inPile = false): PartnerRequirement | null {
+  const alternatives = text.split(/\s+or\s+(?!more\b)/).map((t) => parsePartnerTest(t, inPile));
   if (alternatives.some((a) => !a)) return null;
   const count = alternatives[0]!.count;
   if (alternatives.some((a) => a!.count !== count)) return null;
@@ -227,7 +266,8 @@ export function passesPartnerTest(test: PartnerTest, traits: PartnerTraits): boo
     (!test.icons || test.icons.every((icon) => traits.icons.includes(icon))) &&
     (!test.traits || test.traits.every((word) => traits.keywords.includes(word) || traits.species.includes(word))) &&
     (!test.skills || test.skills.every((i) => traits.skills[i] > 0)) &&
-    (!test.title || traits.name === test.title || traits.name.startsWith(`${test.title} `))
+    (!test.title || traits.name === test.title || traits.name.startsWith(`${test.title} `)) &&
+    (!test.personnel || traits.type === 'personnel')
   );
 }
 
@@ -239,6 +279,52 @@ const WHILE = new RegExp(
   String.raw`(?:^|[.:]\s*)while (?:this personnel is )?(facing a dilemma and you have ([^,.]+?) present,|present with ([^,.]+),|facing a dilemma(?: at an? ${MISSION})?|attempting an? ${MISSION}),? ([^.]*)`,
   'g',
 );
+
+// Any "while <head>, <clause>": `tableConditionOf` keeps the heads that read the player's own table.
+const TABLE_WHILE = /(?:^|[.:]\s*)while ([^,.]+), ([^.]*)/g;
+
+const COMPLETED_COUNTS: Record<string, Pick<TableCondition, 'min' | 'max'>> = {
+  a: { min: 1 },
+  an: { min: 1 },
+  two: { min: 2 },
+  'fewer than two': { max: 1 },
+};
+
+/**
+ * The table condition of a "while" head (#1352), or null for a head that does not read the player's
+ * own table, or reads it in a way the bot does not know: "you (do not) command a completed (space)
+ * mission", "two completed space missions", "fewer than two completed missions", "you have <cards> in
+ * your discard pile", "<cards> is/are in your discard pile", "you command an event in your core". A
+ * head that compares with an opponent ("than each of your opponents", "each player") is not one.
+ */
+function tableConditionOf(head: string): TableCondition | null {
+  const completed = /^you (do not )?command (.+?) completed (?:(space|planet) )?missions?$/.exec(head);
+  if (completed) {
+    const counts = COMPLETED_COUNTS[completed[2]];
+    if (!counts || (completed[1] && counts.min !== 1)) return null;
+    return {
+      count: 'completedMissions',
+      ...(completed[3] ? { missiontype: completed[3] === 'space' ? 's' : 'p' } : {}),
+      ...(completed[1] ? { max: 0 } : counts),
+    };
+  }
+  if (head === 'you command an event in your core') return { count: 'coreEvents', min: 1 };
+  const discard = /^(?:you have )?(.+?) (?:is |are )?in your discard pile$/.exec(head);
+  const cards = discard && parsePartner(discard[1], true);
+  return cards ? { count: 'discardPile', anyOf: cards.anyOf, min: cards.count } : null;
+}
+
+/** Whether `condition` holds on the table of `facts`. With no facts, the dilemma lab's case, it holds. */
+export function tableConditionHolds(condition: TableCondition, facts?: BotTableFacts): boolean {
+  if (!facts) return true;
+  const n =
+    condition.count === 'completedMissions'
+      ? facts.completedMissions.filter((t) => !condition.missiontype || t === condition.missiontype).length
+      : condition.count === 'discardPile'
+        ? facts.discardPile.filter((card) => condition.anyOf!.some((test) => passesPartnerTest(test, card))).length
+        : facts.coreEvents;
+  return (condition.min === undefined || n >= condition.min) && (condition.max === undefined || n <= condition.max);
+}
 
 /** The mission condition of a "while" head such as "attempting a [dq] mission". */
 function missionConditionOf(head: string): MissionCondition | undefined {
@@ -258,7 +344,8 @@ function missionConditionOf(head: string): MissionCondition | undefined {
  * qualifier ("that requires …", "with an event on it", "region: …", "[kli]") gives none: the clause
  * after it does not begin with its subject. Morak's "[dq] mission he gains …" has no comma, so the
  * comma is optional. "While … present with <partner>, …" is `'attempting'`, and "while … facing a
- * dilemma and you have <partner> present, …" is `'facing'`, each with its `PartnerRequirement`.
+ * dilemma and you have <partner> present, …" is `'facing'`, each with its `PartnerRequirement`. A head
+ * on the player's own table (`tableConditionOf`) gives an `'attempting'` gain with its `TableCondition`.
  */
 export function parseGains(gametext: string): PersonnelGain[] {
   const gains: PersonnelGain[] = [];
@@ -270,6 +357,12 @@ export function parseGains(gametext: string): PersonnelGain[] {
     const condition = head.startsWith('facing') ? 'facing' : 'attempting';
     const gain = parseGainClause(match[4], condition, partner ? undefined : missionConditionOf(head), partner);
     if (gain) gains.push(gain);
+  }
+  // A table gain is `'attempting'`: nothing in a play changes the table, so it holds for the whole attempt.
+  for (const match of gametext.matchAll(TABLE_WHILE)) {
+    const table = tableConditionOf(match[1]);
+    const gain = table && parseGainClause(match[2], 'attempting');
+    if (gain) gains.push({ ...gain, table });
   }
   return gains;
 }
