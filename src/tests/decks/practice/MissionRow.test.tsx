@@ -7,6 +7,7 @@ import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import MissionRow, {
   PLACED_ON_STRIP_MAX_VISIBLE,
+  hasApMissionLayout,
   missionSlotWidth,
   missionSpanLayout,
   placedOnStripLayout,
@@ -20,6 +21,7 @@ import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableRedu
 import { LandedZoneProvider } from '../../../app/decks/practice/LandedZoneContext';
 import eventIcon from '../../../../public/icons/icon_event.gif';
 import dualIcon from '../../../../public/icons/icon_dual.gif';
+import alphaQuadrantIcon from '../../../../public/icons/icon_quadrant_alpha.gif';
 
 const card = (id: string, name: string): CardInstance => ({
   id,
@@ -959,6 +961,90 @@ describe('MissionRow: the span on the cropped mission card (#1133)', () => {
   it('does not darken the span of a mission that is not completed', () => {
     renderRow(withSpan('2'));
     expect(screen.getByTestId('mission-span-0')).not.toHaveClass(COMPLETED_IMAGE_CLASSNAME);
+  });
+});
+
+// #1272: an AP mission prints its row of the quadrant icon, the span and the point box below the
+// crop, so the crop draws the whole row from the card data.
+describe('MissionRow: the row of an AP mission on the crop (#1272)', () => {
+  // Argus Array, 60AP001, as `useDataFetching` lowercases it.
+  const argusArray: MissionSlot = {
+    ...emptySlot(),
+    mission: {
+      id: 'mission-0',
+      card: {
+        name: 'argus array',
+        originalName: 'Argus Array',
+        imagefile: 'stve-en60001',
+        type: 'mission',
+        rarity: 'ap',
+        collectorsinfo: '60ap001',
+        quadrant: 'a',
+        span: '3',
+        points: '30',
+      },
+      face: 'up',
+    },
+  };
+  const moabIV: MissionSlot = {
+    ...emptySlot(),
+    mission: {
+      id: 'mission-0',
+      card: { name: 'moab iv', originalName: 'Moab IV', imagefile: 'x', type: 'mission', rarity: 'r', quadrant: 'a', span: '2', points: '35' },
+      face: 'up',
+    },
+  };
+  const renderRow = (slot: MissionSlot, desktop = false) =>
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+        desktop={desktop}
+      />
+    );
+
+  it('draws the quadrant icon, the span and the point box of an AP mission', () => {
+    renderRow(argusArray);
+    const row = screen.getByTestId('mission-span-0');
+    expect(row).toHaveAccessibleName('Alpha Quadrant, Span 3, 30 points');
+    expect(row).toContainElement(screen.getByTestId('mission-span-0-quadrant'));
+    expect(screen.getByTestId('mission-span-0-quadrant').querySelector('img')).toHaveAttribute('src', alphaQuadrantIcon.src);
+    expect(screen.getByTestId('mission-span-0-points')).toHaveTextContent('30');
+    expect(screen.getByTestId('mission-span-0-numeral')).toHaveTextContent('3');
+    expect(row.querySelector('[data-zone], [data-card-id]')).toBeNull();
+  });
+
+  it('runs the rail and the plate of an AP mission uncut', () => {
+    renderRow(argusArray);
+    expect(screen.getByTestId('mission-span-0-rail').style.maskImage).toBe('');
+    expect(screen.getByTestId('mission-span-0-plate').style.maskImage).toBe('');
+  });
+
+  it('draws no quadrant icon or point box on a regular mission', () => {
+    renderRow(moabIV);
+    expect(screen.getByTestId('mission-span-0')).toHaveAccessibleName('Span 2');
+    expect(screen.queryByTestId('mission-span-0-quadrant')).toBeNull();
+    expect(screen.queryByTestId('mission-span-0-points')).toBeNull();
+  });
+
+  it('draws nothing over an AP mission on a desktop', () => {
+    renderRow(argusArray, true);
+    expect(screen.queryByTestId('mission-span-0')).toBeNull();
+    expect(screen.queryByTestId('mission-span-0-quadrant')).toBeNull();
+    expect(screen.queryByTestId('mission-span-0-points')).toBeNull();
+  });
+});
+
+describe('hasApMissionLayout (#1272)', () => {
+  it('is true for an AP mission only', () => {
+    expect(hasApMissionLayout({ type: 'mission', rarity: 'ap' })).toBe(true);
+    expect(hasApMissionLayout({ type: 'Mission', rarity: 'AP' })).toBe(true);
+    expect(hasApMissionLayout({ type: 'personnel', rarity: 'ap' })).toBe(false);
+    expect(hasApMissionLayout({ type: 'mission', rarity: 'r' })).toBe(false);
+    expect(hasApMissionLayout(undefined)).toBe(false);
   });
 });
 
