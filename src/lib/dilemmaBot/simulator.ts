@@ -1,5 +1,5 @@
 import { DilemmaId } from './opponentPile';
-import { AttemptedMission, gainHoldsAt, personnelGainsOf } from './gains';
+import { AttemptedMission, PartnerTraits, PersonnelGain, gainHoldsAt, passesPartnerTest, personnelGainsOf } from './gains';
 import { BOT_SKILLS, RequirementBranch, RequirementPersonnel, SKILL_INDEX, meetsRequirements } from './requirements';
 
 // The simulator of the dilemma bot (#1282, #1287). It plays one ordered dilemma stack against the
@@ -20,6 +20,10 @@ export interface BotPersonnel {
   skills: number[];
   /** The requirements profile. Absent means the same as the dilemma profile. */
   requirementProfile?: RequirementPersonnel;
+  /** The printed traits a partner test of another personnel reads (#1356). */
+  traits?: PartnerTraits;
+  /** The gains that need a partner and hold at the attempted mission: `withPartnerGains` settles them. */
+  partnerGains?: PersonnelGain[];
 }
 
 /** The profile of `p` that the mission-requirements check reads. */
@@ -62,9 +66,28 @@ const OFFICER = SKILL_INDEX.officer;
 const LEADERSHIP = SKILL_INDEX.leadership;
 const HONOR = SKILL_INDEX.honor;
 
+interface Profile {
+  skills: number[];
+  attrs: [number, number, number];
+}
+
+function addGain(profile: Profile, gain: PersonnelGain) {
+  gain.skills.forEach((level, i) => (profile.skills[i] += level));
+  gain.attrs.forEach((delta, i) => (profile.attrs[i] += delta));
+}
+
+const listOf = (value: string | number | undefined, separator: string) =>
+  String(value ?? '')
+    .toLowerCase()
+    .split(separator)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 /**
  * A personnel of the card data (lowercased by `parseCardData`) as the bot reads it, attempting
  * `mission` (`attemptedMissionOf`). With no mission, only the gains with no mission condition count.
+ * A gain that needs a partner is kept in `partnerGains`, not counted: only `withPartnerGains`, which
+ * sees the group, counts it.
  */
 export function botPersonnelOf(card: {
   originalName?: string;
@@ -75,6 +98,10 @@ export function botPersonnelOf(card: {
   strength: string | number;
   skills: string | number;
   gametext?: string | number;
+  affiliation?: string | number;
+  species?: string | number;
+  keywords?: string | number;
+  icons?: string | number;
 }, mission?: AttemptedMission): BotPersonnel {
   const skills = new Array(BOT_SKILLS.length).fill(0);
   const pattern = /(\d+\s+)?([a-z]+)/g;
@@ -87,12 +114,14 @@ export function botPersonnelOf(card: {
   // Both profiles are built here, once, never per play: `chooseStack` runs up to 500 × 500 plays.
   const facing = { skills: skills.slice(), attrs: [...attrs] as [number, number, number] };
   const requirement = { skills: skills.slice(), attrs: [...attrs] as [number, number, number] };
+  const partnerGains: PersonnelGain[] = [];
   for (const gain of personnelGainsOf(card)) {
     if (!gainHoldsAt(gain, mission)) continue;
-    for (const profile of gain.condition === 'attempting' ? [facing, requirement] : [facing]) {
-      gain.skills.forEach((level, i) => (profile.skills[i] += level));
-      gain.attrs.forEach((delta, i) => (profile.attrs[i] += delta));
+    if (gain.partner) {
+      partnerGains.push(gain);
+      continue;
     }
+    for (const profile of gain.condition === 'attempting' ? [facing, requirement] : [facing]) addGain(profile, gain);
   }
   return {
     name: card.originalName ?? card.name,
@@ -100,7 +129,65 @@ export function botPersonnelOf(card: {
     attrs: facing.attrs,
     skills: facing.skills,
     requirementProfile: requirement,
+    traits: {
+      name: card.name.toLowerCase(),
+      affiliation: String(card.affiliation ?? '').toLowerCase(),
+      species: listOf(card.species, '/'),
+      keywords: listOf(card.keywords, '.'),
+      icons: String(card.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [],
+      skills,
+    },
+    ...(partnerGains.length ? { partnerGains } : {}),
   };
+}
+
+/** A gain of `group[personnel]` that needs `count` partners, and the other members that pass its test. */
+export interface PartnerGainEntry {
+  personnel: number;
+  gain: PersonnelGain;
+  /** The indexes of the other members of the group that pass one of the gain's partner tests. */
+  partners: number[];
+  count: number;
+}
+
+/**
+ * The group step (#1356): each partner gain of each personnel of `group`, with the indexes of the
+ * **other** members that pass its test. A personnel is never its own partner. All the string matching
+ * of a partner test happens here, once per group, never in `playStack`.
+ */
+export function partnerGainEntriesOf(group: ReadonlyArray<BotPersonnel>): PartnerGainEntry[] {
+  const entries: PartnerGainEntry[] = [];
+  group.forEach((p, k) => {
+    for (const gain of p.partnerGains ?? []) {
+      const partner = gain.partner!;
+      const partners: number[] = [];
+      group.forEach((other, j) => {
+        if (j !== k && other.traits && partner.anyOf.some((test) => passesPartnerTest(test, other.traits!))) partners.push(j);
+      });
+      entries.push({ personnel: k, gain, partners, count: partner.count });
+    }
+  });
+  return entries;
+}
+
+/**
+ * `group` with each partner gain whose count of partners is met counted in the profiles its condition
+ * names, against the whole group as the attempt starts, every personnel unstopped. Call it once per
+ * group: the table's `botAttemptOf` and the lab both do.
+ */
+export function withPartnerGains(group: BotPersonnel[]): BotPersonnel[] {
+  const met = partnerGainEntriesOf(group).filter((e) => e.partners.length >= e.count);
+  if (!met.length) return group;
+  const out = group.slice();
+  for (const { personnel: k, gain } of met) {
+    const p = out[k];
+    const requirement = requirementProfileOf(p);
+    const facing: Profile = { skills: p.skills.slice(), attrs: [...p.attrs] as [number, number, number] };
+    const required: Profile = { skills: requirement.skills.slice(), attrs: [...requirement.attrs] as [number, number, number] };
+    for (const profile of gain.condition === 'attempting' ? [facing, required] : [facing]) addGain(profile, gain);
+    out[k] = { ...p, attrs: facing.attrs, skills: facing.skills, requirementProfile: required };
+  }
+  return out;
 }
 
 /**
