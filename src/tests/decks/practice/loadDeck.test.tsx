@@ -162,7 +162,8 @@ describe('Load deck in the practice game menu (#780)', () => {
     await openPicker();
 
     const signInButton = screen.getByRole('button', { name: /sign in with google to load drive decks/i });
-    expect(fetchMock).not.toHaveBeenCalled();
+    // The folder indexes load signed out too (#1389), but no Drive list.
+    expect(fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/drive'))).toBe(false);
 
     fireEvent.click(signInButton);
     expect(signIn).toHaveBeenCalledWith(
