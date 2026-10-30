@@ -1,6 +1,6 @@
 import { Providers } from './providers'
 import '../styles/globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import ConsentBanner from '../components/ConsentBanner';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -20,11 +20,18 @@ export const metadata: Metadata = {
   },
 };
 
+// Issue #1383: the viewport tag comes from this export, not from a hand-written `<meta>`, so a
+// route can override it (`/decks/practice` adds `viewportFit: 'cover'`) and Next swaps the tag on a
+// client-side navigation. Each page then has exactly one viewport tag.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
+
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <html lang="en">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>

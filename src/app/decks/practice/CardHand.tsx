@@ -34,7 +34,7 @@ import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { HAND_ARC_ATTRIBUTE, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PILE_CARD_BORDER_STYLE, cardBorderStyle } from './TableCard';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
-import { ARC_TOUCH_OPTIONS, handArcLayout } from './handArc';
+import { ARC_TOUCH_OPTIONS, arcTouchMinVisible, handArcLayout } from './handArc';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -168,6 +168,7 @@ export default function CardHand({
   deckLabel = 'draw deck',
   arcBetween,
   finePointer = true,
+  safeAreaBottom = 0,
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -219,9 +220,12 @@ export default function CardHand({
   arcBetween?: { left: string; right: string };
   // Whether the pointer is fine (`useFinePointer`). With a coarse pointer the arc sits
   // `ARC_TOUCH_LOWER` of its visible height lower (#1149), and it is flatter, with every card's lowest
-  // top corner at least `ARC_TOUCH_MIN_VISIBLE` above the bottom edge (#1380). Left out, the arc
-  // stays as on a desktop.
+  // top corner at least `arcTouchMinVisible(safeAreaBottom)` above the bottom edge (#1380, #1383):
+  // 64 px at an inset of 0. Left out, the arc stays as on a desktop.
   finePointer?: boolean;
+  // The bottom safe-area inset (`useSafeAreaInsets`, #1383), the home indicator's. It raises the
+  // touch arc's floor; the arc's `bottom` stays the bottom of the screen. Defaults to 0.
+  safeAreaBottom?: number;
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
   const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
@@ -250,7 +254,7 @@ export default function CardHand({
           cardWidth: openCardWidth,
           maxStep: openMaxOffset(openCardWidth),
           ...arcBounds,
-          ...(finePointer ? {} : ARC_TOUCH_OPTIONS),
+          ...(finePointer ? {} : { ...ARC_TOUCH_OPTIONS, minVisible: arcTouchMinVisible(safeAreaBottom) }),
         })
       : null;
 

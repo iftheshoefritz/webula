@@ -129,6 +129,7 @@ import { usePanelBottomInset } from './panelBottomInset';
 import { useToolbarScrollRoom } from './toolbarScrollRoom';
 import { viewerCardSize } from './viewerCardSize';
 import { useFinePointer } from './useFinePointer';
+import { useSafeAreaInsets } from './useSafeAreaInsets';
 import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
@@ -1612,7 +1613,11 @@ function PracticeDrawContent() {
   // showing/hiding, `fixed inset-0`) measures more room than the baseline they were tuned
   // against. `viewerCardWidth`/`viewerCardHeight` feed every `CardListPanel` and `CardHand` below; `MissionRow`
   // derives its own ship-row sizes from the same `scale`.
-  const scale = useTableScale(gameLayer);
+  // Issue #1383: the practice route draws under the home indicator (`viewport-fit=cover`), so the
+  // bottom row rises by the bottom safe-area inset, and the table scale measures the safe height.
+  // Every inset is 0 off an iPhone.
+  const safeArea = useSafeAreaInsets();
+  const scale = useTableScale(gameLayer, safeArea.bottom);
   const fullscreen = useFullscreen(gameLayer);
   // #1068: keeps room to scroll the browser's toolbar away again after it comes back. In an app
   // added to the home screen it pins the document's scroll at 0 instead (#1155).
@@ -2996,7 +3001,10 @@ function PracticeDrawContent() {
             <LandedZoneProvider value={landedZones}>
             <CardHoldProvider value={cardHold}>
             <PlaceOnHoldProvider value={placeOnHold}>
-            <div className="flex flex-col flex-1 p-4">
+            {/* The bottom padding grows by the bottom safe-area inset (#1383), so the bottom row
+                clears the home indicator and the background stays full-bleed under it. The scale
+                hooks read this padding from the computed style. */}
+            <div className="flex flex-col flex-1 p-4" style={safeArea.bottom > 0 ? { paddingBottom: `calc(1rem + ${safeArea.bottom}px)` } : undefined}>
               {/* The attempt layout (#1164) in place of the mission row while an attempt is in
                   progress. Only one of the two is mounted, so each droppable is mounted once: the
                   parked attempt layout of #1342 mounts only the row, with its droppable disabled. */}
@@ -3224,6 +3232,7 @@ function PracticeDrawContent() {
                       bottomInset={panelBottom}
                       arcBetween={HAND_ARC_BETWEEN}
                       finePointer={finePointer}
+                      safeAreaBottom={safeArea.bottom}
                     />
                   </div>
                 </div>
@@ -3289,6 +3298,7 @@ function PracticeDrawContent() {
                       deckLabel="dilemma pile"
                       arcBetween={HAND_ARC_BETWEEN}
                       finePointer={finePointer}
+                      safeAreaBottom={safeArea.bottom}
                     />
                   )}
 
