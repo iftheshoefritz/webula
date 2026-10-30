@@ -2,8 +2,11 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   PARTNER_TRAIT_WORDS,
+  BotTableFacts,
   PartnerRequirement,
+  PartnerTest,
   PersonnelGain,
+  TableCondition,
   attemptedMissionOf,
   parseGains,
   personnelGainsOf,
@@ -18,6 +21,7 @@ import {
   botPersonnelOf,
   partnerGainEntriesOf,
   partnerGroupOf,
+  partnerTraitsOf,
   playStack,
   requirementProfileOf,
   seededRandom,
@@ -45,27 +49,44 @@ const ATTRIBUTE_NAMES = ['integrity', 'cunning', 'strength'];
 const affiliationToken = (affiliation: string) =>
   Object.keys(AFFILIATION_ABBREVIATIONS).find((token) => AFFILIATION_ABBREVIATIONS[token] === affiliation);
 
+/** One partner test in a form to read in review: "[rom] dissident", "[baj] leadership personnel". */
+const testText = (t: PartnerTest) =>
+  [
+    t.affiliation ? affiliationToken(t.affiliation) : '',
+    t.notAffiliation ? `non-${affiliationToken(t.notAffiliation)}` : '',
+    ...(t.icons ?? []),
+    ...(t.skills ?? []).map((i) => BOT_SKILLS[i]),
+    ...(t.traits ?? []),
+    t.title ? `{${t.title}}` : '',
+    t.personnel ? 'personnel' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
 /** A partner in a form to read in review: "[rom] dissident", "3 [pa]", "dissident or [fed] [cmd]". */
 function partnerText({ anyOf, count }: PartnerRequirement): string {
-  const tests = anyOf.map((t) =>
-    [
-      t.affiliation ? affiliationToken(t.affiliation) : '',
-      t.notAffiliation ? `non-${affiliationToken(t.notAffiliation)}` : '',
-      ...(t.icons ?? []),
-      ...(t.skills ?? []).map((i) => BOT_SKILLS[i]),
-      ...(t.traits ?? []),
-      t.title ? `{${t.title}}` : '',
-    ]
-      .filter(Boolean)
-      .join(' '),
-  );
-  return `${count > 1 ? `${count} ` : ''}${tests.join(' or ')}`;
+  return `${count > 1 ? `${count} ` : ''}${anyOf.map(testText).join(' or ')}`;
+}
+
+/**
+ * A table condition in a form to read in review: "no completed missions", "2+ completed space
+ * missions", "1- completed missions", "1+ navigation personnel in discard", "10+ cards in discard",
+ * "1+ events in core".
+ */
+function tableText(t: TableCondition): string {
+  const range = t.max === 0 ? 'no' : t.min !== undefined ? `${t.min}+` : `${t.max}-`;
+  if (t.count === 'completedMissions') {
+    return `${range} completed ${t.missiontype === 's' ? 'space ' : t.missiontype === 'p' ? 'planet ' : ''}missions`;
+  }
+  if (t.count === 'coreEvents') return `${range} events in core`;
+  return `${range} ${t.anyOf!.map(testText).join(' or ') || 'cards'} in discard`;
 }
 
 /**
  * A gain in a form to read in review: "facing: attributes +1; diplomacy, 2 leadership", or with its
  * mission condition, "attempting space: attributes +1; diplomacy, law", "facing [dq]: attributes +4".
  * A partner gain reads "present with [rom] dissident: …", or "facing with [maq]: …" for the facing form.
+ * A table gain, always `'attempting'`, reads "while no completed missions: …" (#1352).
  */
 function gainText(gain: PersonnelGain): string {
   const [i, c, s] = gain.attrs;
@@ -85,7 +106,9 @@ function gainText(gain: PersonnelGain): string {
     : [];
   const head = gain.partner
     ? `${gain.condition === 'facing' ? 'facing with' : 'present with'} ${partnerText(gain.partner)}`
-    : [gain.condition, ...mission].join(' ');
+    : gain.table
+      ? `while ${tableText(gain.table)}`
+      : [gain.condition, ...mission].join(' ');
   return `${head}: ${[attrs.join(', '), skills.join(', ')].filter(Boolean).join('; ')}`;
 }
 
@@ -215,6 +238,8 @@ describe('the gains of the card data', () => {
       if (gains.length) lines.add(`${c.originalName} | ${gains.map(gainText).join(' | ')}`);
     }
     expect(Array.from(lines).sort()).toEqual([
+      'Akorem Laan Revered Poet | while 2+ [baj] personnel in discard: attributes +2',
+      'Anneli | while 1+ events in core: attributes +1',
       'Beverly Crusher Captain Picard *VP | attempting 40+ points: attributes +1; medical',
       'Beverly Crusher Captain Picard | attempting 40+ points: attributes +1; medical',
       'Bevvox Ancient Intellect | attempting 50+ points: cunning +1; 2 anthropology',
@@ -248,9 +273,13 @@ describe('the gains of the card data', () => {
       'Kathryn Janeway Forceful Captain (FOW) | facing [dq]: attributes +4',
       'Kathryn Janeway Forceful Captain *A | facing [dq]: attributes +4',
       'Kathryn Janeway Forceful Captain | facing [dq]: attributes +4',
+      'Kira Nerys Bit of a Fighter | while 10+ cards in discard: cunning +1; diplomacy, leadership, officer',
+      'Kulan Militia Soldier | while 1+ navigation personnel in discard: navigation',
       'Kurros Brilliant Tactician | attempting 50+ points: cunning +1; 2 leadership',
       'Latara | attempting [gq]: honor, security',
       'Morak Pilgrim Cynic | facing [dq]: security, transporters, treachery',
+      'Motura Eminent Sculptor | while 1- completed missions: attributes +1',
+      'Nadia Myers | while 1+ completed space missions: navigation | while 2+ completed space missions: attributes +2',
       'Neelix Morale Officer (FOW) | facing [dq]: acquisition, honor',
       'Neelix Morale Officer | facing [dq]: acquisition, honor',
       'Nicholas Locarno Nova Squadron Leader | facing: diplomacy, leadership, navigation, officer, treachery',
@@ -277,10 +306,13 @@ describe('the gains of the card data', () => {
       'Stefan DeSeve Disillusioned Expatriate | present with dissident or [fed] [cmd]: attributes +1',
       'Sullin Gifted Researcher | attempting 50+ points: cunning +1; 2 transporters',
       "T'Pol Subcommander | present with human: diplomacy, exobiology",
+      'The Doctor Shmullus | while no completed missions: medical, programming',
       'Tim Watters Valiant Captain | facing: attributes +1; diplomacy, 2 leadership, officer, physics',
+      'Treyam Militia Soldier | while 1+ medical personnel in discard: medical',
       'Tuvok Mostly Assimilated | facing [dq]: law, leadership, officer, security',
       'Tuvok Undercover *VP | facing with [maq]: attributes +1; intelligence',
       'Tuvok Undercover | facing with [maq]: attributes +1; intelligence',
+      'Varis Sul Tetrarch of the Paqu | while 1+ [baj] leadership personnel in discard: diplomacy, leadership',
       'Wesley Crusher Prodigy | facing: engineer, exobiology, navigation, science',
       'Weyoun Faithful Servant | present with {odo}: attributes +2; honor',
       'Weyoun Instrument of the Founders | present with founder: attributes +2; security',
@@ -700,5 +732,114 @@ describe('the partner gains in a play (#1357)', () => {
       chooseStack(table, drawn, 12, 1);
       expect(Date.now() - start).toBeLessThan(20000);
     });
+  });
+});
+
+describe('the gains on the player table (#1352)', () => {
+  const byName = (name: string) => data.find((c) => c.originalName === name)! as unknown as BotCardRow;
+  const traitsOf = (name: string, type = 'personnel') => ({ ...partnerTraitsOf(byName(name)), type });
+  const facts = (overrides: Partial<BotTableFacts> = {}): BotTableFacts => ({
+    completedMissions: [],
+    discardPile: [],
+    coreEvents: 0,
+    ...overrides,
+  });
+  const both = (p: ReturnType<typeof botPersonnelOf>, skill: string) => [skillOf(p.skills, skill), skillOf(requirementProfileOf(p).skills, skill)];
+
+  it('reads the heads on completed missions, the discard pile and the core', () => {
+    expect(gainsOf('while you do not command a completed mission, this personnel gains medical and programming.')).toEqual([
+      'while no completed missions: medical, programming',
+    ]);
+    expect(gainsOf('while you command a completed space mission, this personnel gains navigation.')).toEqual([
+      'while 1+ completed space missions: navigation',
+    ]);
+    expect(gainsOf('while you command two completed space missions, this personnel is attributes +2.')).toEqual([
+      'while 2+ completed space missions: attributes +2',
+    ]);
+    expect(gainsOf('while you command fewer than two completed missions, this personnel is attributes +1.')).toEqual([
+      'while 1- completed missions: attributes +1',
+    ]);
+    expect(gainsOf('while you have a navigation personnel in your discard pile, this personnel gains navigation.')).toEqual([
+      'while 1+ navigation personnel in discard: navigation',
+    ]);
+    expect(gainsOf('while two [baj] personnel are in your discard pile, this personnel is attributes +2.')).toEqual([
+      'while 2+ [baj] personnel in discard: attributes +2',
+    ]);
+    expect(gainsOf('while you have ten or more cards in your discard pile, this personnel is cunning +1 and gains officer.')).toEqual([
+      'while 10+ cards in discard: cunning +1; officer',
+    ]);
+    expect(gainsOf('while you command an event in your core, this personnel is attributes +1.')).toEqual([
+      'while 1+ events in core: attributes +1',
+    ]);
+  });
+
+  it('gives no gain for a condition on an opponent, the hand, an event keyword or a mission keyword', () => {
+    for (const text of [
+      'while you command more events in your core than each of your opponents, this personnel gains leadership and security.',
+      'while each player commands a completed mission, this personnel is attributes +1 and gains science.',
+      'while an opponent commands a completed mission, this personnel gains honor.',
+      'while three or more personnel are in an opponent\'s discard pile, this personnel is attributes +1 and gains acquisition and engineer.',
+      'while you have no cards in your hand, this personnel gains honor.',
+      'while you command a temporal event in your core, this personnel gains honor.',
+      'while you command a completed mirror mission, this personnel is attributes +1 and gains geology.',
+      'while you have more than ten cards in your discard pile, this personnel gains honor.',
+    ]) {
+      expect(gainsOf(text)).toEqual([]);
+    }
+    expect(personnelGainsOf(byName('Rusot Proud Nationalist'))).toEqual([]);
+    expect(personnelGainsOf(byName('Richardson'))).toEqual([]);
+  });
+
+  it('counts The Doctor, Shmullus only while no mission is completed', () => {
+    const doctor = byName('The Doctor Shmullus');
+    const open = botPersonnelOf(doctor, undefined, facts());
+    expect(both(open, 'medical')).toEqual([2, 2]);
+    expect(both(open, 'programming')).toEqual([1, 1]);
+    const completed = botPersonnelOf(doctor, undefined, facts({ completedMissions: ['p'] }));
+    expect(both(completed, 'medical')).toEqual([1, 1]);
+    expect(both(completed, 'programming')).toEqual([0, 0]);
+  });
+
+  it('counts Kulan only while a Navigation personnel is in the discard pile', () => {
+    const kulan = byName('Kulan Militia Soldier');
+    const navigator = traitsOf('Kulan Militia Soldier');
+    expect(both(botPersonnelOf(kulan, undefined, facts({ discardPile: [navigator] })), 'navigation')).toEqual([2, 2]);
+    // An event, and a personnel with no Navigation, do not count.
+    const event = { ...navigator, type: 'event' };
+    const other = traitsOf('The Doctor Shmullus');
+    expect(both(botPersonnelOf(kulan, undefined, facts({ discardPile: [event, other] })), 'navigation')).toEqual([1, 1]);
+  });
+
+  it('counts every table gain in the lab, which has no table', () => {
+    expect(both(botPersonnelOf(byName('The Doctor Shmullus')), 'programming')).toEqual([1, 1]);
+    expect(both(botPersonnelOf(byName('Kulan Militia Soldier')), 'navigation')).toEqual([2, 2]);
+  });
+
+  it('counts no gain of Rusot, with facts or without', () => {
+    const rusot = byName('Rusot Proud Nationalist');
+    const base = botPersonnelOf({ ...rusot, gametext: '' });
+    for (const p of [botPersonnelOf(rusot), botPersonnelOf(rusot, undefined, facts({ coreEvents: 5 }))]) {
+      expect(p.skills).toEqual(base.skills);
+      expect(requirementProfileOf(p).skills).toEqual(base.skills);
+    }
+  });
+
+  it('counts the core events, the completed missions of a type, and the size of the discard pile', () => {
+    const anneli = byName('Anneli');
+    const printed = botPersonnelOf(anneli, undefined, facts()).attrs;
+    expect(botPersonnelOf(anneli, undefined, facts({ coreEvents: 1 })).attrs).toEqual(printed.map((n) => n + 1));
+
+    const nadia = byName('Nadia Myers');
+    expect(skillOf(botPersonnelOf(nadia, undefined, facts({ completedMissions: ['p'] })).skills, 'navigation')).toBe(
+      skillOf(botPersonnelOf(nadia, undefined, facts()).skills, 'navigation'),
+    );
+    expect(skillOf(botPersonnelOf(nadia, undefined, facts({ completedMissions: ['s'] })).skills, 'navigation')).toBe(
+      skillOf(botPersonnelOf(nadia, undefined, facts()).skills, 'navigation') + 1,
+    );
+
+    const kira = byName('Kira Nerys Bit of a Fighter');
+    const event = traitsOf('Anneli', 'event');
+    expect(skillOf(botPersonnelOf(kira, undefined, facts({ discardPile: new Array(9).fill(event) })).skills, 'officer')).toBe(0);
+    expect(skillOf(botPersonnelOf(kira, undefined, facts({ discardPile: new Array(10).fill(event) })).skills, 'officer')).toBe(1);
   });
 });

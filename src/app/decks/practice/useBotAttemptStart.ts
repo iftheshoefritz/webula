@@ -6,7 +6,7 @@ import { SearchRequest, answerSearch } from '../../../lib/dilemmaBot/searchReque
 import { seededRandom } from '../../../lib/dilemmaBot/simulator';
 import { useSearchWorker } from '../../../lib/dilemmaBot/useSearchWorker';
 import { useLatest } from '../../../hooks/useLatest';
-import { attemptingCards } from './attempt';
+import { attemptingCards, botTableFactsOf } from './attempt';
 import { CardInstance, TableAction, TableState, drawFromDilemmaPile } from './tableReducer';
 
 export type BotAttemptAction = Extract<TableAction, { type: 'botAttempt' }>;
@@ -67,7 +67,8 @@ export function useBotAttemptStart(table: TableState, onAction: (action: BotAtte
     const ids = drawnDilemmaIds(drawn.map((c) => c.card));
     const slot = table.missions[fields.missionIndex];
     const cards = attemptingCards(table, fields.missionIndex, fields.shipId) ?? [];
-    const attempt = botAttemptOf(cards, slot?.mission?.card ?? {}, (slot?.mission?.placedOn ?? []).map((c) => c.card));
+    const placedOn = (slot?.mission?.placedOn ?? []).map((c) => c.card);
+    const attempt = botAttemptOf(cards, slot?.mission?.card ?? {}, placedOn, botTableFactsOf(table));
     if (attempt === RANDOM_CHOICE) {
       const stack = ids.length ? randomLegalStack(ids, fields.botSpend, seededRandom(seed)) : [];
       onActionRef.current({ ...action, stack: stackCardIds(drawn, stack), random: true });
