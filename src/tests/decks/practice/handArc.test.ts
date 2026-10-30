@@ -3,6 +3,8 @@ import {
   ARC_MAX_ANGLE,
   ARC_SAG,
   ARC_TOUCH_LOWER,
+  ARC_TOUCH_MIN_VISIBLE,
+  ARC_TOUCH_OPTIONS,
   ArcLayout,
   handArcLayout,
 } from '../../../app/decks/practice/handArc';
@@ -178,5 +180,65 @@ describe('handArcLayout lower (#1149)', () => {
       expect(card.centerY).toBeCloseTo(plain.cards[i].centerY + drop);
     });
     expect(lowered.visibleHeight).toBeCloseTo(0.8 * plain.visibleHeight);
+  });
+});
+
+describe('handArcLayout on a touch screen (#1380)', () => {
+  // How far above `bottom` each card's lowest top corner sits.
+  const topClearances = (layout: ArcLayout, bottom: number) =>
+    layout.cards.map((card) =>
+      Math.min(
+        bottom - corner(card, -layout.cardWidth / 2, -layout.cardHeight / 2).y,
+        bottom - corner(card, layout.cardWidth / 2, -layout.cardHeight / 2).y,
+      ),
+    );
+  const highestCorner = (layout: ArcLayout, bottom: number) =>
+    Math.max(
+      ...layout.cards.flatMap((card) =>
+        [-1, 1].map((side) => bottom - corner(card, (side * layout.cardWidth) / 2, -layout.cardHeight / 2).y),
+      ),
+    );
+
+  it.each([2, 7, 12])('keeps both top corners of every card of %i at least the floor above the edge, at 667 x 375', (count) => {
+    const layout = handArcLayout({ count, cardWidth: 126, maxStep: 135, left: 230, right: 590, bottom: 375, ...ARC_TOUCH_OPTIONS });
+    for (const clearance of topClearances(layout, 375)) expect(clearance).toBeGreaterThanOrEqual(ARC_TOUCH_MIN_VISIBLE - 0.01);
+    for (const card of layout.cards) {
+      const extent = halfExtent(layout.cardWidth, layout.cardHeight, card.angle);
+      expect(card.centerX - extent).toBeGreaterThanOrEqual(230 - 0.01);
+      expect(card.centerX + extent).toBeLessThanOrEqual(590 + 0.01);
+    }
+    expectNeighboursTouch(layout);
+    expect(layout.visibleHeight).toBeCloseTo(highestCorner(layout, 375));
+  });
+
+  it('shows no outer card less than the middle card shows', () => {
+    const layout = handArcLayout({ count: 7, cardWidth: 126, maxStep: 135, left: 230, right: 590, bottom: 375, ...ARC_TOUCH_OPTIONS });
+    const clearances = topClearances(layout, 375);
+    // The plain #1149 touch arc showed the ends 28 px less than the middle.
+    expect(clearances[3] - clearances[0]).toBeLessThan(12);
+  });
+
+  it('lifts small cards to the floor, but never lifts a card off the bottom edge', () => {
+    const layout = handArcLayout({ count: 7, cardWidth: 126, maxStep: 135, left: 0, right: 160, bottom: 375, ...ARC_TOUCH_OPTIONS });
+    const clearances = topClearances(layout, 375);
+    for (const card of layout.cards) {
+      // The highest point of the card's bottom edge stays at or below the screen's bottom edge.
+      const bottomEdge = Math.min(
+        corner(card, -layout.cardWidth / 2, layout.cardHeight / 2).y,
+        corner(card, layout.cardWidth / 2, layout.cardHeight / 2).y,
+      );
+      expect(bottomEdge).toBeGreaterThanOrEqual(375 - 0.01);
+    }
+    const floorOrBottom = clearances.every((c) => c >= ARC_TOUCH_MIN_VISIBLE - 0.01) || layout.cardHeight < ARC_TOUCH_MIN_VISIBLE * 1.5;
+    expect(floorOrBottom).toBe(true);
+    expect(layout.visibleHeight).toBeCloseTo(highestCorner(layout, 375));
+    expect(Math.min(...clearances)).toBeGreaterThan(
+      Math.min(...topClearances(handArcLayout({ count: 7, cardWidth: 126, maxStep: 135, left: 0, right: 160, bottom: 375, lower: ARC_TOUCH_LOWER }), 375)),
+    );
+  });
+
+  it('leaves the desktop arc as it was', () => {
+    const input = { count: 7, cardWidth: 126, maxStep: 135, left: 230, right: 590, bottom: 375 };
+    expect(handArcLayout(input)).toEqual(handArcLayout({ ...input, lower: 0, sag: ARC_SAG, maxAngle: ARC_MAX_ANGLE, minVisible: 0 }));
   });
 });

@@ -9,7 +9,7 @@ import CardHand from '../../../app/decks/practice/CardHand';
 import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import { VIEWER_TOP_INSET } from '../../../app/decks/practice/viewerCardSize';
-import { ARC_TOUCH_LOWER, handArcLayout } from '../../../app/decks/practice/handArc';
+import { ARC_TOUCH_MIN_VISIBLE, ARC_TOUCH_OPTIONS, handArcLayout } from '../../../app/decks/practice/handArc';
 
 const makeInstances = (n: number): CardInstance[] =>
   Array.from({ length: n }, (_, i) => ({
@@ -525,10 +525,10 @@ describe('CardHand arc on a touch screen (#1149)', () => {
   };
 
   // The bounds `useArcBounds` measures from the two stubbed piles.
-  const layout = (lower: number) =>
-    handArcLayout({ count: 3, cardWidth: 108, maxStep: Math.round((108 * 60) / 56), left: 104, right: 896, bottom: window.innerHeight, lower });
+  const layout = (options: Partial<typeof ARC_TOUCH_OPTIONS>) =>
+    handArcLayout({ count: 3, cardWidth: 108, maxStep: Math.round((108 * 60) / 56), left: 104, right: 896, bottom: window.innerHeight, ...options });
 
-  it.each(['hand', 'dilemmaHand'] as const)('lowers the %s arc and its controls row with a coarse pointer only', (zone) => {
+  it.each(['hand', 'dilemmaHand'] as const)('draws the touch arc of the %s, and moves its controls row, with a coarse pointer only (#1149, #1380)', (zone) => {
     const tops: Record<string, { cards: number[]; controls: string }> = {};
     for (const finePointer of [true, false]) {
       const cleanup = stubPiles();
@@ -555,14 +555,21 @@ describe('CardHand arc on a touch screen (#1149)', () => {
       cleanup();
     }
 
-    const plain = layout(0);
-    const lowered = layout(ARC_TOUCH_LOWER);
-    const drop = ARC_TOUCH_LOWER * plain.visibleHeight;
-    tops.false.cards.forEach((top, i) => expect(top - tops.true.cards[i]).toBeCloseTo(drop));
-    expect(tops.true.cards[0]).toBeCloseTo(plain.cards[0].centerY - plain.cardHeight / 2);
-    // The row's top is `calc(100% - (visibleHeight + the row's height))`, so it moves down by the drop.
+    const plain = layout({});
+    const touch = layout(ARC_TOUCH_OPTIONS);
+    // The touch arc has no sag, so its ends sit as high as its middle.
+    expect(touch.cards[0].centerY).toBeCloseTo(touch.cards[1].centerY);
+    expect(plain.cards[0].centerY).toBeGreaterThan(plain.cards[1].centerY);
+    tops.true.cards.forEach((top, i) => expect(top).toBeCloseTo(plain.cards[i].centerY - plain.cardHeight / 2));
+    tops.false.cards.forEach((top, i) => expect(top).toBeCloseTo(touch.cards[i].centerY - touch.cardHeight / 2));
+    // Every touch card keeps its lowest top corner at least the floor above the bottom edge.
+    touch.cards.forEach((card) => {
+      const rad = (Math.abs(card.angle) * Math.PI) / 180;
+      const lowestTop = card.centerY + (touch.cardWidth / 2) * Math.sin(rad) - (touch.cardHeight / 2) * Math.cos(rad);
+      expect(window.innerHeight - lowestTop).toBeGreaterThanOrEqual(ARC_TOUCH_MIN_VISIBLE - 0.01);
+    });
+    // The row's top is `calc(100% - (visibleHeight + the row's height))`, so it follows the arc.
     const offset = (top: string) => parseFloat(top.match(/100% - ([\d.]+)px/)![1]);
-    expect(offset(tops.true.controls) - offset(tops.false.controls)).toBeCloseTo(plain.visibleHeight - lowered.visibleHeight);
-    expect(plain.visibleHeight - lowered.visibleHeight).toBeCloseTo(drop);
+    expect(offset(tops.true.controls) - offset(tops.false.controls)).toBeCloseTo(plain.visibleHeight - touch.visibleHeight);
   });
 });

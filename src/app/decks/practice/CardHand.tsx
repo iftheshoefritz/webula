@@ -34,7 +34,7 @@ import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { HAND_ARC_ATTRIBUTE, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PILE_CARD_BORDER_STYLE, cardBorderStyle } from './TableCard';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
-import { ARC_TOUCH_LOWER, handArcLayout } from './handArc';
+import { ARC_TOUCH_OPTIONS, handArcLayout } from './handArc';
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -218,7 +218,9 @@ export default function CardHand({
   // as the flat fan above the bottom row.
   arcBetween?: { left: string; right: string };
   // Whether the pointer is fine (`useFinePointer`). With a coarse pointer the arc sits
-  // `ARC_TOUCH_LOWER` of its visible height lower (#1149). Left out, the arc stays as on a desktop.
+  // `ARC_TOUCH_LOWER` of its visible height lower (#1149), and it is flatter, with every card's lowest
+  // top corner at least `ARC_TOUCH_MIN_VISIBLE` above the bottom edge (#1380). Left out, the arc
+  // stays as on a desktop.
   finePointer?: boolean;
 }) {
   const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
@@ -248,7 +250,7 @@ export default function CardHand({
           cardWidth: openCardWidth,
           maxStep: openMaxOffset(openCardWidth),
           ...arcBounds,
-          lower: finePointer ? 0 : ARC_TOUCH_LOWER,
+          ...(finePointer ? {} : ARC_TOUCH_OPTIONS),
         })
       : null;
 
