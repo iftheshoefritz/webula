@@ -13,7 +13,7 @@ import {
   TableState,
 } from './tableReducer';
 import { cardDisplayName } from '../../../lib/cardCount';
-import { BotTableFacts } from '../../../lib/dilemmaBot/gains';
+import { BotTableFacts, asSphere117Dissident, isSphere117, sphere117Holds } from '../../../lib/dilemmaBot/gains';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
@@ -50,14 +50,22 @@ export function attemptingCards(table: TableState, missionIndex: number, shipId?
 // of each completed mission, the traits and the type of each discard pile card, and the number of
 // events in the core, and the traits of each personnel the player commands: every away team and
 // every ship's crew, at every mission, never the brig (#1360). A card with no row counts nowhere.
+// While the condition of Sphere 117 holds (#1363), a Sphere 117 on any ship row and every mission of
+// the table a [DQ] mission, a commanded Drone reads Dissident in place of Drone. An empty slot holds
+// no mission and does not count.
 export function botTableFactsOf(table: TableState): BotTableFacts {
+  const sphere = sphere117Holds(
+    table.missions.some((s) => s.ships.some((ship) => isSphere117(ship.card))),
+    table.missions.flatMap((s) => (s.mission?.card ? [String(s.mission.card.quadrant ?? '')] : [])),
+  );
   return {
     completedMissions: table.missions.flatMap((s) => (s.completed && s.mission?.card ? [String(s.mission.card.missiontype)] : [])),
     discardPile: table.discard.flatMap((c) => (c.card ? [{ ...partnerTraitsOf(c.card), type: String(c.card.type) }] : [])),
     coreEvents: table.core.filter((c) => c.card?.type === 'event').length,
     commanded: table.missions
       .flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])])
-      .flatMap((c) => (c.card?.type === 'personnel' ? [partnerTraitsOf(c.card)] : [])),
+      .flatMap((c) => (c.card?.type === 'personnel' ? [partnerTraitsOf(c.card)] : []))
+      .map((traits) => (sphere ? asSphere117Dissident(traits) : traits)),
   };
 }
 

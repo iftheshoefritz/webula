@@ -106,10 +106,34 @@ export interface BotTableFacts {
   /** The number of events in the core. */
   coreEvents: number;
   /**
-   * The printed traits of each personnel the player commands (#1360): every away team and every ship's
-   * crew, at every mission. The brig does not count.
+   * The traits of each personnel the player commands (#1360): every away team and every ship's crew,
+   * at every mission. The brig does not count. They are the printed traits, after Sphere 117 (#1363):
+   * while its condition holds, a Drone reads Dissident in place of Drone (`asSphere117Dissident`).
    */
   commanded: PartnerTraits[];
+}
+
+/** The name of Sphere 117, Renegade Borg Sphere (Unity, 25V051), as `originalName` (#1363). */
+export const SPHERE_117 = 'Sphere 117 Renegade Borg Sphere';
+
+/** Whether `card` is a copy of Sphere 117 (#1363). */
+export function isSphere117(card: { originalName?: string } | null | undefined): boolean {
+  return card?.originalName === SPHERE_117;
+}
+
+/**
+ * Whether the condition of Sphere 117 holds (#1363), "while each of your missions is a [DQ] mission":
+ * the player has a Sphere 117, and at least one mission, each of `quadrants` `d`.
+ */
+export function sphere117Holds(hasSphere: boolean, quadrants: string[]): boolean {
+  return hasSphere && quadrants.length > 0 && quadrants.every((q) => q === 'd');
+}
+
+/** `traits` while Sphere 117 holds (#1363): "each {Drone} you own gains Dissident and loses Drone". */
+export function asSphere117Dissident(traits: PartnerTraits): PartnerTraits {
+  if (!traits.keywords.includes('drone')) return traits;
+  const keywords = traits.keywords.filter((k) => k !== 'drone');
+  return { ...traits, keywords: keywords.includes('dissident') ? keywords : [...keywords, 'dissident'] };
 }
 
 export interface PersonnelGain {

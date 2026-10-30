@@ -50,6 +50,12 @@ export interface LabDeck {
   label: string;
   personnel: string[];
   missions: string[];
+  /**
+   * Whether the condition of Sphere 117 holds for the deck (#1363): a Sphere 117 in its draw deck and
+   * every mission of it, the headquarters too, a [DQ] mission. The lab then assumes the Mostly
+   * Assimilated skill loss (#1360) does not apply.
+   */
+  sphere117?: boolean;
 }
 
 interface Props {
@@ -101,6 +107,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
     [deck, missions],
   );
   const mission = deckMissions.find((m) => m.name === missionName);
+  const sphere117 = Boolean(deck?.sphere117);
   const branches = useMemo(() => (mission ? parseRequirementBranches(mission.requirements) : null), [mission]);
   const crewGroup = useMemo(
     () =>
@@ -108,9 +115,9 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
         crew
           .map((name) => byName.get(name))
           .filter((p): p is LabPersonnel => !!p)
-          .map((p) => botPersonnelOf(p, mission)),
+          .map((p) => botPersonnelOf(p, mission, undefined, sphere117)),
       ),
-    [crew, byName, mission],
+    [crew, byName, mission, sphere117],
   );
   const crewPersonnel = crewGroup.personnel;
   const meets = branches ? meetsRequirements(branches, crewPersonnel.map(requirementProfileOf)) : false;
@@ -190,7 +197,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
       const group = pool.slice(0, size);
-      const profiles = partnerGroupOf(group.map((name) => botPersonnelOf(byName.get(name)!, target))).personnel.map(requirementProfileOf);
+      const profiles = partnerGroupOf(group.map((name) => botPersonnelOf(byName.get(name)!, target, undefined, sphere117))).personnel.map(requirementProfileOf);
       if (meetsRequirements(targetBranches, profiles)) {
         setCrew(group);
         setMessage('');

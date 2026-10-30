@@ -159,7 +159,9 @@ export function partnerTraitsOf(card: TraitsRow, skills: number[] = baseSkillsOf
  * sees the group, counts it. A gain with a table condition counts while the condition holds on the
  * table of `facts` (#1352); with no facts, the dilemma lab's case, it always counts. While the condition
  * of a skill loss holds on the same terms (#1360), every skill is 0 in both profiles and the gains of
- * the loss's next ability do not count; `traits` keep the printed skills.
+ * the loss's next ability do not count; `traits` keep the printed skills. With no facts the lab assumes
+ * the loss holds, unless `lossSuspended`: the lab sets it for a deck where Sphere 117 holds (#1363), so
+ * the loss does not apply while every other table condition still holds.
  */
 export function botPersonnelOf(card: TraitsRow & {
   originalName?: string;
@@ -169,7 +171,7 @@ export function botPersonnelOf(card: TraitsRow & {
   strength: string | number;
   skills: string | number;
   gametext?: string | number;
-}, mission?: AttemptedMission, facts?: BotTableFacts): BotPersonnel {
+}, mission?: AttemptedMission, facts?: BotTableFacts, lossSuspended = false): BotPersonnel {
   const skills = baseSkillsOf(card.skills);
   const attrs: [number, number, number] = [Number(card.integrity) || 0, Number(card.cunning) || 0, Number(card.strength) || 0];
   // Both profiles are built here, once, never per play: `chooseStack` runs up to 500 × 500 plays.
@@ -177,7 +179,7 @@ export function botPersonnelOf(card: TraitsRow & {
   const requirement = { skills: skills.slice(), attrs: [...attrs] as [number, number, number] };
   const partnerGains: PersonnelGain[] = [];
   const loss = personnelLossOf(card);
-  const lost = loss !== null && tableConditionHolds(loss.table, facts);
+  const lost = loss !== null && !lossSuspended && tableConditionHolds(loss.table, facts);
   if (lost) for (const profile of [facing, requirement]) profile.skills.fill(0);
   for (const gain of personnelGainsOf(card)) {
     if (lost && loss.nextAbility && gain.nextAbility) continue;
