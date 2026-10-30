@@ -81,8 +81,8 @@ const handIds = (): string[] => saved().table.dilemmaHand.map((c: { id: string }
 
 // Deals the deck, moves 3 dilemmas of the pile into the stack and 2 into the dilemma hand, and starts
 // an attempt in `phase`. `revealTop` turns the top card of the stack face up, as the fan's Reveal does.
-async function dealChoice(phase: 'choose' | 'face' = 'choose', revealTop = false) {
-  localStorage.setItem('currentDeck', JSON.stringify(mockDeck));
+async function dealChoice(phase: 'choose' | 'face' = 'choose', revealTop = false, deck: object = mockDeck) {
+  localStorage.setItem('currentDeck', JSON.stringify(deck));
   await act(async () => {
     render(<PracticeDrawPage />);
   });
@@ -249,5 +249,77 @@ describe('Practice table: the dilemma stack of the dilemma choice (#1204)', () =
     const img = document.querySelector(`[data-zone="dilemmaStack"] [data-card-id="${a}"] img`)!;
     expect(img).toHaveClass('h-auto');
     expect(img).not.toHaveClass('object-top');
+  });
+
+  // #1369: the stack takes only a dilemma, on the zone and on each slot of the row, in both phases.
+  describe('refuses a card that is not a dilemma (#1369)', () => {
+    const row = (collectorsinfo: string, type: string) => ({
+      ...mockDilemmaCard,
+      collectorsinfo,
+      originalName: type,
+      type,
+      name: type,
+      imagefile: type,
+      pile: 'drawDeck',
+      count: 1,
+    });
+    const others = { personnel: row('1C001', 'personnel'), event: row('1C002', 'event'), ship: row('1C003', 'ship') };
+    const deckWithOthers = {
+      ...mockDeck,
+      ...Object.fromEntries(Object.values(others).map((r) => [r.collectorsinfo, { count: 1, row: r }])),
+    };
+
+    // Puts a personnel, an event and a ship into the hand, and a personnel into the away team of
+    // the attempted mission.
+    async function dealWithOthers(phase: 'choose' | 'face') {
+      await dealChoice(phase, false, deckWithOthers);
+      const save = saved();
+      const other = (id: string, key: string) => ({ id, face: 'up', key });
+      save.table.hand = [
+        other('x-personnel', others.personnel.collectorsinfo),
+        other('x-event', others.event.collectorsinfo),
+        other('x-ship', others.ship.collectorsinfo),
+      ];
+      save.table.missions[0].awayTeam = [other('x-crew', others.personnel.collectorsinfo)];
+      localStorage.setItem(KEY, JSON.stringify(save));
+      await enterAttempt(<PracticeDrawPage />, 0, { personnel: 1, phase, drawn: 0 });
+    }
+
+    const undoLabel = () => screen.getByTestId('undo-button').getAttribute('aria-label');
+
+    it.each(['choose', 'face'] as const)('leaves a personnel, an event and a ship where they were in %s', async (phase) => {
+      await dealWithOthers(phase);
+      const before = stackIds();
+      const [a] = before;
+      const label = undoLabel();
+      const targets = phase === 'choose' ? ['dilemmaStack', dilemmaStackRowSlotId(a), DILEMMA_STACK_ROW_END] : ['dilemmaStack'];
+      for (const target of targets) {
+        for (const id of ['x-personnel', 'x-event', 'x-ship']) {
+          await drag(id, target);
+          expect(saved().table.hand.map((c: { id: string }) => c.id)).toContain(id);
+        }
+        await drag('x-crew', target);
+        expect(saved().table.missions[0].awayTeam.map((c: { id: string }) => c.id)).toEqual(['x-crew']);
+      }
+      expect(stackIds()).toEqual(before);
+      expect(undoLabel()).toBe(label);
+    });
+
+    it('shows no insertion marker during the drag of a card that is not a dilemma', async () => {
+      await dealWithOthers('choose');
+      mockDndContext = { active: { id: 'x-event' }, over: { id: DILEMMA_STACK_ROW_END } };
+      await act(async () => {
+        mockOnDragStart!({ active: { id: 'x-event' } });
+      });
+      expect(screen.queryByTestId('dilemma-stack-insert-indicator')).toBeNull();
+    });
+
+    it('still takes a dilemma from the dilemma hand', async () => {
+      await dealWithOthers('choose');
+      const [a, b, c] = stackIds();
+      const [d] = handIds();
+      await drag(d, 'dilemmaStack');
+      expect(stackIds()).toEqual([a, b, c, d]);
+    });
   });
 });

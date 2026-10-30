@@ -179,8 +179,8 @@ describe('Practice table: dragging the top card off the draw deck or the dilemma
     expect(screen.getByRole('button', { name: 'Dilemma pile top' })).toBeDisabled();
   });
 
-  it("keeps the draw deck's top card face down when it lands in a face-down zone", async () => {
-    // The stack mounts only in the attempt layout (#1170).
+  it("keeps the dilemma pile's top card face down when it lands in a face-down zone", async () => {
+    // The stack mounts only in the attempt layout (#1170), and takes only a dilemma (#1369).
     localStorage.setItem('currentDeck', JSON.stringify({ ...mockDeck, [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission } }));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
     (extractDrawDeck as jest.Mock).mockReturnValue(mockDrawCards);
@@ -189,14 +189,14 @@ describe('Practice table: dragging the top card off the draw deck or the dilemma
     });
     await enterAttempt(<PracticeDrawPage />);
     await drawOpeningHand();
-    const drawTop = document.body.querySelector('[aria-label="Draw deck top, tap to draw"]')!;
-    const topId = drawTop.closest('[data-card-id]')!.getAttribute('data-card-id')!;
+    const dilemmaTop = document.body.querySelector('[aria-label="Dilemma pile top"]')!;
+    const topId = dilemmaTop.closest('[data-card-id]')!.getAttribute('data-card-id')!;
 
     await drag(topId, 'dilemmaStack');
 
     const stackZone = document.body.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
     expect(within(stackZone).getByRole('img').getAttribute('alt')).toBe('Face-down dilemma stack');
-    expect(within(stackZone).queryByText('Card 8')).not.toBeInTheDocument();
+    expect(within(stackZone).queryByText('Cardassian Trap')).not.toBeInTheDocument();
   });
 
   it('shows the card back in the drag overlay for a drag off the pile art', async () => {
