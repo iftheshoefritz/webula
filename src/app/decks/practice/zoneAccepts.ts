@@ -2,8 +2,9 @@
 // never touches how a drop resolves — `handleDragEnd` (page.tsx) keeps its own per-type routing
 // (the ship/dilemma special cases, `shipIdFromCrewDropId`) exactly as it is today, so a drop the lookup marks invalid for a zone
 // still succeeds exactly as it does now (an event dropped on the brig still lands in the brig,
-// `coreBrigDrop.test.tsx`). The ship row is the one zone where the two hold the same rule:
-// a drop there takes only a ship (#886), so its highlight and its routing agree.
+// `coreBrigDrop.test.tsx`). The ship row and the dilemma stack are the two zones where the two
+// hold the same rule: a drop on the ship row takes only a ship (#886), and a drop on the dilemma
+// stack, or on one of its row slots, only a dilemma (#1369), so their highlight and their routing agree.
 //
 // Keyed by zone kind, not by a concrete drop id: a mission's ship row and its mission card exist
 // once per mission index, and the dilemma pile has two physical drop targets, but conceptually

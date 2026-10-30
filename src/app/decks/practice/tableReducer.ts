@@ -638,6 +638,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // the ship row should change, not even its internal array order or the state reference.
       if (isShipRowLocation(from) && sameLocation(from, action.to)) return state;
       const card = cardsAt(state, from).find((c) => c.id === action.id)!;
+      // Only a dilemma goes into the dilemma stack (#1369).
+      if (action.to === 'dilemmaStack' && card.card.type !== 'dilemma') return state;
       // A move within the same zone (or the same mission's ship row, or the same ship's crew)
       // keeps the card's current face; a move to a different location takes on that location's
       // face.
