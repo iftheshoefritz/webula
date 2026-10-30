@@ -56,7 +56,8 @@
 // it (#1081). The last 3 cards of each group also show as small cards in a strip along the edge of
 // the mission card (#1099, `PlacedOnStrip`), the events on the left and the dilemmas on the right.
 // The touch crop cuts off the mission's span, so it draws the span between the quadrant icon and
-// the point box, styled as the card prints it (#1133, `MissionSpan`).
+// the point box, styled as the card prints it (#1133, `MissionSpan`). An AP mission prints that
+// row lower, below the crop, so the crop draws the quadrant icon and the point box too (#1272).
 // A dilemma
 // dropped on a mission, from anywhere, goes under the mission instead (#606, #733), face up, permanently, unless it lands on the bottom half of the mission card,
 // which places it on the mission card (#871, `missionHalfDropId`). The top half, where the cards
@@ -106,6 +107,9 @@ import { DOUBLE_TAP_MS, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 // worker precaches it for offline play (#1051).
 import eventIcon from '../../../../public/icons/icon_event.gif';
 import dualIcon from '../../../../public/icons/icon_dual.gif';
+import alphaQuadrantIcon from '../../../../public/icons/icon_quadrant_alpha.gif';
+import deltaQuadrantIcon from '../../../../public/icons/icon_quadrant_delta.gif';
+import gammaQuadrantIcon from '../../../../public/icons/icon_quadrant_gamma.gif';
 import { CANCEL_RADIUS } from './releaseCancel';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
@@ -395,6 +399,13 @@ export function placedOnStripLayout(scale: number): {
 // their chrome (#1141), though the card prints it 44 px across. Its numeral grows with it: 19 px on
 // the printed 44 px disc, so 19/44 of the disc (the owner's call on #1141). A desktop shows the
 // whole card, printed span included, so it draws none.
+//
+// An AP mission (#1272, `hasApMissionLayout`), the missions 60AP001 to 60AP012, prints a taller art,
+// and its row of the quadrant icon, the span and the point box sits at y 340, below the crop. Its art
+// shows on the line above, so the crop draws the whole row there, from the card data: the quadrant
+// icon on the left chrome's centre, the span, and the point box with the mission's points on the
+// right chrome's centre, each as large as the span's backing. The rail and the plate then run across
+// the whole width inside the card's border, uncut, since no printed chrome ends them.
 const MISSION_SPAN_AXIS_SHARE = 283.5 / 499; // of the full card height
 const MISSION_SPAN_CHROME_X = 37.5 / 357; // of the card width, from either edge
 const MISSION_SPAN_CHROME_RADIUS = 28.5 / 357; // of the card width
@@ -455,6 +466,26 @@ export function missionSpanLayout(scale: number): {
   };
 }
 
+// Whether a mission's scan has the AP layout, whose row of the quadrant icon, the span and the point
+// box sits below the crop (#1272). Rarity `AP` alone is not enough: AP personnel, dilemmas and
+// interrupts exist too. The card values are lowercased by `useDataFetching`.
+export function hasApMissionLayout(card: { type?: unknown; rarity?: unknown } | undefined): boolean {
+  return (
+    typeof card?.type === 'string' &&
+    card.type.toLowerCase() === 'mission' &&
+    typeof card.rarity === 'string' &&
+    card.rarity.toLowerCase() === 'ap'
+  );
+}
+
+// The quadrant icons, imported so the service worker precaches them (#1051). The keys are the
+// `quadrant` values of the card data.
+const QUADRANT_ICON_IMAGES: Record<string, { src: string; name: string }> = {
+  a: { src: alphaQuadrantIcon.src, name: 'Alpha' },
+  d: { src: deltaQuadrantIcon.src, name: 'Delta' },
+  g: { src: gammaQuadrantIcon.src, name: 'Gamma' },
+};
+
 // The rail: a bright, a darker and a bright band, as the card prints its bars.
 const MISSION_SPAN_RAIL_IMAGE =
   'linear-gradient(to bottom, #6b7280 0%, #f3f4f6 14%, #a1a7b0 34%, #4b5563 42%, #6b7280 50%, #4b5563 58%, #a1a7b0 66%, #e5e7eb 86%, #6b7280 100%)';
@@ -462,6 +493,8 @@ const MISSION_SPAN_RAIL_IMAGE =
 const MISSION_SPAN_PLATE_IMAGE = 'linear-gradient(to bottom, #d4d5d8, #b9babe)';
 // The silver ring: brighter at the top left, darker at the bottom right.
 const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
+// The white face of the point box, a little greyer at the bottom right.
+const MISSION_POINTS_FACE = 'linear-gradient(135deg, #ffffff 0%, #f3f4f6 50%, #d1d5db 100%)';
 // The numeral is upright and skewed about its own centre, as the card's numerals lean. An italic
 // font, or the slant a browser makes of an upright one, leans about the baseline, which moves the
 // digit off the centre of the ring by a different amount in every font. The box is trimmed to the
@@ -477,36 +510,50 @@ const NUMERAL_STYLE = {
 // The overlay. It takes no pointer events and is not a droppable, and has no `data-zone` or
 // `data-card-id`: a tap, a hold and a drop on it reach the mission card and its halves under it.
 // It darkens with a completed mission, as the card's image does (#991).
+// An AP mission (`ap`) draws the quadrant icon and the point box too (#1272).
 function MissionSpan({
   missionIndex,
   span,
   scale,
   completed,
+  ap,
 }: {
   missionIndex: number;
   span: string;
   scale: number;
   completed: boolean;
+  ap?: { quadrant: string; points: string };
 }) {
   const layout = missionSpanLayout(scale);
   const { top, width, height, axis, backing, backingLeft, ring, rim, fontSize, rail } = layout;
-  const { bandLeft, bandWidth, chromeRadius, plateBottom } = layout;
+  const { chromeRadius, plateBottom } = layout;
+  const border = cardBorderWidth(width);
+  const bandLeft = ap ? border : layout.bandLeft;
+  const bandWidth = ap ? width - 2 * border : layout.bandWidth;
   // The rail and the plate start at the disc's centre, which is on the chrome's line to within half
   // a pixel; the cuts are centred on the chrome itself.
   const centre = backing / 2;
   // The rail and the plate run from the centre of one chrome ring to the centre of the other, and
-  // each ring's disc is cut out of both, so their ends follow the chrome.
+  // each ring's disc is cut out of both, so their ends follow the chrome. On an AP mission they run
+  // uncut across the whole width.
   const chromeCut = (y: number): CSSProperties => {
+    if (ap) return {};
     const cut = (x: string) =>
       `radial-gradient(circle at ${x} ${y}px, transparent ${chromeRadius}px, black ${chromeRadius + 0.5}px)`;
     const mask = `${cut('0px')}, ${cut('100%')}`;
     return { maskImage: mask, WebkitMaskImage: mask, maskComposite: 'intersect', WebkitMaskComposite: 'source-in' };
   };
+  // The quadrant icon and the point box sit on the chrome's centres, on whole pixels.
+  const chromeLeft = Math.round(layout.bandLeft - backing / 2);
+  const quadrant = ap ? QUADRANT_ICON_IMAGES[ap.quadrant.toLowerCase()] : undefined;
+  const label = ap
+    ? `${quadrant ? `${quadrant.name} Quadrant, ` : ''}Span ${span}, ${ap.points} points`
+    : `Span ${span}`;
   return (
     <div
       data-testid={`mission-span-${missionIndex}`}
       role="img"
-      aria-label={`Span ${span}`}
+      aria-label={label}
       className={`absolute left-0 pointer-events-none ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
       style={{ top, width, height }}
     >
@@ -550,6 +597,44 @@ function MissionSpan({
           </div>
         </div>
       </div>
+      {ap && (
+        <div
+          data-testid={`mission-span-${missionIndex}-quadrant`}
+          className="absolute top-0 rounded-full bg-black flex items-center justify-center"
+          style={{ left: chromeLeft, width: backing, height: backing }}
+        >
+          <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: MISSION_SPAN_RING }}>
+            <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
+              {quadrant ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={quadrant.src} alt="" draggable={false} className="w-full h-full" />
+              ) : (
+                <span className="font-sans font-bold leading-none text-white uppercase" style={{ fontSize }}>
+                  {ap.quadrant}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {ap && (
+        <div
+          data-testid={`mission-span-${missionIndex}-points`}
+          className="absolute top-0 rounded-full bg-black flex items-center justify-center"
+          style={{ left: width - chromeLeft - backing, width: backing, height: backing }}
+        >
+          <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: MISSION_SPAN_RING }}>
+            <div
+              className="w-full h-full rounded-full flex items-center justify-center font-sans font-bold leading-none text-black"
+              style={{ fontSize, backgroundImage: MISSION_POINTS_FACE }}
+            >
+              <span data-testid={`mission-span-${missionIndex}-points-numeral`} style={NUMERAL_STYLE}>
+                {ap.points}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1462,13 +1547,19 @@ export function MissionCard({
                     onTap={onStripTap}
                   />
                 ))}
-                {/* The span, which the touch crop cuts off (#1133). It turns with the card. */}
+                {/* The span, which the touch crop cuts off (#1133), and the whole row of an AP
+                    mission (#1272). It turns with the card. */}
                 {!uncropped && mission.card.span && (
                   <MissionSpan
                     missionIndex={missionIndex}
                     span={String(mission.card.span)}
                     scale={scale}
                     completed={completed}
+                    ap={
+                      hasApMissionLayout(mission.card)
+                        ? { quadrant: String(mission.card.quadrant ?? ''), points: String(mission.card.points ?? '') }
+                        : undefined
+                    }
                   />
                 )}
               </div>
