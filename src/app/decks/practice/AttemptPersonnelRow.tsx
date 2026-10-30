@@ -7,7 +7,10 @@
 // side with no overlap, in as many rows as they need (#1205, `attemptPersonnelGrid`, `tableScale.ts`).
 // Issue #1218: 3 to a row, as wide as the cards of the crew panel where the screen has the room, with
 // the panel's 8 px gap. The area fills the height it has and shows part of the second row, and
-// scrolls to the rest. The buttons sit above it, as in the crew panel, out of the scroll. The row has no rules of its own: it reads the live away team or crew, and the numbers
+// scrolls to the rest. The buttons sit above it, as in the crew panel, out of the scroll: in the
+// band above the facing body, level with the slivers above the mission, so the first row of cards
+// is level with the mission and the stack (#1376), or, where that band is too short for them,
+// above the area in its column. The row has no rules of its own: it reads the live away team or crew, and the numbers
 // of the attempt stay frozen (#1163).
 //
 // While the area scrolls it carries `PANEL_SCROLLS_ATTRIBUTE` and its cards `touch-action: pan-y`,
@@ -74,6 +77,7 @@ export default function AttemptPersonnelRow({
   columns,
   width,
   height,
+  buttonsInBand = false,
   selectedIds,
   onToggleSelect,
   onSetStopped,
@@ -96,6 +100,9 @@ export default function AttemptPersonnelRow({
   columns: number;
   width: number;
   height: number;
+  // The line of the buttons sits above the row's top, in the band the body keeps above its columns
+  // (#1376, `attemptPersonnelButtonsInBand`), and takes no height of the column.
+  buttonsInBand?: boolean;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
   onSetStopped: (ids: string[], stopped: boolean) => void;
@@ -121,8 +128,16 @@ export default function AttemptPersonnelRow({
   const buttonClassName = 'btn-primary whitespace-nowrap h-full !px-2 !py-0 text-[10px] leading-none';
 
   return (
-    <div className="flex flex-col items-center" style={{ width, gap: SHIP_ROW_GAP }}>
-      <div className="flex flex-row justify-center" style={{ gap: SHIP_ROW_GAP, height: ATTEMPT_PERSONNEL_BUTTONS_HEIGHT }}>
+    <div className="relative flex flex-col items-center" style={{ width, gap: SHIP_ROW_GAP }}>
+      <div
+        data-testid="attempt-row-buttons"
+        className={`flex flex-row justify-center ${buttonsInBand ? 'absolute inset-x-0' : ''}`}
+        style={{
+          gap: SHIP_ROW_GAP,
+          height: ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
+          ...(buttonsInBand ? { bottom: '100%' } : {}),
+        }}
+      >
         {selectedPersonnel.length > 0 && (
           <button
             type="button"

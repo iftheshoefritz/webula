@@ -169,6 +169,7 @@ export default function AttemptLayout({
     personnelColumns,
     personnelWidth,
     personnelHeight,
+    personnelButtonsInBand,
     placedOnWidth,
   } = sizes;
   const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
@@ -400,6 +401,7 @@ export default function AttemptLayout({
                     columns={personnelColumns}
                     width={personnelWidth}
                     height={personnelHeight}
+                    buttonsInBand={personnelButtonsInBand}
                     selectedIds={selectedIds}
                     onToggleSelect={onToggleSelect}
                     onSetStopped={onSetStopped}
@@ -423,6 +425,7 @@ export default function AttemptLayout({
                 columns={personnelColumns}
                 width={personnelWidth}
                 height={personnelHeight}
+                buttonsInBand={personnelButtonsInBand}
                 selectedIds={selectedIds}
                 onToggleSelect={onToggleSelect}
                 onSetStopped={onSetStopped}

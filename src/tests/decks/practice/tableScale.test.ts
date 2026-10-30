@@ -3,6 +3,7 @@ import {
   ATTEMPT_STACK_LABEL_HEIGHT,
   ATTEMPT_STACK_SIDE_GAP,
   ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
+  attemptPersonnelButtonsInBand,
   ATTEMPT_PERSONNEL_GAP,
   ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH,
   ATTEMPT_STACK_SLIVER_ROOM,
@@ -269,9 +270,10 @@ describe('computeAttemptLayout (#1164)', () => {
       expect(usedWidth(sizes)).toBeLessThanOrEqual(MIN_SCREEN.width);
       expect(sizes.personnelWidth).toBeLessThanOrEqual(sizes.shipsWidth);
       expect(rowWidth(sizes)).toBeLessThanOrEqual(sizes.personnelWidth);
-      // The area, its buttons and one line of ships fit the height below the strip.
-      const middle =
-        sizes.personnelHeight + 4 + ATTEMPT_PERSONNEL_BUTTONS_HEIGHT + 4 + sizes.shipRows * shipRowLineHeight(sizes.shipScale, false);
+      // The area and one line of ships fit the height below the strip; the buttons sit in the band
+      // above the body (#1376).
+      expect(sizes.personnelButtonsInBand).toBe(true);
+      const middle = sizes.personnelHeight + 4 + sizes.shipRows * shipRowLineHeight(sizes.shipScale, false);
       expect(middle).toBeLessThanOrEqual(available);
       expect(rowsNeeded(sizes, 20)).toBeGreaterThan(sizes.personnelVisibleRows);
     });
@@ -281,14 +283,10 @@ describe('computeAttemptLayout (#1164)', () => {
       expect(usedWidth(sizes)).toBeLessThanOrEqual(MIN_SCREEN.width);
       expect(sizes.shipRowsWidth + ATTEMPT_GAP + sizes.personnelWidth).toBeLessThanOrEqual(sizes.shipsWidth);
       expect(sizes.shipScale).toBeGreaterThanOrEqual(floor);
-      const middle =
-        badgeStripHeight(sizes.missionScale) +
-        4 +
-        Math.max(
-          sizes.personnelHeight + 4 + ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
-          sizes.shipRows * shipRowLineHeight(sizes.shipScale, false),
-        );
-      expect(middle).toBeLessThanOrEqual(available);
+      // The crew row starts at the top of the column, its buttons in the band above it (#1376).
+      expect(sizes.personnelButtonsInBand).toBe(true);
+      const middle = Math.max(sizes.personnelHeight, sizes.shipRows * shipRowLineHeight(sizes.shipScale, false));
+      expect(underMissionStackRoom(sizes.missionScale, true) + middle).toBeLessThanOrEqual(available + 0.5);
     });
 
     // Issue #1180: the column of the cards placed on the mission, at the inputs of ?fixture=attempt.
@@ -355,9 +353,10 @@ describe('computeAttemptLayout (#1164)', () => {
       expect(ships).toBeLessThanOrEqual(sizes.columnHeight);
     });
 
-    it('takes all the planet column but one line of ships and the buttons for the area', () => {
+    it('takes all the planet column but one line of ships for the area, its buttons in the band above (#1376)', () => {
       const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 5, floor, { count: 40, space: false });
-      const room = sizes.columnHeight - 4 - shipRowLineHeight(floor, false) - 4 - ATTEMPT_PERSONNEL_BUTTONS_HEIGHT;
+      expect(sizes.personnelButtonsInBand).toBe(true);
+      const room = sizes.columnHeight - 4 - shipRowLineHeight(floor, false);
       expect(sizes.personnelHeight).toBeLessThanOrEqual(room);
       // The area fills the height it has, not only whole rows (#1218).
       expect(sizes.personnelHeight).toBe(Math.floor(room));
@@ -478,9 +477,10 @@ describe('the personnel and the stack of the facing phase (#1218)', () => {
       if (personnel.space) expect(sizes.shipRowsWidth).toBe(shipCardWidth(sizes.shipScale));
       // The heights fit below the slivers' room; a space mission has no away team badge (#1365).
       const shipsHeight = sizes.shipRows * shipRowLineHeight(sizes.shipScale, screen.desktop) + (sizes.shipRows - 1) * 4;
+      const buttons = sizes.personnelButtonsInBand ? 0 : buttonsRoom;
       const middle = personnel.space
-        ? Math.max(buttonsRoom + sizes.personnelHeight, shipsHeight)
-        : buttonsRoom + sizes.personnelHeight + 4 + shipsHeight;
+        ? Math.max(buttons + sizes.personnelHeight, shipsHeight)
+        : buttons + sizes.personnelHeight + 4 + shipsHeight;
       expect(underMissionStackRoom(sizes.missionScale, true) + middle).toBeLessThanOrEqual(available + 0.5);
       expect(sizes.missionScale).toBeGreaterThanOrEqual(Math.min(floor, sizes.missionScale));
       // The choice phase keeps the mission's scale and fits the width.
@@ -713,7 +713,7 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
       expect(padding + face.columnHeight).toBeLessThanOrEqual(available + 0.5);
 
       // The facing phase: the mission, the middle column and the dilemma stack.
-      const personnelHeight = face.personnelHeight + buttonsRoom;
+      const personnelHeight = face.personnelHeight + (face.personnelButtonsInBand ? 0 : buttonsRoom);
       const ships_ = shipRowsHeight(face.shipRows, face.shipScale, screen.desktop);
       const middle = personnel.space
         ? Math.max(personnelHeight, ships_)
@@ -788,5 +788,49 @@ describe('the facing body takes the empty width, and the mission and the choice 
       32 + 20 + Math.round(72 * face.missionScale) + face.placedOnWidth + ATTEMPT_GAP + face.shipsWidth + face.stackWidth + 2 * ATTEMPT_GAP;
     expect(used).toBeLessThanOrEqual(width);
     expect(used).toBeGreaterThan(width - 1);
+  });
+});
+
+// Issue #1376: in the facing phase the line of the personnel's buttons sits in the band above the
+// body, so the first row of cards starts at the top of the column, level with the mission card and
+// the stack, and the area takes the line's height. The old numbers are those of the code before.
+describe('the first row of the personnel is level with the mission (#1376)', () => {
+  const touchColumn = (scale: number) => missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
+  const cases = [
+    { width: MIN_SCREEN.width, height: MIN_SCREEN.height, ships: 1, personnel: { count: 12, space: true }, old: { missionScale: 1.215277611756032, personnelHeight: 120, visibleRows: 2 } },
+    { width: MIN_SCREEN.width, height: MIN_SCREEN.height, ships: 0, personnel: { count: 20, space: false }, old: { missionScale: 1.2152773735574103, personnelHeight: 77, visibleRows: 2 } },
+    { width: 800, height: 600, ships: 1, personnel: { count: 12, space: true }, old: { missionScale: 1.9333333333333331, personnelHeight: 311, visibleRows: 4 } },
+    { width: 800, height: 600, ships: 0, personnel: { count: 20, space: false }, old: { missionScale: 2.604166656318638, personnelHeight: 245, visibleRows: 3 } },
+  ];
+
+  it.each(cases)('starts the grid at the top of the mission card at $width x $height, space $personnel.space', ({ width, height, ships, personnel, old }) => {
+    const tableScale = computeTableScale(width, height);
+    const tableHeight = height - 32 - 125;
+    const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const floor = attemptFloorScale(computeTouchMissionScale(width, tableHeight, touchColumn, tableScale), available, tableScale);
+    const sizes = computeAttemptLayout(width, available, false, ships, floor, personnel);
+
+    // The band above the body holds the line of buttons, so the grid's offset from the top of the
+    // column, where the mission card and the stack start, is 0.
+    expect(underMissionStackRoom(sizes.missionScale, true)).toBeGreaterThanOrEqual(ATTEMPT_PERSONNEL_BUTTONS_HEIGHT);
+    expect(sizes.personnelButtonsInBand).toBe(true);
+    // The grid draws in the whole room of its column: all of it at a space mission, all of it but
+    // one line of ships at a planet mission.
+    const room = personnel.space
+      ? sizes.columnHeight
+      : sizes.columnHeight - 4 - shipRowLineHeight(floor, false);
+    expect(sizes.personnelHeight).toBe(Math.floor(room));
+
+    // The area gets the line's height: taller than before, and as many rows or more.
+    expect(sizes.personnelHeight).toBe(old.personnelHeight + 4 + ATTEMPT_PERSONNEL_BUTTONS_HEIGHT);
+    expect(sizes.personnelVisibleRows).toBeGreaterThanOrEqual(old.visibleRows);
+    // The mission's scale, and so the dilemma choice, does not change.
+    expect(sizes.missionScale).toBeCloseTo(old.missionScale, 9);
+  });
+
+  it('keeps the line above the area where the band is too short for it', () => {
+    expect(attemptPersonnelButtonsInBand(1)).toBe(true);
+    expect(attemptPersonnelButtonsInBand(0.8)).toBe(false);
+    expect(underMissionStackRoom(0.8, true)).toBeLessThan(ATTEMPT_PERSONNEL_BUTTONS_HEIGHT);
   });
 });

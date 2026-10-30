@@ -315,6 +315,9 @@ export interface AttemptLayoutSizes {
   personnelVisibleRows: number;
   personnelWidth: number;
   personnelHeight: number;
+  // The line of the area's buttons sits in the band above the body, so the area's top is level
+  // with the mission card's (#1376), or, false, above the area, in its column.
+  personnelButtonsInBand: boolean;
   // The column of the cards placed on the mission (#1180), right of the mission card, or 0 with
   // nothing placed on it.
   placedOnWidth: number;
@@ -388,8 +391,16 @@ export const ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH = 6; // px
 // and the most the stack may be, as a multiple of its top card's width (#1218).
 export const ATTEMPT_STACK_SLIVER_ROOM = 12; // px
 export const ATTEMPT_STACK_MAX_WIDTH_FACTOR = 1.2;
-// The line of the row's Stop, Unstop, Stop all and Shuffle buttons, above its cards (#1218).
+// The line of the row's Stop, Unstop, Stop all, Shuffle and Move to… buttons (#1218). It sits in
+// the band above the facing body, level with the slivers above the mission, so the first row of
+// cards is level with the mission and the stack (#1376); where that band is shorter than the line,
+// it sits above the cards instead (`attemptPersonnelButtonsInBand`).
 export const ATTEMPT_PERSONNEL_BUTTONS_HEIGHT = 18; // px
+
+// Whether the line of the row's buttons fits the band above the facing body at `missionScale`
+// (#1376): that band, `underMissionStackRoom`, is 20 px at scale 1 and 24 px at the minimum screen.
+export const attemptPersonnelButtonsInBand = (missionScale: number): boolean =>
+  underMissionStackRoom(missionScale, true) >= ATTEMPT_PERSONNEL_BUTTONS_HEIGHT;
 
 export interface AttemptPersonnel {
   // The cards of the away team or of the crew, the equipment too.
@@ -579,7 +590,8 @@ export const attemptColumnHeight = (availableHeight: number, missionScale: numbe
 //
 // The personnel area takes the height its column keeps for it, and the rest scroll. At a planet
 // mission that is the whole column but one line of ships, so the bottom row stays where #1203 put
-// it. The line of its buttons sits above it (#1218).
+// it. The line of its buttons sits in the band above the body, so the first row of cards is level
+// with the top of the mission and of the stack (#1376), and the area takes the line's height too.
 // The floor of the attempt layout: the scale the missions draw at on the normal table, unless the
 // whole mission card is too tall for `availableHeight` at that scale, and then the largest scale at
 // which it fits, never below the table scale unless the card does not fit at the table scale either
@@ -622,8 +634,10 @@ export function computeAttemptLayout(
   const space = personnel?.space ?? false;
   const count = personnel?.count ?? 0;
 
-  // The area of the attempting personnel, below the line of its buttons, in the height the column
-  // keeps for them, and the crop it aims for there (#1218).
+  // The height that reserves the mission's scale (#1218): the area below the line of its buttons,
+  // and at a space mission below the away team badge too, as before #1365 and #1376, so
+  // `missionScale` and the dilemma choice that takes it do not change. The area itself draws in
+  // `gridHeightRoom` below, which the line and the badge no longer take. Keep the two apart.
   const buttonsRoom = SHIP_ROW_GAP + ATTEMPT_PERSONNEL_BUTTONS_HEIGHT;
   const personnelHeightRoom = space
     ? columnHeight - badgeStripHeight(floor) - MISSION_COLUMN_GAP - buttonsRoom
@@ -659,6 +673,14 @@ export function computeAttemptLayout(
   );
   const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
   const { stackWidth, stackHeight, stackCardWidth } = attemptFacingStackSize(missionScale, columnHeight);
+  // The line of the area's buttons sits in the band above the body (#1376), so the area starts at
+  // the top of the column, level with the mission card, and takes the line's height too. Where the
+  // band is too short for the line, the line sits above the area, in the column, as before.
+  const personnelButtonsInBand = attemptPersonnelButtonsInBand(missionScale);
+  const gridButtonsRoom = personnelButtonsInBand ? 0 : buttonsRoom;
+  const gridHeightRoom = space
+    ? columnHeight - gridButtonsRoom
+    : columnHeight - MISSION_COLUMN_GAP - shipRowLineHeight(floor, desktop) - gridButtonsRoom;
 
   // The rows of ships that fit below what sits above them in the middle column: the row of the away
   // team and its buttons at a planet mission, nothing at a space mission (#1365), where the ships
@@ -712,19 +734,18 @@ export function computeAttemptLayout(
     const perRow = Math.min(Math.max(1, shipCount), shipsPerRow(ships.shipScale, missionWidth));
     shipRowsWidth = Math.min(missionWidth, shipRowWidth(ships.shipScale, perRow));
     const personnelRoom = Math.max(0, middleRoom - shipRowsWidth - ATTEMPT_GAP);
-    const gridHeightRoom = columnHeight - buttonsRoom;
     const fit = attemptPersonnelFit(count, gridHeightRoom, panelCardWidth, personnelRoom);
     personnelCardWidth = fit.cardWidth;
     grid = attemptPersonnelGrid(count, personnelCardWidth, gridHeightRoom, fit.columns, personnelRoom);
     shipsWidth = shipRowsWidth + ATTEMPT_GAP + grid.width;
   } else if (personnel) {
     // A planet mission: the away team row takes the whole middle column, above the ships (#1365).
-    const fit = attemptPersonnelFit(count, personnelHeightRoom, panelCardWidth, middleRoom);
+    const fit = attemptPersonnelFit(count, gridHeightRoom, panelCardWidth, middleRoom);
     personnelCardWidth = fit.cardWidth;
-    grid = attemptPersonnelGrid(count, personnelCardWidth, personnelHeightRoom, fit.columns, Math.max(0, middleRoom));
+    grid = attemptPersonnelGrid(count, personnelCardWidth, gridHeightRoom, fit.columns, Math.max(0, middleRoom));
     shipsWidth = Math.max(minShipsWidth, grid.width);
     shipRowsWidth = shipsWidth;
-    ships = fitShips(grid.height + buttonsRoom, shipRowsWidth);
+    ships = fitShips(grid.height + gridButtonsRoom, shipRowsWidth);
   } else {
     personnelCardWidth = attemptPersonnelCardWidth(0, personnelHeightRoom, panelCardWidth);
     grid = { columns: 0, visibleRows: 0, width: 0, height: 0 };
@@ -745,6 +766,7 @@ export function computeAttemptLayout(
     personnelVisibleRows: grid.visibleRows,
     personnelWidth,
     personnelHeight: grid.height,
+    personnelButtonsInBand,
     placedOnWidth,
     stackWidth,
     stackHeight,
@@ -997,6 +1019,7 @@ export function useAttemptLayout(
     personnelVisibleRows: fallbackGrid.visibleRows,
     personnelWidth,
     personnelHeight: fallbackGrid.height,
+    personnelButtonsInBand: attemptPersonnelButtonsInBand(scale),
     placedOnWidth: placedOn ? attemptPlacedOnWidth(scale) : 0,
     ...facingStack,
     choice: {
