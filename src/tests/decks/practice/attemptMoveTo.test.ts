@@ -74,7 +74,7 @@ const run = (state: TableState, actions: TableAction[]) => actions.reduce(tableR
 const crewIds = (t: TableState) => (t.missions[1].ships[0].crew ?? []).map((c) => c.id);
 
 describe('attemptMoveDestinations (#1341)', () => {
-  it('lists the bottom row, then the away team and every crew of each other mission', () => {
+  it('lists the bottom row, the away teams of the other planet missions and headquarters, then every crew but the source ship (#1370)', () => {
     expect(attemptMoveDestinations(table()).map((d) => [d.key, d.label])).toEqual([
       ['hand', 'Hand'],
       ['drawDeck-top', 'Top of the draw deck'],
@@ -84,11 +84,35 @@ describe('attemptMoveDestinations (#1341)', () => {
       ['brig', 'Brig'],
       ['awayTeam-0', 'Away team at Moab IV'],
       ['awayTeam-2', 'Away team at Earth'],
-      ['crew-s2', 'Crew of Hood at Earth'],
       ['awayTeam-3', 'Away team at Angel I'],
+      ['crew-s5', 'Crew of Enterprise at Bilana System'],
+      ['crew-s2', 'Crew of Hood at Earth'],
       ['crew-s3', 'Crew of Defiant at Angel I'],
       ['crew-s4', 'Crew of Voyager at Angel I'],
     ]);
+  });
+
+  it('gives a space mission other than the attempted one no away team, and lists its ships (#1370)', () => {
+    const t = table();
+    t.missions[3] = { ...t.missions[3], mission: mission('m3', 'Sector 001', 's') };
+    const keys = attemptMoveDestinations(t).map((d) => d.key);
+    expect(keys).not.toContain('awayTeam-3');
+    expect(keys).not.toContain('awayTeam-1');
+    expect(keys).toEqual(expect.arrayContaining(['crew-s3', 'crew-s4']));
+  });
+
+  it('lists the ships at an attempted planet mission, and a move there boards the crew (#1370)', () => {
+    const t = table();
+    t.missions[0] = { ...t.missions[0], ships: [ship('s7', 'Excelsior')] };
+    t.attempt = { missionIndex: 0, personnel: 1, subtract: 0, phase: 'face', drawn: 0 };
+    const keys = attemptMoveDestinations(t).map((d) => d.key);
+    expect(keys).not.toContain('awayTeam-0');
+    expect(keys).toEqual(expect.arrayContaining(['crew-s7', 'crew-s1', 'crew-s5']));
+    const d = destination(t, 'crew-s7');
+    expect(d.label).toBe('Crew of Excelsior at Moab IV');
+    const after = run(t, moveBatch(['a1'], d));
+    expect((after.missions[0].ships[0].crew ?? []).map((c) => c.id)).toEqual(['a1']);
+    expect(after.missions[0].awayTeam).toEqual([]);
   });
 
   it('lists nothing with no attempt, or in the dilemma choice', () => {
