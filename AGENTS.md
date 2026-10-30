@@ -672,7 +672,11 @@ row (#1367): the table cancels the `touchmove`s of that press (`useTouchScrollGu
 panel that scrolls works the same way. Each
 card carries its `data-card-id`. A tap selects a card, a hold previews it, and above the row, as in
 the crew panel, `attempt-row-stop` (Stop or Unstop, while personnel are selected) and `attempt-row-stop-all` (while
-an unstopped personnel is in the row) set `stopped`. `attempt-row-shuffle`, last in that line and shown while the row holds a card, shuffles the away team or the crew (#1179). A drop on the away team row routes as a drop on
+an unstopped personnel is in the row) set `stopped`. `attempt-row-shuffle`, last in that line and shown while the row holds a card, shuffles the away team or the crew (#1179). That line,
+`data-testid="attempt-row-buttons"`, sits in the band above the facing body, level with the slivers
+above the mission, so the top of the first row of cards is level with the top of the mission card
+and of the dilemma stack (#1376, `attemptPersonnelButtonsInBand`); only where the band is shorter
+than the line, below a mission card about 90 px tall, does it sit above the cards in the column. A drop on the away team row routes as a drop on
 `mission-on-<i>`: a personnel or an equipment joins the away team, a ship goes to the ship row, any
 other card is placed on the mission card. A drop on the crew row routes as a drop on `crew-<id>`. At a
 space mission the facing body has no away team badge (#1365): to aim a drop at the away team, aim at

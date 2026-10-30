@@ -22,7 +22,7 @@ const dropId = 'attempt-crew-ship-1';
 // Issue #1205: the attempting personnel show as cropped table cards in a grid that scrolls, with the
 // buttons out of the scroll. Issue #1218: 3 to a row, the crew panel's 8 px gap, the buttons above.
 describe('AttemptPersonnelRow grid (#1205)', () => {
-  const renderRow = (count: number) =>
+  const renderRow = (count: number, buttonsInBand = false) =>
     render(
       <AttemptPersonnelRow
         dropId={dropId}
@@ -34,6 +34,7 @@ describe('AttemptPersonnelRow grid (#1205)', () => {
         columns={3}
         width={241}
         height={65}
+        buttonsInBand={buttonsInBand}
         selectedIds={['card-1']}
         onToggleSelect={() => {}}
         onSetStopped={() => {}}
@@ -76,6 +77,31 @@ describe('AttemptPersonnelRow grid (#1205)', () => {
       // DOCUMENT_POSITION_FOLLOWING: the zone comes after the button.
       expect(screen.getByTestId(id).compareDocumentPosition(zone) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
+  });
+
+  // Issue #1376: in the band above the facing body, out of the flow of the column, so the drop
+  // target and its first row of cards start at the top of the row, level with the mission.
+  it('puts the buttons in the band above the row, out of the flow, when the band holds them', () => {
+    renderRow(12, true);
+    const line = screen.getByTestId('attempt-row-buttons');
+    expect(line.className).toContain('absolute');
+    expect(line.style.bottom).toBe('100%');
+    expect(line.style.height).toBe('18px');
+    // The drop target is the first element of the row's flow.
+    const zone = document.querySelector(`[data-zone="${dropId}"]`) as HTMLElement;
+    const inFlow = Array.from(zone.parentElement!.children).filter((child) => !child.className.includes('absolute'));
+    expect(inFlow[0]).toBe(zone);
+    for (const id of ['attempt-row-stop', 'attempt-row-stop-all', 'attempt-row-shuffle']) {
+      expect(line.contains(screen.getByTestId(id))).toBe(true);
+      expect(zone.contains(screen.getByTestId(id))).toBe(false);
+    }
+  });
+
+  it('keeps the buttons in the flow above the cards when the band is too short', () => {
+    renderRow(12);
+    const line = screen.getByTestId('attempt-row-buttons');
+    expect(line.className).not.toContain('absolute');
+    expect(line.style.bottom).toBe('');
   });
 
   it('marks the scroller and gives the cards pan-y only while it overflows', () => {
