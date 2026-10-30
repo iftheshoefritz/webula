@@ -1,7 +1,9 @@
 // Issue #1125: the open hand drawn as an arc along the bottom edge of the screen, the way a
 // player holds a fanned hand of cards. Each card's centre sits near the bottom edge, so about half
 // of each card is below the screen, and on a touch screen the arc sits lower still (#1149). The cards near the ends of the arc turn outward and sit lower
-// than the ones in the middle. The arc stays between `left` and `right`, the right edge of the draw
+// than the ones in the middle. On a touch screen the arc is flatter, with no sag and half the turn,
+// and every card's lowest top corner stays at least `ARC_TOUCH_MIN_VISIBLE` above the bottom edge,
+// clear of the iOS edge gesture (#1380). The arc stays between `left` and `right`, the right edge of the draw
 // deck and the left edge of the dilemma pile, so it never covers either pile.
 
 // The angle of a card at either end of the arc, at most, in degrees.
@@ -18,7 +20,24 @@ export const ARC_TOP_OVERLAP = 0.04;
 
 // Issue #1149: how far the arc sits lower on a touch screen, as a part of its visible height, so
 // each card shows 20% less of itself above the bottom edge.
+// Issue #1380 caps that drop, so it never takes a card below `ARC_TOUCH_MIN_VISIBLE`.
 export const ARC_TOUCH_LOWER = 0.2;
+
+// Issue #1380: the touch arc. The ends sit no lower than the middle and turn half as far, so an
+// outer card shows about as much of itself as the middle card does.
+export const ARC_TOUCH_SAG = 0;
+export const ARC_TOUCH_MAX_ANGLE = 7;
+// Issue #1380: how far above the bottom edge the lowest top corner of every card sits, at least, on
+// a touch screen: a band of 20 px for the iOS edge gesture plus the 44 px of a touch target.
+export const ARC_TOUCH_MIN_VISIBLE = 64;
+
+// The options `CardHand` passes to `handArcLayout` with a coarse pointer.
+export const ARC_TOUCH_OPTIONS = {
+  lower: ARC_TOUCH_LOWER,
+  sag: ARC_TOUCH_SAG,
+  maxAngle: ARC_TOUCH_MAX_ANGLE,
+  minVisible: ARC_TOUCH_MIN_VISIBLE,
+};
 
 const IMAGE_RATIO = 167 / 120;
 
@@ -72,6 +91,9 @@ export function handArcLayout({
   right,
   bottom,
   lower = 0,
+  sag: sagShare = ARC_SAG,
+  maxAngle = ARC_MAX_ANGLE,
+  minVisible = 0,
 }: {
   count: number;
   // The card width the hand wants; the arc draws narrower cards when the gap is too small.
@@ -86,8 +108,16 @@ export function handArcLayout({
   // How far to move the whole arc down, as a part of its visible height (#1149). Every card moves
   // the same distance, so the sag, the turns and the spacing do not change.
   lower?: number;
+  // How much lower the ends sit than the middle, as a part of the card's height, and the angle of a
+  // card at either end, at most, in degrees. A touch screen draws a flatter arc (#1380).
+  sag?: number;
+  maxAngle?: number;
+  // How far above the bottom edge the lowest top corner of every card stays, at least (#1380). It
+  // caps the drop of `lower`, and it lifts the arc when the cards are small, but never so far that
+  // the bottom edge of a card rises above the bottom edge of the screen.
+  minVisible?: number;
 }): ArcLayout {
-  const endAngle = count > 1 ? Math.min(ARC_MAX_ANGLE, ARC_ANGLE_PER_CARD * (count - 1)) : 0;
+  const endAngle = count > 1 ? Math.min(maxAngle, ARC_ANGLE_PER_CARD * (count - 1)) : 0;
   const rad = (endAngle * Math.PI) / 180;
   const gap = Math.max(0, right - left);
   // A single turned card must fit in the gap.
@@ -99,7 +129,7 @@ export function handArcLayout({
   const ts = Array.from({ length: count }, (_, i) => (count > 1 ? (2 * i) / (count - 1) - 1 : 0));
   // The sag is shifted so the cards are, on average, half below the bottom edge.
   const meanSquare = count > 0 ? ts.reduce((sum, t) => sum + t * t, 0) / count : 0;
-  const sag = height * ARC_SAG;
+  const sag = height * sagShare;
   const touching = ts
     .slice(1)
     .reduce(
@@ -121,7 +151,17 @@ export function handArcLayout({
     const top = card.centerY - ((height / 2) * Math.cos(turned) + (width / 2) * Math.sin(turned));
     return Math.max(max, bottom - top);
   }, 0);
-  const drop = lower * fullHeight;
+  let drop = lower * fullHeight;
+  if (minVisible > 0 && cards.length > 0) {
+    // The lowest point of each card's top edge, and the highest point of its bottom edge.
+    const reach = (card: ArcCard) => {
+      const turned = (Math.abs(card.angle) * Math.PI) / 180;
+      return (width / 2) * Math.sin(turned) - (height / 2) * Math.cos(turned);
+    };
+    const lowestTop = Math.max(...cards.map((card) => card.centerY + reach(card)));
+    const highestBottom = Math.min(...cards.map((card) => card.centerY - reach(card)));
+    drop = Math.max(Math.min(drop, bottom - minVisible - lowestTop), bottom - highestBottom);
+  }
   return {
     cardWidth: width,
     cardHeight: height,

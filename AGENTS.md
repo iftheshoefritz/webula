@@ -395,7 +395,10 @@ The practice table has five fixtures. Each one deals the same table on every loa
 
 A tap on the closed hand opens it as an arc along the bottom edge of the screen
 (`data-testid="hand-arc"`, `handArc.ts`, #1125): about half of each card is below the edge, more in
-touch mode, where the arc sits 20% of its visible height lower (`ARC_TOUCH_LOWER`, #1149), and the
+touch mode, where the arc sits 20% of its visible height lower (`ARC_TOUCH_LOWER`, #1149). In touch
+mode the arc is also flatter, with no sag and an end angle of 7° (`ARC_TOUCH_OPTIONS`), and the
+lowest top corner of every card stays at least 64 px above the bottom edge (`ARC_TOUCH_MIN_VISIBLE`,
+#1380), clear of the iOS edge gesture; a desktop arc keeps its sag and its 14°. The
 arc stays between the draw deck and the dilemma pile, over the core and the brig. The dilemma hand
 shows only in the attempt layout in `'choose'` (#1223): the full table has no dilemma hand, and a tap on
 the dilemma pile draws nothing. A tap on the closed dilemma hand opens it as the same arc, in the same
