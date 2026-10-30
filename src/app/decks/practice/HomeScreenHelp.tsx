@@ -1,6 +1,7 @@
 import React, { useEffect, useEffectEvent } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { runsOnIos } from './useFullscreen';
+import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
 export type HomeScreenPlatform = 'iosSafari' | 'iosOther' | 'android' | 'other';
 
@@ -51,7 +52,8 @@ export default function HomeScreenHelp({ onClose }: { onClose: () => void }) {
         aria-label="Add to Home Screen"
         data-testid="home-screen-help"
         data-platform={platform}
-        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} max-h-[85vh] w-[min(24rem,90vw)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
+        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
+        style={{ maxHeight: safeModalMaxHeight(85), width: safeModalWidth('24rem') }}
       >
         <h2 className="text-sm font-semibold text-text-primary">Play without the browser bars</h2>
         <p className="mt-1 text-sm text-text-secondary">

@@ -35,6 +35,11 @@ import { HAND_ARC_ATTRIBUTE, NO_CALLOUT_STYLE, useCardHold } from './useCardHold
 import { PILE_CARD_BORDER_STYLE, cardBorderStyle } from './TableCard';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
 import { ARC_TOUCH_OPTIONS, arcTouchMinVisible, handArcLayout } from './handArc';
+import { SAFE_INSET_CSS, safeAreaMargins } from './useSafeAreaInsets';
+
+// The highest the controls row above the open hand may sit: `VIEWER_TOP_INSET` below the top safe-area
+// inset (#1384).
+const SAFE_TOP_CLAMP = `calc(${VIEWER_TOP_INSET}px + ${SAFE_INSET_CSS.top})`;
 
 const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
 const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
@@ -423,7 +428,7 @@ export default function CardHand({
                     style={{
                       left: arcBounds?.left,
                       width: arcBounds ? arcBounds.right - arcBounds.left : undefined,
-                      top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${arc.visibleHeight + HAND_CONTROLS_HEIGHT}px))`,
+                      top: `max(${SAFE_TOP_CLAMP}, calc(100% - ${arc.visibleHeight + HAND_CONTROLS_HEIGHT}px))`,
                       zIndex: count + 2,
                     }}
                   >
@@ -441,6 +446,8 @@ export default function CardHand({
                   bottom: bottomInset,
                   height: openCardHeight,
                   visibility: open ? 'visible' : 'hidden',
+                  // Clear of the side safe-area insets (#1384).
+                  ...safeAreaMargins('left', 'right'),
                   // The fan's own bounding box no longer reaches the bottom row, but a tap that
                   // misses every card must still reach the backdrop, and the backdrop's own
                   // hit-test still forwards a tap on a passthrough zone (issue #638's draw pile,
@@ -479,8 +486,9 @@ export default function CardHand({
                       <div
                         className="fixed inset-x-2 flex justify-center"
                         style={{
-                          top: `max(${VIEWER_TOP_INSET}px, calc(100% - ${bottomInset + openCardHeight + HAND_CONTROLS_HEIGHT}px))`,
+                          top: `max(${SAFE_TOP_CLAMP}, calc(100% - ${bottomInset + openCardHeight + HAND_CONTROLS_HEIGHT}px))`,
                           zIndex: count + 2,
+                          ...safeAreaMargins('left', 'right'),
                         }}
                       >
                         <div data-testid={`${zone}-controls`} className="flex flex-row justify-end gap-2" style={{ width: fanWidth }}>

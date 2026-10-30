@@ -66,24 +66,27 @@ const MISSION_ROW_GAP = 8; // px
 // 5 gaps, not 5 and 4.
 // Issue #1383: the height is the safe height, the game layer's minus the bottom safe-area inset,
 // since the bottom row rises by that inset. At an inset of 0 the scale is as before.
-export function computeTableScale(gameLayerWidth: number, gameLayerHeight: number, insetBottom = 0): number {
+// Issue #1384: the width is the safe width too, the game layer's minus `insetSides`, the left and
+// the right safe-area insets together, since the content column pads itself by them.
+export function computeTableScale(gameLayerWidth: number, gameLayerHeight: number, insetBottom = 0, insetSides = 0): number {
   const heightScale = (gameLayerHeight - insetBottom) / BASELINE_HEIGHT;
-  const availableWidth = gameLayerWidth - CONTENT_PADDING - MISSION_ROW_GAP * MISSION_SLOTS;
+  const availableWidth = gameLayerWidth - insetSides - CONTENT_PADDING - MISSION_ROW_GAP * MISSION_SLOTS;
   const widthScale = availableWidth / (TABLE_CARD_WIDTH * (MISSION_SLOTS + 1));
   return Math.max(1, Math.min(heightScale, widthScale));
 }
 
-export function useTableScale(gameLayer: HTMLElement | null, insetBottom = 0): number {
+export function useTableScale(gameLayer: HTMLElement | null, insetBottom = 0, insetSides = 0): number {
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
     if (!gameLayer) return;
-    const measure = () => setScale(computeTableScale(gameLayer.clientWidth, gameLayer.clientHeight, insetBottom));
+    const measure = () =>
+      setScale(computeTableScale(gameLayer.clientWidth, gameLayer.clientHeight, insetBottom, insetSides));
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(gameLayer);
     return () => observer.disconnect();
-  }, [gameLayer, insetBottom]);
+  }, [gameLayer, insetBottom, insetSides]);
 
   return scale;
 }
@@ -156,9 +159,10 @@ export const DESKTOP_RESERVED_SHIP_ROWS = 2;
 // slot of the card's own width would. A desktop too narrow for the wider slots at scale 1 gets the
 // slot width that fits, `desktopMissionSlotBudget`, down to the card width (`missionSlotWidth`,
 // `MissionRow.tsx`), and the turned card shrinks to fit it.
-// The row has a gap between each two of the five slots, and none after the last.
-export function desktopMissionSlotBudget(gameLayerWidth: number): number {
-  const availableWidth = gameLayerWidth - CONTENT_PADDING - MISSION_ROW_GAP * (MISSION_SLOTS - 1);
+// The row has a gap between each two of the five slots, and none after the last. `insetSides` is
+// the left and the right safe-area insets together (#1384).
+export function desktopMissionSlotBudget(gameLayerWidth: number, insetSides = 0): number {
+  const availableWidth = gameLayerWidth - insetSides - CONTENT_PADDING - MISSION_ROW_GAP * (MISSION_SLOTS - 1);
   return availableWidth / MISSION_SLOTS;
 }
 
@@ -166,8 +170,9 @@ export function computeDesktopTableScale(
   gameLayerWidth: number,
   availableHeight: number,
   columnHeight: (scale: number) => number,
+  insetSides = 0,
 ): number {
-  const widthScale = desktopMissionSlotBudget(gameLayerWidth) / fullCardHeight(TABLE_CARD_WIDTH);
+  const widthScale = desktopMissionSlotBudget(gameLayerWidth, insetSides) / fullCardHeight(TABLE_CARD_WIDTH);
   return fitColumnScale(widthScale, availableHeight, columnHeight);
 }
 
@@ -179,7 +184,9 @@ export function computeDesktopTableScale(
 export const TOUCH_RESERVED_SHIP_ROWS = 2;
 // The game menu and fullscreen buttons sit in the top left corner, over the table (`left-2`, 24 px
 // wide, so they end 32 px in). The mission row is centred, so a row that keeps its left edge 4 px
-// clear of them leaves this much more than the content padding free on each side.
+// clear of them leaves this much more than the content padding free on each side. Both the buttons
+// and the content padding move in by the safe-area inset of their side (#1384), so the gutter is
+// measured from the content edge and stays a constant.
 export const MENU_BUTTON_GUTTER = 20; // px, each side
 // Issue #1337: on the full touch table the turn and score controls sit in a column left of the
 // mission row, below the corner buttons. The row reserves this much past the content padding on its
@@ -189,16 +196,19 @@ export const MENU_BUTTON_GUTTER = 20; // px, each side
 export const TOUCH_CONTROLS_COLUMN = 56; // px
 
 // `leftReserve` is the space kept left of the row past the content padding: `MENU_BUTTON_GUTTER`, or
-// `TOUCH_CONTROLS_COLUMN` on the full touch table.
+// `TOUCH_CONTROLS_COLUMN` on the full touch table. `insetSides` is the left and the right safe-area
+// insets together (#1384): the content padding, and so both reserves, move in by them.
 export function computeTouchMissionScale(
   gameLayerWidth: number,
   availableHeight: number,
   columnHeight: (scale: number) => number,
   tableScale: number,
   leftReserve: number = MENU_BUTTON_GUTTER,
+  insetSides = 0,
 ): number {
   const availableWidth =
     gameLayerWidth -
+    insetSides -
     CONTENT_PADDING -
     leftReserve -
     MENU_BUTTON_GUTTER -
@@ -241,6 +251,8 @@ export function useMissionScale(
   bottomRow: HTMLElement | null,
   desktopColumnHeight: (scale: number) => number,
   touchColumnHeight: (scale: number) => number,
+  // The left and the right safe-area insets together (#1384).
+  insetSides = 0,
 ): number {
   // The measure, with the elements it was measured for: when an element unmounts and a new one
   // mounts, the first render uses `scale` and not the measure of the old elements.
@@ -259,13 +271,14 @@ export function useMissionScale(
         missionRows.getBoundingClientRect().top;
       setMeasured({
         value: desktop
-          ? computeDesktopTableScale(gameLayer.clientWidth, availableHeight, desktopColumnHeight)
+          ? computeDesktopTableScale(gameLayer.clientWidth, availableHeight, desktopColumnHeight, insetSides)
           : computeTouchMissionScale(
               gameLayer.clientWidth,
               availableHeight,
               touchColumnHeight,
               scale,
               TOUCH_CONTROLS_COLUMN,
+              insetSides,
             ),
         elements,
       });
@@ -275,7 +288,7 @@ export function useMissionScale(
     observer.observe(gameLayer);
     observer.observe(bottomRow);
     return () => observer.disconnect();
-  }, [desktop, scale, gameLayer, missionRows, bottomRow, desktopColumnHeight, touchColumnHeight]);
+  }, [desktop, scale, gameLayer, missionRows, bottomRow, desktopColumnHeight, touchColumnHeight, insetSides]);
 
   return measured && measuredFor(measured.elements, [gameLayer, missionRows, bottomRow]) ? measured.value : scale;
 }
@@ -929,6 +942,8 @@ export function useAttemptLayout(
   placedOn: boolean,
   desktopColumnHeight: (scale: number) => number,
   touchColumnHeight: (scale: number) => number,
+  // The left and the right safe-area insets together (#1384): the pure functions get the safe width.
+  insetSides = 0,
 ): AttemptSizes {
   // The measure, with the elements it was measured for, as in `useMissionScale`: the attempt layout
   // mounts many times in one game, and each mount starts from the fallback.
@@ -946,13 +961,14 @@ export function useAttemptLayout(
       const paddingBottom = parseFloat(getComputedStyle(content).paddingBottom) || 0;
       const bodyBottom = gameLayer.getBoundingClientRect().bottom - paddingBottom - bottomRow.getBoundingClientRect().height;
       const tableHeight = bodyBottom - layout.getBoundingClientRect().top;
+      const safeWidth = gameLayer.clientWidth - insetSides;
       const missionScale = desktop
-        ? computeDesktopTableScale(gameLayer.clientWidth, tableHeight, desktopColumnHeight)
-        : computeTouchMissionScale(gameLayer.clientWidth, tableHeight, touchColumnHeight, scale);
+        ? computeDesktopTableScale(safeWidth, tableHeight, desktopColumnHeight)
+        : computeTouchMissionScale(safeWidth, tableHeight, touchColumnHeight, scale);
       const availableHeight = bodyBottom - strip.getBoundingClientRect().bottom - ATTEMPT_GAP;
       const floor = attemptFloorScale(missionScale, availableHeight, desktop ? 1 : scale);
       const face = computeAttemptLayout(
-        gameLayer.clientWidth,
+        safeWidth,
         availableHeight,
         desktop,
         shipCount,
@@ -962,7 +978,7 @@ export function useAttemptLayout(
         viewerCardSize(scale, desktop).width,
       );
       const choice = computeAttemptChoiceLayout(
-        gameLayer.clientWidth,
+        safeWidth,
         availableHeight,
         desktop,
         shipCount,
@@ -991,6 +1007,7 @@ export function useAttemptLayout(
     placedOn,
     desktopColumnHeight,
     touchColumnHeight,
+    insetSides,
   ]);
 
   if (measured && measuredFor(measured.elements, [gameLayer, layout, strip, bottomRow])) return measured.value;
