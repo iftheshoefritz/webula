@@ -205,3 +205,102 @@ describe('PracticeDeckPicker, the two-step load (#1114)', () => {
     expect(onLoadDilemmas).not.toHaveBeenCalled();
   });
 });
+
+describe('PracticeDeckPicker, the Championship and Beginner folders (#1390)', () => {
+  const championshipDeck = {
+    event: 'World Championship', tournamentId: 1, deckId: 11, deckName: 'Borg Rush', player: 'Ann',
+    file: 'borg-rush.txt', source: '', authorizedUse: true,
+  };
+  const championshipEvents = [{ event: 'World Championship', decks: [championshipDeck] }];
+  const beginnerDeck = {
+    deckId: 21, deckName: 'Federation Starter', player: 'Lucas Thompson', file: 'fed.txt', source: '',
+    complexity: 1, style: 'Mission Solver/Speed', article: '', articleUrl: '', authorizedUse: true,
+  };
+  const beginnerDecks = [beginnerDeck];
+  const folderProps = { ...baseProps, championshipEvents, beginnerDecks };
+  const championshipFile = { id: 'championship:borg-rush.txt', name: 'Borg Rush - Ann - World Championship' };
+  const beginnerFile = { id: 'beginner:fed.txt', name: 'Federation Starter - Lucas Thompson' };
+
+  it('lists both folders at the root, and no deck builder link', () => {
+    render(<PracticeDeckPicker {...folderProps} />);
+    expect(screen.getByText('Championship decks')).toBeInTheDocument();
+    expect(screen.getByText('Beginner decks')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /No decks yet/ })).not.toBeInTheDocument();
+  });
+
+  it('hides the Championship folder when no deck of it is visible', () => {
+    render(<PracticeDeckPicker {...folderProps} championshipEvents={[]} />);
+    expect(screen.queryByText('Championship decks')).not.toBeInTheDocument();
+    expect(screen.getByText('Beginner decks')).toBeInTheDocument();
+  });
+
+  it('hides both folders inside a Drive folder', () => {
+    const folder = { id: 'f1', name: 'Tournament', mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] };
+    render(<PracticeDeckPicker {...folderProps} driveFiles={[folder]} browsedFolder={folder} />);
+    expect(screen.queryByText('Championship decks')).not.toBeInTheDocument();
+    expect(screen.queryByText('Beginner decks')).not.toBeInTheDocument();
+  });
+
+  it('opens Championship to its events, then an event to its decks, with no Edit link', () => {
+    render(<PracticeDeckPicker {...folderProps} />);
+    fireEvent.click(screen.getByText('Championship decks'));
+    expect(screen.queryByText('Beginner decks')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('World Championship'));
+    const row = screen.getByTestId('championship-deck-row');
+    expect(row).toHaveTextContent('Borg Rush - Ann');
+    expect(within(row).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(row).getAllByRole('button')).toHaveLength(1);
+
+    fireEvent.click(screen.getByTitle('World Championship'));
+    fireEvent.click(screen.getByTitle('Championship decks'));
+    expect(screen.getByText('Beginner decks')).toBeInTheDocument();
+  });
+
+  it('opens Beginner straight to its decks, with their details and no Edit link', () => {
+    render(<PracticeDeckPicker {...folderProps} />);
+    fireEvent.click(screen.getByText('Beginner decks'));
+    const row = screen.getByTestId('beginner-deck-row');
+    expect(row).toHaveTextContent('Federation Starter — Level 1 · Mission Solver/Speed');
+    expect(within(row).queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('moves to step 2 with a folder deck\'s title, and loads a folder deck\'s dilemmas by its id', () => {
+    const onLoadDilemmas = jest.fn();
+    render(<PracticeDeckPicker {...folderProps} onLoadDilemmas={onLoadDilemmas} />);
+    fireEvent.click(screen.getByText('Championship decks'));
+    fireEvent.click(screen.getByText('World Championship'));
+    fireEvent.click(screen.getByRole('button', { name: 'Load the missions and draw deck of Borg Rush - Ann - World Championship' }));
+    expect(screen.getByText('Dilemmas for Borg Rush - Ann - World Championship')).toBeInTheDocument();
+    expect(onLoadDilemmas).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTitle('World Championship'));
+    fireEvent.click(screen.getByTitle('Championship decks'));
+    fireEvent.click(screen.getByText('Beginner decks'));
+    fireEvent.click(screen.getByRole('button', { name: 'Load the dilemmas of Federation Starter - Lucas Thompson' }));
+    expect(onLoadDilemmas).toHaveBeenCalledWith({ kind: 'drive', file: championshipFile }, beginnerFile);
+  });
+
+  it('signed out, shows the sign-in rows and both folders, and step 2 shows Back and Play against the bot', () => {
+    const onPlayBot = jest.fn();
+    render(
+      <PracticeDeckPicker {...folderProps} isSignedIn={false} hasDriveScope={false} canKeepCurrent={false} onPlayBot={onPlayBot} />
+    );
+    expect(screen.getByRole('button', { name: 'Sign in with Google to load Drive decks' })).toBeInTheDocument();
+    expect(screen.getByText('Championship decks')).toBeInTheDocument();
+    expect(screen.getByText('Beginner decks')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep the current missions and draw deck' })).toBeDisabled();
+
+    fireEvent.click(screen.getByText('Beginner decks'));
+    expect(screen.queryByRole('button', { name: 'Sign in with Google to load Drive decks' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Load the missions and draw deck of Federation Starter - Lucas Thompson' }));
+    expect(screen.getByText('Dilemmas for Federation Starter - Lucas Thompson')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Play against the bot' }));
+    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'drive', file: beginnerFile });
+  });
+
+  it('signed out with no folders, shows no step bar', () => {
+    render(<PracticeDeckPicker {...baseProps} isSignedIn={false} hasDriveScope={false} />);
+    expect(screen.queryByRole('button', { name: 'Keep the current missions and draw deck' })).not.toBeInTheDocument();
+  });
+});

@@ -6,9 +6,13 @@ import { DriveSignInRows } from '../../../components/drivePicker/DriveSignInRows
 import { DriveListRow } from '../../../components/drivePicker/DriveListRow';
 import { DriveBackRow, useDriveFolderView } from '../../../components/drivePicker/useDriveFolderView';
 import type { DriveFile, DriveItem } from '../../../components/drivePicker/useDriveFolderView';
+import { usePublicFolders } from '../../../components/drivePicker/usePublicFolders';
+import type { ChampionshipEvent } from '../../../lib/championshipDecks';
+import type { BeginnerDeck } from '../../../lib/beginnerDecks';
 
-// Where the missions and draw deck of a two-step load come from (#1114): a Drive deck, or the
-// deck dealt now.
+// Where the missions and draw deck of a two-step load come from (#1114): a Drive deck or a public
+// folder deck (#1390), whose `file` holds its `championship:` or `beginner:` id and its title, or
+// the deck dealt now.
 export type MissionsAndDrawSource = { kind: 'drive'; file: DriveFile } | { kind: 'current' };
 
 type Props = {
@@ -26,6 +30,10 @@ type Props = {
   onPlayBot: (source: MissionsAndDrawSource) => void
   // Whether a deck with missions or a draw deck is dealt now, for "Keep the current missions and draw deck".
   canKeepCurrent: boolean
+  // The Championship decks the user sees, by event, and the Beginner Decks (#1390). The
+  // "Championship decks" folder shows only when one of its decks is visible.
+  championshipEvents?: ChampionshipEvent[]
+  beginnerDecks?: BeginnerDeck[]
   onClose: () => void
 }
 
@@ -43,6 +51,10 @@ const TEXT_BUTTON_CLASS =
 // no decks it links to the deck builder, in the same tab, since the home-screen app has no tab bar
 // (#922). Each deck's Edit button opens it in the deck builder (#1111).
 //
+// At the root it also lists the read-only "Championship decks" and "Beginner decks" folders
+// (#1390), to every user, signed out too. A folder deck has the step's button and no Edit button,
+// since the deck builder's `?driveFile=` link resolves only Drive ids.
+//
 // It loads in two steps (#1114, #1290). Step 1 picks the missions and draw deck, of a deck or the
 // current ones, and step 2 picks the deck whose dilemmas join them, the step-1 deck too for its
 // whole deck, or Play against the bot. Nothing loads until the last choice, so a close at either
@@ -58,6 +70,8 @@ export const PracticeDeckPicker: React.FC<Props> = ({
   onLoadDilemmas,
   onPlayBot,
   canKeepCurrent,
+  championshipEvents = [],
+  beginnerDecks = [],
   onClose,
 }) => {
   const { isBrowsingFolder, rootFolders, visibleDeckFiles } = useDriveFolderView(driveFiles, browsedFolder);
@@ -92,9 +106,26 @@ export const PracticeDeckPicker: React.FC<Props> = ({
       </button>
     );
 
+  // The public folders show at the root only, not inside a Drive folder, and not while the Drive
+  // list loads. Each shows once its index has loaded a deck, so a failed fetch hides it.
+  const showPublicFolders = !isBrowsingFolder && !(ready && inProgress);
+  const showChampionship = showPublicFolders && championshipEvents.length > 0;
+  const showBeginner = showPublicFolders && beginnerDecks.length > 0;
+  const { isBrowsingPublicFolder, browseRows: publicBrowseRows, folderRows: publicFolderRows } = usePublicFolders({
+    showChampionship,
+    championshipEvents,
+    showBeginner,
+    beginnerDecks,
+    renderDeckControls: (file) => (
+      <div className="flex items-center gap-1 whitespace-nowrap shrink-0">{deckActions(file)}</div>
+    ),
+  });
+  // The step bar shows whenever there is something to pick: the Drive list, or a public folder.
+  const canPick = (ready && !inProgress) || showChampionship || showBeginner;
+
   return (
     <DriveModalShell title={<span title={title}>{title}</span>} onClose={onClose} testId="practice-deck-picker">
-      {ready && !inProgress && (
+      {canPick && (
         <div className="flex items-center gap-2 px-1 pb-1">
           {source === null ? (
             <button
@@ -131,8 +162,13 @@ export const PracticeDeckPicker: React.FC<Props> = ({
       )}
       <div className="max-h-[min(16rem,50vh)] overflow-y-auto overflow-x-hidden">
         <ul className="w-full divide-y divide-white/[0.06]">
-          {!ready ? (
-            <DriveSignInRows isSignedIn={isSignedIn} hasDriveScope={hasDriveScope} onSignIn={onSignIn} />
+          {isBrowsingPublicFolder ? (
+            publicBrowseRows
+          ) : !ready ? (
+            <>
+              <DriveSignInRows isSignedIn={isSignedIn} hasDriveScope={hasDriveScope} onSignIn={onSignIn} />
+              {publicFolderRows}
+            </>
           ) : inProgress ? (
             <li className="text-text-primary px-3 py-1">please wait...</li>
           ) : (
@@ -140,7 +176,8 @@ export const PracticeDeckPicker: React.FC<Props> = ({
               {isBrowsingFolder && (
                 <DriveBackRow folder={browsedFolder!} onBack={() => onBrowseFolder(null)} />
               )}
-              {visibleDeckFiles.length === 0 && rootFolders.length === 0 && (
+              {publicFolderRows}
+              {visibleDeckFiles.length === 0 && rootFolders.length === 0 && !showChampionship && !showBeginner && (
                 <DriveListRow>
                   <Link
                     href="/decks"

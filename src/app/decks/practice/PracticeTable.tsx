@@ -2969,6 +2969,8 @@ function PracticeDrawContent() {
             onLoadDilemmas={loadDriveDilemmas}
             onPlayBot={playDriveBot}
             canKeepCurrent={canKeepCurrentMissionsAndDraw}
+            championshipEvents={drive.championshipEvents}
+            beginnerDecks={drive.beginnerDecks}
             inProgress={drive.loading}
             onClose={drive.closePicker}
             isSignedIn={!!drive.session}
