@@ -190,6 +190,11 @@ A run or an item already in its month file is not fetched again. The parser, the
 merge are in `scripts/stats/*.mjs`, which use no network, and `src/tests/scripts/collectStats.test.ts`
 tests them.
 
+`.github/workflows/stats-recorder.yml` (#1432) runs the script every day at 02:43 UTC over the last
+3 days and opens or updates one pull request from the branch `stats/update`, which each run rebuilds
+from `main`. A dispatch with `since` and `until` runs a backfill slice. `.github/workflows/README.md`
+describes it.
+
 ## Validation
 
 Before you open or update a PR, run all four commands. All four must pass.
