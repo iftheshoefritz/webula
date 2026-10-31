@@ -557,6 +557,15 @@ undo history, and the button stays disabled until the next action. To compare th
 after an undo, read it from the save:
 `JSON.parse(localStorage.getItem('practiceGame:fixture=piles')).table.drawDeck.map(c => c.id)`.
 
+The redo button, `data-testid="redo-button"` (#1403), does again the last action that undo took
+back, and puts its entry back in the log. It sits beside the undo button, in one row, on the full
+touch table, so the turn and score column keeps its place, and under it on a desktop and in the
+attempt layout, where a row of two would cover the first mission. Its `aria-label` and `title` read
+"Redo: <the entry it does again>", and it is disabled while nothing is undone. With a fine pointer,
+Ctrl+Shift+Z, Cmd+Shift+Z and Ctrl+Y do the same; Cmd+Y is left to the browser. Redo puts back the
+table the action left and never runs it again, so a redone shuffle keeps its order. Any new action
+after an undo empties the redo history, and a reload does too.
+
 The game log button, `data-testid="game-log-button"` with `aria-label="Game log"` (#1399), sits under
 the undo button, last in the top-left column, in every view, the attempt layout too. A tap closes the
 game menu splash if it is open and opens the game log, `GameLogPanel`. The splash has no Game log item.
