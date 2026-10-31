@@ -1023,9 +1023,63 @@ describe('MissionRow: the row of an AP mission on the crop (#1272)', () => {
     expect(screen.getByTestId('mission-span-0-plate').style.maskImage).toBe('');
   });
 
-  it('draws no quadrant icon or point box on a regular mission', () => {
+  // #1397: the scan's own icon and box look smaller than the span, so the crop draws them on every
+  // mission.
+  it('draws the quadrant icon and the point box on a regular mission too (#1397)', () => {
     renderRow(moabIV);
-    expect(screen.getByTestId('mission-span-0')).toHaveAccessibleName('Span 2');
+    const row = screen.getByTestId('mission-span-0');
+    expect(row).toHaveAccessibleName('Alpha Quadrant, Span 2, 35 points');
+    expect(screen.getByTestId('mission-span-0-quadrant').querySelector('img')).toHaveAttribute('src', alphaQuadrantIcon.src);
+    expect(screen.getByTestId('mission-span-0-points-numeral')).toHaveTextContent('35');
+    expect(row.querySelector('[data-zone], [data-card-id]')).toBeNull();
+  });
+
+  it('draws the quadrant icon, the span and the point box at the same size (#1397)', () => {
+    renderRow(moabIV);
+    const disc = screen.getByTestId('mission-span-0-numeral').parentElement!.parentElement!.parentElement!;
+    const quadrant = screen.getByTestId('mission-span-0-quadrant');
+    const points = screen.getByTestId('mission-span-0-points');
+    expect(disc.style.width).not.toBe('');
+    for (const el of [quadrant, points]) {
+      expect(el.style.width).toBe(disc.style.width);
+      expect(el.style.height).toBe(disc.style.height);
+    }
+  });
+
+  it('keeps the chrome cut of the rail and the plate on a regular mission (#1397)', () => {
+    renderRow(moabIV);
+    expect(screen.getByTestId('mission-span-0-rail').style.maskImage).not.toBe('');
+    expect(screen.getByTestId('mission-span-0-plate').style.maskImage).not.toBe('');
+  });
+
+  it('draws a blank point box on a headquarters, which has no points (#1397)', () => {
+    const bajor: MissionSlot = {
+      ...emptySlot(),
+      mission: {
+        id: 'mission-0',
+        card: {
+          name: 'bajor gift of the prophets',
+          originalName: 'Bajor Gift of the Prophets',
+          imagefile: 'x',
+          type: 'mission',
+          mission: 'h',
+          rarity: 'u',
+          quadrant: 'a',
+          span: '2',
+          points: '',
+        },
+        face: 'up',
+      },
+    };
+    renderRow(bajor);
+    expect(screen.getByTestId('mission-span-0')).toHaveAccessibleName('Alpha Quadrant, Span 2');
+    expect(screen.getByTestId('mission-span-0-points')).toBeInTheDocument();
+    expect(screen.queryByTestId('mission-span-0-points-numeral')).toBeNull();
+  });
+
+  it('draws nothing over a regular mission on a desktop', () => {
+    renderRow(moabIV, true);
+    expect(screen.queryByTestId('mission-span-0')).toBeNull();
     expect(screen.queryByTestId('mission-span-0-quadrant')).toBeNull();
     expect(screen.queryByTestId('mission-span-0-points')).toBeNull();
   });
