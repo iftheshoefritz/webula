@@ -108,9 +108,9 @@ import { DOUBLE_TAP_MS, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 // worker precaches it for offline play (#1051).
 import eventIcon from '../../../../public/icons/icon_event.gif';
 import dualIcon from '../../../../public/icons/icon_dual.gif';
-import alphaQuadrantIcon from '../../../../public/icons/icon_quadrant_alpha.gif';
-import deltaQuadrantIcon from '../../../../public/icons/icon_quadrant_delta.gif';
-import gammaQuadrantIcon from '../../../../public/icons/icon_quadrant_gamma.gif';
+import alphaQuadrantIcon from '../../../../public/icons/quadrant_alpha_hd.png';
+import deltaQuadrantIcon from '../../../../public/icons/quadrant_delta_hd.png';
+import gammaQuadrantIcon from '../../../../public/icons/quadrant_gamma_hd.png';
 import { CANCEL_RADIUS } from './releaseCancel';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
@@ -410,6 +410,13 @@ export function placedOnStripLayout(scale: number): {
 // headquarters has no points, and the card prints a grey sphere in its point box, so the crop draws
 // that sphere on the black face, inside the same ring (#1422).
 //
+// The quadrant icon is the 77 px image of the 300 DPI mission template (#1426), not the 24 px icon of
+// the search, so it has the pixels for the largest disc the touch crop draws. It prints its letter
+// 21.5 px tall in a coloured disc 35.5 px across, and the image draws that disc 73.5 px across with a
+// letter 47 px tall. So the image is drawn large enough that its letter takes the same share of the
+// drawn ring as the printed letter takes of its disc, and the ring's black disc clips off the image's
+// own coloured rim, so the silver ring is the only rim.
+//
 // An AP mission (#1272, `hasApMissionLayout`), the missions 60AP001 to 60AP012, prints a taller art,
 // and its row of the quadrant icon, the span and the point box sits at y 340, below the crop. Its art
 // shows on the line above, so the crop draws the row there in the same way, but the rail and the
@@ -421,6 +428,7 @@ const MISSION_SPAN_BACKING = 2 * MISSION_SPAN_CHROME_RADIUS; // of the card widt
 const MISSION_SPAN_BACKING_EDGE = 4 / 357; // of the card width: the black between the ring and the bars
 const MISSION_SPAN_NUMERAL = 19 / 44; // of the backing's diameter, as the card prints it
 const MISSION_SPAN_RAIL = 18 / 357; // of the card width
+const MISSION_SPAN_QUADRANT_IMAGE = 21.5 / 35.5 / (47 / 77); // of the ring's diameter
 // The height of a digit of the numeral's font, as a share of its font size, measured in Chromium.
 const MISSION_SPAN_DIGIT_EM = 0.78;
 
@@ -433,6 +441,7 @@ export function missionSpanLayout(scale: number): {
   backingLeft: number;
   ring: number;
   rim: number;
+  quadrantImage: number;
   numeral: number;
   fontSize: number;
   rail: number;
@@ -463,6 +472,8 @@ export function missionSpanLayout(scale: number): {
     backingLeft: (width - backing) / 2,
     ring,
     rim: Math.max(1, Math.round(ring / 12)),
+    // As the backing, so the image is centred on whole pixels in the ring's black disc.
+    quadrantImage: ring - 2 * Math.round((ring - ring * MISSION_SPAN_QUADRANT_IMAGE) / 2),
     numeral,
     fontSize: Math.round((numeral / MISSION_SPAN_DIGIT_EM) * 10) / 10,
     // As the backing, so the rail's edges fall on whole pixels too.
@@ -486,8 +497,8 @@ export function hasApMissionLayout(card: { type?: unknown; rarity?: unknown } | 
   );
 }
 
-// The quadrant icons, imported so the service worker precaches them (#1051). The keys are the
-// `quadrant` values of the card data.
+// The quadrant icons of the mission template (#1426), imported so the service worker precaches them
+// (#1051). The keys are the `quadrant` values of the card data.
 const QUADRANT_ICON_IMAGES: Record<string, { src: string; name: string }> = {
   a: { src: alphaQuadrantIcon.src, name: 'Alpha' },
   d: { src: deltaQuadrantIcon.src, name: 'Delta' },
@@ -542,7 +553,7 @@ function MissionSpan({
 }) {
   const layout = missionSpanLayout(scale);
   const { top, width, height, axis, backing, backingLeft, ring, rim, fontSize, rail } = layout;
-  const { chromeRadius, plateBottom } = layout;
+  const { chromeRadius, plateBottom, quadrantImage } = layout;
   const border = cardBorderWidth(width);
   const bandLeft = ap ? border : layout.bandLeft;
   const bandWidth = ap ? width - 2 * border : layout.bandWidth;
@@ -620,7 +631,13 @@ function MissionSpan({
           <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
             {quadrant ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={quadrant.src} alt="" draggable={false} className="w-full h-full" />
+              <img
+                src={quadrant.src}
+                alt=""
+                draggable={false}
+                className="max-w-none shrink-0"
+                style={{ width: quadrantImage, height: quadrantImage }}
+              />
             ) : (
               <span className="font-sans font-bold leading-none text-white uppercase" style={{ fontSize }}>
                 {quadrantCode}
