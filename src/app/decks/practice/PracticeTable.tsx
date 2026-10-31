@@ -45,6 +45,8 @@ import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '..
 import { PracticeDeckPicker } from './PracticeDeckPicker';
 import type { MissionsAndDrawSource } from './PracticeDeckPicker';
 import { usePracticeDrive } from './usePracticeDrive';
+import { editDeckDestination, navigateTo } from './editCurrentDeck';
+import { EDIT_DECK_HANDOFF_KEY } from '../../../hooks/useDriveSync';
 import { useOfflineDecks } from './offlineDecks';
 import { OfflineMenuView, offlineItemLabel } from './OfflineMenuView';
 import { OfflineDeckList, OfflineDeckPicker } from './OfflineDeckPicker';
@@ -280,6 +282,8 @@ function GameMenu({
   onClose,
   onReset,
   onLoadDeck,
+  onEditDeck,
+  editDeckDisabled,
   onDecklist,
   onGameLog,
   onControls,
@@ -299,6 +303,9 @@ function GameMenu({
   onClose: () => void;
   onReset: () => void;
   onLoadDeck: () => void;
+  onEditDeck: () => void;
+  // Offline the deck builder does not load, so Edit current deck is disabled (#1407).
+  editDeckDisabled: boolean;
   onDecklist: () => void;
   onGameLog: () => void;
   onControls: () => void;
@@ -417,6 +424,15 @@ function GameMenu({
               </button>
               <button type="button" onClick={onLoadDeck} className={SPLASH_ITEM_CLASS}>
                 Load deck
+              </button>
+              <button
+                type="button"
+                onClick={onEditDeck}
+                disabled={editDeckDisabled}
+                data-testid="game-menu-edit-deck"
+                className={`${SPLASH_ITEM_CLASS} disabled:cursor-not-allowed disabled:opacity-40`}
+              >
+                Edit current deck
               </button>
               <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
                 {offlineItemLabel(offline.progress)}
@@ -1970,6 +1986,7 @@ function PracticeDrawContent() {
         setLoadedDeck(restored.dealtDeck);
         setDriveFileId(restored.driveFileId);
         setDilemmaDriveFileId(restored.dilemmaDriveFileId);
+        setDriveFileName(restored.driveFileName);
       }
       saveReadyRef.current = true;
       return true;
@@ -2025,13 +2042,13 @@ function PracticeDrawContent() {
     if (!saveReadyRef.current || table === initialTableState) return;
     try {
       const save = loadedDeck
-        ? toSavedGame(table, dealtDeck, 'drive', driveFileId, dilemmaDriveFileId, game.log)
+        ? toSavedGame(table, dealtDeck, 'drive', driveFileId, dilemmaDriveFileId, game.log, driveFileName)
         : toSavedGame(table, dealtDeck, 'builder', undefined, undefined, game.log);
       localStorage.setItem(gameKey, JSON.stringify(save));
     } catch {
       // keep playing without a save
     }
-  }, [table, game.log, dealtDeck, loadedDeck, driveFileId, dilemmaDriveFileId, gameKey]);
+  }, [table, game.log, dealtDeck, loadedDeck, driveFileId, dilemmaDriveFileId, driveFileName, gameKey]);
 
   useEffect(() => {
     screen.orientation?.lock?.('landscape')?.catch(() => {});
@@ -2082,6 +2099,35 @@ function PracticeDrawContent() {
   const handleLoadDeckClick = () => {
     setGameMenuOpen(false);
     drive.openPicker();
+  };
+
+  // The game menu's Edit current deck (#1407): closes the menu, confirms, drops the saved game so the
+  // next visit of the table deals the edited deck, and opens the dealt deck in the deck builder, in
+  // the same tab. A Drive deck with no session signs in first and comes back to the builder.
+  const handleEditDeckClick = () => {
+    setGameMenuOpen(false);
+    if (!window.confirm('Edit this deck? This will throw away the current game.')) return;
+    const destination = editDeckDestination({
+      isFixture,
+      loaded: loadedDeck !== null,
+      driveFileId,
+      dilemmaDriveFileId,
+      driveFileName,
+      botGame: table.opponent === 'bot',
+      dealtDeck,
+      deckName: dealtDeckName(),
+    });
+    saveReadyRef.current = false;
+    try {
+      localStorage.removeItem(gameKey);
+      if (destination.kind === 'copy') {
+        sessionStorage.setItem(EDIT_DECK_HANDOFF_KEY, JSON.stringify({ name: destination.name, contents: destination.contents }));
+      }
+    } catch {
+      // the builder opens without the copy
+    }
+    if (destination.kind === 'link' && destination.needsDrive) drive.openWithDrive(destination.href);
+    else navigateTo(destination.href);
   };
 
   // The base deck of the picker's step 2 (#1114, #1290): the missions and draw deck of a Drive deck,
@@ -2970,6 +3016,8 @@ function PracticeDrawContent() {
           onClose={() => setGameMenuOpen(false)}
           onReset={handleResetClick}
           onLoadDeck={handleLoadDeckClick}
+          onEditDeck={handleEditDeckClick}
+          editDeckDisabled={!online}
           onDecklist={handleDecklistClick}
           onGameLog={handleGameLogClick}
           onControls={handleControlsClick}

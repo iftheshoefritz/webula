@@ -40,6 +40,9 @@ export interface SavedGame {
   // The Drive file of the dilemmas when they come from another deck than the missions and draw
   // deck (#1114). Absent in a save of one deck.
   dilemmaDriveFileId?: string;
+  // The name of the dealt Drive deck (#1407), so Edit current deck opens the file under its own
+  // name after a restore. Absent in a save made before #1407.
+  driveFileName?: string;
   dealtDeck: DeckList;
   table: SavedTable;
   // The entries of the game log (#1400), as they are: plain data with display names and no card
@@ -53,6 +56,7 @@ export interface RestoredGame {
   source: SavedGameSource;
   driveFileId?: string;
   dilemmaDriveFileId?: string;
+  driveFileName?: string;
   log: LogEntry[];
   // The largest N of the restored `card-N` IDs, for `seedInstanceIds`.
   maxInstanceId: number;
@@ -92,7 +96,8 @@ export function toSavedGame(
   source: SavedGameSource,
   driveFileId?: string,
   dilemmaDriveFileId?: string,
-  log: LogEntry[] = []
+  log: LogEntry[] = [],
+  driveFileName?: string
 ): SavedGame {
   // The saved deck takes the `backimagefile` of a dealt mission (#765), so a restore needs no
   // card database to repair it.
@@ -118,6 +123,7 @@ export function toSavedGame(
     source,
     ...(driveFileId ? { driveFileId } : {}),
     ...(dilemmaDriveFileId ? { dilemmaDriveFileId } : {}),
+    ...(driveFileName ? { driveFileName } : {}),
     dealtDeck: savedDeck,
     table: savedTable,
     log,
@@ -248,6 +254,7 @@ export function fromSavedGame(json: string, currentDeck: DeckList): RestoredGame
     source: save.source,
     ...(save.driveFileId ? { driveFileId: save.driveFileId } : {}),
     ...(save.dilemmaDriveFileId ? { dilemmaDriveFileId: save.dilemmaDriveFileId } : {}),
+    ...(typeof save.driveFileName === 'string' && save.driveFileName ? { driveFileName: save.driveFileName } : {}),
     log: restoredLog(save.log),
     maxInstanceId,
   };

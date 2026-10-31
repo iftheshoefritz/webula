@@ -111,6 +111,14 @@ describe('savedGame', () => {
     expect(restored!.table).toEqual(dealtTable());
   });
 
+  it('saves the Drive deck name and restores it (#1407)', () => {
+    const save = toSavedGame(dealtTable(), deck, 'drive', 'file-1', undefined, [], 'Borg Deck');
+    expect(save.driveFileName).toBe('Borg Deck');
+    expect(fromSavedGame(JSON.stringify(save), {})!.driveFileName).toBe('Borg Deck');
+    // A save made before #1407 has no name.
+    expect(fromSavedGame(JSON.stringify(toSavedGame(dealtTable(), deck, 'drive', 'file-1')), {})!.driveFileName).toBeUndefined();
+  });
+
   it('saves the game log and restores it (#1400)', () => {
     const log: LogEntry[] = [
       { kind: 'draw', from: 'drawDeck', to: 'hand', turn: 1 },
