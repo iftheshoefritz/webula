@@ -37,6 +37,7 @@ import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFil
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
+import { lackeyText } from '../app/decks/deckBuilderUtils';
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import useDriveSync from '../hooks/useDriveSync';
 import useDeckState from '../hooks/useDeckState';
@@ -115,36 +116,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     })();
   }, []);
 
-  const createLackeyTSV = (): string => {
-    const lackeyPileNameFor: Record<string, string> = {
-      mission: 'Missions:',
-      dilemmaPile: 'Dilemmas:',
-      drawDeck: 'Deck:',
-    };
-    const lackeyPileOrder: Record<string, number> = {
-      drawDeck: 0,
-      dilemmaPile: 1,
-      mission: 2,
-    };
-    const tsvArray: string[] = [];
-    let currentPile = '';
-
-    const sortedCollectorsInfo = Object.keys(currentDeck).sort(
-      (a, b) => lackeyPileOrder[currentDeck[a].row.pile] - lackeyPileOrder[currentDeck[b].row.pile]
-    );
-    for (const collectorsinfo of sortedCollectorsInfo) {
-      const card = currentDeck[collectorsinfo];
-      if (card.row.pile !== currentPile) {
-        currentPile = card.row.pile;
-        tsvArray.push(lackeyPileNameFor[currentPile]);
-      }
-      if (card.count > 0) {
-        tsvArray.push(`${card.count}\t${card.row.originalName}`);
-      }
-    }
-
-    return tsvArray.join('\n');
-  };
+  const createLackeyTSV = (): string => lackeyText(currentDeck);
 
   const {
     session,

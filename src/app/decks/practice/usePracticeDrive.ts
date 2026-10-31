@@ -3,6 +3,7 @@ import { getSession, signIn } from 'next-auth/react';
 import { DRIVE_SCOPE_AUTH_PARAMS } from '../../../hooks/useDriveSync';
 import type { DriveFile, Session } from '../../../hooks/useDriveSync';
 import { isBrowserOnline } from './useOnline';
+import { navigateTo } from './editCurrentDeck';
 import { fetchChampionshipDecks, groupChampionshipDecks, visibleChampionshipDecks } from '../../../lib/championshipDecks';
 import type { ChampionshipDeck } from '../../../lib/championshipDecks';
 import { fetchBeginnerDecks, visibleBeginnerDecks } from '../../../lib/beginnerDecks';
@@ -92,6 +93,15 @@ export function usePracticeDrive() {
     signIn('google', { callbackUrl: '/decks/practice?openPicker=true' }, DRIVE_SCOPE_AUTH_PARAMS);
   };
 
+  // Edit current deck of a Drive deck (#1407): opens the deck builder at `href` when a session is
+  // in, and otherwise starts the sign-in, which comes back straight to `href`.
+  const openWithDrive = async (href: string) => {
+    const fromNextAuth = (await getSession()) as Session | null;
+    const live = fromNextAuth && new Date() <= new Date(fromNextAuth.expires);
+    if (live) navigateTo(href);
+    else signIn('google', { callbackUrl: href }, DRIVE_SCOPE_AUTH_PARAMS);
+  };
+
   return {
     showPicker,
     openPicker,
@@ -105,5 +115,6 @@ export function usePracticeDrive() {
     loading,
     fetchDeckTsv,
     signInToDrive,
+    openWithDrive,
   };
 }

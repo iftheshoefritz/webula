@@ -45,12 +45,19 @@ export const DRIVE_SCOPE_AUTH_PARAMS = {
   include_granted_scopes: 'true',
 };
 
+// The practice table's Edit current deck (#1407) opens a deck that no file stands for with
+// `?editDeck=1`, and leaves its `{ name, contents }` in sessionStorage under this key for one read.
+export const EDIT_DECK_PARAM = 'editDeck';
+export const EDIT_DECK_HANDOFF_KEY = 'editDeckHandoff';
+
 // The `?driveFile=<id>&name=<name>` parameters (#1111) open one Drive deck, the Edit button of the
-// practice table's Load deck picker. Both are removed from the URL and any other parameter stays.
+// practice table's Load deck picker, and `?editDeck=1` the deck of the handoff (#1407). They are
+// removed from the URL and any other parameter stays.
 export function urlWithoutDriveFileParams(location: { pathname: string; search: string; hash: string }) {
   const params = new URLSearchParams(location.search);
   params.delete('driveFile');
   params.delete('name');
+  params.delete(EDIT_DECK_PARAM);
   const query = params.toString();
   return `${location.pathname}${query ? `?${query}` : ''}${location.hash}`;
 }
@@ -60,6 +67,20 @@ export interface DeckFileRecord {
   id: string | null;
   name: string;
   source?: string;
+}
+
+// Takes the handoff of Edit current deck out of sessionStorage, so it is used once; null when there
+// is none or it is not a `{ name, contents }` of strings.
+function takeEditDeckHandoff(): { name: string; contents: string } | null {
+  try {
+    const raw = window.sessionStorage.getItem(EDIT_DECK_HANDOFF_KEY);
+    window.sessionStorage.removeItem(EDIT_DECK_HANDOFF_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (typeof parsed?.name !== 'string' || typeof parsed?.contents !== 'string') return null;
+    return { name: parsed.name, contents: parsed.contents };
+  } catch {
+    return null;
+  }
 }
 
 // A deck's text: a public deck from its folder under `public/`, any other id from Drive.
@@ -92,8 +113,10 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
   const [bulkImportSkipped, setBulkImportSkipped] = useState<{ name: string; error: string }[]>([]);
   const [bulkImportError, setBulkImportError] = useState<string | null>(null);
   // A Drive deck the URL asked for (#1111). It waits for the card data, as a `?share=` deck does,
-  // because handleFileLoad parses it against `data`.
-  const [pendingDriveFile, setPendingDriveFile] = useState<{ id: string; name: string; contents: string } | null>(null);
+  // because handleFileLoad parses it against `data`. A public deck or the copy of Edit current deck
+  // (#1407) has a null id: it loads linked to no Drive file, so a Save opens Save As.
+  const [pendingDriveFile, setPendingDriveFile] =
+    useState<{ id: string | null; name: string; contents: string; source?: string } | null>(null);
   const [pendingDriveWarning, setPendingDriveWarning] = useState(false);
   // The index rows the API route gave, and the email they were fetched for (#1327).
   const [fetchedChampionshipDecks, setFetchedChampionshipDecks] =
@@ -146,7 +169,22 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
       if (driveFileId) {
         const name = params.get('name') || 'My deck';
         window.history.replaceState({}, '', urlWithoutDriveFileParams(window.location));
-        if (resolvedSession) {
+        if (isPublicDeckId(driveFileId)) {
+          // A public deck needs no session (#1407). It loads as the picker loads it, under its
+          // title and with its trekcc.org page when the index is in.
+          try {
+            const contents = await fetchPublicDeckText(driveFileId);
+            const email = resolvedSession?.user?.email ?? '';
+            const [championship, beginner] = await Promise.all([
+              fetchChampionshipDecks(email).catch(() => []),
+              fetchBeginnerDecks().catch(() => []),
+            ]);
+            const deck = findPublicDeck(driveFileId, championship, beginner);
+            setPendingDriveFile({ id: null, name: deck?.title ?? name, contents, source: deck?.source });
+          } catch {
+            // A deck that does not load leaves the deck builder as it was.
+          }
+        } else if (resolvedSession) {
           try {
             const response = await fetch(`/api/drive/${encodeURIComponent(driveFileId)}`, { method: 'GET', credentials: 'include' });
             if (response.ok) {
@@ -157,6 +195,12 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
             // A deck that does not load leaves the deck builder as it was.
           }
         }
+        return;
+      }
+      if (params.has(EDIT_DECK_PARAM)) {
+        window.history.replaceState({}, '', urlWithoutDriveFileParams(window.location));
+        const handoff = takeEditDeckHandoff();
+        if (handoff) setPendingDriveFile({ id: null, ...handoff });
         return;
       }
       if (params.get('openPicker') === 'true') {
@@ -176,9 +220,14 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     })();
   }, []);
 
-  const loadPendingDriveFile = (file: { id: string; name: string; contents: string }) => {
-    setDeckFile({ id: file.id, name: file.name });
+  // The deck file of a pending deck. A public deck keeps its trekcc.org page.
+  const pendingDeckFile = (file: NonNullable<typeof pendingDriveFile>): DeckFileRecord =>
+    ({ id: file.id, name: file.name, ...(file.source ? { source: file.source } : {}) });
+
+  // handleFileLoad clears the source of the old deck file, so the new deck file is set after it.
+  const loadPendingDriveFile = (file: NonNullable<typeof pendingDriveFile>) => {
     handleFileLoad(file.name, file.contents);
+    setDeckFile(pendingDeckFile(file));
   };
 
   // Once the card data is in, the deck loads in render when the deck builder is empty or holds that
@@ -186,9 +235,10 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
   const [decidedDriveFile, setDecidedDriveFile] = useState<{ file: typeof pendingDriveFile; data: CardData[] } | null>(null);
   if (pendingDriveFile && data.length > 0 && (decidedDriveFile?.file !== pendingDriveFile || decidedDriveFile.data !== data)) {
     setDecidedDriveFile({ file: pendingDriveFile, data });
-    if (deckIsEmpty || deckFile?.id === pendingDriveFile.id) {
-      // The new deck file has no source, so the deck needs no onFullLoad.
-      setDeckFile({ id: pendingDriveFile.id, name: pendingDriveFile.name });
+    // A deck with no file is never the deck builder's own file, so it asks first unless the builder is empty.
+    if (deckIsEmpty || (pendingDriveFile.id !== null && deckFile?.id === pendingDriveFile.id)) {
+      // The new deck file replaces the old one whole, source too, so the deck needs no onFullLoad.
+      setDeckFile(pendingDeckFile(pendingDriveFile));
       loadDeckInRender(pendingDriveFile.name, pendingDriveFile.contents);
       setPendingDriveFile(null);
     } else {
