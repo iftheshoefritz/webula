@@ -104,6 +104,28 @@ describe('the Game log item of the game menu (#1065)', () => {
     expect(within(panel).getByRole('button', { name: 'Copied' })).toBeInTheDocument();
   });
 
+  it('keeps the log across a remount from the save, with undo disabled (#1400)', async () => {
+    let view: ReturnType<typeof render> | undefined;
+    await act(async () => {
+      view = render(<PracticeDrawPage />);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next turn' }));
+    expect(screen.getByTestId('undo-button')).not.toBeDisabled();
+    expect(JSON.parse(localStorage.getItem('practiceGame')!).log).toHaveLength(2);
+    view!.unmount();
+
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    expect(screen.getByTestId('undo-button')).toBeDisabled();
+    fireEvent.click(within(openMenu()).getByRole('button', { name: 'Game log' }));
+    const panel = await screen.findByRole('dialog', { name: 'Game log' });
+    expect(within(within(panel).getByTestId('game-log-turn-1')).getByText('Drew a card from the draw deck into the hand')).toBeInTheDocument();
+    expect(within(within(panel).getByTestId('game-log-turn-2')).getByText('Started turn 2')).toBeInTheDocument();
+  });
+
   it('deals no hand, and seven taps on the draw deck draw a hand of 7 that the log lists in turn 1 (#1115)', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);

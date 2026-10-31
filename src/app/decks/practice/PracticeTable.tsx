@@ -1929,7 +1929,7 @@ function PracticeDrawContent() {
       const restored = fromSavedGame(raw, currentDeck);
       if (!restored) return false;
       seedInstanceIds(restored.maxInstanceId);
-      dispatch({ type: 'restore', state: restored.table });
+      dispatch({ type: 'restore', state: restored.table, log: restored.log });
       setDealtDeck(restored.dealtDeck);
       setBotGame(restored.table.opponent === 'bot');
       setDealtOffline(!isBrowserOnline());
@@ -1985,7 +1985,7 @@ function PracticeDrawContent() {
     initDeck();
   }, [data]);
 
-  // Writes the game after every change of the table (#976). A failed write (quota, private
+  // Writes the game and its log (#1400) after every change of the table (#976). A failed write (quota, private
   // browsing) is ignored, so play goes on. The first deal or restore sets `saveReadyRef` in the
   // same commit as its dispatch, so this effect still sees the empty `initialTableState` there,
   // and that table must not overwrite the save (#1005). The write waits for the next render.
@@ -1993,13 +1993,13 @@ function PracticeDrawContent() {
     if (!saveReadyRef.current || table === initialTableState) return;
     try {
       const save = loadedDeck
-        ? toSavedGame(table, dealtDeck, 'drive', driveFileId, dilemmaDriveFileId)
-        : toSavedGame(table, dealtDeck, 'builder');
+        ? toSavedGame(table, dealtDeck, 'drive', driveFileId, dilemmaDriveFileId, game.log)
+        : toSavedGame(table, dealtDeck, 'builder', undefined, undefined, game.log);
       localStorage.setItem(gameKey, JSON.stringify(save));
     } catch {
       // keep playing without a save
     }
-  }, [table, dealtDeck, loadedDeck, driveFileId, dilemmaDriveFileId, gameKey]);
+  }, [table, game.log, dealtDeck, loadedDeck, driveFileId, dilemmaDriveFileId, gameKey]);
 
   useEffect(() => {
     screen.orientation?.lock?.('landscape')?.catch(() => {});
@@ -2806,7 +2806,8 @@ function PracticeDrawContent() {
   // entry, and the entry leaves the log. A panel, a hand or a selection may point at cards the
   // undone table holds elsewhere, so every one of them closes, as after a drag from outside them.
   // Nothing is undone while the bot chooses its stack (#1299): its reply needs the table it drew from.
-  const lastLogEntry = game.log.length ? game.log[game.log.length - 1] : null;
+  // A restored log has no snapshots (#1400), so the button follows `game.undo` and not the log.
+  const lastLogEntry = game.undo.length && game.log.length ? game.log[game.log.length - 1] : null;
   const handleUndo = () => {
     if (draggingRef.current || botStart.choosing || !game.undo.length) return;
     closePanelsAfterDrag(null, game.undo[game.undo.length - 1]);

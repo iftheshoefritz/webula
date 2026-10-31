@@ -551,8 +551,9 @@ A drag out of the core onto a ship has failed once. See #701.
 The undo button, `data-testid="undo-button"` (#1194), sits in the top-left column under the menu
 button and the fullscreen button. Its `aria-label` and `title` read "Undo: <the last log entry>",
 and it is disabled while the log is empty. A tap takes back the action of the last log entry and
-removes the entry. With a fine pointer, Ctrl+Z or Cmd+Z does the same. The undo history lives in
-memory beside the log, so a reload empties it. To compare the order of the draw deck before and
+removes the entry. With a fine pointer, Ctrl+Z or Cmd+Z does the same. The saved game holds the
+log (#1400), but the undo history lives in memory only, so a reload keeps the log and empties the
+undo history, and the button stays disabled until the next action. To compare the order of the draw deck before and
 after an undo, read it from the save:
 `JSON.parse(localStorage.getItem('practiceGame:fixture=piles')).table.drawDeck.map(c => c.id)`.
 

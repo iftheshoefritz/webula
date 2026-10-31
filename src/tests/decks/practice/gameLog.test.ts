@@ -247,6 +247,14 @@ describe('gameReducer: which actions make an entry (#1065)', () => {
     expect(restored.log).toEqual([]);
     expect(restored.table).toEqual(table());
   });
+
+  it('takes the log a restore carries, with no undo snapshot (#1400)', () => {
+    const saved: LogEntry[] = [{ kind: 'nextTurn', turn: 2 }, { kind: 'score', delta: 5, score: 5, turn: 2 }];
+    const restored = gameReducer(initialGameState(table()), { type: 'restore', state: table({ hand: [data] }), log: saved });
+    expect(restored.log).toEqual(saved);
+    expect(restored.undo).toEqual([]);
+    expect(restored.table.hand).toEqual([data]);
+  });
 });
 
 describe('the text of the game log (#1065)', () => {
@@ -396,6 +404,20 @@ describe('gameReducer: undo (#1194)', () => {
     expect(gameReducer(restored, { type: 'undo' })).toBe(restored);
     const reset = gameReducer(played, { type: 'reset', cards: [], missions: [], dilemmas: [] });
     expect(reset.undo).toEqual([]);
+  });
+
+  it('after a restore with a log, undoes only the entries made since, and then nothing (#1400)', () => {
+    const saved: LogEntry[] = [{ kind: 'nextTurn', turn: 2 }];
+    const restored = gameReducer(initialGameState(table()), { type: 'restore', state: table({ hand: [data] }), log: saved });
+    expect(gameReducer(restored, { type: 'undo' })).toBe(restored);
+    const moved = gameReducer(restored, { type: 'move', id: 'c1', to: 'core' });
+    expect(moved.log).toHaveLength(2);
+    expect(moved.undo).toHaveLength(1);
+    const undone = gameReducer(moved, { type: 'undo' });
+    expect(undone.log).toEqual(saved);
+    expect(undone.undo).toEqual([]);
+    expect(undone.table.hand).toEqual([data]);
+    expect(gameReducer(undone, { type: 'undo' })).toBe(undone);
   });
 
   it('keeps one snapshot per entry, and none for an action that makes no entry', () => {
