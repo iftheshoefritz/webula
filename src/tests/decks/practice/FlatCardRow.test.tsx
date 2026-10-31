@@ -97,6 +97,45 @@ describe('FlatCardRow', () => {
     expect(row(zone)).toHaveStyle({ height: '80px' });
   });
 
+  // #1425: the zone is as wide as its share of the bottom row and always draws its dashed outline,
+  // with or without cards, with or without a drag, at the same size.
+  it.each([
+    ['empty', [] as CardInstance[]],
+    ['with cards', [card('card-1', 'Host'), card('card-2', 'Other')]],
+  ])('draws the outline at the width it was given, %s, with no drag and during one', (_, cards) => {
+    for (const draggedType of [null, 'event']) {
+      const { unmount } = render(
+        <DraggedCardTypeProvider value={draggedType}>
+          <PlaceOnHoldProvider value={NO_PLACE_ON_HOLD}>
+            <FlatCardRow zone="core" label="Core" cards={cards} maxWidth={240} maxOffset={92} onOpen={() => {}} onOpenPlacedOn={() => {}} />
+          </PlaceOnHoldProvider>
+        </DraggedCardTypeProvider>
+      );
+      expect(row('core')).toHaveClass('outline-dashed');
+      expect(row('core')).toHaveStyle({ width: '240px', height: '80px' });
+      unmount();
+    }
+  });
+
+  it('centres the label of an empty zone, and shows none with cards', () => {
+    const { rerender } = render(
+      <DraggedCardTypeProvider value={null}>
+        <PlaceOnHoldProvider value={NO_PLACE_ON_HOLD}>
+          <FlatCardRow zone="brig" label="Brig" cards={[]} maxWidth={240} maxOffset={92} onOpen={() => {}} onOpenPlacedOn={() => {}} />
+        </PlaceOnHoldProvider>
+      </DraggedCardTypeProvider>
+    );
+    expect(row('brig')).toHaveTextContent('Brig');
+    rerender(
+      <DraggedCardTypeProvider value={null}>
+        <PlaceOnHoldProvider value={NO_PLACE_ON_HOLD}>
+          <FlatCardRow zone="brig" label="Brig" cards={[card('card-1', 'Host')]} maxWidth={240} maxOffset={92} onOpen={() => {}} onOpenPlacedOn={() => {}} />
+        </PlaceOnHoldProvider>
+      </DraggedCardTypeProvider>
+    );
+    expect(row('brig')).not.toHaveTextContent('Brig');
+  });
+
   it('draws the attribute band of a personnel in the brig, and none on an event', () => {
     const personnel: CardInstance = {
       id: 'card-3',
@@ -131,11 +170,35 @@ describe('flatRowWidths', () => {
     expect(flatRowWidths(0, 4, 3)).toEqual(UNMEASURED_FLAT_ROW_WIDTHS);
   });
 
-  it('lets both rows grow with no extra overlap when they fit', () => {
+  it('lets both rows grow with no extra overlap when they fit, and fills the box', () => {
     const { core, brig } = flatRowWidths(700, 4, 3);
     // 4 core cards take 366px and 3 brig cards 274px, with no overlap past the usual gap.
     expect(core).toBeGreaterThanOrEqual(366);
     expect(brig).toBeGreaterThanOrEqual(274);
+    expect(core + FLAT_ROW_GAP + brig).toBe(700);
+  });
+
+  // #1425: the two outlines and the gap fill the box between the hand and the dilemma pile.
+  it('splits the box evenly between two empty zones', () => {
+    expect(flatRowWidths(300, 0, 0)).toEqual({ core: 146, brig: 146 });
+  });
+
+  it.each([
+    [260, 0, 0],
+    [261, 0, 0],
+    [400, 1, 0],
+    [700, 2, 1],
+    [260, 4, 3],
+  ])('fills a box of %ipx with %i core and %i brig cards', (width, coreCount, brigCount) => {
+    const { core, brig } = flatRowWidths(width, coreCount, brigCount);
+    expect(core + FLAT_ROW_GAP + brig).toBe(width);
+  });
+
+  it('gives the zone with more cards more of the slack', () => {
+    const { core, brig } = flatRowWidths(500, 2, 0);
+    expect(core).toBeGreaterThan(brig);
+    // 2 core cards take 182px with no overlap.
+    expect(core).toBeGreaterThanOrEqual(182);
   });
 
   it('splits a small space between the two rows, so they fit it', () => {

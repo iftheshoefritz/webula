@@ -536,9 +536,9 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     expect(document.body.querySelector('[data-testid="card-list-panel-brig"]')).toBeNull();
   });
 
-  // #635: the dashed outline and the full 56x80 box (the same size the empty zone always shows,
-  // see FlatCardRow.tsx) helped the player see the drop target before a card was ever put there.
-  // Once the zone holds a card, both disappeared. These checks put a card in the zone first, then
+  // #635: the dashed outline helped the player see the drop target before a card was ever put there.
+  // Once the zone held a card, it disappeared outside a drag. Since #1425 the outline shows at all
+  // times, at the zone's share of the bottom row. These checks put a card in the zone first, then
   // start a second drag mid-flight (mockOnDragStart with no mockOnDragEnd, the zoneHighlight.test.tsx
   // pattern) to inspect the outline and size while that drag is still active.
   it("shows the core's outline and full box size while a second card is dragged, after a card already sits there", async () => {
@@ -553,7 +553,8 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     });
 
     const coreZone = () => document.body.querySelector('[data-zone="core"]') as HTMLElement;
-    expect(coreZone().className).not.toEqual(expect.stringContaining('border-dashed'));
+    expect(coreZone().className).toEqual(expect.stringContaining('outline-dashed'));
+    const widthBeforeDrag = coreZone().style.width;
 
     // Re-open the hand (the first drag start closed it) and start dragging the second card.
     // #740 keeps a hand open after a drag out of it, so this tap only runs when the
@@ -568,10 +569,10 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragStart!({ active: { id: secondId } });
     });
 
-    expect(coreZone().className).toEqual(expect.stringContaining('border-dashed'));
-    // The core no longer keeps a fixed width (#1029): it grows with its cards, and during a drag it
-    // keeps the 56px minimum box size, the same as the brig. One 90px art crop (#1234) is wider.
-    expect(coreZone().style.width).toBe('90px');
+    expect(coreZone().className).toEqual(expect.stringContaining('outline-dashed'));
+    expect(coreZone().style.width).toBe(widthBeforeDrag);
+    // jsdom has no layout, so the core takes its unmeasured width (#1425), one card and a little more.
+    expect(coreZone().style.width).toBe('110px');
     expect(coreZone().style.height).toBe('80px');
   });
 
@@ -587,7 +588,8 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
     });
 
     const brigZone = () => document.body.querySelector('[data-zone="brig"]') as HTMLElement;
-    expect(brigZone().className).not.toEqual(expect.stringContaining('border-dashed'));
+    expect(brigZone().className).toEqual(expect.stringContaining('outline-dashed'));
+    const widthBeforeDrag = brigZone().style.width;
 
     // Re-open the hand (the first drag start closed it) and start dragging the second card.
     // #740 keeps a hand open after a drag out of it, so this tap only runs when the
@@ -602,7 +604,8 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       mockOnDragStart!({ active: { id: secondId } });
     });
 
-    expect(brigZone().className).toEqual(expect.stringContaining('border-dashed'));
+    expect(brigZone().className).toEqual(expect.stringContaining('outline-dashed'));
+    expect(brigZone().style.width).toBe(widthBeforeDrag);
     expect(brigZone().style.width).toBe('90px');
     expect(brigZone().style.height).toBe('80px');
   });
@@ -657,12 +660,16 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
       });
 
       coreWidths.push(parseFloat(coreZone().style.width));
+      // #1425: the two zones and the 8px gap fill the shared box.
+      expect(parseFloat(coreZone().style.width) + 8 + parseFloat(brigZone().style.width)).toBe(600);
     }
-    // 90px art crops (#1234), 92px apart: no overlap, and no cap at three cards.
-    expect(coreWidths).toEqual([90, 182, 274, 366]);
+    // The core takes more of the box with each card, at least as wide as its 90px art crops
+    // (#1234), 92px apart, with no overlap, and no cap at three cards.
+    expect(coreWidths.every((width, i) => i === 0 || width > coreWidths[i - 1])).toBe(true);
+    coreWidths.forEach((width, i) => expect(width).toBeGreaterThanOrEqual(90 + 92 * i));
 
-    // The brig, unaffected by #676, still grows with the cards it holds: drag two of the same
-    // cards back out of the core and into the brig instead.
+    // The brig, unaffected by #676, holds cards the same way: drag two of the same cards back out
+    // of the core and into the brig instead.
     for (let i = 0; i < 2; i++) {
       await act(async () => {
         mockOnDragStart!({ active: { id: cardIds[i] } });
@@ -671,7 +678,10 @@ describe('Practice draw: dropping cards on the core and the brig (#603)', () => 
         mockOnDragEnd!({ active: { id: cardIds[i] }, over: { id: 'brig' } });
       });
     }
-    expect(brigZone().style.width).not.toBe(emptyBrigWidth);
+    // 2 cards in each zone: an even split again, wide enough for 2 cards side by side.
+    expect(brigZone().style.width).toBe(emptyBrigWidth);
+    expect(parseFloat(brigZone().style.width)).toBeGreaterThanOrEqual(182);
+    expect(parseFloat(coreZone().style.width) + 8 + parseFloat(brigZone().style.width)).toBe(600);
     clientWidth.mockRestore();
   });
 });
