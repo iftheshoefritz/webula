@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import posthog from 'posthog-js';
+import { track } from '../lib/analytics';
 import { getSession, signIn } from 'next-auth/react';
 import useLocalStorage from './useLocalStorage';
 import { UploadedFile } from '../components/DeckUploader';
@@ -224,7 +224,7 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
       if (file) handleFileLoad(file.name, file.content);
       return;
     }
-    posthog.capture('deckBuilder.bulkImportFromDisk.start', { fileCount: files.length });
+    track('deckBuilder.bulkImportFromDisk.start', { fileCount: files.length });
     if (!session) {
       signIn('google', { callbackUrl: '/decks' }, DRIVE_SCOPE_AUTH_PARAMS);
       return;
@@ -317,7 +317,7 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
         return;
       }
       setBulkImportStatus('done');
-      posthog.capture('deckBuilder.bulkImportFromDisk.finish', { fileCount: files.length });
+      track('deckBuilder.bulkImportFromDisk.finish', { fileCount: files.length });
     } catch (err: any) {
       setBulkImportError(err?.message || 'Import failed');
       setBulkImportStatus('done');
@@ -332,7 +332,7 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
   };
 
   const fetchDriveFile = async (driveFile: { id: string; name: string }, piles?: DeckPile[]) => {
-    posthog.capture('deckBuilder.driveFileLoad.start');
+    track('deckBuilder.driveFileLoad.start');
     setLoadingFromGDrive(true);
     const contents = await fetchDeckText(driveFile.id);
 
@@ -348,11 +348,11 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     }
     setLoadingFromGDrive(false);
     setShowDrivePicker(false);
-    posthog.capture('deckBuilder.driveFileLoad.end');
+    track('deckBuilder.driveFileLoad.end');
   };
 
   const fetchCompareDriveFile = async (driveFile: { id: string; name: string }) => {
-    posthog.capture('deckBuilder.compareDeckLoad.start');
+    track('deckBuilder.compareDeckLoad.start');
     setLoadingFromGDrive(true);
     const contents = await fetchDeckText(driveFile.id);
     const incoming = deckFromTsv(contents, data);
@@ -365,7 +365,7 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     setCompareDeckName(deck ? deck.title : driveFile.name);
     setLoadingFromGDrive(false);
     setShowDrivePicker(false);
-    posthog.capture('deckBuilder.compareDeckLoad.end');
+    track('deckBuilder.compareDeckLoad.end');
   };
 
   const clearCompareDeck = () => {
@@ -374,14 +374,14 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
   };
 
   const deleteDriveFile = async (file: { id: string }) => {
-    posthog.capture('deckBuilder.driveFileDelete.start');
+    track('deckBuilder.driveFileDelete.start');
     setDriveFiles(driveFiles.filter((f: DriveFile) => f.id !== file.id && !f.parents?.includes(file.id)));
     await fetch(`/api/drive/${file.id}`, { method: 'DELETE', credentials: 'include' });
-    posthog.capture('deckBuilder.driveFileDelete.end');
+    track('deckBuilder.driveFileDelete.end');
   };
 
   const createDriveFolder = async (name: string) => {
-    posthog.capture('deckBuilder.driveFolderCreate.start');
+    track('deckBuilder.driveFolderCreate.start');
     const response = await fetch('/api/drive', {
       method: 'POST',
       credentials: 'include',
@@ -394,11 +394,11 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
         { id: json.file.id, name, mimeType: FOLDER_MIME_TYPE, parents: ['appDataFolder'] },
       ]);
     }
-    posthog.capture('deckBuilder.driveFolderCreate.end');
+    track('deckBuilder.driveFolderCreate.end');
   };
 
   const moveDriveFile = async (file: DriveFile, targetParentId: string) => {
-    posthog.capture('deckBuilder.driveFileMove.start');
+    track('deckBuilder.driveFileMove.start');
     const currentParentId = file.parents?.[0] ?? 'appDataFolder';
     if (currentParentId === targetParentId) return;
     const response = await fetch(`/api/drive/${file.id}`, {
@@ -410,18 +410,18 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
     setDriveFiles((prev) =>
       prev.map((f: DriveFile) => (f.id === file.id ? { ...f, parents: json.parents ?? [targetParentId] } : f))
     );
-    posthog.capture('deckBuilder.driveFileMove.end');
+    track('deckBuilder.driveFileMove.end');
   };
 
   const renameDriveFile = async (file: { id: string }, newName: string) => {
-    posthog.capture('deckBuilder.driveFileRename.start');
+    track('deckBuilder.driveFileRename.start');
     setDriveFiles((prev) => prev.map((f: DriveFile) => (f.id === file.id ? { ...f, name: newName } : f)));
     await fetch(`/api/drive/${file.id}`, {
       method: 'PUT',
       credentials: 'include',
       body: JSON.stringify({ fileName: newName }),
     });
-    posthog.capture('deckBuilder.driveFileRename.end');
+    track('deckBuilder.driveFileRename.end');
   };
 
   const showSavedFeedback = () => {

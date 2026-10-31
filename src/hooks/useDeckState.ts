@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import posthog from 'posthog-js';
+import { track } from '../lib/analytics';
 import useLocalStorage from './useLocalStorage';
 import {
   aboveMinimumCount,
@@ -71,10 +71,10 @@ export function useDeckState({
   };
 
   const handleFileLoad = (name: string, contents: string, piles?: DeckPile[]) => {
-    posthog.capture('deckBuilder.handleFileLoad.start');
+    track('deckBuilder.handleFileLoad.start');
     setLoadedDeck(name, contents, piles);
     if (!piles) onFullLoad?.();
-    posthog.capture('deckBuilder.handleFileLoad.finish', { lines: Object.keys(currentDeck).length });
+    track('deckBuilder.handleFileLoad.finish', { lines: Object.keys(currentDeck).length });
   };
 
   // A load that a render makes: a `?share=` deck or a `?driveFile=` deck once the card data is in.
@@ -89,8 +89,8 @@ export function useDeckState({
 
   useEffect(() => {
     if (!renderLoad) return;
-    posthog.capture('deckBuilder.handleFileLoad.start');
-    posthog.capture('deckBuilder.handleFileLoad.finish', { lines: renderLoad.lines });
+    track('deckBuilder.handleFileLoad.start');
+    track('deckBuilder.handleFileLoad.finish', { lines: renderLoad.lines });
   }, [renderLoad]);
 
   const incrementIncluded = useCallback(
