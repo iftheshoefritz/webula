@@ -28,10 +28,13 @@ function reduceUrlProperties(properties: Record<string, unknown> | undefined): v
 }
 
 // The `before_send` of the no-consent config: every URL property of every event, a page view and
-// an exception too, keeps only its origin, path and parameter names.
+// an exception too, keeps only its origin, path and parameter names. It drops the `title` that
+// posthog-js adds to a page view, the `document.title`, because the title of a search page holds
+// the query and that of the deck builder the deck's title (follow-up for #1413).
 export function reduceEventUrls<T extends { properties?: Record<string, unknown>; $set?: Record<string, unknown>; $set_once?: Record<string, unknown> } | null>(event: T): T {
   if (!event) return event;
   reduceUrlProperties(event.properties);
+  if (event.properties) delete event.properties.title;
   reduceUrlProperties(event.$set);
   reduceUrlProperties(event.$set_once);
   return event;

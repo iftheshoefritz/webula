@@ -61,6 +61,13 @@ describe('reduceEventUrls (#1408)', () => {
   it('passes a dropped event on', () => {
     expect(reduceEventUrls(null)).toBeNull();
   });
+
+  it('drops the page title, which can hold the search query', () => {
+    const event = reduceEventUrls({
+      properties: { $current_url: '/?q=picard', title: 'Webula – "picard" (3 cards)' },
+    });
+    expect(event.properties).toEqual({ $current_url: '/?q' });
+  });
 });
 
 describe('track', () => {
