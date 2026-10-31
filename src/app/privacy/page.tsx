@@ -145,7 +145,8 @@ export default function PrivacyPage() {
           <h2 className="text-lg font-semibold mb-3 text-white">5. Third-party services</h2>
           <ul className="list-disc list-inside space-y-2">
             <li>
-              <strong>PostHog</strong> — analytics platform. See their{' '}
+              <strong>PostHog</strong> — analytics platform, under a data processing agreement. We use
+              PostHog&apos;s EU cloud, so analytics data is stored in the European Union. See their{' '}
               <a
                 href="https://posthog.com/privacy"
                 target="_blank"
