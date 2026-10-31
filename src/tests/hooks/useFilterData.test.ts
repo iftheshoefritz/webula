@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import useFilterData from '../../hooks/useFilterData';
+import useFilterData, { SEARCH_SETTLE_MS } from '../../hooks/useFilterData';
 
 // Mock posthog-js
 jest.mock('posthog-js', () => ({
@@ -722,16 +722,49 @@ describe('useFilterData — derived from its inputs', () => {
     expect(result.current.map((c) => c.name)).toEqual(['ensign ro']);
   });
 
-  it('reports a result once, and not again on a rerender with equal inputs', () => {
+  it('reports a result once it settles, and not again on a rerender with equal inputs', () => {
+    jest.useFakeTimers();
     const posthog = jest.requireMock('posthog-js').default;
     posthog.capture.mockClear();
     const data = [picard, ro];
     const { rerender } = renderHook(({ q }) => useFilterData(false, data, columns, q), {
       initialProps: { q: 'name:picard' },
     });
+    expect(posthog.capture).not.toHaveBeenCalled();
+    act(() => { jest.advanceTimersByTime(SEARCH_SETTLE_MS); });
     expect(posthog.capture).toHaveBeenCalledTimes(1);
-    expect(posthog.capture).toHaveBeenCalledWith('deckBuilder.setFiltered', { q: 'name:picard' });
     rerender({ q: 'name:picard' });
+    act(() => { jest.advanceTimersByTime(SEARCH_SETTLE_MS); });
     expect(posthog.capture).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  // #1408: the event names the fields, never the text the visitor typed.
+  it('reports the fields and the result count, and no query text', () => {
+    jest.useFakeTimers();
+    const posthog = jest.requireMock('posthog-js').default;
+    posthog.capture.mockClear();
+    renderHook(() => useFilterData(false, [picard, ro], columns, 'n:picard'));
+    act(() => { jest.advanceTimersByTime(SEARCH_SETTLE_MS); });
+    expect(posthog.capture).toHaveBeenCalledWith('deckBuilder.setFiltered', { fields: ['name'], text: false, results: 1 });
+    expect(JSON.stringify(posthog.capture.mock.calls)).not.toContain('picard');
+    jest.useRealTimers();
+  });
+
+  it('reports one search for a query typed one key at a time', () => {
+    jest.useFakeTimers();
+    const posthog = jest.requireMock('posthog-js').default;
+    posthog.capture.mockClear();
+    const data = [picard, ro];
+    const { rerender } = renderHook(({ q }) => useFilterData(false, data, columns, q), {
+      initialProps: { q: 'n:p' },
+    });
+    for (const q of ['n:pi', 'n:pic', 'n:pica', 'n:picar', 'n:picard', 'n:ro']) {
+      act(() => { jest.advanceTimersByTime(100); });
+      rerender({ q });
+    }
+    act(() => { jest.advanceTimersByTime(SEARCH_SETTLE_MS); });
+    expect(posthog.capture).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
   });
 });

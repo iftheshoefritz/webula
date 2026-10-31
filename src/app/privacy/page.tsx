@@ -11,7 +11,7 @@ export default function PrivacyPage() {
     <div className="min-h-screen bg-gradient-page font-body text-text-primary">
       <div className="max-w-3xl mx-auto px-4 py-12 text-sm">
         <h1 className="text-2xl font-bold mb-6 text-white">Privacy Policy</h1>
-        <p className="mb-4 text-gray-400">Last updated: March 2026</p>
+        <p className="mb-4 text-gray-400">Last updated: October 2026</p>
 
         <section className="mb-8">
           <h2 className="text-lg font-semibold mb-3 text-white">1. Who we are</h2>
@@ -27,11 +27,25 @@ export default function PrivacyPage() {
 
           <h3 className="font-semibold mt-4 mb-2 text-gray-100">2a. Anonymous analytics (PostHog — always on)</h3>
           <p>
-            On every visit we collect cookieless, anonymous page-view counts via PostHog. This
-            tracking uses <strong>no cookies</strong>, stores <strong>no persistent
-            identifiers</strong>, and does <strong>not</strong> send your IP address to PostHog.
-            Because no identifying information is collected, individual users cannot be tracked or
-            re-identified across visits.
+            On every visit, unless you accept enhanced analytics, we collect anonymous usage data via
+            PostHog in its cookieless mode:
+          </p>
+          <ul className="list-disc list-inside mt-2 space-y-1">
+            <li>Page views. The page address keeps its path and the names of its parameters, never
+              their values, so no share link or Drive file id is sent.</li>
+            <li>Named feature events, such as a card search, a deck import or a deck export, with
+              counts and fixed values only. A search event names the fields a search used (for
+              example &quot;affiliation&quot;) and the number of results, never the text you
+              typed. No event holds a deck title or any other text you type.</li>
+            <li>Error reports: the error, its stack trace and the reduced page address.</li>
+          </ul>
+          <p className="mt-2">
+            This tracking stores <strong>nothing on your device</strong>: no cookies, no
+            localStorage, no sessionStorage. To count unique visitors and sessions, PostHog&apos;s
+            servers make a daily visitor id from a hash of your IP address, your browser&apos;s user
+            agent and a random salt that PostHog deletes each day. Your IP address is not stored, and
+            the id cannot be linked from one day to the next. There is no autocapture of clicks, no
+            session recording and no person profile.
           </p>
           <p className="mt-2">
             <strong>Legal basis:</strong> Legitimate interest (GDPR Art. 6(1)(f)). No consent is
@@ -92,9 +106,9 @@ export default function PrivacyPage() {
           <h2 className="text-lg font-semibold mb-3 text-white">3. Data retention</h2>
           <ul className="list-disc list-inside space-y-2">
             <li>
-              <strong>Anonymous analytics:</strong> PostHog retains aggregate page-view data per their
-              own retention policy. No per-user data is stored because no user identifiers are
-              collected.{' '}
+              <strong>Anonymous analytics:</strong> PostHog retains the anonymous events per their
+              own retention policy. The daily salt behind the visitor id is deleted after one day, so
+              the id of an event can no longer be linked to an IP address or browser after that.{' '}
               <strong>Enhanced analytics (consent-based):</strong> Withdrawing consent stops future
               enhanced data collection but does not delete past events.
             </li>
@@ -131,7 +145,8 @@ export default function PrivacyPage() {
           <h2 className="text-lg font-semibold mb-3 text-white">5. Third-party services</h2>
           <ul className="list-disc list-inside space-y-2">
             <li>
-              <strong>PostHog</strong> — analytics platform. See their{' '}
+              <strong>PostHog</strong> — analytics platform, under a data processing agreement. We use
+              PostHog&apos;s EU cloud, so analytics data is stored in the European Union. See their{' '}
               <a
                 href="https://posthog.com/privacy"
                 target="_blank"

@@ -30,8 +30,8 @@ export default function ConsentBanner() {
   function accept() {
     localStorage.setItem('analytics_consent', 'true');
     // Re-init PostHog with full (non-anonymous) settings now that consent was given.
-    // PostHog is already loaded in anonymous mode; calling init again with the same
-    // instance name upgrades the configuration for the current session.
+    // posthog-js ignores a second init of a loaded instance, so this page keeps the
+    // cookieless mode, and `PostHogInit` loads the full settings from the next page load.
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
     if (key) {
@@ -50,7 +50,7 @@ export default function ConsentBanner() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-700 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-300">
       <p>
-        All your decks stay in your browser or Google Drive — no one else can access them. We collect anonymous, cookieless page-view counts (no IP, no persistent ID) to understand site usage. Accepting enables additional analytics to help us improve the site.{' '}
+        All your decks stay in your browser or Google Drive — no one else can access them. We collect anonymous, cookieless usage counts (no cookies, no stored IP, nothing you type, no ID that lasts beyond a day) to understand site usage. Accepting enables additional analytics to help us improve the site.{' '}
         <Link href="/privacy" className="underline text-blue-400">
           Privacy Policy
         </Link>

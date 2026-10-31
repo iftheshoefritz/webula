@@ -1,7 +1,7 @@
 // hooks/useDataFetching.js
 import { useState, useEffect, useMemo } from 'react';
 import * as d3 from 'd3';
-import posthog from 'posthog-js';
+import { track } from '../lib/analytics';
 
 const nonFilterColumns = ['ImageFile'];
 
@@ -12,11 +12,11 @@ const useDataFetching = () => {
   useEffect(() => {
     console.log(`useEffect ${nonFilterColumns}`);
     const fetchData = async () => {
-      posthog.capture('useDataFetch.fetchCardsStart');
+      track('useDataFetch.fetchCardsStart');
       console.log('fetchData');
       try {
         const response = await fetch('/cards_with_processed_columns.txt');
-        posthog.capture('useDataFetch.fetchCardsFinish');
+        track('useDataFetch.fetchCardsFinish');
         const text = await response.text();
         setUnparsedData(text);
       } catch (error) {
@@ -79,8 +79,8 @@ const useDataFetching = () => {
   // Reports the parse once it has run; the parse itself happens in render.
   useEffect(() => {
     if (loading) return;
-    posthog.capture('useDataFetch.parseDataStart');
-    posthog.capture('useDataFetching.parseDataFinish');
+    track('useDataFetch.parseDataStart');
+    track('useDataFetching.parseDataFinish');
   }, [data, loading]);
 
   return { data, filteredData, columns, loading };
