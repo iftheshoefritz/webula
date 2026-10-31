@@ -1067,3 +1067,31 @@ export function useAttemptLayout(
     },
   };
 }
+
+// The height of the full column (#1395): each group is a label line (`leading-3`) and a number line
+// (`leading-6`), then `gap-1` and an `h-8` button, and `gap-3` between the two groups.
+const TURN_SCORE_LABEL_LINE = 12; // px
+const TURN_SCORE_NUMBER_LINE = 24; // px
+const TURN_SCORE_BUTTON = 32; // px
+const TURN_SCORE_GROUP_GAP = 12; // px
+const TURN_SCORE_GROUP = TURN_SCORE_LABEL_LINE + TURN_SCORE_NUMBER_LINE + 4 + TURN_SCORE_BUTTON;
+export const TURN_SCORE_COLUMN_HEIGHT = 2 * TURN_SCORE_GROUP + TURN_SCORE_GROUP_GAP; // px
+// The clearance between the column and the bottom row, the gap under the corner buttons.
+export const TURN_SCORE_COLUMN_CLEARANCE = 8; // px
+// Issue #1395: the column goes compact only in fullscreen on iPadOS, where it starts below the
+// system controls, and only when the full column does not fit between its top and the top of the
+// bottom row, both measured from the top of the game layer. A `roomBottom` of 0 or less is not
+// measured yet (jsdom, the first render), and counts as room enough, so an iPad mini keeps its
+// labels and no iPad flashes the compact look on entry.
+export function turnScoreColumnCompact({
+  systemControls,
+  top,
+  roomBottom,
+}: {
+  systemControls: boolean;
+  top: number;
+  roomBottom: number;
+}): boolean {
+  if (!systemControls || roomBottom <= 0) return false;
+  return top + TURN_SCORE_COLUMN_HEIGHT + TURN_SCORE_COLUMN_CLEARANCE > roomBottom;
+}
