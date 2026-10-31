@@ -151,6 +151,45 @@ The DeckPADD download (`/decklists/?mode=download&deckID=<id>`) needs a trekcc.o
 login, and Cloudflare blocks `curl`. Get the files from a browser where the owner
 is logged in, with `fetch` inside the page.
 
+## Stats
+
+`scripts/collect_stats.mjs` (#1431) reads GitHub and writes JSON Lines files under `stats/`, at the
+top of the repository, outside `public/`, one file per month. It needs `GH_TOKEN` (or `GITHUB_TOKEN`,
+or a logged-in `gh`) and `unzip`. `--since` and `--until` are UTC dates, both inclusive; `--until`
+defaults to today. Slice a backfill with them: the `GITHUB_TOKEN` allows 1,000 REST requests an
+hour, and each run costs about two, its jobs and its log. The script prints what it fetched and
+what it skipped.
+
+```bash
+GH_TOKEN=… node scripts/collect_stats.mjs --since 2026-10-28 [--until 2026-10-31] [--repo iftheshoefritz/webula]
+```
+
+Every record carries `repository`. Each line is compact JSON, and the lines are sorted, so a second
+run over the same window changes no byte.
+
+- `stats/runs/<YYYY-MM>.jsonl`, by the month the run was created: one line per completed workflow
+  run that was not `skipped`, keyed by (repository, `run_id`, `run_attempt`), the latest attempt
+  when listed. It holds the workflow, event, branch, SHA, `number` (the issue or PR, from
+  `pull_requests[]`, or for an `issues` or `issue_comment` run from the log as
+  `classify_agent_failure.sh` finds `target`; `null` otherwise), conclusion, times and `jobs`. A
+  `claude` field, `{subtype, is_error, num_turns, duration_ms, duration_api_ms,
+  total_cost_usd_estimate, models: {<model>: {input_tokens, output_tokens}}}`, is there only when
+  the log holds a result record, and that is what "Claude ran" means. The cost is the API-price
+  estimate: the workflows run on a subscription token. A run whose log expired has no `claude`.
+- `stats/issues/<YYYY-MM>.jsonl`: one snapshot per UTC date, `{repository, date, counts, open_prs:
+  {draft, ready}}`. An open issue counts once, under the status label added last
+  (`STATUS_LABELS` and `agent-error:*` in `scripts/stats/issueStatus.mjs`), or as `open-with-pr` or
+  `open-no-status`. A closed issue counts under its `state_reason`.
+- `stats/items/<YYYY-MM>.jsonl`, by the month the item closed: one line per closed issue and per
+  merged or closed PR, keyed by (repository, number, kind), with `opened_at`, `closed_at`,
+  `state_reason`, `first_label_at`, and `first_linked_pr_at` for an issue, or `merged_at`, `pushes`
+  and `ci_runs` for a PR (the CI runs of its branch until it closed; every push starts one with the
+  event `push`).
+
+A run or an item already in its month file is not fetched again. The parser, the counting and the
+merge are in `scripts/stats/*.mjs`, which use no network, and `src/tests/scripts/collectStats.test.ts`
+tests them.
+
 ## Validation
 
 Before you open or update a PR, run all four commands. All four must pass.
