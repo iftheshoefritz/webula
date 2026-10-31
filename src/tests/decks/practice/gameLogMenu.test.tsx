@@ -90,6 +90,13 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     expect(labels.filter((l) => l !== 'fullscreen-button')).toEqual(['Game menu', 'undo-button', 'redo-button', 'game-log-button']);
   });
 
+  it('centres the single buttons on the undo and redo row (#1423)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    expect(screen.getByTestId('corner-buttons').className).toMatch(/\bitems-center\b/);
+  });
+
   it('closes the open splash and opens an empty log on a new game', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);

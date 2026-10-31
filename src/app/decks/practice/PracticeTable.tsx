@@ -492,7 +492,8 @@ function GameMenu({
         data-testid="corner-buttons"
         className={`absolute ${
           fullscreen.isFullscreen && fullscreen.systemControlsInset ? 'top-14' : 'top-2'
-        } left-2 flex flex-col gap-1 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
+        } left-2 flex flex-col items-center gap-1 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
+        // `items-center` centres each single button on the undo and redo row, the widest row where it is a row of two (#1423).
         // Below the top safe-area inset and right of the left one (#1384), on top of `top-14`.
         style={safeAreaMargins('top', 'left')}
       >
