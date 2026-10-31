@@ -8,6 +8,7 @@
 
 import { DeckList } from '../../../types';
 import { CardInstance, TableState, Zone, ZONE_FACE, initialTableState } from './tableReducer';
+import { LOG_ENTRY_KINDS, LogEntry } from './gameLog';
 
 export const SAVED_GAME_VERSION = 2;
 
@@ -41,6 +42,9 @@ export interface SavedGame {
   dilemmaDriveFileId?: string;
   dealtDeck: DeckList;
   table: SavedTable;
+  // The entries of the game log (#1400), as they are: plain data with display names and no card
+  // ids. Absent in a save made before #1400, which loads with an empty log.
+  log?: LogEntry[];
 }
 
 export interface RestoredGame {
@@ -49,6 +53,7 @@ export interface RestoredGame {
   source: SavedGameSource;
   driveFileId?: string;
   dilemmaDriveFileId?: string;
+  log: LogEntry[];
   // The largest N of the restored `card-N` IDs, for `seedInstanceIds`.
   maxInstanceId: number;
 }
@@ -86,7 +91,8 @@ export function toSavedGame(
   dealtDeck: DeckList,
   source: SavedGameSource,
   driveFileId?: string,
-  dilemmaDriveFileId?: string
+  dilemmaDriveFileId?: string,
+  log: LogEntry[] = []
 ): SavedGame {
   // The saved deck takes the `backimagefile` of a dealt mission (#765), so a restore needs no
   // card database to repair it.
@@ -114,6 +120,7 @@ export function toSavedGame(
     ...(dilemmaDriveFileId ? { dilemmaDriveFileId } : {}),
     dealtDeck: savedDeck,
     table: savedTable,
+    log,
   };
 }
 
@@ -174,6 +181,14 @@ const isValidAttempt = (table: TableState): boolean => {
   );
 };
 
+// A saved log (#1400) loads only when every entry is an object with a numeric turn and a kind the
+// log knows. A bad log loads as an empty one and never drops the table.
+const restoredLog = (log: unknown): LogEntry[] =>
+  Array.isArray(log) &&
+  log.every((entry) => isObject(entry) && typeof entry.turn === 'number' && Object.hasOwn(LOG_ENTRY_KINDS, entry.kind))
+    ? log
+    : [];
+
 // Returns the restored game, or null when the save must be dropped: bad JSON, an unknown
 // version, a builder save whose deck no longer matches `currentDeck`, or a card whose key is not
 // in the saved deck. A Drive save is trusted as it is, with no Drive call.
@@ -233,6 +248,7 @@ export function fromSavedGame(json: string, currentDeck: DeckList): RestoredGame
     source: save.source,
     ...(save.driveFileId ? { driveFileId: save.driveFileId } : {}),
     ...(save.dilemmaDriveFileId ? { dilemmaDriveFileId: save.dilemmaDriveFileId } : {}),
+    log: restoredLog(save.log),
     maxInstanceId,
   };
 }

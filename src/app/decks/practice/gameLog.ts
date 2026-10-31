@@ -1,7 +1,7 @@
 // The game log of the practice table (#1065): a readable record of the actions that changed the
-// game, grouped by turn. It lives in memory only, next to the table state and not inside it, so the
-// saved game (#976) never holds it and a reload empties it. A new deal, a reset and a restore each
-// start an empty log.
+// game, grouped by turn. It lives next to the table state and not inside it. The saved game (#976)
+// holds its entries (#1400), so a reload keeps the log, and a restore brings it back. A new deal
+// and a reset each start an empty log.
 //
 // The entries are structured data. `logEntryText` and `gameLogText` turn them into text, so the
 // wording can change without a change to the stored entries. An entry holds only what the text
@@ -11,7 +11,7 @@
 // Beside each entry the log keeps the table from just before its action, for undo only (#1194).
 // Those snapshots are the structured record of every random result: the order a shuffle replaced
 // and the faces a shuffle of the dilemma pile turned down. The text never reads them, so the UI
-// never shows them, and the save never holds them.
+// never shows them. They live in memory only: the save never holds them, so a reload empties them.
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import {
@@ -98,13 +98,16 @@ export type LogEntry = { turn: number } & (
 export type GameAction =
   | TableAction
   | { type: 'batch'; actions: TableAction[]; unseen?: boolean }
-  | { type: 'undo' };
+  | { type: 'undo' }
+  // A restore of the saved game (#1400) that brings its log back too.
+  | { type: 'restore'; state: TableState; log?: LogEntry[] };
 
 export interface GameState {
   table: TableState;
   log: LogEntry[];
-  // The table from just before the action of each entry of `log`, in the same order, so both have
-  // the same length. Undo goes back to the last one.
+  // The table from just before the action of each of the last entries of `log`, in the same order.
+  // A restored log (#1400) has no snapshots, so `undo` can be shorter than `log`: its last snapshot
+  // belongs to the last entry, and undo goes back to it.
   undo: TableState[];
 }
 
@@ -331,13 +334,17 @@ export const initialGameState = (table: TableState): GameState => ({ table, log:
 // effect or a handler would log twice. An action that changes nothing returns the same state.
 // Each entry keeps the table from before its action, and `undo` goes back to it and drops the
 // entry (#1194). An action that makes no entry keeps no snapshot, so the undo of the next entry
-// takes it back too. A deal, a reset and a restore empty both, so undo never goes past a deal.
+// takes it back too. A deal and a reset empty both, so undo never goes past a deal. A restore
+// takes the saved log (#1400) and empties `undo`, so undo never goes past a reload.
 export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'undo') {
     if (!state.undo.length) return state;
     return { table: state.undo[state.undo.length - 1], log: state.log.slice(0, -1), undo: state.undo.slice(0, -1) };
   }
-  if (action.type === 'reset' || action.type === 'resetWithPiles' || action.type === 'restore') {
+  if (action.type === 'restore') {
+    return { table: tableReducer(state.table, action), log: 'log' in action ? action.log ?? [] : [], undo: [] };
+  }
+  if (action.type === 'reset' || action.type === 'resetWithPiles') {
     return { table: tableReducer(state.table, action), log: [], undo: [] };
   }
   const actions = action.type === 'batch' ? action.actions : [action];
@@ -398,6 +405,24 @@ const destinationText = (move: LogMove): string =>
 const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 
 // The text of one entry, one sentence with no full stop.
+// Every kind of entry, for the check of a saved log (#1400).
+export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
+  draw: true,
+  move: true,
+  flip: true,
+  flipMission: true,
+  shuffle: true,
+  reorder: true,
+  stopped: true,
+  missionCompleted: true,
+  nextTurn: true,
+  score: true,
+  attemptStarted: true,
+  attemptEnded: true,
+  attemptPhase: true,
+  botAttempt: true,
+};
+
 export function logEntryText(entry: LogEntry): string {
   switch (entry.kind) {
     case 'draw': {

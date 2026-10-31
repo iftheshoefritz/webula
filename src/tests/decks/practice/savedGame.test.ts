@@ -8,6 +8,7 @@ import {
   MISSION_SLOTS,
 } from '../../../app/decks/practice/tableReducer';
 import { toSavedGame, fromSavedGame } from '../../../app/decks/practice/savedGame';
+import { LogEntry } from '../../../app/decks/practice/gameLog';
 import { DeckList } from '../../../types';
 
 const row = (collectorsinfo: string, type: string, extra: Record<string, any> = {}) => ({
@@ -108,6 +109,29 @@ describe('savedGame', () => {
     expect(restored!.source).toBe('drive');
     expect(restored!.driveFileId).toBe('file-1');
     expect(restored!.table).toEqual(dealtTable());
+  });
+
+  it('saves the game log and restores it (#1400)', () => {
+    const log: LogEntry[] = [
+      { kind: 'draw', from: 'drawDeck', to: 'hand', turn: 1 },
+      { kind: 'nextTurn', turn: 2 },
+      { kind: 'move', moves: [{ cards: ['Card 1E1'], from: { kind: 'hand' }, to: { kind: 'core' } }], turn: 2 },
+    ];
+    const save = toSavedGame(dealtTable(), deck, 'builder', undefined, undefined, log);
+    expect(save.log).toEqual(log);
+    const restored = fromSavedGame(JSON.stringify(save), deck);
+    expect(restored!.log).toEqual(log);
+    expect(restored!.table).toEqual(dealtTable());
+  });
+
+  it('restores a save with no log, or a malformed one, with an empty log and the table (#1400)', () => {
+    const { log: _log, ...old } = toSavedGame(dealtTable(), deck, 'builder');
+    expect(fromSavedGame(JSON.stringify(old), deck)!.log).toEqual([]);
+    for (const bad of ['text', { kind: 'nextTurn', turn: 2 }, [{ kind: 'nextTurn' }], [{ kind: 'nope', turn: 1 }], [null]]) {
+      const restored = fromSavedGame(JSON.stringify({ ...old, log: bad }), deck);
+      expect(restored!.log).toEqual([]);
+      expect(restored!.table).toEqual(dealtTable());
+    }
   });
 
   it('drops bad JSON and an unknown version', () => {
