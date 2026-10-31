@@ -31,6 +31,7 @@ import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import { EMPTY_LOG_TEXT } from '../../../app/decks/practice/gameLog';
+import { FINE_POINTER_QUERY } from '../../../app/decks/practice/useFinePointer';
 
 const row = (collectorsinfo: string, originalName: string, type: string) => ({
   collectorsinfo,
@@ -85,7 +86,7 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     });
     const buttons = Array.from(screen.getByTestId('corner-buttons').querySelectorAll('button'));
     const labels = buttons.map((b) => b.getAttribute('data-testid') ?? b.getAttribute('aria-label'));
-    expect(labels.filter((l) => l !== 'fullscreen-button')).toEqual(['Game menu', 'undo-button', 'game-log-button']);
+    expect(labels.filter((l) => l !== 'fullscreen-button')).toEqual(['Game menu', 'undo-button', 'redo-button', 'game-log-button']);
   });
 
   it('closes the open splash and opens an empty log on a new game', async () => {
@@ -191,5 +192,59 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     fireEvent.click(screen.getByTestId('game-log-button'));
     const panel = await screen.findByRole('dialog', { name: 'Game log' });
     expect(within(panel).getByText(EMPTY_LOG_TEXT)).toBeInTheDocument();
+  });
+
+  it('has a redo button that names the undone entry, and a tap does it again (#1403)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    const undo = screen.getByTestId('undo-button');
+    const redo = screen.getByTestId('redo-button');
+    expect(redo).toBeDisabled();
+    expect(redo).toHaveAttribute('title', 'Nothing to redo');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
+    expect(redo).toBeDisabled();
+    fireEvent.click(undo);
+    expect(redo).toBeEnabled();
+    expect(redo).toHaveAttribute('aria-label', 'Redo: Drew a card from the draw deck into the hand');
+    expect(redo).toHaveAttribute('title', 'Redo: Drew a card from the draw deck into the hand');
+
+    fireEvent.click(redo);
+    expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
+    expect(redo).toBeDisabled();
+    expect(undo).toHaveAttribute('aria-label', 'Undo: Drew a card from the draw deck into the hand');
+
+    // A new action after an undo empties the redo history.
+    fireEvent.click(undo);
+    expect(redo).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
+    expect(redo).toBeDisabled();
+  });
+
+  it('redoes on Ctrl+Shift+Z and Ctrl+Y with a fine pointer (#1403)', async () => {
+    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
+      matches: query === FINE_POINTER_QUERY,
+      media: query,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
+    const hand = (n: number) => screen.getByRole('button', { name: new RegExp(`^hand, ${n} cards?, tap to open$`, 'i') });
+    expect(hand(1)).toBeInTheDocument();
+
+    fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true });
+    expect(hand(0)).toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: 'Z', ctrlKey: true, shiftKey: true });
+    expect(hand(1)).toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: 'z', metaKey: true });
+    expect(hand(0)).toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: 'y', ctrlKey: true });
+    expect(hand(1)).toBeInTheDocument();
   });
 });
