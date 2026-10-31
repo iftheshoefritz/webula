@@ -47,6 +47,8 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/api/championship-decks': ['./championship-decks/**/*'],
     '/api/championship-decks/*': ['./championship-decks/**/*'],
+    // The stats route reads the top-level `stats/` folder the same way (#1417).
+    '/api/stats': ['./stats/**/*'],
   },
   env: {
     // Vercel sets VERCEL_ENV on the server only. Expose it so client components can tell a

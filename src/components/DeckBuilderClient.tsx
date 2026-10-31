@@ -34,7 +34,8 @@ import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import Link from 'next/link';
 import { CHANGE_START_PAGE_HREF } from '../lib/startPage';
-import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale, FaHome } from 'react-icons/fa';
+import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale, FaHome, FaChartLine } from 'react-icons/fa';
+import { isEarlyAccessUser } from '../lib/featureFlags';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
@@ -662,6 +663,16 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     <FaHome className="shrink-0" />
                     <span>Change start page</span>
                   </Link>
+                  {isEarlyAccessUser(session?.user?.email) && (
+                    <Link
+                      href="/stats"
+                      data-testid="stats-link"
+                      className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10"
+                    >
+                      <FaChartLine className="shrink-0" />
+                      <span>Stats</span>
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
@@ -757,6 +768,18 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
             >
               <FaHome />
             </Link>
+            {isEarlyAccessUser(session?.user?.email) && (
+              <Link
+                href="/stats"
+                className="btn-icon flex items-center justify-center"
+                data-tooltip-id="button-tooltip"
+                data-tooltip-content="Stats"
+                aria-label="Stats"
+                data-testid="stats-link-desktop"
+              >
+                <FaChartLine />
+              </Link>
+            )}
             <button
               className="btn-icon"
               onClick={openDeckPicker}

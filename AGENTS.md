@@ -190,6 +190,18 @@ A run or an item already in its month file is not fetched again. The parser, the
 merge are in `scripts/stats/*.mjs`, which use no network, and `src/tests/scripts/collectStats.test.ts`
 tests them.
 
+The page `/stats` (#1417) shows the stats to early-access users: per workflow the runs, the median
+and 90th percentile of the duration, the share of runs that did not succeed, and the turns and cost
+estimate where Claude ran; per CI job the median and 90th percentile; the median duration by ISO
+week; the issue counts per status of the latest snapshot and over time; and the 20 completed issues
+slowest from the first label to the close. It reads `/api/stats`, which applies `isEarlyAccessUser`
+to the caller's email from the NextAuth JWT and answers 404 to anyone else, a signed-out caller too.
+`src/lib/statsServer.ts` reads the folder, `src/lib/stats.ts` aggregates it (no `fs`), and
+`outputFileTracingIncludes` in `next.config.mjs` puts `stats/` into the route's bundle. The page
+never reads the files at build time. In development only, `/stats?fixture=1` renders the fixture
+aggregates of `src/lib/statsFixture.ts` without the route; production ignores it. The deck actions
+menu of the deck builder shows a Stats link to early-access users only.
+
 ## Validation
 
 Before you open or update a PR, run all four commands. All four must pass.
