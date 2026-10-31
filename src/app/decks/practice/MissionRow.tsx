@@ -56,8 +56,9 @@
 // it (#1081). The last 3 cards of each group also show as small cards in a strip along the edge of
 // the mission card (#1099, `PlacedOnStrip`), the events on the left and the dilemmas on the right.
 // The touch crop cuts off the mission's span, so it draws the span between the quadrant icon and
-// the point box, styled as the card prints it (#1133, `MissionSpan`). An AP mission prints that
-// row lower, below the crop, so the crop draws the quadrant icon and the point box too (#1272).
+// the point box, styled as the card prints it (#1133, `MissionSpan`). It draws the quadrant icon and
+// the point box over the scan's too, as large as the span (#1397). An AP mission prints that row
+// lower, below the crop, so there the row runs across the whole width (#1272).
 // A dilemma
 // dropped on a mission, from anywhere, goes under the mission instead (#606, #733), face up, permanently, unless it lands on the bottom half of the mission card,
 // which places it on the mission card (#871, `missionHalfDropId`). The top half, where the cards
@@ -400,12 +401,17 @@ export function placedOnStripLayout(scale: number): {
 // the printed 44 px disc, so 19/44 of the disc (the owner's call on #1141). A desktop shows the
 // whole card, printed span included, so it draws none.
 //
+// The quadrant icon and the point box the scan prints look smaller than the drawn span: their chrome
+// is a dark bezel, and the disc inside it is about 42 px across, against the span's silver ring of
+// about 49. So the crop draws both over the scan, from the card data, on every mission (#1397): the
+// quadrant icon on the left chrome's centre and the point box with the mission's points on the right
+// chrome's centre, each as large as the span's backing, so each covers the printed chrome. A
+// headquarters has no points, and its point box is a blank face, as the card prints it.
+//
 // An AP mission (#1272, `hasApMissionLayout`), the missions 60AP001 to 60AP012, prints a taller art,
 // and its row of the quadrant icon, the span and the point box sits at y 340, below the crop. Its art
-// shows on the line above, so the crop draws the whole row there, from the card data: the quadrant
-// icon on the left chrome's centre, the span, and the point box with the mission's points on the
-// right chrome's centre, each as large as the span's backing. The rail and the plate then run across
-// the whole width inside the card's border, uncut, since no printed chrome ends them.
+// shows on the line above, so the crop draws the row there in the same way, but the rail and the
+// plate run across the whole width inside the card's border, uncut, since no printed chrome ends them.
 const MISSION_SPAN_AXIS_SHARE = 283.5 / 499; // of the full card height
 const MISSION_SPAN_CHROME_X = 37.5 / 357; // of the card width, from either edge
 const MISSION_SPAN_CHROME_RADIUS = 28.5 / 357; // of the card width
@@ -509,20 +515,24 @@ const NUMERAL_STYLE = {
 
 // The overlay. It takes no pointer events and is not a droppable, and has no `data-zone` or
 // `data-card-id`: a tap, a hold and a drop on it reach the mission card and its halves under it.
-// It darkens with a completed mission, as the card's image does (#991).
-// An AP mission (`ap`) draws the quadrant icon and the point box too (#1272).
+// It darkens with a completed mission, as the card's image does (#991). It draws the quadrant icon
+// and the point box on every mission (#1397); on an AP mission (`ap`) the band runs uncut (#1272).
 function MissionSpan({
   missionIndex,
   span,
+  quadrant: quadrantCode,
+  points,
   scale,
   completed,
   ap,
 }: {
   missionIndex: number;
   span: string;
+  quadrant: string;
+  points: string;
   scale: number;
   completed: boolean;
-  ap?: { quadrant: string; points: string };
+  ap: boolean;
 }) {
   const layout = missionSpanLayout(scale);
   const { top, width, height, axis, backing, backingLeft, ring, rim, fontSize, rail } = layout;
@@ -545,10 +555,8 @@ function MissionSpan({
   };
   // The quadrant icon and the point box sit on the chrome's centres, on whole pixels.
   const chromeLeft = Math.round(layout.bandLeft - backing / 2);
-  const quadrant = ap ? QUADRANT_ICON_IMAGES[ap.quadrant.toLowerCase()] : undefined;
-  const label = ap
-    ? `${quadrant ? `${quadrant.name} Quadrant, ` : ''}Span ${span}, ${ap.points} points`
-    : `Span ${span}`;
+  const quadrant = QUADRANT_ICON_IMAGES[quadrantCode.toLowerCase()];
+  const label = `${quadrant ? `${quadrant.name} Quadrant, ` : ''}Span ${span}${points ? `, ${points} points` : ''}`;
   return (
     <div
       data-testid={`mission-span-${missionIndex}`}
@@ -597,44 +605,42 @@ function MissionSpan({
           </div>
         </div>
       </div>
-      {ap && (
-        <div
-          data-testid={`mission-span-${missionIndex}-quadrant`}
-          className="absolute top-0 rounded-full bg-black flex items-center justify-center"
-          style={{ left: chromeLeft, width: backing, height: backing }}
-        >
-          <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: MISSION_SPAN_RING }}>
-            <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
-              {quadrant ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={quadrant.src} alt="" draggable={false} className="w-full h-full" />
-              ) : (
-                <span className="font-sans font-bold leading-none text-white uppercase" style={{ fontSize }}>
-                  {ap.quadrant}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      {ap && (
-        <div
-          data-testid={`mission-span-${missionIndex}-points`}
-          className="absolute top-0 rounded-full bg-black flex items-center justify-center"
-          style={{ left: width - chromeLeft - backing, width: backing, height: backing }}
-        >
-          <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: MISSION_SPAN_RING }}>
-            <div
-              className="w-full h-full rounded-full flex items-center justify-center font-sans font-bold leading-none text-black"
-              style={{ fontSize, backgroundImage: MISSION_POINTS_FACE }}
-            >
-              <span data-testid={`mission-span-${missionIndex}-points-numeral`} style={NUMERAL_STYLE}>
-                {ap.points}
+      <div
+        data-testid={`mission-span-${missionIndex}-quadrant`}
+        className="absolute top-0 rounded-full bg-black flex items-center justify-center"
+        style={{ left: chromeLeft, width: backing, height: backing }}
+      >
+        <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: MISSION_SPAN_RING }}>
+          <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
+            {quadrant ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={quadrant.src} alt="" draggable={false} className="w-full h-full" />
+            ) : (
+              <span className="font-sans font-bold leading-none text-white uppercase" style={{ fontSize }}>
+                {quadrantCode}
               </span>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
+      <div
+        data-testid={`mission-span-${missionIndex}-points`}
+        className="absolute top-0 rounded-full bg-black flex items-center justify-center"
+        style={{ left: width - chromeLeft - backing, width: backing, height: backing }}
+      >
+        <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: MISSION_SPAN_RING }}>
+          <div
+            className="w-full h-full rounded-full flex items-center justify-center font-sans font-bold leading-none text-black"
+            style={{ fontSize, backgroundImage: MISSION_POINTS_FACE }}
+          >
+            {points && (
+              <span data-testid={`mission-span-${missionIndex}-points-numeral`} style={NUMERAL_STYLE}>
+                {points}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1547,19 +1553,17 @@ export function MissionCard({
                     onTap={onStripTap}
                   />
                 ))}
-                {/* The span, which the touch crop cuts off (#1133), and the whole row of an AP
-                    mission (#1272). It turns with the card. */}
+                {/* The span, which the touch crop cuts off (#1133), with the quadrant icon and the
+                    point box as large as it (#1397, #1272). It turns with the card. */}
                 {!uncropped && mission.card.span && (
                   <MissionSpan
                     missionIndex={missionIndex}
                     span={String(mission.card.span)}
                     scale={scale}
+                    quadrant={String(mission.card.quadrant ?? '')}
+                    points={String(mission.card.points ?? '')}
                     completed={completed}
-                    ap={
-                      hasApMissionLayout(mission.card)
-                        ? { quadrant: String(mission.card.quadrant ?? ''), points: String(mission.card.points ?? '') }
-                        : undefined
-                    }
+                    ap={hasApMissionLayout(mission.card)}
                   />
                 )}
               </div>
