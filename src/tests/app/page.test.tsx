@@ -220,4 +220,39 @@ describe('CardSearchClient', () => {
       expect(mockReplace).not.toHaveBeenCalled();
     });
   });
+
+  describe('home splash (#1406)', () => {
+    beforeEach(() => {
+      localStorage.clear();
+      (useFilterData as jest.Mock).mockReturnValue([]);
+    });
+
+    it('shows the splash on a bare /', () => {
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+      expect(screen.getByTestId('home-splash')).toBeInTheDocument();
+    });
+
+    it('shows no splash on a load with q', () => {
+      mockSearchParamsValue = new URLSearchParams('q=n%3APicard');
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+      expect(screen.queryByTestId('home-splash')).not.toBeInTheDocument();
+    });
+
+    it('does not show the splash when the search is cleared mid-session', () => {
+      mockSearchParamsValue = new URLSearchParams('q=n%3APicard');
+      const { rerender } = render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+      act(() => capturedSetSearchQuery!(''));
+      mockSearchParamsValue = new URLSearchParams();
+      rerender(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+      expect(screen.queryByTestId('home-splash')).not.toBeInTheDocument();
+    });
+
+    it('shows the splash on /?home=1 despite a remembered choice', () => {
+      localStorage.setItem('startPage', 'decks');
+      mockSearchParamsValue = new URLSearchParams('home=1');
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+      expect(screen.getByTestId('home-splash')).toBeInTheDocument();
+      expect(mockReplace).not.toHaveBeenCalledWith('/decks');
+    });
+  });
 });

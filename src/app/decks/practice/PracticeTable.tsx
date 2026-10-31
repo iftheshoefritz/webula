@@ -10,6 +10,7 @@ import React, {
   useState,
 } from 'react';
 import Link from 'next/link';
+import { CHANGE_START_PAGE_HREF } from '../../../lib/startPage';
 import { useSearchParams } from 'next/navigation';
 import {
   CollisionDetection,
@@ -469,6 +470,16 @@ function GameMenu({
               <button type="button" onClick={onControls} className={SPLASH_ITEM_CLASS}>
                 Controls
               </button>
+              {/* The splash of `/` (#1406), a page the offline cache does not hold, so offline it is off as Edit current deck is. */}
+              <Link
+                href={CHANGE_START_PAGE_HREF}
+                data-testid="game-menu-change-start-page"
+                aria-disabled={editDeckDisabled}
+                tabIndex={editDeckDisabled ? -1 : undefined}
+                className={`${SPLASH_ITEM_CLASS} ${editDeckDisabled ? 'pointer-events-none opacity-40' : ''}`}
+              >
+                Change start page
+              </Link>
               <button type="button" onClick={onReset} className={`${SPLASH_ITEM_CLASS} landscape:col-start-2`}>
                 Reset
               </button>

@@ -11,6 +11,8 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import type { CardData } from '../lib/loadCards';
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import { PreviewBanner } from './PreviewBanner';
+import HomeSplash from './HomeSplash';
+import { CHANGE_START_PAGE_HREF } from '../lib/startPage';
 
 interface CardSearchClientProps {
   data: CardData[];
@@ -22,6 +24,9 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQueryState] = useState(() => searchParams.get('q') ?? '');
+  // The URL the page loaded with decides the splash once (#1406), so a cleared search box never brings it back.
+  const [initialQuery] = useState(() => searchParams.get('q') ?? '');
+  const [initialHome] = useState(() => searchParams.get('home') === '1');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const searchParamsRef = useRef(searchParams);
@@ -134,6 +139,14 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
                   countLabel={cardCountLabel}
                 />
               </div>
+              {/* A plain link: the splash decides on a fresh load of `/?home=1`, which a soft navigation from `/` is not. */}
+              <a
+                href={CHANGE_START_PAGE_HREF}
+                data-testid="change-start-page"
+                className="shrink-0 self-center text-xs text-text-muted hover:text-accent"
+              >
+                Change start page
+              </a>
             </div>
             <SearchPills
               searchQuery={searchQuery}
@@ -169,6 +182,13 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
         <div ref={mobileOverlayRef} className="fixed top-0 left-0 right-0 z-[60] bg-gradient-page sm:hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
             <span className="text-sm font-medium text-text-primary">Search</span>
+            <a
+              href={CHANGE_START_PAGE_HREF}
+              data-testid="change-start-page-mobile"
+              className="ml-auto text-xs text-text-muted hover:text-accent px-2 py-1"
+            >
+              Change start page
+            </a>
             <button
               onClick={() => setIsMobileSearchOpen(false)}
               className="text-sm text-accent hover:text-accent/80 transition-colors px-2 py-1"
@@ -200,6 +220,8 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
           useWindowScroll={true}
         />
       </div>
+
+      <HomeSplash initialQuery={initialQuery} initialHome={initialHome} />
     </div>
   );
 }
