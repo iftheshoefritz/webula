@@ -188,6 +188,10 @@ describe('the corner column in fullscreen (#1207)', () => {
     expect(screen.getByTestId('undo-button')).toBeInTheDocument();
     // Two corner buttons (24 + 4 + 24) below `top-14` (56), and 8 px clear of them.
     expect(turnScoreTop(screen.getByTestId('turn-score-column'))).toBe(56 + 52 + 8);
+    // #1395: jsdom measures no layout, so the column has room enough and keeps its labels.
+    const turnScore = screen.getByTestId('turn-score-column');
+    expect(within(turnScore).getByText('Turn')).not.toHaveClass('sr-only');
+    expect(within(turnScore).getByText('Score')).not.toHaveClass('sr-only');
 
     // The system X leaves fullscreen: the button comes back.
     await act(async () => {

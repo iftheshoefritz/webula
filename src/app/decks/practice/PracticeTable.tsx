@@ -107,7 +107,7 @@ import HomeScreenHelp from './HomeScreenHelp';
 import { gameReducer, initialGameState, logEntryText } from './gameLog';
 import { CardHoldProvider, NO_CALLOUT_STYLE, PLACE_ON_HOLD_MS, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
 import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHoldContext';
-import { FLAT_ROW_MAX_OFFSET, flatRowWidths, useElementWidth } from './flatRowWidths';
+import { FLAT_ROW_MAX_OFFSET, flatRowWidths, useElementHeight, useElementWidth } from './flatRowWidths';
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { PanelLocation, RevealIcon, ShuffleIcon } from './CardListPanel';
@@ -124,8 +124,9 @@ import {
   useMissionScale,
   useShipRowCount,
   useTableScale,
+  turnScoreColumnCompact,
 } from './tableScale';
-import { usePanelBottomInset } from './panelBottomInset';
+import { PANEL_BOTTOM_ROW_GAP, usePanelBottomInset } from './panelBottomInset';
 import { useToolbarScrollRoom } from './toolbarScrollRoom';
 import { viewerCardSize } from './viewerCardSize';
 import { useFinePointer } from './useFinePointer';
@@ -474,8 +475,8 @@ function GameMenu({
 // Issue #1337: the turn and score controls of the touch table, in the column left of the mission row
 // (`TOUCH_CONTROLS_COLUMN`), below the corner buttons: the turn over the next-turn button, then the
 // score over minus and plus. They are table content, not part of `corner-buttons`, so a card list
-// panel and the hand arc cover them as they covered the counters of the bottom row. `compact`, for
-// the lower corner buttons of `systemControlsInset`, hides the labels and draws smaller buttons.
+// panel and the hand arc cover them as they covered the counters of the bottom row. `compact`
+// (`turnScoreColumnCompact`) hides the labels and draws smaller buttons.
 // The content column's `p-4`, grown by the safe-area insets (#1383, #1384): only the sides with an
 // inset get an inline padding, so the DOM is unchanged where every inset is 0.
 function contentPadding(insets: SafeAreaInsets): React.CSSProperties | undefined {
@@ -513,6 +514,7 @@ function TurnScoreColumn({
   score: number;
   onNextTurn: () => void;
   onAdjustScore: (delta: number) => void;
+  // `turnScoreColumnCompact`.
   compact: boolean;
   // `controlsColumnTop`.
   top: number;
@@ -1691,6 +1693,13 @@ function PracticeDrawContent() {
   // Issue #1060: every desktop mission slot reserves the width of a turned mission, as far as the
   // width of the table allows.
   const gameLayerWidth = useElementWidth(gameLayer);
+  // Issue #1395: the room of the touch turn and score column, from the top of the game layer down
+  // to the top of the bottom row.
+  const gameLayerHeight = useElementHeight(gameLayer);
+  const turnScoreTop = controlsColumnTop(
+    fullscreen.systemExitControl ? 2 : 3,
+    fullscreen.isFullscreen && fullscreen.systemControlsInset
+  );
   const shipRows = useShipRowCount(
     missionRows,
     bottomRow,
@@ -3150,11 +3159,13 @@ function PracticeDrawContent() {
                   score={score}
                   onNextTurn={nextTurn}
                   onAdjustScore={adjustScore}
-                  compact={fullscreen.isFullscreen && fullscreen.systemControlsInset}
-                  top={controlsColumnTop(
-                    fullscreen.systemExitControl ? 2 : 3,
-                    fullscreen.isFullscreen && fullscreen.systemControlsInset
-                  )}
+                  compact={turnScoreColumnCompact({
+                    systemControls: fullscreen.isFullscreen && fullscreen.systemControlsInset,
+                    top: turnScoreTop + safeArea.top,
+                    roomBottom:
+                      gameLayerHeight > 0 ? gameLayerHeight - (panelBottom - PANEL_BOTTOM_ROW_GAP) : 0,
+                  })}
+                  top={turnScoreTop}
                 />
               )}
                 </>

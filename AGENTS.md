@@ -352,7 +352,10 @@ On a touch screen the turn and score controls sit in that left column, below the
 and undo buttons (`data-testid="turn-score-column"`, #1337): the turn over the next-turn button, then
 the score over minus and plus. They show on the full table only, not in the attempt layout. A desktop
 keeps them in the bottom row, the score above the discard and the turn above the draw deck. Either
-way they keep `data-testid="turn-counter"` and `"score-counter"`.
+way they keep `data-testid="turn-counter"` and `"score-counter"`. In fullscreen on iPadOS the column
+keeps its "Turn" and "Score" labels where it has the height, and goes compact, with no labels and
+smaller buttons, only when the full column does not fit 8 px above the bottom row
+(`turnScoreColumnCompact` in `tableScale.ts`, #1395).
 
 In fullscreen on iPadOS, WebKit draws its own close X and shrink button over the top-left corner,
 and no CSS reaches them. The corner column moves below them (`top-14`, #1207), and the table hides

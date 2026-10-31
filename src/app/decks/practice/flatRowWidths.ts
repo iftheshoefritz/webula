@@ -58,3 +58,19 @@ export function useElementWidth(el: HTMLElement | null): number {
 
   return width;
 }
+
+// The height of an element, with the same `ResizeObserver` pattern. 0 until it is measured.
+export function useElementHeight(el: HTMLElement | null): number {
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    if (!el) return;
+    const measure = () => setHeight(el.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [el]);
+
+  return height;
+}
