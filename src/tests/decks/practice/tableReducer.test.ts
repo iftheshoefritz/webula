@@ -158,7 +158,8 @@ describe('tableReducer', () => {
   describe('a draw that reaches a face-up dilemma (#1283)', () => {
     afterEach(() => jest.restoreAllMocks());
 
-    // With Math.random at 0, shuffleArray turns [a, b, c] into [b, c, a].
+    // The page chooses the order of the shuffle (#1401), and the draw carries it.
+    const order = ['d2', 'd3', 'd1'];
     const pile = () => [
       instance('d1', card('A'), 'up'),
       instance('d2', card('B'), 'down'),
@@ -166,10 +167,13 @@ describe('tableReducer', () => {
     ];
 
     it('shuffles the whole pile face down, then draws the new top card', () => {
-      jest.spyOn(Math, 'random').mockReturnValue(0);
+      const random = jest.spyOn(Math, 'random');
       const start = { ...initialTableState, dilemmaPile: pile() };
 
-      const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
+      const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand', order });
+
+      expect(random).not.toHaveBeenCalled();
+      expect(tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand', order })).toEqual(state);
 
       expect(state.dilemmaHand.map((c) => c.id)).toEqual(['d2']);
       expect(state.dilemmaHand[0].face).toBe('up');
@@ -191,17 +195,26 @@ describe('tableReducer', () => {
     });
 
     it('counts a reshuffling draw of the dilemma choice', () => {
-      jest.spyOn(Math, 'random').mockReturnValue(0);
       const start = {
         ...initialTableState,
         dilemmaPile: pile(),
         attempt: { missionIndex: 0, personnel: 5, subtract: 0, phase: 'choose' as const, drawn: 2 },
       };
 
-      const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand', counted: true });
+      const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand', counted: true, order });
 
       expect(state.attempt!.drawn).toBe(3);
       expect(state.dilemmaHand.map((c) => c.id)).toEqual(['d2']);
+      expect(state.dilemmaPile.every((c) => c.face === 'down')).toBe(true);
+    });
+
+    it('turns the pile face down and draws the top card when the draw carries no order', () => {
+      const start = { ...initialTableState, dilemmaPile: pile() };
+
+      const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand' });
+
+      expect(state.dilemmaHand.map((c) => c.id)).toEqual(['d1']);
+      expect(state.dilemmaPile.map((c) => c.id)).toEqual(['d2', 'd3']);
       expect(state.dilemmaPile.every((c) => c.face === 'down')).toBe(true);
     });
 
@@ -622,6 +635,44 @@ describe('tableReducer', () => {
   });
 
   describe('shuffle (#680)', () => {
+    // The page chooses the order (#1401), so the reducer calls no random function.
+    it('puts the zone in the order of the action, and gives the same result twice', () => {
+      const random = jest.spyOn(Math, 'random');
+      const cards = Array.from({ length: 4 }, (_, i) => instance(`c${i}`, card(`Card ${i}`), 'up'));
+      const start = { ...initialTableState, core: cards };
+      const action = { type: 'shuffle' as const, location: 'core' as const, order: ['c2', 'c0', 'c3', 'c1'] };
+
+      const state = tableReducer(start, action);
+
+      expect(state.core.map((c) => c.id)).toEqual(['c2', 'c0', 'c3', 'c1']);
+      expect(tableReducer(start, action)).toEqual(state);
+      expect(random).not.toHaveBeenCalled();
+      random.mockRestore();
+    });
+
+    it('turns every card of the dilemma pile face down in the order of the action', () => {
+      const dilemmaPile = [instance('d0', card('A'), 'up'), instance('d1', card('B'), 'down'), instance('d2', card('C'), 'up')];
+      const start = { ...initialTableState, dilemmaPile };
+
+      const state = tableReducer(start, { type: 'shuffle', location: 'dilemmaPile', order: ['d2', 'd1', 'd0'] });
+
+      expect(state.dilemmaPile.map((c) => [c.id, c.face])).toEqual([
+        ['d2', 'down'],
+        ['d1', 'down'],
+        ['d0', 'down'],
+      ]);
+    });
+
+    // The order comes from a table that can be one render old (two fast taps).
+    it('loses and repeats no card with a stale order', () => {
+      const cards = Array.from({ length: 4 }, (_, i) => instance(`c${i}`, card(`Card ${i}`), 'up'));
+      const start = { ...initialTableState, drawDeck: cards };
+
+      const state = tableReducer(start, { type: 'shuffle', location: 'drawDeck', order: ['c3', 'gone', 'c1', 'c3'] });
+
+      expect(state.drawDeck.map((c) => c.id)).toEqual(['c3', 'c1', 'c0', 'c2']);
+    });
+
     it('keeps the same cards in the core, in some order, and touches no other zone', () => {
       const cards = Array.from({ length: 8 }, (_, i) => instance(`c${i}`, card(`Card ${i}`), 'up'));
       const untouched = instance('b0', card('Brig card'), 'up');
