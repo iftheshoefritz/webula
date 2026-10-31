@@ -1046,6 +1046,25 @@ describe('MissionRow: the row of an AP mission on the crop (#1272)', () => {
     }
   });
 
+  // #1419: the card prints its points in white on a black face, as the span.
+  const expectBlackFace = (face: HTMLElement) => {
+    expect(face).toHaveClass('bg-black', 'text-white');
+    expect(face).not.toHaveClass('text-black');
+    expect(face.style.backgroundImage).toBe('');
+  };
+
+  it('draws the point box as the card prints it, white numerals on a black face (#1419)', () => {
+    renderRow(moabIV);
+    const face = screen.getByTestId('mission-span-0-points-face');
+    expectBlackFace(face);
+    expect(face).toContainElement(screen.getByTestId('mission-span-0-points-numeral'));
+  });
+
+  it('draws the same black point box on an AP mission (#1419)', () => {
+    renderRow(argusArray);
+    expectBlackFace(screen.getByTestId('mission-span-0-points-face'));
+  });
+
   it('keeps the chrome cut of the rail and the plate on a regular mission (#1397)', () => {
     renderRow(moabIV);
     expect(screen.getByTestId('mission-span-0-rail').style.maskImage).not.toBe('');
@@ -1075,6 +1094,7 @@ describe('MissionRow: the row of an AP mission on the crop (#1272)', () => {
     expect(screen.getByTestId('mission-span-0')).toHaveAccessibleName('Alpha Quadrant, Span 2');
     expect(screen.getByTestId('mission-span-0-points')).toBeInTheDocument();
     expect(screen.queryByTestId('mission-span-0-points-numeral')).toBeNull();
+    expectBlackFace(screen.getByTestId('mission-span-0-points-face'));
   });
 
   it('draws nothing over a regular mission on a desktop', () => {

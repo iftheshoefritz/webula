@@ -405,8 +405,9 @@ export function placedOnStripLayout(scale: number): {
 // is a dark bezel, and the disc inside it is about 42 px across, against the span's silver ring of
 // about 49. So the crop draws both over the scan, from the card data, on every mission (#1397): the
 // quadrant icon on the left chrome's centre and the point box with the mission's points on the right
-// chrome's centre, each as large as the span's backing, so each covers the printed chrome. A
-// headquarters has no points, and its point box is a blank face, as the card prints it.
+// chrome's centre, each as large as the span's backing, so each covers the printed chrome. The point
+// box is drawn as the card prints it, white numerals on a black face, as the span's (#1419). A
+// headquarters has no points, and its point box is a blank black face, as the card prints it.
 //
 // An AP mission (#1272, `hasApMissionLayout`), the missions 60AP001 to 60AP012, prints a taller art,
 // and its row of the quadrant icon, the span and the point box sits at y 340, below the crop. Its art
@@ -499,8 +500,6 @@ const MISSION_SPAN_RAIL_IMAGE =
 const MISSION_SPAN_PLATE_IMAGE = 'linear-gradient(to bottom, #d4d5d8, #b9babe)';
 // The silver ring: brighter at the top left, darker at the bottom right.
 const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
-// The white face of the point box, a little greyer at the bottom right.
-const MISSION_POINTS_FACE = 'linear-gradient(135deg, #ffffff 0%, #f3f4f6 50%, #d1d5db 100%)';
 // The numeral is upright and skewed about its own centre, as the card's numerals lean. An italic
 // font, or the slant a browser makes of an upright one, leans about the baseline, which moves the
 // digit off the centre of the ring by a different amount in every font. The box is trimmed to the
@@ -630,8 +629,9 @@ function MissionSpan({
       >
         <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: MISSION_SPAN_RING }}>
           <div
-            className="w-full h-full rounded-full flex items-center justify-center font-sans font-bold leading-none text-black"
-            style={{ fontSize, backgroundImage: MISSION_POINTS_FACE }}
+            data-testid={`mission-span-${missionIndex}-points-face`}
+            className="w-full h-full rounded-full bg-black flex items-center justify-center font-sans font-bold leading-none text-white"
+            style={{ fontSize }}
           >
             {points && (
               <span data-testid={`mission-span-${missionIndex}-points-numeral`} style={NUMERAL_STYLE}>
