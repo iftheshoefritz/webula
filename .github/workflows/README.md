@@ -174,6 +174,24 @@ The script asks the Jobs API for the name and the page link of every job with th
 A result record with `"is_error": true` is a Claude failure. If no test above
 matched it, the reason is `unknown`, not `post-run-step`.
 
+---
+
+## Stats Recorder (`stats-recorder.yml`)
+**Event:** A daily `schedule` at 02:43 UTC (`43 2 * * *`), or `workflow_dispatch` with optional `since` and `until` dates
+**Action:** No Claude. It runs `scripts/collect_stats.mjs` (#1431), which writes under `stats/`, and opens or updates one pull request from the fixed branch `stats/update` (#1432).
+
+Each run resets `stats/update` to `origin/main`, runs the collector, and commits what changed under `stats/`. When nothing changed it stops there. Otherwise it force-pushes `stats/update` and opens a pull request from it, titled `Stats: agent, CI and issue stats to <until>`, or, when one is open already, gives that one the new title; the force-push puts the new commit on it. The branch is rebuilt from `main` every time, so the pull request holds one commit and cannot conflict. The "Main" ruleset covers only the default branch, so the force-push is allowed. No commit message and no title starts with `wip:`, because Vercel's `ignoreCommand` would then skip the production deploy of the merge.
+
+The default window is the last 3 days, `until` (today) and the 2 days before it, so a run still in progress at the last scan is recorded on a later day. The collector merges with the lines already in each month file, so the overlap changes nothing. A schedule runs only from the default branch.
+
+The job uses the workflow's `GITHUB_TOKEN`, with `contents: write`, `pull-requests: write`, `actions: read` and `issues: read`. The repository setting "Allow GitHub Actions to create and approve pull requests" must stay on. A pull request that the `GITHUB_TOKEN` opens or pushes to starts no CI, and `ci.yml` ignores a `push` that changes only `stats/**`, so the merge of a stats pull request runs none of the four jobs either.
+
+To backfill, dispatch the workflow on `main` with `since` and `until`. Slice a long backfill: the `GITHUB_TOKEN` allows 1,000 REST requests an hour, and each run costs about two. Or run the collector locally and open the pull request yourself:
+
+```bash
+GH_TOKEN=… node scripts/collect_stats.mjs --since 2026-10-01 --until 2026-10-15
+```
+
 ## A pull request with conflicts starts no run at all
 
 A label on a pull request that GitHub reports as `CONFLICTING` starts nothing. Every
