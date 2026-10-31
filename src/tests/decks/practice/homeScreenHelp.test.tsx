@@ -186,8 +186,8 @@ describe('the corner column in fullscreen (#1207)', () => {
     expect(screen.queryByTestId('fullscreen-button')).not.toBeInTheDocument();
     expect(within(column).getByRole('button', { name: 'Game menu' })).toBeInTheDocument();
     expect(screen.getByTestId('undo-button')).toBeInTheDocument();
-    // Two corner buttons (24 + 4 + 24) below `top-14` (56), and 8 px clear of them.
-    expect(turnScoreTop(screen.getByTestId('turn-score-column'))).toBe(56 + 52 + 8);
+    // Three corner buttons (3 × 24 + 2 × 4) below `top-14` (56), and 8 px clear of them.
+    expect(turnScoreTop(screen.getByTestId('turn-score-column'))).toBe(56 + 80 + 8);
     // #1395: jsdom measures no layout, so the column has room enough and keeps its labels.
     const turnScore = screen.getByTestId('turn-score-column');
     expect(within(turnScore).getByText('Turn')).not.toHaveClass('sr-only');
@@ -200,7 +200,7 @@ describe('the corner column in fullscreen (#1207)', () => {
     const back = screen.getByTestId('fullscreen-button');
     expect(back).toHaveAccessibleName('Enter fullscreen');
     expect(column.className).toBe(before.column);
-    expect(turnScoreTop(screen.getByTestId('turn-score-column'))).toBe(8 + 80 + 8);
+    expect(turnScoreTop(screen.getByTestId('turn-score-column'))).toBe(8 + 108 + 8);
   });
 
   it('keeps the column where it is in fullscreen on every other browser', async () => {
@@ -210,7 +210,7 @@ describe('the corner column in fullscreen (#1207)', () => {
     expect(before.column).toMatch(/\btop-2\b/);
     expect(during.column).toBe(before.column);
     expect(during.button).toBe(before.button);
-    expect(parseFloat(screen.getByTestId('turn-score-column').style.top)).toBe(8 + 80 + 8);
+    expect(parseFloat(screen.getByTestId('turn-score-column').style.top)).toBe(8 + 108 + 8);
     fireEvent.click(button);
     expect(button).toHaveAccessibleName('Enter fullscreen');
     expect(column.className).toBe(before.column);

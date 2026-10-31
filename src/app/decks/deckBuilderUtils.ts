@@ -49,6 +49,39 @@ export const deckFromTsv = (tsv: string, data: Array<any>) => (
   parsedDeck(tsv.trim().split('\n'), data)
 )
 
+// The deck as a LackeyCCG deck file, the text that Save to Drive writes and `deckFromTsv` reads
+// back. The practice table's Edit current deck (#1407) hands a dealt deck to the builder in it.
+export const lackeyText = (deck: DeckList): string => {
+  const lackeyPileNameFor: Record<string, string> = {
+    mission: 'Missions:',
+    dilemmaPile: 'Dilemmas:',
+    drawDeck: 'Deck:',
+  };
+  const lackeyPileOrder: Record<string, number> = {
+    drawDeck: 0,
+    dilemmaPile: 1,
+    mission: 2,
+  };
+  const tsvArray: string[] = [];
+  let currentPile = '';
+
+  const sortedCollectorsInfo = Object.keys(deck).sort(
+    (a, b) => lackeyPileOrder[deck[a].row.pile] - lackeyPileOrder[deck[b].row.pile]
+  );
+  for (const collectorsinfo of sortedCollectorsInfo) {
+    const card = deck[collectorsinfo];
+    if (card.row.pile !== currentPile) {
+      currentPile = card.row.pile;
+      tsvArray.push(lackeyPileNameFor[currentPile]);
+    }
+    if (card.count > 0) {
+      tsvArray.push(`${card.count}\t${card.row.originalName}`);
+    }
+  }
+
+  return tsvArray.join('\n');
+}
+
 const expandPile = (deck: DeckList, pile: DeckPile): any[] => {
   const result: any[] = [];
   for (const entry of Object.values(deck)) {

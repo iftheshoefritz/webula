@@ -10,6 +10,7 @@ import React, {
   useState,
 } from 'react';
 import Link from 'next/link';
+import { CHANGE_START_PAGE_HREF } from '../../../lib/startPage';
 import { useSearchParams } from 'next/navigation';
 import {
   CollisionDetection,
@@ -45,6 +46,8 @@ import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '..
 import { PracticeDeckPicker } from './PracticeDeckPicker';
 import type { MissionsAndDrawSource } from './PracticeDeckPicker';
 import { usePracticeDrive } from './usePracticeDrive';
+import { editDeckDestination, navigateTo } from './editCurrentDeck';
+import { EDIT_DECK_HANDOFF_KEY } from '../../../hooks/useDriveSync';
 import { useOfflineDecks } from './offlineDecks';
 import { OfflineMenuView, offlineItemLabel } from './OfflineMenuView';
 import { OfflineDeckList, OfflineDeckPicker } from './OfflineDeckPicker';
@@ -69,7 +72,8 @@ import {
   seedInstanceIds,
   tableReducer,
 } from './tableReducer';
-import { fromSavedGame, toSavedGame } from './savedGame';
+import { fromSavedGame, toSavedGame, toSavedHistory } from './savedGame';
+import { savedHistoryKey, writeSavedHistory } from './gameHistory';
 import CardHand from './CardHand';
 import MissionRow, {
   DilemmaIcon,
@@ -104,7 +108,7 @@ import {
 } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
-import { gameReducer, initialGameState, logEntryText } from './gameLog';
+import { GameAction, gameReducer, initialGameState, logEntryText, withShuffleOrders } from './gameLog';
 import { CardHoldProvider, NO_CALLOUT_STYLE, PLACE_ON_HOLD_MS, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
 import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHoldContext';
 import { FLAT_ROW_MAX_OFFSET, flatRowWidths, useElementHeight, useElementWidth } from './flatRowWidths';
@@ -212,6 +216,47 @@ function UndoIcon() {
   );
 }
 
+// The undo arrow, mirrored: the redo button (#1403).
+function RedoIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-4 h-4"
+      aria-hidden="true"
+    >
+      <path d="m15 14 5-5-5-5" />
+      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+    </svg>
+  );
+}
+
+// A list with a bullet before each line: the game log button (#1399).
+function GameLogIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      className="w-4 h-4"
+      aria-hidden="true"
+    >
+      <line x1="9" y1="6" x2="21" y2="6" />
+      <line x1="9" y1="12" x2="21" y2="12" />
+      <line x1="9" y1="18" x2="21" y2="18" />
+      <line x1="4" y1="6" x2="4.01" y2="6" />
+      <line x1="4" y1="12" x2="4.01" y2="12" />
+      <line x1="4" y1="18" x2="4.01" y2="18" />
+    </svg>
+  );
+}
+
 // A home for the controls that act on the whole game rather than one zone (#722): Reset, and
 // Load deck (#780), which opens the Drive picker. Reset throws away the current game, so it
 // confirms first via `window.confirm`, the same confirm-before-destroy pattern
@@ -243,8 +288,11 @@ function UndoIcon() {
 // The undo button (#1194) sits under those two. It takes back the player action of the last log
 // entry, and its label names that entry. It is disabled while the log is empty.
 //
+// The game log button (#1399) sits under the undo button, in a row of its own. It opens the game
+// log, and closes the splash first if the splash is open. It was an item of the splash before.
+//
 // In fullscreen on an iPad the browser draws its own close X and shrink button over the top-left
-// corner, so the column moves down below them, all three buttons together (#1207). Everywhere else
+// corner, so the column moves down below them, all four buttons together (#1207). Everywhere else
 // it stays at `top-2`, in and out of fullscreen.
 const SPLASH_ITEM_CLASS =
   'block w-full rounded-md border border-white/10 bg-bg-secondary px-6 py-2.5 text-center text-base text-text-secondary hover:bg-white/[0.1] hover:text-text-primary';
@@ -255,6 +303,8 @@ function GameMenu({
   onClose,
   onReset,
   onLoadDeck,
+  onEditDeck,
+  editDeckDisabled,
   onDecklist,
   onGameLog,
   onControls,
@@ -266,6 +316,9 @@ function GameMenu({
   update,
   undoLabel,
   onUndo,
+  redoLabel,
+  onRedo,
+  undoRedoRow,
   botGame,
   touch,
 }: {
@@ -274,6 +327,9 @@ function GameMenu({
   onClose: () => void;
   onReset: () => void;
   onLoadDeck: () => void;
+  onEditDeck: () => void;
+  // Offline the deck builder does not load, so Edit current deck is disabled (#1407).
+  editDeckDisabled: boolean;
   onDecklist: () => void;
   onGameLog: () => void;
   onControls: () => void;
@@ -286,6 +342,13 @@ function GameMenu({
   // "Undo: <the last entry>", or null while the log is empty.
   undoLabel: string | null;
   onUndo: () => void;
+  // "Redo: <the entry it does again>", or null while nothing is undone (#1403).
+  redoLabel: string | null;
+  onRedo: () => void;
+  // Redo beside undo, in one row, on the full touch table, so the turn and score column below keeps
+  // its place (#1403). Elsewhere redo sits under undo: the desktop and the attempt layout keep only
+  // `MENU_BUTTON_GUTTER` left of the table, and a row of two would cover the first mission.
+  undoRedoRow: boolean;
   // A game against the dilemma bot (#1289).
   botGame: boolean;
   // The touch layout, whose corner buttons take the round look of the iPadOS close button (#1394).
@@ -390,11 +453,17 @@ function GameMenu({
               <button type="button" onClick={onDecklist} className={SPLASH_ITEM_CLASS}>
                 Decklist
               </button>
-              <button type="button" onClick={onGameLog} className={SPLASH_ITEM_CLASS}>
-                Game log
-              </button>
               <button type="button" onClick={onLoadDeck} className={SPLASH_ITEM_CLASS}>
                 Load deck
+              </button>
+              <button
+                type="button"
+                onClick={onEditDeck}
+                disabled={editDeckDisabled}
+                data-testid="game-menu-edit-deck"
+                className={`${SPLASH_ITEM_CLASS} disabled:cursor-not-allowed disabled:opacity-40`}
+              >
+                Edit current deck
               </button>
               <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
                 {offlineItemLabel(offline.progress)}
@@ -402,6 +471,16 @@ function GameMenu({
               <button type="button" onClick={onControls} className={SPLASH_ITEM_CLASS}>
                 Controls
               </button>
+              {/* The splash of `/` (#1406), a page the offline cache does not hold, so offline it is off as Edit current deck is. */}
+              <Link
+                href={CHANGE_START_PAGE_HREF}
+                data-testid="game-menu-change-start-page"
+                aria-disabled={editDeckDisabled}
+                tabIndex={editDeckDisabled ? -1 : undefined}
+                className={`${SPLASH_ITEM_CLASS} ${editDeckDisabled ? 'pointer-events-none opacity-40' : ''}`}
+              >
+                Change start page
+              </Link>
               <button type="button" onClick={onReset} className={`${SPLASH_ITEM_CLASS} landscape:col-start-2`}>
                 Reset
               </button>
@@ -413,7 +492,8 @@ function GameMenu({
         data-testid="corner-buttons"
         className={`absolute ${
           fullscreen.isFullscreen && fullscreen.systemControlsInset ? 'top-14' : 'top-2'
-        } left-2 flex flex-col gap-1 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
+        } left-2 flex flex-col items-center gap-1 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
+        // `items-center` centres each single button on the undo and redo row, the widest row where it is a row of two (#1423).
         // Below the top safe-area inset and right of the left one (#1384), on top of `top-14`.
         style={safeAreaMargins('top', 'left')}
       >
@@ -456,16 +536,39 @@ function GameMenu({
             <FullscreenIcon exit={fullscreen.isFullscreen} />
           </button>
         )}
+        <div data-testid="undo-redo" className={`flex gap-1 ${undoRedoRow ? 'flex-row' : 'flex-col'}`}>
+          <button
+            type="button"
+            onClick={onUndo}
+            disabled={!undoLabel}
+            aria-label={undoLabel ?? 'Undo'}
+            title={undoLabel ?? 'Nothing to undo'}
+            data-testid="undo-button"
+            className={`${cornerButton} disabled:cursor-default disabled:opacity-40`}
+          >
+            <UndoIcon />
+          </button>
+          <button
+            type="button"
+            onClick={onRedo}
+            disabled={!redoLabel}
+            aria-label={redoLabel ?? 'Redo'}
+            title={redoLabel ?? 'Nothing to redo'}
+            data-testid="redo-button"
+            className={`${cornerButton} disabled:cursor-default disabled:opacity-40`}
+          >
+            <RedoIcon />
+          </button>
+        </div>
         <button
           type="button"
-          onClick={onUndo}
-          disabled={!undoLabel}
-          aria-label={undoLabel ?? 'Undo'}
-          title={undoLabel ?? 'Nothing to undo'}
-          data-testid="undo-button"
-          className={`${cornerButton} disabled:cursor-default disabled:opacity-40`}
+          onClick={onGameLog}
+          aria-label="Game log"
+          title="Game log"
+          data-testid="game-log-button"
+          className={cornerButton}
         >
-          <UndoIcon />
+          <GameLogIcon />
         </button>
       </div>
     </>
@@ -492,9 +595,9 @@ function contentPadding(insets: SafeAreaInsets): React.CSSProperties | undefined
 const CONTROLS_COLUMN_LEFT = 8; // px
 const CONTROLS_COLUMN_WIDTH = 16 + TOUCH_CONTROLS_COLUMN - CONTROLS_COLUMN_LEFT - 4; // px
 // Below the corner buttons (24 px each, 4 px apart) at `top-2`, or at `top-14` with the inset, and
-// 8 px clear of them. The column counts three buttons, or two in fullscreen on iPadOS, where the
+// 8 px clear of them. The column counts four buttons (#1399), or three in fullscreen on iPadOS, where the
 // system's close X stands in for the fullscreen button (#1394). A column with no fullscreen button
-// still counts three, so the turn and score do not jump when the button shows after hydration. Like the corner buttons, the column moves in by the top and the left safe-area insets (#1384).
+// still counts four, so the turn and score do not jump when the button shows after hydration. Like the corner buttons, the column moves in by the top and the left safe-area insets (#1384).
 const CORNER_BUTTON = 24; // px
 const CORNER_BUTTON_GAP = 4; // px
 function controlsColumnTop(cornerButtons: number, systemControlsInset: boolean): number {
@@ -521,11 +624,11 @@ function TurnScoreColumn({
 }) {
   const label = compact ? 'sr-only' : 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted';
   const number = compact ? 'text-sm leading-5 font-semibold' : 'text-lg leading-6 font-semibold';
-  const button = `btn-system w-full ${compact ? 'h-6 text-xs' : 'h-8'} disabled:opacity-50 disabled:cursor-not-allowed`;
+  const button = `btn-system w-full ${compact ? 'h-6 text-xs' : 'h-7'} disabled:opacity-50 disabled:cursor-not-allowed`;
   return (
     <div
       data-testid="turn-score-column"
-      className={`absolute flex flex-col ${compact ? 'gap-2' : 'gap-3'}`}
+      className="absolute flex flex-col gap-2"
       style={{
         left: CONTROLS_COLUMN_LEFT,
         top,
@@ -1558,8 +1661,11 @@ function PracticeDrawContent() {
   const serviceWorkerUpdate = useServiceWorker();
   // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
   // entry per player action, so a handler whose action moves several cards dispatches one `batch`.
-  const [game, dispatch] = useReducer(gameReducer, initialTableState, initialGameState);
+  const [game, dispatchGame] = useReducer(gameReducer, initialTableState, initialGameState);
   const table = game.table;
+  // Every shuffle result is chosen here, before the dispatch, and the action carries it (#1401), so
+  // `tableReducer` calls no random function and a saved undo or redo step holds the same order.
+  const dispatch = (action: GameAction) => dispatchGame(withShuffleOrders(table, action));
   const { drawDeck, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
   // The card a press and hold shows in the preview, while the pointer stays down. The preview
@@ -1697,7 +1803,7 @@ function PracticeDrawContent() {
   // to the top of the bottom row.
   const gameLayerHeight = useElementHeight(gameLayer);
   const turnScoreTop = controlsColumnTop(
-    fullscreen.systemExitControl ? 2 : 3,
+    fullscreen.systemExitControl ? 3 : 4,
     fullscreen.isFullscreen && fullscreen.systemControlsInset
   );
   const shipRows = useShipRowCount(
@@ -1835,6 +1941,9 @@ function PracticeDrawContent() {
   const saveReadyRef = useRef(false);
   // Set once a saved game is restored, so the later `data` load does not deal over it.
   const restoredRef = useRef(false);
+  // How many undo steps the last write of the history kept after a full quota (#1401), so the next
+  // write does not start with one that fails.
+  const historyLimitRef = useRef(Infinity);
   const [decklistOpen, setDecklistOpen] = useState(false);
   const [gameLogOpen, setGameLogOpen] = useState(false);
   // The attempt popup (#1163): the panel whose Attempt button opened it, or null when closed.
@@ -1926,10 +2035,10 @@ function PracticeDrawContent() {
         const currentRaw = localStorage.getItem('currentDeck');
         currentDeck = currentRaw ? JSON.parse(currentRaw) : {};
       }
-      const restored = fromSavedGame(raw, currentDeck);
+      const restored = fromSavedGame(raw, currentDeck, localStorage.getItem(savedHistoryKey(gameKey)));
       if (!restored) return false;
       seedInstanceIds(restored.maxInstanceId);
-      dispatch({ type: 'restore', state: restored.table, log: restored.log });
+      dispatch({ type: 'restore', state: restored.table, log: restored.log, undo: restored.undo, redo: restored.redo });
       setDealtDeck(restored.dealtDeck);
       setBotGame(restored.table.opponent === 'bot');
       setDealtOffline(!isBrowserOnline());
@@ -1938,6 +2047,7 @@ function PracticeDrawContent() {
         setLoadedDeck(restored.dealtDeck);
         setDriveFileId(restored.driveFileId);
         setDilemmaDriveFileId(restored.dilemmaDriveFileId);
+        setDriveFileName(restored.driveFileName);
       }
       saveReadyRef.current = true;
       return true;
@@ -1985,21 +2095,31 @@ function PracticeDrawContent() {
     initDeck();
   }, [data]);
 
-  // Writes the game and its log (#1400) after every change of the table (#976). A failed write (quota, private
-  // browsing) is ignored, so play goes on. The first deal or restore sets `saveReadyRef` in the
+  // Writes the game and its log (#1400) after every change of the table (#976), and then the undo and
+  // redo histories under a key of their own (#1401). A failed write (quota, private browsing) is
+  // ignored, so play goes on, and a full quota trims the history, never the table save. The first deal or restore sets `saveReadyRef` in the
   // same commit as its dispatch, so this effect still sees the empty `initialTableState` there,
   // and that table must not overwrite the save (#1005). The write waits for the next render.
   useEffect(() => {
     if (!saveReadyRef.current || table === initialTableState) return;
     try {
       const save = loadedDeck
-        ? toSavedGame(table, dealtDeck, 'drive', driveFileId, dilemmaDriveFileId, game.log)
+        ? toSavedGame(table, dealtDeck, 'drive', driveFileId, dilemmaDriveFileId, game.log, driveFileName)
         : toSavedGame(table, dealtDeck, 'builder', undefined, undefined, game.log);
       localStorage.setItem(gameKey, JSON.stringify(save));
     } catch {
       // keep playing without a save
+      return;
     }
-  }, [table, game.log, dealtDeck, loadedDeck, driveFileId, dilemmaDriveFileId, gameKey]);
+    const historyKey = savedHistoryKey(gameKey);
+    historyLimitRef.current = writeSavedHistory(
+      game,
+      (keepUndo, keepRedo) => toSavedHistory(game, dealtDeck, keepUndo, keepRedo),
+      (json) => localStorage.setItem(historyKey, json),
+      () => localStorage.removeItem(historyKey),
+      historyLimitRef.current
+    );
+  }, [table, game, dealtDeck, loadedDeck, driveFileId, dilemmaDriveFileId, driveFileName, gameKey]);
 
   useEffect(() => {
     screen.orientation?.lock?.('landscape')?.catch(() => {});
@@ -2023,7 +2143,8 @@ function PracticeDrawContent() {
     setDecklistOpen(true);
   };
 
-  // The game menu's Game log item (#1065): closes the menu and opens the log.
+  // The game log button of the corner column (#1065, #1399): closes the menu, if it is open, and
+  // opens the log.
   const handleGameLogClick = () => {
     setGameMenuOpen(false);
     setGameLogOpen(true);
@@ -2049,6 +2170,36 @@ function PracticeDrawContent() {
   const handleLoadDeckClick = () => {
     setGameMenuOpen(false);
     drive.openPicker();
+  };
+
+  // The game menu's Edit current deck (#1407): closes the menu, confirms, drops the saved game so the
+  // next visit of the table deals the edited deck, and opens the dealt deck in the deck builder, in
+  // the same tab. A Drive deck with no session signs in first and comes back to the builder.
+  const handleEditDeckClick = () => {
+    setGameMenuOpen(false);
+    if (!window.confirm('Edit this deck? This will throw away the current game.')) return;
+    const destination = editDeckDestination({
+      isFixture,
+      loaded: loadedDeck !== null,
+      driveFileId,
+      dilemmaDriveFileId,
+      driveFileName,
+      botGame: table.opponent === 'bot',
+      dealtDeck,
+      deckName: dealtDeckName(),
+    });
+    saveReadyRef.current = false;
+    try {
+      localStorage.removeItem(gameKey);
+      localStorage.removeItem(savedHistoryKey(gameKey));
+      if (destination.kind === 'copy') {
+        sessionStorage.setItem(EDIT_DECK_HANDOFF_KEY, JSON.stringify({ name: destination.name, contents: destination.contents }));
+      }
+    } catch {
+      // the builder opens without the copy
+    }
+    if (destination.kind === 'link' && destination.needsDrive) drive.openWithDrive(destination.href);
+    else navigateTo(destination.href);
   };
 
   // The base deck of the picker's step 2 (#1114, #1290): the missions and draw deck of a Drive deck,
@@ -2806,7 +2957,8 @@ function PracticeDrawContent() {
   // entry, and the entry leaves the log. A panel, a hand or a selection may point at cards the
   // undone table holds elsewhere, so every one of them closes, as after a drag from outside them.
   // Nothing is undone while the bot chooses its stack (#1299): its reply needs the table it drew from.
-  // A restored log has no snapshots (#1400), so the button follows `game.undo` and not the log.
+  // A restored log can have fewer snapshots than entries (#1400, #1401): a save from before #1401 has
+  // none, and a full quota keeps only the newest. So the button follows `game.undo` and not the log.
   const lastLogEntry = game.undo.length && game.log.length ? game.log[game.log.length - 1] : null;
   const handleUndo = () => {
     if (draggingRef.current || botStart.choosing || !game.undo.length) return;
@@ -2814,15 +2966,32 @@ function PracticeDrawContent() {
     setSelectedCardIds([]);
     dispatch({ type: 'undo' });
   };
+  // The redo button, Ctrl/Cmd+Shift+Z and Ctrl+Y (#1403): the table goes back to the table the last
+  // undone action left, never a new run of it, so a redone shuffle keeps its order, and the entry
+  // comes back to the log. It closes the panels as undo does.
+  const nextRedo = game.redo.length ? game.redo[game.redo.length - 1] : null;
+  const handleRedo = () => {
+    if (draggingRef.current || botStart.choosing || !nextRedo) return;
+    closePanelsAfterDrag(null, nextRedo.table);
+    setSelectedCardIds([]);
+    dispatch({ type: 'redo' });
+  };
   const undoFromKeyboard = useEffectEvent(() => handleUndo());
+  const redoFromKeyboard = useEffectEvent(() => handleRedo());
   useEffect(() => {
     if (!finePointer) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'z' || !(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
+      if (event.altKey) return;
+      const key = event.key.toLowerCase();
+      const undo = key === 'z' && (event.ctrlKey || event.metaKey) && !event.shiftKey;
+      // Cmd+Y is left alone: Safari and Chrome on macOS use it for the history.
+      const redo = (key === 'z' && (event.ctrlKey || event.metaKey) && event.shiftKey) || (key === 'y' && event.ctrlKey);
+      if (!undo && !redo) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
       event.preventDefault();
-      undoFromKeyboard();
+      if (undo) undoFromKeyboard();
+      else redoFromKeyboard();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -2937,6 +3106,8 @@ function PracticeDrawContent() {
           onClose={() => setGameMenuOpen(false)}
           onReset={handleResetClick}
           onLoadDeck={handleLoadDeckClick}
+          onEditDeck={handleEditDeckClick}
+          editDeckDisabled={!online}
           onDecklist={handleDecklistClick}
           onGameLog={handleGameLogClick}
           onControls={handleControlsClick}
@@ -2951,6 +3122,9 @@ function PracticeDrawContent() {
           update={serviceWorkerUpdate}
           undoLabel={lastLogEntry ? `Undo: ${logEntryText(lastLogEntry)}` : null}
           onUndo={handleUndo}
+          redoLabel={nextRedo ? `Redo: ${logEntryText(nextRedo.entry)}` : null}
+          onRedo={handleRedo}
+          undoRedoRow={!finePointer && !attemptLayoutShows}
           botGame={table.opponent === 'bot'}
           touch={!finePointer}
         />

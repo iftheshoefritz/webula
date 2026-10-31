@@ -8,15 +8,19 @@
 // needs: the display names of the cards, captured when the action ran, and never a card id that
 // must be looked up later, or the order a shuffle made.
 //
-// Beside each entry the log keeps the table from just before its action, for undo only (#1194).
+// Beside each entry the log keeps the table from just before its action, for undo (#1194), and an
+// undone entry keeps the table its action left, for redo (#1403).
 // Those snapshots are the structured record of every random result: the order a shuffle replaced
 // and the faces a shuffle of the dilemma pile turned down. The text never reads them, so the UI
-// never shows them. They live in memory only: the save never holds them, so a reload empties them.
+// never shows them. In memory they are whole tables. The page saves them as the changes between
+// neighbouring tables, under a key of their own (#1401, `gameHistory.ts`), so a reload keeps undo
+// and redo.
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import {
   cardsAt,
   drawReshuffles,
+  shuffledIds,
   findInstanceAnywhere,
   MoveTarget,
   ReorderZone,
@@ -95,12 +99,15 @@ export type LogEntry = { turn: number } & (
 // make one entry. `unseen` says the player did not see the cards' faces: a drag that showed the
 // card back (#814).
 // `undo` (#1194) takes back the player action of the last log entry, and makes no entry of its own.
+// `redo` (#1403) does again the last action that undo took back.
 export type GameAction =
   | TableAction
   | { type: 'batch'; actions: TableAction[]; unseen?: boolean }
   | { type: 'undo' }
-  // A restore of the saved game (#1400) that brings its log back too.
-  | { type: 'restore'; state: TableState; log?: LogEntry[] };
+  | { type: 'redo' }
+  // A restore of the saved game (#1400) that brings its log back too, and its undo and redo
+  // histories (#1401).
+  | { type: 'restore'; state: TableState; log?: LogEntry[]; undo?: TableState[]; redo?: RedoStep[] };
 
 export interface GameState {
   table: TableState;
@@ -109,6 +116,14 @@ export interface GameState {
   // A restored log (#1400) has no snapshots, so `undo` can be shorter than `log`: its last snapshot
   // belongs to the last entry, and undo goes back to it.
   undo: TableState[];
+  // The steps undo took back, the last undone last: each its entry and the table its action left.
+  // Redo puts that table back, and never runs the action again, so a redone shuffle keeps its order.
+  redo: RedoStep[];
+}
+
+export interface RedoStep {
+  entry: LogEntry;
+  table: TableState;
 }
 
 const missionName = (state: TableState, index: number): string => {
@@ -298,7 +313,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -327,7 +342,7 @@ export function logEntryFor(
   return body ? ({ ...body, turn: after.turn } as LogEntry) : null;
 }
 
-export const initialGameState = (table: TableState): GameState => ({ table, log: [], undo: [] });
+export const initialGameState = (table: TableState): GameState => ({ table, log: [], undo: [], redo: [] });
 
 // The page's reducer: the table, through `tableReducer`, and the log beside it. The log is built
 // here, in the reducer, and not in an effect: StrictMode runs a reducer twice, and an append in an
@@ -335,24 +350,76 @@ export const initialGameState = (table: TableState): GameState => ({ table, log:
 // Each entry keeps the table from before its action, and `undo` goes back to it and drops the
 // entry (#1194). An action that makes no entry keeps no snapshot, so the undo of the next entry
 // takes it back too. A deal and a reset empty both, so undo never goes past a deal. A restore
-// takes the saved log (#1400) and empties `undo`, so undo never goes past a reload.
+// takes the saved log (#1400) and the saved undo and redo histories (#1401), which are empty when the
+// save has none.
+// Undo keeps the undone entry and the table it leaves, and `redo` puts both back (#1403). Any other
+// action that changes the table empties the redo history, logged or not, and so do a deal and a
+// reset.
 export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'undo') {
     if (!state.undo.length) return state;
-    return { table: state.undo[state.undo.length - 1], log: state.log.slice(0, -1), undo: state.undo.slice(0, -1) };
+    const entry = state.log[state.log.length - 1];
+    return {
+      table: state.undo[state.undo.length - 1],
+      log: state.log.slice(0, -1),
+      undo: state.undo.slice(0, -1),
+      redo: [...state.redo, { entry, table: state.table }],
+    };
+  }
+  if (action.type === 'redo') {
+    if (!state.redo.length) return state;
+    const step = state.redo[state.redo.length - 1];
+    return {
+      table: step.table,
+      log: [...state.log, step.entry],
+      undo: [...state.undo, state.table],
+      redo: state.redo.slice(0, -1),
+    };
   }
   if (action.type === 'restore') {
-    return { table: tableReducer(state.table, action), log: 'log' in action ? action.log ?? [] : [], undo: [] };
+    return {
+      table: tableReducer(state.table, action),
+      log: 'log' in action ? action.log ?? [] : [],
+      undo: 'undo' in action ? action.undo ?? [] : [],
+      redo: 'redo' in action ? action.redo ?? [] : [],
+    };
   }
   if (action.type === 'reset' || action.type === 'resetWithPiles') {
-    return { table: tableReducer(state.table, action), log: [], undo: [] };
+    return { table: tableReducer(state.table, action), log: [], undo: [], redo: [] };
   }
   const actions = action.type === 'batch' ? action.actions : [action];
   const table = actions.reduce(tableReducer, state.table);
   const entry = logEntryFor(state.table, action, table);
   if (table === state.table && !entry) return state;
-  if (!entry) return { ...state, table };
-  return { table, log: [...state.log, entry], undo: [...state.undo, state.table] };
+  if (!entry) return { ...state, table, redo: [] };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// The action with the result of each shuffle in it (#1401): a `shuffle`, the shuffle of a `batch`
+// after its moves, and a `drawCard` that `drawReshuffles`. The page calls this before each dispatch,
+// with the table it shows, and the reducer applies the order, so it calls no random function. An
+// action that already holds its order keeps it.
+function withShuffleOrder(table: TableState, action: TableAction): TableAction {
+  if (action.type === 'shuffle' && !action.order) return { ...action, order: shuffledIds(cardsAt(table, action.location)) };
+  if (action.type === 'drawCard' && !action.order && drawReshuffles(table, action)) {
+    return { ...action, order: shuffledIds(table.dilemmaPile) };
+  }
+  return action;
+}
+
+export function withShuffleOrders(table: TableState, action: GameAction): GameAction {
+  if (action.type === 'batch') {
+    if (!action.actions.some((a) => a.type === 'shuffle' || a.type === 'drawCard')) return action;
+    let state = table;
+    const actions = action.actions.map((a) => {
+      const chosen = withShuffleOrder(state, a);
+      state = tableReducer(state, chosen);
+      return chosen;
+    });
+    return { ...action, actions };
+  }
+  if (action.type === 'undo' || action.type === 'redo' || action.type === 'restore') return action;
+  return withShuffleOrder(table, action);
 }
 
 // The text of a place, with "the", the same words as the labels of the card list panel.
@@ -422,6 +489,13 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   attemptPhase: true,
   botAttempt: true,
 };
+
+// A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
+export const isLogEntry = (entry: unknown): entry is LogEntry =>
+  typeof entry === 'object' &&
+  entry !== null &&
+  typeof (entry as LogEntry).turn === 'number' &&
+  Object.hasOwn(LOG_ENTRY_KINDS, (entry as LogEntry).kind);
 
 export function logEntryText(entry: LogEntry): string {
   switch (entry.kind) {

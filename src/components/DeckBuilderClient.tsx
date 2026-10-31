@@ -33,10 +33,12 @@ import { getReportsToOptions } from '../lib/reportsToOptions';
 import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import Link from 'next/link';
-import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale } from 'react-icons/fa';
+import { CHANGE_START_PAGE_HREF } from '../lib/startPage';
+import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale, FaHome } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
+import { lackeyText } from '../app/decks/deckBuilderUtils';
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import useDriveSync from '../hooks/useDriveSync';
 import useDeckState from '../hooks/useDeckState';
@@ -115,36 +117,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     })();
   }, []);
 
-  const createLackeyTSV = (): string => {
-    const lackeyPileNameFor: Record<string, string> = {
-      mission: 'Missions:',
-      dilemmaPile: 'Dilemmas:',
-      drawDeck: 'Deck:',
-    };
-    const lackeyPileOrder: Record<string, number> = {
-      drawDeck: 0,
-      dilemmaPile: 1,
-      mission: 2,
-    };
-    const tsvArray: string[] = [];
-    let currentPile = '';
-
-    const sortedCollectorsInfo = Object.keys(currentDeck).sort(
-      (a, b) => lackeyPileOrder[currentDeck[a].row.pile] - lackeyPileOrder[currentDeck[b].row.pile]
-    );
-    for (const collectorsinfo of sortedCollectorsInfo) {
-      const card = currentDeck[collectorsinfo];
-      if (card.row.pile !== currentPile) {
-        currentPile = card.row.pile;
-        tsvArray.push(lackeyPileNameFor[currentPile]);
-      }
-      if (card.count > 0) {
-        tsvArray.push(`${card.count}\t${card.row.originalName}`);
-      }
-    }
-
-    return tsvArray.join('\n');
-  };
+  const createLackeyTSV = (): string => lackeyText(currentDeck);
 
   const {
     session,
@@ -681,6 +654,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     <FaPlayCircle className="shrink-0" />
                     <span>Practice game</span>
                   </Link>
+                  <Link
+                    href={CHANGE_START_PAGE_HREF}
+                    data-testid="change-start-page"
+                    className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10"
+                  >
+                    <FaHome className="shrink-0" />
+                    <span>Change start page</span>
+                  </Link>
                 </div>
               )}
             </div>
@@ -765,6 +746,16 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               aria-disabled={drawDeckEmpty}
             >
               <FaPlayCircle />
+            </Link>
+            <Link
+              href={CHANGE_START_PAGE_HREF}
+              className="btn-icon flex items-center justify-center"
+              data-tooltip-id="button-tooltip"
+              data-tooltip-content="Change start page"
+              aria-label="Change start page"
+              data-testid="change-start-page-desktop"
+            >
+              <FaHome />
             </Link>
             <button
               className="btn-icon"

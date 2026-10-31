@@ -268,11 +268,17 @@ export const CONTROL_ROWS: ControlRow[] = [
     ...both('The button under the menu button. It is missing where the browser cannot go fullscreen, such as on iPhone Safari.'),
   },
   {
+    id: 'game-log',
+    section: 'Buttons',
+    action: 'Game log',
+    ...both('The button under the undo button. Opens the game log.'),
+  },
+  {
     id: 'game-menu',
     section: 'Buttons',
     action: 'The game menu',
     ...both(
-      'Continue, Decklist, Game log, Load deck, Offline, Controls and Reset. ' +
+      'Continue, Decklist, Load deck, Offline, Controls and Reset. ' +
         'The game saves itself and comes back on the next load, and Reset deals a new game.'
     ),
   },

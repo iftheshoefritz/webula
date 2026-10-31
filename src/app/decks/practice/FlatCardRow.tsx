@@ -112,8 +112,8 @@ export default function FlatCardRow({
   zone: 'core' | 'brig';
   label: string;
   cards: CardInstance[];
-  // The widest the row may grow, the share of the bottom row's free space `page.tsx` measures
-  // for it (#1029). Past that width, the cards overlap more.
+  // The width of the zone, its share of the bottom row's free space `PracticeTable` measures for
+  // it (#1029, #1425). Past that width, the cards overlap more.
   maxWidth: number;
   maxOffset: number;
   onOpen: () => void;
@@ -129,8 +129,16 @@ export default function FlatCardRow({
   const overUnarmedCard =
     overTargetId !== null && overTargetId !== armedTargetId && cards.some((card) => card.id === overTargetId);
   const highlight = highlightState(zone, draggedType, isOver || overUnarmedCard);
-  const dragging = draggedType !== null;
   const landedNonce = useLandedNonce(zone);
+
+  // The zone is always as wide as its share of the bottom row (#1425), with or without cards and
+  // with or without a drag, so the dashed outlines of the core and the brig fill the space between
+  // the hand and the dilemma pile, and the drop target is the whole outline. The size never changes
+  // when a drag starts, so the drop target does not shrink out from under the pointer (#635), and a
+  // card stays under the pointer (#831). The outline is an inset `outline`, which takes no content
+  // space, so the 80 px cards (#1234) sit inside it and the row stays level with the draw deck.
+  const boxClassName = `relative rounded-lg outline-2 outline-dashed outline-white/20 -outline-offset-2 ${highlightClassName(highlight)}`;
+  const boxStyle = { width: maxWidth, height: PILE_CARD_HEIGHT };
 
   if (cards.length === 0) {
     return (
@@ -139,9 +147,8 @@ export default function FlatCardRow({
         data-zone={zone}
         data-highlight={highlight}
         data-landed={landedNonce !== null || undefined}
-        className={`relative w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1 ${highlightClassName(
-          highlight
-        )}`}
+        className={`${boxClassName} shrink-0 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1`}
+        style={boxStyle}
       >
         <LandedRing nonce={landedNonce} />
         {label}
@@ -149,29 +156,18 @@ export default function FlatCardRow({
     );
   }
 
+  // Past the zone's width, the cards overlap more. Each card is the art crop, as tall as the draw
+  // deck's card (#1234), and sits at the row's bottom edge.
   const offset = offsetFor(cards.length, FLAT_CARD_WIDTH, maxWidth, maxOffset);
-  const rowWidth = FLAT_CARD_WIDTH + offset * (cards.length - 1);
-  // Each card is the art crop, as tall as the draw deck's card (#1234), so the row is that tall too.
-  const cardHeight = FLAT_CARD_HEIGHT;
 
-  // During a drag, keep the dashed outline and the full box size the empty zone uses (56x80,
-  // "w-14 h-20" above), rather than shrinking to the card row's own size, so the drop target
-  // does not shrink out from under the pointer (#635). The cards are as tall as that box (#1234), so
-  // only its width still grows a row of one card. The cards sit at the row's bottom edge, and
-  // the table's bottom row is `items-end`, so the row grows upward away from them and each card
-  // stays under the pointer (or the finger) when the drag starts (#831). Anchored at the top, the
-  // cards jumped up by the growth, and the pointer that was on a card was then on the zone.
   return (
     <div
       ref={setNodeRef}
       data-zone={zone}
       data-highlight={highlight}
       data-landed={landedNonce !== null || undefined}
-      className={`relative rounded ${dragging ? 'rounded-lg border-2 border-dashed border-white/20' : ''} ${highlightClassName(highlight)}`}
-      style={{
-        width: dragging ? Math.max(rowWidth, 56) : rowWidth,
-        height: dragging ? Math.max(cardHeight, PILE_CARD_HEIGHT) : cardHeight,
-      }}
+      className={`${boxClassName} shrink-0`}
+      style={boxStyle}
     >
       {cards.map((instance, idx) => (
         <div key={instance.id} className="absolute bottom-0" style={{ left: idx * offset, zIndex: idx + 1 }}>

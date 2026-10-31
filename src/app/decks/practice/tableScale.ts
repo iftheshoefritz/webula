@@ -1069,11 +1069,13 @@ export function useAttemptLayout(
 }
 
 // The height of the full column (#1395): each group is a label line (`leading-3`) and a number line
-// (`leading-6`), then `gap-1` and an `h-8` button, and `gap-3` between the two groups.
+// (`leading-6`), then `gap-1` and an `h-7` button, and `gap-2` between the two groups. The buttons
+// and the gap shrank from `h-8` and `gap-3` (#1399), so the column fits at 667×375 below four corner
+// buttons.
 const TURN_SCORE_LABEL_LINE = 12; // px
 const TURN_SCORE_NUMBER_LINE = 24; // px
-const TURN_SCORE_BUTTON = 32; // px
-const TURN_SCORE_GROUP_GAP = 12; // px
+const TURN_SCORE_BUTTON = 28; // px
+const TURN_SCORE_GROUP_GAP = 8; // px
 const TURN_SCORE_GROUP = TURN_SCORE_LABEL_LINE + TURN_SCORE_NUMBER_LINE + 4 + TURN_SCORE_BUTTON;
 export const TURN_SCORE_COLUMN_HEIGHT = 2 * TURN_SCORE_GROUP + TURN_SCORE_GROUP_GAP; // px
 // The clearance between the column and the bottom row, the gap under the corner buttons.

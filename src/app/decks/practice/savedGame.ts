@@ -7,8 +7,9 @@
 // database column such as `collectorsinfo` or `imagefile` is not.
 
 import { DeckList } from '../../../types';
-import { CardInstance, TableState, Zone, ZONE_FACE, initialTableState } from './tableReducer';
-import { LOG_ENTRY_KINDS, LogEntry } from './gameLog';
+import { CardInstance, MissionSlot, TableState, Zone, ZONE_FACE, initialTableState } from './tableReducer';
+import { GameState, isLogEntry, LogEntry, RedoStep } from './gameLog';
+import { rebuildSavedHistory, savedHistoryJson } from './gameHistory';
 
 export const SAVED_GAME_VERSION = 2;
 
@@ -40,6 +41,9 @@ export interface SavedGame {
   // The Drive file of the dilemmas when they come from another deck than the missions and draw
   // deck (#1114). Absent in a save of one deck.
   dilemmaDriveFileId?: string;
+  // The name of the dealt Drive deck (#1407), so Edit current deck opens the file under its own
+  // name after a restore. Absent in a save made before #1407.
+  driveFileName?: string;
   dealtDeck: DeckList;
   table: SavedTable;
   // The entries of the game log (#1400), as they are: plain data with display names and no card
@@ -53,7 +57,11 @@ export interface RestoredGame {
   source: SavedGameSource;
   driveFileId?: string;
   dilemmaDriveFileId?: string;
+  driveFileName?: string;
   log: LogEntry[];
+  // The undo and redo histories (#1401), empty when the save has none or they do not fit it.
+  undo: TableState[];
+  redo: RedoStep[];
   // The largest N of the restored `card-N` IDs, for `seedInstanceIds`.
   maxInstanceId: number;
 }
@@ -86,43 +94,72 @@ const matchesRow = (card: any, row: any): boolean =>
 const keyFor = (card: any, dealtDeck: DeckList): string | undefined =>
   Object.keys(dealtDeck).find((key) => matchesRow(card, dealtDeck[key].row));
 
+// The key of a card row, kept per row object (#1401): an instance keeps its row through every move,
+// so a save after each action looks up only the rows it has not seen.
+const keyCaches = new WeakMap<DeckList, WeakMap<object, string>>();
+const cachedKeyFor = (card: any, dealtDeck: DeckList): string => {
+  if (typeof card !== 'object' || card === null) return keyFor(card, dealtDeck) ?? '';
+  let cache = keyCaches.get(dealtDeck);
+  if (!cache) keyCaches.set(dealtDeck, (cache = new WeakMap()));
+  let key = cache.get(card);
+  if (key === undefined) cache.set(card, (key = keyFor(card, dealtDeck) ?? ''));
+  return key;
+};
+
+// A card instance in its saved form, the key of its row in place of the row. `onCard` sees each
+// card row with its key.
+export function saveInstance(
+  instance: CardInstance,
+  dealtDeck: DeckList,
+  onCard?: (card: any, key: string) => void
+): SavedCardInstance {
+  const { card, crew, placedOn, ...rest } = instance;
+  const key = cachedKeyFor(card, dealtDeck);
+  onCard?.(card, key);
+  return {
+    ...rest,
+    key,
+    ...(crew ? { crew: crew.map((c) => saveInstance(c, dealtDeck, onCard)) } : {}),
+    ...(placedOn ? { placedOn: placedOn.map((c) => saveInstance(c, dealtDeck, onCard)) } : {}),
+  };
+}
+
 export function toSavedGame(
   table: TableState,
   dealtDeck: DeckList,
   source: SavedGameSource,
   driveFileId?: string,
   dilemmaDriveFileId?: string,
-  log: LogEntry[] = []
+  log: LogEntry[] = [],
+  driveFileName?: string
 ): SavedGame {
   // The saved deck takes the `backimagefile` of a dealt mission (#765), so a restore needs no
   // card database to repair it.
   const savedDeck: DeckList = { ...dealtDeck };
-  const save = (instance: CardInstance): SavedCardInstance => {
-    const { card, crew, placedOn, ...rest } = instance;
-    const key = keyFor(card, dealtDeck) ?? '';
+  const keepBackImage = (card: any, key: string) => {
     const entry = savedDeck[key];
     if (entry && entry.row.backimagefile === undefined && card?.backimagefile !== undefined) {
       savedDeck[key] = { ...entry, row: { ...entry.row, backimagefile: card.backimagefile } };
     }
-    return {
-      ...rest,
-      key,
-      ...(crew ? { crew: crew.map(save) } : {}),
-      ...(placedOn ? { placedOn: placedOn.map(save) } : {}),
-    };
   };
-  const savedTable: SavedTable = mapTable(table, save);
+  const savedTable: SavedTable = mapTable(table, (instance: CardInstance) => saveInstance(instance, dealtDeck, keepBackImage));
   return {
     version: SAVED_GAME_VERSION,
     savedAt: new Date().toISOString(),
     source,
     ...(driveFileId ? { driveFileId } : {}),
     ...(dilemmaDriveFileId ? { dilemmaDriveFileId } : {}),
+    ...(driveFileName ? { driveFileName } : {}),
     dealtDeck: savedDeck,
     table: savedTable,
     log,
   };
 }
+
+// The undo and redo histories of `game` as the JSON of the history key (#1401), with the newest
+// `keepUndo` undo steps, and the redo steps unless `keepRedo` is false.
+export const toSavedHistory = (game: GameState, dealtDeck: DeckList, keepUndo = Infinity, keepRedo = true): string =>
+  savedHistoryJson(game, (instance) => saveInstance(instance, dealtDeck), keepUndo, keepRedo);
 
 // The deck's cards as sorted `key:count` pairs. A key with no copies left is not part of it.
 export const fingerprint = (deck: DeckList): string =>
@@ -183,52 +220,11 @@ const isValidAttempt = (table: TableState): boolean => {
 
 // A saved log (#1400) loads only when every entry is an object with a numeric turn and a kind the
 // log knows. A bad log loads as an empty one and never drops the table.
-const restoredLog = (log: unknown): LogEntry[] =>
-  Array.isArray(log) &&
-  log.every((entry) => isObject(entry) && typeof entry.turn === 'number' && Object.hasOwn(LOG_ENTRY_KINDS, entry.kind))
-    ? log
-    : [];
+const restoredLog = (log: unknown): LogEntry[] => (Array.isArray(log) && log.every(isLogEntry) ? log : []);
 
-// Returns the restored game, or null when the save must be dropped: bad JSON, an unknown
-// version, a builder save whose deck no longer matches `currentDeck`, or a card whose key is not
-// in the saved deck. A Drive save is trusted as it is, with no Drive call.
-export function fromSavedGame(json: string, currentDeck: DeckList): RestoredGame | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    return null;
-  }
-  if (!isObject(parsed)) return null;
-  const save = migrate(parsed);
-  if (!save || !isObject(save.table) || !isObject(save.dealtDeck)) return null;
-  if (save.source !== 'builder' && save.source !== 'drive') return null;
-  if (save.source === 'builder' && fingerprint(save.dealtDeck) !== fingerprint(currentDeck ?? {})) return null;
-
-  const dealtDeck = save.dealtDeck;
-  let maxInstanceId = 0;
-  const restore = (saved: SavedCardInstance): CardInstance => {
-    const { key, crew, placedOn, ...rest } = saved;
-    const entry = dealtDeck[key];
-    if (!entry?.row) throw new MissingKeyError();
-    maxInstanceId = Math.max(maxInstanceId, instanceNumber(saved.id));
-    return {
-      ...rest,
-      card: { ...entry.row },
-      ...(crew ? { crew: crew.map(restore) } : {}),
-      ...(placedOn ? { placedOn: placedOn.map(restore) } : {}),
-    };
-  };
-
-  let restoredTable: Partial<TableState>;
-  try {
-    restoredTable = mapTable(save.table, restore);
-  } catch (error) {
-    if (error instanceof MissingKeyError || error instanceof TypeError) return null;
-    throw error;
-  }
-  // A top-level field that an older save lacks takes its default.
-  const table: TableState = { ...initialTableState, ...restoredTable };
+// The repairs of a restored table, the current one and each one of its histories (#1401). `table`
+// is a new object, and the repairs change it in place.
+function repairTable(table: TableState): TableState {
   // An attempt (#1163) loads only when its numbers are sound and its slot still holds a mission card.
   if (!isValidAttempt(table)) delete table.attempt;
   // An attempt saved before #1189 opened in the layout of facing dilemmas, so it restores in that
@@ -242,13 +238,102 @@ export function fromSavedGame(json: string, currentDeck: DeckList): RestoredGame
     table.dilemmaPile = [...table.dilemmaPile, ...table.dilemmaStack.map((c) => ({ ...c, face: ZONE_FACE.dilemmaPile, stopped: undefined }))];
     table.dilemmaStack = [];
   }
+  return table;
+}
+
+// Turns saved tables back into tables, with the card rows of `dealtDeck`. A saved zone or mission
+// slot that two saved tables share turns into one object, so the restored undo and redo tables
+// share their unchanged fields as the tables in memory did. Throws `MissingKeyError` for a key that
+// is not in the deck, and a `TypeError` for a table of the wrong shape.
+function tableRestorer(dealtDeck: DeckList) {
+  let maxInstanceId = 0;
+  const restore = (saved: SavedCardInstance): CardInstance => {
+    const { key, crew, placedOn, ...rest } = saved;
+    const entry = dealtDeck[key];
+    if (!entry?.row) throw new MissingKeyError();
+    maxInstanceId = Math.max(maxInstanceId, instanceNumber(saved.id));
+    return {
+      ...rest,
+      card: { ...entry.row },
+      ...(crew ? { crew: crew.map(restore) } : {}),
+      ...(placedOn ? { placedOn: placedOn.map(restore) } : {}),
+    };
+  };
+  const zones = new WeakMap<object, CardInstance[]>();
+  const slots = new WeakMap<object, MissionSlot>();
+  const cached = <S extends object, T>(cache: WeakMap<object, T>, saved: S, convert: (s: S) => T): T => {
+    let value = cache.get(saved);
+    if (value === undefined) cache.set(saved, (value = convert(saved)));
+    return value;
+  };
+  const restoreTable = (saved: SavedTable): TableState => {
+    const restored: any = { ...saved };
+    for (const zone of FLAT_ZONES) {
+      if (zone in saved) restored[zone] = cached(zones, saved[zone], (cards) => cards.map(restore));
+    }
+    if (saved.missions) {
+      restored.missions = saved.missions.map((slot) =>
+        cached(slots, slot, (s) => mapTable({ missions: [s] }, restore).missions[0] as MissionSlot)
+      );
+    }
+    // A top-level field that an older save lacks takes its default.
+    return repairTable({ ...initialTableState, ...restored });
+  };
+  return { restoreTable, maxInstanceId: () => maxInstanceId };
+}
+
+// Returns the restored game, or null when the save must be dropped: bad JSON, an unknown
+// version, a builder save whose deck no longer matches `currentDeck`, or a card whose key is not
+// in the saved deck. A Drive save is trusted as it is, with no Drive call.
+// `historyJson` is the saved undo and redo histories (#1401). A history that does not fit the save is
+// dropped, and the game restores with empty histories, as a save with no history does.
+export function fromSavedGame(json: string, currentDeck: DeckList, historyJson?: string | null): RestoredGame | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  if (!isObject(parsed)) return null;
+  const save = migrate(parsed);
+  if (!save || !isObject(save.table) || !isObject(save.dealtDeck)) return null;
+  if (save.source !== 'builder' && save.source !== 'drive') return null;
+  if (save.source === 'builder' && fingerprint(save.dealtDeck) !== fingerprint(currentDeck ?? {})) return null;
+
+  const dealtDeck = save.dealtDeck;
+  const restorer = tableRestorer(dealtDeck);
+  let table: TableState;
+  try {
+    table = restorer.restoreTable(save.table);
+  } catch (error) {
+    if (error instanceof MissingKeyError || error instanceof TypeError) return null;
+    throw error;
+  }
+  const log = restoredLog(save.log);
+
+  let undo: TableState[] = [];
+  let redo: RedoStep[] = [];
+  const history = historyJson ? rebuildSavedHistory(save.table, historyJson, log) : null;
+  if (history) {
+    try {
+      undo = history.undo.map(restorer.restoreTable);
+      redo = history.redo.map((step) => ({ entry: step.entry, table: restorer.restoreTable(step.table) }));
+    } catch (error) {
+      if (!(error instanceof MissingKeyError || error instanceof TypeError)) throw error;
+      undo = [];
+      redo = [];
+    }
+  }
   return {
     table,
     dealtDeck,
     source: save.source,
     ...(save.driveFileId ? { driveFileId: save.driveFileId } : {}),
     ...(save.dilemmaDriveFileId ? { dilemmaDriveFileId: save.dilemmaDriveFileId } : {}),
-    log: restoredLog(save.log),
-    maxInstanceId,
+    ...(typeof save.driveFileName === 'string' && save.driveFileName ? { driveFileName: save.driveFileName } : {}),
+    log,
+    undo,
+    redo,
+    maxInstanceId: restorer.maxInstanceId(),
   };
 }

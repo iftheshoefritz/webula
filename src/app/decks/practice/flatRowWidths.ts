@@ -4,7 +4,7 @@ import { TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH } from './TableCard';
 // Issue #1029: the core and the brig grow to make room for each new card, up to the free space the
 // bottom row has, measured at runtime. Past that space their cards overlap more (`offsetFor`). The
 // two zones sit in one flexible box between the hand and the dilemma pile, and that box's width is
-// the space they share.
+// the space they share. Their dashed outlines always fill that box between them (#1425).
 
 // The height of the card of the draw deck and the dilemma pile, their `h-20` (`PracticeTable.tsx`).
 export const PILE_CARD_HEIGHT = 80;
@@ -17,7 +17,7 @@ export const FLAT_CARD_WIDTH = Math.round((FLAT_CARD_HEIGHT * TABLE_CARD_WIDTH) 
 export const FLAT_ROW_MAX_OFFSET = FLAT_CARD_WIDTH + 2;
 // The gap between the core and the brig, Tailwind's `gap-2`.
 export const FLAT_ROW_GAP = 8;
-// The size of the empty zone, and the least width a row keeps during a drag (`FlatCardRow`).
+// The least width a zone takes, with or without cards.
 const FLAT_ROW_MIN_WIDTH = 56;
 
 // One card of each zone, and a little of a second for the core. They stand in until the space is
@@ -29,15 +29,20 @@ function naturalWidth(count: number): number {
   return Math.max(FLAT_ROW_MIN_WIDTH, FLAT_CARD_WIDTH + FLAT_ROW_MAX_OFFSET * (count - 1));
 }
 
-// The widest each zone may grow, given the width of the box they share. When both fit side by side
-// with no extra overlap, each gets the room the other leaves. When they do not fit, they split the
-// space in proportion to the width each would like, and each never falls below one card.
+// The width of each zone, given the width of the box they share: the two zones and the gap between
+// them fill the box (#1425), so their outlines span it from the hand to the dilemma pile. When both
+// fit side by side with no extra overlap, they share the slack in proportion to the width each would
+// like, so two empty zones split it evenly. When they do not fit, they split the space in the same
+// proportion, and each never falls below one card, so a very small box can overflow.
 export function flatRowWidths(available: number, coreCount: number, brigCount: number): { core: number; brig: number } {
   if (available <= 0) return UNMEASURED_FLAT_ROW_WIDTHS;
   const budget = available - FLAT_ROW_GAP;
   const core = naturalWidth(coreCount);
   const brig = naturalWidth(brigCount);
-  if (core + brig <= budget) return { core: budget - brig, brig: budget - core };
+  if (core + brig <= budget) {
+    const coreShare = core + Math.floor(((budget - core - brig) * core) / (core + brig));
+    return { core: coreShare, brig: budget - coreShare };
+  }
   const coreShare = Math.max(FLAT_CARD_WIDTH, Math.floor((budget * core) / (core + brig)));
   return { core: coreShare, brig: Math.max(FLAT_CARD_WIDTH, budget - coreShare) };
 }

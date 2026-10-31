@@ -17,6 +17,7 @@ import {
   logEntryText,
   cardsText,
   EMPTY_LOG_TEXT,
+  withShuffleOrders,
 } from '../../../app/decks/practice/gameLog';
 
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
@@ -43,8 +44,9 @@ const slots = (overrides: Partial<MissionSlot>[] = []): MissionSlot[] =>
 
 const table = (overrides: Partial<TableState> = {}): TableState => ({ ...initialTableState, missions: slots(), ...overrides });
 
+// Each action as the page dispatches it, with the result of its shuffles chosen first (#1401).
 const run = (start: TableState, ...actions: GameAction[]): GameState =>
-  actions.reduce(gameReducer, initialGameState(start));
+  actions.reduce((state, action) => gameReducer(state, withShuffleOrders(state.table, action)), initialGameState(start));
 
 const onlyEntry = (state: GameState): LogEntry => {
   expect(state.log).toHaveLength(1);
@@ -438,5 +440,65 @@ describe('gameReducer: undo (#1194)', () => {
     const text = gameLogText(state.log);
     expect(text).toBe('Turn 1\n- Shuffled the draw deck');
     expect(JSON.stringify(state.log)).not.toMatch(/c1|c2|c3|Data|Worf|Riker/);
+  });
+});
+
+describe('gameReducer: redo (#1403)', () => {
+  const data = instance('c1', 'Data');
+  const worf = instance('c2', 'Worf');
+  const riker = instance('c3', 'Riker');
+
+  it('puts back the table a move left, and its entry', () => {
+    const moved = run(table({ hand: [data] }), { type: 'move', id: 'c1', to: 'core' });
+    const undone = gameReducer(moved, { type: 'undo' });
+    expect(undone.redo).toHaveLength(1);
+    const redone = gameReducer(undone, { type: 'redo' });
+    expect(redone.table).toBe(moved.table);
+    expect(redone.log).toEqual(moved.log);
+    expect(redone.undo).toEqual(moved.undo);
+    expect(redone.redo).toEqual([]);
+  });
+
+  it('puts back the order of a shuffle, and never shuffles again', () => {
+    const shuffled = run(table({ drawDeck: [data, worf, riker] }), { type: 'shuffle', location: 'drawDeck' });
+    const undone = gameReducer(shuffled, { type: 'undo' });
+    const redone = gameReducer(undone, { type: 'redo' });
+    expect(redone.table).toBe(shuffled.table);
+    expect(redone.table.drawDeck.map((c) => c.id)).toEqual(['c3', 'c2', 'c1']);
+  });
+
+  it('redoes two undos in reverse order, back to the state before the first undo', () => {
+    const played = run(table({ hand: [data, worf] }), { type: 'move', id: 'c1', to: 'core' }, { type: 'move', id: 'c2', to: 'brig' });
+    const undone = [{ type: 'undo' } as const, { type: 'undo' } as const].reduce(gameReducer, played);
+    expect(undone.log).toEqual([]);
+    const once = gameReducer(undone, { type: 'redo' });
+    expect(once.log.map(logEntryText)).toEqual([logEntryText(played.log[0])]);
+    const twice = gameReducer(once, { type: 'redo' });
+    expect(twice).toEqual(played);
+    expect(twice.table).toBe(played.table);
+  });
+
+  it('empties the redo history on a new action, and keeps it on an action that changes nothing', () => {
+    const undone = gameReducer(run(table({ hand: [data, worf] }), { type: 'move', id: 'c1', to: 'core' }), { type: 'undo' });
+    expect(gameReducer(undone, { type: 'move', id: 'nope', to: 'core' })).toBe(undone);
+    const moved = gameReducer(undone, { type: 'move', id: 'c2', to: 'brig' });
+    expect(moved.redo).toEqual([]);
+    expect(gameReducer(moved, { type: 'redo' })).toBe(moved);
+  });
+
+  it('empties the redo history on a table change that makes no entry', () => {
+    const undone = gameReducer(run(table({ hand: [data], drawDeck: [worf] }), { type: 'move', id: 'c1', to: 'core' }), { type: 'undo' });
+    // A shuffle of one card makes no entry, but it is still a new table.
+    const unlogged = gameReducer(undone, { type: 'shuffle', location: 'drawDeck' });
+    expect(unlogged.table).not.toBe(undone.table);
+    expect(unlogged.log).toEqual(undone.log);
+    expect(unlogged.redo).toEqual([]);
+  });
+
+  it('does nothing with nothing to redo, and a reset empties the history', () => {
+    const empty = initialGameState(table({ hand: [data] }));
+    expect(gameReducer(empty, { type: 'redo' })).toBe(empty);
+    const undone = gameReducer(run(table({ hand: [data] }), { type: 'move', id: 'c1', to: 'core' }), { type: 'undo' });
+    expect(gameReducer(undone, { type: 'reset', cards: [], missions: [], dilemmas: [] }).redo).toEqual([]);
   });
 });

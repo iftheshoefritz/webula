@@ -108,9 +108,9 @@ import { DOUBLE_TAP_MS, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 // worker precaches it for offline play (#1051).
 import eventIcon from '../../../../public/icons/icon_event.gif';
 import dualIcon from '../../../../public/icons/icon_dual.gif';
-import alphaQuadrantIcon from '../../../../public/icons/icon_quadrant_alpha.gif';
-import deltaQuadrantIcon from '../../../../public/icons/icon_quadrant_delta.gif';
-import gammaQuadrantIcon from '../../../../public/icons/icon_quadrant_gamma.gif';
+import alphaQuadrantIcon from '../../../../public/icons/quadrant_alpha_hd.png';
+import deltaQuadrantIcon from '../../../../public/icons/quadrant_delta_hd.png';
+import gammaQuadrantIcon from '../../../../public/icons/quadrant_gamma_hd.png';
 import { CANCEL_RADIUS } from './releaseCancel';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
@@ -405,8 +405,17 @@ export function placedOnStripLayout(scale: number): {
 // is a dark bezel, and the disc inside it is about 42 px across, against the span's silver ring of
 // about 49. So the crop draws both over the scan, from the card data, on every mission (#1397): the
 // quadrant icon on the left chrome's centre and the point box with the mission's points on the right
-// chrome's centre, each as large as the span's backing, so each covers the printed chrome. A
-// headquarters has no points, and its point box is a blank face, as the card prints it.
+// chrome's centre, each as large as the span's backing, so each covers the printed chrome. The point
+// box is drawn as the card prints it, white numerals on a black face, as the span's (#1419). A
+// headquarters has no points, and the card prints a grey sphere in its point box, so the crop draws
+// that sphere on the black face, inside the same ring (#1422).
+//
+// The quadrant icon is the 77 px image of the 300 DPI mission template (#1426), not the 24 px icon of
+// the search, so it has the pixels for the largest disc the touch crop draws. It prints its letter
+// 21.5 px tall in a coloured disc 35.5 px across, and the image draws that disc 73.5 px across with a
+// letter 47 px tall. So the image is drawn large enough that its letter takes the same share of the
+// drawn ring as the printed letter takes of its disc, and the ring's black disc clips off the image's
+// own coloured rim, so the silver ring is the only rim.
 //
 // An AP mission (#1272, `hasApMissionLayout`), the missions 60AP001 to 60AP012, prints a taller art,
 // and its row of the quadrant icon, the span and the point box sits at y 340, below the crop. Its art
@@ -419,6 +428,7 @@ const MISSION_SPAN_BACKING = 2 * MISSION_SPAN_CHROME_RADIUS; // of the card widt
 const MISSION_SPAN_BACKING_EDGE = 4 / 357; // of the card width: the black between the ring and the bars
 const MISSION_SPAN_NUMERAL = 19 / 44; // of the backing's diameter, as the card prints it
 const MISSION_SPAN_RAIL = 18 / 357; // of the card width
+const MISSION_SPAN_QUADRANT_IMAGE = 21.5 / 35.5 / (47 / 77); // of the ring's diameter
 // The height of a digit of the numeral's font, as a share of its font size, measured in Chromium.
 const MISSION_SPAN_DIGIT_EM = 0.78;
 
@@ -431,6 +441,7 @@ export function missionSpanLayout(scale: number): {
   backingLeft: number;
   ring: number;
   rim: number;
+  quadrantImage: number;
   numeral: number;
   fontSize: number;
   rail: number;
@@ -461,6 +472,8 @@ export function missionSpanLayout(scale: number): {
     backingLeft: (width - backing) / 2,
     ring,
     rim: Math.max(1, Math.round(ring / 12)),
+    // As the backing, so the image is centred on whole pixels in the ring's black disc.
+    quadrantImage: ring - 2 * Math.round((ring - ring * MISSION_SPAN_QUADRANT_IMAGE) / 2),
     numeral,
     fontSize: Math.round((numeral / MISSION_SPAN_DIGIT_EM) * 10) / 10,
     // As the backing, so the rail's edges fall on whole pixels too.
@@ -484,8 +497,8 @@ export function hasApMissionLayout(card: { type?: unknown; rarity?: unknown } | 
   );
 }
 
-// The quadrant icons, imported so the service worker precaches them (#1051). The keys are the
-// `quadrant` values of the card data.
+// The quadrant icons of the mission template (#1426), imported so the service worker precaches them
+// (#1051). The keys are the `quadrant` values of the card data.
 const QUADRANT_ICON_IMAGES: Record<string, { src: string; name: string }> = {
   a: { src: alphaQuadrantIcon.src, name: 'Alpha' },
   d: { src: deltaQuadrantIcon.src, name: 'Delta' },
@@ -499,8 +512,9 @@ const MISSION_SPAN_RAIL_IMAGE =
 const MISSION_SPAN_PLATE_IMAGE = 'linear-gradient(to bottom, #d4d5d8, #b9babe)';
 // The silver ring: brighter at the top left, darker at the bottom right.
 const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
-// The white face of the point box, a little greyer at the bottom right.
-const MISSION_POINTS_FACE = 'linear-gradient(135deg, #ffffff 0%, #f3f4f6 50%, #d1d5db 100%)';
+// The grey sphere of a headquarters' point box: a shaded ball lit from the upper left.
+const MISSION_SPAN_HQ_SPHERE =
+  'radial-gradient(circle at 35% 30%, #f9fafb 0%, #d1d5db 22%, #9ca3af 50%, #4b5563 85%, #1f2937 100%)';
 // The numeral is upright and skewed about its own centre, as the card's numerals lean. An italic
 // font, or the slant a browser makes of an upright one, leans about the baseline, which moves the
 // digit off the centre of the ring by a different amount in every font. The box is trimmed to the
@@ -517,6 +531,7 @@ const NUMERAL_STYLE = {
 // `data-card-id`: a tap, a hold and a drop on it reach the mission card and its halves under it.
 // It darkens with a completed mission, as the card's image does (#991). It draws the quadrant icon
 // and the point box on every mission (#1397); on an AP mission (`ap`) the band runs uncut (#1272).
+// On a headquarters (`headquarters`) the point box holds the grey sphere the card prints (#1422).
 function MissionSpan({
   missionIndex,
   span,
@@ -525,6 +540,7 @@ function MissionSpan({
   scale,
   completed,
   ap,
+  headquarters,
 }: {
   missionIndex: number;
   span: string;
@@ -533,10 +549,11 @@ function MissionSpan({
   scale: number;
   completed: boolean;
   ap: boolean;
+  headquarters: boolean;
 }) {
   const layout = missionSpanLayout(scale);
   const { top, width, height, axis, backing, backingLeft, ring, rim, fontSize, rail } = layout;
-  const { chromeRadius, plateBottom } = layout;
+  const { chromeRadius, plateBottom, quadrantImage } = layout;
   const border = cardBorderWidth(width);
   const bandLeft = ap ? border : layout.bandLeft;
   const bandWidth = ap ? width - 2 * border : layout.bandWidth;
@@ -614,7 +631,13 @@ function MissionSpan({
           <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
             {quadrant ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={quadrant.src} alt="" draggable={false} className="w-full h-full" />
+              <img
+                src={quadrant.src}
+                alt=""
+                draggable={false}
+                className="max-w-none shrink-0"
+                style={{ width: quadrantImage, height: quadrantImage }}
+              />
             ) : (
               <span className="font-sans font-bold leading-none text-white uppercase" style={{ fontSize }}>
                 {quadrantCode}
@@ -630,10 +653,18 @@ function MissionSpan({
       >
         <div className="rounded-full" style={{ width: ring, height: ring, padding: rim, backgroundImage: MISSION_SPAN_RING }}>
           <div
-            className="w-full h-full rounded-full flex items-center justify-center font-sans font-bold leading-none text-black"
-            style={{ fontSize, backgroundImage: MISSION_POINTS_FACE }}
+            data-testid={`mission-span-${missionIndex}-points-face`}
+            className="w-full h-full rounded-full bg-black flex items-center justify-center font-sans font-bold leading-none text-white"
+            style={{ fontSize }}
           >
-            {points && (
+            {headquarters && (
+              <div
+                data-testid={`mission-span-${missionIndex}-points-hq`}
+                className="w-full h-full rounded-full"
+                style={{ backgroundImage: MISSION_SPAN_HQ_SPHERE }}
+              />
+            )}
+            {!headquarters && points && (
               <span data-testid={`mission-span-${missionIndex}-points-numeral`} style={NUMERAL_STYLE}>
                 {points}
               </span>
@@ -1355,6 +1386,14 @@ function MissionHalfTarget({
   );
 }
 
+// The words of the two drop halves during a dilemma drag (#871, #917). In the facing phase of the
+// attempt layout (#1424) they say what the drop means there: a dilemma goes under the mission when
+// the player overcomes it, and on the card when its text places it there.
+const MISSION_HALF_LABELS = {
+  table: { on: 'On', under: 'Under' },
+  facing: { on: 'Place on', under: 'Overcome' },
+} as const;
+
 // The mission card of a slot, with everything it does on the table, and its badge strip below it:
 // `MissionColumn` stacks the ship row under it, and the attempt layout (#1164) puts the ships beside
 // it. Both render this one component, so the attempted mission keeps every behaviour of the card.
@@ -1371,6 +1410,7 @@ export function MissionCard({
   slotWidth,
   showAwayTeam = true,
   placedOnColumn,
+  facing = false,
 }: {
   missionIndex: number;
   slot: MissionSlot;
@@ -1390,7 +1430,11 @@ export function MissionCard({
   // The column of the placed cards beside the card in the attempt layout (#1180): the card then
   // draws no strips, and its bottom half reaches over the column.
   placedOnColumn?: { gap: number; width: number };
+  // The attempted mission in the facing phase of the attempt layout (#1424): the halves read
+  // "Overcome" and "Place on".
+  facing?: boolean;
 }) {
+  const halfLabels = MISSION_HALF_LABELS[facing ? 'facing' : 'table'];
   const { setNodeRef: setOnNodeRef, isOver: onIsOver } = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
   const { setNodeRef: setUnderNodeRef, isOver: underIsOver } = useDroppable({
     id: missionHalfDropId(missionIndex, 'under'),
@@ -1512,7 +1556,7 @@ export function MissionCard({
                 isOver={onIsOver}
                 dropId={missionHalfDropId(missionIndex, 'on')}
                 half="on"
-                label="On"
+                label={halfLabels.on}
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}
@@ -1524,7 +1568,7 @@ export function MissionCard({
                 isOver={underIsOver}
                 dropId={missionHalfDropId(missionIndex, 'under')}
                 half="under"
-                label="Under"
+                label={halfLabels.under}
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}
@@ -1564,6 +1608,7 @@ export function MissionCard({
                     points={String(mission.card.points ?? '')}
                     completed={completed}
                     ap={hasApMissionLayout(mission.card)}
+                    headquarters={mission.card.missiontype === 'h'}
                   />
                 )}
               </div>
