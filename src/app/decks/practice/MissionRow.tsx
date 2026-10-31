@@ -407,7 +407,8 @@ export function placedOnStripLayout(scale: number): {
 // quadrant icon on the left chrome's centre and the point box with the mission's points on the right
 // chrome's centre, each as large as the span's backing, so each covers the printed chrome. The point
 // box is drawn as the card prints it, white numerals on a black face, as the span's (#1419). A
-// headquarters has no points, and its point box is a blank black face, as the card prints it.
+// headquarters has no points, and the card prints a grey sphere in its point box, so the crop draws
+// that sphere on the black face, inside the same ring (#1422).
 //
 // An AP mission (#1272, `hasApMissionLayout`), the missions 60AP001 to 60AP012, prints a taller art,
 // and its row of the quadrant icon, the span and the point box sits at y 340, below the crop. Its art
@@ -500,6 +501,9 @@ const MISSION_SPAN_RAIL_IMAGE =
 const MISSION_SPAN_PLATE_IMAGE = 'linear-gradient(to bottom, #d4d5d8, #b9babe)';
 // The silver ring: brighter at the top left, darker at the bottom right.
 const MISSION_SPAN_RING = 'linear-gradient(135deg, #ffffff 0%, #d1d5db 35%, #6b7280 75%, #374151 100%)';
+// The grey sphere of a headquarters' point box: a shaded ball lit from the upper left.
+const MISSION_SPAN_HQ_SPHERE =
+  'radial-gradient(circle at 35% 30%, #f9fafb 0%, #d1d5db 22%, #9ca3af 50%, #4b5563 85%, #1f2937 100%)';
 // The numeral is upright and skewed about its own centre, as the card's numerals lean. An italic
 // font, or the slant a browser makes of an upright one, leans about the baseline, which moves the
 // digit off the centre of the ring by a different amount in every font. The box is trimmed to the
@@ -516,6 +520,7 @@ const NUMERAL_STYLE = {
 // `data-card-id`: a tap, a hold and a drop on it reach the mission card and its halves under it.
 // It darkens with a completed mission, as the card's image does (#991). It draws the quadrant icon
 // and the point box on every mission (#1397); on an AP mission (`ap`) the band runs uncut (#1272).
+// On a headquarters (`headquarters`) the point box holds the grey sphere the card prints (#1422).
 function MissionSpan({
   missionIndex,
   span,
@@ -524,6 +529,7 @@ function MissionSpan({
   scale,
   completed,
   ap,
+  headquarters,
 }: {
   missionIndex: number;
   span: string;
@@ -532,6 +538,7 @@ function MissionSpan({
   scale: number;
   completed: boolean;
   ap: boolean;
+  headquarters: boolean;
 }) {
   const layout = missionSpanLayout(scale);
   const { top, width, height, axis, backing, backingLeft, ring, rim, fontSize, rail } = layout;
@@ -633,7 +640,14 @@ function MissionSpan({
             className="w-full h-full rounded-full bg-black flex items-center justify-center font-sans font-bold leading-none text-white"
             style={{ fontSize }}
           >
-            {points && (
+            {headquarters && (
+              <div
+                data-testid={`mission-span-${missionIndex}-points-hq`}
+                className="w-full h-full rounded-full"
+                style={{ backgroundImage: MISSION_SPAN_HQ_SPHERE }}
+              />
+            )}
+            {!headquarters && points && (
               <span data-testid={`mission-span-${missionIndex}-points-numeral`} style={NUMERAL_STYLE}>
                 {points}
               </span>
@@ -1577,6 +1591,7 @@ export function MissionCard({
                     points={String(mission.card.points ?? '')}
                     completed={completed}
                     ap={hasApMissionLayout(mission.card)}
+                    headquarters={mission.card.missiontype === 'h'}
                   />
                 )}
               </div>
