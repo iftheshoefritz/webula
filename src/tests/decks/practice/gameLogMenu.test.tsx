@@ -47,7 +47,7 @@ const deck = {
   '1P001': { count: 8, row: row('1P001', 'Test Personnel', 'personnel') },
 };
 
-describe('the Game log item of the game menu (#1065)', () => {
+describe('the game log button of the corner column (#1065, #1399)', () => {
   const writeText = jest.fn().mockResolvedValue(undefined);
 
   beforeEach(() => {
@@ -72,14 +72,41 @@ describe('the Game log item of the game menu (#1065)', () => {
     return screen.getByTestId('game-menu-splash');
   };
 
-  it('is an item of the game menu, and opens an empty log on a new game', async () => {
+  it('is not an item of the game menu', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
-    fireEvent.click(within(openMenu()).getByRole('button', { name: 'Game log' }));
+    expect(within(openMenu()).queryByRole('button', { name: 'Game log' })).not.toBeInTheDocument();
+  });
+
+  it('sits under the undo button, last in the corner column', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const buttons = Array.from(screen.getByTestId('corner-buttons').querySelectorAll('button'));
+    const labels = buttons.map((b) => b.getAttribute('data-testid') ?? b.getAttribute('aria-label'));
+    expect(labels.filter((l) => l !== 'fullscreen-button')).toEqual(['Game menu', 'undo-button', 'game-log-button']);
+  });
+
+  it('closes the open splash and opens an empty log on a new game', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    expect(screen.getByTestId('game-menu-splash')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('game-log-button'));
     expect(screen.queryByTestId('game-menu-splash')).not.toBeInTheDocument();
     const panel = screen.getByRole('dialog', { name: 'Game log' });
     expect(within(panel).getByText(EMPTY_LOG_TEXT)).toBeInTheDocument();
+  });
+
+  it('opens the log with the menu closed', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.queryByTestId('game-menu-splash')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('game-log-button'));
+    expect(screen.getByRole('dialog', { name: 'Game log' })).toBeInTheDocument();
   });
 
   it('shows a draw under Turn 1, and Copy writes the log grouped by turn', async () => {
@@ -90,7 +117,7 @@ describe('the Game log item of the game menu (#1065)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next turn' }));
 
-    fireEvent.click(within(openMenu()).getByRole('button', { name: 'Game log' }));
+    fireEvent.click(screen.getByTestId('game-log-button'));
     const panel = await screen.findByRole('dialog', { name: 'Game log' });
     expect(within(within(panel).getByTestId('game-log-turn-1')).getByText('Drew a card from the draw deck into the hand')).toBeInTheDocument();
     expect(within(within(panel).getByTestId('game-log-turn-2')).getByText('Started turn 2')).toBeInTheDocument();
@@ -120,7 +147,7 @@ describe('the Game log item of the game menu (#1065)', () => {
       render(<PracticeDrawPage />);
     });
     expect(screen.getByTestId('undo-button')).toBeDisabled();
-    fireEvent.click(within(openMenu()).getByRole('button', { name: 'Game log' }));
+    fireEvent.click(screen.getByTestId('game-log-button'));
     const panel = await screen.findByRole('dialog', { name: 'Game log' });
     expect(within(within(panel).getByTestId('game-log-turn-1')).getByText('Drew a card from the draw deck into the hand')).toBeInTheDocument();
     expect(within(within(panel).getByTestId('game-log-turn-2')).getByText('Started turn 2')).toBeInTheDocument();
@@ -138,7 +165,7 @@ describe('the Game log item of the game menu (#1065)', () => {
     }
     expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
 
-    fireEvent.click(within(openMenu()).getByRole('button', { name: 'Game log' }));
+    fireEvent.click(screen.getByTestId('game-log-button'));
     const panel = await screen.findByRole('dialog', { name: 'Game log' });
     const turn1 = within(panel).getByTestId('game-log-turn-1');
     expect(within(turn1).getAllByText('Drew a card from the draw deck into the hand')).toHaveLength(7);
@@ -161,7 +188,7 @@ describe('the Game log item of the game menu (#1065)', () => {
     fireEvent.click(undo);
     expect(screen.getByRole('button', { name: /^hand, 0 cards?, tap to open$/i })).toBeInTheDocument();
     expect(undo).toBeDisabled();
-    fireEvent.click(within(openMenu()).getByRole('button', { name: 'Game log' }));
+    fireEvent.click(screen.getByTestId('game-log-button'));
     const panel = await screen.findByRole('dialog', { name: 'Game log' });
     expect(within(panel).getByText(EMPTY_LOG_TEXT)).toBeInTheDocument();
   });

@@ -6,7 +6,7 @@ import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 // How long the Copy button says "Copied" or "Copy failed".
 const COPY_FEEDBACK_MS = 1500;
 
-// The game log (#1065), opened from the game menu: the entries grouped by turn, oldest first,
+// The game log (#1065), opened by the game log button under the undo button (#1399): the entries grouped by turn, oldest first,
 // read-only. Copy puts the whole log on the clipboard as plain text. A tap on the backdrop or
 // Escape closes it, the same as the Decklist panel.
 export default function GameLogPanel({ log, onClose }: { log: LogEntry[]; onClose: () => void }) {

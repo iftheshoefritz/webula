@@ -348,8 +348,8 @@ column (`TOUCH_CONTROLS_COLUMN`) for the turn and score controls, and never belo
 (#1170): the stack lives only in the attempt layout. A desktop does the same with the whole card
 (#992). At 667×375 a mission is about 105 px wide, where the table scale alone gives 84.
 
-On a touch screen the turn and score controls sit in that left column, below the menu, fullscreen
-and undo buttons (`data-testid="turn-score-column"`, #1337): the turn over the next-turn button, then
+On a touch screen the turn and score controls sit in that left column, below the menu, fullscreen,
+undo and game log buttons (`data-testid="turn-score-column"`, #1337): the turn over the next-turn button, then
 the score over minus and plus. They show on the full table only, not in the attempt layout. A desktop
 keeps them in the bottom row, the score above the discard and the turn above the draw deck. Either
 way they keep `data-testid="turn-counter"` and `"score-counter"`. In fullscreen on iPadOS the column
@@ -556,6 +556,10 @@ log (#1400), but the undo history lives in memory only, so a reload keeps the lo
 undo history, and the button stays disabled until the next action. To compare the order of the draw deck before and
 after an undo, read it from the save:
 `JSON.parse(localStorage.getItem('practiceGame:fixture=piles')).table.drawDeck.map(c => c.id)`.
+
+The game log button, `data-testid="game-log-button"` with `aria-label="Game log"` (#1399), sits under
+the undo button, last in the top-left column, in every view, the attempt layout too. A tap closes the
+game menu splash if it is open and opens the game log, `GameLogPanel`. The splash has no Game log item.
 
 ### A mission attempt
 
