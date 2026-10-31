@@ -1,0 +1,113 @@
+name: Stats Recorder
+
+# Once a day, run `scripts/collect_stats.mjs` (#1431) and put what it wrote under `stats/` on the
+# fixed branch `stats/update`, with one open pull request from it (#1432). No Claude.
+#
+# The branch is rebuilt from `origin/main` on every run, so the pull request cannot conflict. No
+# commit message and no title starts with `wip:`: Vercel's `ignoreCommand` would skip the
+# production deploy of the merge.
+
+on:
+  schedule:
+    - cron: "43 2 * * *"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "First UTC date to collect, YYYY-MM-DD (default: 2 days before until)"
+        required: false
+        type: string
+      until:
+        description: "Last UTC date to collect, YYYY-MM-DD (default: today)"
+        required: false
+        type: string
+
+concurrency:
+  group: stats-recorder
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+      issues: read
+      pull-requests: write
+
+    env:
+      BRANCH: stats/update
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Reset the stats branch to main
+        run: git checkout -B "$BRANCH" origin/main
+
+      - name: Work out the window
+        id: window
+        env:
+          SINCE: ${{ inputs.since }}
+          UNTIL: ${{ inputs.until }}
+        run: |
+          until="${UNTIL:-$(date -u +%F)}"
+          since="${SINCE:-$(date -u -d "$until - 2 days" +%F)}"
+          echo "since=$since" >> "$GITHUB_OUTPUT"
+          echo "until=$until" >> "$GITHUB_OUTPUT"
+          echo "Collecting $since to $until"
+
+      - name: Run the collector
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          node scripts/collect_stats.mjs
+          --since "${{ steps.window.outputs.since }}"
+          --until "${{ steps.window.outputs.until }}"
+          --repo "$GITHUB_REPOSITORY"
+
+      - name: Commit
+        id: commit
+        env:
+          UNTIL: ${{ steps.window.outputs.until }}
+        run: |
+          git add stats
+          if git diff --cached --quiet; then
+            echo "Nothing changed under stats/."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Stats: agent, CI and issue stats to $UNTIL"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push the stats branch
+        if: steps.commit.outputs.changed == 'true'
+        run: git push --force origin "$BRANCH"
+
+      - name: Open or update the stats pull request
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: "Stats: agent, CI and issue stats to ${{ steps.window.outputs.until }}"
+        run: |
+          pr=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "$TITLE"
+            echo "Updated #$pr"
+          else
+            gh pr create --head "$BRANCH" --base main --title "$TITLE" --body "$(cat <<'EOF'
+          The stats that `scripts/collect_stats.mjs` collects (#1431), written by the Stats Recorder workflow (`.github/workflows/stats-recorder.yml`, #1432).
+
+          The workflow rebuilds `stats/update` from `main` on every run and force-pushes it, so this pull request always holds one commit on top of `main`, and each daily run updates it.
+          EOF
+          )"
+          fi
