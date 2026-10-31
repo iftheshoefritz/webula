@@ -13,6 +13,8 @@ type Props = {
 }
 
 // The frame every Drive picker shares (#1109): the backdrop, the dialog box, the title and the ×.
+// The box is 11/12 of the screen, capped at 36rem (#1396): a fraction of the screen made it
+// about 375 px wide on an iPad mini, too narrow for a deck name and its buttons.
 export const DriveModalShell: React.FC<Props> = ({ title, onClose, layer = LAYER_MODAL_BACKDROP, dialogLabel, testId, children }) => (
   <div
     className={`fixed inset-0 ${layer} overflow-y-auto`}
@@ -21,7 +23,7 @@ export const DriveModalShell: React.FC<Props> = ({ title, onClose, layer = LAYER
   >
     <div className="flex items-center justify-center min-h-screen">
       <div className="absolute inset-0 bg-black opacity-50" data-testid={testId && `${testId}-backdrop`} onClick={onClose}></div>
-      <div className="bg-bg-secondary p-3 border border-white/10 rounded-lg shadow-lg relative z-20 mx-auto w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
+      <div className="bg-bg-secondary p-3 border border-white/10 rounded-lg shadow-lg relative z-20 mx-auto w-11/12 max-w-xl">
         <div className="flex justify-between items-center">
           <span className="text-2xl font-bold mt-4 mb-2 block min-w-0 truncate text-text-primary">{title}</span>
           <button
