@@ -8,7 +8,8 @@
 // needs: the display names of the cards, captured when the action ran, and never a card id that
 // must be looked up later, or the order a shuffle made.
 //
-// Beside each entry the log keeps the table from just before its action, for undo only (#1194).
+// Beside each entry the log keeps the table from just before its action, for undo (#1194), and an
+// undone entry keeps the table its action left, for redo (#1403).
 // Those snapshots are the structured record of every random result: the order a shuffle replaced
 // and the faces a shuffle of the dilemma pile turned down. The text never reads them, so the UI
 // never shows them. They live in memory only: the save never holds them, so a reload empties them.
@@ -95,10 +96,12 @@ export type LogEntry = { turn: number } & (
 // make one entry. `unseen` says the player did not see the cards' faces: a drag that showed the
 // card back (#814).
 // `undo` (#1194) takes back the player action of the last log entry, and makes no entry of its own.
+// `redo` (#1403) does again the last action that undo took back.
 export type GameAction =
   | TableAction
   | { type: 'batch'; actions: TableAction[]; unseen?: boolean }
   | { type: 'undo' }
+  | { type: 'redo' }
   // A restore of the saved game (#1400) that brings its log back too.
   | { type: 'restore'; state: TableState; log?: LogEntry[] };
 
@@ -109,6 +112,14 @@ export interface GameState {
   // A restored log (#1400) has no snapshots, so `undo` can be shorter than `log`: its last snapshot
   // belongs to the last entry, and undo goes back to it.
   undo: TableState[];
+  // The steps undo took back, the last undone last: each its entry and the table its action left.
+  // Redo puts that table back, and never runs the action again, so a redone shuffle keeps its order.
+  redo: RedoStep[];
+}
+
+export interface RedoStep {
+  entry: LogEntry;
+  table: TableState;
 }
 
 const missionName = (state: TableState, index: number): string => {
@@ -298,7 +309,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -327,7 +338,7 @@ export function logEntryFor(
   return body ? ({ ...body, turn: after.turn } as LogEntry) : null;
 }
 
-export const initialGameState = (table: TableState): GameState => ({ table, log: [], undo: [] });
+export const initialGameState = (table: TableState): GameState => ({ table, log: [], undo: [], redo: [] });
 
 // The page's reducer: the table, through `tableReducer`, and the log beside it. The log is built
 // here, in the reducer, and not in an effect: StrictMode runs a reducer twice, and an append in an
@@ -336,23 +347,42 @@ export const initialGameState = (table: TableState): GameState => ({ table, log:
 // entry (#1194). An action that makes no entry keeps no snapshot, so the undo of the next entry
 // takes it back too. A deal and a reset empty both, so undo never goes past a deal. A restore
 // takes the saved log (#1400) and empties `undo`, so undo never goes past a reload.
+// Undo keeps the undone entry and the table it leaves, and `redo` puts both back (#1403). Any other
+// action that changes the table empties the redo history, logged or not, and so do a deal, a reset
+// and a restore.
 export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'undo') {
     if (!state.undo.length) return state;
-    return { table: state.undo[state.undo.length - 1], log: state.log.slice(0, -1), undo: state.undo.slice(0, -1) };
+    const entry = state.log[state.log.length - 1];
+    return {
+      table: state.undo[state.undo.length - 1],
+      log: state.log.slice(0, -1),
+      undo: state.undo.slice(0, -1),
+      redo: [...state.redo, { entry, table: state.table }],
+    };
+  }
+  if (action.type === 'redo') {
+    if (!state.redo.length) return state;
+    const step = state.redo[state.redo.length - 1];
+    return {
+      table: step.table,
+      log: [...state.log, step.entry],
+      undo: [...state.undo, state.table],
+      redo: state.redo.slice(0, -1),
+    };
   }
   if (action.type === 'restore') {
-    return { table: tableReducer(state.table, action), log: 'log' in action ? action.log ?? [] : [], undo: [] };
+    return { table: tableReducer(state.table, action), log: 'log' in action ? action.log ?? [] : [], undo: [], redo: [] };
   }
   if (action.type === 'reset' || action.type === 'resetWithPiles') {
-    return { table: tableReducer(state.table, action), log: [], undo: [] };
+    return { table: tableReducer(state.table, action), log: [], undo: [], redo: [] };
   }
   const actions = action.type === 'batch' ? action.actions : [action];
   const table = actions.reduce(tableReducer, state.table);
   const entry = logEntryFor(state.table, action, table);
   if (table === state.table && !entry) return state;
-  if (!entry) return { ...state, table };
-  return { table, log: [...state.log, entry], undo: [...state.undo, state.table] };
+  if (!entry) return { ...state, table, redo: [] };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 
 // The text of a place, with "the", the same words as the labels of the card list panel.

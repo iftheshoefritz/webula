@@ -214,6 +214,25 @@ function UndoIcon() {
   );
 }
 
+// The undo arrow, mirrored: the redo button (#1403).
+function RedoIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-4 h-4"
+      aria-hidden="true"
+    >
+      <path d="m15 14 5-5-5-5" />
+      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+    </svg>
+  );
+}
+
 // A list with a bullet before each line: the game log button (#1399).
 function GameLogIcon() {
   return (
@@ -295,6 +314,9 @@ function GameMenu({
   update,
   undoLabel,
   onUndo,
+  redoLabel,
+  onRedo,
+  undoRedoRow,
   botGame,
   touch,
 }: {
@@ -318,6 +340,13 @@ function GameMenu({
   // "Undo: <the last entry>", or null while the log is empty.
   undoLabel: string | null;
   onUndo: () => void;
+  // "Redo: <the entry it does again>", or null while nothing is undone (#1403).
+  redoLabel: string | null;
+  onRedo: () => void;
+  // Redo beside undo, in one row, on the full touch table, so the turn and score column below keeps
+  // its place (#1403). Elsewhere redo sits under undo: the desktop and the attempt layout keep only
+  // `MENU_BUTTON_GUTTER` left of the table, and a row of two would cover the first mission.
+  undoRedoRow: boolean;
   // A game against the dilemma bot (#1289).
   botGame: boolean;
   // The touch layout, whose corner buttons take the round look of the iPadOS close button (#1394).
@@ -494,17 +523,30 @@ function GameMenu({
             <FullscreenIcon exit={fullscreen.isFullscreen} />
           </button>
         )}
-        <button
-          type="button"
-          onClick={onUndo}
-          disabled={!undoLabel}
-          aria-label={undoLabel ?? 'Undo'}
-          title={undoLabel ?? 'Nothing to undo'}
-          data-testid="undo-button"
-          className={`${cornerButton} disabled:cursor-default disabled:opacity-40`}
-        >
-          <UndoIcon />
-        </button>
+        <div data-testid="undo-redo" className={`flex gap-1 ${undoRedoRow ? 'flex-row' : 'flex-col'}`}>
+          <button
+            type="button"
+            onClick={onUndo}
+            disabled={!undoLabel}
+            aria-label={undoLabel ?? 'Undo'}
+            title={undoLabel ?? 'Nothing to undo'}
+            data-testid="undo-button"
+            className={`${cornerButton} disabled:cursor-default disabled:opacity-40`}
+          >
+            <UndoIcon />
+          </button>
+          <button
+            type="button"
+            onClick={onRedo}
+            disabled={!redoLabel}
+            aria-label={redoLabel ?? 'Redo'}
+            title={redoLabel ?? 'Nothing to redo'}
+            data-testid="redo-button"
+            className={`${cornerButton} disabled:cursor-default disabled:opacity-40`}
+          >
+            <RedoIcon />
+          </button>
+        </div>
         <button
           type="button"
           onClick={onGameLog}
@@ -2893,15 +2935,32 @@ function PracticeDrawContent() {
     setSelectedCardIds([]);
     dispatch({ type: 'undo' });
   };
+  // The redo button, Ctrl/Cmd+Shift+Z and Ctrl+Y (#1403): the table goes back to the table the last
+  // undone action left, never a new run of it, so a redone shuffle keeps its order, and the entry
+  // comes back to the log. It closes the panels as undo does.
+  const nextRedo = game.redo.length ? game.redo[game.redo.length - 1] : null;
+  const handleRedo = () => {
+    if (draggingRef.current || botStart.choosing || !nextRedo) return;
+    closePanelsAfterDrag(null, nextRedo.table);
+    setSelectedCardIds([]);
+    dispatch({ type: 'redo' });
+  };
   const undoFromKeyboard = useEffectEvent(() => handleUndo());
+  const redoFromKeyboard = useEffectEvent(() => handleRedo());
   useEffect(() => {
     if (!finePointer) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'z' || !(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
+      if (event.altKey) return;
+      const key = event.key.toLowerCase();
+      const undo = key === 'z' && (event.ctrlKey || event.metaKey) && !event.shiftKey;
+      // Cmd+Y is left alone: Safari and Chrome on macOS use it for the history.
+      const redo = (key === 'z' && (event.ctrlKey || event.metaKey) && event.shiftKey) || (key === 'y' && event.ctrlKey);
+      if (!undo && !redo) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
       event.preventDefault();
-      undoFromKeyboard();
+      if (undo) undoFromKeyboard();
+      else redoFromKeyboard();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -3032,6 +3091,9 @@ function PracticeDrawContent() {
           update={serviceWorkerUpdate}
           undoLabel={lastLogEntry ? `Undo: ${logEntryText(lastLogEntry)}` : null}
           onUndo={handleUndo}
+          redoLabel={nextRedo ? `Redo: ${logEntryText(nextRedo.entry)}` : null}
+          onRedo={handleRedo}
+          undoRedoRow={!finePointer && !attemptLayoutShows}
           botGame={table.opponent === 'bot'}
           touch={!finePointer}
         />
