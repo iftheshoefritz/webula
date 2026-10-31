@@ -552,10 +552,19 @@ The undo button, `data-testid="undo-button"` (#1194), sits in the top-left colum
 button and the fullscreen button. Its `aria-label` and `title` read "Undo: <the last log entry>",
 and it is disabled while the log is empty. A tap takes back the action of the last log entry and
 removes the entry. With a fine pointer, Ctrl+Z or Cmd+Z does the same. The saved game holds the
-log (#1400), but the undo history lives in memory only, so a reload keeps the log and empties the
-undo history, and the button stays disabled until the next action. To compare the order of the draw deck before and
-after an undo, read it from the save:
+log (#1400), and the undo and redo histories live under a key of their own, the game's key followed
+by `:history`, for example `practiceGame:fixture=piles:history` (#1401, `gameHistory.ts`). They hold
+the change of each step, the order of every shuffle too, so a reload keeps undo and redo, with the
+same results. A save with no usable history, an older one or one whose history does not match the
+table, restores the table and the log with empty histories, and the button stays disabled until the
+next action. When the quota is full, the history keeps only its newest steps, and the table save
+never fails for it. To compare the order of the draw deck before and after an undo, read it from
+the save:
 `JSON.parse(localStorage.getItem('practiceGame:fixture=piles')).table.drawDeck.map(c => c.id)`.
+
+The page chooses the result of every shuffle before the dispatch, and the action carries it as
+`order` (`withShuffleOrders` in `gameLog.ts`): a `shuffle`, the shuffle of a Download, and a
+`drawCard` that reshuffles the dilemma pile. `tableReducer` calls no random function.
 
 The redo button, `data-testid="redo-button"` (#1403), does again the last action that undo took
 back, and puts its entry back in the log. It sits beside the undo button, in one row, on the full
@@ -564,7 +573,7 @@ attempt layout, where a row of two would cover the first mission. Its `aria-labe
 "Redo: <the entry it does again>", and it is disabled while nothing is undone. With a fine pointer,
 Ctrl+Shift+Z, Cmd+Shift+Z and Ctrl+Y do the same; Cmd+Y is left to the browser. Redo puts back the
 table the action left and never runs it again, so a redone shuffle keeps its order. Any new action
-after an undo empties the redo history, and a reload does too.
+after an undo empties the redo history. A reload keeps it (#1401).
 
 The game log button, `data-testid="game-log-button"` with `aria-label="Game log"` (#1399), sits under
 the undo button, last in the top-left column, in every view, the attempt layout too. A tap closes the

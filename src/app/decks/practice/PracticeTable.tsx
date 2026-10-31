@@ -72,7 +72,8 @@ import {
   seedInstanceIds,
   tableReducer,
 } from './tableReducer';
-import { fromSavedGame, toSavedGame } from './savedGame';
+import { fromSavedGame, toSavedGame, toSavedHistory } from './savedGame';
+import { savedHistoryKey, writeSavedHistory } from './gameHistory';
 import CardHand from './CardHand';
 import MissionRow, {
   DilemmaIcon,
@@ -107,7 +108,7 @@ import {
 } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
-import { gameReducer, initialGameState, logEntryText } from './gameLog';
+import { GameAction, gameReducer, initialGameState, logEntryText, withShuffleOrders } from './gameLog';
 import { CardHoldProvider, NO_CALLOUT_STYLE, PLACE_ON_HOLD_MS, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
 import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHoldContext';
 import { FLAT_ROW_MAX_OFFSET, flatRowWidths, useElementHeight, useElementWidth } from './flatRowWidths';
@@ -1659,8 +1660,11 @@ function PracticeDrawContent() {
   const serviceWorkerUpdate = useServiceWorker();
   // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
   // entry per player action, so a handler whose action moves several cards dispatches one `batch`.
-  const [game, dispatch] = useReducer(gameReducer, initialTableState, initialGameState);
+  const [game, dispatchGame] = useReducer(gameReducer, initialTableState, initialGameState);
   const table = game.table;
+  // Every shuffle result is chosen here, before the dispatch, and the action carries it (#1401), so
+  // `tableReducer` calls no random function and a saved undo or redo step holds the same order.
+  const dispatch = (action: GameAction) => dispatchGame(withShuffleOrders(table, action));
   const { drawDeck, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
   // The card a press and hold shows in the preview, while the pointer stays down. The preview
@@ -1936,6 +1940,9 @@ function PracticeDrawContent() {
   const saveReadyRef = useRef(false);
   // Set once a saved game is restored, so the later `data` load does not deal over it.
   const restoredRef = useRef(false);
+  // How many undo steps the last write of the history kept after a full quota (#1401), so the next
+  // write does not start with one that fails.
+  const historyLimitRef = useRef(Infinity);
   const [decklistOpen, setDecklistOpen] = useState(false);
   const [gameLogOpen, setGameLogOpen] = useState(false);
   // The attempt popup (#1163): the panel whose Attempt button opened it, or null when closed.
@@ -2027,10 +2034,10 @@ function PracticeDrawContent() {
         const currentRaw = localStorage.getItem('currentDeck');
         currentDeck = currentRaw ? JSON.parse(currentRaw) : {};
       }
-      const restored = fromSavedGame(raw, currentDeck);
+      const restored = fromSavedGame(raw, currentDeck, localStorage.getItem(savedHistoryKey(gameKey)));
       if (!restored) return false;
       seedInstanceIds(restored.maxInstanceId);
-      dispatch({ type: 'restore', state: restored.table, log: restored.log });
+      dispatch({ type: 'restore', state: restored.table, log: restored.log, undo: restored.undo, redo: restored.redo });
       setDealtDeck(restored.dealtDeck);
       setBotGame(restored.table.opponent === 'bot');
       setDealtOffline(!isBrowserOnline());
@@ -2087,8 +2094,9 @@ function PracticeDrawContent() {
     initDeck();
   }, [data]);
 
-  // Writes the game and its log (#1400) after every change of the table (#976). A failed write (quota, private
-  // browsing) is ignored, so play goes on. The first deal or restore sets `saveReadyRef` in the
+  // Writes the game and its log (#1400) after every change of the table (#976), and then the undo and
+  // redo histories under a key of their own (#1401). A failed write (quota, private browsing) is
+  // ignored, so play goes on, and a full quota trims the history, never the table save. The first deal or restore sets `saveReadyRef` in the
   // same commit as its dispatch, so this effect still sees the empty `initialTableState` there,
   // and that table must not overwrite the save (#1005). The write waits for the next render.
   useEffect(() => {
@@ -2100,8 +2108,17 @@ function PracticeDrawContent() {
       localStorage.setItem(gameKey, JSON.stringify(save));
     } catch {
       // keep playing without a save
+      return;
     }
-  }, [table, game.log, dealtDeck, loadedDeck, driveFileId, dilemmaDriveFileId, driveFileName, gameKey]);
+    const historyKey = savedHistoryKey(gameKey);
+    historyLimitRef.current = writeSavedHistory(
+      game,
+      (keepUndo, keepRedo) => toSavedHistory(game, dealtDeck, keepUndo, keepRedo),
+      (json) => localStorage.setItem(historyKey, json),
+      () => localStorage.removeItem(historyKey),
+      historyLimitRef.current
+    );
+  }, [table, game, dealtDeck, loadedDeck, driveFileId, dilemmaDriveFileId, driveFileName, gameKey]);
 
   useEffect(() => {
     screen.orientation?.lock?.('landscape')?.catch(() => {});
@@ -2173,6 +2190,7 @@ function PracticeDrawContent() {
     saveReadyRef.current = false;
     try {
       localStorage.removeItem(gameKey);
+      localStorage.removeItem(savedHistoryKey(gameKey));
       if (destination.kind === 'copy') {
         sessionStorage.setItem(EDIT_DECK_HANDOFF_KEY, JSON.stringify({ name: destination.name, contents: destination.contents }));
       }
@@ -2938,7 +2956,8 @@ function PracticeDrawContent() {
   // entry, and the entry leaves the log. A panel, a hand or a selection may point at cards the
   // undone table holds elsewhere, so every one of them closes, as after a drag from outside them.
   // Nothing is undone while the bot chooses its stack (#1299): its reply needs the table it drew from.
-  // A restored log has no snapshots (#1400), so the button follows `game.undo` and not the log.
+  // A restored log can have fewer snapshots than entries (#1400, #1401): a save from before #1401 has
+  // none, and a full quota keeps only the newest. So the button follows `game.undo` and not the log.
   const lastLogEntry = game.undo.length && game.log.length ? game.log[game.log.length - 1] : null;
   const handleUndo = () => {
     if (draggingRef.current || botStart.choosing || !game.undo.length) return;

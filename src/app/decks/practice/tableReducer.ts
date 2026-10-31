@@ -186,7 +186,9 @@ export type TableAction =
   // pair (#596); the dilemma pile and the dilemma hand are the other (#604).
   // `counted` marks the draw of the dilemma choice (#1189): during an attempt it adds 1 to
   // `attempt.drawn` when a card moved. Outside an attempt it is a plain draw.
-  | { type: 'drawCard'; from: Zone; to: Zone; counted?: boolean }
+  // `order` is the shuffle of a draw that `drawReshuffles` (#1283): the instance ids of the dilemma
+  // pile in the order the page chose (#1401), so the reducer calls no random function.
+  | { type: 'drawCard'; from: Zone; to: Zone; counted?: boolean; order?: string[] }
   // `position` chooses which end of the destination array the moved card lands on: 'bottom'
   // (the default, when omitted) keeps every existing call site's behaviour — the moved card (and
   // any crew it releases) goes after the destination's existing cards, same as always. 'top'
@@ -202,8 +204,10 @@ export type TableAction =
   // state itself, not just the panel's display order, so the table and the next time the panel
   // opens both show the same shuffled order. Never changes a ship's crew or any other field of a
   // card instance, and changes a card's face only in the dilemma pile, which it turns face down
-  // (#987).
-  | { type: 'shuffle'; location: ShuffleLocation }
+  // (#987). `order` is the result, the instance ids in the order the page chose (#1401,
+  // `withShuffleOrders` in `gameLog.ts`), so the reducer stays pure and a redo or a replay gives
+  // the same order. With no order the cards keep their order.
+  | { type: 'shuffle'; location: ShuffleLocation; order?: string[] }
   // Moves one card of the dilemma stack to sit where another card of the same stack currently
   // sits (#632): a drag inside the stack's own popup, dropped on top of a neighbour, reorders the
   // stack in the table state itself — the popup's array order, closing and reopening the popup
@@ -572,9 +576,29 @@ const isOffTable = (location: MoveTarget): boolean => typeof location === 'strin
 const unstopFor = (location: MoveTarget, c: CardInstance): CardInstance =>
   c.stopped && isOffTable(location) ? { ...c, stopped: undefined } : c;
 
+// The cards in the order of a shuffle's ids (#1401). The page chose the order from a table that can
+// be one render old, so an id that is not among the cards is ignored, and a card the order does not
+// name keeps its place relative to the others, after the named cards. No card is lost or repeated.
+export const inShuffleOrder = (cards: CardInstance[], order: readonly string[] = []): CardInstance[] => {
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  const named: CardInstance[] = [];
+  for (const id of order) {
+    const card = byId.get(id);
+    if (!card) continue;
+    named.push(card);
+    byId.delete(id);
+  }
+  return [...named, ...cards.filter((c) => byId.has(c.id))];
+};
+
 // A shuffle of the dilemma pile turns its face-up dilemmas face down again (#987).
-const shuffledDilemmaPile = (cards: CardInstance[]): CardInstance[] =>
-  shuffleArray(cards).map((c) => ({ ...c, face: ZONE_FACE.dilemmaPile }));
+const facedDownDilemmaPile = (cards: CardInstance[]): CardInstance[] =>
+  cards.map((c) => (c.face === ZONE_FACE.dilemmaPile ? c : { ...c, face: ZONE_FACE.dilemmaPile }));
+
+const shuffledDilemmaPile = (cards: CardInstance[]): CardInstance[] => facedDownDilemmaPile(shuffleArray(cards));
+
+// A random order of the cards' ids, for the `order` of a shuffle. The page calls it, never the reducer.
+export const shuffledIds = (cards: CardInstance[]): string[] => shuffleArray(cards).map((c) => c.id);
 
 // The top-card rule of #1283, shared by `drawReshuffles` and `drawFromDilemmaPile`.
 const topFaceUp = (pile: CardInstance[]): boolean => pile[0]?.face === 'up';
@@ -607,7 +631,9 @@ export function drawFromDilemmaPile(
 export function tableReducer(state: TableState, action: TableAction): TableState {
   switch (action.type) {
     case 'drawCard': {
-      const source = drawReshuffles(state, action) ? shuffledDilemmaPile(state.dilemmaPile) : state[action.from];
+      const source = drawReshuffles(state, action)
+        ? facedDownDilemmaPile(inShuffleOrder(state.dilemmaPile, action.order))
+        : state[action.from];
       if (source.length === 0) return state;
       const [top, ...rest] = source;
       return {
@@ -736,12 +762,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     case 'shuffle': {
       // `ShuffleLocation` ('core' | 'brig' | CrewLocation | MissionPileLocation) is a subset of
       // `MoveTarget`, so `cardsAt`/`withCardsAt` already read and write the right array for it.
-      const cards = cardsAt(state, action.location);
-      return withCardsAt(
-        state,
-        action.location,
-        action.location === 'dilemmaPile' ? shuffledDilemmaPile(cards) : shuffleArray(cards)
-      );
+      const cards = inShuffleOrder(cardsAt(state, action.location), action.order);
+      return withCardsAt(state, action.location, action.location === 'dilemmaPile' ? facedDownDilemmaPile(cards) : cards);
     }
 
     case 'reorder': {

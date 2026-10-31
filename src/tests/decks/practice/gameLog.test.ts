@@ -17,6 +17,7 @@ import {
   logEntryText,
   cardsText,
   EMPTY_LOG_TEXT,
+  withShuffleOrders,
 } from '../../../app/decks/practice/gameLog';
 
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
@@ -43,8 +44,9 @@ const slots = (overrides: Partial<MissionSlot>[] = []): MissionSlot[] =>
 
 const table = (overrides: Partial<TableState> = {}): TableState => ({ ...initialTableState, missions: slots(), ...overrides });
 
+// Each action as the page dispatches it, with the result of its shuffles chosen first (#1401).
 const run = (start: TableState, ...actions: GameAction[]): GameState =>
-  actions.reduce(gameReducer, initialGameState(start));
+  actions.reduce((state, action) => gameReducer(state, withShuffleOrders(state.table, action)), initialGameState(start));
 
 const onlyEntry = (state: GameState): LogEntry => {
   expect(state.log).toHaveLength(1);
