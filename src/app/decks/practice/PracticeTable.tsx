@@ -212,6 +212,28 @@ function UndoIcon() {
   );
 }
 
+// A list with a bullet before each line: the game log button (#1399).
+function GameLogIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      className="w-4 h-4"
+      aria-hidden="true"
+    >
+      <line x1="9" y1="6" x2="21" y2="6" />
+      <line x1="9" y1="12" x2="21" y2="12" />
+      <line x1="9" y1="18" x2="21" y2="18" />
+      <line x1="4" y1="6" x2="4.01" y2="6" />
+      <line x1="4" y1="12" x2="4.01" y2="12" />
+      <line x1="4" y1="18" x2="4.01" y2="18" />
+    </svg>
+  );
+}
+
 // A home for the controls that act on the whole game rather than one zone (#722): Reset, and
 // Load deck (#780), which opens the Drive picker. Reset throws away the current game, so it
 // confirms first via `window.confirm`, the same confirm-before-destroy pattern
@@ -243,8 +265,11 @@ function UndoIcon() {
 // The undo button (#1194) sits under those two. It takes back the player action of the last log
 // entry, and its label names that entry. It is disabled while the log is empty.
 //
+// The game log button (#1399) sits under the undo button, in a row of its own. It opens the game
+// log, and closes the splash first if the splash is open. It was an item of the splash before.
+//
 // In fullscreen on an iPad the browser draws its own close X and shrink button over the top-left
-// corner, so the column moves down below them, all three buttons together (#1207). Everywhere else
+// corner, so the column moves down below them, all four buttons together (#1207). Everywhere else
 // it stays at `top-2`, in and out of fullscreen.
 const SPLASH_ITEM_CLASS =
   'block w-full rounded-md border border-white/10 bg-bg-secondary px-6 py-2.5 text-center text-base text-text-secondary hover:bg-white/[0.1] hover:text-text-primary';
@@ -390,9 +415,6 @@ function GameMenu({
               <button type="button" onClick={onDecklist} className={SPLASH_ITEM_CLASS}>
                 Decklist
               </button>
-              <button type="button" onClick={onGameLog} className={SPLASH_ITEM_CLASS}>
-                Game log
-              </button>
               <button type="button" onClick={onLoadDeck} className={SPLASH_ITEM_CLASS}>
                 Load deck
               </button>
@@ -467,6 +489,16 @@ function GameMenu({
         >
           <UndoIcon />
         </button>
+        <button
+          type="button"
+          onClick={onGameLog}
+          aria-label="Game log"
+          title="Game log"
+          data-testid="game-log-button"
+          className={cornerButton}
+        >
+          <GameLogIcon />
+        </button>
       </div>
     </>
   );
@@ -492,9 +524,9 @@ function contentPadding(insets: SafeAreaInsets): React.CSSProperties | undefined
 const CONTROLS_COLUMN_LEFT = 8; // px
 const CONTROLS_COLUMN_WIDTH = 16 + TOUCH_CONTROLS_COLUMN - CONTROLS_COLUMN_LEFT - 4; // px
 // Below the corner buttons (24 px each, 4 px apart) at `top-2`, or at `top-14` with the inset, and
-// 8 px clear of them. The column counts three buttons, or two in fullscreen on iPadOS, where the
+// 8 px clear of them. The column counts four buttons (#1399), or three in fullscreen on iPadOS, where the
 // system's close X stands in for the fullscreen button (#1394). A column with no fullscreen button
-// still counts three, so the turn and score do not jump when the button shows after hydration. Like the corner buttons, the column moves in by the top and the left safe-area insets (#1384).
+// still counts four, so the turn and score do not jump when the button shows after hydration. Like the corner buttons, the column moves in by the top and the left safe-area insets (#1384).
 const CORNER_BUTTON = 24; // px
 const CORNER_BUTTON_GAP = 4; // px
 function controlsColumnTop(cornerButtons: number, systemControlsInset: boolean): number {
@@ -521,11 +553,11 @@ function TurnScoreColumn({
 }) {
   const label = compact ? 'sr-only' : 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted';
   const number = compact ? 'text-sm leading-5 font-semibold' : 'text-lg leading-6 font-semibold';
-  const button = `btn-system w-full ${compact ? 'h-6 text-xs' : 'h-8'} disabled:opacity-50 disabled:cursor-not-allowed`;
+  const button = `btn-system w-full ${compact ? 'h-6 text-xs' : 'h-7'} disabled:opacity-50 disabled:cursor-not-allowed`;
   return (
     <div
       data-testid="turn-score-column"
-      className={`absolute flex flex-col ${compact ? 'gap-2' : 'gap-3'}`}
+      className="absolute flex flex-col gap-2"
       style={{
         left: CONTROLS_COLUMN_LEFT,
         top,
@@ -1697,7 +1729,7 @@ function PracticeDrawContent() {
   // to the top of the bottom row.
   const gameLayerHeight = useElementHeight(gameLayer);
   const turnScoreTop = controlsColumnTop(
-    fullscreen.systemExitControl ? 2 : 3,
+    fullscreen.systemExitControl ? 3 : 4,
     fullscreen.isFullscreen && fullscreen.systemControlsInset
   );
   const shipRows = useShipRowCount(
@@ -2023,7 +2055,8 @@ function PracticeDrawContent() {
     setDecklistOpen(true);
   };
 
-  // The game menu's Game log item (#1065): closes the menu and opens the log.
+  // The game log button of the corner column (#1065, #1399): closes the menu, if it is open, and
+  // opens the log.
   const handleGameLogClick = () => {
     setGameMenuOpen(false);
     setGameLogOpen(true);
