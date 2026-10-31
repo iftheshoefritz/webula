@@ -21,7 +21,7 @@ import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableRedu
 import { LandedZoneProvider } from '../../../app/decks/practice/LandedZoneContext';
 import eventIcon from '../../../../public/icons/icon_event.gif';
 import dualIcon from '../../../../public/icons/icon_dual.gif';
-import alphaQuadrantIcon from '../../../../public/icons/icon_quadrant_alpha.gif';
+import alphaQuadrantIcon from '../../../../public/icons/quadrant_alpha_hd.png';
 
 const card = (id: string, name: string): CardInstance => ({
   id,
@@ -1046,6 +1046,16 @@ describe('MissionRow: the row of an AP mission on the crop (#1272)', () => {
     }
   });
 
+  it('draws the quadrant image larger than the black disc it sits in, so the disc clips its rim (#1426)', () => {
+    renderRow(moabIV);
+    const img = screen.getByTestId('mission-span-0-quadrant').querySelector('img')!;
+    const { ring, rim, quadrantImage } = missionSpanLayout(1);
+    expect(img.style.width).toBe(`${quadrantImage}px`);
+    expect(img.style.height).toBe(`${quadrantImage}px`);
+    expect(quadrantImage).toBeGreaterThan(ring - 2 * rim);
+    expect(img.parentElement).toHaveClass('overflow-hidden');
+  });
+
   // #1419: the card prints its points in white on a black face, as the span.
   const expectBlackFace = (face: HTMLElement) => {
     expect(face).toHaveClass('bg-black', 'text-white');
@@ -1149,6 +1159,19 @@ describe('missionSpanLayout (#1133)', () => {
     expect(Number.isInteger((backing - ring) / 2)).toBe(true);
     expect(ring).toBeLessThan(backing);
     expect(ring - 2 * rim).toBeGreaterThan(0);
+  });
+
+  it.each(SCALES)('draws the quadrant letter the share of the ring the card prints at scale %s (#1426)', (scale) => {
+    const { ring, rim, quadrantImage } = missionSpanLayout(scale);
+    // The card prints the letter 21.5 px tall in a disc 35.5 px across; the 77 px image draws it 47 px tall.
+    const letter = (quadrantImage * 47) / 77;
+    expect(Math.abs(letter - (ring * 21.5) / 35.5)).toBeLessThanOrEqual(1);
+    // The image's coloured rim, 73.5 px across of 77, falls outside the black disc and is clipped off.
+    expect((quadrantImage * 70) / 77).toBeGreaterThan(ring - 2 * rim);
+    // Centred on whole pixels in the black disc.
+    expect(Number.isInteger((quadrantImage - (ring - 2 * rim)) / 2)).toBe(true);
+    // The image has the pixels: at 3x device pixels it is never drawn above its 77 px.
+    expect(quadrantImage * 3).toBeLessThanOrEqual(77);
   });
 
   it.each(SCALES)('draws the disc as large as the quadrant icon and the point box at scale %s (#1141)', (scale) => {
