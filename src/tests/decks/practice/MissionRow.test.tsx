@@ -1058,11 +1058,13 @@ describe('MissionRow: the row of an AP mission on the crop (#1272)', () => {
     const face = screen.getByTestId('mission-span-0-points-face');
     expectBlackFace(face);
     expect(face).toContainElement(screen.getByTestId('mission-span-0-points-numeral'));
+    expect(screen.queryByTestId('mission-span-0-points-hq')).toBeNull();
   });
 
   it('draws the same black point box on an AP mission (#1419)', () => {
     renderRow(argusArray);
     expectBlackFace(screen.getByTestId('mission-span-0-points-face'));
+    expect(screen.queryByTestId('mission-span-0-points-hq')).toBeNull();
   });
 
   it('keeps the chrome cut of the rail and the plate on a regular mission (#1397)', () => {
@@ -1071,7 +1073,7 @@ describe('MissionRow: the row of an AP mission on the crop (#1272)', () => {
     expect(screen.getByTestId('mission-span-0-plate').style.maskImage).not.toBe('');
   });
 
-  it('draws a blank point box on a headquarters, which has no points (#1397)', () => {
+  it('draws the grey sphere the card prints in the point box of a headquarters (#1422)', () => {
     const bajor: MissionSlot = {
       ...emptySlot(),
       mission: {
@@ -1082,6 +1084,7 @@ describe('MissionRow: the row of an AP mission on the crop (#1272)', () => {
           imagefile: 'x',
           type: 'mission',
           mission: 'h',
+          missiontype: 'h',
           rarity: 'u',
           quadrant: 'a',
           span: '2',
@@ -1094,7 +1097,9 @@ describe('MissionRow: the row of an AP mission on the crop (#1272)', () => {
     expect(screen.getByTestId('mission-span-0')).toHaveAccessibleName('Alpha Quadrant, Span 2');
     expect(screen.getByTestId('mission-span-0-points')).toBeInTheDocument();
     expect(screen.queryByTestId('mission-span-0-points-numeral')).toBeNull();
-    expectBlackFace(screen.getByTestId('mission-span-0-points-face'));
+    const sphere = screen.getByTestId('mission-span-0-points-hq');
+    expect(screen.getByTestId('mission-span-0-points-face')).toContainElement(sphere);
+    expect(sphere.style.backgroundImage).toContain('radial-gradient');
   });
 
   it('draws nothing over a regular mission on a desktop', () => {
