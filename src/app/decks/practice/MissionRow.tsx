@@ -1355,6 +1355,14 @@ function MissionHalfTarget({
   );
 }
 
+// The words of the two drop halves during a dilemma drag (#871, #917). In the facing phase of the
+// attempt layout (#1424) they say what the drop means there: a dilemma goes under the mission when
+// the player overcomes it, and on the card when its text places it there.
+const MISSION_HALF_LABELS = {
+  table: { on: 'On', under: 'Under' },
+  facing: { on: 'Place on', under: 'Overcome' },
+} as const;
+
 // The mission card of a slot, with everything it does on the table, and its badge strip below it:
 // `MissionColumn` stacks the ship row under it, and the attempt layout (#1164) puts the ships beside
 // it. Both render this one component, so the attempted mission keeps every behaviour of the card.
@@ -1371,6 +1379,7 @@ export function MissionCard({
   slotWidth,
   showAwayTeam = true,
   placedOnColumn,
+  facing = false,
 }: {
   missionIndex: number;
   slot: MissionSlot;
@@ -1390,7 +1399,11 @@ export function MissionCard({
   // The column of the placed cards beside the card in the attempt layout (#1180): the card then
   // draws no strips, and its bottom half reaches over the column.
   placedOnColumn?: { gap: number; width: number };
+  // The attempted mission in the facing phase of the attempt layout (#1424): the halves read
+  // "Overcome" and "Place on".
+  facing?: boolean;
 }) {
+  const halfLabels = MISSION_HALF_LABELS[facing ? 'facing' : 'table'];
   const { setNodeRef: setOnNodeRef, isOver: onIsOver } = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
   const { setNodeRef: setUnderNodeRef, isOver: underIsOver } = useDroppable({
     id: missionHalfDropId(missionIndex, 'under'),
@@ -1512,7 +1525,7 @@ export function MissionCard({
                 isOver={onIsOver}
                 dropId={missionHalfDropId(missionIndex, 'on')}
                 half="on"
-                label="On"
+                label={halfLabels.on}
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}
@@ -1524,7 +1537,7 @@ export function MissionCard({
                 isOver={underIsOver}
                 dropId={missionHalfDropId(missionIndex, 'under')}
                 half="under"
-                label="Under"
+                label={halfLabels.under}
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}

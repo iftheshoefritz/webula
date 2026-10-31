@@ -192,6 +192,7 @@ export default function AttemptLayout({
         slotWidth={missionWidth}
         showAwayTeam={false}
         placedOnColumn={placedOnColumn}
+        facing={attempt.phase === 'face'}
       />
     </div>
   );
