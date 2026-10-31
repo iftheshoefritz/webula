@@ -102,6 +102,21 @@ describe('the fullscreen button where fullscreen is not available (#1127)', () =
 
 // iPadOS draws its own close X over the top-left corner of a fullscreen element, so the corner
 // column moves below it there, and only there (#1207).
+const row = (collectorsinfo: string, originalName: string, type: string) => ({
+  collectorsinfo,
+  originalName,
+  name: originalName.toLowerCase(),
+  type,
+  imagefile: collectorsinfo,
+});
+
+// A deck, so the table and its turn and score column render.
+const deck = {
+  '1M001': { count: 1, row: row('1M001', 'Test Mission', 'mission') },
+  '1D001': { count: 2, row: row('1D001', 'Test Dilemma', 'dilemma') },
+  '1P001': { count: 8, row: row('1P001', 'Test Personnel', 'personnel') },
+};
+
 describe('the corner column in fullscreen (#1207)', () => {
   const ipad = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
   const chrome = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
@@ -115,6 +130,7 @@ describe('the corner column in fullscreen (#1207)', () => {
   beforeEach(() => {
     mockSearchParams = new URLSearchParams('menu=0');
     localStorage.clear();
+    localStorage.setItem('currentDeck', JSON.stringify(deck));
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: jest.fn().mockImplementation((query: string) => ({
@@ -155,30 +171,44 @@ describe('the corner column in fullscreen (#1207)', () => {
     const button = screen.getByTestId('fullscreen-button');
     const before = { column: column.className, button: button.className };
     fireEvent.click(button);
-    expect(button).toHaveAccessibleName('Exit fullscreen');
     const during = { column: column.className, button: button.className };
-    fireEvent.click(button);
-    expect(button).toHaveAccessibleName('Enter fullscreen');
-    const after = { column: column.className, button: button.className };
-    return { before, during, after };
+    return { column, button, before, during };
   };
 
-  it('moves the column below the system controls on an iPad, only while fullscreen', async () => {
+  // #1394: iPadOS draws its own close X over the fullscreen table, so the table's button hides.
+  it('moves the column below the system controls on an iPad, and hides the fullscreen button there', async () => {
     setNavigator(ipad, 5);
-    const { before, during, after } = await enterAndLeave();
+    const { column, before } = await enterAndLeave();
+    const turnScoreTop = (el: HTMLElement) => parseFloat(el.style.top);
     expect(before.column).toMatch(/\btop-2\b/);
-    expect(during.column).toMatch(/\btop-14\b/);
-    expect(during.column).not.toMatch(/\btop-2\b/);
-    expect(after.column).toBe(before.column);
-    expect(during.button).toBe(before.button);
+    expect(column.className).toMatch(/\btop-14\b/);
+    expect(column.className).not.toMatch(/\btop-2\b/);
+    expect(screen.queryByTestId('fullscreen-button')).not.toBeInTheDocument();
+    expect(within(column).getByRole('button', { name: 'Game menu' })).toBeInTheDocument();
+    expect(screen.getByTestId('undo-button')).toBeInTheDocument();
+    // Two corner buttons (24 + 4 + 24) below `top-14` (56), and 8 px clear of them.
+    expect(turnScoreTop(screen.getByTestId('turn-score-column'))).toBe(56 + 52 + 8);
+
+    // The system X leaves fullscreen: the button comes back.
+    await act(async () => {
+      await (document as Document & { exitFullscreen: () => Promise<void> }).exitFullscreen();
+    });
+    const back = screen.getByTestId('fullscreen-button');
+    expect(back).toHaveAccessibleName('Enter fullscreen');
+    expect(column.className).toBe(before.column);
+    expect(turnScoreTop(screen.getByTestId('turn-score-column'))).toBe(8 + 80 + 8);
   });
 
   it('keeps the column where it is in fullscreen on every other browser', async () => {
     setNavigator(chrome, 0);
-    const { before, during, after } = await enterAndLeave();
+    const { column, button, before, during } = await enterAndLeave();
+    expect(button).toHaveAccessibleName('Exit fullscreen');
     expect(before.column).toMatch(/\btop-2\b/);
     expect(during.column).toBe(before.column);
-    expect(after.column).toBe(before.column);
     expect(during.button).toBe(before.button);
+    expect(parseFloat(screen.getByTestId('turn-score-column').style.top)).toBe(8 + 80 + 8);
+    fireEvent.click(button);
+    expect(button).toHaveAccessibleName('Enter fullscreen');
+    expect(column.className).toBe(before.column);
   });
 });

@@ -266,6 +266,7 @@ function GameMenu({
   undoLabel,
   onUndo,
   botGame,
+  touch,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -286,8 +287,11 @@ function GameMenu({
   onUndo: () => void;
   // A game against the dilemma bot (#1289).
   botGame: boolean;
+  // The touch layout, whose corner buttons take the round look of the iPadOS close button (#1394).
+  touch: boolean;
 }) {
   const [view, setView] = useState<'items' | 'offline'>('items');
+  const cornerButton = touch ? 'btn-system w-6 h-6 text-xs' : 'btn-icon btn-icon-sm';
   const onEscape = useEffectEvent(() => onClose());
 
   // The splash opens on the item list every time: the view goes back to the list when it closes,
@@ -418,7 +422,7 @@ function GameMenu({
           aria-label="Game menu"
           aria-expanded={open}
           aria-describedby={update.updateReady ? 'update-dot' : undefined}
-          className="btn-icon btn-icon-sm relative"
+          className={`${cornerButton} relative`}
         >
           <MenuIcon />
           {/* A new build has taken control (#1104): the prompt waits in the menu, so it never covers the table. */}
@@ -432,7 +436,8 @@ function GameMenu({
             </span>
           )}
         </button>
-        {fullscreen.mode !== 'none' && (
+        {/* In fullscreen on iPadOS the system's close X exits, so the table shows no second control (#1394). */}
+        {fullscreen.mode !== 'none' && !fullscreen.systemExitControl && (
           <button
             type="button"
             onClick={fullscreen.mode === 'fullscreen' ? fullscreen.toggle : onHomeScreenHelp}
@@ -445,7 +450,7 @@ function GameMenu({
             }
             aria-pressed={fullscreen.mode === 'fullscreen' ? fullscreen.isFullscreen : undefined}
             data-testid="fullscreen-button"
-            className="btn-icon btn-icon-sm"
+            className={cornerButton}
           >
             <FullscreenIcon exit={fullscreen.isFullscreen} />
           </button>
@@ -457,7 +462,7 @@ function GameMenu({
           aria-label={undoLabel ?? 'Undo'}
           title={undoLabel ?? 'Nothing to undo'}
           data-testid="undo-button"
-          className="btn-icon btn-icon-sm disabled:cursor-default disabled:opacity-40"
+          className={`${cornerButton} disabled:cursor-default disabled:opacity-40`}
         >
           <UndoIcon />
         </button>
@@ -485,10 +490,16 @@ function contentPadding(insets: SafeAreaInsets): React.CSSProperties | undefined
 // The left edge of the column, `left-2`, and its width, which stops 4 px short of the mission row.
 const CONTROLS_COLUMN_LEFT = 8; // px
 const CONTROLS_COLUMN_WIDTH = 16 + TOUCH_CONTROLS_COLUMN - CONTROLS_COLUMN_LEFT - 4; // px
-// Below the three corner buttons (24 px each, 4 px apart) at `top-2`, or at `top-14` with the inset.
-// Like the corner buttons, the column moves in by the top and the left safe-area insets (#1384).
-const CONTROLS_COLUMN_TOP = 8 + 80 + 8; // px
-const CONTROLS_COLUMN_TOP_INSET = 56 + 80 + 8; // px
+// Below the corner buttons (24 px each, 4 px apart) at `top-2`, or at `top-14` with the inset, and
+// 8 px clear of them. The column counts three buttons, or two in fullscreen on iPadOS, where the
+// system's close X stands in for the fullscreen button (#1394). A column with no fullscreen button
+// still counts three, so the turn and score do not jump when the button shows after hydration. Like the corner buttons, the column moves in by the top and the left safe-area insets (#1384).
+const CORNER_BUTTON = 24; // px
+const CORNER_BUTTON_GAP = 4; // px
+function controlsColumnTop(cornerButtons: number, systemControlsInset: boolean): number {
+  const buttons = cornerButtons * CORNER_BUTTON + (cornerButtons - 1) * CORNER_BUTTON_GAP;
+  return (systemControlsInset ? 56 : 8) + buttons + 8;
+}
 
 function TurnScoreColumn({
   turn,
@@ -496,23 +507,26 @@ function TurnScoreColumn({
   onNextTurn,
   onAdjustScore,
   compact,
+  top,
 }: {
   turn: number;
   score: number;
   onNextTurn: () => void;
   onAdjustScore: (delta: number) => void;
   compact: boolean;
+  // `controlsColumnTop`.
+  top: number;
 }) {
   const label = compact ? 'sr-only' : 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted';
   const number = compact ? 'text-sm leading-5 font-semibold' : 'text-lg leading-6 font-semibold';
-  const button = `btn-icon w-full ${compact ? 'h-6 text-xs' : 'h-8'} disabled:opacity-50 disabled:cursor-not-allowed`;
+  const button = `btn-system w-full ${compact ? 'h-6 text-xs' : 'h-8'} disabled:opacity-50 disabled:cursor-not-allowed`;
   return (
     <div
       data-testid="turn-score-column"
       className={`absolute flex flex-col ${compact ? 'gap-2' : 'gap-3'}`}
       style={{
         left: CONTROLS_COLUMN_LEFT,
-        top: compact ? CONTROLS_COLUMN_TOP_INSET : CONTROLS_COLUMN_TOP,
+        top,
         width: CONTROLS_COLUMN_WIDTH,
         ...safeAreaMargins('top', 'left'),
       }}
@@ -2928,6 +2942,7 @@ function PracticeDrawContent() {
           undoLabel={lastLogEntry ? `Undo: ${logEntryText(lastLogEntry)}` : null}
           onUndo={handleUndo}
           botGame={table.opponent === 'bot'}
+          touch={!finePointer}
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
@@ -3136,6 +3151,10 @@ function PracticeDrawContent() {
                   onNextTurn={nextTurn}
                   onAdjustScore={adjustScore}
                   compact={fullscreen.isFullscreen && fullscreen.systemControlsInset}
+                  top={controlsColumnTop(
+                    fullscreen.systemExitControl ? 2 : 3,
+                    fullscreen.isFullscreen && fullscreen.systemControlsInset
+                  )}
                 />
               )}
                 </>

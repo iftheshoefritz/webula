@@ -354,6 +354,12 @@ the score over minus and plus. They show on the full table only, not in the atte
 keeps them in the bottom row, the score above the discard and the turn above the draw deck. Either
 way they keep `data-testid="turn-counter"` and `"score-counter"`.
 
+In fullscreen on iPadOS, WebKit draws its own close X and shrink button over the top-left corner,
+and no CSS reaches them. The corner column moves below them (`top-14`, #1207), and the table hides
+its own fullscreen button there (`systemExitControl` of `useFullscreen`, #1394), so the X is the one
+way out. On a touch screen the corner buttons and the turn and score buttons take the look of that
+X, `.btn-system` in `globals.css`: round, a translucent grey with a blur, a light glyph.
+
 `agent-browser` opens an 800×600 page. To check that a layout fits the minimum screen, set the
 size first:
 

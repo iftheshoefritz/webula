@@ -172,6 +172,16 @@
     @apply w-6 h-6 text-xs;
   }
 
+  /* The left column of the touch practice table (#1394), in the look of the fullscreen close button
+     of iPadOS: round, a translucent grey with a blur, clearly lighter than the table, and a light
+     glyph. A full-width button gets a pill. The size comes from the classes beside it. */
+  .btn-system {
+    @apply flex items-center justify-center rounded-full
+           bg-[rgba(120,120,128,0.4)] backdrop-blur-md
+           text-white/90 hover:text-white hover:bg-[rgba(150,150,158,0.5)] active:bg-[rgba(150,150,158,0.5)]
+           transition-colors duration-150 cursor-pointer;
+  }
+
   /* ==================== */
   /* FILTER CHIPS         */
   /* ==================== */
