@@ -109,5 +109,9 @@ export function useFullscreen(element: HTMLElement | null) {
 
   const mode: FullscreenButtonMode = enabled ? 'fullscreen' : standalone === false ? 'homeScreen' : 'none';
 
-  return { enabled, mode, standalone, isFullscreen, systemControlsInset, toggle };
+  // True while the system's own close X is the way out of fullscreen (#1394): iPadOS draws it over
+  // the fullscreen table, so the table's "Exit fullscreen" button would only repeat it.
+  const systemExitControl = mode === 'fullscreen' && isFullscreen && systemControlsInset;
+
+  return { enabled, mode, standalone, isFullscreen, systemControlsInset, systemExitControl, toggle };
 }
