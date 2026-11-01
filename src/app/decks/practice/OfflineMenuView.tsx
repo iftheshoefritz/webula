@@ -1,7 +1,7 @@
 // The Offline sub-view of the game menu splash (#1052, part 3 of #1047; one item since #1087):
 // Make available offline for the dealt deck, with its progress and the cards a failed download
 // missed, the list of every offline deck with its size, a Remove action, and the storage use, and
-// Back, which returns to the item list.
+// Back, which returns to the Settings & help sub-view (#1437).
 //
 // The download state lives in the page (`useOfflineDecks`), not here, so a download keeps going
 // when the player goes Back or closes the splash. `offlineItemLabel` shows its count on the item.
@@ -45,8 +45,17 @@ async function requestPersistentStorage(): Promise<void> {
 
 // The label of the Offline item of the splash: during a download it shows the count, so the player
 // sees it without opening the sub-view.
+function withProgress(label: string, progress: ReturnType<typeof useOfflineDecks>['progress']): string {
+  return progress ? `${label} · ${progress.done} / ${progress.total}` : label;
+}
+
 export function offlineItemLabel(progress: ReturnType<typeof useOfflineDecks>['progress']): string {
-  return progress ? `Offline · ${progress.done} / ${progress.total}` : 'Offline';
+  return withProgress('Offline', progress);
+}
+
+// The Offline item sits inside Settings & help (#1437), so the top-level item shows the count too.
+export function settingsItemLabel(progress: ReturnType<typeof useOfflineDecks>['progress']): string {
+  return withProgress('Settings & help', progress);
 }
 
 export function OfflineMenuView({

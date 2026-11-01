@@ -909,14 +909,25 @@ describe('PracticeDrawPage', () => {
       }
     });
 
-    it('lays the items out in two columns in landscape, Continue on top and Reset last (#1087)', async () => {
+    it('lays the items out in full rows of two columns in landscape, Continue first and Settings & help last (#1087, #1437)', async () => {
       await renderManyCards();
 
       const items = within(screen.getByTestId('game-menu-splash')).getAllByRole('button');
-      expect(items.map((b) => b.textContent)).toEqual(['Continue', 'Decklist', 'Load deck', 'Edit current deck', 'Offline', 'Controls', 'Reset']);
+      expect(items.map((b) => b.textContent)).toEqual([
+        'Continue',
+        'Decklist',
+        'Load deck',
+        'Edit current deck',
+        'Reset',
+        'Settings & help',
+      ]);
       expect(items[0].parentElement).toHaveClass('grid-cols-1', 'landscape:grid-cols-2');
       expect(items[0]).toHaveClass('landscape:col-span-2');
-      expect(items[items.length - 1]).toHaveClass('landscape:col-start-2');
+      expect(items[items.length - 1]).toHaveClass('landscape:col-span-2');
+      for (const item of items.slice(1, -1)) {
+        expect(item).not.toHaveClass('landscape:col-span-2');
+        expect(item).not.toHaveClass('landscape:col-start-2');
+      }
     });
 
     // The pile count badges sit at `z-[140]` (CountBadge.tsx), the open hand at `z-[145]`/`z-[146]`

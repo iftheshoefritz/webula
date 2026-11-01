@@ -113,14 +113,20 @@ describe('the offline items of the game menu (#1052)', () => {
     });
   });
 
+  // Opens the Offline sub-view from the item list, through Settings & help (#1437).
+  const openOffline = async () => {
+    fireEvent.click(screen.getByRole('button', { name: /^Settings & help/ }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Offline/ }));
+    });
+  };
+
   // Renders the page and opens the Offline sub-view of the splash (#1087).
   const renderPage = async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Offline' }));
-    });
+    await openOffline();
   };
 
   it('opens a sub-view with Make available offline and the offline decks from one Offline item', async () => {
@@ -129,30 +135,51 @@ describe('the offline items of the game menu (#1052)', () => {
     });
     expect(screen.queryByRole('button', { name: 'Make available offline' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Offline decks' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Offline' })).not.toBeInTheDocument();
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Offline' }));
-    });
+    await openOffline();
     expect(screen.getByRole('button', { name: 'Make available offline' })).toBeEnabled();
     expect(screen.getByTestId('offline-decks-list')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
   });
 
-  it('returns to the item list on Back and on Escape, and Escape there closes the splash', async () => {
+  it('goes up one level on Back: Offline, then Settings & help, then the item list (#1437)', async () => {
     await renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByTestId('game-menu-settings')).toBeInTheDocument();
+    expect(screen.queryByTestId('offline-decks-list')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.queryByTestId('game-menu-settings')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+  });
+
+  it('goes up one level on Escape, and Escape on the item list closes the splash (#1437)', async () => {
+    await renderPage();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByTestId('game-menu-settings')).toBeInTheDocument();
     expect(screen.queryByTestId('offline-decks-list')).not.toBeInTheDocument();
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Offline' }));
-    });
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.getByTestId('game-menu-splash')).toBeInTheDocument();
+    expect(screen.queryByTestId('game-menu-settings')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByTestId('game-menu-splash')).not.toBeInTheDocument();
+  });
+
+  it('reopens on the item list after it closed in the Settings & help sub-view', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Settings & help' }));
+    expect(screen.getByTestId('game-menu-settings')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Game menu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Game menu' }));
+    expect(screen.queryByTestId('game-menu-settings')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
   });
 
   it('reopens on the item list after it closed in the Offline sub-view', async () => {
@@ -167,7 +194,7 @@ describe('the offline items of the game menu (#1052)', () => {
     expect(screen.queryByTestId('offline-decks-list')).not.toBeInTheDocument();
   });
 
-  it('keeps a download counting after Back, and shows the count on the Offline item', async () => {
+  it('keeps a download counting after Back, and shows the count on the Offline item and on Settings & help', async () => {
     let report: (p: { done: number; total: number; bytes: number }) => void = () => {};
     mockMakeDeckOffline.mockImplementation((_name, _d, _data, onProgress) => {
       report = onProgress;
@@ -186,6 +213,9 @@ describe('the offline items of the game menu (#1052)', () => {
       report({ done: 7, total: 10, bytes: 4096 });
     });
     expect(screen.getByRole('button', { name: 'Offline · 7 / 10' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('button', { name: 'Settings & help · 7 / 10' })).toBeInTheDocument();
   });
 
   it('shows the progress, names the deck from deckFile, and then reads Available offline', async () => {
