@@ -61,6 +61,17 @@ describe('instrumentation onRequestError', () => {
     );
   });
 
+  // #1408: with no PostHog cookie there is no consent, so the path keeps no parameter value.
+  it('reduces the path to its parameter names when no PostHog cookie is present', async () => {
+    await onRequestError(new Error('boom'), { ...baseRequest, path: '/api/share?id=abc123' }, baseContext);
+
+    expect(captureExceptionImmediate).toHaveBeenCalledWith(
+      expect.any(Error),
+      undefined,
+      expect.objectContaining({ $current_url: '/api/share?id' })
+    );
+  });
+
   it('extracts a distinct_id from the PostHog browser cookie when present', async () => {
     const cookieValue = encodeURIComponent(
       JSON.stringify({ distinct_id: 'user_abc_123' })

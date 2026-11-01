@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import posthog from 'posthog-js';
+import { track } from '../lib/analytics';
 import { useSearchParams } from 'next/navigation';
 import useFilterData from '../hooks/useFilterData';
 import useLocalStorage from '../hooks/useLocalStorage';
@@ -194,7 +194,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   }
 
   const exportLackeyDeckToDisk = () => {
-    posthog.capture('deckBuilder.lackeyExport.start');
+    track('deckBuilder.lackeyExport.start');
 
     const tsvString = createLackeyTSV();
     const blob = new Blob([tsvString], { type: 'text/tab-separated-values' });
@@ -209,7 +209,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     document.body.removeChild(a);
 
     URL.revokeObjectURL(url);
-    posthog.capture('deckBuilder.lackeyExport.finish', { bytes: tsvString.length });
+    track('deckBuilder.lackeyExport.finish', { bytes: tsvString.length });
   };
 
   const shareDeck = async () => {

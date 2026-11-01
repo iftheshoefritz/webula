@@ -4,6 +4,7 @@ import posthog from 'posthog-js';
 import { PostHogProvider } from 'posthog-js/react';
 import { Suspense, useEffect } from 'react';
 import PostHogPageView from '../components/PostHogPageView';
+import { reduceEventUrls } from '../lib/analyticsUrls';
 
 function PostHogInit({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -28,15 +29,19 @@ function PostHogInit({ children }: { children: React.ReactNode }) {
         capture_pageview: false,
       });
     } else {
-      // Anonymous cookieless tracking — no consent required under GDPR
+      // No consent, declined or not answered yet (#1408). PostHog's cookieless mode stores
+      // nothing on the device: its server makes a visitor id that lasts one day, from a hash of
+      // the IP and the browser with a salt it deletes each day. It counts unique visitors and
+      // sessions with no cookie and no person profile. No autocapture, which sends the text of
+      // the element clicked, and the URLs keep their parameter names but not their values.
       posthog.init(key, {
         api_host: host,
         capture_pageview: false,
-        persistence: 'memory',
-        ip: false,
+        cookieless_mode: 'always',
         person_profiles: 'never',
         autocapture: false,
         disable_session_recording: true,
+        before_send: reduceEventUrls,
       });
     }
   }, []);

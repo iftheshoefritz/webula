@@ -1,4 +1,5 @@
 import type { Instrumentation } from 'next';
+import { reduceUrl } from './lib/analyticsUrls';
 
 /**
  * Next.js 15 instrumentation hook.
@@ -64,7 +65,8 @@ export const onRequestError: Instrumentation.onRequestError = async (
   // after the request has been flushed — critical in serverless environments
   // (Vercel) where the process may be suspended before the next flush.
   await posthog.captureExceptionImmediate(err, distinctId, {
-    $current_url: request.path,
+    // With no PostHog cookie, no consent: the path keeps its parameter names, not their values (#1408).
+    $current_url: distinctId ? request.path : reduceUrl(request.path),
     $request_method: request.method,
     route: context.routePath,
     routeType: context.routeType,
