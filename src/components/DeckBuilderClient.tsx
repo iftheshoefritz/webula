@@ -40,6 +40,15 @@ import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import { lackeyText } from '../app/decks/deckBuilderUtils';
+import {
+  type ShareFailure,
+  ShareRequestError,
+  isOffline,
+  shareCreateMessage,
+  shareFailureFromError,
+  shareFailureFromResponse,
+  shareLoadMessage,
+} from '../lib/shareErrors';
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import useDriveSync from '../hooks/useDriveSync';
 import useDeckState from '../hooks/useDeckState';
@@ -70,6 +79,9 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const [pendingShareWarning, setPendingShareWarning] = useState<boolean>(false);
   const [shareLoadError, setShareLoadError] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
+  // A failed share (#1441): its message stays until the user retries or closes it.
+  const [shareFailure, setShareFailure] = useState<ShareFailure | null>(null);
+  const [copyTextState, setCopyTextState] = useState<'idle' | 'copied' | 'error'>('idle');
   const [shareUrl, setShareUrl] = useState<string | null>(null);
 
   const {
@@ -107,12 +119,24 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
       if (shareId) {
         window.history.replaceState({}, '', '/decks');
         try {
-          const pasteResponse = await fetch(`/api/share?id=${shareId}`);
+          if (isOffline()) throw new ShareRequestError({ code: 'offline', status: null });
+          let pasteResponse: Response;
+          try {
+            pasteResponse = await fetch(`/api/share?id=${shareId}`);
+          } catch {
+            throw new ShareRequestError({ code: 'offline', status: null });
+          }
+          if (!pasteResponse.ok) throw new ShareRequestError(await shareFailureFromResponse(pasteResponse));
           const { content, title } = await pasteResponse.json();
+          if (typeof content !== 'string') {
+            throw new ShareRequestError({ code: 'other', status: pasteResponse.status });
+          }
           setPendingShareContent(content);
           setPendingShareTitle(title || null);
-        } catch {
-          setShareLoadError('Failed to load shared deck');
+        } catch (error) {
+          const failure = shareFailureFromError(error);
+          posthog.capture('deckBuilder.share.failed', { code: failure.code, status: failure.status, context: 'load' });
+          setShareLoadError(shareLoadMessage(failure));
         }
       }
     })();
@@ -215,23 +239,29 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
   const shareDeck = async () => {
     if (currentDeckRows.length === 0) {
       setShareState('error');
+      setShareFailure(null);
       setShareError('Deck is empty');
       setTimeout(() => { setShareState('idle'); setShareError(null); }, 3000);
       return;
     }
     setShareState('copying');
     setShareError(null);
+    setShareFailure(null);
+    setCopyTextState('idle');
     setShareUrl(null);
     try {
       const tsv = createLackeyTSV();
       // Build the URL as a promise so we can pass it to ClipboardItem synchronously
       // (preserves the user gesture context on iOS Safari, where writeText fails after async)
-      const urlPromise = fetch('/api/share', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: tsv, title: deckTitle }),
-      }).then(res => {
-        if (!res.ok) throw new Error('Share failed');
+      const urlPromise = (isOffline()
+        ? Promise.reject(new ShareRequestError({ code: 'offline', status: null }))
+        : fetch('/api/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: tsv, title: deckTitle }),
+        }).catch(() => { throw new ShareRequestError({ code: 'offline', status: null }); })
+      ).then(async res => {
+        if (!res.ok) throw new ShareRequestError(await shareFailureFromResponse(res));
         return res.json();
       }).then((json: { id: string }) => `${window.location.origin}/decks?share=${json.id}`);
 
@@ -264,12 +294,58 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
 
       setShareState(copied ? 'copied' : 'idle');
       setTimeout(() => { setShareState('idle'); setShareUrl(null); }, 15000);
-    } catch {
+    } catch (error) {
+      const failure = shareFailureFromError(error);
+      posthog.capture('deckBuilder.share.failed', { code: failure.code, status: failure.status, context: 'create' });
       setShareState('error');
-      setShareError('Share failed');
-      setTimeout(() => { setShareState('idle'); setShareError(null); }, 3000);
+      setShareFailure(failure);
+      setShareError(shareCreateMessage(failure));
     }
   };
+
+  const dismissShareFailure = () => {
+    setShareState('idle');
+    setShareFailure(null);
+    setShareError(null);
+    setCopyTextState('idle');
+  };
+
+  const copyDeckAsText = async () => {
+    try {
+      await navigator.clipboard.writeText(createLackeyTSV());
+      setCopyTextState('copied');
+    } catch {
+      setCopyTextState('error');
+    }
+  };
+
+  // The message of a failed share, with the two ways to give the deck to someone without
+  // the share service (#1441). Rendered under the menu item and under each toolbar.
+  const shareFailurePanel = (testId: string, onExport?: () => void) => shareFailure && shareError && (
+    <div data-testid={testId} role="alert" className="flex flex-col gap-1 text-sm text-red-400">
+      <div className="flex items-start gap-2">
+        <span className="font-medium min-w-0 grow">{shareError}</span>
+        <button
+          className="shrink-0 text-red-300 hover:text-white"
+          onClick={dismissShareFailure}
+          aria-label="Close the share error"
+        >
+          <FaTimes />
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="underline hover:text-white" onClick={copyDeckAsText}>Copy deck as text</button>
+        <button
+          className="underline hover:text-white"
+          onClick={() => { exportLackeyDeckToDisk(); onExport?.(); }}
+        >
+          Export to LackeyCCG
+        </button>
+        {copyTextState === 'copied' && <span className="text-green-400">Copied the deck as text</span>}
+        {copyTextState === 'error' && <span>The clipboard is not available. Use Export to LackeyCCG.</span>}
+      </div>
+    </div>
+  );
 
   const practiceHref = isFixture ? '/decks/practice?fixture=1' : '/decks/practice';
   const drawDeckEmpty = !currentDeckRows.some((row) => row.pile === 'drawDeck');
@@ -634,8 +710,13 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     disabled={shareState === 'copying'}
                   >
                     {shareState === 'copying' ? <FaSpinner className="shrink-0 animate-spin" /> : <FaShareAlt className="shrink-0" />}
-                    <span>{shareState === 'copying' ? 'Creating...' : shareState === 'copied' ? 'Copied!' : shareState === 'error' ? (shareError ?? 'Share failed') : 'Copy share link'}</span>
+                    <span>{shareState === 'copying' ? 'Creating...' : shareState === 'copied' ? 'Copied!' : shareState === 'error' && !shareFailure ? shareError : 'Copy share link'}</span>
                   </button>
+                  {shareFailure && (
+                    <div className="px-4 py-2">
+                      {shareFailurePanel('share-error-menu', () => setDeckActionsOpen(false))}
+                    </div>
+                  )}
                   {shareUrl && (
                     <div className="px-4 py-2">
                       <input
@@ -745,7 +826,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 aria-label="Share link"
               />
             )}
-            {shareState === 'error' && shareError && (
+            {shareState === 'error' && !shareFailure && shareError && (
               <span className="text-sm text-red-400 font-medium">{shareError}</span>
             )}
             <Link
@@ -803,6 +884,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               <span className="text-sm text-red-400 font-medium">{saveError}</span>
             )}
           </div>
+          {shareFailure && shareFailurePanel('share-error-desktop')}
         </div>
       </div>
       {/* Nested pile tabs */}
@@ -964,14 +1046,15 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 </button>
               </div>
             )}
-            {(savedRecently || saveError || shareState === 'copied' || (shareState === 'error' && shareError)) && (
+            {(savedRecently || saveError || shareState === 'copied' || (shareState === 'error' && !shareFailure && shareError)) && (
               <div className="flex items-center gap-2 pt-1">
                 {savedRecently && <span className="text-sm text-green-400 font-medium">Saved!</span>}
                 {shareState === 'copied' && <span className="text-sm text-green-400 font-medium">Copied!</span>}
                 {saveError && <span className="text-sm text-red-400 font-medium">{saveError}</span>}
-                {shareState === 'error' && shareError && <span className="text-sm text-red-400 font-medium">{shareError}</span>}
+                {shareState === 'error' && !shareFailure && shareError && <span className="text-sm text-red-400 font-medium">{shareError}</span>}
               </div>
             )}
+            {shareFailure && <div className="pt-1">{shareFailurePanel('share-error-analysis')}</div>}
             {shareUrl && (
               <div className="pt-2">
                 <input

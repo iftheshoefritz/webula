@@ -46,7 +46,8 @@ jest.mock('next/link', () =>
 // ── Imports ──────────────────────────────────────────────────────────────────
 
 import React from 'react';
-import { render, act, screen, fireEvent } from '@testing-library/react';
+import { render, act, screen, fireEvent, within } from '@testing-library/react';
+import posthog from 'posthog-js';
 import DeckBuilderClient from '../../components/DeckBuilderClient';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -175,28 +176,159 @@ describe('DeckBuilderClient – share link', () => {
     );
   });
 
-  it('shows "Share failed" when /api/share returns an error', async () => {
-    localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
-    storeDeck();
-
-    const mockFetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({ error: 'Internal server error' }),
-    });
-    global.fetch = mockFetch;
-
-    await act(async () => {
-      render(<DeckBuilderClient data={[]} columns={[]} />);
+  describe('a failed share (#1441)', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
     });
 
-    await act(async () => {
-      fireEvent.click(getShareButton());
+    async function shareWith(fetchImpl: jest.Mock) {
+      localStorage.setItem('deckTitle', JSON.stringify('My Deck'));
+      storeDeck();
+      global.fetch = fetchImpl;
+      await act(async () => {
+        render(<DeckBuilderClient data={[]} columns={[]} />);
+      });
+      await act(async () => {
+        fireEvent.click(getShareButton());
+      });
+      await act(async () => {});
+    }
+
+    const errorAnswer = (status: number, body: unknown) =>
+      jest.fn().mockResolvedValue({ ok: false, status, json: async () => body });
+
+    it('names an offline client when the fetch rejects', async () => {
+      await shareWith(jest.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+      expect(screen.getAllByText('You are offline. Connect and try again.').length).toBeGreaterThan(0);
     });
 
-    await act(async () => {});
+    it('names an offline client without calling /api/share when navigator.onLine is false', async () => {
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+      const mockFetch = jest.fn();
+      await shareWith(mockFetch);
+      expect(screen.getAllByText('You are offline. Connect and try again.').length).toBeGreaterThan(0);
+      expect(mockFetch.mock.calls.filter(([url]: [string]) => url === '/api/share')).toHaveLength(0);
+    });
 
-    expect(screen.getAllByText('Share failed').length).toBeGreaterThan(0);
+    it('says the share service cannot be reached for upstream_unreachable', async () => {
+      await shareWith(errorAnswer(502, { error: 'Share service unreachable', code: 'upstream_unreachable' }));
+      expect(
+        screen.getAllByText('The share service cannot be reached. Try again later, or copy the deck as text.').length
+      ).toBeGreaterThan(0);
+    });
+
+    it('says the share service is busy for upstream_busy', async () => {
+      await shareWith(errorAnswer(429, { error: 'Paste creation failed', code: 'upstream_busy' }));
+      expect(screen.getAllByText('The share service is busy. Try again in a minute.').length).toBeGreaterThan(0);
+    });
+
+    it('names the status of any other error', async () => {
+      await shareWith(errorAnswer(418, { error: 'Paste creation failed', code: 'upstream_error' }));
+      expect(screen.getAllByText('Share failed (HTTP 418).').length).toBeGreaterThan(0);
+    });
+
+    it('names the status when the answer has no JSON body', async () => {
+      await shareWith(jest.fn().mockResolvedValue({ ok: false, status: 500, json: async () => { throw new SyntaxError('x'); } }));
+      expect(screen.getAllByText('Share failed (HTTP 500).').length).toBeGreaterThan(0);
+    });
+
+    it('keeps the message after 3 seconds and more', async () => {
+      jest.useFakeTimers();
+      await shareWith(errorAnswer(429, { code: 'upstream_busy' }));
+      await act(async () => {
+        jest.advanceTimersByTime(20000);
+      });
+      expect(screen.getAllByText('The share service is busy. Try again in a minute.').length).toBeGreaterThan(0);
+    });
+
+    it('removes the message when the user closes it', async () => {
+      await shareWith(errorAnswer(429, { code: 'upstream_busy' }));
+      await act(async () => {
+        fireEvent.click(screen.getAllByLabelText('Close the share error')[0]);
+      });
+      expect(screen.queryByText('The share service is busy. Try again in a minute.')).toBeNull();
+    });
+
+    it('clears the message when the user shares again', async () => {
+      const mockFetch = jest
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 429, json: async () => ({ code: 'upstream_busy' }) })
+        .mockResolvedValue({ ok: true, json: async () => ({ id: 'paste-abc123' }) });
+      await shareWith(mockFetch);
+      expect(screen.getAllByText('The share service is busy. Try again in a minute.').length).toBeGreaterThan(0);
+      await act(async () => {
+        fireEvent.click(getShareButton());
+      });
+      await act(async () => {});
+      expect(screen.queryByText('The share service is busy. Try again in a minute.')).toBeNull();
+      expect(screen.getAllByText('Copied!').length).toBeGreaterThan(0);
+    });
+
+    it('offers Copy deck as text, which writes the Lackey text of the deck', async () => {
+      await shareWith(errorAnswer(502, { code: 'upstream_unreachable' }));
+      const [, init] = (global.fetch as jest.Mock).mock.calls.find(([url]: [string]) => url === '/api/share');
+      await act(async () => {
+        fireEvent.click(screen.getAllByText('Copy deck as text')[0]);
+      });
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(JSON.parse(init.body).content);
+      expect(screen.getAllByText('Copied the deck as text').length).toBeGreaterThan(0);
+    });
+
+    it('offers Export to LackeyCCG beside the message', async () => {
+      await shareWith(errorAnswer(502, { code: 'upstream_unreachable' }));
+      const panel = screen.getAllByTestId('share-error-desktop')[0];
+      expect(within(panel).getByText('Export to LackeyCCG')).toBeInTheDocument();
+    });
+
+    it('captures deckBuilder.share.failed with the code and the status', async () => {
+      await shareWith(errorAnswer(502, { code: 'upstream_unreachable' }));
+      expect(posthog.capture).toHaveBeenCalledWith('deckBuilder.share.failed', {
+        code: 'upstream_unreachable',
+        status: 502,
+        context: 'create',
+      });
+    });
+  });
+
+  describe('a ?share= link that does not load (#1441)', () => {
+    afterEach(() => {
+      window.history.replaceState({}, '', '/decks');
+    });
+
+    async function loadWith(answer: { ok: boolean; status: number; json: () => Promise<unknown> }) {
+      global.fetch = jest.fn().mockResolvedValue(answer);
+      window.history.replaceState({}, '', '/decks?share=TESTID');
+      await act(async () => {
+        render(<DeckBuilderClient data={MINIMAL_CARD_DATA} columns={[]} />);
+      });
+      await act(async () => {});
+    }
+
+    it('says the shared deck expired for not_found, and loads no deck', async () => {
+      await loadWith({ ok: false, status: 404, json: async () => ({ error: 'Paste not found', code: 'not_found' }) });
+      expect(screen.getByText('This shared deck has expired or does not exist.')).toBeInTheDocument();
+      expect(screen.queryByText('A shared deck is ready to load')).toBeNull();
+      expect(posthog.capture).toHaveBeenCalledWith('deckBuilder.share.failed', {
+        code: 'not_found',
+        status: 404,
+        context: 'load',
+      });
+    });
+
+    it('says the share service cannot be reached for upstream_unreachable', async () => {
+      await loadWith({ ok: false, status: 502, json: async () => ({ code: 'upstream_unreachable' }) });
+      expect(
+        screen.getByText('The share service cannot be reached, so the shared deck cannot be loaded. Try again later.')
+      ).toBeInTheDocument();
+    });
+
+    it('does not load an OK answer with no content', async () => {
+      storeDeck();
+      await loadWith({ ok: true, status: 200, json: async () => ({}) });
+      expect(screen.getByText('Failed to load shared deck (HTTP 200).')).toBeInTheDocument();
+      expect(screen.queryByText('A shared deck is ready to load')).toBeNull();
+    });
   });
 
   it('shows "Deck is empty" and does not call /api/share when deck has no cards', async () => {
