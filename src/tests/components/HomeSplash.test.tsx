@@ -59,6 +59,16 @@ describe('HomeSplash', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
+  it('shows no splash and does not redirect with search=1, with or without a remembered choice', () => {
+    const { unmount } = render(<HomeSplash initialQuery="" initialHome={false} initialSearch />);
+    expect(screen.queryByTestId('home-splash')).not.toBeInTheDocument();
+    unmount();
+    localStorage.setItem(START_PAGE_KEY, 'decks');
+    render(<HomeSplash initialQuery="" initialHome={false} initialSearch />);
+    expect(screen.queryByTestId('home-splash')).not.toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   it('ignores a junk stored value', () => {
     localStorage.setItem(START_PAGE_KEY, 'junk');
     render(<HomeSplash initialQuery="" initialHome={false} />);

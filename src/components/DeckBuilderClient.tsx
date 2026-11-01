@@ -33,8 +33,8 @@ import { getReportsToOptions } from '../lib/reportsToOptions';
 import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
 import Link from 'next/link';
-import { CHANGE_START_PAGE_HREF } from '../lib/startPage';
-import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale, FaHome, FaChartLine } from 'react-icons/fa';
+import { SEARCH_HREF } from '../lib/startPage';
+import { FaSave, FaSearch, FaTrash, FaFileAlt, FaFileExport, FaFileUpload, FaFileImport, FaSignInAlt, FaFolderOpen, FaList, FaChevronLeft, FaChevronDown, FaChartBar, FaPlayCircle, FaPlus, FaTh, FaPencilAlt, FaShareAlt, FaSpinner, FaTimes, FaBalanceScale, FaChartLine } from 'react-icons/fa';
 import { isEarlyAccessUser } from '../lib/featureFlags';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
@@ -656,12 +656,12 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                     <span>Practice game</span>
                   </Link>
                   <Link
-                    href={CHANGE_START_PAGE_HREF}
-                    data-testid="change-start-page"
+                    href={SEARCH_HREF}
+                    data-testid="search-link"
                     className="flex items-center space-x-3 w-full px-4 py-2 text-sm hover:bg-white/10"
                   >
-                    <FaHome className="shrink-0" />
-                    <span>Change start page</span>
+                    <FaSearch className="shrink-0" />
+                    <span>Search cards</span>
                   </Link>
                   {isEarlyAccessUser(session?.user?.email) && (
                     <Link
@@ -759,14 +759,14 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
               <FaPlayCircle />
             </Link>
             <Link
-              href={CHANGE_START_PAGE_HREF}
+              href={SEARCH_HREF}
               className="btn-icon flex items-center justify-center"
               data-tooltip-id="button-tooltip"
-              data-tooltip-content="Change start page"
-              aria-label="Change start page"
-              data-testid="change-start-page-desktop"
+              data-tooltip-content="Search cards"
+              aria-label="Search cards"
+              data-testid="search-link-desktop"
             >
-              <FaHome />
+              <FaSearch />
             </Link>
             {isEarlyAccessUser(session?.user?.email) && (
               <Link

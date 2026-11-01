@@ -82,3 +82,23 @@ describe('DeckBuilderClient – the Stats link (#1417)', () => {
     expect(screen.queryByTestId('stats-link')).not.toBeInTheDocument();
   });
 });
+
+describe('DeckBuilderClient – the Search cards links (#1438)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => [] }) as unknown as typeof fetch;
+  });
+
+  it('links the menu and the desktop header to the card search, with no Change start page', async () => {
+    (getSession as jest.Mock).mockResolvedValue(null);
+    await act(async () => { render(<DeckBuilderClient data={[]} columns={[]} />); });
+    await act(async () => { fireEvent.click(screen.getAllByLabelText('More deck actions')[0]); });
+    for (const link of screen.getAllByTestId('search-link')) {
+      expect(link).toHaveAttribute('href', '/?search=1');
+      expect(link).toHaveTextContent('Search cards');
+    }
+    expect(screen.getAllByTestId('search-link-desktop')[0]).toHaveAttribute('href', '/?search=1');
+    expect(screen.getAllByTestId('search-link-desktop')[0]).toHaveAttribute('aria-label', 'Search cards');
+    expect(screen.queryByText(/change start page/i)).not.toBeInTheDocument();
+  });
+});

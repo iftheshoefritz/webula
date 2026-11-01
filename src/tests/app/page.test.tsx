@@ -254,5 +254,27 @@ describe('CardSearchClient', () => {
       expect(screen.getByTestId('home-splash')).toBeInTheDocument();
       expect(mockReplace).not.toHaveBeenCalledWith('/decks');
     });
+
+    it('opens the search on /?search=1, with no splash and no redirect (#1438)', () => {
+      localStorage.setItem('startPage', 'decks');
+      mockSearchParamsValue = new URLSearchParams('search=1');
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+      expect(screen.queryByTestId('home-splash')).not.toBeInTheDocument();
+      expect(mockReplace).not.toHaveBeenCalled();
+      expect(screen.getByPlaceholderText('Search cards...')).toBeInTheDocument();
+    });
+
+    it('links the search bar to the splash, with no Change start page (#1438)', () => {
+      mockSearchParamsValue = new URLSearchParams('search=1');
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+      const link = screen.getByTestId('home-splash-link');
+      expect(link).toHaveAttribute('href', '/?home=1');
+      expect(link).toHaveTextContent('Build a deck · Practice');
+      fireEvent.click(screen.getByLabelText('Open search'));
+      const mobile = screen.getByTestId('home-splash-link-mobile');
+      expect(mobile).toHaveAttribute('href', '/?home=1');
+      expect(mobile).toHaveTextContent('Decks · Practice');
+      expect(screen.queryByText(/change start page/i)).not.toBeInTheDocument();
+    });
   });
 });

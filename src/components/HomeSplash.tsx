@@ -12,26 +12,36 @@ const subscribeNothing = () => () => {};
 //
 // It decides once, from the URL the page loaded with, so a search box cleared mid-session never
 // brings it back. It shows on a bare `/` when nothing is remembered, and on `/?home=1` always. A
-// load with `q`, every Discord and shared link, never shows it and never redirects. A remembered
+// load with `q`, every Discord and shared link, or with `search=1`, the Search cards links (#1438),
+// never shows it and never redirects. A remembered
 // `decks` or `practice` sends a bare `/` there with `router.replace`, so Back does not bounce.
 //
 // The server render has no splash: localStorage is read only after hydration, so the page and its
 // metadata stay as they were. The splash is `z-50`, after the search bars in the DOM, and the
 // consent banner, also `z-50` and later in the root layout, stays usable over it.
-export default function HomeSplash({ initialQuery, initialHome }: { initialQuery: string; initialHome: boolean }) {
+export default function HomeSplash({
+  initialQuery,
+  initialHome,
+  initialSearch = false,
+}: {
+  initialQuery: string;
+  initialHome: boolean;
+  initialSearch?: boolean;
+}) {
   const router = useRouter();
   const mounted = useSyncExternalStore(subscribeNothing, () => true, () => false);
   const remembered = useMemo<StartPage | null>(() => (mounted ? readStartPage() : null), [mounted]);
   const [dismissed, setDismissed] = useState(false);
   const [remember, setRemember] = useState<boolean | null>(null);
 
-  const redirectTo = mounted && !initialQuery && !initialHome && remembered && remembered !== 'search' ? remembered : null;
+  const searchRequested = initialSearch || !!initialQuery;
+  const redirectTo = mounted && !searchRequested && !initialHome && remembered && remembered !== 'search' ? remembered : null;
 
   useEffect(() => {
     if (redirectTo) router.replace(startPageHref(redirectTo));
   }, [redirectTo, router]);
 
-  const visible = mounted && !dismissed && (initialHome || (!initialQuery && remembered === null));
+  const visible = mounted && !dismissed && (initialHome || (!searchRequested && remembered === null));
   if (!visible) return null;
 
   const rememberChecked = remember ?? remembered !== null;
