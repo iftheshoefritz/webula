@@ -1,4 +1,13 @@
-import { type ShareErrorCode, upstreamErrorCode } from '../../../lib/shareErrors';
+import { type ShareErrorCode } from '../../../lib/shareErrors';
+import {
+  getShareStore,
+  isShareId,
+  MAX_CONTENT_BYTES,
+  newShareId,
+  SHARE_TTL_SECONDS,
+} from '../../../lib/shareStore';
+
+const MAX_ID_ATTEMPTS = 3;
 
 // Allows the trekcc.org import bookmarklet (see /import-trekcc) to POST a decklist
 // it fetched from trekcc.org directly to this endpoint.
@@ -35,43 +44,26 @@ export async function GET(req: Request) {
   if (!id) {
     return errorResponse('Missing id', 'bad_request', 400);
   }
-
-  let res: Response;
-  try {
-    res = await fetch(`https://dpaste.com/${id}.txt`);
-  } catch (error) {
-    console.error('Paste fetch error:', error);
-    return errorResponse('Share service unreachable', 'upstream_unreachable', 502);
+  // An id with a character outside the alphabet was never written, so it is not there.
+  if (!isShareId(id)) {
+    return errorResponse('Share not found', 'not_found', 404);
   }
 
+  let share;
   try {
-    if (!res.ok) {
-      return errorResponse('Paste not found', upstreamErrorCode(res.status, true), res.status);
-    }
-    const content = await res.text();
-
-    // Best-effort: fetch the title dpaste stored for this paste (set when the deck was
-    // shared) so the deck builder can use it instead of a generic filename. If this fails,
-    // fall back to no title rather than failing the whole share load.
-    let title: string | null = null;
-    try {
-      const detailRes = await fetch(`https://dpaste.com/api/item_detail/${id}`);
-      if (detailRes.ok) {
-        const detail = await detailRes.json();
-        title = detail?.[id]?.title || null;
-      }
-    } catch (detailError) {
-      console.error('Paste title fetch error:', detailError);
-    }
-
-    return new Response(JSON.stringify({ content, title }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    share = await getShareStore().read(id);
   } catch (error) {
-    console.error('Paste fetch error:', error);
+    console.error('Share store read error:', error);
     return errorResponse('Share service unreachable', 'upstream_unreachable', 502);
   }
+  if (!share) {
+    return errorResponse('Share not found', 'not_found', 404);
+  }
+
+  return new Response(JSON.stringify({ content: share.content, title: share.title ?? null }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 export async function POST(req: Request) {
@@ -85,37 +77,33 @@ export async function POST(req: Request) {
   if (typeof content !== 'string' || content === '') {
     return errorResponse('Missing content', 'bad_request', 400, corsHeaders());
   }
+  if (new TextEncoder().encode(content).byteLength > MAX_CONTENT_BYTES) {
+    return errorResponse('Content too large', 'bad_request', 413, corsHeaders());
+  }
+
+  const share = {
+    content,
+    title: (typeof title === 'string' && title) || 'Webula deck',
+    createdAt: new Date().toISOString(),
+  };
 
   try {
-    const body = new URLSearchParams();
-    body.set('content', content);
-    body.set('title', (typeof title === 'string' && title) || 'Webula deck');
-    body.set('syntax', 'text');
-    body.set('expiry_days', '30');
-    body.set('format', 'url');
-
-    const res = await fetch('https://dpaste.com/api/v2/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('dpaste API error:', res.status, errorText);
-      return errorResponse('Paste creation failed', upstreamErrorCode(res.status, false), res.status, corsHeaders());
+    const store = getShareStore();
+    // A collision of 60-bit ids is all but impossible, but the write is NX, so
+    // a taken id gets a new one rather than overwriting someone's share.
+    for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt++) {
+      const id = newShareId();
+      if (await store.create(id, share, SHARE_TTL_SECONDS)) {
+        return new Response(JSON.stringify({ id }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders() },
+        });
+      }
     }
-
-    // format=url returns the paste URL as plain text, e.g. "https://dpaste.com/ABCDE\n"
-    const pasteUrl = (await res.text()).trim();
-    const id = pasteUrl.split('/').filter(Boolean).pop();
-
-    return new Response(JSON.stringify({ id }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-    });
+    console.error('Share store: no free id after', MAX_ID_ATTEMPTS, 'attempts');
+    return errorResponse('Share creation failed', 'upstream_error', 500, corsHeaders());
   } catch (error) {
-    console.error('Paste route error:', error);
+    console.error('Share store write error:', error);
     return errorResponse('Share service unreachable', 'upstream_unreachable', 502, corsHeaders());
   }
 }

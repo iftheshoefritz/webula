@@ -71,6 +71,17 @@ Card pile assignment determined by `cardPileFor()` in `src/app/decks/deckBuilder
 - Files stored in `appDataFolder` (hidden app-specific folder)
 - Token management via NextAuth.js with automatic refresh
 
+### Share links
+
+`/api/share` (`src/app/api/share/route.ts`) stores each share in Upstash Redis
+(`src/lib/shareStore.ts`, #1445), under `share:<id>` with a 30-day TTL. `POST { content, title }`
+answers `{ id }`, a random 10-character id, and `GET ?id=` answers `{ content, title }`. The
+content is capped at 256 KB (413 `bad_request`). A store failure answers 502 `upstream_unreachable`,
+an unknown or expired id 404 `not_found` (`src/lib/shareErrors.ts`). The Vercel Marketplace
+integration sets `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (or `KV_REST_API_*`) on
+the project, and `Redis.fromEnv()` reads either pair. For a local `yarn dev` that shares, run
+`vercel env pull .env.development.local`. The tests mock the store, so they need no access.
+
 ## Card Data Scripts
 
 ### `scripts/copy_card_data.sh`

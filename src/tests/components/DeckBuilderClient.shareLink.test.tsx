@@ -472,17 +472,10 @@ describe('DeckBuilderClient – share link', () => {
 
     await act(async () => {});
 
-    // Should call the server-side proxy, not dpaste.com directly (avoids CORS)
-    const proxyCalls = (global.fetch as jest.Mock).mock.calls.filter(
-      ([url]: [string]) => url === '/api/share?id=TESTID'
-    );
-    expect(proxyCalls.length).toBe(1);
-
-    // Should NOT call dpaste.com directly from the browser
-    const directDpasteCalls = (global.fetch as jest.Mock).mock.calls.filter(
-      ([url]: [string]) => url === 'https://dpaste.com/TESTID.txt'
-    );
-    expect(directDpasteCalls.length).toBe(0);
+    // Loads the share from the app's own route, and from nowhere else
+    const fetchUrls = (global.fetch as jest.Mock).mock.calls.map(([url]: [string]) => url);
+    expect(fetchUrls.filter((url) => url === '/api/share?id=TESTID').length).toBe(1);
+    expect(fetchUrls.filter((url) => /^https?:/.test(url))).toEqual([]);
 
     // Reset the URL
     window.history.replaceState({}, '', '/decks');

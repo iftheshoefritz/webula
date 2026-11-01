@@ -9,13 +9,6 @@ export type ShareErrorCode =
   | 'not_found'
   | 'upstream_error';
 
-/** The code for a non-OK answer of dpaste. */
-export function upstreamErrorCode(status: number, notFound: boolean): ShareErrorCode {
-  if (status === 429 || status >= 500) return 'upstream_busy';
-  if (notFound && status === 404) return 'not_found';
-  return 'upstream_error';
-}
-
 /** A failure on the client: `offline` when the request never got an answer. */
 export type ShareFailureCode = ShareErrorCode | 'offline' | 'other';
 
