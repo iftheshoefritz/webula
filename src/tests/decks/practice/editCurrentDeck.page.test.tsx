@@ -140,6 +140,11 @@ describe('Edit current deck in the practice game menu (#1407)', () => {
     expect(screen.getByTestId('game-menu-edit-deck')).not.toBeDisabled();
   });
 
+  it('has no start-page item in the game menu (#1438)', async () => {
+    await renderPage();
+    expect(screen.queryByText(/start page/i)).not.toBeInTheDocument();
+  });
+
   it('on Cancel, leaves the save and the page alone', async () => {
     const confirm = jest.spyOn(window, 'confirm').mockReturnValue(false);
     await renderPage();

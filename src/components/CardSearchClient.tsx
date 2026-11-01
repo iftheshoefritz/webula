@@ -12,7 +12,7 @@ import type { CardData } from '../lib/loadCards';
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import { PreviewBanner } from './PreviewBanner';
 import HomeSplash from './HomeSplash';
-import { CHANGE_START_PAGE_HREF } from '../lib/startPage';
+import { HOME_SPLASH_HREF } from '../lib/startPage';
 
 interface CardSearchClientProps {
   data: CardData[];
@@ -27,6 +27,7 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
   // The URL the page loaded with decides the splash once (#1406), so a cleared search box never brings it back.
   const [initialQuery] = useState(() => searchParams.get('q') ?? '');
   const [initialHome] = useState(() => searchParams.get('home') === '1');
+  const [initialSearch] = useState(() => searchParams.get('search') === '1');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const searchParamsRef = useRef(searchParams);
@@ -141,11 +142,11 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
               </div>
               {/* A plain link: the splash decides on a fresh load of `/?home=1`, which a soft navigation from `/` is not. */}
               <a
-                href={CHANGE_START_PAGE_HREF}
-                data-testid="change-start-page"
+                href={HOME_SPLASH_HREF}
+                data-testid="home-splash-link"
                 className="shrink-0 self-center text-xs text-text-muted hover:text-accent"
               >
-                Change start page
+                Build a deck · Practice
               </a>
             </div>
             <SearchPills
@@ -183,11 +184,11 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
             <span className="text-sm font-medium text-text-primary">Search</span>
             <a
-              href={CHANGE_START_PAGE_HREF}
-              data-testid="change-start-page-mobile"
+              href={HOME_SPLASH_HREF}
+              data-testid="home-splash-link-mobile"
               className="ml-auto text-xs text-text-muted hover:text-accent px-2 py-1"
             >
-              Change start page
+              Decks · Practice
             </a>
             <button
               onClick={() => setIsMobileSearchOpen(false)}
@@ -221,7 +222,7 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
         />
       </div>
 
-      <HomeSplash initialQuery={initialQuery} initialHome={initialHome} />
+      <HomeSplash initialQuery={initialQuery} initialHome={initialHome} initialSearch={initialSearch} />
     </div>
   );
 }

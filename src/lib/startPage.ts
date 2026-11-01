@@ -1,12 +1,16 @@
 // The start page a visitor chose on the splash of `/` with Remember my choice on (#1406). A bare
 // `/` sends a remembered `decks` or `practice` to its page, and a remembered `search` only skips
-// the splash. `/?home=1` shows the splash whatever is remembered.
+// the splash. `/?home=1` shows the splash whatever is remembered, and `/?search=1` opens the card
+// search whatever is remembered, with no splash and no redirect (#1438).
 export type StartPage = 'search' | 'decks' | 'practice';
 
 export const START_PAGE_KEY = 'startPage';
 
-// The URL that shows the splash again, for the Change start page links.
-export const CHANGE_START_PAGE_HREF = '/?home=1';
+// The URL of the splash of `/`, where a visitor changes or forgets the start page.
+export const HOME_SPLASH_HREF = '/?home=1';
+
+// The URL of the card search for every visitor: a bare `/` may redirect or show the splash.
+export const SEARCH_HREF = '/?search=1';
 
 const START_PAGES: readonly StartPage[] = ['search', 'decks', 'practice'];
 
