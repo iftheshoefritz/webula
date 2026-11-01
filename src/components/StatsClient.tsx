@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
+import { signIn, signOut, useSession } from 'next-auth/react';
+import { FaSignInAlt } from 'react-icons/fa';
 import { useSearchParams } from 'next/navigation';
 import { Line } from 'react-chartjs-2';
 import { Chart, CategoryScale, Legend, LinearScale, LineController, LineElement, PointElement, Tooltip } from 'chart.js';
@@ -258,8 +259,34 @@ export default function StatsClient() {
 
   let body: React.ReactNode;
   if (useFixture) body = <StatsView stats={STATS_FIXTURE} />;
-  else if (status === 'unauthenticated' || state.kind === 'denied') {
-    body = <p data-testid="stats-denied">Stats are for early-access users.</p>;
+  else if (status === 'unauthenticated') {
+    // A plain Google sign-in, no Drive scope, that comes back to /stats (#1442).
+    body = (
+      <div className="space-y-3">
+        <p data-testid="stats-denied">Stats are for early-access users.</p>
+        <button
+          className="btn-primary"
+          data-testid="stats-sign-in"
+          onClick={() => signIn('google', { callbackUrl: '/stats' })}
+        >
+          <FaSignInAlt className="inline mr-2" />
+          Sign in with Google
+        </button>
+      </div>
+    );
+  } else if (state.kind === 'denied') {
+    body = (
+      <div className="space-y-3">
+        <p data-testid="stats-denied">Stats are for early-access users.</p>
+        <button
+          className="text-sm underline hover:text-white"
+          data-testid="stats-switch-account"
+          onClick={() => signOut({ callbackUrl: '/stats' })}
+        >
+          Use another Google account
+        </button>
+      </div>
+    );
   } else if (state.kind === 'error') body = <p data-testid="stats-error">The stats could not be loaded.</p>;
   else if (state.kind === 'ready') body = <StatsView stats={state.stats} />;
   else body = <p className="text-gray-400">Loading…</p>;

@@ -201,6 +201,9 @@ estimate where Claude ran; per CI job the median and 90th percentile; the median
 week; the issue counts per status of the latest snapshot and over time; and the 20 completed issues
 slowest from the first label to the close. It reads `/api/stats`, which applies `isEarlyAccessUser`
 to the caller's email from the NextAuth JWT and answers 404 to anyone else, a signed-out caller too.
+A signed-out visitor sees a "Sign in with Google" button (`data-testid="stats-sign-in"`), a plain
+Google sign-in with no Drive scope that comes back to `/stats`; a signed-in user who is not early-access
+sees "Use another Google account" (`stats-switch-account`), a sign-out back to `/stats` (#1442).
 `src/lib/statsServer.ts` reads the folder, `src/lib/stats.ts` aggregates it (no `fs`), and
 `outputFileTracingIncludes` in `next.config.mjs` puts `stats/` into the route's bundle. The page
 never reads the files at build time. In development only, `/stats?fixture=1` renders the fixture
