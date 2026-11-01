@@ -64,12 +64,34 @@ describe('GET /api/share', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns 500 on unexpected errors', async () => {
+  it('answers 502 upstream_unreachable when the dpaste fetch throws (#1441)', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
     const req = new Request('http://localhost/api/share?id=ABC123');
     const res = await GET(req);
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(502);
+    expect((await res.json()).code).toBe('upstream_unreachable');
+  });
+
+  it('answers not_found when dpaste has no paste for the id', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+
+    const res = await GET(new Request('http://localhost/api/share?id=NOTEXIST'));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: 'Paste not found', code: 'not_found' });
+  });
+
+  it.each([429, 503])('answers upstream_busy with the status when dpaste answers %i', async (status) => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status });
+
+    const res = await GET(new Request('http://localhost/api/share?id=ABC123'));
+    expect(res.status).toBe(status);
+    expect((await res.json()).code).toBe('upstream_busy');
+  });
+
+  it('answers bad_request when the id is missing', async () => {
+    const res = await GET(new Request('http://localhost/api/share'));
+    expect((await res.json()).code).toBe('bad_request');
   });
 });
 
@@ -119,7 +141,7 @@ describe('POST /api/share', () => {
     expect(body.error).toBe('Paste creation failed');
   });
 
-  it('returns 500 on unexpected errors', async () => {
+  it('answers 502 upstream_unreachable, with the CORS header, when the dpaste fetch throws (#1441)', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
     const req = new Request('http://localhost/api/share', {
@@ -127,7 +149,50 @@ describe('POST /api/share', () => {
       body: JSON.stringify({ content: 'Deck:\n1\tPicard', title: 'My Deck' }),
     });
     const res = await POST(req);
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(502);
+    expect((await res.json()).code).toBe('upstream_unreachable');
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://www.trekcc.org');
+  });
+
+  it.each([429, 503])('answers upstream_busy with the status when dpaste answers %i', async (status) => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status, text: async () => 'busy' });
+
+    const req = new Request('http://localhost/api/share', {
+      method: 'POST',
+      body: JSON.stringify({ content: 'Deck:\n1\tPicard', title: 'My Deck' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(status);
+    expect(await res.json()).toEqual({ error: 'Paste creation failed', code: 'upstream_busy' });
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://www.trekcc.org');
+  });
+
+  it('answers upstream_error for any other dpaste status', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 413, text: async () => 'too large' });
+
+    const req = new Request('http://localhost/api/share', {
+      method: 'POST',
+      body: JSON.stringify({ content: 'Deck:\n1\tPicard', title: 'My Deck' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(413);
+    expect((await res.json()).code).toBe('upstream_error');
+  });
+
+  it('answers 400 bad_request, with the CORS header, for a body that is not JSON', async () => {
+    const req = new Request('http://localhost/api/share', { method: 'POST', body: 'not json' });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('bad_request');
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://www.trekcc.org');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('answers 400 bad_request for a body with no content', async () => {
+    const req = new Request('http://localhost/api/share', { method: 'POST', body: JSON.stringify({ title: 'x' }) });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('bad_request');
   });
 
   it('sets Access-Control-Allow-Origin for trekcc.org on success', async () => {

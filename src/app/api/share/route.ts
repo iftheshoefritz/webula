@@ -1,3 +1,5 @@
+import { type ShareErrorCode, upstreamErrorCode } from '../../../lib/shareErrors';
+
 // Allows the trekcc.org import bookmarklet (see /import-trekcc) to POST a decklist
 // it fetched from trekcc.org directly to this endpoint.
 const ALLOWED_ORIGIN = 'https://www.trekcc.org';
@@ -10,6 +12,19 @@ function corsHeaders() {
   };
 }
 
+// Every error answer carries a machine-readable `code` beside `error` (#1441).
+function errorResponse(
+  error: string,
+  code: ShareErrorCode,
+  status: number,
+  extraHeaders: Record<string, string> = {},
+) {
+  return new Response(JSON.stringify({ error, code }), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
+  });
+}
+
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders() });
 }
@@ -18,18 +33,20 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const id = url.searchParams.get('id');
   if (!id) {
-    return new Response(JSON.stringify({ error: 'Missing id' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return errorResponse('Missing id', 'bad_request', 400);
   }
+
+  let res: Response;
   try {
-    const res = await fetch(`https://dpaste.com/${id}.txt`);
+    res = await fetch(`https://dpaste.com/${id}.txt`);
+  } catch (error) {
+    console.error('Paste fetch error:', error);
+    return errorResponse('Share service unreachable', 'upstream_unreachable', 502);
+  }
+
+  try {
     if (!res.ok) {
-      return new Response(JSON.stringify({ error: 'Paste not found' }), {
-        status: res.status,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Paste not found', upstreamErrorCode(res.status, true), res.status);
     }
     const content = await res.text();
 
@@ -53,20 +70,26 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     console.error('Paste fetch error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return errorResponse('Share service unreachable', 'upstream_unreachable', 502);
   }
 }
 
 export async function POST(req: Request) {
+  let content: unknown;
+  let title: unknown;
   try {
-    const { content, title } = await req.json();
+    ({ content, title } = await req.json());
+  } catch {
+    return errorResponse('Invalid request body', 'bad_request', 400, corsHeaders());
+  }
+  if (typeof content !== 'string' || content === '') {
+    return errorResponse('Missing content', 'bad_request', 400, corsHeaders());
+  }
 
+  try {
     const body = new URLSearchParams();
     body.set('content', content);
-    body.set('title', title || 'Webula deck');
+    body.set('title', (typeof title === 'string' && title) || 'Webula deck');
     body.set('syntax', 'text');
     body.set('expiry_days', '30');
     body.set('format', 'url');
@@ -80,10 +103,7 @@ export async function POST(req: Request) {
     if (!res.ok) {
       const errorText = await res.text();
       console.error('dpaste API error:', res.status, errorText);
-      return new Response(JSON.stringify({ error: 'Paste creation failed' }), {
-        status: res.status,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-      });
+      return errorResponse('Paste creation failed', upstreamErrorCode(res.status, false), res.status, corsHeaders());
     }
 
     // format=url returns the paste URL as plain text, e.g. "https://dpaste.com/ABCDE\n"
@@ -96,9 +116,6 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error('Paste route error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-    });
+    return errorResponse('Share service unreachable', 'upstream_unreachable', 502, corsHeaders());
   }
 }
