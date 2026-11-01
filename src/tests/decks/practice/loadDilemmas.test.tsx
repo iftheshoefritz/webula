@@ -235,6 +235,7 @@ describe('the two-step Load deck (#1114)', () => {
     await click('Load the dilemmas of Deck B');
 
     await openMenu();
+    await click('Settings & help');
     await click('Offline');
     await click('Make available offline');
     expect(mockMakeOffline).toHaveBeenCalledWith('Deck A + Deck B dilemmas', expect.anything());
@@ -249,6 +250,7 @@ describe('the two-step Load deck (#1114)', () => {
     await click('Load the dilemmas of Deck B');
 
     await openMenu();
+    await click('Settings & help');
     await click('Offline');
     await click('Make available offline');
     expect(mockMakeOffline).toHaveBeenCalledWith('Deck A + Deck B dilemmas', expect.anything());

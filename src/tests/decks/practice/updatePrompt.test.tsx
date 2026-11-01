@@ -112,6 +112,17 @@ describe('the update prompt of the game menu (#1104)', () => {
     expect(screen.getByTestId('update-dot')).toBeInTheDocument();
   });
 
+  it('shows the prompt on the top level only, not in the Settings & help sub-view (#1437)', async () => {
+    await renderWithNewBuild();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings & help' }));
+    expect(screen.getByTestId('game-menu-settings')).toBeInTheDocument();
+    expect(screen.queryByTestId('update-prompt')).not.toBeInTheDocument();
+    expect(screen.getByTestId('update-dot')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByTestId('update-prompt')).toBeInTheDocument();
+  });
+
   it('reloads the page on Reload', async () => {
     await renderWithNewBuild();
     fireEvent.click(within(screen.getByTestId('update-prompt')).getByRole('button', { name: 'Reload' }));

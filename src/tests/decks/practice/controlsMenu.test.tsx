@@ -62,10 +62,12 @@ describe('the Controls item of the game menu (#1088)', () => {
     });
   });
 
-  it('is an item of the game menu, and opens the Controls panel', async () => {
+  it('is an item of Settings & help in the game menu, and opens the Controls panel', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    expect(within(screen.getByTestId('game-menu-splash')).queryByRole('button', { name: 'Controls' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings & help' }));
     fireEvent.click(within(screen.getByTestId('game-menu-splash')).getByRole('button', { name: 'Controls' }));
     expect(screen.queryByTestId('game-menu-splash')).not.toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Controls' })).toBeInTheDocument();

@@ -48,7 +48,7 @@ import { usePracticeDrive } from './usePracticeDrive';
 import { editDeckDestination, navigateTo } from './editCurrentDeck';
 import { EDIT_DECK_HANDOFF_KEY } from '../../../hooks/useDriveSync';
 import { useOfflineDecks } from './offlineDecks';
-import { OfflineMenuView, offlineItemLabel } from './OfflineMenuView';
+import { OfflineMenuView, offlineItemLabel, settingsItemLabel } from './OfflineMenuView';
 import { OfflineDeckList, OfflineDeckPicker } from './OfflineDeckPicker';
 import { isBrowserOnline, useOnline } from './useOnline';
 import type { OfflineDeck } from './offlineDecks';
@@ -260,13 +260,20 @@ function GameLogIcon() {
 // Load deck (#780), which opens the Drive picker. Reset throws away the current game, so it
 // confirms first via `window.confirm`, the same confirm-before-destroy pattern
 // the deck builder's Drive picker (`DrivePickerModal`) already uses for a delete elsewhere in the app, rather than a custom dialog
-// built just for this one destructive action. The Offline item (#1052, #1087) opens a sub-view of
-// the splash in place of the item list, `OfflineMenuView`. Escape in the sub-view returns to the
-// item list, and Escape in the item list closes the splash.
+// built just for this one destructive action. Settings & help (#1437) opens a sub-view of the
+// splash in place of the item list, with Controls and Offline, and Offline (#1052, #1087) opens a
+// sub-view of its own, `OfflineMenuView`. Escape and Back each go up one level: Offline, then
+// Settings & help, then the item list, and Escape in the item list closes the splash.
 //
-// In landscape the items are a grid of two columns (#1087), so the menu fits the about 320-340 px
-// a phone's browser bars leave. Continue spans both columns. Reset is last, in the bottom-right
-// cell next to Controls (#1088), away from the items a player uses often. In portrait the one column keeps the same order.
+// The rule for a new item (#1437): the top level holds Continue, the items a player uses during or
+// between games (the deck and the game itself), and one entry, Settings & help, for everything
+// else. A new item goes into Settings & help unless the player needs it in most sessions. In
+// landscape the top level is a grid of two columns (#1087), so the menu fits the about 320-340 px
+// a phone's browser bars leave, and every row of it is full: Continue and Settings & help span
+// both columns, and the other items come in pairs, with the items that throw the game away last
+// (Edit current deck and Reset). In portrait the one column keeps the same order. A sub-view opens
+// in place of the item list and ends with Back. The bot game line and the update prompt show on
+// the top level only.
 //
 // The menu opens on every load of the table (#781), so a new player sees it. It is a splash
 // screen over the whole page (#896): it covers the table, so a press on the table no longer
@@ -353,7 +360,7 @@ function GameMenu({
   // The touch layout, whose corner buttons take the round look of the iPadOS close button (#1394).
   touch: boolean;
 }) {
-  const [view, setView] = useState<'items' | 'offline'>('items');
+  const [view, setView] = useState<'items' | 'settings' | 'offline'>('items');
   const cornerButton = touch ? 'btn-system w-6 h-6 text-xs' : 'btn-icon btn-icon-sm';
   const onEscape = useEffectEvent(() => onClose());
 
@@ -369,7 +376,8 @@ function GameMenu({
     if (!open) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (view === 'offline') setView('items');
+      if (view === 'offline') setView('settings');
+      else if (view === 'settings') setView('items');
       else onEscape();
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -400,8 +408,23 @@ function GameMenu({
                 deckName={deckName}
                 offline={offline}
                 itemClassName={SPLASH_ITEM_CLASS}
-                onBack={() => setView('items')}
+                onBack={() => setView('settings')}
               />
+            </div>
+          ) : view === 'settings' ? (
+            <div
+              data-testid="game-menu-settings"
+              className="flex max-h-full w-full max-w-[16rem] flex-col gap-2 overflow-y-auto"
+            >
+              <button type="button" onClick={onControls} className={SPLASH_ITEM_CLASS}>
+                Controls
+              </button>
+              <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
+                {offlineItemLabel(offline.progress)}
+              </button>
+              <button type="button" onClick={() => setView('items')} className={SPLASH_ITEM_CLASS}>
+                Back
+              </button>
             </div>
           ) : (
             <div className="grid w-full max-w-[16rem] grid-cols-1 gap-2 landscape:max-w-[28rem] landscape:grid-cols-2">
@@ -464,14 +487,16 @@ function GameMenu({
               >
                 Edit current deck
               </button>
-              <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
-                {offlineItemLabel(offline.progress)}
-              </button>
-              <button type="button" onClick={onControls} className={SPLASH_ITEM_CLASS}>
-                Controls
-              </button>
-              <button type="button" onClick={onReset} className={`${SPLASH_ITEM_CLASS} landscape:col-start-2`}>
+              <button type="button" onClick={onReset} className={SPLASH_ITEM_CLASS}>
                 Reset
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('settings')}
+                data-testid="game-menu-settings-item"
+                className={`${SPLASH_ITEM_CLASS} landscape:col-span-2`}
+              >
+                {settingsItemLabel(offline.progress)}
               </button>
             </div>
           )}
