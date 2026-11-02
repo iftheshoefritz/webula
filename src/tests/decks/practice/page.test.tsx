@@ -468,7 +468,9 @@ describe('PracticeDrawPage', () => {
 
   // Bottom row layout (issue #596): discard pile, draw deck, closed hand, core, brig, and the
   // dilemma pile at the right side.
-  it('renders the bottom row zones in order: discard, pile, hand, core, brig, dilemma', async () => {
+  // #1489: the closed hand is a small fan in the game layer, on top of the bottom row, and takes no
+  // place in the row: the row reads discard, draw deck, core, brig, dilemma pile.
+  it('renders the bottom row zones in order: discard, pile, core, brig, dilemma, and the hand outside it', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -479,9 +481,11 @@ describe('PracticeDrawPage', () => {
     });
     await drawOpeningHand();
 
-    const zones = Array.from(document.body.querySelectorAll('[data-zone]')).map((el) =>
-      el.getAttribute('data-zone')
-    );
+    const zones = Array.from(document.body.querySelectorAll('[data-zone]'))
+      .map((el) => el.getAttribute('data-zone'))
+      .filter((zone) => zone !== 'hand');
+    expect(document.body.querySelectorAll('[data-zone="hand"]')).toHaveLength(1);
+    expect(screen.getByTestId('flat-rows').closest('div.mt-auto')?.querySelector('[data-zone="hand"]')).toBeNull();
     expect(zones).toEqual([
       'mission-on-0',
       'mission-under-0',
@@ -501,7 +505,6 @@ describe('PracticeDrawPage', () => {
       'discard',
       'draw-pile-top',
       'draw-pile-bottom',
-      'hand',
       'core',
       'brig',
       'dilemma-pile-top',

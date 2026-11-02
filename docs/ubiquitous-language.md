@@ -153,7 +153,7 @@ missions, at least two of them not headquarters; at least 20 dilemmas; at least
 | Rulebook term | `Zone` | Note |
 |---|---|---|
 | deck (the draw deck) | `'drawDeck'` | The label on the table is "Draw deck". |
-| hand | `'hand'` | A new game deals no hand (#1115): the player draws the opening hand from the draw deck, one `draw` at a time, so the game log records each draw. Neither the rulebook's opening hand of seven nor its hand limit of seven is enforced. See [section 7](#7-names-kept-and-why). |
+| hand | `'hand'` | The closed (or collapsed) hand is a small face-up fan on top of the bottom row, and the open hand is the arc (`CardHand`, `handArc.ts`, #1489). A new game deals no hand (#1115): the player draws the opening hand from the draw deck, one `draw` at a time, so the game log records each draw. Neither the rulebook's opening hand of seven nor its hand limit of seven is enforced. See [section 7](#7-names-kept-and-why). |
 | discard pile | `'discard'` | |
 | core | `'core'` | The rulebook puts events here. The zone takes any card type. |
 | brig | `'brig'` | The rulebook holds captives here. The highlight accepts personnel. |

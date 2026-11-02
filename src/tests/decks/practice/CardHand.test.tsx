@@ -9,7 +9,14 @@ import CardHand from '../../../app/decks/practice/CardHand';
 import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import { VIEWER_TOP_INSET } from '../../../app/decks/practice/viewerCardSize';
-import { ARC_TOUCH_MIN_VISIBLE, ARC_TOUCH_OPTIONS, handArcLayout } from '../../../app/decks/practice/handArc';
+import {
+  ARC_TOUCH_MIN_VISIBLE,
+  ARC_TOUCH_OPTIONS,
+  CLOSED_FAN_CORE_CARDS,
+  CLOSED_FAN_VISIBLE,
+  handArcLayout,
+} from '../../../app/decks/practice/handArc';
+import { flatCardWidth } from '../../../app/decks/practice/flatRowWidths';
 
 const makeInstances = (n: number): CardInstance[] =>
   Array.from({ length: n }, (_, i) => ({
@@ -102,14 +109,20 @@ describe('CardHand', () => {
     expect(card).not.toHaveClass('ring-2');
   });
 
-  it('shows the closed row as card backs, and the open fan as card faces', () => {
+  // #1489: the closed hand is a small fan of card faces, and it reverses the card backs of #639.
+  // Its cards carry no `data-card-id`: they are picked up from the open arc.
+  it('shows the closed fan as card faces with no data-card-id, and the open fan as card faces', () => {
     const instances = makeInstances(3);
     render(<Harness instances={instances} />);
 
     const closedButton = screen.getByRole('button', { name: /^hand, 3 cards, tap to open$/i });
-    closedButton.querySelectorAll('img').forEach((img) => {
-      expect(img).toHaveAttribute('src', '/cardimages/cardback.jpg');
+    const closedImages = closedButton.querySelectorAll('img');
+    expect(closedImages).toHaveLength(3);
+    closedImages.forEach((img, idx) => {
+      expect(img).toHaveAttribute('src', `/cardimages/${instances[idx].card.imagefile}.jpg`);
     });
+    expect(closedButton.querySelector('[data-card-id]')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^close hand$/i })).not.toBeInTheDocument();
 
     fireEvent.click(closedButton);
     instances.forEach((instance) => {
@@ -120,21 +133,42 @@ describe('CardHand', () => {
     });
   });
 
-  it('keeps the closed hand within a bounded width as the card count grows', () => {
-    const { rerender, container } = render(<Harness instances={makeInstances(2)} />);
-    const lastImage = () => container.querySelectorAll('img')[container.querySelectorAll('img').length - 1];
-    const smallOffset = parseFloat((lastImage() as HTMLElement).style.left);
+  // #1489: the small fan spans at most two cards of the core, however many cards the hand holds.
+  it('keeps the closed fan within two core cards as the card count grows', () => {
+    const closedWidth = () =>
+      parseFloat((screen.getByRole('button', { name: /tap to open$/i }) as HTMLElement).style.width);
+    const { rerender } = render(<Harness instances={makeInstances(2)} />);
+    const smallWidth = closedWidth();
 
     rerender(<Harness instances={makeInstances(20)} />);
-    const bigButton = screen.getByRole('button', { name: /^hand, 20 cards, tap to open$/i });
-    const bigWidth = parseFloat((bigButton as HTMLElement).style.width);
-    const bigOffset = parseFloat((lastImage() as HTMLElement).style.left) / 19;
+    expect(closedWidth()).toBeGreaterThan(smallWidth);
+    expect(closedWidth()).toBeLessThanOrEqual(CLOSED_FAN_CORE_CARDS * flatCardWidth(1));
+  });
 
-    // The offset between overlapping cards shrinks as the hand grows, so the total width does
-    // not grow proportionally to the card count: 20 cards at the un-shrunk offset would be far
-    // wider than 20 cards packed tightly.
-    expect(bigOffset).toBeLessThan(smallOffset);
-    expect(bigWidth).toBeLessThan(20 * smallOffset);
+  it('sits at the left end of its anchor, or at the right end for the dilemma hand (#1489)', () => {
+    const anchor = document.createElement('div');
+    anchor.setAttribute('data-testid', 'fan-anchor');
+    anchor.getBoundingClientRect = () =>
+      ({ left: 200, right: 700, top: 500, bottom: 580, width: 500, height: 80, x: 200, y: 500, toJSON: () => {} }) as DOMRect;
+    document.body.appendChild(anchor);
+    const props = { instances: makeInstances(7), open: false, onOpen: () => {}, onClose: () => {} };
+    const { unmount } = render(
+      <>
+        <CardHand {...props} closedFanAnchor='[data-testid="fan-anchor"]' />
+        <CardHand {...props} zone="dilemmaHand" label="dilemma hand" closedFanAnchor='[data-testid="fan-anchor"]' closedFanSide="right" />
+      </>,
+    );
+    const hand = screen.getByRole('button', { name: /^hand, 7 cards/ });
+    const dilemmaHand = screen.getByRole('button', { name: /^dilemma hand, 7 cards/ });
+    const box = (el: HTMLElement) => ({ left: parseFloat(el.style.left), right: parseFloat(el.style.left) + parseFloat(el.style.width) });
+    expect(box(hand).left).toBeCloseTo(200, 0);
+    expect(box(hand).right).toBeLessThanOrEqual(200 + CLOSED_FAN_CORE_CARDS * flatCardWidth(1) + 0.5);
+    expect(box(dilemmaHand).right).toBeCloseTo(700, 0);
+    expect(box(dilemmaHand).left).toBeGreaterThanOrEqual(700 - CLOSED_FAN_CORE_CARDS * flatCardWidth(1) - 0.5);
+    // Neither is a focus layer: no backdrop.
+    expect(screen.queryByRole('button', { name: /^close/i })).not.toBeInTheDocument();
+    unmount();
+    anchor.remove();
   });
 
   // On a touch screen, the browser sends the rest of a touch's events to the element where the
@@ -273,8 +307,8 @@ describe('CardHand', () => {
   });
 
   it('hides the count badge while the hand is open', () => {
-    const { container } = render(<Harness instances={makeInstances(3)} initialOpen />);
-    expect(container.querySelector('[aria-label="hand, 3 cards, tap to open"]')).toHaveStyle({
+    render(<Harness instances={makeInstances(3)} initialOpen />);
+    expect(document.body.querySelector('[aria-label="hand, 3 cards, tap to open"]')).toHaveStyle({
       visibility: 'hidden',
     });
   });
@@ -575,7 +609,7 @@ describe('CardHand arc on a touch screen (#1149)', () => {
 });
 
 // #1465: on a large screen the closed hand grows by the bottom-row scale, as the piles beside it do.
-describe('CardHand closed row at a bottom-row scale', () => {
+describe('CardHand closed fan at a bottom-row scale', () => {
   it('draws its cards and its button at the scale', () => {
     render(
       <CardHand
@@ -587,9 +621,10 @@ describe('CardHand closed row at a bottom-row scale', () => {
         rowScale={1.5}
       />
     );
+    // A pile card at the scale, 84 x 120, of which `CLOSED_FAN_VISIBLE` shows above the bottom edge.
     const button = screen.getByRole('button', { name: /hand, 1 card/ });
     expect(button.style.width).toBe('84px');
-    expect(button.style.height).toBe('120px');
+    expect(button.style.height).toBe(`${Math.round(CLOSED_FAN_VISIBLE * 120)}px`);
     expect((button.querySelector('img') as HTMLImageElement).style.width).toBe('84px');
   });
 });

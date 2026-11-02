@@ -1,8 +1,8 @@
 'use client';
 
 // A reusable closed/open hand of cards (see the parent design in issue #130). Closed, it is a
-// tight row of overlapping card edges; a tap opens it as a fan, and a tap outside the fan
-// closes it again. Cards are only draggable while the hand is open — starting a drag closes
+// small face-up fan at the bottom edge of the screen, on top of the bottom row (#1489); a tap opens
+// it as the full arc, and a tap outside the arc closes it again. Cards are only draggable while the hand is open — starting a drag closes
 // the hand at once (the page listens for `DndContext`'s `onDragStart` and flips `open` to
 // false), and the page's `DragOverlay` carries the dragged card under the pointer from then on.
 //
@@ -13,30 +13,38 @@
 // Issue #604 reuses this component for the dilemma hand. Issue #638: a tap on the draw pile
 // still draws a card while a hand is open, rather than only closing the hand — see
 // `passthroughZone` below. Issue #644: the closed row is also a real `useDroppable` drop target,
-// so a card dragged from anywhere on the table can land back in the hand. Issue #691: the open
+// so a card dragged from anywhere on the table can land back in the hand. Issue #1489: the closed row
+// became the small fan, which takes no width in the bottom row and is the drop target over the box
+// of its visible cards only. Issue #691: the open
 // fan's cards carry the same select checkbox a card list panel's cards do (#677, `CardListPanel.tsx`), so
 // a drag started from a selected card picks up the rest of the hand's own selection too — see
 // `DraggableFanCard` below.
 
 import React from 'react';
-import { LAYER_HAND_BACKDROP, LAYER_HAND_FAN } from '../../../lib/layers';
+import { LAYER_CLOSED_HAND, LAYER_HAND_BACKDROP, LAYER_HAND_FAN } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { createPortal } from 'react-dom';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
-import { offsetFor } from './overlapOffset';
 import OverlapRow from './OverlapRow';
 import { fullCardHeight, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
 import CountBadge from './CountBadge';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
-import { HAND_ARC_ATTRIBUTE, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
+import { HAND_ARC_ATTRIBUTE, NO_CALLOUT_STYLE, PREVIEW_CARD_ID_ATTRIBUTE, useCardHold } from './useCardHold';
 import { cardBorderStyle } from './TableCard';
-import { pileCardSize } from './flatRowWidths';
+import { flatCardWidth, pileCardSize } from './flatRowWidths';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
-import { ARC_TOUCH_OPTIONS, arcTouchMinVisible, handArcLayout } from './handArc';
+import {
+  ARC_TOUCH_OPTIONS,
+  CLOSED_FAN_CORE_CARDS,
+  CLOSED_FAN_VISIBLE,
+  arcTouchMinVisible,
+  arcVisibleBox,
+  handArcLayout,
+} from './handArc';
 import { SAFE_INSET_CSS, safeAreaMargins } from './useSafeAreaInsets';
 
 // The highest the controls row above the open hand may sit: `VIEWER_TOP_INSET` below the top safe-area
@@ -49,15 +57,12 @@ const SAFE_TOP_CLAMP = `calc(${VIEWER_TOP_INSET}px + ${SAFE_INSET_CSS.top})`;
 // image, and so does every card list panel since #806, so both take their height from the shared
 // `fullCardHeight`.
 
-// Both the closed row and the open fan bound their total width regardless of card count, by
-// shrinking the offset between overlapping card edges as the hand grows, rather than letting
-// the row grow without bound. The closed row keeps the bottom row (discard, draw pile, hand,
-// core, brig, dilemma pile) inside a 568 x 320 viewport. The open fan measures its own width
-// (`OverlapRow`), so a long hand never hangs off the screen (#802).
-const CLOSED_MAX_WIDTH = 80;
+// The open fan bounds its total width regardless of card count, by shrinking the offset between
+// overlapping card edges as the hand grows: it measures its own width (`OverlapRow`), so a long
+// hand never hangs off the screen (#802). The closed fan has a width of its own (#1489,
+// `CLOSED_FAN_CORE_CARDS`).
 // The height of the row of "→ top"/"→ bottom" buttons above the open fan (#994), with its gap.
 const HAND_CONTROLS_HEIGHT = 44;
-const CLOSED_MAX_OFFSET = 10;
 // The fan may leave a small gap between two cards, at the ratio #642 set (60 px for a 56 px card).
 // The arc caps the step itself, so its neighbours always touch (#1153).
 const openMaxOffset = (width: number) => Math.round((width * 60) / 56);
@@ -88,6 +93,70 @@ function useArcBounds(arcBetween: { left: string; right: string } | undefined, a
     return () => window.removeEventListener('resize', measure);
   }, [arcBetween?.left, arcBetween?.right, active]); // eslint-disable-line react-hooks/exhaustive-deps
   return bounds;
+}
+
+// Issue #1489: the gap of the closed fan, at one end of the element `anchor` names (the box of the
+// core and the brig), `maxWidth` wide at most, and the bottom edge of the screen. It measures on
+// mount, on every resize of the screen or of the anchor, and whenever `deps` change. Without the
+// anchor (a test that renders the hand alone) the gap is measured from that end of the screen. jsdom
+// has no layout, so an anchor of no width gives the whole `maxWidth`.
+function useClosedFanBounds(
+  anchor: string | undefined,
+  side: 'left' | 'right',
+  maxWidth: number,
+  deps: unknown[],
+): ArcBounds | null {
+  const [bounds, setBounds] = React.useState<ArcBounds | null>(null);
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      const el = anchor ? document.querySelector(anchor) : null;
+      const rect = el?.getBoundingClientRect();
+      const from = rect ? (side === 'left' ? rect.left : rect.right) : side === 'left' ? 0 : window.innerWidth;
+      const width = rect && rect.width > 0 ? Math.min(maxWidth, rect.width) : maxWidth;
+      const next = {
+        left: side === 'left' ? from : from - width,
+        right: side === 'left' ? from + width : from,
+        bottom: window.innerHeight,
+      };
+      setBounds((prev) =>
+        prev && prev.left === next.left && prev.right === next.right && prev.bottom === next.bottom ? prev : next,
+      );
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const el = anchor ? document.querySelector(anchor) : null;
+    const observer = el && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (el && observer) {
+      observer.observe(el);
+      if (el.parentElement) observer.observe(el.parentElement);
+    }
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer?.disconnect();
+    };
+  }, [anchor, side, maxWidth, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
+  return bounds;
+}
+
+// Issue #1489: one face-up card of the closed fan. It carries no `data-card-id` and is not
+// draggable: a card of the closed hand is picked up from the open arc, as before. A tap goes on to
+// the closed hand, which opens; a hold previews the card, and its click is swallowed, so the hold
+// does not also open the hand. `PREVIEW_CARD_ID_ATTRIBUTE` tells the page which card a hover shows.
+function ClosedFanCard({ instance, width }: { instance: CardInstance; width: number }) {
+  const holdListeners = useCardHold(instance.id);
+  return (
+    <div {...holdListeners} {...{ [PREVIEW_CARD_ID_ATTRIBUTE]: instance.id }} style={NO_CALLOUT_STYLE}>
+      <img
+        draggable={false}
+        src={`/cardimages/${instance.card.imagefile}.jpg`}
+        width={120}
+        height={167}
+        alt=""
+        className="rounded-lg shadow-md h-auto"
+        style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width), width }}
+      />
+    </div>
+  );
 }
 
 // Issue #691: carries the same select checkbox `CardListPanelCard` (`CardListPanel.tsx`) already has, as
@@ -175,6 +244,8 @@ export default function CardHand({
   finePointer = true,
   safeAreaBottom = 0,
   rowScale = 1,
+  closedFanAnchor,
+  closedFanSide = 'left',
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -232,20 +303,19 @@ export default function CardHand({
   // The bottom safe-area inset (`useSafeAreaInsets`, #1383), the home indicator's. It raises the
   // touch arc's floor; the arc's `bottom` stays the bottom of the screen. Defaults to 0.
   safeAreaBottom?: number;
-  // The bottom-row scale (`computeBottomRowScale`, #1465): the closed row's cards, its width and its
-  // overlap grow by it. Defaults to 1.
+  // The bottom-row scale (`computeBottomRowScale`, #1465): the closed fan's cards and its width grow
+  // by it. Defaults to 1.
   rowScale?: number;
+  // Issue #1489: the element the closed fan sits on (the box of the core and the brig), and the end
+  // of it the fan takes: the hand the left end, the dilemma hand the right end. Left out, the fan
+  // sits at that end of the screen.
+  closedFanAnchor?: string;
+  closedFanSide?: 'left' | 'right';
 }) {
-  // The closed row is a pile card (`pileCardSize`) at the bottom-row scale.
+  // The closed fan's cards are pile cards (`pileCardSize`) at the bottom-row scale, and the fan
+  // spans at most `CLOSED_FAN_CORE_CARDS` cards of the core (#1489).
   const { width: closedCardWidth, height: closedCardHeight } = pileCardSize(rowScale);
-  const closedOffset = offsetFor(
-    instances.length,
-    closedCardWidth,
-    Math.round(CLOSED_MAX_WIDTH * rowScale),
-    Math.round(CLOSED_MAX_OFFSET * rowScale),
-  );
-  const closedWidth =
-    instances.length === 0 ? closedCardWidth : closedCardWidth + closedOffset * (instances.length - 1);
+  const closedFanWidth = CLOSED_FAN_CORE_CARDS * flatCardWidth(rowScale);
   const openCardHeight = fullCardHeight(openCardWidth);
   const count = instances.length;
   const showFan = open || dragging;
@@ -264,6 +334,22 @@ export default function CardHand({
   const boxSelect = useBoxSelect(fanRef, selectedIds, onSelectIds);
   const hasSelection = instances.some((instance) => selectedIds.includes(instance.id));
   const arcBounds = useArcBounds(arcBetween, showFan);
+  const closedBounds = useClosedFanBounds(closedFanAnchor, closedFanSide, closedFanWidth, [count, rowScale, open]);
+  // An empty hand lays out one card, the place of the "Empty" marker during a drag.
+  const closedFan = closedBounds
+    ? handArcLayout({
+        count: Math.max(1, count),
+        cardWidth: closedCardWidth,
+        maxStep: openMaxOffset(closedCardWidth),
+        ...closedBounds,
+        ...(finePointer ? {} : { sag: ARC_TOUCH_OPTIONS.sag, maxAngle: ARC_TOUCH_OPTIONS.maxAngle }),
+        minVisible: Math.max(
+          Math.round(CLOSED_FAN_VISIBLE * closedCardHeight),
+          finePointer ? 0 : arcTouchMinVisible(safeAreaBottom),
+        ),
+      })
+    : null;
+  const closedBox = closedFan && closedBounds ? arcVisibleBox(closedFan, closedBounds.bottom) : null;
   // Escape closes the open hand (#1467), and does nothing during a drag.
   useEscapeLayer(() => {
     if (!dragging) onClose();
@@ -329,50 +415,80 @@ export default function CardHand({
 
   return (
     <>
-      {/* Closed row. Stays in the layout (as a hidden, inert placeholder) while open, so the
-          bottom row keeps its width and nothing else shifts. Every card shows as a face-down
-          back (issue #639): one visible card face in the closed row would give the player an
-          advantage the closed hand should not. The open fan below still shows the card faces. */}
-      <button
-        ref={setNodeRef}
-        type="button"
-        data-zone={open ? undefined : zone}
-        data-highlight={open ? undefined : highlight}
-        data-landed={landedNonce !== null || undefined}
-        onClick={onOpen}
-        disabled={open || count === 0}
-        aria-label={`${label}, ${count} card${count === 1 ? '' : 's'}, tap to open`}
-        className={`relative focus:outline-hidden disabled:cursor-default ${open ? '' : highlightClassName(highlight)}`}
-        style={{ width: closedWidth, height: closedCardHeight, visibility: open ? 'hidden' : 'visible' }}
-      >
-        {count === 0 ? (
-          // The empty marker shows only while a drag runs (#929), when it tells the player where
-          // the card can go. The button keeps its size either way, so nothing moves in the bottom
-          // row as the marker appears and disappears.
-          dragging && (
-            <div
-              className="rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs"
-              style={{ width: closedCardWidth, height: closedCardHeight }}
-            >
-              Empty
-            </div>
-          )
-        ) : (
-          instances.map((instance, idx) => (
-            <img
-              key={instance.id}
-              src="/cardimages/cardback.jpg"
-              width={120}
-              height={167}
-              alt=""
-              className="absolute top-0 rounded-lg shadow-md h-auto"
-              style={{ ...cardBorderStyle(closedCardWidth), width: closedCardWidth, left: idx * closedOffset, zIndex: idx + 1 }}
-            />
-          ))
+      {/* Closed fan (#1489): face up, a small arc at the bottom edge of the screen, on top of the
+          bottom row and taking no width in it. It goes in the game layer, as the open fan does, and
+          sits in its own layer, `LAYER_CLOSED_HAND`: above the zones of the bottom row, below the
+          backdrop of an open hand. It is no focus layer: no backdrop, and Escape leaves it alone.
+          The button is the drop target of #644 over the box of the visible cards only, so a drop
+          beside the fan reaches the core or the brig under it. It hides while its own hand is
+          open, as the closed row did. */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <button
+            ref={setNodeRef}
+            type="button"
+            data-zone={open ? undefined : zone}
+            data-testid={`${zone}-closed-fan`}
+            data-highlight={open ? undefined : highlight}
+            data-landed={landedNonce !== null || undefined}
+            onClick={onOpen}
+            disabled={open || count === 0}
+            aria-label={`${label}, ${count} card${count === 1 ? '' : 's'}, tap to open`}
+            className={`fixed ${LAYER_CLOSED_HAND} focus:outline-hidden disabled:cursor-default rounded-t-lg ${open ? '' : highlightClassName(highlight)}`}
+            style={{
+              left: closedBox?.left ?? 0,
+              top: closedBox?.top ?? 0,
+              width: closedBox ? closedBox.right - closedBox.left : closedCardWidth,
+              height: closedBox?.height ?? closedCardHeight,
+              visibility: open ? 'hidden' : 'visible',
+              // An empty hand draws nothing until a drag shows its marker, and takes no tap meant for
+              // the core under it.
+              pointerEvents: count === 0 ? 'none' : undefined,
+            }}
+          >
+            {closedFan && closedBox && (
+              <div className="absolute inset-0 overflow-hidden rounded-t-lg">
+                {count === 0
+                  ? // The empty marker shows only while a drag runs (#929), when it tells the player
+                    // where the card can go.
+                    dragging && (
+                      <div
+                        className="absolute rounded-lg border-2 border-dashed border-white/20 flex items-start justify-center pt-2 text-text-muted text-xs bg-black/30"
+                        style={{
+                          left: closedFan.cards[0].centerX - closedFan.cardWidth / 2 - closedBox.left,
+                          top: closedFan.cards[0].centerY - closedFan.cardHeight / 2 - closedBox.top,
+                          width: closedFan.cardWidth,
+                          height: closedFan.cardHeight,
+                        }}
+                      >
+                        Empty
+                      </div>
+                    )
+                  : instances.map((instance, idx) => {
+                      const placed = closedFan.cards[idx];
+                      return (
+                        <div
+                          key={instance.id}
+                          className="absolute"
+                          style={{
+                            left: placed.centerX - closedFan.cardWidth / 2 - closedBox.left,
+                            top: placed.centerY - closedFan.cardHeight / 2 - closedBox.top,
+                            width: closedFan.cardWidth,
+                            transform: `rotate(${placed.angle}deg)`,
+                            zIndex: idx + 1,
+                          }}
+                        >
+                          <ClosedFanCard instance={instance} width={closedFan.cardWidth} />
+                        </div>
+                      );
+                    })}
+              </div>
+            )}
+            {count > 0 && <CountBadge count={count} landedNonce={landedNonce} />}
+            <LandedRing nonce={landedNonce} />
+          </button>,
+          portalContainer ?? document.body,
         )}
-        {count > 0 && <CountBadge count={count} landedNonce={landedNonce} />}
-        <LandedRing nonce={landedNonce} />
-      </button>
 
       {/* Open fan. It goes in a portal (the page's game layer, or else document.body): the
           bottom row has a CSS transform, which would make `fixed` relative to the row and trap

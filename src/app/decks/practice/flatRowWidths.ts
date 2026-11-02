@@ -3,7 +3,8 @@ import { TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH } from './TableCard';
 
 // Issue #1029: the core and the brig grow to make room for each new card, up to the free space the
 // bottom row has, measured at runtime. Past that space their cards overlap more (`offsetFor`). The
-// two zones sit in one flexible box between the hand and the dilemma pile, and that box's width is
+// two zones sit in one flexible box between the draw deck and the dilemma pile (the closed hands, small
+// fans on top of it since #1489, take none of it), and that box's width is
 // the space they share. Their dashed outlines always fill that box between them (#1425).
 
 // The size of the card of the draw deck, the dilemma pile, the discard pile and the closed hand at

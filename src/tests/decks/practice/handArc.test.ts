@@ -6,7 +6,10 @@ import {
   ARC_TOUCH_MIN_VISIBLE,
   ARC_TOUCH_OPTIONS,
   ArcLayout,
+  CLOSED_FAN_CORE_CARDS,
+  CLOSED_FAN_VISIBLE,
   arcTouchMinVisible,
+  arcVisibleBox,
   handArcLayout,
 } from '../../../app/decks/practice/handArc';
 
@@ -268,5 +271,28 @@ describe('arcTouchMinVisible (#1383)', () => {
       minVisible: floor,
     });
     for (const clearance of topClearances(layout, 375)) expect(clearance).toBeGreaterThanOrEqual(floor - 0.01);
+  });
+});
+
+// #1489: the closed hand, a small fan of pile cards over at most two core cards.
+describe('the closed fan', () => {
+  const open = handArcLayout({ count: 7, cardWidth: 126, maxStep: 135, left: 150, right: 560, bottom: 375 });
+  const closedOptions = { count: 7, cardWidth: 56, maxStep: 60, left: 220, right: 220 + CLOSED_FAN_CORE_CARDS * 90, bottom: 375 };
+
+  it('is narrower and lower than the open arc of the same hand', () => {
+    const closed = handArcLayout({ ...closedOptions, minVisible: Math.round(CLOSED_FAN_VISIBLE * 80) });
+    const closedBox = arcVisibleBox(closed, 375);
+    const openBox = arcVisibleBox(open, 375);
+    expect(closedBox.right - closedBox.left).toBeLessThan(openBox.right - openBox.left);
+    expect(closedBox.right - closedBox.left).toBeLessThanOrEqual(CLOSED_FAN_CORE_CARDS * 90 + 0.01);
+    expect(closed.visibleHeight).toBeLessThan(open.visibleHeight);
+    expect(closedBox.top).toBeCloseTo(375 - closed.visibleHeight);
+  });
+
+  // At a bottom inset of 34 the floor, 78 px, is a whole pile card, so the card shows whole instead.
+  it('keeps every card above the touch floor on a touch screen', () => {
+    const floor = arcTouchMinVisible(0);
+    const closed = handArcLayout({ ...closedOptions, sag: ARC_TOUCH_OPTIONS.sag, maxAngle: ARC_TOUCH_OPTIONS.maxAngle, minVisible: floor });
+    for (const clearance of topClearances(closed, 375)) expect(clearance).toBeGreaterThanOrEqual(floor - 0.01);
   });
 });

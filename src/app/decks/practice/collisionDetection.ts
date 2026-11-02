@@ -29,15 +29,24 @@ import { VIEW_FULL_TABLE_HOLD_ID } from './viewFullTableHold';
 // dragged card whose rect only grazes the strip, with the pointer in a gap below it, would start the
 // switch to the full table. The hold is reached only with the pointer inside the strip.
 //
+// Stage 1 puts a closed hand first (#1489): its small fan draws on top of the core and the brig, so
+// a pointer on the fan is inside both, and the fan is the element the player sees under it. The fan
+// is a drop target over the box of its visible cards only, so beside it the core or the brig wins.
+//
 // A separate module, not defined inline in `page.tsx`: Next.js only allows a page module to
 // export the page's own default component and a small fixed set of named exports (`metadata`,
 // `generateStaticParams`, and the like), so a plain named export here fails the production build
 // even though it passes every Jest test (`yarn build`'s page-shape check runs only there).
+const CLOSED_HAND_IDS = new Set<Collision['id']>(['hand', 'dilemmaHand']);
+
 const overlapRatio = (collision: Collision): number => (collision.data as { value?: number } | undefined)?.value ?? 0;
 
 export const collisionDetection: CollisionDetection = (args) => {
   const withinPointer = pointerWithin(args);
-  if (withinPointer.length > 0) return withinPointer;
+  if (withinPointer.length > 0) {
+    const hands = withinPointer.filter((collision) => CLOSED_HAND_IDS.has(collision.id));
+    return hands.length > 0 ? [...hands, ...withinPointer.filter((collision) => !CLOSED_HAND_IDS.has(collision.id))] : withinPointer;
+  }
   const intersections = rectIntersection(args).filter((collision) => collision.id !== VIEW_FULL_TABLE_HOLD_ID);
   if (intersections.length <= 1) return intersections;
   const areaOf = (id: Collision['id']): number => {

@@ -109,7 +109,15 @@ import {
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
 import { GameAction, gameReducer, initialGameState, logEntryText, withShuffleOrders } from './gameLog';
-import { CardHoldProvider, NO_CALLOUT_STYLE, PLACE_ON_HOLD_MS, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
+import {
+  CardHoldProvider,
+  NO_CALLOUT_STYLE,
+  PLACE_ON_HOLD_MS,
+  PreviewSide,
+  previewCardSelector,
+  swallowClickOf,
+  useCardHold,
+} from './useCardHold';
 import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHoldContext';
 import { flatRowMaxOffset, flatRowWidths, pileCardSize, useElementHeight, useElementWidth } from './flatRowWidths';
 import { useTableSensors } from './panelScrollSensor';
@@ -132,7 +140,7 @@ import {
   useTableScale,
   turnScoreColumnCompact,
 } from './tableScale';
-import { PANEL_BOTTOM_ROW_GAP, usePanelBottomInset } from './panelBottomInset';
+import { usePanelBottomInset } from './panelBottomInset';
 import { useToolbarScrollRoom } from './toolbarScrollRoom';
 import { viewerCardSize } from './viewerCardSize';
 import { useFinePointer } from './useFinePointer';
@@ -1694,6 +1702,11 @@ const practiceGameKey = (fixture: string | null) => (fixture ? `${PRACTICE_GAME_
 // Issue #1125: the open hand draws as an arc between the draw deck and the dilemma pile. The
 // open dilemma hand draws as the same arc, in the same gap (#1150).
 const HAND_ARC_BETWEEN = { left: '[data-testid="draw-pile"]', right: '[data-testid="dilemma-pile-group"]' };
+// Issue #1489: each closed hand is a small fan on the box of the core and the brig, the hand at its
+// left end and the dilemma hand at its right end.
+const CLOSED_FAN_ANCHOR = '[data-testid="flat-rows"]';
+// The content column's `p-4`.
+const CONTENT_PADDING = 16; // px
 
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
@@ -2987,7 +3000,7 @@ function PracticeDrawContent() {
     const point = pointerRef.current;
     if (!hoveredCardId || !point || typeof document.elementFromPoint !== 'function') return;
     const under = document.elementFromPoint(point.x, point.y);
-    if (!under?.closest(`[data-card-id="${hoveredCardId}"]`)) setHoveredCardId(null);
+    if (!under?.closest(previewCardSelector(hoveredCardId))) setHoveredCardId(null);
   });
   // A press anywhere closes the preview, and does nothing else (#784): it does not select a card,
   // open a panel, start a hold or start a drag, and its click is swallowed. The listener is on
@@ -2997,7 +3010,7 @@ function PracticeDrawContent() {
     if (!previewCardId || draggingInstance) return;
     const onPress = (event: PointerEvent) => {
       const target = event.target instanceof Element ? event.target : null;
-      if (!heldCardId && target?.closest(`[data-card-id="${hoveredCardId}"]`)) return;
+      if (!heldCardId && hoveredCardId && target?.closest(previewCardSelector(hoveredCardId))) return;
       event.stopPropagation();
       event.preventDefault();
       swallowClickOf(event);
@@ -3409,8 +3422,8 @@ function PracticeDrawContent() {
                 compact={turnScoreColumnCompact({
                   systemControls: fullscreen.isFullscreen && fullscreen.systemControlsInset,
                   top: turnScoreTop + safeArea.top,
-                  roomBottom:
-                    gameLayerHeight > 0 ? gameLayerHeight - (panelBottom - PANEL_BOTTOM_ROW_GAP) : 0,
+                  // The column reaches the bottom edge, since the closed hand left the bottom row (#1489).
+                  roomBottom: gameLayerHeight > 0 ? gameLayerHeight - safeArea.bottom - CONTENT_PADDING : 0,
                 })}
                 top={turnScoreTop}
                 touch={!finePointer}
@@ -3419,12 +3432,19 @@ function PracticeDrawContent() {
               )}
 
               {/* Bottom row, anchored to the bottom. From left to right: discard pile, draw pile,
-                  closed hand, core, brig. The dilemma pile is the rightmost zone, at the right
-                  edge. The push-below-the-viewport offset (#130, #636) is gone entirely now
-                  (#682): every zone here fits the table's own height, so `items-end` alone
-                  aligns every zone's bottom edge to this row's own bottom edge, the same edge
-                  core and the brig already used. */}
-              <div ref={setBottomRow} className="mt-auto flex flex-row items-end gap-2">
+                  core, brig. The dilemma pile is the rightmost zone, at the right edge. The row
+                  starts right of the left column (`TOUCH_CONTROLS_COLUMN`), as the mission row does,
+                  so the column runs down to the bottom edge, and the closed hands are small fans on
+                  top of the core and the brig that take no width here (#1489). The
+                  push-below-the-viewport offset (#130, #636) is gone entirely now (#682): every
+                  zone here fits the table's own height, so `items-end` alone aligns every zone's
+                  bottom edge to this row's own bottom edge, the same edge core and the brig
+                  already used. */}
+              <div
+                ref={setBottomRow}
+                className="mt-auto flex flex-row items-end gap-2"
+                style={{ paddingLeft: TOUCH_CONTROLS_COLUMN }}
+              >
                 <div className="flex flex-row items-end gap-2">
                   <div className="flex flex-col items-center gap-1">
                     <DiscardPile
@@ -3462,37 +3482,6 @@ function PracticeDrawContent() {
                     </div>
                   </div>
 
-                  <div data-testid="hand-column" className="flex flex-col items-center gap-1">
-                    {/* Hand. `selectedIds`/`onToggleSelect` let the player select more than one
-                        card here and drag them together (#691), the same as a card list panel (#677);
-                        closing the hand clears the selection. */}
-                    <CardHand
-                      instances={hand}
-                      open={openHand === 'hand'}
-                      onOpen={() => setOpenHand('hand')}
-                      onClose={() => {
-                        setOpenHand(null);
-                        setSelectedCardIds([]);
-                      }}
-                      dragging={draggingInstance !== null}
-                      portalContainer={gameLayer}
-                      passthroughZone={[
-                        DRAW_PILE_TOP_DROPPABLE_ID,
-                        DRAW_PILE_BOTTOM_DROPPABLE_ID,
-                        'attempt-draw-dilemma',
-                      ]}
-                      selectedIds={selectedCardIds}
-                      onToggleSelect={toggleCardSelection}
-                      onSelectIds={setSelectedCardIds}
-                      onSendSelected={(position) => sendHandSelectionToDeck('hand', position)}
-                      openCardWidth={viewerCardWidth}
-                      bottomInset={panelBottom}
-                      arcBetween={HAND_ARC_BETWEEN}
-                      finePointer={finePointer}
-                      safeAreaBottom={safeArea.bottom}
-                      rowScale={bottomRowScale}
-                    />
-                  </div>
                 </div>
 
                 {/* The core and the brig share the bottom row's free space (#1029), measured
@@ -3525,44 +3514,8 @@ function PracticeDrawContent() {
                 />
                 </div>
 
-                {/* The dilemma pile stays the rightmost zone, with the closed dilemma hand
-                    immediately to its left, on the inside of the row (#604). The dilemma hand
-                    shows only in the dilemma choice (#1223), and there even with no cards (#631),
-                    as a drop target for a dilemma dragged back from the stack — `CardHand`'s
-                    closed row shows an empty placeholder in that state. */}
+                {/* The dilemma pile stays the rightmost zone. */}
                 <div className="ml-auto flex flex-row items-end gap-2">
-                  {dilemmaHandShows && (
-                    <CardHand
-                      instances={dilemmaHand}
-                      open={openHand === 'dilemmaHand'}
-                      onOpen={() => setOpenHand('dilemmaHand')}
-                      onClose={() => {
-                        setOpenHand(null);
-                        setSelectedCardIds([]);
-                      }}
-                      dragging={draggingInstance !== null}
-                      portalContainer={gameLayer}
-                      zone="dilemmaHand"
-                      label="dilemma hand"
-                      openCardWidth={viewerCardWidth}
-                      bottomInset={panelBottom}
-                      passthroughZone={[
-                        DRAW_PILE_TOP_DROPPABLE_ID,
-                        DRAW_PILE_BOTTOM_DROPPABLE_ID,
-                        'attempt-draw-dilemma',
-                      ]}
-                      selectedIds={selectedCardIds}
-                      onToggleSelect={toggleCardSelection}
-                      onSelectIds={setSelectedCardIds}
-                      onSendSelected={(position) => sendHandSelectionToDeck('dilemmaHand', position)}
-                      deckLabel="dilemma pile"
-                      arcBetween={HAND_ARC_BETWEEN}
-                      finePointer={finePointer}
-                      safeAreaBottom={safeArea.bottom}
-                      rowScale={bottomRowScale}
-                    />
-                  )}
-
                   {/* Dilemma pile, with the same stacked buttons as the draw deck (#1070). The
                       Shuffle button has its own accessible name, so it is told apart from the
                       draw deck's "Shuffle" button (#785). The arc of either open hand ends at the
@@ -3586,6 +3539,84 @@ function PracticeDrawContent() {
                   </div>
                 </div>
               </div>
+
+              {/* The two hands (#1489). Each draws its closed fan and its open arc in the game layer,
+                  so neither takes a place in the bottom row. The dilemma hand shows only in the
+                  dilemma choice (#1223), and there even with no cards (#631), as a drop target for a
+                  dilemma dragged back from the stack. */}
+              {/* Hand. `selectedIds`/`onToggleSelect` let the player select more than one
+                  card here and drag them together (#691), the same as a card list panel (#677);
+                  closing the hand clears the selection. */}
+              <CardHand
+                instances={hand}
+                open={openHand === 'hand'}
+                onOpen={() => {
+                  // One open hand at a time (#1489): opening it from the other hand's arc closes that one.
+                  if (openHand === 'dilemmaHand') setSelectedCardIds([]);
+                  setOpenHand('hand');
+                }}
+                onClose={() => {
+                  setOpenHand(null);
+                  setSelectedCardIds([]);
+                }}
+                dragging={draggingInstance !== null}
+                portalContainer={gameLayer}
+                passthroughZone={[
+                  DRAW_PILE_TOP_DROPPABLE_ID,
+                  DRAW_PILE_BOTTOM_DROPPABLE_ID,
+                  'attempt-draw-dilemma',
+                  // A tap on the closed dilemma hand opens it in place of this hand (#1489).
+                  'dilemmaHand',
+                ]}
+                selectedIds={selectedCardIds}
+                onToggleSelect={toggleCardSelection}
+                onSelectIds={setSelectedCardIds}
+                onSendSelected={(position) => sendHandSelectionToDeck('hand', position)}
+                openCardWidth={viewerCardWidth}
+                bottomInset={panelBottom}
+                arcBetween={HAND_ARC_BETWEEN}
+                finePointer={finePointer}
+                safeAreaBottom={safeArea.bottom}
+                rowScale={bottomRowScale}
+                closedFanAnchor={CLOSED_FAN_ANCHOR}
+              />
+              {dilemmaHandShows && (
+                <CardHand
+                  instances={dilemmaHand}
+                  open={openHand === 'dilemmaHand'}
+                  onOpen={() => {
+                    if (openHand === 'hand') setSelectedCardIds([]);
+                    setOpenHand('dilemmaHand');
+                  }}
+                  onClose={() => {
+                    setOpenHand(null);
+                    setSelectedCardIds([]);
+                  }}
+                  dragging={draggingInstance !== null}
+                  portalContainer={gameLayer}
+                  zone="dilemmaHand"
+                  label="dilemma hand"
+                  openCardWidth={viewerCardWidth}
+                  bottomInset={panelBottom}
+                  passthroughZone={[
+                    DRAW_PILE_TOP_DROPPABLE_ID,
+                    DRAW_PILE_BOTTOM_DROPPABLE_ID,
+                    'attempt-draw-dilemma',
+                    'hand',
+                  ]}
+                  selectedIds={selectedCardIds}
+                  onToggleSelect={toggleCardSelection}
+                  onSelectIds={setSelectedCardIds}
+                  onSendSelected={(position) => sendHandSelectionToDeck('dilemmaHand', position)}
+                  deckLabel="dilemma pile"
+                  arcBetween={HAND_ARC_BETWEEN}
+                  finePointer={finePointer}
+                  safeAreaBottom={safeArea.bottom}
+                  rowScale={bottomRowScale}
+                  closedFanAnchor={CLOSED_FAN_ANCHOR}
+                  closedFanSide="right"
+                />
+              )}
 
               {/* The large card preview, shown only while a card is held (`useCardHold`). It is
                   read-only and takes no pointer events. `hidden` hides it during a drag. A hover preview

@@ -31,7 +31,8 @@
 # mission's name, and a crew badge with no data-zone ancestor by the ship's name.
 #
 # A mission pile, a closed hand, a closed dilemma hand, and a ship's crew all
-# keep their cards out of the DOM (a badge with a count stands in for the cards), so for those the
+# keep their cards out of the DOM as data-card-ids (the small fan of a closed hand
+# shows its faces, but they carry no data-card-id, #1489) (a badge with a count stands in for the cards), so for those the
 # script cannot find the card by id afterward. Instead it reads the
 # `aria-label` of every badge on the table, before and after the drag, and
 # reports whichever one gained a card. If none did (or more than one did), it
@@ -79,7 +80,7 @@
 # needs 8 px of movement before a drag starts, so one large move alone does
 # nothing.
 #
-# A card in a closed hand or a closed dilemma hand is not in the DOM. The script
+# A card in a closed hand or a closed dilemma hand has no data-card-id. The script
 # opens the hand that holds it first (#1027), and closes it again after the
 # drop, so the table is left as the script found it. It does not open a card
 # list panel, a mission pile, or a ship's crew; open those yourself.
@@ -159,7 +160,7 @@ fi
 # A bare `const` fails the second time with "Identifier has already been declared".
 present() { ev "(()=>document.querySelector('[data-card-id=\"$CARD\"]')?'YES':'NO')()"; }
 
-# A closed hand keeps its cards out of the DOM (#1027). The closed button of a
+# A closed hand keeps its cards' ids out of the DOM (#1027). The closed fan of a
 # hand carries the hand's data-zone, `hand` or `dilemmaHand`, only while the
 # hand is closed, and it is disabled when the hand is empty. Open each closed
 # hand that holds cards, with a DOM click ("A click that does not click" in
@@ -252,12 +253,14 @@ before=$(snapshot)
 # on a drop target nested inside it (#1044), such as a card of the core, `on-<id>`.
 # The release comes about 50 ms after the last move (#1043), well inside
 # `PLACE_ON_HOLD_MS`, but a drop that lands on the zone itself does not depend
-# on that timing at all. With no such point, any point of the rect
-# serves, as before. The drag overlay sits under the pointer, so the test skips
+# on that timing at all. With no such point, a point where the target or a drop
+# target nested in it is on top serves, so a point under a closed hand's small
+# fan, which sits on top of the core and the brig (#1489), is the last resort;
+# and with none of those, any point of the rect serves, as before. The drag overlay sits under the pointer, so the test skips
 # every element outside a data-zone. The test checks 4 px around the point too:
 # dnd-kit counts the edge of a rect as inside it, and the nested target can
 # shift a pixel or two when the zone grows at the drag's start.
-TARGET_JS="(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]')||document.querySelector('[data-testid=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const px=$ax,py=$ay;const dead=(x,y)=>Math.hypot(x-px,y-py)<24;const zoneAt=(x,y)=>document.elementsFromPoint(x,y).map((el)=>el.closest('[data-zone]')).find(Boolean);const own=(x,y)=>!e.hasAttribute('data-zone')||[[0,0],[-4,-4],[4,-4],[-4,4],[4,4]].every(([dx,dy])=>zoneAt(x+dx,y+dy)===e);let best=null,bd=Infinity,bestOwn=null,bdOwn=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}if(d<bdOwn&&own(x,y)){bdOwn=d;bestOwn=x+' '+y}}}return bestOwn||best||'DEAD'})()"
+TARGET_JS="(()=>{const e=document.querySelector('[data-zone=\"$ZONE\"]')||document.querySelector('[data-testid=\"$ZONE\"]');if(!e)return 'MISSING';const r=e.getBoundingClientRect();const cx=r.x+r.width/2,cy=r.y+r.height/2;const px=$ax,py=$ay;const dead=(x,y)=>Math.hypot(x-px,y-py)<24;const zoneAt=(x,y)=>document.elementsFromPoint(x,y).map((el)=>el.closest('[data-zone]')).find(Boolean);const own=(x,y)=>!e.hasAttribute('data-zone')||[[0,0],[-4,-4],[4,-4],[-4,4],[4,4]].every(([dx,dy])=>zoneAt(x+dx,y+dy)===e);const inside=(x,y)=>{const z=zoneAt(x,y);return !!z&&(z===e||e.contains(z))};let best=null,bd=Infinity,bestOwn=null,bdOwn=Infinity,bestIn=null,bdIn=Infinity;for(let fx=0.1;fx<=0.91;fx+=0.05){for(let fy=0.1;fy<=0.91;fy+=0.05){const x=Math.round(r.x+r.width*fx),y=Math.round(r.y+r.height*fy);if(dead(x,y))continue;const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=x+' '+y}if(d<bdOwn&&own(x,y)){bdOwn=d;bestOwn=x+' '+y}if(d<bdIn&&inside(x,y)){bdIn=d;bestIn=x+' '+y}}}return bestOwn||bestIn||best||'DEAD'})()"
 
 # Both modes go through `cdp_input.sh`, which sends the press, the moves and the
 # release on one connection. The helper presses, makes the first small move,

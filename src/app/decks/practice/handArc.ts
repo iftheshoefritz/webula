@@ -179,3 +179,30 @@ export function handArcLayout({
     visibleHeight: fullHeight - drop,
   };
 }
+
+// Issue #1489: the closed hand, a small face-up fan at the bottom edge of the screen, on top of the
+// bottom row. It is the arc above with smaller cards, a pile card of the bottom row
+// (`pileCardSize`), sitting lower, and it spans at most `CLOSED_FAN_CORE_CARDS` cards of the core
+// (`flatCardWidth`) however many cards the hand holds: the hand's at the left end of the core and
+// brig box, the dilemma hand's at its right end. Its cards overlap more to fit that width.
+export const CLOSED_FAN_CORE_CARDS = 2;
+// How much of each card of the small fan shows above the bottom edge, as a part of the card's
+// height, at its lowest top corner. The open arc shows about half of a card three times as large, so
+// the small fan is lower. On a touch screen it never shows less than the touch floor,
+// `arcTouchMinVisible`, so a card is still a touch target clear of the iOS edge gesture.
+export const CLOSED_FAN_VISIBLE = 0.6;
+
+// The box around the visible part of an arc: from the left edge of its first card to the right edge
+// of its last, and from its highest point down to `bottom`. The closed hand is a drop target over this
+// box only (#1489), so a drop beside the fan reaches the core or the brig under it.
+export function arcVisibleBox(layout: ArcLayout, bottom: number): { left: number; right: number; top: number; height: number } {
+  if (layout.cards.length === 0) return { left: 0, right: 0, top: bottom, height: 0 };
+  const first = layout.cards[0];
+  const last = layout.cards[layout.cards.length - 1];
+  return {
+    left: first.centerX - halfExtent(layout.cardWidth, layout.cardHeight, first.angle),
+    right: last.centerX + halfExtent(layout.cardWidth, layout.cardHeight, last.angle),
+    top: bottom - layout.visibleHeight,
+    height: Math.max(0, layout.visibleHeight),
+  };
+}
