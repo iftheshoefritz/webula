@@ -160,9 +160,12 @@ export const DESKTOP_RESERVED_SHIP_ROWS = 2;
 // slot width that fits, `desktopMissionSlotBudget`, down to the card width (`missionSlotWidth`,
 // `MissionRow.tsx`), and the turned card shrinks to fit it.
 // The row has a gap between each two of the five slots, and none after the last. `insetSides` is
-// the left and the right safe-area insets together (#1384).
-export function desktopMissionSlotBudget(gameLayerWidth: number, insetSides = 0): number {
-  const availableWidth = gameLayerWidth - insetSides - CONTENT_PADDING - MISSION_ROW_GAP * (MISSION_SLOTS - 1);
+// the left and the right safe-area insets together (#1384). `sideReserve` is the width the row keeps
+// free past the content padding: `DESKTOP_FULL_TABLE_RESERVE` on the full table, where the turn and
+// score column sits left of the row (#1451), and 0 in the attempt layout, which has no column.
+export function desktopMissionSlotBudget(gameLayerWidth: number, insetSides = 0, sideReserve = 0): number {
+  const availableWidth =
+    gameLayerWidth - insetSides - CONTENT_PADDING - sideReserve - MISSION_ROW_GAP * (MISSION_SLOTS - 1);
   return availableWidth / MISSION_SLOTS;
 }
 
@@ -171,8 +174,10 @@ export function computeDesktopTableScale(
   availableHeight: number,
   columnHeight: (scale: number) => number,
   insetSides = 0,
+  sideReserve = 0,
 ): number {
-  const widthScale = desktopMissionSlotBudget(gameLayerWidth, insetSides) / fullCardHeight(TABLE_CARD_WIDTH);
+  const widthScale =
+    desktopMissionSlotBudget(gameLayerWidth, insetSides, sideReserve) / fullCardHeight(TABLE_CARD_WIDTH);
   return fitColumnScale(widthScale, availableHeight, columnHeight);
 }
 
@@ -192,8 +197,10 @@ export const MENU_BUTTON_GUTTER = 20; // px, each side
 // mission row, below the corner buttons. The row reserves this much past the content padding on its
 // left, in place of `MENU_BUTTON_GUTTER`, and keeps the gutter on its right, so it is offset right of
 // centre. At the minimum screen the width bound is then still a 105 px mission, the size the
-// height-bound row drew at before the counters left the bottom row.
+// height-bound row drew at before the counters left the bottom row. A desktop shows the same column
+// on its full table and keeps the same two reserves (#1451), `DESKTOP_FULL_TABLE_RESERVE`.
 export const TOUCH_CONTROLS_COLUMN = 56; // px
+export const DESKTOP_FULL_TABLE_RESERVE = TOUCH_CONTROLS_COLUMN + MENU_BUTTON_GUTTER; // px
 
 // `leftReserve` is the space kept left of the row past the content padding: `MENU_BUTTON_GUTTER`, or
 // `TOUCH_CONTROLS_COLUMN` on the full touch table. `insetSides` is the left and the right safe-area
@@ -271,7 +278,13 @@ export function useMissionScale(
         missionRows.getBoundingClientRect().top;
       setMeasured({
         value: desktop
-          ? computeDesktopTableScale(gameLayer.clientWidth, availableHeight, desktopColumnHeight, insetSides)
+          ? computeDesktopTableScale(
+              gameLayer.clientWidth,
+              availableHeight,
+              desktopColumnHeight,
+              insetSides,
+              DESKTOP_FULL_TABLE_RESERVE,
+            )
           : computeTouchMissionScale(
               gameLayer.clientWidth,
               availableHeight,
