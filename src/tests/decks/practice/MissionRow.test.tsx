@@ -18,6 +18,7 @@ import { COMPLETED_IMAGE_CLASSNAME } from '../../../app/decks/practice/TableCard
 import CountBadge from '../../../app/decks/practice/CountBadge';
 import { CardHoldProvider, DOUBLE_TAP_MS, HOLD_DELAY_MS } from '../../../app/decks/practice/useCardHold';
 import { CardInstance, MissionSlot } from '../../../app/decks/practice/tableReducer';
+import { CARD_BACK_URL } from '../../../app/decks/practice/offlineCache';
 import { LandedZoneProvider } from '../../../app/decks/practice/LandedZoneContext';
 import eventIcon from '../../../../public/icons/icon_event.gif';
 import dualIcon from '../../../../public/icons/icon_dual.gif';
@@ -95,10 +96,10 @@ describe('MissionRow', () => {
 
     const badge = screen.getByTestId('mission-pile-awayTeam-0');
     expect(badge.getAttribute('aria-label')).toMatch(/^Away team/);
-    expect(badge.querySelector('svg[data-icon="card-back"]')).not.toBeNull();
+    expect(badge.querySelector('img[data-icon="card-back"]')?.getAttribute('src')).toBe(CARD_BACK_URL);
     expect(badge).toHaveTextContent('2');
     const crew = screen.getByLabelText('Enterprise crew, 2 cards');
-    expect(crew.querySelector('svg[data-icon="card-back"]')).not.toBeNull();
+    expect(crew.querySelector('img[data-icon="card-back"]')?.getAttribute('src')).toBe(CARD_BACK_URL);
     expect(crew).toHaveTextContent('2');
   });
 

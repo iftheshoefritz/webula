@@ -112,6 +112,7 @@ import alphaQuadrantIcon from '../../../../public/icons/quadrant_alpha_hd.png';
 import deltaQuadrantIcon from '../../../../public/icons/quadrant_delta_hd.png';
 import gammaQuadrantIcon from '../../../../public/icons/quadrant_gamma_hd.png';
 import { CANCEL_RADIUS } from './releaseCancel';
+import { CARD_BACK_URL } from './offlineCache';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
 // `BADGE_STRIP_HEIGHT_BASE`'s comment describes. The smallest supported screen is now 667x375
@@ -838,16 +839,21 @@ const BADGE_PILL_CLASS = 'gap-px rounded-full bg-black/50 px-0.5 text-text-prima
 const COLUMN_GAP = 4; // px
 
 // Small inline icons (not react-icons) so the three badges are visually distinct at this size.
-// One upright card back, with an oval cut into it as on the 2E back (#1455): an away team or a
-// crew is a pile of face-down cards, personnel and equipment alike, as on the tabletop.
+// The card back icon is the card back image itself, `cardback.jpg`, at icon size (#1490): an away
+// team or a crew is a pile of face-down cards, personnel and equipment alike, as on the tabletop
+// (#1455). It is 10 px tall, a little taller than the 8 px count beside it, and keeps the card's
+// portrait ratio. The offline deck cache holds `CARD_BACK_URL`, so it shows offline too.
 function CardBackIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-2 h-2" aria-hidden="true" data-icon="card-back">
-      <path
-        fillRule="evenodd"
-        d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm5 5a3 5 0 1 0 0 10a3 5 0 1 0 0-10z"
-      />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element -- a fixed 10 px icon, no optimisation to gain
+    <img
+      src={CARD_BACK_URL}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      className="h-2.5 w-auto aspect-[5/7] rounded-[1px] object-cover"
+      data-icon="card-back"
+    />
   );
 }
 
