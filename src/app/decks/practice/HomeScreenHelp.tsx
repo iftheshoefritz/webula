@@ -1,5 +1,6 @@
-import React, { useEffect, useEffectEvent } from 'react';
+import React from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
+import { useEscapeLayer } from './useEscapeLayer';
 import { runsOnIos } from './useFullscreen';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
@@ -29,15 +30,7 @@ const STEPS: Record<HomeScreenPlatform, string[]> = {
 // Close button or Escape closes it, the same as the Controls panel.
 export default function HomeScreenHelp({ onClose }: { onClose: () => void }) {
   const platform = homeScreenPlatform(navigator.userAgent, navigator.maxTouchPoints);
-  const onEscape = useEffectEvent(() => onClose());
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onEscape();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  useEscapeLayer(onClose);
 
   return (
     <>

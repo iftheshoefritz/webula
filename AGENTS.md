@@ -653,6 +653,11 @@ The game log button, `data-testid="game-log-button"` with `aria-label="Game log"
 the undo button, last in the top-left column, in every view, the attempt layout too. A tap closes the
 game menu splash if it is open and opens the game log, `GameLogPanel`. The splash has no Game log item.
 
+Escape closes the top layer of the table and only that one (#1467, `useEscapeLayer.ts`): the game
+menu, a card list panel, the open hand or dilemma hand, the decklist, the game log, the Controls
+panel, the attempt popup and the Move to… list. During a drag it does nothing. A new layer that
+closes on Escape joins the same stack with `useEscapeLayer` rather than a `keydown` listener of its own.
+
 ### A mission attempt
 
 An **Attempt** button (`data-testid="attempt-button"`, #1163) shows in the away team panel of a

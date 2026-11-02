@@ -1,5 +1,6 @@
-import React, { useEffect, useEffectEvent, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
+import { useEscapeLayer } from './useEscapeLayer';
 import { drawSpend, drawSpendText } from './drawSpend';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
@@ -74,15 +75,7 @@ export function AttemptDialog({
   // null until the player edits the field: it then shows N, derived on each render.
   const [drawText, setDrawText] = useState<string | null>(null);
   const [spendText, setSpendText] = useState<string | null>(null);
-  const onEscape = useEffectEvent(() => onCancel());
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onEscape();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  useEscapeLayer(onCancel);
 
   const p = wholeNumber(personnelText);
   const s = wholeNumber(subtractText);

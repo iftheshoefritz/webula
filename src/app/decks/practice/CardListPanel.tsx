@@ -79,6 +79,7 @@
 
 import React, { RefObject, useEffect, useRef, useState } from 'react';
 import { LAYER_CARD_LIST_PANEL } from '../../../lib/layers';
+import { useEscapeLayer } from './useEscapeLayer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
@@ -703,6 +704,10 @@ export default function CardListPanel({
   // #993: a mouse drag from the empty space of the grid, or from the backdrop, draws a box that
   // selects the cards of the grid it touches (`useBoxSelect.tsx`).
   const boxSelect = useBoxSelect(gridRef, selectedIds, onSelectIds);
+  // Escape closes the panel (#1467), and does nothing during a drag, while the panel is hidden.
+  useEscapeLayer(() => {
+    if (!hidden) onClose();
+  });
   const startBoxOnGrid = (event: React.PointerEvent) => {
     if (event.target instanceof Element && event.target.closest('button')) return;
     boxSelect.onPointerDown(event);

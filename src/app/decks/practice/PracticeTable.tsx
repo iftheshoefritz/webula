@@ -23,6 +23,7 @@ import {
   useDroppable,
 } from '@dnd-kit/core';
 import { collisionDetection } from './collisionDetection';
+import { useEscapeLayer } from './useEscapeLayer';
 import { FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
 import {
   cardPileFor,
@@ -370,8 +371,6 @@ function GameMenu({
 }) {
   const [view, setView] = useState<'items' | 'settings' | 'offline'>('items');
   const cornerButton = touch ? 'btn-system w-6 h-6 text-xs' : 'btn-icon btn-icon-sm';
-  const onEscape = useEffectEvent(() => onClose());
-
   // The splash opens on the item list every time: the view goes back to the list when it closes,
   // adjusted during render on the change of `open`.
   const [prevOpen, setPrevOpen] = useState(open);
@@ -380,17 +379,11 @@ function GameMenu({
     if (!open) setView('items');
   }
 
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      if (view === 'offline') setView('settings');
-      else if (view === 'settings') setView('items');
-      else onEscape();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, view]);
+  useEscapeLayer(() => {
+    if (view === 'offline') setView('settings');
+    else if (view === 'settings') setView('items');
+    else onClose();
+  }, open);
 
   return (
     <>
