@@ -6,6 +6,7 @@
 // |----------------------------------------|-----------|------------------------|
 // | Game menu + fullscreen button, closed  | `z-50`    | `PracticeTable.tsx`    |
 // | Pile count badge                       | `z-[140]` | `CountBadge.tsx`       |
+// | Closed hand fan (#1489)                | `z-[142]` | `CardHand.tsx`         |
 // | Open hand backdrop                     | `z-[145]` | `CardHand.tsx`         |
 // | Open hand card fan                     | `z-[146]` | `CardHand.tsx`         |
 // | Card list panel                        | `z-[150]` | `CardListPanel.tsx`    |
@@ -21,6 +22,10 @@
 // The card preview stays on top of everything.
 export const LAYER_MENU_BUTTON = 'z-50';
 export const LAYER_COUNT_BADGE = 'z-[140]';
+// The closed hand is a small fan on top of the bottom row (#1489), portalled into the game layer as
+// the open fan is, since the bottom row has a transform that traps `fixed`. It sits above the bottom
+// row's badges and below the backdrop of an open hand.
+export const LAYER_CLOSED_HAND = 'z-[142]';
 export const LAYER_HAND_BACKDROP = 'z-[145]';
 export const LAYER_HAND_FAN = 'z-[146]';
 export const LAYER_CARD_LIST_PANEL = 'z-[150]';

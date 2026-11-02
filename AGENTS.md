@@ -418,8 +418,8 @@ and the game menu splash. The centred modals size themselves with `safeModalWidt
 `safeModalMaxHeight`. Headless Chromium, a desktop and Android give an inset of 0 on every side, so
 there the table draws as before.
 
-The bottom row (the discard, the draw deck, the hands, the core, the brig and the dilemma pile)
-grows on a large screen by one bottom-row scale, `computeBottomRowScale` in `tableScale.ts` (#1465):
+The bottom row (the discard, the draw deck, the core, the brig and the dilemma pile, and the closed
+hands drawn on top of it) grows on a large screen by one bottom-row scale, `computeBottomRowScale` in `tableScale.ts` (#1465):
 half the table scale, never below 1 and never above `BOTTOM_ROW_SCALE_CAP`, 1.75, a pile card of at
 most 98×140 px, and never so large that the mission column, at the scale the width of the mission row
 allows, stops fitting above the row. The size of the screen decides it, not the pointer. At the
@@ -517,6 +517,20 @@ The practice table has five fixtures. Each one deals the same table on every loa
   are Chula dilemmas. It keeps its game under `practiceGame:fixture=bot`. The game menu of a bot game
   shows "<deck> vs the bot" (`data-testid="game-menu-bot-game"`), and Reset deals a bot game again.
 
+The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of the screen
+(`data-testid="hand-closed-fan"`, #1489), drawn on top of the bottom row in its own layer,
+`LAYER_CLOSED_HAND`, and taking no width in the row. It is the arc of `handArcLayout` with pile cards
+(`pileCardSize`), showing `CLOSED_FAN_VISIBLE` (0.6) of each card's height above the edge, or the touch
+floor of `arcTouchMinVisible` where that is more, and it spans at most `CLOSED_FAN_CORE_CARDS` (2)
+cards of the core however many cards the hand holds: the hand at the left end of the core and brig
+box (`flat-rows`), the closed dilemma hand (`dilemmaHand-closed-fan`) at its right end. Its cards
+carry no `data-card-id` and do not drag: a card of the hand is picked up from the open arc. A hold on
+one previews it (`PREVIEW_CARD_ID_ATTRIBUTE`). The fan is no focus layer: no backdrop, and Escape
+leaves it alone. Its button is the drop target `hand` (or `dilemmaHand`) over the box of its visible
+cards only, and `collisionDetection` puts it before the core or the brig under it. An empty hand draws
+nothing, and its dashed "Empty" marker during a drag. With no hand slot, the bottom row starts right
+of the left column (`TOUCH_CONTROLS_COLUMN`), so the left column runs down to the bottom edge.
+
 A tap on the closed hand opens it as an arc along the bottom edge of the screen
 (`data-testid="hand-arc"`, `handArc.ts`, #1125): about half of each card is below the edge, more in
 touch mode, where the arc sits 20% of its visible height lower (`ARC_TOUCH_LOWER`, #1149). In touch
@@ -527,7 +541,8 @@ of 0 (`ARC_TOUCH_MIN_VISIBLE`), 78 at 34; a desktop arc keeps its sag and its 14
 arc stays between the draw deck and the dilemma pile, over the core and the brig. The dilemma hand
 shows only in the attempt layout in `'choose'` (#1223): the full table has no dilemma hand, and a tap on
 the dilemma pile draws nothing. A tap on the closed dilemma hand opens it as the same arc, in the same
-gap (`data-testid="dilemmaHand-arc"`, #1150). A press on a card of the arc becomes a drag only after
+gap (`data-testid="dilemmaHand-arc"`, #1150). At most one hand is open as the arc: while one is open
+the other stays a small fan, and a tap on that fan opens it and closes the first. A press on a card of the arc becomes a drag only after
 20 px (`HAND_ARC_DRAG_ACTIVATION_DISTANCE`, #1131), not 8, so a thumb that drifts near the bottom
 edge still gets the hold preview.
 
@@ -588,7 +603,7 @@ a card on top stays in the DOM as the pile's top card, and a card at the bottom 
 the script reads the `data-pile-count` of the pile's wrapper (`data-testid="draw-pile"` or
 `"dilemma-pile"`) to see it gain a card (#1025).
 
-A mission pile, a closed hand, and a closed dilemma hand all keep their cards out of the DOM (a badge with a count stands in for the cards). When the dragged card leaves the DOM, the script reads the `aria-label` of every badge on the table, before and after the drag, and prints whichever one gained a card - the mission pile, `hand`, `dilemmaHand`, `draw-pile-bottom`, or `dilemma-pile-bottom`. If none did, or more than one did, it says so instead of guessing.
+A mission pile, a closed hand, and a closed dilemma hand all keep their cards out of the DOM as `data-card-id`s (a badge with a count stands in for the cards; the small fan of a closed hand shows the faces, but they carry no `data-card-id`). When the dragged card leaves the DOM, the script reads the `aria-label` of every badge on the table, before and after the drag, and prints whichever one gained a card - the mission pile, `hand`, `dilemmaHand`, `draw-pile-bottom`, or `dilemma-pile-bottom`. If none did, or more than one did, it says so instead of guessing.
 
 The script opens a closed hand or a closed dilemma hand that holds the card, drags the card, and closes the hand again (#1027). It does not open a card list panel, a mission pile, or a ship's crew. When no point of the card is on top, the script names what covers it, for example the backdrop of an open card list panel, and prints the step that clears it.
 
@@ -604,7 +619,7 @@ Do not build the drag by hand. Three things make a hand drag fail, and each one 
 
 Each card in the core and the brig has a drop target of its own, `on-<the card's id>`. A drop there adds the dragged card to the zone, the same as a drop on the zone, so `practice_drag.sh` prints `core` or `brig`. Only a hold over the card for `PLACE_ON_HOLD_MS` (800 ms, `useCardHold.ts`) arms it, shows the `over` ring on that card, and makes the drop place the dragged card on it (#1029). `practice_drag.sh` does not hold: in both modes it sends the drag through `cdp_input.sh` on one connection and releases about 50 ms after the last move (#1043). The mouse commands of `cdp_input.sh` wait `HOVER_SETTLE_MS` (100 ms) between the first move and the press, so a hover preview that the previous call left open closes first and does not eat the press (#1256). Check a placement with the manual mouse sequence below: move onto the card, wait 800 ms or more with `npx agent-browser wait 1000`, then release. The core and the brig share the free space of the bottom row (`flatRowWidths.ts`), and their cards overlap past it.
 
-As a second guard, to aim at `core` or `brig` the script picks a point of the zone where no card is, at least 4 px from any card (#1044). The cards of the core and the brig are art crops as tall as the draw deck's card, 80 px (#1234), more on a large screen. Each zone always fills its share of the bottom row, and the two dashed outlines with the gap between them span from the hand to the dilemma pile (#1425), so a zone has free space right of its last card unless its cards fill it. A zone with no such point gets the point nearest its centre, as before: that point is on a card, and a drop on a card that no hold armed still adds the card to the zone.
+As a second guard, to aim at `core` or `brig` the script picks a point of the zone where no card is, at least 4 px from any card (#1044). The cards of the core and the brig are art crops as tall as the draw deck's card, 80 px (#1234), more on a large screen. Each zone always fills its share of the bottom row, and the two dashed outlines with the gap between them span from the draw deck to the dilemma pile (#1425). A closed hand's small fan sits over the left end of the core, and the script's point avoids it as it avoids a card (#1489), so a zone has free space right of its last card unless its cards fill it. A zone with no such point gets the point nearest its centre where the zone or one of its cards is on top, so not under a closed hand's small fan, and with none of those the point nearest its centre, as before: that point is on a card, and a drop on a card that no hold armed still adds the card to the zone.
 
 An `agent-browser` call takes about 600 ms, so a sequence of `mouse move` and `wait` calls cannot rest on a card for less than 800 ms. To time a hold, use `cdp_input.sh mouse-path` (or `touch-path`). It presses, makes the 8 px first move, glides to each waypoint `<x>,<y>,<hold-ms>` in turn, rests there for its hold, and releases at the last one, all in one call:
 

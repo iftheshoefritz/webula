@@ -144,3 +144,23 @@ describe('collisionDetection', () => {
     });
   });
 });
+
+// #1489: the closed hand is a small fan on top of the core and the brig, and a drop target over the
+// box of its visible cards only.
+describe('collisionDetection with the closed hand over the core', () => {
+  const rects = {
+    core: rect(100, 500, 300, 80),
+    'on-card-7': rect(100, 500, 90, 80),
+    hand: rect(100, 530, 180, 50),
+  };
+
+  it('puts the hand first when the pointer is on the small fan', () => {
+    const result = collisionDetection(argsFor(rect(120, 520, 56, 78), rects, { x: 150, y: 560 }));
+    expect(result[0].id).toBe('hand');
+  });
+
+  it('leaves the core first beside the small fan', () => {
+    const result = collisionDetection(argsFor(rect(300, 500, 56, 78), rects, { x: 330, y: 560 }));
+    expect(result.map((c) => c.id)).toEqual(['core']);
+  });
+});

@@ -80,6 +80,12 @@ export const HAND_ARC_DRAG_ACTIVATION_DISTANCE = 20; // px
 // `CardHand` marks the container of the hand arc with it, as `CardListPanel` marks a grid that
 // scrolls with `PANEL_SCROLLS_ATTRIBUTE`.
 export const HAND_ARC_ATTRIBUTE = 'data-hand-arc';
+// Issue #1489: a card of the closed hand's fan has no `data-card-id`, since it is no draggable card,
+// but it previews its card on a hover or a hold. It names the card in this attribute instead, so the
+// page keeps a hover open while the pointer stays on it (`previewCardSelector`).
+export const PREVIEW_CARD_ID_ATTRIBUTE = 'data-preview-card-id';
+export const previewCardSelector = (id: string): string =>
+  `[data-card-id="${id}"], [${PREVIEW_CARD_ID_ATTRIBUTE}="${id}"]`;
 
 export function isInHandArc(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(`[${HAND_ARC_ATTRIBUTE}="true"]`) !== null;

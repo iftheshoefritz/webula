@@ -137,8 +137,8 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
     const drawColumn = screen.getByTestId('draw-deck-column');
     expect(within(drawColumn).queryByTestId('turn-counter')).not.toBeInTheDocument();
     expect(within(drawColumn).getByTestId('draw-pile')).toBeInTheDocument();
-    const handColumn = screen.getByTestId('hand-column');
-    expect(within(handColumn).queryByTestId('turn-counter')).not.toBeInTheDocument();
+    // #1489: the bottom row has no hand slot; the closed hand is a small fan on top of it.
+    expect(screen.queryByTestId('hand-column')).not.toBeInTheDocument();
   });
 
   it('shows the turn number on the next-turn button, and a press adds 1 to it (#1449)', async () => {
