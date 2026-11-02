@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import SearchResults from '../../components/SearchResults';
+import SearchResults, { gridHoverImageWidth } from '../../components/SearchResults';
+import { previewMaxWidth } from '../../app/decks/practice/previewSize';
 import { CardDef, DeckList } from '../../types';
 
 // Mock react-virtuoso's VirtuosoGrid and Virtuoso to render items directly in jsdom
@@ -274,9 +275,93 @@ describe('SearchResults', () => {
         container = container.parentElement;
       }
       expect(container?.style.left).toBeTruthy();
-      // Left position = targetRect.left - imageWidth - 10 = 50 - 458 - 10 = -418
+      // Left position = targetRect.left - imageWidth - 10 = 50 - 230 - 10 = -190
       // This validates the "position to left" branch was taken
       expect(parseInt(container!.style.left)).toBeLessThan(50);
+    });
+  });
+
+  describe('hover image sized from the grid card with a fine pointer (#1459)', () => {
+    const originalMatchMedia = window.matchMedia;
+
+    beforeEach(() => {
+      Object.defineProperty(window, 'innerWidth', { value: 1280, writable: true });
+      Object.defineProperty(window, 'innerHeight', { value: 800, writable: true });
+      window.matchMedia = jest.fn().mockImplementation((query: string) => ({
+        matches: query === '(pointer: fine)',
+        media: query,
+        onchange: null,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })) as unknown as typeof window.matchMedia;
+    });
+
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia;
+    });
+
+    const mockRect = (el: HTMLElement, width: number) => {
+      const height = Math.round((width * 167) / 120);
+      Object.defineProperty(el, 'getBoundingClientRect', {
+        value: () => ({ top: 100, bottom: 100 + height, left: 50, right: 50 + width, width, height }),
+      });
+    };
+
+    it('opens a hover image clearly wider than a 144 px grid card', () => {
+      render(<SearchResults filteredData={[cardFixture()]} withHover={true} />);
+      const img = screen.getByAltText('Test Card');
+      mockRect(img, 144);
+
+      fireEvent.mouseEnter(img);
+
+      const all = screen.getAllByAltText('Test Card');
+      expect(all.length).toBe(2);
+      expect(Number(all[1].getAttribute('width'))).toBeGreaterThan(144 * 1.25);
+      expect(Number(all[1].getAttribute('width'))).toBeLessThanOrEqual(previewMaxWidth());
+    });
+
+    it('opens no hover image over an 884 px grid card, and a click on the card still adds it', () => {
+      const onCardSelected = jest.fn();
+      const onCardDeselected = jest.fn();
+      const card = cardFixture();
+      render(
+        <SearchResults
+          filteredData={[card]}
+          withHover={true}
+          onCardSelected={onCardSelected}
+          onCardDeselected={onCardDeselected}
+        />
+      );
+      const img = screen.getByAltText('Test Card');
+      mockRect(img, 884);
+
+      fireEvent.mouseEnter(img);
+      expect(screen.getAllByAltText('Test Card').length).toBe(1);
+
+      fireEvent.click(img);
+      expect(onCardSelected).toHaveBeenCalledWith(card);
+      fireEvent.contextMenu(img);
+      expect(onCardDeselected).toHaveBeenCalledWith(expect.anything(), card);
+    });
+
+    it('keeps the 230 px image in list view, opened from the name', () => {
+      render(<SearchResults filteredData={[cardFixture()]} withHover={true} viewMode="list" />);
+      const name = screen.getByText('Test Card');
+      mockRect(name, 884);
+
+      fireEvent.mouseEnter(name);
+
+      expect(screen.getByAltText('Test Card')).toHaveAttribute('width', '230');
+    });
+
+    it('fits the hover image to a short window', () => {
+      expect(gridHoverImageWidth({ width: 144, height: 200 }, 800)).toBe(
+        Math.floor((499 * 120) / 167),
+      );
+      const short = gridHoverImageWidth({ width: 144, height: 200 }, 400);
+      expect(short).toBe(Math.floor((400 * 0.9 * 120) / 167));
+      expect(gridHoverImageWidth({ width: 300, height: 418 }, 800)).toBeNull();
     });
   });
 
