@@ -419,11 +419,14 @@ column (`TOUCH_CONTROLS_COLUMN`) for the turn and score controls, and never belo
 (#1170): the stack lives only in the attempt layout. A desktop does the same with the whole card
 (#992). At 667×375 a mission is about 105 px wide, where the table scale alone gives 84.
 
-On a touch screen the turn and score controls sit in that left column, below the menu, fullscreen,
+The turn and score controls sit in that left column, below the menu, fullscreen,
 undo and game log buttons (`data-testid="turn-score-column"`, #1337): the turn over the next-turn button, then
 the score over minus and plus. They show on the full table only, not in the attempt layout. A desktop
-keeps them in the bottom row, the score above the discard and the turn above the draw deck. Either
-way they keep `data-testid="turn-counter"` and `"score-counter"`. In fullscreen on iPadOS the column
+shows the same column (#1451), below its five corner buttons (redo under undo), with `btn-icon`
+buttons, and its mission row keeps the same `TOUCH_CONTROLS_COLUMN` on the left and
+`MENU_BUTTON_GUTTER` on the right (`DESKTOP_FULL_TABLE_RESERVE` in `desktopMissionSlotBudget`). The
+bottom row holds no turn or score on either device. They keep `data-testid="turn-counter"` and
+`"score-counter"`. In fullscreen on iPadOS the column
 keeps its "Turn" and "Score" labels where it has the height, and goes compact, with no labels and
 smaller buttons, only when the full column does not fit 8 px above the bottom row
 (`turnScoreColumnCompact` in `tableScale.ts`, #1395).
