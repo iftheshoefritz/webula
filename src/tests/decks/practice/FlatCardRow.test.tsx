@@ -10,7 +10,13 @@ import FlatCardRow from '../../../app/decks/practice/FlatCardRow';
 import { DraggedCardTypeProvider } from '../../../app/decks/practice/DraggedCardTypeContext';
 import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from '../../../app/decks/practice/PlaceOnHoldContext';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
-import { FLAT_ROW_GAP, UNMEASURED_FLAT_ROW_WIDTHS, flatRowWidths } from '../../../app/decks/practice/flatRowWidths';
+import {
+  FLAT_CARD_WIDTH,
+  FLAT_ROW_GAP,
+  UNMEASURED_FLAT_ROW_WIDTHS,
+  flatCardWidth,
+  flatRowWidths,
+} from '../../../app/decks/practice/flatRowWidths';
 
 const card = (id: string, name: string): CardInstance => ({
   id,
@@ -206,5 +212,44 @@ describe('flatRowWidths', () => {
     const { core, brig } = flatRowWidths(260, 4, 3);
     expect(core + brig + FLAT_ROW_GAP).toBeLessThanOrEqual(260);
     expect(core).toBeGreaterThan(brig);
+  });
+});
+
+// #1465: on a large screen the bottom row grows by the bottom-row scale.
+describe('the bottom-row scale', () => {
+  it('leaves flatRowWidths as it was at a scale of 1', () => {
+    expect(flatRowWidths(0, 4, 3, 1)).toEqual(UNMEASURED_FLAT_ROW_WIDTHS);
+    expect(flatRowWidths(700, 4, 3, 1)).toEqual(flatRowWidths(700, 4, 3));
+  });
+
+  it('scales the widths a row of cards wants', () => {
+    expect(flatCardWidth(1.5)).toBeGreaterThan(FLAT_CARD_WIDTH);
+    expect(flatRowWidths(0, 4, 3, 1.5).brig).toBe(flatCardWidth(1.5));
+    // In a box with room, the two core cards take two cards' width at the scale, and the empty
+    // brig at least one, and the two still fill the box.
+    const { core, brig } = flatRowWidths(1000, 2, 0, 2);
+    expect(core).toBeGreaterThanOrEqual(2 * flatCardWidth(2) + 2);
+    expect(brig).toBeGreaterThanOrEqual(112);
+    expect(core + FLAT_ROW_GAP + brig).toBe(1000);
+  });
+
+  it('draws the box and its cards at the scale', () => {
+    render(
+      <DraggedCardTypeProvider value={null}>
+        <PlaceOnHoldProvider value={NO_PLACE_ON_HOLD}>
+          <FlatCardRow
+            zone="core"
+            label="Core"
+            cards={[card('card-1', 'Host')]}
+            maxWidth={300}
+            maxOffset={100}
+            onOpen={() => {}}
+            onOpenPlacedOn={() => {}}
+            rowScale={1.5}
+          />
+        </PlaceOnHoldProvider>
+      </DraggedCardTypeProvider>
+    );
+    expect((document.querySelector('[data-zone="core"]') as HTMLElement).style.height).toBe('120px');
   });
 });

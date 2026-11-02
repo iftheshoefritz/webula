@@ -25,7 +25,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { landedBumpClassName } from './LandedZoneContext';
 import TableCard from './TableCard';
-import { FLAT_CARD_HEIGHT, FLAT_CARD_WIDTH, PILE_CARD_HEIGHT } from './flatRowWidths';
+import { flatCardHeight, flatCardWidth } from './flatRowWidths';
 import { offsetFor } from './overlapOffset';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { usePlaceOnHold } from './PlaceOnHoldContext';
@@ -64,10 +64,12 @@ function PlacedOnTargetCard({
   instance,
   onOpen,
   onOpenPlacedOn,
+  rowScale,
 }: {
   instance: CardInstance;
   onOpen: () => void;
   onOpenPlacedOn: (targetId: string) => void;
+  rowScale: number;
 }) {
   const { setNodeRef } = useDroppable({ id: onDropId(instance.id) });
   const draggedType = useDraggedCardType();
@@ -90,8 +92,8 @@ function PlacedOnTargetCard({
       <TableCard
         instance={instance}
         onClick={onCount > 0 ? () => onOpenPlacedOn(instance.id) : onOpen}
-        width={FLAT_CARD_WIDTH}
-        artHeight={FLAT_CARD_HEIGHT}
+        width={flatCardWidth(rowScale)}
+        artHeight={flatCardHeight(rowScale)}
         draggable
       />
       {onCount > 0 && <PlacedOnBadge name={cardDisplayName(instance.card)} count={onCount} landedNonce={landedNonce} />}
@@ -108,6 +110,7 @@ export default function FlatCardRow({
   maxOffset,
   onOpen,
   onOpenPlacedOn,
+  rowScale = 1,
 }: {
   zone: 'core' | 'brig';
   label: string;
@@ -119,6 +122,8 @@ export default function FlatCardRow({
   onOpen: () => void;
   // A tap on a card with cards on it (#810) opens those cards, not the zone's panel.
   onOpenPlacedOn: (targetId: string) => void;
+  // The bottom-row scale (`computeBottomRowScale`, #1465): the cards and the box grow by it.
+  rowScale?: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: zone });
   const draggedType = useDraggedCardType();
@@ -136,9 +141,9 @@ export default function FlatCardRow({
   // the hand and the dilemma pile, and the drop target is the whole outline. The size never changes
   // when a drag starts, so the drop target does not shrink out from under the pointer (#635), and a
   // card stays under the pointer (#831). The outline is an inset `outline`, which takes no content
-  // space, so the 80 px cards (#1234) sit inside it and the row stays level with the draw deck.
+  // space, so the 80 px cards (#1234), more at a bottom-row scale above 1 (#1465), sit inside it and the row stays level with the draw deck.
   const boxClassName = `relative rounded-lg outline-2 outline-dashed outline-white/20 -outline-offset-2 ${highlightClassName(highlight)}`;
-  const boxStyle = { width: maxWidth, height: PILE_CARD_HEIGHT };
+  const boxStyle = { width: maxWidth, height: flatCardHeight(rowScale) };
 
   if (cards.length === 0) {
     return (
@@ -158,7 +163,7 @@ export default function FlatCardRow({
 
   // Past the zone's width, the cards overlap more. Each card is the art crop, as tall as the draw
   // deck's card (#1234), and sits at the row's bottom edge.
-  const offset = offsetFor(cards.length, FLAT_CARD_WIDTH, maxWidth, maxOffset);
+  const offset = offsetFor(cards.length, flatCardWidth(rowScale), maxWidth, maxOffset);
 
   return (
     <div
@@ -171,7 +176,7 @@ export default function FlatCardRow({
     >
       {cards.map((instance, idx) => (
         <div key={instance.id} className="absolute bottom-0" style={{ left: idx * offset, zIndex: idx + 1 }}>
-          <PlacedOnTargetCard instance={instance} onOpen={onOpen} onOpenPlacedOn={onOpenPlacedOn} />
+          <PlacedOnTargetCard instance={instance} onOpen={onOpen} onOpenPlacedOn={onOpenPlacedOn} rowScale={rowScale} />
         </div>
       ))}
       <LandedRing nonce={landedNonce} />

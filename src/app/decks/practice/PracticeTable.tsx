@@ -111,7 +111,7 @@ import HomeScreenHelp from './HomeScreenHelp';
 import { GameAction, gameReducer, initialGameState, logEntryText, withShuffleOrders } from './gameLog';
 import { CardHoldProvider, NO_CALLOUT_STYLE, PLACE_ON_HOLD_MS, PreviewSide, swallowClickOf, useCardHold } from './useCardHold';
 import { NO_PLACE_ON_HOLD, PlaceOnHold, PlaceOnHoldProvider } from './PlaceOnHoldContext';
-import { FLAT_ROW_MAX_OFFSET, flatRowWidths, useElementHeight, useElementWidth } from './flatRowWidths';
+import { flatRowMaxOffset, flatRowWidths, pileCardSize, useElementHeight, useElementWidth } from './flatRowWidths';
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { PanelLocation, RevealIcon, ShuffleIcon } from './CardListPanel';
@@ -124,6 +124,7 @@ import {
   DESKTOP_FULL_TABLE_RESERVE,
   MENU_BUTTON_GUTTER,
   TOUCH_CONTROLS_COLUMN,
+  computeBottomRowScale,
   desktopMissionSlotBudget,
   useAttemptLayout,
   useMissionScale,
@@ -888,12 +889,15 @@ function DiscardPileCard({
   count,
   landedNonce,
   onOpen,
+  rowScale,
 }: {
   topCard: CardInstance;
   count: number;
   landedNonce: number | null;
   onOpen: () => void;
+  rowScale: number;
 }) {
+  const cardWidth = pileCardSize(rowScale).width;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
 
   return (
@@ -914,8 +918,8 @@ function DiscardPileCard({
         width={120}
         height={167}
         alt="Discard pile"
-        className="rounded-lg shadow-lg w-14 h-auto"
-        style={PILE_CARD_BORDER_STYLE}
+        className="rounded-lg shadow-lg h-auto"
+        style={{ ...cardBorderStyle(cardWidth), width: cardWidth }}
       />
       <CountBadge count={count} landedNonce={landedNonce} />
     </div>
@@ -926,10 +930,13 @@ function DiscardPile({
   topCard,
   count,
   onOpen,
+  rowScale = 1,
 }: {
   topCard: CardInstance | undefined;
   count: number;
   onOpen: () => void;
+  // The bottom-row scale (`computeBottomRowScale`, #1465).
+  rowScale?: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: DISCARD_DROPPABLE_ID });
   const draggedType = useDraggedCardType();
@@ -948,9 +955,12 @@ function DiscardPile({
     >
       <LandedRing nonce={landedNonce} />
       {topCard ? (
-        <DiscardPileCard topCard={topCard} count={count} landedNonce={landedNonce} onOpen={onOpen} />
+        <DiscardPileCard topCard={topCard} count={count} landedNonce={landedNonce} onOpen={onOpen} rowScale={rowScale} />
       ) : (
-        <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
+        <div
+          style={pileCardSize(rowScale)}
+          className="rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1"
+        >
           Discard
         </div>
       )}
@@ -1116,7 +1126,7 @@ function PileControls({
 // restarts the animation rather than queueing one. The wrapper is absolutely positioned and
 // animates only `transform` (or, under `prefers-reduced-motion`, a still ring), so the pile keeps
 // its size and position, and `pointer-events-none` leaves every tap and drop to the `PileHalf`s.
-function PileArt({ alt, shuffleCount }: { alt: string; shuffleCount: number }) {
+function PileArt({ alt, shuffleCount, cardWidth }: { alt: string; shuffleCount: number; cardWidth: number }) {
   return (
     <div
       key={shuffleCount}
@@ -1132,7 +1142,7 @@ function PileArt({ alt, shuffleCount }: { alt: string; shuffleCount: number }) {
         height={167}
         alt={alt}
         className="rounded-lg shadow-lg group-hover:shadow-accent/30 transition-shadow w-full h-full object-cover"
-        style={PILE_CARD_BORDER_STYLE}
+        style={cardBorderStyle(cardWidth)}
       />
     </div>
   );
@@ -1174,12 +1184,16 @@ function DilemmaPileButton({
   topCard,
   showPositionLabel,
   shuffleCount,
+  rowScale = 1,
 }: {
   count: number;
   topCard: CardInstance | undefined;
   showPositionLabel: boolean;
   shuffleCount: number;
+  // The bottom-row scale (`computeBottomRowScale`, #1465).
+  rowScale?: number;
 }) {
+  const size = pileCardSize(rowScale);
   const landedNonce = useLandedNonce('dilemmaPile');
   const halves = (
     <>
@@ -1205,14 +1219,15 @@ function DilemmaPileButton({
   );
   return (
     <div
-      className={`relative w-14 h-20 rounded-lg group ${count === 0 ? 'opacity-50' : ''}`} data-testid="dilemma-pile"
+      className={`relative rounded-lg group ${count === 0 ? 'opacity-50' : ''}`}
+      style={size} data-testid="dilemma-pile"
       data-pile-count={count}
       data-landed={landedNonce !== null || undefined}
     >
       <LandedRing nonce={landedNonce} />
       {count > 0 ? (
         <>
-          <PileArt alt="Face-down dilemma pile" shuffleCount={shuffleCount} />
+          <PileArt alt="Face-down dilemma pile" shuffleCount={shuffleCount} cardWidth={size.width} />
           <CountBadge count={count} landedNonce={landedNonce} />
         </>
       ) : (
@@ -1237,13 +1252,17 @@ function DrawPileButton({
   onDraw,
   showPositionLabel,
   shuffleCount,
+  rowScale = 1,
 }: {
   count: number;
   topCard: CardInstance | undefined;
   onDraw: () => void;
   showPositionLabel: boolean;
   shuffleCount: number;
+  // The bottom-row scale (`computeBottomRowScale`, #1465).
+  rowScale?: number;
 }) {
+  const size = pileCardSize(rowScale);
   const landedNonce = useLandedNonce('drawDeck');
   const halves = (
     <>
@@ -1271,7 +1290,8 @@ function DrawPileButton({
   );
   return (
     <div
-      className={`relative w-14 h-20 rounded-lg group ${count === 0 ? 'opacity-50' : ''}`}
+      className={`relative rounded-lg group ${count === 0 ? 'opacity-50' : ''}`}
+      style={size}
       data-testid="draw-pile"
       data-pile-count={count}
       data-landed={landedNonce !== null || undefined}
@@ -1279,7 +1299,7 @@ function DrawPileButton({
       <LandedRing nonce={landedNonce} />
       {count > 0 ? (
         <>
-          <PileArt alt="Face-down draw deck" shuffleCount={shuffleCount} />
+          <PileArt alt="Face-down draw deck" shuffleCount={shuffleCount} cardWidth={size.width} />
           <CountBadge count={count} landedNonce={landedNonce} />
         </>
       ) : (
@@ -1818,7 +1838,6 @@ function PracticeDrawContent() {
   // Issue #1029: the core and the brig grow into the free space of the bottom row.
   const [flatRows, setFlatRows] = useState<HTMLDivElement | null>(null);
   const flatRowsWidth = useElementWidth(flatRows);
-  const flatWidths = flatRowWidths(flatRowsWidth, core.length, brig.length);
   // Issue #930: the ship rows take a second and a third row of ships when the gap between the
   // mission rows and the bottom row has room for them.
   const [missionRows, setMissionRows] = useState<HTMLDivElement | null>(null);
@@ -1841,6 +1860,19 @@ function PracticeDrawContent() {
   // Issue #1395: the room of the touch turn and score column, from the top of the game layer down
   // to the top of the bottom row.
   const gameLayerHeight = useElementHeight(gameLayer);
+  // Issue #1465: the bottom row grows on a large screen, up to a cap. The full table and the attempt
+  // layout share it, so View full table does not resize the row.
+  const bottomRowScale = computeBottomRowScale({
+    gameLayerWidth,
+    gameLayerHeight,
+    tableScale: scale,
+    desktop: finePointer,
+    columnHeight: finePointer ? desktopMissionColumnHeight : touchMissionColumnHeight,
+    insetTop: safeArea.top,
+    insetBottom: safeArea.bottom,
+    insetSides: safeAreaSides,
+  });
+  const flatWidths = flatRowWidths(flatRowsWidth, core.length, brig.length, bottomRowScale);
   const turnScoreTop = controlsColumnTop(
     (fullscreen.systemExitControl ? 3 : 4) + (finePointer ? 1 : 0),
     fullscreen.isFullscreen && fullscreen.systemControlsInset
@@ -3332,7 +3364,7 @@ function PracticeDrawContent() {
                 />
               ) : null}
               {attemptLayoutParked && (
-                <RemeasureDroppables sizes={[scale, missionScale, shipRows, flatWidths, panelBottom]} />
+                <RemeasureDroppables sizes={[scale, missionScale, shipRows, flatWidths, panelBottom, bottomRowScale]} />
               )}
               {!attemptLayoutShows && (
                 <>
@@ -3399,6 +3431,7 @@ function PracticeDrawContent() {
                       topCard={discard[discard.length - 1]}
                       count={discard.length}
                       onOpen={() => openOnlyFlatZone('discard')}
+                      rowScale={bottomRowScale}
                     />
                   </div>
 
@@ -3424,6 +3457,7 @@ function PracticeDrawContent() {
                         onDraw={drawOne}
                         showPositionLabel={draggingInstance !== null}
                         shuffleCount={shuffleCounts.drawDeck}
+                        rowScale={bottomRowScale}
                       />
                     </div>
                   </div>
@@ -3456,6 +3490,7 @@ function PracticeDrawContent() {
                       arcBetween={HAND_ARC_BETWEEN}
                       finePointer={finePointer}
                       safeAreaBottom={safeArea.bottom}
+                      rowScale={bottomRowScale}
                     />
                   </div>
                 </div>
@@ -3470,7 +3505,8 @@ function PracticeDrawContent() {
                   label="Core"
                   cards={core}
                   maxWidth={flatWidths.core}
-                  maxOffset={FLAT_ROW_MAX_OFFSET}
+                  maxOffset={flatRowMaxOffset(bottomRowScale)}
+                  rowScale={bottomRowScale}
                   onOpen={() => openOnlyFlatZone('core')}
                   onOpenPlacedOn={openOnlyPlacedOnPanel}
                 />
@@ -3482,7 +3518,8 @@ function PracticeDrawContent() {
                   label="Brig"
                   cards={brig}
                   maxWidth={flatWidths.brig}
-                  maxOffset={FLAT_ROW_MAX_OFFSET}
+                  maxOffset={flatRowMaxOffset(bottomRowScale)}
+                  rowScale={bottomRowScale}
                   onOpen={() => openOnlyFlatZone('brig')}
                   onOpenPlacedOn={openOnlyPlacedOnPanel}
                 />
@@ -3522,6 +3559,7 @@ function PracticeDrawContent() {
                       arcBetween={HAND_ARC_BETWEEN}
                       finePointer={finePointer}
                       safeAreaBottom={safeArea.bottom}
+                      rowScale={bottomRowScale}
                     />
                   )}
 
@@ -3543,6 +3581,7 @@ function PracticeDrawContent() {
                       topCard={dilemmaPile[0]}
                       showPositionLabel={draggingInstance?.card.type === 'dilemma'}
                       shuffleCount={shuffleCounts.dilemmaPile}
+                      rowScale={bottomRowScale}
                     />
                   </div>
                 </div>
