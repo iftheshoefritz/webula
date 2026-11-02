@@ -38,18 +38,36 @@ export function gridHoverImageWidth(
 // The gap between the hover image and the card, and between the image and the window's edge.
 const HOVER_IMAGE_GAP = 10; // px
 
-// Issue #1468: where the hover image of a card goes, in window coordinates. Right of the card, or
-// left of it when the right lacks the room; level with the card's top, raised as far as the window's
-// bottom edge needs, and never above the window's top.
+// The left edge of a hover image `imageWidth` wide: right of the trigger, or left of it, or, when it
+// fits on neither side, beside the pointer. A name in the list view of `/` spans the whole window, so
+// neither side of it has room (#1466).
+export function hoverImageLeft(
+  targetRect: { left: number; right: number },
+  pointerX: number,
+  imageWidth: number,
+  viewportWidth: number,
+): number {
+  if (targetRect.right + HOVER_IMAGE_GAP + imageWidth <= viewportWidth) {
+    return targetRect.right + HOVER_IMAGE_GAP;
+  }
+  if (targetRect.left - imageWidth - HOVER_IMAGE_GAP >= 0) {
+    return targetRect.left - imageWidth - HOVER_IMAGE_GAP;
+  }
+  if (pointerX + 20 + imageWidth <= viewportWidth) return pointerX + 20;
+  if (pointerX - imageWidth - 20 >= 0) return pointerX - imageWidth - 20;
+  return Math.max(0, viewportWidth - imageWidth);
+}
+
+// Issue #1468: where the hover image of a card goes, in window coordinates. Left as
+// `hoverImageLeft` places it; level with the card's top, raised as far as the window's bottom edge
+// needs, and never above the window's top.
 export function hoverImagePosition(
   targetRect: { top: number; left: number; right: number },
   image: { width: number; height: number },
   viewport: { width: number; height: number },
+  pointerX: number = targetRect.left,
 ): { top: number; left: number } {
-  let left = targetRect.right + HOVER_IMAGE_GAP;
-  if (left + image.width > viewport.width) {
-    left = Math.max(0, targetRect.left - image.width - HOVER_IMAGE_GAP);
-  }
+  const left = hoverImageLeft(targetRect, pointerX, image.width, viewport.width);
 
   let top = targetRect.top + 5;
   if (top + image.height > viewport.height - HOVER_IMAGE_GAP) {
@@ -220,6 +238,7 @@ export default function SearchResults({
         targetRect,
         { width: imageWidth, height: imageHeight },
         { width: viewportWidth, height: viewportHeight },
+        event.clientX,
       );
 
       setImageStyle({

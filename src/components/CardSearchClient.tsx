@@ -9,6 +9,7 @@ import useFilterData from '../hooks/useFilterData';
 import useSearchViewMode from '../hooks/useSearchViewMode';
 import useScrollVisibility from '../hooks/useScrollVisibility';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useFinePointer } from '../app/decks/practice/useFinePointer';
 import type { CardData } from '../lib/loadCards';
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import { PreviewBanner } from './PreviewBanner';
@@ -33,6 +34,9 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
   // The header stays visible while the search input has focus, as it does for an open popover (#1470).
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  // The hover image only with a fine pointer (#1466): a tap fires an emulated mouseenter with no
+  // mouseleave after it, so on a touch device a preview would open and stay open.
+  const finePointer = useFinePointer();
   const searchParamsRef = useRef(searchParams);
   useEffect(() => {
     searchParamsRef.current = searchParams;
@@ -229,7 +233,7 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
           variant="styled"
           useWindowScroll={true}
           viewMode={viewMode}
-          withHover
+          withHover={finePointer}
         />
       </div>
 
