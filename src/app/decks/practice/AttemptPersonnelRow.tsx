@@ -49,6 +49,7 @@ import { ShuffleIcon, panelScrollClassName, useScrollsVertically } from './CardL
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 import type { AttemptMoveDestination } from './attempt';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
+import { useEscapeLayer } from './useEscapeLayer';
 import { ATTEMPT_PERSONNEL_BUTTONS_HEIGHT, ATTEMPT_PERSONNEL_GAP, attemptPersonnelCropHeight } from './tableScale';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
@@ -126,6 +127,7 @@ export default function AttemptPersonnelRow({
   const selectionKey = selectedInRow.join(' ');
   const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
   const moveMenuOpen = selectedInRow.length > 0 && moveMenuFor === selectionKey;
+  useEscapeLayer(() => setMoveMenuFor(null), moveMenuOpen);
   const buttonClassName = 'btn-primary whitespace-nowrap h-full !px-2 !py-0 text-[10px] leading-none';
 
   return (
@@ -197,9 +199,6 @@ export default function AttemptPersonnelRow({
               role="menu"
               aria-label={`Move ${selectedInRow.length} card${selectedInRow.length === 1 ? '' : 's'} to`}
               data-testid="attempt-move-to-menu"
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') setMoveMenuFor(null);
-              }}
               className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex -translate-x-1/2 -translate-y-1/2 flex-col gap-1 overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-bg-secondary p-2 shadow-lg`}
               style={{ maxHeight: safeModalMaxHeight(90), width: safeModalWidth('18rem') }}
             >
