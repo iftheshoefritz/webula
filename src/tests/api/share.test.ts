@@ -9,6 +9,7 @@ import {
   newShareId,
   redisShareStore,
   SHARE_TTL_SECONDS,
+  shareStoreCredentials,
   type Share,
   type ShareStore,
 } from '../../lib/shareStore';
@@ -229,5 +230,39 @@ describe('redisShareStore', () => {
     const s = redisShareStore(redis);
     expect(await s.create('abc', { content: 'x', title: null, createdAt: 'now' }, 60)).toBe(false);
     expect(await s.read('abc')).toBeNull();
+  });
+});
+
+describe('shareStoreCredentials', () => {
+  it('reads the SHARES_ prefixed pair that the Marketplace integration set', () => {
+    expect(
+      shareStoreCredentials({ SHARES_KV_REST_API_URL: 'https://shares', SHARES_KV_REST_API_TOKEN: 't1' }),
+    ).toEqual({ url: 'https://shares', token: 't1' });
+  });
+
+  it('prefers the SHARES_ pair over the unprefixed names', () => {
+    expect(
+      shareStoreCredentials({
+        SHARES_KV_REST_API_URL: 'https://shares',
+        SHARES_KV_REST_API_TOKEN: 't1',
+        KV_REST_API_URL: 'https://kv',
+        KV_REST_API_TOKEN: 't2',
+      }),
+    ).toEqual({ url: 'https://shares', token: 't1' });
+  });
+
+  it('falls back to UPSTASH_REDIS_REST_* and then KV_REST_API_*', () => {
+    expect(
+      shareStoreCredentials({ UPSTASH_REDIS_REST_URL: 'https://up', UPSTASH_REDIS_REST_TOKEN: 't' }),
+    ).toEqual({ url: 'https://up', token: 't' });
+    expect(shareStoreCredentials({ KV_REST_API_URL: 'https://kv', KV_REST_API_TOKEN: 't' })).toEqual({
+      url: 'https://kv',
+      token: 't',
+    });
+  });
+
+  it('skips a pair with only one half set, and answers null when none is complete', () => {
+    expect(shareStoreCredentials({ SHARES_KV_REST_API_URL: 'https://shares' })).toBeNull();
+    expect(shareStoreCredentials({})).toBeNull();
   });
 });

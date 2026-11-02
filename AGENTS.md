@@ -78,8 +78,9 @@ Card pile assignment determined by `cardPileFor()` in `src/app/decks/deckBuilder
 answers `{ id }`, a random 10-character id, and `GET ?id=` answers `{ content, title }`. The
 content is capped at 256 KB (413 `bad_request`). A store failure answers 502 `upstream_unreachable`,
 an unknown or expired id 404 `not_found` (`src/lib/shareErrors.ts`). The Vercel Marketplace
-integration sets `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (or `KV_REST_API_*`) on
-the project, and `Redis.fromEnv()` reads either pair. For a local `yarn dev` that shares, run
+integration named the env vars with the prefix `SHARES`, so the route reads
+`SHARES_KV_REST_API_URL` and `SHARES_KV_REST_API_TOKEN`, and falls back to
+`UPSTASH_REDIS_REST_*` and `KV_REST_API_*` (`shareStoreCredentials`). For a local `yarn dev` that shares, run
 `vercel env pull .env.development.local`. The tests mock the store, so they need no access.
 
 ## Card Data Scripts
