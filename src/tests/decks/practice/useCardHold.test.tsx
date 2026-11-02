@@ -351,3 +351,56 @@ describe('useCardHold: a mouse hover (#766)', () => {
     expect(hovered()).toBe('none');
   });
 });
+
+// #1458: on a desktop a card about as large as the preview gets none, and the hold works as before.
+describe('useCardHold over a card too large to preview', () => {
+  const original = window.matchMedia;
+  beforeEach(() => {
+    jest.useFakeTimers();
+    (window as { matchMedia?: typeof window.matchMedia }).matchMedia = ((query: string) => ({
+      matches: query === '(pointer: fine)',
+    })) as unknown as typeof window.matchMedia;
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    (window as { matchMedia?: typeof window.matchMedia }).matchMedia = original;
+  });
+
+  // A whole card 431 x 600 px, larger than the 499 px preview.
+  function makeLarge() {
+    const el = card();
+    Object.defineProperty(el, 'offsetWidth', { value: 431 });
+    Object.defineProperty(el, 'offsetHeight', { value: 600 });
+    el.getBoundingClientRect = () => ({ width: 431, height: 600, x: 0, y: 0, top: 0, left: 0, right: 431, bottom: 600 }) as DOMRect;
+  }
+
+  it('opens no hold preview, and still swallows the click of the hold', () => {
+    const onTap = jest.fn();
+    render(<Harness onTap={onTap} />);
+    makeLarge();
+    press();
+    act(() => jest.advanceTimersByTime(HOLD_DELAY_MS));
+    expect(held()).toBe('none');
+    fireEvent.pointerUp(card());
+    fireEvent.click(card());
+    expect(onTap).not.toHaveBeenCalled();
+  });
+
+  it('opens no hover preview', () => {
+    render(<Harness />);
+    makeLarge();
+    fireEvent.pointerEnter(card(), { pointerType: 'mouse', buttons: 0 });
+    act(() => jest.advanceTimersByTime(HOVER_DELAY_MS));
+    expect(screen.getByTestId('hovered').textContent).toBe('none');
+  });
+
+  it('opens both over a small card', () => {
+    render(<Harness />);
+    fireEvent.pointerEnter(card(), { pointerType: 'mouse', buttons: 0 });
+    act(() => jest.advanceTimersByTime(HOVER_DELAY_MS));
+    expect(screen.getByTestId('hovered').textContent).toBe('card-1');
+    press();
+    act(() => jest.advanceTimersByTime(HOLD_DELAY_MS));
+    expect(held()).toBe('card-1');
+  });
+});

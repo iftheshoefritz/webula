@@ -19,20 +19,26 @@ import { cardDisplayName } from '../../../lib/cardCount';
 import { STOPPED_IMAGE_CLASSNAME, cardBorderStyle, faceUpImageSrc } from './TableCard';
 import type { PreviewSide } from './useCardHold';
 import { safeAreaMargins } from './useSafeAreaInsets';
+import { PREVIEW_MAX_HEIGHT, previewMaxWidth } from './previewSize';
+import type { CSSProperties } from 'react';
 
 // The "Face down" badge, shared with the card list panel's mark on a face-down card (#826).
 export const FACE_DOWN_LABEL = 'Face down';
 export const FACE_DOWN_BADGE_CLASSNAME = 'bg-black/70 text-text-primary text-xs font-medium px-2 py-1 rounded';
 
-// Issue #946: on a desktop (`(pointer: fine)`) the preview is no taller than 450 px. At 90% of a
-// desktop window it drew the 499 px card image at 720 px and more, and the browser scaled it up
-// until it looked soft. A touch device keeps 90% of the screen. The badge moves down with the
-// top of the smaller card, 225 px above the middle, so it stays over the image.
-export const PREVIEW_IMAGE_SIZE_CLASSNAME = 'h-[90%] [@media(pointer:fine)]:max-h-[450px]';
-// The black card border (#983), at the width of the 450 px tall desktop preview.
-const PREVIEW_BORDER_STYLE = cardBorderStyle(Math.round((450 * 120) / 167));
+// Issue #946, #1458: on a desktop (`(pointer: fine)`) the preview is no taller than
+// `PREVIEW_MAX_HEIGHT`, 499 px, the native height of the card image. At 90% of a desktop window it
+// drew the image at 720 px and more, and the browser scaled it up until it looked soft. A touch
+// device keeps 90% of the screen. The cap reaches the classes through `--preview-max-h`, set on the
+// preview's root, so the one constant sizes the image, its border and the badge. The badge moves
+// down with the top of the smaller card, 8 px inside it, so it stays over the image.
+export const PREVIEW_MAX_HEIGHT_VAR = '--preview-max-h';
+export const PREVIEW_IMAGE_SIZE_CLASSNAME = 'h-[90%] [@media(pointer:fine)]:max-h-(--preview-max-h)';
+// The black card border (#983), at the width of the desktop preview.
+const PREVIEW_BORDER_STYLE = cardBorderStyle(previewMaxWidth());
 export const PREVIEW_BADGE_TOP_CLASSNAME =
-  'top-[6%] [@media(pointer:fine)]:top-[max(6%,calc(50%_-_217px))]';
+  'top-[6%] [@media(pointer:fine)]:top-[max(6%,calc(50%_-_var(--preview-max-h)/2_+_8px))]';
+const PREVIEW_ROOT_STYLE = { [PREVIEW_MAX_HEIGHT_VAR]: `${PREVIEW_MAX_HEIGHT}px` } as CSSProperties;
 
 export default function CardPreview({
   instance,
@@ -58,7 +64,7 @@ export default function CardPreview({
     <div
       data-testid="card-preview"
       className={`fixed inset-0 ${LAYER_CARD_PREVIEW} pointer-events-none animate-fade-in ${dim ? 'bg-black/50' : ''}`}
-      style={{ visibility: hidden ? 'hidden' : 'visible' }}
+      style={{ ...PREVIEW_ROOT_STYLE, visibility: hidden ? 'hidden' : 'visible' }}
     >
       <img
         data-testid="card-preview-enlarged"
