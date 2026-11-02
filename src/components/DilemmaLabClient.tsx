@@ -18,6 +18,7 @@ import { ThreadedSearchResponse, useSearchWorker } from '../lib/dilemmaBot/useSe
 import type { AttemptedMission } from '../lib/dilemmaBot/gains';
 import type { CardData } from '../lib/loadCards';
 import CardPreview from '../app/decks/practice/CardPreview';
+import { previewEnlargesElement } from '../app/decks/practice/previewSize';
 import { TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH, TableCardImage } from '../app/decks/practice/TableCard';
 import { HOLD_DELAY_MS, HOVER_DELAY_MS } from '../app/decks/practice/useCardHold';
 import type { PreviewSide } from '../app/decks/practice/useCardHold';
@@ -492,9 +493,12 @@ function DrawnCards({ drawn, cards }: { drawn: DilemmaId[]; cards: Record<Dilemm
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
   };
-  const later = (ms: number, next: Preview) => {
+  // On a desktop the preview opens only when it is clearly larger than the card (#1458).
+  const later = (ms: number, next: Preview, card: Element) => {
     cancel();
-    timer.current = setTimeout(() => setPreview(next), ms);
+    timer.current = setTimeout(() => {
+      if (previewEnlargesElement(card)) setPreview(next);
+    }, ms);
   };
 
   // The preview takes the edge away from the press point (#879).
@@ -531,10 +535,10 @@ function DrawnCards({ drawn, cards }: { drawn: DilemmaId[]; cards: Record<Dilemm
             title={title(id)}
             onContextMenu={(e) => e.preventDefault()}
             onPointerDown={(e) => {
-              if (e.pointerType !== 'mouse') later(HOLD_DELAY_MS, { instance, side: side(e.clientX), dim: true });
+              if (e.pointerType !== 'mouse') later(HOLD_DELAY_MS, { instance, side: side(e.clientX), dim: true }, e.currentTarget);
             }}
             onPointerEnter={(e) => {
-              if (e.pointerType === 'mouse' && e.buttons === 0) later(HOVER_DELAY_MS, { instance, side: side(e.clientX), dim: false });
+              if (e.pointerType === 'mouse' && e.buttons === 0) later(HOVER_DELAY_MS, { instance, side: side(e.clientX), dim: false }, e.currentTarget);
             }}
             onPointerLeave={(e) => {
               if (e.pointerType !== 'mouse') return;

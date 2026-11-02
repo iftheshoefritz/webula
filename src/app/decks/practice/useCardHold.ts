@@ -38,11 +38,16 @@
 // never moves again sends no `pointerleave`, and the hover's preview would stay up for good.
 // A touch or a pen ignores the hover, and so does a pointer that enters with a button held (a
 // drag passing over the card).
+//
+// On a desktop, a hover or a hold over a card about as large as the preview shows nothing
+// (#1458, `previewEnlarges`): the preview cannot grow past the native size of the image. The hold
+// still fires, so the tap-vs-hold timing, the held click and the drag distance stay the same.
 
 import { createContext, useContext, useEffect, useRef } from 'react';
 import type { useDraggable } from '@dnd-kit/core';
 import { CANCEL_RADIUS } from './releaseCancel';
 import { useLatest } from '../../../hooks/useLatest';
+import { previewEnlargesElement } from './previewSize';
 
 type DraggableListeners = ReturnType<typeof useDraggable>['listeners'];
 
@@ -232,6 +237,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     const originX = event.clientX;
     const originY = event.clientY;
     const downEvent = event.nativeEvent;
+    const pressed = event.currentTarget;
     const dragDistance = dragActivationDistanceFor(false, isInHandArc(downEvent.target));
     let fired = false;
 
@@ -278,7 +284,7 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
       fired = true;
       heldPress = downEvent;
       swallowClickRef.current = true;
-      callbacksRef.current?.startHold(id, previewSideFor(originX));
+      if (previewEnlargesElement(pressed)) callbacksRef.current?.startHold(id, previewSideFor(originX));
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
         navigator.vibrate(10);
       }
@@ -336,8 +342,10 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     if (!callbacksRef.current) return;
     cancelHoverTimer();
     const side = previewSideFor(event.clientX);
+    const hovered = event.currentTarget;
     hoverTimerRef.current = window.setTimeout(() => {
       hoverTimerRef.current = null;
+      if (!previewEnlargesElement(hovered)) return;
       hoveredRef.current = true;
       callbacksRef.current?.startHover(idRef.current, side);
     }, HOVER_DELAY_MS);

@@ -874,6 +874,14 @@ The mode gives a fine pointer and a pointer that hovers, so `(hover: hover)` mat
 4 applies a `hover:` class only under `@media (hover: hover)` (#375), so a plain
 `npx agent-browser open`, the touch layout, shows no hover state at all.
 
+With a fine pointer the preview, `CardPreview`, is at most 499 px tall, the native height of the
+card images (`PREVIEW_MAX_HEIGHT` in `previewSize.ts`, #946, #1458), and 90% of the window below
+that. It opens only when it is at least 1.25 times as tall as the whole card under the pointer
+(`previewEnlarges`): an art crop counts as the whole card at its width, and a completed mission as
+its long side. So on a large screen a hover or a hold on the attempted mission or the top card of
+the facing dilemma stack shows no preview. The hold still fires, so its timing, its swallowed click
+and the drag distance stay the same. A touch device opens every preview.
+
 The script closes every `agent-browser` session first, because `--args` applies only when the
 daemon starts and is ignored silently otherwise. Any earlier page state in the browser is gone.
 Every later `npx agent-browser` command, `practice_drag.sh` too, talks to the same browser and
