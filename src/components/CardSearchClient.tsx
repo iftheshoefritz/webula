@@ -30,6 +30,8 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
   const [initialHome] = useState(() => searchParams.get('home') === '1');
   const [initialSearch] = useState(() => searchParams.get('search') === '1');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  // The header stays visible while the search input has focus, as it does for an open popover (#1470).
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const searchParamsRef = useRef(searchParams);
   useEffect(() => {
@@ -51,7 +53,7 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
   );
   const filteredData = useFilterData(false, data, columns, searchQuery);
   const cardCountLabel = useMemo(() => formatCardCountLabel(getCardCounts(filteredData)), [filteredData]);
-  const isVisible = useScrollVisibility({ suspended: isPopoverOpen });
+  const isVisible = useScrollVisibility({ suspended: isPopoverOpen || isSearchFocused });
   const overlayRef = useRef<HTMLDivElement>(null);
   const compactBarRef = useRef<HTMLDivElement>(null);
   const mobileOverlayRef = useRef<HTMLDivElement>(null);
@@ -135,7 +137,11 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
         <div className="px-4 py-4">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-start gap-2">
-              <div className="flex-1">
+              <div
+                className="flex-1"
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
+              >
                 <SearchBar
                   searchQuery={searchQuery}
                   setSearchQuery={setSearchQuery}

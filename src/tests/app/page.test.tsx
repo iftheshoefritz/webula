@@ -184,6 +184,22 @@ describe('CardSearchClient', () => {
     expect(overlay.style.pointerEvents).toBe('auto');
   });
 
+  it('suspends the scroll hide while the search input has focus (#1470)', () => {
+    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+
+    render(<CardSearchClient data={mockCardData as any} columns={mockColumns} />);
+    const suspendedArg = () =>
+      (useScrollVisibility as jest.Mock).mock.calls.at(-1)[0].suspended;
+    expect(suspendedArg()).toBe(false);
+
+    const input = screen.getByPlaceholderText('Search cards...');
+    act(() => { input.focus(); });
+    expect(suspendedArg()).toBe(true);
+
+    act(() => { input.blur(); });
+    expect(suspendedArg()).toBe(false);
+  });
+
   describe('URL synchronisation', () => {
     it('updates the URL when the search query changes', () => {
       (useFilterData as jest.Mock).mockReturnValue([]);
