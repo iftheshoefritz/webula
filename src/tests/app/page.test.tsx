@@ -131,16 +131,52 @@ describe('CardSearchClient', () => {
     );
   });
 
-  it('shows the results as the text list with the hover preview by default (#1453)', () => {
+  it('shows the results as the text list by default (#1453)', () => {
     (useFilterData as jest.Mock).mockReturnValue(mockCardData);
     localStorage.clear();
     localStorage.setItem('search-view-mode', JSON.stringify('image'));
 
     render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
 
-    expect(mockSearchResultsProps).toHaveBeenLastCalledWith(
-      expect.objectContaining({ viewMode: 'list', withHover: true })
-    );
+    expect(mockSearchResultsProps).toHaveBeenLastCalledWith(expect.objectContaining({ viewMode: 'list' }));
+  });
+
+  describe('the hover preview (#1466)', () => {
+    const originalMatchMedia = window.matchMedia;
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia;
+    });
+
+    function setFinePointer(fine: boolean) {
+      window.matchMedia = jest.fn((query: string) => ({
+        matches: fine && query === '(pointer: fine)',
+        media: query,
+        onchange: null,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })) as unknown as typeof window.matchMedia;
+    }
+
+    it('passes withHover with a fine pointer', () => {
+      (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+      setFinePointer(true);
+
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+      expect(mockSearchResultsProps).toHaveBeenLastCalledWith(expect.objectContaining({ withHover: true }));
+    });
+
+    it('does not pass withHover without a fine pointer', () => {
+      (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+      setFinePointer(false);
+
+      render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+      expect(mockSearchResultsProps).toHaveBeenLastCalledWith(expect.objectContaining({ withHover: false }));
+    });
   });
 
   it('shows the images when the deck builder toggle chose them (#1453)', () => {

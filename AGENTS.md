@@ -45,6 +45,8 @@ yarn test:watch # Run tests in watch mode
 Both pages show search results as the text list by default, on every screen. The deck builder's
 image/list toggle saves the choice under `search-view-mode-v2` (`useSearchViewMode`), and `/` reads
 the same key with no toggle of its own (#1453). The old `search-view-mode` key is not read.
+`/` shows the hover image only with a fine pointer (`useFinePointer`, #1466): on a touch device a
+tap fires a `mouseenter` with no `mouseleave`, so a preview would stay open.
 
 With a fine pointer, the deck builder's hover image over a grid card of the image view is sized from
 that card (`gridHoverImageWidth` in `SearchResults.tsx`, #1459): as large as the native image and the
