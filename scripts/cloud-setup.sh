@@ -37,12 +37,9 @@ yarn install --frozen-lockfile
 npx playwright install --with-deps chromium
 
 # --- egress probe (non-fatal) ----------------------------------------------
-# Deck sharing proxies through dpaste.com server-side
-# (src/app/api/share/route.ts). Tests mock fetch, so a blocked host fails
-# silently at runtime rather than here. Surface it in the setup log instead.
-echo -n "dpaste.com reachability: "
-curl -sS -o /dev/null -w '%{http_code}\n' --max-time 10 https://dpaste.com/api/v2/ \
-  || echo "UNREACHABLE — add dpaste.com to the environment egress allowlist"
+# Deck sharing stores each share in Upstash Redis (src/lib/shareStore.ts).
+# The route reads its URL from the env vars the Vercel integration sets, and
+# the tests mock the store, so nothing here needs to reach Upstash.
 
 # scripts/copy_card_data.sh and scripts/copy_images.sh download the card data
 # and images from raw.githubusercontent.com (eberlems/startrek2e).
