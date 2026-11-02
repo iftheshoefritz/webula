@@ -90,6 +90,16 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     expect(labels.filter((l) => l !== 'fullscreen-button')).toEqual(['Game menu', 'undo-button', 'redo-button', 'game-log-button']);
   });
 
+  it('shows a page with lines as its icon, and keeps its label and title (#1448)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const button = screen.getByTestId('game-log-button');
+    expect(button).toHaveAttribute('aria-label', 'Game log');
+    expect(button).toHaveAttribute('title', 'Game log');
+    expect(within(button).getByTestId('game-log-icon')).toBeInTheDocument();
+  });
+
   it('centres the single buttons on the undo and redo row (#1423)', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
