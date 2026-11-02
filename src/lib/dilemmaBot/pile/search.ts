@@ -8,9 +8,14 @@ import { REGISTRY } from './registry';
 // ordered stack, scored by P(fail), then the lasting damage, then the dilemmas under the mission. What
 // changes is the legality, which reads the registry, and the damage, which uses the weights of #1320.
 
-/** The models of the drawn titles the bot can play at this mission: a title the registry lacks is left out. */
+/**
+ * The models of the drawn titles the search tries: a title the registry lacks is left out, and so is a
+ * title whose family is `'no-effect'`. It changes neither P(fail) nor the damage, and it puts one more
+ * dilemma beneath the mission, so a stack with it always ranks below the same stack without it. Each
+ * one would multiply the ordered stacks, since most cost 0.
+ */
 function modelsOf(drawn: ReadonlyArray<string>): DilemmaModel[] {
-  return drawn.map((t) => REGISTRY.get(t)).filter((m): m is DilemmaModel => !!m && m.status === 'play');
+  return drawn.map((t) => REGISTRY.get(t)).filter((m): m is DilemmaModel => !!m && m.status === 'play' && m.family !== 'no-effect');
 }
 
 export const fitsMission = (model: DilemmaModel, attempt: PileAttempt) => model.kind === 'dual' || model.kind === attempt.mission.kind;
@@ -109,7 +114,8 @@ const byDamage = (a: PileStackScore, b: PileStackScore) => b.damage - a.damage |
 
 /** Rank the scores, best first, by the rules of #1282. */
 export function rankPileScores(scores: PileStackScore[]): { mode: DecisionMode; ranked: PileStackScore[] } {
-  const best = Math.max(...scores.map((s) => s.pFail));
+  // A reduce, not Math.max(...): the fast search ranks up to several hundred thousand scores.
+  const best = scores.reduce((m, s) => Math.max(m, s.pFail), 0);
   if (best < CANNOT_FAIL) return { mode: 'cannot-fail', ranked: scores.slice().sort(byDamage) };
   if (best >= CONFIDENT) {
     const sure = scores.filter((s) => s.pFail >= CONFIDENT).sort(byDamage);

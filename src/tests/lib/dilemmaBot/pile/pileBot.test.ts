@@ -11,6 +11,7 @@ import {
   countPileStacks,
   isLegalPileStack,
   legalPileStacks,
+  rankPileScores,
 } from '../../../../lib/dilemmaBot/pile/search';
 
 const ROOT = process.cwd();
@@ -244,5 +245,14 @@ describe('legality', () => {
     const attempt = attemptOf(group(9, { skills: { medical: 1 } }), { requirements: '2 Medical' });
     const result = choosePileStack(attempt, drawn, 6, 3);
     for (const s of result.ranked) expect(isLegalPileStack(attempt, s.stack, drawn, 6)).toBe(true);
+  });
+
+  it('leaves out a title that has no effect during the attempt: it would only add a dilemma beneath the mission', () => {
+    expect(legalPileStacks(planet, ['Timescape', 'Hard Time'], 9)).toEqual([[], ['Hard Time']]);
+  });
+
+  it('ranks several hundred thousand scores, as the fast search does at N = 12', () => {
+    const scores = Array.from({ length: 300000 }, (_, i) => ({ stack: [], pFail: (i % 7) / 10, damage: 0, under: 0, plays: 1 }));
+    expect(rankPileScores(scores).ranked[0].pFail).toBe(0.6);
   });
 });

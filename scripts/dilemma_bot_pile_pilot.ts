@@ -5,6 +5,7 @@
 //
 //   npx jiti scripts/dilemma_bot_pile_pilot.ts                 # every N, 20 scenarios each
 //   NS=2,4,6 SCEN=40 npx jiti scripts/dilemma_bot_pile_pilot.ts
+//   PILE=cardassian NS=9 npx jiti scripts/dilemma_bot_pile_pilot.ts   # one pile
 //
 // It prints Markdown: the families of each pile, then one table per pile.
 
@@ -26,10 +27,13 @@ const SCEN = Number(process.env.SCEN ?? 20);
 /** Above this many legal stacks the pilot counts them and does not search: the time is reported as "skipped". */
 const SEARCH_CAP = Number(process.env.SEARCH_CAP ?? 300000);
 
-const PILES = [
+const ALL_PILES = [
   { label: "Think Tank 50's", file: "2026 Trek Masters - Think Tank 50's - Matt S.txt" },
   { label: 'Cardassian in Gamma Quadrant', file: '2026 European Continental - Cardassian in Gamma Quadrant for EM 2026 - Matthias Weller.txt' },
 ];
+/** `PILE=think` or `PILE=cardassian` measures one pile; the family report always covers both. */
+const PILES = ALL_PILES;
+const MEASURED = ALL_PILES.filter((p) => !process.env.PILE || p.label.toLowerCase().includes(process.env.PILE.toLowerCase()));
 
 const { data } = parseCardData(readFileSync(join(ROOT, 'public/cards_with_processed_columns.txt'), 'utf-8'));
 const byName = new Map<string, CardData>();
@@ -170,7 +174,7 @@ const own = newTitles.filter((t) => !reuse.includes(t));
 console.log(`\n### ${second} against the families of ${first}\n`);
 console.log(`${newTitles.length} titles are new. ${reuse.length} fit a family of ${first} with new parameters; ${own.length} needed new code: ${own.sort().map((t) => `${t} (${REGISTRY.get(t)!.family})`).join(', ')}.`);
 
-for (const { label, file } of PILES) {
+for (const { label, file } of MEASURED) {
   const pile = botPileOf(readFileSync(join(folder, file), 'utf-8')).played;
   const withoutBotSide = pile.filter((t) => !REGISTRY.get(t)!.category);
   console.log(`\n### ${label}: ${SCEN} scenarios for each N\n`);
