@@ -42,6 +42,10 @@ yarn test:watch # Run tests in watch mode
 - `/` (`src/app/page.tsx`) - Simple card search interface
 - `/decks` (`src/app/decks/page.tsx`) - Full deck builder with search, deck management, and analytics
 
+Both pages show search results as the text list by default, on every screen. The deck builder's
+image/list toggle saves the choice under `search-view-mode-v2` (`useSearchViewMode`), and `/` reads
+the same key with no toggle of its own (#1453). The old `search-view-mode` key is not read.
+
 ### Search Query Syntax
 The search supports advanced query syntax defined in `src/lib/constants.ts`:
 - Text fields: name, type, affiliation, skills, keywords, gametext, etc.

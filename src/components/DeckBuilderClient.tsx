@@ -5,6 +5,7 @@ import posthog from 'posthog-js';
 import { useSearchParams } from 'next/navigation';
 import useFilterData from '../hooks/useFilterData';
 import useLocalStorage from '../hooks/useLocalStorage';
+import useSearchViewMode from '../hooks/useSearchViewMode';
 import DeckUploader from './DeckUploader';
 import DeckListPile from './DeckListPile';
 import { DrivePickerModal } from './DrivePickerModal';
@@ -406,8 +407,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     return result;
   }, [currentDeckRows]);
 
-  // One default for every screen, so the server and the hydrating render agree (#1456).
-  const [viewMode, setViewMode] = useLocalStorage<'image' | 'list'>('search-view-mode', 'list');
+  // The list on every screen, so the server and the hydrating render agree (#1456, #1453).
+  const [viewMode, setViewMode] = useSearchViewMode();
 
   // activeView controls which panel is shown in the desktop left panel
   const [activeView, setActiveView] = useState<'search' | 'deck'>('deck');
