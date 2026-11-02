@@ -78,6 +78,30 @@ describe('MissionRow', () => {
     expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
   });
 
+  // #1455: an away team and a crew hold personnel and equipment alike, so both badges show a card
+  // back, not a person.
+  it('shows a card back icon and the count on the away team badge and on a ship crew badge', () => {
+    const ship: CardInstance = { ...card('s1', 'Enterprise'), crew: [card('c1', 'Worf'), card('c2', 'Phaser')] };
+    const slot: MissionSlot = { ...emptySlot(), ships: [ship], awayTeam: [card('p1', 'Data'), card('e1', 'Tricorder')] };
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+      />
+    );
+
+    const badge = screen.getByTestId('mission-pile-awayTeam-0');
+    expect(badge.getAttribute('aria-label')).toMatch(/^Away team/);
+    expect(badge.querySelector('svg[data-icon="card-back"]')).not.toBeNull();
+    expect(badge).toHaveTextContent('2');
+    const crew = screen.getByLabelText('Enterprise crew, 2 cards');
+    expect(crew.querySelector('svg[data-icon="card-back"]')).not.toBeNull();
+    expect(crew).toHaveTextContent('2');
+  });
+
   // #924: the badge strip is part of the mission's drop zone. The bottom half reaches down past the
   // card over the 4 px gap and the 14 px badge strip; the top half does not.
   it("reaches the mission's bottom half over the badge strip", () => {
