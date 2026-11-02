@@ -4,6 +4,40 @@ import { VirtuosoGrid, Virtuoso } from "react-virtuoso";
 import { CardDef, DeckList } from "../types";
 import { AFFILIATION_ICONS } from "../lib/missionRequirements";
 import { useIsClient } from "../hooks/useMediaQuery";
+import { FINE_POINTER_QUERY } from "../app/decks/practice/useFinePointer";
+import {
+  CARD_IMAGE_HEIGHT,
+  CARD_IMAGE_WIDTH,
+  fullCardHeight,
+} from "../app/decks/practice/viewerCardSize";
+import {
+  previewEnlarges,
+  previewHeightFor,
+  previewMaxWidth,
+} from "../app/decks/practice/previewSize";
+
+// The hover image of the list view, and of the image view on a touch device: the trigger is text,
+// or there is no hover to size it from.
+export const LIST_HOVER_IMAGE_WIDTH = 230; // px
+
+// Issue #1459: the width of the hover image over a grid card of this rect, with a fine pointer.
+// As large as the native image (357 x 499 px) and the window's height allow, and null when that is not
+// clearly larger than the grid card by the rule of #1458 (`previewEnlarges`).
+export function gridHoverImageWidth(
+  cardRect: { width: number; height: number },
+  viewportHeight: number,
+): number | null {
+  const maxHeight = previewHeightFor(viewportHeight, true);
+  const width = Math.min(
+    previewMaxWidth(),
+    Math.floor((maxHeight * CARD_IMAGE_WIDTH) / CARD_IMAGE_HEIGHT),
+  );
+  return previewEnlarges(cardRect, fullCardHeight(width), true) ? width : null;
+}
+
+function finePointerNow(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia(FINE_POINTER_QUERY).matches;
+}
 
 const INLINE_ICON_MAP: Record<string, string> = {
   // Personnel/card icons
@@ -124,6 +158,7 @@ export default function SearchResults({
 }: SearchResultsProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [imageStyle, setImageStyle] = useState({});
+  const [hoverImageWidth, setHoverImageWidth] = useState(LIST_HOVER_IMAGE_WIDTH);
   // SSR guard: document.body doesn't exist during server-side rendering
   const mounted = useIsClient();
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -132,15 +167,29 @@ export default function SearchResults({
     (
       collectorsinfo: string,
       event: React.MouseEvent<HTMLElement, MouseEvent>,
+      fromGridCard = false,
     ): void => {
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-      const imageHeight = 230;
-      const imageWidth = 458;
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
       const targetRect = event.currentTarget.getBoundingClientRect();
 
+      let imageWidth = LIST_HOVER_IMAGE_WIDTH;
+      if (fromGridCard && finePointerNow()) {
+        const gridWidth = gridHoverImageWidth(targetRect, viewportHeight);
+        if (gridWidth === null) {
+          // The grid card is already as large as the hover image could be: show none. The grid
+          // card's own click and right-click still add and remove the card.
+          setHoveredItem(null);
+          setImageStyle({ display: "none" });
+          return;
+        }
+        imageWidth = gridWidth;
+      }
+      const imageHeight = fullCardHeight(imageWidth);
+
       setHoveredItem(collectorsinfo);
+      setHoverImageWidth(imageWidth);
 
       // Start by positioning to the right of the card
       let topPosition = targetRect.top + 5;
@@ -207,8 +256,8 @@ export default function SearchResults({
           <div className="relative">
             <img
               src={`/cardimages/${row.imagefile}.jpg`}
-              width={230}
-              height={458}
+              width={hoverImageWidth}
+              height={fullCardHeight(hoverImageWidth)}
               loading="lazy"
               alt={row.name}
               className="rounded-xl block"
@@ -230,7 +279,7 @@ export default function SearchResults({
         document.body,
       );
     },
-    [withHover, hoveredItem, mounted, imageStyle, handleLargeHover, handleLargeUnhover, onCardSelected, onCardDeselected, currentDeck],
+    [withHover, hoveredItem, mounted, imageStyle, hoverImageWidth, handleLargeHover, handleLargeUnhover, onCardSelected, onCardDeselected, currentDeck],
   );
 
   const itemContent = useCallback(
@@ -258,7 +307,7 @@ export default function SearchResults({
               onContextMenu={(event) =>
                 onCardDeselected && onCardDeselected(event, row)
               }
-              onMouseEnter={(event) => handleHover(row.collectorsinfo, event)}
+              onMouseEnter={(event) => handleHover(row.collectorsinfo, event, true)}
               onMouseLeave={handleUnhover}
             />
             <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
