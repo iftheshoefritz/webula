@@ -247,7 +247,12 @@ export const CONTROL_ROWS: ControlRow[] = [
   },
 
   // Buttons
-  { id: 'next-turn', section: 'Buttons', action: 'Next turn', ...both('Unstops every personnel.') },
+  {
+    id: 'next-turn',
+    section: 'Buttons',
+    action: 'Next turn',
+    ...both('The turn button shows the turn. A press adds 1 to it and unstops every personnel.'),
+  },
   { id: 'score', section: 'Buttons', action: 'Score − / +', ...both('Changes the score by hand.') },
   {
     id: 'shuffle',
