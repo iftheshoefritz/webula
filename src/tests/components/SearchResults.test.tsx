@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import SearchResults, { gridHoverImageWidth, hoverImageLeft } from '../../components/SearchResults';
+import SearchResults, { gridHoverImageWidth, hoverImageLeft, hoverImagePosition } from '../../components/SearchResults';
 import { previewMaxWidth } from '../../app/decks/practice/previewSize';
 import { CardDef, DeckList } from '../../types';
 
@@ -370,6 +370,38 @@ describe('SearchResults', () => {
       const short = gridHoverImageWidth({ width: 144, height: 200 }, 400);
       expect(short).toBe(Math.floor((400 * 0.9 * 120) / 167));
       expect(gridHoverImageWidth({ width: 300, height: 418 }, 800)).toBeNull();
+    });
+  });
+
+  describe('hoverImagePosition', () => {
+    const viewport = { width: 1280, height: 800 };
+    const listImage = { width: 230, height: Math.round((230 * 167) / 120) };
+
+    it('places the preview right of a card with 240 px free on its right', () => {
+      const rect = { top: 100, left: 900, right: 1040 };
+      expect(hoverImagePosition(rect, listImage, viewport)).toEqual({ top: 105, left: 1050 });
+    });
+
+    it('places the preview left of a card with less room on its right', () => {
+      const rect = { top: 100, left: 900, right: 1041 };
+      expect(hoverImagePosition(rect, listImage, viewport).left).toBe(900 - 230 - 10);
+    });
+
+    it.each([
+      ['the 230 px image', listImage],
+      ['a grid-card image', { width: 357, height: 499 }],
+    ])('keeps %s inside the window for a card near the bottom edge', (_, image) => {
+      const rect = { top: 760, left: 100, right: 244 };
+      const { top, left } = hoverImagePosition(rect, image, viewport);
+      expect(top).toBeGreaterThanOrEqual(0);
+      expect(top + image.height).toBeLessThanOrEqual(viewport.height);
+      expect(left).toBe(254);
+    });
+
+    it('keeps the top inside a window shorter than the image', () => {
+      const rect = { top: 300, left: 100, right: 244 };
+      const { top } = hoverImagePosition(rect, { width: 357, height: 499 }, { width: 1280, height: 400 });
+      expect(top).toBe(0);
     });
   });
 

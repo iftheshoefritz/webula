@@ -35,6 +35,9 @@ export function gridHoverImageWidth(
   return previewEnlarges(cardRect, fullCardHeight(width), true) ? width : null;
 }
 
+// The gap between the hover image and the card, and between the image and the window's edge.
+const HOVER_IMAGE_GAP = 10; // px
+
 // The left edge of a hover image `imageWidth` wide: right of the trigger, or left of it, or, when it
 // fits on neither side, beside the pointer. A name in the list view of `/` spans the whole window, so
 // neither side of it has room (#1466).
@@ -44,11 +47,35 @@ export function hoverImageLeft(
   imageWidth: number,
   viewportWidth: number,
 ): number {
-  if (targetRect.right + 10 + imageWidth <= viewportWidth) return targetRect.right + 10;
-  if (targetRect.left - imageWidth - 10 >= 0) return targetRect.left - imageWidth - 10;
+  if (targetRect.right + HOVER_IMAGE_GAP + imageWidth <= viewportWidth) {
+    return targetRect.right + HOVER_IMAGE_GAP;
+  }
+  if (targetRect.left - imageWidth - HOVER_IMAGE_GAP >= 0) {
+    return targetRect.left - imageWidth - HOVER_IMAGE_GAP;
+  }
   if (pointerX + 20 + imageWidth <= viewportWidth) return pointerX + 20;
   if (pointerX - imageWidth - 20 >= 0) return pointerX - imageWidth - 20;
   return Math.max(0, viewportWidth - imageWidth);
+}
+
+// Issue #1468: where the hover image of a card goes, in window coordinates. Left as
+// `hoverImageLeft` places it; level with the card's top, raised as far as the window's bottom edge
+// needs, and never above the window's top.
+export function hoverImagePosition(
+  targetRect: { top: number; left: number; right: number },
+  image: { width: number; height: number },
+  viewport: { width: number; height: number },
+  pointerX: number = targetRect.left,
+): { top: number; left: number } {
+  const left = hoverImageLeft(targetRect, pointerX, image.width, viewport.width);
+
+  let top = targetRect.top + 5;
+  if (top + image.height > viewport.height - HOVER_IMAGE_GAP) {
+    top = viewport.height - image.height - HOVER_IMAGE_GAP;
+  }
+  top = Math.max(0, top);
+
+  return { top, left };
 }
 
 function finePointerNow(): boolean {
@@ -207,28 +234,17 @@ export default function SearchResults({
       setHoveredItem(collectorsinfo);
       setHoverImageWidth(imageWidth);
 
-      let topPosition = targetRect.top + 5;
-      const leftPosition = hoverImageLeft(targetRect, event.clientX, imageWidth, viewportWidth);
-
-      // If image extends past bottom edge, position above instead
-      if (topPosition + imageHeight > viewportHeight) {
-        topPosition = targetRect.top - imageHeight - 10;
-      }
-
-      // If image now extends past top edge, position below instead
-      if (topPosition < 0) {
-        topPosition = targetRect.bottom + 10;
-      }
-
-      // Final safety check: if still extends past bottom, clamp to bottom
-      if (topPosition + imageHeight > viewportHeight) {
-        topPosition = Math.max(0, viewportHeight - imageHeight - 10);
-      }
+      const { top, left } = hoverImagePosition(
+        targetRect,
+        { width: imageWidth, height: imageHeight },
+        { width: viewportWidth, height: viewportHeight },
+        event.clientX,
+      );
 
       setImageStyle({
         position: "fixed",
-        top: topPosition,
-        left: leftPosition,
+        top,
+        left,
         zIndex: 50,
       });
     },
