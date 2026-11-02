@@ -3,9 +3,9 @@ import { VIEWER_TOP_INSET } from './viewerCardSize';
 
 // Issue #828: a card list panel anchors its bottom edge just above the bottom row, not at the
 // bottom of the screen, so it grows upward and leaves no empty band between the missions and the
-// bottom row. The bottom row's zones keep fixed pixel sizes while the table above them grows, but
-// its height still depends on its content (the counters above the discard pile, the core and brig
-// rows), so it is measured, not hard-coded.
+// bottom row. The bottom row's zones grow only by the bottom-row scale (`computeBottomRowScale`,
+// #1465), not with the table above them, and its height depends on its content, so it is measured,
+// not hard-coded.
 
 // The gap between the panel's bottom edge and the top of the bottom row.
 export const PANEL_BOTTOM_ROW_GAP = VIEWER_TOP_INSET;

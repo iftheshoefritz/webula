@@ -573,3 +573,23 @@ describe('CardHand arc on a touch screen (#1149)', () => {
     expect(offset(tops.true.controls) - offset(tops.false.controls)).toBeCloseTo(plain.visibleHeight - touch.visibleHeight);
   });
 });
+
+// #1465: on a large screen the closed hand grows by the bottom-row scale, as the piles beside it do.
+describe('CardHand closed row at a bottom-row scale', () => {
+  it('draws its cards and its button at the scale', () => {
+    render(
+      <CardHand
+        instances={makeInstances(1)}
+        open={false}
+        onOpen={() => {}}
+        onClose={() => {}}
+        dragging={false}
+        rowScale={1.5}
+      />
+    );
+    const button = screen.getByRole('button', { name: /hand, 1 card/ });
+    expect(button.style.width).toBe('84px');
+    expect(button.style.height).toBe('120px');
+    expect((button.querySelector('img') as HTMLImageElement).style.width).toBe('84px');
+  });
+});

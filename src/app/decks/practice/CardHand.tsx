@@ -33,7 +33,8 @@ import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { HAND_ARC_ATTRIBUTE, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
-import { PILE_CARD_BORDER_STYLE, cardBorderStyle } from './TableCard';
+import { cardBorderStyle } from './TableCard';
+import { pileCardSize } from './flatRowWidths';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
 import { ARC_TOUCH_OPTIONS, arcTouchMinVisible, handArcLayout } from './handArc';
 import { SAFE_INSET_CSS, safeAreaMargins } from './useSafeAreaInsets';
@@ -42,8 +43,6 @@ import { SAFE_INSET_CSS, safeAreaMargins } from './useSafeAreaInsets';
 // inset (#1384).
 const SAFE_TOP_CLAMP = `calc(${VIEWER_TOP_INSET}px + ${SAFE_INSET_CSS.top})`;
 
-const CARD_WIDTH = 56; // px, matches the w-14 card images used across the table
-const CARD_HEIGHT = 80; // px, matches the h-20 empty-zone placeholders
 
 // Issue #802: the open fan's cards are the viewer size every card list panel uses, 1.5x the shared
 // table card (`viewerCardSize.ts`), not a size of the fan's own. The fan draws the full card
@@ -175,6 +174,7 @@ export default function CardHand({
   arcBetween,
   finePointer = true,
   safeAreaBottom = 0,
+  rowScale = 1,
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -232,9 +232,20 @@ export default function CardHand({
   // The bottom safe-area inset (`useSafeAreaInsets`, #1383), the home indicator's. It raises the
   // touch arc's floor; the arc's `bottom` stays the bottom of the screen. Defaults to 0.
   safeAreaBottom?: number;
+  // The bottom-row scale (`computeBottomRowScale`, #1465): the closed row's cards, its width and its
+  // overlap grow by it. Defaults to 1.
+  rowScale?: number;
 }) {
-  const closedOffset = offsetFor(instances.length, CARD_WIDTH, CLOSED_MAX_WIDTH, CLOSED_MAX_OFFSET);
-  const closedWidth = instances.length === 0 ? CARD_WIDTH : CARD_WIDTH + closedOffset * (instances.length - 1);
+  // The closed row is a pile card (`pileCardSize`) at the bottom-row scale.
+  const { width: closedCardWidth, height: closedCardHeight } = pileCardSize(rowScale);
+  const closedOffset = offsetFor(
+    instances.length,
+    closedCardWidth,
+    Math.round(CLOSED_MAX_WIDTH * rowScale),
+    Math.round(CLOSED_MAX_OFFSET * rowScale),
+  );
+  const closedWidth =
+    instances.length === 0 ? closedCardWidth : closedCardWidth + closedOffset * (instances.length - 1);
   const openCardHeight = fullCardHeight(openCardWidth);
   const count = instances.length;
   const showFan = open || dragging;
@@ -332,14 +343,17 @@ export default function CardHand({
         disabled={open || count === 0}
         aria-label={`${label}, ${count} card${count === 1 ? '' : 's'}, tap to open`}
         className={`relative focus:outline-hidden disabled:cursor-default ${open ? '' : highlightClassName(highlight)}`}
-        style={{ width: closedWidth, height: CARD_HEIGHT, visibility: open ? 'hidden' : 'visible' }}
+        style={{ width: closedWidth, height: closedCardHeight, visibility: open ? 'hidden' : 'visible' }}
       >
         {count === 0 ? (
           // The empty marker shows only while a drag runs (#929), when it tells the player where
           // the card can go. The button keeps its size either way, so nothing moves in the bottom
           // row as the marker appears and disappears.
           dragging && (
-            <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">
+            <div
+              className="rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs"
+              style={{ width: closedCardWidth, height: closedCardHeight }}
+            >
               Empty
             </div>
           )
@@ -351,8 +365,8 @@ export default function CardHand({
               width={120}
               height={167}
               alt=""
-              className="absolute top-0 rounded-lg shadow-md w-14 h-auto"
-              style={{ ...PILE_CARD_BORDER_STYLE, left: idx * closedOffset, zIndex: idx + 1 }}
+              className="absolute top-0 rounded-lg shadow-md h-auto"
+              style={{ ...cardBorderStyle(closedCardWidth), width: closedCardWidth, left: idx * closedOffset, zIndex: idx + 1 }}
             />
           ))
         )}

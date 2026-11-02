@@ -32,6 +32,7 @@ import {
   underMissionStackRoom,
 } from './MissionRow';
 import { viewerCardSize } from './viewerCardSize';
+import { PILE_CARD_HEIGHT } from './flatRowWidths';
 
 // The 568x320 viewport the fixed pixel card sizes below were tuned against (see
 // `MissionRow.tsx`'s `BADGE_STRIP_HEIGHT_BASE` comment) — scale 1 at this height, larger once the
@@ -213,6 +214,12 @@ export function computeTouchMissionScale(
   leftReserve: number = MENU_BUTTON_GUTTER,
   insetSides = 0,
 ): number {
+  const widthScale = touchMissionWidthScale(gameLayerWidth, leftReserve, insetSides);
+  return Math.max(tableScale, fitColumnScale(widthScale, availableHeight, columnHeight));
+}
+
+// The scale at which the five touch mission slots, art crops, fill the width.
+function touchMissionWidthScale(gameLayerWidth: number, leftReserve: number, insetSides: number): number {
   const availableWidth =
     gameLayerWidth -
     insetSides -
@@ -220,8 +227,54 @@ export function computeTouchMissionScale(
     leftReserve -
     MENU_BUTTON_GUTTER -
     MISSION_ROW_GAP * (MISSION_SLOTS - 1);
-  const widthScale = availableWidth / MISSION_SLOTS / TABLE_CARD_WIDTH;
-  return Math.max(tableScale, fitColumnScale(widthScale, availableHeight, columnHeight));
+  return availableWidth / MISSION_SLOTS / TABLE_CARD_WIDTH;
+}
+
+// Issue #1465: on a large screen the bottom row (the discard, the draw deck, the hands, the core,
+// the brig and the dilemma pile) draws its cards larger, by one bottom-row scale, from 1 up to
+// `BOTTOM_ROW_SCALE_CAP`, a pile card of at most 98x140 px. The size of the screen decides it, not
+// the pointer, so a large touch screen grows too:
+// - the ramp, half the table scale, starts the growth at a table 640 px tall, so no phone grows,
+//   and the minimum screen, at a table scale of about 1.17, stays at 1;
+// - the guard keeps the row out of the height the missions need: the row grows only as far as the
+//   mission column, at the scale the width of the mission row allows, still fits above it. Where the
+//   missions are bound by the height, a short and very wide screen, the row stays at 1.
+// The guard reads no measure of the row or of the missions: `useMissionScale` sizes the missions
+// from the row's measured height, so a row sized from the missions' measure would feed back.
+// The height is the game layer's less the content padding and the top and bottom safe-area insets,
+// as the content column pads itself by them; `insetSides` is the left and the right insets together.
+export const BOTTOM_ROW_SCALE_CAP = 1.75;
+
+export function computeBottomRowScale({
+  gameLayerWidth,
+  gameLayerHeight,
+  tableScale,
+  desktop,
+  columnHeight,
+  insetTop = 0,
+  insetBottom = 0,
+  insetSides = 0,
+}: {
+  gameLayerWidth: number;
+  gameLayerHeight: number;
+  tableScale: number;
+  desktop: boolean;
+  // `missionColumnHeight` with the ship rows `useMissionScale` reserves on that device.
+  columnHeight: (scale: number) => number;
+  insetTop?: number;
+  insetBottom?: number;
+  insetSides?: number;
+}): number {
+  const missionScale = desktop
+    ? Math.max(
+        1,
+        desktopMissionSlotBudget(gameLayerWidth, insetSides, DESKTOP_FULL_TABLE_RESERVE) /
+          fullCardHeight(TABLE_CARD_WIDTH),
+      )
+    : Math.max(tableScale, touchMissionWidthScale(gameLayerWidth, TOUCH_CONTROLS_COLUMN, insetSides));
+  const room = gameLayerHeight - insetTop - insetBottom - CONTENT_PADDING - columnHeight(missionScale);
+  const guard = room / PILE_CARD_HEIGHT;
+  return Math.max(1, Math.min(BOTTOM_ROW_SCALE_CAP, tableScale / 2, guard));
 }
 
 // The largest scale, up to `widthScale`, at which `columnHeight` fits `availableHeight`, and never
