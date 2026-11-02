@@ -120,6 +120,7 @@ import {
   DESKTOP_RESERVED_SHIP_ROWS,
   TOUCH_RESERVED_SHIP_ROWS,
   ATTEMPT_STACK_LABEL_HEIGHT,
+  DESKTOP_FULL_TABLE_RESERVE,
   MENU_BUTTON_GUTTER,
   TOUCH_CONTROLS_COLUMN,
   desktopMissionSlotBudget,
@@ -327,6 +328,7 @@ function GameMenu({
   redoLabel,
   onRedo,
   undoRedoRow,
+  turnScoreColumn,
   botGame,
   touch,
 }: {
@@ -354,9 +356,13 @@ function GameMenu({
   redoLabel: string | null;
   onRedo: () => void;
   // Redo beside undo, in one row, on the full touch table, so the turn and score column below keeps
-  // its place (#1403). Elsewhere redo sits under undo: the desktop and the attempt layout keep only
-  // `MENU_BUTTON_GUTTER` left of the table, and a row of two would cover the first mission.
+  // its place (#1403). Elsewhere redo sits under undo: the attempt layout keeps only
+  // `MENU_BUTTON_GUTTER` left of the table, where a row of two would cover the first mission, and the
+  // desktop keeps the look of #1403, with the turn and score column below five buttons (#1451).
   undoRedoRow: boolean;
+  // The turn and score column shows below the corner buttons, on the full table of either device
+  // (#1451): the corner column then takes its width, so both share one centre line (#1447).
+  turnScoreColumn: boolean;
   // A game against the dilemma bot (#1289).
   botGame: boolean;
   // The touch layout, whose corner buttons take the round look of the iPadOS close button (#1394).
@@ -509,14 +515,15 @@ function GameMenu({
         className={`absolute ${
           fullscreen.isFullscreen && fullscreen.systemControlsInset ? 'top-14' : 'top-2'
         } left-2 flex flex-col items-center gap-1 ${
-          undoRedoRow ? 'pointer-events-none *:pointer-events-auto' : ''
+          turnScoreColumn ? 'pointer-events-none *:pointer-events-auto' : ''
         } ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
-        // On the full touch table the column is as wide as the turn and score column below it, and
+        // On the full table the column is as wide as the turn and score column below it, and
         // `items-center` centres every button and the undo and redo row on the centre line of that
-        // column (#1447); its empty sides take no taps. Elsewhere it is as wide as its widest child.
+        // column (#1447, #1451); its empty sides take no taps. In the attempt layout it is as wide as
+        // its widest child.
         // Below the top safe-area inset and right of the left one (#1384), on top of `top-14`.
         style={{
-          ...(undoRedoRow ? { width: CONTROLS_COLUMN_WIDTH } : {}),
+          ...(turnScoreColumn ? { width: CONTROLS_COLUMN_WIDTH } : {}),
           ...safeAreaMargins('top', 'left'),
         }}
       >
@@ -598,9 +605,10 @@ function GameMenu({
   );
 }
 
-// Issue #1337: the turn and score controls of the touch table, in the column left of the mission row
+// Issue #1337: the turn and score controls of the full table, in the column left of the mission row
 // (`TOUCH_CONTROLS_COLUMN`), below the corner buttons: the turn over the next-turn button, then the
-// score over minus and plus. They are table content, not part of `corner-buttons`, so a card list
+// score over minus and plus. A desktop shows the same column, in the look of its corner buttons
+// (#1451). They are table content, not part of `corner-buttons`, so a card list
 // panel and the hand arc cover them as they covered the counters of the bottom row. `compact`
 // (`turnScoreColumnCompact`) hides the labels and draws smaller buttons.
 // The content column's `p-4`, grown by the safe-area insets (#1383, #1384): only the sides with an
@@ -619,7 +627,8 @@ const CONTROLS_COLUMN_LEFT = 8; // px
 const CONTROLS_COLUMN_WIDTH = 16 + TOUCH_CONTROLS_COLUMN - CONTROLS_COLUMN_LEFT - 4; // px
 // Below the corner buttons (24 px each, 4 px apart) at `top-2`, or at `top-14` with the inset, and
 // 8 px clear of them. The column counts four buttons (#1399), or three in fullscreen on iPadOS, where the
-// system's close X stands in for the fullscreen button (#1394). A column with no fullscreen button
+// system's close X stands in for the fullscreen button (#1394). A desktop stacks redo under undo, so it
+// counts five (#1451). A column with no fullscreen button
 // still counts four, so the turn and score do not jump when the button shows after hydration. Like the corner buttons, the column moves in by the top and the left safe-area insets (#1384).
 const CORNER_BUTTON = 24; // px
 const CORNER_BUTTON_GAP = 4; // px
@@ -635,6 +644,7 @@ function TurnScoreColumn({
   onAdjustScore,
   compact,
   top,
+  touch,
 }: {
   turn: number;
   score: number;
@@ -644,10 +654,13 @@ function TurnScoreColumn({
   compact: boolean;
   // `controlsColumnTop`.
   top: number;
+  // The round `btn-system` look of the touch corner buttons, or the desktop's `btn-icon` (#1451).
+  touch: boolean;
 }) {
   const label = compact ? 'sr-only' : 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted';
   const number = compact ? 'text-sm leading-5 font-semibold' : 'text-lg leading-6 font-semibold';
-  const button = `btn-system w-full ${compact ? 'h-6 text-xs' : 'h-7'} disabled:opacity-50 disabled:cursor-not-allowed`;
+  const look = touch ? 'btn-system' : 'btn-icon';
+  const button = `${look} w-full ${compact ? 'h-6 text-xs' : 'h-7'} disabled:opacity-50 disabled:cursor-not-allowed`;
   return (
     <div
       data-testid="turn-score-column"
@@ -1826,7 +1839,7 @@ function PracticeDrawContent() {
   // to the top of the bottom row.
   const gameLayerHeight = useElementHeight(gameLayer);
   const turnScoreTop = controlsColumnTop(
-    fullscreen.systemExitControl ? 3 : 4,
+    (fullscreen.systemExitControl ? 3 : 4) + (finePointer ? 1 : 0),
     fullscreen.isFullscreen && fullscreen.systemControlsInset
   );
   const shipRows = useShipRowCount(
@@ -3148,6 +3161,7 @@ function PracticeDrawContent() {
           redoLabel={nextRedo ? `Redo: ${logEntryText(nextRedo.entry)}` : null}
           onRedo={handleRedo}
           undoRedoRow={!finePointer && !attemptLayoutShows}
+          turnScoreColumn={!attemptLayoutShows}
           botGame={table.opponent === 'bot'}
           touch={!finePointer}
         />
@@ -3328,9 +3342,10 @@ function PracticeDrawContent() {
                 className="flex flex-row gap-2 justify-center items-start"
                 style={{
                   paddingTop: underMissionHeadroom(missionScale, finePointer),
-                  // Touch keeps the column left of the row free for the turn and score controls
-                  // (#1337), the reservation `useMissionScale` sized the row for.
-                  ...(finePointer ? {} : { paddingLeft: TOUCH_CONTROLS_COLUMN, paddingRight: MENU_BUTTON_GUTTER }),
+                  // The row keeps the column left of it free for the turn and score controls
+                  // (#1337, #1451), the reservation `useMissionScale` sized the row for.
+                  paddingLeft: TOUCH_CONTROLS_COLUMN,
+                  paddingRight: MENU_BUTTON_GUTTER,
                 }}
               >
                 <MissionRow
@@ -3348,24 +3363,23 @@ function PracticeDrawContent() {
                   scale={missionScale}
                   shipRows={shipRows}
                   desktop={finePointer}
-                  slotBudget={desktopMissionSlotBudget(gameLayerWidth, safeAreaSides)}
+                  slotBudget={desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE)}
                 />
               </div>
-              {!finePointer && (
-                <TurnScoreColumn
-                  turn={turn}
-                  score={score}
-                  onNextTurn={nextTurn}
-                  onAdjustScore={adjustScore}
-                  compact={turnScoreColumnCompact({
-                    systemControls: fullscreen.isFullscreen && fullscreen.systemControlsInset,
-                    top: turnScoreTop + safeArea.top,
-                    roomBottom:
-                      gameLayerHeight > 0 ? gameLayerHeight - (panelBottom - PANEL_BOTTOM_ROW_GAP) : 0,
-                  })}
-                  top={turnScoreTop}
-                />
-              )}
+              <TurnScoreColumn
+                turn={turn}
+                score={score}
+                onNextTurn={nextTurn}
+                onAdjustScore={adjustScore}
+                compact={turnScoreColumnCompact({
+                  systemControls: fullscreen.isFullscreen && fullscreen.systemControlsInset,
+                  top: turnScoreTop + safeArea.top,
+                  roomBottom:
+                    gameLayerHeight > 0 ? gameLayerHeight - (panelBottom - PANEL_BOTTOM_ROW_GAP) : 0,
+                })}
+                top={turnScoreTop}
+                touch={!finePointer}
+              />
                 </>
               )}
 
@@ -3377,39 +3391,7 @@ function PracticeDrawContent() {
                   core and the brig already used. */}
               <div ref={setBottomRow} className="mt-auto flex flex-row items-end gap-2">
                 <div className="flex flex-row items-end gap-2">
-                  {/* Discard, with the score counter above it (#753) rather than beside it. The
-                      turn counter sits above the draw deck the same way (#1079), so each pile is
-                      centred under its buttons and the row fits a 568 px table. Only a desktop
-                      keeps them here: touch shows them in the column left of the missions (#1337). */}
                   <div className="flex flex-col items-center gap-1">
-                    {/* Score counter (#719): shows the current score, and plus/minus buttons
-                        that change it by SCORE_STEP points, clamped by the reducer to 0-140. */}
-                    {finePointer && (
-                    <div className="flex flex-col items-center gap-1">
-                      <span data-testid="score-counter" className="text-xs text-text-muted">
-                        Score {score}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                          onClick={() => adjustScore(-SCORE_STEP)}
-                          disabled={score <= SCORE_MIN}
-                          aria-label="Decrease score"
-                        >
-                          -
-                        </button>
-                        <button
-                          className="btn-icon btn-icon-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                          onClick={() => adjustScore(SCORE_STEP)}
-                          disabled={score >= SCORE_MAX}
-                          aria-label="Increase score"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    )}
-
                     <DiscardPile
                       topCard={discard[discard.length - 1]}
                       count={discard.length}
@@ -3418,7 +3400,8 @@ function PracticeDrawContent() {
                   </div>
 
                   {/* The draw deck, with its Shuffle, Download (#690) and reveal (#1070) buttons
-                      stacked over its left edge (`PileControls`), and the turn counter above it. */}
+                      stacked over its left edge (`PileControls`). The turn and score controls sit in
+                      the column left of the missions on either device (#1337, #1451). */}
                   <div className="flex flex-row items-end">
                     <PileControls
                       label="draw deck"
@@ -3428,28 +3411,7 @@ function PracticeDrawContent() {
                       onDownload={() => openOnlyFlatZone('drawDeck')}
                       onReveal={() => openOnlyRevealPanel('drawDeck')}
                     />
-                    {/* The turn counter sits above the draw deck (#1079), centred on the pile
-                        alone, the way the score counter sits above the discard pile.
-                        `PileControls` stays outside this column, so it keeps overlapping the
-                        pile's left edge, and the button is not nested in the pile's draggable. */}
                     <div data-testid="draw-deck-column" className="flex flex-col items-center gap-1">
-                      {/* Turn counter (#718): shows the current turn, and a button that raises it
-                          by one and unstops every stopped personnel card on the table. */}
-                      {finePointer && (
-                      <div className="flex flex-col items-center gap-1">
-                        <span data-testid="turn-counter" className="text-xs text-text-muted">
-                          Turn {turn}
-                        </span>
-                        <button
-                          className="btn-icon btn-icon-sm"
-                          onClick={nextTurn}
-                          aria-label="Next turn"
-                        >
-                          <FaForward />
-                        </button>
-                      </div>
-                      )}
-
                       {/* The draw deck (#743): the same top/bottom drop-half split as the dilemma
                           pile, so a card dragged from any zone can be filed back in at either
                           end of the deck, not only drawn from the top. */}

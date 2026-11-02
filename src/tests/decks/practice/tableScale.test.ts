@@ -21,6 +21,7 @@ import {
   computeTableScale,
   computeTouchMissionScale,
   TOUCH_CONTROLS_COLUMN,
+  DESKTOP_FULL_TABLE_RESERVE,
   desktopMissionSlotBudget,
   fitColumnScale,
   MIN_SCREEN,
@@ -130,6 +131,18 @@ describe('computeDesktopTableScale (#992)', () => {
     // Five 72 px slots fit 500 px, five 100 px slots do not.
     expect(desktopMissionSlotBudget(500)).toBeCloseTo((500 - 32 - 32) / 5, 5);
     expect(computeDesktopTableScale(500, 5000, column)).toBe(1);
+  });
+
+  it('keeps the turn and score column and the menu button gutter free on the full table (#1451)', () => {
+    expect(DESKTOP_FULL_TABLE_RESERVE).toBe(TOUCH_CONTROLS_COLUMN + 20);
+    // (1440 - 32 padding - 56 column - 20 gutter - 4 gaps of 8) / 5
+    expect(desktopMissionSlotBudget(1440, 0, DESKTOP_FULL_TABLE_RESERVE)).toBeCloseTo((1440 - 32 - 76 - 32) / 5, 5);
+    expect(computeDesktopTableScale(1500, 5000, column, 0, DESKTOP_FULL_TABLE_RESERVE)).toBeCloseTo(
+      (1500 - 32 - 76 - 32) / 500,
+      5,
+    );
+    // At 1280 px the five slots still fit a whole card at scale 1, so `missionSlotWidth` keeps its room.
+    expect(desktopMissionSlotBudget(1280, 0, DESKTOP_FULL_TABLE_RESERVE)).toBeGreaterThanOrEqual(100);
   });
 
   it('never goes below 1', () => {

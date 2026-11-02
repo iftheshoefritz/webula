@@ -121,7 +121,7 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     expect(corner.className).toMatch(/\*:pointer-events-auto/);
   });
 
-  it('keeps the corner column as wide as its widest button with a fine pointer (#1447)', async () => {
+  it('is as wide as the turn and score column with a fine pointer too (#1451)', async () => {
     (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
       matches: query === FINE_POINTER_QUERY,
       media: query,
@@ -132,8 +132,11 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
       render(<PracticeDrawPage />);
     });
     const corner = screen.getByTestId('corner-buttons');
-    expect(corner.style.width).toBe('');
-    expect(corner.className).not.toMatch(/pointer-events-none/);
+    expect(corner.style.width).not.toBe('');
+    expect(corner.style.width).toBe(screen.getByTestId('turn-score-column').style.width);
+    expect(corner.className).toMatch(/(^|\s)pointer-events-none(\s|$)/);
+    // Redo stays under undo on a desktop.
+    expect(screen.getByTestId('undo-redo').className).toMatch(/\bflex-col\b/);
   });
 
   it('closes the open splash and opens an empty log on a new game', async () => {
