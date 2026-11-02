@@ -25,7 +25,7 @@
 // card in the core or the brig (#810). The ship stays draggable at the same time; a `useDroppable`
 // wrapper around the already draggable `TableCard`, the same nesting pattern used for the mission
 // card's own drop target, keeps the two roles apart as two different DOM nodes. The ship's crew
-// badge (#811) is the only way to board a card by a drag: the same `PersonnelIcon`-and-count pill
+// badge (#811) is the only way to board a card by a drag: the same `CardBackIcon`-and-count pill
 // a mission's away team shows (`PileBadge` below), not the plain `CountBadge` circle the draw
 // and discard piles use, and shown even with no crew, so the first crew card has somewhere to
 // land. A tap anywhere on the ship (`onShipClick`) opens a panel with the ship in its own section
@@ -838,11 +838,15 @@ const BADGE_PILL_CLASS = 'gap-px rounded-full bg-black/50 px-0.5 text-text-prima
 const COLUMN_GAP = 4; // px
 
 // Small inline icons (not react-icons) so the three badges are visually distinct at this size.
-function PersonnelIcon() {
+// One upright card back, with an oval cut into it as on the 2E back (#1455): an away team or a
+// crew is a pile of face-down cards, personnel and equipment alike, as on the tabletop.
+function CardBackIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-2 h-2" aria-hidden="true">
-      <circle cx="12" cy="7" r="4" />
-      <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8z" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-2 h-2" aria-hidden="true" data-icon="card-back">
+      <path
+        fillRule="evenodd"
+        d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm5 5a3 5 0 1 0 0 10a3 5 0 1 0 0-10z"
+      />
     </svg>
   );
 }
@@ -873,7 +877,7 @@ function UnderMissionIcon() {
 }
 
 const PILE_ICON: Record<MissionPileName, () => JSX.Element> = {
-  awayTeam: PersonnelIcon,
+  awayTeam: CardBackIcon,
   underMission: UnderMissionIcon,
 };
 
@@ -928,8 +932,8 @@ export function PileBadge({
   );
 }
 
-// A ship's crew badge: the same `PersonnelIcon`-and-count pill style `PileBadge` uses for a
-// mission's away team, so the same kind of thing — personnel in a pile — always gets the
+// A ship's crew badge: the same `CardBackIcon`-and-count pill style `PileBadge` uses for a
+// mission's away team, so the same kind of thing — cards in a pile — always gets the
 // same badge. It sits as a sibling of the ship's own `TableCard` button, inside `ShipCard`'s
 // `crewDropId` wrapper, since a `<button>` cannot nest inside another `<button>` (the ship's own
 // button) — the same reasoning `PileBadge` documents above for the mission's own badges. A tap
@@ -957,7 +961,7 @@ function ShipCrewBadge({
       }`}
       style={{ height: height - 2 }}
     >
-      <PersonnelIcon />
+      <CardBackIcon />
       {count > 0 && (
         <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
           {count}
