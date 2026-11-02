@@ -166,4 +166,20 @@ describe('DeckBuilderClient – Mission carousel', () => {
     fireEvent.click(nextButton);
     expect(screen.getByText('3 / 5')).toBeInTheDocument();
   });
+
+  // The desktop row's Remove button is faint at rest and shows on keyboard focus (#1469).
+  it('shows the desktop remove button on keyboard focus', async () => {
+    const m1 = makeMission('1U001', 'Mission Alpha');
+
+    localStorage.setItem('currentDeck', JSON.stringify({ '1U001': { count: 1, row: m1 } }));
+
+    await act(async () => {
+      render(<DeckBuilderClient data={[m1] as any} columns={[]} />);
+    });
+
+    // The desktop row comes first; the carousel's button comes last.
+    const desktopRemove = screen.getAllByRole('button', { name: 'Remove Mission Alpha' })[0];
+    expect(desktopRemove).toHaveClass('focus-visible:opacity-100', 'opacity-30');
+    expect(desktopRemove).not.toHaveClass('opacity-0');
+  });
 });
