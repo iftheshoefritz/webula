@@ -508,10 +508,17 @@ function GameMenu({
         data-testid="corner-buttons"
         className={`absolute ${
           fullscreen.isFullscreen && fullscreen.systemControlsInset ? 'top-14' : 'top-2'
-        } left-2 flex flex-col items-center gap-1 ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
-        // `items-center` centres each single button on the undo and redo row, the widest row where it is a row of two (#1423).
+        } left-2 flex flex-col items-center gap-1 ${
+          undoRedoRow ? 'pointer-events-none *:pointer-events-auto' : ''
+        } ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
+        // On the full touch table the column is as wide as the turn and score column below it, and
+        // `items-center` centres every button and the undo and redo row on the centre line of that
+        // column (#1447); its empty sides take no taps. Elsewhere it is as wide as its widest child.
         // Below the top safe-area inset and right of the left one (#1384), on top of `top-14`.
-        style={safeAreaMargins('top', 'left')}
+        style={{
+          ...(undoRedoRow ? { width: CONTROLS_COLUMN_WIDTH } : {}),
+          ...safeAreaMargins('top', 'left'),
+        }}
       >
         <button
           type="button"
