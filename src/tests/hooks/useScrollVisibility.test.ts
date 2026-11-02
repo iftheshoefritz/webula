@@ -273,6 +273,23 @@ describe('useScrollVisibility', () => {
     expect(result.current).toBe(false);
   });
 
+  it('keeps the header past 3 s of a scroll while the input has focus, and hides it after a blur (#1470)', () => {
+    setWindowScrollY(200);
+    const { result, rerender } = renderHook(
+      ({ suspended }: { suspended: boolean }) => useScrollVisibility({ suspended }),
+      { initialProps: { suspended: true } }
+    );
+
+    act(() => { window.dispatchEvent(new Event('scroll')); });
+    act(() => { jest.advanceTimersByTime(4000); });
+    expect(result.current).toBe(true);
+
+    rerender({ suspended: false });
+    act(() => { window.dispatchEvent(new Event('scroll')); });
+    act(() => { jest.advanceTimersByTime(3000); });
+    expect(result.current).toBe(false);
+  });
+
   it('removes the event listener on unmount', () => {
     const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener');
 
