@@ -35,6 +35,31 @@ export function gridHoverImageWidth(
   return previewEnlarges(cardRect, fullCardHeight(width), true) ? width : null;
 }
 
+// The gap between the hover image and the card, and between the image and the window's edge.
+const HOVER_IMAGE_GAP = 10; // px
+
+// Issue #1468: where the hover image of a card goes, in window coordinates. Right of the card, or
+// left of it when the right lacks the room; level with the card's top, raised as far as the window's
+// bottom edge needs, and never above the window's top.
+export function hoverImagePosition(
+  targetRect: { top: number; left: number; right: number },
+  image: { width: number; height: number },
+  viewport: { width: number; height: number },
+): { top: number; left: number } {
+  let left = targetRect.right + HOVER_IMAGE_GAP;
+  if (left + image.width > viewport.width) {
+    left = Math.max(0, targetRect.left - image.width - HOVER_IMAGE_GAP);
+  }
+
+  let top = targetRect.top + 5;
+  if (top + image.height > viewport.height - HOVER_IMAGE_GAP) {
+    top = viewport.height - image.height - HOVER_IMAGE_GAP;
+  }
+  top = Math.max(0, top);
+
+  return { top, left };
+}
+
 function finePointerNow(): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia(FINE_POINTER_QUERY).matches;
 }
@@ -191,34 +216,16 @@ export default function SearchResults({
       setHoveredItem(collectorsinfo);
       setHoverImageWidth(imageWidth);
 
-      // Start by positioning to the right of the card
-      let topPosition = targetRect.top + 5;
-      let leftPosition = targetRect.right + 10;
-
-      // If image extends past right edge, position to the left instead
-      if (leftPosition + imageWidth > viewportWidth) {
-        leftPosition = targetRect.left - imageWidth - 10;
-      }
-
-      // If image extends past bottom edge, position above instead
-      if (topPosition + imageHeight > viewportHeight) {
-        topPosition = targetRect.top - imageHeight - 10;
-      }
-
-      // If image now extends past top edge, position below instead
-      if (topPosition < 0) {
-        topPosition = targetRect.bottom + 10;
-      }
-
-      // Final safety check: if still extends past bottom, clamp to bottom
-      if (topPosition + imageHeight > viewportHeight) {
-        topPosition = Math.max(0, viewportHeight - imageHeight - 10);
-      }
+      const { top, left } = hoverImagePosition(
+        targetRect,
+        { width: imageWidth, height: imageHeight },
+        { width: viewportWidth, height: viewportHeight },
+      );
 
       setImageStyle({
         position: "fixed",
-        top: topPosition,
-        left: leftPosition,
+        top,
+        left,
         zIndex: 50,
       });
     },
