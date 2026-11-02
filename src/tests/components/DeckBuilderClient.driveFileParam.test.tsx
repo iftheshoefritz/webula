@@ -105,7 +105,8 @@ describe('DeckBuilderClient – ?driveFile= (#1111)', () => {
     expect(replaceSpy).toHaveBeenCalledWith({}, '', '/decks?keep=1');
     expect(window.location.search).toBe('?keep=1');
     // No card data yet, so the deck waits.
-    expect(stored('currentDeck')).toEqual({});
+    // Still empty: an unchanged default is never written (#1456).
+    expect(stored('currentDeck')).toBeNull();
 
     await act(async () => {
       rerender(<DeckBuilderClient data={data} columns={[]} />);
@@ -196,6 +197,6 @@ describe('DeckBuilderClient – ?driveFile= (#1111)', () => {
 
     expect(window.location.search).toBe('?keep=1');
     expect(fetchMock).not.toHaveBeenCalledWith('/api/drive/abc', expect.anything());
-    expect(stored('currentDeck')).toEqual({});
+    expect(stored('currentDeck')).toBeNull();
   });
 });

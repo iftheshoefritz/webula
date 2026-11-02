@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import posthog from 'posthog-js';
-import useLocalStorage from './useLocalStorage';
+import useLocalStorage, { useHydrated } from './useLocalStorage';
 import {
   aboveMinimumCount,
   belowMaximumCount,
@@ -42,14 +42,21 @@ export function useDeckState({
   );
   const [isDirty, setIsDirty] = useState(false);
   const isFirstRender = useRef(true);
+  // The stored deck and title replace the defaults in the commit where `hydrated` turns true
+  // (#1456). That switch is not a change of the user's.
+  const hydrated = useHydrated();
+  const hydratedAtLastCommit = useRef(hydrated);
 
   useEffect(() => {
+    const justHydrated = hydrated && !hydratedAtLastCommit.current;
+    hydratedAtLastCommit.current = hydrated;
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
+    if (justHydrated) return;
     setIsDirty(true);
-  }, [currentDeck, deckTitle]);
+  }, [currentDeck, deckTitle, hydrated]);
 
   // The fixture deck is built in render from the card data, once for each `data`. It can still be
   // edited through setCurrentDeck, and an edit lasts until `data` changes.

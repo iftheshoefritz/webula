@@ -406,10 +406,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     return result;
   }, [currentDeckRows]);
 
-  const [viewMode, setViewMode] = useLocalStorage<'image' | 'list'>(
-    'search-view-mode',
-    typeof window !== 'undefined' && window.innerWidth < 640 ? 'list' : 'image',
-  );
+  // One default for every screen, so the server and the hydrating render agree (#1456).
+  const [viewMode, setViewMode] = useLocalStorage<'image' | 'list'>('search-view-mode', 'list');
 
   // activeView controls which panel is shown in the desktop left panel
   const [activeView, setActiveView] = useState<'search' | 'deck'>('deck');
