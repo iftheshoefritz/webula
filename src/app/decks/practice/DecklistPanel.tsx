@@ -1,6 +1,7 @@
 import React from 'react';
 import { DeckList } from '../../../types';
 import { LAYER_CARD_PREVIEW, LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
+import { useEscapeLayer } from './useEscapeLayer';
 import DeckListItem from '../../../components/DeckListItem';
 import { cardPileFor, DeckPile } from '../deckBuilderUtils';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
@@ -35,10 +36,11 @@ export function decklistByPile(deck: DeckList): Record<DeckPile, DecklistEntry[]
 // A read-only list of every card of the loaded deck (#779), opened from the game menu. It shows
 // the deck as loaded, not where each card is now. Each row is the deck builder's `DeckListItem`
 // without its plus and minus buttons (#899), so a hover or a tap on a name shows the card image
-// and changes nothing; a tap outside the panel (the backdrop) closes it, the same convention the
-// game menu follows.
+// and changes nothing; a tap outside the panel (the backdrop) or Escape closes it, the same
+// convention the game menu follows.
 export default function DecklistPanel({ deck, onClose }: { deck: DeckList; onClose: () => void }) {
   const byPile = decklistByPile(deck);
+  useEscapeLayer(onClose);
   return (
     <>
       <button type="button" className={`fixed inset-0 ${LAYER_MODAL_BACKDROP} bg-black/40`} onClick={onClose} aria-label="Close decklist" />

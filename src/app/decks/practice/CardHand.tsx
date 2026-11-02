@@ -20,6 +20,7 @@
 
 import React from 'react';
 import { LAYER_HAND_BACKDROP, LAYER_HAND_FAN } from '../../../lib/layers';
+import { useEscapeLayer } from './useEscapeLayer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { createPortal } from 'react-dom';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
@@ -252,6 +253,10 @@ export default function CardHand({
   const boxSelect = useBoxSelect(fanRef, selectedIds, onSelectIds);
   const hasSelection = instances.some((instance) => selectedIds.includes(instance.id));
   const arcBounds = useArcBounds(arcBetween, showFan);
+  // Escape closes the open hand (#1467), and does nothing during a drag.
+  useEscapeLayer(() => {
+    if (!dragging) onClose();
+  }, open);
   const arc =
     arcBetween && arcBounds
       ? handArcLayout({
