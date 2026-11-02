@@ -80,6 +80,18 @@ describe('the turn and score controls in the left column on a touch screen (#133
     expect(within(drawColumn).getByTestId('draw-pile')).toBeInTheDocument();
   });
 
+  it('shows the turn number on the next-turn button, and a press adds 1 to it (#1449)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const column = screen.getByTestId('turn-score-column');
+    const button = within(column).getByRole('button', { name: 'Next turn' });
+    expect(within(button).getByTestId('turn-counter')).toHaveTextContent('1');
+    expect(screen.getAllByTestId('turn-counter')).toHaveLength(1);
+    fireEvent.click(button);
+    expect(within(button).getByTestId('turn-counter')).toHaveTextContent('Turn 2');
+  });
+
   it('still raises the turn and changes the score by SCORE_STEP within 0 to 140', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -127,6 +139,16 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
     expect(within(drawColumn).getByTestId('draw-pile')).toBeInTheDocument();
     const handColumn = screen.getByTestId('hand-column');
     expect(within(handColumn).queryByTestId('turn-counter')).not.toBeInTheDocument();
+  });
+
+  it('shows the turn number on the next-turn button, and a press adds 1 to it (#1449)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const button = screen.getByRole('button', { name: 'Next turn' });
+    expect(within(button).getByTestId('turn-counter')).toHaveTextContent('Turn 1');
+    fireEvent.click(button);
+    expect(within(button).getByTestId('turn-counter')).toHaveTextContent('Turn 2');
   });
 
   it('starts below five corner buttons, and the corner column takes its width', async () => {

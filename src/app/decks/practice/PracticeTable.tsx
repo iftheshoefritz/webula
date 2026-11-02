@@ -672,12 +672,22 @@ function TurnScoreColumn({
         ...safeAreaMargins('top', 'left'),
       }}
     >
+      {/* One button shows the turn and advances it (#1449). The visible label sits above it, and
+          `turn-counter` keeps a screen-reader "Turn" of its own, so its text still reads "Turn N". */}
       <div className="flex flex-col items-center gap-1">
-        <div data-testid="turn-counter" className="text-center text-text-primary">
-          <span className={label}>Turn</span> <span className={number}>{turn}</span>
-        </div>
-        <button className={button} onClick={onNextTurn} aria-label="Next turn">
-          <FaForward />
+        <span className={label} aria-hidden="true">
+          Turn
+        </span>
+        <button
+          className={`${button} flex items-center justify-center gap-1`}
+          onClick={onNextTurn}
+          aria-label="Next turn"
+        >
+          <span data-testid="turn-counter" className="text-text-primary">
+            <span className="sr-only">Turn </span>
+            <span className={compact ? 'text-xs font-semibold' : 'text-sm font-semibold'}>{turn}</span>
+          </span>
+          <FaForward className="shrink-0" />
         </button>
       </div>
       <div className="flex flex-col items-center gap-1">

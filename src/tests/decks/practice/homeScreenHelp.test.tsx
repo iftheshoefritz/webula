@@ -190,7 +190,8 @@ describe('the corner column in fullscreen (#1207)', () => {
     expect(turnScoreTop(screen.getByTestId('turn-score-column'))).toBe(56 + 80 + 8);
     // #1395: jsdom measures no layout, so the column has room enough and keeps its labels.
     const turnScore = screen.getByTestId('turn-score-column');
-    expect(within(turnScore).getByText('Turn')).not.toHaveClass('sr-only');
+    // The visible label of the turn button (#1449); `turn-counter` holds a screen-reader "Turn" of its own.
+    expect(within(turnScore).getByText('Turn', { selector: '[aria-hidden="true"]' })).not.toHaveClass('sr-only');
     expect(within(turnScore).getByText('Score')).not.toHaveClass('sr-only');
 
     // The system X leaves fullscreen: the button comes back.
