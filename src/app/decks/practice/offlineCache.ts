@@ -4,4 +4,5 @@
 
 export const OFFLINE_CACHE_NAME = 'webula-offline-v1';
 export const CARD_DATA_URL = '/cards_with_processed_columns.txt';
+export const CARD_BACK_URL = '/cardimages/cardback.jpg';
 export const CARD_IMAGES_PATH = '/cardimages/';
