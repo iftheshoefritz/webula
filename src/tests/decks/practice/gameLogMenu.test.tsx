@@ -107,6 +107,35 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     expect(screen.getByTestId('corner-buttons').className).toMatch(/\bitems-center\b/);
   });
 
+  it('is as wide as the turn and score column on the touch table, so every control shares one centre line (#1447)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const corner = screen.getByTestId('corner-buttons');
+    const column = screen.getByTestId('turn-score-column');
+    expect(corner.style.width).not.toBe('');
+    expect(corner.style.width).toBe(column.style.width);
+    expect(corner.className).toMatch(/\bitems-center\b/);
+    // Its empty sides take no taps; its buttons do.
+    expect(corner.className).toMatch(/(^|\s)pointer-events-none(\s|$)/);
+    expect(corner.className).toMatch(/\*:pointer-events-auto/);
+  });
+
+  it('keeps the corner column as wide as its widest button with a fine pointer (#1447)', async () => {
+    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
+      matches: query === FINE_POINTER_QUERY,
+      media: query,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const corner = screen.getByTestId('corner-buttons');
+    expect(corner.style.width).toBe('');
+    expect(corner.className).not.toMatch(/pointer-events-none/);
+  });
+
   it('closes the open splash and opens an empty log on a new game', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
