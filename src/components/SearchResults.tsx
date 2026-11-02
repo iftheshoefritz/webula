@@ -324,7 +324,7 @@ export default function SearchResults({
 
       return (
         <div
-          className="flex flex-col px-3 py-2 border-b border-white/[0.06] hover:bg-white/[0.04] cursor-pointer select-none"
+          className={`flex flex-col px-3 py-2 border-b border-white/[0.06] hover:bg-white/[0.04] select-none ${onCardSelected ? 'cursor-pointer' : ''}`}
           onClick={() => onCardSelected && onCardSelected(row)}
           onContextMenu={(e) => onCardDeselected && onCardDeselected(e, row)}
         >

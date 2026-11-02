@@ -5,6 +5,7 @@ import posthog from 'posthog-js';
 import { useSearchParams } from 'next/navigation';
 import useFilterData from '../hooks/useFilterData';
 import useLocalStorage from '../hooks/useLocalStorage';
+import useSearchViewMode from '../hooks/useSearchViewMode';
 import DeckUploader from './DeckUploader';
 import DeckListPile from './DeckListPile';
 import { DrivePickerModal } from './DrivePickerModal';
@@ -406,8 +407,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
     return result;
   }, [currentDeckRows]);
 
-  // One default for every screen, so the server and the hydrating render agree (#1456).
-  const [viewMode, setViewMode] = useLocalStorage<'image' | 'list'>('search-view-mode', 'list');
+  // The list on every screen, so the server and the hydrating render agree (#1456, #1453).
+  const [viewMode, setViewMode] = useSearchViewMode();
 
   // activeView controls which panel is shown in the desktop left panel
   const [activeView, setActiveView] = useState<'search' | 'deck'>('deck');
@@ -1111,7 +1112,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                       <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
                       <button
                         onClick={() => removeMission(row)}
-                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600/80"
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center opacity-30 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:bg-red-600/80"
                         aria-label={`Remove ${row.name}`}
                         title={`Remove ${row.name}`}
                       >

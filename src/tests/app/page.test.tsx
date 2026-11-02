@@ -131,6 +131,29 @@ describe('CardSearchClient', () => {
     );
   });
 
+  it('shows the results as the text list with the hover preview by default (#1453)', () => {
+    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+    localStorage.clear();
+    localStorage.setItem('search-view-mode', JSON.stringify('image'));
+
+    render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+    expect(mockSearchResultsProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({ viewMode: 'list', withHover: true })
+    );
+  });
+
+  it('shows the images when the deck builder toggle chose them (#1453)', () => {
+    (useFilterData as jest.Mock).mockReturnValue(mockCardData);
+    localStorage.clear();
+    localStorage.setItem('search-view-mode-v2', JSON.stringify('image'));
+
+    render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
+
+    expect(mockSearchResultsProps).toHaveBeenLastCalledWith(expect.objectContaining({ viewMode: 'image' }));
+    localStorage.clear();
+  });
+
   it('renders the floating overlay with hidden styles when not scrolling', () => {
     (useFilterData as jest.Mock).mockReturnValue(mockCardData);
     (useScrollVisibility as jest.Mock).mockReturnValue(false);

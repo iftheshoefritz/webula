@@ -748,6 +748,21 @@ describe('SearchResults', () => {
       expect(screen.getByText(/Plays on/)).toBeInTheDocument();
       expect(screen.getByText(/personnel\./)).toBeInTheDocument();
     });
+
+    it('opens the card image on hovering the name when withHover is set (#1453)', () => {
+      const card = cardFixture({ name: 'Hover Me', originalName: 'Hover Me' });
+      render(<SearchResults filteredData={[card]} viewMode="list" withHover />);
+      expect(screen.queryByAltText('Hover Me')).not.toBeInTheDocument();
+      fireEvent.mouseEnter(screen.getByText('Hover Me'));
+      expect(screen.getByAltText('Hover Me')).toHaveAttribute('width', '230');
+    });
+
+    it('opens no image on hovering the name without withHover', () => {
+      const card = cardFixture({ name: 'Hover Me', originalName: 'Hover Me' });
+      render(<SearchResults filteredData={[card]} viewMode="list" />);
+      fireEvent.mouseEnter(screen.getByText('Hover Me'));
+      expect(screen.queryByAltText('Hover Me')).not.toBeInTheDocument();
+    });
   });
 
   describe('search/filter updates list correctly', () => {

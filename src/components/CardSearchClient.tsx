@@ -6,6 +6,7 @@ import SearchBar, { extractTextPortion } from './SearchBar';
 import SearchPills, { parseFilters } from './SearchPills';
 import SearchResults from './SearchResults';
 import useFilterData from '../hooks/useFilterData';
+import useSearchViewMode from '../hooks/useSearchViewMode';
 import useScrollVisibility from '../hooks/useScrollVisibility';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import type { CardData } from '../lib/loadCards';
@@ -60,6 +61,8 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
   const [compactBarHeight, setCompactBarHeight] = useState(52); // fallback
   const [mobileOverlayHeight, setMobileOverlayHeight] = useState(160); // fallback
   const isMobile = useMediaQuery('(max-width: 639px)', false);
+  // The same setting as the deck builder's toggle (#1453); this page has no toggle of its own.
+  const [viewMode] = useSearchViewMode();
 
   useEffect(() => {
     const el = overlayRef.current;
@@ -225,6 +228,8 @@ export default function CardSearchClient({ data, columns, isPreview = false }: C
           filteredData={filteredData}
           variant="styled"
           useWindowScroll={true}
+          viewMode={viewMode}
+          withHover
         />
       </div>
 
