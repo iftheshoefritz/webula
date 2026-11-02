@@ -1111,7 +1111,7 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                       <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
                       <button
                         onClick={() => removeMission(row)}
-                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600/80"
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center opacity-30 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:bg-red-600/80"
                         aria-label={`Remove ${row.name}`}
                         title={`Remove ${row.name}`}
                       >
