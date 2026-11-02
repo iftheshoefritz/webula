@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import SearchResults, { gridHoverImageWidth } from '../../components/SearchResults';
+import SearchResults, { gridHoverImageWidth, hoverImageLeft } from '../../components/SearchResults';
 import { previewMaxWidth } from '../../app/decks/practice/previewSize';
 import { CardDef, DeckList } from '../../types';
 
@@ -249,7 +249,7 @@ describe('SearchResults', () => {
       const card = cardFixture({ collectorsinfo: '1R003', imagefile: 'card3' });
 
       // Set viewport to be narrow
-      Object.defineProperty(window, 'innerWidth', { value: 300, writable: true });
+      Object.defineProperty(window, 'innerWidth', { value: 600, writable: true });
       Object.defineProperty(window, 'innerHeight', { value: 800, writable: true });
 
       render(
@@ -262,7 +262,7 @@ describe('SearchResults', () => {
       const img = screen.getByAltText('Test Card');
       Object.defineProperty(img, 'getBoundingClientRect', {
         value: () => ({
-          top: 100, bottom: 329, left: 50, right: 215, width: 165, height: 229,
+          top: 100, bottom: 329, left: 300, right: 465, width: 165, height: 229,
         }),
       });
 
@@ -275,9 +275,17 @@ describe('SearchResults', () => {
         container = container.parentElement;
       }
       expect(container?.style.left).toBeTruthy();
-      // Left position = targetRect.left - imageWidth - 10 = 50 - 230 - 10 = -190
-      // This validates the "position to left" branch was taken
-      expect(parseInt(container!.style.left)).toBeLessThan(50);
+      // Left position = targetRect.left - imageWidth - 10 = 300 - 230 - 10 = 60
+      expect(parseInt(container!.style.left)).toBe(60);
+    });
+
+    it('places the image beside the pointer when neither side of a wide name has room (#1466)', () => {
+      // A name of the list view on `/` spans the window, from 60 to 1268 px of 1280.
+      const rect = { left: 60, right: 1268 };
+      expect(hoverImageLeft(rect, 100, 230, 1280)).toBe(120);
+      expect(hoverImageLeft(rect, 1200, 230, 1280)).toBe(950);
+      expect(hoverImageLeft({ left: 0, right: 300 }, 150, 230, 300)).toBe(70);
+      expect(hoverImageLeft({ left: 50, right: 215 }, 0, 230, 1280)).toBe(225);
     });
   });
 
