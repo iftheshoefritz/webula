@@ -11,6 +11,7 @@ import { CardInstance } from '../../../app/decks/practice/tableReducer';
 import { VIEWER_TOP_INSET } from '../../../app/decks/practice/viewerCardSize';
 import {
   ARC_TOUCH_MIN_VISIBLE,
+  ARC_DESKTOP_RAISE,
   ARC_TOUCH_OPTIONS,
   CLOSED_FAN_CORE_CARDS,
   CLOSED_FAN_VISIBLE,
@@ -559,7 +560,7 @@ describe('CardHand arc on a touch screen (#1149)', () => {
   };
 
   // The bounds `useArcBounds` measures from the two stubbed piles.
-  const layout = (options: Partial<typeof ARC_TOUCH_OPTIONS>) =>
+  const layout = (options: Partial<typeof ARC_TOUCH_OPTIONS & { maxVisible: number }>) =>
     handArcLayout({ count: 3, cardWidth: 108, maxStep: Math.round((108 * 60) / 56), left: 104, right: 896, bottom: window.innerHeight, ...options });
 
   it.each(['hand', 'dilemmaHand'] as const)('draws the touch arc of the %s, and moves its controls row, with a coarse pointer only (#1149, #1380)', (zone) => {
@@ -590,11 +591,14 @@ describe('CardHand arc on a touch screen (#1149)', () => {
     }
 
     const plain = layout({});
+    const desktop = layout({ lower: -ARC_DESKTOP_RAISE, maxVisible: window.innerHeight - VIEWER_TOP_INSET - 44 });
     const touch = layout(ARC_TOUCH_OPTIONS);
+    // The desktop arc sits higher than the plain arc (#1495).
+    expect(desktop.visibleHeight).toBeCloseTo((1 + ARC_DESKTOP_RAISE) * plain.visibleHeight);
     // The touch arc has no sag, so its ends sit as high as its middle.
     expect(touch.cards[0].centerY).toBeCloseTo(touch.cards[1].centerY);
     expect(plain.cards[0].centerY).toBeGreaterThan(plain.cards[1].centerY);
-    tops.true.cards.forEach((top, i) => expect(top).toBeCloseTo(plain.cards[i].centerY - plain.cardHeight / 2));
+    tops.true.cards.forEach((top, i) => expect(top).toBeCloseTo(desktop.cards[i].centerY - desktop.cardHeight / 2));
     tops.false.cards.forEach((top, i) => expect(top).toBeCloseTo(touch.cards[i].centerY - touch.cardHeight / 2));
     // Every touch card keeps its lowest top corner at least the floor above the bottom edge.
     touch.cards.forEach((card) => {
@@ -604,7 +608,7 @@ describe('CardHand arc on a touch screen (#1149)', () => {
     });
     // The row's top is `calc(100% - (visibleHeight + the row's height))`, so it follows the arc.
     const offset = (top: string) => parseFloat(top.match(/100% - ([\d.]+)px/)![1]);
-    expect(offset(tops.true.controls) - offset(tops.false.controls)).toBeCloseTo(plain.visibleHeight - touch.visibleHeight);
+    expect(offset(tops.true.controls) - offset(tops.false.controls)).toBeCloseTo(desktop.visibleHeight - touch.visibleHeight);
   });
 });
 

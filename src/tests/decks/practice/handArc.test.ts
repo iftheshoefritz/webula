@@ -1,5 +1,6 @@
 import {
   ARC_ANGLE_PER_CARD,
+  ARC_DESKTOP_RAISE,
   ARC_MAX_ANGLE,
   ARC_SAG,
   ARC_TOUCH_LOWER,
@@ -184,6 +185,41 @@ describe('handArcLayout lower (#1149)', () => {
       expect(card.centerY).toBeCloseTo(plain.cards[i].centerY + drop);
     });
     expect(lowered.visibleHeight).toBeCloseTo(0.8 * plain.visibleHeight);
+  });
+});
+
+describe('handArcLayout on a desktop (#1495)', () => {
+  const input = { count: 7, cardWidth: 170, maxStep: 180, left: 300, right: 980, bottom: 800 };
+
+  it('moves every card up by half the visible height, and nothing else', () => {
+    const plain = handArcLayout(input);
+    const raised = handArcLayout({ ...input, lower: -ARC_DESKTOP_RAISE });
+    const rise = ARC_DESKTOP_RAISE * plain.visibleHeight;
+    expect(raised.cardWidth).toBe(plain.cardWidth);
+    expect(raised.cardHeight).toBe(plain.cardHeight);
+    raised.cards.forEach((card, i) => {
+      expect(card.centerX).toBeCloseTo(plain.cards[i].centerX);
+      expect(card.angle).toBeCloseTo(plain.cards[i].angle);
+      expect(card.centerY).toBeCloseTo(plain.cards[i].centerY - rise);
+    });
+    expect(raised.visibleHeight).toBeCloseTo(1.5 * plain.visibleHeight);
+  });
+
+  it('shows about three quarters of the middle card, and keeps every bottom edge below the screen', () => {
+    const raised = handArcLayout({ ...input, lower: -ARC_DESKTOP_RAISE });
+    const middle = raised.cards[3];
+    const shown = (input.bottom - (middle.centerY - raised.cardHeight / 2)) / raised.cardHeight;
+    expect(shown).toBeGreaterThan(0.7);
+    expect(shown).toBeLessThan(0.85);
+    raised.cards.forEach((card) => expect(card.centerY + raised.cardHeight / 2).toBeGreaterThan(input.bottom));
+  });
+
+  it('caps the rise at maxVisible, and never draws the arc below the plain arc', () => {
+    const plain = handArcLayout(input);
+    const capped = handArcLayout({ ...input, lower: -ARC_DESKTOP_RAISE, maxVisible: plain.visibleHeight + 20 });
+    expect(capped.visibleHeight).toBeCloseTo(plain.visibleHeight + 20);
+    const floor = handArcLayout({ ...input, lower: -ARC_DESKTOP_RAISE, maxVisible: plain.visibleHeight - 50 });
+    expect(floor).toEqual(plain);
   });
 });
 

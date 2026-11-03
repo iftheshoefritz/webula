@@ -532,7 +532,9 @@ nothing, and its dashed "Empty" marker during a drag. With no hand slot, the bot
 of the left column (`TOUCH_CONTROLS_COLUMN`), so the left column runs down to the bottom edge.
 
 A tap on the closed hand opens it as an arc along the bottom edge of the screen
-(`data-testid="hand-arc"`, `handArc.ts`, #1125): about half of each card is below the edge, more in
+(`data-testid="hand-arc"`, `handArc.ts`, #1125): on a desktop about three quarters of each card shows
+above the edge, the arc raised by `ARC_DESKTOP_RAISE` (0.5) of its visible height, no higher than keeps
+the "→ top" and "→ bottom" row on the screen (#1495). More than half of each card is below the edge in
 touch mode, where the arc sits 20% of its visible height lower (`ARC_TOUCH_LOWER`, #1149). In touch
 mode the arc is also flatter, with no sag and an end angle of 7° (`ARC_TOUCH_OPTIONS`), and the
 lowest top corner of every card stays at least `max(20, the bottom safe-area inset) + 44` px above
