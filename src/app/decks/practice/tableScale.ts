@@ -873,12 +873,14 @@ export interface AttemptChoiceSizes {
   missionScale: number;
   // The face-up stack: the zone's width and height, less the space outside each end
   // (`ATTEMPT_STACK_SIDE_GAP`, #1220), and the width and height of one card in it,
-  // drawn as the art crop of a table card (#1221). The cards sit edge to edge while they fit, and
+  // drawn as the art crop of a table card (#1221) on touch, and as the whole card with a fine
+  // pointer (`stackWholeCards`, #1498). The cards sit edge to edge while they fit, and
   // overlap past that, below the line of the end labels (`ATTEMPT_STACK_LABEL_HEIGHT`, #1204).
   stackWidth: number;
   stackHeight: number;
   stackCardWidth: number;
   stackCardHeight: number;
+  stackWholeCards: boolean;
   // The right part: its whole width, the face-down pile's card, and the ships, one to a row, in a
   // column `shipColumnWidth` wide. At a planet mission (#1222) the pile is the whole card back,
   // exactly as wide and as tall as the mission card and level with it (#1493), and the ship column
@@ -903,6 +905,23 @@ export function attemptStackCropSize(stackHeight: number, stackWidth: number): {
   const stackCardWidth = Math.max(1, Math.min(stackWidth, Math.floor((heightRoom * TABLE_CARD_WIDTH) / TABLE_CARD_ART_HEIGHT)));
   const stackCardHeight = Math.max(1, Math.min(heightRoom, attemptPersonnelCropHeight(stackCardWidth)));
   return { stackCardWidth, stackCardHeight };
+}
+
+// Issue #1498: one whole card of the choice phase's stack, with a fine pointer: as tall as the zone
+// below the line of the end labels, at the card image's 120:167, and where that is wider than
+// `stackWidth` both shrink together, so the card stays whole.
+export function attemptStackWholeSize(stackHeight: number, stackWidth: number): { stackCardWidth: number; stackCardHeight: number } {
+  const heightRoom = Math.max(1, stackHeight - ATTEMPT_STACK_LABEL_HEIGHT);
+  let stackCardWidth = Math.max(1, Math.floor((heightRoom * 120) / 167));
+  if (stackCardWidth > stackWidth) stackCardWidth = Math.max(1, Math.floor(stackWidth));
+  const stackCardHeight = Math.max(1, Math.min(heightRoom, fullCardHeight(stackCardWidth)));
+  return { stackCardWidth, stackCardHeight };
+}
+
+// The card of the choice phase's stack: a whole card with a fine pointer (#1498), an art crop on
+// touch (#1221).
+function attemptStackCardSize(desktop: boolean, stackHeight: number, stackWidth: number) {
+  return desktop ? attemptStackWholeSize(stackHeight, stackWidth) : attemptStackCropSize(stackHeight, stackWidth);
 }
 
 // Pure, like `computeAttemptLayout`, with the same inputs, and the facing sizes for them, whose
@@ -939,7 +958,7 @@ export function computeAttemptChoiceLayout(
     const pileCardHeight = stackHeight;
     const rightWidth = pileCardWidth + ATTEMPT_GAP + shipColumnWidth;
     const stackRoom = Math.max(1, Math.floor(availableWidth - missionWidth - rightWidth));
-    const { stackCardWidth, stackCardHeight } = attemptStackCropSize(stackHeight, Math.max(1, Math.floor(stackRoom / 3)));
+    const { stackCardWidth, stackCardHeight } = attemptStackCardSize(desktop, stackHeight, Math.max(1, Math.floor(stackRoom / 3)));
     const rowsFitting = Math.max(1, Math.floor((columnHeight + SHIP_ROW_GAP) / (shipLine + SHIP_ROW_GAP)));
     const rowsNeeded = Math.max(1, Math.ceil(shipCount / shipsPerRow(floor, shipColumnWidth)));
     return {
@@ -948,6 +967,7 @@ export function computeAttemptChoiceLayout(
       stackHeight,
       stackCardWidth,
       stackCardHeight,
+      stackWholeCards: desktop,
       rightWidth,
       pileCardWidth,
       pileCardHeight,
@@ -965,16 +985,17 @@ export function computeAttemptChoiceLayout(
   const rowsNeeded = Math.max(1, Math.ceil(shipCount / shipsPerRow(floor, rightWidth)));
 
   // The stack: every width the mission, the right column and the space outside its ends leave, as tall as the mission card. Its
-  // cards are art crops (#1221) and take the height the line of the end labels leaves, no wider than
+  // cards are art crops (#1221), or whole cards with a fine pointer (#1498), and take the height the line of the end labels leaves, no wider than
   // lets 3 of them sit edge to edge (#1220).
   const stackWidth = Math.max(1, Math.floor(availableWidth - missionWidth - rightWidth));
-  const { stackCardWidth, stackCardHeight } = attemptStackCropSize(stackHeight, Math.max(1, Math.floor(stackWidth / 3)));
+  const { stackCardWidth, stackCardHeight } = attemptStackCardSize(desktop, stackHeight, Math.max(1, Math.floor(stackWidth / 3)));
   return {
     missionScale,
     stackWidth,
     stackHeight,
     stackCardWidth,
     stackCardHeight,
+    stackWholeCards: desktop,
     rightWidth,
     pileCardWidth: 0,
     pileCardHeight: 0,
@@ -1087,7 +1108,7 @@ export function useAttemptLayout(
     : Math.max(shipRowWidth(scale, 2), personnelWidth);
   const shipsWidth = personnel?.space ? shipRowsWidth + ATTEMPT_GAP + personnelWidth : shipRowsWidth;
   const stackHeight = missionCardHeight(scale, true);
-  const { stackCardWidth, stackCardHeight } = attemptStackCropSize(stackHeight, Infinity);
+  const { stackCardWidth, stackCardHeight } = attemptStackCardSize(desktop, stackHeight, Infinity);
   const facingStack = attemptFacingStackSize(scale, Infinity);
   return {
     columnHeight: Infinity,
@@ -1110,6 +1131,7 @@ export function useAttemptLayout(
       stackHeight,
       stackCardWidth,
       stackCardHeight,
+      stackWholeCards: desktop,
       ...(personnel?.space
         ? {
             rightWidth: shipRowWidth(scale, 1),

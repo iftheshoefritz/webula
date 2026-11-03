@@ -1363,7 +1363,8 @@ function DilemmaStackTopCard({
   // The face-up stack of the dilemma choice (#1190) draws every card this way, side by side.
   left?: number;
   // The face-up stack of the dilemma choice draws each card as the art crop of a table card, this
-  // tall (#1221). The fan's revealed top card leaves it out and shows the whole card.
+  // tall (#1221), on touch. The fan's revealed top card, and the choice stack with a fine pointer
+  // (#1498), leave it out and show the whole card.
   cropHeight?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
@@ -1591,6 +1592,7 @@ function DilemmaStackFaceUp({
   height,
   cardWidth,
   cardHeight,
+  wholeCards,
 }: {
   stack: CardInstance[];
   onOpen: () => void;
@@ -1598,6 +1600,9 @@ function DilemmaStackFaceUp({
   height: number;
   cardWidth: number;
   cardHeight: number;
+  // With a fine pointer each card is the whole card, frame, cost and game text (#1498); on touch
+  // the art crop of a table card (#1221).
+  wholeCards: boolean;
 }) {
   const { active, over } = useDndContext();
   const overId = over ? String(over.id) : null;
@@ -1661,7 +1666,7 @@ function DilemmaStackFaceUp({
           zIndex={i + 1}
           cardWidth={cardWidth}
           left={i * offset}
-          cropHeight={cardHeight}
+          cropHeight={wholeCards ? undefined : cardHeight}
         />
       ))}
       {/* The drop targets: the part of each card no later card covers, and the last card split in
@@ -3378,6 +3383,7 @@ function PracticeDrawContent() {
                         height={attemptSizes.choice.stackHeight}
                         cardWidth={attemptSizes.choice.stackCardWidth}
                         cardHeight={attemptSizes.choice.stackCardHeight}
+                        wholeCards={attemptSizes.choice.stackWholeCards}
                       />
                     ) : (
                     <DilemmaStackPile
