@@ -677,11 +677,11 @@ describe('MissionRow: a completed mission turns (#1060)', () => {
     expect(missionCard().style.transform).toBe('');
   });
 
-  it('puts the Flip button on the corner of the turned card, and the counter in the badge strip', () => {
+  it('puts the Flip button and the counts on the corners of the turned card, upright (#1494)', () => {
     renderRow({ ...doubleSided, completed: true }, true);
     const corners = screen.getByTestId('mission-corners-0');
     expect(corners).toContainElement(screen.getByRole('button', { name: /^Flip A Mission/ }));
-    expect(corners).not.toContainElement(screen.getByRole('button', { name: 'A Mission, 1 event on it' }));
+    expect(corners).toContainElement(screen.getByRole('button', { name: 'A Mission, 1 event on it' }));
     // The turned whole card at scale 1 is 100 px wide and 72 px tall.
     expect(corners.style.width).toBe('100px');
     expect(corners.style.height).toBe('72px');
@@ -1241,5 +1241,72 @@ describe('missionSpanLayout (#1133)', () => {
     // The card prints a 19 px numeral on a 44 px disc.
     expect(numeral).toBeCloseTo((backing * 19) / 44, 5);
     expect(fontSize * 0.78).toBeCloseTo(numeral, 1);
+  });
+});
+
+// Issue #1494: where the mission is the whole card, a desktop full table, the away team, events and
+// dilemma counts sit on the card at its bottom right, as tall as the printed affiliation icons, and
+// no badge strip shows below it. Touch keeps the strip.
+describe('MissionRow: the counts on the whole mission card (#1494)', () => {
+  const slot = (): MissionSlot => ({
+    ...emptySlot(),
+    mission: { ...card('mission-0', 'A Mission'), placedOn: [card('e1', 'An Event'), dilemma('d1', 'A Dilemma')] },
+    awayTeam: [card('p1', 'Personnel One'), card('p2', 'Personnel Two')],
+  });
+  const dilemma = (id: string, name: string): CardInstance => ({
+    ...card(id, name),
+    card: { ...card(id, name).card, type: 'dilemma' },
+  });
+
+  it('draws the three counts in the corners overlay of the card on a desktop, and a tap opens each', () => {
+    const onOpenPile = jest.fn();
+    const onOpenPlacedOn = jest.fn();
+    render(
+      <MissionRow
+        missions={[slot()]}
+        onOpenPile={onOpenPile}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={onOpenPlacedOn}
+        desktop
+        scale={2}
+      />
+    );
+    const corners = screen.getByTestId('mission-corners-0');
+    const counts = screen.getByTestId('mission-counts-0');
+    expect(corners).toContainElement(counts);
+    const awayTeam = screen.getByTestId('mission-pile-awayTeam-0');
+    const events = screen.getByTestId('mission-on-events-0');
+    const dilemmas = screen.getByTestId('mission-on-dilemmas-0');
+    // In the order of the strip: the away team, the events, the dilemmas.
+    expect(Array.from(counts.children)).toEqual([awayTeam, events, dilemmas]);
+    // At scale 2 the whole card is 200 px tall, and the icons 42/499 of it.
+    const iconHeight = Math.round(200 * (42 / 499));
+    expect((awayTeam.querySelector('img') as HTMLImageElement).style.height).toBe(`${iconHeight}px`);
+    expect((events.querySelector('img') as HTMLImageElement).style.height).toBe(`${iconHeight}px`);
+    expect((dilemmas.querySelector('img') as HTMLImageElement).style.height).toBe(`${iconHeight}px`);
+    fireEvent.click(awayTeam);
+    expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
+    fireEvent.click(events);
+    expect(onOpenPlacedOn).toHaveBeenCalledWith('mission-0', 'events');
+    fireEvent.click(dilemmas);
+    expect(onOpenPlacedOn).toHaveBeenCalledWith('mission-0', 'dilemmas');
+    // The bottom half needs no reach below the card: the counts lie on it.
+    const onHalf = document.body.querySelector('[data-zone="mission-on-0"]') as HTMLElement;
+    expect(onHalf.style.bottom === '' || onHalf.style.bottom === '0px' || onHalf.style.bottom === '-0px').toBe(true);
+  });
+
+  it('keeps the badge strip below the crop on touch', () => {
+    render(
+      <MissionRow
+        missions={[slot()]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+      />
+    );
+    expect(screen.queryByTestId('mission-counts-0')).not.toBeInTheDocument();
+    expect(screen.getByTestId('mission-corners-0')).not.toContainElement(screen.getByTestId('mission-pile-awayTeam-0'));
   });
 });

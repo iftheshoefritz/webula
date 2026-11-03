@@ -609,7 +609,9 @@ export function attemptFacingStackSize(
 }
 
 // The height of the attempted mission's column at a scale: room for the slivers of the dilemmas
-// under it, the whole card, and the badge strip of the placed-on counters below it.
+// under it, the whole card, and the height the badge strip of the placed-on counters took below it.
+// The counters sit on the card since #1494, but the column keeps that room, so the attempted
+// mission, and the personnel and the stack sized around it (#1365, #1376), keep their sizes.
 export const attemptMissionColumnHeight = (scale: number): number =>
   underMissionStackRoom(scale, true) + missionCardHeight(scale, true) + MISSION_COLUMN_GAP + badgeStripHeight(scale);
 

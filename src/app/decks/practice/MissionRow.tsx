@@ -286,6 +286,7 @@ function PlacedOnCounter({
   height,
   landedNonce,
   onOpen,
+  iconHeight,
 }: {
   missionIndex: number;
   group: PlacedOnGroup;
@@ -294,6 +295,8 @@ function PlacedOnCounter({
   height: number;
   landedNonce: number | null;
   onOpen: () => void;
+  // On the card (#1494) the icon is as tall as the printed affiliation icons; left out, 8 px.
+  iconHeight?: number;
 }) {
   const { icon, noun } = PLACED_ON_GROUP[group];
   return (
@@ -305,13 +308,28 @@ function PlacedOnCounter({
       className={`relative flex items-center ${BADGE_PILL_CLASS}`}
       style={{ height: height - 2 }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- a fixed 8 px icon, no optimisation to gain */}
-      <img src={icon.src} alt="" aria-hidden="true" className="w-2 h-2" />
-      <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- a small fixed icon, no optimisation to gain */}
+      <img
+        src={icon.src}
+        alt=""
+        aria-hidden="true"
+        className={iconHeight === undefined ? 'w-2 h-2' : undefined}
+        style={iconHeight === undefined ? undefined : { width: iconHeight, height: iconHeight }}
+      />
+      <span
+        key={landedNonce ?? undefined}
+        className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}
+        style={countFontStyle(iconHeight)}
+      >
         {count}
       </span>
     </button>
   );
+}
+
+// The count beside an icon on the card (#1494) grows with the icon; in the badge strip it stays 8 px.
+function countFontStyle(iconHeight: number | undefined): React.CSSProperties | undefined {
+  return iconHeight === undefined ? undefined : { fontSize: Math.max(8, Math.round(iconHeight * 0.8)) };
 }
 
 // The count of the cards on a ship (#812), at the corner opposite the ship's crew badge. Like
@@ -843,15 +861,16 @@ const COLUMN_GAP = 4; // px
 // team or a crew is a pile of face-down cards, personnel and equipment alike, as on the tabletop
 // (#1455). It is 10 px tall, a little taller than the 8 px count beside it, and keeps the card's
 // portrait ratio. The offline deck cache holds `CARD_BACK_URL`, so it shows offline too.
-function CardBackIcon() {
+function CardBackIcon({ height }: { height?: number }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- a fixed 10 px icon, no optimisation to gain
+    // eslint-disable-next-line @next/next/no-img-element -- a small fixed icon, no optimisation to gain
     <img
       src={CARD_BACK_URL}
       alt=""
       aria-hidden="true"
       draggable={false}
-      className="h-2.5 w-auto aspect-[5/7] rounded-[1px] object-cover"
+      className={`${height === undefined ? 'h-2.5' : ''} w-auto aspect-[5/7] rounded-[1px] object-cover`}
+      style={height === undefined ? undefined : { height }}
       data-icon="card-back"
     />
   );
@@ -882,7 +901,7 @@ function UnderMissionIcon() {
   );
 }
 
-const PILE_ICON: Record<MissionPileName, () => JSX.Element> = {
+const PILE_ICON: Record<MissionPileName, (props: { height?: number }) => JSX.Element> = {
   awayTeam: CardBackIcon,
   underMission: UnderMissionIcon,
 };
@@ -905,12 +924,15 @@ export function PileBadge({
   count,
   onOpen,
   height,
+  iconHeight,
 }: {
   missionIndex: number;
   pile: MissionPileName;
   count: number;
   onOpen: (missionIndex: number, pile: MissionPileName) => void;
   height: number;
+  // On the card (#1494) the icon is as tall as the printed affiliation icons; left out, 10 px.
+  iconHeight?: number;
 }) {
   // A badge the drop itself creates (count 0 -> 1) reads the landed zones on its first render,
   // so the cue plays as it mounts (#778).
@@ -927,9 +949,13 @@ export function PileBadge({
       className={`relative flex items-center ${BADGE_PILL_CLASS} ${count === 0 ? 'opacity-60' : ''}`}
       style={{ height: height - 2 }}
     >
-      <Icon />
+      <Icon height={iconHeight} />
       {count > 0 && (
-        <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
+        <span
+          key={landedNonce ?? undefined}
+          className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}
+          style={countFontStyle(iconHeight)}
+        >
           {count}
         </span>
       )}
@@ -979,29 +1005,34 @@ function ShipCrewBadge({
 
 type PlacedOnBadge = { group: PlacedOnGroup; count: number; landedNonce: number | null };
 
-// The away team badge, and to its right the count of the events placed on the mission card
-// (#1069), then the count of the dilemmas placed on it (#1081), each only when its count is above
-// 0. The strip stays centred, so the away team badge shifts left as the other badges appear.
-function BadgeStrip({
-  missionIndex,
-  awayTeamCount,
-  onOpenPile,
-  placedOn,
-  height,
-  showAwayTeam,
-}: {
+type MissionCountsProps = {
   missionIndex: number;
   awayTeamCount: number;
   onOpenPile: (missionIndex: number, pile: MissionPileName) => void;
   placedOn: { name: string; badges: PlacedOnBadge[]; onOpen: (group: PlacedOnGroup) => void } | null;
+  // The height of a pill's box.
   height: number;
   // The attempt layout (#1164) shows the away team badge in the ships column instead.
   showAwayTeam: boolean;
-}) {
+  // On the card (#1494): the icons' height.
+  iconHeight?: number;
+};
+
+// The away team badge, and to its right the count of the events placed on the mission card
+// (#1069), then the count of the dilemmas placed on it (#1081), each only when its count is above
+// 0.
+function MissionCountPills({ missionIndex, awayTeamCount, onOpenPile, placedOn, height, showAwayTeam, iconHeight }: MissionCountsProps) {
   return (
-    <div className="w-full flex items-center justify-center gap-0.5" style={{ height }}>
+    <>
       {showAwayTeam && (
-        <PileBadge missionIndex={missionIndex} pile="awayTeam" count={awayTeamCount} onOpen={onOpenPile} height={height} />
+        <PileBadge
+          missionIndex={missionIndex}
+          pile="awayTeam"
+          count={awayTeamCount}
+          onOpen={onOpenPile}
+          height={height}
+          iconHeight={iconHeight}
+        />
       )}
       {placedOn?.badges
         .filter((badge) => badge.count > 0)
@@ -1015,8 +1046,55 @@ function BadgeStrip({
             height={height}
             landedNonce={badge.landedNonce}
             onOpen={() => placedOn.onOpen(badge.group)}
+            iconHeight={iconHeight}
           />
         ))}
+    </>
+  );
+}
+
+// The badge strip below a cropped mission, the touch full table's (#602). The strip stays
+// centred, so the away team badge shifts left as the other badges appear.
+function BadgeStrip(props: MissionCountsProps) {
+  return (
+    <div className="w-full flex items-center justify-center gap-0.5" style={{ height: props.height }}>
+      <MissionCountPills {...props} />
+    </div>
+  );
+}
+
+// Issue #1494: where the mission is the whole card (the desktop full table, and the attempt layout
+// on every device), its counts sit on the card, at its bottom right, where the printed card leaves
+// the space right of the affiliation icons. Each icon is as tall as those icons, and each pill keeps
+// the badge strip's dark backing, since some cards print text there (Bilana System). They stay
+// upright on a completed mission, in the corner of the card as drawn, as the Flip button does.
+// The shares are of the whole card, measured on the 357x499 scan of Moab IV: the affiliation icons
+// run from about y 403 to y 445, and the bottom bar starts about 50 px from the bottom.
+const MISSION_AFFILIATION_ICON_SHARE = 42 / 499;
+const MISSION_COUNTS_BOTTOM_SHARE = 50 / 499;
+const MISSION_COUNTS_RIGHT_SHARE = 24 / 357;
+export const missionCountIconHeight = (cardHeight: number): number =>
+  Math.max(8, Math.round(cardHeight * MISSION_AFFILIATION_ICON_SHARE));
+
+// `cardWidth` and `cardHeight` are the card's box as drawn, turned or upright; `uprightHeight` is
+// the upright card's height, so a turned mission keeps the size of its icons.
+function MissionCountsOnCard({
+  cardWidth,
+  cardHeight,
+  uprightHeight,
+  ...props
+}: Omit<MissionCountsProps, 'height' | 'iconHeight'> & { cardWidth: number; cardHeight: number; uprightHeight: number }) {
+  const iconHeight = missionCountIconHeight(uprightHeight);
+  return (
+    <div
+      data-testid={`mission-counts-${props.missionIndex}`}
+      className="absolute flex flex-row items-center gap-0.5 *:pointer-events-auto"
+      style={{
+        right: Math.round(cardWidth * MISSION_COUNTS_RIGHT_SHARE),
+        bottom: Math.round(cardHeight * MISSION_COUNTS_BOTTOM_SHARE),
+      }}
+    >
+      <MissionCountPills {...props} height={iconHeight + 4} iconHeight={iconHeight} />
     </div>
   );
 }
@@ -1188,14 +1266,14 @@ export const underMissionStackRoom = (scale: number, uncropped = false): number 
 
 // The height of a whole mission column (#992), from the top of the room the row moves down by
 // (`underMissionHeadroom`) to the bottom of `rows` rows of ships: the mission card, the badge
-// strip, and the ship rows, with the gaps between them. `useMissionScale` (`tableScale.ts`)
+// strip on touch (a desktop has its counts on the card, #1494), and the ship rows, with the gaps
+// between them. `useMissionScale` (`tableScale.ts`)
 // grows the cards, on a desktop and on a touch screen, until this fills the height above the bottom row.
 export function missionColumnHeight(scale: number, desktop: boolean, rows: number): number {
   return (
     underMissionHeadroom(scale, desktop) +
     missionCardHeight(scale, desktop) +
-    COLUMN_GAP +
-    scaled(BADGE_STRIP_HEIGHT_BASE, scale) +
+    (desktop ? 0 : COLUMN_GAP + scaled(BADGE_STRIP_HEIGHT_BASE, scale)) +
     COLUMN_GAP +
     rows * shipRowLineHeight(scale, desktop) +
     (rows - 1) * SHIP_ROW_GAP
@@ -1467,9 +1545,11 @@ export function MissionCard({
   const cardWidth = scaled(TABLE_CARD_WIDTH, scale);
   const cardArtHeight = missionCardHeight(scale, uncropped);
   const badgeHeight = scaled(BADGE_STRIP_HEIGHT_BASE, scale);
+  // Issue #1494: the whole card carries its counts itself, at its bottom right, and has no badge strip.
+  const countsOnCard = uncropped;
   // The bottom half reaches over the gap and the badge strip below the card (#924), so a drop on
-  // the away team badge routes as a drop on the mission card does.
-  const onReach = COLUMN_GAP + badgeHeight;
+  // the away team badge routes as a drop on the mission card does. Counts on the card lie inside it.
+  const onReach = countsOnCard ? 0 : COLUMN_GAP + badgeHeight;
   // The top half reaches up over the slivers of the dilemmas under the mission (#990).
   const underReach = underMissionStackHeight(cardArtHeight, underMission.length);
   // A completed mission (#991) darkens. A double-tap on the card toggles it (#1059).
@@ -1522,6 +1602,22 @@ export function MissionCard({
     deferTap(event, () => onOpenPlacedOn(missionId, group));
   };
   const stripLayout = placedOnStripLayout(scale);
+  const counts = {
+    missionIndex,
+    awayTeamCount: awayTeam.length,
+    onOpenPile,
+    placedOn: mission
+      ? {
+          name: cardDisplayName(mission.card),
+          badges: [
+            { group: 'events' as const, count: eventCount, landedNonce: eventLandedNonce },
+            { group: 'dilemmas' as const, count: dilemmaCount, landedNonce: dilemmaLandedNonce },
+          ],
+          onOpen: (group: PlacedOnGroup) => onOpenPlacedOn(mission.id, group),
+        }
+      : null,
+    showAwayTeam,
+  };
 
   return (
     <>
@@ -1630,6 +1726,14 @@ export function MissionCard({
                 {mission.card.backimagefile && (
                   <MissionFlipButton mission={mission} height={badgeHeight} onFlip={onFlipMission} />
                 )}
+                {countsOnCard && (
+                  <MissionCountsOnCard
+                    {...counts}
+                    cardWidth={visualWidth}
+                    cardHeight={visualHeight}
+                    uprightHeight={cardArtHeight}
+                  />
+                )}
               </div>
               {/* The attempt in progress (#1163), above the card and its drop halves, upright on a
                   turned mission. */}
@@ -1671,26 +1775,9 @@ export function MissionCard({
       </div>
 
       {/* Badge strip: the away team badge (#602) and the counts of the events (#1069) and the
-          dilemmas (#1081) placed on the mission, under the reach of the bottom half (#924). */}
-      <BadgeStrip
-        missionIndex={missionIndex}
-        awayTeamCount={awayTeam.length}
-        onOpenPile={onOpenPile}
-        placedOn={
-          mission
-            ? {
-                name: cardDisplayName(mission.card),
-                badges: [
-                  { group: 'events', count: eventCount, landedNonce: eventLandedNonce },
-                  { group: 'dilemmas', count: dilemmaCount, landedNonce: dilemmaLandedNonce },
-                ],
-                onOpen: (group) => onOpenPlacedOn(mission.id, group),
-              }
-            : null
-        }
-        height={badgeHeight}
-        showAwayTeam={showAwayTeam}
-      />
+          dilemmas (#1081) placed on the mission, under the reach of the bottom half (#924). The
+          whole card has its counts on it instead (#1494). */}
+      {!countsOnCard && <BadgeStrip {...counts} height={badgeHeight} />}
     </>
   );
 }

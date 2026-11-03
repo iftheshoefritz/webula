@@ -62,7 +62,8 @@ describe('MissionRow on a desktop (#992)', () => {
     expect(missionCardHeight(1, true)).toBe(fullCardHeight(72));
     expect(shipRowLineHeight(1, true)).toBe(fullCardHeight(34));
     expect(underMissionHeadroom(2, true)).toBeGreaterThan(underMissionHeadroom(2));
-    // headroom + mission + gap + badge + gap + two ship rows and the gap between them
-    expect(missionColumnHeight(1, true, 2)).toBe(underMissionHeadroom(1, true) + 100 + 4 + 14 + 4 + 47 * 2 + 4);
+    // headroom + mission + gap + two ship rows and the gap between them: the counts sit on the
+    // whole card, so a desktop column has no badge strip (#1494)
+    expect(missionColumnHeight(1, true, 2)).toBe(underMissionHeadroom(1, true) + 100 + 4 + 47 * 2 + 4);
   });
 });
