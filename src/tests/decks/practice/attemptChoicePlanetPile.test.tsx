@@ -1,6 +1,6 @@
-// Issue #1222: in the dilemma choice at a planet mission, the face-down personnel pile is a crop of the
-// card back exactly the size of a card of the dilemma stack, level with the stack's cards, and the
-// ship row stands in a column of its own right of it.
+// Issue #1222: in the dilemma choice at a planet mission, the face-down personnel pile shows, and the
+// ship row stands in a column of its own right of it. Issue #1493: the pile is the whole card back,
+// uncropped, exactly as wide and as tall as the mission card.
 jest.mock('@dnd-kit/core', () => {
   const actual = jest.requireActual('@dnd-kit/core');
   return {
@@ -14,6 +14,9 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import AttemptLayout from '../../../app/decks/practice/AttemptLayout';
 import type { Attempt, MissionSlot } from '../../../app/decks/practice/tableReducer';
+import { missionCardHeight } from '../../../app/decks/practice/MissionRow';
+import { TABLE_CARD_WIDTH } from '../../../app/decks/practice/TableCard';
+import { fullCardHeight } from '../../../app/decks/practice/viewerCardSize';
 import { computeAttemptChoiceLayout, computeAttemptLayout } from '../../../app/decks/practice/tableScale';
 
 const slot: MissionSlot = {
@@ -67,16 +70,18 @@ const renderChoice = (space: boolean) => {
 };
 
 describe('the personnel pile of the dilemma choice at a planet mission (#1222)', () => {
-  it('is a crop of the card back the size of a stack card, at the bottom of a slot as tall as the stack', () => {
+  it('is the whole card back, as wide and as tall as the mission card (#1493)', () => {
     const choice = renderChoice(false);
     const pile = screen.getByTestId('attempt-personnel-pile');
-    expect(pile.style.width).toBe(`${choice.stackCardWidth}px`);
-    const crop = pile.querySelector('img')!.parentElement as HTMLElement;
-    expect(crop.style.height).toBe(`${choice.stackCardHeight}px`);
-    expect(pile.querySelector('img')!.getAttribute('src')).toMatch(/cardback/);
-    const slotEl = pile.parentElement as HTMLElement;
-    expect(slotEl.style.height).toBe(`${choice.stackHeight}px`);
-    expect(slotEl.className).toContain('justify-end');
+    expect(choice.pileCardWidth).toBe(Math.round(TABLE_CARD_WIDTH * choice.missionScale));
+    expect(choice.pileCardHeight).toBe(missionCardHeight(choice.missionScale, true));
+    expect(choice.pileCardHeight).toBe(fullCardHeight(choice.pileCardWidth));
+    expect(pile.style.width).toBe(`${choice.pileCardWidth}px`);
+    expect(pile.style.height).toBe(`${choice.pileCardHeight}px`);
+    const img = pile.querySelector('img')!;
+    expect(img.getAttribute('src')).toMatch(/cardback/);
+    expect(img.className).not.toContain('object-cover');
+    expect(img.parentElement).toBe(pile);
     expect(pile).toHaveTextContent('20');
   });
 

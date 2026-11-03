@@ -22,8 +22,8 @@
 // The dilemma choice (#1190, `attempt.phase === 'choose'`) draws a body of its own: the mission at
 // the same scale; the dilemma stack, face up and as wide as the width allows, in the middle; and on
 // the right the ships, one to a row. At a planet mission (#1222) the attempting personnel show there
-// too, as one face-down pile with a count (`attempt-personnel-pile`), a crop of the card back the size
-// of a stack card, level with the stack's cards, with the ships in a column right of it. A space
+// too, as one face-down pile with a count (`attempt-personnel-pile`), the whole card back as wide and as
+// tall as the mission card and level with it (#1493), with the ships in a column right of it. A space
 // mission has no pile (#1235): the player knows the crew is on the ship, whose crew badge shows the count.
 // The pile is not a drop target and previews nothing; the row of the
 // personnel, its buttons and its droppable are not mounted, nor is the away team badge.
@@ -243,29 +243,25 @@ export default function AttemptLayout({
         className={`flex ${choice.hasPile ? 'flex-row items-start' : 'flex-col items-center'}`}
         style={{ width: choice.rightWidth, gap: ATTEMPT_GAP }}
       >
-        {/* At a planet mission (#1222) the pile is a stack card's crop of the card back, in a slot as
-            tall as the stack, at its bottom, so it lines up with the stack's cards. A space mission
-            has no pile (#1235): the ship's crew badge shows the count. */}
+        {/* At a planet mission (#1222) the pile is the whole card back, as wide and as tall as the
+            mission card and level with it (#1493). A space mission has no pile (#1235): the ship's
+            crew badge shows the count. */}
         {choice.hasPile && (
-          <div className="flex flex-col justify-end" style={{ width: choice.pileCardWidth, height: choice.stackHeight }}>
-            <div
-              data-testid="attempt-personnel-pile"
-              aria-label={`Attempting personnel, ${personnelCount} card${personnelCount === 1 ? '' : 's'}`}
-              className="relative"
-              style={{ width: choice.pileCardWidth }}
-            >
-              <div className="overflow-hidden rounded-md shadow-lg" style={{ height: choice.pileCardHeight }}>
-                <img
-                  src="/cardimages/cardback.jpg"
-                  width={120}
-                  height={167}
-                  alt=""
-                  className="pointer-events-none w-full h-full object-cover object-top"
-                  style={cardBorderStyle(choice.pileCardWidth)}
-                />
-              </div>
-              <CountBadge count={personnelCount} />
-            </div>
+          <div
+            data-testid="attempt-personnel-pile"
+            aria-label={`Attempting personnel, ${personnelCount} card${personnelCount === 1 ? '' : 's'}`}
+            className="relative shrink-0"
+            style={{ width: choice.pileCardWidth, height: choice.pileCardHeight }}
+          >
+            <img
+              src="/cardimages/cardback.jpg"
+              width={120}
+              height={167}
+              alt=""
+              className="pointer-events-none block w-full h-full rounded-md shadow-lg"
+              style={cardBorderStyle(choice.pileCardWidth)}
+            />
+            <CountBadge count={personnelCount} />
           </div>
         )}
         <ShipRow
