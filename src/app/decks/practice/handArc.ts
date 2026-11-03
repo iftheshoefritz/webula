@@ -1,6 +1,7 @@
 // Issue #1125: the open hand drawn as an arc along the bottom edge of the screen, the way a
 // player holds a fanned hand of cards. Each card's centre sits near the bottom edge, so about half
-// of each card is below the screen, and on a touch screen the arc sits lower still (#1149). The cards near the ends of the arc turn outward and sit lower
+// of each card is below the screen. On a desktop the arc sits higher, so about three quarters of each
+// card shows (`ARC_DESKTOP_RAISE`, #1495), and on a touch screen it sits lower (#1149). The cards near the ends of the arc turn outward and sit lower
 // than the ones in the middle. On a touch screen the arc is flatter, with no sag and half the turn,
 // and every card's lowest top corner stays at least `arcTouchMinVisible` of the bottom safe-area
 // inset above the bottom edge, clear of the iOS edge gesture (#1380, #1383). The arc stays between `left` and `right`, the right edge of the draw
@@ -22,6 +23,12 @@ export const ARC_TOP_OVERLAP = 0.04;
 // each card shows 20% less of itself above the bottom edge.
 // Issue #1380 caps that drop, so it never takes a card below the touch floor, `arcTouchMinVisible`.
 export const ARC_TOUCH_LOWER = 0.2;
+
+// Issue #1495: how far the arc sits higher on a desktop, as a part of its visible height. About half
+// of each card shows without it, so half of that again shows about three quarters of each card.
+// `CardHand` passes it as a negative `lower`, with a `maxVisible` that keeps the controls row above
+// the cards on a short window.
+export const ARC_DESKTOP_RAISE = 0.5;
 
 // Issue #1380: the touch arc. The ends sit no lower than the middle and turn half as far, so an
 // outer card shows about as much of itself as the middle card does.
@@ -104,6 +111,7 @@ export function handArcLayout({
   sag: sagShare = ARC_SAG,
   maxAngle = ARC_MAX_ANGLE,
   minVisible = 0,
+  maxVisible = Infinity,
 }: {
   count: number;
   // The card width the hand wants; the arc draws narrower cards when the gap is too small.
@@ -116,7 +124,8 @@ export function handArcLayout({
   right: number;
   bottom: number;
   // How far to move the whole arc down, as a part of its visible height (#1149). Every card moves
-  // the same distance, so the sag, the turns and the spacing do not change.
+  // the same distance, so the sag, the turns and the spacing do not change. A negative value moves
+  // it up (#1495).
   lower?: number;
   // How much lower the ends sit than the middle, as a part of the card's height, and the angle of a
   // card at either end, at most, in degrees. A touch screen draws a flatter arc (#1380).
@@ -126,6 +135,9 @@ export function handArcLayout({
   // caps the drop of `lower`, and it lifts the arc when the cards are small, but never so far that
   // the bottom edge of a card rises above the bottom edge of the screen.
   minVisible?: number;
+  // The highest the arc may reach above the bottom edge (#1495). It caps the rise of a negative
+  // `lower`, and it never moves the arc below where `lower` 0 draws it.
+  maxVisible?: number;
 }): ArcLayout {
   const endAngle = count > 1 ? Math.min(maxAngle, ARC_ANGLE_PER_CARD * (count - 1)) : 0;
   const rad = (endAngle * Math.PI) / 180;
@@ -162,6 +174,7 @@ export function handArcLayout({
     return Math.max(max, bottom - top);
   }, 0);
   let drop = lower * fullHeight;
+  if (drop < 0) drop = Math.min(0, Math.max(drop, fullHeight - maxVisible));
   if (minVisible > 0 && cards.length > 0) {
     // The lowest point of each card's top edge, and the highest point of its bottom edge.
     const reach = (card: ArcCard) => {
@@ -187,8 +200,8 @@ export function handArcLayout({
 // brig box, the dilemma hand's at its right end. Its cards overlap more to fit that width.
 export const CLOSED_FAN_CORE_CARDS = 2;
 // How much of each card of the small fan shows above the bottom edge, as a part of the card's
-// height, at its lowest top corner. The open arc shows about half of a card three times as large, so
-// the small fan is lower. On a touch screen it never shows less than the touch floor,
+// height, at its lowest top corner. The open arc shows about half of a card three times as large, and
+// about three quarters on a desktop (#1495), so the small fan is lower. On a touch screen it never shows less than the touch floor,
 // `arcTouchMinVisible`, so a card is still a touch target clear of the iOS edge gesture.
 export const CLOSED_FAN_VISIBLE = 0.6;
 
