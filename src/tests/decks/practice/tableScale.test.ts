@@ -659,32 +659,27 @@ describe('computeAttemptChoiceLayout (#1190)', () => {
     expect(choice.stackCardWidth).toBeLessThanOrEqual(choice.stackWidth);
     expect(choice.stackCardHeight).toBe(attemptPersonnelCropHeight(choice.stackCardWidth));
     expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeLessThanOrEqual(choice.stackHeight);
-    // At a planet mission the pile is as wide as a stack card (#1222), so there the width can bind
-    // first: the stack and the pile then hold 4 cards edge to edge. At a space mission the width binds
-    // when 3 cards as tall as the zone allows would not sit edge to edge beside the space outside the
-    // stack's ends (#1220).
-    if (personnel.space) {
-      expect(
-        ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight > choice.stackHeight - 2 ||
-          choice.stackCardWidth === Math.floor(choice.stackWidth / 3),
-      ).toBe(true);
-    } else {
-      expect(choice.stackWidth + choice.pileCardWidth).toBeLessThan(4 * (choice.stackCardWidth + 1));
-    }
+    // The width binds when 3 cards as tall as the zone allows would not sit edge to edge beside the
+    // space outside the stack's ends (#1220); at a planet mission the pile is the mission's size (#1493).
+    expect(
+      ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight > choice.stackHeight - 2 ||
+        choice.stackCardWidth === Math.floor(choice.stackWidth / 3),
+    ).toBe(true);
     expect(choice.stackHeight).toBe(missionCardHeight(choice.missionScale, true));
     // 3 dilemmas sit edge to edge, every one readable.
     expect(offsetFor(3, choice.stackCardWidth, choice.stackWidth, choice.stackCardWidth)).toBe(choice.stackCardWidth);
   });
 
-  // Issue #1222: at a planet mission the pile is the size of a stack card, and the ships stand in a
-  // column of their own right of it.
-  it.each([0, 1, 5])('gives the pile the size of a stack card at a planet mission with %i ships', (ships) => {
+  // Issue #1222: at a planet mission the ships stand in a column of their own right of the pile.
+  // Issue #1493: the pile is the whole card back, as wide and as tall as the mission card.
+  it.each([0, 1, 5])('gives the pile the size of the mission card at a planet mission with %i ships', (ships) => {
     const personnel = { count: 20, space: false };
     const face = computeAttemptLayout(MIN_SCREEN.width, available, false, ships, floor, personnel);
     const choice = computeAttemptChoiceLayout(MIN_SCREEN.width, available, false, ships, floor, face, false);
     expect(choice.hasPile).toBe(true);
-    expect(choice.pileCardWidth).toBe(choice.stackCardWidth);
-    expect(choice.pileCardHeight).toBe(choice.stackCardHeight);
+    expect(choice.pileCardWidth).toBe(Math.round(72 * choice.missionScale));
+    expect(choice.pileCardHeight).toBe(missionCardHeight(choice.missionScale, true));
+    expect(choice.pileCardHeight).toBe(fullCardHeight(choice.pileCardWidth));
     expect(choice.shipColumnWidth).toBe(shipRowWidth(choice.shipScale, 1));
     expect(choice.rightWidth).toBe(choice.pileCardWidth + ATTEMPT_GAP + choice.shipColumnWidth);
     const missionWidth = Math.round(72 * choice.missionScale);
@@ -791,7 +786,8 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
 
 // Issue #1365: the facing body gives the personnel the width it left empty, and the mission, the
 // facing stack and the whole dilemma choice draw exactly as before. The numbers are those of the
-// code before #1365, for an away team of 20 and a crew of 12, with cards placed on the mission.
+// code before #1365, for an away team of 20 and a crew of 12, with cards placed on the mission, but
+// for the planet mission's choice, whose pile is the size of the mission card since #1493.
 describe('the facing body takes the empty width, and the mission and the choice do not change (#1365)', () => {
   const screens = {
     667: { height: 375, tableHeight: 218, desktop: false },
@@ -802,7 +798,7 @@ describe('the facing body takes the empty width, and the mission and the choice 
       width: 667,
       space: false,
       expected: { missionScale: expect.closeTo(1.215277, 5), columnHeight: 142, placedOnWidth: 41, stackWidth: 98, stackHeight: 121 },
-      choice: { missionScale: expect.closeTo(1.215277, 5), stackWidth: 287, stackHeight: 121, stackCardWidth: 95, stackCardHeight: 84, rightWidth: 144, pileCardWidth: 95, pileCardHeight: 84, hasPile: true, shipColumnWidth: 41, shipScale: expect.closeTo(1.215277, 5), shipRows: 1 },
+      choice: { missionScale: expect.closeTo(1.215277, 5), stackWidth: 295, stackHeight: 121, stackCardWidth: 98, stackCardHeight: 87, rightWidth: 136, pileCardWidth: 87, pileCardHeight: 121, hasPile: true, shipColumnWidth: 41, shipScale: expect.closeTo(1.215277, 5), shipRows: 1 },
     },
     {
       width: 667,
@@ -814,7 +810,7 @@ describe('the facing body takes the empty width, and the mission and the choice 
       width: 1440,
       space: false,
       expected: { missionScale: expect.closeTo(5.048611, 5), columnHeight: 589, placedOnWidth: 94, stackWidth: 374, stackHeight: 505 },
-      choice: { missionScale: expect.closeTo(5.048611, 5), stackWidth: 580, stackHeight: 505, stackCardWidth: 193, stackCardHeight: 172, rightWidth: 295, pileCardWidth: 193, pileCardHeight: 172, hasPile: true, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
+      choice: { missionScale: expect.closeTo(5.048611, 5), stackWidth: 410, stackHeight: 505, stackCardWidth: 136, stackCardHeight: 121, rightWidth: 465, pileCardWidth: 363, pileCardHeight: 505, hasPile: true, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
     },
     {
       width: 1440,
