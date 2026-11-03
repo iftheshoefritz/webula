@@ -379,7 +379,16 @@ function GameMenu({
   touch: boolean;
 }) {
   const [view, setView] = useState<'items' | 'settings' | 'offline'>('items');
-  const cornerButton = touch ? 'btn-system w-6 h-6 text-xs' : 'btn-icon btn-icon-sm';
+  // On the desktop full table every corner button takes the size of the next-turn button below it,
+  // the full width of the column and `h-7` (#1497), so the column has one width; `controlsColumnTop`
+  // counts them at `DESKTOP_CORNER_BUTTON`. Touch keeps the round 24 px buttons, and the attempt
+  // layout, with only `MENU_BUTTON_GUTTER` left of the attempt body, the small icons.
+  const wideButtons = !touch && turnScoreColumn;
+  const cornerButton = touch
+    ? 'btn-system w-6 h-6 text-xs'
+    : wideButtons
+      ? 'btn-icon w-full h-7'
+      : 'btn-icon btn-icon-sm';
   // The splash opens on the item list every time: the view goes back to the list when it closes,
   // adjusted during render on the change of `open`.
   const [prevOpen, setPrevOpen] = useState(open);
@@ -521,8 +530,9 @@ function GameMenu({
         } ${open ? LAYER_MENU_BUTTON_OPEN : LAYER_MENU_BUTTON}`}
         // On the full table the column is as wide as the turn and score column below it, and
         // `items-center` centres every button and the undo and redo row on the centre line of that
-        // column (#1447, #1451); its empty sides take no taps. In the attempt layout it is as wide as
-        // its widest child.
+        // column (#1447, #1451); its empty sides take no taps. On a desktop the buttons fill that
+        // width, as the next-turn button does (#1497). In the attempt layout it is as wide as its
+        // widest child.
         // Below the top safe-area inset and right of the left one (#1384), on top of `top-14`.
         style={{
           ...(turnScoreColumn ? { width: CONTROLS_COLUMN_WIDTH } : {}),
@@ -568,7 +578,10 @@ function GameMenu({
             <FullscreenIcon exit={fullscreen.isFullscreen} />
           </button>
         )}
-        <div data-testid="undo-redo" className={`flex gap-1 ${undoRedoRow ? 'flex-row' : 'flex-col'}`}>
+        <div
+          data-testid="undo-redo"
+          className={`flex gap-1 ${undoRedoRow ? 'flex-row' : 'flex-col'} ${wideButtons ? 'self-stretch' : ''}`}
+        >
           <button
             type="button"
             onClick={onUndo}
@@ -630,12 +643,14 @@ const CONTROLS_COLUMN_WIDTH = 16 + TOUCH_CONTROLS_COLUMN - CONTROLS_COLUMN_LEFT 
 // Below the corner buttons (24 px each, 4 px apart) at `top-2`, or at `top-14` with the inset, and
 // 8 px clear of them. The column counts four buttons (#1399), or three in fullscreen on iPadOS, where the
 // system's close X stands in for the fullscreen button (#1394). A desktop stacks redo under undo, so it
-// counts five (#1451). A column with no fullscreen button
+// counts five (#1451), each as tall as the next-turn button, 28 px (`h-7`, #1497). A column with no fullscreen button
 // still counts four, so the turn and score do not jump when the button shows after hydration. Like the corner buttons, the column moves in by the top and the left safe-area insets (#1384).
-const CORNER_BUTTON = 24; // px
+const CORNER_BUTTON = 24; // px, `w-6 h-6` on touch
+const DESKTOP_CORNER_BUTTON = 28; // px, `h-7` on the desktop full table
 const CORNER_BUTTON_GAP = 4; // px
-function controlsColumnTop(cornerButtons: number, systemControlsInset: boolean): number {
-  const buttons = cornerButtons * CORNER_BUTTON + (cornerButtons - 1) * CORNER_BUTTON_GAP;
+function controlsColumnTop(cornerButtons: number, systemControlsInset: boolean, desktop: boolean): number {
+  const height = desktop ? DESKTOP_CORNER_BUTTON : CORNER_BUTTON;
+  const buttons = cornerButtons * height + (cornerButtons - 1) * CORNER_BUTTON_GAP;
   return (systemControlsInset ? 56 : 8) + buttons + 8;
 }
 
@@ -1888,7 +1903,8 @@ function PracticeDrawContent() {
   const flatWidths = flatRowWidths(flatRowsWidth, core.length, brig.length, bottomRowScale);
   const turnScoreTop = controlsColumnTop(
     (fullscreen.systemExitControl ? 3 : 4) + (finePointer ? 1 : 0),
-    fullscreen.isFullscreen && fullscreen.systemControlsInset
+    fullscreen.isFullscreen && fullscreen.systemControlsInset,
+    finePointer
   );
   const shipRows = useShipRowCount(
     missionRows,
