@@ -172,6 +172,29 @@ describe('CardHand', () => {
     anchor.remove();
   });
 
+  it('sits in the middle of the screen with closedFanSide "center" (#1496)', () => {
+    const anchor = document.createElement('div');
+    anchor.setAttribute('data-testid', 'fan-anchor');
+    anchor.getBoundingClientRect = () =>
+      ({ left: 200, right: 700, top: 500, bottom: 580, width: 500, height: 80, x: 200, y: 500, toJSON: () => {} }) as DOMRect;
+    document.body.appendChild(anchor);
+    const { unmount } = render(
+      <CardHand
+        instances={makeInstances(7)}
+        open={false}
+        onOpen={() => {}}
+        onClose={() => {}}
+        closedFanAnchor='[data-testid="fan-anchor"]'
+        closedFanSide="center"
+      />,
+    );
+    const hand = screen.getByRole('button', { name: /^hand, 7 cards/ });
+    const centre = parseFloat(hand.style.left) + parseFloat(hand.style.width) / 2;
+    expect(Math.abs(centre - window.innerWidth / 2)).toBeLessThanOrEqual(1);
+    unmount();
+    anchor.remove();
+  });
+
   // On a touch screen, the browser sends the rest of a touch's events to the element where the
   // touch started. If the drag start removes that card from the document, WebKit's events stop
   // bubbling to the document, where dnd-kit listens, and the drop never happens.

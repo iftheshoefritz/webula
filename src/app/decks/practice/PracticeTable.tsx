@@ -1717,8 +1717,9 @@ const practiceGameKey = (fixture: string | null) => (fixture ? `${PRACTICE_GAME_
 // Issue #1125: the open hand draws as an arc between the draw deck and the dilemma pile. The
 // open dilemma hand draws as the same arc, in the same gap (#1150).
 const HAND_ARC_BETWEEN = { left: '[data-testid="draw-pile"]', right: '[data-testid="dilemma-pile-group"]' };
-// Issue #1489: each closed hand is a small fan on the box of the core and the brig, the hand at its
-// left end and the dilemma hand at its right end.
+// Issue #1489: each closed hand is a small fan on the box of the core and the brig, the dilemma hand
+// at its right end, and the hand at its left end in the dilemma choice and in the middle of the
+// screen elsewhere (#1496).
 const CLOSED_FAN_ANCHOR = '[data-testid="flat-rows"]';
 // The content column's `p-4`.
 const CONTENT_PADDING = 16; // px
@@ -3595,6 +3596,10 @@ function PracticeDrawContent() {
                 safeAreaBottom={safeArea.bottom}
                 rowScale={bottomRowScale}
                 closedFanAnchor={CLOSED_FAN_ANCHOR}
+                // Only the dilemma choice shows the dilemma hand, at the right end of the core and
+                // brig box, so only there the hand keeps the left end; elsewhere it sits in the
+                // middle of the screen (#1496).
+                closedFanSide={dilemmaHandShows ? 'left' : 'center'}
               />
               {dilemmaHandShows && (
                 <CardHand

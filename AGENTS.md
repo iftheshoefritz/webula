@@ -444,7 +444,8 @@ The turn and score controls sit in that left column, below the menu, fullscreen,
 undo and game log buttons (`data-testid="turn-score-column"`, #1337): the next-turn button, which shows the turn number (#1449), then
 the score over minus and plus. They show on the full table only, not in the attempt layout. A desktop
 shows the same column (#1451), below its five corner buttons (redo under undo), with `btn-icon`
-buttons, and its mission row keeps the same `TOUCH_CONTROLS_COLUMN` on the left and
+buttons; on the desktop full table each corner button is as wide and as tall as the next-turn button
+(`w-full h-7`, #1497), and the attempt layout keeps the small `btn-icon-sm` ones. Its mission row keeps the same `TOUCH_CONTROLS_COLUMN` on the left and
 `MENU_BUTTON_GUTTER` on the right (`DESKTOP_FULL_TABLE_RESERVE` in `desktopMissionSlotBudget`). The
 bottom row holds no turn or score on either device. They keep `data-testid="turn-counter"`, now inside the next-turn button, and
 `"score-counter"`. In fullscreen on iPadOS the column
@@ -522,8 +523,11 @@ The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of
 `LAYER_CLOSED_HAND`, and taking no width in the row. It is the arc of `handArcLayout` with pile cards
 (`pileCardSize`), showing `CLOSED_FAN_VISIBLE` (0.6) of each card's height above the edge, or the touch
 floor of `arcTouchMinVisible` where that is more, and it spans at most `CLOSED_FAN_CORE_CARDS` (2)
-cards of the core however many cards the hand holds: the hand at the left end of the core and brig
-box (`flat-rows`), the closed dilemma hand (`dilemmaHand-closed-fan`) at its right end. Its cards
+cards of the core however many cards the hand holds. The closed dilemma hand
+(`dilemmaHand-closed-fan`) sits at the right end of the core and brig box (`flat-rows`), and the hand
+at its left end in the dilemma choice, the one place the dilemma hand shows. Everywhere else, on the
+full table and in the facing phase, the hand sits in the middle of the screen, slid inward to stay
+over the box (`closedFanSpan` in `CardHand.tsx`, #1496). Its cards
 carry no `data-card-id` and do not drag: a card of the hand is picked up from the open arc. A hold on
 one previews it (`PREVIEW_CARD_ID_ATTRIBUTE`). The fan is no focus layer: no backdrop, and Escape
 leaves it alone. Its button is the drop target `hand` (or `dilemmaHand`) over the box of its visible
@@ -621,7 +625,7 @@ Do not build the drag by hand. Three things make a hand drag fail, and each one 
 
 Each card in the core and the brig has a drop target of its own, `on-<the card's id>`. A drop there adds the dragged card to the zone, the same as a drop on the zone, so `practice_drag.sh` prints `core` or `brig`. Only a hold over the card for `PLACE_ON_HOLD_MS` (800 ms, `useCardHold.ts`) arms it, shows the `over` ring on that card, and makes the drop place the dragged card on it (#1029). `practice_drag.sh` does not hold: in both modes it sends the drag through `cdp_input.sh` on one connection and releases about 50 ms after the last move (#1043). The mouse commands of `cdp_input.sh` wait `HOVER_SETTLE_MS` (100 ms) between the first move and the press, so a hover preview that the previous call left open closes first and does not eat the press (#1256). Check a placement with the manual mouse sequence below: move onto the card, wait 800 ms or more with `npx agent-browser wait 1000`, then release. The core and the brig share the free space of the bottom row (`flatRowWidths.ts`), and their cards overlap past it.
 
-As a second guard, to aim at `core` or `brig` the script picks a point of the zone where no card is, at least 4 px from any card (#1044). The cards of the core and the brig are art crops as tall as the draw deck's card, 80 px (#1234), more on a large screen. Each zone always fills its share of the bottom row, and the two dashed outlines with the gap between them span from the draw deck to the dilemma pile (#1425). A closed hand's small fan sits over the left end of the core, and the script's point avoids it as it avoids a card (#1489), so a zone has free space right of its last card unless its cards fill it. A zone with no such point gets the point nearest its centre where the zone or one of its cards is on top, so not under a closed hand's small fan, and with none of those the point nearest its centre, as before: that point is on a card, and a drop on a card that no hold armed still adds the card to the zone.
+As a second guard, to aim at `core` or `brig` the script picks a point of the zone where no card is, at least 4 px from any card (#1044). The cards of the core and the brig are art crops as tall as the draw deck's card, 80 px (#1234), more on a large screen. Each zone always fills its share of the bottom row, and the two dashed outlines with the gap between them span from the draw deck to the dilemma pile (#1425). A closed hand's small fan sits over the core and the brig (in the middle of the screen, or over the left end of the core in the dilemma choice, #1496), and the script's point avoids it as it avoids a card (#1489), so a zone has free space right of its last card unless its cards fill it. A zone with no such point gets the point nearest its centre where the zone or one of its cards is on top, so not under a closed hand's small fan, and with none of those the point nearest its centre, as before: that point is on a card, and a drop on a card that no hold armed still adds the card to the zone.
 
 An `agent-browser` call takes about 600 ms, so a sequence of `mouse move` and `wait` calls cannot rest on a card for less than 800 ms. To time a hold, use `cdp_input.sh mouse-path` (or `touch-path`). It presses, makes the 8 px first move, glides to each waypoint `<x>,<y>,<hold-ms>` in turn, rests there for its hold, and releases at the last one, all in one call:
 
