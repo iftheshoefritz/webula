@@ -1768,6 +1768,15 @@ export function MissionCard({
                 eitherOver={eitherOver}
                 reach={underReach}
               />
+              {/* An empty slot of the whole-card table keeps its away team count, on the outline. */}
+              {countsOnCard && (
+                <MissionCountsOnCard
+                  {...counts}
+                  cardWidth={cardWidth}
+                  cardHeight={cardArtHeight}
+                  uprightHeight={cardArtHeight}
+                />
+              )}
             </div>
           )}
         </div>

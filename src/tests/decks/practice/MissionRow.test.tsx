@@ -1296,6 +1296,26 @@ describe('MissionRow: the counts on the whole mission card (#1494)', () => {
     expect(onHalf.style.bottom === '' || onHalf.style.bottom === '0px' || onHalf.style.bottom === '-0px').toBe(true);
   });
 
+  it('keeps the away team count of an empty slot on a desktop', () => {
+    const onOpenPile = jest.fn();
+    render(
+      <MissionRow
+        missions={[{ ...emptySlot(), mission: null, awayTeam: [card('p1', 'Personnel One')] }]}
+        onOpenPile={onOpenPile}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+        desktop
+        scale={2}
+      />
+    );
+    const counts = screen.getByTestId('mission-counts-0');
+    const awayTeam = screen.getByTestId('mission-pile-awayTeam-0');
+    expect(counts).toContainElement(awayTeam);
+    fireEvent.click(awayTeam);
+    expect(onOpenPile).toHaveBeenCalledWith(0, 'awayTeam');
+  });
+
   it('keeps the badge strip below the crop on touch', () => {
     render(
       <MissionRow
