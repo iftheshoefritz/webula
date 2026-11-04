@@ -81,6 +81,10 @@ describe('the registry against the pilot piles', () => {
     expect(pileTitleOf('In Development (IDR)')).toBe('In Development');
     expect(pileTitleOf('Outclassed *A')).toBe('Outclassed');
     expect(pileTitleOf("Dragon's Teeth (FOW)")).toBe("Dragon's Teeth");
+    expect(pileTitleOf('In Development (SS)')).toBe('In Development');
+    expect(pileTitleOf('Timescape (Promo)')).toBe('Timescape');
+    expect(pileTitleOf('Stripped Down *AP')).toBe('Stripped Down');
+    expect(pileTitleOf('"Rapid Progress"')).toBe('Rapid Progress');
     expect(modelOf('Hard Time *VP')).toBe(REGISTRY.get('Hard Time'));
     const titles = new Set(botPileOf(pileText(THINK_TANK)).played);
     expect(titles.size).toBe(45);
