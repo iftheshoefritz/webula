@@ -48,6 +48,12 @@ export interface PileTableInput {
   discard: ReadonlyArray<Row>;
   turn: number;
   facts?: BotTableFacts;
+  /** The events in the player's core (Compromised Experiment reads their Decay). Absent: none. */
+  core?: ReadonlyArray<Row>;
+  /** Every card the player commands on the table, away teams and crews, equipment too (Trellium-D). Absent: none. */
+  commanded?: ReadonlyArray<Row>;
+  /** Whether a ship at the attempted mission has a crew (Galileo Grounded). Absent: false. */
+  staffedShipAtMission?: boolean;
   /**
    * The bot's side (#1520): the affiliations of the personnel of the bot deck's `Deck:` section, from
    * `botAffiliationsOf`. Absent for the Chula pile, which has no `Deck:` section.
@@ -56,6 +62,9 @@ export interface PileTableInput {
 }
 
 const GAME = 'Chula: The Game';
+
+/** The Decay number of an event, from its keywords ("Decay: 3."), or 0. */
+const decayOf = (row: Row): number => Number(/decay:\s*(\d+)/.exec(String(row?.keywords ?? '').toLowerCase())?.[1] ?? 0);
 
 const titleOf = (row: Row): string | null => (row?.originalName ? pileTitleOf(row.originalName) : null);
 
@@ -115,6 +124,11 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       completedSpaceMission: completed.some((s) => s.mission.missiontype === 's'),
       completedPlanetMission: completed.some((s) => s.mission.missiontype === 'p'),
       hand,
+      persistentUnderMission: input.underMission.filter((row) => /\bpersistent\b/.test(String(row?.keywords ?? '').toLowerCase())).length,
+      completedSpan4Mission: completed.some((s) => (Number(s.mission.span) || 0) >= 4),
+      staffedShipAtMission: !!input.staffedShipAtMission,
+      highestDecay: Math.max(0, ...(input.core ?? []).filter((row) => row?.type === 'event').map((row) => decayOf(row))),
+      trelliumD: (input.commanded ?? []).filter((row) => titleOf(row) === 'Trellium-D').length,
       handSize: input.hand.length,
       handHasCunning7Or11: input.hand.some((row) => row?.type === 'personnel' && [7, 11].includes(Number(row.cunning))),
       discardCopiesMax: Math.max(0, ...copies.values()),

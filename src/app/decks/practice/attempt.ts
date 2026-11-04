@@ -62,6 +62,9 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
     discard: table.discard.map((c) => c.card),
     turn: table.turn,
     facts: botTableFactsOf(table),
+    core: table.core.map((c) => c.card),
+    commanded: table.missions.flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])]).map((c) => c.card),
+    staffedShipAtMission: !!slot?.ships.some((ship) => (ship.crew ?? []).some((c) => c.card?.type === 'personnel')),
     ...(table.botPile?.affiliations ? { botAffiliations: table.botPile.affiliations } : {}),
   };
 }

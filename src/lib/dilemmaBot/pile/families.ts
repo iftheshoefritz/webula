@@ -51,6 +51,17 @@ export const costAtMost = (n: number): Test => (s, k) => s.group[k].cost <= n;
 export const either = (...tests: Test[]): Test => (s, k) => tests.some((t) => t(s, k));
 export const affiliationIs = (icon: string): Test => (s, k) => s.group[k].affiliation === icon;
 
+/** The skills some branch of the mission's requirements names, as indexes ("a skill required by this mission"). */
+export const requiredSkills = (s: PlayState): number[] => {
+  const out: number[] = [];
+  for (let i = 0; i < s.requirements[0]?.skills.length; i++) if (s.requirements.some((b) => b.skills[i] > 0)) out.push(i);
+  return out;
+};
+export const hasRequiredSkill: Test = (s, k) => requiredSkills(s).some((i) => s.skill(k, i) > 0);
+
+/** The personnel with the [Cmd] icon. */
+export const isCommand: Test = (s, k) => !!s.group[k].traits?.icons.includes('[cmd]');
+
 // ---- The families ----
 
 /** "Unless you have <requirements>, <effect>." */
@@ -84,6 +95,26 @@ export const allButOne = (test: Test): Play => (s) => {
     const keep = s.select(1, holders)[0];
     s.stop(holders.filter((k) => k !== keep));
   }
+};
+
+/** "Randomly select <count> personnel. Each of those personnel that does not have <test> is <effect>." */
+export const selectEachLacking = (count: number, test: Test, effect: 'stop' | 'kill'): Play => (s) => {
+  const selected = s.select(count);
+  s.trace?.(`  selects ${selected.map((k) => s.name(k)).join(', ')}`);
+  const lacking = selected.filter((k) => !test(s, k));
+  if (effect === 'stop') s.stop(lacking);
+  else s.kill(lacking);
+};
+
+/** "Randomly select <count> personnel. Unless those personnel have <requirements>, <effect>." */
+export const unlessSelected = (count: number, requirements: string, effect: (s: PlayState, selected: number[]) => void): Play => {
+  const branches = req(requirements);
+  return (s) => {
+    const selected = s.select(count);
+    s.trace?.(`  selects ${selected.map((k) => s.name(k)).join(', ')}`);
+    if (s.hasAmong(selected, branches)) s.trace?.(`  those personnel have ${requirements}: no effect`);
+    else effect(s, selected);
+  };
 };
 
 /** "Randomly select <count> personnel" and act on them. */

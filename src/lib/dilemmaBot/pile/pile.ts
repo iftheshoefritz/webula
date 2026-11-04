@@ -91,6 +91,7 @@ export function printedSkillsOf(text: string | number | undefined): { skills: nu
 export function pilePersonnelOf(row: PersonnelRow, mission?: AttemptedMission, facts?: BotTableFacts, lossSuspended = false): PilePersonnel {
   const base = botPersonnelOf(row, mission, facts, lossSuspended);
   const { skills, dots } = printedSkillsOf(row.skills);
+  const firstSkill = (String(row.skills ?? '').toLowerCase().match(/[a-z]+/g) ?? []).map((w) => SKILL_INDEX[w]).find((i) => i !== undefined);
   const species = String(row.species ?? '').toLowerCase().split('/').map((x) => x.trim()).filter(Boolean);
   return {
     ...base,
@@ -102,5 +103,6 @@ export function pilePersonnelOf(row: PersonnelRow, mission?: AttemptedMission, f
       skills,
       attrs: [Number(row.integrity) || 0, Number(row.cunning) || 0, Number(row.strength) || 0],
     },
+    ...(firstSkill !== undefined ? { firstSkill } : {}),
   };
 }

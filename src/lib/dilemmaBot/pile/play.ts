@@ -39,6 +39,10 @@ export class PlayState {
   abilitiesOff = false;
   /** The skills no personnel can use while facing a dilemma (Harsh Conditions). */
   readonly blockedSkills = new Set<number>();
+  /** No personnel can use its first-listed skill, for the rest of the attempt (Accelerated Aging). */
+  firstSkillOff = false;
+  /** The personnel of this cost or less cannot use their skills (Bread and Circuses, while facing it). -1: none. */
+  skillsOffAtMostCost = -1;
   /** The titles of the stack faced so far, this one included. */
   readonly faced: string[] = [];
   /** The title of the dilemma being faced. */
@@ -105,6 +109,8 @@ export class PlayState {
   skill(k: number, i: number): number {
     if (this.blockedSkills.has(i)) return 0;
     const p = this.group[k];
+    if (this.firstSkillOff && p.firstSkill === i) return 0;
+    if (p.cost <= this.skillsOffAtMostCost) return 0;
     return (this.abilitiesOff ? p.printed : p).skills[i];
   }
 
@@ -123,6 +129,17 @@ export class PlayState {
     const attrs = this.attrSums.fill(0);
     for (let k = 0; k < this.group.length; k++) {
       if (!this.alive[k]) continue;
+      for (let i = 0; i < skills.length; i++) skills[i] += this.skill(k, i);
+      for (let a = 0; a < 3; a++) attrs[a] += this.attr(k, a as Attr);
+    }
+    return meets(branches, skills, attrs);
+  }
+
+  /** Do the personnel `ks` alone meet one branch, as a dilemma reads them ("unless those personnel have …")? */
+  hasAmong(ks: number[], branches: RequirementBranch[]): boolean {
+    const skills = this.skillSums.fill(0);
+    const attrs = this.attrSums.fill(0);
+    for (const k of ks) {
       for (let i = 0; i < skills.length; i++) skills[i] += this.skill(k, i);
       for (let a = 0; a < 3; a++) attrs[a] += this.attr(k, a as Attr);
     }
@@ -177,6 +194,9 @@ export class PlayState {
       if (!this.alive[k] || without.includes(k)) continue;
       const p = profiles[k];
       for (let i = 0; i < skills.length; i++) skills[i] += p.skills[i];
+      // Accelerated Aging lasts to the end of the attempt, so its skill counts for no requirement.
+      const first = this.firstSkillOff ? this.group[k].firstSkill : undefined;
+      if (first !== undefined) skills[first] -= p.skills[first];
       for (let a = 0; a < 3; a++) attrs[a] += p.attrs[a];
     }
     return meets(this.requirements, skills, attrs);
@@ -232,6 +252,26 @@ export class PlayState {
   returnToHand(ks: number[], why?: string, quiet = false) {
     this.remove(ks, 'returned', 'returns to the hand', why, quiet);
   }
+  /**
+   * The ship goes to another mission with every personnel aboard, stopped or not (Artificial Wormhole):
+   * as `loseShip`, but each counts as moved.
+   */
+  moveShip() {
+    const aboard: number[] = [];
+    for (let k = 0; k < this.group.length; k++) {
+      if (!this.present[k]) continue;
+      aboard.push(k);
+      this.present[k] = 0;
+      if (this.alive[k]) {
+        this.alive[k] = 0;
+        this.live--;
+        this.dirty = true;
+      }
+    }
+    this.result.moved += aboard.length;
+    if (aboard.length) this.trace?.(`  the ship moves to another mission with ${aboard.map((k) => this.name(k)).join(', ')}`);
+  }
+
   /** The ship leaves with every personnel aboard, stopped or not: at a space mission, the whole attempting group. */
   loseShip() {
     const aboard: number[] = [];
