@@ -124,3 +124,18 @@ export const anyOfAffiliation = (affiliation: string): Play =>
     if (selected.some((k) => s.group[k].affiliation === affiliation)) s.stop(selected);
     else s.stop(s.playerChooses(selected));
   });
+
+/**
+ * "Randomly select a personnel to be stopped. Unless you reveal a <skill> personnel or a <skill> personnel
+ * from your hand, that personnel is killed instead." It reads the hand of `PileTable.hand`: absent, the hand
+ * holds no personnel, and the personnel is killed.
+ */
+export const revealOrElse = (...skills: string[]): Play => {
+  const ix = skills.map(sk);
+  return (s) => {
+    const selected = s.select(1);
+    const reveals = (s.attempt.table.hand ?? []).some((h) => ix.some((i) => h.skills.includes(i)));
+    if (reveals) s.stop(selected, `the player reveals a ${skills.join(' or ')} personnel`);
+    else s.kill(selected);
+  };
+};

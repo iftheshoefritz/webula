@@ -1,6 +1,6 @@
 import { CANNOT_FAIL, CONFIDENT, DecisionMode, FULL_PLAYS, SearchMethod } from '../search';
 import { Rand, seededRandom } from '../simulator';
-import { DilemmaModel, PileAttempt, PileResult, costOf, lastingDamage } from './model';
+import { DilemmaModel, PileAttempt, PileResult, costOf, lastingDamage, stackCostOf } from './model';
 import { playPileStack } from './play';
 import { REGISTRY } from './registry';
 
@@ -22,11 +22,12 @@ export const fitsMission = (model: DilemmaModel, attempt: PileAttempt) => model.
 
 /**
  * A stack holds only drawn titles that match the mission, no title twice unless its model is
- * `repeatable` (and then no more copies than were drawn), and a total cost, for this attempt, of N or less.
+ * `repeatable` (and then no more copies than were drawn), and a total cost, for this attempt, of N or less
+ * (`stackCostOf`, which reads the order).
  */
 export function isLegalPileStack(attempt: PileAttempt, stack: ReadonlyArray<string>, drawn: ReadonlyArray<string>, n: number): boolean {
-  let cost = 0;
   const used = new Map<string, number>();
+  const models: DilemmaModel[] = [];
   for (const title of stack) {
     const model = REGISTRY.get(title);
     if (!model || model.status !== 'play' || !fitsMission(model, attempt)) return false;
@@ -34,9 +35,9 @@ export function isLegalPileStack(attempt: PileAttempt, stack: ReadonlyArray<stri
     if (count > 1 && !model.repeatable) return false;
     if (count > drawn.filter((t) => t === title).length) return false;
     used.set(title, count);
-    cost += costOf(model, attempt);
+    models.push(model);
   }
-  return cost <= n;
+  return stackCostOf(attempt, models) <= n;
 }
 
 interface StackOption {
@@ -44,6 +45,7 @@ interface StackOption {
   cost: number;
   /** The copies a stack can hold: 1, or the copies drawn for a `repeatable` title. */
   max: number;
+  model: DilemmaModel;
 }
 
 /**
@@ -61,34 +63,51 @@ function stackOptions(attempt: PileAttempt, drawn: ReadonlyArray<string>): Stack
   for (const m of modelsOf(drawn)) if (fitsMission(m, attempt) && !m.leads) copies.set(m.title, (copies.get(m.title) ?? 0) + 1);
   return Array.from(copies.keys()).map((title) => {
     const model = REGISTRY.get(title)!;
-    return { title, cost: costOf(model, attempt), max: model.repeatable ? copies.get(title)! : 1 };
+    return { title, cost: costOf(model, attempt), max: model.repeatable ? copies.get(title)! : 1, model };
   });
 }
 
-/** Every legal ordered stack of the drawn titles, the shortest first, each after the draw's lead when it has one. */
+/**
+ * Every legal ordered stack of the drawn titles, the shortest first, each after the draw's lead when it has
+ * one. A stack grows at its end, with the discount its last title gives the next (Peremptory Plea). A
+ * stack over N still grows while the extra budget of the titles not in it yet (Entanglement) could bring
+ * it back to N.
+ */
 export function legalPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<string>, n: number, limit = Infinity): string[][] {
   const options = stackOptions(attempt, drawn);
   const lead = leadOf(attempt, drawn, n);
   const out: string[][] = [];
   const used = new Map<string, number>();
   const current: string[] = lead ? [lead.title] : [];
-  const grow = (cost: number) => {
+  const leadModel = lead ? REGISTRY.get(lead.title)! : null;
+  // The extra budget of the copies not in the stack yet.
+  let slack = options.reduce((t, o) => t + (o.model.extraBudget ?? 0) * o.max, 0);
+  const grow = (cost: number, discount: number) => {
     if (out.length >= limit) return;
-    out.push(current.slice());
+    if (cost <= n) out.push(current.slice());
     for (const o of options) {
-      if ((used.get(o.title) ?? 0) >= o.max || cost + o.cost > n) continue;
+      if ((used.get(o.title) ?? 0) >= o.max) continue;
+      const extra = o.model.extraBudget ?? 0;
+      const next = cost + Math.max(0, o.cost - discount) - extra;
+      if (next > n + slack - extra) continue;
       used.set(o.title, (used.get(o.title) ?? 0) + 1);
       current.push(o.title);
-      grow(cost + o.cost);
+      slack -= extra;
+      grow(next, o.model.discountsNext ? o.model.discountsNext(attempt) : 0);
+      slack += extra;
       current.pop();
       used.set(o.title, used.get(o.title)! - 1);
     }
   };
-  grow(lead?.cost ?? 0);
+  grow(lead?.cost ?? 0, leadModel?.discountsNext ? leadModel.discountsNext(attempt) : 0);
   return out;
 }
 
-/** The number of legal ordered stacks, counted without building them. */
+/**
+ * The number of legal ordered stacks, counted without building them. It reads each title at its own cost,
+ * so it undercounts a draw with a title that changes the cost of a stack by its order or its extra budget
+ * (Peremptory Plea, Entanglement): the pilot scripts read it only as a size.
+ */
 export function countPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<string>, n: number): number {
   const options = Array.from(new Set(modelsOf(drawn).filter((m) => fitsMission(m, attempt) && !m.leads).map((m) => m.title))).map((t) =>
     costOf(REGISTRY.get(t)!, attempt),
@@ -219,23 +238,27 @@ export function beamPileSearch(
   const start = lead ? [lead.title] : [];
   const candidates: PileStackScore[] = [score(start)];
   let total = plays;
-  let beam: { stack: string[]; cost: number }[] = [{ stack: start, cost: lead?.cost ?? 0 }];
+  let beam: { stack: string[] }[] = [{ stack: start }];
   let stackCount = 1;
   while (beam.length) {
     // Each kept stack grows by one title, put at every position, not only at the end: a dilemma such as
     // Dereliction of Duty does nothing alone and pays off only before another, so no stack that ends
     // with it ranks well enough to be kept.
-    const next: { stack: string[]; cost: number }[] = [];
+    // The cost of each grown stack is checked as a whole (`stackCostOf`), since a discount on the title
+    // after another (Peremptory Plea) depends on where the new title goes.
+    const next: { stack: string[] }[] = [];
     const seen = new Set<string>();
-    for (const { stack, cost } of beam) {
+    for (const { stack } of beam) {
+      const models = stack.map((t) => REGISTRY.get(t)!);
       for (const o of stackOpts) {
-        if (cost + o.cost > n || stack.filter((t) => t === o.title).length >= o.max) continue;
+        if (stack.filter((t) => t === o.title).length >= o.max) continue;
         for (let at = start.length; at <= stack.length; at++) {
           const grown = [...stack.slice(0, at), o.title, ...stack.slice(at)];
           const key = grown.join('\u0000');
           if (seen.has(key)) continue;
           seen.add(key);
-          next.push({ stack: grown, cost: cost + o.cost });
+          if (stackCostOf(attempt, [...models.slice(0, at), o.model, ...models.slice(at)]) > n) continue;
+          next.push({ stack: grown });
         }
       }
     }

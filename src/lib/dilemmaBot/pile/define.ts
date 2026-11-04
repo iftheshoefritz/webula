@@ -21,6 +21,8 @@ export interface Extras {
   category?: BotSideCategory;
   assumption?: string;
   gap?: string;
+  discountsNext?: DilemmaModel['discountsNext'];
+  extraBudget?: number;
 }
 
 /** A list of models and the builder that adds to it: `dilemma(title, kind, printedCost, family, play, extras)`. */
