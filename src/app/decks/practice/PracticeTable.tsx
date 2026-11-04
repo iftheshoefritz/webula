@@ -1354,6 +1354,7 @@ function DilemmaStackTopCard({
   cardWidth,
   left = 0,
   cropHeight,
+  wholeHeight,
 }: {
   topCard: CardInstance;
   count: number;
@@ -1366,6 +1367,9 @@ function DilemmaStackTopCard({
   // tall (#1221), on touch. The fan's revealed top card, and the choice stack with a fine pointer
   // (#1498), leave it out and show the whole card.
   cropHeight?: number;
+  // The whole card's height, where it must match another card exactly: the choice stack with a
+  // fine pointer is the mission card's size (#1505). Left out, the image keeps its own ratio.
+  wholeHeight?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: topCard.id });
   // A revealed card previews like any other face-up card on the table: a mouse hover or a press
@@ -1398,8 +1402,8 @@ function DilemmaStackTopCard({
           width={120}
           height={167}
           alt={cardDisplayName(topCard.card)}
-          className="pointer-events-none rounded-lg shadow-lg h-auto"
-          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth }}
+          className={`pointer-events-none rounded-lg shadow-lg ${wholeHeight === undefined ? 'h-auto' : 'object-cover'}`}
+          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: wholeHeight }}
         />
       ) : (
         <div className="pointer-events-none shadow-lg rounded-md" style={{ width: cardWidth }}>
@@ -1669,6 +1673,7 @@ function DilemmaStackFaceUp({
           cardWidth={cardWidth}
           left={i * offset}
           cropHeight={wholeCards ? undefined : cardHeight}
+          wholeHeight={wholeCards ? cardHeight : undefined}
         />
       ))}
       {/* The drop targets: the part of each card no later card covers, and the last card split in

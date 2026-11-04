@@ -38,6 +38,7 @@ import { enterAttempt, mockAttemptMission } from '../../fixtures/enterAttempt';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 import { dilemmaStackRowSlotId, DILEMMA_STACK_ROW_END } from '../../../app/decks/practice/dilemmaStackInsert';
+import { fullCardHeight } from '../../../app/decks/practice/TableCard';
 
 const mockDilemmaCard = {
   collectorsinfo: '1R100',
@@ -111,7 +112,9 @@ describe('the cards of the dilemma choice stack (#1498)', () => {
       // The whole-card image: the card image's own 120 x 167, sized by its width.
       expect(img).toHaveAttribute('width', '120');
       expect(img).toHaveAttribute('height', '167');
-      expect(img).toHaveClass('h-auto');
+      // As tall as the mission card, not the image's own ratio (#1505).
+      expect(img).not.toHaveClass('h-auto');
+      expect(img.style.height).toBe(`${fullCardHeight(parseFloat(img.style.width))}px`);
     }
     for (const id of ids) {
       expect(document.querySelector(`[data-zone="${dilemmaStackRowSlotId(id)}"]`)).not.toBeNull();
