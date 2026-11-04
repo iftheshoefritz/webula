@@ -1,4 +1,4 @@
-import { BOT_SKILLS, RequirementBranch, RequirementPersonnel } from '../requirements';
+import { BOT_SKILLS, RequirementBranch, RequirementPersonnel, SKILL_INDEX } from '../requirements';
 import { LivePartnerProfile, Rand, requirementProfileOf } from '../simulator';
 import { DilemmaModel, PileAttempt, PilePersonnel, PileResult, PlayContext } from './model';
 
@@ -6,6 +6,7 @@ import { DilemmaModel, PileAttempt, PilePersonnel, PileResult, PlayContext } fro
 // these verbs: select, stop, kill, place in the brig, ask the player or the bot to choose, test skills.
 
 export type Attr = 0 | 1 | 2;
+const TRANSPORTERS = SKILL_INDEX.transporters;
 export const ATTR_NAMES = ['Integrity', 'Cunning', 'Strength'] as const;
 
 /** The profiles each play reads, built once per attempt: `choosePileStack` plays one attempt thousands of times. */
@@ -43,6 +44,17 @@ export class PlayState {
   firstSkillOff = false;
   /** The personnel of this cost or less cannot use their skills while facing a dilemma (Bread and Circuses). -1: none. */
   skillsOffCostAtMost = -1;
+  /**
+   * Pattern Loss on the mission: a dilemma whose requirements name Transporters needs one more level of
+   * each skill they name, in its own check (`has`).
+   */
+  patternLoss: boolean;
+  /** What each attribute of every personnel gains until the end of the attempt (Parallel Romance). */
+  attrBonus = 0;
+  /** Overwhelmed: each dilemma check (`has`) that passes stops the personnel who supplied its skills. */
+  overwhelmed = false;
+  /** The rest of the stack is not faced, and returns to the pile (Lack of Preparation). */
+  stackEnded = false;
   /** The titles of the stack faced so far, this one included. */
   readonly faced: string[] = [];
   /** The title of the dilemma being faced. */
@@ -72,6 +84,7 @@ export class PlayState {
     this.requirements = context.attempt.requirements;
     this.notInStack = notInStack;
     this.gameCopies = context.attempt.gameOnMission ?? 0;
+    this.patternLoss = !!context.attempt.table.onMission?.includes('Pattern Loss');
     const profiles = profilesOf(context.attempt);
     this.printedProfiles = profiles.printed;
     const partnered = context.attempt.livePartners?.length ? context.attempt.livePartners : null;
@@ -116,30 +129,64 @@ export class PlayState {
 
   attr(k: number, a: Attr): number {
     const p = this.group[k];
-    return (this.abilitiesOff ? p.printed : p).attrs[a];
+    return this.abilitiesOff ? p.printed.attrs[a] : p.attrs[a] + this.attrBonus;
   }
 
   hasSkill(k: number, ...skills: number[]): boolean {
     return skills.some((i) => this.skill(k, i) > 0);
   }
 
-  /** Do the unstopped personnel meet one branch, as a dilemma reads them? */
+  /**
+   * Do the unstopped personnel meet one branch, as a dilemma reads them? This is the dilemma's own check,
+   * so Pattern Loss raises it and Overwhelmed stops the personnel whose skills pass it.
+   */
   has(branches: RequirementBranch[]): boolean {
     const skills = this.skillSums.fill(0);
     const attrs = this.attrSums.fill(0);
     for (let k = 0; k < this.group.length; k++) if (this.alive[k]) this.addProfile(k, skills, attrs, false);
-    return meets(branches, skills, attrs);
+    return this.passes(branches, skills, attrs, () => this.unstopped());
+  }
+
+  /** A dilemma's check of summed profiles: Pattern Loss raises it, and Overwhelmed stops the personnel of `pool` who pass it. */
+  private passes(branches: RequirementBranch[], skills: number[], attrs: number[], pool: () => number[]): boolean {
+    const checked =
+      this.patternLoss && branches.some((b) => b.skills[TRANSPORTERS] > 0)
+        ? branches.map((b) => ({ ...b, skills: b.skills.map((n) => (n > 0 ? n + 1 : 0)) }))
+        : branches;
+    const passed = metBranch(checked, skills, attrs);
+    if (passed && this.overwhelmed) this.stop(this.skillUsers(passed, pool()), 'Overwhelmed');
+    return passed !== undefined;
+  }
+
+  /** The fewest personnel of `pool`, chosen greedily, whose skills cover the skills of `branch`. */
+  skillUsers(branch: RequirementBranch, pool: number[] = this.unstopped()): number[] {
+    const need = branch.skills.slice();
+    const users: number[] = [];
+    while (need.some((n) => n > 0)) {
+      let best = -1;
+      let bestCover = 0;
+      for (const k of pool) {
+        if (users.includes(k)) continue;
+        let cover = 0;
+        for (let i = 0; i < need.length; i++) cover += Math.min(need[i], this.skill(k, i));
+        if (cover > bestCover) [best, bestCover] = [k, cover];
+      }
+      if (best < 0) break;
+      users.push(best);
+      for (let i = 0; i < need.length; i++) need[i] = Math.max(0, need[i] - this.skill(best, i));
+    }
+    return users;
   }
 
   /**
    * Do the personnel `ks` together meet one branch, as a dilemma reads them: "unless those personnel have
-   * …". With `printedSkills`, their skills are the printed ones, as while they "cannot gain skills".
+   * …". It is a dilemma's own check, as `has` is. With `printedSkills`, their skills are the printed ones, as while they "cannot gain skills".
    */
   hasAmong(branches: RequirementBranch[], ks: readonly number[], printedSkills = false): boolean {
     const skills = this.skillSums.fill(0);
     const attrs = this.attrSums.fill(0);
     for (const k of ks) this.addProfile(k, skills, attrs, printedSkills);
-    return meets(branches, skills, attrs);
+    return this.passes(branches, skills, attrs, () => ks.slice());
   }
 
   private addProfile(k: number, skills: number[], attrs: number[], printedSkills: boolean) {
@@ -198,7 +245,7 @@ export class PlayState {
       for (let i = 0; i < skills.length; i++) skills[i] += p.skills[i];
       const first = this.group[k].firstSkill;
       if (this.firstSkillOff && first !== undefined) skills[first] -= p.skills[first];
-      for (let a = 0; a < 3; a++) attrs[a] += p.attrs[a];
+      for (let a = 0; a < 3; a++) attrs[a] += p.attrs[a] + (this.abilitiesOff ? 0 : this.attrBonus);
     }
     return meets(this.requirements, skills, attrs);
   }
@@ -325,21 +372,24 @@ export class PlayState {
   }
 }
 
-/** Do the summed skills and attributes meet one branch? */
-function meets(branches: RequirementBranch[], skills: number[], attrs: number[]): boolean {
+/** The first branch the summed skills and attributes meet, or undefined. */
+function metBranch(branches: RequirementBranch[], skills: number[], attrs: number[]): RequirementBranch | undefined {
   outer: for (const b of branches) {
     for (let i = 0; i < skills.length; i++) if (skills[i] < b.skills[i]) continue outer;
     for (let a = 0; a < 3; a++) if (b.attrs[a] >= 0 && !(attrs[a] > b.attrs[a])) continue outer;
-    return true;
+    return b;
   }
-  return false;
+  return undefined;
 }
+
+/** Do the summed skills and attributes meet one branch? */
+const meets = (branches: RequirementBranch[], skills: number[], attrs: number[]) => metBranch(branches, skills, attrs) !== undefined;
 
 export const skillName = (i: number) => BOT_SKILLS[i].charAt(0).toUpperCase() + BOT_SKILLS[i].slice(1);
 
 /**
- * Play `stack` once against the attempt. When every personnel is stopped, the rest of the stack is not
- * faced. Then the unstopped personnel must meet the requirements, as Insurrection left them.
+ * Play `stack` once against the attempt. When every personnel is stopped, or a dilemma ends the stack, the
+ * rest of the stack is not faced. Then the unstopped personnel must meet the requirements, as Insurrection left them.
  */
 export function playPileStack(
   attempt: PileAttempt,
@@ -350,6 +400,10 @@ export function playPileStack(
 ): PileResult {
   const state = new PlayState({ attempt, rand, trace }, notInStack);
   for (const model of stack) {
+    if (state.stackEnded) {
+      trace?.(`${model.title}: not faced, it returns to the dilemma pile`);
+      continue;
+    }
     state.current = model.title;
     state.faced.push(model.title);
     if (state.live === 0) {

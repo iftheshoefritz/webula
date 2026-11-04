@@ -146,12 +146,21 @@ export const botChooses = (count: number, effect: 'stop' | 'kill' | 'brig' | 'di
 export const playerStops = (count: number | ((s: PlayState) => number)): Play => (s) =>
   s.stop(s.playerChooses(s.unstopped(), typeof count === 'number' ? count : count(s)));
 
-/** "Randomly select three personnel. If any is a <icon> personnel, all are stopped. Otherwise, choose one to be stopped." */
-export const anyOfAffiliation = (affiliation: string): Play =>
+/** "Choose <count> personnel to be placed in your opponent's brig." The player chooses. */
+export const playerBrigs = (count: number): Play => (s) => s.brig(s.playerChooses(s.unstopped(), count));
+
+/**
+ * "Randomly select three personnel. If any of those personnel <test>, all three are stopped. Otherwise,
+ * <one> of those personnel is stopped": the player's choice, or a random one.
+ */
+export const anyOfThree = (test: Test, one: 'player' | 'random'): Play =>
   selectRandom(3, (s, selected) => {
-    if (selected.some((k) => s.group[k].affiliation === affiliation)) s.stop(selected);
-    else s.stop(s.playerChooses(selected));
+    if (selected.some((k) => test(s, k))) s.stop(selected);
+    else s.stop(one === 'player' ? s.playerChooses(selected) : s.select(1, selected));
   });
+
+/** "Randomly select three personnel. If any is a <icon> personnel, all are stopped. Otherwise, choose one to be stopped." */
+export const anyOfAffiliation = (affiliation: string): Play => anyOfThree(affiliationIs(affiliation), 'player');
 
 /**
  * "Randomly select a personnel to be stopped. Unless you reveal a <skill> personnel or a <skill> personnel
