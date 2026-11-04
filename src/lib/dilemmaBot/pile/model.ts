@@ -15,6 +15,8 @@ export interface PilePersonnel extends BotPersonnel {
   hologram: boolean;
   /** The printed skills and attributes, with no gain: what a personnel has while it "cannot use its abilities". */
   printed: Profile;
+  /** The first-listed skill, as an index of `BOT_SKILLS` (Accelerated Aging). Absent: none is known. */
+  firstSkill?: number;
 }
 
 /** The ship of an attempt at a space mission. */
@@ -51,6 +53,19 @@ export interface PileTable {
    * Gasp). Absent: the hand holds no personnel.
    */
   hand?: PileHandPersonnel[];
+  /** The Persistent dilemmas beneath the attempted mission (Frozen by Fear, Flare of Rage). Absent: 0. */
+  persistentUnderMission?: number;
+  /** Whether the player commands a completed mission with span 4 or more (Cornered). Absent: false. */
+  completedSpan4Mission?: boolean;
+  /** Whether the player has a staffed ship at the attempted mission (Galileo Grounded). Absent: false. */
+  staffedShipAtMission?: boolean;
+  /**
+   * The highest Decay number among the events the player commands (Compromised Experiment: the bot
+   * chooses the event). Absent: 0, no effect.
+   */
+  eventDecayMax?: number;
+  /** The Trellium-D the player commands (Elemental Instability). Absent: 0. */
+  trelliumD?: number;
 }
 
 /** A personnel in the player's hand, as a dilemma that reveals the hand reads it. */

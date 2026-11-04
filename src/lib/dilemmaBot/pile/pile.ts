@@ -70,9 +70,10 @@ export function botAffiliationsOf(deckText: string, rows: ReadonlyArray<DeckCard
 type PersonnelRow = Parameters<typeof botPersonnelOf>[0] & TraitsRow;
 
 /** The printed skills of a row, indexed as `BOT_SKILLS`, and the number of skill dots: one per skill line. */
-function printedSkillsOf(text: string | number | undefined): { skills: number[]; dots: number } {
+function printedSkillsOf(text: string | number | undefined): { skills: number[]; dots: number; first?: number } {
   const skills = new Array(BOT_SKILLS.length).fill(0);
   let dots = 0;
+  let first: number | undefined;
   const pattern = /(\d+\s+)?([a-z]+)/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(String(text ?? '').toLowerCase())) !== null) {
@@ -80,8 +81,9 @@ function printedSkillsOf(text: string | number | undefined): { skills: number[];
     if (i === undefined) continue;
     skills[i] += match[1] ? parseInt(match[1], 10) : 1;
     dots++;
+    first ??= i;
   }
-  return { skills, dots };
+  return { skills, dots, first };
 }
 
 /**
@@ -90,7 +92,7 @@ function printedSkillsOf(text: string | number | undefined): { skills: number[];
  */
 export function pilePersonnelOf(row: PersonnelRow, mission?: AttemptedMission, facts?: BotTableFacts, lossSuspended = false): PilePersonnel {
   const base = botPersonnelOf(row, mission, facts, lossSuspended);
-  const { skills, dots } = printedSkillsOf(row.skills);
+  const { skills, dots, first } = printedSkillsOf(row.skills);
   const species = String(row.species ?? '').toLowerCase().split('/').map((x) => x.trim()).filter(Boolean);
   return {
     ...base,
@@ -102,5 +104,6 @@ export function pilePersonnelOf(row: PersonnelRow, mission?: AttemptedMission, f
       skills,
       attrs: [Number(row.integrity) || 0, Number(row.cunning) || 0, Number(row.strength) || 0],
     },
+    ...(first !== undefined ? { firstSkill: first } : {}),
   };
 }
