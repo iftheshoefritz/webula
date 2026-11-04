@@ -58,6 +58,7 @@ import { enterAttempt, mockAttemptMission } from '../../fixtures/enterAttempt';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck } from '../../../app/decks/deckBuilderUtils';
 import { DILEMMA_STACK_ROW_END, dilemmaStackRowSlotId } from '../../../app/decks/practice/dilemmaStackInsert';
+import { ATTEMPT_STACK_LABEL_HEIGHT } from '../../../app/decks/practice/tableScale';
 
 const mockDilemmaCard = {
   collectorsinfo: '1R100',
@@ -134,6 +135,31 @@ describe('Practice table: the dilemma stack of the dilemma choice (#1204)', () =
     const labels = screen.getByTestId('dilemma-stack-end-labels');
     expect(labels.children[0]).toHaveTextContent('First');
     expect(labels.children[1]).toHaveTextContent('Last');
+  });
+
+  // Issue #1505: on touch the line sits inside the zone, above the cropped cards.
+  it('puts the line of the end labels inside the zone on touch', async () => {
+    await dealChoice();
+    expect(screen.getByTestId('dilemma-stack-end-labels').style.top).toBe('0px');
+  });
+
+  // Issue #1505: with a fine pointer the cards fill the zone, and the line sits above it.
+  it('puts the line of the end labels above the zone with a fine pointer', async () => {
+    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
+      matches: query === '(pointer: fine)',
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    }));
+    await dealChoice();
+    const labels = screen.getByTestId('dilemma-stack-end-labels');
+    expect(labels.style.top).toBe(`-${ATTEMPT_STACK_LABEL_HEIGHT}px`);
+    const zone = document.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+    expect(zone).toContainElement(labels);
   });
 
   it('moves a card of the stack to the place of the card it drops on, as the panel does', async () => {

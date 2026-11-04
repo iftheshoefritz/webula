@@ -44,7 +44,7 @@ import {
   underMissionStackRoom,
 } from '../../../app/decks/practice/MissionRow';
 import { offsetFor } from '../../../app/decks/practice/overlapOffset';
-import { fullCardHeight } from '../../../app/decks/practice/TableCard';
+import { TABLE_CARD_WIDTH, fullCardHeight } from '../../../app/decks/practice/TableCard';
 import { viewerCardSize } from '../../../app/decks/practice/viewerCardSize';
 
 // #630: the dilemma stack's own reserved column widens computeTableScale's width budget from 5
@@ -543,11 +543,16 @@ describe('the personnel and the stack of the facing phase (#1218)', () => {
       // The choice phase keeps the mission's scale and fits the width.
       const choice = computeAttemptChoiceLayout(screen.width, available, screen.desktop, ships, floor, sizes, personnel.space);
       expect(choice.missionScale).toBe(sizes.missionScale);
-      expect(
-        32 + 20 + Math.round(72 * choice.missionScale) +
-          (sizes.placedOnWidth > 0 ? sizes.placedOnWidth + ATTEMPT_GAP : 0) +
-          choice.stackWidth + 2 * ATTEMPT_STACK_SIDE_GAP + choice.rightWidth + 2 * ATTEMPT_GAP,
-      ).toBeLessThanOrEqual(screen.width);
+      // With a fine pointer a stack card keeps the mission card's size where the room is narrower
+      // than one card (#1505): the zone is then one card wide, and only that may pass the width.
+      const stackFloor = screen.desktop && choice.stackWidth === choice.stackCardWidth;
+      if (stackFloor) expect(choice.stackCardWidth).toBe(Math.round(72 * choice.missionScale));
+      else
+        expect(
+          32 + 20 + Math.round(72 * choice.missionScale) +
+            (sizes.placedOnWidth > 0 ? sizes.placedOnWidth + ATTEMPT_GAP : 0) +
+            choice.stackWidth + 2 * ATTEMPT_STACK_SIDE_GAP + choice.rightWidth + 2 * ATTEMPT_GAP,
+        ).toBeLessThanOrEqual(screen.width);
     });
   }
 
@@ -781,8 +786,14 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
         ? fullCardHeight(choice.pileCardWidth) + 4 + shipsHeight
         : Math.max(choice.stackHeight, shipsHeight);
       expect(padding + Math.max(choice.stackHeight, right)).toBeLessThanOrEqual(available + 0.5);
-      // The stack's cards fit below the line of its end labels (#1204).
-      expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeLessThanOrEqual(choice.stackHeight);
+      // On touch the stack's cards fit below the line of its end labels (#1204); with a fine
+      // pointer they fill the zone, and the line sits in the band above it (#1505).
+      if (screen.desktop) {
+        expect(choice.stackCardHeight).toBe(choice.stackHeight);
+        expect(ATTEMPT_STACK_LABEL_HEIGHT).toBeLessThanOrEqual(padding);
+      } else {
+        expect(ATTEMPT_STACK_LABEL_HEIGHT + choice.stackCardHeight).toBeLessThanOrEqual(choice.stackHeight);
+      }
       expect(choice.stackCardWidth).toBeLessThanOrEqual(choice.stackWidth);
     });
   }
@@ -792,7 +803,7 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
 // facing stack and the whole dilemma choice draw exactly as before. The numbers are those of the
 // code before #1365, for an away team of 20 and a crew of 12, with cards placed on the mission, but
 // for the planet mission's choice, whose pile is the size of the mission card since #1493, and the
-// desktop choice's stack cards, whole cards since #1498, and the desktop column height, 46 px taller
+// desktop choice's stack cards, whole cards since #1498 and the mission card's size since #1505, and the desktop column height, 46 px taller
 // since the band above the body shrank with the halved slivers (#1504).
 describe('the facing body takes the empty width, and the mission and the choice do not change (#1365)', () => {
   const screens = {
@@ -816,13 +827,13 @@ describe('the facing body takes the empty width, and the mission and the choice 
       width: 1440,
       space: false,
       expected: { missionScale: expect.closeTo(5.048611, 5), columnHeight: 635, placedOnWidth: 94, stackWidth: 374, stackHeight: 505 },
-      choice: { missionScale: expect.closeTo(5.048611, 5), stackWidth: 410, stackHeight: 505, stackCardWidth: 136, stackCardHeight: 189, stackWholeCards: true, rightWidth: 465, pileCardWidth: 363, pileCardHeight: 505, hasPile: true, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
+      choice: { missionScale: expect.closeTo(5.048611, 5), stackWidth: 410, stackHeight: 505, stackCardWidth: 363, stackCardHeight: 505, stackWholeCards: true, rightWidth: 465, pileCardWidth: 363, pileCardHeight: 505, hasPile: true, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
     },
     {
       width: 1440,
       space: true,
       expected: { missionScale: expect.closeTo(3.326389, 5), columnHeight: 635, placedOnWidth: 94, stackWidth: 251, stackHeight: 333 },
-      choice: { missionScale: expect.closeTo(3.326389, 5), stackWidth: 905, stackHeight: 333, stackCardWidth: 229, stackCardHeight: 319, stackWholeCards: true, rightWidth: 94, pileCardWidth: 0, pileCardHeight: 0, hasPile: false, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
+      choice: { missionScale: expect.closeTo(3.326389, 5), stackWidth: 905, stackHeight: 333, stackCardWidth: 239, stackCardHeight: 333, stackWholeCards: true, rightWidth: 94, pileCardWidth: 0, pileCardHeight: 0, hasPile: false, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
     },
   ];
   it.each(cases)('keeps the sizes at $width px, space $space', ({ width, space, expected, choice }) => {
@@ -932,28 +943,40 @@ describe('attemptBandHeight (#1504)', () => {
   });
 });
 
-// Issue #1498: with a fine pointer, a card of the dilemma choice stack is the whole card.
-describe('attemptStackWholeSize (#1498)', () => {
-  it('is as tall as the zone below the label line, at 120:167', () => {
-    const { stackCardWidth, stackCardHeight } = attemptStackWholeSize(14 + 167, Infinity);
-    expect(stackCardWidth).toBe(120);
-    expect(stackCardHeight).toBe(167);
+// Issue #1498: with a fine pointer, a card of the dilemma choice stack is the whole card, and since
+// #1505 exactly the mission card's size, with the line of the end labels above the zone.
+describe('attemptStackWholeSize (#1498, #1505)', () => {
+  it('is the mission card at the scale', () => {
+    expect(attemptStackWholeSize(1)).toEqual({ stackCardWidth: TABLE_CARD_WIDTH, stackCardHeight: missionCardHeight(1, true) });
+    expect(attemptStackWholeSize(1.5)).toEqual({
+      stackCardWidth: Math.round(TABLE_CARD_WIDTH * 1.5),
+      stackCardHeight: missionCardHeight(1.5, true),
+    });
   });
 
-  it('shrinks the width and the height together where the width is short', () => {
-    const { stackCardWidth, stackCardHeight } = attemptStackWholeSize(14 + 167, 60);
-    expect(stackCardWidth).toBe(60);
-    expect(stackCardHeight).toBe(Math.round((60 * 167) / 120));
-  });
-
-  it.each([false, true])('gives the choice whole cards on a desktop and crops on touch (space %s)', (space) => {
+  it.each([false, true])('gives the choice mission-sized whole cards on a desktop and crops on touch (space %s)', (space) => {
     const face = computeAttemptLayout(1280, 500, true, 1, 1, { count: 12, space });
     const desktop = computeAttemptChoiceLayout(1280, 500, true, 1, 1, face, space);
     expect(desktop.stackWholeCards).toBe(true);
-    expect(Math.abs(desktop.stackCardHeight - (desktop.stackCardWidth * 167) / 120)).toBeLessThanOrEqual(1);
-    expect(desktop.stackCardHeight + ATTEMPT_STACK_LABEL_HEIGHT).toBeLessThanOrEqual(desktop.stackHeight);
-    expect(3 * desktop.stackCardWidth).toBeLessThanOrEqual(desktop.stackWidth + 2);
+    expect(desktop.stackCardWidth).toBe(Math.round(TABLE_CARD_WIDTH * desktop.missionScale));
+    expect(desktop.stackCardHeight).toBe(missionCardHeight(desktop.missionScale, true));
+    expect(desktop.stackHeight).toBe(desktop.stackCardHeight);
+    if (!space) {
+      expect(desktop.stackCardWidth).toBe(desktop.pileCardWidth);
+      expect(desktop.stackCardHeight).toBe(desktop.pileCardHeight);
+    }
+    // The band above the body holds the line of the end labels, and is the facing phase's band.
+    expect(attemptBandHeight(desktop.missionScale, true)).toBeGreaterThanOrEqual(ATTEMPT_STACK_LABEL_HEIGHT);
     const touch = computeAttemptChoiceLayout(1280, 500, false, 1, 1, face, space);
     expect(touch.stackWholeCards).toBe(false);
+    expect(touch.stackCardHeight + ATTEMPT_STACK_LABEL_HEIGHT).toBeLessThanOrEqual(touch.stackHeight);
+  });
+
+  it.each([false, true])('keeps the mission size on a narrow desktop window, and the zone one card wide (space %s)', (space) => {
+    const face = computeAttemptLayout(700, 500, true, 1, 1, { count: 12, space });
+    const choice = computeAttemptChoiceLayout(700, 500, true, 1, 1, face, space);
+    expect(choice.stackCardWidth).toBe(Math.round(TABLE_CARD_WIDTH * choice.missionScale));
+    expect(choice.stackCardHeight).toBe(missionCardHeight(choice.missionScale, true));
+    expect(choice.stackWidth).toBeGreaterThanOrEqual(choice.stackCardWidth);
   });
 });

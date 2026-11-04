@@ -769,9 +769,10 @@ ship row, and the ship's crew badge shows the count of the crew. Where the width
 is short, as at 667×375, the stack cards shrink so 3 of them still sit edge to edge; the pile keeps
 the mission's size. At a space mission the stack cards shrink the same way (#1220). The stack is still the droppable `dilemmaStack`, shows
 even when it is empty, and draws every card face up, side by side, overlapped only past its width: on touch as the
-art crop of a table card (#1221), the crop of the placed-on column, and with a fine pointer as the whole card, as tall as
-the mission card less the end labels' line, shrinking width and height together where 3 do not fit
-(`attemptStackWholeSize`, `stackWholeCards`, #1498); each
+art crop of a table card (#1221), the crop of the placed-on column, and with a fine pointer as the whole card, exactly as wide and
+as tall as the mission card, overlapping past the zone's width rather than shrinking, with the end
+labels' line above the zone in the band above the body (`attemptStackWholeSize`, `stackWholeCards`,
+#1498, #1505); each
 card previews on a hold, opens the stack's panel on a tap, and drags off the stack. The pile has no
 `data-zone` and no `data-card-id`: it is not a drop target, and a hold on it previews nothing. The
 personnel row, its Stop, Stop all and Shuffle buttons, its droppable and the away team badge are not
