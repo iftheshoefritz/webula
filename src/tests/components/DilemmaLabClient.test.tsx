@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import DilemmaLabClient, { LabDeck, LabMission, LabPersonnel } from '../../components/DilemmaLabClient';
-import { OPPONENT_DILEMMAS, type DilemmaId } from '../../lib/dilemmaBot/opponentPile';
+import { OPPONENT_DILEMMAS } from '../../lib/dilemmaBot/opponentPile';
 import { makeCardData } from '../fixtures/makeCardData';
 import type { CardData } from '../../lib/loadCards';
 
@@ -23,7 +23,7 @@ const renderLab = () =>
       missions={missions}
       personnel={[]}
       decks={decks}
-      dilemmaCards={{} as Record<DilemmaId, CardData>}
+      dilemmaCards={{} as Record<string, CardData>}
     />,
   );
 
@@ -72,12 +72,13 @@ const physicist: LabPersonnel = {
 };
 
 const dilemmaCards = Object.fromEntries(
-  OPPONENT_DILEMMAS.map((d) => [d.id, makeCardData({ name: d.title, originalName: d.title, type: 'dilemma' })]),
-) as Record<DilemmaId, CardData>;
+  OPPONENT_DILEMMAS.map((d) => [d.title, makeCardData({ name: d.title, originalName: d.title, type: 'dilemma' })]),
+) as Record<string, CardData>;
 
+// The lab asks the pile bot's beam search for its stack (#1509).
 describe('DilemmaLabClient search feedback', () => {
-  const renderWithCrew = () => {
-    render(
+  const renderWithCrew = (gameOnMission = 0) => {
+    const view = render(
       <DilemmaLabClient
         missions={missions}
         personnel={[physicist]}
@@ -88,33 +89,50 @@ describe('DilemmaLabClient search feedback', () => {
     fireEvent.change(screen.getByTestId('lab-deck'), { target: { value: '0' } });
     fireEvent.click(screen.getByTestId('lab-random-crew'));
     fireEvent.change(screen.getByTestId('lab-n'), { target: { value: '2' } });
+    if (gameOnMission) fireEvent.change(screen.getByLabelText(/^Copies of Chula: The Game/), { target: { value: String(gameOnMission) } });
     fireEvent.click(screen.getByTestId('lab-draw'));
+    return view;
   };
 
-  it('says why the full search waits on the bot, then shows its result and explains damage', () => {
+  it('shows the drawn titles, the chosen stack, the baseline, the ranked stacks and three samples', () => {
     renderWithCrew();
-    expect(screen.getByTestId('lab-full')).toBeDisabled();
-    expect(screen.getByTestId('lab-full-hint')).toBeInTheDocument();
+    const drawnCards = screen.getByTestId('lab-drawn-cards').children;
+    expect(drawnCards).toHaveLength(2);
+    for (const card of Array.from(drawnCards)) expect(card.getAttribute('data-testid')).toMatch(/^lab-drawn-card-chula-/);
 
     fireEvent.click(screen.getByTestId('lab-choose'));
-    expect(screen.queryByTestId('lab-full-hint')).toBeNull();
+    expect(screen.getByTestId('lab-result-stack')).toBeInTheDocument();
+    expect(screen.getByTestId('lab-result-score')).toHaveTextContent(/P\(fail\) .*lasting damage/);
+    expect(screen.getByTestId('lab-baseline')).toHaveTextContent('the baseline');
+    expect(screen.getByTestId('lab-ranked')).toHaveTextContent('The stacks the beam kept');
+    expect(screen.getAllByTestId('lab-sample')).toHaveLength(3);
     expect(screen.getByTestId('lab-damage-help')).toHaveTextContent('Stops do not count');
-    expect(screen.getByTestId('lab-full')).toBeEnabled();
-
-    fireEvent.click(screen.getByTestId('lab-full'));
-    expect(screen.getByTestId('lab-comparison')).toBeInTheDocument();
+    expect(screen.getByTestId('lab-damage-help')).toHaveTextContent('returned to the hand 0.75');
+    expect(screen.queryByTestId('lab-full')).toBeNull();
+    expect(screen.queryByTestId('lab-comparison')).toBeNull();
     expect(screen.queryByTestId('lab-status')).toBeNull();
   });
 
+  it('traces the stop of Chula: The Game on the mission before a Chula dilemma', () => {
+    renderWithCrew(1);
+    // A draw of one Chula: Echoes, which costs 1, so the stack holds a Chula title.
+    for (const box of screen.getAllByRole('checkbox') as HTMLInputElement[]) if (box.checked) fireEvent.click(box);
+    fireEvent.click(screen.getByLabelText('Chula: Echoes (1)'));
+    fireEvent.click(screen.getByTestId('lab-choose'));
+
+    expect(screen.getByTestId('lab-result-stack')).toHaveTextContent('Chula: Echoes');
+    for (const sample of screen.getAllByTestId('lab-sample')) {
+      expect(sample.textContent).toMatch(/Chula: Echoes:\n {2}Chula: The Game on the mission stops Physicist/);
+    }
+  });
+
   // A result belongs to the inputs it came from (#1309).
-  it('clears both results when an input changes', () => {
+  it('clears the result when an input changes', () => {
     renderWithCrew();
     fireEvent.click(screen.getByTestId('lab-choose'));
-    fireEvent.click(screen.getByTestId('lab-full'));
-    expect(screen.getByTestId('lab-comparison')).toBeInTheDocument();
+    expect(screen.getByTestId('lab-result')).toBeInTheDocument();
 
     fireEvent.change(screen.getByTestId('lab-n'), { target: { value: '3' } });
-    expect(screen.queryByTestId('lab-comparison')).toBeNull();
-    expect(screen.getByTestId('lab-full-hint')).toBeInTheDocument();
+    expect(screen.queryByTestId('lab-result')).toBeNull();
   });
 });

@@ -1,29 +1,11 @@
 // Issue #1298: one function answers a search request, on the worker and on the main thread, and the
-// practice table's `'table'` kind skips the baseline.
+// practice table's `'table'` kind skips the baseline. The lab's `'lab'` kind asks the pile bot too (#1509).
 import { act, renderHook } from '@testing-library/react';
 import { answerSearch, LabSearchRequest } from '../../../lib/dilemmaBot/searchRequest';
 import { ThreadedSearchResponse, useSearchWorker } from '../../../lib/dilemmaBot/useSearchWorker';
-import { choosePileStack } from '../../../lib/dilemmaBot/pile/search';
+import { choosePileStack, randomLegalPileStack, scorePileStack } from '../../../lib/dilemmaBot/pile/search';
 import { pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
-import { BOT_SKILLS, parseRequirementBranches } from '../../../lib/dilemmaBot/requirements';
-import { BotAttempt, BotPersonnel } from '../../../lib/dilemmaBot/simulator';
-import { DilemmaId } from '../../../lib/dilemmaBot/opponentPile';
-
-const person = (k: number): BotPersonnel => ({
-  name: `P${k}`,
-  cost: 2,
-  attrs: [5, 5, 5],
-  skills: BOT_SKILLS.map((s) => (s === 'physics' || s === 'science' ? 1 : 0)),
-});
-
-const attempt: BotAttempt = {
-  personnel: [1, 2, 3, 4].map(person),
-  requirements: parseRequirementBranches('Physics, 2 Science')!,
-  gameOnMission: 0,
-  choice: 'best',
-};
-const drawn: DilemmaId[] = ['game', 'echoes', 'dice', 'pickOne'];
-const request = (kind: LabSearchRequest['kind']): LabSearchRequest => ({ id: 7, kind, attempt, drawn, n: 4, seed: 3 });
+import { seededRandom } from '../../../lib/dilemmaBot/simulator';
 
 // The practice table's request (#1508): the pile bot's attempt, over titles.
 const pileAttempt = pileAttemptOf({
@@ -48,9 +30,18 @@ describe('answerSearch (#1298)', () => {
     expect(response).not.toHaveProperty('baseline');
   });
 
-  it("keeps the baseline of the lab's 'choose' and 'full'", () => {
-    expect(answerSearch(request('choose')).baseline).toBeDefined();
-    expect(answerSearch(request('full')).baseline).toBeDefined();
+  // The lab's request of the pile bot (#1509).
+  it("answers a 'lab' request with choosePileStack's best and a baseline of 2,000 plays", () => {
+    const request: LabSearchRequest = { id: 8, kind: 'lab', attempt: pileAttempt, drawn: titles, n: 4, seed: 3 };
+    const response = answerSearch(request);
+
+    expect(response.id).toBe(8);
+    expect(response.kind).toBe('lab');
+    expect(response.result.method).toBe('beam');
+    expect(response.result.best).toEqual(choosePileStack(pileAttempt, titles, 4, 3).best);
+    const stack = randomLegalPileStack(pileAttempt, titles, 4, seededRandom(3));
+    expect(response.baseline).toEqual(scorePileStack(pileAttempt, stack, 2000, 4, titles.length));
+    expect(response.baseline.plays).toBe(2000);
   });
 });
 

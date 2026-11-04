@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CardData, loadCards } from '../../lib/loadCards';
-import { DilemmaId, OPPONENT_DILEMMAS, collectorsKey } from '../../lib/dilemmaBot/opponentPile';
+import { OPPONENT_DILEMMAS, collectorsKey } from '../../lib/dilemmaBot/opponentPile';
 import { attemptedMissionOf, isSphere117, personnelGainsOf, personnelLossOf, sphere117Holds } from '../../lib/dilemmaBot/gains';
 import DilemmaLabClient, { LabDeck, LabMission, LabPersonnel } from '../../components/DilemmaLabClient';
 
@@ -24,7 +24,14 @@ export default function DilemmaLabPage() {
   const missionsByName = new Map<string, LabMission>();
   for (const c of data) {
     if (c.type !== 'mission' || c.missiontype === 'h' || missionsByName.has(c.originalName)) continue;
-    missionsByName.set(c.originalName, { name: c.originalName, requirements: String(c.skills), ...attemptedMissionOf(c) });
+    missionsByName.set(c.originalName, {
+      name: c.originalName,
+      requirements: String(c.skills),
+      ...attemptedMissionOf(c),
+      span: Number(c.span) || 0,
+      // A Nebula mission, as `pileAttemptOf` reads it (Alternatives to Fighting).
+      nebula: /nebula/i.test(String(c.keywords ?? '')) || /nebula/i.test(String(c.name ?? '')),
+    });
   }
   const missions = Array.from(missionsByName.values());
 
@@ -53,8 +60,8 @@ export default function DilemmaLabPage() {
   }
 
   const dilemmaCards = Object.fromEntries(
-    OPPONENT_DILEMMAS.map((d) => [d.id, data.find((c) => c.collectorsinfo === collectorsKey(d.collectorsInfo))]),
-  ) as Record<DilemmaId, CardData>;
+    OPPONENT_DILEMMAS.map((d) => [d.title, data.find((c) => c.collectorsinfo === collectorsKey(d.collectorsInfo))]),
+  ) as Record<string, CardData>;
 
   // The page is public and static, so it lists only the decks whose owners gave permission to show
   // them to every user (#1327). The others' labels and names never reach its HTML.

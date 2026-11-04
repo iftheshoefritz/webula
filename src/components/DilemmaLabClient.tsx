@@ -1,21 +1,21 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { DILEMMA_BY_ID, DilemmaId, OPPONENT_DILEMMAS } from '../lib/dilemmaBot/opponentPile';
+import { OPPONENT_DILEMMAS } from '../lib/dilemmaBot/opponentPile';
 import { meetsRequirements, parseRequirementBranches } from '../lib/dilemmaBot/requirements';
 import {
-  BotAttempt,
   PlayerChoice,
   botPersonnelOf,
-  playStack,
   requirementProfileOf,
   seededRandom,
   partnerGroupOf,
 } from '../lib/dilemmaBot/simulator';
-import { SearchResult, StackScore, drawDilemmas, legalStacks } from '../lib/dilemmaBot/search';
-import type { LabSearchResponse, SearchRequest } from '../lib/dilemmaBot/searchRequest';
 import { ThreadedSearchResponse, useSearchWorker } from '../lib/dilemmaBot/useSearchWorker';
-import type { AttemptedMission } from '../lib/dilemmaBot/gains';
+import { LabMissionFacts, drawLabTitles, labPileAttemptOf } from '../lib/dilemmaBot/pile/labAttempt';
+import { DAMAGE_WEIGHTS, PileResult } from '../lib/dilemmaBot/pile/model';
+import { playPileStack } from '../lib/dilemmaBot/pile/play';
+import { REGISTRY } from '../lib/dilemmaBot/pile/registry';
+import { BEAM_DEFAULTS, PileStackScore, countPileStacks } from '../lib/dilemmaBot/pile/search';
 import type { CardData } from '../lib/loadCards';
 import CardPreview from '../app/decks/practice/CardPreview';
 import { previewEnlargesElement } from '../app/decks/practice/previewSize';
@@ -24,10 +24,12 @@ import { HOLD_DELAY_MS, HOVER_DELAY_MS } from '../app/decks/practice/useCardHold
 import type { PreviewSide } from '../app/decks/practice/useCardHold';
 import type { CardInstance } from '../app/decks/practice/tableReducer';
 
-/** A mission, with the fields of its row that the gains read (`attemptedMissionOf`), as the table passes them. */
-export interface LabMission extends AttemptedMission {
+/**
+ * A mission, with the fields of its row that the gains read (`attemptedMissionOf`), as the table passes
+ * them, and its span and Nebula flag for the pile bot's `PileMission`.
+ */
+export interface LabMission extends LabMissionFacts {
   name: string;
-  requirements: string;
 }
 
 export interface LabPersonnel {
@@ -63,19 +65,23 @@ interface Props {
   missions: LabMission[];
   personnel: LabPersonnel[];
   decks: LabDeck[];
-  /** The card data row of each dilemma of the pile, for its image. */
-  dilemmaCards: Record<DilemmaId, CardData>;
+  /** The card data row of each dilemma of the pile, by title, for its image. */
+  dilemmaCards: Record<string, CardData>;
 }
 
-const title = (id: DilemmaId) => DILEMMA_BY_ID[id].title;
-const stackText = (stack: DilemmaId[]) => (stack.length ? stack.map(title).join(' → ') : '(no dilemmas)');
+const stackText = (stack: ReadonlyArray<string>) => (stack.length ? stack.join(' → ') : '(no dilemmas)');
 const pct = (p: number) => `${(p * 100).toFixed(1)}%`;
+/** A title as a test id: "Chula: The Game" is `chula-the-game`. */
+const slugOf = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-/** The lab's two searches; `'table'` is the practice table's. */
-type LabKind = Exclude<SearchRequest['kind'], 'table'>;
+/** The lab's search result, and the thread it ran on. */
+type LabResponse = Extract<ThreadedSearchResponse, { kind: 'lab' }>;
 
-/** A search result, and the thread it ran on. */
-type LabResponse = Extract<ThreadedSearchResponse, { kind: LabKind }>;
+/** One traced sample play of the chosen stack. */
+interface Sample {
+  lines: string[];
+  labels: PileResult['labels'];
+}
 
 export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCards }: Props) {
   const byName = useMemo(() => new Map(personnel.map((p) => [p.originalName, p])), [personnel]);
@@ -88,15 +94,13 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
   const [n, setN] = useState(6);
   const [gameOnMission, setGameOnMission] = useState(0);
   const [choice, setChoice] = useState<PlayerChoice>('best');
-  const [drawn, setDrawn] = useState<DilemmaId[]>([]);
+  const [drawn, setDrawn] = useState<string[]>([]);
   const [seed, setSeed] = useState(1);
   const [message, setMessage] = useState('');
   const [chosen, setChosen] = useState<LabResponse | null>(null);
-  const [full, setFull] = useState<LabResponse | null>(null);
-  const [running, setRunning] = useState<LabKind | null>(null);
+  const [running, setRunning] = useState(false);
   const [searchError, setSearchError] = useState('');
   const requestId = useRef(0);
-  const fullRef = useRef<HTMLDivElement>(null);
 
   const deck = deckIndex === null ? null : decks[deckIndex];
   // The deck's missions, in the order of its list.
@@ -123,51 +127,54 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
   const crewPersonnel = crewGroup.personnel;
   const meets = branches ? meetsRequirements(branches, crewPersonnel.map(requirementProfileOf)) : false;
   const under = Math.max(0, crew.length - n);
-  const stackCount = useMemo(() => legalStacks(drawn, n).length, [drawn, n]);
-  const attempt: BotAttempt | null = branches
-    ? { ...crewGroup, requirements: branches, gameOnMission, choice }
-    : null;
+  // The pile bot's attempt (#1509): the crew as the pile's dilemmas read it, at the lab's plain table.
+  const attempt = useMemo(
+    () =>
+      mission
+        ? labPileAttemptOf(
+            crew.map((name) => byName.get(name)).filter((p): p is LabPersonnel => !!p),
+            mission,
+            { gameOnMission, choice, sphere117 },
+          )
+        : null,
+    [crew, byName, mission, gameOnMission, choice, sphere117],
+  );
+  const stackCount = useMemo(() => (attempt ? countPileStacks(attempt, drawn, n) : 0), [attempt, drawn, n]);
 
-  // A result belongs to the inputs it came from: when one changes, both results clear in render.
+  // A result belongs to the inputs it came from: when one changes, the result clears in render.
   const inputs = [missionName, crew, n, gameOnMission, choice, drawn] as const;
   const [resultInputs, setResultInputs] = useState(inputs);
   if (inputs.some((input, i) => input !== resultInputs[i])) {
     setResultInputs(inputs);
     setChosen(null);
-    setFull(null);
   }
 
   const search = useSearchWorker((response) => {
-    if (response.id !== requestId.current || response.kind === 'table') return;
-    if (response.kind === 'choose') setChosen(response);
-    else setFull(response);
-    setRunning(null);
+    if (response.id !== requestId.current || response.kind !== 'lab') return;
+    setChosen(response);
+    setRunning(false);
   }, (error) => {
-    setRunning(null);
+    setRunning(false);
     setSearchError(`The search failed: ${error}`);
   });
 
-  // The full search's result shows below the buttons; bring it into view when it arrives.
-  useEffect(() => {
-    if (full) fullRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
-  }, [full]);
-
-  const run = (kind: LabKind) => {
+  const run = () => {
     if (!attempt) return;
     requestId.current++;
     setSearchError('');
-    setRunning(kind);
-    search({ id: requestId.current, kind, attempt, drawn, n, seed });
+    setRunning(true);
+    search({ id: requestId.current, kind: 'lab', attempt, drawn, n, seed });
   };
 
   const draw = () => {
     const next = seed + 1;
     setSeed(next);
-    setDrawn(drawDilemmas(n, gameOnMission, under, seededRandom(next)));
+    setDrawn(drawLabTitles(n, gameOnMission, under, seededRandom(next)));
   };
 
-  const toggleTitle = (id: DilemmaId) =>
-    setDrawn((d) => (d.includes(id) ? d.filter((x) => x !== id) : [...d, id]));
+  // A checked title adds one copy; unchecking it takes every copy out of the draw.
+  const toggleTitle = (title: string) =>
+    setDrawn((d) => (d.includes(title) ? d.filter((x) => x !== title) : [...d, title]));
 
   // The mission list follows the deck: a new deck starts on its first mission that the bot reads.
   const chooseDeck = (index: number | null) => {
@@ -218,12 +225,14 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
     setMessage('');
   };
 
-  const samples = useMemo(() => {
+  const samples = useMemo((): Sample[] => {
     if (!chosen || !attempt) return [];
+    const stack = chosen.result.best.stack;
+    const models = stack.map((t) => REGISTRY.get(t)!);
     return [1, 2, 3].map((s) => {
       const lines: string[] = [];
-      playStack(attempt, chosen.result.best.stack, seededRandom(1000 + s), (line) => lines.push(line));
-      return lines;
+      const result = playPileStack(attempt, models, seededRandom(1000 + s), (line) => lines.push(line), drawn.length - stack.length);
+      return { lines, labels: result.labels };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chosen]);
@@ -233,7 +242,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
       <header>
         <h1 className="text-2xl font-bold">Dilemma bot lab</h1>
         <p className="text-sm text-text-secondary">
-          Choose a deck, one of its missions, a crew and N. The bot draws from its Chula pile and chooses an ordered dilemma stack (#1282).
+          Choose a deck, one of its missions, a crew and N. The bot draws from its Chula pile and chooses an ordered dilemma stack with the pile bot&apos;s beam search, the search the practice table uses (#1509).
         </p>
       </header>
 
@@ -409,8 +418,8 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
         {drawn.length > 0 && <DrawnCards drawn={drawn} cards={dilemmaCards} />}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {OPPONENT_DILEMMAS.map((d) => (
-            <label key={d.id} className="flex items-center gap-1">
-              <input type="checkbox" checked={drawn.includes(d.id)} onChange={() => toggleTitle(d.id)} />
+            <label key={d.title} className="flex items-center gap-1">
+              <input type="checkbox" checked={drawn.includes(d.title)} onChange={() => toggleTitle(d.title)} />
               {d.title} ({d.cost})
             </label>
           ))}
@@ -423,48 +432,39 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
         <div className="flex flex-wrap gap-2">
           <button
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!attempt || crew.length === 0 || running !== null}
-            onClick={() => run('choose')}
+            disabled={!attempt || crew.length === 0 || running}
+            onClick={run}
             data-testid="lab-choose"
           >
-            {running === 'choose' ? 'Choosing…' : 'Choose the stack'}
-          </button>
-          <button
-            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!chosen || running !== null}
-            onClick={() => run('full')}
-            data-testid="lab-full"
-          >
-            {running === 'full' ? 'Searching…' : 'Check with the full search (500 plays of every stack)'}
+            {running ? 'Choosing…' : 'Choose the stack'}
           </button>
         </div>
         {!attempt && <p className="text-sm text-text-secondary">Choose a deck, then a mission whose requirements the bot reads.</p>}
-        {attempt && !chosen && running === null && (
-          <p className="text-sm text-text-secondary" data-testid="lab-full-hint">
-            The full search checks the bot&apos;s choice, so choose the stack first.
-          </p>
-        )}
         {running && (
           <p className="text-sm" role="status" data-testid="lab-status">
-            {running === 'choose'
-              ? 'The bot is choosing a stack…'
-              : `Playing each of the ${stackCount.toLocaleString()} legal stacks 500 times…`}
+            The bot is choosing a stack…
           </p>
         )}
         {searchError && <p className="text-sm text-red-400" data-testid="lab-search-error">{searchError}</p>}
-        {chosen && full && (
-          <div ref={fullRef}>
-            <Comparison chosen={chosen.result} full={full} />
-          </div>
-        )}
         {chosen && <ResultView response={chosen} />}
         {samples.length > 0 && (
-          <details className="text-sm">
+          <details className="text-sm" data-testid="lab-samples">
             <summary className="cursor-pointer">Three sample plays of the chosen stack</summary>
-            {samples.map((lines, i) => (
-              <pre key={i} className="mt-2 whitespace-pre-wrap text-xs bg-bg-secondary p-2 rounded">
-                {lines.join('\n')}
-              </pre>
+            {samples.map((sample, i) => (
+              <div key={i} className="mt-2 flex flex-col gap-1">
+                <pre className="whitespace-pre-wrap text-xs bg-bg-secondary p-2 rounded" data-testid="lab-sample">
+                  {sample.lines.join('\n')}
+                </pre>
+                {sample.labels.length > 0 && (
+                  <ul className="text-xs text-text-secondary list-disc pl-5" data-testid="lab-sample-labels">
+                    {sample.labels.map((l, k) => (
+                      <li key={k}>
+                        {l.title}: {l.label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             ))}
           </details>
         )}
@@ -485,7 +485,7 @@ interface Preview {
  * pen) or a mouse hover shows the card in `CardPreview`, with the delays of the practice table.
  * The practice table's `useCardHold` needs its page's provider, so the lab keeps this smaller copy.
  */
-function DrawnCards({ drawn, cards }: { drawn: DilemmaId[]; cards: Record<DilemmaId, CardData> }) {
+function DrawnCards({ drawn, cards }: { drawn: string[]; cards: Record<string, CardData> }) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -523,16 +523,16 @@ function DrawnCards({ drawn, cards }: { drawn: DilemmaId[]; cards: Record<Dilemm
 
   return (
     <div className="flex flex-wrap gap-2" data-testid="lab-drawn-cards">
-      {drawn.map((id, i) => {
-        const instance: CardInstance = { id: `drawn-${i}`, card: cards[id], face: 'up' };
+      {drawn.map((title, i) => {
+        const instance: CardInstance = { id: `drawn-${i}`, card: cards[title], face: 'up' };
         return (
           <div
             key={instance.id}
-            data-testid={`lab-drawn-card-${id}`}
+            data-testid={`lab-drawn-card-${slugOf(title)}`}
             data-draw-index={i + 1}
             className="relative select-none touch-manipulation"
             style={{ width: TABLE_CARD_WIDTH }}
-            title={title(id)}
+            title={title}
             onContextMenu={(e) => e.preventDefault()}
             onPointerDown={(e) => {
               if (e.pointerType !== 'mouse') later(HOLD_DELAY_MS, { instance, side: side(e.clientX), dim: true }, e.currentTarget);
@@ -558,8 +558,13 @@ function DrawnCards({ drawn, cards }: { drawn: DilemmaId[]; cards: Record<Dilemm
   );
 }
 
+/** The help text of the damage, built from the weights of #1320 (`DAMAGE_WEIGHTS`), so the two cannot drift. */
 const DAMAGE_HELP =
-  'Lasting damage is the average number of personnel a stack returns to the hand, over its plays. Stops do not count: a stopped personnel is unstopped at the start of the next turn.';
+  `Lasting damage is the average weighted count of personnel a stack takes out of the game for longer than the turn, over its plays: ` +
+  `a personnel killed counts ${DAMAGE_WEIGHTS.killed}, held in the core ${DAMAGE_WEIGHTS.heldInCore}, ` +
+  `moved off the attempt ${DAMAGE_WEIGHTS.moved}, placed in the brig ${DAMAGE_WEIGHTS.brig}, ` +
+  `lost with a ship ${DAMAGE_WEIGHTS.shipLost}, and returned to the hand ${DAMAGE_WEIGHTS.returned}. ` +
+  'Stops do not count: a stopped personnel is unstopped at the start of the next turn.';
 
 function DamageHelp() {
   return (
@@ -571,7 +576,7 @@ function DamageHelp() {
   );
 }
 
-function ScoreLine({ score }: { score: StackScore }) {
+function ScoreLine({ score }: { score: PileStackScore }) {
   return (
     <span>
       P(fail) {pct(score.pFail)}, lasting damage {score.damage.toFixed(2)}, {score.under} under the mission
@@ -586,28 +591,29 @@ function ResultView({ response }: { response: LabResponse }) {
       <p className="text-base">
         <strong data-testid="lab-result-stack">{stackText(result.best.stack)}</strong>
       </p>
-      <p>
+      <p data-testid="lab-result-score">
         <ScoreLine score={result.best} />
       </p>
       <DamageHelp />
       <p className="text-text-secondary">
-        Decision mode: {result.mode}. Method: {result.method} search, {result.stackCount.toLocaleString()} legal stacks,{' '}
-        {result.plays.toLocaleString()} plays, <span data-testid="lab-ms">{ms.toFixed(0)} ms</span> on the{' '}
-        <span data-testid="lab-thread">{thread}</span> thread.
+        Decision mode: <span data-testid="lab-mode">{result.mode}</span>. Method: {result.method} search,{' '}
+        {result.stackCount.toLocaleString()} stacks scored, {result.plays.toLocaleString()} plays,{' '}
+        <span data-testid="lab-ms">{ms.toFixed(0)} ms</span> on the <span data-testid="lab-thread">{thread}</span> thread.
       </p>
-      {baseline && (
-        <p className="text-text-secondary">
-          A random legal stack, the baseline: {stackText(baseline.stack)}: <ScoreLine score={baseline} />.
-        </p>
-      )}
-      <RankTable ranked={result.ranked.slice(0, 10)} caption="The best stacks of the last round" />
+      <p className="text-text-secondary" data-testid="lab-baseline">
+        A random legal stack, the baseline: {stackText(baseline.stack)}: <ScoreLine score={baseline} />.
+      </p>
+      <RankTable
+        ranked={result.ranked}
+        caption={`The stacks the beam kept: its ${BEAM_DEFAULTS.finalists} best, each played ${BEAM_DEFAULTS.finalPlays} times`}
+      />
     </div>
   );
 }
 
-function RankTable({ ranked, caption }: { ranked: StackScore[]; caption: string }) {
+function RankTable({ ranked, caption }: { ranked: PileStackScore[]; caption: string }) {
   return (
-    <table className="text-xs w-full">
+    <table className="text-xs w-full" data-testid="lab-ranked">
       <caption className="text-left text-text-secondary">{caption}</caption>
       <thead className="text-left text-text-secondary">
         <tr>
@@ -630,27 +636,5 @@ function RankTable({ ranked, caption }: { ranked: StackScore[]; caption: string 
         ))}
       </tbody>
     </table>
-  );
-}
-
-function Comparison({ chosen, full }: { chosen: SearchResult; full: LabSearchResponse }) {
-  const key = (s: DilemmaId[]) => s.join(',');
-  const truth = full.result.best;
-  const sameStack = key(chosen.best.stack) === key(truth.stack);
-  const asJudged = full.result.ranked.find((s) => key(s.stack) === key(chosen.best.stack));
-  return (
-    <div className="flex flex-col gap-2 text-sm border-t border-default pt-2" data-testid="lab-comparison">
-      <p>
-        Full search: <strong>{stackText(truth.stack)}</strong>: <ScoreLine score={truth} />, {full.ms.toFixed(0)} ms.
-      </p>
-      <p data-testid="lab-same">
-        {sameStack
-          ? 'The bot chose the same stack as the full search.'
-          : asJudged
-            ? `The bot chose another stack. The full search scores it: P(fail) ${pct(asJudged.pFail)}, damage ${asJudged.damage.toFixed(2)}, ${asJudged.under} under: a loss of ${pct(truth.pFail - asJudged.pFail)} P(fail) and ${(truth.damage - asJudged.damage).toFixed(2)} damage.`
-            : 'The bot chose another stack.'}
-      </p>
-      <RankTable ranked={full.result.ranked.slice(0, 10)} caption="The best stacks of the full search" />
-    </div>
   );
 }
