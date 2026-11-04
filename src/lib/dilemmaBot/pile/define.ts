@@ -23,6 +23,7 @@ export interface Extras {
   gap?: string;
   discountsNext?: DilemmaModel['discountsNext'];
   extraBudget?: number;
+  repeatable?: boolean;
 }
 
 /** A list of models and the builder that adds to it: `dilemma(title, kind, printedCost, family, play, extras)`. */

@@ -43,6 +43,16 @@ export class PlayState {
   firstSkillOff = false;
   /** The personnel of this cost or less cannot use their skills (Bread and Circuses, while facing it). -1: none. */
   skillsOffAtMostCost = -1;
+  /** The personnel who cannot use their skills while facing the current dilemma (Left Behind). */
+  readonly skillsOffFor = new Set<number>();
+  /** Added to each attribute of every personnel until the end of the attempt (Parallel Romance). `abilitiesOff` cancels it. */
+  attrBonus = 0;
+  /** Set by a dilemma that ends the stack: the rest is not faced (Lack of Preparation). */
+  stackEnded = false;
+  /** A dilemma requiring Transporters requires one more level of each skill it names (Pattern Loss). */
+  patternLoss = false;
+  /** A personnel who uses skills to meet a dilemma's requirements is stopped (Overwhelmed). */
+  overwhelmed = false;
   /** The titles of the stack faced so far, this one included. */
   readonly faced: string[] = [];
   /** The title of the dilemma being faced. */
@@ -111,12 +121,13 @@ export class PlayState {
     const p = this.group[k];
     if (this.firstSkillOff && p.firstSkill === i) return 0;
     if (p.cost <= this.skillsOffAtMostCost) return 0;
+    if (this.skillsOffFor.size && this.skillsOffFor.has(k)) return 0;
     return (this.abilitiesOff ? p.printed : p).skills[i];
   }
 
   attr(k: number, a: Attr): number {
     const p = this.group[k];
-    return (this.abilitiesOff ? p.printed : p).attrs[a];
+    return this.abilitiesOff ? p.printed.attrs[a] : p.attrs[a] + this.attrBonus;
   }
 
   hasSkill(k: number, ...skills: number[]): boolean {
@@ -125,6 +136,7 @@ export class PlayState {
 
   /** Do the unstopped personnel meet one branch, as a dilemma reads them? */
   has(branches: RequirementBranch[]): boolean {
+    branches = this.dilemmaBranches(branches);
     const skills = this.skillSums.fill(0);
     const attrs = this.attrSums.fill(0);
     for (let k = 0; k < this.group.length; k++) {
@@ -135,8 +147,39 @@ export class PlayState {
     return meets(branches, skills, attrs);
   }
 
+  /** The branches as a dilemma's check reads them: under Pattern Loss, a branch requiring Transporters needs one more of each skill. */
+  private dilemmaBranches(branches: RequirementBranch[]): RequirementBranch[] {
+    if (!this.patternLoss) return branches;
+    const t = TRANSPORTERS;
+    if (!branches.some((b) => b.skills[t] > 0)) return branches;
+    return branches.map((b) => (b.skills[t] > 0 ? { ...b, skills: b.skills.map((n) => (n > 0 ? n + 1 : 0)) } : b));
+  }
+
+  /**
+   * Overwhelmed: the personnel who use their skills to meet the first branch the group meets are
+   * stopped. The player keeps the fewest such personnel: each skill of the branch, in turn, is covered
+   * by the personnel who holds most of it, until the branch is met.
+   */
+  stopSkillUsers(branches: RequirementBranch[]) {
+    const ks = this.unstopped();
+    const branch = this.dilemmaBranches(branches).find((b) => this.hasAmong(ks, [b]));
+    if (!branch) return;
+    const users = new Set<number>();
+    branch.skills.forEach((need, i) => {
+      let have = 0;
+      for (const k of [...ks].sort((x, y) => this.skill(y, i) - this.skill(x, i))) {
+        if (have >= need) break;
+        if (this.skill(k, i) <= 0) break;
+        users.add(k);
+        have += this.skill(k, i);
+      }
+    });
+    this.stop([...users], 'they use their skills under Overwhelmed');
+  }
+
   /** Do the personnel `ks` alone meet one branch, as a dilemma reads them ("unless those personnel have …")? */
   hasAmong(ks: number[], branches: RequirementBranch[]): boolean {
+    branches = this.dilemmaBranches(branches);
     const skills = this.skillSums.fill(0);
     const attrs = this.attrSums.fill(0);
     for (const k of ks) {
@@ -197,6 +240,7 @@ export class PlayState {
       // Accelerated Aging lasts to the end of the attempt, so its skill counts for no requirement.
       const first = this.firstSkillOff ? this.group[k].firstSkill : undefined;
       if (first !== undefined) skills[first] -= p.skills[first];
+      if (!this.abilitiesOff) for (let a = 0; a < 3; a++) attrs[a] += this.attrBonus;
       for (let a = 0; a < 3; a++) attrs[a] += p.attrs[a];
     }
     return meets(this.requirements, skills, attrs);
@@ -351,6 +395,8 @@ function meets(branches: RequirementBranch[], skills: number[], attrs: number[])
   return false;
 }
 
+const TRANSPORTERS = BOT_SKILLS.indexOf('transporters');
+
 export const skillName = (i: number) => BOT_SKILLS[i].charAt(0).toUpperCase() + BOT_SKILLS[i].slice(1);
 
 /**
@@ -370,6 +416,10 @@ export function playPileStack(
     state.faced.push(model.title);
     if (state.live === 0) {
       trace?.(`${model.title}: not faced, every personnel is stopped`);
+      continue;
+    }
+    if (state.stackEnded) {
+      trace?.(`${model.title}: not faced, the stack has ended`);
       continue;
     }
     trace?.(`${model.title}:`);

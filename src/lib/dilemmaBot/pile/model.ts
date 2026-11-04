@@ -25,6 +25,8 @@ export interface PileShip {
   range: number;
   weapons: number;
   shields: number;
+  /** The staffing icons, lowercased, for example `['[cmd]', '[stf]']` (Rush Job). Absent: four or more icons with [Cmd]. */
+  staffing?: string[];
 }
 
 /** The facts of the player's side of the table that a dilemma reads. The table has all of them. */
@@ -63,6 +65,17 @@ export interface PileTable {
   highestDecay?: number;
   /** The Trellium-D the player commands (Elemental Instability). Absent: 0. */
   trelliumD?: number;
+  /** The highest cost of a card in the player's hand (Gorgan's label). Absent: unknown. */
+  handMaxCost?: number;
+  /** The titles of the cards placed on the attempted mission (Organ Theft). Absent: none. */
+  onMission?: string[];
+  /** Whether the player commands a headquarters in another quadrant than the attempted mission's (Local Trouble). Absent: false. */
+  headquartersOtherQuadrant?: boolean;
+  /** Whether the player has a ship at the attempted mission (Revealed, Mr. Tricorder). Absent: true. */
+  shipAtMission?: boolean;
+  /** The cards of the player's draw deck, and the events and interrupts among them (Reflections). Absent: a third of the cards revealed. */
+  drawDeckSize?: number;
+  drawDeckEventsOrInterrupts?: number;
 }
 
 /** A personnel in the player's hand, as a dilemma that reveals the hand reads it. */

@@ -114,6 +114,7 @@ export function legalPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<strin
  * so it undercounts a draw with a title that changes the cost of a stack by its order or its extra budget
  * (Peremptory Plea, Entanglement): the lab and the pilot script read it only as a size.
  */
+// A lower bound: it counts each title once, so a repeatable title drawn twice (Infestation) adds no stack of two copies.
 export function countPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<string>, n: number): number {
   const options = Array.from(new Set(modelsOf(drawn).filter((m) => fitsMission(m, attempt) && !m.leads).map((m) => m.title))).map((t) =>
     costOf(REGISTRY.get(t)!, attempt),

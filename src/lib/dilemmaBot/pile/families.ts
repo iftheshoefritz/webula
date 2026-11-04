@@ -68,8 +68,10 @@ export const isCommand: Test = (s, k) => !!s.group[k].traits?.icons.includes('[c
 export const unless = (requirements: string, effect: Play): Play => {
   const branches = req(requirements);
   return (s) => {
-    if (s.has(branches)) s.trace?.(`  the group has ${requirements}: no effect`);
-    else effect(s);
+    if (s.has(branches)) {
+      s.trace?.(`  the group has ${requirements}: no effect`);
+      if (s.overwhelmed) s.stopSkillUsers(branches);
+    } else effect(s);
   };
 };
 
@@ -117,6 +119,19 @@ export const unlessSelected = (count: number, requirements: string, effect: (s: 
   };
 };
 
+/** "Choose a personnel to be placed in your opponent's brig." The player chooses. */
+export const playerBrigs: Play = (s) => s.brig(s.playerChooses(s.unstopped()));
+
+/**
+ * "Randomly select three personnel. If any of those personnel <test>, all three are stopped. Otherwise,
+ * <the player chooses | randomly select> one of those personnel to be stopped."
+ */
+export const anyOfThree = (test: Test, one: 'player' | 'random'): Play =>
+  selectRandom(3, (s, selected) => {
+    if (selected.some((k) => test(s, k))) s.stop(selected);
+    else s.stop(one === 'player' ? s.playerChooses(selected) : s.select(1, selected));
+  });
+
 /** "Randomly select <count> personnel" and act on them. */
 export const selectRandom = (count: number, act: (s: PlayState, selected: number[]) => void): Play => (s) => {
   const selected = s.select(count);
@@ -150,11 +165,7 @@ export const playerStops = (count: number | ((s: PlayState) => number)): Play =>
   s.stop(s.playerChooses(s.unstopped(), typeof count === 'number' ? count : count(s)));
 
 /** "Randomly select three personnel. If any is a <icon> personnel, all are stopped. Otherwise, choose one to be stopped." */
-export const anyOfAffiliation = (affiliation: string): Play =>
-  selectRandom(3, (s, selected) => {
-    if (selected.some((k) => s.group[k].affiliation === affiliation)) s.stop(selected);
-    else s.stop(s.playerChooses(selected));
-  });
+export const anyOfAffiliation = (affiliation: string): Play => anyOfThree((s, k) => s.group[k].affiliation === affiliation, 'player');
 
 /**
  * "Randomly select a personnel to be stopped. Unless you reveal a <skill> personnel or a <skill> personnel

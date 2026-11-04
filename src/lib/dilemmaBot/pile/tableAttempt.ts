@@ -26,6 +26,9 @@ export interface PileCardRow extends AttemptedMission {
   range?: string | number;
   weapons?: string | number;
   shields?: string | number;
+  staff?: string | number;
+  quadrant?: string | number;
+  cost?: string | number;
 }
 
 type Row = PileCardRow | null | undefined;
@@ -54,6 +57,10 @@ export interface PileTableInput {
   commanded?: ReadonlyArray<Row>;
   /** Whether a ship at the attempted mission has a crew (Galileo Grounded). Absent: false. */
   staffedShipAtMission?: boolean;
+  /** Whether the player has a ship at the attempted mission (Revealed, Mr. Tricorder). Absent: unknown. */
+  shipAtMission?: boolean;
+  /** The player's draw deck (Reflections). Absent: unknown. */
+  drawDeck?: ReadonlyArray<Row>;
   /**
    * The bot's side (#1520): the affiliations of the personnel of the bot deck's `Deck:` section, from
    * `botAffiliationsOf`. Absent for the Chula pile, which has no `Deck:` section.
@@ -90,6 +97,7 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
           range: Number(input.ship.range) || 0,
           weapons: Number(input.ship.weapons) || 0,
           shields: Number(input.ship.shields) || 0,
+          ...(input.ship.staff ? { staffing: String(input.ship.staff).toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [] } : {}),
         }
       : undefined;
   const slots = input.missions.filter((s): s is { mission: PileCardRow; completed?: boolean } => !!s.mission);
@@ -129,6 +137,16 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       staffedShipAtMission: !!input.staffedShipAtMission,
       highestDecay: Math.max(0, ...(input.core ?? []).filter((row) => row?.type === 'event').map((row) => decayOf(row))),
       trelliumD: (input.commanded ?? []).filter((row) => titleOf(row) === 'Trellium-D').length,
+      ...(input.hand.length ? { handMaxCost: Math.max(0, ...input.hand.map((row) => Number(row?.cost) || 0)) } : {}),
+      onMission: input.placedOn.map(titleOf).filter((t): t is string => t !== null),
+      headquartersOtherQuadrant: slots.some((s) => s.mission.missiontype === 'h' && String(s.mission.quadrant ?? '') !== String(mission.quadrant ?? '')),
+      ...(input.shipAtMission !== undefined ? { shipAtMission: input.shipAtMission } : {}),
+      ...(input.drawDeck
+        ? {
+            drawDeckSize: input.drawDeck.length,
+            drawDeckEventsOrInterrupts: input.drawDeck.filter((row) => row?.type === 'event' || row?.type === 'interrupt').length,
+          }
+        : {}),
       handSize: input.hand.length,
       handHasCunning7Or11: input.hand.some((row) => row?.type === 'personnel' && [7, 11].includes(Number(row.cunning))),
       discardCopiesMax: Math.max(0, ...copies.values()),
