@@ -105,6 +105,8 @@ export interface PileStackScore {
   damage: number;
   /** The dilemmas the stack puts beneath the mission. */
   under: number;
+  /** The average personnel the stack stops. Not part of the rank: the beam search keeps stacks by it too. */
+  stopped: number;
   plays: number;
 }
 
@@ -114,12 +116,14 @@ export function scorePileStack(attempt: PileAttempt, stack: string[], plays: num
   const models = stack.map((t) => REGISTRY.get(t)!);
   let fails = 0;
   let damage = 0;
+  let stopped = 0;
   for (let r = 0; r < plays; r++) {
     const result: PileResult = playPileStack(attempt, models, seededRandom(seed * 7919 + r), undefined, drawnCount - stack.length);
     if (result.fail) fails++;
     damage += lastingDamage(result);
+    stopped += result.stopped;
   }
-  return { stack, pFail: fails / plays, damage: damage / plays, under: underOf(stack), plays };
+  return { stack, pFail: fails / plays, damage: damage / plays, under: underOf(stack), stopped: stopped / plays, plays };
 }
 
 const byDamage = (a: PileStackScore, b: PileStackScore) => b.damage - a.damage || a.under - b.under;
@@ -184,8 +188,8 @@ export const BEAM_DEFAULTS: BeamOptions = { width: 40, plays: 48, finalists: 6, 
 
 /**
  * The beam search: build the stacks one dilemma at a time. Score every stack of one dilemma, keep the
- * best `width`, extend each of those by every title that still fits N, score the extensions, keep the
- * best `width` again, until nothing fits. Every stack scored stays a candidate, so a short stack can
+ * best `width`, grow each of those by every title that still fits N, at every position, score the new
+ * stacks, keep the best `width` again, until nothing fits. Every stack scored stays a candidate, so a short stack can
  * still win. The `finalists` best candidates then get `finalPlays` each. Its cost grows with N and the
  * width, never with the number of legal stacks. Every stack uses the same seeds, as the full search does.
  */
@@ -204,11 +208,21 @@ export function beamPileSearch(
   let beam: { stack: string[]; cost: number }[] = [{ stack: [], cost: 0 }];
   let stackCount = 1;
   while (beam.length) {
+    // Each kept stack grows by one title, put at every position, not only at the end: a dilemma such as
+    // Dereliction of Duty does nothing alone and pays off only before another, so no stack that ends
+    // with it ranks well enough to be kept.
     const next: { stack: string[]; cost: number }[] = [];
+    const seen = new Set<string>();
     for (const { stack, cost } of beam) {
       for (const o of stackOpts) {
         if (cost + o.cost > n || stack.filter((t) => t === o.title).length >= o.max) continue;
-        next.push({ stack: [...stack, o.title], cost: cost + o.cost });
+        for (let at = 0; at <= stack.length; at++) {
+          const grown = [...stack.slice(0, at), o.title, ...stack.slice(at)];
+          const key = grown.join('\u0000');
+          if (seen.has(key)) continue;
+          seen.add(key);
+          next.push({ stack: grown, cost: cost + o.cost });
+        }
       }
     }
     if (!next.length) break;
@@ -216,7 +230,16 @@ export function beamPileSearch(
     total += next.length * plays;
     stackCount += next.length;
     candidates.push(...scored.map((x) => x.score));
-    const kept = new Set(rankPileScores(scored.map((x) => x.score)).ranked.slice(0, width));
+    // Half the beam is the best by rank. The other half is the stacks that take the most personnel out
+    // of the attempt, stops included, which rank no better: a stop does no lasting damage, but a later
+    // "unless" dilemma fires only once enough personnel are stopped.
+    const scores = scored.map((x) => x.score);
+    const kept = new Set(rankPileScores(scores).ranked.slice(0, Math.ceil(width / 2)));
+    const bySetup = scores.slice().sort((a, b) => b.stopped + b.damage - (a.stopped + a.damage) || a.under - b.under);
+    for (const sc of bySetup) {
+      if (kept.size >= width) break;
+      kept.add(sc);
+    }
     beam = scored.filter((x) => kept.has(x.score));
   }
   const top = rankPileScores(candidates).ranked.slice(0, finalists).map((c) => c.stack);

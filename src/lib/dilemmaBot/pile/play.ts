@@ -26,6 +26,11 @@ export class PlayState {
   readonly trace?: (line: string) => void;
   /** 1 while the personnel is unstopped and still in the attempt. */
   readonly alive: Uint8Array;
+  /**
+   * 1 while the personnel is still at the mission, stopped or not: a stop clears `alive` only, every
+   * other result both. A lost ship takes every personnel aboard, the stopped ones too.
+   */
+  readonly present: Uint8Array;
   live: number;
   readonly result: PileResult;
   /** The requirements of the mission: Insurrection changes them. */
@@ -52,6 +57,7 @@ export class PlayState {
     this.rand = context.rand;
     this.trace = context.trace;
     this.alive = new Uint8Array(this.group.length).fill(1);
+    this.present = new Uint8Array(this.group.length).fill(1);
     this.live = this.group.length;
     this.requirements = context.attempt.requirements;
     this.notInStack = notInStack;
@@ -135,6 +141,7 @@ export class PlayState {
     for (const k of ks) {
       if (!this.alive[k]) continue;
       this.alive[k] = 0;
+      if (what !== 'stopped') this.present[k] = 0;
       this.live--;
       this.result[what]++;
       done.push(k);
@@ -163,9 +170,20 @@ export class PlayState {
   returnToHand(ks: number[]) {
     this.remove(ks, 'returned', 'returns to the hand');
   }
-  /** The ship leaves, with every personnel aboard: at a space mission, the whole attempting group. */
+  /** The ship leaves with every personnel aboard, stopped or not: at a space mission, the whole attempting group. */
   loseShip() {
-    this.remove(this.unstopped(), 'shipLost', 'the ship leaves with');
+    const aboard: number[] = [];
+    for (let k = 0; k < this.group.length; k++) {
+      if (!this.present[k]) continue;
+      aboard.push(k);
+      this.present[k] = 0;
+      if (this.alive[k]) {
+        this.alive[k] = 0;
+        this.live--;
+      }
+    }
+    this.result.shipLost += aboard.length;
+    if (aboard.length) this.trace?.(`  the ship leaves with ${aboard.map((k) => this.name(k)).join(', ')}`);
   }
 
   label(text: string) {

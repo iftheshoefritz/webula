@@ -183,6 +183,13 @@ describe('the plays, worked out by hand', () => {
     expect(lastingDamage(result)).toBe(4);
   });
 
+  it('Where No One Has Gone Before takes every personnel aboard, the stopped ones too', () => {
+    const space = { kind: 'space' as const, points: 35, span: 2, nebula: false };
+    const result = play(attemptOf(group(4, { skills: { officer: 1 } }), { mission: space }), ['Personal Duty', 'Where No One Has Gone Before']);
+    expect(result.stopped).toBe(3);
+    expect(result.shipLost).toBe(4);
+  });
+
   it('Dereliction of Duty leaves the printed profile: a gained skill no longer meets the requirements', () => {
     const gained = person('Gained');
     gained.skills[BOT_SKILLS.indexOf('medical')] = 1;
@@ -255,7 +262,7 @@ describe('legality', () => {
   });
 
   it('ranks several hundred thousand scores, as the fast search does at N = 12', () => {
-    const scores = Array.from({ length: 300000 }, (_, i) => ({ stack: [], pFail: (i % 7) / 10, damage: 0, under: 0, plays: 1 }));
+    const scores = Array.from({ length: 300000 }, (_, i) => ({ stack: [], pFail: (i % 7) / 10, damage: 0, under: 0, stopped: 0, plays: 1 }));
     expect(rankPileScores(scores).ranked[0].pFail).toBe(0.6);
   });
 });
@@ -295,5 +302,22 @@ describe('the beam search', () => {
     expect(countPileStacks(attempt, drawn, 12)).toBeGreaterThan(500);
     expect(choosePileStack(attempt, drawn, 12, 1).method).toBe('beam');
     expect(BEAM_DEFAULTS.width).toBeGreaterThan(0);
+  });
+
+  it('finds a stack whose first dilemma only sets up the next, as Dereliction of Duty does', () => {
+    // The crew meets Where No One Has Gone Before only with the Physics they gain from their game text.
+    const space = { kind: 'space' as const, points: 35, span: 2, nebula: false };
+    const crew = group(6, { attrs: [6, 6, 6] }).map((p, k) => {
+      const skills = { astrometrics: k === 0, navigation: k === 1, physics: k === 2 };
+      const levels = BOT_SKILLS.map((name) => (skills[name as keyof typeof skills] ? 1 : 0));
+      const printed = levels.slice();
+      if (k === 2) printed[BOT_SKILLS.indexOf('physics')] = 0;
+      return { ...p, skills: levels, printed: { ...p.printed, skills: printed } };
+    });
+    const attempt = attemptOf(crew, { mission: space, requirements: 'Cunning>0' });
+    const drawn = ['Where No One Has Gone Before', 'Dereliction of Duty', 'Old Differences', 'Cutting Remark', 'Personal Duty'];
+    const best = beamPileSearch(attempt, drawn, 6, 1, { width: 2 }).best;
+    expect(best.stack.indexOf('Dereliction of Duty')).toBeLessThan(best.stack.indexOf('Where No One Has Gone Before'));
+    expect(best.damage).toBe(6);
   });
 });
