@@ -94,6 +94,22 @@ describe('pileAttemptOf (#1508)', () => {
     expect(empty.discardCopiesMax).toBe(0);
   });
 
+  it('gives each personnel of the hand with its skill indexes and Strength, and leaves out the equipment (#1525)', () => {
+    const hand = [person('Seven', { skills: 'Medical, 2 Security', strength: 6 }), { ...person('Tricorder'), type: 'equipment' }, null];
+    expect(pileAttemptOf(input({ hand })).attempt.table.hand).toEqual([
+      { skills: [BOT_SKILLS.indexOf('medical'), BOT_SKILLS.indexOf('security')].sort((a, b) => a - b), strength: 6 },
+    ]);
+    expect(pileAttemptOf(input()).attempt.table.hand).toEqual([]);
+  });
+
+  it('sets completedPlanetMission for a completed planet mission only (#1525)', () => {
+    const completedOf = (missiontype: string) =>
+      pileAttemptOf(input({ missions: [{ mission: mission(missiontype), completed: true }, { mission: mission('p') }] })).attempt.table.completedPlanetMission;
+    expect(completedOf('p')).toBe(true);
+    expect(completedOf('s')).toBe(false);
+    expect(completedOf('h')).toBe(false);
+  });
+
   it('names the dilemmas under the mission by title, with no version suffix', () => {
     const underMission = [named('Chula: Echoes'), named('Timescape (Promo)'), named('Stripped Down *AP')];
     expect(pileAttemptOf(input({ underMission })).attempt.table.underMission).toEqual(['Chula: Echoes', 'Timescape', 'Stripped Down']);
