@@ -1,18 +1,16 @@
-import { DilemmaId } from './opponentPile';
-import { BotAttempt, seededRandom } from './simulator';
-import { SearchResult, StackScore, chooseStack, fullSearch, legalStacks, randomLegalStack, scoreStack } from './search';
+import { seededRandom } from './simulator';
 import { PileAttempt } from './pile/model';
-import { PileSearchResult, choosePileStack } from './pile/search';
+import { PileSearchResult, PileStackScore, choosePileStack, randomLegalPileStack, scorePileStack } from './pile/search';
 
 // A request to the search of the dilemma bot, and its answer (#1282). The worker and the main-thread
 // fallback of `useSearchWorker` both answer with `answerSearch`, so the two cannot differ (#1298).
 
-/** The lab's request: `'choose'` is `chooseStack` of the Chula bot, `'full'` the full search. */
+/** The lab's request (#1509): `choosePileStack` of the pile bot, over titles, and a baseline. */
 export interface LabSearchRequest {
   id: number;
-  kind: 'choose' | 'full';
-  attempt: BotAttempt;
-  drawn: DilemmaId[];
+  kind: 'lab';
+  attempt: PileAttempt;
+  drawn: string[];
   n: number;
   seed: number;
 }
@@ -31,10 +29,10 @@ export type SearchRequest = LabSearchRequest | TableSearchRequest;
 
 export interface LabSearchResponse {
   id: number;
-  kind: LabSearchRequest['kind'];
-  result: SearchResult;
+  kind: 'lab';
+  result: PileSearchResult;
   /** A random legal stack, scored with 2,000 plays: the baseline of #1282. */
-  baseline: StackScore;
+  baseline: PileStackScore;
   ms: number;
 }
 
@@ -59,8 +57,9 @@ export function answerSearch(request: SearchRequest): SearchResponse {
     return { id, kind, result, ms: performance.now() - start };
   }
   const { id, kind, attempt, drawn, n, seed } = request;
-  const result = kind === 'full' ? fullSearch(attempt, legalStacks(drawn, n), 500, seed) : chooseStack(attempt, drawn, n, seed);
+  const result = choosePileStack(attempt, drawn, n, seed);
   const ms = performance.now() - start;
-  const baseline = scoreStack(attempt, randomLegalStack(drawn, n, seededRandom(seed)), 2000, seed + 1);
+  // The baseline sees the same "not in the stack" count as the beam did.
+  const baseline = scorePileStack(attempt, randomLegalPileStack(attempt, drawn, n, seededRandom(seed)), 2000, seed + 1, drawn.length);
   return { id, kind, result, baseline, ms };
 }

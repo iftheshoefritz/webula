@@ -51,9 +51,12 @@ function printedSkillsOf(text: string | number | undefined): { skills: number[];
   return { skills, dots };
 }
 
-/** A personnel row as the pile's dilemmas read it: the bot's personnel, with its species, affiliation, skill dots and printed profile. */
-export function pilePersonnelOf(row: PersonnelRow, mission?: AttemptedMission, facts?: BotTableFacts): PilePersonnel {
-  const base = botPersonnelOf(row, mission, facts);
+/**
+ * A personnel row as the pile's dilemmas read it: the bot's personnel, with its species, affiliation,
+ * skill dots and printed profile. `lossSuspended` is `botPersonnelOf`'s: Sphere 117 holds (#1363).
+ */
+export function pilePersonnelOf(row: PersonnelRow, mission?: AttemptedMission, facts?: BotTableFacts, lossSuspended = false): PilePersonnel {
+  const base = botPersonnelOf(row, mission, facts, lossSuspended);
   const { skills, dots } = printedSkillsOf(row.skills);
   const species = String(row.species ?? '').toLowerCase().split('/').map((x) => x.trim()).filter(Boolean);
   return {
