@@ -54,6 +54,11 @@ describe('pileAttemptOf (#1508)', () => {
     expect(attempt.table.turn).toBe(4);
   });
 
+  it('hands the bot deck\'s affiliations to the attempt, and leaves them out for Chula (#1520)', () => {
+    expect(pileAttemptOf(input({ botAffiliations: ['klingon', 'romulan'] })).attempt.botAffiliations).toEqual(['klingon', 'romulan']);
+    expect('botAffiliations' in pileAttemptOf(input()).attempt).toBe(false);
+  });
+
   it('counts the copies of Chula: The Game placed on the mission', () => {
     const placedOn = [named('Chula: The Game'), named('Chula: Echoes'), named('Chula: The Game'), null];
     expect(pileAttemptOf(input({ placedOn })).attempt.gameOnMission).toBe(2);

@@ -163,6 +163,26 @@ describe('savedGame', () => {
     expect(fromSavedGame(JSON.stringify({ ...save, version: 3 }), deck)).toBeNull();
   });
 
+  it('keeps the bot pile of a bot game, and a bot game with none plays the Chula pile (#1520)', () => {
+    const botPile = { id: 'beginner:Klingon.txt', name: 'Klingon Beginner Deck - Lucas Thompson', affiliations: ['klingon'] };
+    const json = JSON.stringify(toSavedGame({ ...dealtTable(), opponent: 'bot', botPile }, deck, 'builder'));
+    expect(fromSavedGame(json, deck)!.table.botPile).toEqual(botPile);
+    const chula = fromSavedGame(JSON.stringify(toSavedGame({ ...dealtTable(), opponent: 'bot' }, deck, 'builder')), deck)!;
+    expect(chula.table.opponent).toBe('bot');
+    expect('botPile' in chula.table).toBe(false);
+  });
+
+  it('drops a bot pile outside a bot game, or one that is not sound (#1520)', () => {
+    const botPile = { id: 'beginner:Klingon.txt', name: 'Klingon' };
+    const solo = fromSavedGame(JSON.stringify(toSavedGame({ ...dealtTable(), botPile }, deck, 'builder')), deck)!;
+    expect('botPile' in solo.table).toBe(false);
+    const save: any = toSavedGame({ ...dealtTable(), opponent: 'bot' }, deck, 'builder');
+    save.table.botPile = { id: 3, name: 'x' };
+    expect('botPile' in fromSavedGame(JSON.stringify(save), deck)!.table).toBe(false);
+    save.table.botPile = { id: 'a', name: 'x', affiliations: [1] };
+    expect('botPile' in fromSavedGame(JSON.stringify(save), deck)!.table).toBe(false);
+  });
+
   it('drops an opponent that is not the bot (#1289)', () => {
     const save: any = toSavedGame(dealtTable(), deck, 'builder');
     save.table.opponent = 'human';

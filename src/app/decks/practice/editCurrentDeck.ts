@@ -36,7 +36,7 @@ export function editDeckDestination(state: DealtDeckState): EditDeckDestination 
   if (state.isFixture) return { kind: 'link', href: '/decks?fixture=1', needsDrive: false };
   if (!state.loaded) return { kind: 'link', href: '/decks', needsDrive: false };
   // One file stands for the deck: the whole deck of a file, or the base file of a bot game, whose
-  // Chula pile never goes to the builder. The name is the file's, and a Save of a Drive file writes
+  // bot pile (Chula or another deck's dilemmas, #1520) never goes to the builder. The name is the file's, and a Save of a Drive file writes
   // that name, so a deck with no name takes the copy below.
   if (state.driveFileId && !state.dilemmaDriveFileId && state.driveFileName) {
     return {

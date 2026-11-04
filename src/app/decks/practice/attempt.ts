@@ -62,6 +62,7 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
     discard: table.discard.map((c) => c.card),
     turn: table.turn,
     facts: botTableFactsOf(table),
+    ...(table.botPile?.affiliations ? { botAffiliations: table.botPile.affiliations } : {}),
   };
 }
 

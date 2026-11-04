@@ -516,7 +516,8 @@ The practice table has six fixtures. Each one deals the same table on every load
   game (`TableState.opponent: 'bot'`): the Chula pile of the dilemma bot (`chulaPileDeck`) takes the
   place of the deck's dilemmas, in pile order, with no shuffle, so the 3 dilemmas under Bilana System
   are Chula dilemmas. It keeps its game under `practiceGame:fixture=bot`. The game menu of a bot game
-  shows "<deck> vs the bot" (`data-testid="game-menu-bot-game"`), and Reset deals a bot game again.
+  shows "<deck> vs the bot (<the bot's pile>)" (`data-testid="game-menu-bot-game"`), and Reset deals a
+  bot game again, with the same pile.
 - `?fixture=bot-label` (#1519) deals the `?fixture=bot` table with one Well-Prepared Defenses
   (`17V017`) added to the dilemma pile, and starts a bot attempt at Bilana System with the bot's
   numbers, with no search, in `'face'`: the stack holds Well-Prepared Defenses on top, face up, and
@@ -730,6 +731,17 @@ mission grows only while the personnel area keeps 3 cards at the crew panel's wi
 growing where it would take their width, and the dilemma choice, which keeps the facing phase's
 `missionScale`, draws the same mission. The bottom row does not change. The dilemma stack mounts only here
 (#1170), so the `dilemmaStack` drop target exists only in the attempt layout.
+
+A player starts a bot game from Load deck: step 2's **Play against the bot**
+(`practice-deck-picker-play-bot`) opens the chooser of the bot's dilemma pile (#1520,
+`data-testid="practice-deck-picker-bot-pile"`), whose rows are `bot-pile-<id>`: Chula (`bot-pile-chula`)
+first, then each Beginner Deck in `index.json` order, then each Championship deck the player may see,
+each only once its text has arrived and `botPileOf(...).missing` is empty (`botPileChoices` in
+`src/lib/dilemmaBot/botPileChoice.ts`, fetched by `useBotPiles`). A chosen deck's dilemmas, less the
+titles the registry ignores, become the dilemma pile (`botPileDeckOf`), and the affiliations of its
+`Deck:` section's personnel reach the pile bot as `PileAttempt.botAffiliations`. The table keeps the
+choice as `TableState.botPile` (`{ id, name, affiliations }`), in the save; a bot game with no
+`botPile`, as `?fixture=bot` deals, plays Chula.
 
 In a bot game (`?fixture=bot`), Start opens straight into `'face'` (#1299). The popup stays open,
 with Start reading "The bot is choosing…", while the bot draws Draw dilemmas and chooses a stack

@@ -157,23 +157,60 @@ describe('PracticeDeckPicker, the two-step load (#1114)', () => {
     expect(onLoadDilemmas).toHaveBeenCalledWith({ kind: 'drive', file: decks[0] }, decks[0]);
   });
 
-  it('shows Play against the bot above the list at step 2, and calls onPlayBot with the source (#1290)', () => {
+  it('shows Play against the bot above the list at step 2, which opens the bot pile chooser (#1290, #1520)', () => {
     const onPlayBot = jest.fn();
     const onLoadDilemmas = jest.fn();
-    render(<PracticeDeckPicker {...baseProps} driveFiles={decks} onPlayBot={onPlayBot} onLoadDilemmas={onLoadDilemmas} />);
+    const onRequestBotPiles = jest.fn();
+    const piles = [
+      { id: 'chula', name: 'Chula' },
+      { id: 'beginner:Klingon.txt', name: 'Klingon Beginner Deck - Lucas Thompson' },
+    ];
+    render(
+      <PracticeDeckPicker
+        {...baseProps}
+        driveFiles={decks}
+        onPlayBot={onPlayBot}
+        onLoadDilemmas={onLoadDilemmas}
+        botPiles={piles}
+        botPilesLoading
+        onRequestBotPiles={onRequestBotPiles}
+      />
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Load the missions and draw deck of Deck A' }));
     const bot = screen.getByTestId('practice-deck-picker-play-bot');
     expect(bot).toHaveAccessibleName('Play against the bot');
     expect(bot.compareDocumentPosition(screen.getByText('Deck B')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Load the dilemmas of Deck B' })).toBeInTheDocument();
     fireEvent.click(bot);
-    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'drive', file: decks[0] });
+    expect(onRequestBotPiles).toHaveBeenCalledTimes(1);
+    expect(onPlayBot).not.toHaveBeenCalled();
+
+    // The chooser: Chula first, then the decks, and a row while more may arrive.
+    expect(screen.getByText("The bot's dilemma pile")).toBeInTheDocument();
+    const rows = screen.getByTestId('practice-deck-picker-bot-pile').querySelectorAll('[data-testid^="bot-pile-"]');
+    expect(Array.from(rows).map((r) => r.getAttribute('data-testid'))).toEqual(['bot-pile-chula', 'bot-pile-beginner:Klingon.txt']);
+    expect(screen.getByTestId('practice-deck-picker-bot-pile-loading')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('bot-pile-beginner:Klingon.txt'));
+    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'drive', file: decks[0] }, piles[1]);
     expect(onLoadDilemmas).not.toHaveBeenCalled();
 
+    // Back returns to step 2, and a second Back to step 1.
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByTestId('practice-deck-picker-play-bot')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     fireEvent.click(keepCurrent());
     fireEvent.click(screen.getByRole('button', { name: 'Play against the bot' }));
-    expect(onPlayBot).toHaveBeenLastCalledWith({ kind: 'current' });
+    fireEvent.click(screen.getByTestId('bot-pile-chula'));
+    expect(onPlayBot).toHaveBeenLastCalledWith({ kind: 'current' }, piles[0]);
+  });
+
+  it('lists only Chula in the bot pile chooser when no deck is passed', () => {
+    const onPlayBot = jest.fn();
+    render(<PracticeDeckPicker {...baseProps} driveFiles={decks} onPlayBot={onPlayBot} />);
+    fireEvent.click(keepCurrent());
+    fireEvent.click(screen.getByTestId('practice-deck-picker-play-bot'));
+    fireEvent.click(screen.getByTestId('bot-pile-chula'));
+    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'current' }, { id: 'chula', name: 'Chula' });
   });
 
   it('moves to step 2 for the current missions and draw deck', () => {
@@ -296,7 +333,8 @@ describe('PracticeDeckPicker, the Championship and Beginner folders (#1390)', ()
     expect(screen.getByText('Dilemmas for Federation Starter - Lucas Thompson')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Play against the bot' }));
-    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'drive', file: beginnerFile });
+    fireEvent.click(screen.getByTestId('bot-pile-chula'));
+    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'drive', file: beginnerFile }, { id: 'chula', name: 'Chula' });
   });
 
   it('signed out with no folders, shows no step bar', () => {

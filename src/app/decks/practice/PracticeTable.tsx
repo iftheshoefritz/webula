@@ -41,6 +41,8 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
+import { BotPileChoice, CHULA_PILE_CHOICE, CHULA_PILE_ID, botPileDeckOf } from '../../../lib/dilemmaBot/botPileChoice';
+import { useBotPiles } from './useBotPiles';
 import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
 import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
 import { pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
@@ -75,6 +77,7 @@ import {
   seedInstanceIds,
   tableReducer,
 } from './tableReducer';
+import type { BotPileState } from './tableReducer';
 import { fromSavedGame, toSavedGame, toSavedHistory } from './savedGame';
 import { savedHistoryKey, writeSavedHistory } from './gameHistory';
 import CardHand from './CardHand';
@@ -345,6 +348,7 @@ function GameMenu({
   undoRedoRow,
   turnScoreColumn,
   botGame,
+  botPileName,
   touch,
 }: {
   open: boolean;
@@ -378,8 +382,9 @@ function GameMenu({
   // The turn and score column shows below the corner buttons, on the full table of either device
   // (#1451): the corner column then takes its width, so both share one centre line (#1447).
   turnScoreColumn: boolean;
-  // A game against the dilemma bot (#1289).
+  // A game against the dilemma bot (#1289), and the name of the bot's pile (#1520).
   botGame: boolean;
+  botPileName: string;
   // The touch layout, whose corner buttons take the round look of the iPadOS close button (#1394).
   touch: boolean;
 }) {
@@ -454,7 +459,7 @@ function GameMenu({
             <div className="grid w-full max-w-[16rem] grid-cols-1 gap-2 landscape:max-w-[28rem] landscape:grid-cols-2">
               {botGame && (
                 <p data-testid="game-menu-bot-game" className="text-center text-sm text-text-secondary landscape:col-span-2">
-                  {deckName} vs the bot
+                  {deckName} vs the bot ({botPileName})
                 </p>
               )}
               {update.updateReady && (
@@ -2108,8 +2113,10 @@ function PracticeDrawContent() {
   // working copy and may hold unsaved edits.
   const [loadedDeck, setLoadedDeck] = useState<DeckList | null>(null);
   // Whether the game dealt now is a bot game (#1289), so Reset of `loadedDeck` deals a bot game
-  // again. A bot game's `loadedDeck` already holds the Chula pile. Every deal sets it.
+  // again, and its bot pile (#1520), absent for the Chula pile. A bot game's `loadedDeck` already
+  // holds the bot's pile. Every deal sets both.
   const [botGame, setBotGame] = useState(false);
+  const [botPile, setBotPile] = useState<BotPileState | undefined>(undefined);
   // The deck as it was dealt (#779), for the game menu's read-only Decklist panel. Every deal
   // goes through `dealDeck`, so this holds the fixture deck, the builder's deck, or a deck loaded
   // from Drive, whichever the table plays now.
@@ -2138,6 +2145,8 @@ function PracticeDrawContent() {
   const [controlsOpen, setControlsOpen] = useState(() => searchParams.get('controls') === '1');
   const [homeScreenHelpOpen, setHomeScreenHelpOpen] = useState(false);
   const drive = usePracticeDrive();
+  const botPiles = useBotPiles(drive.beginnerDecks, drive.championshipEvents);
+  const botPileTexts = botPiles.texts;
   const offlineDecks = useOfflineDecks(data);
   const online = useOnline();
   // Set by each deal or restore (#1053): whether the browser was offline then. Only a deck dealt
@@ -2155,13 +2164,15 @@ function PracticeDrawContent() {
   // default numbers, and moves the top dilemmas of the pile into the dilemma stack (#1170), as one
   // player action and so one log entry, of cards the player did not see. `tableReducer` is pure and `resetWithPiles` ignores the state it gets, so a
   // second run of the deal gives the table the page gets, and with it the ship's instance id.
-  // A bot game (#1289) gets a deck that already holds the Chula pile, and `opponent: 'bot'`.
+  // A bot game (#1289) gets a deck that already holds the bot's pile, and `opponent: 'bot'`, and,
+  // for a pile other than Chula, the `botPile` it came from (#1520).
   const dealDeck = (
     deck: DeckList,
     fixturePiles = false,
     fixtureAttemptPhase: AttemptPhase | null = null,
     opponent?: 'bot',
-    botLabelFixture = false
+    botLabelFixture = false,
+    dealtBotPile?: BotPileState
   ) => {
     const cards = extractDrawDeck(deck);
     const deal: TableAction = {
@@ -2175,6 +2186,7 @@ function PracticeDrawContent() {
         fixturePiles ? extractDilemmas(deck) : shuffleArray(extractDilemmas(deck))
       ),
       ...(opponent ? { opponent } : {}),
+      ...(opponent && dealtBotPile ? { botPile: dealtBotPile } : {}),
     };
     dispatch(deal);
     const botLabel = botLabelFixture ? fixtureBotLabelAttempt(tableReducer(initialTableState, deal)) : null;
@@ -2202,6 +2214,7 @@ function PracticeDrawContent() {
     setDeckEmpty(isDeckEmpty(deck));
     setDealtDeck(deck);
     setBotGame(opponent === 'bot');
+    setBotPile(opponent === 'bot' ? dealtBotPile : undefined);
     setDealtOffline(!isBrowserOnline());
     setOpenHand(null);
     saveReadyRef.current = true;
@@ -2240,6 +2253,7 @@ function PracticeDrawContent() {
       dispatch({ type: 'restore', state: restored.table, log: restored.log, undo: restored.undo, redo: restored.redo });
       setDealtDeck(restored.dealtDeck);
       setBotGame(restored.table.opponent === 'bot');
+      setBotPile(restored.table.botPile);
       setDealtOffline(!isBrowserOnline());
       setDeckEmpty(isDeckEmpty(restored.dealtDeck));
       if (restored.source === 'drive') {
@@ -2257,7 +2271,7 @@ function PracticeDrawContent() {
 
   const initDeck = () => {
     if (loadedDeck) {
-      dealDeck(loadedDeck, false, null, botGame ? 'bot' : undefined);
+      dealDeck(loadedDeck, false, null, botGame ? 'bot' : undefined, false, botPile);
       return;
     }
 
@@ -2438,18 +2452,31 @@ function PracticeDrawContent() {
     drive.closePicker();
   };
 
-  // Step 2's Play against the bot (#1290): the missions and draw deck of step 1 with the Chula pile
-  // of the dilemma bot as the dilemma pile, and the bot-game flag of #1289. The name stays the
-  // base deck's, since the game menu adds "vs the bot" itself.
-  const playDriveBot = async (source: MissionsAndDrawSource) => {
+  // Step 2's Play against the bot (#1290): the missions and draw deck of step 1 with the bot pile the
+  // player chose (#1520) as the dilemma pile, and the bot-game flag of #1289. Chula is the dilemma
+  // bot's Chula pile; any other choice is a deck whose dilemmas, less the titles the pile bot ignores,
+  // become the pile, and whose personnel's affiliations go with the game. The name stays the base
+  // deck's, since the game menu adds "vs the bot" and the pile itself.
+  const playDriveBot = async (source: MissionsAndDrawSource, choice: BotPileChoice) => {
     const base = await confirmAndFetchBaseDeck(source);
     if (base === null) return;
-    const deck = mergeDeckPiles(base.deck, chulaPileDeck(data), ['dilemmaPile']);
+    let pile: DeckList;
+    let state: BotPileState | undefined;
+    if (choice.id === CHULA_PILE_ID) {
+      pile = chulaPileDeck(data);
+    } else {
+      const text = botPileTexts.get(choice.id) ?? (await drive.fetchDeckTsv({ id: choice.id }));
+      if (text === null) return;
+      const bot = botPileDeckOf(text, deckFromTsv(text, data), data);
+      pile = bot.pile;
+      state = { id: choice.id, name: choice.name, affiliations: bot.affiliations };
+    }
+    const deck = mergeDeckPiles(base.deck, pile, ['dilemmaPile']);
     setLoadedDeck(deck);
     setDriveFileId(base.fileId);
     setDilemmaDriveFileId(undefined);
     setDriveFileName(base.name);
-    dealDeck(deck, false, null, 'bot');
+    dealDeck(deck, false, null, 'bot', false, state);
     drive.closePicker();
   };
 
@@ -3327,6 +3354,7 @@ function PracticeDrawContent() {
           undoRedoRow={!finePointer && !attemptLayoutShows}
           turnScoreColumn={!attemptLayoutShows}
           botGame={table.opponent === 'bot'}
+          botPileName={table.botPile?.name ?? CHULA_PILE_CHOICE.name}
           touch={!finePointer}
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
@@ -3368,6 +3396,9 @@ function PracticeDrawContent() {
             driveFiles={drive.driveFiles}
             onLoadDilemmas={loadDriveDilemmas}
             onPlayBot={playDriveBot}
+            botPiles={botPiles.choices}
+            botPilesLoading={botPiles.loading}
+            onRequestBotPiles={botPiles.request}
             canKeepCurrent={canKeepCurrentMissionsAndDraw}
             championshipEvents={drive.championshipEvents}
             beginnerDecks={drive.beginnerDecks}

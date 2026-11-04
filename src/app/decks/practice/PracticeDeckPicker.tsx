@@ -9,6 +9,8 @@ import type { DriveFile, DriveItem } from '../../../components/drivePicker/useDr
 import { usePublicFolders } from '../../../components/drivePicker/usePublicFolders';
 import type { ChampionshipEvent } from '../../../lib/championshipDecks';
 import type { BeginnerDeck } from '../../../lib/beginnerDecks';
+import { CHULA_PILE_CHOICE } from '../../../lib/dilemmaBot/botPileChoice';
+import type { BotPileChoice } from '../../../lib/dilemmaBot/botPileChoice';
 
 // Where the missions and draw deck of a two-step load come from (#1114): a Drive deck or a public
 // folder deck (#1390), whose `file` holds its `championship:` or `beginner:` id and its title, or
@@ -25,9 +27,14 @@ type Props = {
   onBrowseFolder: (folder: DriveFile | null) => void
   // Step 2's Load dilemmas: deals the missions and draw deck of step 1 with this deck's dilemmas.
   onLoadDilemmas: (source: MissionsAndDrawSource, dilemmaFile: DriveFile) => void
-  // Step 2's Play against the bot (#1290): deals the missions and draw deck of step 1 with the
-  // dilemma bot's Chula pile.
-  onPlayBot: (source: MissionsAndDrawSource) => void
+  // Step 2's Play against the bot (#1290) opens the bot pile chooser (#1520); a choice there deals
+  // the missions and draw deck of step 1 with that pile as the bot's dilemma pile.
+  onPlayBot: (source: MissionsAndDrawSource, pile: BotPileChoice) => void
+  // The bot piles the chooser lists, Chula first (`useBotPiles`), whether more may still arrive, and
+  // the call that starts fetching the deck texts their coverage needs.
+  botPiles?: BotPileChoice[]
+  botPilesLoading?: boolean
+  onRequestBotPiles?: () => void
   // Whether a deck with missions or a draw deck is dealt now, for "Keep the current missions and draw deck".
   canKeepCurrent: boolean
   // The Championship decks the user sees, by event, and the Beginner Decks (#1390). The
@@ -69,6 +76,9 @@ export const PracticeDeckPicker: React.FC<Props> = ({
   onBrowseFolder,
   onLoadDilemmas,
   onPlayBot,
+  botPiles = [CHULA_PILE_CHOICE],
+  botPilesLoading = false,
+  onRequestBotPiles,
   canKeepCurrent,
   championshipEvents = [],
   beginnerDecks = [],
@@ -78,8 +88,12 @@ export const PracticeDeckPicker: React.FC<Props> = ({
   const ready = isSignedIn && hasDriveScope;
   // Set by step 1's choice of missions and draw deck; null on step 1.
   const [source, setSource] = useState<MissionsAndDrawSource | null>(null);
+  // Set by step 2's Play against the bot: the chooser of the bot's pile shows (#1520).
+  const [choosingBotPile, setChoosingBotPile] = useState(false);
 
-  const title = source === null
+  const title = choosingBotPile
+    ? "The bot's dilemma pile"
+    : source === null
     ? 'Your decks'
     : source.kind === 'drive'
       ? `Dilemmas for ${source.file.name}`
@@ -123,6 +137,47 @@ export const PracticeDeckPicker: React.FC<Props> = ({
   // The step bar shows whenever there is something to pick: the Drive list, or a public folder.
   const canPick = (ready && !inProgress) || showChampionship || showBeginner;
 
+  if (choosingBotPile && source !== null) {
+    return (
+      <DriveModalShell title={<span title={title}>{title}</span>} onClose={onClose} testId="practice-deck-picker">
+        <div className="flex items-center gap-2 px-1 pb-1">
+          <button
+            type="button"
+            aria-label="Back"
+            className={TEXT_BUTTON_CLASS}
+            onClick={() => setChoosingBotPile(false)}
+          >
+            <FaArrowLeft className="inline mr-1" />Back
+          </button>
+        </div>
+        <div className="max-h-[min(16rem,50vh)] overflow-y-auto overflow-x-hidden">
+          <ul data-testid="practice-deck-picker-bot-pile" className="w-full divide-y divide-white/[0.06]">
+            {botPiles.map((pile) => (
+              <DriveListRow key={pile.id} name={pile.name}>
+                <div className="flex items-center gap-1 whitespace-nowrap shrink-0">
+                  <button
+                    type="button"
+                    data-testid={`bot-pile-${pile.id}`}
+                    aria-label={`Play against the bot with the dilemmas of ${pile.name}`}
+                    className={TEXT_BUTTON_CLASS}
+                    onClick={() => onPlayBot(source, pile)}
+                  >
+                    Play
+                  </button>
+                </div>
+              </DriveListRow>
+            ))}
+            {botPilesLoading && (
+              <li data-testid="practice-deck-picker-bot-pile-loading" className="text-text-secondary px-3 py-1 text-xs">
+                Checking more decks…
+              </li>
+            )}
+          </ul>
+        </div>
+      </DriveModalShell>
+    );
+  }
+
   return (
     <DriveModalShell title={<span title={title}>{title}</span>} onClose={onClose} testId="practice-deck-picker">
       {canPick && (
@@ -152,7 +207,10 @@ export const PracticeDeckPicker: React.FC<Props> = ({
                 aria-label="Play against the bot"
                 data-testid="practice-deck-picker-play-bot"
                 className={TEXT_BUTTON_CLASS}
-                onClick={() => onPlayBot(source)}
+                onClick={() => {
+                  setChoosingBotPile(true);
+                  onRequestBotPiles?.();
+                }}
               >
                 Play against the bot
               </button>

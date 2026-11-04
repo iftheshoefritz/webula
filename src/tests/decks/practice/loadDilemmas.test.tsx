@@ -134,6 +134,40 @@ const chulaRows = OPPONENT_DILEMMAS.map((d) => {
   return { collectorsinfo: key, name: d.title.toLowerCase(), originalName: d.title, imagefile: key, type: 'dilemma', pile: 'dilemmaPile' };
 });
 
+
+// Two Beginner Decks for the bot pile chooser (#1520): one whose dilemmas the pile bot's registry
+// covers, and one with a title it lacks, which the chooser leaves out.
+const beginnerRow = (deckName: string) => ({
+  deckId: 1,
+  deckName,
+  player: 'Tester',
+  file: `${deckName} - Tester.txt`,
+  source: '',
+  complexity: 1,
+  style: '',
+  article: '',
+  articleUrl: '',
+  authorizedUse: true,
+});
+const beginnerIndex = [beginnerRow('Covered'), beginnerRow('Uncovered')];
+const COVERED_TEXT = 'Deck:\n1\tWorf\nDilemmas:\n3\tChula: Echoes\n2\tChula: The Dice\n';
+const beginnerTexts: Record<string, string> = {
+  'Covered - Tester.txt': COVERED_TEXT,
+  'Uncovered - Tester.txt': 'Dilemmas:\n3\tNo Such Dilemma\n',
+};
+const worfRow = { collectorsinfo: 'W-1', name: 'worf', originalName: 'Worf', imagefile: 'W-1', type: 'personnel', affiliation: 'Klingon', pile: 'drawDeck' };
+const coveredDeck = (): DeckList => {
+  const dilemma = (title: string, count: number) => {
+    const row = chulaRows.find((r) => r.originalName === title)!;
+    return [row.collectorsinfo, { count, row: { ...row, count } }];
+  };
+  return Object.fromEntries([
+    ['W-1', { count: 1, row: { ...worfRow, count: 1 } }],
+    dilemma('Chula: Echoes', 3),
+    dilemma('Chula: The Dice', 2),
+  ]);
+};
+
 let confirmSpy: jest.SpyInstance;
 
 describe('the two-step Load deck (#1114)', () => {
@@ -298,7 +332,9 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     localStorage.setItem('currentDeck', JSON.stringify(builderDeck));
 
     (useDataFetching as jest.Mock).mockReturnValue({ data: chulaRows, loading: false });
-    (deckFromTsv as jest.Mock).mockImplementation((tsv: string) => ({ 'tsv-a': deckA, 'tsv-b': deckB })[tsv]);
+    (deckFromTsv as jest.Mock).mockImplementation((tsv: string) =>
+      tsv === COVERED_TEXT ? coveredDeck() : ({ 'tsv-a': deckA, 'tsv-b': deckB } as Record<string, DeckList>)[tsv]
+    );
     (getSession as jest.Mock).mockResolvedValue(session);
     confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
 
@@ -306,6 +342,15 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
       if (url.startsWith('/api/drive?')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ files: [fileA, fileB] }) });
       }
+      if (url === '/beginner-decks/index.json') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(beginnerIndex) });
+      }
+      if (url.startsWith('/beginner-decks/')) {
+        const file = decodeURIComponent(url.slice('/beginner-decks/'.length));
+        const text = beginnerTexts[file];
+        return Promise.resolve(text === undefined ? { ok: false, status: 404 } : { ok: true, text: () => Promise.resolve(text) });
+      }
+      if (url.startsWith('/api/championship-decks')) return Promise.resolve({ ok: false, status: 404 });
       const id = url.replace('/api/drive/', '');
       return Promise.resolve({ ok: true, json: () => Promise.resolve(`tsv-${id}`) });
     }) as unknown as typeof fetch;
@@ -332,6 +377,7 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     const chulaKeys = new Set(OPPONENT_DILEMMAS.map((d) => collectorsKey(d.collectorsInfo)));
     expect(s.table.dilemmaPile.every((c: any) => chulaKeys.has(s.dealtDeck[c.key]?.row?.collectorsinfo))).toBe(true);
     expect(s.table.opponent).toBe('bot');
+    expect(s.table.botPile).toBeUndefined();
   };
 
   it('deals A\'s missions and draw deck with the Chula pile after one confirm, and Reset deals a bot game again', async () => {
@@ -340,6 +386,7 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     await click('Load the missions and draw deck of Deck A');
     expect(screen.getByRole('button', { name: 'Play against the bot' })).toBeInTheDocument();
     await click('Play against the bot');
+    await click('Play against the bot with the dilemmas of Chula');
 
     expect(confirmSpy).toHaveBeenCalledTimes(1);
     expect(confirmSpy).toHaveBeenCalledWith('Load this deck? This will throw away the current game.');
@@ -349,10 +396,43 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     expect(save().dilemmaDriveFileId).toBeUndefined();
 
     await openMenu();
-    expect(screen.getByTestId('game-menu-bot-game')).toHaveTextContent('Deck A vs the bot');
+    expect(screen.getByTestId('game-menu-bot-game')).toHaveTextContent('Deck A vs the bot (Chula)');
     expect(screen.getByTestId('game-menu-bot-game')).not.toHaveTextContent('vs the bot vs the bot');
     await click('Reset');
     expectBotTable();
+  });
+
+  it('deals a Beginner Deck\'s dilemmas as the bot pile, names it in the menu, and Reset and a reload keep it (#1520)', async () => {
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [...chulaRows, worfRow], loading: false });
+    await renderPage();
+    await openPicker();
+    await click('Load the missions and draw deck of Deck A');
+    await click('Play against the bot');
+
+    // Chula first, then only the covered deck once its text arrives.
+    const rows = () => Array.from(screen.getByTestId('practice-deck-picker-bot-pile').querySelectorAll('[data-testid^="bot-pile-"]'))
+      .map((r) => r.getAttribute('data-testid'));
+    expect(rows()).toEqual(['bot-pile-chula', 'bot-pile-beginner:Covered - Tester.txt']);
+    await click('Play against the bot with the dilemmas of Covered - Tester');
+
+    const expectCovered = () => {
+      const s = save();
+      expect(s.table.opponent).toBe('bot');
+      expect(s.table.botPile).toEqual({ id: 'beginner:Covered - Tester.txt', name: 'Covered - Tester', affiliations: ['klingon'] });
+      expect(s.table.dilemmaPile).toHaveLength(5);
+      expect(s.table.dilemmaPile.map((c: any) => s.dealtDeck[c.key].row.originalName).sort()).toEqual([
+        'Chula: Echoes', 'Chula: Echoes', 'Chula: Echoes', 'Chula: The Dice', 'Chula: The Dice',
+      ]);
+      // The bot's Deck: section stays out of the player's deck.
+      expect(s.dealtDeck['W-1']).toBeUndefined();
+      expect(keysOf(s.dealtDeck, 'A', 'equipment')).toHaveLength(12);
+    };
+    expectCovered();
+
+    await openMenu();
+    expect(screen.getByTestId('game-menu-bot-game')).toHaveTextContent('Deck A vs the bot (Covered - Tester)');
+    await click('Reset');
+    expectCovered();
   });
 
   it('plays the bot with the current missions and draw deck', async () => {
@@ -362,6 +442,7 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     await openPicker();
     await click('Keep the current missions and draw deck');
     await click('Play against the bot');
+    await click('Play against the bot with the dilemmas of Chula');
 
     expectBotTable();
     expect(save()).toMatchObject({ source: 'drive', driveFileId: 'a' });
@@ -373,6 +454,7 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     await openPicker();
     await click('Load the missions and draw deck of Deck A');
     await click('Play against the bot');
+    await click('Play against the bot with the dilemmas of Chula');
 
     expect(deckFromTsv).not.toHaveBeenCalled();
     expect(keysOf(save().dealtDeck, 'U', 'equipment')).toHaveLength(10);
@@ -397,6 +479,7 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     await openPicker();
     await click('Load the missions and draw deck of Deck A');
     await click('Play against the bot');
+    await click('Play against the bot with the dilemmas of Chula');
     expect(save().table.opponent).toBe('bot');
 
     await openPicker();
