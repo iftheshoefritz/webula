@@ -340,6 +340,7 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     await click('Load the missions and draw deck of Deck A');
     expect(screen.getByRole('button', { name: 'Play against the bot' })).toBeInTheDocument();
     await click('Play against the bot');
+    await click('Play against the bot with the dilemmas of Chula');
 
     expect(confirmSpy).toHaveBeenCalledTimes(1);
     expect(confirmSpy).toHaveBeenCalledWith('Load this deck? This will throw away the current game.');
@@ -362,6 +363,7 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     await openPicker();
     await click('Keep the current missions and draw deck');
     await click('Play against the bot');
+    await click('Play against the bot with the dilemmas of Chula');
 
     expectBotTable();
     expect(save()).toMatchObject({ source: 'drive', driveFileId: 'a' });
@@ -373,6 +375,7 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     await openPicker();
     await click('Load the missions and draw deck of Deck A');
     await click('Play against the bot');
+    await click('Play against the bot with the dilemmas of Chula');
 
     expect(deckFromTsv).not.toHaveBeenCalled();
     expect(keysOf(save().dealtDeck, 'U', 'equipment')).toHaveLength(10);
@@ -397,6 +400,7 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     await openPicker();
     await click('Load the missions and draw deck of Deck A');
     await click('Play against the bot');
+    await click('Play against the bot with the dilemmas of Chula');
     expect(save().table.opponent).toBe('bot');
 
     await openPicker();

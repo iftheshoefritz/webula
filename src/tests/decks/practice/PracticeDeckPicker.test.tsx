@@ -3,6 +3,7 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { PracticeDeckPicker } from '../../../app/decks/practice/PracticeDeckPicker';
 import { FOLDER_MIME_TYPE } from '../../../app/api/drive/mimeTypes';
+import { CHULA_BOT_PILE } from '../../../lib/dilemmaBot/botPiles';
 
 const baseProps = {
   driveFiles: [],
@@ -167,13 +168,44 @@ describe('PracticeDeckPicker, the two-step load (#1114)', () => {
     expect(bot.compareDocumentPosition(screen.getByText('Deck B')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Load the dilemmas of Deck B' })).toBeInTheDocument();
     fireEvent.click(bot);
-    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'drive', file: decks[0] });
+    expect(onPlayBot).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('bot-pile-chula'));
+    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'drive', file: decks[0] }, CHULA_BOT_PILE);
     expect(onLoadDilemmas).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     fireEvent.click(keepCurrent());
     fireEvent.click(screen.getByRole('button', { name: 'Play against the bot' }));
-    expect(onPlayBot).toHaveBeenLastCalledWith({ kind: 'current' });
+    fireEvent.click(screen.getByTestId('bot-pile-chula'));
+    expect(onPlayBot).toHaveBeenLastCalledWith({ kind: 'current' }, CHULA_BOT_PILE);
+  });
+
+  it('Play against the bot opens the chooser of the bot\'s pile, Chula first, and a choice plays that pile (#1520)', () => {
+    const onPlayBot = jest.fn();
+    const onOpenBotPiles = jest.fn();
+    const beginner = { id: 'beginner:fed.txt', name: 'Federation Starter - Lucas Thompson' };
+    render(
+      <PracticeDeckPicker
+        {...baseProps}
+        driveFiles={decks}
+        onPlayBot={onPlayBot}
+        botPiles={[CHULA_BOT_PILE, beginner]}
+        botPilesLoading
+        onOpenBotPiles={onOpenBotPiles}
+      />
+    );
+    fireEvent.click(keepCurrent());
+    fireEvent.click(screen.getByTestId('practice-deck-picker-play-bot'));
+    expect(onOpenBotPiles).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("The bot's dilemma pile")).toBeInTheDocument();
+    const list = screen.getByTestId('practice-deck-picker-bot-pile');
+    const rows = within(list).getAllByRole('button').map((b) => b.getAttribute('data-testid'));
+    expect(rows).toEqual(['bot-pile-chula', 'bot-pile-beginner:fed.txt']);
+    expect(within(list).getByText('Loading more piles…')).toBeInTheDocument();
+    expect(screen.queryByText('Deck A')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('bot-pile-beginner:fed.txt'));
+    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'current' }, beginner);
   });
 
   it('moves to step 2 for the current missions and draw deck', () => {
@@ -296,7 +328,8 @@ describe('PracticeDeckPicker, the Championship and Beginner folders (#1390)', ()
     expect(screen.getByText('Dilemmas for Federation Starter - Lucas Thompson')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Play against the bot' }));
-    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'drive', file: beginnerFile });
+    fireEvent.click(screen.getByTestId('bot-pile-chula'));
+    expect(onPlayBot).toHaveBeenCalledWith({ kind: 'drive', file: beginnerFile }, CHULA_BOT_PILE);
   });
 
   it('signed out with no folders, shows no step bar', () => {
