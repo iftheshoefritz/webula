@@ -50,8 +50,8 @@ import { deckFromTsv, extractDrawDeck } from '../../../app/decks/deckBuilderUtil
 import { OPPONENT_DILEMMAS, collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
 import { SearchRequest, answerSearch } from '../../../lib/dilemmaBot/searchRequest';
 import { ThreadedSearchResponse } from '../../../lib/dilemmaBot/useSearchWorker';
-import { isLegalStack } from '../../../lib/dilemmaBot/search';
-import { dilemmaIdOf } from '../../../lib/dilemmaBot/chulaPile';
+import { isLegalPileStack } from '../../../lib/dilemmaBot/pile/search';
+import { pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 import {
   CardInstance,
   MISSION_SLOTS,
@@ -276,8 +276,10 @@ describe('Start in a bot game (#1299)', () => {
     expect(mockRequests).toHaveLength(0);
     const table = saved('bot');
     expect(table.attempt).toMatchObject({ phase: 'face', drawn: 9 });
-    const ids = table.dilemmaStack.map((c: { key: string }) => dilemmaIdOf({ collectorsinfo: c.key })!);
-    expect(isLegalStack(ids, ids, 6)).toBe(true);
+    const titles = table.dilemmaStack.map((c: { key: string }) => chulaRows.find((r) => r.collectorsinfo === c.key)!.originalName);
+    expect(titles.length).toBeGreaterThan(0);
+    const { attempt } = pileAttemptOf({ cards: [], mission: { missiontype: 's' }, placedOn: [], underMission: [], missions: [], hand: [], discard: [], turn: 1 });
+    expect(isLegalPileStack(attempt, titles, titles, 6)).toBe(true);
     expect(screen.getByTestId('undo-button')).toHaveAttribute('aria-label', expect.stringMatching(/in the stack at random/));
   });
 
