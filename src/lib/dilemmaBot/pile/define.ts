@@ -15,6 +15,8 @@ export const D: Kind = 'dual';
 export interface Extras {
   cost?: (a: PileAttempt) => number;
   leads?: boolean;
+  /** More than one copy can be in one stack (Infestation). */
+  repeatable?: boolean;
   goesUnder?: boolean;
   /** `'ignore'`: the bot takes the title out of its pile when the game starts (#1320). Absent: `'play'`. */
   status?: DilemmaModel['status'];

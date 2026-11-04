@@ -25,7 +25,15 @@ export interface PileShip {
   range: number;
   weapons: number;
   shields: number;
+  /**
+   * The staffing icons, lowercased, such as `['[cmd]', '[stf]', '[stf]']` (Rush Job). Absent:
+   * `DEFAULT_STAFFING`, a [Cmd] and four icons in all.
+   */
+  staffing?: string[];
 }
+
+/** The staffing a ship with no `staffing` has: Rush Job then stops one personnel. */
+export const DEFAULT_STAFFING = ['[cmd]', '[stf]', '[stf]', '[stf]'];
 
 /** The facts of the player's side of the table that a dilemma reads. The table has all of them. */
 export interface PileTable {
@@ -66,6 +74,19 @@ export interface PileTable {
   eventDecayMax?: number;
   /** The Trellium-D the player commands (Elemental Instability). Absent: 0. */
   trelliumD?: number;
+  /** The highest cost among the cards in the player's hand (Gorgan's label). Absent: unknown. */
+  handCostMax?: number;
+  /** The titles of the dilemmas placed on the attempted mission (Organ Theft, Pattern Loss). Absent: none. */
+  onMission?: string[];
+  /** Whether the player commands a headquarters mission in another quadrant (Local Trouble). Absent: false. */
+  headquartersOtherQuadrant?: boolean;
+  /** Whether the player has a ship at the attempted mission (Revealed, Mr. Tricorder). Absent: true. */
+  shipAtMission?: boolean;
+  /**
+   * The player's draw deck (Reflections): its size, and the events and interrupts in it. Absent: each
+   * revealed card is an event or an interrupt one time in three.
+   */
+  drawDeck?: { size: number; eventsAndInterrupts: number };
 }
 
 /** A personnel in the player's hand, as a dilemma that reveals the hand reads it. */

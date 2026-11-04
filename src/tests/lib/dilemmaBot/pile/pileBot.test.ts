@@ -93,7 +93,7 @@ describe('the registry against the pilot piles', () => {
   it('gives each model the type and the printed cost of its card', () => {
     // The dilemma rows of the card data: name, type, dilemma type and cost, read as the TSV stores them.
     const lines = readFileSync(join(ROOT, 'public/cards_with_processed_columns.txt'), 'utf-8').split('\n');
-    const cell = (c: string) => c.replace(/^"|"$/g, '');
+    const cell = (c: string) => c.replace(/^"|"$/g, '').replace(/""/g, '"');
     const head = lines[0].split('\t').map(cell);
     const at = (name: string) => head.indexOf(name);
     const rows = lines.slice(1).filter(Boolean).map((l) => l.split('\t').map(cell));

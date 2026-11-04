@@ -112,7 +112,8 @@ export function legalPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<strin
 /**
  * The number of legal ordered stacks, counted without building them. It reads each title at its own cost,
  * so it undercounts a draw with a title that changes the cost of a stack by its order or its extra budget
- * (Peremptory Plea, Entanglement): the lab and the pilot script read it only as a size.
+ * (Peremptory Plea, Entanglement), and it counts each title once, so a draw with two copies of a
+ * `repeatable` title (Infestation) has more stacks: the lab and the pilot script read it only as a size.
  */
 export function countPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<string>, n: number): number {
   const options = Array.from(new Set(modelsOf(drawn).filter((m) => fitsMission(m, attempt) && !m.leads).map((m) => m.title))).map((t) =>
