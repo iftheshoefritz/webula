@@ -41,6 +41,7 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
+import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
 import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
 import { pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 import { cardDisplayName } from '../../../lib/cardCount';
@@ -1775,8 +1776,9 @@ const CLOSED_FAN_ANCHOR = '[data-testid="flat-rows"]';
 // The content column's `p-4`.
 const CONTENT_PADDING = 16; // px
 
-// Well-Prepared Defenses, the dilemma `?fixture=bot-label` adds to the bot's pile (#1519).
-const BOT_LABEL_FIXTURE_COLLECTORS_INFO = '17V017';
+// Well-Prepared Defenses, the dilemma `?fixture=bot-label` adds to the bot's pile (#1519), by its
+// collector's info as `parseCardData` stores it.
+const BOT_LABEL_FIXTURE_COLLECTORS_INFO = collectorsKey('17V017');
 
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
