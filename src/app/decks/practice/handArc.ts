@@ -196,8 +196,9 @@ export function handArcLayout({
 // Issue #1489: the closed hand, a small face-up fan at the bottom edge of the screen, on top of the
 // bottom row. It is the arc above with smaller cards, a pile card of the bottom row
 // (`pileCardSize`), sitting lower, and it spans at most `CLOSED_FAN_CORE_CARDS` cards of the core
-// (`flatCardWidth`) however many cards the hand holds: the hand's at the left end of the core and
-// brig box, the dilemma hand's at its right end. Its cards overlap more to fit that width.
+// (`flatCardWidth`) however many cards the hand holds: the dilemma hand's at the right end of the
+// core and brig box; the hand's at its left end in the dilemma choice, and in the middle of the
+// screen everywhere else, where no dilemma hand shows (#1496). Its cards overlap more to fit that width.
 export const CLOSED_FAN_CORE_CARDS = 2;
 // How much of each card of the small fan shows above the bottom edge, as a part of the card's
 // height, at its lowest top corner. The open arc shows about half of a card three times as large, and

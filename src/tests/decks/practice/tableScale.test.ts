@@ -1,6 +1,7 @@
 import {
   ATTEMPT_GAP,
   ATTEMPT_STACK_LABEL_HEIGHT,
+  attemptStackWholeSize,
   ATTEMPT_STACK_SIDE_GAP,
   ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
   attemptPersonnelButtonsInBand,
@@ -787,7 +788,8 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
 // Issue #1365: the facing body gives the personnel the width it left empty, and the mission, the
 // facing stack and the whole dilemma choice draw exactly as before. The numbers are those of the
 // code before #1365, for an away team of 20 and a crew of 12, with cards placed on the mission, but
-// for the planet mission's choice, whose pile is the size of the mission card since #1493.
+// for the planet mission's choice, whose pile is the size of the mission card since #1493, and the
+// desktop choice's stack cards, whole cards since #1498.
 describe('the facing body takes the empty width, and the mission and the choice do not change (#1365)', () => {
   const screens = {
     667: { height: 375, tableHeight: 218, desktop: false },
@@ -798,25 +800,25 @@ describe('the facing body takes the empty width, and the mission and the choice 
       width: 667,
       space: false,
       expected: { missionScale: expect.closeTo(1.215277, 5), columnHeight: 142, placedOnWidth: 41, stackWidth: 98, stackHeight: 121 },
-      choice: { missionScale: expect.closeTo(1.215277, 5), stackWidth: 295, stackHeight: 121, stackCardWidth: 98, stackCardHeight: 87, rightWidth: 136, pileCardWidth: 87, pileCardHeight: 121, hasPile: true, shipColumnWidth: 41, shipScale: expect.closeTo(1.215277, 5), shipRows: 1 },
+      choice: { missionScale: expect.closeTo(1.215277, 5), stackWidth: 295, stackHeight: 121, stackCardWidth: 98, stackCardHeight: 87, stackWholeCards: false, rightWidth: 136, pileCardWidth: 87, pileCardHeight: 121, hasPile: true, shipColumnWidth: 41, shipScale: expect.closeTo(1.215277, 5), shipRows: 1 },
     },
     {
       width: 667,
       space: true,
       expected: { missionScale: expect.closeTo(1.215278, 5), columnHeight: 142, placedOnWidth: 41, stackWidth: 98, stackHeight: 121 },
-      choice: { missionScale: expect.closeTo(1.215278, 5), stackWidth: 390, stackHeight: 121, stackCardWidth: 120, stackCardHeight: 107, rightWidth: 41, pileCardWidth: 0, pileCardHeight: 0, hasPile: false, shipColumnWidth: 41, shipScale: expect.closeTo(1.215277, 5), shipRows: 1 },
+      choice: { missionScale: expect.closeTo(1.215278, 5), stackWidth: 390, stackHeight: 121, stackCardWidth: 120, stackCardHeight: 107, stackWholeCards: false, rightWidth: 41, pileCardWidth: 0, pileCardHeight: 0, hasPile: false, shipColumnWidth: 41, shipScale: expect.closeTo(1.215277, 5), shipRows: 1 },
     },
     {
       width: 1440,
       space: false,
       expected: { missionScale: expect.closeTo(5.048611, 5), columnHeight: 589, placedOnWidth: 94, stackWidth: 374, stackHeight: 505 },
-      choice: { missionScale: expect.closeTo(5.048611, 5), stackWidth: 410, stackHeight: 505, stackCardWidth: 136, stackCardHeight: 121, rightWidth: 465, pileCardWidth: 363, pileCardHeight: 505, hasPile: true, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
+      choice: { missionScale: expect.closeTo(5.048611, 5), stackWidth: 410, stackHeight: 505, stackCardWidth: 136, stackCardHeight: 189, stackWholeCards: true, rightWidth: 465, pileCardWidth: 363, pileCardHeight: 505, hasPile: true, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
     },
     {
       width: 1440,
       space: true,
       expected: { missionScale: expect.closeTo(3.326389, 5), columnHeight: 589, placedOnWidth: 94, stackWidth: 251, stackHeight: 333 },
-      choice: { missionScale: expect.closeTo(3.326389, 5), stackWidth: 905, stackHeight: 333, stackCardWidth: 301, stackCardHeight: 268, rightWidth: 94, pileCardWidth: 0, pileCardHeight: 0, hasPile: false, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
+      choice: { missionScale: expect.closeTo(3.326389, 5), stackWidth: 905, stackHeight: 333, stackCardWidth: 229, stackCardHeight: 319, stackWholeCards: true, rightWidth: 94, pileCardWidth: 0, pileCardHeight: 0, hasPile: false, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
     },
   ];
   it.each(cases)('keeps the sizes at $width px, space $space', ({ width, space, expected, choice }) => {
@@ -881,5 +883,31 @@ describe('the first row of the personnel is level with the mission (#1376)', () 
     expect(attemptPersonnelButtonsInBand(1)).toBe(true);
     expect(attemptPersonnelButtonsInBand(0.8)).toBe(false);
     expect(underMissionStackRoom(0.8, true)).toBeLessThan(ATTEMPT_PERSONNEL_BUTTONS_HEIGHT);
+  });
+});
+
+// Issue #1498: with a fine pointer, a card of the dilemma choice stack is the whole card.
+describe('attemptStackWholeSize (#1498)', () => {
+  it('is as tall as the zone below the label line, at 120:167', () => {
+    const { stackCardWidth, stackCardHeight } = attemptStackWholeSize(14 + 167, Infinity);
+    expect(stackCardWidth).toBe(120);
+    expect(stackCardHeight).toBe(167);
+  });
+
+  it('shrinks the width and the height together where the width is short', () => {
+    const { stackCardWidth, stackCardHeight } = attemptStackWholeSize(14 + 167, 60);
+    expect(stackCardWidth).toBe(60);
+    expect(stackCardHeight).toBe(Math.round((60 * 167) / 120));
+  });
+
+  it.each([false, true])('gives the choice whole cards on a desktop and crops on touch (space %s)', (space) => {
+    const face = computeAttemptLayout(1280, 500, true, 1, 1, { count: 12, space });
+    const desktop = computeAttemptChoiceLayout(1280, 500, true, 1, 1, face, space);
+    expect(desktop.stackWholeCards).toBe(true);
+    expect(Math.abs(desktop.stackCardHeight - (desktop.stackCardWidth * 167) / 120)).toBeLessThanOrEqual(1);
+    expect(desktop.stackCardHeight + ATTEMPT_STACK_LABEL_HEIGHT).toBeLessThanOrEqual(desktop.stackHeight);
+    expect(3 * desktop.stackCardWidth).toBeLessThanOrEqual(desktop.stackWidth + 2);
+    const touch = computeAttemptChoiceLayout(1280, 500, false, 1, 1, face, space);
+    expect(touch.stackWholeCards).toBe(false);
   });
 });

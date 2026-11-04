@@ -92,6 +92,17 @@ describe('the turn and score controls in the left column on a touch screen (#133
     expect(within(button).getByTestId('turn-counter')).toHaveTextContent('Turn 2');
   });
 
+  it('keeps the round 24 px corner buttons (#1497)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const corner = screen.getByTestId('corner-buttons');
+    for (const button of within(corner).getAllByRole('button')) {
+      expect(button).toHaveClass('btn-system', 'w-6', 'h-6');
+      expect(button).not.toHaveClass('w-full');
+    }
+  });
+
   it('still raises the turn and changes the score by SCORE_STEP within 0 to 140', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -155,11 +166,26 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
-    // `top-2`, five 24 px buttons 4 px apart, then 8 px clear: 8 + 136 + 8.
-    expect(screen.getByTestId('turn-score-column').style.top).toBe('152px');
+    // `top-2`, five 28 px buttons 4 px apart (#1497), then 8 px clear: 8 + 156 + 8.
+    expect(screen.getByTestId('turn-score-column').style.top).toBe('172px');
     expect(screen.getByTestId('corner-buttons').style.width).toBe(
       screen.getByTestId('turn-score-column').style.width,
     );
+  });
+
+  it('draws the corner buttons as wide and as tall as the next-turn button (#1497)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const next = screen.getByRole('button', { name: 'Next turn' });
+    expect(next).toHaveClass('w-full', 'h-7');
+    const corner = screen.getByTestId('corner-buttons');
+    for (const button of within(corner).getAllByRole('button')) {
+      expect(button).toHaveClass('btn-icon', 'w-full', 'h-7');
+      expect(button).not.toHaveClass('btn-icon-sm');
+    }
+    // The undo and redo column stretches to the column's width, so its full-width buttons do too.
+    expect(screen.getByTestId('undo-redo')).toHaveClass('flex-col', 'self-stretch');
   });
 
   it('still raises the turn and changes the score', async () => {

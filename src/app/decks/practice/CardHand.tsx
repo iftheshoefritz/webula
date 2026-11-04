@@ -96,14 +96,41 @@ function useArcBounds(arcBetween: { left: string; right: string } | undefined, a
   return bounds;
 }
 
-// Issue #1489: the gap of the closed fan, at one end of the element `anchor` names (the box of the
-// core and the brig), `maxWidth` wide at most, and the bottom edge of the screen. It measures on
-// mount, on every resize of the screen or of the anchor, and whenever `deps` change. Without the
-// anchor (a test that renders the hand alone) the gap is measured from that end of the screen. jsdom
-// has no layout, so an anchor of no width gives the whole `maxWidth`.
+// Issue #1489: which part of the anchor the closed fan takes. The dilemma hand takes the right end;
+// the hand takes the left end in the dilemma choice, where the dilemma hand shows, and the middle of
+// the screen everywhere else (#1496).
+export type ClosedFanSide = 'left' | 'right' | 'center';
+
+// Issue #1489, #1496: the left and right edges of the closed fan's gap, `maxWidth` wide at most (and
+// no wider than the anchor). `'left'` and `'right'` start at that end of the anchor's rect;
+// `'center'` is centred on the middle of the screen, `screenWidth / 2`, and slides inward to stay
+// inside the anchor, so the fan never covers the draw deck or the dilemma pile. With no anchor
+// rect, or one of no width (jsdom), the screen stands in for it.
+export function closedFanSpan(
+  side: ClosedFanSide,
+  rect: { left: number; right: number; width: number } | null,
+  maxWidth: number,
+  screenWidth: number,
+): { left: number; right: number } {
+  const box = rect && rect.width > 0 ? rect : { left: 0, right: screenWidth, width: screenWidth };
+  const width = rect && rect.width > 0 ? Math.min(maxWidth, rect.width) : maxWidth;
+  if (side === 'center') {
+    const ideal = screenWidth / 2 - width / 2;
+    const left = Math.max(box.left, Math.min(ideal, box.right - width));
+    return { left, right: left + width };
+  }
+  const from = rect ? (side === 'left' ? rect.left : rect.right) : side === 'left' ? 0 : screenWidth;
+  return side === 'left' ? { left: from, right: from + width } : { left: from - width, right: from };
+}
+
+// Issue #1489: the gap of the closed fan in the element `anchor` names (the box of the core and the
+// brig), placed by `closedFanSpan`, and the bottom edge of the screen. It measures on mount, on every
+// resize of the screen or of the anchor, and whenever `deps` change. Without the anchor (a test that
+// renders the hand alone) the gap is measured from the screen. jsdom has no layout, so an anchor of
+// no width gives the whole `maxWidth`.
 function useClosedFanBounds(
   anchor: string | undefined,
-  side: 'left' | 'right',
+  side: ClosedFanSide,
   maxWidth: number,
   deps: unknown[],
 ): ArcBounds | null {
@@ -112,11 +139,8 @@ function useClosedFanBounds(
     const measure = () => {
       const el = anchor ? document.querySelector(anchor) : null;
       const rect = el?.getBoundingClientRect();
-      const from = rect ? (side === 'left' ? rect.left : rect.right) : side === 'left' ? 0 : window.innerWidth;
-      const width = rect && rect.width > 0 ? Math.min(maxWidth, rect.width) : maxWidth;
       const next = {
-        left: side === 'left' ? from : from - width,
-        right: side === 'left' ? from + width : from,
+        ...closedFanSpan(side, rect ?? null, maxWidth, window.innerWidth),
         bottom: window.innerHeight,
       };
       setBounds((prev) =>
@@ -309,11 +333,12 @@ export default function CardHand({
   // The bottom-row scale (`computeBottomRowScale`, #1465): the closed fan's cards and its width grow
   // by it. Defaults to 1.
   rowScale?: number;
-  // Issue #1489: the element the closed fan sits on (the box of the core and the brig), and the end
-  // of it the fan takes: the hand the left end, the dilemma hand the right end. Left out, the fan
-  // sits at that end of the screen.
+  // Issue #1489: the element the closed fan sits on (the box of the core and the brig), and the part
+  // of it the fan takes (`closedFanSpan`): the dilemma hand the right end, the hand the left end in
+  // the dilemma choice and the middle of the screen elsewhere (#1496). Left out, the fan sits at that
+  // part of the screen.
   closedFanAnchor?: string;
-  closedFanSide?: 'left' | 'right';
+  closedFanSide?: ClosedFanSide;
 }) {
   // The closed fan's cards are pile cards (`pileCardSize`) at the bottom-row scale, and the fan
   // spans at most `CLOSED_FAN_CORE_CARDS` cards of the core (#1489).
