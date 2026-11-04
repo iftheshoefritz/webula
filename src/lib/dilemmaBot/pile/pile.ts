@@ -34,6 +34,39 @@ export function botPileOf(deckText: string): BotPile {
   return pile;
 }
 
+/** A card row as `botAffiliationsOf` reads it: the name with its subtitle, the type and the affiliation. */
+export interface DeckCardRow {
+  originalName: string;
+  type: string;
+  affiliation: string;
+}
+
+/**
+ * The bot's side for Abrasive Allies (#1513): the different affiliations, lowercased, of the personnel of
+ * a deck file's `Deck:` section. A deck line is a name and a subtitle, as the card data names a row, with
+ * a version suffix, so each line is matched to its row by `pileTitleOf`. A line with no row is left out.
+ */
+export function botAffiliationsOf(deckText: string, rows: ReadonlyArray<DeckCardRow>): string[] {
+  const byTitle = new Map<string, DeckCardRow>();
+  for (const row of rows) {
+    const title = pileTitleOf(row.originalName);
+    if (!byTitle.has(title)) byTitle.set(title, row);
+  }
+  const out = new Set<string>();
+  let section = '';
+  for (const line of deckText.split('\n')) {
+    if (/^\w+:\s*$/.test(line)) {
+      section = line.trim();
+      continue;
+    }
+    const match = /^(\d+)\t(.+?)\s*$/.exec(line);
+    if (!match || section !== 'Deck:') continue;
+    const row = byTitle.get(pileTitleOf(match[2]));
+    if (row && row.type.toLowerCase() === 'personnel' && row.affiliation) out.add(row.affiliation.toLowerCase());
+  }
+  return Array.from(out).sort();
+}
+
 type PersonnelRow = Parameters<typeof botPersonnelOf>[0] & TraitsRow;
 
 /** The printed skills of a row, indexed as `BOT_SKILLS`, and the number of skill dots: one per skill line. */

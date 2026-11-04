@@ -45,6 +45,20 @@ export interface PileTable {
   underMission: string[];
   /** The turn counter of the table. */
   turn: number;
+  /** Whether the player has completed a planet mission (The Needs of the Few). Absent: false. */
+  completedPlanetMission?: boolean;
+  /**
+   * The personnel in the player's hand (Know Thy Enemy, Compassionate Interference, Hull Breach, Last
+   * Gasp). Absent: the hand holds no personnel.
+   */
+  hand?: PileHandPersonnel[];
+}
+
+/** A personnel in the player's hand, as a dilemma that reveals the hand reads it. */
+export interface PileHandPersonnel {
+  /** The skills it has, as indexes of `BOT_SKILLS`. */
+  skills: number[];
+  strength: number;
 }
 
 /** The mission an attempt is at. */
@@ -72,6 +86,12 @@ export interface PileAttempt {
    * `partnerGroupOf`. Absent or empty: the play reads `personnel` as it is.
    */
   livePartners?: LivePartnerProfile[];
+  /**
+   * The bot's side: the different affiliations, lowercased, of the personnel of the bot deck's `Deck:`
+   * section, from `botAffiliationsOf` (Abrasive Allies). Absent: the bot's count is unknown, and the
+   * dilemma fires.
+   */
+  botAffiliations?: string[];
 }
 
 /** What one play of a stack did. Each count is of personnel. */
@@ -150,7 +170,25 @@ export interface DilemmaModel {
   assumption?: string;
   /** What the pilot does not model yet, in a few words. */
   gap?: string;
+  /** The cost the next dilemma of the stack loses, down to 0 (Peremptory Plea). */
+  discountsNext?: (attempt: PileAttempt) => number;
+  /** What it adds to the total cost the stack may spend (Entanglement: 3). */
+  extraBudget?: number;
   play: (state: import('./play').PlayState) => void;
 }
 
 export const costOf = (model: DilemmaModel, attempt: PileAttempt) => (model.cost ? model.cost(attempt) : model.printedCost);
+
+/**
+ * The total cost of an ordered stack for an attempt, less the extra budget its titles give: the stack is
+ * legal at N when this is N or less. A `discountsNext` title lowers the cost of the title after it.
+ */
+export function stackCostOf(attempt: PileAttempt, stack: ReadonlyArray<DilemmaModel>): number {
+  let total = 0;
+  let discount = 0;
+  for (const model of stack) {
+    total += Math.max(0, costOf(model, attempt) - discount) - (model.extraBudget ?? 0);
+    discount = model.discountsNext ? model.discountsNext(attempt) : 0;
+  }
+  return total;
+}
