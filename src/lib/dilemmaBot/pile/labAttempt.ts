@@ -1,7 +1,6 @@
 import { AttemptedMission } from '../gains';
-import { DILEMMA_BY_ID } from '../opponentPile';
+import { COPIES_OF_EACH, OPPONENT_DILEMMAS } from '../opponentPile';
 import { parseRequirementBranches } from '../requirements';
-import { drawDilemmas } from '../search';
 import { PlayerChoice, Rand, partnerGroupOf } from '../simulator';
 import { PileAttempt, PileTable } from './model';
 import { PilePersonnelRow } from './tableAttempt';
@@ -62,10 +61,22 @@ export function labPileAttemptOf(
   };
 }
 
+const GAME = 'Chula: The Game';
+
 /**
  * N dilemmas of the Chula pile, as titles, one per copy: 3 of each title, less the copies of Chula: The
- * Game on the mission and `underMission` other copies, the draw of `drawDilemmas` with the same randoms.
+ * Game on the mission and `underMission` other copies. A drawn 0-cost dilemma uses one of the N draws too.
  */
 export function drawLabTitles(n: number, gameOnMission: number, underMission: number, rand: Rand): string[] {
-  return drawDilemmas(n, gameOnMission, underMission, rand).map((id) => DILEMMA_BY_ID[id].title);
+  const pile = OPPONENT_DILEMMAS.flatMap((d) => Array<string>(COPIES_OF_EACH).fill(d.title));
+  for (let c = 0; c < gameOnMission; c++) pile.splice(pile.indexOf(GAME), 1);
+  for (let i = pile.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [pile[i], pile[j]] = [pile[j], pile[i]];
+  }
+  for (let u = 0; u < underMission; u++) {
+    const i = pile.findIndex((title) => title !== GAME);
+    if (i >= 0) pile.splice(i, 1);
+  }
+  return pile.slice(0, Math.max(0, n));
 }

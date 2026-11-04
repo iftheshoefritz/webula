@@ -54,7 +54,6 @@ import { toSavedGame } from '../../../app/decks/practice/savedGame';
 import { initialTableState } from '../../../app/decks/practice/tableReducer';
 import { DeckList } from '../../../types';
 import { OPPONENT_DILEMMAS, collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
-import { dilemmaIdOf } from '../../../lib/dilemmaBot/chulaPile';
 
 const pileOf = (type: string) => (type === 'mission' ? 'mission' : type === 'dilemma' ? 'dilemmaPile' : 'drawDeck');
 
@@ -132,7 +131,7 @@ const loadWholeDeck = async (name: string) => {
 // The rows of the Chula pile in the card data, so `chulaPileDeck(data)` finds all 9 cards.
 const chulaRows = OPPONENT_DILEMMAS.map((d) => {
   const key = collectorsKey(d.collectorsInfo);
-  return { collectorsinfo: key, name: d.id, originalName: d.id, imagefile: key, type: 'dilemma', pile: 'dilemmaPile' };
+  return { collectorsinfo: key, name: d.title.toLowerCase(), originalName: d.title, imagefile: key, type: 'dilemma', pile: 'dilemmaPile' };
 });
 
 let confirmSpy: jest.SpyInstance;
@@ -330,7 +329,8 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     expect(s.table.missions.filter((m: any) => m.mission)).toHaveLength(2);
     expect(s.table.drawDeck.length + s.table.hand.length).toBe(12);
     expect(s.table.dilemmaPile).toHaveLength(27);
-    expect(s.table.dilemmaPile.every((c: any) => dilemmaIdOf(s.dealtDeck[c.key]?.row) !== null)).toBe(true);
+    const chulaKeys = new Set(OPPONENT_DILEMMAS.map((d) => collectorsKey(d.collectorsInfo)));
+    expect(s.table.dilemmaPile.every((c: any) => chulaKeys.has(s.dealtDeck[c.key]?.row?.collectorsinfo))).toBe(true);
     expect(s.table.opponent).toBe('bot');
   };
 

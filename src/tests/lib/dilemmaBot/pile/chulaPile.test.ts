@@ -9,8 +9,8 @@ import { pilePersonnelOf } from '../../../../lib/dilemmaBot/pile/pile';
 import { REGISTRY } from '../../../../lib/dilemmaBot/pile/registry';
 import { beamPileSearch, legalPileStacks } from '../../../../lib/dilemmaBot/pile/search';
 
-// The Chula pile on the pile bot (#1507). The cases of the Chula bot's `playStack` (#1282, the partner
-// gains of #1357), ported: each Chula dilemma draws its randoms and traces its lines as `playStack` did.
+// The Chula pile on the pile bot (#1507). The cases of the Chula bot's play (#1282, the partner gains of
+// #1357), ported: each Chula dilemma draws its randoms and traces its lines as the Chula bot did.
 
 const GAME = 'Chula: The Game';
 const ECHOES = 'Chula: Echoes';
@@ -201,7 +201,7 @@ describe('the end of the stack', () => {
   });
 });
 
-// ---- The partner gains in a play (#1357), as `gains.test.ts` tests them on `playStack` ----
+// ---- The partner gains in a play (#1357) ----
 
 // The rows are read by hand and lowercased as `parseCardData` does: Jest does not load the real d3.
 const data = (() => {

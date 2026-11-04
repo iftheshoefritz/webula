@@ -134,7 +134,7 @@ const chulaRows = OPPONENT_DILEMMAS.map((d) => ({
   collectorsinfo: collectorsKey(d.collectorsInfo),
   originalName: d.title,
   name: d.title.toLowerCase(),
-  imagefile: `chula_${d.id}`,
+  imagefile: `chula_${collectorsKey(d.collectorsInfo)}`,
   type: 'dilemma',
   cost: d.cost,
 }));
@@ -215,7 +215,7 @@ describe('Start in a bot game (#1299)', () => {
     });
   });
 
-  it('with N 9, Draw 7 and Spend 11, draws 7 and asks chooseStack for a stack of 11, then opens the facing phase', async () => {
+  it('with N 9, Draw 7 and Spend 11, draws 7 and asks choosePileStack for a stack of 11, then opens the facing phase', async () => {
     await openPopup('bot');
     expect(screen.getByTestId('attempt-result')).toHaveTextContent('draw/spend 9');
     setField('attempt-bot-draw', '7');

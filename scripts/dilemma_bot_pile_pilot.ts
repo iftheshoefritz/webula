@@ -1,5 +1,5 @@
 // The measurements of the pilot of #1320: the pile bot against Think Tank 50's and Cardassian in Gamma
-// Quadrant. It adapts the scenario generator of #1287: a random Championship deck, one of its missions,
+// Quadrant, with the beam search of `choosePileStack`. It adapts the scenario generator of #1287: a random Championship deck, one of its missions,
 // a random group of its personnel that meets the mission, N, and a draw of N from the pile less the
 // dilemmas under the mission. Run it from the repository root:
 //
@@ -18,7 +18,6 @@ import { requirementProfileOf, seededRandom, Rand } from '../src/lib/dilemmaBot/
 import { PileAttempt, PilePersonnel } from '../src/lib/dilemmaBot/pile/model';
 import { botPileOf, pilePersonnelOf } from '../src/lib/dilemmaBot/pile/pile';
 import { REGISTRY, familyReport } from '../src/lib/dilemmaBot/pile/registry';
-import { chooseStack, drawDilemmas } from '../src/lib/dilemmaBot/search';
 import { choosePileStack, countPileStacks, randomLegalPileStack, scorePileStack } from '../src/lib/dilemmaBot/pile/search';
 
 const ROOT = process.cwd();
@@ -60,8 +59,8 @@ for (const { label, file } of MEASURED) {
   const pile = botPileOf(readFileSync(join(folder, file), 'utf-8')).played;
   const withoutBotSide = pile.filter((t) => !REGISTRY.get(t)!.category);
   console.log(`\n### ${label}: ${SCEN} scenarios for each N\n`);
-  console.log('| N | Legal stacks, median / max | Search, median / max | P(fail), best | P(fail), random legal stack | P(fail), best with the bot-side titles out of the pile | Damage of the best | Chula search, same groups, median / max |');
-  console.log('|---|---|---|---|---|---|---|---|');
+  console.log('| N | Legal stacks, median / max | Search, median / max | P(fail), best | P(fail), random legal stack | P(fail), best with the bot-side titles out of the pile | Damage of the best |');
+  console.log('|---|---|---|---|---|---|---|');
   for (const n of NS) {
     const rand = seededRandom(1320 + n);
     const counts: number[] = [];
@@ -70,7 +69,6 @@ for (const { label, file } of MEASURED) {
     const random: number[] = [];
     const ignored: number[] = [];
     const damage: number[] = [];
-    const chulaMs: number[] = [];
     let skipped = 0;
     for (let i = 0; i < SCEN; i++) {
       const sc = makeScenario(n, pile, rand);
@@ -82,10 +80,6 @@ for (const { label, file } of MEASURED) {
         skipped++;
         continue;
       }
-      // The Chula bot of #1282 on the same group and N, for a time on the same machine.
-      const c0 = performance.now();
-      chooseStack({ personnel: sc.attempt.personnel, requirements: sc.attempt.requirements, gameOnMission: 0, choice: 'best' }, drawDilemmas(n, 0, 0, seededRandom(drawSeed)), n, 1 + i);
-      chulaMs.push(performance.now() - c0);
       const t0 = performance.now();
       const result = choosePileStack(sc.attempt, drawn, n, 1 + i);
       ms.push(performance.now() - t0);
@@ -101,7 +95,7 @@ for (const { label, file } of MEASURED) {
     }
     const time = ms.length ? `${n0(q(ms, 0.5))} / ${n0(Math.max(...ms))} ms` : '–';
     console.log(
-      `| ${n} | ${n0(q(counts, 0.5))} / ${n0(Math.max(...counts))} | ${time}${skipped ? ` (${skipped} over ${n0(SEARCH_CAP)} stacks not searched)` : ''} | ${f2(mean(best))} | ${f2(mean(random))} | ${f2(mean(ignored))} | ${f2(mean(damage))} | ${chulaMs.length ? `${n0(q(chulaMs, 0.5))} / ${n0(Math.max(...chulaMs))} ms` : '–'} |`,
+      `| ${n} | ${n0(q(counts, 0.5))} / ${n0(Math.max(...counts))} | ${time}${skipped ? ` (${skipped} over ${n0(SEARCH_CAP)} stacks not searched)` : ''} | ${f2(mean(best))} | ${f2(mean(random))} | ${f2(mean(ignored))} | ${f2(mean(damage))} |`,
     );
   }
 }

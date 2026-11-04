@@ -16,18 +16,20 @@ import {
 } from '../../../lib/dilemmaBot/gains';
 import { AFFILIATION_ABBREVIATIONS } from '../../../lib/deckPlayability';
 import { BOT_SKILLS, RequirementBranch, parseRequirementBranches } from '../../../lib/dilemmaBot/requirements';
-import { chooseStack, scoreStack } from '../../../lib/dilemmaBot/search';
-import { DilemmaId } from '../../../lib/dilemmaBot/opponentPile';
-import { BotCardRow, botAttemptOf } from '../../../lib/dilemmaBot/botAttempt';
+import { LAB_TABLE } from '../../../lib/dilemmaBot/pile/labAttempt';
+import { PileAttempt, PilePersonnel } from '../../../lib/dilemmaBot/pile/model';
+import { pilePersonnelOf } from '../../../lib/dilemmaBot/pile/pile';
+import { playPileStack } from '../../../lib/dilemmaBot/pile/play';
+import { REGISTRY } from '../../../lib/dilemmaBot/pile/registry';
+import { choosePileStack, scorePileStack } from '../../../lib/dilemmaBot/pile/search';
+import { PileCardRow, PilePersonnelRow, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 import { botTableFactsOf } from '../../../app/decks/practice/attempt';
 import { CardInstance, initialTableState, MissionSlot, TableState } from '../../../app/decks/practice/tableReducer';
 import {
-  BotAttempt,
   botPersonnelOf,
   partnerGainEntriesOf,
   partnerGroupOf,
   partnerTraitsOf,
-  playStack,
   requirementProfileOf,
   seededRandom,
   withPartnerGains,
@@ -136,6 +138,23 @@ const row = (gametext: string, skills = '', attrs: [number, number, number] = [5
 });
 
 const skillOf = (skills: number[], name: string) => skills[BOT_SKILLS.indexOf(name)];
+
+type BotCardRow = PilePersonnelRow & PileCardRow;
+
+/** The pile bot's attempt of `personnel` at a plain planet mission, on the lab's table. */
+const pileAttempt = (personnel: PilePersonnel[], requirements: RequirementBranch[]): PileAttempt => ({
+  personnel,
+  requirements,
+  mission: { kind: 'planet', points: 35, span: 2, nebula: false },
+  table: LAB_TABLE,
+  gameOnMission: 0,
+  choice: 'best',
+});
+const playTitles = (attempt: PileAttempt, titles: string[], rand: () => number) =>
+  playPileStack(attempt, titles.map((t) => REGISTRY.get(t)!), rand);
+/** The table's attempt of `cards` at `mission`, on a table with nothing else on it. */
+const tableAttemptOf = (cards: { card: BotCardRow; stopped?: boolean }[], mission: PileCardRow) =>
+  pileAttemptOf({ cards, mission, placedOn: [], underMission: [], missions: [], hand: [], discard: [], turn: 1 }).attempt;
 
 describe('parseGains', () => {
   it('reads an attribute change and a skill list with a level', () => {
@@ -366,39 +385,29 @@ describe('the two profiles in a play', () => {
   it('counts a gained skill in a dilemma check and not in the requirements check', () => {
     // Trickery stops all three unless they have 2 Officer: two of them gain Officer while facing it.
     const officer = 'while this personnel is facing a dilemma, he gains officer.';
-    const group = [botPersonnelOf(row(officer)), botPersonnelOf(row(officer)), botPersonnelOf(row(MEDICAL))];
-    const attempt: BotAttempt = {
-      personnel: group,
-      requirements: parseRequirementBranches('2 Officer, Medical')!,
-      gameOnMission: 0,
-      choice: 'best',
-    };
-    const result = playStack(attempt, ['trickery'], seededRandom(1));
+    const group = [pilePersonnelOf(row(officer)), pilePersonnelOf(row(officer)), pilePersonnelOf(row(MEDICAL))];
+    const attempt = pileAttempt(group, parseRequirementBranches('2 Officer, Medical')!);
+    const result = playTitles(attempt, ['Chula: Trickery'], seededRandom(1));
     expect(result.stopped).toBe(0);
     // The group meets 2 Officer and Medical only with the gains, which the requirements check leaves out.
     expect(result.fail).toBe(true);
 
-    const plain = { ...attempt, personnel: [row(''), row(''), row('')].map((c) => botPersonnelOf(c)) };
-    expect(playStack(plain, ['trickery'], seededRandom(1)).stopped).toBe(3);
+    const plain = { ...attempt, personnel: [row(''), row(''), row('')].map((c) => pilePersonnelOf(c)) };
+    expect(playTitles(plain, ['Chula: Trickery'], seededRandom(1)).stopped).toBe(3);
   });
 
   it('changes a dilemma attribute check and not the requirements check', () => {
     // Move Along Home stops all three when the highest Strength is even: 7 + 2 = 9 is odd.
     const strength = 'while this personnel is facing a dilemma, he is strength +2.';
-    const group = [row(strength, '', [5, 5, 7]), row(strength, '', [5, 5, 7]), row(strength, '', [5, 5, 7])].map((c) => botPersonnelOf(c));
-    const attempt: BotAttempt = {
-      personnel: group,
-      requirements: parseRequirementBranches('Strength>21')!,
-      gameOnMission: 0,
-      choice: 'best',
-    };
-    const result = playStack(attempt, ['moveAlongHome'], seededRandom(1));
+    const group = [row(strength, '', [5, 5, 7]), row(strength, '', [5, 5, 7]), row(strength, '', [5, 5, 7])].map((c) => pilePersonnelOf(c));
+    const attempt = pileAttempt(group, parseRequirementBranches('Strength>21')!);
+    const result = playTitles(attempt, ['Chula: Move Along Home'], seededRandom(1));
     expect(result.stopped).toBe(0);
     // 3 × 7 = 21 is not above 21; the gained 3 × 9 = 27 would be.
     expect(result.fail).toBe(true);
 
-    const even = { ...attempt, personnel: [row('', '', [5, 5, 8]), row('', '', [5, 5, 8]), row('', '', [5, 5, 8])].map((c) => botPersonnelOf(c)) };
-    expect(playStack(even, ['moveAlongHome'], seededRandom(1)).stopped).toBe(3);
+    const even = { ...attempt, personnel: [row('', '', [5, 5, 8]), row('', '', [5, 5, 8]), row('', '', [5, 5, 8])].map((c) => pilePersonnelOf(c)) };
+    expect(playTitles(even, ['Chula: Move Along Home'], seededRandom(1)).stopped).toBe(3);
   });
 });
 
@@ -437,36 +446,31 @@ describe('the gains while attempting a mission (#1350)', () => {
     const strength = 'while this personnel is attempting a space mission, he is strength +1 and gains navigation.';
     const group = (mission: typeof SPACE) =>
       [row(strength, '', [5, 5, 8]), row(strength, '', [5, 5, 8]), row(strength, '', [5, 5, 8])].map((c) =>
-        botPersonnelOf(c, mission),
+        pilePersonnelOf(c, mission),
       );
-    const attempt = (mission: typeof SPACE): BotAttempt => ({
-      personnel: group(mission),
-      // 3 × 8 = 24 is not above 24, and the base crew has no Navigation.
-      requirements: parseRequirementBranches('Navigation, Strength>24')!,
-      gameOnMission: 0,
-      choice: 'best',
-    });
+    // 3 × 8 = 24 is not above 24, and the base crew has no Navigation.
+    const attempt = (mission: typeof SPACE) => pileAttempt(group(mission), parseRequirementBranches('Navigation, Strength>24')!);
 
-    const space = playStack(attempt(SPACE), ['moveAlongHome'], seededRandom(1));
+    const space = playTitles(attempt(SPACE), ['Chula: Move Along Home'], seededRandom(1));
     expect(space).toMatchObject({ stopped: 0, fail: false });
 
-    const planet = playStack(attempt(PLANET), ['moveAlongHome'], seededRandom(1));
+    const planet = playTitles(attempt(PLANET), ['Chula: Move Along Home'], seededRandom(1));
     expect(planet.stopped).toBe(3);
     expect(planet.fail).toBe(true);
-    expect(playStack(attempt(PLANET), [], seededRandom(1)).fail).toBe(true);
+    expect(playTitles(attempt(PLANET), [], seededRandom(1)).fail).toBe(true);
   });
 
   it('gives the table and the lab the same profiles for the same crew at the same mission', () => {
     const byName = (name: string) => data.find((c) => c.originalName === name)!;
     const riker = { ...byName('William T. Riker Wistful Admiral'), type: 'personnel' } as unknown as BotCardRow;
     const mission = { ...data.find((c) => c.type === 'mission' && c.mission === 's' && c.skills)!, missiontype: 's' };
-    const table = botAttemptOf([{ card: riker }], mission, []) as BotAttempt;
-    expect(table.personnel).toEqual([botPersonnelOf(riker, attemptedMissionOf(mission))]);
+    const table = tableAttemptOf([{ card: riker }], mission);
+    expect(table.personnel).toEqual([pilePersonnelOf(riker, attemptedMissionOf(mission))]);
     expect(requirementProfileOf(table.personnel[0]).skills).not.toEqual(requirementProfileOf(botPersonnelOf(riker)).skills);
 
     const planet = { ...mission, missiontype: 'p' };
-    const atPlanet = botAttemptOf([{ card: riker }], planet, []) as BotAttempt;
-    expect(atPlanet.personnel).toEqual([botPersonnelOf(riker)]);
+    const atPlanet = tableAttemptOf([{ card: riker }], planet);
+    expect(atPlanet.personnel).toEqual([pilePersonnelOf(riker)]);
   });
 });
 
@@ -621,110 +625,31 @@ describe('the partner gains of a group (#1356)', () => {
   it('gives the table and the lab the same profiles for the same crew', () => {
     const found = data.find((c) => c.type === 'mission' && c.skills)!;
     const mission = { ...found, missiontype: found.mission };
-    const table = botAttemptOf([{ card: troi }, { card: dissident }, { card: plain }], mission, []) as BotAttempt;
-    const lab = withPartnerGains([troi, dissident, plain].map((c) => botPersonnelOf(c, attemptedMissionOf(mission))));
+    const table = tableAttemptOf([{ card: troi }, { card: dissident }, { card: plain }], mission);
+    const lab = partnerGroupOf([troi, dissident, plain].map((c) => pilePersonnelOf(c, attemptedMissionOf(mission)))).personnel;
     expect(table.personnel).toEqual(lab);
     expect(skillOf(requirementProfileOf(table.personnel[0]).skills, 'leadership')).toBe(1);
 
     // A stopped Dissident is left out of the group, so Troi has no partner.
-    const stopped = botAttemptOf([{ card: troi }, { card: dissident, stopped: true }], mission, []) as BotAttempt;
+    const stopped = tableAttemptOf([{ card: troi }, { card: dissident, stopped: true }], mission);
     expect(skillOf(requirementProfileOf(stopped.personnel[0]).skills, 'leadership')).toBe(0);
   });
 });
 
 describe('the partner gains in a play (#1357)', () => {
+  // The cases that play a stack are in `pile/chulaPile.test.ts`, on the pile play (#1507).
   const byName = (name: string) => ({ ...data.find((c) => c.originalName === name)!, type: 'personnel' }) as unknown as BotCardRow;
   const troi = byName('Deanna Troi Major Rakal'); // 6/5/4; with a Dissident 7/6/5 and Intelligence, Leadership, Security
   const dissident = byName('N\'Vek Soldier of the Underground'); // [Rom], Dissident, 4/5/6
   const jural = byName('Jural'); // 4/6/5, no Security
-  const tuvok = byName('Tuvok Undercover'); // 6/7/7; facing with a [Maq] 7/8/8 and Intelligence
-  const maquis = byName('Cal Hudson Convincing Recruiter'); // [Maq], 4/6/6
-  // A personnel with no partner text, Integrity 4 and Cunning 4.
-  const low = data.find(
-    (c) => c.type === 'personnel' && c.integrity === '4' && c.cunning === '4' && !c.gametext.includes('present'),
-  )! as unknown as BotCardRow;
-
-  /** `rand` that returns `values` in turn, then 0. */
-  const scripted = (...values: number[]) => () => values.shift() ?? 0;
-  const branch = (skill: string): RequirementBranch[] => [
-    { skills: BOT_SKILLS.map((s) => (s === skill ? 1 : 0)), attrs: [-1, -1, -1] },
-  ];
-  const attemptOf = (cards: BotCardRow[], requirements: RequirementBranch[] = [], gameOnMission = 0): BotAttempt => ({
-    ...partnerGroupOf(cards.map((c) => botPersonnelOf(c))),
-    requirements,
-    gameOnMission,
-    choice: 'best',
-  });
-  const traceOf = (attempt: BotAttempt, stack: DilemmaId[], rand: () => number) => {
-    const lines: string[] = [];
-    const result = playStack(attempt, stack, rand, (line) => lines.push(line));
-    return { ...result, lines };
-  };
+  const groupOf = (cards: BotCardRow[]) => partnerGroupOf(cards.map((c) => botPersonnelOf(c)));
 
   it('keeps live data only for the personnel with a gain some partners can meet', () => {
-    const { livePartners } = attemptOf([troi, dissident, jural]);
+    const { livePartners } = groupOf([troi, dissident, jural]);
     expect(livePartners).toEqual([expect.objectContaining({ personnel: 0, gains: [expect.objectContaining({ partners: [1], count: 1, attempting: true })] })]);
     expect(livePartners![0].base.attrs).toEqual([6, 5, 4]);
     // Jural needs a Gul, and nobody is one.
-    expect(attemptOf([troi, jural]).livePartners).toBeUndefined();
-  });
-
-  it('counts Troi\'s gain at the first dilemma, with the Dissident unstopped', () => {
-    const { lines } = traceOf(attemptOf([troi, dissident, jural]), ['unfortunateRoll'], scripted());
-    expect(lines.some((l) => l.includes('total Integrity 15: stops Deanna Troi'))).toBe(true);
-  });
-
-  it('checks the dilemma that stops the Dissident with the gain', () => {
-    const attempt = attemptOf([troi, dissident, low]);
-    const { lines } = traceOf(attempt, ['echoes'], scripted());
-    expect(lines.some((l) => l.includes('highest Cunning 6') && l.includes('stops'))).toBe(true);
-  });
-
-  it('drops the gain from the next dilemma on, after Echoes stops the Dissident', () => {
-    const attempt = attemptOf([troi, dissident, jural, maquis]);
-    // Echoes selects the Dissident, Jural and Cal Hudson: highest Cunning 6, even, so it stops them.
-    const { lines } = traceOf(attempt, ['echoes', 'unfortunateRoll'], scripted(0.3, 0.4, 0.6));
-    expect(lines.some((l) => l.includes('highest Cunning 6') && l.includes('stops') && !l.includes('Troi'))).toBe(true);
-    expect(lines.some((l) => l.includes('total Integrity 6: even, no effect'))).toBe(true);
-  });
-
-  it('drops the gain at the dilemma after Chula: The Game stops the Dissident', () => {
-    // The copy on the mission stops pool[1], the Dissident, before the first dilemma.
-    const { lines } = traceOf(attemptOf([troi, dissident, jural], [], 1), ['unfortunateRoll'], scripted(0.4));
-    expect(lines.some((l) => l.includes('Chula: The Game on the mission stops N\'Vek'))).toBe(true);
-    expect(lines.some((l) => l.includes('total Integrity 10: even, no effect'))).toBe(true);
-  });
-
-  it('meets a requirement only Troi\'s gain gives while the Dissident is unstopped after the last dilemma', () => {
-    const security = branch('security');
-    expect(playStack(attemptOf([troi, dissident, jural], security), [], scripted()).fail).toBe(false);
-    // The copy of Chula: The Game stops pool[1], the Dissident, then pool[2] of the rest, Jural.
-    expect(playStack(attemptOf([troi, dissident, jural], security, 1), ['game'], scripted(0.4)).fail).toBe(true);
-    expect(playStack(attemptOf([troi, dissident, jural], security, 1), ['game'], scripted(0.9)).fail).toBe(false);
-  });
-
-  it('predicts the requirements check in Pick One to Save Two with the gains of the set it tests', () => {
-    // The selection is Troi, the Dissident and Jural, in that order. Returning the Dissident ends the gain.
-    const { fail, lines } = traceOf(attemptOf([troi, dissident, jural], branch('security')), ['pickOne'], scripted());
-    expect(lines.some((l) => l.endsWith('the player returns Jural to the hand'))).toBe(true);
-    expect(fail).toBe(false);
-  });
-
-  it('drops the gain from the next dilemma on, after Pick One returns the Dissident', () => {
-    const attempt = { ...attemptOf([troi, dissident, jural]), choice: 'random' as const };
-    const { lines } = traceOf(attempt, ['pickOne', 'unfortunateRoll'], scripted(0, 0, 0, 0.5));
-    expect(lines.some((l) => l.includes('the player returns N\'Vek'))).toBe(true);
-    expect(lines.some((l) => l.includes('total Integrity 10: even, no effect'))).toBe(true);
-  });
-
-  it('drops Tuvok\'s gain in the dilemma checks when his [Maq] partner is stopped, and never counts it in the requirements', () => {
-    const lowIntegrity = botPersonnelOf(low).attrs[0];
-    const attempt = attemptOf([tuvok, maquis, low], branch('intelligence'), 1);
-    const { fail, lines } = traceOf(attempt, ['unfortunateRoll'], scripted(0.4));
-    expect(lines.some((l) => l.includes('Chula: The Game on the mission stops Cal Hudson'))).toBe(true);
-    expect(lines.some((l) => l.includes(`total Integrity ${6 + lowIntegrity}`))).toBe(true);
-    expect(fail).toBe(true);
-    expect(playStack(attemptOf([tuvok, maquis, low], branch('intelligence')), [], scripted()).fail).toBe(true);
+    expect(groupOf([troi, jural]).livePartners).toBeUndefined();
   });
 
   describe('a crew with no "present with" text', () => {
@@ -733,24 +658,21 @@ describe('the partner gains in a play (#1357)', () => {
       .slice(0, 12) as unknown as BotCardRow[];
     const found = data.find((c) => c.type === 'mission' && c.skills && parseRequirementBranches(c.skills))!;
     const mission = { ...found, missiontype: found.mission };
-    const drawn: DilemmaId[] = ['echoes', 'dice', 'pickOne', 'chandra', 'trickery', 'unfortunateRoll', 'precipice', 'game', 'moveAlongHome', 'echoes', 'dice', 'pickOne'];
+    const drawn = ['Echoes', 'The Dice', 'Pick One to Save Two', 'The Chandra', 'Trickery', 'Unfortunate Roll', 'The Precipice', 'The Game', 'Move Along Home', 'Echoes', 'The Dice', 'Pick One to Save Two'].map(
+      (t) => `Chula: ${t}`,
+    );
 
     it('carries no partner data, and plays as a hand-built attempt of the same personnel', () => {
-      const table = botAttemptOf(crew.map((card) => ({ card })), mission, []) as BotAttempt;
+      const table = tableAttemptOf(crew.map((card) => ({ card })), mission);
       expect(table.livePartners).toBeUndefined();
-      const hand: BotAttempt = {
-        personnel: crew.map((c) => botPersonnelOf(c, attemptedMissionOf(mission))),
-        requirements: table.requirements,
-        gameOnMission: 0,
-        choice: 'best',
-      };
-      expect(scoreStack(table, drawn.slice(0, 6), 200, 3)).toEqual(scoreStack(hand, drawn.slice(0, 6), 200, 3));
+      const hand: PileAttempt = { ...table, personnel: crew.map((c) => pilePersonnelOf(c, attemptedMissionOf(mission))) };
+      expect(scorePileStack(table, drawn.slice(0, 6), 200, 3)).toEqual(scorePileStack(hand, drawn.slice(0, 6), 200, 3));
     });
 
     it('chooses a stack for 12 personnel within a generous time bound', () => {
-      const table = botAttemptOf(crew.map((card) => ({ card })), mission, []) as BotAttempt;
+      const table = tableAttemptOf(crew.map((card) => ({ card })), mission);
       const start = Date.now();
-      chooseStack(table, drawn, 12, 1);
+      choosePileStack(table, drawn, 12, 1);
       expect(Date.now() - start).toBeLessThan(20000);
     });
   });

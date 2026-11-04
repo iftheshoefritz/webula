@@ -1,12 +1,18 @@
-import { CANNOT_FAIL, CONFIDENT, DecisionMode, FULL_PLAYS, SearchMethod } from '../search';
 import { Rand, seededRandom } from '../simulator';
 import { DilemmaModel, PileAttempt, PileResult, costOf, lastingDamage, stackCostOf } from './model';
 import { playPileStack } from './play';
 import { REGISTRY } from './registry';
 
-// The search of the pile bot (#1320, the pilot). The same search as the Chula bot's (#1282): every legal
-// ordered stack, scored by P(fail), then the lasting damage, then the dilemmas under the mission. What
-// changes is the legality, which reads the registry, and the damage, which uses the weights of #1320.
+// The search of the pile bot (#1320): a beam search over the legal ordered stacks, each scored by
+// P(fail), then the lasting damage, then the dilemmas under the mission (#1282). The legality reads the
+// registry, and the damage uses the weights of #1320.
+
+/** From this P(fail) the bot is confident, and takes the most lasting damage among the sure stacks. */
+export const CONFIDENT = 0.9;
+/** Below this best P(fail) no stack can fail the attempt, and the bot takes the most lasting damage. */
+export const CANNOT_FAIL = 0.05;
+
+export type DecisionMode = 'confident' | 'probability' | 'cannot-fail';
 
 /**
  * The models of the drawn titles the search tries: a title the registry lacks is left out, and so is a
@@ -106,7 +112,7 @@ export function legalPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<strin
 /**
  * The number of legal ordered stacks, counted without building them. It reads each title at its own cost,
  * so it undercounts a draw with a title that changes the cost of a stack by its order or its extra budget
- * (Peremptory Plea, Entanglement): the pilot scripts read it only as a size.
+ * (Peremptory Plea, Entanglement): the lab and the pilot script read it only as a size.
  */
 export function countPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<string>, n: number): number {
   const options = Array.from(new Set(modelsOf(drawn).filter((m) => fitsMission(m, attempt) && !m.leads).map((m) => m.title))).map((t) =>
@@ -160,7 +166,7 @@ const byDamage = (a: PileStackScore, b: PileStackScore) => b.damage - a.damage |
 
 /** Rank the scores, best first, by the rules of #1282. */
 export function rankPileScores(scores: PileStackScore[]): { mode: DecisionMode; ranked: PileStackScore[] } {
-  // A reduce, not Math.max(...): the fast search ranks up to several hundred thousand scores.
+  // A reduce, not Math.max(...): a long list of scores would overflow the stack of the call.
   const best = scores.reduce((m, s) => Math.max(m, s.pFail), 0);
   if (best < CANNOT_FAIL) return { mode: 'cannot-fail', ranked: scores.slice().sort(byDamage) };
   if (best >= CONFIDENT) {
@@ -171,37 +177,13 @@ export function rankPileScores(scores: PileStackScore[]): { mode: DecisionMode; 
   return { mode: 'probability', ranked: scores.slice().sort((a, b) => b.pFail - a.pFail || byDamage(a, b)) };
 }
 
-/** The full and the fast search of the Chula bot, and the beam search of the pile bot. */
-export type PileSearchMethod = SearchMethod | 'beam';
-
 export interface PileSearchResult {
-  method: PileSearchMethod;
+  method: 'beam';
   mode: DecisionMode;
   best: PileStackScore;
   ranked: PileStackScore[];
   stackCount: number;
   plays: number;
-}
-
-export function fullPileSearch(attempt: PileAttempt, stacks: string[][], plays = FULL_PLAYS, seed = 1, drawnCount = 0): PileSearchResult {
-  const { mode, ranked } = rankPileScores(stacks.map((s) => scorePileStack(attempt, s, plays, seed, drawnCount)));
-  return { method: 'full', mode, best: ranked[0], ranked, stackCount: stacks.length, plays: stacks.length * plays };
-}
-
-/** 8 plays for every stack, then keep the best third and double the plays, until 4 stacks are left. */
-export function fastPileSearch(attempt: PileAttempt, stacks: string[][], seed = 1, finalPlays = 400, drawnCount = 0): PileSearchResult {
-  let candidates = stacks;
-  let plays = 8;
-  let total = 0;
-  while (candidates.length > 4) {
-    const { ranked } = rankPileScores(candidates.map((s) => scorePileStack(attempt, s, plays, seed, drawnCount)));
-    total += candidates.length * plays;
-    candidates = ranked.slice(0, Math.max(4, Math.ceil(ranked.length / 3))).map((s) => s.stack);
-    plays *= 2;
-  }
-  const { mode, ranked } = rankPileScores(candidates.map((s) => scorePileStack(attempt, s, finalPlays, seed, drawnCount)));
-  total += candidates.length * finalPlays;
-  return { method: 'fast', mode, best: ranked[0], ranked, stackCount: stacks.length, plays: total };
 }
 
 export interface BeamOptions {
@@ -222,7 +204,7 @@ export const BEAM_DEFAULTS: BeamOptions = { width: 20, plays: 32, finalists: 6, 
  * best `width`, grow each of those by every title that still fits N, at every position, score the new
  * stacks, keep the best `width` again, until nothing fits. Every stack scored stays a candidate, so a short stack can
  * still win. The `finalists` best candidates then get `finalPlays` each. Its cost grows with N and the
- * width, never with the number of legal stacks. Every stack uses the same seeds, as the full search does.
+ * width, never with the number of legal stacks. Every stack uses the same seeds, so two stacks compare fairly.
  */
 export function beamPileSearch(
   attempt: PileAttempt,
@@ -286,9 +268,9 @@ export function beamPileSearch(
 }
 
 /**
- * The bot's choice, as `chooseStack` of the Chula bot: the beam search, for every draw. It lost no
- * P(fail) against the full search at any N of the beam pilot, 2 to 12, and its slowest search at N = 12
- * took under a second (#1320). The full and the fast search stay for the pilot scripts.
+ * The bot's choice: the beam search, for every draw. It lost no P(fail) against a search of every legal
+ * stack at any N of the beam pilot, 2 to 12, and its slowest search at N = 12 took under a second
+ * (#1320, #1503).
  */
 export function choosePileStack(attempt: PileAttempt, drawn: string[], n: number, seed = 1): PileSearchResult {
   return beamPileSearch(attempt, drawn, n, seed);

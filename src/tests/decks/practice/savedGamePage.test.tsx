@@ -399,7 +399,7 @@ describe('Saved practice game (#976)', () => {
       collectorsinfo: collectorsKey(d.collectorsInfo),
       originalName: d.title,
       name: d.title.toLowerCase(),
-      imagefile: `chula_${d.id}`,
+      imagefile: `chula_${collectorsKey(d.collectorsInfo)}`,
       type: 'dilemma',
     }));
     const chulaKeys = new Set(chulaRows.map((r) => r.collectorsinfo));
