@@ -13,7 +13,7 @@ import {
   partnerGroupOf,
 } from '../lib/dilemmaBot/simulator';
 import { SearchResult, StackScore, drawDilemmas, legalStacks } from '../lib/dilemmaBot/search';
-import type { SearchRequest, SearchResponse } from '../lib/dilemmaBot/searchRequest';
+import type { LabSearchResponse, SearchRequest } from '../lib/dilemmaBot/searchRequest';
 import { ThreadedSearchResponse, useSearchWorker } from '../lib/dilemmaBot/useSearchWorker';
 import type { AttemptedMission } from '../lib/dilemmaBot/gains';
 import type { CardData } from '../lib/loadCards';
@@ -71,11 +71,11 @@ const title = (id: DilemmaId) => DILEMMA_BY_ID[id].title;
 const stackText = (stack: DilemmaId[]) => (stack.length ? stack.map(title).join(' → ') : '(no dilemmas)');
 const pct = (p: number) => `${(p * 100).toFixed(1)}%`;
 
-/** A search result, and the thread it ran on. */
-type LabResponse = ThreadedSearchResponse;
-
 /** The lab's two searches; `'table'` is the practice table's. */
 type LabKind = Exclude<SearchRequest['kind'], 'table'>;
+
+/** A search result, and the thread it ran on. */
+type LabResponse = Extract<ThreadedSearchResponse, { kind: LabKind }>;
 
 export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCards }: Props) {
   const byName = useMemo(() => new Map(personnel.map((p) => [p.originalName, p])), [personnel]);
@@ -138,7 +138,7 @@ export default function DilemmaLabClient({ missions, personnel, decks, dilemmaCa
   }
 
   const search = useSearchWorker((response) => {
-    if (response.id !== requestId.current) return;
+    if (response.id !== requestId.current || response.kind === 'table') return;
     if (response.kind === 'choose') setChosen(response);
     else setFull(response);
     setRunning(null);
@@ -633,7 +633,7 @@ function RankTable({ ranked, caption }: { ranked: StackScore[]; caption: string 
   );
 }
 
-function Comparison({ chosen, full }: { chosen: SearchResult; full: SearchResponse }) {
+function Comparison({ chosen, full }: { chosen: SearchResult; full: LabSearchResponse }) {
   const key = (s: DilemmaId[]) => s.join(',');
   const truth = full.result.best;
   const sameStack = key(chosen.best.stack) === key(truth.stack);

@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react';
-import { RANDOM_CHOICE, botAttemptOf, drawnDilemmaIds, stackCardIds } from '../../../lib/dilemmaBot/botAttempt';
-import { DilemmaId } from '../../../lib/dilemmaBot/opponentPile';
-import { randomLegalStack } from '../../../lib/dilemmaBot/search';
-import { SearchRequest, answerSearch } from '../../../lib/dilemmaBot/searchRequest';
+import { drawnPileTitles, pileAttemptOf, pileStackCardIds } from '../../../lib/dilemmaBot/pile/tableAttempt';
+import { randomLegalPileStack } from '../../../lib/dilemmaBot/pile/search';
+import { TableSearchRequest, answerSearch } from '../../../lib/dilemmaBot/searchRequest';
 import { seededRandom } from '../../../lib/dilemmaBot/simulator';
 import { useSearchWorker } from '../../../lib/dilemmaBot/useSearchWorker';
 import { useLatest } from '../../../hooks/useLatest';
@@ -21,12 +20,12 @@ interface Pending {
   table: TableState;
   action: Omit<BotAttemptAction, 'stack' | 'random'>;
   drawn: CardInstance[];
-  request: SearchRequest;
+  request: TableSearchRequest;
 }
 
 /**
  * Start in a bot game (#1299). `start` draws the bot's dilemmas from the table, without touching it,
- * and asks the search of the dilemma bot for the stack. While the search runs, `choosing` is true.
+ * and asks the beam search of the pile bot for the stack (#1508). While the search runs, `choosing` is true.
  * The reply becomes one `botAttempt` action, handed to `onAction`, only when it answers the request
  * still pending and the table has not changed since. `cancel` drops the request. With nothing drawn,
  * or a mission whose requirements the bot cannot read, `start` hands the action over at once.
@@ -43,16 +42,18 @@ export function useBotAttemptStart(table: TableState, onAction: (action: BotAtte
     setChoosing(false);
   };
 
-  const finish = (id: number, stack: DilemmaId[]) => {
+  const finish = (id: number, stack: string[]) => {
     const p = pending.current;
     if (!p || p.id !== id) return;
     clear();
     if (tableRef.current !== p.table) return;
-    onActionRef.current({ ...p.action, stack: stackCardIds(p.drawn, stack), random: false });
+    onActionRef.current({ ...p.action, stack: pileStackCardIds(p.drawn, stack), random: false });
   };
 
   const post = useSearchWorker(
-    (response) => finish(response.id, response.result.best.stack),
+    (response) => {
+      if (response.kind === 'table') finish(response.id, response.result.best.stack);
+    },
     // A worker that fails answers on the main thread, so the popup never waits for ever.
     () => {
       const p = pending.current;
@@ -64,22 +65,31 @@ export function useBotAttemptStart(table: TableState, onAction: (action: BotAtte
     if (pending.current) return;
     const { drawn, pile } = drawFromDilemmaPile(table.dilemmaPile, fields.botDraw);
     const action = { type: 'botAttempt' as const, ...fields, pile, drawn: drawn.map((c) => c.id) };
-    const ids = drawnDilemmaIds(drawn.map((c) => c.card));
+    const titles = drawnPileTitles(drawn.map((c) => c.card));
     const slot = table.missions[fields.missionIndex];
-    const cards = attemptingCards(table, fields.missionIndex, fields.shipId) ?? [];
-    const placedOn = (slot?.mission?.placedOn ?? []).map((c) => c.card);
-    const attempt = botAttemptOf(cards, slot?.mission?.card ?? {}, placedOn, botTableFactsOf(table));
-    if (attempt === RANDOM_CHOICE) {
-      const stack = ids.length ? randomLegalStack(ids, fields.botSpend, seededRandom(seed)) : [];
-      onActionRef.current({ ...action, stack: stackCardIds(drawn, stack), random: true });
+    const { attempt, random } = pileAttemptOf({
+      cards: attemptingCards(table, fields.missionIndex, fields.shipId) ?? [],
+      mission: slot?.mission?.card,
+      ship: slot?.ships.find((s) => s.id === fields.shipId)?.card,
+      placedOn: (slot?.mission?.placedOn ?? []).map((c) => c.card),
+      underMission: (slot?.underMission ?? []).map((c) => c.card),
+      missions: table.missions.map((s) => ({ mission: s.mission?.card, completed: s.completed })),
+      hand: table.hand.map((c) => c.card),
+      discard: table.discard.map((c) => c.card),
+      turn: table.turn,
+      facts: botTableFactsOf(table),
+    });
+    if (random) {
+      const stack = titles.length ? randomLegalPileStack(attempt, titles, fields.botSpend, seededRandom(seed)) : [];
+      onActionRef.current({ ...action, stack: pileStackCardIds(drawn, stack), random: true });
       return;
     }
-    if (!ids.length) {
+    if (!titles.length) {
       onActionRef.current({ ...action, stack: [], random: false });
       return;
     }
     const id = ++nextId.current;
-    const request: SearchRequest = { id, kind: 'table', attempt, drawn: ids, n: fields.botSpend, seed };
+    const request: TableSearchRequest = { id, kind: 'table', attempt, drawn: titles, n: fields.botSpend, seed };
     pending.current = { id, table, action, drawn, request };
     setChoosing(true);
     post(request);
