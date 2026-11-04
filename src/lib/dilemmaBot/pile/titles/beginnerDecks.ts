@@ -106,7 +106,7 @@ dilemma('Mark of Gideon', D, 3, 'own', (s) => {
   s.returnToHand([k]);
   s.returnToHand(s.botChooses(s.unstopped()));
   if (remaining >= 10) s.returnToHand(s.botChooses(s.unstopped()));
-}, { gap: '"nine personnel remaining" is read as nine or more, counted after the first is selected' });
+}, { assumption: '"nine personnel remaining" is nine or more, counted after the first is selected (#1518)' });
 
 dilemma('No Kill I', P, 2, 'stop-all', stopAll);
 

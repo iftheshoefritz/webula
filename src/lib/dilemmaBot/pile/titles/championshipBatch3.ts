@@ -1,5 +1,8 @@
 import { BOT_SKILLS, RequirementBranch } from '../../requirements';
 import {
+  handWeapons,
+  otherEquipment,
+  thenReturns,
   botChooses,
   chooseOrElse,
   either,
@@ -30,7 +33,6 @@ import { D, P, S, dilemmaList, mostHeldSkill } from '../define';
 
 const { models, dilemma } = dilemmaList();
 
-const RETURNS = 'the return to the dilemma pile is not modelled; it always goes under';
 const BOTTOM_OF_DECK = 'a personnel placed on the bottom of the deck counts as killed';
 const ALL_SKILLS = BOT_SKILLS.map((_, i) => i);
 
@@ -120,9 +122,9 @@ dilemma('Warm Welcome', D, 0, 'unless', unlessGroup(
     const officers = req('2 Officer');
     return (s: PlayState) => s.unstopped().filter((k) => iconIs('[cmd]')(s, k)).length >= 3 || s.has(officers);
   })(),
-  playerDiscards(1),
+  thenReturns(playerDiscards(1)),
   '3 [Cmd] personnel or 2 Officer',
-), { cost: (a) => (a.personnel.length >= 6 ? 3 : 0), gap: `${BOTTOM_OF_DECK}; ${RETURNS}` });
+), { cost: (a) => (a.personnel.length >= 6 ? 3 : 0), gap: BOTTOM_OF_DECK });
 
 // ---- The choices the bot makes during the attempt ----
 
@@ -160,7 +162,7 @@ dilemma('The Clown: Bitter Medicine', D, 4, 'changes-later', (s) => {
   s.attrLoss = lossOf(named);
   s.label(`Named ${skillName(named)}`);
   s.trace?.(`  each personnel with ${skillName(named)} is attributes -2`);
-}, { goesUnder: false, gap: RETURNS });
+}, { goesUnder: false, gap: 'it returns to the dilemma pile at the end of the turn' });
 
 // No family fits: the requirements' attributes all move to the one the bot names.
 dilemma('The Clown: On His Throne', D, 4, 'changes-later', (s) => {
@@ -225,11 +227,13 @@ dilemma('The Phage', P, 3, 'choose', playerDiscards(1));
 
 dilemma('Vian Test', P, 5, 'choose', playerBrigs(1), { gap: 'the bot\'s draw for a non-unique personnel is dropped' });
 
-dilemma('We\'ll Never Know', P, 3, 'unless', unless('3 Physics', stopAll), { gap: 'the branch of two non-Hand Weapon equipment is not read' });
+dilemma('We\'ll Never Know', P, 3, 'unless', unlessGroup((s) => s.has(req('3 Physics')) || otherEquipment(s) >= 2, stopAll, '3 Physics or two non-Hand Weapon equipment'));
 
-dilemma('Unknown Microorganism', P, 3, 'unless', unless('Biology, Medical, and Science', killRandomThenStopAll), {
-  gap: `the branch of 2 Security and an equipment is not read; ${RETURNS}`,
-});
+dilemma('Unknown Microorganism', P, 3, 'unless', unlessGroup(
+  (s) => s.has(req('Biology, Medical, and Science')) || (otherEquipment(s) > 0 && s.has(req('2 Security'))),
+  thenReturns(killRandomThenStopAll),
+  'Biology, Medical, and Science or 2 Security and a non-Hand Weapon equipment',
+));
 
 dilemma('V\'Ger', S, 3, 'unless', unless('Diplomacy, Exobiology, and Cunning>35 or Archaeology, Programming, and Strength>35', stopAll), {
   gap: 'the placement on the ship and its Damage are not modelled; it always goes under',
@@ -239,7 +243,7 @@ dilemma('What Lies Beneath', S, 3, 'unless', unless('Archaeology, Geology, and H
   gap: BOTTOM_OF_DECK,
 });
 
-dilemma('Telepathic Deception', D, 4, 'unless', unless('Biology, Exobiology, and Security or Telepathy and Cunning>28', stopAll), { gap: RETURNS });
+dilemma('Telepathic Deception', D, 4, 'unless', unless('Biology, Exobiology, and Security or Telepathy and Cunning>28', thenReturns(stopAll)));
 
 dilemma('Threading the Needle', S, 3, 'unless', unless('2 Navigation, 2 Officer, and Transporters or 2 Engineer, 2 Programming, and Strength>38', stopAll), {
   gap: 'the placement on the mission once overcome is not modelled; it always goes under',
@@ -249,8 +253,12 @@ dilemma('Telepathology', D, 3, 'unless', unless('2 Diplomacy, 2 Medical, and Tel
   gap: 'the revealed cards of your deck are not read',
 });
 
-dilemma('Vastly Outnumbered', S, 3, 'unless', unless('Anthropology and 2 Honor or Integrity>28', stopAll), {
-  gap: `the branch of two Hand Weapons and the 5 points lost are not modelled; ${RETURNS}`,
+dilemma('Vastly Outnumbered', S, 3, 'unless', unlessGroup(
+  (s) => s.has(req('Anthropology and 2 Honor or Integrity>28')) || handWeapons(s) >= 2,
+  thenReturns(stopAll),
+  'Anthropology and 2 Honor or two Hand Weapons or Integrity>28',
+), {
+  gap: 'the 5 points lost act past the attempt (#1478)',
 });
 
 dilemma('Staffing Shortage', S, 3, 'random-select', selectRandom(1, (s, sel) => {

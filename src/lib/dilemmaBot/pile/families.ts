@@ -68,6 +68,17 @@ export const unless = (requirements: string, effect: Play): Play => {
   };
 };
 
+/** "<effect>, and this dilemma returns to its owner's dilemma pile" (#1518). */
+export const thenReturns = (effect: Play): Play => (s) => {
+  effect(s);
+  s.returnsToPile();
+};
+
+/** The equipment of the attempt with the Hand Weapon keyword (#1518). */
+export const handWeapons = (s: PlayState): number => (s.attempt.equipment ?? []).filter((e) => e.keywords.includes('hand weapon')).length;
+/** The equipment of the attempt without it. */
+export const otherEquipment = (s: PlayState): number => (s.attempt.equipment ?? []).filter((e) => !e.keywords.includes('hand weapon')).length;
+
 /** "Unless <a test of the whole group>, <effect>." A condition the requirement parser cannot read. */
 export const unlessGroup = (holds: (s: PlayState) => boolean, effect: Play, what = 'the condition'): Play => (s) => {
   if (holds(s)) s.trace?.(`  ${what} holds: no effect`);

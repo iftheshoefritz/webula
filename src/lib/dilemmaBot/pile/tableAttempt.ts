@@ -26,6 +26,8 @@ export interface PileCardRow extends AttemptedMission {
   range?: string | number;
   weapons?: string | number;
   shields?: string | number;
+  staff?: string | number;
+  cost?: string | number;
 }
 
 type Row = PileCardRow | null | undefined;
@@ -42,15 +44,29 @@ export interface PileTableInput {
   placedOn: ReadonlyArray<Row>;
   /** The rows beneath the attempted mission. */
   underMission: ReadonlyArray<Row>;
-  /** Every mission slot of the table. */
-  missions: ReadonlyArray<{ mission: Row; completed?: boolean }>;
+  /** Every mission slot of the table, with the dilemmas beneath it (Talosian Trial). */
+  missions: ReadonlyArray<{ mission: Row; completed?: boolean; under?: ReadonlyArray<Row> }>;
   hand: ReadonlyArray<Row>;
   discard: ReadonlyArray<Row>;
   turn: number;
   facts?: BotTableFacts;
   /** The bot's side (#1520): the affiliations of its deck's personnel. Absent: unknown, as for the Chula pile. */
   botAffiliations?: string[];
+  /** The events in the player's core (Compromised Experiment reads their Decay, Zero Hour counts them). Absent: none. */
+  core?: ReadonlyArray<Row>;
+  /** Every card the player commands on the table, away teams and crews, equipment too (Trellium-D). Absent: none. */
+  commanded?: ReadonlyArray<Row>;
+  /** The ships at the attempted mission, each with whether it has a crew (Galileo Grounded, Revealed, Mr. Tricorder). Absent: unknown. */
+  shipsAtMission?: ReadonlyArray<{ staffed: boolean }>;
+  /** The player's draw deck (Reflections). Absent: unknown. */
+  drawDeck?: ReadonlyArray<Row>;
 }
+
+/** The Decay number of an event, from its keywords ("Decay: 3."), or 0. */
+const decayOf = (row: Row): number => Number(/decay:\s*(\d+)/.exec(String(row?.keywords ?? '').toLowerCase())?.[1] ?? 0);
+
+const isNebula = (row: PileCardRow): boolean =>
+  /nebula/.test(String(row.keywords ?? '').toLowerCase()) || /nebula/.test(String(row.name ?? '').toLowerCase());
 
 const GAME = 'Chula: The Game';
 
@@ -78,9 +94,11 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
           range: Number(input.ship.range) || 0,
           weapons: Number(input.ship.weapons) || 0,
           shields: Number(input.ship.shields) || 0,
+          ...(input.ship.staff ? { staffing: String(input.ship.staff).toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [] } : {}),
         }
       : undefined;
-  const slots = input.missions.filter((s): s is { mission: PileCardRow; completed?: boolean } => !!s.mission);
+  const slots = input.missions.filter((s): s is { mission: PileCardRow; completed?: boolean; under?: ReadonlyArray<Row> } => !!s.mission);
+  const events = (input.core ?? []).filter((row) => row?.type === 'event');
   const completed = slots.filter((s) => s.completed);
   const copies = new Map<string, number>();
   for (const title of input.discard.map(titleOf)) if (title) copies.set(title, (copies.get(title) ?? 0) + 1);
@@ -95,7 +113,7 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       kind,
       points: Number(mission.points) || 0,
       span: Number(mission.span) || 0,
-      nebula: /nebula/.test(String(mission.keywords ?? '').toLowerCase()) || /nebula/.test(String(mission.name ?? '').toLowerCase()),
+      nebula: isNebula(mission),
     },
     ship,
     table: {
@@ -115,7 +133,36 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
         }),
       underMission: input.underMission.map(titleOf).filter((t): t is string => t !== null),
       turn: input.turn,
+      // The facts the Championship titles read (#1515, #1516, #1517), filled from the table.
+      persistentUnderMission: input.underMission.filter((row) => /\bpersistent\b/.test(String(row?.keywords ?? '').toLowerCase())).length,
+      completedSpan4Mission: completed.some((s) => (Number(s.mission.span) || 0) >= 4),
+      eventDecayMax: Math.max(0, ...events.map(decayOf)),
+      trelliumD: (input.commanded ?? []).filter((row) => titleOf(row) === 'Trellium-D').length,
+      ...(input.hand.length ? { handCostMax: Math.max(0, ...input.hand.map((row) => Number(row?.cost) || 0)) } : {}),
+      onMission: input.placedOn.map(titleOf).filter((t): t is string => t !== null),
+      headquartersOtherQuadrant: slots.some((s) => s.mission.missiontype === 'h' && String(s.mission.quadrant ?? '') !== String(mission.quadrant ?? '')),
+      ...(input.shipsAtMission
+        ? { shipAtMission: input.shipsAtMission.length > 0, staffedShipAtMission: input.shipsAtMission.some((s) => s.staffed) }
+        : {}),
+      ...(input.drawDeck
+        ? {
+            drawDeck: {
+              size: input.drawDeck.length,
+              eventsAndInterrupts: input.drawDeck.filter((row) => row?.type === 'event' || row?.type === 'interrupt').length,
+            },
+          }
+        : {}),
+      coreEvents: events.length,
+      // The facts of #1518.
+      nebulaMission: slots.some((s) => s.mission !== input.mission && isNebula(s.mission)),
+      underPlayerMissions: slots.flatMap((s) => (s.under ?? []).map(titleOf).filter((t): t is string => t !== null)),
     },
+    equipment: input.cards
+      .filter((c) => !c.stopped && c.card?.type === 'equipment')
+      .map((c) => ({
+        name: String(c.card?.originalName ?? ''),
+        keywords: String((c.card as PileCardRow).keywords ?? '').toLowerCase().split('.').map((w) => w.trim()).filter(Boolean),
+      })),
     gameOnMission: input.placedOn.filter((row) => titleOf(row) === GAME).length,
     choice: 'best',
     ...(input.botAffiliations ? { botAffiliations: [...input.botAffiliations] } : {}),

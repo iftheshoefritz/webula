@@ -1,4 +1,6 @@
 import {
+  otherEquipment,
+  thenReturns,
   allButOne,
   botChooses,
   chooseOrElse,
@@ -30,7 +32,6 @@ import { CORE_EVENTS, D, P, S, dilemmaList, names, speciesKey } from '../define'
 
 const { models, dilemma } = dilemmaList();
 
-const RETURNS = 'the return to the dilemma pile is not modelled; it always goes under';
 const REMOVED = 'a personnel removed from the game counts as killed';
 const BOTTOM_OF_DECK = 'a personnel placed on the bottom of the deck counts as killed';
 
@@ -38,8 +39,7 @@ const totalAttrs = (s: PlayState, k: number) => ([0, 1, 2] as Attr[]).reduce((t,
 /** "For each Persistent dilemma beneath this mission, this dilemma is cost -1." */
 const lessPersistent = (cost: number) => (a: PileAttempt) => Math.max(0, cost - (a.table.persistentUnderMission ?? 0));
 
-dilemma('Breaking the Ice', S, 3, 'unless', unless('3 Geology', stopAll), {
-  gap: 'the branch of two non-Hand Weapon equipment is not read',
+dilemma('Breaking the Ice', S, 3, 'unless', unlessGroup((s) => s.has(req('3 Geology')) || otherEquipment(s) >= 2, stopAll, '3 Geology or two non-Hand Weapon equipment'), {
 });
 
 dilemma('Causal Recursion', S, 2, 'no-effect', noEffect, {
@@ -100,8 +100,8 @@ dilemma('Dead Weight', D, 3, 'own', (s) => s.stop(s.unstopped().filter((k) => !h
 dilemma('Dignitaries and Witnesses', D, 4, 'unless', (() => {
   const branches = req('3 Leadership');
   const highRank = (s: PlayState) => s.unstopped().some((k) => keywordIs('admiral')(s, k) || keywordIs('general')(s, k));
-  return unlessGroup((s) => highRank(s) || s.has(branches), stopAll, 'an Admiral or a General or 3 Leadership');
-})(), { gap: RETURNS });
+  return unlessGroup((s) => highRank(s) || s.has(branches), thenReturns(stopAll), 'an Admiral or a General or 3 Leadership');
+})());
 
 dilemma('Distress Call', S, 9, 'stop-all', stopAll, { cost: (a) => Math.max(0, 9 - 3 * a.table.completedMissions) });
 
@@ -113,7 +113,8 @@ dilemma('A Klingon Matter', P, 3, 'own', unless('2 Intelligence and Treachery or
   if (s.attr(k, 2) >= 7) return;
   s.kill([k]);
   s.stopAll();
-}), { gap: RETURNS });
+  s.returnsToPile();
+}));
 
 // No family fits: the species of the three selected decide between stopping all three and the player's choice.
 dilemma('A Pattern of Lies', D, 2, 'own', selectRandom(3, (s, sel) => {
@@ -128,8 +129,8 @@ dilemma('Adversarial Trial', S, 2, 'random-select', (s) => {
   s.returnToHand(s.select(1));
 }, { category: '2', assumption: 'you have more points than the bot, so a personnel returns to your hand' });
 
-dilemma('Alluring Spy', S, 2, 'unless', unless('Diplomacy, 2 Exobiology, and Strength>42 or Intelligence, 2 Leadership, and Cunning>38', (s) =>
-  s.stop(s.select(1, s.unstopped().filter((k) => s.hasSkill(k, sk('security')))))), { gap: RETURNS });
+dilemma('Alluring Spy', S, 2, 'unless', unless('Diplomacy, 2 Exobiology, and Strength>42 or Intelligence, 2 Leadership, and Cunning>38', thenReturns((s) =>
+  s.stop(s.select(1, s.unstopped().filter((k) => s.hasSkill(k, sk('security'))))))));
 
 // No family fits: the check reads the printed skills, and the effect moves the ship with every personnel
 // aboard, the stopped ones too.
@@ -146,11 +147,13 @@ dilemma('Artificial Wormhole', S, 3, 'own', (() => {
 
 dilemma('Clashing Values', P, 2, 'select-each-without', selectEachWithout(3, hasAny('anthropology', 'science'), 'stop'));
 
-dilemma('Code Forty-Seven', D, 2, 'choose', (s) => s.stop(s.playerChooses(s.unstopped().filter((k) => iconIs('[cmd]')(s, k)))), {
-  gap: 'the return to the dilemma pile when the stopped cost is under 4 is not modelled',
-});
+dilemma('Code Forty-Seven', D, 2, 'choose', (s) => {
+  const chosen = s.playerChooses(s.unstopped().filter((k) => iconIs('[cmd]')(s, k)));
+  s.stop(chosen);
+  if (chosen.reduce((t, k) => t + s.group[k].cost, 0) < 4) s.returnsToPile();
+}, { assumption: 'the player stops one [Cmd] personnel' });
 
-dilemma('Dangerous Liaisons', D, 4, 'unless', unless('2 Science and 2 Security or 3 Treachery', stopAll), { gap: RETURNS });
+dilemma('Dangerous Liaisons', D, 4, 'unless', unless('2 Science and 2 Security or 3 Treachery', thenReturns(stopAll)));
 
 dilemma('Edo Probe', D, 0, 'no-effect', noEffect, { status: 'ignore', goesUnder: false });
 
@@ -204,10 +207,10 @@ dilemma('Bynars\' Password', D, 3, 'own', (s) => {
   }
   const candidates = ks.filter((k) => s.hasSkill(k, sk('engineer'), sk('programming')));
   if (candidates.length) s.stop(s.botChooses(candidates));
-  else s.stopAll();
-}, { gap: RETURNS });
+  else thenReturns(stopAll)(s);
+});
 
-dilemma('Captain\'s Holiday', P, 3, 'unless', unless('2 Archaeology or 2 Geology', stopAll), { gap: RETURNS });
+dilemma('Captain\'s Holiday', P, 3, 'unless', unless('2 Archaeology or 2 Geology', thenReturns(stopAll)));
 
 dilemma('Conflict of Interests', D, 4, 'unless', unless('3 Archaeology or Integrity>36', stopAll), {
   category: '4g',
@@ -273,13 +276,13 @@ dilemma('Exposed Power Relay', D, 3, 'own', (s) => {
   s.kill([k]);
   s.kill(s.select(1));
   if (remaining >= 10) s.kill(s.botChooses(s.unstopped()));
-}, { gap: '"nine personnel remaining" is read as nine or more, counted after the first is selected' });
+}, { assumption: '"nine personnel remaining" is nine or more, counted after the first is selected (#1518)' });
 
 dilemma('Ferengi Locator Bomb', P, 3, 'unless', unless('Navigation, Physics, and Programming or Acquisition, Treachery, and Cunning>32', killRandomThenStopAll), {
   gap: BOTTOM_OF_DECK,
 });
 
-dilemma('Financial Pitfall', D, 2, 'unless', unless('3 Acquisition or Cunning>35', stopAll), { gap: RETURNS });
+dilemma('Financial Pitfall', D, 2, 'unless', unless('3 Acquisition or Cunning>35', thenReturns(stopAll)));
 
 dilemma('Galileo Grounded', P, 2, 'unless', (() => {
   const branches = req('Medical, Security, and Transporters');
