@@ -66,7 +66,12 @@ export function useBotAttemptStart(table: TableState, onAction: (action: BotAtte
     const { drawn, pile } = drawFromDilemmaPile(table.dilemmaPile, fields.botDraw);
     const action = { type: 'botAttempt' as const, ...fields, pile, drawn: drawn.map((c) => c.id) };
     const titles = drawnPileTitles(drawn.map((c) => c.card));
-    const { attempt, random } = pileAttemptOf(pileTableInputOf(table, fields.missionIndex, fields.shipId));
+    const built = pileAttemptOf(pileTableInputOf(table, fields.missionIndex, fields.shipId));
+    // The bot's pile while the stack is faced (#1518): what the draw left, with the drawn dilemmas at the
+    // bottom. The stack is not chosen yet, so the drawn dilemmas it will take count too. Vault of Tomorrow
+    // takes from it, and Outmatched consumes from its top.
+    const { random } = built;
+    const attempt = { ...built.attempt, botPile: [...drawnPileTitles(pile.map((c) => c.card)), ...titles] };
     if (random) {
       const stack = titles.length ? randomLegalPileStack(attempt, titles, fields.botSpend, seededRandom(seed)) : [];
       onActionRef.current({ ...action, stack: pileStackCardIds(drawn, stack), random: true });

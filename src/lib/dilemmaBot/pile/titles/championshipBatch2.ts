@@ -1,7 +1,7 @@
 import { BOT_SKILLS } from '../../requirements';
 import {
-  allButOne, anyOfThree, attrAbove, botChooses, chooseOrElse, hasAny, killRandom, noEffect, playerBrigs, playerStops, req,
-  selectRandom, sk, stopAll, stopRandom, unless, unlessGroup,
+  allButOne, anyOfThree, attrAbove, botChooses, chooseOrElse, handWeapons, hasAny, killRandom, noEffect, playerBrigs, playerStops, req,
+  selectRandom, sk, stopAll, stopRandom, thenReturns, unless, unlessGroup,
 } from '../families';
 import { Attr, PlayState, skillName } from '../play';
 import { D, NAMEABLE, P, S, dilemmaList, names } from '../define';
@@ -11,7 +11,6 @@ import { D, NAMEABLE, P, S, dilemmaList, names } from '../define';
 
 const { models, dilemma } = dilemmaList();
 
-const RETURNS = 'the return to the dilemma pile is not modelled; it always goes under';
 const CORE = 'it is placed in the core only when it fires, and the discard each turn acts past the attempt (#1478)';
 
 /** The species names the bot's discards may take (Manufactured Triumph), in the order it uses them. */
@@ -154,9 +153,9 @@ dilemma('Logical Solution', S, 1, 'own', (s) => {
 
 dilemma('Macrovirus', D, 4, 'random-select', (s) => {
   const sel = s.select(1);
-  if (s.has(req('2 Exobiology and 2 Science'))) s.stop(sel);
+  if (s.has(req('2 Exobiology and 2 Science')) || (handWeapons(s) > 0 && s.has(req('Medical and Security')))) s.stop(sel);
   else s.kill(sel);
-}, { category: '8', assumption: 'the stop and the kill; the Damage is dropped', gap: 'the Hand Weapon branch is not modelled' });
+}, { category: '8', assumption: 'the stop and the kill; the Damage is dropped' });
 
 dilemma('Malfunctioning Generator', P, 4, 'unless', unless('2 Exobiology, 2 Physics, and Treachery or 2 Honor, 2 Medical, and Integrity>38', killRandom(2)), {
   cost: lessPerCompleted(4),
@@ -209,8 +208,8 @@ dilemma('Nose to Nose', D, 0, 'random-select', selectRandom(2, (s, sel) => {
   if (sel.length === 2 && s.group[sel[0]].cost === s.group[sel[1]].cost) s.stop(sel);
 }));
 
-dilemma('Oh No!', D, 4, 'unless', unless('2 Astrometrics or Integrity>30 or Strength>30', stopAll), {
-  gap: `the 5 points lost act past the attempt; ${RETURNS}`,
+dilemma('Oh No!', D, 4, 'unless', unless('2 Astrometrics or Integrity>30 or Strength>30', thenReturns(stopAll)), {
+  gap: 'the 5 points lost act past the attempt',
 });
 
 dilemma('Organ Theft', P, 1, 'reads-table', (s) => {
@@ -273,9 +272,9 @@ dilemma('Quarren Labor Shortage', D, 2, 'unless', unlessGroup(
     const ks = s.unstopped();
     return 2 * ks.filter((k) => s.group[k].affiliation !== 'non-aligned').length >= ks.length;
   },
-  stopAll,
+  thenReturns(stopAll),
   'at least half the personnel not [NA]',
-), { gap: RETURNS });
+));
 
 dilemma('Rapid Progress', D, 3, 'bot-names', (s) => {
   const named = s.lackedSkills(NAMEABLE).slice(0, 2);

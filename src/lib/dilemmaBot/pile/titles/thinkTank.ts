@@ -1,7 +1,7 @@
 import { BOT_SKILLS } from '../../requirements';
-import { allButOne, anyOfAffiliation, botChooses, brigRandom, chooseOrElse, hasAny, killRandom, loseShip, noEffect, playerStops, selectRandom, selectUntil, sk, stopAll, stopRandom, unless, unlessGroup } from '../families';
+import { allButOne, anyOfAffiliation, botChooses, brigRandom, chooseOrElse, hasAny, killRandom, loseShip, noEffect, playerStops, selectRandom, selectUntil, sk, stopAll, stopRandom, thenReturns, unless, unlessGroup } from '../families';
 import { Attr, ATTR_NAMES, skillName } from '../play';
-import { CORE_EVENTS, D, NAMEABLE, P, S, UNNAMEABLE, dilemmaList, lowCost, mostHeldSkill, speciesKey } from '../define';
+import { CORE_EVENTS, D, NAMEABLE, P, S, UNNAMEABLE, addableModels, dilemmaList, lowCost, mostHeldSkill, speciesKey } from '../define';
 
 // The 45 titles of Think Tank 50's (Matt S, 2026 Trek Masters), the first pilot pile of #1320.
 
@@ -9,8 +9,11 @@ const { models, dilemma } = dilemmaList();
 
 dilemma('Adopted Authority', D, 3, 'random-select', selectRandom(1, (s, [k]) => {
   if ([0, 1, 2].some((a) => s.attr(k, a as Attr) < 5)) s.stop([k]);
-  else s.stop([k, ...s.select(1, s.unstopped().filter((j) => j !== k))]);
-}), { gap: 'the return to the dilemma pile is not modelled; it always goes under' });
+  else {
+    s.stop([k, ...s.select(1, s.unstopped().filter((j) => j !== k))]);
+    s.returnsToPile();
+  }
+}));
 
 dilemma('Agonizing Encounter', D, 5, 'own', (s) => {
   const missions = s.attempt.table.missionSkills;
@@ -131,9 +134,7 @@ dilemma('Necessary Execution', P, 5, 'bot-chooses', (s) => {
   s.kill(s.botChooses(s.unstopped(), s.attempt.table.completedSpaceMission ? 1 : 2));
 });
 
-dilemma('Occupational Hazards', D, 3, 'unless', unless('2 Acquisition or 2 Treachery', killRandom(1)), {
-  gap: 'the return to the dilemma pile is not modelled; it always goes under',
-});
+dilemma('Occupational Hazards', D, 3, 'unless', unless('2 Acquisition or 2 Treachery', thenReturns(killRandom(1))));
 
 dilemma('Old Differences', D, 4, 'random-select', stopRandom(2), { cost: (a) => (a.mission.points <= 35 ? 3 : 4) });
 
@@ -143,10 +144,19 @@ dilemma('Outclassed', S, 3, 'unless', unlessGroup(
   'Range>8 or Weapons>8',
 ), { gap: '"unused" Range is read as the ship\'s printed Range' });
 
-dilemma('Outmatched', P, 1, 'unless', (s) => {
-  if (s.totalAttr(1) > 15) s.trace?.('  Cunning>15: no effect');
-  else s.stopAll();
-}, { gap: 'the bot consumes no dilemma: the Cunning requirement stays 15' });
+// No family fits: the bot consumes the fewest dilemmas from the top of its pile that make the group fail
+// Cunning>15+10×consumed, when its pile holds that many (#1518).
+dilemma('Outmatched', P, 1, 'bot-consumes', (s) => {
+  const cunning = s.totalAttr(1);
+  const needed = Math.max(0, Math.ceil((cunning - 15) / 10));
+  const available = s.attempt.botPile?.length ?? Infinity;
+  if (needed > available) {
+    s.trace?.(`  Cunning ${cunning}: the pile holds ${available}, too few to consume: no effect`);
+    return;
+  }
+  if (needed) s.label(`Consumed ${needed} dilemma${needed === 1 ? '' : 's'}`);
+  s.stopAll();
+}, { assumption: 'the bot consumes from the top of its pile, as many as make Cunning>15 fail (#1518)' });
 
 dilemma('Personal Duty', S, 2, 'all-but-one', allButOne(hasAny('leadership', 'officer')));
 
@@ -164,10 +174,10 @@ dilemma('Restricted Area', D, 3, 'own', (s) => {
   s.brig([k]);
   s.brig(s.select(1));
   if (s.live >= 10) s.brig(s.select(1));
-}, { gap: '"nine personnel remaining" is read as nine or more, counted after the first is selected' });
+}, { assumption: '"nine personnel remaining" is nine or more, counted after the first is selected (#1518)' });
 
-dilemma('Secret Identity', D, 0, 'bot-chooses', botChooses(1, 'discard'), {
-  gap: 'the replacement from the player\'s deck is not modelled: the chosen personnel only leaves',
+dilemma('Secret Identity', D, 0, 'no-effect', noEffect, {
+  assumption: 'the player replaces the chosen personnel with an identical copy, so the attempt does not change (#1518)',
 });
 
 dilemma('Swashbuckler at Heart', D, 2, 'no-effect', noEffect, { gap: 'it reads only the player\'s hand' });
@@ -186,9 +196,9 @@ dilemma('The Alien\'s Graveyard', D, 6, 'random-select', selectRandom(3, (s, sel
 
 dilemma('The Dal\'Rok', D, 3, 'unless', unlessGroup(
   (s) => s.unstopped().reduce((t, k) => t + s.group[k].cost, 0) > 17,
-  (s) => s.kill(s.select(s.attempt.table.headquarters)),
+  thenReturns((s) => s.kill(s.select(s.attempt.table.headquarters))),
   'total cost>17',
-), { gap: 'the return to the dilemma pile is not modelled; it always goes under' });
+));
 
 dilemma('The Killing Game', S, 8, 'unless', unless('2 Engineer, 2 Medical, and Cunning>38 or 2 Diplomacy, Leadership, and 2 Physics', brigRandom(2)), {
   cost: () => 8 - CORE_EVENTS,
@@ -208,10 +218,13 @@ dilemma('Tsiolkovsky Infection', S, 8, 'unless', unless('2 Anthropology, 2 Progr
 
 dilemma('Unconventional Consideration', D, 2, 'choose-or-else', chooseOrElse(hasAny('acquisition', 'intelligence', 'law', 'telepathy'), stopAll));
 
-dilemma('Vault of Tomorrow', P, 1, 'no-effect', noEffect, {
-  goesUnder: false,
-  gap: 'the dilemma it adds to the top of the stack is not modelled',
-});
+// No family fits: at reveal, the bot takes the dilemma of cost 2 or less from its pile that does the
+// attempt most harm, and faces it next (#1518).
+dilemma('Vault of Tomorrow', P, 1, 'adds-dilemma', (s) => {
+  const added = s.addBestOnTop(addableModels(s.attempt.botPile ?? [], (m) => m.printedCost <= 2 && m.kind !== 'space'));
+  if (added) s.label(`Added ${added}`);
+  s.returnsToPile();
+}, { assumption: 'the bot chooses at reveal the dilemma of its pile that does the attempt most harm (#1518)' });
 
 dilemma('Well-Prepared Defenses', D, 2, 'bot-chooses', (s) => {
   s.label('Bot\'s missions: more points');

@@ -45,8 +45,8 @@ export interface PileTableInput {
   placedOn: ReadonlyArray<Row>;
   /** The rows beneath the attempted mission. */
   underMission: ReadonlyArray<Row>;
-  /** Every mission slot of the table. */
-  missions: ReadonlyArray<{ mission: Row; completed?: boolean }>;
+  /** Every mission slot of the table, with the dilemmas beneath it (Talosian Trial). */
+  missions: ReadonlyArray<{ mission: Row; completed?: boolean; under?: ReadonlyArray<Row> }>;
   hand: ReadonlyArray<Row>;
   discard: ReadonlyArray<Row>;
   turn: number;
@@ -100,7 +100,8 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
           ...(input.ship.staff ? { staffing: String(input.ship.staff).toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [] } : {}),
         }
       : undefined;
-  const slots = input.missions.filter((s): s is { mission: PileCardRow; completed?: boolean } => !!s.mission);
+  const slots = input.missions.filter((s): s is { mission: PileCardRow; completed?: boolean; under?: ReadonlyArray<Row> } => !!s.mission);
+  const isNebula = (row: PileCardRow) => /nebula/.test(String(row.keywords ?? '').toLowerCase()) || /nebula/.test(String(row.name ?? '').toLowerCase());
   const completed = slots.filter((s) => s.completed);
   // The personnel in the hand (#1525), for the dilemmas that reveal it: each with the skills its row
   // prints, as indexes of `BOT_SKILLS` (the parse `pilePersonnelOf` uses), and its Strength.
@@ -123,7 +124,7 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       kind,
       points: Number(mission.points) || 0,
       span: Number(mission.span) || 0,
-      nebula: /nebula/.test(String(mission.keywords ?? '').toLowerCase()) || /nebula/.test(String(mission.name ?? '').toLowerCase()),
+      nebula: isNebula(mission),
     },
     ship,
     table: {
@@ -139,6 +140,8 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       trelliumD: (input.commanded ?? []).filter((row) => titleOf(row) === 'Trellium-D').length,
       ...(input.hand.length ? { handMaxCost: Math.max(0, ...input.hand.map((row) => Number(row?.cost) || 0)) } : {}),
       coreEvents: (input.core ?? []).filter((row) => row?.type === 'event').length,
+      nebulaMission: slots.some((s) => s.mission !== input.mission && isNebula(s.mission)),
+      underPlayerMissions: slots.flatMap((s) => (s.under ?? []).map(titleOf).filter((t): t is string => t !== null)),
       onMission: input.placedOn.map(titleOf).filter((t): t is string => t !== null),
       headquartersOtherQuadrant: slots.some((s) => s.mission.missiontype === 'h' && String(s.mission.quadrant ?? '') !== String(mission.quadrant ?? '')),
       ...(input.shipAtMission !== undefined ? { shipAtMission: input.shipAtMission } : {}),
@@ -161,6 +164,12 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       turn: input.turn,
     },
     gameOnMission: input.placedOn.filter((row) => titleOf(row) === GAME).length,
+    equipment: input.cards
+      .filter((c) => !c.stopped && c.card?.type === 'equipment')
+      .map((c) => ({
+        name: String(c.card?.originalName ?? ''),
+        keywords: String((c.card as PileCardRow).keywords ?? '').toLowerCase().split('.').map((w) => w.trim()).filter(Boolean),
+      })),
     choice: 'best',
     ...(input.botAffiliations ? { botAffiliations: input.botAffiliations } : {}),
   };

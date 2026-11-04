@@ -69,6 +69,10 @@ export interface PileTable {
   handMaxCost?: number;
   /** The titles of the cards placed on the attempted mission (Organ Theft). Absent: none. */
   onMission?: string[];
+  /** Whether the player commands a Nebula mission other than the attempted one (Alternatives to Fighting). Absent: true. */
+  nebulaMission?: boolean;
+  /** The titles of the dilemmas overcome beneath each of the player's missions (Talosian Trial). Absent: none. */
+  underPlayerMissions?: string[];
   /** Whether the player commands a headquarters in another quadrant than the attempted mission's (Local Trouble). Absent: false. */
   headquartersOtherQuadrant?: boolean;
   /** Whether the player has a ship at the attempted mission (Revealed, Mr. Tricorder). Absent: true. */
@@ -118,6 +122,16 @@ export interface PileAttempt {
    * dilemma fires.
    */
   botAffiliations?: string[];
+  /**
+   * The equipment of the attempt, each with its keywords lowercased, for example `['hand weapon']`
+   * (Center of Attention, Rogue Borg Ambush). Absent: none.
+   */
+  equipment?: { name: string; keywords: string[] }[];
+  /**
+   * The titles of the bot's dilemma pile as it stands while the stack is faced: Vault of Tomorrow takes a
+   * dilemma from it, and Outmatched consumes from its top. Absent: unknown, and Outmatched may consume any number.
+   */
+  botPile?: string[];
 }
 
 /** What one play of a stack did. Each count is of personnel. */
@@ -136,6 +150,8 @@ export interface PileResult {
   shipLost: number;
   /** The labels of the bot's choices, one entry per dilemma that made a choice. */
   labels: { title: string; label: string }[];
+  /** The dilemmas that returned to the bot's dilemma pile instead of going beneath the mission (#1518). Absent: 0. */
+  backToPile?: number;
 }
 
 /** The weights of #1320: the lasting damage of a result. A stop counts 0. */
@@ -148,7 +164,7 @@ export const DAMAGE_WEIGHTS = {
   shipLost: 1,
 } as const;
 
-export function lastingDamage(r: Omit<PileResult, 'fail' | 'labels' | 'stopped'>): number {
+export function lastingDamage(r: Omit<PileResult, 'fail' | 'labels' | 'stopped' | 'backToPile'>): number {
   return (
     r.killed * DAMAGE_WEIGHTS.killed +
     r.heldInCore * DAMAGE_WEIGHTS.heldInCore +

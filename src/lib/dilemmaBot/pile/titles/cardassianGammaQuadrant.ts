@@ -1,6 +1,6 @@
-import { allButOne, attrAbove, attrBelow, botChooses, chooseOrElse, either, hasAny, killRandom, killRandomThenStopAll, noEffect, playerStops, req, selectRandom, selectUntil, sk, stopAll, stopRandom, unless, unlessGroup } from '../families';
+import { allButOne, attrAbove, attrBelow, botChooses, chooseOrElse, either, handWeapons, hasAny, killRandom, killRandomThenStopAll, noEffect, playerStops, req, selectRandom, selectUntil, sk, stopAll, stopRandom, unless, unlessGroup } from '../families';
 import { Attr, skillName } from '../play';
-import { D, NAMEABLE, P, S, dilemmaList, discardToRaise, lowCost, mostHeldSkill, speciesKey } from '../define';
+import { D, NAMEABLE, P, S, addableModels, dilemmaList, discardToRaise, lowCost, mostHeldSkill, speciesKey } from '../define';
 
 // The 33 titles of Cardassian in Gamma Quadrant (Matthias Weller, 2026 European Continental) that Think
 // Tank 50's lacks: the second pilot pile of #1320.
@@ -11,8 +11,9 @@ dilemma('Alternatives to Fighting', S, 3, 'own', (s) => {
   if (s.attempt.mission.nebula) return;
   const navigation = s.unstopped().some((k) => s.hasSkill(k, sk('navigation')));
   if (navigation && (s.attempt.ship?.weapons ?? 0) > 7) return;
-  s.move(s.unstopped()); // the ship goes to a Nebula mission, with its crew
-}, { gap: 'assumes a Nebula mission is in play, so the ship always can move' });
+  if (s.attempt.table.nebulaMission ?? true) s.move(s.unstopped()); // the ship goes to a Nebula mission, with its crew
+  else s.stopAll(); // no Nebula mission to go to; the Damage on the ship is dropped (#1478)
+});
 
 dilemma('An Issue of Trust', D, 4, 'all-but-one', allButOne(hasAny('honor', 'treachery')));
 
@@ -22,7 +23,7 @@ dilemma('Artistic License', D, 2, 'choose', playerStops((s) => {
   const under = new Set(s.attempt.table.underMission);
   for (const title of s.faced.slice(0, -1)) under.add(title);
   return under.size;
-}), { gap: 'every dilemma faced before it in this stack counts as beneath the mission' });
+}), { assumption: 'every dilemma faced before it in this stack counts as beneath the mission (#1518)' });
 
 dilemma('Back Room Dealings', D, 2, 'choose-or-else', chooseOrElse(either(hasAny('treachery'), attrBelow(0, 4)), killRandom(1)));
 
@@ -36,13 +37,13 @@ dilemma('Becalmed', D, 0, 'random-select', selectRandom(3, (s, sel) => {
 }), { cost: (a) => a.mission.span });
 
 dilemma('Center of Attention', D, 3, 'unless', unlessGroup(
-  (s) => s.has(req('3 Security')) || s.unstopped().some((k) => /\bquark\b/i.test(s.name(k))),
+  (s) => s.has(req('3 Security')) || (handWeapons(s) > 0 && s.has(req('Cunning>28'))) || s.unstopped().some((k) => /\bquark\b/i.test(s.name(k))),
   (s) => {
     s.kill(s.botChooses(s.unstopped().filter((k) => s.hasSkill(k, sk('treachery')))));
     s.stopAll();
   },
-  '3 Security or Quark',
-), { gap: 'the Hand Weapon branch is not modelled' });
+  '3 Security or a Hand Weapon and Cunning>28 or Quark',
+));
 
 dilemma('Chula: The Dice', D, 3, 'unless', unlessGroup((s) => {
   const ks = s.unstopped();
@@ -133,9 +134,11 @@ dilemma('Racial Tension', D, 0, 'random-select', selectRandom(2, (s, sel) => {
   if (sel.length === 2 && speciesKey(s, sel[0]) !== speciesKey(s, sel[1])) s.stop(sel);
 }));
 
-dilemma('Rogue Borg Ambush', P, 3, 'unless', unless('Intelligence and Cunning>35', killRandomThenStopAll), {
-  gap: 'the Hand Weapon branch is not modelled',
-});
+dilemma('Rogue Borg Ambush', P, 3, 'unless', unlessGroup(
+  (s) => s.has(req('Intelligence and Cunning>35')) || (handWeapons(s) > 0 && s.has(req('Strength>35'))),
+  killRandomThenStopAll,
+  'Intelligence and Cunning>35 or a Hand Weapon and Strength>35',
+));
 
 dilemma('Royale Casino: Craps', D, 2, 'unless', unlessGroup((s) => s.attempt.table.handHasCunning7Or11, stopAll, 'a personnel with Cunning 7 or 11 in hand'), {
   category: '2',
@@ -152,7 +155,12 @@ dilemma('Tactical Disadvantage', S, 2, 'assumed-fires', (s) => {
   killRandomThenStopAll(s);
 }, { category: '4d', assumption: 'the ships in the bot\'s hand always have more Weapons' });
 
-dilemma('Talosian Trial', P, 0, 'no-effect', noEffect, { gap: 'the dilemma it adds to the stack is not modelled' });
+// No family fits: at reveal, the bot takes the planet dilemma beneath the player's missions that does the
+// attempt most harm, and faces it next (#1518).
+dilemma('Talosian Trial', P, 0, 'adds-dilemma', (s) => {
+  const added = s.addBestOnTop(addableModels(s.attempt.table.underPlayerMissions ?? [], (m) => m.kind !== 'space'));
+  if (added) s.label(`Added ${added}`);
+}, { assumption: 'the bot chooses at reveal the planet dilemma beneath your missions that does the attempt most harm (#1518)' });
 
 dilemma('The Oracle\'s Punishment', D, 5, 'bot-chooses', botChooses(2, 'stop'));
 

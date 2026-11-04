@@ -57,7 +57,7 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
     ship: slot?.ships.find((s) => s.id === shipId)?.card,
     placedOn: (slot?.mission?.placedOn ?? []).map((c) => c.card),
     underMission: (slot?.underMission ?? []).map((c) => c.card),
-    missions: table.missions.map((s) => ({ mission: s.mission?.card, completed: s.completed })),
+    missions: table.missions.map((s) => ({ mission: s.mission?.card, completed: s.completed, under: s.underMission.map((c) => c.card) })),
     hand: table.hand.map((c) => c.card),
     discard: table.discard.map((c) => c.card),
     turn: table.turn,

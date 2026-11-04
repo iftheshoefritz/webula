@@ -1,6 +1,6 @@
 import { BOT_SKILLS, RequirementBranch, RequirementPersonnel } from '../requirements';
 import { LivePartnerProfile, Rand, requirementProfileOf } from '../simulator';
-import { DilemmaModel, PileAttempt, PilePersonnel, PileResult, PlayContext } from './model';
+import { DilemmaModel, PileAttempt, PilePersonnel, PileResult, PlayContext, lastingDamage } from './model';
 
 // The state of one play of a stack (#1320, the pilot). A family of the registry acts on it through
 // these verbs: select, stop, kill, place in the brig, ask the player or the bot to choose, test skills.
@@ -49,6 +49,8 @@ export class PlayState {
   attrBonus = 0;
   /** Added to each attribute of one personnel until the end of the attempt (The Clown: Bitter Medicine), or null. */
   personalAttrBonus: number[] | null = null;
+  /** The dilemmas a play put on top of the rest of the stack (Vault of Tomorrow, Talosian Trial), faced next. */
+  readonly onTop: DilemmaModel[] = [];
   /** Set by a dilemma that ends the stack: the rest is not faced (Lack of Preparation). */
   stackEnded = false;
   /** A dilemma requiring Transporters requires one more level of each skill it names (Pattern Loss). */
@@ -269,7 +271,7 @@ export class PlayState {
     return out.slice(0, take);
   }
 
-  private remove(ks: number[], what: keyof Omit<PileResult, 'fail' | 'labels'>, verb: string, why?: string, quiet = false) {
+  private remove(ks: number[], what: keyof Omit<PileResult, 'fail' | 'labels' | 'backToPile'>, verb: string, why?: string, quiet = false) {
     const done: number[] = [];
     for (const k of ks) {
       if (!this.alive[k]) continue;
@@ -343,6 +345,52 @@ export class PlayState {
     }
     this.result.shipLost += aboard.length;
     if (aboard.length) this.trace?.(`  the ship leaves with ${aboard.map((k) => this.name(k)).join(', ')}`);
+  }
+
+  /** The dilemma being faced returns to the bot's dilemma pile, so it does not go beneath the mission. */
+  returnsToPile() {
+    this.result.backToPile = (this.result.backToPile ?? 0) + 1;
+    this.trace?.(`  ${this.current} returns to the dilemma pile`);
+  }
+
+  /**
+   * A copy of this play that a dilemma can play ahead, to see what it would do: its personnel, flags and
+   * result are its own, and it draws from the same random function.
+   */
+  fork(): PlayState {
+    const f: PlayState = Object.assign(Object.create(PlayState.prototype), this);
+    const own = f as unknown as Record<string, unknown>;
+    own.alive = this.alive.slice();
+    own.present = this.present.slice();
+    own.result = { ...this.result, labels: this.result.labels.slice() };
+    own.blockedSkills = new Set(this.blockedSkills);
+    own.skillsOffFor = new Set(this.skillsOffFor);
+    own.faced = this.faced.slice();
+    own.onTop = [];
+    own.trace = undefined;
+    if (this.personalAttrBonus) f.personalAttrBonus = this.personalAttrBonus.slice();
+    return f;
+  }
+
+  /**
+   * Put on top of the rest of the stack the one of `candidates` that does the attempt most harm, played
+   * ahead from here: a failed attempt first, then the most lasting damage. Returns its title, or null.
+   */
+  addBestOnTop(candidates: DilemmaModel[]): string | null {
+    let best: DilemmaModel | null = null;
+    let bestScore = -1;
+    const before = lastingDamage(this.result);
+    for (const model of candidates) {
+      const f = this.fork();
+      f.current = model.title;
+      model.play(f);
+      const score = (f.live === 0 || !f.meetsWithout() ? 1000 : 0) + lastingDamage(f.result) - before;
+      if (score > bestScore) [best, bestScore] = [model, score];
+    }
+    if (!best) return null;
+    this.onTop.push(best);
+    this.trace?.(`  puts ${best.title} on top of the stack`);
+    return best.title;
   }
 
   label(text: string) {
@@ -423,7 +471,9 @@ export function playPileStack(
   notInStack = 0,
 ): PileResult {
   const state = new PlayState({ attempt, rand, trace }, notInStack);
-  for (const model of stack) {
+  const queue = stack.slice();
+  while (queue.length) {
+    const model = queue.shift()!;
     state.current = model.title;
     state.faced.push(model.title);
     if (state.live === 0) {
@@ -447,6 +497,8 @@ export function playPileStack(
     }
     state.settleBeforeDilemma();
     model.play(state);
+    // A dilemma placed on top of the stack is faced next.
+    if (state.onTop.length) queue.unshift(...state.onTop.splice(0));
   }
   state.result.fail = !state.meetsWithout();
   trace?.(state.result.fail ? 'The attempt fails.' : 'The unstopped personnel meet the mission requirements.');

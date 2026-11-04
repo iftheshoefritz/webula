@@ -7,6 +7,8 @@ import { CHAMPIONSHIP_BATCH_3_MODELS } from './titles/championshipBatch3';
 import { CHULA_MODELS } from './titles/chula';
 import { THINK_TANK_MODELS } from './titles/thinkTank';
 
+import { setModelLookup } from './define';
+
 export { CORE_EVENTS, discardCap } from './define';
 
 // The dilemma registry of the pile bot (#1320): one model per title, from the files of `titles/`. A new
@@ -37,6 +39,8 @@ export const REGISTRY: ReadonlyMap<string, DilemmaModel> = (() => {
   }
   return map;
 })();
+setModelLookup((title) => REGISTRY.get(title));
+
 
 /** The model of a card name, by its title less the version suffix, or undefined for a title the registry lacks. */
 export function modelOf(name: string): DilemmaModel | undefined {

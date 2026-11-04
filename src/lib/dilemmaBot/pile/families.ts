@@ -59,6 +59,11 @@ export const requiredSkills = (s: PlayState): number[] => {
 };
 export const hasRequiredSkill: Test = (s, k) => requiredSkills(s).some((i) => s.skill(k, i) > 0);
 
+/** The equipment of the attempt with the Hand Weapon keyword. */
+export const handWeapons = (s: PlayState): number => (s.attempt.equipment ?? []).filter((e) => e.keywords.includes('hand weapon')).length;
+/** The equipment of the attempt without it. */
+export const otherEquipment = (s: PlayState): number => (s.attempt.equipment ?? []).filter((e) => !e.keywords.includes('hand weapon')).length;
+
 /** The personnel with the [Cmd] icon. */
 export const isCommand: Test = (s, k) => !!s.group[k].traits?.icons.includes('[cmd]');
 
@@ -73,6 +78,12 @@ export const unless = (requirements: string, effect: Play): Play => {
       if (s.overwhelmed) s.stopSkillUsers(branches);
     } else effect(s);
   };
+};
+
+/** "<effect>, and this dilemma returns to its owner's dilemma pile." */
+export const thenReturns = (effect: Play): Play => (s) => {
+  effect(s);
+  s.returnsToPile();
 };
 
 /** "Unless <a test of the whole group>, <effect>." A condition the requirement parser cannot read. */

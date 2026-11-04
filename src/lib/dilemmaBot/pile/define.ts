@@ -26,6 +26,22 @@ export interface Extras {
   repeatable?: boolean;
 }
 
+/**
+ * The model of a title, for a play that picks another dilemma (Vault of Tomorrow, Talosian Trial). The
+ * files of `titles/` cannot import the registry, which imports them, so `registry.ts` sets it once built.
+ */
+let lookup: (title: string) => DilemmaModel | undefined = () => undefined;
+export const modelOf = (title: string) => lookup(title);
+export const setModelLookup = (f: (title: string) => DilemmaModel | undefined) => {
+  lookup = f;
+};
+
+/** The models a play may put on top of the stack: modelled, played, acting during the attempt, and not adding a dilemma itself. */
+export const addableModels = (titles: Iterable<string>, fits: (m: DilemmaModel) => boolean): DilemmaModel[] =>
+  Array.from(new Set(titles))
+    .map(modelOf)
+    .filter((m): m is DilemmaModel => !!m && m.status === 'play' && m.family !== 'no-effect' && m.family !== 'adds-dilemma' && fits(m));
+
 /** A list of models and the builder that adds to it: `dilemma(title, kind, printedCost, family, play, extras)`. */
 export function dilemmaList() {
   const models: DilemmaModel[] = [];

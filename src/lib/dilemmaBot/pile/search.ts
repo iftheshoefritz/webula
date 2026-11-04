@@ -154,13 +154,16 @@ export function scorePileStack(attempt: PileAttempt, stack: string[], plays: num
   let fails = 0;
   let damage = 0;
   let stopped = 0;
+  let back = 0;
   for (let r = 0; r < plays; r++) {
     const result: PileResult = playPileStack(attempt, models, seededRandom(seed * 7919 + r), undefined, drawnCount - stack.length);
     if (result.fail) fails++;
     damage += lastingDamage(result);
     stopped += result.stopped;
+    back += result.backToPile ?? 0;
   }
-  return { stack, pFail: fails / plays, damage: damage / plays, under: underOf(stack), stopped: stopped / plays, plays };
+  // A dilemma that returned to the pile in a play did not go beneath the mission (#1518).
+  return { stack, pFail: fails / plays, damage: damage / plays, under: underOf(stack) - back / plays, stopped: stopped / plays, plays };
 }
 
 const byDamage = (a: PileStackScore, b: PileStackScore) => b.damage - a.damage || a.under - b.under;
