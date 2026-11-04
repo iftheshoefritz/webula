@@ -87,6 +87,8 @@ export interface PileTable {
    * revealed card is an event or an interrupt one time in three.
    */
   drawDeck?: { size: number; eventsAndInterrupts: number };
+  /** The events in the player's core (Zero Hour). Absent: 0. */
+  coreEvents?: number;
 }
 
 /** A personnel in the player's hand, as a dilemma that reveals the hand reads it. */

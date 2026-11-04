@@ -150,6 +150,12 @@ export const playerStops = (count: number | ((s: PlayState) => number)): Play =>
 export const playerBrigs = (count: number): Play => (s) => s.brig(s.playerChooses(s.unstopped(), count));
 
 /**
+ * "Choose <count> personnel to be placed in your discard pile." The player chooses; a personnel placed in
+ * the discard pile counts as killed.
+ */
+export const playerDiscards = (count: number): Play => (s) => s.kill(s.playerChooses(s.unstopped(), count));
+
+/**
  * "Randomly select three personnel. If any of those personnel <test>, all three are stopped. Otherwise,
  * <one> of those personnel is stopped": the player's choice, or a random one.
  */

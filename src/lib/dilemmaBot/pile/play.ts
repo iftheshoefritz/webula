@@ -55,6 +55,11 @@ export class PlayState {
   overwhelmed = false;
   /** The rest of the stack is not faced, and returns to the pile (Lack of Preparation). */
   stackEnded = false;
+  /**
+   * What each personnel loses from every attribute for the rest of the play (The Clown: Bitter Medicine),
+   * the final check too, or null when none loses any. The attempt's personnel never change.
+   */
+  attrLoss: Int16Array | null = null;
   /** The titles of the stack faced so far, this one included. */
   readonly faced: string[] = [];
   /** The title of the dilemma being faced. */
@@ -129,7 +134,7 @@ export class PlayState {
 
   attr(k: number, a: Attr): number {
     const p = this.group[k];
-    return this.abilitiesOff ? p.printed.attrs[a] : p.attrs[a] + this.attrBonus;
+    return (this.abilitiesOff ? p.printed.attrs[a] : p.attrs[a] + this.attrBonus) - (this.attrLoss ? this.attrLoss[k] : 0);
   }
 
   hasSkill(k: number, ...skills: number[]): boolean {
@@ -245,7 +250,8 @@ export class PlayState {
       for (let i = 0; i < skills.length; i++) skills[i] += p.skills[i];
       const first = this.group[k].firstSkill;
       if (this.firstSkillOff && first !== undefined) skills[first] -= p.skills[first];
-      for (let a = 0; a < 3; a++) attrs[a] += p.attrs[a] + (this.abilitiesOff ? 0 : this.attrBonus);
+      const loss = this.attrLoss ? this.attrLoss[k] : 0;
+      for (let a = 0; a < 3; a++) attrs[a] += p.attrs[a] + (this.abilitiesOff ? 0 : this.attrBonus) - loss;
     }
     return meets(this.requirements, skills, attrs);
   }
