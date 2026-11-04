@@ -54,6 +54,26 @@ describe('pileAttemptOf (#1508)', () => {
     expect(attempt.table.turn).toBe(4);
   });
 
+  it('fills the hand with one entry per personnel, its skill indexes and Strength (#1525)', () => {
+    const hand = [
+      person('Worf', { skills: '2 Security, Officer', strength: 8 }),
+      { ...person('Tricorder'), type: 'equipment', strength: 3 },
+    ];
+    const { attempt } = pileAttemptOf(input({ hand }));
+    expect(attempt.table.hand).toEqual([{ skills: [BOT_SKILLS.indexOf('officer'), BOT_SKILLS.indexOf('security')].sort((a, b) => a - b), strength: 8 }]);
+    expect(attempt.table.handSize).toBe(2);
+    expect(pileAttemptOf(input()).attempt.table.hand).toEqual([]);
+  });
+
+  it('sets completedPlanetMission for a completed planet mission only (#1525)', () => {
+    const of = (missiontype: string, completed: boolean) =>
+      pileAttemptOf(input({ missions: [{ mission: mission('p') }, { mission: mission(missiontype), completed }] })).attempt.table.completedPlanetMission;
+    expect(of('p', true)).toBe(true);
+    expect(of('p', false)).toBe(false);
+    expect(of('s', true)).toBe(false);
+    expect(of('h', true)).toBe(false);
+  });
+
   it('hands the bot deck\'s affiliations to the attempt, and leaves them out for Chula (#1520)', () => {
     expect(pileAttemptOf(input({ botAffiliations: ['klingon', 'romulan'] })).attempt.botAffiliations).toEqual(['klingon', 'romulan']);
     expect('botAffiliations' in pileAttemptOf(input()).attempt).toBe(false);

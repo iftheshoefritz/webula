@@ -70,7 +70,7 @@ export function botAffiliationsOf(deckText: string, rows: ReadonlyArray<DeckCard
 type PersonnelRow = Parameters<typeof botPersonnelOf>[0] & TraitsRow;
 
 /** The printed skills of a row, indexed as `BOT_SKILLS`, and the number of skill dots: one per skill line. */
-function printedSkillsOf(text: string | number | undefined): { skills: number[]; dots: number } {
+export function printedSkillsOf(text: string | number | undefined): { skills: number[]; dots: number } {
   const skills = new Array(BOT_SKILLS.length).fill(0);
   let dots = 0;
   const pattern = /(\d+\s+)?([a-z]+)/g;

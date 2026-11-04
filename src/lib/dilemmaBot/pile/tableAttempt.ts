@@ -1,8 +1,8 @@
 import { AttemptedMission, BotTableFacts, attemptedMissionOf } from '../gains';
 import { RequirementBranch, parseRequirementBranches } from '../requirements';
 import { partnerGroupOf } from '../simulator';
-import { PileAttempt, PileShip } from './model';
-import { pilePersonnelOf } from './pile';
+import { PileAttempt, PileHandPersonnel, PileShip } from './model';
+import { pilePersonnelOf, printedSkillsOf } from './pile';
 import { pileTitleOf } from './registry';
 
 // The `PileAttempt` of a bot attempt on the practice table (#1508). It
@@ -22,6 +22,7 @@ export interface PileCardRow extends AttemptedMission {
   keywords?: string | number;
   span?: string | number;
   cunning?: string | number;
+  strength?: string | number;
   range?: string | number;
   weapons?: string | number;
   shields?: string | number;
@@ -84,6 +85,14 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       : undefined;
   const slots = input.missions.filter((s): s is { mission: PileCardRow; completed?: boolean } => !!s.mission);
   const completed = slots.filter((s) => s.completed);
+  // The personnel in the hand (#1525), for the dilemmas that reveal it: each with the skills its row
+  // prints, as indexes of `BOT_SKILLS` (the parse `pilePersonnelOf` uses), and its Strength.
+  const hand: PileHandPersonnel[] = input.hand
+    .filter((row): row is PileCardRow => row?.type === 'personnel')
+    .map((row) => ({
+      skills: printedSkillsOf(row.skills).skills.flatMap((n, i) => (n ? [i] : [])),
+      strength: Number(row.strength) || 0,
+    }));
   const copies = new Map<string, number>();
   for (const title of input.discard.map(titleOf)) if (title) copies.set(title, (copies.get(title) ?? 0) + 1);
   const attempt: PileAttempt = {
@@ -104,6 +113,8 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       headquarters: slots.filter((s) => s.mission.missiontype === 'h').length,
       completedMissions: completed.length,
       completedSpaceMission: completed.some((s) => s.mission.missiontype === 's'),
+      completedPlanetMission: completed.some((s) => s.mission.missiontype === 'p'),
+      hand,
       handSize: input.hand.length,
       handHasCunning7Or11: input.hand.some((row) => row?.type === 'personnel' && [7, 11].includes(Number(row.cunning))),
       discardCopiesMax: Math.max(0, ...copies.values()),
