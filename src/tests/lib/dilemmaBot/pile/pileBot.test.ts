@@ -7,7 +7,6 @@ import { playPileStack } from '../../../../lib/dilemmaBot/pile/play';
 import { botPileOf } from '../../../../lib/dilemmaBot/pile/pile';
 import { REGISTRY, discardCap, modelOf, pileTitleOf } from '../../../../lib/dilemmaBot/pile/registry';
 import {
-  BEAM_DEFAULTS,
   beamPileSearch,
   choosePileStack,
   countPileStacks,
@@ -297,11 +296,11 @@ describe('the beam search', () => {
     expect(result.stackCount).toBeLessThanOrEqual(1 + titles + 12 * 5 * titles);
   });
 
-  it('is what choosePileStack uses above the full search\'s limit of 500 stacks', () => {
+  it('is what choosePileStack uses for every draw, small or large', () => {
+    expect(choosePileStack(attempt, pile.slice(0, 2), 2, 1).method).toBe('beam');
     const drawn = pile.slice(0, 14);
     expect(countPileStacks(attempt, drawn, 12)).toBeGreaterThan(500);
     expect(choosePileStack(attempt, drawn, 12, 1).method).toBe('beam');
-    expect(BEAM_DEFAULTS.width).toBeGreaterThan(0);
   });
 
   it('finds a stack whose first dilemma only sets up the next, as Dereliction of Duty does', () => {

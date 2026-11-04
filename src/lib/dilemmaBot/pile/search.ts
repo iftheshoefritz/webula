@@ -1,4 +1,4 @@
-import { CANNOT_FAIL, CONFIDENT, DecisionMode, FULL_PLAYS, FULL_SEARCH_LIMIT, SearchMethod } from '../search';
+import { CANNOT_FAIL, CONFIDENT, DecisionMode, FULL_PLAYS, SearchMethod } from '../search';
 import { Rand, seededRandom } from '../simulator';
 import { DilemmaModel, PileAttempt, PileResult, costOf, lastingDamage } from './model';
 import { playPileStack } from './play';
@@ -250,13 +250,11 @@ export function beamPileSearch(
 }
 
 /**
- * The bot's choice, as `chooseStack` of the Chula bot: the full search when the draw has at most
- * `FULL_SEARCH_LIMIT` legal stacks, the beam search above that.
+ * The bot's choice, as `chooseStack` of the Chula bot: the beam search, for every draw. It lost no
+ * P(fail) against the full search at any N of the beam pilot, 2 to 12, and its slowest search at N = 12
+ * took under a second (#1320). The full and the fast search stay for the pilot scripts.
  */
 export function choosePileStack(attempt: PileAttempt, drawn: string[], n: number, seed = 1): PileSearchResult {
-  if (countPileStacks(attempt, drawn, n) <= FULL_SEARCH_LIMIT) {
-    return fullPileSearch(attempt, legalPileStacks(attempt, drawn, n), FULL_PLAYS, seed, drawn.length);
-  }
   return beamPileSearch(attempt, drawn, n, seed);
 }
 
