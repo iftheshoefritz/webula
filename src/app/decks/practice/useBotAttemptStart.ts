@@ -5,7 +5,7 @@ import { TableSearchRequest, answerSearch } from '../../../lib/dilemmaBot/search
 import { seededRandom } from '../../../lib/dilemmaBot/simulator';
 import { useSearchWorker } from '../../../lib/dilemmaBot/useSearchWorker';
 import { useLatest } from '../../../hooks/useLatest';
-import { attemptingCards, botTableFactsOf } from './attempt';
+import { pileTableInputOf } from './attempt';
 import { CardInstance, TableAction, TableState, drawFromDilemmaPile } from './tableReducer';
 
 export type BotAttemptAction = Extract<TableAction, { type: 'botAttempt' }>;
@@ -66,19 +66,7 @@ export function useBotAttemptStart(table: TableState, onAction: (action: BotAtte
     const { drawn, pile } = drawFromDilemmaPile(table.dilemmaPile, fields.botDraw);
     const action = { type: 'botAttempt' as const, ...fields, pile, drawn: drawn.map((c) => c.id) };
     const titles = drawnPileTitles(drawn.map((c) => c.card));
-    const slot = table.missions[fields.missionIndex];
-    const { attempt, random } = pileAttemptOf({
-      cards: attemptingCards(table, fields.missionIndex, fields.shipId) ?? [],
-      mission: slot?.mission?.card,
-      ship: slot?.ships.find((s) => s.id === fields.shipId)?.card,
-      placedOn: (slot?.mission?.placedOn ?? []).map((c) => c.card),
-      underMission: (slot?.underMission ?? []).map((c) => c.card),
-      missions: table.missions.map((s) => ({ mission: s.mission?.card, completed: s.completed })),
-      hand: table.hand.map((c) => c.card),
-      discard: table.discard.map((c) => c.card),
-      turn: table.turn,
-      facts: botTableFactsOf(table),
-    });
+    const { attempt, random } = pileAttemptOf(pileTableInputOf(table, fields.missionIndex, fields.shipId));
     if (random) {
       const stack = titles.length ? randomLegalPileStack(attempt, titles, fields.botSpend, seededRandom(seed)) : [];
       onActionRef.current({ ...action, stack: pileStackCardIds(drawn, stack), random: true });
