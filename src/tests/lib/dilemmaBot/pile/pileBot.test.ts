@@ -7,8 +7,11 @@ import { playPileStack } from '../../../../lib/dilemmaBot/pile/play';
 import { botPileOf } from '../../../../lib/dilemmaBot/pile/pile';
 import { REGISTRY, discardCap, modelOf, pileTitleOf } from '../../../../lib/dilemmaBot/pile/registry';
 import {
+  BEAM_DEFAULTS,
+  beamPileSearch,
   choosePileStack,
   countPileStacks,
+  fullPileSearch,
   isLegalPileStack,
   legalPileStacks,
   rankPileScores,
@@ -254,5 +257,43 @@ describe('legality', () => {
   it('ranks several hundred thousand scores, as the fast search does at N = 12', () => {
     const scores = Array.from({ length: 300000 }, (_, i) => ({ stack: [], pFail: (i % 7) / 10, damage: 0, under: 0, plays: 1 }));
     expect(rankPileScores(scores).ranked[0].pFail).toBe(0.6);
+  });
+});
+
+describe('the beam search', () => {
+  const pile = botPileOf(pileText(THINK_TANK)).played;
+  const attempt = attemptOf(
+    [person('Doc', { skills: { medical: 1, science: 1 } }), person('Pilot', { skills: { navigation: 1 } }), ...group(7)],
+    { requirements: 'Medical, Navigation and Cunning>30' },
+  );
+
+  it('returns legal stacks only, the best first', () => {
+    const drawn = pile.slice(0, 12);
+    const result = beamPileSearch(attempt, drawn, 9, 1);
+    expect(result.method).toBe('beam');
+    for (const s of result.ranked) expect(isLegalPileStack(attempt, s.stack, drawn, 9)).toBe(true);
+  });
+
+  it('finds a stack as likely to fail as the full search\'s on a small draw', () => {
+    const drawn = pile.slice(10, 16);
+    const full = fullPileSearch(attempt, legalPileStacks(attempt, drawn, 6), 300, 2, drawn.length);
+    const beam = beamPileSearch(attempt, drawn, 6, 2);
+    expect(beam.best.pFail).toBeGreaterThanOrEqual(full.best.pFail - 0.05);
+  });
+
+  it('scores at most width × titles stacks at each length, however many stacks are legal', () => {
+    const drawn = pile.slice(0, 14);
+    const legal = countPileStacks(attempt, drawn, 12);
+    const result = beamPileSearch(attempt, drawn, 12, 1, { width: 5 });
+    expect(legal).toBeGreaterThan(result.stackCount);
+    const titles = new Set(drawn).size;
+    expect(result.stackCount).toBeLessThanOrEqual(1 + titles + 12 * 5 * titles);
+  });
+
+  it('is what choosePileStack uses above the full search\'s limit of 500 stacks', () => {
+    const drawn = pile.slice(0, 14);
+    expect(countPileStacks(attempt, drawn, 12)).toBeGreaterThan(500);
+    expect(choosePileStack(attempt, drawn, 12, 1).method).toBe('beam');
+    expect(BEAM_DEFAULTS.width).toBeGreaterThan(0);
   });
 });

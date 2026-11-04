@@ -39,14 +39,26 @@ export function isLegalPileStack(attempt: PileAttempt, stack: ReadonlyArray<stri
   return cost <= n;
 }
 
-/** Every legal ordered stack of the drawn titles, the empty stack first. */
-export function legalPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<string>, n: number, limit = Infinity): string[][] {
+interface StackOption {
+  title: string;
+  cost: number;
+  /** The copies a stack can hold: 1, or the copies drawn for a `repeatable` title. */
+  max: number;
+}
+
+/** The titles a stack can take at this attempt, each with its cost and the copies it can hold. */
+function stackOptions(attempt: PileAttempt, drawn: ReadonlyArray<string>): StackOption[] {
   const copies = new Map<string, number>();
   for (const m of modelsOf(drawn)) if (fitsMission(m, attempt)) copies.set(m.title, (copies.get(m.title) ?? 0) + 1);
-  const options = Array.from(copies.keys()).map((title) => {
+  return Array.from(copies.keys()).map((title) => {
     const model = REGISTRY.get(title)!;
     return { title, cost: costOf(model, attempt), max: model.repeatable ? copies.get(title)! : 1 };
   });
+}
+
+/** Every legal ordered stack of the drawn titles, the empty stack first. */
+export function legalPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<string>, n: number, limit = Infinity): string[][] {
+  const options = stackOptions(attempt, drawn);
   const out: string[][] = [];
   const used = new Map<string, number>();
   const current: string[] = [];
@@ -125,8 +137,11 @@ export function rankPileScores(scores: PileStackScore[]): { mode: DecisionMode; 
   return { mode: 'probability', ranked: scores.slice().sort((a, b) => b.pFail - a.pFail || byDamage(a, b)) };
 }
 
+/** The full and the fast search of the Chula bot, and the beam search of the pile bot. */
+export type PileSearchMethod = SearchMethod | 'beam';
+
 export interface PileSearchResult {
-  method: SearchMethod;
+  method: PileSearchMethod;
   mode: DecisionMode;
   best: PileStackScore;
   ranked: PileStackScore[];
@@ -155,12 +170,70 @@ export function fastPileSearch(attempt: PileAttempt, stacks: string[][], seed = 
   return { method: 'fast', mode, best: ranked[0], ranked, stackCount: stacks.length, plays: total };
 }
 
-/** The bot's choice, as `chooseStack` of the Chula bot: the full search for a small draw, the fast search above. */
+export interface BeamOptions {
+  /** The stacks kept at each length. */
+  width: number;
+  /** The plays of each stack the beam scores. */
+  plays: number;
+  /** The best stacks of every length that get `finalPlays` at the end. */
+  finalists: number;
+  finalPlays: number;
+}
+
+export const BEAM_DEFAULTS: BeamOptions = { width: 40, plays: 48, finalists: 6, finalPlays: 400 };
+
+/**
+ * The beam search: build the stacks one dilemma at a time. Score every stack of one dilemma, keep the
+ * best `width`, extend each of those by every title that still fits N, score the extensions, keep the
+ * best `width` again, until nothing fits. Every stack scored stays a candidate, so a short stack can
+ * still win. The `finalists` best candidates then get `finalPlays` each. Its cost grows with N and the
+ * width, never with the number of legal stacks. Every stack uses the same seeds, as the full search does.
+ */
+export function beamPileSearch(
+  attempt: PileAttempt,
+  drawn: string[],
+  n: number,
+  seed = 1,
+  options: Partial<BeamOptions> = {},
+): PileSearchResult {
+  const { width, plays, finalists, finalPlays } = { ...BEAM_DEFAULTS, ...options };
+  const stackOpts = stackOptions(attempt, drawn);
+  const score = (stack: string[]) => scorePileStack(attempt, stack, plays, seed, drawn.length);
+  const candidates: PileStackScore[] = [score([])];
+  let total = plays;
+  let beam: { stack: string[]; cost: number }[] = [{ stack: [], cost: 0 }];
+  let stackCount = 1;
+  while (beam.length) {
+    const next: { stack: string[]; cost: number }[] = [];
+    for (const { stack, cost } of beam) {
+      for (const o of stackOpts) {
+        if (cost + o.cost > n || stack.filter((t) => t === o.title).length >= o.max) continue;
+        next.push({ stack: [...stack, o.title], cost: cost + o.cost });
+      }
+    }
+    if (!next.length) break;
+    const scored = next.map((x) => ({ ...x, score: score(x.stack) }));
+    total += next.length * plays;
+    stackCount += next.length;
+    candidates.push(...scored.map((x) => x.score));
+    const kept = new Set(rankPileScores(scored.map((x) => x.score)).ranked.slice(0, width));
+    beam = scored.filter((x) => kept.has(x.score));
+  }
+  const top = rankPileScores(candidates).ranked.slice(0, finalists).map((c) => c.stack);
+  const { mode, ranked } = rankPileScores(top.map((stack) => scorePileStack(attempt, stack, finalPlays, seed, drawn.length)));
+  total += top.length * finalPlays;
+  return { method: 'beam', mode, best: ranked[0], ranked, stackCount, plays: total };
+}
+
+/**
+ * The bot's choice, as `chooseStack` of the Chula bot: the full search when the draw has at most
+ * `FULL_SEARCH_LIMIT` legal stacks, the beam search above that.
+ */
 export function choosePileStack(attempt: PileAttempt, drawn: string[], n: number, seed = 1): PileSearchResult {
-  const stacks = legalPileStacks(attempt, drawn, n);
-  return stacks.length <= FULL_SEARCH_LIMIT
-    ? fullPileSearch(attempt, stacks, FULL_PLAYS, seed, drawn.length)
-    : fastPileSearch(attempt, stacks, seed, 400, drawn.length);
+  if (countPileStacks(attempt, drawn, n) <= FULL_SEARCH_LIMIT) {
+    return fullPileSearch(attempt, legalPileStacks(attempt, drawn, n), FULL_PLAYS, seed, drawn.length);
+  }
+  return beamPileSearch(attempt, drawn, n, seed);
 }
 
 /** The baseline of #1282: a random legal stack. */
