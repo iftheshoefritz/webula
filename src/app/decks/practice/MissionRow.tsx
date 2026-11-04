@@ -1121,15 +1121,20 @@ function useGroupLandedNonce(landedNonce: number | null, count: number): number 
 // The under-the-mission stack shows at most two slivers (#917); the count on the stack, and the
 // hidden button's aria-label, keep the true number.
 const UNDER_MISSION_MAX_VISIBLE = 2;
-// Each sliver pokes out by about 10% of the card height (#968, 5% before).
+// Each sliver pokes out by about 10% of the card height (#968, 5% before), and by half that above
+// the attempted mission in the attempt layout on a desktop (#1504, `halfSlivers`).
 const UNDER_MISSION_SLIVER_FRACTION = 0.1;
+const DESKTOP_ATTEMPT_SLIVER_FRACTION = UNDER_MISSION_SLIVER_FRACTION / 2;
 
-const underMissionSliver = (cardArtHeight: number): number =>
-  Math.max(1, Math.round(cardArtHeight * UNDER_MISSION_SLIVER_FRACTION));
+const underMissionSliver = (cardArtHeight: number, halfSlivers = false): number =>
+  Math.max(
+    1,
+    Math.round(cardArtHeight * (halfSlivers ? DESKTOP_ATTEMPT_SLIVER_FRACTION : UNDER_MISSION_SLIVER_FRACTION)),
+  );
 
 // How far, in px, the stack of slivers pokes out above the mission card: 0 for an empty pile.
-const underMissionStackHeight = (cardArtHeight: number, count: number): number =>
-  underMissionSliver(cardArtHeight) * Math.min(count, UNDER_MISSION_MAX_VISIBLE);
+const underMissionStackHeight = (cardArtHeight: number, count: number, halfSlivers = false): number =>
+  underMissionSliver(cardArtHeight, halfSlivers) * Math.min(count, UNDER_MISSION_MAX_VISIBLE);
 
 // `page.tsx`'s own `p-4` padding above the mission row, which the stack pokes into.
 const TABLE_TOP_PADDING = 16; // px
@@ -1161,6 +1166,7 @@ function UnderMissionStack({
   cardWidth,
   cardArtHeight,
   uncropped,
+  halfSlivers,
   holdId,
 }: {
   missionIndex: number;
@@ -1169,15 +1175,17 @@ function UnderMissionStack({
   cardWidth: number;
   cardArtHeight: number;
   uncropped: boolean;
+  // The slivers of the attempted mission on a desktop, half as tall (#1504).
+  halfSlivers: boolean;
   // The mission card a hold on the slivers previews; none in a mission slot with no mission card.
   holdId?: string;
 }) {
   const landedNonce = useLandedNonce(missionPileDropId(missionIndex, 'underMission'));
   const holdListeners = useCardHold(holdId ?? '');
   if (cards.length === 0) return null;
-  const sliver = underMissionSliver(cardArtHeight);
+  const sliver = underMissionSliver(cardArtHeight, halfSlivers);
   const shown = cards.slice(-UNDER_MISSION_MAX_VISIBLE);
-  const stackHeight = underMissionStackHeight(cardArtHeight, cards.length);
+  const stackHeight = underMissionStackHeight(cardArtHeight, cards.length, halfSlivers);
 
   return (
     <div
@@ -1260,9 +1268,10 @@ export const shipRowWidth = (scale: number, perRow: number): number =>
   scaled(SMALL_CARD_WIDTH, scale) + (perRow - 1) * scaled(SMALL_CARD_MAX_OFFSET_BASE, scale);
 
 // The room above the mission card that a full stack of slivers needs, with no table padding to
-// poke into: the attempt layout (#1164) has its strip above the mission.
-export const underMissionStackRoom = (scale: number, uncropped = false): number =>
-  underMissionSliver(missionCardHeight(scale, uncropped)) * UNDER_MISSION_MAX_VISIBLE;
+// poke into: the attempt layout (#1164) has its strip above the mission. `halfSlivers` gives the
+// halved slivers of the attempted mission on a desktop (#1504).
+export const underMissionStackRoom = (scale: number, uncropped = false, halfSlivers = false): number =>
+  underMissionSliver(missionCardHeight(scale, uncropped), halfSlivers) * UNDER_MISSION_MAX_VISIBLE;
 
 // The height of a whole mission column (#992), from the top of the room the row moves down by
 // (`underMissionHeadroom`) to the bottom of `rows` rows of ships: the mission card, the badge
@@ -1499,6 +1508,7 @@ export function MissionCard({
   showAwayTeam = true,
   placedOnColumn,
   facing = false,
+  halfSlivers = false,
 }: {
   missionIndex: number;
   slot: MissionSlot;
@@ -1521,6 +1531,9 @@ export function MissionCard({
   // The attempted mission in the facing phase of the attempt layout (#1424): the halves read
   // "Overcome" and "Place on".
   facing?: boolean;
+  // The attempted mission in the attempt layout on a desktop (#1504): the slivers of the dilemmas
+  // under it are half as tall. `uncropped` cannot tell, since the desktop full table is uncropped too.
+  halfSlivers?: boolean;
 }) {
   const halfLabels = MISSION_HALF_LABELS[facing ? 'facing' : 'table'];
   const { setNodeRef: setOnNodeRef, isOver: onIsOver } = useDroppable({ id: missionHalfDropId(missionIndex, 'on') });
@@ -1551,7 +1564,7 @@ export function MissionCard({
   // the away team badge routes as a drop on the mission card does. Counts on the card lie inside it.
   const onReach = countsOnCard ? 0 : COLUMN_GAP + badgeHeight;
   // The top half reaches up over the slivers of the dilemmas under the mission (#990).
-  const underReach = underMissionStackHeight(cardArtHeight, underMission.length);
+  const underReach = underMissionStackHeight(cardArtHeight, underMission.length, halfSlivers);
   // A completed mission (#991) darkens. A double-tap on the card toggles it (#1059).
   const completed = Boolean(mission && slot.completed);
   // A completed mission turns 90° clockwise inside its slot (#1060). The Flip button sits on the
@@ -1635,6 +1648,7 @@ export function MissionCard({
           cardWidth={cardWidth}
           cardArtHeight={cardArtHeight}
           uncropped={uncropped}
+          halfSlivers={halfSlivers}
           holdId={mission?.id}
         />
 

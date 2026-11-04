@@ -10,6 +10,8 @@ import {
   ATTEMPT_STACK_SLIVER_ROOM,
   ATTEMPT_STRIP_HEIGHT,
   attemptFloorScale,
+  attemptBandHeight,
+  attemptColumnHeight,
   attemptPersonnelCardWidth,
   attemptPersonnelWidth,
   AttemptLayoutSizes,
@@ -38,6 +40,7 @@ import {
   shipRowLineHeight,
   shipRowWidth,
   shipsPerRow,
+  underMissionHeadroom,
   underMissionStackRoom,
 } from '../../../app/decks/practice/MissionRow';
 import { offsetFor } from '../../../app/decks/practice/overlapOffset';
@@ -268,8 +271,8 @@ describe('computeAttemptLayout (#1164)', () => {
     const floor = computeDesktopTableScale(1440, tableHeight, desktopColumn);
     const sizes = computeAttemptLayout(1440, available, true, 2, floor);
     expect(sizes.missionScale).toBeGreaterThan(floor);
-    expect(attemptMissionColumnHeight(sizes.missionScale)).toBeLessThanOrEqual(available);
-    expect(attemptMissionColumnHeight(sizes.missionScale + 0.01)).toBeGreaterThan(available);
+    expect(attemptMissionColumnHeight(sizes.missionScale, true)).toBeLessThanOrEqual(available);
+    expect(attemptMissionColumnHeight(sizes.missionScale + 0.01, true)).toBeGreaterThan(available);
     expect(usedWidth(sizes)).toBeLessThanOrEqual(1440);
   });
 
@@ -496,7 +499,7 @@ describe('the personnel and the stack of the facing phase (#1218)', () => {
     const rowScale = screen.desktop
       ? computeDesktopTableScale(screen.width, screen.tableHeight, desktopColumn)
       : computeTouchMissionScale(screen.width, screen.tableHeight, touchColumn, tableScale);
-    const floor = attemptFloorScale(rowScale, available, tableScale);
+    const floor = attemptFloorScale(rowScale, available, tableScale, screen.desktop);
     const panel = viewerCardSize(computeTableScale(screen.width, screen.height), screen.desktop).width;
 
     it.each(cases)(`lays out $name on ${screen.name}`, ({ ships, personnel, placedOn }) => {
@@ -535,7 +538,7 @@ describe('the personnel and the stack of the facing phase (#1218)', () => {
       const middle = personnel.space
         ? Math.max(buttons + sizes.personnelHeight, shipsHeight)
         : buttons + sizes.personnelHeight + 4 + shipsHeight;
-      expect(underMissionStackRoom(sizes.missionScale, true) + middle).toBeLessThanOrEqual(available + 0.5);
+      expect(attemptBandHeight(sizes.missionScale, screen.desktop) + middle).toBeLessThanOrEqual(available + 0.5);
       expect(sizes.missionScale).toBeGreaterThanOrEqual(Math.min(floor, sizes.missionScale));
       // The choice phase keeps the mission's scale and fits the width.
       const choice = computeAttemptChoiceLayout(screen.width, available, screen.desktop, ships, floor, sizes, personnel.space);
@@ -754,11 +757,11 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
     const rowScale = screen.desktop
       ? computeDesktopTableScale(screen.width, tableHeight, desktopColumn)
       : computeTouchMissionScale(screen.width, tableHeight, touchColumn, tableScale);
-    const floor = attemptFloorScale(rowScale, available, tableScale);
+    const floor = attemptFloorScale(rowScale, available, tableScale, screen.desktop);
 
     it.each(cases)(`fits $name on ${screen.name}, in both phases`, ({ ships, personnel }) => {
       const face = computeAttemptLayout(screen.width, available, screen.desktop, ships, floor, personnel);
-      const padding = underMissionStackRoom(face.missionScale, true);
+      const padding = attemptBandHeight(face.missionScale, screen.desktop);
       expect(padding + face.columnHeight).toBeLessThanOrEqual(available + 0.5);
 
       // The facing phase: the mission, the middle column and the dilemma stack.
@@ -768,7 +771,7 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
         ? Math.max(personnelHeight, ships_)
         : personnelHeight + 4 + ships_;
       const stack = missionCardHeight(face.missionScale, true);
-      expect(attemptMissionColumnHeight(face.missionScale)).toBeLessThanOrEqual(available + 0.5);
+      expect(attemptMissionColumnHeight(face.missionScale, screen.desktop)).toBeLessThanOrEqual(available + 0.5);
       expect(padding + Math.max(middle, stack)).toBeLessThanOrEqual(available + 0.5);
 
       // The choice phase: the mission, the stack, and the ships, beside the pile at a planet mission.
@@ -789,7 +792,8 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
 // facing stack and the whole dilemma choice draw exactly as before. The numbers are those of the
 // code before #1365, for an away team of 20 and a crew of 12, with cards placed on the mission, but
 // for the planet mission's choice, whose pile is the size of the mission card since #1493, and the
-// desktop choice's stack cards, whole cards since #1498.
+// desktop choice's stack cards, whole cards since #1498, and the desktop column height, 46 px taller
+// since the band above the body shrank with the halved slivers (#1504).
 describe('the facing body takes the empty width, and the mission and the choice do not change (#1365)', () => {
   const screens = {
     667: { height: 375, tableHeight: 218, desktop: false },
@@ -811,13 +815,13 @@ describe('the facing body takes the empty width, and the mission and the choice 
     {
       width: 1440,
       space: false,
-      expected: { missionScale: expect.closeTo(5.048611, 5), columnHeight: 589, placedOnWidth: 94, stackWidth: 374, stackHeight: 505 },
+      expected: { missionScale: expect.closeTo(5.048611, 5), columnHeight: 635, placedOnWidth: 94, stackWidth: 374, stackHeight: 505 },
       choice: { missionScale: expect.closeTo(5.048611, 5), stackWidth: 410, stackHeight: 505, stackCardWidth: 136, stackCardHeight: 189, stackWholeCards: true, rightWidth: 465, pileCardWidth: 363, pileCardHeight: 505, hasPile: true, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
     },
     {
       width: 1440,
       space: true,
-      expected: { missionScale: expect.closeTo(3.326389, 5), columnHeight: 589, placedOnWidth: 94, stackWidth: 251, stackHeight: 333 },
+      expected: { missionScale: expect.closeTo(3.326389, 5), columnHeight: 635, placedOnWidth: 94, stackWidth: 251, stackHeight: 333 },
       choice: { missionScale: expect.closeTo(3.326389, 5), stackWidth: 905, stackHeight: 333, stackCardWidth: 229, stackCardHeight: 319, stackWholeCards: true, rightWidth: 94, pileCardWidth: 0, pileCardHeight: 0, hasPile: false, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
     },
   ];
@@ -828,7 +832,7 @@ describe('the facing body takes the empty width, and the mission and the choice 
     const rowScale = screen.desktop
       ? computeDesktopTableScale(width, screen.tableHeight, (s) => missionColumnHeight(s, true, DESKTOP_RESERVED_SHIP_ROWS))
       : computeTouchMissionScale(width, screen.tableHeight, (s) => missionColumnHeight(s, false, TOUCH_RESERVED_SHIP_ROWS), tableScale);
-    const floor = attemptFloorScale(rowScale, available, tableScale);
+    const floor = attemptFloorScale(rowScale, available, tableScale, screen.desktop);
     const panel = viewerCardSize(computeTableScale(width, screen.height), screen.desktop).width;
     const personnel = space ? { count: 12, space: true } : { count: 20, space: false };
     const face = computeAttemptLayout(width, available, screen.desktop, space ? 1 : 0, floor, personnel, true, panel);
@@ -883,6 +887,48 @@ describe('the first row of the personnel is level with the mission (#1376)', () 
     expect(attemptPersonnelButtonsInBand(1)).toBe(true);
     expect(attemptPersonnelButtonsInBand(0.8)).toBe(false);
     expect(underMissionStackRoom(0.8, true)).toBeLessThan(ATTEMPT_PERSONNEL_BUTTONS_HEIGHT);
+  });
+});
+
+// Issue #1504: on a desktop the slivers above the attempted mission are half as tall, and the band
+// above the attempt body shrinks with them, never below the line of the personnel row's buttons.
+describe('attemptBandHeight (#1504)', () => {
+  it('keeps the touch band as it was', () => {
+    for (const scale of [0.8, 1, 1.17, 2.5]) {
+      expect(attemptBandHeight(scale)).toBe(underMissionStackRoom(scale, true));
+      expect(attemptBandHeight(scale, false)).toBe(underMissionStackRoom(scale, true));
+    }
+    expect(attemptBandHeight(1)).toBe(20);
+    expect(attemptPersonnelButtonsInBand(0.8, false)).toBe(false);
+  });
+
+  it('halves the slivers on a desktop, with the line of buttons as the floor', () => {
+    // At scale 1 the whole card is 100 px: a sliver of 5, a stack of 10, a band of 18.
+    expect(underMissionStackRoom(1, true, true)).toBe(10);
+    expect(attemptBandHeight(1, true)).toBe(ATTEMPT_PERSONNEL_BUTTONS_HEIGHT);
+    // At 2.5 the halved stack is past the floor, and half the touch stack.
+    expect(attemptBandHeight(2.5, true)).toBe(underMissionStackRoom(2.5, true, true));
+    expect(attemptBandHeight(2.5, true)).toBeGreaterThan(ATTEMPT_PERSONNEL_BUTTONS_HEIGHT);
+    expect(Math.abs(2 * attemptBandHeight(2.5, true) - underMissionStackRoom(2.5, true))).toBeLessThanOrEqual(2);
+  });
+
+  it('always has the line of buttons in the band on a desktop', () => {
+    for (const scale of [0.5, 0.8, 1, 1.5, 3]) {
+      expect(attemptPersonnelButtonsInBand(scale, true)).toBe(true);
+    }
+  });
+
+  it('gives the desktop attempt body the height the band gives back', () => {
+    const available = 500;
+    expect(attemptColumnHeight(available, 1, true)).toBe(available - ATTEMPT_PERSONNEL_BUTTONS_HEIGHT);
+    expect(attemptMissionColumnHeight(1, true)).toBe(attemptMissionColumnHeight(1) - 2);
+    const sizes = computeAttemptLayout(1440, available, true, 2, 1, { count: 12, space: true });
+    expect(sizes.personnelButtonsInBand).toBe(true);
+    expect(attemptBandHeight(sizes.missionScale, true) + sizes.columnHeight).toBeLessThanOrEqual(available + 0.5);
+  });
+
+  it('leaves the full table on a desktop as it was', () => {
+    expect(underMissionHeadroom(1, true)).toBe(Math.max(0, underMissionStackRoom(1, true) - 16));
   });
 });
 

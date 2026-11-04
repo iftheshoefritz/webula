@@ -855,7 +855,10 @@ an unstopped personnel is in the row) set `stopped`. `attempt-row-shuffle`, last
 `data-testid="attempt-row-buttons"`, sits in the band above the facing body, level with the slivers
 above the mission, so the top of the first row of cards is level with the top of the mission card
 and of the dilemma stack (#1376, `attemptPersonnelButtonsInBand`); only where the band is shorter
-than the line, below a mission card about 90 px tall, does it sit above the cards in the column. A drop on the away team row routes as a drop on
+than the line, below a mission card about 90 px tall, does it sit above the cards in the column. On a desktop the slivers of the
+dilemmas under the attempted mission poke out by 5% of the card, half the table's 10%, and the band
+(`attemptBandHeight` in `tableScale.ts`, both phases) is the halved stack but never shorter than
+the line, so the line always sits in it there (#1504). The full table keeps 10% on every device. A drop on the away team row routes as a drop on
 `mission-on-<i>`: a personnel or an equipment joins the away team, a ship goes to the ship row, any
 other card is placed on the mission card. A drop on the crew row routes as a drop on `crew-<id>`. At a
 space mission the facing body has no away team badge (#1365): to aim a drop at the away team, aim at
