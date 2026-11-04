@@ -184,7 +184,8 @@ export interface BeamOptions {
   finalPlays: number;
 }
 
-export const BEAM_DEFAULTS: BeamOptions = { width: 40, plays: 48, finalists: 6, finalPlays: 400 };
+/** The narrowest setting the beam pilot tried lost no P(fail) and at most 0.02 damage, at a quarter of the cost of 80×64 (#1320). */
+export const BEAM_DEFAULTS: BeamOptions = { width: 20, plays: 32, finalists: 6, finalPlays: 400 };
 
 /**
  * The beam search: build the stacks one dilemma at a time. Score every stack of one dilemma, keep the
