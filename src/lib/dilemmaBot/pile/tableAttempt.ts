@@ -2,7 +2,7 @@ import { AttemptedMission, BotTableFacts, attemptedMissionOf } from '../gains';
 import { RequirementBranch, parseRequirementBranches } from '../requirements';
 import { partnerGroupOf } from '../simulator';
 import { PileAttempt, PileShip } from './model';
-import { pilePersonnelOf } from './pile';
+import { pileHandPersonnelOf, pilePersonnelOf } from './pile';
 import { pileTitleOf } from './registry';
 
 // The `PileAttempt` of a bot attempt on the practice table (#1508). It
@@ -22,6 +22,7 @@ export interface PileCardRow extends AttemptedMission {
   keywords?: string | number;
   span?: string | number;
   cunning?: string | number;
+  strength?: string | number;
   range?: string | number;
   weapons?: string | number;
   shields?: string | number;
@@ -101,7 +102,9 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       headquarters: slots.filter((s) => s.mission.missiontype === 'h').length,
       completedMissions: completed.length,
       completedSpaceMission: completed.some((s) => s.mission.missiontype === 's'),
+      completedPlanetMission: completed.some((s) => s.mission.missiontype === 'p'),
       handSize: input.hand.length,
+      hand: input.hand.filter((row): row is PileCardRow => row?.type === 'personnel').map(pileHandPersonnelOf),
       handHasCunning7Or11: input.hand.some((row) => row?.type === 'personnel' && [7, 11].includes(Number(row.cunning))),
       discardCopiesMax: Math.max(0, ...copies.values()),
       missionSkills: slots
