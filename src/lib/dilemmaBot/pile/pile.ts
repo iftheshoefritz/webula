@@ -1,7 +1,7 @@
 import { AttemptedMission, BotTableFacts } from '../gains';
 import { BOT_SKILLS, SKILL_INDEX } from '../requirements';
 import { TraitsRow, botPersonnelOf } from '../simulator';
-import { PilePersonnel } from './model';
+import { PileHandPersonnel, PilePersonnel } from './model';
 import { REGISTRY, pileTitleOf } from './registry';
 
 // A dilemma pile as the pile bot reads it (#1320, the pilot), and a personnel row as its dilemmas read it.
@@ -84,6 +84,12 @@ function printedSkillsOf(text: string | number | undefined): { skills: number[];
     first ??= i;
   }
   return { skills, dots, first };
+}
+
+/** A personnel of the player's hand as a dilemma that reveals the hand reads it (#1525): its printed skills, as indexes of `BOT_SKILLS`, and its Strength. */
+export function pileHandPersonnelOf(row: { skills?: string | number; strength?: string | number }): PileHandPersonnel {
+  const { skills } = printedSkillsOf(row.skills);
+  return { skills: skills.flatMap((n, i) => (n ? [i] : [])), strength: Number(row.strength) || 0 };
 }
 
 /**
