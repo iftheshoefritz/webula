@@ -4,12 +4,12 @@ import { Attr, ATTR_NAMES } from '../play';
 import { D, dilemmaList, names } from '../define';
 
 // The Chula pile (#1507): the 7 Chula titles the two pilot piles lack. Each draws its randoms and traces
-// its lines as the Chula bot's `playStack` did, so the hand-worked cases of #1282 and the partner cases of
+// its lines as the Chula bot of #1282 did, so the hand-worked cases of #1282 and the partner cases of
 // #1357 hold on the pile play.
 
 const { models, dilemma } = dilemmaList();
 
-// Each draws its randoms and traces its lines as the Chula bot's `playStack` did, so the hand-worked cases
+// Each draws its randoms and traces its lines as the Chula bot of #1282 did, so the hand-worked cases
 // of #1282 and the partner cases of #1357 hold on the pile play.
 
 

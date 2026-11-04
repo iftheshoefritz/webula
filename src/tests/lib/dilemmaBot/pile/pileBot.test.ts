@@ -10,10 +10,10 @@ import {
   beamPileSearch,
   choosePileStack,
   countPileStacks,
-  fullPileSearch,
   isLegalPileStack,
   legalPileStacks,
   rankPileScores,
+  scorePileStack,
 } from '../../../../lib/dilemmaBot/pile/search';
 
 const ROOT = process.cwd();
@@ -264,7 +264,7 @@ describe('legality', () => {
     expect(legalPileStacks(planet, ['Timescape', 'Hard Time'], 9)).toEqual([[], ['Hard Time']]);
   });
 
-  it('ranks several hundred thousand scores, as the fast search does at N = 12', () => {
+  it('ranks several hundred thousand scores without overflowing the call stack', () => {
     const scores = Array.from({ length: 300000 }, (_, i) => ({ stack: [], pFail: (i % 7) / 10, damage: 0, under: 0, stopped: 0, plays: 1 }));
     expect(rankPileScores(scores).ranked[0].pFail).toBe(0.6);
   });
@@ -284,11 +284,11 @@ describe('the beam search', () => {
     for (const s of result.ranked) expect(isLegalPileStack(attempt, s.stack, drawn, 9)).toBe(true);
   });
 
-  it('finds a stack as likely to fail as the full search\'s on a small draw', () => {
+  it('finds a stack as likely to fail as the best of every legal stack on a small draw', () => {
     const drawn = pile.slice(10, 16);
-    const full = fullPileSearch(attempt, legalPileStacks(attempt, drawn, 6), 300, 2, drawn.length);
+    const [best] = rankPileScores(legalPileStacks(attempt, drawn, 6).map((s) => scorePileStack(attempt, s, 300, 2, drawn.length))).ranked;
     const beam = beamPileSearch(attempt, drawn, 6, 2);
-    expect(beam.best.pFail).toBeGreaterThanOrEqual(full.best.pFail - 0.05);
+    expect(beam.best.pFail).toBeGreaterThanOrEqual(best.pFail - 0.05);
   });
 
   it('scores at most width × titles stacks at each length, however many stacks are legal', () => {

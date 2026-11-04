@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { chulaPileDeck, dilemmaIdOf } from '../../../lib/dilemmaBot/chulaPile';
+import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
 import { COPIES_OF_EACH, OPPONENT_DILEMMAS, collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
 import { mergeDeckPiles, cardPileFor, extractDilemmas } from '../../../app/decks/deckBuilderUtils';
 
@@ -44,7 +44,8 @@ describe('chulaPileDeck', () => {
   });
 
   it('replaces the dilemmas of a deck through mergeDeckPiles', () => {
-    const other = data.find((r) => r.type === 'dilemma' && dilemmaIdOf(r) === null);
+    const keys = new Set(OPPONENT_DILEMMAS.map((d) => collectorsKey(d.collectorsInfo)));
+    const other = data.find((r) => r.type === 'dilemma' && !keys.has(r.collectorsinfo));
     const mission = data.find((r) => r.type === 'mission');
     const deck0 = {
       [other.collectorsinfo]: { count: 2, row: { ...other, count: 2, pile: 'dilemmaPile' } },
@@ -58,22 +59,5 @@ describe('chulaPileDeck', () => {
 
   it('gives an empty deck with no card data', () => {
     expect(chulaPileDeck([])).toEqual({});
-  });
-});
-
-describe('dilemmaIdOf', () => {
-  it('maps each card of the pile back to its DilemmaId', () => {
-    const deck = chulaPileDeck(data);
-    for (const d of OPPONENT_DILEMMAS) {
-      expect(dilemmaIdOf(deck[collectorsKey(d.collectorsInfo)].row)).toBe(d.id);
-    }
-  });
-
-  it('returns null for a card that is not of the pile', () => {
-    const versions = data.filter((r) => ['0p83', '13a1', '0vp176', '0vp321'].includes(r.collectorsinfo));
-    expect(versions).toHaveLength(4);
-    for (const row of versions) expect(dilemmaIdOf(row)).toBeNull();
-    expect(dilemmaIdOf(data.find((r) => r.type === 'personnel'))).toBeNull();
-    expect(dilemmaIdOf({ collectorsinfo: '' })).toBeNull();
   });
 });

@@ -8,7 +8,7 @@ import { BOT_SKILLS, SKILL_INDEX } from './requirements';
 // <partner>, …" (#1356, part 3a), and the heads that read the player's own table: completed missions,
 // the discard pile and the core (#1352, part 4), and the loss of every skill "while you command a [bor]
 // non-dissident personnel" (#1360). The gain and the loss are plain data: it crosses into the search Web Worker with
-// the `BotAttempt`.
+// the `PileAttempt`.
 
 /**
  * When a gain applies. `'facing'`: in every check of a dilemma the personnel faces, and not in the

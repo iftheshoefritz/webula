@@ -1,6 +1,6 @@
 // The scenario generator of the pile bot's pilots (#1320), adapted from #1287: a random Championship
 // deck, one of its missions, a random group of its personnel that meets the mission, N, and the
-// dilemmas under the mission. `dilemma_bot_pile_pilot.ts` and `dilemma_bot_beam_pilot.ts` use it.
+// dilemmas under the mission. `dilemma_bot_pile_pilot.ts` uses it.
 
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';

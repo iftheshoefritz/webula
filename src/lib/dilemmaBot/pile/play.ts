@@ -8,7 +8,7 @@ import { DilemmaModel, PileAttempt, PilePersonnel, PileResult, PlayContext } fro
 export type Attr = 0 | 1 | 2;
 export const ATTR_NAMES = ['Integrity', 'Cunning', 'Strength'] as const;
 
-/** The profiles each play reads, built once per attempt: `chooseStack` plays one attempt up to 250,000 times. */
+/** The profiles each play reads, built once per attempt: `choosePileStack` plays one attempt thousands of times. */
 const PROFILES = new WeakMap<PileAttempt, { requirement: RequirementPersonnel[]; printed: RequirementPersonnel[] }>();
 function profilesOf(attempt: PileAttempt) {
   let profiles = PROFILES.get(attempt);
@@ -256,7 +256,7 @@ export class PlayState {
 
   /**
    * The player's choice of `count` personnel from `candidates` for a bad result: the ones whose loss
-   * keeps the mission requirements met, then any, as `bestPickOne` of the Chula bot does.
+   * keeps the mission requirements met, then any.
    */
   playerChooses(candidates: number[], count = 1): number[] {
     const chosen: number[] = [];

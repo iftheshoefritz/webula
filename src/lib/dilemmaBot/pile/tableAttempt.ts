@@ -5,7 +5,7 @@ import { PileAttempt, PileShip } from './model';
 import { pilePersonnelOf } from './pile';
 import { pileTitleOf } from './registry';
 
-// The `PileAttempt` of a bot attempt on the practice table (#1508), in place of `botAttemptOf`. It
+// The `PileAttempt` of a bot attempt on the practice table (#1508). It
 // reads card rows and table facts, not the table, so this file imports nothing from the practice
 // table (#1298): the page hands it the cards. The mission, the ship and `missionSkills` read the rows
 // as `makeScenario` of the pilots does (`scripts/dilemmaBotPileScenarios.ts`).

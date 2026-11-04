@@ -1,9 +1,8 @@
 import { RequirementBranch } from '../requirements';
 import { BotPersonnel, LivePartnerProfile, PlayerChoice, Profile, Rand } from '../simulator';
 
-// The model of a dilemma pile for the dilemma bot (#1320, the pilot). The Chula pile of #1282 keeps its
-// own `DilemmaId` union and `switch`; this module models any title as an entry of a registry, so the bot
-// can play the Championship piles. Nothing on the practice table reads it yet.
+// The model of a dilemma pile for the dilemma bot (#1320). It models any title as an entry of a registry,
+// so the bot can play the Chula pile of #1282 and the Championship piles.
 
 /** A personnel as the pile's dilemmas read it: the bot's personnel, and the traits the Chula pile never read. */
 export interface PilePersonnel extends BotPersonnel {
@@ -70,7 +69,7 @@ export interface PileMission {
   nebula: boolean;
 }
 
-/** The input of the pile bot: the `BotAttempt` of the Chula bot, with the facts a Championship pile reads. */
+/** The input of the pile bot: the attempting personnel, the mission, the table, and the copies of Chula: The Game on the mission. */
 export interface PileAttempt {
   personnel: PilePersonnel[];
   requirements: RequirementBranch[];

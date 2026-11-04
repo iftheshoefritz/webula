@@ -2,9 +2,7 @@
 // nothing from the practice table: the table merges this deck into the player's.
 
 import { DeckList } from '../../types';
-import { COPIES_OF_EACH, DilemmaId, OPPONENT_DILEMMAS, collectorsKey } from './opponentPile';
-
-const ID_BY_KEY = new Map<string, DilemmaId>(OPPONENT_DILEMMAS.map((d) => [collectorsKey(d.collectorsInfo), d.id]));
+import { COPIES_OF_EACH, OPPONENT_DILEMMAS, collectorsKey } from './opponentPile';
 
 /**
  * The dilemma pile of the bot, `COPIES_OF_EACH` of each `OPPONENT_DILEMMAS` card, keyed and shaped
@@ -23,9 +21,4 @@ export function chulaPileDeck(data: ReadonlyArray<{ collectorsinfo: string }>): 
     };
   }
   return deck;
-}
-
-/** The `DilemmaId` of a card of the Chula pile, by its collector's info, or null for any other card. */
-export function dilemmaIdOf(row: { collectorsinfo?: string } | null | undefined): DilemmaId | null {
-  return (row?.collectorsinfo && ID_BY_KEY.get(row.collectorsinfo)) || null;
 }

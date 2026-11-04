@@ -2,8 +2,7 @@
 import { LAB_TABLE, drawLabTitles, labPileAttemptOf } from '../../../../lib/dilemmaBot/pile/labAttempt';
 import { pilePersonnelOf } from '../../../../lib/dilemmaBot/pile/pile';
 import { REGISTRY } from '../../../../lib/dilemmaBot/pile/registry';
-import { drawDilemmas } from '../../../../lib/dilemmaBot/search';
-import { DILEMMA_BY_ID, OPPONENT_DILEMMAS } from '../../../../lib/dilemmaBot/opponentPile';
+import { OPPONENT_DILEMMAS } from '../../../../lib/dilemmaBot/opponentPile';
 import { seededRandom } from '../../../../lib/dilemmaBot/simulator';
 
 const row = (name: string, skills: string, gametext?: string) => ({
@@ -70,10 +69,18 @@ describe('pilePersonnelOf with lossSuspended (#1509)', () => {
 });
 
 describe('drawLabTitles (#1509)', () => {
-  it('draws the titles of drawDilemmas, with the same randoms', () => {
+  it('draws the same titles for the same randoms', () => {
     const titles = drawLabTitles(9, 1, 2, seededRandom(5));
-    expect(titles).toEqual(drawDilemmas(9, 1, 2, seededRandom(5)).map((id) => DILEMMA_BY_ID[id].title));
+    expect(titles).toEqual(drawLabTitles(9, 1, 2, seededRandom(5)));
     expect(titles).toHaveLength(9);
+  });
+
+  it('takes the dilemmas under the mission from the copies that are not Chula: The Game', () => {
+    for (let s = 1; s <= 20; s++) {
+      const titles = drawLabTitles(27, 0, 2, seededRandom(s));
+      expect(titles).toHaveLength(25);
+      expect(titles.filter((t) => t === 'Chula: The Game')).toHaveLength(3);
+    }
   });
 
   it('draws only titles of the registry, at most 3 of each, and no more Games than are left', () => {
