@@ -2,6 +2,7 @@ import { DilemmaModel } from './model';
 import { BEGINNER_DECK_MODELS } from './titles/beginnerDecks';
 import { CARDASSIAN_GQ_MODELS } from './titles/cardassianGammaQuadrant';
 import { CHAMPIONSHIP_BATCH_1_MODELS } from './titles/championshipBatch1';
+import { CHAMPIONSHIP_BATCH_3_MODELS } from './titles/championshipBatch3';
 import { CHULA_MODELS } from './titles/chula';
 import { THINK_TANK_MODELS } from './titles/thinkTank';
 
@@ -11,7 +12,7 @@ export { CORE_EVENTS, discardCap } from './define';
 // file of titles adds its list here. Each entry names its family, so `familyReport` can count how far the
 // families reach.
 
-const MODELS: DilemmaModel[] = [...THINK_TANK_MODELS, ...CARDASSIAN_GQ_MODELS, ...CHULA_MODELS, ...BEGINNER_DECK_MODELS, ...CHAMPIONSHIP_BATCH_1_MODELS];
+const MODELS: DilemmaModel[] = [...THINK_TANK_MODELS, ...CARDASSIAN_GQ_MODELS, ...CHULA_MODELS, ...BEGINNER_DECK_MODELS, ...CHAMPIONSHIP_BATCH_1_MODELS, ...CHAMPIONSHIP_BATCH_3_MODELS];
 
 /** The version suffixes of a deck line or a card name that one model covers, such as "*VP" or "(IDR)". */
 const VERSION_SUFFIX = /\s*(\*VP|\*AP|\*A|\*|\((IDR|ID|FOW|R2|SR|AC|SS|Promo)\))\s*$/i;

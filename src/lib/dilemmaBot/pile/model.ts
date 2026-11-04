@@ -66,6 +66,8 @@ export interface PileTable {
   eventDecayMax?: number;
   /** The Trellium-D the player commands (Elemental Instability). Absent: 0. */
   trelliumD?: number;
+  /** The events in the player's core (Zero Hour). Absent: 0. */
+  coreEvents?: number;
 }
 
 /** A personnel in the player's hand, as a dilemma that reveals the hand reads it. */

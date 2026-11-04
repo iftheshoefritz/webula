@@ -146,6 +146,16 @@ export const botChooses = (count: number, effect: 'stop' | 'kill' | 'brig' | 'di
 export const playerStops = (count: number | ((s: PlayState) => number)): Play => (s) =>
   s.stop(s.playerChooses(s.unstopped(), typeof count === 'number' ? count : count(s)));
 
+/**
+ * "Choose <count> personnel to be placed in your discard pile" or "… to place in your opponent's brig." The
+ * player chooses; a personnel placed in the discard pile counts as killed.
+ */
+export const playerRemoves = (count: number, effect: 'discard' | 'brig'): Play => (s) => {
+  const chosen = s.playerChooses(s.unstopped(), count);
+  if (effect === 'discard') s.kill(chosen);
+  else s.brig(chosen);
+};
+
 /** "Randomly select three personnel. If any is a <icon> personnel, all are stopped. Otherwise, choose one to be stopped." */
 export const anyOfAffiliation = (affiliation: string): Play =>
   selectRandom(3, (s, selected) => {
