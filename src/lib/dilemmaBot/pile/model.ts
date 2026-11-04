@@ -1,5 +1,5 @@
 import { RequirementBranch } from '../requirements';
-import { BotPersonnel, Profile, Rand } from '../simulator';
+import { BotPersonnel, LivePartnerProfile, PlayerChoice, Profile, Rand } from '../simulator';
 
 // The model of a dilemma pile for the dilemma bot (#1320, the pilot). The Chula pile of #1282 keeps its
 // own `DilemmaId` union and `switch`; this module models any title as an entry of a registry, so the bot
@@ -63,6 +63,15 @@ export interface PileAttempt {
   mission: PileMission;
   ship?: PileShip;
   table: PileTable;
+  /** The copies of Chula: The Game already on the mission. Absent: none. */
+  gameOnMission?: number;
+  /** The player's choice in Chula: Pick One to Save Two. Absent: `'best'`. */
+  choice?: PlayerChoice;
+  /**
+   * The personnel whose partner gains the play settles again before each dilemma (#1357), from
+   * `partnerGroupOf`. Absent or empty: the play reads `personnel` as it is.
+   */
+  livePartners?: LivePartnerProfile[];
 }
 
 /** What one play of a stack did. Each count is of personnel. */
@@ -124,6 +133,11 @@ export interface DilemmaModel {
   cost?: (attempt: PileAttempt) => number;
   /** More than one copy can be in one stack. */
   repeatable?: boolean;
+  /**
+   * When the draw holds a copy, every stack starts with one copy (#1282): Chula: The Game, which costs 0
+   * and makes every later Chula dilemma stop one more personnel.
+   */
+  leads?: boolean;
   /** Whether the dilemma goes beneath the mission once faced. False when it is placed elsewhere or returns to the pile. */
   goesUnder: boolean;
   /** `'ignore'`: the bot takes it out of its pile when the game starts (#1320). */

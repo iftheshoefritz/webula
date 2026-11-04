@@ -1,5 +1,5 @@
 import { BOT_SKILLS, RequirementBranch, RequirementPersonnel } from '../requirements';
-import { Rand, requirementProfileOf } from '../simulator';
+import { LivePartnerProfile, Rand, requirementProfileOf } from '../simulator';
 import { DilemmaModel, PileAttempt, PilePersonnel, PileResult, PlayContext } from './model';
 
 // The state of one play of a stack (#1320, the pilot). A family of the registry acts on it through
@@ -45,8 +45,14 @@ export class PlayState {
   current = '';
   /** The drawn dilemmas the stack does not hold: what the bot could consume (Outmatched). */
   readonly notInStack: number;
+  /** The copies of Chula: The Game on the mission: those there before the attempt, and those this stack placed. */
+  gameCopies: number;
   private readonly requirementProfiles: RequirementPersonnel[];
   private readonly printedProfiles: RequirementPersonnel[];
+  /** The personnel whose partner gains the play settles again (#1357), or null when none has one. */
+  private readonly partnered: LivePartnerProfile[] | null;
+  /** A personnel left the unstopped group since the dilemma profiles were last settled. */
+  private dirty = false;
   /** Buffers the requirement checks reuse, so a play allocates no array per check. */
   private readonly skillSums = new Array<number>(BOT_SKILLS.length).fill(0);
   private readonly attrSums = [0, 0, 0];
@@ -61,9 +67,26 @@ export class PlayState {
     this.live = this.group.length;
     this.requirements = context.attempt.requirements;
     this.notInStack = notInStack;
+    this.gameCopies = context.attempt.gameOnMission ?? 0;
     const profiles = profilesOf(context.attempt);
-    this.requirementProfiles = profiles.requirement;
     this.printedProfiles = profiles.printed;
+    const partnered = context.attempt.livePartners?.length ? context.attempt.livePartners : null;
+    this.partnered = partnered;
+    if (!partnered) {
+      this.requirementProfiles = profiles.requirement;
+    } else {
+      // The working profiles of the personnel with partner gains, copied once per play. Every other index
+      // reads the attempt's own profiles.
+      this.group = this.group.slice();
+      this.requirementProfiles = profiles.requirement.slice();
+      for (const { personnel: k } of partnered) {
+        const p = this.group[k];
+        this.group[k] = { ...p, attrs: [...p.attrs] as [number, number, number], skills: p.skills.slice() };
+        const r = this.requirementProfiles[k];
+        this.requirementProfiles[k] = { attrs: [...r.attrs] as [number, number, number], skills: r.skills.slice() };
+      }
+      this.dirty = true;
+    }
     this.result = { fail: false, stopped: 0, killed: 0, heldInCore: 0, moved: 0, brig: 0, returned: 0, shipLost: 0, labels: [] };
   }
 
@@ -110,8 +133,42 @@ export class PlayState {
     return this.unstopped().reduce((s, k) => s + this.attr(k, a), 0);
   }
 
+  /**
+   * Settle the partner gains (#1357): each dilemma profile, or with `requirement` each requirement
+   * profile, of a personnel with partner gains is its base plus each gain whose partners in `present`
+   * number at least its count. A requirement profile takes only the `'attempting'` gains.
+   */
+  private settle(requirement: boolean, present: ArrayLike<number>) {
+    for (const { personnel: k, base, baseRequirement, gains } of this.partnered!) {
+      const from = requirement ? baseRequirement : base;
+      const to = requirement ? this.requirementProfiles[k] : this.group[k];
+      for (let i = 0; i < from.skills.length; i++) to.skills[i] = from.skills[i];
+      for (let a = 0; a < 3; a++) to.attrs[a] = from.attrs[a];
+      for (const gain of gains) {
+        if (requirement && !gain.attempting) continue;
+        let count = 0;
+        for (const j of gain.partners) count += present[j];
+        if (count < gain.count) continue;
+        for (let i = 0; i < gain.skills.length; i++) to.skills[i] += gain.skills[i];
+        for (let a = 0; a < 3; a++) to.attrs[a] += gain.attrs[a];
+      }
+    }
+  }
+
+  /** Before a dilemma: settle the dilemma profiles against the unstopped personnel, when one left since. */
+  settleBeforeDilemma() {
+    if (!this.partnered || !this.dirty) return;
+    this.settle(false, this.alive);
+    this.dirty = false;
+  }
+
   /** Would the unstopped personnel, less `without`, meet the mission requirements? */
   meetsWithout(without: number[] = []): boolean {
+    if (this.partnered) {
+      const present = this.alive.slice();
+      for (const k of without) present[k] = 0;
+      this.settle(true, present);
+    }
     // The profiles the check after the last dilemma reads: the printed ones once abilities are off.
     const profiles = this.abilitiesOff ? this.printedProfiles : this.requirementProfiles;
     const skills = this.skillSums.fill(0);
@@ -136,7 +193,7 @@ export class PlayState {
     return out.slice(0, take);
   }
 
-  private remove(ks: number[], what: keyof Omit<PileResult, 'fail' | 'labels'>, verb: string) {
+  private remove(ks: number[], what: keyof Omit<PileResult, 'fail' | 'labels'>, verb: string, why?: string, quiet = false) {
     const done: number[] = [];
     for (const k of ks) {
       if (!this.alive[k]) continue;
@@ -144,13 +201,18 @@ export class PlayState {
       if (what !== 'stopped') this.present[k] = 0;
       this.live--;
       this.result[what]++;
+      this.dirty = true;
       done.push(k);
     }
-    if (done.length) this.trace?.(`  ${verb} ${done.map((k) => this.name(k)).join(', ')}`);
+    if (done.length && !quiet) this.trace?.(`  ${why ? `${why}: ` : ''}${verb} ${done.map((k) => this.name(k)).join(', ')}`);
   }
 
-  stop(ks: number[]) {
-    this.remove(ks, 'stopped', 'stops');
+  /**
+   * Stop `ks`. `why`, when given, leads the trace line: "selects …, highest Cunning 6: stops …". `quiet`
+   * leaves the line out, for a caller that traces its own.
+   */
+  stop(ks: number[], why?: string, quiet = false) {
+    this.remove(ks, 'stopped', 'stops', why, quiet);
   }
   stopAll() {
     this.stop(this.unstopped());
@@ -167,8 +229,8 @@ export class PlayState {
   move(ks: number[]) {
     this.remove(ks, 'moved', 'moves off the attempt');
   }
-  returnToHand(ks: number[]) {
-    this.remove(ks, 'returned', 'returns to the hand');
+  returnToHand(ks: number[], why?: string, quiet = false) {
+    this.remove(ks, 'returned', 'returns to the hand', why, quiet);
   }
   /** The ship leaves with every personnel aboard, stopped or not: at a space mission, the whole attempting group. */
   loseShip() {
@@ -180,6 +242,7 @@ export class PlayState {
       if (this.alive[k]) {
         this.alive[k] = 0;
         this.live--;
+        this.dirty = true;
       }
     }
     this.result.shipLost += aboard.length;
@@ -270,6 +333,17 @@ export function playPileStack(
       continue;
     }
     trace?.(`${model.title}:`);
+    // Chula: The Game: before a dilemma whose title begins with "Chula", each copy on the mission stops one
+    // random unstopped personnel.
+    if (model.title.startsWith('Chula')) {
+      for (let c = 0; c < state.gameCopies && state.live > 0; c++) {
+        const [k] = state.select(1);
+        state.stop([k], undefined, true);
+        trace?.(`  Chula: The Game on the mission stops ${state.name(k)}`);
+      }
+      if (state.live === 0) continue;
+    }
+    state.settleBeforeDilemma();
     model.play(state);
   }
   state.result.fail = !state.meetsWithout();

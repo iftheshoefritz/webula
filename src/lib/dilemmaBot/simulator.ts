@@ -238,7 +238,7 @@ export function partnerGainEntriesOf(group: ReadonlyArray<BotPersonnel>): Partne
  * unstopped personnel before each dilemma. Call it once per group: the table's `botAttemptOf` and the
  * lab both do.
  */
-export function partnerGroupOf(group: BotPersonnel[]): Pick<BotAttempt, 'personnel' | 'livePartners'> {
+export function partnerGroupOf<P extends BotPersonnel>(group: P[]): { personnel: P[]; livePartners?: LivePartnerProfile[] } {
   const met = partnerGainEntriesOf(group).filter((e) => e.partners.length >= e.count);
   if (!met.length) return { personnel: group };
   const out = group.slice();

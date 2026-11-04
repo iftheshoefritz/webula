@@ -46,22 +46,32 @@ interface StackOption {
   max: number;
 }
 
-/** The titles a stack can take at this attempt, each with its cost and the copies it can hold. */
+/**
+ * The title every stack of this draw starts with, and its cost: a drawn `leads` title that fits the
+ * mission and N, such as Chula: The Game (#1282). Null when the draw holds none.
+ */
+function leadOf(attempt: PileAttempt, drawn: ReadonlyArray<string>, n: number): { title: string; cost: number } | null {
+  const model = modelsOf(drawn).find((m) => m.leads && fitsMission(m, attempt) && costOf(m, attempt) <= n);
+  return model ? { title: model.title, cost: costOf(model, attempt) } : null;
+}
+
+/** The titles a stack can take after its lead, each with its cost and the copies it can hold. */
 function stackOptions(attempt: PileAttempt, drawn: ReadonlyArray<string>): StackOption[] {
   const copies = new Map<string, number>();
-  for (const m of modelsOf(drawn)) if (fitsMission(m, attempt)) copies.set(m.title, (copies.get(m.title) ?? 0) + 1);
+  for (const m of modelsOf(drawn)) if (fitsMission(m, attempt) && !m.leads) copies.set(m.title, (copies.get(m.title) ?? 0) + 1);
   return Array.from(copies.keys()).map((title) => {
     const model = REGISTRY.get(title)!;
     return { title, cost: costOf(model, attempt), max: model.repeatable ? copies.get(title)! : 1 };
   });
 }
 
-/** Every legal ordered stack of the drawn titles, the empty stack first. */
+/** Every legal ordered stack of the drawn titles, the shortest first, each after the draw's lead when it has one. */
 export function legalPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<string>, n: number, limit = Infinity): string[][] {
   const options = stackOptions(attempt, drawn);
+  const lead = leadOf(attempt, drawn, n);
   const out: string[][] = [];
   const used = new Map<string, number>();
-  const current: string[] = [];
+  const current: string[] = lead ? [lead.title] : [];
   const grow = (cost: number) => {
     if (out.length >= limit) return;
     out.push(current.slice());
@@ -74,15 +84,16 @@ export function legalPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<strin
       used.set(o.title, used.get(o.title)! - 1);
     }
   };
-  grow(0);
+  grow(lead?.cost ?? 0);
   return out;
 }
 
 /** The number of legal ordered stacks, counted without building them. */
 export function countPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<string>, n: number): number {
-  const options = Array.from(new Set(modelsOf(drawn).filter((m) => fitsMission(m, attempt)).map((m) => m.title))).map((t) =>
+  const options = Array.from(new Set(modelsOf(drawn).filter((m) => fitsMission(m, attempt) && !m.leads).map((m) => m.title))).map((t) =>
     costOf(REGISTRY.get(t)!, attempt),
   );
+  const lead = leadOf(attempt, drawn, n);
   const memo = new Map<string, number>();
   const count = (mask: number, budget: number): number => {
     const key = `${mask}:${budget}`;
@@ -95,7 +106,7 @@ export function countPileStacks(attempt: PileAttempt, drawn: ReadonlyArray<strin
     memo.set(key, total);
     return total;
   };
-  return count(0, n);
+  return count(0, n - (lead?.cost ?? 0));
 }
 
 export interface PileStackScore {
@@ -204,9 +215,11 @@ export function beamPileSearch(
   const { width, plays, finalists, finalPlays } = { ...BEAM_DEFAULTS, ...options };
   const stackOpts = stackOptions(attempt, drawn);
   const score = (stack: string[]) => scorePileStack(attempt, stack, plays, seed, drawn.length);
-  const candidates: PileStackScore[] = [score([])];
+  const lead = leadOf(attempt, drawn, n);
+  const start = lead ? [lead.title] : [];
+  const candidates: PileStackScore[] = [score(start)];
   let total = plays;
-  let beam: { stack: string[]; cost: number }[] = [{ stack: [], cost: 0 }];
+  let beam: { stack: string[]; cost: number }[] = [{ stack: start, cost: lead?.cost ?? 0 }];
   let stackCount = 1;
   while (beam.length) {
     // Each kept stack grows by one title, put at every position, not only at the end: a dilemma such as
@@ -217,7 +230,7 @@ export function beamPileSearch(
     for (const { stack, cost } of beam) {
       for (const o of stackOpts) {
         if (cost + o.cost > n || stack.filter((t) => t === o.title).length >= o.max) continue;
-        for (let at = 0; at <= stack.length; at++) {
+        for (let at = start.length; at <= stack.length; at++) {
           const grown = [...stack.slice(0, at), o.title, ...stack.slice(at)];
           const key = grown.join('\u0000');
           if (seen.has(key)) continue;
