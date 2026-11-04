@@ -138,6 +138,7 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       highestDecay: Math.max(0, ...(input.core ?? []).filter((row) => row?.type === 'event').map((row) => decayOf(row))),
       trelliumD: (input.commanded ?? []).filter((row) => titleOf(row) === 'Trellium-D').length,
       ...(input.hand.length ? { handMaxCost: Math.max(0, ...input.hand.map((row) => Number(row?.cost) || 0)) } : {}),
+      coreEvents: (input.core ?? []).filter((row) => row?.type === 'event').length,
       onMission: input.placedOn.map(titleOf).filter((t): t is string => t !== null),
       headquartersOtherQuadrant: slots.some((s) => s.mission.missiontype === 'h' && String(s.mission.quadrant ?? '') !== String(mission.quadrant ?? '')),
       ...(input.shipAtMission !== undefined ? { shipAtMission: input.shipAtMission } : {}),

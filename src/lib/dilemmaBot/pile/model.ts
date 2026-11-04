@@ -76,6 +76,8 @@ export interface PileTable {
   /** The cards of the player's draw deck, and the events and interrupts among them (Reflections). Absent: a third of the cards revealed. */
   drawDeckSize?: number;
   drawDeckEventsOrInterrupts?: number;
+  /** The events in the player's core (Zero Hour). Absent: 0. */
+  coreEvents?: number;
 }
 
 /** A personnel in the player's hand, as a dilemma that reveals the hand reads it. */

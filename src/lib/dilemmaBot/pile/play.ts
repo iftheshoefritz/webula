@@ -47,6 +47,8 @@ export class PlayState {
   readonly skillsOffFor = new Set<number>();
   /** Added to each attribute of every personnel until the end of the attempt (Parallel Romance). `abilitiesOff` cancels it. */
   attrBonus = 0;
+  /** Added to each attribute of one personnel until the end of the attempt (The Clown: Bitter Medicine), or null. */
+  personalAttrBonus: number[] | null = null;
   /** Set by a dilemma that ends the stack: the rest is not faced (Lack of Preparation). */
   stackEnded = false;
   /** A dilemma requiring Transporters requires one more level of each skill it names (Pattern Loss). */
@@ -127,7 +129,8 @@ export class PlayState {
 
   attr(k: number, a: Attr): number {
     const p = this.group[k];
-    return this.abilitiesOff ? p.printed.attrs[a] : p.attrs[a] + this.attrBonus;
+    if (this.abilitiesOff) return p.printed.attrs[a];
+    return p.attrs[a] + this.attrBonus + (this.personalAttrBonus ? this.personalAttrBonus[k] : 0);
   }
 
   hasSkill(k: number, ...skills: number[]): boolean {
@@ -240,10 +243,19 @@ export class PlayState {
       // Accelerated Aging lasts to the end of the attempt, so its skill counts for no requirement.
       const first = this.firstSkillOff ? this.group[k].firstSkill : undefined;
       if (first !== undefined) skills[first] -= p.skills[first];
-      if (!this.abilitiesOff) for (let a = 0; a < 3; a++) attrs[a] += this.attrBonus;
+      if (!this.abilitiesOff) {
+        const bonus = this.attrBonus + (this.personalAttrBonus ? this.personalAttrBonus[k] : 0);
+        for (let a = 0; a < 3; a++) attrs[a] += bonus;
+      }
       for (let a = 0; a < 3; a++) attrs[a] += p.attrs[a];
     }
     return meets(this.requirements, skills, attrs);
+  }
+
+  /** Add `n` to each attribute of each of `ks` until the end of the attempt. */
+  addAttrs(ks: number[], n: number) {
+    if (!this.personalAttrBonus) this.personalAttrBonus = new Array(this.group.length).fill(0);
+    for (const k of ks) this.personalAttrBonus[k] += n;
   }
 
   /** Up to `count` different unstopped personnel, in a random order, from `pool` or the whole group. */
