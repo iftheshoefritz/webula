@@ -1,6 +1,8 @@
 import { SPECIES } from '../../../missionRequirements';
 import { BOT_SKILLS, RequirementBranch } from '../../requirements';
 import {
+  handWeapons,
+  thenReturns,
   allButOne,
   anyOfThree,
   both,
@@ -29,7 +31,6 @@ import { D, NAMEABLE, P, S, dilemmaList, speciesKey } from '../define';
 
 const { models, dilemma } = dilemmaList();
 
-const RETURNS = 'the return to the dilemma pile is not modelled; it always goes under';
 const IN_CORE = 'it is placed in your core when it fires, and the top card of your deck each turn is dropped (#1478)';
 const ON_SHIP = 'it is placed on your ship when it fires, and its Damage is dropped (#1478)';
 
@@ -291,14 +292,15 @@ dilemma('Logical Solution', S, 1, 'own', (s) => {
 
 dilemma('Macrovirus', D, 4, 'random-select', (() => {
   const branches = req('2 Exobiology and 2 Science');
+  const medicalSecurity = req('Medical and Security');
   return selectRandom(1, (s, sel) => {
-    if (s.has(branches)) s.stop(sel);
+    if (s.has(branches) || (handWeapons(s) > 0 && s.has(medicalSecurity))) s.stop(sel);
     else s.kill(sel);
   });
 })(), {
   category: '8',
   assumption: 'the stop and the kill only',
-  gap: `the Hand Weapon branch is not modelled; ${ON_SHIP}`,
+  gap: ON_SHIP,
 });
 
 dilemma('Manufactured Triumph', D, 0, 'bot-names', (s) => {
@@ -329,8 +331,8 @@ dilemma('Nose to Nose', D, 0, 'random-select', selectRandom(2, (s, sel) => {
   if (sel.length === 2 && s.group[sel[0]].cost === s.group[sel[1]].cost) s.stop(sel);
 }));
 
-dilemma('Oh No!', D, 4, 'unless', unless('2 Astrometrics or Integrity>30 or Strength>30', stopAll), {
-  gap: `the 5 points lost act past the attempt (#1478); ${RETURNS}`,
+dilemma('Oh No!', D, 4, 'unless', unless('2 Astrometrics or Integrity>30 or Strength>30', thenReturns(stopAll)), {
+  gap: 'the 5 points lost act past the attempt (#1478)',
 });
 
 dilemma('Ostensible Malfunction', S, 1, 'no-effect', noEffect, {
@@ -345,8 +347,8 @@ dilemma('Pattern Loss', S, 1, 'changes-later', (s) => {
 
 dilemma('Quarren Labor Shortage', D, 2, 'unless', unlessGroup(
   (s) => 2 * s.unstopped().filter((k) => s.group[k].affiliation !== 'non-aligned').length >= s.live,
-  stopAll,
+  thenReturns(stopAll),
   'at least half the personnel are not [NA]',
-), { gap: RETURNS });
+));
 
 export const CHAMPIONSHIP_BATCH_2_MODELS = models;

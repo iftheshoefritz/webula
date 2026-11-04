@@ -57,11 +57,15 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
     ship: slot?.ships.find((s) => s.id === shipId)?.card,
     placedOn: (slot?.mission?.placedOn ?? []).map((c) => c.card),
     underMission: (slot?.underMission ?? []).map((c) => c.card),
-    missions: table.missions.map((s) => ({ mission: s.mission?.card, completed: s.completed })),
+    missions: table.missions.map((s) => ({ mission: s.mission?.card, completed: s.completed, under: s.underMission.map((c) => c.card) })),
     hand: table.hand.map((c) => c.card),
     discard: table.discard.map((c) => c.card),
     turn: table.turn,
     facts: botTableFactsOf(table),
+    core: table.core.map((c) => c.card),
+    commanded: table.missions.flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])]).map((c) => c.card),
+    shipsAtMission: (slot?.ships ?? []).map((ship) => ({ staffed: (ship.crew ?? []).some((c) => c.card?.type === 'personnel') })),
+    drawDeck: table.drawDeck.map((c) => c.card),
     // The bot deck's affiliations (#1520); absent for the Chula pile.
     ...(table.botPile?.affiliations ? { botAffiliations: table.botPile.affiliations } : {}),
   };
