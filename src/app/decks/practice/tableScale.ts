@@ -478,10 +478,20 @@ export const ATTEMPT_STACK_MAX_WIDTH_FACTOR = 1.2;
 // it sits above the cards instead (`attemptPersonnelButtonsInBand`).
 export const ATTEMPT_PERSONNEL_BUTTONS_HEIGHT = 18; // px
 
+// The band above the attempt body, in both phases: the room for the slivers of the dilemmas under
+// the attempted mission. On touch that is the full stack of slivers, `underMissionStackRoom`, 20 px
+// at scale 1 and 24 px at the minimum screen. On a desktop the slivers are half as tall (#1504), and
+// the band is never shorter than the line of the personnel row's buttons, so the line keeps its
+// place in it: 18 px at scale 1, where the halved stack is 10.
+export const attemptBandHeight = (missionScale: number, desktop = false): number =>
+  desktop
+    ? Math.max(ATTEMPT_PERSONNEL_BUTTONS_HEIGHT, underMissionStackRoom(missionScale, true, true))
+    : underMissionStackRoom(missionScale, true);
+
 // Whether the line of the row's buttons fits the band above the facing body at `missionScale`
-// (#1376): that band, `underMissionStackRoom`, is 20 px at scale 1 and 24 px at the minimum screen.
-export const attemptPersonnelButtonsInBand = (missionScale: number): boolean =>
-  underMissionStackRoom(missionScale, true) >= ATTEMPT_PERSONNEL_BUTTONS_HEIGHT;
+// (#1376), `attemptBandHeight`: always on a desktop, and on touch from scale 1 up.
+export const attemptPersonnelButtonsInBand = (missionScale: number, desktop = false): boolean =>
+  attemptBandHeight(missionScale, desktop) >= ATTEMPT_PERSONNEL_BUTTONS_HEIGHT;
 
 export interface AttemptPersonnel {
   // The cards of the away team or of the crew, the equipment too.
@@ -612,8 +622,8 @@ export function attemptFacingStackSize(
 // under it, the whole card, and the height the badge strip of the placed-on counters took below it.
 // The counters sit on the card since #1494, but the column keeps that room, so the attempted
 // mission, and the personnel and the stack sized around it (#1365, #1376), keep their sizes.
-export const attemptMissionColumnHeight = (scale: number): number =>
-  underMissionStackRoom(scale, true) + missionCardHeight(scale, true) + MISSION_COLUMN_GAP + badgeStripHeight(scale);
+export const attemptMissionColumnHeight = (scale: number, desktop = false): number =>
+  attemptBandHeight(scale, desktop) + missionCardHeight(scale, true) + MISSION_COLUMN_GAP + badgeStripHeight(scale);
 
 // The largest scale, up to `widthScale`, at which the attempted mission's column fits
 // `availableHeight`. Unlike `fitColumnScale` it has no floor of 1 (#1203): on a screen too short for
@@ -621,16 +631,16 @@ export const attemptMissionColumnHeight = (scale: number): number =>
 // It stops at `ATTEMPT_MIN_SCALE`, which a real screen never reaches: a height that small, such as
 // the zero rects of jsdom, is left to the body's clip.
 export const ATTEMPT_MIN_SCALE = 0.5;
-export function attemptHeightScale(widthScale: number, availableHeight: number): number {
-  if (widthScale <= ATTEMPT_MIN_SCALE || attemptMissionColumnHeight(ATTEMPT_MIN_SCALE) >= availableHeight) {
+export function attemptHeightScale(widthScale: number, availableHeight: number, desktop = false): number {
+  if (widthScale <= ATTEMPT_MIN_SCALE || attemptMissionColumnHeight(ATTEMPT_MIN_SCALE, desktop) >= availableHeight) {
     return ATTEMPT_MIN_SCALE;
   }
-  if (attemptMissionColumnHeight(widthScale) <= availableHeight) return widthScale;
+  if (attemptMissionColumnHeight(widthScale, desktop) <= availableHeight) return widthScale;
   let low = ATTEMPT_MIN_SCALE;
   let high = widthScale;
   for (let i = 0; i < 30; i++) {
     const mid = (low + high) / 2;
-    if (attemptMissionColumnHeight(mid) <= availableHeight) low = mid;
+    if (attemptMissionColumnHeight(mid, desktop) <= availableHeight) low = mid;
     else high = mid;
   }
   return low;
@@ -640,8 +650,8 @@ export function attemptHeightScale(widthScale: number, availableHeight: number):
 // slivers above the mission, sits above every column, so each column, the mission's aside, fits
 // what is left of `availableHeight` below it. `missionScale` is the largest the mission can draw at,
 // so the budget holds at the scale it does draw at too.
-export const attemptColumnHeight = (availableHeight: number, missionScale: number): number =>
-  availableHeight - underMissionStackRoom(missionScale, true);
+export const attemptColumnHeight = (availableHeight: number, missionScale: number, desktop = false): number =>
+  availableHeight - attemptBandHeight(missionScale, desktop);
 
 // Pure, like `computeTouchMissionScale`. `availableHeight` runs from the bottom of the strip to the
 // top of the bottom row, less the gap below the strip. `floorScale` is the scale the missions draw
@@ -680,10 +690,16 @@ export const attemptColumnHeight = (availableHeight: number, missionScale: numbe
 // which it fits, never below the table scale unless the card does not fit at the table scale either
 // (#1203). The mission row gives the dilemma stack no width (#1170), so on a short screen, the
 // minimum one too, its missions draw at a scale at which the whole card does not fit below the strip.
-export function attemptFloorScale(missionScale: number, availableHeight: number, tableScale: number): number {
+export function attemptFloorScale(
+  missionScale: number,
+  availableHeight: number,
+  tableScale: number,
+  desktop = false,
+): number {
+  const columnHeight = (scale: number) => attemptMissionColumnHeight(scale, desktop);
   return Math.min(
-    Math.max(tableScale, fitColumnScale(missionScale, availableHeight, attemptMissionColumnHeight)),
-    attemptHeightScale(Math.max(missionScale, tableScale), availableHeight),
+    Math.max(tableScale, fitColumnScale(missionScale, availableHeight, columnHeight)),
+    attemptHeightScale(Math.max(missionScale, tableScale), availableHeight, desktop),
   );
 }
 
@@ -699,9 +715,9 @@ export function computeAttemptLayout(
 ): AttemptLayoutSizes {
   // The height wins over the floor: the mission never draws taller than the height, nor the ships
   // and the personnel larger than the mission (#1203).
-  const heightScale = attemptHeightScale(gameLayerWidth / TABLE_CARD_WIDTH, availableHeight);
+  const heightScale = attemptHeightScale(gameLayerWidth / TABLE_CARD_WIDTH, availableHeight, desktop);
   const floor = Math.min(Math.max(1, floorScale), heightScale);
-  const columnHeight = attemptColumnHeight(availableHeight, heightScale);
+  const columnHeight = attemptColumnHeight(availableHeight, heightScale, desktop);
   // The column of the placed cards (#1180) and its gap come off the width first. The mission is
   // bounded by the height or by the width, whichever is less, so this takes the middle column's
   // slack, and shrinks the mission, never below the floor, only when the slack runs out.
@@ -752,14 +768,14 @@ export function computeAttemptLayout(
   }
   const missionScale = Math.min(
     heightScale,
-    Math.max(floor, fitColumnScale(missionWidthScale, availableHeight, attemptMissionColumnHeight)),
+    Math.max(floor, fitColumnScale(missionWidthScale, availableHeight, (scale) => attemptMissionColumnHeight(scale, desktop))),
   );
   const missionWidth = Math.round(TABLE_CARD_WIDTH * missionScale);
   const { stackWidth, stackHeight, stackCardWidth } = attemptFacingStackSize(missionScale, columnHeight);
   // The line of the area's buttons sits in the band above the body (#1376), so the area starts at
   // the top of the column, level with the mission card, and takes the line's height too. Where the
   // band is too short for the line, the line sits above the area, in the column, as before.
-  const personnelButtonsInBand = attemptPersonnelButtonsInBand(missionScale);
+  const personnelButtonsInBand = attemptPersonnelButtonsInBand(missionScale, desktop);
   const gridButtonsRoom = personnelButtonsInBand ? 0 : buttonsRoom;
   const gridHeightRoom = space
     ? columnHeight - gridButtonsRoom
@@ -1052,7 +1068,7 @@ export function useAttemptLayout(
         ? computeDesktopTableScale(safeWidth, tableHeight, desktopColumnHeight)
         : computeTouchMissionScale(safeWidth, tableHeight, touchColumnHeight, scale);
       const availableHeight = bodyBottom - strip.getBoundingClientRect().bottom - ATTEMPT_GAP;
-      const floor = attemptFloorScale(missionScale, availableHeight, desktop ? 1 : scale);
+      const floor = attemptFloorScale(missionScale, availableHeight, desktop ? 1 : scale, desktop);
       const face = computeAttemptLayout(
         safeWidth,
         availableHeight,
@@ -1124,7 +1140,7 @@ export function useAttemptLayout(
     personnelVisibleRows: fallbackGrid.visibleRows,
     personnelWidth,
     personnelHeight: fallbackGrid.height,
-    personnelButtonsInBand: attemptPersonnelButtonsInBand(scale),
+    personnelButtonsInBand: attemptPersonnelButtonsInBand(scale, desktop),
     placedOnWidth: placedOn ? attemptPlacedOnWidth(scale) : 0,
     ...facingStack,
     choice: {

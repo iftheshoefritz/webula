@@ -67,12 +67,12 @@ import {
   missionCardHeight,
   missionPileDropId,
   placedOnGroupOf,
-  underMissionStackRoom,
 } from './MissionRow';
 import { TABLE_CARD_WIDTH, TableCardImage, cardBorderStyle } from './TableCard';
 import {
   ATTEMPT_GAP,
   ATTEMPT_PLACED_ON_BLOCK_GAP,
+  attemptBandHeight,
   ATTEMPT_STACK_SIDE_GAP,
   ATTEMPT_STRIP_GUTTER,
   ATTEMPT_STRIP_HEIGHT,
@@ -193,6 +193,7 @@ export default function AttemptLayout({
         showAwayTeam={false}
         placedOnColumn={placedOnColumn}
         facing={attempt.phase === 'face'}
+        halfSlivers={desktop}
       />
     </div>
   );
@@ -230,7 +231,7 @@ export default function AttemptLayout({
     <div
       data-testid="attempt-body"
       className="flex min-h-0 flex-row justify-center items-start overflow-y-clip"
-      style={{ gap: ATTEMPT_GAP, paddingTop: underMissionStackRoom(missionScale, true) }}
+      style={{ gap: ATTEMPT_GAP, paddingTop: attemptBandHeight(missionScale, desktop) }}
     >
       {missionColumn}
       {/* The empty space outside the "First" and "Last" ends of the stack (#1220), outside
@@ -372,7 +373,7 @@ export default function AttemptLayout({
       <div
         data-testid="attempt-body"
         className="flex min-h-0 flex-row justify-start items-start overflow-y-clip"
-        style={{ gap: ATTEMPT_GAP, paddingTop: underMissionStackRoom(missionScale, true), marginLeft: ATTEMPT_STRIP_GUTTER }}
+        style={{ gap: ATTEMPT_GAP, paddingTop: attemptBandHeight(missionScale, desktop), marginLeft: ATTEMPT_STRIP_GUTTER }}
       >
         {parked ? null : missionColumn}
         <div
