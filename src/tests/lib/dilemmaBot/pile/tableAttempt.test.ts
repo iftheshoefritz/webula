@@ -44,6 +44,11 @@ const input = (overrides: Partial<PileTableInput> = {}): PileTableInput => ({
 });
 
 describe('pileAttemptOf (#1508)', () => {
+  it('sets the bot deck\'s affiliations when the table has them, and leaves them out for the Chula pile (#1520)', () => {
+    expect(pileAttemptOf(input({ botAffiliations: ['bajoran', 'federation'] })).attempt.botAffiliations).toEqual(['bajoran', 'federation']);
+    expect('botAffiliations' in pileAttemptOf(input()).attempt).toBe(false);
+  });
+
   it('takes the unstopped personnel only, and the parsed requirements', () => {
     const { attempt, random } = pileAttemptOf(input());
     expect(random).toBe(false);

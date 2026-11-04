@@ -516,7 +516,14 @@ The practice table has six fixtures. Each one deals the same table on every load
   game (`TableState.opponent: 'bot'`): the Chula pile of the dilemma bot (`chulaPileDeck`) takes the
   place of the deck's dilemmas, in pile order, with no shuffle, so the 3 dilemmas under Bilana System
   are Chula dilemmas. It keeps its game under `practiceGame:fixture=bot`. The game menu of a bot game
-  shows "<deck> vs the bot" (`data-testid="game-menu-bot-game"`), and Reset deals a bot game again.
+  shows "<deck> vs the bot (<pile>)" (`data-testid="game-menu-bot-game"`), and Reset deals a bot game again.
+  A player starts a bot game in Load deck's step 2 (#1520): Play against the bot opens a list of the
+  bot's piles (`data-testid="practice-deck-picker-bot-pile"`, rows `bot-pile-<id>`, `bot-pile-chula`
+  first): Chula, then each beginner and visible Championship deck whose dilemmas the registry
+  covers (`botPileChoices` in `src/lib/dilemmaBot/botPiles.ts`). A chosen deck's dilemmas, less the
+  ignored titles, become the bot's pile, and `TableState.botPile` keeps its id, its name and the
+  affiliations of its personnel, which reach `PileAttempt.botAffiliations`. A bot game with no
+  `botPile`, as `?fixture=bot` deals, plays the Chula pile.
 - `?fixture=bot-label` (#1519) deals the `?fixture=bot` table with one Well-Prepared Defenses
   (`17V017`) added to the dilemma pile, and starts a bot attempt at Bilana System with the bot's
   numbers, with no search, in `'face'`: the stack holds Well-Prepared Defenses on top, face up, and

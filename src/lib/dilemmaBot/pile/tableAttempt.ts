@@ -47,6 +47,8 @@ export interface PileTableInput {
   discard: ReadonlyArray<Row>;
   turn: number;
   facts?: BotTableFacts;
+  /** The bot's side (#1520): the affiliations of its deck's personnel. Absent: unknown, as for the Chula pile. */
+  botAffiliations?: string[];
 }
 
 const GAME = 'Chula: The Game';
@@ -113,6 +115,7 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
     },
     gameOnMission: input.placedOn.filter((row) => titleOf(row) === GAME).length,
     choice: 'best',
+    ...(input.botAffiliations ? { botAffiliations: [...input.botAffiliations] } : {}),
   };
   return { attempt, random: !requirements };
 }
