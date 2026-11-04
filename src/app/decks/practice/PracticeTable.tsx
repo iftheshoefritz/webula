@@ -1647,11 +1647,13 @@ function DilemmaStackFaceUp({
         )}
       </button>
       {count > 0 && (
-        // The right label keeps clear of the count badge in the corner.
+        // The right label keeps clear of the count badge in the corner. With whole cards the line
+        // sits above the zone, in the band above the body, so the cards fill the zone's height and
+        // their top is level with the mission card's (#1505); on touch it sits inside the zone.
         <div
           data-testid="dilemma-stack-end-labels"
-          className="absolute top-0 left-0 right-0 flex flex-row justify-between items-center pr-7 pointer-events-none text-[10px] font-bold uppercase tracking-wide text-text-secondary leading-none whitespace-nowrap"
-          style={{ height: ATTEMPT_STACK_LABEL_HEIGHT }}
+          className="absolute left-0 right-0 flex flex-row justify-between items-center pr-7 pointer-events-none text-[10px] font-bold uppercase tracking-wide text-text-secondary leading-none whitespace-nowrap"
+          style={{ top: wholeCards ? -ATTEMPT_STACK_LABEL_HEIGHT : 0, height: ATTEMPT_STACK_LABEL_HEIGHT }}
         >
           <span>{DILEMMA_STACK_CHOICE_END_LABELS.first}</span>
           <span>{DILEMMA_STACK_CHOICE_END_LABELS.last}</span>
