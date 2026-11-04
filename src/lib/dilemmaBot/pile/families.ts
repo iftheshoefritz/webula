@@ -50,6 +50,12 @@ export const attrBelow = (a: Attr, n: number): Test => (s, k) => s.attr(k, a) < 
 export const costAtMost = (n: number): Test => (s, k) => s.group[k].cost <= n;
 export const either = (...tests: Test[]): Test => (s, k) => tests.some((t) => t(s, k));
 export const affiliationIs = (icon: string): Test => (s, k) => s.group[k].affiliation === icon;
+/** "A skill required by this mission": a skill some branch of the requirements names. */
+export const hasRequiredSkill: Test = (s, k) => s.requirements.some((b) => b.skills.some((n, i) => n > 0 && s.skill(k, i) > 0));
+/** A printed keyword, lowercased, such as `'admiral'`. A personnel with no `traits` has none. */
+export const keywordIs = (keyword: string): Test => (s, k) => !!s.group[k].traits?.keywords.includes(keyword);
+/** A printed icon, lowercased, such as `'[cmd]'`. A personnel with no `traits` has none. */
+export const iconIs = (icon: string): Test => (s, k) => !!s.group[k].traits?.icons.includes(icon);
 
 // ---- The families ----
 
@@ -91,6 +97,28 @@ export const selectRandom = (count: number, act: (s: PlayState, selected: number
   const selected = s.select(count);
   s.trace?.(`  selects ${selected.map((k) => s.name(k)).join(', ')}`);
   act(s, selected);
+};
+
+/** "Randomly select <count> personnel. Each of those personnel who does not have <test> is <effect>." */
+export const selectEachWithout = (count: number, test: Test, effect: 'stop' | 'kill'): Play =>
+  selectRandom(count, (s, selected) => {
+    const hit = selected.filter((k) => !test(s, k));
+    if (effect === 'stop') s.stop(hit);
+    else s.kill(hit);
+  });
+
+/**
+ * "Randomly select <count> personnel. Unless those personnel have <requirements> [or your unselected
+ * personnel have <rest>], <effect>." The requirements are read on the selected personnel alone.
+ */
+export const unlessSelected = (count: number, requirements: string, effect: (s: PlayState, selected: number[]) => void, rest?: string): Play => {
+  const branches = req(requirements);
+  const restBranches = rest ? req(rest) : null;
+  return selectRandom(count, (s, selected) => {
+    if (s.hasAmong(branches, selected)) s.trace?.(`  the selected personnel have ${requirements}: no effect`);
+    else if (restBranches && s.hasAmong(restBranches, s.unstopped().filter((k) => !selected.includes(k)))) s.trace?.(`  the unselected personnel have ${rest}: no effect`);
+    else effect(s, selected);
+  });
 };
 
 /** "Randomly select personnel until <done>. <act> each selected personnel." Every personnel is selected once at most. */
