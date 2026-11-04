@@ -41,6 +41,8 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
+import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
+import { pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
@@ -105,6 +107,8 @@ import {
   fixtureAttempt,
   fixtureAttemptPlacedOn,
   fixtureAttemptStack,
+  fixtureBotLabelAttempt,
+  pileTableInputOf,
 } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
@@ -1484,6 +1488,9 @@ function useDilemmaStackZone(overARowSlot = false) {
   return { setNodeRef, highlight, landedNonce };
 }
 
+// How far above the bottom edge of a dilemma the bot label sits: just above the text box (#1519).
+const BOT_LABEL_BOTTOM = 0.45;
+
 const dilemmaStackLabel = (count: number) => `Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`;
 
 function DilemmaStackPile({
@@ -1494,6 +1501,8 @@ function DilemmaStackPile({
   width,
   height,
   cardWidth,
+  botLabel = null,
+  onDismissBotLabel,
 }: {
   stack: CardInstance[];
   onOpen: () => void;
@@ -1503,12 +1512,17 @@ function DilemmaStackPile({
   width: number;
   height: number;
   cardWidth: number;
+  // The bot's choice for the revealed top card, in a bot game (#1519), or null for none.
+  botLabel?: string | null;
+  onDismissBotLabel?: () => void;
 }) {
   const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone();
   const count = stack.length;
   const topCard = stack[0];
   const revealed = topCard?.face === 'up';
   const offset = offsetFor(count, cardWidth, width, cardWidth);
+  // The bot label hides during a drag, so it never floats where the dragged top card was.
+  const dragActive = useDraggedCardType() !== null;
 
   return (
     <div
@@ -1559,6 +1573,31 @@ function DilemmaStackPile({
         <DilemmaIcon />
         {count > 0 && <span className="text-[8px] font-bold">{count}</span>}
       </span>
+      {/* #1519: the bot's choice for the dilemma faced, on the right of the card's art, above its
+          text box. A sibling painted above the top card, so a tap dismisses it and never reaches
+          the card: no panel, no drag, no preview. Hidden while the top card drags. */}
+      {revealed && botLabel && !dragActive && (
+        <button
+          type="button"
+          data-testid="dilemma-bot-label"
+          onClick={onDismissBotLabel}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          aria-label={`Bot's choice: ${botLabel}, tap to dismiss`}
+          title="Tap to dismiss"
+          className="absolute rounded-md bg-black/90 ring-1 ring-white/70 shadow-md px-1 py-0.5 text-left text-[9px] font-semibold leading-tight text-text-primary focus:outline-hidden"
+          style={{
+            ...NO_CALLOUT_STYLE,
+            right: Math.max(0, width - cardWidth) + 3,
+            bottom: Math.round(cardWidth * 1.39 * BOT_LABEL_BOTTOM),
+            maxWidth: Math.max(40, cardWidth * 0.8),
+            zIndex: count + 2,
+          }}
+        >
+          {botLabel}
+        </button>
+      )}
       {/* #1080: 24 px, the size of the pile buttons, with an opaque fill and a solid ring so it
           reads against the card back. A sibling of the tap-to-open button, painted above it, so a
           tap here flips the top card and never opens the panel. */}
@@ -1736,6 +1775,9 @@ const CLOSED_FAN_ANCHOR = '[data-testid="flat-rows"]';
 // The content column's `p-4`.
 const CONTENT_PADDING = 16; // px
 
+// Well-Prepared Defenses, the dilemma `?fixture=bot-label` adds to the bot's pile (#1519).
+const BOT_LABEL_FIXTURE_COLLECTORS_INFO = '17V017';
+
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
   const fixture = searchParams.get('fixture');
@@ -1750,7 +1792,10 @@ function PracticeDrawContent() {
   const isAttemptFixture = attemptFixturePhase !== null;
   // `?fixture=bot` (#1289) deals the piles table as a bot game, with the Chula pile in place of the
   // deck's dilemmas.
-  const isBotFixture = fixture === 'bot';
+  // `?fixture=bot-label` (#1519) deals the same bot table with a Well-Prepared Defenses in the dilemma
+  // pile, and starts a bot attempt whose facing stack has it on top, revealed, for the bot's label.
+  const isBotLabelFixture = fixture === 'bot-label';
+  const isBotFixture = fixture === 'bot' || isBotLabelFixture;
   const isFixture = fixture === '1' || isPilesFixture || isAttemptFixture || isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
   // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
@@ -1935,11 +1980,37 @@ function PracticeDrawContent() {
   const [fullTableFor, setFullTableFor] = useState<string | null>(null);
   // The choice is cleared when the attempt ends, so a new attempt at the same mission and ship opens
   // in the attempt layout. Adjusted during render on the change of `attemptKey`.
+  // Issue #1519: the card ids whose bot label the player dismissed, for the rest of the attempt. Page
+  // state, not part of the save, so a reload shows the labels again.
+  const [dismissedBotLabels, setDismissedBotLabels] = useState<ReadonlySet<string>>(() => new Set());
   const [prevAttemptKey, setPrevAttemptKey] = useState(attemptKey);
   if (attemptKey !== prevAttemptKey) {
     setPrevAttemptKey(attemptKey);
     if (!attemptKey) setFullTableFor(null);
+    setDismissedBotLabels(new Set());
   }
+  // Issue #1519: in a bot game's facing phase, the revealed top card of the dilemma stack shows the
+  // bot's choice for it. Worked out once per revealed top card, from the table as it stands when the
+  // card is revealed, so a stop made while resolving it leaves the label alone.
+  const botLabelCardId =
+    table.attempt?.botDraw !== undefined && table.attempt.phase === 'face' && dilemmaStack[0]?.face === 'up'
+      ? dilemmaStack[0].id
+      : null;
+  const [botLabel, setBotLabel] = useState<{ id: string; text: string | null } | null>(null);
+  if ((botLabel?.id ?? null) !== botLabelCardId) {
+    setBotLabel(
+      botLabelCardId && table.attempt
+        ? {
+            id: botLabelCardId,
+            text: pileLabelOf(
+              dilemmaStack[0].card,
+              pileAttemptOf(pileTableInputOf(table, table.attempt.missionIndex, table.attempt.shipId)).attempt,
+            ),
+          }
+        : null,
+    );
+  }
+  const botLabelText = botLabel && !dismissedBotLabels.has(botLabel.id) ? botLabel.text : null;
   const attemptLayoutShows = attemptKey !== null && fullTableFor !== attemptKey;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
@@ -2087,7 +2158,8 @@ function PracticeDrawContent() {
     deck: DeckList,
     fixturePiles = false,
     fixtureAttemptPhase: AttemptPhase | null = null,
-    opponent?: 'bot'
+    opponent?: 'bot',
+    botLabelFixture = false
   ) => {
     const cards = extractDrawDeck(deck);
     const deal: TableAction = {
@@ -2103,6 +2175,13 @@ function PracticeDrawContent() {
       ...(opponent ? { opponent } : {}),
     };
     dispatch(deal);
+    const botLabel = botLabelFixture ? fixtureBotLabelAttempt(tableReducer(initialTableState, deal)) : null;
+    if (botLabel) {
+      dispatch(botLabel.start);
+      dispatch({ type: 'setAttemptPhase', phase: 'face' });
+      dispatch({ type: 'batch', actions: botLabel.stack, unseen: true });
+      dispatch({ type: 'flip', id: botLabel.revealId });
+    }
     if (fixtureAttemptPhase) {
       const dealt = tableReducer(initialTableState, deal);
       const start = fixtureAttempt(dealt);
@@ -2130,7 +2209,12 @@ function PracticeDrawContent() {
   // Chula pile in place of the fixture deck's dilemmas (#1289).
   const fixtureDeck = (): DeckList => {
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
-    return isBotFixture ? mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']) : deck;
+    if (!isBotFixture) return deck;
+    const botDeck = mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']);
+    const labelled = isBotLabelFixture ? data.find((row: any) => row.collectorsinfo === BOT_LABEL_FIXTURE_COLLECTORS_INFO) : undefined;
+    return labelled
+      ? { ...botDeck, [labelled.collectorsinfo]: { count: 1, row: { ...labelled, count: 1, pile: 'dilemmaPile' } } }
+      : botDeck;
   };
 
   // Restores the game saved under `gameKey` (#976). Returns false when there is none, or
@@ -2181,7 +2265,8 @@ function PracticeDrawContent() {
         fixtureDeck(),
         isPilesFixture || isAttemptFixture || isBotFixture,
         attemptFixturePhase,
-        isBotFixture ? 'bot' : undefined
+        isBotFixture ? 'bot' : undefined,
+        isBotLabelFixture
       );
       return;
     }
@@ -3401,6 +3486,10 @@ function PracticeDrawContent() {
                       width={attemptSizes.stackWidth}
                       height={attemptSizes.stackHeight}
                       cardWidth={attemptSizes.stackCardWidth}
+                      botLabel={botLabelText}
+                      onDismissBotLabel={() => {
+                        if (botLabel) setDismissedBotLabels((ids) => new Set(ids).add(botLabel.id));
+                      }}
                     />
                     )
                   }

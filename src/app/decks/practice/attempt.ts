@@ -15,6 +15,7 @@ import {
 import { cardDisplayName } from '../../../lib/cardCount';
 import { BotTableFacts, asSphere117Dissident, isSphere117, sphere117Holds } from '../../../lib/dilemmaBot/gains';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
+import { PileTableInput } from '../../../lib/dilemmaBot/pile/tableAttempt';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
 export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 'crew'; shipId: string };
@@ -44,6 +45,24 @@ export function attemptingCards(table: TableState, missionIndex: number, shipId?
   if (slot?.mission?.card?.missiontype !== 's') return null;
   const ship = slot.ships.find((s) => s.id === shipId);
   return ship ? ship.crew ?? [] : null;
+}
+
+// What `pileAttemptOf` reads of the table for an attempt at `missionIndex` with `shipId` (#1508): the
+// bot's stack as the attempt starts, and the label of each dilemma the player faces (#1519).
+export function pileTableInputOf(table: TableState, missionIndex: number, shipId?: string): PileTableInput {
+  const slot = table.missions[missionIndex];
+  return {
+    cards: attemptingCards(table, missionIndex, shipId) ?? [],
+    mission: slot?.mission?.card,
+    ship: slot?.ships.find((s) => s.id === shipId)?.card,
+    placedOn: (slot?.mission?.placedOn ?? []).map((c) => c.card),
+    underMission: (slot?.underMission ?? []).map((c) => c.card),
+    missions: table.missions.map((s) => ({ mission: s.mission?.card, completed: s.completed })),
+    hand: table.hand.map((c) => c.card),
+    discard: table.discard.map((c) => c.card),
+    turn: table.turn,
+    facts: botTableFactsOf(table),
+  };
 }
 
 // What the dilemma bot's table conditions read of the table as a bot attempt starts (#1352): the type
@@ -165,6 +184,29 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
   return table.dilemmaPile
     .slice(0, FIXTURE_DILEMMA_STACK)
     .map((c) => ({ type: 'move', id: c.id, to: 'dilemmaStack' }));
+}
+
+// The bot attempt of `/decks/practice?fixture=bot-label` (#1519), on the `?fixture=bot` table with a
+// Well-Prepared Defenses in the dilemma pile: the attempt at Bilana System with the bot's numbers, in
+// the facing phase, with no search, and a stack of that dilemma, revealed, on top of the next
+// `FIXTURE_DILEMMA_STACK - 1` dilemmas of the pile, face down. So the page opens on the bot's label.
+export const FIXTURE_BOT_LABEL_DILEMMA = 'Well-Prepared Defenses';
+
+export function fixtureBotLabelAttempt(table: TableState): {
+  start: Extract<TableAction, { type: 'startAttempt' }>;
+  stack: Extract<TableAction, { type: 'move' }>[];
+  revealId: string;
+} | null {
+  const start = fixtureAttempt(table);
+  const labelled = table.dilemmaPile.find((c) => c.card?.originalName?.includes(FIXTURE_BOT_LABEL_DILEMMA));
+  if (!start || !labelled) return null;
+  const n = Math.max(0, start.personnel - start.subtract);
+  const rest = table.dilemmaPile.filter((c) => c.id !== labelled.id).slice(0, FIXTURE_DILEMMA_STACK - 1);
+  return {
+    start: { ...start, botDraw: n, botSpend: n },
+    stack: [labelled, ...rest].map((c) => ({ type: 'move', id: c.id, to: 'dilemmaStack' })),
+    revealId: labelled.id,
+  };
 }
 
 // The cards `?fixture=attempt` and `?fixture=attempt-choose` place on Bilana System (#1180), so the

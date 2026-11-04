@@ -482,7 +482,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has five fixtures. Each one deals the same table on every load.
+The practice table has six fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -517,6 +517,11 @@ The practice table has five fixtures. Each one deals the same table on every loa
   place of the deck's dilemmas, in pile order, with no shuffle, so the 3 dilemmas under Bilana System
   are Chula dilemmas. It keeps its game under `practiceGame:fixture=bot`. The game menu of a bot game
   shows "<deck> vs the bot" (`data-testid="game-menu-bot-game"`), and Reset deals a bot game again.
+- `?fixture=bot-label` (#1519) deals the `?fixture=bot` table with one Well-Prepared Defenses
+  (`17V017`) added to the dilemma pile, and starts a bot attempt at Bilana System with the bot's
+  numbers, with no search, in `'face'`: the stack holds Well-Prepared Defenses on top, face up, and
+  the next 3 dilemmas of the pile face down, so the page opens on the bot's label. It keeps its game
+  under `practiceGame:fixture=bot-label`.
 
 The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of the screen
 (`data-testid="hand-closed-fan"`, #1489), drawn on top of the bottom row in its own layer,
@@ -731,6 +736,13 @@ with Start reading "The bot is choosing…", while the bot draws Draw dilemmas a
 within Spend; then one `botAttempt` action starts the attempt with the chosen stack face down and the
 other drawn dilemmas at the bottom of the dilemma pile, face up. It makes one log entry, and one undo
 takes it all back. The strip of a bot game has no Draw dilemma, no drawn count and no phase button.
+
+In a bot game's `'face'`, the revealed top card of the facing stack shows the bot's choice for it, a
+button over the right of its art, above its text box (`data-testid="dilemma-bot-label"`, #1519): the
+label its model's play makes (`pileLabelOf` in `src/lib/dilemmaBot/pile/label.ts`), read once per
+revealed top card from the table as it stands (`pileTableInputOf` in `attempt.ts`), so from the
+unstopped personnel. A title with no model, a Chula title, or a play that makes no label shows none.
+A tap dismisses it for the rest of the attempt. It is page state, so a reload shows it again.
 
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
 dilemmas. Start begins in `'choose'`, with `Attempt.drawn` 0. The choice-phase draw, `drawCard` from
