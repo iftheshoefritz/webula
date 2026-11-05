@@ -1497,7 +1497,10 @@ function useDilemmaStackZone(overARowSlot = false) {
 // How far above the bottom edge of a dilemma the bot label sits: just above the text box (#1519).
 const BOT_LABEL_BOTTOM = 0.45;
 
-const dilemmaStackLabel = (count: number) => `Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`;
+const dilemmaStackLabel = (count: number, choseNone = false) =>
+  choseNone && count === 0
+    ? 'Dilemma stack, no dilemmas chosen, tap to open'
+    : `Dilemma stack, ${count} card${count === 1 ? '' : 's'}, tap to open`;
 
 function DilemmaStackPile({
   stack,
@@ -1509,11 +1512,14 @@ function DilemmaStackPile({
   cardWidth,
   botLabel = null,
   onDismissBotLabel,
+  choseNone = false,
 }: {
   stack: CardInstance[];
   onOpen: () => void;
   onReveal: () => void;
   visible: boolean;
+  // The bot chose no dilemmas at Start (#1536): the empty outline reads "No dilemmas chosen".
+  choseNone?: boolean;
   // The sizes of `computeAttemptLayout` (#1208): the zone, and one whole card.
   width: number;
   height: number;
@@ -1548,14 +1554,14 @@ function DilemmaStackPile({
       <button
         type="button"
         onClick={onOpen}
-        aria-label={dilemmaStackLabel(count)}
+        aria-label={dilemmaStackLabel(count, choseNone)}
         aria-hidden={revealed || undefined}
         tabIndex={revealed ? -1 : undefined}
         className="absolute inset-0 w-full h-full rounded-lg focus:outline-hidden"
       >
         {count === 0 && (
           <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
-            Dilemma stack
+            {choseNone ? 'No dilemmas chosen' : 'Dilemma stack'}
           </div>
         )}
       </button>
@@ -3512,7 +3518,9 @@ function PracticeDrawContent() {
                       stack={dilemmaStack}
                       onOpen={() => openOnlyFlatZone('dilemmaStack')}
                       onReveal={() => dispatch({ type: 'flip', id: dilemmaStack[0].id })}
-                      visible={dilemmaStackVisible}
+                      // #1536: in a bot game the empty stack of `'face'` shows its outline.
+                      visible={dilemmaStackVisible || table.opponent === 'bot'}
+                      choseNone={!!table.attempt.botChoseNone}
                       width={attemptSizes.stackWidth}
                       height={attemptSizes.stackHeight}
                       cardWidth={attemptSizes.stackCardWidth}

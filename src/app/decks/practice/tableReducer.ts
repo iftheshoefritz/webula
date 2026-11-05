@@ -179,6 +179,9 @@ export interface Attempt {
   // deck's dilemmas, where both are N.
   botDraw?: number;
   botSpend?: number;
+  // A bot game's attempt whose stack the bot left empty at Start (#1536), so the empty stack reads
+  // "No dilemmas chosen" and not as a stack the player has faced. Only `botAttempt` sets it.
+  botChoseNone?: true;
 }
 
 // The score counter's range (#719) and the amount each button press changes it by.
@@ -256,7 +259,7 @@ export type TableAction =
   // the draw, `drawn` the ids of the drawn cards in draw order, taken out of the current pile, and
   // `stack` the ids the bot put in the stack, in stack order. `random` says the bot chose at random.
   // It refuses exactly when `startAttempt` does, and when a drawn id is not in the pile.
-  | ({ type: 'botAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'botDraw' | 'botSpend'> & {
+  | ({ type: 'botAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'botDraw' | 'botSpend' | 'botChoseNone'> & {
       botDraw: number;
       botSpend: number;
       pile: CardInstance[];
@@ -906,7 +909,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         attempt: { ...started.attempt!, drawn: drawn.length },
       };
       const stacked = stack.reduce<TableState>((s, id) => tableReducer(s, { type: 'move', id, to: 'dilemmaStack' }), withHand);
-      return tableReducer(stacked, { type: 'setAttemptPhase', phase: 'face' });
+      const faced = tableReducer(stacked, { type: 'setAttemptPhase', phase: 'face' });
+      return stack.length ? faced : { ...faced, attempt: { ...faced.attempt!, botChoseNone: true } };
     }
 
     case 'endAttempt': {

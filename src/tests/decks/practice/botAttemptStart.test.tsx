@@ -42,7 +42,7 @@ jest.mock('../../../lib/dilemmaBot/useSearchWorker', () => ({
 }));
 
 import React from 'react';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act, fireEvent, cleanup } from '@testing-library/react';
 import { getSession } from 'next-auth/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import useDataFetching from '../../../hooks/useDataFetching';
@@ -120,6 +120,13 @@ describe('the botAttempt action (#1299)', () => {
     const undone = gameReducer(game, { type: 'undo' });
     expect(undone.table).toBe(before.table);
     expect(undone.table.attempt).toBeUndefined();
+  });
+
+  it('marks an attempt the bot started with an empty stack (#1536), and no other', () => {
+    const before = botTable();
+    expect(tableReducer(before, botAction(before, [])).attempt).toMatchObject({ phase: 'face', botChoseNone: true });
+    expect(tableReducer(before, botAction(before, ['d4'])).attempt).not.toHaveProperty('botChoseNone');
+    expect(tableReducer(before, { type: 'startAttempt', missionIndex: 0, personnel: 12, subtract: 3 }).attempt).not.toHaveProperty('botChoseNone');
   });
 
   it('does nothing while an attempt is running', () => {
@@ -283,6 +290,49 @@ describe('Start in a bot game (#1299)', () => {
     const { attempt } = pileAttemptOf({ cards: [], mission: { missiontype: 's' }, placedOn: [], underMission: [], missions: [], hand: [], discard: [], turn: 1 });
     expect(isLegalPileStack(attempt, titles, titles, 6)).toBe(true);
     expect(screen.getByTestId('undo-button')).toHaveAttribute('aria-label', expect.stringMatching(/in the stack at random/));
+  });
+
+  it('with Draw 0, shows the empty stack as an outline that reads "No dilemmas chosen", through a reload (#1536)', async () => {
+    await openPopup('bot');
+    setField('attempt-bot-draw', '0');
+    await start();
+    expect(saved('bot').attempt).toMatchObject({ phase: 'face', botChoseNone: true });
+    const zone = document.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+    expect(zone.style.visibility).toBe('visible');
+    expect(zone).toHaveTextContent('No dilemmas chosen');
+    expect(screen.getByRole('button', { name: /no dilemmas chosen/i })).toBeInTheDocument();
+
+    cleanup();
+    mockSearchParamsValue = new URLSearchParams('fixture=bot&menu=0');
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const restored = document.querySelector('[data-zone="dilemmaStack"]') as HTMLElement;
+    expect(restored.style.visibility).toBe('visible');
+    expect(restored).toHaveTextContent('No dilemmas chosen');
+  });
+
+  it('with a chosen stack, shows the stack with no "No dilemmas chosen" (#1536)', async () => {
+    // Start with an empty stack, then give the save a stack of one with no mark, as a Start whose
+    // bot chose a dilemma leaves it.
+    await openPopup('bot');
+    setField('attempt-bot-draw', '0');
+    await start();
+    const key = 'practiceGame:fixture=bot';
+    const save = JSON.parse(localStorage.getItem(key)!);
+    const [top, ...rest] = save.table.dilemmaPile;
+    save.table.dilemmaPile = rest;
+    save.table.dilemmaStack = [{ ...top, face: 'down' }];
+    delete save.table.attempt.botChoseNone;
+    localStorage.setItem(key, JSON.stringify(save));
+    cleanup();
+    mockSearchParamsValue = new URLSearchParams('fixture=bot&menu=0');
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    expect(saved('bot').dilemmaStack).toHaveLength(1);
+    expect(screen.getByAltText('Face-down dilemma stack')).toBeInTheDocument();
+    expect(document.querySelector('[data-zone="dilemmaStack"]')).not.toHaveTextContent('No dilemmas chosen');
   });
 
   it('in a game with a deck\'s dilemmas, Start opens the dilemma choice with nothing drawn, as before', async () => {

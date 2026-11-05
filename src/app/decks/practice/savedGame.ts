@@ -202,7 +202,7 @@ const isCount = (value: unknown): boolean => typeof value === 'number' && Number
 const isValidAttempt = (table: TableState): boolean => {
   const attempt: unknown = table.attempt;
   if (!isObject(attempt)) return false;
-  const { missionIndex, shipId, personnel, subtract, phase, drawn, botDraw, botSpend } = attempt;
+  const { missionIndex, shipId, personnel, subtract, phase, drawn, botDraw, botSpend, botChoseNone } = attempt;
   return (
     Number.isInteger(missionIndex) &&
     !!table.missions[missionIndex]?.mission &&
@@ -214,7 +214,9 @@ const isValidAttempt = (table: TableState): boolean => {
     (drawn === undefined || isCount(drawn)) &&
     // A bot game's draw and spend (#1291).
     (botDraw === undefined || isCount(botDraw)) &&
-    (botSpend === undefined || isCount(botSpend))
+    (botSpend === undefined || isCount(botSpend)) &&
+    // A bot attempt that started with an empty stack (#1536).
+    (botChoseNone === undefined || botChoseNone === true)
   );
 };
 
