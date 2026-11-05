@@ -583,7 +583,7 @@ describe('CardHand arc on a touch screen (#1149)', () => {
   };
 
   // The bounds `useArcBounds` measures from the two stubbed piles.
-  const layout = (options: Partial<typeof ARC_TOUCH_OPTIONS & { maxVisible: number }>) =>
+  const layout = (options: Partial<typeof ARC_TOUCH_OPTIONS & { lower: number; maxVisible: number }>) =>
     handArcLayout({ count: 3, cardWidth: 108, maxStep: Math.round((108 * 60) / 56), left: 104, right: 896, bottom: window.innerHeight, ...options });
 
   it.each(['hand', 'dilemmaHand'] as const)('draws the touch arc of the %s, and moves its controls row, with a coarse pointer only (#1149, #1380)', (zone) => {
@@ -616,8 +616,10 @@ describe('CardHand arc on a touch screen (#1149)', () => {
     const plain = layout({});
     const desktop = layout({ lower: -ARC_DESKTOP_RAISE, maxVisible: window.innerHeight - VIEWER_TOP_INSET - 44 });
     const touch = layout(ARC_TOUCH_OPTIONS);
-    // The desktop arc sits higher than the plain arc (#1495).
-    expect(desktop.visibleHeight).toBeCloseTo((1 + ARC_DESKTOP_RAISE) * plain.visibleHeight);
+    // The desktop arc sits higher than the plain arc (#1495), and higher than the raise of 0.5 before
+    // #1542, but no card's bottom edge leaves the screen's, so it may rise less than the full raise.
+    expect(desktop.visibleHeight).toBeGreaterThan(1.5 * plain.visibleHeight);
+    expect(desktop.visibleHeight).toBeLessThanOrEqual((1 + ARC_DESKTOP_RAISE) * plain.visibleHeight + 0.01);
     // The touch arc has no sag, so its ends sit as high as its middle.
     expect(touch.cards[0].centerY).toBeCloseTo(touch.cards[1].centerY);
     expect(plain.cards[0].centerY).toBeGreaterThan(plain.cards[1].centerY);
@@ -648,10 +650,11 @@ describe('CardHand closed fan at a bottom-row scale', () => {
         rowScale={1.5}
       />
     );
-    // A pile card at the scale, 84 x 120, of which `CLOSED_FAN_VISIBLE` shows above the bottom edge.
+    // A pile card at the scale, 84 x 120, of which `CLOSED_FAN_VISIBLE` (the whole card, #1542) shows
+    // above the bottom edge: the card image is 117 px tall at that width, so it all shows.
     const button = screen.getByRole('button', { name: /hand, 1 card/ });
     expect(button.style.width).toBe('84px');
-    expect(button.style.height).toBe(`${Math.round(CLOSED_FAN_VISIBLE * 120)}px`);
+    expect(button.style.height).toBe(`${Math.min(Math.round(CLOSED_FAN_VISIBLE * 120), Math.round((84 * 167) / 120))}px`);
     expect((button.querySelector('img') as HTMLImageElement).style.width).toBe('84px');
   });
 });

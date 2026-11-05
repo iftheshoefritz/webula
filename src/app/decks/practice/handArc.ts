@@ -1,7 +1,7 @@
 // Issue #1125: the open hand drawn as an arc along the bottom edge of the screen, the way a
 // player holds a fanned hand of cards. Each card's centre sits near the bottom edge, so about half
-// of each card is below the screen. On a desktop the arc sits higher, so about three quarters of each
-// card shows (`ARC_DESKTOP_RAISE`, #1495), and on a touch screen it sits lower (#1149). The cards near the ends of the arc turn outward and sit lower
+// of each card is below the screen. On a desktop the arc sits higher, so nearly the whole of each
+// card shows (`ARC_DESKTOP_RAISE`, #1495, #1542). The cards near the ends of the arc turn outward and sit lower
 // than the ones in the middle. On a touch screen the arc is flatter, with no sag and half the turn,
 // and every card's lowest top corner stays at least `arcTouchMinVisible` of the bottom safe-area
 // inset above the bottom edge, clear of the iOS edge gesture (#1380, #1383). The arc stays between `left` and `right`, the right edge of the draw
@@ -19,16 +19,12 @@ export const ARC_SAG = 0.06;
 // part of the card's width, so no strip of the table shows between them.
 export const ARC_TOP_OVERLAP = 0.04;
 
-// Issue #1149: how far the arc sits lower on a touch screen, as a part of its visible height, so
-// each card shows 20% less of itself above the bottom edge.
-// Issue #1380 caps that drop, so it never takes a card below the touch floor, `arcTouchMinVisible`.
-export const ARC_TOUCH_LOWER = 0.2;
-
 // Issue #1495: how far the arc sits higher on a desktop, as a part of its visible height. About half
-// of each card shows without it, so half of that again shows about three quarters of each card.
-// `CardHand` passes it as a negative `lower`, with a `maxVisible` that keeps the controls row above
-// the cards on a short window.
-export const ARC_DESKTOP_RAISE = 0.5;
+// of each card shows without it. Issue #1542 raised it from 0.5 to 0.875, so the arc shows 25% more
+// of itself than at 0.5 (1.875 / 1.5), nearly the whole card: `handArcLayout` keeps every card's
+// bottom edge at or below the screen's. `CardHand` passes it as a negative `lower`, with a
+// `maxVisible` that keeps the controls row above the cards on a short window.
+export const ARC_DESKTOP_RAISE = 0.875;
 
 // Issue #1380: the touch arc. The ends sit no lower than the middle and turn half as far, so an
 // outer card shows about as much of itself as the middle card does.
@@ -48,9 +44,10 @@ export function arcTouchMinVisible(insetBottom: number): number {
 export const ARC_TOUCH_MIN_VISIBLE = arcTouchMinVisible(0);
 
 // The options `CardHand` passes to `handArcLayout` with a coarse pointer, with `minVisible` set to
-// `arcTouchMinVisible` of the bottom inset.
+// `arcTouchMinVisible` of the bottom inset. Issue #1149 drew the touch arc 20% of its visible height
+// lower; #1542 dropped that, so the touch arc shows 25% more of itself (1 / 0.8) and sits as high as
+// the plain arc.
 export const ARC_TOUCH_OPTIONS = {
-  lower: ARC_TOUCH_LOWER,
   sag: ARC_TOUCH_SAG,
   maxAngle: ARC_TOUCH_MAX_ANGLE,
   minVisible: ARC_TOUCH_MIN_VISIBLE,
@@ -133,7 +130,8 @@ export function handArcLayout({
   maxAngle?: number;
   // How far above the bottom edge the lowest top corner of every card stays, at least (#1380). It
   // caps the drop of `lower`, and it lifts the arc when the cards are small, but never so far that
-  // the bottom edge of a card rises above the bottom edge of the screen.
+  // the bottom edge of a card rises above the bottom edge of the screen. A negative `lower` never
+  // lifts a card's bottom edge off the screen's either (#1542).
   minVisible?: number;
   // The highest the arc may reach above the bottom edge (#1495). It caps the rise of a negative
   // `lower`, and it never moves the arc below where `lower` 0 draws it.
@@ -175,7 +173,7 @@ export function handArcLayout({
   }, 0);
   let drop = lower * fullHeight;
   if (drop < 0) drop = Math.min(0, Math.max(drop, fullHeight - maxVisible));
-  if (minVisible > 0 && cards.length > 0) {
+  if ((minVisible > 0 || drop < 0) && cards.length > 0) {
     // The lowest point of each card's top edge, and the highest point of its bottom edge.
     const reach = (card: ArcCard) => {
       const turned = (Math.abs(card.angle) * Math.PI) / 180;
@@ -183,7 +181,8 @@ export function handArcLayout({
     };
     const lowestTop = Math.max(...cards.map((card) => card.centerY + reach(card)));
     const highestBottom = Math.min(...cards.map((card) => card.centerY - reach(card)));
-    drop = Math.max(Math.min(drop, bottom - minVisible - lowestTop), bottom - highestBottom);
+    if (minVisible > 0) drop = Math.min(drop, bottom - minVisible - lowestTop);
+    drop = Math.max(drop, bottom - highestBottom);
   }
   return {
     cardWidth: width,
@@ -200,11 +199,12 @@ export function handArcLayout({
 // core and brig box; the hand's at its left end in the dilemma choice, and in the middle of the
 // screen everywhere else, where no dilemma hand shows (#1496). Its cards overlap more to fit that width.
 export const CLOSED_FAN_CORE_CARDS = 2;
-// How much of each card of the small fan shows above the bottom edge, as a part of the card's
-// height, at its lowest top corner. The open arc shows about half of a card three times as large, and
-// about three quarters on a desktop (#1495), so the small fan is lower. On a touch screen it never shows less than the touch floor,
+// How much of each card of the small fan shows above the bottom edge, as a part of the pile card's
+// height, at its lowest top corner. Issue #1542 raised it from 0.6 to 1: the whole card shows, its
+// bottom edge kept at the screen's by `handArcLayout`, so on a touch screen the fan's top is about
+// where the open arc's top was before #1542. On a touch screen it never shows less than the touch floor,
 // `arcTouchMinVisible`, so a card is still a touch target clear of the iOS edge gesture.
-export const CLOSED_FAN_VISIBLE = 0.6;
+export const CLOSED_FAN_VISIBLE = 1;
 
 // The box around the visible part of an arc: from the left edge of its first card to the right edge
 // of its last, and from its highest point down to `bottom`. The closed hand is a drop target over this

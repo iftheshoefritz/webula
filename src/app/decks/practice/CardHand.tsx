@@ -315,13 +315,13 @@ export default function CardHand({
   onSendSelected?: (position: 'top' | 'bottom') => void;
   // The name of that deck, for the accessible names of the two buttons.
   deckLabel?: string;
-  // Issue #1125: the open hand draws as an arc at the bottom of the screen, about a quarter of each
-  // card below the bottom edge on a desktop (#1495) and more on a touch screen (#1149), between the elements these two selectors name (the draw deck and
+  // Issue #1125: the open hand draws as an arc at the bottom of the screen, nearly the whole
+  // card above the bottom edge on a desktop (#1495, #1542) and less on a touch screen, between the elements these two selectors name (the draw deck and
   // the dilemma pile). The practice table gives it to both hands (#1150). Left out, the hand opens
   // as the flat fan above the bottom row.
   arcBetween?: { left: string; right: string };
-  // Whether the pointer is fine (`useFinePointer`). With a coarse pointer the arc sits
-  // `ARC_TOUCH_LOWER` of its visible height lower (#1149), and it is flatter, with every card's lowest
+  // Whether the pointer is fine (`useFinePointer`). With a coarse pointer the arc
+  // is flatter, with every card's lowest
   // top corner at least `arcTouchMinVisible(safeAreaBottom)` above the bottom edge (#1380, #1383):
   // 64 px at an inset of 0. With a fine pointer it sits `ARC_DESKTOP_RAISE` of its visible height
   // higher (#1495), no higher than keeps the controls row on the screen. Left out, the arc stays as on

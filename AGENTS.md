@@ -533,8 +533,8 @@ The practice table has six fixtures. Each one deals the same table on every load
 The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of the screen
 (`data-testid="hand-closed-fan"`, #1489), drawn on top of the bottom row in its own layer,
 `LAYER_CLOSED_HAND`, and taking no width in the row. It is the arc of `handArcLayout` with pile cards
-(`pileCardSize`), showing `CLOSED_FAN_VISIBLE` (0.6) of each card's height above the edge, or the touch
-floor of `arcTouchMinVisible` where that is more, and it spans at most `CLOSED_FAN_CORE_CARDS` (2)
+(`pileCardSize`), showing the whole of each card above the edge (`CLOSED_FAN_VISIBLE`, 1, #1542), its bottom
+edge on the screen's, so its top is about where the touch arc's top was before #1542, and it spans at most `CLOSED_FAN_CORE_CARDS` (2)
 cards of the core however many cards the hand holds. The closed dilemma hand
 (`dilemmaHand-closed-fan`) sits at the right end of the core and brig box (`flat-rows`), and the hand
 at its left end in the dilemma choice, the one place the dilemma hand shows. Everywhere else, on the
@@ -548,10 +548,11 @@ nothing, and its dashed "Empty" marker during a drag. With no hand slot, the bot
 of the left column (`TOUCH_CONTROLS_COLUMN`), so the left column runs down to the bottom edge.
 
 A tap on the closed hand opens it as an arc along the bottom edge of the screen
-(`data-testid="hand-arc"`, `handArc.ts`, #1125): on a desktop about three quarters of each card shows
-above the edge, the arc raised by `ARC_DESKTOP_RAISE` (0.5) of its visible height, no higher than keeps
-the "→ top" and "→ bottom" row on the screen (#1495). More than half of each card is below the edge in
-touch mode, where the arc sits 20% of its visible height lower (`ARC_TOUCH_LOWER`, #1149). In touch
+(`data-testid="hand-arc"`, `handArc.ts`, #1125): on a desktop nearly the whole of each card shows
+above the edge, the arc raised by `ARC_DESKTOP_RAISE` (0.875) of its visible height, no higher than keeps
+the "→ top" and "→ bottom" row on the screen (#1495, #1542), and no card's bottom edge above the
+screen's. About half of each card is below the edge in touch mode, where the arc sits as high as the
+plain arc; #1542 dropped the 20% lower of #1149, so the arc shows 25% more of itself. In touch
 mode the arc is also flatter, with no sag and an end angle of 7° (`ARC_TOUCH_OPTIONS`), and the
 lowest top corner of every card stays at least `max(20, the bottom safe-area inset) + 44` px above
 the bottom edge (`arcTouchMinVisible`, #1380, #1383), clear of the iOS edge gesture: 64 px at an inset

@@ -3,7 +3,6 @@ import {
   ARC_DESKTOP_RAISE,
   ARC_MAX_ANGLE,
   ARC_SAG,
-  ARC_TOUCH_LOWER,
   ARC_TOUCH_MIN_VISIBLE,
   ARC_TOUCH_OPTIONS,
   ArcLayout,
@@ -174,8 +173,8 @@ describe('handArcLayout lower (#1149)', () => {
   it('moves every card down by a part of the visible height, and nothing else', () => {
     const input = { count: 7, cardWidth: 126, maxStep: 135, left: 230, right: 590, bottom: 375 };
     const plain = handArcLayout(input);
-    const lowered = handArcLayout({ ...input, lower: ARC_TOUCH_LOWER });
-    const drop = ARC_TOUCH_LOWER * plain.visibleHeight;
+    const lowered = handArcLayout({ ...input, lower: 0.2 });
+    const drop = 0.2 * plain.visibleHeight;
     expect(drop).toBeGreaterThan(0);
     expect(lowered.cardWidth).toBe(plain.cardWidth);
     expect(lowered.cardHeight).toBe(plain.cardHeight);
@@ -191,10 +190,10 @@ describe('handArcLayout lower (#1149)', () => {
 describe('handArcLayout on a desktop (#1495)', () => {
   const input = { count: 7, cardWidth: 170, maxStep: 180, left: 300, right: 980, bottom: 800 };
 
-  it('moves every card up by half the visible height, and nothing else', () => {
+  it('moves every card up by a part of the visible height, and nothing else, where no card would leave the edge', () => {
     const plain = handArcLayout(input);
-    const raised = handArcLayout({ ...input, lower: -ARC_DESKTOP_RAISE });
-    const rise = ARC_DESKTOP_RAISE * plain.visibleHeight;
+    const raised = handArcLayout({ ...input, lower: -0.5 });
+    const rise = 0.5 * plain.visibleHeight;
     expect(raised.cardWidth).toBe(plain.cardWidth);
     expect(raised.cardHeight).toBe(plain.cardHeight);
     raised.cards.forEach((card, i) => {
@@ -205,13 +204,25 @@ describe('handArcLayout on a desktop (#1495)', () => {
     expect(raised.visibleHeight).toBeCloseTo(1.5 * plain.visibleHeight);
   });
 
-  it('shows about three quarters of the middle card, and keeps every bottom edge below the screen', () => {
-    const raised = handArcLayout({ ...input, lower: -ARC_DESKTOP_RAISE });
-    const middle = raised.cards[3];
+  // Issue #1542: 25% more of the arc shows than at the raise of #1495, 0.5.
+  it('shows 25% more than the raise of #1495, where no card would leave the edge', () => {
+    const before = handArcLayout({ ...input, count: 2, lower: -0.5 });
+    const raised = handArcLayout({ ...input, count: 2, lower: -ARC_DESKTOP_RAISE });
+    expect(raised.visibleHeight).toBeCloseTo(1.25 * before.visibleHeight, 0);
+  });
+
+  it.each([1, 3, 7, 12])('shows most of the middle card of %i, and keeps every bottom edge at or below the screen', (count) => {
+    const raised = handArcLayout({ ...input, count, lower: -ARC_DESKTOP_RAISE });
+    const middle = raised.cards[Math.floor((count - 1) / 2)];
     const shown = (input.bottom - (middle.centerY - raised.cardHeight / 2)) / raised.cardHeight;
-    expect(shown).toBeGreaterThan(0.7);
-    expect(shown).toBeLessThan(0.85);
-    raised.cards.forEach((card) => expect(card.centerY + raised.cardHeight / 2).toBeGreaterThan(input.bottom));
+    expect(shown).toBeGreaterThan(0.9);
+    for (const card of raised.cards) {
+      const bottomEdge = Math.min(
+        corner(card, -raised.cardWidth / 2, raised.cardHeight / 2).y,
+        corner(card, raised.cardWidth / 2, raised.cardHeight / 2).y,
+      );
+      expect(bottomEdge).toBeGreaterThanOrEqual(input.bottom - 0.01);
+    }
   });
 
   it('caps the rise at maxVisible, and never draws the arc below the plain arc', () => {
@@ -274,7 +285,7 @@ describe('handArcLayout on a touch screen (#1380)', () => {
     expect(floorOrBottom).toBe(true);
     expect(layout.visibleHeight).toBeCloseTo(highestCorner(layout, 375));
     expect(Math.min(...clearances)).toBeGreaterThan(
-      Math.min(...topClearances(handArcLayout({ count: 7, cardWidth: 126, maxStep: 135, left: 0, right: 160, bottom: 375, lower: ARC_TOUCH_LOWER }), 375)),
+      Math.min(...topClearances(handArcLayout({ count: 7, cardWidth: 126, maxStep: 135, left: 0, right: 160, bottom: 375, lower: 0.2 }), 375)),
     );
   });
 
@@ -285,6 +296,17 @@ describe('handArcLayout on a touch screen (#1380)', () => {
 });
 
 // Issue #1383: the touch floor follows the bottom safe-area inset, the home indicator's.
+// Issue #1542: the touch arc shows 25% more of itself than the arc of #1149, 20% lower.
+describe('the touch arc of #1542', () => {
+  // The touch floor lifts the old arc of a long hand a little, so it gains a little less than 25%.
+  it.each([1, 7])('shows about 25%% more of %i cards than the arc 20%% lower', (count) => {
+    const input = { count, cardWidth: 127, maxStep: 135, left: 150, right: 560, bottom: 375, ...ARC_TOUCH_OPTIONS };
+    const ratio = handArcLayout(input).visibleHeight / handArcLayout({ ...input, lower: 0.2 }).visibleHeight;
+    expect(ratio).toBeGreaterThan(1.18);
+    expect(ratio).toBeLessThanOrEqual(1.25 + 0.001);
+  });
+});
+
 describe('arcTouchMinVisible (#1383)', () => {
   it('keeps the 20 px band as a minimum and adds the 44 px of a touch target', () => {
     expect(arcTouchMinVisible(0)).toBe(64);
@@ -315,14 +337,34 @@ describe('the closed fan', () => {
   const open = handArcLayout({ count: 7, cardWidth: 126, maxStep: 135, left: 150, right: 560, bottom: 375 });
   const closedOptions = { count: 7, cardWidth: 56, maxStep: 60, left: 220, right: 220 + CLOSED_FAN_CORE_CARDS * 90, bottom: 375 };
 
-  it('is narrower and lower than the open arc of the same hand', () => {
+  it('is narrower than the open arc of the same hand', () => {
     const closed = handArcLayout({ ...closedOptions, minVisible: Math.round(CLOSED_FAN_VISIBLE * 80) });
     const closedBox = arcVisibleBox(closed, 375);
     const openBox = arcVisibleBox(open, 375);
     expect(closedBox.right - closedBox.left).toBeLessThan(openBox.right - openBox.left);
     expect(closedBox.right - closedBox.left).toBeLessThanOrEqual(CLOSED_FAN_CORE_CARDS * 90 + 0.01);
-    expect(closed.visibleHeight).toBeLessThan(open.visibleHeight);
     expect(closedBox.top).toBeCloseTo(375 - closed.visibleHeight);
+  });
+
+  // Issue #1542: on a touch screen at 667 x 375 the closed fan shows its cards whole, its top as high
+  // as the top of the touch arc before #1542 (lower 0.2), and no card leaves the bottom edge.
+  it.each([1, 7])('reaches the old touch arc top with %i cards, and keeps every card on the bottom edge', (count) => {
+    const touchFan = { sag: ARC_TOUCH_OPTIONS.sag, maxAngle: ARC_TOUCH_OPTIONS.maxAngle };
+    const closed = handArcLayout({
+      ...closedOptions,
+      count,
+      ...touchFan,
+      minVisible: Math.max(Math.round(CLOSED_FAN_VISIBLE * 80), ARC_TOUCH_MIN_VISIBLE),
+    });
+    const oldOpen = handArcLayout({ count, cardWidth: 127, maxStep: 135, left: 150, right: 560, bottom: 375, ...ARC_TOUCH_OPTIONS, lower: 0.2 });
+    expect(closed.visibleHeight).toBeGreaterThanOrEqual(oldOpen.visibleHeight - 10);
+    for (const card of closed.cards) {
+      const bottomEdge = Math.min(
+        corner(card, -closed.cardWidth / 2, closed.cardHeight / 2).y,
+        corner(card, closed.cardWidth / 2, closed.cardHeight / 2).y,
+      );
+      expect(bottomEdge).toBeGreaterThanOrEqual(375 - 0.01);
+    }
   });
 
   // At a bottom inset of 34 the floor, 78 px, is a whole pile card, so the card shows whole instead.
