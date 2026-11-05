@@ -34,6 +34,7 @@ describe('labPileAttemptOf (#1509)', () => {
       missionSkills: [],
       underMission: [],
       turn: 1,
+      score: 0,
     });
     expect(attempt.table).toBe(LAB_TABLE);
     expect(attempt.mission).toEqual({ kind: 'space', points: 35, span: 3, nebula: true });

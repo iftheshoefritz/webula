@@ -54,6 +54,8 @@ export interface PileTable {
   underMission: string[];
   /** The turn counter of the table. */
   turn: number;
+  /** The player's score, the table's score counter (Show Trial, Adversarial Trial, Standing Trial, Environmental Contaminants). Absent: 0. */
+  score?: number;
   /** Whether the player has completed a planet mission (The Needs of the Few). Absent: false. */
   completedPlanetMission?: boolean;
   /**

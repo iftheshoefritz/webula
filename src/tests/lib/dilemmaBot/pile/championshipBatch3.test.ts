@@ -177,10 +177,17 @@ describe('the bot-side titles of #1320', () => {
   });
 
   it('Standing Trial stops an Honor personnel and returns one: you have more points', () => {
-    const result = play(attemptOf([person('Honor', { skills: { honor: 1 } }), ...group(2)]), ['Standing Trial']);
+    const result = play(attemptOf([person('Honor', { skills: { honor: 1 } }), ...group(2)], { table: { score: 5 } }), ['Standing Trial']);
     expect(result).toMatchObject({ stopped: 1, returned: 1 });
     expect(labelsOf(result)).toEqual(['You have more points']);
-    expect(REGISTRY.get('Standing Trial')).toMatchObject({ category: '2', assumption: 'you have more points than the bot, so a personnel returns to your hand' });
+    expect(REGISTRY.get('Standing Trial')).toMatchObject({ category: '2' });
+    expect(REGISTRY.get('Standing Trial')!.assumption).toContain('at 0 points you are not ahead');
+  });
+
+  it('Standing Trial returns no personnel at 0 points: you are not ahead (#1541)', () => {
+    const result = play(attemptOf([person('Honor', { skills: { honor: 1 } }), ...group(2)], { table: { score: 0 } }), ['Standing Trial']);
+    expect(result).toMatchObject({ stopped: 1, returned: 0 });
+    expect(labelsOf(result)).toEqual([]);
   });
 });
 
