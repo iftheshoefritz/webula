@@ -22,7 +22,7 @@ const dropId = 'attempt-crew-ship-1';
 // Issue #1205: the attempting personnel show as cropped table cards in a grid that scrolls, with the
 // buttons out of the scroll. Issue #1218: 3 to a row, the crew panel's 8 px gap, the buttons above.
 describe('AttemptPersonnelRow grid (#1205)', () => {
-  const renderRow = (count: number, buttonsInBand = false) =>
+  const renderRow = (count: number, buttonsInBand = false, bandHeight?: number) =>
     render(
       <AttemptPersonnelRow
         dropId={dropId}
@@ -35,6 +35,7 @@ describe('AttemptPersonnelRow grid (#1205)', () => {
         width={241}
         height={65}
         buttonsInBand={buttonsInBand}
+        bandHeight={bandHeight}
         selectedIds={['card-1']}
         onToggleSelect={() => {}}
         onSetStopped={() => {}}
@@ -82,10 +83,13 @@ describe('AttemptPersonnelRow grid (#1205)', () => {
   // Issue #1376: in the band above the facing body, out of the flow of the column, so the drop
   // target and its first row of cards start at the top of the row, level with the mission.
   it('puts the buttons in the band above the row, out of the flow, when the band holds them', () => {
-    renderRow(12, true);
+    renderRow(12, true, 24);
     const line = screen.getByTestId('attempt-row-buttons');
     expect(line.className).toContain('absolute');
-    expect(line.style.bottom).toBe('100%');
+    // Issue #1543: its top is the top of the band, level with a full stack of slivers, not its
+    // bottom at the row's top.
+    expect(line.style.top).toBe('-24px');
+    expect(line.style.bottom).toBe('');
     expect(line.style.height).toBe('18px');
     // The drop target is the first element of the row's flow.
     const zone = document.querySelector(`[data-zone="${dropId}"]`) as HTMLElement;

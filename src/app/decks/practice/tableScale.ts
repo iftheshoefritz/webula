@@ -473,16 +473,18 @@ export const ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH = 6; // px
 export const ATTEMPT_STACK_SLIVER_ROOM = 12; // px
 export const ATTEMPT_STACK_MAX_WIDTH_FACTOR = 1.2;
 // The line of the row's Stop, Unstop, Stop all, Shuffle and Move to… buttons (#1218). It sits in
-// the band above the facing body, level with the slivers above the mission, so the first row of
-// cards is level with the mission and the stack (#1376); where that band is shorter than the line,
-// it sits above the cards instead (`attemptPersonnelButtonsInBand`).
+// the band above the facing body, its top level with the top of the band, the top of a full stack
+// of slivers above the mission (#1543), so the first row of cards is level with the mission and the
+// stack (#1376); where that band is shorter than the line, it sits above the cards instead
+// (`attemptPersonnelButtonsInBand`).
 export const ATTEMPT_PERSONNEL_BUTTONS_HEIGHT = 18; // px
 
 // The band above the attempt body, in both phases: the room for the slivers of the dilemmas under
 // the attempted mission. On touch that is the full stack of slivers, `underMissionStackRoom`, 20 px
 // at scale 1 and 24 px at the minimum screen. On a desktop the slivers are half as tall (#1504), and
 // the band is never shorter than the line of the personnel row's buttons, so the line keeps its
-// place in it: 18 px at scale 1, where the halved stack is 10.
+// place in it: 18 px at scale 1, where the halved stack is 10. The line's top is the band's top
+// (#1543), and any band height past the line is empty space between the line and the cards.
 export const attemptBandHeight = (missionScale: number, desktop = false): number =>
   desktop
     ? Math.max(ATTEMPT_PERSONNEL_BUTTONS_HEIGHT, underMissionStackRoom(missionScale, true, true))
@@ -777,9 +779,12 @@ export function computeAttemptLayout(
   // band is too short for the line, the line sits above the area, in the column, as before.
   const personnelButtonsInBand = attemptPersonnelButtonsInBand(missionScale, desktop);
   const gridButtonsRoom = personnelButtonsInBand ? 0 : buttonsRoom;
+  // The middle column ends `ATTEMPT_GAP` above the bottom row (#1543), so neither the personnel nor
+  // the ships touch the core and the brig. The mission and the stack keep the whole column.
+  const middleHeight = columnHeight - ATTEMPT_GAP;
   const gridHeightRoom = space
-    ? columnHeight - gridButtonsRoom
-    : columnHeight - MISSION_COLUMN_GAP - shipRowLineHeight(floor, desktop) - gridButtonsRoom;
+    ? middleHeight - gridButtonsRoom
+    : middleHeight - MISSION_COLUMN_GAP - shipRowLineHeight(floor, desktop) - gridButtonsRoom;
 
   // The rows of ships that fit below what sits above them in the middle column: the row of the away
   // team and its buttons at a planet mission, nothing at a space mission (#1365), where the ships
@@ -787,7 +792,7 @@ export function computeAttemptLayout(
   // least 1 row, and a larger scale must fit its line too, since the area may leave room for only
   // one line at the floor.
   const linesFitting = (scale: number, aboveShips: number | null, rowsWidth: number) => {
-    const free = aboveShips === null ? columnHeight : columnHeight - aboveShips - MISSION_COLUMN_GAP;
+    const free = aboveShips === null ? middleHeight : middleHeight - aboveShips - MISSION_COLUMN_GAP;
     const line = shipRowLineHeight(scale, desktop);
     const lines = Math.floor((free + SHIP_ROW_GAP) / (line + SHIP_ROW_GAP));
     const rowsNeeded = Math.max(1, Math.ceil(shipCount / shipsPerRow(scale, rowsWidth)));
