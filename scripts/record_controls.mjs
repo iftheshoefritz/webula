@@ -208,8 +208,20 @@ const GESTURES = {
           if (!card) return 'null';
           const x = Math.round(card.left + card.width / 2);
           const y = Math.round(card.top + card.height / 2);
+          // The widest gap of the core that no core card and no closed hand covers: a drop on a card
+          // could place the card on it, and a drop on the closed hand goes into the hand.
+          const covers = [...document.querySelectorAll('[data-zone="core"] [data-card-id], [data-testid="hand-closed-fan"]')]
+            .map((e) => e.getBoundingClientRect())
+            .filter((r) => r.right > core.left && r.left < core.right)
+            .sort((a, b) => a.left - b.left);
+          let gap = { from: core.left, to: core.left };
+          let edge = core.left;
+          for (const r of [...covers, { left: core.right, right: core.right }]) {
+            if (r.left - edge > gap.to - gap.from) gap = { from: edge, to: r.left };
+            edge = Math.max(edge, r.right);
+          }
           return JSON.stringify({ x, y, core: document.querySelectorAll('[data-zone="core"] [data-card-id]').length,
-            tx: Math.round(core.left + core.width / 2), ty: Math.round(core.top + core.height / 2) });
+            tx: Math.round((gap.from + gap.to) / 2), ty: Math.round(core.top + core.height / 2) });
         })()`)
       );
       if (!points) throw new Error('the away team panel shows no card');
