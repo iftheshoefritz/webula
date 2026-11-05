@@ -26,6 +26,7 @@ dilemma('Abrasive Allies', P, 2, 'bot-chooses', (s) => {
   gap: 'it counts the affiliations of the attempting personnel only, not every personnel you command',
 });
 
+// goesUnder: false, never beneath this mission: it is placed on top of its owner's dilemma pile.
 dilemma('All-Consuming Evil', P, 2, 'no-effect', noEffect, {
   goesUnder: false,
   gap: 'it acts only through a Consume dilemma, which is not modelled',
@@ -144,17 +145,20 @@ dilemma('Space Seed', P, 9, 'unless', unless('3 Security and Strength>40 or 2 Te
   assumption: 'the bot commands 3 Genetically Enhanced personnel per turn (5b) and To Rule in Hell (5c), so it takes the two personnel',
 });
 
+// goesUnder: false, never beneath this mission: it returns to the dilemma pile at the end of the turn.
 dilemma('The Clown: Celebration', D, 1, 'no-effect', noEffect, {
   goesUnder: false,
   gap: 'it acts when an attempt fails, and returns at the end of the turn (#1478)',
 });
 
+// goesUnder: false, never beneath this mission: it is placed on the mission and stays there.
 dilemma('The Clown: Fear Incarnate', D, 1, 'no-effect', noEffect, {
   goesUnder: false,
   gap: 'it is placed on the mission and acts when a later Clown dilemma is faced (#1478)',
 });
 
 // No family fits: the bot names a skill, and the second selection depends on the first personnel's attributes.
+// goesUnder: false, never beneath this mission: it returns to the dilemma pile once played.
 dilemma('The Clown: Guillotine', D, 2, 'bot-names', (s) => {
   const ks = s.unstopped();
   const held = (i: number) => ks.some((k) => s.skill(k, i) > 0);
@@ -186,6 +190,7 @@ dilemma('Toe to Toe', D, 1, 'own', (s) => {
   else s.kill([k]);
 });
 
+// goesUnder: false, never beneath this mission: it is placed on the mission and stays there.
 dilemma('Tragic Turn', D, 3, 'no-effect', noEffect, {
   goesUnder: false,
   gap: 'it is placed on the mission and acts when a later dilemma is overcome (#1478)',

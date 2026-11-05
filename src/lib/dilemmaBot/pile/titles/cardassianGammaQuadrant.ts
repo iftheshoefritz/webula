@@ -91,6 +91,7 @@ dilemma('Inquest', S, 3, 'select-until', selectUntil(
   (s, sel) => s.stop(sel),
 ));
 
+// goesUnder: false, never beneath this mission: it is placed on the mission, and when the mission is completed it goes beneath another mission.
 dilemma('Insurrection', D, 0, 'changes-later', (s) => {
   if (s.attempt.mission.points < 30) return;
   s.requirements = s.requirements.map((b) => ({ ...b, attrs: b.attrs.map((t) => (t >= 0 && t < 32 ? t + 10 : t)) as [number, number, number] }));

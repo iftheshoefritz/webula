@@ -72,6 +72,7 @@ dilemma('Overindulgence', D, 2, 'bot-names', (s) => {
   else s.trace?.(`  ${most} ${skillName(named)}: no effect`);
 });
 
+// goesUnder: false, never beneath this mission: it is placed in your core.
 dilemma('Pivotal Destiny', P, 2, 'no-effect', noEffect, {
   goesUnder: false,
   gap: 'it is placed in your core, and the 10 more points you need act past the attempt (#1478)',
@@ -143,6 +144,7 @@ dilemma('Organ Theft', P, 1, 'random-select', (s) => {
   gap: 'the cards each opponent may draw act past the attempt (#1478)',
 });
 
+// goesUnder: false, never beneath this mission: it returns to the dilemma pile at the end of the turn.
 dilemma('Overwhelmed', D, 4, 'changes-later', (s) => {
   s.overwhelmed = true;
   s.trace?.('  each later dilemma check that passes stops the personnel who supplied its skills');
@@ -335,11 +337,13 @@ dilemma('Oh No!', D, 4, 'unless', unless('2 Astrometrics or Integrity>30 or Stre
   gap: 'the 5 points lost act past the attempt (#1478)',
 });
 
+// goesUnder: false, never beneath this mission: it returns to the dilemma pile once played.
 dilemma('Ostensible Malfunction', S, 1, 'no-effect', noEffect, {
   goesUnder: false,
   gap: 'it only adds a Damage dilemma to the stack, which is not modelled, and returns to the dilemma pile',
 });
 
+// goesUnder: false, never beneath this mission: it is placed on the mission and stays there.
 dilemma('Pattern Loss', S, 1, 'changes-later', (s) => {
   s.patternLoss = true;
   s.trace?.('  a later dilemma requiring Transporters needs one more level of each of its skills');

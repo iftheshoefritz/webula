@@ -102,7 +102,7 @@ dilemma('The Clown: Cloaking Device', D, 2, 'changes-later', (s) => {
   s.requirements = addToAttrs(s.requirements, 9);
   s.label('3 different equipment');
   s.trace?.('  each attribute requirement is 9 more');
-}, { goesUnder: false, category: '5b', assumption: 'the bot commands 3 different equipment, so each attribute requirement is 9 more' });
+}, { category: '5b', assumption: 'the bot commands 3 different equipment, so each attribute requirement is 9 more' });
 
 dilemma('Standing Trial', P, 2, 'random-select', (s) => {
   s.stop(s.select(1, s.unstopped().filter((k) => s.hasSkill(k, sk('honor'), sk('transporters')))));
@@ -140,6 +140,7 @@ dilemma('Unbelievable Emergency', S, 4, 'random-select', (s) => {
 
 // No family fits: the named skill lowers its holders' attributes for the rest of the play, so the later
 // dilemmas and the final check read the loss.
+// goesUnder: false, never beneath this mission: it returns to the dilemma pile at the end of the turn.
 dilemma('The Clown: Bitter Medicine', D, 4, 'changes-later', (s) => {
   const lossOf = (i: number) => {
     const loss = s.attrLoss ? s.attrLoss.slice() : new Int16Array(s.group.length);
@@ -165,6 +166,7 @@ dilemma('The Clown: Bitter Medicine', D, 4, 'changes-later', (s) => {
 }, { goesUnder: false, gap: 'it returns to the dilemma pile at the end of the turn' });
 
 // No family fits: the requirements' attributes all move to the one the bot names.
+// goesUnder: false, never beneath this mission: it is placed on the mission and removed from the game at the end of the turn.
 dilemma('The Clown: On His Throne', D, 4, 'changes-later', (s) => {
   if (!s.requirements.some((b) => b.attrs.some((t) => t >= 0))) {
     s.trace?.('  the mission has no attribute requirement: no effect');
@@ -300,6 +302,7 @@ dilemma('The Needs of the Many', D, 4, 'random-select', killRandom(1, either(ico
   gap: 'the interrupts of your hand are not read, so no personnel is stopped for them',
 });
 
+// goesUnder: false, never beneath this mission: it is placed in your core, and later beneath another mission, not this one.
 dilemma('Soul Searching', S, 3, 'random-select', (s) => s.holdInCore(s.select(1)), { goesUnder: false });
 
 dilemma('The First Duty', S, 1, 'choose-or-else', chooseOrElse(hasAny('honor', 'law'), killRandom(1)));
@@ -308,6 +311,7 @@ dilemma('Two-Dimensional Creatures', S, 1, 'choose-or-else', chooseOrElse((s, k)
   gap: 'the placement on your mission when you cannot is not modelled',
 });
 
+// goesUnder: false, never beneath this mission: it returns to the dilemma pile at the end of the turn.
 dilemma('Zero Hour', P, 1, 'changes-later', (s) => {
   const events = s.attempt.table.coreEvents ?? 0;
   if (!events) {
@@ -320,16 +324,17 @@ dilemma('Zero Hour', P, 1, 'changes-later', (s) => {
 
 // ---- No effect during the attempt ----
 
+// goesUnder: false, never beneath this mission: it is placed on the mission, and goes beneath it only when a later attempt completes it.
 dilemma('Skeleton Crew', D, 0, 'no-effect', noEffect, {
   goesUnder: false,
   gap: 'it is placed on the mission, and the six personnel a later attempt needs act past the attempt (#1478)',
 });
 
 dilemma('The Dreamer and the Dream', D, 2, 'no-effect', noEffect, {
-  goesUnder: false,
   gap: 'it is placed on the mission, and the discarded hand acts at the end of the turn (#1478)',
 });
 
+// goesUnder: false, never beneath this mission: it is placed on the mission and stays there.
 dilemma('The Clown: Go Away', D, 2, 'no-effect', noEffect, {
   goesUnder: false,
   gap: 'it is placed on the mission, and acts when a later attempt begins (#1478)',
