@@ -47,6 +47,10 @@ export function cardIdsInBox(container: HTMLElement, box: Box): string[] {
 
 // Returns the `onPointerDown` to put on each element a box may start from, and the box to draw
 // while it is open. `onSelect` is left out where the zone takes no selection; no box starts then.
+// A caller that shares the press with something else, the hold of the open hand's backdrop
+// (#1540), passes a `gate`: no box opens while `blocked()` is true, and `onOpen` runs when one does.
+export type BoxSelectGate = { blocked: () => boolean; onOpen: () => void };
+
 export function useBoxSelect(
   containerRef: RefObject<HTMLElement | null>,
   selectedIds: string[],
@@ -59,7 +63,7 @@ export function useBoxSelect(
 
   useEffect(() => () => cleanupRef.current?.(), []);
 
-  const onPointerDown = (event: React.PointerEvent) => {
+  const onPointerDown = (event: React.PointerEvent, gate?: BoxSelectGate) => {
     if (!onSelectRef.current || event.pointerType !== 'mouse' || event.button !== 0) return;
     // No text selection under the box.
     event.preventDefault();
@@ -74,7 +78,9 @@ export function useBoxSelect(
       const point = { x: e.clientX, y: e.clientY };
       if (!open) {
         if (Math.hypot(point.x - start.x, point.y - start.y) < BOX_START_DISTANCE) return;
+        if (gate?.blocked()) return;
         open = true;
+        gate?.onOpen();
         swallowClickOf(down);
       }
       const next = boxFromPoints(start, point);
