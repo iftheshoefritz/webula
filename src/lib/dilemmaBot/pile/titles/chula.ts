@@ -71,6 +71,7 @@ dilemma('Chula: Pick One to Save Two', D, 2, 'choose', (s) => {
   }
 });
 
+// goesUnder: false, never beneath this mission: it is placed on the mission, and goes beneath it only when a later attempt completes it.
 dilemma('Chula: The Game', D, 0, 'changes-later', (s) => {
   s.gameCopies++;
   s.trace?.(`  goes onto the mission (${s.gameCopies} there now)`);

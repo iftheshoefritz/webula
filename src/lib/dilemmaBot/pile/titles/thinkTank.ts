@@ -53,7 +53,7 @@ dilemma('Counterinsurgency Program', D, 2, 'bot-names', (s) => {
 dilemma('Dereliction of Duty', D, 0, 'changes-later', (s) => {
   s.abilitiesOff = true;
   s.trace?.('  the personnel cannot use their abilities until the end of the attempt');
-}, { goesUnder: false });
+});
 
 dilemma('Discommendation', D, 2, 'any-of-affiliation', anyOfAffiliation('klingon'));
 
@@ -69,6 +69,7 @@ dilemma('Ghosts of Reality', P, 5, 'select-until', selectUntil(
   (s, sel) => s.kill(sel),
 ));
 
+// goesUnder: false, never beneath this mission: it is placed in your core, with the personnel it holds.
 dilemma('Hard Time', P, 3, 'random-select', selectRandom(1, (s, sel) => s.holdInCore(sel)), { goesUnder: false });
 
 dilemma('Harsh Conditions', P, 3, 'changes-later', (s) => {
@@ -79,7 +80,7 @@ dilemma('Harsh Conditions', P, 3, 'changes-later', (s) => {
     s.blockedSkills.add(i);
   }
   if (named.length) s.label(`Named ${named.map(skillName).join(', ')}`);
-}, { goesUnder: false });
+});
 
 dilemma('He Wasn\'t Nice', D, 0, 'bot-chooses', (s) => {
   const [k] = s.botChooses(s.unstopped());
@@ -113,8 +114,10 @@ dilemma('Inequitable Exchange', D, 6, 'bot-chooses', botChooses(1, 'brig'), {
   assumption: 'the bot\'s brig is empty, so the cost stays 6 and nothing is freed',
 });
 
+// goesUnder: false, never beneath this mission: it is placed in your core.
 dilemma('Inferiority', D, 3, 'no-effect', noEffect, { goesUnder: false, gap: 'the extra dilemmas of a later attempt are dropped (#1478)' });
 
+// goesUnder: false, never beneath this mission: it is placed in your core, whether or not a personnel is stopped.
 dilemma('Ingenious Jury-rig', D, 3, 'choose-or-else', chooseOrElse(hasAny('transporters'), null), { goesUnder: false });
 
 dilemma('Intimidation', D, 4, 'select-until', selectUntil(
@@ -160,6 +163,7 @@ dilemma('Outmatched', P, 1, 'bot-consumes', (s) => {
 
 dilemma('Personal Duty', S, 2, 'all-but-one', allButOne(hasAny('leadership', 'officer')));
 
+// goesUnder: false, never beneath this mission: it returns to the dilemma pile once played.
 dilemma('Polywater Intoxication', D, 0, 'choose', playerStops(1), {
   cost: (a) => (a.personnel.length >= 6 ? 3 : 0),
   goesUnder: false,
@@ -208,6 +212,7 @@ dilemma('The Killing Game', S, 8, 'unless', unless('2 Engineer, 2 Medical, and C
 
 dilemma('The Weak Will Perish', D, 3, 'random-select', selectRandom(1, (s, sel) => s.kill(sel)));
 
+// goesUnder: false, never beneath this mission: it returns to the dilemma pile at the end of the turn.
 dilemma('Timescape', D, 0, 'no-effect', noEffect, { goesUnder: false, gap: 'it stops a later attempt at this mission, not this one' });
 
 dilemma('Tsiolkovsky Infection', S, 8, 'unless', unless('2 Anthropology, 2 Programming, and Cunning>38 or 2 Biology, Exobiology, and 2 Medical', killRandom(3)), {
@@ -231,7 +236,10 @@ dilemma('Well-Prepared Defenses', D, 2, 'bot-chooses', (s) => {
   s.stop(s.botChooses(s.unstopped()));
 }, { category: '3', assumption: 'the bot\'s missions are worth more points than yours' });
 
-dilemma('Where No One Has Gone Before', S, 4, 'unless', unless('Astrometrics, Navigation, Physics, and Cunning>34 or Exobiology, Leadership, Medical, and Integrity>32', loseShip), { goesUnder: false });
+dilemma('Where No One Has Gone Before', S, 4, 'unless', unless('Astrometrics, Navigation, Physics, and Cunning>34 or Exobiology, Leadership, Medical, and Integrity>32', (s) => {
+  s.notPlacedUnder('to your core');
+  s.loseShip();
+}));
 
 dilemma('Whisper in the Dark', P, 8, 'unless', unless('2 Geology, 2 Physics, and Cunning>38 or 2 Honor, 2 Officer, and Transporters', killRandom(3)), {
   cost: () => 8 - CORE_EVENTS,

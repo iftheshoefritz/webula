@@ -269,7 +269,7 @@ export class PlayState {
     return out.slice(0, take);
   }
 
-  private remove(ks: number[], what: keyof Omit<PileResult, 'fail' | 'labels' | 'backToPile'>, verb: string, why?: string, quiet = false) {
+  private remove(ks: number[], what: keyof Omit<PileResult, 'fail' | 'labels' | 'backToPile' | 'notUnder'>, verb: string, why?: string, quiet = false) {
     const done: number[] = [];
     for (const k of ks) {
       if (!this.alive[k]) continue;
@@ -332,6 +332,12 @@ export class PlayState {
   returnsToPile() {
     this.result.backToPile = (this.result.backToPile ?? 0) + 1;
     this.trace?.(`  ${this.current} returns to the dilemma pile`);
+  }
+
+  /** The dilemma being faced goes to `where` and not beneath the mission, because its effect fired (#1534). */
+  notPlacedUnder(where: string) {
+    this.result.notUnder = (this.result.notUnder ?? 0) + 1;
+    this.trace?.(`  ${this.current} goes ${where}, not beneath the mission`);
   }
 
   /**

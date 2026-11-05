@@ -42,6 +42,7 @@ const lessPersistent = (cost: number) => (a: PileAttempt) => Math.max(0, cost - 
 dilemma('Breaking the Ice', S, 3, 'unless', unlessGroup((s) => s.has(req('3 Geology')) || otherEquipment(s) >= 2, stopAll, '3 Geology or two non-Hand Weapon equipment'), {
 });
 
+// goesUnder: false, never beneath this mission: the bot assumes it is placed in your core, since the attempt holds neither your discard pile nor the points of your missions (#1534).
 dilemma('Causal Recursion', S, 2, 'no-effect', noEffect, {
   goesUnder: false,
   gap: 'it is placed in your core, and the 10 more points you need act past the attempt (#1478)',
@@ -155,7 +156,7 @@ dilemma('Code Forty-Seven', D, 2, 'choose', (s) => {
 
 dilemma('Dangerous Liaisons', D, 4, 'unless', unless('2 Science and 2 Security or 3 Treachery', thenReturns(stopAll)));
 
-dilemma('Edo Probe', D, 0, 'no-effect', noEffect, { status: 'ignore', goesUnder: false });
+dilemma('Edo Probe', D, 0, 'no-effect', noEffect, { status: 'ignore' });
 
 dilemma('Elemental Instability', D, 3, 'own', (s) => {
   botChooses(s.attempt.table.trelliumD ?? 0, 'kill')(s);
@@ -174,7 +175,7 @@ dilemma('Formal Hearing', D, 7, 'unless', unless('Diplomacy, Intelligence, 2 Pro
 dilemma('Accelerated Aging', D, 2, 'changes-later', (s) => {
   s.firstSkillOff = true;
   s.trace?.('  the personnel cannot use their first-listed skill until the end of the attempt');
-}, { goesUnder: false });
+});
 
 dilemma('Aceton Assimilators', D, 4, 'choose', (s) => {
   s.label('Named Aceton Assimilators');
@@ -221,9 +222,12 @@ dilemma('Contaminating a Culture', D, 3, 'random-select', killRandom(1), {
   gap: 'your discard pile is not on the table, so you never prevent the kill',
 });
 
-dilemma('Covert Ambush', S, 3, 'no-effect', noEffect, {
-  goesUnder: false,
-  gap: 'it is placed in your core and acts past the attempt (#1478)',
+dilemma('Covert Ambush', S, 3, 'no-effect', unlessGroup(
+  (s) => s.unstopped().some((k) => s.skill(k, sk('engineer')) >= 2 || s.skill(k, sk('programming')) >= 2),
+  (s) => s.notPlacedUnder('to your core'),
+  'a personnel with 2 Engineer or a personnel with 2 Programming',
+), {
+  gap: 'placed in your core, it acts past the attempt (#1478)',
 });
 
 dilemma('Cultural Differences', P, 1, 'choose-or-else', chooseOrElse(hasAny('acquisition', 'anthropology'), killRandom(1)));

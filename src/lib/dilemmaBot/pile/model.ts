@@ -163,6 +163,11 @@ export interface PileResult {
   labels: { title: string; label: string }[];
   /** The dilemmas that returned to the bot's dilemma pile instead of going beneath the mission (#1518). Absent: 0. */
   backToPile?: number;
+  /**
+   * The dilemmas whose effect placed them somewhere other than beneath the mission in this play (#1534):
+   * the core, a ship, off the game. Absent: 0.
+   */
+  notUnder?: number;
 }
 
 /** The weights of #1320: the lasting damage of a result. A stop counts 0. */
@@ -175,7 +180,7 @@ export const DAMAGE_WEIGHTS = {
   shipLost: 1,
 } as const;
 
-export function lastingDamage(r: Omit<PileResult, 'fail' | 'labels' | 'stopped' | 'backToPile'>): number {
+export function lastingDamage(r: Omit<PileResult, 'fail' | 'labels' | 'stopped' | 'backToPile' | 'notUnder'>): number {
   return (
     r.killed * DAMAGE_WEIGHTS.killed +
     r.heldInCore * DAMAGE_WEIGHTS.heldInCore +
@@ -211,7 +216,11 @@ export interface DilemmaModel {
    * and makes every later Chula dilemma stop one more personnel.
    */
   leads?: boolean;
-  /** Whether the dilemma goes beneath the mission once faced. False when it is placed elsewhere or returns to the pile. */
+  /**
+   * Whether the dilemma goes beneath the mission once faced. False only when it never does, whatever the
+   * play: it is placed elsewhere or returns to the pile every time. A dilemma that goes elsewhere only when
+   * its effect fires keeps `true`, and its play records it with `notPlacedUnder()` or `returnsToPile()` (#1534).
+   */
   goesUnder: boolean;
   /** `'ignore'`: the bot takes it out of its pile when the game starts (#1320). */
   status: 'play' | 'ignore';

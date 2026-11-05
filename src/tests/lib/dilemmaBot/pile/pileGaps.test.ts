@@ -223,3 +223,63 @@ describe('the facts the practice table fills for the Championship titles', () =>
     expect(play(crew, ['Organ Theft']).killed).toBe(1);
   });
 });
+
+// Issue #1534: a dilemma that goes elsewhere only when its effect fires goes beneath the mission when the
+// group meets its "unless".
+describe('the dilemmas a play places elsewhere', () => {
+  const explorers = [
+    person('Astro', { skills: { astrometrics: 1 }, attrs: [5, 6, 5] }),
+    person('Nav', { skills: { navigation: 1 }, attrs: [5, 6, 5] }),
+    person('Phys', { skills: { physics: 1 }, attrs: [5, 6, 5] }),
+    ...group(4, { attrs: [5, 6, 5] }),
+  ];
+  const WHERE = 'Where No One Has Gone Before';
+
+  it('counts Where No One Has Gone Before under the mission when the group meets it, and not when it fires', () => {
+    const meets = attemptOf(explorers, { mission: SPACE });
+    expect(play(meets, [WHERE]).notUnder ?? 0).toBe(0);
+    expect(scorePileStack(meets, [WHERE], 20, 1).under).toBe(1);
+
+    const fails = attemptOf(group(7), { mission: SPACE });
+    const r = play(fails, [WHERE]);
+    expect([r.notUnder, r.shipLost]).toEqual([1, 7]);
+    expect(scorePileStack(fails, [WHERE], 20, 1).under).toBe(0);
+  });
+
+  it('records Covert Ambush as placed in the core only without a personnel with 2 Engineer or 2 Programming', () => {
+    expect(play(attemptOf(group(3), { mission: SPACE }), ['Covert Ambush']).notUnder).toBe(1);
+    const engineer = [person('Eng', { skills: { engineer: 2 } }), ...group(2)];
+    expect(play(attemptOf(engineer, { mission: SPACE }), ['Covert Ambush']).notUnder ?? 0).toBe(0);
+    const split = [person('A', { skills: { engineer: 1 } }), person('B', { skills: { engineer: 1 } })];
+    expect(play(attemptOf(split, { mission: SPACE }), ['Covert Ambush']).notUnder).toBe(1);
+  });
+
+  it('keeps a static goesUnder: false only for the titles that never go beneath this mission', () => {
+    const never = [...REGISTRY.values()].filter((m) => !m.goesUnder).map((m) => m.title).sort();
+    expect(never).toEqual([
+      'All-Consuming Evil',
+      'Causal Recursion',
+      'Chula: The Game',
+      'Hard Time',
+      'Inferiority',
+      'Ingenious Jury-rig',
+      'Insurrection',
+      'Ostensible Malfunction',
+      'Overwhelmed',
+      'Pattern Loss',
+      'Pivotal Destiny',
+      'Polywater Intoxication',
+      'Skeleton Crew',
+      'Soul Searching',
+      'The Clown: Bitter Medicine',
+      'The Clown: Celebration',
+      'The Clown: Fear Incarnate',
+      'The Clown: Go Away',
+      'The Clown: Guillotine',
+      'The Clown: On His Throne',
+      'Timescape',
+      'Tragic Turn',
+      'Zero Hour',
+    ]);
+  });
+});

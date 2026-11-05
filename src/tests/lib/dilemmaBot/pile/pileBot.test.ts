@@ -319,8 +319,27 @@ describe('the beam search', () => {
     });
     const attempt = attemptOf(crew, { mission: space, requirements: 'Cunning>0' });
     const drawn = ['Where No One Has Gone Before', 'Dereliction of Duty', 'Old Differences', 'Cutting Remark', 'Personal Duty'];
-    const best = beamPileSearch(attempt, drawn, 6, 1, { width: 2 }).best;
+    // Width 3: Dereliction of Duty alone now costs one under the mission (#1534), so a beam of 2 drops it.
+    const best = beamPileSearch(attempt, drawn, 6, 1, { width: 3 }).best;
     expect(best.stack.indexOf('Dereliction of Duty')).toBeLessThan(best.stack.indexOf('Where No One Has Gone Before'));
     expect(best.damage).toBe(6);
+  });
+
+  it('ranks a stack without a dilemma that does nothing above the same stack with it (#1534)', () => {
+    // The crew meets Where No One Has Gone Before, so it is overcome and goes beneath the mission.
+    const space = { kind: 'space' as const, points: 35, span: 2, nebula: false };
+    const crew = [
+      person('Astro', { skills: { astrometrics: 1 }, attrs: [5, 6, 5] }),
+      person('Nav', { skills: { navigation: 1 }, attrs: [5, 6, 5] }),
+      person('Phys', { skills: { physics: 1 }, attrs: [5, 6, 5] }),
+      ...group(4, { attrs: [5, 6, 5] }),
+    ];
+    const attempt = attemptOf(crew, { mission: space, requirements: 'Cunning>0' });
+    const without = scorePileStack(attempt, ['Contaminating a Culture'], 50, 1, 2);
+    const withIt = scorePileStack(attempt, ['Where No One Has Gone Before', 'Contaminating a Culture'], 50, 1, 2);
+    expect([withIt.pFail, withIt.damage]).toEqual([without.pFail, without.damage]);
+    expect(withIt.under).toBe(without.under + 1);
+    const { ranked } = rankPileScores([withIt, without]);
+    expect(ranked[0]).toBe(without);
   });
 });

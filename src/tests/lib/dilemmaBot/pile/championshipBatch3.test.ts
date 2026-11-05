@@ -146,7 +146,7 @@ describe('the bot-side titles of #1320', () => {
     const result = play(attempt, ['The Clown: Cloaking Device']);
     expect(result).toMatchObject({ fail: true, stopped: 0 });
     expect(labelsOf(result)).toEqual(['3 different equipment']);
-    expect(REGISTRY.get('The Clown: Cloaking Device')).toMatchObject({ category: '5b', goesUnder: false });
+    expect(REGISTRY.get('The Clown: Cloaking Device')).toMatchObject({ category: '5b', goesUnder: true });
     expect(play(attemptOf(group(8, { attrs: [5, 5, 5] }), { requirements: 'Cunning>30' }), ['The Clown: Cloaking Device'])).toMatchObject({ fail: false });
   });
 

@@ -140,7 +140,7 @@ export interface PileStackScore {
   pFail: number;
   /** The average lasting damage, with the weights of #1320. */
   damage: number;
-  /** The dilemmas the stack puts beneath the mission. */
+  /** The average dilemmas the stack puts beneath the mission, over the plays. */
   under: number;
   /** The average personnel the stack stops. Not part of the rank: the beam search keeps stacks by it too. */
   stopped: number;
@@ -160,9 +160,10 @@ export function scorePileStack(attempt: PileAttempt, stack: string[], plays: num
     if (result.fail) fails++;
     damage += lastingDamage(result);
     stopped += result.stopped;
-    back += result.backToPile ?? 0;
+    back += (result.backToPile ?? 0) + (result.notUnder ?? 0);
   }
-  // A dilemma that returned to the pile in a play did not go beneath the mission (#1518).
+  // A dilemma that returned to the pile (#1518) or that its effect placed elsewhere (#1534) in a play did
+  // not go beneath the mission.
   return { stack, pFail: fails / plays, damage: damage / plays, under: underOf(stack) - back / plays, stopped: stopped / plays, plays };
 }
 
