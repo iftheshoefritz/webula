@@ -860,7 +860,7 @@ of #1176, with the crew panel's 8 px gap (#1218, `attemptPersonnelGrid`, `attemp
 `computeAttemptLayout`), as wide as a card of the crew panel on the full table (`viewerCardSize`, a
 desktop too), or less where the screen lacks the room: at 667×375 about 76 px, 3 to a row, at
 `?fixture=attempt`, and about 99 px, 3 to a row, at Moab IV on `?fixture=piles` (#1544); on a 1280 px desktop
-the away team of Moab IV shows 4 to a row. The area
+the away team of Moab IV shows 3 to a row, 170 px wide, at a height of 633, 720 or 800 px. The area
 takes all the width the mission, the ships and the stack leave, even with fewer cards, and a row holds
 as many cards as fit it, never fewer than 3 (#1365). The mission grows only while 3 would fit. It fills the height
 it has and, when the cards do not all fit, shows at least a quarter of a card of the second row, and
