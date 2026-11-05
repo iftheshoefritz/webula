@@ -137,6 +137,10 @@ const CardHoldContext = createContext<CardHoldCallbacks | null>(null);
 
 export const CardHoldProvider = CardHoldContext.Provider;
 
+export function useCardHoldCallbacks(): CardHoldCallbacks | null {
+  return useContext(CardHoldContext);
+}
+
 // Stops iOS Safari's image callout, text selection and native image drag on a long press, on the
 // card and its art. The drag lifts a snapshot of the whole image, drawn squashed into the box of an
 // art crop, and it plays back onto the card at the release of a hold (#1271). csstype has no
@@ -177,6 +181,108 @@ export function swallowClickOf(down: PointerEvent) {
   window.addEventListener('pointerup', onRelease, true);
   window.addEventListener('pointercancel', onRelease, true);
   window.addEventListener('pointerdown', onNextPress, true);
+}
+
+type PressHoldOptions = {
+  // The press, its card's id, and the element whose size decides whether the preview enlarges.
+  down: PointerEvent;
+  id: string;
+  element: Element;
+  // The move, before the hold fires, that cancels it.
+  dragDistance: number;
+  callbacks: () => CardHoldCallbacks | null;
+  // When the timer fires, before the preview shows.
+  onFire?: () => void;
+  // When a hold that fired ends, after `endHold`.
+  onHeldEnd?: () => void;
+  // When the hold's listeners are gone, fired or not.
+  onCleanup?: () => void;
+};
+
+// The timer and the end signals of one press's hold, shared by `useCardHold` and the backdrop of
+// the open hand (#1540), so the two cannot drift apart. Returns the function that ends the hold;
+// given the press that ends it, it swallows that press's click when the hold has fired (#776).
+export function startPressHold({
+  down,
+  id,
+  element,
+  dragDistance,
+  callbacks,
+  onFire,
+  onHeldEnd,
+  onCleanup,
+}: PressHoldOptions): (press?: PointerEvent) => void {
+  const originX = down.clientX;
+  const originY = down.clientY;
+  let fired = false;
+
+  const end = () => {
+    cleanup();
+    if (!fired) return;
+    callbacks()?.endHold();
+    onHeldEnd?.();
+  };
+  const onMove = (e: PointerEvent) => {
+    // A mouse or a pen that moves with no button down was released where the page did not see
+    // it. A touch `pointermove` always has a button down, so this never ends a touch hold.
+    if (e.buttons === 0) {
+      end();
+      return;
+    }
+    if (fired) return;
+    if (Math.hypot(e.clientX - originX, e.clientY - originY) > dragDistance) cleanup();
+  };
+  const onLostCapture = (e: PointerEvent) => {
+    if (e.pointerId === down.pointerId) end();
+  };
+  // The press's own `pointerdown` bubbles on to `window` after this handler adds the listener,
+  // so only a different event, a second finger or a press after a lost release, ends the hold.
+  const onOtherPointerDown = (e: PointerEvent) => {
+    if (e !== down) endBy(e);
+  };
+  const endBy = (press?: PointerEvent) => {
+    if (press && fired) swallowClickOf(press);
+    end();
+  };
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') end();
+  };
+
+  const timer = window.setTimeout(() => {
+    fired = true;
+    heldPress = down;
+    onFire?.();
+    if (previewEnlargesElement(element)) callbacks()?.startHold(id, previewSideFor(originX));
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(10);
+    }
+  }, HOLD_DELAY_MS);
+
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+  window.addEventListener('pointerdown', onOtherPointerDown);
+  window.addEventListener('blur', end);
+  window.addEventListener('touchend', end);
+  window.addEventListener('touchcancel', end);
+  window.addEventListener('lostpointercapture', onLostCapture);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
+  function cleanup() {
+    window.clearTimeout(timer);
+    if (heldPress === down) heldPress = null;
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    window.removeEventListener('pointerdown', onOtherPointerDown);
+    window.removeEventListener('blur', end);
+    window.removeEventListener('touchend', end);
+    window.removeEventListener('touchcancel', end);
+    window.removeEventListener('lostpointercapture', onLostCapture);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    onCleanup?.();
+  }
+  return endBy;
 }
 
 // Returns the handlers to spread on the card's element in place of dnd-kit's `listeners`. The
@@ -240,86 +346,29 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
     // A secondary mouse button is not a press.
     if (event.pointerType === 'mouse' && event.button !== 0) return;
 
-    const originX = event.clientX;
-    const originY = event.clientY;
-    const downEvent = event.nativeEvent;
-    const pressed = event.currentTarget;
-    const dragDistance = dragActivationDistanceFor(false, isInHandArc(downEvent.target));
-    let fired = false;
-
-    const end = () => {
-      cleanup();
-      if (!fired) return;
-      callbacksRef.current?.endHold();
-      endHover();
-      // A release off the card (a mouse lets go over the preview's backdrop) sends no click to
-      // the card, so stop waiting for one once a touch's late click would have come (#1152).
-      if (swallowTimerRef.current !== null) window.clearTimeout(swallowTimerRef.current);
-      swallowTimerRef.current = window.setTimeout(() => {
-        swallowTimerRef.current = null;
-        swallowClickRef.current = false;
-      }, HELD_CLICK_WINDOW_MS);
-    };
-    const onMove = (e: PointerEvent) => {
-      // A mouse or a pen that moves with no button down was released where the page did not see
-      // it. A touch `pointermove` always has a button down, so this never ends a touch hold.
-      if (e.buttons === 0) {
-        end();
-        return;
-      }
-      if (fired) return;
-      if (Math.hypot(e.clientX - originX, e.clientY - originY) > dragDistance) cleanup();
-    };
-    const onLostCapture = (e: PointerEvent) => {
-      if (e.pointerId === downEvent.pointerId) end();
-    };
-    // The press's own `pointerdown` bubbles on to `window` after this handler adds the listener,
-    // so only a different event, a second finger or a press after a lost release, ends the hold.
-    const onOtherPointerDown = (e: PointerEvent) => {
-      if (e !== downEvent) endBy(e);
-    };
-    const endBy = (press?: PointerEvent) => {
-      if (press && fired) swallowClickOf(press);
-      end();
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') end();
-    };
-
-    const timer = window.setTimeout(() => {
-      fired = true;
-      heldPress = downEvent;
-      swallowClickRef.current = true;
-      if (previewEnlargesElement(pressed)) callbacksRef.current?.startHold(id, previewSideFor(originX));
-      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-        navigator.vibrate(10);
-      }
-    }, HOLD_DELAY_MS);
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', end);
-    window.addEventListener('pointercancel', end);
-    window.addEventListener('pointerdown', onOtherPointerDown);
-    window.addEventListener('blur', end);
-    window.addEventListener('touchend', end);
-    window.addEventListener('touchcancel', end);
-    window.addEventListener('lostpointercapture', onLostCapture);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    function cleanup() {
-      window.clearTimeout(timer);
-      if (heldPress === downEvent) heldPress = null;
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', end);
-      window.removeEventListener('pointercancel', end);
-      window.removeEventListener('pointerdown', onOtherPointerDown);
-      window.removeEventListener('blur', end);
-      window.removeEventListener('touchend', end);
-      window.removeEventListener('touchcancel', end);
-      window.removeEventListener('lostpointercapture', onLostCapture);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      if (cleanupRef.current === endBy) cleanupRef.current = null;
-    }
+    const endBy = startPressHold({
+      down: event.nativeEvent,
+      id,
+      element: event.currentTarget,
+      dragDistance: dragActivationDistanceFor(false, isInHandArc(event.nativeEvent.target)),
+      callbacks: () => callbacksRef.current,
+      onFire: () => {
+        swallowClickRef.current = true;
+      },
+      onHeldEnd: () => {
+        endHover();
+        // A release off the card (a mouse lets go over the preview's backdrop) sends no click to
+        // the card, so stop waiting for one once a touch's late click would have come (#1152).
+        if (swallowTimerRef.current !== null) window.clearTimeout(swallowTimerRef.current);
+        swallowTimerRef.current = window.setTimeout(() => {
+          swallowTimerRef.current = null;
+          swallowClickRef.current = false;
+        }, HELD_CLICK_WINDOW_MS);
+      },
+      onCleanup: () => {
+        if (cleanupRef.current === endBy) cleanupRef.current = null;
+      },
+    });
     // A card that unmounts mid-hold must not leave the preview stuck on the screen, and a new
     // press on the same card ends the old hold before its own listeners would hear it.
     cleanupRef.current = endBy;
@@ -359,5 +408,9 @@ export function useCardHold(id: string, listeners?: DraggableListeners) {
 
   const onPointerLeave: PointerHandler = () => endHover();
 
-  return { ...listeners, onPointerDown, onPointerEnter, onPointerLeave, onClickCapture, onContextMenu, onDragStart };
+  // The element names the card it previews, so the backdrop of an open hand can find it under a
+  // press (#1540).
+  const previewId = id ? { [PREVIEW_CARD_ID_ATTRIBUTE]: id } : {};
+
+  return { ...listeners, ...previewId, onPointerDown, onPointerEnter, onPointerLeave, onClickCapture, onContextMenu, onDragStart };
 }

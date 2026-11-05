@@ -23,6 +23,7 @@
 import React from 'react';
 import { LAYER_CLOSED_HAND, LAYER_HAND_BACKDROP, LAYER_HAND_FAN } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
+import { useLatest } from '../../../hooks/useLatest';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { createPortal } from 'react-dom';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
@@ -33,7 +34,16 @@ import CountBadge from './CountBadge';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
-import { HAND_ARC_ATTRIBUTE, NO_CALLOUT_STYLE, PREVIEW_CARD_ID_ATTRIBUTE, useCardHold } from './useCardHold';
+import {
+  DRAG_ACTIVATION_DISTANCE,
+  HAND_ARC_ATTRIBUTE,
+  NO_CALLOUT_STYLE,
+  PREVIEW_CARD_ID_ATTRIBUTE,
+  startPressHold,
+  swallowClickOf,
+  useCardHold,
+  useCardHoldCallbacks,
+} from './useCardHold';
 import { cardBorderStyle } from './TableCard';
 import { flatCardWidth, pileCardSize } from './flatRowWidths';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
@@ -163,14 +173,25 @@ function useClosedFanBounds(
   return bounds;
 }
 
+// Issue #1540: the hold target, if any, of the topmost element at a point beneath the open hand's
+// backdrop and fan.
+function cardUnderBackdrop(x: number, y: number, backdrop: Element, fan: Element | null): Element | null {
+  if (typeof document.elementsFromPoint !== 'function') return null;
+  const under = document
+    .elementsFromPoint(x, y)
+    .find((el) => el !== backdrop && !backdrop.contains(el) && !fan?.contains(el));
+  return under?.closest(`[${PREVIEW_CARD_ID_ATTRIBUTE}]`) ?? null;
+}
+
 // Issue #1489: one face-up card of the closed fan. It carries no `data-card-id` and is not
 // draggable: a card of the closed hand is picked up from the open arc, as before. A tap goes on to
 // the closed hand, which opens; a hold previews the card, and its click is swallowed, so the hold
-// does not also open the hand. `PREVIEW_CARD_ID_ATTRIBUTE` tells the page which card a hover shows.
+// does not also open the hand. `PREVIEW_CARD_ID_ATTRIBUTE`, which `useCardHold` sets, tells the page
+// which card a hover shows.
 function ClosedFanCard({ instance, width }: { instance: CardInstance; width: number }) {
   const holdListeners = useCardHold(instance.id);
   return (
-    <div {...holdListeners} {...{ [PREVIEW_CARD_ID_ATTRIBUTE]: instance.id }} style={NO_CALLOUT_STYLE}>
+    <div {...holdListeners} style={NO_CALLOUT_STYLE}>
       <img
         draggable={false}
         src={`/cardimages/${instance.card.imagefile}.jpg`}
@@ -360,6 +381,9 @@ export default function CardHand({
   const landedNonce = open ? null : zoneLandedNonce;
   const fanRef = React.useRef<HTMLDivElement | null>(null);
   const boxSelect = useBoxSelect(fanRef, selectedIds, onSelectIds);
+  const holdCallbacksRef = useLatest(useCardHoldCallbacks());
+  const backdropHoldRef = React.useRef<((press?: PointerEvent) => void) | null>(null);
+  React.useEffect(() => () => backdropHoldRef.current?.(), []);
   const hasSelection = instances.some((instance) => selectedIds.includes(instance.id));
   const arcBounds = useArcBounds(arcBetween, showFan);
   const closedBounds = useClosedFanBounds(closedFanAnchor, closedFanSide, closedFanWidth, [count, rowScale, open]);
@@ -415,6 +439,42 @@ export default function CardHand({
       </button>
     </>
   );
+
+  // Issue #1540: a press and hold on the backdrop previews the table card under it, as the same hold
+  // does with no hand open. The press goes to the backdrop, so it finds the hold target beneath it
+  // (`PREVIEW_CARD_ID_ATTRIBUTE`, which `useCardHold` sets) and runs the same hold. It only
+  // previews: no `pointerdown` reaches the card, so no drag starts. A hold that fires swallows the
+  // click of its release, so the hand stays open, and keeps a box from opening; a box that opens
+  // first cancels the hold.
+  const handleBackdropPointerDown = (event: React.PointerEvent) => {
+    backdropHoldRef.current?.(event.nativeEvent);
+    let held = false;
+    const target = cardUnderBackdrop(event.clientX, event.clientY, event.currentTarget, fanRef.current);
+    const id = target?.getAttribute(PREVIEW_CARD_ID_ATTRIBUTE);
+    const primary = event.pointerType !== 'mouse' || event.button === 0;
+    if (target && id && primary && holdCallbacksRef.current) {
+      const down = event.nativeEvent;
+      const endBy = startPressHold({
+        down,
+        id,
+        element: target,
+        dragDistance: DRAG_ACTIVATION_DISTANCE,
+        callbacks: () => holdCallbacksRef.current,
+        onFire: () => {
+          held = true;
+          swallowClickOf(down);
+        },
+        onCleanup: () => {
+          if (backdropHoldRef.current === endBy) backdropHoldRef.current = null;
+        },
+      });
+      backdropHoldRef.current = endBy;
+    }
+    boxSelect.onPointerDown(event, {
+      blocked: () => held,
+      onOpen: () => backdropHoldRef.current?.(),
+    });
+  };
 
   const handleBackdropClick = (event: React.MouseEvent) => {
     const passthroughZones = passthroughZone
@@ -545,7 +605,7 @@ export default function CardHand({
                 type="button"
                 className={`fixed inset-0 ${LAYER_HAND_BACKDROP} bg-black/30`}
                 onClick={handleBackdropClick}
-                onPointerDown={boxSelect.onPointerDown}
+                onPointerDown={handleBackdropPointerDown}
                 aria-label={`Close ${label}`}
               />
             )}
