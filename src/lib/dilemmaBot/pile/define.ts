@@ -52,6 +52,14 @@ export function dilemmaList() {
   return { models, dilemma };
 }
 
+/**
+ * Whether the player has more points than the bot (#1541): the bot does not know its own score, so the
+ * player is ahead once they have 1 point or more, and not ahead at 0.
+ */
+export const playerAhead = (a: PileAttempt) => (a.table.score ?? 0) > 0;
+/** The rule of `playerAhead`, as the guide states it. */
+export const PLAYER_AHEAD_RULE = 'you have more points than the bot once you have 1 point or more; at 0 points you are not ahead';
+
 export const lowCost = (a: PileAttempt) => a.personnel.filter((p) => p.cost <= 2).length;
 /** The assumption of category 1 (#1320): the bot's core holds 6 events, none of them Decay or Paranoia events. */
 export const CORE_EVENTS = 6;

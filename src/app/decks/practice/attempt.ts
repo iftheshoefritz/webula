@@ -61,6 +61,7 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
     hand: table.hand.map((c) => c.card),
     discard: table.discard.map((c) => c.card),
     turn: table.turn,
+    score: table.score,
     facts: botTableFactsOf(table),
     core: table.core.map((c) => c.card),
     commanded: table.missions.flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])]).map((c) => c.card),

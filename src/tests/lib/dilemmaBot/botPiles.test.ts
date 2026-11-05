@@ -114,4 +114,9 @@ describe('pileTableInputOf and the bot\'s pile (#1520)', () => {
     expect(pileTableInputOf({ ...initialTableState, opponent: 'bot', botPile }, 0).botAffiliations).toEqual(['klingon']);
     expect(pileTableInputOf({ ...initialTableState, opponent: 'bot' }, 0).botAffiliations).toBeUndefined();
   });
+
+  it('hands the player\'s score to the attempt (#1541)', () => {
+    expect(pileTableInputOf({ ...initialTableState, opponent: 'bot', score: 5 }, 0).score).toBe(5);
+    expect(pileTableInputOf({ ...initialTableState, opponent: 'bot' }, 0).score).toBe(0);
+  });
 });

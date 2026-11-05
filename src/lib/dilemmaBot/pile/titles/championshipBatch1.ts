@@ -25,7 +25,7 @@ import {
 } from '../families';
 import { PileAttempt } from '../model';
 import { Attr, PlayState } from '../play';
-import { CORE_EVENTS, D, P, S, dilemmaList, names, speciesKey } from '../define';
+import { CORE_EVENTS, D, P, PLAYER_AHEAD_RULE, S, dilemmaList, names, playerAhead, speciesKey } from '../define';
 
 // The Championship titles of batch 1 (#1515), A Bad Case of par'Mach to Galileo Grounded: the 48 titles
 // of the 52 Championship piles that the other files of `titles/` lack, the most played first.
@@ -125,10 +125,10 @@ dilemma('A Pattern of Lies', D, 2, 'own', selectRandom(3, (s, sel) => {
 
 dilemma('Adversarial Trial', S, 2, 'random-select', (s) => {
   s.stop(s.select(1, s.unstopped().filter((k) => s.hasSkill(k, sk('anthropology'), sk('programming')))));
-  if (!s.live) return;
+  if (!s.live || !playerAhead(s.attempt)) return;
   s.label('You have more points');
   s.returnToHand(s.select(1));
-}, { category: '2', assumption: 'you have more points than the bot, so a personnel returns to your hand' });
+}, { category: '2', assumption: `${PLAYER_AHEAD_RULE}, so a personnel returns to your hand only while you are ahead` });
 
 dilemma('Alluring Spy', S, 2, 'unless', unless('Diplomacy, 2 Exobiology, and Strength>42 or Intelligence, 2 Leadership, and Cunning>38', thenReturns((s) =>
   s.stop(s.select(1, s.unstopped().filter((k) => s.hasSkill(k, sk('security'))))))));

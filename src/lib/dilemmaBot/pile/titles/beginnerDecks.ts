@@ -1,7 +1,7 @@
 import { BOT_SKILLS } from '../../requirements';
 import { botChooses, chooseOrElse, either, hasAny, killRandom, killRandomThenStopAll, noEffect, revealOrElse, selectRandom, selectUntil, sk, stopAll, unless } from '../families';
 import { Attr, skillName } from '../play';
-import { D, P, S, dilemmaList, mostHeldSkill, names } from '../define';
+import { D, P, PLAYER_AHEAD_RULE, S, dilemmaList, mostHeldSkill, names, playerAhead } from '../define';
 
 // The 33 titles of the 14 Beginner Decks of trekcc.org (`public/beginner-decks/`, #1513) that the other
 // piles of the registry lack.
@@ -65,9 +65,9 @@ dilemma('Dark Page', D, 2, 'choose-or-else', chooseOrElse(hasAny('anthropology',
 dilemma('Entanglement', D, 1, 'changes-cost', (s) => s.trace?.('  the bot may spend 3 more on this stack'), { extraBudget: 3 });
 
 dilemma('Environmental Contaminants', P, 4, 'unless', unless('Biology, 2 Diplomacy, and 2 Science or 2 Engineer, 2 Exobiology, and Cunning>38', killRandom(2)), {
-  cost: () => 1,
+  cost: (a) => (playerAhead(a) ? 1 : 4),
   category: '2',
-  assumption: 'you have a higher score than the bot, so it costs 1',
+  assumption: `${PLAYER_AHEAD_RULE}, so it costs 1 while you are ahead and 4 at 0 points`,
 });
 
 dilemma('Hard of Heart', P, 2, 'random-select', selectRandom(2, (s, sel) => {
@@ -131,10 +131,10 @@ dilemma('Security Weapons', D, 3, 'random-select', selectRandom(1, (s, sel) => {
 
 dilemma('Show Trial', D, 2, 'random-select', (s) => {
   s.stop(s.select(1, s.unstopped().filter((k) => s.hasSkill(k, sk('leadership'), sk('medical')))));
-  if (!s.live) return;
+  if (!s.live || !playerAhead(s.attempt)) return;
   s.label('You have more points');
   s.stop(s.select(1));
-}, { category: '2', assumption: 'you have more points than the bot, so a second personnel is stopped' });
+}, { category: '2', assumption: `${PLAYER_AHEAD_RULE}, so a second personnel is stopped only while you are ahead` });
 
 dilemma('Space Seed', P, 9, 'unless', unless('3 Security and Strength>40 or 2 Telepathy and Cunning>40', (s) => {
   s.label('Commands To Rule in Hell');
