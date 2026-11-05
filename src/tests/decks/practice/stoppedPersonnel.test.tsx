@@ -198,7 +198,7 @@ describe('Practice draw: stopping a personnel card (#679)', () => {
     expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument();
   });
 
-  it('a hold on a stopped personnel card shows it greyed out in the preview, which has no Stop button (#764)', async () => {
+  it('a hold on a stopped personnel card shows it plain in the preview, which has no Stop button (#764, #1535)', async () => {
     const { panel } = await personnelInBrigPanel();
     const card = within(panel).getByRole('button', { name: 'Data' });
     await act(async () => {
@@ -214,7 +214,9 @@ describe('Practice draw: stopping a personnel card (#679)', () => {
       jest.advanceTimersByTime(HOLD_DELAY_MS);
     });
     const preview = screen.getByTestId('card-preview');
-    expect(screen.getByTestId('card-preview-enlarged')).toHaveClass('grayscale', 'opacity-50');
+    expect(card.querySelector('img')).toHaveClass('grayscale', 'opacity-50');
+    expect(screen.getByTestId('card-preview-enlarged')).not.toHaveClass('grayscale');
+    expect(screen.getByTestId('card-preview-enlarged')).not.toHaveClass('opacity-50');
     expect(within(preview).queryByRole('button')).toBeNull();
     act(() => {
       fireEvent.pointerUp(window);

@@ -16,7 +16,7 @@
 import { CardInstance } from './tableReducer';
 import { LAYER_CARD_PREVIEW } from '../../../lib/layers';
 import { cardDisplayName } from '../../../lib/cardCount';
-import { STOPPED_IMAGE_CLASSNAME, cardBorderStyle, faceUpImageSrc } from './TableCard';
+import { cardBorderStyle, faceUpImageSrc } from './TableCard';
 import type { PreviewSide } from './useCardHold';
 import { safeAreaMargins } from './useSafeAreaInsets';
 import { PREVIEW_MAX_HEIGHT, previewMaxWidth } from './previewSize';
@@ -66,13 +66,13 @@ export default function CardPreview({
       className={`fixed inset-0 ${LAYER_CARD_PREVIEW} pointer-events-none animate-fade-in ${dim ? 'bg-black/50' : ''}`}
       style={{ ...PREVIEW_ROOT_STYLE, visibility: hidden ? 'hidden' : 'visible' }}
     >
+      {/* Issue #1535: the preview shows a stopped card plain, in colour and at full opacity, so it
+          stays readable; the card on the table and in the panels keeps the stopped look. */}
       <img
         data-testid="card-preview-enlarged"
         src={faceUpImageSrc(instance)}
         alt={cardDisplayName(card)}
-        className={`absolute ${edge} top-1/2 -translate-y-1/2 ${PREVIEW_IMAGE_SIZE_CLASSNAME} w-auto rounded-lg shadow-2xl ${
-          instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''
-        }`}
+        className={`absolute ${edge} top-1/2 -translate-y-1/2 ${PREVIEW_IMAGE_SIZE_CLASSNAME} w-auto rounded-lg shadow-2xl`}
         style={{ ...PREVIEW_BORDER_STYLE, ...edgeInset }}
       />
 
