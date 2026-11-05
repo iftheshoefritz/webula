@@ -872,9 +872,11 @@ panel that scrolls works the same way. Each
 card carries its `data-card-id`. A tap selects a card, a hold previews it, and above the row, as in
 the crew panel, `attempt-row-stop` (Stop or Unstop, while personnel are selected) and `attempt-row-stop-all` (while
 an unstopped personnel is in the row) set `stopped`. `attempt-row-shuffle`, last in that line and shown while the row holds a card, shuffles the away team or the crew (#1179). That line,
-`data-testid="attempt-row-buttons"`, sits in the band above the facing body, level with the slivers
-above the mission, so the top of the first row of cards is level with the top of the mission card
-and of the dilemma stack (#1376, `attemptPersonnelButtonsInBand`); only where the band is shorter
+`data-testid="attempt-row-buttons"`, sits in the band above the facing body, its top level with the
+top of the band, the top of a full stack of slivers above the mission (#1543), so the top of the
+first row of cards is level with the top of the mission card and of the dilemma stack (#1376,
+`attemptPersonnelButtonsInBand`); the middle column, the personnel and the ships, ends `ATTEMPT_GAP`
+(8 px) above the bottom row (#1543); only where the band is shorter
 than the line, below a mission card about 90 px tall, does it sit above the cards in the column. On a desktop the slivers of the
 dilemmas under the attempted mission poke out by 5% of the card, half the table's 10%, and the band
 (`attemptBandHeight` in `tableScale.ts`, both phases) is the halved stack but never shorter than
