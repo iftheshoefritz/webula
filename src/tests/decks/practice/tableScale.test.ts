@@ -6,7 +6,6 @@ import {
   ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
   attemptPersonnelButtonsInBand,
   ATTEMPT_PERSONNEL_GAP,
-  ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH,
   ATTEMPT_STACK_SLIVER_ROOM,
   ATTEMPT_STRIP_HEIGHT,
   attemptFloorScale,
@@ -424,7 +423,7 @@ describe('computeAttemptLayout (#1164)', () => {
 
   describe('attemptPersonnelGrid (#1205, #1218)', () => {
     const crop = attemptPersonnelCropHeight(40);
-    const width = 3 * 40 + 2 * ATTEMPT_PERSONNEL_GAP + ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH;
+    const width = 3 * 40 + 2 * ATTEMPT_PERSONNEL_GAP;
 
     it('holds 3 crops to a row, and is as tall as its rows when they fit the height', () => {
       expect(attemptPersonnelGrid(5, 40, 1000)).toEqual({ columns: 3, visibleRows: 2, width, height: 2 * crop + 8 });
@@ -509,7 +508,7 @@ describe('the personnel and the stack of the facing phase (#1218)', () => {
       const columns = sizes.personnelColumns;
       expect(columns).toBeGreaterThanOrEqual(3);
       expect(sizes.personnelCardWidth).toBeLessThanOrEqual(panel);
-      const rowWidth = (n: number) => n * sizes.personnelCardWidth + (n - 1) * 8 + ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH;
+      const rowWidth = (n: number) => n * sizes.personnelCardWidth + (n - 1) * 8;
       expect(rowWidth(columns)).toBeLessThanOrEqual(sizes.personnelWidth);
       expect(rowWidth(columns + 1)).toBeGreaterThan(sizes.personnelWidth);
       // The peek: at least a quarter of a card of the second row when the cards do not all fit.
@@ -807,7 +806,9 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
 // code before #1365, for an away team of 20 and a crew of 12, with cards placed on the mission, but
 // for the planet mission's choice, whose pile is the size of the mission card since #1493, and the
 // desktop choice's stack cards, whole cards since #1498 and the mission card's size since #1505, and the desktop column height, 46 px taller
-// since the band above the body shrank with the halved slivers (#1504).
+// since the band above the body shrank with the halved slivers (#1504). The desktop mission is a
+// little larger since the personnel area keeps no 6 px column for a scrollbar (#1544), so 3 crops at
+// the crew panel's width fit beside a larger mission.
 describe('the facing body takes the empty width, and the mission and the choice do not change (#1365)', () => {
   const screens = {
     667: { height: 375, tableHeight: 218, desktop: false },
@@ -829,14 +830,14 @@ describe('the facing body takes the empty width, and the mission and the choice 
     {
       width: 1440,
       space: false,
-      expected: { missionScale: expect.closeTo(5.048611, 5), columnHeight: 635, placedOnWidth: 94, stackWidth: 374, stackHeight: 505 },
-      choice: { missionScale: expect.closeTo(5.048611, 5), stackWidth: 410, stackHeight: 505, stackCardWidth: 363, stackCardHeight: 505, stackWholeCards: true, rightWidth: 465, pileCardWidth: 363, pileCardHeight: 505, hasPile: true, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
+      expected: { missionScale: expect.closeTo(5.090278, 5), columnHeight: 635, placedOnWidth: 94, stackWidth: 377, stackHeight: 509 },
+      choice: { missionScale: expect.closeTo(5.090278, 5), stackWidth: 404, stackHeight: 509, stackCardWidth: 366, stackCardHeight: 509, stackWholeCards: true, rightWidth: 468, pileCardWidth: 366, pileCardHeight: 509, hasPile: true, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
     },
     {
       width: 1440,
       space: true,
-      expected: { missionScale: expect.closeTo(3.326389, 5), columnHeight: 635, placedOnWidth: 94, stackWidth: 251, stackHeight: 333 },
-      choice: { missionScale: expect.closeTo(3.326389, 5), stackWidth: 905, stackHeight: 333, stackCardWidth: 239, stackCardHeight: 333, stackWholeCards: true, rightWidth: 94, pileCardWidth: 0, pileCardHeight: 0, hasPile: false, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
+      expected: { missionScale: expect.closeTo(3.354167, 5), columnHeight: 635, placedOnWidth: 94, stackWidth: 252, stackHeight: 335 },
+      choice: { missionScale: expect.closeTo(3.354167, 5), stackWidth: 903, stackHeight: 335, stackCardWidth: 241, stackCardHeight: 335, stackWholeCards: true, rightWidth: 94, pileCardWidth: 0, pileCardHeight: 0, hasPile: false, shipColumnWidth: 94, shipScale: expect.closeTo(2.752000, 5), shipRows: 1 },
     },
   ];
   it.each(cases)('keeps the sizes at $width px, space $space', ({ width, space, expected, choice }) => {
@@ -862,14 +863,15 @@ describe('the facing body takes the empty width, and the mission and the choice 
 
 // Issue #1376: in the facing phase the line of the personnel's buttons sits in the band above the
 // body, so the first row of cards starts at the top of the column, level with the mission card and
-// the stack, and the area takes the line's height. The old numbers are those of the code before.
+// the stack, and the area takes the line's height. The old numbers are those of the code before, but
+// for the mission's scale, a little larger at two sizes since the area keeps no scrollbar column (#1544).
 describe('the first row of the personnel is level with the mission (#1376)', () => {
   const touchColumn = (scale: number) => missionColumnHeight(scale, false, TOUCH_RESERVED_SHIP_ROWS);
   const cases = [
-    { width: MIN_SCREEN.width, height: MIN_SCREEN.height, ships: 1, personnel: { count: 12, space: true }, old: { missionScale: 1.215277611756032, personnelHeight: 120, visibleRows: 2 } },
+    { width: MIN_SCREEN.width, height: MIN_SCREEN.height, ships: 1, personnel: { count: 12, space: true }, old: { missionScale: 1.2152775702861813, personnelHeight: 120, visibleRows: 2 } },
     { width: MIN_SCREEN.width, height: MIN_SCREEN.height, ships: 0, personnel: { count: 20, space: false }, old: { missionScale: 1.2152773735574103, personnelHeight: 77, visibleRows: 2 } },
     { width: 800, height: 600, ships: 1, personnel: { count: 12, space: true }, old: { missionScale: 1.9333333333333331, personnelHeight: 311, visibleRows: 4 } },
-    { width: 800, height: 600, ships: 0, personnel: { count: 20, space: false }, old: { missionScale: 2.604166656318638, personnelHeight: 245, visibleRows: 3 } },
+    { width: 800, height: 600, ships: 0, personnel: { count: 20, space: false }, old: { missionScale: 2.6458333246409897, personnelHeight: 245, visibleRows: 3 } },
   ];
 
   it.each(cases)('starts the grid at the top of the mission card at $width x $height, space $personnel.space', ({ width, height, ships, personnel, old }) => {

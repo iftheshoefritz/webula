@@ -48,12 +48,15 @@ describe('Practice draw: a card list panel shows its host to the right of the gr
 
     const grid = screen.getByTestId(`card-list-panel-${location}`);
     const host = screen.getByTestId(hostTestId);
-    expect(host.parentElement).toBe(grid.parentElement);
-    expect(grid.parentElement!.className).toMatch(/flex-row/);
-    expect(grid.nextElementSibling).toBe(host);
+    // The grid and the host each sit in the box of their scroll indicator (#1544).
+    const gridBox = grid.parentElement!;
+    const hostBox = host.parentElement!;
+    expect(hostBox.parentElement).toBe(gridBox.parentElement);
+    expect(gridBox.parentElement!.className).toMatch(/flex-row/);
+    expect(gridBox.nextElementSibling).toBe(hostBox);
 
     // The host does not shrink with the grid: it keeps the size of a panel card.
-    expect(host.className).toMatch(/shrink-0/);
+    expect(hostBox.className).toMatch(/shrink-0/);
     const img = host.querySelector('img[alt="Card 9"]') as HTMLImageElement;
     expect(img.style.width).toBe('108px');
     expect(img.style.height).toBe('150px');
@@ -184,13 +187,13 @@ describe('Practice draw: the crew panel is tall enough for the cards on the ship
 
   it('gives the panel itself no fixed minimum height (#1014)', () => {
     renderPanel('crew', [makeCard(1)]);
-    const layout = screen.getByTestId('card-list-panel-crew').parentElement!.parentElement as HTMLElement;
+    const layout = screen.getByTestId('card-list-panel-crew').parentElement!.parentElement!.parentElement as HTMLElement;
     expect(layout.style.minHeight).toBe('');
   });
 
   it.each([[[]], [[makeCard(1)]]])('the row of an empty or small crew grows to fill the panel', (cards) => {
     renderPanel('crew', cards);
-    const row = screen.getByTestId('card-list-panel-crew').parentElement!;
+    const row = screen.getByTestId('card-list-panel-crew').parentElement!.parentElement!;
     expect(row.className).toMatch(/\bflex-1\b/);
     expect(row.className).toMatch(/\bmin-h-0\b/);
   });
@@ -205,7 +208,7 @@ describe('Practice draw: the crew panel is tall enough for the cards on the ship
 
   it('leaves the on panel at the height of its cards', () => {
     renderPanel('on', [makeCard(1)]);
-    const row = screen.getByTestId('card-list-panel-on').parentElement!;
+    const row = screen.getByTestId('card-list-panel-on').parentElement!.parentElement!;
     expect(row.className).not.toMatch(/\bflex-1\b/);
     expect(row.parentElement!.style.minHeight).toBe('');
   });

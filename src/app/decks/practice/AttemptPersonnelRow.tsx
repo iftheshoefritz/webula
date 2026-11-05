@@ -46,6 +46,7 @@ import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { stopButtons } from './stopRules';
 import { ShuffleIcon, panelScrollClassName, useScrollsVertically } from './CardListPanel';
+import { ScrollIndicator } from './ScrollIndicator';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 import type { AttemptMoveDestination } from './attempt';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
@@ -124,7 +125,8 @@ export default function AttemptPersonnelRow({
   const landedNonce = useLandedNonce(landedKey);
   const { selectedPersonnel, allSelectedStopped, unstoppedPersonnel } = stopButtons(cards, selectedIds);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrolls = useScrollsVertically(scrollRef, cards.length > 0, [cards.length, cardWidth, columns, height]);
+  const scrollDeps = [cards.length, cardWidth, columns, height];
+  const scrolls = useScrollsVertically(scrollRef, cards.length > 0, scrollDeps);
   const cardHeight = attemptPersonnelCropHeight(cardWidth);
   // The list is open for one selection of the row: any change of the selection closes it.
   const selectedInRow = cards.filter((instance) => selectedIds.includes(instance.id)).map((instance) => instance.id);
@@ -277,6 +279,8 @@ export default function AttemptPersonnelRow({
             </div>
           </div>
         )}
+        {/* #1544: the droppable does not scroll, so it holds the scroll area's indicator. */}
+        {cards.length > 0 && <ScrollIndicator scrollerRef={scrollRef} scrolls={scrolls} deps={scrollDeps} />}
         <LandedRing nonce={landedNonce} />
       </div>
     </div>

@@ -95,6 +95,7 @@ import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
 import { stopButtons } from './stopRules';
 import { safeAreaMargins } from './useSafeAreaInsets';
+import { ScrollIndicator } from './ScrollIndicator';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -157,13 +158,13 @@ export function RevealIcon({ className = 'w-2.5 h-2.5' }: { className?: string }
 // eighth: a tap on it lists every discarded card, not just the top one the table shows. It has no
 // Shuffle and no Stop control: its order comes from play, and a discarded card is never stopped.
 // The cards placed on a card (#810) in the core or the brig are a ninth.
-// #932: the vertical scroll classes of a panel element that may overflow (the card grid and the
-// host section beside it). A touch device draws an overlay scrollbar that shows only while a
-// finger moves, so an element that overflows takes `overflow-y-scroll` and `scrollbar-visible`
-// (`globals.css`), a scrollbar that keeps its place and whose thumb shows how much is off screen.
-// An element that fits keeps `overflow-y-auto` and shows no scrollbar.
+// #932, #1544: the vertical scroll classes of a panel element that may overflow (the card grid,
+// the host section beside it, and the attempt personnel row). A touch device draws an overlay
+// scrollbar that shows only while a finger moves, so an element that overflows hides its native
+// scrollbar (`scrollbar-hidden`, `globals.css`), keeps no width for it, and shows the page's own
+// thumb, `ScrollIndicator`, over its right edge. An element that fits keeps `overflow-y-auto`.
 export function panelScrollClassName(scrolls: boolean): string {
-  return scrolls ? 'overflow-y-scroll scrollbar-visible' : 'overflow-y-auto';
+  return scrolls ? 'overflow-y-scroll scrollbar-hidden' : 'overflow-y-auto';
 }
 
 // Whether the element overflows its height (#788, #932). Re-measured when the element resizes
@@ -520,11 +521,13 @@ function PanelHost({
   // taller of the grid and the framed box, so the section scrolls only when the panel reaches the
   // height of the screen. A `max-h-full` on the section clamped it to the grid's height in a
   // browser that resolves the percentage against the row.
+  // #1544: the box around the section holds its scroll indicator, which must not scroll with it.
   return (
+    <div className="relative shrink-0 min-h-0 flex flex-col">
     <div
       ref={sectionRef}
       data-testid={testId}
-      className={`shrink-0 min-h-0 ${panelScrollClassName(sectionScrolls)} overscroll-contain`}
+      className={`grow min-h-0 ${panelScrollClassName(sectionScrolls)} overscroll-contain`}
     >
       <div
         className="flex flex-col items-center gap-1 rounded-lg border border-accent/60 bg-white/[0.08] px-3 pt-1 pb-2"
@@ -571,6 +574,8 @@ function PanelHost({
         </div>
       )}
       </div>
+    </div>
+    <ScrollIndicator scrollerRef={sectionRef} scrolls={sectionScrolls} deps={[cardWidth, cardHeight, placedOn.length]} />
     </div>
   );
 }
@@ -737,7 +742,7 @@ export default function CardListPanel({
   // table around it, so a tap outside the grid is easy to aim.
   const gridClassName = isOrdered
     ? `shrink-0 flex flex-col items-stretch gap-1 rounded-lg ${PANEL_SURFACE_CLASSNAME} p-2 w-[86vw] overflow-hidden`
-    : `min-h-0 min-w-0 flex flex-wrap items-start justify-center gap-2 rounded-lg ${PANEL_SURFACE_CLASSNAME} p-2 ${panelScrollClassName(gridScrolls)} overscroll-contain`;
+    : `grow min-h-0 min-w-0 flex flex-wrap items-start justify-center gap-2 rounded-lg ${PANEL_SURFACE_CLASSNAME} p-2 ${panelScrollClassName(gridScrolls)} overscroll-contain`;
   // The two end labels sit on their own line above the cards, not at the two ends of the card
   // row: a label in the row takes width from the cards, and the row must keep all of its width
   // for them. The line reads left to right, the same order the
@@ -773,7 +778,7 @@ export default function CardListPanel({
   // inside the panel aims at another card's own droppable. So the name goes in `data-testid`. A
   // `data-zone` here would make `practice_drag.sh` print `card-list-panel-<location>` for a card
   // that never moved (see #860).
-  const gridElement = (
+  const gridScroller = (
     <div
       ref={gridRef}
       data-testid={`card-list-panel-${location}`}
@@ -838,6 +843,18 @@ export default function CardListPanel({
           />
         ))
       )}
+    </div>
+  );
+  // #1544: a grid that may scroll sits in a box that does not scroll and holds its scroll
+  // indicator. The box takes the grid's place in the panel's column: it is the child that shrinks
+  // (`min-h-0`, #720), and the grid grows to fill it, so in the crew panel's row it still
+  // stretches to the row's height. The ordered layout never scrolls, so it has no box.
+  const gridElement = isOrdered ? (
+    gridScroller
+  ) : (
+    <div className="relative min-h-0 min-w-0 flex flex-col">
+      {gridScroller}
+      <ScrollIndicator scrollerRef={gridRef} scrolls={gridScrolls} deps={[cards.length, cardWidth, gridCardHeight]} />
     </div>
   );
 

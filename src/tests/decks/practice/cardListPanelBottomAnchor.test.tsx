@@ -37,8 +37,10 @@ function insetBoxFor(location: PanelLocation, bottomInset?: number): HTMLElement
   );
   const grid = document.body.querySelector(`[data-testid="card-list-panel-${location}"]`) as HTMLElement;
   expect(grid).not.toBeNull();
-  // The grid sits in the panel, and the panel in the inset box.
-  return grid.parentElement!.parentElement as HTMLElement;
+  // The grid sits in the panel, and the panel in the inset box. A grid that may scroll sits in the
+  // box of its scroll indicator first (#1544); the ordered dilemma stack never scrolls.
+  const gridBox = location === 'dilemmaStack' ? grid : grid.parentElement!;
+  return gridBox.parentElement!.parentElement as HTMLElement;
 }
 
 describe('Practice draw: a card list panel anchors its bottom just above the bottom row (#828)', () => {
