@@ -133,10 +133,17 @@ describe('the bot-side titles of #1320', () => {
   });
 
   it('Adversarial Trial stops an Anthropology personnel and returns one: you have more points', () => {
-    const result = play(attemptOf([person('Anthro', { skills: { anthropology: 1 } }), ...group(2)]), ['Adversarial Trial']);
+    const result = play(attemptOf([person('Anthro', { skills: { anthropology: 1 } }), ...group(2)], { table: { score: 5 } }), ['Adversarial Trial']);
     expect(result).toMatchObject({ stopped: 1, returned: 1 });
     expect(labelsOf(result)).toEqual(['You have more points']);
-    expect(REGISTRY.get('Adversarial Trial')).toMatchObject({ category: '2', assumption: 'you have more points than the bot, so a personnel returns to your hand' });
+    expect(REGISTRY.get('Adversarial Trial')).toMatchObject({ category: '2' });
+    expect(REGISTRY.get('Adversarial Trial')!.assumption).toContain('at 0 points you are not ahead');
+  });
+
+  it('Adversarial Trial returns no personnel at 0 points: you are not ahead (#1541)', () => {
+    const result = play(attemptOf([person('Anthro', { skills: { anthropology: 1 } }), ...group(2)], { table: { score: 0 } }), ['Adversarial Trial']);
+    expect(result).toMatchObject({ stopped: 1, returned: 0 });
+    expect(labelsOf(result)).toEqual([]);
   });
 
   it('Aceton Assimilators stops the one personnel the player chooses, and names itself', () => {

@@ -26,7 +26,7 @@ import {
   unlessGroup,
 } from '../families';
 import { Attr, ATTR_NAMES, PlayState, skillName } from '../play';
-import { D, P, S, dilemmaList, mostHeldSkill } from '../define';
+import { D, P, PLAYER_AHEAD_RULE, S, dilemmaList, mostHeldSkill, playerAhead } from '../define';
 
 // The Championship titles of batch 3 (#1517), Shared Hallucination to Zero Hour: the 46 titles of the 52
 // Championship piles that the other files of `titles/` lack, the most played first.
@@ -106,10 +106,10 @@ dilemma('The Clown: Cloaking Device', D, 2, 'changes-later', (s) => {
 
 dilemma('Standing Trial', P, 2, 'random-select', (s) => {
   s.stop(s.select(1, s.unstopped().filter((k) => s.hasSkill(k, sk('honor'), sk('transporters')))));
-  if (!s.live) return;
+  if (!s.live || !playerAhead(s.attempt)) return;
   s.label('You have more points');
   s.returnToHand(s.select(1));
-}, { category: '2', assumption: 'you have more points than the bot, so a personnel returns to your hand' });
+}, { category: '2', assumption: `${PLAYER_AHEAD_RULE}, so a personnel returns to your hand only while you are ahead` });
 
 dilemma('Tak Tak Negotiations', P, 3, 'no-effect', noEffect, { status: 'ignore' });
 

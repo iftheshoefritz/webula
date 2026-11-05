@@ -159,8 +159,10 @@ describe('the assumptions of #1320 for the beginner decks', () => {
   const attempt = attemptOf(group(6));
   const onTurn = (turn: number) => attemptOf(group(6), { table: { turn } });
 
-  it('costs Environmental Contaminants 1: you have a higher score', () => {
-    expect(cost('Environmental Contaminants', attempt)).toBe(1);
+  it('costs Environmental Contaminants 1 once you have a point, and the printed 4 at 0 points (#1541)', () => {
+    expect(cost('Environmental Contaminants', attemptOf(group(6), { table: { score: 5 } }))).toBe(1);
+    expect(cost('Environmental Contaminants', attemptOf(group(6), { table: { score: 0 } }))).toBe(4);
+    expect(cost('Environmental Contaminants', attempt)).toBe(4);
   });
 
   it('costs Space Seed 6 on turn 1, 3 on turn 2 and 0 on turn 3: 3 × the turn Genetically Enhanced personnel', () => {
@@ -203,9 +205,16 @@ describe('the assumptions of #1320 for the beginner decks', () => {
 
 describe('the labels of the bot-side titles', () => {
   it('Show Trial stops a Leadership or Medical personnel, then a second: you have more points', () => {
-    const result = play(attemptOf([person('Leader', { skills: { leadership: 1 } }), ...group(3)]), ['Show Trial']);
+    const result = play(attemptOf([person('Leader', { skills: { leadership: 1 } }), ...group(3)], { table: { score: 5 } }), ['Show Trial']);
     expect(result.stopped).toBe(2);
     expect(labelsOf(result)).toEqual(['You have more points']);
+  });
+
+  it('Show Trial stops no second personnel at 0 points: you are not ahead (#1541)', () => {
+    const result = play(attemptOf([person('Leader', { skills: { leadership: 1 } }), ...group(3)], { table: { score: 0 } }), ['Show Trial']);
+    expect(result.stopped).toBe(1);
+    expect(labelsOf(result)).toEqual([]);
+    expect(REGISTRY.get('Show Trial')!.assumption).toContain('at 0 points you are not ahead');
   });
 
   it('Brave Words: the bot chooses a personnel to be stopped', () => {

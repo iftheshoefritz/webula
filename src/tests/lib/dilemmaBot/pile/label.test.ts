@@ -61,4 +61,11 @@ describe('pileLabelOf (#1519)', () => {
     expect(pileLabelOf({ originalName: 'Artificial Ability' }, attempt({ cards: cards(true) }))).toBe('Named Cunning');
     expect(pileLabelOf({ originalName: 'Artificial Ability' }, attempt({ cards: cards(false) }))).toBe('Named Integrity');
   });
+
+  it('gives Show Trial its label only once the player has a point (#1541)', () => {
+    const cards = [{ card: person('Leader', { skills: 'Leadership' }) }, { card: person('Beta') }, { card: person('Gamma') }];
+    expect(pileLabelOf({ originalName: 'Show Trial' }, attempt({ cards, score: 5 }))).toBe('You have more points');
+    expect(pileLabelOf({ originalName: 'Show Trial' }, attempt({ cards, score: 0 }))).toBeNull();
+    expect(pileLabelOf({ originalName: 'Show Trial' }, attempt({ cards }))).toBeNull();
+  });
 });

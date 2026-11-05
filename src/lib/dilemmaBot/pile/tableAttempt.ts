@@ -49,6 +49,8 @@ export interface PileTableInput {
   hand: ReadonlyArray<Row>;
   discard: ReadonlyArray<Row>;
   turn: number;
+  /** The player's score. Absent: 0. */
+  score?: number;
   facts?: BotTableFacts;
   /** The bot's side (#1520): the affiliations of its deck's personnel. Absent: unknown, as for the Chula pile. */
   botAffiliations?: string[];
@@ -133,6 +135,7 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
         }),
       underMission: input.underMission.map(titleOf).filter((t): t is string => t !== null),
       turn: input.turn,
+      score: input.score ?? 0,
       // The facts the Championship titles read (#1515, #1516, #1517), filled from the table.
       persistentUnderMission: input.underMission.filter((row) => /\bpersistent\b/.test(String(row?.keywords ?? '').toLowerCase())).length,
       completedSpan4Mission: completed.some((s) => (Number(s.mission.span) || 0) >= 4),

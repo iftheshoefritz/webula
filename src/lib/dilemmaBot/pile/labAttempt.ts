@@ -17,7 +17,7 @@ export interface LabMissionFacts extends AttemptedMission {
   nebula?: boolean;
 }
 
-/** The lab's table: no headquarters, no completed mission, a hand of 7, an empty discard pile, no dilemma under the mission, turn 1. */
+/** The lab's table: no headquarters, no completed mission, a hand of 7, an empty discard pile, no dilemma under the mission, turn 1, a score of 0 as in a fresh game (#1541). */
 export const LAB_TABLE: PileTable = {
   headquarters: 0,
   completedMissions: 0,
@@ -28,6 +28,7 @@ export const LAB_TABLE: PileTable = {
   missionSkills: [],
   underMission: [],
   turn: 1,
+  score: 0,
 };
 
 export interface LabAttemptOptions {
