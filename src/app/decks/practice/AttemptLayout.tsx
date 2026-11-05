@@ -400,6 +400,7 @@ export default function AttemptLayout({
                     width={personnelWidth}
                     height={personnelHeight}
                     buttonsInBand={personnelButtonsInBand}
+                    bandHeight={attemptBandHeight(missionScale, desktop)}
                     selectedIds={selectedIds}
                     onToggleSelect={onToggleSelect}
                     onSetStopped={onSetStopped}
@@ -424,6 +425,7 @@ export default function AttemptLayout({
                 width={personnelWidth}
                 height={personnelHeight}
                 buttonsInBand={personnelButtonsInBand}
+                bandHeight={attemptBandHeight(missionScale, desktop)}
                 selectedIds={selectedIds}
                 onToggleSelect={onToggleSelect}
                 onSetStopped={onSetStopped}

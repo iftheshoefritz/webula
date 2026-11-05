@@ -413,7 +413,8 @@ describe('computeAttemptLayout (#1164)', () => {
     it('takes all the planet column but one line of ships for the area, its buttons in the band above (#1376)', () => {
       const sizes = computeAttemptLayout(MIN_SCREEN.width, available, false, 5, floor, { count: 40, space: false });
       expect(sizes.personnelButtonsInBand).toBe(true);
-      const room = sizes.columnHeight - 4 - shipRowLineHeight(floor, false);
+      // Less the gap above the bottom row (#1543).
+      const room = sizes.columnHeight - ATTEMPT_GAP - 4 - shipRowLineHeight(floor, false);
       expect(sizes.personnelHeight).toBeLessThanOrEqual(room);
       // The area fills the height it has, not only whole rows (#1218).
       expect(sizes.personnelHeight).toBe(Math.floor(room));
@@ -778,6 +779,8 @@ describe('the attempt layout fits the height above the bottom row (#1203)', () =
       const stack = missionCardHeight(face.missionScale, true);
       expect(attemptMissionColumnHeight(face.missionScale, screen.desktop)).toBeLessThanOrEqual(available + 0.5);
       expect(padding + Math.max(middle, stack)).toBeLessThanOrEqual(available + 0.5);
+      // The middle column ends a gap above the bottom row (#1543).
+      expect(padding + middle).toBeLessThanOrEqual(available - ATTEMPT_GAP + 0.5);
 
       // The choice phase: the mission, the stack, and the ships, beside the pile at a planet mission.
       const choice = computeAttemptChoiceLayout(screen.width, available, screen.desktop, ships, floor, face, personnel.space);
@@ -880,17 +883,33 @@ describe('the first row of the personnel is level with the mission (#1376)', () 
     // column, where the mission card and the stack start, is 0.
     expect(underMissionStackRoom(sizes.missionScale, true)).toBeGreaterThanOrEqual(ATTEMPT_PERSONNEL_BUTTONS_HEIGHT);
     expect(sizes.personnelButtonsInBand).toBe(true);
-    // The grid draws in the whole room of its column: all of it at a space mission, all of it but
-    // one line of ships at a planet mission.
+    // The grid draws in the whole room of its column less the gap above the bottom row (#1543): all
+    // of it at a space mission, all of it but one line of ships at a planet mission.
     const room = personnel.space
-      ? sizes.columnHeight
-      : sizes.columnHeight - 4 - shipRowLineHeight(floor, false);
+      ? sizes.columnHeight - ATTEMPT_GAP
+      : sizes.columnHeight - ATTEMPT_GAP - 4 - shipRowLineHeight(floor, false);
     expect(sizes.personnelHeight).toBe(Math.floor(room));
 
-    // The area gets the line's height: taller than before, and as many rows or more.
-    expect(sizes.personnelHeight).toBe(old.personnelHeight + 4 + ATTEMPT_PERSONNEL_BUTTONS_HEIGHT);
+    // The area gets the line's height, less the gap of #1543, and as many rows or more.
+    expect(sizes.personnelHeight).toBe(old.personnelHeight + 4 + ATTEMPT_PERSONNEL_BUTTONS_HEIGHT - ATTEMPT_GAP);
     expect(sizes.personnelVisibleRows).toBeGreaterThanOrEqual(old.visibleRows);
     // The mission's scale, and so the dilemma choice, does not change.
+    expect(sizes.missionScale).toBeCloseTo(old.missionScale, 9);
+  });
+
+  // Issue #1543: the middle column ends `ATTEMPT_GAP` above the bottom row, and the mission keeps
+  // its scale.
+  it.each(cases)('leaves a gap above the bottom row at $width x $height, space $personnel.space', ({ width, height, ships, personnel, old }) => {
+    const tableScale = computeTableScale(width, height);
+    const tableHeight = height - 32 - 125;
+    const available = tableHeight - ATTEMPT_STRIP_HEIGHT - ATTEMPT_GAP;
+    const floor = attemptFloorScale(computeTouchMissionScale(width, tableHeight, touchColumn, tableScale), available, tableScale);
+    const sizes = computeAttemptLayout(width, available, false, ships, floor, personnel);
+    const shipsHeight = sizes.shipRows * shipRowLineHeight(sizes.shipScale, false) + (sizes.shipRows - 1) * 4;
+    const middle = personnel.space
+      ? Math.max(sizes.personnelHeight, shipsHeight)
+      : sizes.personnelHeight + 4 + shipsHeight;
+    expect(middle).toBeLessThanOrEqual(sizes.columnHeight - ATTEMPT_GAP + 0.5);
     expect(sizes.missionScale).toBeCloseTo(old.missionScale, 9);
   });
 

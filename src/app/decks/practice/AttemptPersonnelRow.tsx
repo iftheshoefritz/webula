@@ -80,6 +80,7 @@ export default function AttemptPersonnelRow({
   width,
   height,
   buttonsInBand = false,
+  bandHeight = ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
   selectedIds,
   onToggleSelect,
   onSetStopped,
@@ -103,8 +104,11 @@ export default function AttemptPersonnelRow({
   width: number;
   height: number;
   // The line of the buttons sits above the row's top, in the band the body keeps above its columns
-  // (#1376, `attemptPersonnelButtonsInBand`), and takes no height of the column.
+  // (#1376, `attemptPersonnelButtonsInBand`), and takes no height of the column. Its top is the top
+  // of the band, `bandHeight` above the row (`attemptBandHeight`), level with the top of a full
+  // stack of slivers above the mission (#1543).
   buttonsInBand?: boolean;
+  bandHeight?: number;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
   onSetStopped: (ids: string[], stopped: boolean) => void;
@@ -138,7 +142,7 @@ export default function AttemptPersonnelRow({
         style={{
           gap: SHIP_ROW_GAP,
           height: ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
-          ...(buttonsInBand ? { bottom: '100%' } : {}),
+          ...(buttonsInBand ? { top: -bandHeight } : {}),
         }}
       >
         {selectedPersonnel.length > 0 && (
