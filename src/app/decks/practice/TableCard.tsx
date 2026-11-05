@@ -47,8 +47,9 @@ export const SMALL_CARD_ART_HEIGHT = 32; // px, scaled down from TABLE_CARD_ART_
 export const fullCardHeight = (width: number): number => Math.round((width * 167) / 120);
 
 // The shared "stopped" look (#679): a stopped personnel card's image shows greyed out, like a
-// disabled UI element, everywhere it appears — here, in a card list panel (`CardListPanel.tsx`, which
-// also covers a ship's crew panel), and in the large preview (`CardPreview.tsx`). A face-down
+// disabled UI element, here and in a card list panel (`CardListPanel.tsx`, which also covers a ship's
+// crew panel). The large preview (`CardPreview.tsx`) shows the card plain, so it stays readable
+// (#1535). A face-down
 // stopped card shows the card back with this same style, since it applies to the `<img>`
 // regardless of which image it renders. The art greys and fades; the personnel overlay over a
 // crop only greys (`STOPPED_OVERLAY_CLASSNAME`).
