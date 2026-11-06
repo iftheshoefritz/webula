@@ -49,7 +49,8 @@
 // selector's element before and after.
 
 const CALL_TIMEOUT_MS = 5000;
-const STEP_PX = 8;
+// `CDP_INPUT_STEP_PX` sets a longer step, so a drag moves faster, as `record_bot_attempt.mjs` does.
+const STEP_PX = Number(process.env.CDP_INPUT_STEP_PX) || 8;
 const STEP_WAIT_MS = 16;
 // The pause between a mouse command's first move and its press. A press within a frame of the
 // move hits a hover preview the previous call left open, and only closes it (#1256).
