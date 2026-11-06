@@ -197,6 +197,10 @@ async function main() {
   if (!target) throw new Error('agent-browser has no page open');
   const { sessionId } = await send('Target.attachToTarget', { targetId: target.targetId, flatten: true });
   const page = (method, params) => send(method, params, sessionId);
+  // `agent-browser set viewport` sizes the layout but not always the surface the screencast
+  // captures: with the browser's window at 800x600, the frames showed only the top-left 800x513
+  // of a 1280x720 page. The override on this session sizes both, for as long as it stays open.
+  await page('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false, screenWidth: WIDTH, screenHeight: HEIGHT });
   const evaluate = async (expression) => {
     const { result, exceptionDetails } = await page('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
     if (exceptionDetails) throw new Error(`page error: ${exceptionDetails.exception?.description || exceptionDetails.text}`);
@@ -268,10 +272,14 @@ async function main() {
   const frames = [];
   const framesDir = await mkdtemp(path.join(tmpdir(), 'bot-attempt-'));
   const writes = [];
+  let badFrame = null;
   onEvent((msg) => {
     if (msg.method !== 'Page.screencastFrame' || msg.sessionId !== sessionId) return;
     const { data, metadata, sessionId: frameId } = msg.params;
     const file = path.join(framesDir, `${String(frames.length).padStart(5, '0')}.png`);
+    if (metadata.deviceWidth !== WIDTH || metadata.deviceHeight !== HEIGHT) {
+      badFrame ??= `${metadata.deviceWidth}x${metadata.deviceHeight}`;
+    }
     frames.push({ file, t: metadata.timestamp, received: Date.now() / 1000 });
     writes.push(writeFile(file, Buffer.from(data, 'base64')));
     page('Page.screencastFrameAck', { sessionId: frameId }).catch(() => {});
@@ -444,6 +452,7 @@ async function main() {
     ws.close();
   }
   await Promise.all(writes);
+  if (badFrame) throw new Error(`the screencast captured ${badFrame}, not ${WIDTH}x${HEIGHT}: part of the page would be off the video`);
   console.log(`frame clock - script clock: ${(frames[0].t - frames[0].received).toFixed(2)} s`);
 
   // Each gap is cut to MAX_GAP_S, plus the time of any pause inside it.

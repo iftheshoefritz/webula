@@ -34,3 +34,8 @@ drags move in 40 px steps: `cdp_input.mjs` reads the step from `CDP_INPUT_STEP_P
 
 The deck shuffle is random, so each run shows other cards. The script stops with an error when the
 bot chooses no dilemmas: run it again. With fewer personnel the bot often chooses none.
+
+The script sizes the page with `Emulation.setDeviceMetricsOverride` on its own CDP session, as well
+as with `agent-browser set viewport`. The viewport alone left the screencast at the size of the
+browser's window, 800×513, so the video showed only the top-left of the page. The script stops
+with an error when a frame is not 1280×720.
