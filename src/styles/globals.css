@@ -195,34 +195,22 @@
 }
 
 /* ==================== */
-/* VISIBLE SCROLLBAR    */
+/* HIDDEN SCROLLBAR     */
 /* ==================== */
 
-/* #932: a scrollbar that keeps its place. A touch device draws an overlay scrollbar that shows
-   only while a finger moves, so a card list panel that overflows looked like it held one row of
-   cards. Styling `::-webkit-scrollbar` turns the overlay scrollbar into a classic one, on iOS
-   Safari as well as on Chrome. The width is small, so the scrollbar costs the grid no column at
-   568 x 320. Firefox has no `::-webkit-scrollbar`, so it takes the standard properties instead;
-   they sit behind `@supports`, because Chrome ignores the `::-webkit-scrollbar` rules once
-   `scrollbar-width` or `scrollbar-color` is set. */
-.scrollbar-visible::-webkit-scrollbar {
-  width: 6px;
-  -webkit-appearance: none;
-}
-
-.scrollbar-visible::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-}
-
-.scrollbar-visible::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 3px;
+/* #1544: a panel element that scrolls shows no native scrollbar and keeps no width for one. The
+   page draws its own thumb over the element's right edge instead (`ScrollIndicator.tsx`), which
+   always shows, on iOS Safari too, where the native scrollbar is an overlay that shows only while a
+   finger moves (#932). The element still scrolls. Chrome and Safari hide the bar with
+   `::-webkit-scrollbar`; Firefox has no `::-webkit-scrollbar` and takes `scrollbar-width`, behind
+   `@supports`, because Chrome ignores the `::-webkit-scrollbar` rules once `scrollbar-width` is set. */
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+  width: 0;
 }
 
 @supports not selector(::-webkit-scrollbar) {
-  .scrollbar-visible {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.5) rgba(255, 255, 255, 0.08);
+  .scrollbar-hidden {
+    scrollbar-width: none;
   }
 }

@@ -858,13 +858,17 @@ badge (#1365): Move to… and View full table reach the away team. The row reads
 the frozen numbers of the attempt do not change. Each card is the art crop with the personnel format
 of #1176, with the crew panel's 8 px gap (#1218, `attemptPersonnelGrid`, `attemptPersonnelFit`,
 `computeAttemptLayout`), as wide as a card of the crew panel on the full table (`viewerCardSize`, a
-desktop too), or less where the screen lacks the room: at 667×375 about 74 px, 3 to a row, at
-`?fixture=attempt`, and about 87 px, 3 to a row, at Moab IV on `?fixture=piles`; on a 1280 px desktop
-the away team of Moab IV shows 4 to a row. The area
+desktop too), or less where the screen lacks the room: at 667×375 about 76 px, 3 to a row, at
+`?fixture=attempt`, and about 99 px, 3 to a row, at Moab IV on `?fixture=piles` (#1544); on a 1280 px desktop
+the away team of Moab IV shows 3 to a row, 170 px wide, at a height of 633, 720 or 800 px. The area
 takes all the width the mission, the ships and the stack leave, even with fewer cards, and a row holds
 as many cards as fit it, never fewer than 3 (#1365). The mission grows only while 3 would fit. It fills the height
 it has and, when the cards do not all fit, shows at least a quarter of a card of the second row, and
-scrolls to the rest, `data-testid="<the row's id>-scroll"`. While it scrolls it
+scrolls to the rest, `data-testid="<the row's id>-scroll"`. The area keeps no column for a
+scrollbar (#1544): like every card list panel element that scrolls, it hides its native scrollbar
+(`scrollbar-hidden`, `globals.css`) and shows the page's own thumb on a faint track over its right
+edge, `data-testid="scroll-indicator"` (`ScrollIndicator.tsx`), a sibling of the scroller with no
+pointer events, always shown while the element overflows. While it scrolls it
 carries `PANEL_SCROLLS_ATTRIBUTE` and its cards `touch-action: pan-y`, as a scrolling card list panel
 does: a touch whose first move is vertical scrolls it, and one sideways drags the card. A press held
 until its preview fires drags the card in any direction, up to the strip too, and never scrolls the

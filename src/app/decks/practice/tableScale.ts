@@ -464,10 +464,9 @@ export const ATTEMPT_PERSONNEL_COLUMNS = 3;
 export const ATTEMPT_PERSONNEL_GAP = 8; // px, the crew panel's `gap-2`
 // The part of a card of the second row the area shows at least, when the cards do not all fit.
 export const ATTEMPT_PERSONNEL_PEEK = 0.25;
-// The width of the area's scrollbar (`scrollbar-visible`, `globals.css`). The area always keeps it
-// beside the cards, so the scrollbar never pushes a card to the next row, and the area keeps its
+// The area keeps no column for a scrollbar (#1544): it hides its native scrollbar, and the page
+// draws its thumb over the right edge of the cards (`ScrollIndicator.tsx`), so the area keeps its
 // width when it starts to scroll.
-export const ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH = 6; // px
 // The width the facing stack keeps right of its top card for the slivers of the cards behind it,
 // and the most the stack may be, as a multiple of its top card's width (#1218).
 export const ATTEMPT_STACK_SLIVER_ROOM = 12; // px
@@ -510,21 +509,21 @@ export const attemptPersonnelCropHeight = (cardWidth: number): number =>
 export const attemptPersonnelHeight = (cardWidth: number, rows: number): number =>
   Math.max(0, rows * attemptPersonnelCropHeight(cardWidth) + (rows - 1) * ATTEMPT_PERSONNEL_GAP);
 
-// The width of an area of `columns` crops `cardWidth` wide, their gaps and the scrollbar.
+// The width of an area of `columns` crops `cardWidth` wide and their gaps.
 export const attemptPersonnelWidth = (cardWidth: number, columns = ATTEMPT_PERSONNEL_COLUMNS): number =>
-  columns * cardWidth + (columns - 1) * ATTEMPT_PERSONNEL_GAP + ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH;
+  columns * cardWidth + (columns - 1) * ATTEMPT_PERSONNEL_GAP;
 
 // The crops `cardWidth` wide a row of an area `room` px across holds, never fewer than 3 (#1365).
 export const attemptPersonnelColumnsFit = (room: number, cardWidth: number): number =>
   Math.max(
     ATTEMPT_PERSONNEL_COLUMNS,
-    Math.floor((room - ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH + ATTEMPT_PERSONNEL_GAP) / (cardWidth + ATTEMPT_PERSONNEL_GAP)),
+    Math.floor((room + ATTEMPT_PERSONNEL_GAP) / (cardWidth + ATTEMPT_PERSONNEL_GAP)),
   );
 
 // The widest crop whose area fits `room` px across.
 export const attemptPersonnelWidthFit = (room: number): number =>
   Math.floor(
-    (room - (ATTEMPT_PERSONNEL_COLUMNS - 1) * ATTEMPT_PERSONNEL_GAP - ATTEMPT_PERSONNEL_SCROLLBAR_WIDTH) / ATTEMPT_PERSONNEL_COLUMNS,
+    (room - (ATTEMPT_PERSONNEL_COLUMNS - 1) * ATTEMPT_PERSONNEL_GAP) / ATTEMPT_PERSONNEL_COLUMNS,
   );
 
 // The height `count` crops `cardWidth` wide, `columns` to a row, need: one row, and when they need

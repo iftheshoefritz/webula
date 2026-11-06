@@ -48,10 +48,15 @@ describe('Practice draw: a card list panel with many cards scrolls instead of ru
     // #802: the grid no longer carries a `max-h` of its own. The panel around it is bounded by
     // the full height of the game layer (`max-h-full` inside an inset box), and the grid is the
     // one child that shrinks (`min-h-0`) and scrolls once the panel reaches that bound.
+    // #1544: the grid sits in a box that does not scroll and holds its scroll indicator; the box
+    // takes the grid's place in the panel and shrinks with it.
     expect(grid.className).toMatch(/min-h-0/);
-    expect(grid.parentElement!.className).toMatch(/max-h-full/);
+    const gridBox = grid.parentElement!;
+    expect(gridBox.className).toMatch(/min-h-0/);
+    expect(gridBox.className).toMatch(/relative/);
+    expect(gridBox.parentElement!.className).toMatch(/max-h-full/);
     // #1068: the top inset is `PANEL_TOP_INSET`, below the band where iOS Safari takes a tap.
-    const insetBox = grid.parentElement!.parentElement as HTMLElement;
+    const insetBox = gridBox.parentElement!.parentElement as HTMLElement;
     expect([insetBox.style.top, insetBox.style.right, insetBox.style.bottom, insetBox.style.left]).toEqual(['44px', '8px', '8px', '8px']);
 
     const shuffleButton = screen.getByRole('button', { name: /shuffle/i });
