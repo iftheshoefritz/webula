@@ -10,6 +10,9 @@
 // the ship, the ship moves to mission 1, the attempt starts, and the first dilemma of the bot's
 // stack is revealed. The deck shuffle is random, so each run shows other cards. It writes
 // `<out-dir>/bot-attempt-<mode>.mp4`, by default in `public/videos`.
+//
+// `docs/bot-game-video.md` describes the recording: what the video shows, the turn rules, the
+// timing, and how to run it again.
 
 import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, rm, stat, writeFile } from 'node:fs/promises';

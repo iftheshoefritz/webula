@@ -7,6 +7,9 @@
 #
 # It needs the dev server (`NEXT_PUBLIC_AGENT_BROWSER=1 yarn dev`, or BASE_URL) and ffmpeg.
 # The work is done by `record_bot_attempt.mjs`. It writes bot-attempt-<mode>.mp4.
+#
+# docs/bot-game-video.md describes what the video shows, the turn rules the script plays by,
+# and its timing.
 set -u
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
