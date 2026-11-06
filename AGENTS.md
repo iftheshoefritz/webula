@@ -1201,10 +1201,10 @@ bash scripts/record_bot_attempt.sh                  # mouse, into public/videos
 bash scripts/record_bot_attempt.sh touch            # touch
 ```
 
-Before each press the pointer glides to the target and rests on it, 0.4 s by default. On each screen
-of the deck picker it rests for 3 s, so a caption has time to say what to press. The video
-cuts every still gap to 0.5 s, so a wait that must show in the video uses `pause` and not `sleep`. The
-drags move in 20 px steps: `cdp_input.mjs` reads the step from `CDP_INPUT_STEP_PX`, 8 px by default.
+Before each press the pointer glides to the target and rests on it, 0.2 s by default. On each screen
+of the deck picker it rests for 1.5 s, so a caption has time to say what to press. The video
+cuts every still gap to 0.25 s, so a wait that must show in the video uses `pause` and not `sleep`. The
+drags move in 40 px steps: `cdp_input.mjs` reads the step from `CDP_INPUT_STEP_PX`, 8 px by default.
 
 The deck shuffle is random, so each run shows other cards. The script stops with an error when the
 bot chooses no dilemmas: run it again. With fewer personnel the bot often chooses none.

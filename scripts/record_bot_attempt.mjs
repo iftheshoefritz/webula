@@ -31,18 +31,18 @@ const HEIGHT = 720;
 const CALL_TIMEOUT_MS = 15000;
 // The longest pause between two frames that stays in the video.
 // A `pause` stays in the video at its full length.
-const MAX_GAP_S = 0.5;
+const MAX_GAP_S = 0.25;
 // The pause on each screen of the deck picker, for a caption that says what to press.
-const PICKER_PAUSE_S = 3;
+const PICKER_PAUSE_S = 1.5;
 // The pause after the cards are selected, before the drag.
-const SELECT_PAUSE_S = 1;
+const SELECT_PAUSE_S = 0.5;
 const ATTEMPT_PAUSE_S = 1.5;
 // How long the pointer rests on a target before it presses, where no longer rest is set. In the
 // mouse mode the pointer first glides to the target, GLIDE_STEP_PX each frame.
-const HOVER_S = 0.4;
-const GLIDE_STEP_PX = 20;
+const HOVER_S = 0.2;
+const GLIDE_STEP_PX = 40;
 // The step of a drag in `cdp_input.mjs`. Its default is 8 px; a longer step moves faster.
-process.env.CDP_INPUT_STEP_PX = '20';
+process.env.CDP_INPUT_STEP_PX = '40';
 const LEAD_IN_S = 1;
 const HOLD_END_S = 3;
 const FPS = 25;
