@@ -68,4 +68,19 @@ describe('pileLabelOf (#1519)', () => {
     expect(pileLabelOf({ originalName: 'Show Trial' }, attempt({ cards, score: 0 }))).toBeNull();
     expect(pileLabelOf({ originalName: 'Show Trial' }, attempt({ cards }))).toBeNull();
   });
+
+  // Issue #1552: Vault of Tomorrow names the dilemma it takes from the bot's pile.
+  it('gives Vault of Tomorrow the dilemma of cost 2 or less it takes from the bot\'s pile (#1552)', () => {
+    const dilemmaPile = [{ originalName: 'Hard Time' }, { originalName: 'Unconventional Consideration' }, { originalName: 'Covert Extraction' }];
+    expect(attempt({ dilemmaPile }).botPile).toEqual(['Hard Time', 'Unconventional Consideration', 'Covert Extraction']);
+    expect(pileLabelOf({ originalName: 'Vault of Tomorrow' }, attempt({ dilemmaPile }))).toBe('Added Unconventional Consideration');
+  });
+
+  it('gives Vault of Tomorrow no label when the bot\'s pile holds nothing it can take (#1552)', () => {
+    // Hard Time costs 3, and Covert Extraction is a space dilemma.
+    const dilemmaPile = [{ originalName: 'Hard Time' }, { originalName: 'Covert Extraction' }];
+    expect(pileLabelOf({ originalName: 'Vault of Tomorrow' }, attempt({ dilemmaPile }))).toBeNull();
+    expect(pileLabelOf({ originalName: 'Vault of Tomorrow' }, attempt({ dilemmaPile: [] }))).toBeNull();
+    expect(pileLabelOf({ originalName: 'Vault of Tomorrow' }, attempt())).toBeNull();
+  });
 });

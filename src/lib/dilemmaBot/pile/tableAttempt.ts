@@ -62,6 +62,8 @@ export interface PileTableInput {
   shipsAtMission?: ReadonlyArray<{ staffed: boolean }>;
   /** The player's draw deck (Reflections). Absent: unknown. */
   drawDeck?: ReadonlyArray<Row>;
+  /** The bot's dilemma pile, top first (Vault of Tomorrow, Outmatched, #1552). Absent: unknown. */
+  dilemmaPile?: ReadonlyArray<Row>;
 }
 
 /** The Decay number of an event, from its keywords ("Decay: 3."), or 0. */
@@ -169,6 +171,7 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
     gameOnMission: input.placedOn.filter((row) => titleOf(row) === GAME).length,
     choice: 'best',
     ...(input.botAffiliations ? { botAffiliations: [...input.botAffiliations] } : {}),
+    ...(input.dilemmaPile ? { botPile: drawnPileTitles(input.dilemmaPile) } : {}),
   };
   return { attempt, random: !requirements };
 }
