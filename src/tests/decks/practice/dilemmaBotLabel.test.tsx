@@ -113,6 +113,36 @@ const mockDeck = {
   [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission },
 };
 
+// Issue #1552: Vault of Tomorrow names the dilemma it takes from the bot's pile.
+const mockVault = {
+  collectorsinfo: '9P001',
+  originalName: 'Vault of Tomorrow',
+  type: 'dilemma',
+  name: 'vault of tomorrow',
+  imagefile: 'vault_of_tomorrow',
+  pile: 'dilemmaPile',
+  count: 1,
+};
+const mockCheap = {
+  collectorsinfo: '9P002',
+  originalName: 'Unconventional Consideration',
+  type: 'dilemma',
+  name: 'unconventional consideration',
+  imagefile: 'unconventional_consideration',
+  pile: 'dilemmaPile',
+  count: 1,
+};
+// Of cost 3, too dear for Vault of Tomorrow to take.
+const mockDear = {
+  collectorsinfo: '9P003',
+  originalName: 'Hard Time',
+  type: 'dilemma',
+  name: 'hard time',
+  imagefile: 'hard_time',
+  pile: 'dilemmaPile',
+  count: 1,
+};
+
 const label = () => screen.queryByTestId('dilemma-bot-label');
 
 describe('Practice table: the bot label on the dilemma faced (#1519)', () => {
@@ -210,6 +240,40 @@ describe('Practice table: the bot label on the dilemma faced (#1519)', () => {
 
   it('shows no label outside a bot game', async () => {
     await setup({ phase: 'face' });
+    expect(label()).toBeNull();
+  });
+
+  // Deals Vault of Tomorrow and `inPile`, puts Vault of Tomorrow face up into the stack, leaves
+  // `inPile` in the dilemma pile, and enters a bot attempt at mission 0 in the facing phase.
+  const setupVault = async (inPile: (typeof mockCheap)[]) => {
+    const deck: Record<string, { count: number; row: unknown }> = {
+      [mockPersonnel.collectorsinfo]: { count: 1, row: mockPersonnel },
+      [mockVault.collectorsinfo]: { count: 1, row: mockVault },
+      [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission },
+    };
+    for (const row of inPile) deck[row.collectorsinfo] = { count: 1, row };
+    localStorage.setItem('currentDeck', JSON.stringify(deck));
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const save = JSON.parse(localStorage.getItem('practiceGame')!);
+    const pile: { id: string; key: string }[] = save.table.dilemmaPile;
+    const vault = pile.find((c) => c.key === mockVault.collectorsinfo)!;
+    save.table.dilemmaPile = pile.filter((c) => c !== vault);
+    save.table.missions[0].awayTeam = save.table.drawDeck;
+    save.table.drawDeck = [];
+    save.table.dilemmaStack = [{ ...vault, face: 'up' }];
+    localStorage.setItem('practiceGame', JSON.stringify(save));
+    await enterAttempt(<PracticeDrawPage />, 0, { drawn: 0, ...bot });
+  };
+
+  it('names on Vault of Tomorrow the dilemma of cost 2 or less it takes from the bot\'s pile (#1552)', async () => {
+    await setupVault([mockDear, mockCheap]);
+    expect(label()).toHaveTextContent('Added Unconventional Consideration');
+  });
+
+  it('shows no label on Vault of Tomorrow when the bot\'s pile holds nothing it can take (#1552)', async () => {
+    await setupVault([mockDear]);
     expect(label()).toBeNull();
   });
 });

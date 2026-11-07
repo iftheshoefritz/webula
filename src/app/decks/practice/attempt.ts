@@ -67,6 +67,9 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
     commanded: table.missions.flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])]).map((c) => c.card),
     shipsAtMission: (slot?.ships ?? []).map((ship) => ({ staffed: (ship.crew ?? []).some((c) => c.card?.type === 'personnel') })),
     drawDeck: table.drawDeck.map((c) => c.card),
+    // The bot's pile as it stands (#1552): in a bot game the drawn dilemmas the bot left out of the
+    // stack are already at its bottom (#1299). Vault of Tomorrow names the dilemma it takes from it.
+    dilemmaPile: table.dilemmaPile.map((c) => c.card),
     // The bot deck's affiliations (#1520); absent for the Chula pile.
     ...(table.botPile?.affiliations ? { botAffiliations: table.botPile.affiliations } : {}),
   };
