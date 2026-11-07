@@ -145,6 +145,15 @@ export interface PileAttempt {
    * dilemma from it, and Outmatched consumes from its top. Absent: unknown, and Outmatched may consume any number.
    */
   botPile?: string[];
+  /**
+   * The cost the bot may spend on the stack, N, the spend of the attempt (#1555). At each reveal the
+   * total cost of the dilemmas revealed so far must stay within it, plus the extra budget of the stack's
+   * titles: the dilemma that takes it over, and every one after it, are overcome at once. Absent: no
+   * cost rule, every dilemma is faced.
+   */
+  spend?: number;
+  /** The cost of the dilemmas revealed in this attempt before the play starts (#1555). Absent: 0. */
+  revealedCost?: number;
 }
 
 /** What one play of a stack did. Each count is of personnel. */
@@ -170,6 +179,11 @@ export interface PileResult {
    * the core, a ship, off the game. Absent: 0.
    */
   notUnder?: number;
+  /**
+   * The dilemmas that fetch a dilemma (Vault of Tomorrow, Talosian Trial) that fetched nothing in this play
+   * (#1555): no candidate, or none that helps. Absent: 0.
+   */
+  fetchedNothing?: number;
 }
 
 /** The weights of #1320: the lasting damage of a result. A stop counts 0. */
@@ -182,7 +196,7 @@ export const DAMAGE_WEIGHTS = {
   shipLost: 1,
 } as const;
 
-export function lastingDamage(r: Omit<PileResult, 'fail' | 'labels' | 'stopped' | 'backToPile' | 'notUnder'>): number {
+export function lastingDamage(r: Omit<PileResult, 'fail' | 'labels' | 'stopped' | 'backToPile' | 'notUnder' | 'fetchedNothing'>): number {
   return (
     r.killed * DAMAGE_WEIGHTS.killed +
     r.heldInCore * DAMAGE_WEIGHTS.heldInCore +
@@ -251,8 +265,21 @@ export function stackCostOf(attempt: PileAttempt, stack: ReadonlyArray<DilemmaMo
   let total = 0;
   let discount = 0;
   for (const model of stack) {
-    total += Math.max(0, costOf(model, attempt) - discount) - (model.extraBudget ?? 0);
-    discount = model.discountsNext ? model.discountsNext(attempt) : 0;
+    const step = revealCostOf(attempt, model, discount);
+    total += step.cost - (model.extraBudget ?? 0);
+    discount = step.discount;
   }
   return total;
+}
+
+/**
+ * One reveal of the cost arithmetic (#1555), shared by `stackCostOf` and the play so the two cannot
+ * drift: what `model` costs when revealed after a title that gave `discount`, down to 0, and the discount
+ * it gives the next.
+ */
+export function revealCostOf(attempt: PileAttempt, model: DilemmaModel, discount: number): { cost: number; discount: number } {
+  return {
+    cost: Math.max(0, costOf(model, attempt) - discount),
+    discount: model.discountsNext ? model.discountsNext(attempt) : 0,
+  };
 }

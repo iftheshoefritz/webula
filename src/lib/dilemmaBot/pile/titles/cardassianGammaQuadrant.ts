@@ -1,5 +1,6 @@
 import { allButOne, attrAbove, attrBelow, botChooses, chooseOrElse, either, handWeapons, hasAny, killRandom, killRandomThenStopAll, noEffect, playerStops, req, selectRandom, selectUntil, sk, stopAll, stopRandom, unless, unlessGroup } from '../families';
 import { Attr, skillName } from '../play';
+import { DilemmaModel } from '../model';
 import { D, NAMEABLE, P, S, addableModels, dilemmaList, discardToRaise, lowCost, mostHeldSkill, speciesKey } from '../define';
 
 // The 33 titles of Cardassian in Gamma Quadrant (Matthias Weller, 2026 European Continental) that Think
@@ -158,8 +159,10 @@ dilemma('Tactical Disadvantage', S, 2, 'assumed-fires', (s) => {
 
 // No family fits: at reveal, the bot takes the planet dilemma beneath the player's missions that does the
 // attempt most harm, and faces it next (#1518).
+const talosianFits = (m: DilemmaModel) => m.kind !== 'space';
+const NO_TITLES: string[] = [];
 dilemma('Talosian Trial', P, 0, 'adds-dilemma', (s) => {
-  const added = s.addBestOnTop(addableModels(s.attempt.table.underPlayerMissions ?? [], (m) => m.kind !== 'space'));
+  const added = s.addBestOnTop(addableModels(s.attempt.table.underPlayerMissions ?? NO_TITLES, talosianFits));
   if (added) s.label(`Added ${added}`);
 }, { assumption: 'the bot chooses at reveal the planet dilemma beneath your missions that does the attempt most harm (#1518)' });
 

@@ -265,7 +265,7 @@ describe('legality', () => {
   });
 
   it('ranks several hundred thousand scores without overflowing the call stack', () => {
-    const scores = Array.from({ length: 300000 }, (_, i) => ({ stack: [], pFail: (i % 7) / 10, damage: 0, under: 0, stopped: 0, plays: 1 }));
+    const scores = Array.from({ length: 300000 }, (_, i) => ({ stack: [], pFail: (i % 7) / 10, damage: 0, under: 0, stopped: 0, fetchedNothing: 0, plays: 1 }));
     expect(rankPileScores(scores).ranked[0].pFail).toBe(0.6);
   });
 });

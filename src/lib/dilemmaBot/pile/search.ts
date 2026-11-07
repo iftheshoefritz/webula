@@ -144,6 +144,8 @@ export interface PileStackScore {
   under: number;
   /** The average personnel the stack stops. Not part of the rank: the beam search keeps stacks by it too. */
   stopped: number;
+  /** The average fetches that fetched nothing (#1555): the search never chooses a stack with one. */
+  fetchedNothing: number;
   plays: number;
 }
 
@@ -155,16 +157,18 @@ export function scorePileStack(attempt: PileAttempt, stack: string[], plays: num
   let damage = 0;
   let stopped = 0;
   let back = 0;
+  let nothing = 0;
   for (let r = 0; r < plays; r++) {
     const result: PileResult = playPileStack(attempt, models, seededRandom(seed * 7919 + r), undefined, drawnCount - stack.length);
     if (result.fail) fails++;
     damage += lastingDamage(result);
     stopped += result.stopped;
     back += (result.backToPile ?? 0) + (result.notUnder ?? 0);
+    nothing += result.fetchedNothing ?? 0;
   }
   // A dilemma that returned to the pile (#1518) or that its effect placed elsewhere (#1534) in a play did
   // not go beneath the mission.
-  return { stack, pFail: fails / plays, damage: damage / plays, under: underOf(stack) - back / plays, stopped: stopped / plays, plays };
+  return { stack, pFail: fails / plays, damage: damage / plays, under: underOf(stack) - back / plays, stopped: stopped / plays, fetchedNothing: nothing / plays, plays };
 }
 
 const byDamage = (a: PileStackScore, b: PileStackScore) => b.damage - a.damage || a.under - b.under;
@@ -204,12 +208,20 @@ export interface BeamOptions {
 /** The narrowest setting the beam pilot tried lost no P(fail) and at most 0.02 damage, at a quarter of the cost of 80×64 (#1320). */
 export const BEAM_DEFAULTS: BeamOptions = { width: 20, plays: 32, finalists: 6, finalPlays: 400 };
 
+/** The attempt the search plays at N (#1555): the cost rule applies at every reveal. Built once per search, since `profilesOf` caches per attempt. */
+export const attemptAtSpend = (attempt: PileAttempt, n: number): PileAttempt => (attempt.spend === n ? attempt : { ...attempt, spend: n });
+
+/** A stack the bot may choose: no fetching dilemma in it fetched nothing (#1555). */
+const fetchesSomething = (s: PileStackScore) => s.fetchedNothing === 0;
+
 /**
  * The beam search: build the stacks one dilemma at a time. Score every stack of one dilemma, keep the
  * best `width`, grow each of those by every title that still fits N, at every position, score the new
  * stacks, keep the best `width` again, until nothing fits. Every stack scored stays a candidate, so a short stack can
  * still win. The `finalists` best candidates then get `finalPlays` each. Its cost grows with N and the
  * width, never with the number of legal stacks. Every stack uses the same seeds, so two stacks compare fairly.
+ * Every play applies the cost rule at N, and a stack where a fetching dilemma fetched nothing is never
+ * kept (#1555).
  */
 export function beamPileSearch(
   attempt: PileAttempt,
@@ -219,6 +231,7 @@ export function beamPileSearch(
   options: Partial<BeamOptions> = {},
 ): PileSearchResult {
   const { width, plays, finalists, finalPlays } = { ...BEAM_DEFAULTS, ...options };
+  attempt = attemptAtSpend(attempt, n);
   const stackOpts = stackOptions(attempt, drawn);
   const score = (stack: string[]) => scorePileStack(attempt, stack, plays, seed, drawn.length);
   const lead = leadOf(attempt, drawn, n);
@@ -250,7 +263,7 @@ export function beamPileSearch(
       }
     }
     if (!next.length) break;
-    const scored = next.map((x) => ({ ...x, score: score(x.stack) }));
+    const scored = next.map((x) => ({ ...x, score: score(x.stack) })).filter((x) => fetchesSomething(x.score));
     total += next.length * plays;
     stackCount += next.length;
     candidates.push(...scored.map((x) => x.score));
@@ -267,8 +280,14 @@ export function beamPileSearch(
     beam = scored.filter((x) => kept.has(x.score));
   }
   const top = rankPileScores(candidates).ranked.slice(0, finalists).map((c) => c.stack);
-  const { mode, ranked } = rankPileScores(top.map((stack) => scorePileStack(attempt, stack, finalPlays, seed, drawn.length)));
+  let finals = top.map((stack) => scorePileStack(attempt, stack, finalPlays, seed, drawn.length)).filter(fetchesSomething);
   total += top.length * finalPlays;
+  // A finalist can fetch nothing in a play its shorter scoring did not make: the start stack fetches nothing.
+  if (!finals.length) {
+    finals = [scorePileStack(attempt, start, finalPlays, seed, drawn.length)];
+    total += finalPlays;
+  }
+  const { mode, ranked } = rankPileScores(finals);
   return { method: 'beam', mode, best: ranked[0], ranked, stackCount, plays: total };
 }
 
