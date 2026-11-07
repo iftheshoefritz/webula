@@ -102,6 +102,18 @@ describe('the attempt keeps the bot numbers (#1291)', () => {
     const bad = { ...save, table: { ...save.table, attempt: { ...t.attempt!, botDraw: -1 } } };
     expect(fromSavedGame(JSON.stringify(bad), deck)!.table.attempt).toBeUndefined();
   });
+
+  it('round-trips a bot attempt\'s record of its stack, and restores an older save with neither list (#1556)', () => {
+    const started = tableReducer(dealt(), { ...start, botDraw: 9, botSpend: 6 });
+    const t = { ...started, attempt: { ...started.attempt!, phase: 'face' as const, botStack: ['card-7', 'card-8'], botRevealed: ['card-7', 'card-9'] } };
+    expect(fromSavedGame(JSON.stringify(toSavedGame(t, deck, 'builder')), deck)!.table.attempt).toEqual(t.attempt);
+    const older = fromSavedGame(JSON.stringify(toSavedGame(started, deck, 'builder')), deck)!.table.attempt!;
+    expect(older.botStack ?? []).toEqual([]);
+    expect(older.botRevealed ?? []).toEqual([]);
+    const save = toSavedGame(t, deck, 'builder');
+    const bad = { ...save, table: { ...save.table, attempt: { ...t.attempt, botRevealed: 'card-7' } } };
+    expect(fromSavedGame(JSON.stringify(bad), deck)!.table.attempt).toBeUndefined();
+  });
 });
 
 describe('the attempt strip in a bot game (#1291)', () => {

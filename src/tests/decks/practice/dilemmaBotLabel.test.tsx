@@ -63,7 +63,7 @@ jest.mock('@dnd-kit/core', () => {
 });
 
 import React from 'react';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act, fireEvent, cleanup } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 import { enterAttempt, mockAttemptMission } from '../../fixtures/enterAttempt';
 import useDataFetching from '../../../hooks/useDataFetching';
@@ -245,7 +245,8 @@ describe('Practice table: the bot label on the dilemma faced (#1519)', () => {
 
   // Deals Vault of Tomorrow and `inPile`, puts Vault of Tomorrow face up into the stack, leaves
   // `inPile` in the dilemma pile, and enters a bot attempt at mission 0 in the facing phase.
-  const setupVault = async (inPile: (typeof mockCheap)[]) => {
+  // `fields` sets more of the attempt (#1556), the spend among them.
+  const setupVault = async (inPile: (typeof mockCheap)[], fields: Record<string, unknown> = { botSpend: 3 }) => {
     const deck: Record<string, { count: number; row: unknown }> = {
       [mockPersonnel.collectorsinfo]: { count: 1, row: mockPersonnel },
       [mockVault.collectorsinfo]: { count: 1, row: mockVault },
@@ -264,7 +265,7 @@ describe('Practice table: the bot label on the dilemma faced (#1519)', () => {
     save.table.drawDeck = [];
     save.table.dilemmaStack = [{ ...vault, face: 'up' }];
     localStorage.setItem('practiceGame', JSON.stringify(save));
-    await enterAttempt(<PracticeDrawPage />, 0, { drawn: 0, ...bot });
+    await enterAttempt(<PracticeDrawPage />, 0, { drawn: 0, ...bot, ...fields });
   };
 
   it('names on Vault of Tomorrow the dilemma of cost 2 or less it takes from the bot\'s pile (#1552)', async () => {
@@ -275,5 +276,66 @@ describe('Practice table: the bot label on the dilemma faced (#1519)', () => {
   it('shows no label on Vault of Tomorrow when the bot\'s pile holds nothing it can take (#1552)', async () => {
     await setupVault([mockDear]);
     expect(label()).toBeNull();
+  });
+
+  it('shows no label on Vault of Tomorrow when the spend leaves no room for any candidate (#1556)', async () => {
+    // Vault of Tomorrow costs 1, so at spend 2 the cost-2 Unconventional Consideration is over the spend.
+    await setupVault([mockDear, mockCheap], { botSpend: 2 });
+    expect(label()).toBeNull();
+  });
+
+  // Issue #1556: of cost 2, revealed before Vault of Tomorrow; and of cost 0 and 2, in the bot's pile.
+  const mockConduit = { ...mockCheap, collectorsinfo: '9P004', originalName: 'Temporal Conduit', name: 'temporal conduit', imagefile: 'temporal_conduit' };
+  const mockFree = { ...mockCheap, collectorsinfo: '9P005', originalName: 'Nose to Nose', name: 'nose to nose', imagefile: 'nose_to_nose' };
+  const mockHarmful = { ...mockCheap, collectorsinfo: '9P006', originalName: 'No Kill I', name: 'no kill i', imagefile: 'no_kill_i' };
+
+  it('names on Vault of Tomorrow revealed after a cost-2 dilemma at spend 3 the cost-0 dilemma, through a reload (#1556)', async () => {
+    const beta = { ...mockPersonnel, collectorsinfo: '1C002', originalName: 'Beta', name: 'beta', imagefile: 'beta' };
+    const gamma = { ...mockPersonnel, collectorsinfo: '1C003', originalName: 'Gamma', name: 'gamma', imagefile: 'gamma' };
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockPersonnel, beta, gamma]);
+    const deck: Record<string, { count: number; row: unknown }> = {
+      [mockPersonnel.collectorsinfo]: { count: 1, row: mockPersonnel },
+      [beta.collectorsinfo]: { count: 1, row: beta },
+      [gamma.collectorsinfo]: { count: 1, row: gamma },
+      [mockVault.collectorsinfo]: { count: 1, row: mockVault },
+      [mockConduit.collectorsinfo]: { count: 1, row: mockConduit },
+      [mockFree.collectorsinfo]: { count: 1, row: mockFree },
+      [mockHarmful.collectorsinfo]: { count: 1, row: mockHarmful },
+      [mockAttemptMission.collectorsinfo]: { count: 1, row: mockAttemptMission },
+    };
+    localStorage.setItem('currentDeck', JSON.stringify(deck));
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const save = JSON.parse(localStorage.getItem('practiceGame')!);
+    const pile: { id: string; key: string }[] = save.table.dilemmaPile;
+    const vault = pile.find((c) => c.key === mockVault.collectorsinfo)!;
+    const conduit = pile.find((c) => c.key === mockConduit.collectorsinfo)!;
+    save.table.dilemmaPile = pile.filter((c) => c !== vault && c !== conduit);
+    save.table.missions[0].awayTeam = save.table.drawDeck;
+    save.table.missions[0].underMission = [{ ...conduit, face: 'up' }];
+    save.table.drawDeck = [];
+    save.table.dilemmaStack = [{ ...vault, face: 'up' }];
+    localStorage.setItem('practiceGame', JSON.stringify(save));
+    const fields = { drawn: 0, ...bot, botSpend: 3, botStack: [conduit.id, vault.id], botRevealed: [conduit.id, vault.id] };
+    await enterAttempt(<PracticeDrawPage />, 0, fields);
+    expect(label()).toHaveTextContent('Added Nose to Nose');
+
+    // A reload restores the record of the reveals, and the label with it.
+    cleanup();
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const resume = screen.queryByRole('button', { name: 'Continue' });
+    if (resume) {
+      await act(async () => {
+        fireEvent.click(resume);
+      });
+    }
+    expect(label()).toHaveTextContent('Added Nose to Nose');
+
+    // With nothing revealed before it, the more harmful No Kill I fits the spend.
+    await enterAttempt(<PracticeDrawPage />, 0, { ...fields, botRevealed: [vault.id] });
+    expect(label()).toHaveTextContent('Added No Kill I');
   });
 });

@@ -3,6 +3,7 @@ import { join } from 'path';
 import { BOT_SKILLS, parseRequirementBranches } from '../../../../lib/dilemmaBot/requirements';
 import { seededRandom } from '../../../../lib/dilemmaBot/simulator';
 import { DilemmaModel, PileAttempt, PilePersonnel, PileResult, PileTable, stackCostOf } from '../../../../lib/dilemmaBot/pile/model';
+import { pileLabelOf } from '../../../../lib/dilemmaBot/pile/label';
 import { playPileStack } from '../../../../lib/dilemmaBot/pile/play';
 import { botPileOf } from '../../../../lib/dilemmaBot/pile/pile';
 import { REGISTRY } from '../../../../lib/dilemmaBot/pile/registry';
@@ -169,5 +170,35 @@ describe('the search and a fetch of nothing (#1555)', () => {
     const start = performance.now();
     choosePileStack(attempt, drawn, 12, 1);
     expect(performance.now() - start).toBeLessThan(5000);
+  });
+});
+
+// Issue #1556: the label of a fetching dilemma counts the spend and the cost already revealed, and plays
+// the rest of the facing stack after it, so it names the dilemma the simulation fetches.
+describe('the label of a fetching dilemma (#1556)', () => {
+  const row = (title: string) => ({ originalName: title });
+  const fetched = (labels: { title: string; label: string }[]) => labels.find((l) => l.title === 'Vault of Tomorrow')?.label ?? null;
+
+  it('names the dilemma playPileStack of the same stack fetches, at the same spend', () => {
+    const attempt = attemptOf(group(3), { spend: 3, botPile: ['Cultural Differences', 'Unconventional Consideration'] });
+    const played = fetched(play(attempt, ['Vault of Tomorrow', 'No Kill I']).result.labels);
+    expect(played).toBe('Added Cultural Differences');
+    expect(pileLabelOf(row('Vault of Tomorrow'), attempt, { rest: [row('No Kill I')] })).toBe(played);
+  });
+
+  it('counts the cost already revealed as the play of the whole stack does', () => {
+    // Temporal Conduit (2) was revealed before Vault of Tomorrow, at N 3: Nose to Nose (0) fits, No Kill I does not.
+    const attempt = attemptOf(group(3), { spend: 3, botPile: ['No Kill I', 'Nose to Nose'] });
+    const played = fetched(play(attempt, ['Temporal Conduit', 'Vault of Tomorrow']).result.labels);
+    expect(played).toBe('Added Nose to Nose');
+    expect(pileLabelOf(row('Vault of Tomorrow'), attempt, { revealed: [row('Temporal Conduit')] })).toBe(played);
+    // With nothing revealed before it, the more harmful No Kill I fits.
+    expect(pileLabelOf(row('Vault of Tomorrow'), attempt)).toBe('Added No Kill I');
+  });
+
+  it('shows no label when the spend leaves no room for any candidate in the bot\'s pile', () => {
+    const attempt = attemptOf(group(3), { spend: 3, botPile: ['No Kill I'] });
+    expect(pileLabelOf(row('Vault of Tomorrow'), attempt, { revealed: [row('Temporal Conduit')] })).toBeNull();
+    expect(pileLabelOf(row('Vault of Tomorrow'), { ...attempt, spend: 1 })).toBeNull();
   });
 });
