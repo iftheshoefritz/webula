@@ -71,7 +71,8 @@ export function useBotAttemptStart(table: TableState, onAction: (action: BotAtte
     // The bot's pile while the stack is faced (#1518): what the draw left, with the drawn dilemmas at the
     // bottom. The stack is not chosen yet, so the drawn dilemmas it will take count too. Vault of
     // Tomorrow takes from it, and Outmatched consumes from its top.
-    const attempt = { ...built.attempt, botPile: [...drawnPileTitles(pile.map((c) => c.card)), ...titles] };
+    // The spend the player set is N, the cost the bot may spend at each reveal (#1555).
+    const attempt = { ...built.attempt, botPile: [...drawnPileTitles(pile.map((c) => c.card)), ...titles], spend: fields.botSpend };
     if (random) {
       const stack = titles.length ? randomLegalPileStack(attempt, titles, fields.botSpend, seededRandom(seed)) : [];
       onActionRef.current({ ...action, stack: pileStackCardIds(drawn, stack), random: true });

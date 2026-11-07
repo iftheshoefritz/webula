@@ -1,6 +1,6 @@
 import { BOT_SKILLS, RequirementBranch, RequirementPersonnel, SKILL_INDEX } from '../requirements';
 import { LivePartnerProfile, Rand, requirementProfileOf } from '../simulator';
-import { DilemmaModel, PileAttempt, PilePersonnel, PileResult, PlayContext, lastingDamage } from './model';
+import { DilemmaModel, PileAttempt, PilePersonnel, PileResult, PlayContext, lastingDamage, revealCostOf } from './model';
 
 // The state of one play of a stack (#1320, the pilot). A family of the registry acts on it through
 // these verbs: select, stop, kill, place in the brig, ask the player or the bot to choose, test skills.
@@ -19,6 +19,9 @@ function profilesOf(attempt: PileAttempt) {
   }
   return profiles;
 }
+
+/** The context of a fork: the copy takes every field from the state it copies. */
+const FORK_CONTEXT = {} as PlayContext;
 
 export class PlayState {
   readonly attempt: PileAttempt;
@@ -62,6 +65,21 @@ export class PlayState {
   attrLoss: Int16Array | null = null;
   /** The dilemmas a play put on top of the rest of the stack (Vault of Tomorrow, Talosian Trial), faced next. */
   readonly onTop: DilemmaModel[] = [];
+  /** The rest of the stack, not revealed yet, in order (#1555). */
+  queue: DilemmaModel[] = [];
+  /** How many dilemmas at the front of `queue` a fetch put there: each adds its extra budget at its reveal. */
+  fetchedFront = 0;
+  /**
+   * The cost the bot may spend (#1555): the attempt's spend, plus the extra budget of every title of the
+   * chosen stack, and of a fetched title from its reveal. Infinity when the attempt has no spend.
+   */
+  budget = Infinity;
+  /** The total cost of the dilemmas revealed so far, with the discounts of `stackCostOf`. */
+  spent = 0;
+  /** The discount the last revealed dilemma gives the next one (Peremptory Plea). */
+  discount = 0;
+  /** A revealed dilemma took the cost over the budget: it and every later one are overcome (#1555). */
+  overBudget = false;
   /** The titles of the stack faced so far, this one included. */
   readonly faced: string[] = [];
   /** The title of the dilemma being faced. */
@@ -80,7 +98,13 @@ export class PlayState {
   private readonly skillSums = new Array<number>(BOT_SKILLS.length).fill(0);
   private readonly attrSums = [0, 0, 0];
 
-  constructor(context: PlayContext, notInStack = 0) {
+  constructor(context: PlayContext, notInStack = 0, from?: PlayState) {
+    // A fork (#1555) is built by the constructor, not `Object.create`, so it shares the shape of every
+    // other play: the forks of a fetch are a search's hottest path.
+    if (from) {
+      Object.assign(this, from);
+      return;
+    }
     this.attempt = context.attempt;
     this.group = context.attempt.personnel;
     this.rand = context.rand;
@@ -91,6 +115,7 @@ export class PlayState {
     this.requirements = context.attempt.requirements;
     this.notInStack = notInStack;
     this.gameCopies = context.attempt.gameOnMission ?? 0;
+    this.spent = context.attempt.revealedCost ?? 0;
     this.patternLoss = !!context.attempt.table.onMission?.includes('Pattern Loss');
     const profiles = profilesOf(context.attempt);
     this.printedProfiles = profiles.printed;
@@ -269,7 +294,7 @@ export class PlayState {
     return out.slice(0, take);
   }
 
-  private remove(ks: number[], what: keyof Omit<PileResult, 'fail' | 'labels' | 'backToPile' | 'notUnder'>, verb: string, why?: string, quiet = false) {
+  private remove(ks: number[], what: keyof Omit<PileResult, 'fail' | 'labels' | 'backToPile' | 'notUnder' | 'fetchedNothing'>, verb: string, why?: string, quiet = false) {
     const done: number[] = [];
     for (const k of ks) {
       if (!this.alive[k]) continue;
@@ -345,7 +370,7 @@ export class PlayState {
    * result are its own, and it draws from the same random function. It writes no trace.
    */
   fork(): PlayState {
-    const f: PlayState = Object.assign(Object.create(PlayState.prototype), this);
+    const f = new PlayState(FORK_CONTEXT, 0, this);
     const own = f as unknown as Record<string, unknown>;
     own.alive = this.alive.slice();
     own.present = this.present.slice();
@@ -353,6 +378,7 @@ export class PlayState {
     own.blockedSkills = new Set(this.blockedSkills);
     own.faced = this.faced.slice();
     own.onTop = [];
+    own.queue = this.queue.slice();
     own.trace = undefined;
     if (this.attrLoss) f.attrLoss = this.attrLoss.slice();
     // `settle` writes the profiles of the personnel with partner gains, so the copy needs its own.
@@ -363,23 +389,113 @@ export class PlayState {
     return f;
   }
 
+  /** The cost the bot may still spend before the next reveal (#1555): Infinity when the attempt has no spend. */
+  get costLeft(): number {
+    return this.budget - this.spent;
+  }
+
   /**
-   * Put on top of the rest of the stack the one of `candidates` that does the attempt most harm, each
-   * played ahead from here (#1518): a failed attempt first, then the most lasting damage. Returns its
-   * title, or null when there is no candidate.
+   * Reveal `model` against the cost (#1555): the running cost takes it, a fetched title adds its extra
+   * budget, and the result says whether the cost went over the budget, so the dilemma is overcome.
+   */
+  private reveal(model: DilemmaModel, fetched: boolean): boolean {
+    if (this.overBudget) return true;
+    const step = revealCostOf(this.attempt, model, this.discount);
+    if (fetched) this.budget += model.extraBudget ?? 0;
+    this.spent += step.cost;
+    this.discount = step.discount;
+    if (this.spent > this.budget) this.overBudget = true;
+    return this.overBudget;
+  }
+
+  /** A fetching dilemma that is not faced fetches nothing too (#1555): the bot played it for nothing. */
+  private unfaced(model: DilemmaModel) {
+    if (model.family === 'adds-dilemma') this.result.fetchedNothing = (this.result.fetchedNothing ?? 0) + 1;
+  }
+
+  /**
+   * Face the rest of the stack, `queue`, one dilemma at a time (#1555): a fork runs it to the end to play a
+   * fetch ahead. When every personnel is stopped, or a dilemma ends the stack, the rest is not faced; a
+   * dilemma revealed over the cost the bot may spend, and every one after it, is overcome.
+   */
+  faceRest() {
+    while (this.queue.length) {
+      const model = this.queue.shift()!;
+      const fetched = this.fetchedFront > 0;
+      if (fetched) this.fetchedFront--;
+      if (this.stackEnded) {
+        this.trace?.(`${model.title}: not faced, it returns to the dilemma pile`);
+        this.unfaced(model);
+        continue;
+      }
+      if (this.reveal(model, fetched)) {
+        this.trace?.(`${model.title}: overcome, over the cost the bot may spend`);
+        this.unfaced(model);
+        continue;
+      }
+      this.current = model.title;
+      this.faced.push(model.title);
+      if (this.live === 0) {
+        this.trace?.(`${model.title}: not faced, every personnel is stopped`);
+        this.unfaced(model);
+        continue;
+      }
+      this.trace?.(`${model.title}:`);
+      // Chula: The Game: before a dilemma whose title begins with "Chula", each copy on the mission stops one
+      // random unstopped personnel.
+      if (model.title.startsWith('Chula')) {
+        for (let c = 0; c < this.gameCopies && this.live > 0; c++) {
+          const [k] = this.select(1);
+          this.stop([k], undefined, true);
+          this.trace?.(`  Chula: The Game on the mission stops ${this.name(k)}`);
+        }
+        if (this.live === 0) continue;
+      }
+      this.settleBeforeDilemma();
+      model.play(this);
+      // A dilemma placed on top of the stack is faced next (#1518).
+      if (this.onTop.length) {
+        this.fetchedFront += this.onTop.length;
+        this.queue.unshift(...this.onTop.splice(0));
+      }
+    }
+  }
+
+  /**
+   * Put on top of the rest of the stack the one of `candidates` that does the attempt most harm (#1518,
+   * #1555). Each is played ahead from here, with the rest of the stack after it and the cost rule
+   * applied, against a play of the rest with no fetch. A candidate helps when its play fails where the
+   * play without does not, or does more lasting damage, or stops more personnel; the best of those, a
+   * failed attempt first, then the most lasting damage, then the most stopped, goes on top. Returns its
+   * title, or null when there is no candidate or none helps: the fetch fetches nothing.
    */
   addBestOnTop(candidates: DilemmaModel[]): string | null {
+    const outcome = (f: PlayState) => ({ fail: f.live === 0 || !f.meetsWithout(), damage: lastingDamage(f.result), stopped: f.result.stopped });
     let best: DilemmaModel | null = null;
-    let bestScore = -1;
-    const before = lastingDamage(this.result);
-    for (const model of candidates) {
-      const f = this.fork();
-      f.current = model.title;
-      model.play(f);
-      const score = (f.live === 0 || !f.meetsWithout() ? 1000 : 0) + lastingDamage(f.result) - before;
-      if (score > bestScore) [best, bestScore] = [model, score];
+    let bestOutcome: ReturnType<typeof outcome> | null = null;
+    if (candidates.length) {
+      const without = this.fork();
+      without.faceRest();
+      const base = outcome(without);
+      for (const model of candidates) {
+        // A candidate over the cost left is overcome at its reveal, with the rest of the stack: it never helps.
+        if (revealCostOf(this.attempt, model, this.discount).cost - (model.extraBudget ?? 0) > this.costLeft) continue;
+        const f = this.fork();
+        f.queue.unshift(model);
+        f.fetchedFront++;
+        f.faceRest();
+        const o = outcome(f);
+        const helps = (o.fail && !base.fail) || o.damage > base.damage || o.stopped > base.stopped;
+        if (!helps) continue;
+        const better = !bestOutcome || Number(o.fail) - Number(bestOutcome.fail) || o.damage - bestOutcome.damage || o.stopped - bestOutcome.stopped;
+        if (better === true || better > 0) [best, bestOutcome] = [model, o];
+      }
     }
-    if (!best) return null;
+    if (!best) {
+      this.result.fetchedNothing = (this.result.fetchedNothing ?? 0) + 1;
+      this.trace?.('  fetches nothing');
+      return null;
+    }
     this.onTop.push(best);
     this.trace?.(`  puts ${best.title} on top of the stack`);
     return best.title;
@@ -454,7 +570,8 @@ export const skillName = (i: number) => BOT_SKILLS[i].charAt(0).toUpperCase() + 
 
 /**
  * Play `stack` once against the attempt. When every personnel is stopped, or a dilemma ends the stack, the
- * rest of the stack is not faced. Then the unstopped personnel must meet the requirements, as Insurrection left them.
+ * rest of the stack is not faced. With the attempt's `spend`, a dilemma revealed over the cost the bot may
+ * spend, and every one after it, is overcome (#1555). Then the unstopped personnel must meet the requirements, as Insurrection left them.
  */
 export function playPileStack(
   attempt: PileAttempt,
@@ -464,35 +581,9 @@ export function playPileStack(
   notInStack = 0,
 ): PileResult {
   const state = new PlayState({ attempt, rand, trace }, notInStack);
-  const queue = stack.slice();
-  while (queue.length) {
-    const model = queue.shift()!;
-    if (state.stackEnded) {
-      trace?.(`${model.title}: not faced, it returns to the dilemma pile`);
-      continue;
-    }
-    state.current = model.title;
-    state.faced.push(model.title);
-    if (state.live === 0) {
-      trace?.(`${model.title}: not faced, every personnel is stopped`);
-      continue;
-    }
-    trace?.(`${model.title}:`);
-    // Chula: The Game: before a dilemma whose title begins with "Chula", each copy on the mission stops one
-    // random unstopped personnel.
-    if (model.title.startsWith('Chula')) {
-      for (let c = 0; c < state.gameCopies && state.live > 0; c++) {
-        const [k] = state.select(1);
-        state.stop([k], undefined, true);
-        trace?.(`  Chula: The Game on the mission stops ${state.name(k)}`);
-      }
-      if (state.live === 0) continue;
-    }
-    state.settleBeforeDilemma();
-    model.play(state);
-    // A dilemma placed on top of the stack is faced next (#1518).
-    if (state.onTop.length) queue.unshift(...state.onTop.splice(0));
-  }
+  state.queue = stack.slice();
+  if (attempt.spend !== undefined) state.budget = stack.reduce((t, m) => t + (m.extraBudget ?? 0), attempt.spend);
+  state.faceRest();
   state.result.fail = !state.meetsWithout();
   trace?.(state.result.fail ? 'The attempt fails.' : 'The unstopped personnel meet the mission requirements.');
   return state.result;

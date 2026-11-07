@@ -1,6 +1,7 @@
 import { BOT_SKILLS } from '../../requirements';
 import { allButOne, anyOfAffiliation, botChooses, brigRandom, chooseOrElse, hasAny, killRandom, loseShip, noEffect, playerStops, selectRandom, selectUntil, sk, stopAll, stopRandom, thenReturns, unless, unlessGroup } from '../families';
 import { Attr, ATTR_NAMES, skillName } from '../play';
+import { DilemmaModel } from '../model';
 import { CORE_EVENTS, D, NAMEABLE, P, S, UNNAMEABLE, addableModels, dilemmaList, lowCost, mostHeldSkill, speciesKey } from '../define';
 
 // The 45 titles of Think Tank 50's (Matt S, 2026 Trek Masters), the first pilot pile of #1320.
@@ -225,8 +226,10 @@ dilemma('Unconventional Consideration', D, 2, 'choose-or-else', chooseOrElse(has
 
 // No family fits: at reveal, the bot takes the dilemma of cost 2 or less from its pile that does the
 // attempt most harm, and faces it next (#1518).
+const vaultFits = (m: DilemmaModel) => m.printedCost <= 2 && m.kind !== 'space';
+const NO_TITLES: string[] = [];
 dilemma('Vault of Tomorrow', P, 1, 'adds-dilemma', (s) => {
-  const added = s.addBestOnTop(addableModels(s.attempt.botPile ?? [], (m) => m.printedCost <= 2 && m.kind !== 'space'));
+  const added = s.addBestOnTop(addableModels(s.attempt.botPile ?? NO_TITLES, vaultFits));
   if (added) s.label(`Added ${added}`);
   s.returnsToPile();
 }, { assumption: 'the bot chooses at reveal the dilemma of its pile that does the attempt most harm (#1518)' });

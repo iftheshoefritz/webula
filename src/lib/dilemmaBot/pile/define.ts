@@ -38,11 +38,25 @@ export const setModelLookup = (f: (title: string) => DilemmaModel | undefined) =
   lookup = f;
 };
 
-/** The models a play may put on top of the stack: modelled, played, acting during the attempt, and adding no dilemma itself. */
-export const addableModels = (titles: Iterable<string>, fits: (m: DilemmaModel) => boolean): DilemmaModel[] =>
-  Array.from(new Set(titles))
-    .map(modelOf)
-    .filter((m): m is DilemmaModel => !!m && m.status === 'play' && m.family !== 'no-effect' && m.family !== 'adds-dilemma' && fits(m));
+/** The candidates of each list of titles and each `fits`: a search reveals Vault of Tomorrow thousands of times on one attempt (#1555). */
+const ADDABLE = new WeakMap<ReadonlyArray<string>, WeakMap<(m: DilemmaModel) => boolean, DilemmaModel[]>>();
+
+/**
+ * The models a play may put on top of the stack: modelled, played, acting during the attempt, and adding
+ * no dilemma itself. Cached per list and `fits`, so a caller passes the same `fits` function each time.
+ */
+export function addableModels(titles: ReadonlyArray<string>, fits: (m: DilemmaModel) => boolean): DilemmaModel[] {
+  let byFits = ADDABLE.get(titles);
+  if (!byFits) ADDABLE.set(titles, (byFits = new WeakMap()));
+  let models = byFits.get(fits);
+  if (!models) {
+    models = Array.from(new Set(titles))
+      .map(modelOf)
+      .filter((m): m is DilemmaModel => !!m && m.status === 'play' && m.family !== 'no-effect' && m.family !== 'adds-dilemma' && fits(m));
+    byFits.set(fits, models);
+  }
+  return models;
+}
 
 export function dilemmaList() {
   const models: DilemmaModel[] = [];
