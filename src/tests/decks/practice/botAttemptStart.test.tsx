@@ -129,6 +129,41 @@ describe('the botAttempt action (#1299)', () => {
     expect(tableReducer(before, { type: 'startAttempt', missionIndex: 0, personnel: 12, subtract: 3 }).attempt).not.toHaveProperty('botChoseNone');
   });
 
+  it('records the chosen stack, and each card the table reveals in the facing phase (#1556)', () => {
+    const before = botTable();
+    const after = tableReducer(before, botAction(before, ['d4', 'd1', 'd7']));
+    expect(after.attempt).toMatchObject({ botStack: ['d4', 'd1', 'd7'], botRevealed: [] });
+    const first = tableReducer(after, { type: 'flip', id: 'd4' });
+    expect(first.attempt!.botRevealed).toEqual(['d4']);
+    // A card turned face down again, and revealed once more, is recorded once.
+    const again = tableReducer(tableReducer(first, { type: 'flip', id: 'd4' }), { type: 'flip', id: 'd4' });
+    expect(again.attempt!.botRevealed).toEqual(['d4']);
+    // A fetched card: it enters the stack face down, and its reveal is recorded too.
+    const fetched = tableReducer(tableReducer(first, { type: 'move', id: 'd9', to: 'dilemmaStack', position: 'top' }), { type: 'flip', id: 'd9' });
+    expect(fetched.attempt!.botRevealed).toEqual(['d4', 'd9']);
+    expect(fetched.attempt!.botStack).toEqual(['d4', 'd1', 'd7']);
+    // A flip off the stack records nothing.
+    expect(tableReducer(after, { type: 'flip', id: 'd10' }).attempt).toBe(after.attempt);
+  });
+
+  it('records no reveal outside a bot attempt, or in the dilemma choice (#1556)', () => {
+    const plain = { ...botTable(), dilemmaStack: [dilemma(20)] };
+    const facing = tableReducer(tableReducer(plain, { type: 'startAttempt', missionIndex: 0, personnel: 12, subtract: 3 }), { type: 'setAttemptPhase', phase: 'face' });
+    expect(tableReducer(facing, { type: 'flip', id: 'd20' }).attempt).not.toHaveProperty('botRevealed');
+    const choosing = tableReducer(plain, { type: 'startAttempt', missionIndex: 0, personnel: 12, subtract: 3, botDraw: 9, botSpend: 9 });
+    expect(tableReducer(choosing, { type: 'flip', id: 'd20' }).attempt).not.toHaveProperty('botRevealed');
+  });
+
+  it('takes back a recorded reveal with undo, and records it again with redo (#1556)', () => {
+    const before = initialGameState(botTable());
+    const started = gameReducer(before, botAction(before.table, ['d4', 'd1']));
+    const flipped = gameReducer(started, { type: 'flip', id: 'd4' });
+    expect(flipped.table.attempt!.botRevealed).toEqual(['d4']);
+    const undone = gameReducer(flipped, { type: 'undo' });
+    expect(undone.table.attempt!.botRevealed).toEqual([]);
+    expect(gameReducer(undone, { type: 'redo' }).table.attempt!.botRevealed).toEqual(['d4']);
+  });
+
   it('does nothing while an attempt is running', () => {
     const started = tableReducer(botTable(), { type: 'startAttempt', missionIndex: 0, personnel: 12, subtract: 3 });
     expect(tableReducer(started, botAction(started, ['d0']))).toBe(started);

@@ -199,10 +199,12 @@ const instanceNumber = (id: string): number => {
 
 const isCount = (value: unknown): boolean => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
+const isIdList = (value: unknown): boolean => Array.isArray(value) && value.every((id) => typeof id === 'string');
+
 const isValidAttempt = (table: TableState): boolean => {
   const attempt: unknown = table.attempt;
   if (!isObject(attempt)) return false;
-  const { missionIndex, shipId, personnel, subtract, phase, drawn, botDraw, botSpend, botChoseNone } = attempt;
+  const { missionIndex, shipId, personnel, subtract, phase, drawn, botDraw, botSpend, botChoseNone, botStack, botRevealed } = attempt;
   return (
     Number.isInteger(missionIndex) &&
     !!table.missions[missionIndex]?.mission &&
@@ -216,7 +218,10 @@ const isValidAttempt = (table: TableState): boolean => {
     (botDraw === undefined || isCount(botDraw)) &&
     (botSpend === undefined || isCount(botSpend)) &&
     // A bot attempt that started with an empty stack (#1536).
-    (botChoseNone === undefined || botChoseNone === true)
+    (botChoseNone === undefined || botChoseNone === true) &&
+    // A bot attempt's record of its stack (#1556).
+    (botStack === undefined || isIdList(botStack)) &&
+    (botRevealed === undefined || isIdList(botRevealed))
   );
 };
 

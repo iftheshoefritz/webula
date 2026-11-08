@@ -1,5 +1,5 @@
 import { seededRandom } from '../simulator';
-import { PileAttempt } from './model';
+import { DilemmaModel, PileAttempt, stackCostOf } from './model';
 import { playPileStack } from './play';
 import { modelOf } from './registry';
 
@@ -10,15 +10,37 @@ import { modelOf } from './registry';
 // stable across renders.
 const LABEL_SEED = 1519;
 
+type LabelRow = { originalName?: string } | null | undefined;
+
+const modelsOf = (rows: ReadonlyArray<LabelRow>): DilemmaModel[] =>
+  rows.flatMap((row) => {
+    const model = row?.originalName ? modelOf(row.originalName) : undefined;
+    return model ? [model] : [];
+  });
+
 /**
- * The text of the label the model of `row` makes when the group of `attempt` faces it alone, the texts
- * joined when its play makes more than one, or null: a title the registry lacks, a group with no one
- * unstopped, or a play that makes no label.
+ * The text of the label the model of `row` makes when the group of `attempt` faces it, followed by the
+ * `rest` of the facing stack in order (#1556), so a fetch is scored under the cost rule as the search
+ * scored it. The texts are joined when its play makes more than one; null for a title the registry lacks,
+ * a group with no one unstopped, or a play that makes no label. Only the labels of `row`'s title count.
+ *
+ * `revealed` are the cards revealed in this attempt before `row`, in reveal order: with the attempt's
+ * `spend`, their cost counts as already spent, with the per-step arithmetic of `stackCostOf`, the
+ * discount the last of them gives `row` too. A title the registry lacks counts nothing.
  */
-export function pileLabelOf(row: { originalName?: string } | null | undefined, attempt: PileAttempt): string | null {
+export function pileLabelOf(
+  row: LabelRow,
+  attempt: PileAttempt,
+  { revealed = [], rest = [] }: { revealed?: ReadonlyArray<LabelRow>; rest?: ReadonlyArray<LabelRow> } = {},
+): string | null {
   const model = row?.originalName ? modelOf(row.originalName) : undefined;
   if (!model) return null;
-  const { labels } = playPileStack(attempt, [model], seededRandom(LABEL_SEED));
+  const before = modelsOf(revealed);
+  // The cost of the stack through `row`, less what `row` costs alone: what was spent before it, with the
+  // discount it gets. `row`'s own extra budget stays out, since the play adds it to the budget.
+  const revealedCost = before.length ? stackCostOf(attempt, [...before, model]) - stackCostOf(attempt, [model]) : 0;
+  const played = revealedCost ? { ...attempt, revealedCost: (attempt.revealedCost ?? 0) + revealedCost } : attempt;
+  const { labels } = playPileStack(played, [model, ...modelsOf(rest)], seededRandom(LABEL_SEED));
   const texts = labels.filter((l) => l.title === model.title).map((l) => l.label);
   return texts.length ? texts.join('; ') : null;
 }

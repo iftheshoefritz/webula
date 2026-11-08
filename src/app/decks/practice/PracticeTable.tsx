@@ -45,8 +45,6 @@ import { CHULA_BOT_PILE_ID, CHULA_BOT_PILE_NAME, botPileDeckOf } from '../../../
 import type { BotPileChoice, BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
 import { useBotPiles } from './useBotPiles';
 import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
-import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
-import { pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
@@ -112,7 +110,7 @@ import {
   fixtureAttemptPlacedOn,
   fixtureAttemptStack,
   fixtureBotLabelAttempt,
-  pileTableInputOf,
+  botLabelOf,
 } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
@@ -2015,10 +2013,7 @@ function PracticeDrawContent() {
       botLabelCardId && table.attempt
         ? {
             id: botLabelCardId,
-            text: pileLabelOf(
-              dilemmaStack[0].card,
-              pileAttemptOf(pileTableInputOf(table, table.attempt.missionIndex, table.attempt.shipId)).attempt,
-            ),
+            text: botLabelOf(table),
           }
         : null,
     );

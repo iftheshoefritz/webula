@@ -749,7 +749,10 @@ In a bot game's `'face'`, the revealed top card of the facing stack shows the bo
 button over the right of its art, above its text box (`data-testid="dilemma-bot-label"`, #1519): the
 label its model's play makes (`pileLabelOf` in `src/lib/dilemmaBot/pile/label.ts`), read once per
 revealed top card from the table as it stands (`pileTableInputOf` in `attempt.ts`), so from the
-unstopped personnel. A title with no model, a Chula title, or a play that makes no label shows none.
+unstopped personnel. The play faces the rest of the stack after it, at the attempt's `botSpend`, with
+the cost of the cards revealed before it already spent (`botLabelOf`, #1556): `botAttempt` records the
+chosen stack on `Attempt.botStack`, and a `flip` that reveals a stack card in `'face'` adds it to
+`Attempt.botRevealed`, so a reload gives the same label. A title with no model, a Chula title, or a play that makes no label shows none.
 A tap dismisses it for the rest of the attempt. It is page state, so a reload shows it again.
 
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing

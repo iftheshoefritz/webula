@@ -15,7 +15,8 @@ import {
 import { cardDisplayName } from '../../../lib/cardCount';
 import { BotTableFacts, asSphere117Dissident, isSphere117, sphere117Holds } from '../../../lib/dilemmaBot/gains';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
-import { PileTableInput } from '../../../lib/dilemmaBot/pile/tableAttempt';
+import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
+import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
 export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 'crew'; shipId: string };
@@ -45,6 +46,24 @@ export function attemptingCards(table: TableState, missionIndex: number, shipId?
   if (slot?.mission?.card?.missiontype !== 's') return null;
   const ship = slot.ships.find((s) => s.id === shipId);
   return ship ? ship.crew ?? [] : null;
+}
+
+// The bot's label on the revealed top card of the dilemma stack (#1519), or null. The label's attempt
+// has the attempt's spend and the cost of the cards revealed before the top card (#1556), from the
+// attempt's record of the cards it revealed, and the play faces the rest of the stack after the top
+// card, so a fetch counts the cost rule as the bot's search did.
+export function botLabelOf(table: TableState): string | null {
+  const { attempt, dilemmaStack } = table;
+  const top = dilemmaStack[0];
+  if (!attempt || !top) return null;
+  const built = pileAttemptOf(pileTableInputOf(table, attempt.missionIndex, attempt.shipId)).attempt;
+  const revealedIds = attempt.botRevealed ?? [];
+  const at = revealedIds.indexOf(top.id);
+  const revealed = (at === -1 ? revealedIds : revealedIds.slice(0, at)).map((id) => findInstanceAnywhere(table, id)?.instance.card);
+  return pileLabelOf(top.card, attempt.botSpend !== undefined ? { ...built, spend: attempt.botSpend } : built, {
+    revealed,
+    rest: dilemmaStack.slice(1).map((c) => c.card),
+  });
 }
 
 // What `pileAttemptOf` reads of the table for an attempt at `missionIndex` with `shipId` (#1508): the

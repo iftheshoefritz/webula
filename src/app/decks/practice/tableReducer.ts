@@ -182,6 +182,12 @@ export interface Attempt {
   // A bot game's attempt whose stack the bot left empty at Start (#1536), so the empty stack reads
   // "No dilemmas chosen" and not as a stack the player has faced. Only `botAttempt` sets it.
   botChoseNone?: true;
+  // A bot game's record of the stack (#1556): the card ids the bot chose, in stack order, and each
+  // card the table revealed in `'face'`, a fetched one too, in reveal order. The bot's label counts
+  // the cost of the cards revealed before the top card from them. Only `botAttempt` and `flip` set
+  // them; a save from before #1556 has neither, and reads as two empty lists.
+  botStack?: string[];
+  botRevealed?: string[];
 }
 
 // The score counter's range (#719) and the amount each button press changes it by.
@@ -259,7 +265,7 @@ export type TableAction =
   // the draw, `drawn` the ids of the drawn cards in draw order, taken out of the current pile, and
   // `stack` the ids the bot put in the stack, in stack order. `random` says the bot chose at random.
   // It refuses exactly when `startAttempt` does, and when a drawn id is not in the pile.
-  | ({ type: 'botAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'botDraw' | 'botSpend' | 'botChoseNone'> & {
+  | ({ type: 'botAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'botDraw' | 'botSpend' | 'botChoseNone' | 'botStack' | 'botRevealed'> & {
       botDraw: number;
       botSpend: number;
       pile: CardInstance[];
@@ -751,10 +757,22 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // issue #130) and have no Flip control (#599, #600), so flip only applies to the string
       // zones (drawDeck/hand/discard) and a mission's piles, handled above.
       if (typeof zone !== 'string') return state;
-      return {
+      const flipped: TableState = {
         ...state,
         [zone]: state[zone].map((c) => (c.id === action.id ? { ...c, face: flipFace(c.face) } : c)),
       };
+      // A bot game's attempt records each card the table reveals in its stack in `'face'` (#1556).
+      const { attempt } = state;
+      if (
+        zone === 'dilemmaStack' &&
+        attempt?.phase === 'face' &&
+        attempt.botDraw !== undefined &&
+        found.instance.face === 'down' &&
+        !attempt.botRevealed?.includes(action.id)
+      ) {
+        flipped.attempt = { ...attempt, botRevealed: [...(attempt.botRevealed ?? []), action.id] };
+      }
+      return flipped;
     }
 
     case 'flipMission': {
@@ -910,7 +928,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       };
       const stacked = stack.reduce<TableState>((s, id) => tableReducer(s, { type: 'move', id, to: 'dilemmaStack' }), withHand);
       const faced = tableReducer(stacked, { type: 'setAttemptPhase', phase: 'face' });
-      return stack.length ? faced : { ...faced, attempt: { ...faced.attempt!, botChoseNone: true } };
+      const attempt: Attempt = { ...faced.attempt!, botStack: [...stack], botRevealed: [] };
+      return { ...faced, attempt: stack.length ? attempt : { ...attempt, botChoseNone: true } };
     }
 
     case 'endAttempt': {
