@@ -62,6 +62,8 @@ import {
   tableReducer,
 } from '../../../app/decks/practice/tableReducer';
 import { gameReducer, initialGameState, logEntryText } from '../../../app/decks/practice/gameLog';
+import { botRedraws } from '../../../app/decks/practice/useBotAttemptStart';
+import { PileSearchResult } from '../../../lib/dilemmaBot/pile/search';
 
 // --- The reducer and the log -------------------------------------------------------------------
 
@@ -192,6 +194,70 @@ describe('the botAttempt action (#1299)', () => {
   it('does nothing while an attempt is running', () => {
     const started = tableReducer(botTable(), { type: 'startAttempt', missionIndex: 0, personnel: 12, subtract: 3 });
     expect(tableReducer(started, botAction(started, ['d0']))).toBe(started);
+  });
+});
+
+// --- Unexpected Difficulties (#1563) ----------------------------------------------------------
+
+const udTable = (): TableState => ({ ...botTable(), botPile: { id: 'beginner:tos.txt', name: 'TOS', unexpectedDifficulties: true } });
+// The page's redraw: the first draw goes to the bottom of the pile, face up, and as many are drawn again.
+const redrawAction = (table: TableState, count = 6) => {
+  const first = drawFromDilemmaPile(table.dilemmaPile, count);
+  const second = drawFromDilemmaPile([...first.pile, ...first.drawn.map((c) => ({ ...c, face: 'up' as const }))], count);
+  return {
+    ...botAction(table, []),
+    botDraw: count,
+    pile: second.pile,
+    drawn: second.drawn.map((c) => c.id),
+    stack: ['d7', 'd9'],
+    redrawn: first.drawn.map((c) => c.id),
+  };
+};
+
+describe('the botAttempt action with Unexpected Difficulties (#1563)', () => {
+  it('deals the second draw, keeps the first at the bottom of the pile face up, and sets the flag', () => {
+    const after = tableReducer(udTable(), redrawAction(udTable()));
+    expect(after.botUsedUnexpectedDifficulties).toBe(true);
+    expect(after.dilemmaStack.map((c) => c.id)).toEqual(['d7', 'd9']);
+    expect(after.attempt).toMatchObject({ phase: 'face', drawn: 6 });
+    // The first draw at the bottom, face up, then the rest of the second draw.
+    expect(after.dilemmaPile.map((c) => c.id)).toEqual(['d0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd8', 'd10', 'd11']);
+    expect(after.dilemmaPile.every((c) => c.face === 'up')).toBe(true);
+  });
+
+  it('refuses a redraw when the bot used the card already, or its deck lacks it', () => {
+    const used = { ...udTable(), botUsedUnexpectedDifficulties: true as const };
+    expect(tableReducer(used, redrawAction(used))).toBe(used);
+    const chula = botTable();
+    expect(tableReducer(chula, redrawAction(chula))).toBe(chula);
+    // An attempt with no redraw leaves the flag as it is.
+    expect(tableReducer(udTable(), botAction(udTable(), ['d4'])).botUsedUnexpectedDifficulties).toBeUndefined();
+  });
+
+  it('logs the card and the count, names no dilemma, and one undo clears the flag', () => {
+    const before = initialGameState(udTable());
+    const game = gameReducer(before, redrawAction(before.table));
+    expect(game.log).toHaveLength(1);
+    const text = logEntryText(game.log[0]);
+    expect(text).toMatch(/the bot drew 6 dilemmas, used Unexpected Difficulties to return them and draw 6 more, and put 2 in the stack/);
+    expect(text).not.toMatch(/Dilemma \d/);
+    const undone = gameReducer(game, { type: 'undo' });
+    expect(undone.table).toBe(before.table);
+    expect(undone.table.botUsedUnexpectedDifficulties).toBeUndefined();
+  });
+});
+
+describe('botRedraws (#1563)', () => {
+  const result = (mode: PileSearchResult['mode']) => ({ mode }) as PileSearchResult;
+
+  it('redraws with 4 or more drawn, the card held and unused, when no stack can end the attempt', () => {
+    expect(botRedraws(udTable(), 4, result('cannot-fail'))).toBe(true);
+    expect(botRedraws(udTable(), 3, result('cannot-fail'))).toBe(false);
+    expect(botRedraws(udTable(), 9, result('probability'))).toBe(false);
+    expect(botRedraws(udTable(), 9, result('confident'))).toBe(false);
+    expect(botRedraws({ ...udTable(), botUsedUnexpectedDifficulties: true }, 9, result('cannot-fail'))).toBe(false);
+    expect(botRedraws(botTable(), 9, result('cannot-fail'))).toBe(false);
+    expect(botRedraws({ ...udTable(), botPile: { id: 'beginner:x.txt', name: 'X' } }, 9, result('cannot-fail'))).toBe(false);
   });
 });
 
@@ -400,5 +466,127 @@ describe('Start in a bot game (#1299)', () => {
     await start();
     expect(mockRequests).toHaveLength(0);
     expect(saved('piles').attempt).toMatchObject({ phase: 'choose', drawn: 0 });
+  });
+});
+
+describe('Start in a bot game whose deck holds Unexpected Difficulties (#1563)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRequests.length = 0;
+    localStorage.clear();
+    (useDataFetching as jest.Mock).mockReturnValue({ data: chulaRows, loading: false });
+    (getSession as jest.Mock).mockResolvedValue(null);
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      })),
+    });
+  });
+
+  const key = 'practiceGame:fixture=bot';
+  // The `?fixture=bot` game, with a bot pile whose deck holds the card, reloaded.
+  const openUdGame = async (skills = 'Physics, 2 Science') => {
+    mockAttemptDeck(skills);
+    mockSearchParamsValue = new URLSearchParams('fixture=bot&reset=1&menu=0');
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const save = JSON.parse(localStorage.getItem(key)!);
+    save.table.botPile = { id: 'beginner:tos.txt', name: 'TOS', unexpectedDifficulties: true };
+    localStorage.setItem(key, JSON.stringify(save));
+    cleanup();
+    mockSearchParamsValue = new URLSearchParams('fixture=bot&menu=0');
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+  };
+  const openAttempt = async () => {
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Card S0' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-button'));
+    });
+  };
+  const replyAs = async (request: SearchRequest, mode: PileSearchResult['mode']) => {
+    const answer = answerSearch(request as Extract<SearchRequest, { kind: 'table' }>);
+    await act(async () => {
+      mockReply!({ ...answer, result: { ...answer.result, mode }, thread: 'background' });
+    });
+  };
+
+  it('redraws once when no stack can end the attempt, in one action, and not again in the same game', async () => {
+    await openUdGame();
+    await openAttempt();
+    const pileBefore = saved('bot').dilemmaPile.length;
+    await start();
+    expect(mockRequests).toHaveLength(1);
+    await replyAs(mockRequests[0], 'cannot-fail');
+    // The second request draws as many again, and nothing changed yet.
+    expect(mockRequests).toHaveLength(2);
+    expect(mockRequests[1].id).not.toBe(mockRequests[0].id);
+    expect(mockRequests[1].drawn).toHaveLength(mockRequests[0].drawn.length);
+    expect(saved('bot').attempt).toBeUndefined();
+    expect(screen.getByTestId('attempt-start')).toHaveTextContent('The bot is choosing…');
+
+    await replyAs(mockRequests[1], 'cannot-fail');
+    expect(mockRequests).toHaveLength(2);
+    const table = saved('bot');
+    expect(table.botUsedUnexpectedDifficulties).toBe(true);
+    expect(table.attempt).toMatchObject({ phase: 'face', drawn: 9 });
+    expect(table.dilemmaPile.length + table.dilemmaStack.length).toBe(pileBefore);
+    expect(screen.getByTestId('undo-button')).toHaveAttribute('aria-label', expect.stringMatching(/used Unexpected Difficulties to return them and draw 9 more/));
+
+    // A second attempt in the same game does not redraw.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-done'));
+    });
+    await openAttempt();
+    await start();
+    expect(mockRequests).toHaveLength(3);
+    await replyAs(mockRequests[2], 'cannot-fail');
+    expect(mockRequests).toHaveLength(3);
+    expect(saved('bot').attempt).toMatchObject({ phase: 'face' });
+    expect(screen.getByTestId('undo-button')).not.toHaveAttribute('aria-label', expect.stringMatching(/Unexpected Difficulties/));
+  });
+
+  it('does not redraw when a stack can end the attempt, or with 3 drawn', async () => {
+    await openUdGame();
+    await openAttempt();
+    await start();
+    await replyAs(mockRequests[0], 'probability');
+    expect(mockRequests).toHaveLength(1);
+    expect(saved('bot').botUsedUnexpectedDifficulties).toBeUndefined();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-done'));
+    });
+    await openAttempt();
+    setField('attempt-bot-draw', '3');
+    await start();
+    await replyAs(mockRequests[1], 'cannot-fail');
+    expect(mockRequests).toHaveLength(2);
+    expect(saved('bot').attempt).toMatchObject({ phase: 'face', drawn: 3 });
+    expect(saved('bot').botUsedUnexpectedDifficulties).toBeUndefined();
+  });
+
+  it('does not redraw on the random path', async () => {
+    await openUdGame('');
+    await openAttempt();
+    await start();
+    expect(mockRequests).toHaveLength(0);
+    expect(saved('bot').attempt).toMatchObject({ phase: 'face', drawn: 9 });
+    expect(saved('bot').botUsedUnexpectedDifficulties).toBeUndefined();
+  });
+
+  it('never redraws with the Chula pile', async () => {
+    await openPopup('bot');
+    await start();
+    await replyAs(mockRequests[0], 'cannot-fail');
+    expect(mockRequests).toHaveLength(1);
+    expect(saved('bot').botUsedUnexpectedDifficulties).toBeUndefined();
   });
 });

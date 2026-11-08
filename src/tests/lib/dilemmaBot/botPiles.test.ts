@@ -2,7 +2,7 @@
 // affiliations from a chosen deck.
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { CHULA_BOT_PILE, botPileChoices, botPileDeckOf } from '../../../lib/dilemmaBot/botPiles';
+import { CHULA_BOT_PILE, UNEXPECTED_DIFFICULTIES, botPileChoices, botPileDeckOf, deckSectionHolds } from '../../../lib/dilemmaBot/botPiles';
 import * as pileModule from '../../../lib/dilemmaBot/pile/pile';
 import { botAffiliationsOf, botPileOf } from '../../../lib/dilemmaBot/pile/pile';
 import { pileTitleOf } from '../../../lib/dilemmaBot/pile/registry';
@@ -105,6 +105,24 @@ describe('botPileDeckOf (#1520)', () => {
     const { pile } = botPileDeckOf(text, deck, data);
     expect(Object.values(pile).some((e) => pileTitleOf(String(e.row.originalName)) === dropped)).toBe(false);
     expect(total(pile)).toBe(actual.played.filter((t) => t !== dropped).length);
+  });
+});
+
+describe('Unexpected Difficulties in the bot\'s deck (#1563)', () => {
+  const tos = beginnerDecks.find((d) => d.file.startsWith('TOS Beginner Deck'))!;
+
+  it('is held by the TOS Beginner Deck, whose Deck: section lists it with a version suffix', () => {
+    const text = beginnerText(tos);
+    expect(deckSectionHolds(text, UNEXPECTED_DIFFICULTIES)).toBe(true);
+    expect(botPileDeckOf(text, deckFromTsv(text, data), data).unexpectedDifficulties).toBe(true);
+  });
+
+  it('is not held by a deck that lacks it, or lists it only outside its Deck: section', () => {
+    const lacking = beginnerDecks.find((d) => !/Unexpected Difficulties/.test(beginnerText(d)))!;
+    const text = beginnerText(lacking);
+    expect(botPileDeckOf(text, deckFromTsv(text, data), data).unexpectedDifficulties).toBe(false);
+    expect(deckSectionHolds('Dilemmas:\n1\tUnexpected Difficulties\n', UNEXPECTED_DIFFICULTIES)).toBe(false);
+    expect(deckSectionHolds('Deck:\n1\tUnexpected Difficulties (Promo)\n', UNEXPECTED_DIFFICULTIES)).toBe(true);
   });
 });
 

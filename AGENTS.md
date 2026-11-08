@@ -524,6 +524,11 @@ The practice table has six fixtures. Each one deals the same table on every load
   ignored titles, become the bot's pile, and `TableState.botPile` keeps its id, its name and the
   affiliations of its personnel, which reach `PileAttempt.botAffiliations`. A bot game with no
   `botPile`, as `?fixture=bot` deals, plays the Chula pile.
+  When the chosen deck's `Deck:` section holds Unexpected Difficulties (`BotPileInfo.unexpectedDifficulties`,
+  #1563), the bot uses it once a game at Start: with 4 or more drawn and a search answer of `'cannot-fail'`
+  (`botRedraws` in `useBotAttemptStart.ts`), it puts the drawn dilemmas on the bottom of the pile, face up,
+  draws as many again and chooses from those. The one `botAttempt` carries `redrawn`, sets
+  `TableState.botUsedUnexpectedDifficulties`, and its log entry says so; a new game clears the flag.
 - `?fixture=bot-label` (#1519) deals the `?fixture=bot` table with one Well-Prepared Defenses
   (`17V017`) added to the dilemma pile, and starts a bot attempt at Bilana System with the bot's
   numbers, with no search, in `'face'`: the stack holds Well-Prepared Defenses on top, face up, and
