@@ -54,7 +54,7 @@ export interface PileTableInput {
   facts?: BotTableFacts;
   /** The bot's side (#1520): the affiliations of its deck's personnel. Absent: unknown, as for the Chula pile. */
   botAffiliations?: string[];
-  /** The events in the player's core (Compromised Experiment reads their Decay, Zero Hour counts them). Absent: none. */
+  /** The events in the player's core (Compromised Experiment reads their Decay and the title of the one it chooses, Zero Hour counts them). Absent: none. */
   core?: ReadonlyArray<Row>;
   /** Every card the player commands on the table, away teams and crews, equipment too (Trellium-D). Absent: none. */
   commanded?: ReadonlyArray<Row>;
@@ -106,6 +106,12 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
   const completed = slots.filter((s) => s.completed);
   const copies = new Map<string, number>();
   for (const title of input.discard.map(titleOf)) if (title) copies.set(title, (copies.get(title) ?? 0) + 1);
+  const discardCopiesMax = Math.max(0, ...copies.values());
+  // The first title, in discard order, that reaches the most copies (Identity Theft's label, #1575).
+  const discardCopiesTitle = Array.from(copies.entries()).find(([, n]) => n === discardCopiesMax)?.[0];
+  const eventDecayMax = Math.max(0, ...events.map(decayOf));
+  // The first core event, in core order, of the highest Decay (Compromised Experiment's label, #1575).
+  const eventDecayTitle = titleOf(events.find((row) => decayOf(row) === eventDecayMax)) ?? undefined;
   const attempt: PileAttempt = {
     ...partnerGroupOf(
       input.cards
@@ -128,7 +134,8 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       handSize: input.hand.length,
       hand: input.hand.filter((row): row is PileCardRow => row?.type === 'personnel').map(pileHandPersonnelOf),
       handHasCunning7Or11: input.hand.some((row) => row?.type === 'personnel' && [7, 11].includes(Number(row.cunning))),
-      discardCopiesMax: Math.max(0, ...copies.values()),
+      discardCopiesMax,
+      ...(discardCopiesTitle ? { discardCopiesTitle } : {}),
       missionSkills: slots
         .filter((s) => s.mission.missiontype !== 'h')
         .flatMap((s) => {
@@ -141,7 +148,8 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       // The facts the Championship titles read (#1515, #1516, #1517), filled from the table.
       persistentUnderMission: input.underMission.filter((row) => /\bpersistent\b/.test(String(row?.keywords ?? '').toLowerCase())).length,
       completedSpan4Mission: completed.some((s) => (Number(s.mission.span) || 0) >= 4),
-      eventDecayMax: Math.max(0, ...events.map(decayOf)),
+      eventDecayMax,
+      ...(eventDecayTitle ? { eventDecayTitle } : {}),
       trelliumD: (input.commanded ?? []).filter((row) => titleOf(row) === 'Trellium-D').length,
       ...(input.hand.length ? { handCostMax: Math.max(0, ...input.hand.map((row) => Number(row?.cost) || 0)) } : {}),
       onMission: input.placedOn.map(titleOf).filter((t): t is string => t !== null),

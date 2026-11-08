@@ -89,9 +89,11 @@ describe('pileAttemptOf (#1508)', () => {
     expect(table.handSize).toBe(2);
     expect(table.handHasCunning7Or11).toBe(true);
     expect(table.discardCopiesMax).toBe(3);
+    expect(table.discardCopiesTitle).toBe('Sylvia');
     const empty = pileAttemptOf(input({ hand: [person('Six', { cunning: 6 }), named('Eleven', { type: 'event', cunning: 11 })] })).attempt.table;
     expect(empty.handHasCunning7Or11).toBe(false);
     expect(empty.discardCopiesMax).toBe(0);
+    expect(empty.discardCopiesTitle).toBeUndefined();
   });
 
   it('gives each personnel of the hand with its skill indexes and Strength, and leaves out the equipment (#1525)', () => {
@@ -152,5 +154,22 @@ describe('the map back from titles to drawn cards (#1508)', () => {
       'd0',
       'd2',
     ]);
+  });
+});
+
+// Issue #1575: the title of the event Compromised Experiment chooses.
+describe('eventDecayTitle', () => {
+  it('names the first core event of the highest Decay, and is absent with no event in the core', () => {
+    const core = [
+      named('Decay One', { type: 'event', keywords: 'Decay: 1.' }),
+      named('Decay Three *VP', { type: 'event', keywords: 'Decay: 3.' }),
+      named('Also Three', { type: 'event', keywords: 'Decay: 3.' }),
+      named('An Interrupt', { type: 'interrupt', keywords: 'Decay: 9.' }),
+    ];
+    const { table } = pileAttemptOf(input({ core })).attempt;
+    expect(table.eventDecayMax).toBe(3);
+    expect(table.eventDecayTitle).toBe('Decay Three');
+    expect(pileAttemptOf(input({ core: [named('No Decay', { type: 'event' })] })).attempt.table.eventDecayTitle).toBe('No Decay');
+    expect(pileAttemptOf(input()).attempt.table.eventDecayTitle).toBeUndefined();
   });
 });
