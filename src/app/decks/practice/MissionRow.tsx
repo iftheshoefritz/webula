@@ -709,7 +709,6 @@ function PlacedOnStrip({
   name,
   cards,
   layout,
-  completed,
   onTap,
 }: {
   missionIndex: number;
@@ -717,7 +716,6 @@ function PlacedOnStrip({
   name: string;
   cards: CardInstance[];
   layout: ReturnType<typeof placedOnStripLayout>;
-  completed: boolean;
   onTap: (event: React.MouseEvent<HTMLElement>, group: PlacedOnGroup) => void;
 }) {
   if (cards.length === 0) return null;
@@ -748,7 +746,6 @@ function PlacedOnStrip({
           zIndex={i + 1}
           width={layout.cardWidth}
           height={layout.cardHeight}
-          completed={completed}
         />
       ))}
     </div>
@@ -756,20 +753,19 @@ function PlacedOnStrip({
 }
 
 // A small card of a strip: the art crop of a table card, and a hold previews this card (#1099).
+// It keeps its look on a completed mission: only the mission card darkens (#1559).
 function PlacedOnStripCard({
   card,
   top,
   zIndex,
   width,
   height,
-  completed,
 }: {
   card: CardInstance;
   top: number;
   zIndex: number;
   width: number;
   height: number;
-  completed: boolean;
 }) {
   const holdListeners = useCardHold(card.id);
   return (
@@ -779,7 +775,7 @@ function PlacedOnStripCard({
       style={{ top, zIndex }}
       {...holdListeners}
     >
-      <TableCardImage instance={card} width={width} height={height} completed={completed} className="rounded-sm" />
+      <TableCardImage instance={card} width={width} height={height} className="rounded-sm" />
     </div>
   );
 }
@@ -1696,7 +1692,8 @@ export function MissionCard({
                 reach={underReach}
               />
               {/* The strips of the placed cards (#1099) and the span (#1133), on the upright card's box.
-                  They turn with a completed mission (#1060), so they stay where the card prints them. */}
+                  They turn with a completed mission (#1060), so they stay where the card prints them, but
+                  the strips' cards keep their look (#1559). */}
               <div
                 data-testid={`mission-strips-${missionIndex}`}
                 className="absolute left-1/2 top-1/2 pointer-events-none motion-safe:transition-transform motion-reduce:transition-none"
@@ -1714,7 +1711,6 @@ export function MissionCard({
                     name={cardDisplayName(mission.card)}
                     cards={placedOn.filter((c) => placedOnGroupOf(c) === group)}
                     layout={stripLayout}
-                    completed={completed}
                     onTap={onStripTap}
                   />
                 ))}
