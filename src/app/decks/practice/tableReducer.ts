@@ -155,6 +155,9 @@ export interface TableState {
   // affiliations of that deck's personnel. Absent in a bot game: the Chula pile, as `?fixture=bot`
   // and a save from before #1520 deal. Only a new game sets or clears it.
   botPile?: BotPileInfo;
+  // The bot of a bot game used Unexpected Difficulties (#1563), which it may do once a game. Only
+  // `botAttempt` sets it, and a new game clears it.
+  botUsedUnexpectedDifficulties?: true;
 }
 
 // A mission attempt (#1163): the mission's slot index, the attempting ship at a space mission
@@ -264,7 +267,10 @@ export type TableAction =
   // stack before the dispatch, so the reducer stays deterministic. `pile` is the dilemma pile after
   // the draw, `drawn` the ids of the drawn cards in draw order, taken out of the current pile, and
   // `stack` the ids the bot put in the stack, in stack order. `random` says the bot chose at random.
-  // It refuses exactly when `startAttempt` does, and when a drawn id is not in the pile.
+  // `redrawn`, when the bot used Unexpected Difficulties (#1563), holds the ids of its first draw, which
+  // it put on the bottom of the pile before it drew `drawn`; `pile` is then the pile after both draws.
+  // It refuses exactly when `startAttempt` does, and when a drawn id is not in the pile, and a redraw
+  // when the bot used the card already or its deck lacks it.
   | ({ type: 'botAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'botDraw' | 'botSpend' | 'botChoseNone' | 'botStack' | 'botRevealed'> & {
       botDraw: number;
       botSpend: number;
@@ -272,6 +278,7 @@ export type TableAction =
       drawn: string[];
       stack: string[];
       random: boolean;
+      redrawn?: string[];
     })
   // Ends the attempt in progress, and moves every dilemma still in the dilemma stack under the
   // attempted mission, face up, in stack order (#1170). Does nothing when no attempt is in progress.
@@ -918,6 +925,11 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       if (started === state) return state;
       const drawnCards = drawn.map((id) => state.dilemmaPile.find((c) => c.id === id));
       if (drawnCards.some((c) => !c) || pile.length + drawn.length !== state.dilemmaPile.length) return state;
+      const { redrawn } = action;
+      if (redrawn) {
+        if (state.botUsedUnexpectedDifficulties || !state.botPile?.unexpectedDifficulties) return state;
+        if (!redrawn.every((id) => state.dilemmaPile.some((c) => c.id === id))) return state;
+      }
       // The drawn cards enter the dilemma hand as the choice-phase draw puts them, counted, then the
       // bot's stack moves in, and the switch to `'face'` turns it face down and returns the rest.
       const withHand: TableState = {
@@ -929,7 +941,11 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const stacked = stack.reduce<TableState>((s, id) => tableReducer(s, { type: 'move', id, to: 'dilemmaStack' }), withHand);
       const faced = tableReducer(stacked, { type: 'setAttemptPhase', phase: 'face' });
       const attempt: Attempt = { ...faced.attempt!, botStack: [...stack], botRevealed: [] };
-      return { ...faced, attempt: stack.length ? attempt : { ...attempt, botChoseNone: true } };
+      return {
+        ...faced,
+        attempt: stack.length ? attempt : { ...attempt, botChoseNone: true },
+        ...(redrawn ? { botUsedUnexpectedDifficulties: true as const } : {}),
+      };
     }
 
     case 'endAttempt': {

@@ -230,7 +230,8 @@ const isValidBotPile = (botPile: unknown): boolean =>
   typeof botPile.id === 'string' &&
   typeof botPile.name === 'string' &&
   (botPile.affiliations === undefined ||
-    (Array.isArray(botPile.affiliations) && botPile.affiliations.every((a: unknown) => typeof a === 'string')));
+    (Array.isArray(botPile.affiliations) && botPile.affiliations.every((a: unknown) => typeof a === 'string'))) &&
+  (botPile.unexpectedDifficulties === undefined || botPile.unexpectedDifficulties === true);
 
 // A saved log (#1400) loads only when every entry is an object with a numeric turn and a kind the
 // log knows. A bad log loads as an empty one and never drops the table.
@@ -248,6 +249,8 @@ function repairTable(table: TableState): TableState {
   if (table.opponent !== 'bot') delete table.opponent;
   // The bot's pile (#1520) loads only in a bot game and only when sound. Absent: the Chula pile.
   if (table.opponent !== 'bot' || !isValidBotPile(table.botPile)) delete table.botPile;
+  // The bot's use of Unexpected Difficulties (#1563) loads only in a bot game.
+  if (table.opponent !== 'bot' || table.botUsedUnexpectedDifficulties !== true) delete table.botUsedUnexpectedDifficulties;
   // The dilemma stack holds cards only during an attempt (#1170). A save with stack cards and no
   // attempt, such as one from before #1170, sends them to the bottom of the dilemma pile, face down.
   if (!table.attempt && table.dilemmaStack.length) {

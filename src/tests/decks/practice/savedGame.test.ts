@@ -177,6 +177,23 @@ describe('savedGame', () => {
     expect('botPile' in fromSavedGame(JSON.stringify(bad), deck)!.table).toBe(false);
   });
 
+  it('keeps the bot\'s Unexpected Difficulties and its use in a bot game, and drops them outside one (#1563)', () => {
+    const botPile = { id: 'beginner:tos.txt', name: 'TOS', affiliations: ['federation'], unexpectedDifficulties: true as const };
+    const used = { ...dealtTable(), opponent: 'bot' as const, botPile, botUsedUnexpectedDifficulties: true as const };
+    const restored = fromSavedGame(JSON.stringify(toSavedGame(used, deck, 'builder')), deck)!.table;
+    expect(restored.botPile).toEqual(botPile);
+    expect(restored.botUsedUnexpectedDifficulties).toBe(true);
+    const solo = fromSavedGame(JSON.stringify(toSavedGame({ ...used, opponent: undefined }, deck, 'builder')), deck)!.table;
+    expect('botUsedUnexpectedDifficulties' in solo).toBe(false);
+    expect('botPile' in solo).toBe(false);
+    const bad: any = toSavedGame(used, deck, 'builder');
+    bad.table.botUsedUnexpectedDifficulties = 'yes';
+    bad.table.botPile.unexpectedDifficulties = 1;
+    const repaired = fromSavedGame(JSON.stringify(bad), deck)!.table;
+    expect('botUsedUnexpectedDifficulties' in repaired).toBe(false);
+    expect('botPile' in repaired).toBe(false);
+  });
+
   it('drops an opponent that is not the bot (#1289)', () => {
     const save: any = toSavedGame(dealtTable(), deck, 'builder');
     save.table.opponent = 'human';

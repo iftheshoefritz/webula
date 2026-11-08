@@ -25,6 +25,29 @@ export interface BotPileChoice {
  */
 export interface BotPileInfo extends BotPileChoice {
   affiliations?: string[];
+  // The deck's `Deck:` section holds Unexpected Difficulties (#1563), so the bot may redraw its dilemmas
+  // once a game. Absent: it does not, as in a save from before #1563.
+  unexpectedDifficulties?: true;
+}
+
+/** The title of the card that lets the bot redraw its dilemmas once a game (#1563). */
+export const UNEXPECTED_DIFFICULTIES = 'Unexpected Difficulties';
+
+/**
+ * Whether a deck file's `Deck:` section, its draw deck, holds `title`, matched through `pileTitleOf` as
+ * `botAffiliationsOf` matches a line, so a version suffix such as `*VP` or `(Promo)` does not count.
+ */
+export function deckSectionHolds(deckText: string, title: string): boolean {
+  let section = '';
+  for (const line of deckText.split('\n')) {
+    if (/^\w+:\s*$/.test(line)) {
+      section = line.trim();
+      continue;
+    }
+    const match = /^(\d+)\t(.+?)\s*$/.exec(line);
+    if (match && section === 'Deck:' && Number(match[1]) > 0 && pileTitleOf(match[2]) === title) return true;
+  }
+  return false;
 }
 
 export const CHULA_BOT_PILE: BotPileChoice = { id: CHULA_BOT_PILE_ID, name: CHULA_BOT_PILE_NAME };
@@ -59,13 +82,14 @@ export function botPileChoices(
 /**
  * The bot's dilemma pile from a deck file: the dilemma rows of `deck`, the deck file parsed by
  * `deckFromTsv`, less every row whose title the registry marks `'ignore'` (#1320), and the
- * affiliations of its `Deck:` section. Titles match through `pileTitleOf`, as `botPileOf` keys them.
+ * affiliations of its `Deck:` section, and whether that section holds Unexpected Difficulties (#1563).
+ * Titles match through `pileTitleOf`, as `botPileOf` keys them.
  */
 export function botPileDeckOf(
   deckText: string,
   deck: DeckList,
   rows: ReadonlyArray<DeckCardRow>,
-): { pile: DeckList; affiliations: string[] } {
+): { pile: DeckList; affiliations: string[]; unexpectedDifficulties: boolean } {
   const ignored = new Set(botPileOf(deckText).ignored);
   const pile: DeckList = {};
   for (const [key, entry] of Object.entries(deck)) {
@@ -73,5 +97,9 @@ export function botPileDeckOf(
     if (ignored.has(pileTitleOf(String(entry.row.originalName ?? '')))) continue;
     pile[key] = entry;
   }
-  return { pile, affiliations: botAffiliationsOf(deckText, rows) };
+  return {
+    pile,
+    affiliations: botAffiliationsOf(deckText, rows),
+    unexpectedDifficulties: deckSectionHolds(deckText, UNEXPECTED_DIFFICULTIES),
+  };
 }
