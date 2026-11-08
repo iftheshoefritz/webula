@@ -1018,13 +1018,13 @@ type MissionCountsProps = {
   iconHeight?: number;
 };
 
-// The away team badge, and to its right the count of the events placed on the mission card
-// (#1069), then the count of the dilemmas placed on it (#1081), each only when its count is above
-// 0.
+// The away team badge (#1565), and to its right the count of the events placed on the mission
+// card (#1069), then the count of the dilemmas placed on it (#1081), each only when its count is
+// above 0.
 function MissionCountPills({ missionIndex, awayTeamCount, onOpenPile, placedOn, height, showAwayTeam, iconHeight }: MissionCountsProps) {
   return (
     <>
-      {showAwayTeam && (
+      {showAwayTeam && awayTeamCount > 0 && (
         <PileBadge
           missionIndex={missionIndex}
           pile="awayTeam"
@@ -1054,7 +1054,8 @@ function MissionCountPills({ missionIndex, awayTeamCount, onOpenPile, placedOn, 
 }
 
 // The badge strip below a cropped mission, the touch full table's (#602). The strip stays
-// centred, so the away team badge shifts left as the other badges appear.
+// centred, so the away team badge shifts left as the other badges appear. It keeps its height
+// when it holds no badge, so the ship row does not move (#1565).
 function BadgeStrip(props: MissionCountsProps) {
   return (
     <div className="w-full flex items-center justify-center gap-0.5" style={{ height: props.height }}>

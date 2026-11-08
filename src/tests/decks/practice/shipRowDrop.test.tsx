@@ -374,10 +374,8 @@ describe('Practice draw: dropping a hand card on a mission or its ship row', () 
 
       await drop(draggedId, 'mission-pile-awayTeam-0');
 
-      expect(document.body.querySelector('[data-testid="mission-pile-awayTeam-0"]')).toHaveAttribute(
-        'aria-label',
-        'Away team, 0 cards'
-      );
+      // The away team stays empty, so it shows no badge (#1565).
+      expect(document.body.querySelector('[data-testid="mission-pile-awayTeam-0"]')).toBeNull();
     });
 
     // The under-mission pile has no badge of its own: its stack sits inside the mission card's drop
