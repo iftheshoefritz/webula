@@ -38,14 +38,13 @@ const emptySlot = (): MissionSlot => ({
 });
 
 describe('MissionRow', () => {
-  // #813: the event pile is gone, so the mission shows no event badge, and the away team badge is
-  // the only way to file a card into the away team by a drag, so it shows with an empty pile.
-  it('shows no event badge, and shows the away team badge with an empty pile', () => {
-    const onOpenPile = jest.fn();
+  // #813: the event pile is gone, so the mission shows no event badge. #1565: an empty away team
+  // shows no away team badge either, as the events and dilemmas badges show only above 0.
+  it('shows no event badge, and no away team badge with an empty away team', () => {
     render(
       <MissionRow
         missions={[emptySlot()]}
-        onOpenPile={onOpenPile}
+        onOpenPile={() => {}}
         onShipClick={() => {}}
         onOpenShipRow={() => {}}
         onOpenPlacedOn={() => {}}
@@ -54,12 +53,26 @@ describe('MissionRow', () => {
 
     expect(screen.queryByRole('button', { name: /event pile/i })).not.toBeInTheDocument();
     expect(document.body.querySelector('[data-zone="mission-pile-event-0"]')).toBeNull();
-    const badge = screen.getByRole('button', { name: /^Away team, 0 cards$/i });
+    expect(screen.queryByTestId('mission-pile-awayTeam-0')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Away team/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the away team badge once the away team holds a card', () => {
+    const slot: MissionSlot = { ...emptySlot(), awayTeam: [card('p1', 'Data')] };
+    render(
+      <MissionRow
+        missions={[slot]}
+        onOpenPile={() => {}}
+        onShipClick={() => {}}
+        onOpenShipRow={() => {}}
+        onOpenPlacedOn={() => {}}
+      />
+    );
+
+    const badge = screen.getByTestId('mission-pile-awayTeam-0');
+    expect(badge).toHaveTextContent('1');
     // The badge is not a drop target of its own (#924): the mission's bottom half reaches over it.
     expect(badge).not.toHaveAttribute('data-zone');
-    expect(badge).toHaveAttribute('data-testid', 'mission-pile-awayTeam-0');
-    fireEvent.click(badge);
-    expect(onOpenPile).not.toHaveBeenCalled();
   });
 
   it('opens the away team from its badge once it holds a card', () => {
@@ -158,6 +171,7 @@ describe('MissionRow', () => {
     const onOpenPlacedOn = jest.fn();
     const slot: MissionSlot = {
       ...emptySlot(),
+      awayTeam: [card('p1', 'Data')],
       mission: { ...card('mission-0', 'A Mission'), placedOn: [card('e1', 'An Event')] },
     };
     render(
@@ -199,6 +213,7 @@ describe('MissionRow', () => {
     const onOpenPlacedOn = jest.fn();
     const slot: MissionSlot = {
       ...emptySlot(),
+      awayTeam: [card('p1', 'Data')],
       mission: { ...card('mission-0', 'A Mission'), placedOn: [card('e1', 'An Event'), dilemma('d1', 'A Dilemma')] },
       underMission: [dilemma('d2', 'Under'), dilemma('d3', 'Under Too')],
     };
@@ -248,6 +263,7 @@ describe('MissionRow', () => {
   it('bumps only the badge of the group that gained the dropped card', () => {
     const before: MissionSlot = {
       ...emptySlot(),
+      awayTeam: [card('p1', 'Data')],
       mission: { ...card('mission-0', 'A Mission'), placedOn: [card('e1', 'An Event'), dilemma('d1', 'A Dilemma')] },
     };
     const after: MissionSlot = {

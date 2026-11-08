@@ -117,7 +117,9 @@ ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 # piles use, misses the regex and is ignored. The key is the badge's own
 # data-zone if it has one (the closed hand and dilemma hand are their own drop
 # target). The away team badge is not a drop target (#924), so its key is its
-# data-testid, `mission-pile-awayTeam-<index>`. It sits below the mission card,
+# data-testid, `mission-pile-awayTeam-<index>`. It shows only while the away
+# team holds a card (#1565): a badge missing before the drag counts as 0, and to
+# drop into an empty away team aim at `mission-on-<index>`. It sits below the mission card,
 # not nested inside the bottom half's element, so scoping the search to the
 # target zone's own subtree would miss it. The one badge with neither, the hidden button of the dilemmas stacked under a mission, sits in
 # the stack, whose data-testid is `mission-under-<index>-stack` (#920). Its key
