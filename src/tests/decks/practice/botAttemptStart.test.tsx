@@ -115,11 +115,36 @@ describe('the botAttempt action (#1299)', () => {
     expect(game.log).toHaveLength(1);
     const text = logEntryText(game.log[0]);
     expect(text).toMatch(/the bot drew 9 dilemmas and put 3 in the stack/);
-    expect(text).not.toMatch(/Dilemma 4|Dilemma 1\b|Dilemma 7/);
-    expect(text).toMatch(/Dilemma 0, .*Dilemma 8 to the bottom of the dilemma pile/);
+    // The dilemmas the bot did not choose are counted, never named (#1561).
+    expect(text).toMatch(/, and moved 6 dilemmas to the bottom of the dilemma pile$/);
+    expect(text).not.toMatch(/Dilemma \d/);
+    expect(JSON.stringify(game.log)).not.toMatch(/Dilemma \d/);
     const undone = gameReducer(game, { type: 'undo' });
     expect(undone.table).toBe(before.table);
     expect(undone.table.attempt).toBeUndefined();
+  });
+
+  it('counts one returned dilemma as "1 dilemma" (#1561)', () => {
+    const before = initialGameState(botTable());
+    const game = gameReducer(before, botAction(before.table, ['d0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7']));
+    const text = logEntryText(game.log[0]);
+    expect(text).toMatch(/, and moved 1 dilemma to the bottom of the dilemma pile$/);
+    expect(text).not.toMatch(/Dilemma \d/);
+  });
+
+  it('gives only the count for an entry of a save from before #1561, which names the returned dilemmas', () => {
+    const text = logEntryText({
+      turn: 1,
+      kind: 'botAttempt',
+      mission: 'Moab IV',
+      personnel: 12,
+      subtract: 3,
+      drew: 9,
+      stacked: 7,
+      returned: ['Dilemma 0', 'Dilemma 8'],
+    });
+    expect(text).toMatch(/put 7 in the stack, and moved 2 dilemmas to the bottom of the dilemma pile$/);
+    expect(text).not.toMatch(/Dilemma \d/);
   });
 
   it('marks an attempt the bot started with an empty stack (#1536), and no other', () => {
