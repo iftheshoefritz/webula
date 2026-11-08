@@ -99,6 +99,8 @@ dilemma('Hippocratic Oath', D, 3, 'own', (s) => {
 
 dilemma('Identity Theft', D, 4, 'own', (s) => {
   const copies = s.attempt.table.discardCopiesMax;
+  const title = s.attempt.table.discardCopiesTitle;
+  if (copies >= 1 && title) s.label(`Named ${title}`);
   if (copies >= 1) s.stop(s.playerChooses(s.unstopped()));
   if (copies >= 2) s.kill(s.select(1));
   if (copies >= 3) s.stopAll();

@@ -90,7 +90,11 @@ dilemma('Divergent Goals', P, 2, 'unless-selected', unlessSelected(3, 'Anthropol
 
 dilemma('Assassination Attempt', P, 4, 'select-each-without', selectEachWithout(2, hasAny('treachery'), 'kill'));
 
-dilemma('Compromised Experiment', D, 1, 'random-select', (s) => s.stop(s.select(s.attempt.table.eventDecayMax ?? 0)), {
+dilemma('Compromised Experiment', D, 1, 'random-select', (s) => {
+  const title = s.attempt.table.eventDecayTitle;
+  if (title) s.label(`Chose ${title}`);
+  s.stop(s.select(s.attempt.table.eventDecayMax ?? 0));
+}, {
   gap: 'the bot chooses the event with the highest Decay',
 });
 

@@ -48,6 +48,8 @@ export interface PileTable {
   handHasCunning7Or11: boolean;
   /** The most copies of one card in the player's discard pile (Identity Theft). */
   discardCopiesMax: number;
+  /** The title of the card with `discardCopiesMax` copies, the first in discard order (Identity Theft's label). Absent: none. */
+  discardCopiesTitle?: string;
   /** For each of the player's missions, the skills it requires, as indexes of `BOT_SKILLS`. */
   missionSkills: number[][];
   /** The titles of the dilemmas already beneath the attempted mission. */
@@ -74,6 +76,8 @@ export interface PileTable {
    * chooses the event). Absent: 0, no effect.
    */
   eventDecayMax?: number;
+  /** The title of the event with `eventDecayMax`, the first in core order (Compromised Experiment's label). Absent: none. */
+  eventDecayTitle?: string;
   /** The Trellium-D the player commands (Elemental Instability). Absent: 0. */
   trelliumD?: number;
   /** The highest cost among the cards in the player's hand (Gorgan's label). Absent: unknown. */

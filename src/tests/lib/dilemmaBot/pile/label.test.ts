@@ -170,4 +170,26 @@ describe('the label of the bot\'s choice (#1574)', () => {
     expect(text).not.toContain('Chose');
     expect(text).not.toContain(title);
   });
+
+  // Issue #1575: the bot's choice of a card that is not a personnel.
+  it('gives Compromised Experiment the core event of the highest Decay it chooses (#1575)', () => {
+    const core = [
+      { type: 'event', originalName: 'Low Decay', keywords: 'Decay: 1.' },
+      { type: 'event', originalName: 'High Decay *VP', keywords: 'Decay: 3.' },
+      { type: 'interrupt', originalName: 'Not An Event' },
+    ];
+    const text = pileLabelOf({ originalName: 'Compromised Experiment' }, attempt({ core }));
+    expect(text).toBe('Chose High Decay');
+    expect(text).not.toContain('Compromised Experiment');
+    expect(pileLabelOf({ originalName: 'Compromised Experiment' }, attempt({ core: [{ type: 'interrupt', originalName: 'Not An Event' }] }))).toBeNull();
+    expect(pileLabelOf({ originalName: 'Compromised Experiment' }, attempt())).toBeNull();
+  });
+
+  it('gives Identity Theft the card of the discard pile with the most copies it names (#1575)', () => {
+    const discard = [{ originalName: 'Kira' }, { originalName: 'Sylvia' }, { originalName: 'Sylvia *VP' }];
+    const text = pileLabelOf({ originalName: 'Identity Theft' }, attempt({ discard }));
+    expect(text).toBe('Named Sylvia');
+    expect(text).not.toContain('Identity Theft');
+    expect(pileLabelOf({ originalName: 'Identity Theft' }, attempt())).toBeNull();
+  });
 });
