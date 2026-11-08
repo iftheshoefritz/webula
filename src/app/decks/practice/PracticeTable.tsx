@@ -130,7 +130,7 @@ import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { PanelLocation, RevealIcon, ShuffleIcon } from './CardListPanel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
-import { PILE_CARD_BORDER_STYLE, cardBorderStyle, SMALL_CARD_WIDTH, TableCardImage } from './TableCard';
+import { PILE_CARD_BORDER_STYLE, RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, cardBorderStyle, SMALL_CARD_WIDTH, TableCardImage } from './TableCard';
 import {
   DESKTOP_RESERVED_SHIP_ROWS,
   TOUCH_RESERVED_SHIP_ROWS,
@@ -949,9 +949,11 @@ function DiscardPileCard({
         width={120}
         height={167}
         alt="Discard pile"
-        className="rounded-lg shadow-lg h-auto"
+        className={`rounded-lg shadow-lg h-auto ${topCard.removedFromGame ? STOPPED_IMAGE_CLASSNAME : ''}`}
         style={{ ...cardBorderStyle(cardWidth), width: cardWidth }}
       />
+      {/* A top card removed from the game (#1564) shows the look of the panel's card. */}
+      {topCard.removedFromGame && <RemovedFromGameLabel />}
       <CountBadge count={count} landedNonce={landedNonce} />
     </div>
   );
@@ -2559,6 +2561,11 @@ function PracticeDrawContent() {
     dispatch({ type: 'setStopped', ids, stopped });
   };
 
+  // The discard pile panel's Remove from game button (#1564). Keeps the selection, as Stop does.
+  const setRemovedFromGameForSelection = (ids: string[], removedFromGame: boolean) => {
+    dispatch({ type: 'setRemovedFromGame', ids, removedFromGame });
+  };
+
   // Turns each id over on its own (#762's card list panel Flip button): one `flip` per card, so a
   // mixed selection stays mixed, inverted. Keeps the selection afterward, as with Stop.
   const flipSelection = (ids: string[]) => {
@@ -3859,6 +3866,7 @@ function PracticeDrawContent() {
                       : setStoppedForSelection
                   }
                   onDiscard={openFlatLocation === 'discard' ? undefined : discardSelection}
+                  onSetRemovedFromGame={openFlatLocation === 'discard' ? setRemovedFromGameForSelection : undefined}
                   // The dilemma pile's Download moves cards into the dilemma hand, so it is offered only
                   // while the dilemma hand shows (#1223).
                   onDownload={

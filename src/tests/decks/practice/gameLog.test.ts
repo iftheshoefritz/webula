@@ -221,6 +221,16 @@ describe('gameReducer: which actions make an entry (#1065)', () => {
     expect(run(table({ core: [data] }), { type: 'setStopped', ids: ['c1'], stopped: false }).log).toEqual([]);
   });
 
+  it('logs only the cards whose removed-from-game flag changed (#1564)', () => {
+    const start = table({ discard: [data, { ...worf, removedFromGame: true }] });
+    const state = run(start, { type: 'setRemovedFromGame', ids: ['c1', 'c2'], removedFromGame: true });
+    expect(logEntryText(onlyEntry(state))).toBe('Removed Data from the game');
+    expect(logEntryText(onlyEntry(run(start, { type: 'setRemovedFromGame', ids: ['c2'], removedFromGame: false })))).toBe(
+      'Returned Worf to the game'
+    );
+    expect(run(table({ discard: [data] }), { type: 'setRemovedFromGame', ids: ['c1'], removedFromGame: false }).log).toEqual([]);
+  });
+
   it('logs a mission completion, and none for the value it already holds', () => {
     const start = table({ missions: slots([{ mission: excavation }]) });
     const state = run(start, { type: 'setMissionCompleted', missionIndex: 0, completed: true });

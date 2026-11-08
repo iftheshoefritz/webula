@@ -38,6 +38,11 @@ export interface CardInstance {
   // is stopped (#903): a move into an off-table zone (see `OFF_TABLE_ZONES`) clears the flag, and
   // a move between two places on the table keeps it.
   stopped?: boolean;
+  // Whether a card in the discard pile is removed from the game (#1564): shown with the stopped
+  // look and a "Removed from game" label. Absent when false, the same as `stopped`. Any card type
+  // can carry it, and the next turn leaves it alone. Only a card in the discard pile gains it, and
+  // any move out of the discard pile clears it; a drop back into the discard pile keeps it.
+  removedFromGame?: boolean;
   // Whether a double-sided mission shows its back face (#765): the image named by the card's
   // `backimagefile`, not the generic card back. It is not `face`: `face: 'down'` means "show
   // cardback.jpg" for every card, and `flip` never applies to a mission. Absent when the front is
@@ -244,6 +249,9 @@ export type TableAction =
   // `withCardsAt` (the same helpers `move` uses) instead of per-zone branches, since setting
   // `stopped` has no zone-dependent behaviour to encode.
   | { type: 'setStopped'; ids: string[]; stopped: boolean }
+  // Sets one or more cards' `removedFromGame` flag to a single value (#1564), the same way
+  // `setStopped` does: the discard pile panel's Remove from game button acts on its selection.
+  | { type: 'setRemovedFromGame'; ids: string[]; removedFromGame: boolean }
   // Marks a mission complete or not complete (#991), by its slot index, to an explicit value like
   // `setStopped`. Does nothing to an index out of range or a slot with no mission card. It never
   // changes the score: the points a mission earns vary, so scoring stays manual (`adjustScore`).
@@ -726,6 +734,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         ...(discardsOn ? { placedOn: undefined } : {}),
         // Only a mission card in its slot shows its back face (#765).
         ...(card.flipped ? { flipped: undefined } : {}),
+        // A card that leaves the discard pile is back in the game (#1564).
+        ...(card.removedFromGame && !toSameLocation ? { removedFromGame: undefined } : {}),
       };
       const releasedCrew = releasesCrew
         ? card.crew!.map((c) => ({ ...unstopFor(action.to, c), face: entryFace(state, action.to) }))
@@ -807,7 +817,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       return { ...state, [action.zone]: arrayMove(cards, fromIndex, toIndex) };
     }
 
-    case 'setStopped': {
+    case 'setStopped':
+    case 'setRemovedFromGame': {
       // Each id applies to whatever state the previous id's update left behind, so multiple ids
       // in different zones (say, one card in the core and another in a mission's away team)
       // all update correctly off one action.
@@ -815,7 +826,10 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         const found = findInstanceAnywhere(currentState, id);
         if (!found) return currentState;
         const { zone, instance } = found;
-        const updated = { ...instance, stopped: action.stopped };
+        const updated =
+          action.type === 'setStopped'
+            ? { ...instance, stopped: action.stopped }
+            : { ...instance, removedFromGame: action.removedFromGame || undefined };
         if (zone === 'missions') {
           const idx = currentState.missions.findIndex((slot) => slot.mission?.id === id);
           const missions = currentState.missions.map((slot, i) => (i === idx ? { ...slot, mission: updated } : slot));
