@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
 import { EMPTY_LOG_TEXT, gameLogText, LogEntry, logByTurn, logEntryText } from './gameLog';
@@ -7,13 +7,31 @@ import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 // How long the Copy button says "Copied" or "Copy failed".
 const COPY_FEEDBACK_MS = 1500;
 
+// How close to the end, in px, the list counts as scrolled to the end.
+const AT_END_SLACK = 4;
+
 // The game log (#1065), opened by the game log button under the undo button (#1399): the entries grouped by turn, oldest first,
-// read-only. Copy puts the whole log on the clipboard as plain text. A tap on the backdrop or
+// read-only. It opens scrolled to the end, so the newest entry shows (#1562), and while it is
+// open it follows a new entry (an undo or a redo by the keyboard) only when it was at the end.
+// Copy puts the whole log on the clipboard as plain text. A tap on the backdrop or
 // Escape closes it, the same as the Decklist panel.
 export default function GameLogPanel({ log, onClose }: { log: LogEntry[]; onClose: () => void }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEscapeLayer(onClose);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  // Whether the list was at its end at the last scroll; true on mount, so it opens at the end.
+  const atEndRef = useRef(true);
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el && atEndRef.current) el.scrollTop = el.scrollHeight;
+  }, [log]);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (el) atEndRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= AT_END_SLACK;
+  };
 
   useEffect(
     () => () => {
@@ -49,7 +67,7 @@ export default function GameLogPanel({ log, onClose }: { log: LogEntry[]; onClos
             {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy'}
           </button>
         </div>
-        <div className="overflow-y-auto">
+        <div ref={scrollRef} onScroll={onScroll} data-testid="game-log-scroll" className="overflow-y-auto">
           {log.length === 0 ? (
             <p className="py-1 text-sm text-text-muted">{EMPTY_LOG_TEXT}</p>
           ) : (
