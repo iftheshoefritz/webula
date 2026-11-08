@@ -908,12 +908,17 @@ describe('MissionRow: the strips of the cards placed on a mission (#1099)', () =
     expect(startHold).toHaveBeenCalledWith('e1', expect.anything());
   });
 
-  it('turns the strips with a completed mission, and darkens their cards', () => {
-    renderRow(withPlaced([card('e1', 'Event 1')], true));
+  it('turns the strips with a completed mission, and does not darken their cards (#1559)', () => {
+    renderRow(withPlaced([card('e1', 'Event 1'), dilemma('d1', 'Dilemma 1')], true));
     const strips = screen.getByTestId('mission-strips-0');
     expect(strips.style.transform).toBe(`translate(-50%, -50%) rotate(90deg) scale(${turnedMissionScale(1)})`);
-    expect(strips).toContainElement(strip('events'));
-    expect(strip('events').querySelector('img')).toHaveClass('brightness-50');
+    for (const group of ['events', 'dilemmas'] as const) {
+      expect(strips).toContainElement(strip(group));
+      const image = strip(group).querySelector('img');
+      expect(image).not.toBeNull();
+      expect(image).not.toHaveClass('brightness-50');
+    }
+    expect(document.body.querySelector('[data-card-id="mission-0"] img')).toHaveClass('brightness-50');
     expect(document.body.querySelector('[data-card-id="mission-0"]')!.closest('div.flex-col')).toHaveStyle({
       width: '72px',
     });
