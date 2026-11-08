@@ -749,14 +749,19 @@ export default function CardListPanel({
   // cards below it do.
   const stackEndLabelClassName = 'shrink-0 text-[10px] font-bold uppercase tracking-wide text-text-secondary';
 
-  const { selectedPersonnel, allSelectedStopped, unstoppedPersonnel } = stopButtons(cards, selectedIds);
+  const { selectedPersonnel, allSelectedStopped, unstoppedPersonnel, stoppedPersonnel, allPersonnelStopped } =
+    stopButtons(cards, selectedIds);
   const showStopButton = onSetStopped !== undefined && selectedPersonnel.length > 0;
   const handleStopTap = () => onSetStopped?.(selectedPersonnel.map((instance) => instance.id), !allSelectedStopped);
   // #995: a ship's crew panel and a mission's away team panel also get "Stop all", which stops
-  // every personnel card of the panel, with or without a selection. It is disabled once every
-  // personnel card there is already stopped.
+  // every personnel card of the panel, with or without a selection. Once every personnel card
+  // there is stopped it reads "Unstop all" and unstops them (#1560). It is disabled only when the
+  // panel holds no personnel.
   const showStopAllButton = onSetStopped !== undefined && (location === 'crew' || location === 'awayTeam');
-  const handleStopAllTap = () => onSetStopped?.(unstoppedPersonnel.map((instance) => instance.id), true);
+  const handleStopAllTap = () =>
+    allPersonnelStopped
+      ? onSetStopped?.(stoppedPersonnel.map((instance) => instance.id), false)
+      : onSetStopped?.(unstoppedPersonnel.map((instance) => instance.id), true);
   const selectedInPanel = cards.filter((instance) => selectedIds.includes(instance.id));
   const showFlipButton = onFlip !== undefined && selectedInPanel.length > 0;
   const handleFlipTap = () => onFlip?.(selectedInPanel.map((instance) => instance.id));
@@ -953,10 +958,10 @@ export default function CardListPanel({
               <button
                 type="button"
                 onClick={handleStopAllTap}
-                disabled={unstoppedPersonnel.length === 0}
+                disabled={!allPersonnelStopped && unstoppedPersonnel.length === 0}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Stop all
+                {allPersonnelStopped ? 'Unstop all' : 'Stop all'}
               </button>
             )}
             {showFlipButton && (

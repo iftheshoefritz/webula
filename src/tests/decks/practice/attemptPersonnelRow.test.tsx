@@ -206,7 +206,20 @@ describe('the row of the attempting personnel (#1165)', () => {
     });
     const team = savedTable().missions[0].awayTeam;
     expect(team.filter((c) => isType(c, 'personnel')).every((c) => c.stopped)).toBe(true);
-    expect(screen.queryByTestId('attempt-row-stop-all')).toBeNull();
+    // #1560: with every personnel stopped, the button reads Unstop all and unstops them.
+    expect(screen.getByTestId('attempt-row-stop-all')).toHaveTextContent(/^Unstop all$/);
+    const allStopped = stopped();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('attempt-row-stop-all'));
+    });
+    expect(stopped()).toEqual([]);
+    expect(screen.getByTestId('attempt-row-stop-all')).toHaveTextContent(/^Stop all$/);
+    // One undo takes the whole tap back.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('undo-button'));
+    });
+    expect(stopped()).toEqual(allStopped);
+    expect(screen.getByTestId('attempt-row-stop-all')).toHaveTextContent(/^Unstop all$/);
   });
 
   it('shuffles the crew of the attempting ship from the row (#1179)', async () => {

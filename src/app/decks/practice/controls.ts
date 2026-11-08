@@ -194,11 +194,11 @@ export const CONTROL_ROWS: ControlRow[] = [
   {
     id: 'attempt-personnel-buttons',
     section: 'Mission attempt',
-    action: 'Stop, Stop all, Shuffle',
+    action: 'Stop, Stop all, Unstop all, Shuffle',
     touch:
-      'While facing dilemmas, under the attempting personnel: tap cards to select them, then Stop or Unstop. Stop all stops every one, and Shuffle shuffles the away team or the crew.',
+      'While facing dilemmas, under the attempting personnel: tap cards to select them, then Stop or Unstop. Stop all stops every one, Unstop all unstops every one once all are stopped, and Shuffle shuffles the away team or the crew.',
     mouse:
-      'While facing dilemmas, under the attempting personnel: click cards to select them, then Stop or Unstop. Stop all stops every one, and Shuffle shuffles the away team or the crew.',
+      'While facing dilemmas, under the attempting personnel: click cards to select them, then Stop or Unstop. Stop all stops every one, Unstop all unstops every one once all are stopped, and Shuffle shuffles the away team or the crew.',
   },
   {
     id: 'attempt-full-table',
@@ -236,7 +236,7 @@ export const CONTROL_ROWS: ControlRow[] = [
     id: 'stop-personnel',
     section: 'More than one card',
     action: 'Stop personnel',
-    ...both('Select, then Stop. A crew panel or an away team panel also has Stop all.'),
+    ...both('Select, then Stop. A crew panel or an away team panel also has Stop all, which reads Unstop all once every personnel is stopped.'),
   },
   {
     id: 'place-on-card',
