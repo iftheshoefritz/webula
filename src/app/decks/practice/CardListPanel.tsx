@@ -85,7 +85,7 @@ import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
 import { DILEMMA_STACK_CHOICE_END_LABELS, dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
-import TableCard, { STOPPED_IMAGE_CLASSNAME, STOPPED_OVERLAY_CLASSNAME, cardBorderStyle, cardBorderWidth } from './TableCard';
+import TableCard, { RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, STOPPED_OVERLAY_CLASSNAME, cardBorderStyle, cardBorderWidth } from './TableCard';
 import PersonnelOverlay, { ShipOverlay, hasPersonnelOverlay, hasShipOverlay } from './PersonnelOverlay';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
 import OverlapRow from './OverlapRow';
@@ -157,6 +157,7 @@ export function RevealIcon({ className = 'w-2.5 h-2.5' }: { className?: string }
 // #630 gives it the tap target on the table that opens this panel. The discard pile (#782) is an
 // eighth: a tap on it lists every discarded card, not just the top one the table shows. It has no
 // Shuffle and no Stop control: its order comes from play, and a discarded card is never stopped.
+// Its one control of its own is Remove from game (#1564), which marks the selected cards.
 // The cards placed on a card (#810) in the core or the brig are a ninth.
 // #932, #1544: the vertical scroll classes of a panel element that may overflow (the card grid,
 // the host section beside it, and the attempt personnel row). A touch device draws an overlay
@@ -355,6 +356,8 @@ function CardListPanelCard({
   const holdListeners = useCardHold(instance.id, listeners);
   const { card } = instance;
   const showFaceDownMark = markFaceDown && instance.face === 'down';
+  // A card removed from the game (#1564) shows the stopped look.
+  const greyed = instance.stopped || instance.removedFromGame;
 
   return (
     <div
@@ -397,7 +400,7 @@ function CardListPanelCard({
               width={CARD_IMAGE_WIDTH}
               height={CARD_IMAGE_HEIGHT}
               alt={cardDisplayName(card)}
-              className={`w-full h-full object-cover object-top ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+              className={`w-full h-full object-cover object-top ${greyed ? STOPPED_IMAGE_CLASSNAME : ''}`}
               style={NO_CALLOUT_STYLE}
             />
             {/* #1176: the icons and the attributes the crop cuts off. The panel shows the face of
@@ -408,7 +411,7 @@ function CardListPanelCard({
                 width={cardWidth}
                 cropHeight={cardHeight}
                 border={cardBorderWidth(cardWidth)}
-                className={instance.stopped ? STOPPED_OVERLAY_CLASSNAME : ''}
+                className={greyed ? STOPPED_OVERLAY_CLASSNAME : ''}
               />
             )}
             {/* #1336: the range, weapons and shields of a cropped ship. */}
@@ -418,7 +421,7 @@ function CardListPanelCard({
                 width={cardWidth}
                 cropHeight={cardHeight}
                 border={cardBorderWidth(cardWidth)}
-                className={instance.stopped ? STOPPED_OVERLAY_CLASSNAME : ''}
+                className={greyed ? STOPPED_OVERLAY_CLASSNAME : ''}
               />
             )}
           </div>
@@ -432,10 +435,11 @@ function CardListPanelCard({
             width={CARD_IMAGE_WIDTH}
             height={CARD_IMAGE_HEIGHT}
             alt={cardDisplayName(card)}
-            className={`rounded-md shadow-md h-auto ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
+            className={`rounded-md shadow-md h-auto ${greyed ? STOPPED_IMAGE_CLASSNAME : ''}`}
             style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
           />
         )}
+        {instance.removedFromGame && <RemovedFromGameLabel />}
         {/* Bottom left, clear of the select checkbox; it takes no tap, so the card still selects
             and drags. */}
         {showFaceDownMark && (
@@ -592,6 +596,7 @@ export default function CardListPanel({
   onSetStopped,
   onFlip,
   onDiscard,
+  onSetRemovedFromGame,
   onDownload,
   revealEnd = 'top',
   choosingDilemmas = false,
@@ -629,6 +634,11 @@ export default function CardListPanel({
   // Moves each id to the discard pile, in the panel's order (#787). Left out for the discard
   // pile's own panel, whose cards are already there.
   onDiscard?: (ids: string[]) => void;
+  // Sets `removedFromGame` to one explicit value on a list of ids (#1564), as `onSetStopped` does
+  // `stopped`. Given only for the discard pile; its presence shows the "Remove from game" button,
+  // disabled while nothing is selected, which reads "Return to game" once every selected card is
+  // removed.
+  onSetRemovedFromGame?: (ids: string[], removedFromGame: boolean) => void;
   // Moves each id into the pile's hand, in the panel's order, then shuffles the pile (#827).
   // Given only for the draw deck and the dilemma pile; `page.tsx` binds which pile and hand.
   // Its presence shows the "Download" button, disabled while nothing is selected.
@@ -768,6 +778,10 @@ export default function CardListPanel({
   const markFaceDown = onFlip !== undefined && location !== 'awayTeam';
   const showDiscardButton = onDiscard !== undefined;
   const handleDiscardTap = () => onDiscard?.(selectedInPanel.map((instance) => instance.id));
+  const showRemoveFromGameButton = onSetRemovedFromGame !== undefined;
+  const allSelectedRemoved = selectedInPanel.length > 0 && selectedInPanel.every((instance) => instance.removedFromGame);
+  const handleRemoveFromGameTap = () =>
+    onSetRemovedFromGame?.(selectedInPanel.map((instance) => instance.id), !allSelectedRemoved);
   const showDownloadButton = onDownload !== undefined;
   const handleDownloadTap = () => onDownload?.(selectedInPanel.map((instance) => instance.id));
   const showSendButtons = onSendToDeck !== undefined;
@@ -884,7 +898,7 @@ export default function CardListPanel({
         }}
       >
       <div className={layoutClassName}>
-        {(onAttempt || onReveal || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || onShuffle) && (
+        {(onAttempt || onReveal || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || showRemoveFromGameButton || onShuffle) && (
           <div data-testid="panel-controls" className="shrink-0 flex flex-row flex-wrap justify-center items-start gap-2">
             {/* The reveal panel's own controls (#1070, #1078). Both reveal buttons show even with no
                 card in the panel, so an empty panel always has a way to reveal. */}
@@ -977,6 +991,17 @@ export default function CardListPanel({
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Discard
+              </button>
+            )}
+            {showRemoveFromGameButton && (
+              <button
+                type="button"
+                onClick={handleRemoveFromGameTap}
+                disabled={selectedInPanel.length === 0}
+                data-testid="remove-from-game-button"
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {allSelectedRemoved ? 'Return to game' : 'Remove from game'}
               </button>
             )}
             {/* The Shuffle button (#680) sits inside the panel, next to the cards, not on the

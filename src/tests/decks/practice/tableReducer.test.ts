@@ -4,6 +4,7 @@ import {
   createCardInstances,
   findInstanceAnywhere,
   CardInstance,
+  TableState,
   MissionSlot,
   MISSION_SLOTS,
   FIXTURE_BRIG,
@@ -1008,6 +1009,34 @@ describe('tableReducer', () => {
       const state = tableReducer(start, { type: 'move', id: 'h0', to: 'discard' });
 
       expect(state.discard[0].flipped).toBeUndefined();
+    });
+  });
+
+  describe('setRemovedFromGame (#1564)', () => {
+    const event = instance('d0', card('Kris'), 'up');
+    const other = instance('d1', card('Data'), 'up');
+    const removed = (state: TableState) => state.discard.filter((c) => c.removedFromGame).map((c) => c.id);
+    const start = tableReducer({ ...initialTableState, discard: [event, other] }, { type: 'setRemovedFromGame', ids: ['d0'], removedFromGame: true });
+
+    it('marks and clears cards in the discard pile, and keeps them there', () => {
+      expect(removed(start)).toEqual(['d0']);
+      expect(start.discard).toHaveLength(2);
+      const cleared = tableReducer(start, { type: 'setRemovedFromGame', ids: ['d0'], removedFromGame: false });
+      expect(cleared.discard[0].removedFromGame).toBeUndefined();
+    });
+
+    it('keeps the mark through nextTurn', () => {
+      expect(removed(tableReducer(start, { type: 'nextTurn' }))).toEqual(['d0']);
+    });
+
+    it('keeps the mark on a drop back into the discard pile', () => {
+      expect(removed(tableReducer(start, { type: 'move', id: 'd0', to: 'discard' }))).toEqual(['d0']);
+    });
+
+    it.each(['hand', 'core'] as const)('clears the mark on a move out of the discard pile to %s', (to) => {
+      const state = tableReducer(start, { type: 'move', id: 'd0', to });
+      expect(state[to][0].id).toBe('d0');
+      expect(state[to][0].removedFromGame).toBeUndefined();
     });
   });
 

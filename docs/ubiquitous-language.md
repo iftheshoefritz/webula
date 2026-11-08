@@ -201,6 +201,7 @@ is "open" or "closed", never "stacked".
 |---|---|
 | draw (the top card of the deck into the hand) | action `drawCard`, from `'drawDeck'` to `'hand'`; the same action moves the top dilemma from `'dilemmaPile'` to `'dilemmaHand'` |
 | stopped / unstopped | `CardInstance.stopped`, action `setStopped` |
+| removed from the game | `CardInstance.removedFromGame`, action `setRemovedFromGame`, the Remove from game button of the discard pile panel (#1564) | The practice table marks a card only while it is in the discard pile: the card stays there and counts in the pile, shows the stopped look and a "Removed from game" label, and a move out of the discard pile clears the mark. The next turn leaves it alone. |
 | face up / face down | `Face`, `ZONE_FACE`, action `flip` |
 | flip a double-sided mission over ("flip this mission", "flip it over") | `CardInstance.flipped`, action `flipMission`, card field `backimagefile` (the second name of `ImageFile`), the Flip button of `MissionRow` (#765). **This is not `face`/`flip`.** `face: 'down'` shows `cardback.jpg` for every card, and `flip` never applies to a mission card. A flipped mission shows its back face image, and a move clears `flipped`. |
 | shuffle | action `shuffle`, `shuffleArray` |

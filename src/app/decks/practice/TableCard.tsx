@@ -59,6 +59,19 @@ export const STOPPED_IMAGE_CLASSNAME = 'grayscale opacity-50';
 // opacity let the card's own printed attribute box show through the band.
 export const STOPPED_OVERLAY_CLASSNAME = 'grayscale';
 
+// A card removed from the game (#1564) shows the stopped look too, with this label centred over
+// it. It takes no pointer events, so the card still selects, previews and drags.
+export function RemovedFromGameLabel() {
+  return (
+    <span
+      data-testid="removed-from-game-label"
+      className="absolute inset-x-0 top-1/2 -translate-y-1/2 pointer-events-none bg-black/75 text-white text-[10px] font-bold uppercase leading-tight text-center px-0.5 py-0.5"
+    >
+      Removed from game
+    </span>
+  );
+}
+
 // The look of a completed mission's card (#991): darker, but in full colour, so it does not read
 // as stopped.
 export const COMPLETED_IMAGE_CLASSNAME = 'brightness-50';
@@ -206,7 +219,7 @@ export function TableCardImage({
           draggable={false}
           src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
           alt={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
-          className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+          className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped || instance.removedFromGame ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
         />
         {/* #1176: a cropped personnel draws the icons and the attributes the crop cuts off. It sits
@@ -218,7 +231,7 @@ export function TableCardImage({
             width={width}
             cropHeight={height}
             border={cardBorderWidth(width)}
-            className={`${instance.stopped ? STOPPED_OVERLAY_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+            className={`${instance.stopped || instance.removedFromGame ? STOPPED_OVERLAY_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
           />
         )}
         {/* #1336: a cropped ship draws the range, weapons and shields the crop cuts off. */}
@@ -228,9 +241,10 @@ export function TableCardImage({
             width={width}
             cropHeight={height}
             border={cardBorderWidth(width)}
-            className={`${instance.stopped ? STOPPED_OVERLAY_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+            className={`${instance.stopped || instance.removedFromGame ? STOPPED_OVERLAY_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
           />
         )}
+        {instance.removedFromGame && <RemovedFromGameLabel />}
       </div>
     </div>
   );

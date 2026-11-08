@@ -68,6 +68,7 @@ export type LogEntry = { turn: number } & (
   | { kind: 'shuffle'; place: LogPlace }
   | { kind: 'reorder'; zone: ReorderZone }
   | { kind: 'stopped'; cards: string[]; stopped: boolean }
+  | { kind: 'removedFromGame'; cards: string[]; removedFromGame: boolean }
   | { kind: 'missionCompleted'; mission: string; completed: boolean }
   | { kind: 'nextTurn' }
   | { kind: 'score'; delta: number; score: number }
@@ -251,6 +252,13 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         .filter((found) => found && !!found.instance.stopped !== action.stopped)
         .map((found) => cardDisplayName(found!.instance.card));
       return cards.length ? { kind: 'stopped', cards, stopped: action.stopped } : null;
+    }
+    case 'setRemovedFromGame': {
+      const cards = action.ids
+        .map((id) => findInstanceAnywhere(before, id))
+        .filter((found) => found && !!found.instance.removedFromGame !== action.removedFromGame)
+        .map((found) => cardDisplayName(found!.instance.card));
+      return cards.length ? { kind: 'removedFromGame', cards, removedFromGame: action.removedFromGame } : null;
     }
     case 'setMissionCompleted': {
       const slot = before.missions[action.missionIndex];
@@ -485,6 +493,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   shuffle: true,
   reorder: true,
   stopped: true,
+  removedFromGame: true,
   missionCompleted: true,
   nextTurn: true,
   score: true,
@@ -531,6 +540,8 @@ export function logEntryText(entry: LogEntry): string {
       return entry.zone === 'dilemmaStack' ? 'Reordered the dilemma stack' : `Reordered the top of ${placeText({ kind: entry.zone })}`;
     case 'stopped':
       return `${entry.stopped ? 'Stopped' : 'Unstopped'} ${cardsText(entry.cards)}`;
+    case 'removedFromGame':
+      return `${entry.removedFromGame ? 'Removed' : 'Returned'} ${cardsText(entry.cards)} ${entry.removedFromGame ? 'from' : 'to'} the game`;
     case 'missionCompleted':
       return `Marked ${entry.mission} ${entry.completed ? 'complete' : 'not complete'}`;
     case 'nextTurn':
