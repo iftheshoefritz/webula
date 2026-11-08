@@ -20,7 +20,7 @@
 //
 // A card works as it does in the away team panel or the crew panel: a hold shows the preview, a tap
 // selects it, and the selection gets Stop or Unstop (#681), with Stop all (#995) beside them, from
-// the same rules (`stopRules.ts`). Shuffle (#1179) comes last, as in the panel's row of controls
+// the same rules (`stopRules.ts`). Stop all reads Unstop all once every personnel is stopped (#1560). Shuffle (#1179) comes last, as in the panel's row of controls
 // (#880): it shuffles the whole place, never the selection, and shows while the row holds a card.
 // Move to… (#1341) shows while a card of the row is selected, the equipment too, and opens a list of
 // the places the selection can go (`attemptMoveDestinations`), above the table with a backdrop, in a portal, so it
@@ -123,7 +123,8 @@ export default function AttemptPersonnelRow({
   const draggedType = useDraggedCardType();
   const highlight = highlightState(kind, draggedType, isOver);
   const landedNonce = useLandedNonce(landedKey);
-  const { selectedPersonnel, allSelectedStopped, unstoppedPersonnel } = stopButtons(cards, selectedIds);
+  const { selectedPersonnel, allSelectedStopped, unstoppedPersonnel, stoppedPersonnel, allPersonnelStopped } =
+    stopButtons(cards, selectedIds);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollDeps = [cards.length, cardWidth, columns, height];
   const scrolls = useScrollsVertically(scrollRef, cards.length > 0, scrollDeps);
@@ -157,14 +158,18 @@ export default function AttemptPersonnelRow({
             {allSelectedStopped ? 'Unstop' : 'Stop'}
           </button>
         )}
-        {unstoppedPersonnel.length > 0 && (
+        {(unstoppedPersonnel.length > 0 || allPersonnelStopped) && (
           <button
             type="button"
             data-testid="attempt-row-stop-all"
-            onClick={() => onSetStopped(unstoppedPersonnel.map((instance) => instance.id), true)}
+            onClick={() =>
+              allPersonnelStopped
+                ? onSetStopped(stoppedPersonnel.map((instance) => instance.id), false)
+                : onSetStopped(unstoppedPersonnel.map((instance) => instance.id), true)
+            }
             className={buttonClassName}
           >
-            Stop all
+            {allPersonnelStopped ? 'Unstop all' : 'Stop all'}
           </button>
         )}
         {cards.length > 0 && (

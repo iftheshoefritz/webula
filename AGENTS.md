@@ -884,7 +884,7 @@ row (#1367): the table cancels the `touchmove`s of that press (`useTouchScrollGu
 panel that scrolls works the same way. Each
 card carries its `data-card-id`. A tap selects a card, a hold previews it, and above the row, as in
 the crew panel, `attempt-row-stop` (Stop or Unstop, while personnel are selected) and `attempt-row-stop-all` (while
-an unstopped personnel is in the row) set `stopped`. `attempt-row-shuffle`, last in that line and shown while the row holds a card, shuffles the away team or the crew (#1179). That line,
+a personnel is in the row: Stop all, or Unstop all when every one is stopped, #1560) set `stopped`. `attempt-row-shuffle`, last in that line and shown while the row holds a card, shuffles the away team or the crew (#1179). That line,
 `data-testid="attempt-row-buttons"`, sits in the band above the facing body, its top level with the
 top of the band, the top of a full stack of slivers above the mission (#1543), so the top of the
 first row of cards is level with the top of the mission card and of the dilemma stack (#1376,

@@ -1,5 +1,6 @@
 // Issue #995: a ship's crew panel and a mission's away team panel get a "Stop all" button, which
-// stops every personnel card of the panel.
+// stops every personnel card of the panel. Once every one is stopped it reads "Unstop all" and
+// unstops them (#1560).
 import React from 'react';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import CardListPanel from '../../../app/decks/practice/CardListPanel';
@@ -25,16 +26,38 @@ describe('CardListPanel: Stop all (#995)', () => {
     expect(onSetStopped).toHaveBeenCalledWith(['a', 'd'], true);
   });
 
-  it('is disabled once every personnel card of the panel is stopped', () => {
-    const cards = [instance('a', 'personnel', true), instance('c', 'equipment')];
+  it.each(['crew', 'awayTeam'] as const)(
+    'reads Unstop all once every personnel card of the %s panel is stopped, and unstops them (#1560)',
+    (location) => {
+      const onSetStopped = jest.fn();
+      const cards = [instance('a', 'personnel', true), instance('c', 'equipment'), instance('d', 'personnel', true)];
+      render(
+        <CardListPanel location={location} cards={cards} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} onSetStopped={onSetStopped} />
+      );
+      expect(screen.queryByRole('button', { name: 'Stop all' })).toBeNull();
+      const unstopAll = within(screen.getByTestId('panel-controls')).getByRole('button', { name: 'Unstop all' });
+      expect(unstopAll).toBeEnabled();
+      fireEvent.click(unstopAll);
+      expect(onSetStopped).toHaveBeenCalledWith(['a', 'd'], false);
+    }
+  );
+
+  it('is disabled when the panel holds no personnel card', () => {
     render(
-      <CardListPanel location="crew" cards={cards} onClose={() => {}} selectedIds={[]} onToggleSelect={() => {}} onSetStopped={() => {}} />
+      <CardListPanel
+        location="crew"
+        cards={[instance('c', 'equipment')]}
+        onClose={() => {}}
+        selectedIds={[]}
+        onToggleSelect={() => {}}
+        onSetStopped={() => {}}
+      />
     );
     expect(screen.getByRole('button', { name: 'Stop all' })).toBeDisabled();
   });
 
-  it.each(['core', 'brig', 'on', 'shipRow'] as const)('shows no Stop all button in the %s panel', (location) => {
-    render(
+  it.each(['core', 'brig', 'on', 'shipRow'] as const)('shows no Stop all or Unstop all button in the %s panel', (location) => {
+    const { rerender } = render(
       <CardListPanel
         location={location}
         cards={[instance('a', 'personnel')]}
@@ -45,5 +68,16 @@ describe('CardListPanel: Stop all (#995)', () => {
       />
     );
     expect(screen.queryByRole('button', { name: 'Stop all' })).toBeNull();
+    rerender(
+      <CardListPanel
+        location={location}
+        cards={[instance('a', 'personnel', true)]}
+        onClose={() => {}}
+        selectedIds={[]}
+        onToggleSelect={() => {}}
+        onSetStopped={() => {}}
+      />
+    );
+    expect(screen.queryByRole('button', { name: 'Unstop all' })).toBeNull();
   });
 });
