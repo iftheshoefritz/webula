@@ -205,7 +205,7 @@ describe('Practice table: the bot label on the dilemma faced (#1519)', () => {
   it('shows the label of the revealed top card, and a tap dismisses it for the rest of the attempt', async () => {
     const { labelledId, otherId } = await setup(bot);
     expect(label()).toHaveTextContent("Bot's missions: more points");
-    expect(label()).toHaveAttribute('aria-label', "Bot's choice: Bot's missions: more points, tap to dismiss");
+    expect(label()).toHaveAttribute('aria-label', "Bot's choice: Bot's missions: more points; Chose Alpha, tap to dismiss");
     await act(async () => {
       fireEvent.click(label()!);
     });

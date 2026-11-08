@@ -120,7 +120,7 @@ describe('the bot-side titles of #1320', () => {
     for (const title of ['Spatial Interphase', 'Unfair Terms', 'Slightly Overbooked']) {
       expect(cost(title, attemptOf(group(3)))).toBe(0);
       expect(REGISTRY.get(title)).toMatchObject({ printedCost: 6, category: '3' });
-      expect(labelsOf(play(attemptOf(group(3, { cost: 1 })), [title]))).toEqual([]);
+      expect(labelsOf(play(attemptOf(group(3, { cost: 1 })), [title]))).toEqual(title === 'Spatial Interphase' ? ['Chose P0'] : []);
     }
   });
 
@@ -163,7 +163,7 @@ describe('the bot-side titles of #1320', () => {
     const personnel = [...group(2), person('Worf', { affiliation: 'klingon' })];
     const result = play(attemptOf(personnel, { botAffiliations: ['klingon', 'non-aligned'] }), ['Shocking Betrayal']);
     expect(result).toMatchObject({ stopped: 1, killed: 1 });
-    expect(labelsOf(result)).toEqual(['Discarded a Klingon personnel']);
+    expect(labelsOf(result)).toEqual(['Discarded a Klingon personnel', 'Chose Worf']);
     expect(REGISTRY.get('Shocking Betrayal')).toMatchObject({ category: '4f' });
   });
 

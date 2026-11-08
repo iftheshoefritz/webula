@@ -538,6 +538,22 @@ export class PlayState {
     return chosen;
   }
 
+  /**
+   * "Your opponent chooses <count> personnel": `botChooses`, and the label shows the choice (#1574), so
+   * the player applies it to the personnel the play acts on. A choice of nobody makes no label. A play
+   * that picks a personnel only to name its title (He Wasn't Nice) calls `botChooses` and labels "Named".
+   */
+  botChoice(candidates: number[], count = 1): number[] {
+    const chosen = this.botChooses(candidates, count);
+    this.labelChosen(chosen);
+    return chosen;
+  }
+
+  /** The label of the personnel the bot chose: "Chose <name>[, <name>]", or none when it chose nobody. */
+  labelChosen(chosen: number[]) {
+    if (chosen.length) this.label(`Chose ${chosen.map((k) => this.name(k)).join(', ')}`);
+  }
+
   /** A rough worth of a personnel to the mission: its skill levels the requirements name, then its attributes. */
   value(k: number): number {
     const p = this.group[k];

@@ -220,7 +220,7 @@ describe('the labels of the bot-side titles', () => {
   it('Brave Words: the bot chooses a personnel to be stopped', () => {
     const result = play(attemptOf(group(3)), ['Brave Words']);
     expect(result.stopped).toBe(1);
-    expect(labelsOf(result)).toEqual(["Bot's missions: more span"]);
+    expect(labelsOf(result)).toEqual(["Bot's missions: more span", 'Chose P0']);
   });
 
   it('Cardassian Processing places a personnel in the bot\'s brig unless the group meets it', () => {
@@ -248,7 +248,7 @@ describe('the labels of the bot-side titles', () => {
   it('Abrasive Allies compares the affiliations with the bot deck\'s', () => {
     const result = play(attemptOf(group(3), { botAffiliations: ['bajoran', 'federation'] }), ['Abrasive Allies']);
     expect(result.stopped).toBe(1);
-    expect(labelsOf(result)).toEqual(['Affiliations: Bajoran, Federation']);
+    expect(labelsOf(result)).toEqual(['Affiliations: Bajoran, Federation', 'Chose P0']);
     const mixed = ['federation', 'klingon', 'romulan'].map((a) => person(a, { affiliation: a }));
     expect(play(attemptOf(mixed, { botAffiliations: ['bajoran', 'federation'] }), ['Abrasive Allies']).stopped).toBe(0);
     expect(play(attemptOf(mixed), ['Abrasive Allies']).stopped).toBe(1);

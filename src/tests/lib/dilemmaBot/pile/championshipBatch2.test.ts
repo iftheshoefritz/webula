@@ -208,7 +208,7 @@ describe('the bot-side titles of #1320', () => {
   it('Reflections reveals 3 cards per turn and stops one per event or interrupt', () => {
     const all = play(space(group(12), { table: { turn: 3, drawDeck: { size: 20, eventsAndInterrupts: 20 } } }), ['Reflections']);
     expect(all).toMatchObject({ stopped: 9 });
-    expect(labelsOf(all)).toEqual(['9 [AU] cards']);
+    expect(labelsOf(all)).toEqual(['9 [AU] cards', 'Chose P0, P1, P2, P3, P4, P5, P6, P7, P8']);
     expect(play(space(group(12), { table: { turn: 3, drawDeck: { size: 20, eventsAndInterrupts: 0 } } }), ['Reflections'])).toMatchObject({ stopped: 0 });
     expect(REGISTRY.get('Reflections')).toMatchObject({ category: '5b', assumption: 'the bot commands 3 [AU] cards for each turn of the game' });
   });

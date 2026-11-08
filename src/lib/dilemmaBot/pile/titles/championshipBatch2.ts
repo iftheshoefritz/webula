@@ -175,7 +175,7 @@ dilemma('Reflections', S, 2, 'own', (s) => {
     }
   } else for (let i = 0; i < count; i++) if (s.rand() < 1 / 3) hits++;
   s.trace?.(`  reveals ${hits} event${hits === 1 ? '' : 's'} or interrupts`);
-  s.stop(s.botChooses(s.unstopped(), hits));
+  s.stop(s.botChoice(s.unstopped(), hits));
 }, { category: '5b', assumption: 'the bot commands 3 [AU] cards for each turn of the game' });
 
 dilemma('Picking Up the Pieces', P, 2, 'all-but-one', allButOne(hasAny('geology', 'programming')));
@@ -190,7 +190,7 @@ dilemma('Rush Job', S, 3, 'own', (s) => {
   const staffing = s.attempt.ship?.staffing ?? DEFAULT_STAFFING;
   s.stop(s.playerChooses(s.unstopped()));
   if (staffing.length < 4 && s.live) s.stop(s.playerChooses(s.unstopped()));
-  if (!staffing.includes('[cmd]') && s.live) s.stop(s.botChooses(s.unstopped()));
+  if (!staffing.includes('[cmd]') && s.live) s.stop(s.botChoice(s.unstopped()));
 });
 
 dilemma('Malfunctioning Generator', P, 4, 'unless', unless('2 Exobiology, 2 Physics, and Treachery or 2 Honor, 2 Medical, and Integrity>38', killRandom(2)), {
@@ -216,7 +216,7 @@ dilemma('Lending a Hand', P, 2, 'bot-chooses', botChooses(2, 'stop'), {
 
 // No family fits: the player weighs the bot's choice beamed aboard against two random stops.
 dilemma('Mr. Tricorder', P, 3, 'own', (s) => {
-  const [k] = s.botChooses(s.unstopped());
+  const [k] = s.botChoice(s.unstopped());
   if ((s.attempt.table.shipAtMission ?? true) && s.meetsWithout([k])) s.stop([k], 'placed aboard the ship');
   else s.stop(s.select(2));
 }, { gap: 'the player places the chosen personnel aboard when the rest still meet the requirements, else takes two random stops' });
@@ -288,8 +288,10 @@ dilemma('Logical Solution', S, 1, 'own', (s) => {
   const ks = s.unstopped();
   const most = Math.max(...ks.map((k) => s.group[k].skillDots));
   const [k] = s.botChooses(ks.filter((j) => s.group[j].skillDots === most));
-  if (s.meetsWithout([k])) s.kill([k]);
-  else s.stopAll();
+  if (s.meetsWithout([k])) {
+    s.labelChosen([k]);
+    s.kill([k]);
+  } else s.stopAll();
 }, { gap: 'the discarded hand is dropped; a personnel placed in the discard pile counts as killed' });
 
 dilemma('Macrovirus', D, 4, 'random-select', (() => {

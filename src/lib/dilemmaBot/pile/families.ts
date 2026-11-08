@@ -143,10 +143,13 @@ export const selectUntil = (done: (s: PlayState, selected: number[]) => boolean,
   act(s, selected);
 };
 
-/** "Your opponent chooses <count> personnel to be <effect>." The bot chooses, among `test` when given. */
+/**
+ * "Your opponent chooses <count> personnel to be <effect>." The bot chooses, among `test` when given, and
+ * the label shows the choice (#1574).
+ */
 export const botChooses = (count: number, effect: 'stop' | 'kill' | 'brig' | 'discard', test?: Test): Play => (s) => {
   const candidates = s.unstopped().filter((k) => !test || test(s, k));
-  const chosen = s.botChooses(candidates, count);
+  const chosen = s.botChoice(candidates, count);
   if (effect === 'stop') s.stop(chosen);
   else if (effect === 'kill') s.kill(chosen);
   else if (effect === 'discard') s.kill(chosen);
