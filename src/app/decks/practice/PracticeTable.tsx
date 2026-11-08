@@ -2467,7 +2467,12 @@ function PracticeDrawContent() {
       if (text === null) return;
       const chosen = botPileDeckOf(text, deckFromTsv(text, data), data);
       pile = chosen.pile;
-      pileInfo = { id: choice.id, name: choice.name, affiliations: chosen.affiliations };
+      pileInfo = {
+        id: choice.id,
+        name: choice.name,
+        affiliations: chosen.affiliations,
+        ...(chosen.unexpectedDifficulties ? { unexpectedDifficulties: true as const } : {}),
+      };
     }
     const deck = mergeDeckPiles(base.deck, pile, ['dilemmaPile']);
     setLoadedDeck(deck);

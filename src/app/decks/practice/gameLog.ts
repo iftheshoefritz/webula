@@ -81,7 +81,8 @@ export type LogEntry = { turn: number } & (
   // Start in a bot game (#1299): the bot's draw and its stack, counted and never named, since the
   // stack is face down. `returned` counts the drawn dilemmas the bot did not choose, which went to the
   // bottom of the dilemma pile face up, and never names them: the player does not see them (#1561). A
-  // log saved before #1561 holds their names, and the text gives only how many.
+  // log saved before #1561 holds their names, and the text gives only how many. `redrew` counts the
+  // dilemmas the bot put back with Unexpected Difficulties before it drew again (#1563).
   | {
       kind: 'botAttempt';
       mission: string;
@@ -92,6 +93,7 @@ export type LogEntry = { turn: number } & (
       stacked: number;
       random?: true;
       returned?: number | string[];
+      redrew?: number;
     }
 );
 
@@ -297,6 +299,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         stacked: stacked.size,
         ...(action.random ? { random: true as const } : {}),
         ...(returned ? { returned } : {}),
+        ...(action.redrawn ? { redrew: action.redrawn.length } : {}),
       };
     }
     case 'nextTurn':
@@ -546,7 +549,9 @@ export function logEntryText(entry: LogEntry): string {
       const dilemmas = (n: number) => `${n} ${n === 1 ? 'dilemma' : 'dilemmas'}`;
       const text = `Attempted ${entry.mission}${entry.ship ? ` with ${entry.ship}` : ''}: ${entry.personnel} personnel − ${
         entry.subtract
-      }; the bot drew ${dilemmas(entry.drew)} and put ${entry.stacked} in the stack${entry.random ? ' at random' : ''}`;
+      }; the bot drew ${dilemmas(entry.redrew ?? entry.drew)}${
+        entry.redrew ? `, used Unexpected Difficulties to return them and draw ${entry.drew} more,` : ''
+      } and put ${entry.stacked} in the stack${entry.random ? ' at random' : ''}`;
       const returned = Array.isArray(entry.returned) ? entry.returned.length : (entry.returned ?? 0);
       return returned ? `${text}, and moved ${dilemmas(returned)} to the bottom of the dilemma pile` : text;
     }

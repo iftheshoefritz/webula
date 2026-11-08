@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { drawnPileTitles, pileAttemptOf, pileStackCardIds } from '../../../lib/dilemmaBot/pile/tableAttempt';
-import { randomLegalPileStack } from '../../../lib/dilemmaBot/pile/search';
+import { PileSearchResult, randomLegalPileStack } from '../../../lib/dilemmaBot/pile/search';
 import { TableSearchRequest, answerSearch } from '../../../lib/dilemmaBot/searchRequest';
 import { seededRandom } from '../../../lib/dilemmaBot/simulator';
 import { useSearchWorker } from '../../../lib/dilemmaBot/useSearchWorker';
@@ -14,6 +14,19 @@ export type BotStartFields = Pick<BotAttemptAction, 'missionIndex' | 'shipId' | 
 // A new seed for each bot attempt, so two attempts at the same table need not choose alike.
 export const newBotSeed = (): number => Math.floor(Math.random() * 2 ** 31);
 
+// The fewest drawn dilemmas for which the bot uses Unexpected Difficulties (#1563).
+export const UNEXPECTED_DIFFICULTIES_MIN_DRAWN = 4;
+
+/**
+ * Whether the bot uses Unexpected Difficulties on its draw (#1563): its deck holds the card, it has not
+ * used it this game, it drew at least 4, and the search found that no stack can end the attempt.
+ */
+export const botRedraws = (table: TableState, drawnCount: number, result: PileSearchResult): boolean =>
+  !!table.botPile?.unexpectedDifficulties &&
+  !table.botUsedUnexpectedDifficulties &&
+  drawnCount >= UNEXPECTED_DIFFICULTIES_MIN_DRAWN &&
+  result.mode === 'cannot-fail';
+
 interface Pending {
   id: number;
   // The table the draw was worked out on: a reply for any other table is dropped (#1299).
@@ -21,6 +34,8 @@ interface Pending {
   action: Omit<BotAttemptAction, 'stack' | 'random'>;
   drawn: CardInstance[];
   request: TableSearchRequest;
+  // The ids of the first draw once the bot used Unexpected Difficulties (#1563): the request is then the redraw's.
+  redrawn?: string[];
 }
 
 /**
@@ -29,6 +44,9 @@ interface Pending {
  * The reply becomes one `botAttempt` action, handed to `onAction`, only when it answers the request
  * still pending and the table has not changed since. `cancel` drops the request. With nothing drawn,
  * or a mission whose requirements the bot cannot read, `start` hands the action over at once.
+ * When the first answer lets the bot use Unexpected Difficulties (`botRedraws`, #1563), it puts the
+ * drawn dilemmas on the bottom of the pile, face up, draws as many again and asks a second time,
+ * under the same pending state, and the action carries both draws.
  */
 export function useBotAttemptStart(table: TableState, onAction: (action: BotAttemptAction) => void) {
   const [choosing, setChoosing] = useState(false);
@@ -42,22 +60,50 @@ export function useBotAttemptStart(table: TableState, onAction: (action: BotAtte
     setChoosing(false);
   };
 
-  const finish = (id: number, stack: string[]) => {
-    const p = pending.current;
-    if (!p || p.id !== id) return;
+  const finish = (p: Pending, stack: string[]) => {
     clear();
     if (tableRef.current !== p.table) return;
-    onActionRef.current({ ...p.action, stack: pileStackCardIds(p.drawn, stack), random: false });
+    const redrawn = p.redrawn ? { redrawn: p.redrawn } : {};
+    onActionRef.current({ ...p.action, ...redrawn, stack: pileStackCardIds(p.drawn, stack), random: false });
+  };
+
+  // The answer to the pending request. On the main thread, after a worker failed, the redraw's request
+  // is answered there too.
+  const answer = (id: number, result: PileSearchResult, mainThread: boolean) => {
+    const p = pending.current;
+    if (!p || p.id !== id) return;
+    if (p.redrawn || tableRef.current !== p.table || !botRedraws(p.table, p.drawn.length, result)) {
+      finish(p, result.best.stack);
+      return;
+    }
+    // Unexpected Difficulties (#1563): the drawn dilemmas go to the bottom of what the draw left, face
+    // up, as the switch to `'face'` returns them, and the bot draws an equal number.
+    const returned = [...p.action.pile, ...p.drawn.map((c) => ({ ...c, face: 'up' as const }))];
+    const { drawn, pile } = drawFromDilemmaPile(returned, p.drawn.length);
+    const titles = drawnPileTitles(drawn.map((c) => c.card));
+    const attempt = { ...p.request.attempt, botPile: [...drawnPileTitles(pile.map((c) => c.card)), ...titles] };
+    const request: TableSearchRequest = { ...p.request, id: ++nextId.current, attempt, drawn: titles, seed: p.request.seed + 1 };
+    const next: Pending = {
+      ...p,
+      id: request.id,
+      action: { ...p.action, pile, drawn: drawn.map((c) => c.id) },
+      drawn,
+      request,
+      redrawn: p.drawn.map((c) => c.id),
+    };
+    pending.current = next;
+    if (mainThread) answer(request.id, answerSearch(request).result, true);
+    else post(request);
   };
 
   const post = useSearchWorker(
     (response) => {
-      if (response.kind === 'table') finish(response.id, response.result.best.stack);
+      if (response.kind === 'table') answer(response.id, response.result, response.thread === 'main');
     },
     // A worker that fails answers on the main thread, so the popup never waits for ever.
     () => {
       const p = pending.current;
-      if (p) finish(p.id, answerSearch(p.request).result.best.stack);
+      if (p) answer(p.id, answerSearch(p.request).result, true);
     }
   );
 
