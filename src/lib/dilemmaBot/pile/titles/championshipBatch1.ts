@@ -48,7 +48,10 @@ dilemma('Causal Recursion', S, 2, 'no-effect', noEffect, {
   gap: 'it is placed in your core, and the 10 more points you need act past the attempt (#1478)',
 });
 
-dilemma('Dead Ringer', D, 3, 'stop-all', stopAll, {
+dilemma('Dead Ringer', D, 3, 'bot-chooses', (s) => {
+  s.botChoice(s.unstopped());
+  s.stopAll();
+}, {
   gap: 'your discard pile is not on the table, so you never replace the chosen personnel and all are stopped',
 });
 
@@ -207,7 +210,7 @@ dilemma('Bynars\' Password', D, 3, 'own', (s) => {
     return;
   }
   const candidates = ks.filter((k) => s.hasSkill(k, sk('engineer'), sk('programming')));
-  if (candidates.length) s.stop(s.botChooses(candidates));
+  if (candidates.length) s.stop(s.botChoice(candidates));
   else thenReturns(stopAll)(s);
 });
 
@@ -266,7 +269,7 @@ dilemma('Dramatis Personae', P, 3, 'own', unless('2 Medical and 2 Science or 2 A
   const [byAttrs] = s.playerChooses(ks.filter((k) => totalAttrs(s, k) === lowest));
   const victims = byDots === byAttrs ? [byDots] : [byDots, byAttrs];
   s.trace?.(`  the bot chooses between ${names(s, victims)}`);
-  s.kill(s.botChooses(victims));
+  s.kill(s.botChoice(victims));
 }));
 
 // No family fits: Restricted Area's shape, with kills, and the bot chooses the third.
@@ -279,7 +282,7 @@ dilemma('Exposed Power Relay', D, 3, 'own', (s) => {
   }
   s.kill([k]);
   s.kill(s.select(1));
-  if (remaining >= 10) s.kill(s.botChooses(s.unstopped()));
+  if (remaining >= 10) s.kill(s.botChoice(s.unstopped()));
 }, { assumption: '"nine personnel remaining" is nine or more, counted after the first is selected (#1518)' });
 
 dilemma('Ferengi Locator Bomb', P, 3, 'unless', unless('Navigation, Physics, and Programming or Acquisition, Treachery, and Cunning>32', killRandomThenStopAll), {

@@ -88,6 +88,7 @@ dilemma('Shocking Betrayal', D, 2, 'own', (s) => {
   }
   const [k] = s.botChooses(candidates);
   s.label(`Discarded a ${titleCase(s.group[k].affiliation)} personnel`);
+  s.labelChosen([k]);
   s.kill([k]);
 }, {
   category: '4f',
@@ -201,7 +202,7 @@ dilemma('The Captain\'s "Guest"', D, 2, 'random-select', (s) => {
 // No family fits: the player prevents the bot's stop by stopping two others who share a skill with the
 // chosen personnel, and does it only when that keeps the requirements met and the bot's stop would not.
 dilemma('Suspicion', P, 1, 'own', (s) => {
-  const [k] = s.botChooses(s.unstopped());
+  const [k] = s.botChoice(s.unstopped());
   if (k === undefined) return;
   const shares = s.unstopped().filter((j) => j !== k && ALL_SKILLS.some((i) => s.skill(k, i) > 0 && s.skill(j, i) > 0));
   if (!s.meetsWithout([k])) {

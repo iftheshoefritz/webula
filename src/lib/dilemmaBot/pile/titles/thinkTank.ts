@@ -135,7 +135,7 @@ dilemma('More of Gravy Than of Grave', D, 4, 'random-select', selectRandom(3, (s
 }));
 
 dilemma('Necessary Execution', P, 5, 'bot-chooses', (s) => {
-  s.kill(s.botChooses(s.unstopped(), s.attempt.table.completedSpaceMission ? 1 : 2));
+  s.kill(s.botChoice(s.unstopped(), s.attempt.table.completedSpaceMission ? 1 : 2));
 });
 
 dilemma('Occupational Hazards', D, 3, 'unless', unless('2 Acquisition or 2 Treachery', thenReturns(killRandom(1))));
@@ -181,7 +181,10 @@ dilemma('Restricted Area', D, 3, 'own', (s) => {
   if (s.live >= 10) s.brig(s.select(1));
 }, { assumption: '"nine personnel remaining" is nine or more, counted after the first is selected (#1518)' });
 
-dilemma('Secret Identity', D, 0, 'no-effect', noEffect, {
+// Still 'no-effect', so the search leaves it out, but the bot makes its choice for the label (#1574).
+dilemma('Secret Identity', D, 0, 'no-effect', (s) => {
+  s.botChoice(s.unstopped());
+}, {
   assumption: 'the player replaces the chosen personnel with an identical copy, so the attempt does not change (#1518)',
 });
 
@@ -196,7 +199,7 @@ dilemma('Sylvia', P, 8, 'unless', unless('2 Leadership, Officer, Security, and C
 dilemma('The Alien\'s Graveyard', D, 6, 'random-select', selectRandom(3, (s, sel) => {
   const low = sel.filter((k) => s.group[k].cost <= 2);
   if (low.length) s.kill(low);
-  else s.brig(s.botChooses(sel));
+  else s.brig(s.botChoice(sel));
 }), { cost: (a) => Math.max(0, 6 - lowCost(a)) });
 
 dilemma('The Dal\'Rok', D, 3, 'unless', unlessGroup(
@@ -236,7 +239,7 @@ dilemma('Vault of Tomorrow', P, 1, 'adds-dilemma', (s) => {
 
 dilemma('Well-Prepared Defenses', D, 2, 'bot-chooses', (s) => {
   s.label('Bot\'s missions: more points');
-  s.stop(s.botChooses(s.unstopped()));
+  s.stop(s.botChoice(s.unstopped()));
 }, { category: '3', assumption: 'the bot\'s missions are worth more points than yours' });
 
 dilemma('Where No One Has Gone Before', S, 4, 'unless', unless('Astrometrics, Navigation, Physics, and Cunning>34 or Exobiology, Leadership, Medical, and Integrity>32', (s) => {

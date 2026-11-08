@@ -40,7 +40,7 @@ dilemma('Becalmed', D, 0, 'random-select', selectRandom(3, (s, sel) => {
 dilemma('Center of Attention', D, 3, 'unless', unlessGroup(
   (s) => s.has(req('3 Security')) || (handWeapons(s) > 0 && s.has(req('Cunning>28'))) || s.unstopped().some((k) => /\bquark\b/i.test(s.name(k))),
   (s) => {
-    s.kill(s.botChooses(s.unstopped().filter((k) => s.hasSkill(k, sk('treachery')))));
+    s.kill(s.botChoice(s.unstopped().filter((k) => s.hasSkill(k, sk('treachery')))));
     s.stopAll();
   },
   '3 Security or a Hand Weapon and Cunning>28 or Quark',

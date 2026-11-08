@@ -19,7 +19,7 @@ dilemma('Abrasive Allies', P, 2, 'bot-chooses', (s) => {
     return;
   }
   if (bot) s.label(`Affiliations: ${bot.map((a) => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')}`);
-  s.stop(s.botChooses(s.unstopped()));
+  s.stop(s.botChoice(s.unstopped()));
 }, {
   category: '5a',
   assumption: 'the bot\'s count is the affiliations of the personnel of its deck',
@@ -36,7 +36,7 @@ dilemma('Bold Plan', D, 0, 'no-effect', noEffect, { gap: 'it acts on the dilemma
 
 dilemma('Brave Words', D, 2, 'bot-chooses', (s) => {
   s.label('Bot\'s missions: more span');
-  s.stop(s.botChooses(s.unstopped()));
+  s.stop(s.botChoice(s.unstopped()));
 }, { category: '3', assumption: 'your missions have less total span than the bot\'s' });
 
 dilemma('Brothers', S, 2, 'unless', unless('Engineer and Integrity>40 or Transporters and Cunning>40', (s) => {
@@ -105,8 +105,8 @@ dilemma('Mark of Gideon', D, 3, 'own', (s) => {
     return;
   }
   s.returnToHand([k]);
-  s.returnToHand(s.botChooses(s.unstopped()));
-  if (remaining >= 10) s.returnToHand(s.botChooses(s.unstopped()));
+  // The second and the third choice in one label: the bot picks the third as if the second were gone.
+  s.returnToHand(s.botChoice(s.unstopped(), remaining >= 10 ? 2 : 1));
 }, { assumption: '"nine personnel remaining" is nine or more, counted after the first is selected (#1518)' });
 
 dilemma('No Kill I', P, 2, 'stop-all', stopAll);

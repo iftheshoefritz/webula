@@ -757,7 +757,9 @@ revealed top card from the table as it stands (`pileTableInputOf` in `attempt.ts
 unstopped personnel. The play faces the rest of the stack after it, at the attempt's `botSpend`, with
 the cost of the cards revealed before it already spent (`botLabelOf`, #1556): `botAttempt` records the
 chosen stack on `Attempt.botStack`, and a `flip` that reveals a stack card in `'face'` adds it to
-`Attempt.botRevealed`, so a reload gives the same label. A title with no model, a Chula title, or a play that makes no label shows none.
+`Attempt.botRevealed`, so a reload gives the same label. A dilemma whose text has the opponent choose personnel labels the bot's choice, "Chose <name>[, <name>]",
+with `PlayState.botChoice` (#1574), and one that has the opponent name a skill, an attribute or a title
+labels "Named <it>"; neither label holds the dilemma's title. A title with no model, a Chula title, or a play that makes no label shows none.
 A tap dismisses it for the rest of the attempt. It is page state, so a reload shows it again.
 
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
