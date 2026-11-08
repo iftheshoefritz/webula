@@ -79,8 +79,9 @@ export type LogEntry = { turn: number } & (
   // dilemma hand to the bottom of the dilemma pile, when any.
   | { kind: 'attemptPhase'; mission: string; phase: AttemptPhase; returned?: string[] }
   // Start in a bot game (#1299): the bot's draw and its stack, counted and never named, since the
-  // stack is face down. `returned` names the drawn dilemmas the bot did not choose, which went to the
-  // bottom of the dilemma pile face up.
+  // stack is face down. `returned` counts the drawn dilemmas the bot did not choose, which went to the
+  // bottom of the dilemma pile face up, and never names them: the player does not see them (#1561). A
+  // log saved before #1561 holds their names, and the text gives only how many.
   | {
       kind: 'botAttempt';
       mission: string;
@@ -90,7 +91,7 @@ export type LogEntry = { turn: number } & (
       drew: number;
       stacked: number;
       random?: true;
-      returned?: string[];
+      returned?: number | string[];
     }
 );
 
@@ -285,7 +286,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
     case 'botAttempt': {
       if (after === before) return null;
       const stacked = new Set(after.dilemmaStack.map((c) => c.id));
-      const returned = action.drawn.filter((id) => !stacked.has(id)).map((id) => cardName(before, id));
+      const returned = action.drawn.filter((id) => !stacked.has(id)).length;
       return {
         kind: 'botAttempt',
         mission: missionName(before, action.missionIndex),
@@ -295,7 +296,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         drew: action.drawn.length,
         stacked: stacked.size,
         ...(action.random ? { random: true as const } : {}),
-        ...(returned.length ? { returned } : {}),
+        ...(returned ? { returned } : {}),
       };
     }
     case 'nextTurn':
@@ -546,9 +547,8 @@ export function logEntryText(entry: LogEntry): string {
       const text = `Attempted ${entry.mission}${entry.ship ? ` with ${entry.ship}` : ''}: ${entry.personnel} personnel − ${
         entry.subtract
       }; the bot drew ${dilemmas(entry.drew)} and put ${entry.stacked} in the stack${entry.random ? ' at random' : ''}`;
-      return entry.returned?.length
-        ? `${text}, and moved ${cardsText(entry.returned)} to the bottom of the dilemma pile`
-        : text;
+      const returned = Array.isArray(entry.returned) ? entry.returned.length : (entry.returned ?? 0);
+      return returned ? `${text}, and moved ${dilemmas(returned)} to the bottom of the dilemma pile` : text;
     }
     case 'attemptPhase': {
       const text =
