@@ -7,7 +7,8 @@ import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
 import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
 import { BOT_REVEAL_FIXTURES, botLabelOf, botResolveOf, fixtureBotLabelAttempt } from '../../../app/decks/practice/attempt';
-import { createCardInstances, initialTableState, tableReducer, TableAction, TableState } from '../../../app/decks/practice/tableReducer';
+import { createCardInstances, initialTableState, revealSnapshotOf, tableReducer, TableAction, TableState } from '../../../app/decks/practice/tableReducer';
+import { BOT_SKILLS } from '../../../lib/dilemmaBot/requirements';
 import { gameReducer, initialGameState, logEntryText, withShuffleOrders } from '../../../app/decks/practice/gameLog';
 import { fromSavedGame, toSavedGame } from '../../../app/decks/practice/savedGame';
 
@@ -32,12 +33,12 @@ const data = (() => {
 // fixture's dilemma, dealt as `?fixture=piles`, then the bot attempt with that dilemma revealed on top.
 // `roll`: the flip goes through `withShuffleOrders`, as the page dispatches it, so it carries the roll
 // of a dilemma whose selection comes before the player's choice (#1594).
-function dealRevealFixture(fixture: string, roll = false): TableState {
+function dealRevealFixture(fixture: string | { title: string; collectorsInfo: string }, roll = false): TableState {
   return dealRevealFixtureWithDeck(fixture, roll).table;
 }
 
-function dealRevealFixtureWithDeck(fixture: string, roll = false) {
-  const { title, collectorsInfo } = BOT_REVEAL_FIXTURES[fixture];
+function dealRevealFixtureWithDeck(fixture: string | { title: string; collectorsInfo: string }, roll = false) {
+  const { title, collectorsInfo } = typeof fixture === 'string' ? BOT_REVEAL_FIXTURES[fixture] : fixture;
   const botDeck = mergeDeckPiles(deckFromTsv(PRACTICE_DECK_TSV, data), chulaPileDeck(data), ['dilemmaPile']);
   const labelled = data.find((row) => row.collectorsinfo === collectorsKey(collectorsInfo));
   expect(labelled).toBeDefined();
@@ -236,5 +237,78 @@ describe('?fixture=bot-resolve-pattern (#1594)', () => {
     expect(game.log).toHaveLength(start.log.length + 1);
     expect(logEntryText(game.log[game.log.length - 1])).toContain(nameOf(table, chosen));
     expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
+  });
+});
+
+describe('the modifiers a Resolve keeps for the rest of the attempt (#1597)', () => {
+  const ACCELERATED_AGING = { title: 'Accelerated Aging', collectorsInfo: '11P001' };
+  const EVERY_SKILL = BOT_SKILLS.map((_, i) => i);
+
+  it('previews the revealed dilemma with the modifiers its snapshot took from the attempt', () => {
+    const table = dealRevealFixture('bot-resolve-noeffect');
+    const top = table.dilemmaStack[0];
+    expect(botResolveOf(table)).toMatchObject({ resolvable: true, preview: 'No effect' });
+    // An earlier Resolve blocked every skill and took 10 from every attribute of each personnel: a card
+    // revealed after it fails its check, "3 Archaeology or Integrity>36".
+    const attrLoss = Object.fromEntries(table.attempt!.revealSnapshot!.personnel.map((p) => [p.id, 10]));
+    const modifiers = { blockedSkills: EVERY_SKILL, attrLoss };
+    const blocked: TableState = { ...table, attempt: { ...table.attempt!, modifiers } };
+    // The snapshot of the card already revealed keeps the modifiers of its reveal: none.
+    expect(botResolveOf(blocked)).toMatchObject({ resolvable: true, preview: 'No effect' });
+    const revealedAfter: TableState = { ...blocked, attempt: { ...blocked.attempt!, revealSnapshot: revealSnapshotOf(blocked, top.id) } };
+    expect(revealedAfter.attempt?.revealSnapshot?.modifiers).toEqual(modifiers);
+    const r = botResolveOf(revealedAfter);
+    if (!r.resolvable) throw new Error(r.reason);
+    expect(r.preview).toBe('Stops all');
+  });
+
+  it('sets the modifiers with the Resolve, which one undo takes back, and the next reveal takes them', () => {
+    const table = dealRevealFixture(ACCELERATED_AGING);
+    const top = table.dilemmaStack[0];
+    expect(top.card.originalName).toContain('Accelerated Aging');
+    const r = botResolveOf(table, undefined, { rand: Math.random });
+    if (!r.resolvable) throw new Error(r.reason);
+    expect(r.modifiers).toEqual({ firstSkillOff: true });
+
+    const start = initialGameState(table);
+    const game = gameReducer(start, { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'Accelerated Aging', changes: r.changes, modifiers: r.modifiers });
+    expect(game.log).toHaveLength(start.log.length + 1);
+    expect(game.table.attempt?.modifiers).toEqual({ firstSkillOff: true });
+    expect(game.table.attempt?.revealSnapshot?.resolved).toBe(true);
+    // The card that set them reads its own reveal's modifiers, so its preview does not change.
+    const after = botResolveOf(game.table);
+    expect(after.resolvable && after.preview).toBe(r.preview);
+    expect(revealSnapshotOf(game.table, game.table.dilemmaStack[1].id).modifiers).toEqual({ firstSkillOff: true });
+
+    const undone = gameReducer(game, { type: 'undo' });
+    expect(undone.table).toEqual(table);
+    expect(undone.table.attempt?.modifiers).toBeUndefined();
+
+    expect(tableReducer(game.table, { type: 'endAttempt' }).attempt).toBeUndefined();
+  });
+
+  it('keeps the modifiers through a save and a restore, and drops malformed ones alone', () => {
+    const { table, deck } = dealRevealFixtureWithDeck(ACCELERATED_AGING);
+    const restore = (t: TableState) => fromSavedGame(JSON.stringify(toSavedGame(t, deck, 'builder')), deck)!.table;
+    expect(restore(table).attempt?.modifiers).toBeUndefined();
+
+    const modifiers = { firstSkillOff: true as const, attrBonus: 2, attrLoss: { [table.attempt!.revealSnapshot!.personnel[0].id]: 2 } };
+    const withModifiers: TableState = {
+      ...table,
+      attempt: { ...table.attempt!, modifiers, revealSnapshot: { ...table.attempt!.revealSnapshot!, modifiers: { attrBonus: 2 } } },
+    };
+    const restored = restore(withModifiers);
+    expect(restored.attempt?.modifiers).toEqual(modifiers);
+    expect(restored.attempt?.revealSnapshot?.modifiers).toEqual({ attrBonus: 2 });
+
+    const malformed = {
+      ...withModifiers,
+      attempt: { ...withModifiers.attempt!, modifiers: { attrBonus: 'two' }, revealSnapshot: { ...withModifiers.attempt!.revealSnapshot!, modifiers: { blockedSkills: 'all' } } },
+    } as unknown as TableState;
+    const repaired = restore(malformed);
+    expect(repaired.attempt).toBeDefined();
+    expect(repaired.attempt?.modifiers).toBeUndefined();
+    expect(repaired.attempt?.revealSnapshot?.modifiers).toBeUndefined();
+    expect(repaired.attempt?.revealSnapshot?.dilemmaId).toBe(table.attempt?.revealSnapshot?.dilemmaId);
   });
 });

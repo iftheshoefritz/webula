@@ -20,7 +20,8 @@ import { cardDisplayName } from '../../../lib/cardCount';
 import { BotTableFacts, asSphere117Dissident, isSphere117, sphere117Holds } from '../../../lib/dilemmaBot/gains';
 import { Rand, partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
-import { PileResolveWhere, pileResolveOf, pileRevealPicksOf } from '../../../lib/dilemmaBot/pile/resolve';
+import { PileResolveWhere, pileResolveOf, pileRevealPicksOf, playModifiersOf } from '../../../lib/dilemmaBot/pile/resolve';
+import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
@@ -66,7 +67,11 @@ function revealedPlayOf(table: TableState, snapshot: RevealSnapshot | undefined 
           ],
         }
       : live;
-  const { attempt: built, personnelIds } = pileAttemptOf(input);
+  const { attempt: pile, personnelIds } = pileAttemptOf(input);
+  // What earlier Resolves left (#1597): as the snapshot kept them when it is for the top card, so the
+  // card's own Resolve does not count again, and the attempt's otherwise.
+  const kept = snapshot?.dilemmaId === top.id ? snapshot.modifiers : attempt.modifiers;
+  const built = kept ? { ...pile, modifiers: playModifiersOf(kept, personnelIds) } : pile;
   const revealedIds = attempt.botRevealed ?? [];
   const at = revealedIds.indexOf(top.id);
   return {
@@ -107,7 +112,16 @@ function resolveWhereOf(table: TableState, id: string): PileResolveWhere {
 // count, and until it is made the Resolve is `pending`, its preview the task, with no changes.
 export type BotResolve =
   | { resolvable: false; reason: string }
-  | { resolvable: true; preview: string; changes: ResolveChange[]; notes: ResolveNote[]; picks?: string[][]; pending?: boolean };
+  | {
+      resolvable: true;
+      preview: string;
+      changes: ResolveChange[];
+      notes: ResolveNote[];
+      picks?: string[][];
+      pending?: boolean;
+      // The attempt's whole modifiers after the dilemma (#1597), when it changed them.
+      modifiers?: PileModifiers;
+    };
 
 export function botResolveOf(
   table: TableState,
@@ -144,6 +158,7 @@ export function botResolveOf(
     notes,
     ...(resolve.picks ? { picks: resolve.picks } : {}),
     ...(resolve.pending ? { pending: true } : {}),
+    ...(resolve.modifiers ? { modifiers: resolve.modifiers } : {}),
   };
 }
 

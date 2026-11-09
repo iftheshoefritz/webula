@@ -1,5 +1,5 @@
 import { Rand, seededRandom } from '../simulator';
-import { DilemmaModel, PersonnelOp, PileAttempt, PlayContext, PlayEffect } from './model';
+import { DilemmaModel, PersonnelOp, PileAttempt, PileModifiers, PlayContext, PlayEffect, PlayModifiers } from './model';
 import { LABEL_SEED, LabelRow, modelsOf, withRevealedCost } from './label';
 import { playPileStack } from './play';
 import { modelOf } from './registry';
@@ -63,7 +63,51 @@ export type PileResolve =
        * ids the selection may draw from.
        */
       pending?: { candidates: string[] };
+      /**
+       * What the dilemma changed in how the personnel are read for the rest of the attempt (#1597): the
+       * whole modifiers after its play, by card id, the earlier ones too. Absent when it changed nothing.
+       */
+      modifiers?: PileModifiers;
     };
+
+/** The modifiers by card id (#1597), from the play's by personnel index. A personnel with no card id is left out. */
+export function pileModifiersOf(m: PlayModifiers, personnelIds: ReadonlyArray<string | undefined>): PileModifiers {
+  const { attrLoss, ...rest } = m;
+  const out: PileModifiers = { ...rest };
+  const losses = (attrLoss ?? []).flatMap(({ k, loss }) => (personnelIds[k] ? [[personnelIds[k]!, loss] as const] : []));
+  if (losses.length) out.attrLoss = Object.fromEntries(losses);
+  return out;
+}
+
+/** The modifiers by personnel index (#1597), from the table's by card id. A card no longer in the group is left out. */
+export function playModifiersOf(m: PileModifiers, personnelIds: ReadonlyArray<string | undefined>): PlayModifiers {
+  const { attrLoss, ...rest } = m;
+  const out: PlayModifiers = { ...rest };
+  const losses = Object.entries(attrLoss ?? {}).flatMap(([id, loss]) => {
+    const k = personnelIds.indexOf(id);
+    return k === -1 || !(loss > 0) ? [] : [{ k, loss }];
+  });
+  if (losses.length) out.attrLoss = losses.sort((a, b) => a.k - b.k);
+  return out;
+}
+
+/** A canonical text of a value, its object keys sorted, so two equal modifiers compare equal. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== undefined);
+    return `{${entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** The play's modifiers by card id when they differ from the ones it started from, or undefined (#1597). */
+function changedModifiers(attempt: PileAttempt, after: PlayModifiers | undefined, personnelIds: ReadonlyArray<string | undefined>): PileModifiers | undefined {
+  if (!after) return undefined;
+  const now = pileModifiersOf(after, personnelIds);
+  const before = pileModifiersOf(attempt.modifiers ?? {}, personnelIds);
+  return canonical(now) === canonical(before) ? undefined : now;
+}
 
 const VERBS: Record<PileResolveOp, [string, string]> = {
   stop: ['Stops', ''],
@@ -106,10 +150,15 @@ function isDone(op: PileResolveOp, where: PileResolveWhere): boolean {
  */
 function recordPlay(attempt: PileAttempt, model: DilemmaModel, rest: DilemmaModel[], options: Pick<PlayContext, 'picks' | 'chooses'> = {}) {
   const all: PlayEffect[] = [];
-  playPileStack(attempt, [model, ...rest], seededRandom(LABEL_SEED), undefined, 0, { effects: (e) => all.push(e), ...options });
+  let modifiers: PlayModifiers | undefined;
+  playPileStack(attempt, [model, ...rest], seededRandom(LABEL_SEED), undefined, 0, {
+    effects: (e) => all.push(e),
+    modifiers: (m) => (modifiers = m),
+    ...options,
+  });
   const end = all.findIndex((e) => e.title !== model.title);
   const own = end === -1 ? all : all.slice(0, end);
-  return { own, kept: own.filter((e) => !e.why) };
+  return { own, kept: own.filter((e) => !e.why), modifiers };
 }
 
 type ChoiceEffect = Extract<PlayEffect, { op: 'playerChooses' }>;
@@ -338,7 +387,8 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
   const previewResult = reconcile(preview.kept, input);
   const effects = previewOf(played, preview.own, previewResult.done, rolled);
   const text = rolled ? `${selectedText(played, preview.own)}; ${effects}` : effects;
-  if (!input.rand && !input.picks) return { resolvable: true, preview: text, ...previewResult };
+  const previewModifiers = changedModifiers(played, preview.modifiers, input.personnelIds);
+  if (!input.rand && !input.picks) return { resolvable: true, preview: text, ...previewResult, ...(previewModifiers ? { modifiers: previewModifiers } : {}) };
 
   const ops = fedOps(preview.kept);
   const indexOf = (id: string) => input.personnelIds.indexOf(id);
@@ -362,5 +412,6 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
   const press = recordPlay(played, model, rest, { picks, ...(choiceOps ? { chooses: choiceOf(input, choiceOps).chooses } : {}) });
   const pressReason = noResolveReason(press.kept, rolled);
   if (pressReason) return { resolvable: false, reason: pressReason };
-  return { resolvable: true, preview: text, ...reconcile(press.kept, input), picks: picked };
+  const modifiers = changedModifiers(played, press.modifiers, input.personnelIds);
+  return { resolvable: true, preview: text, ...reconcile(press.kept, input), picks: picked, ...(modifiers ? { modifiers } : {}) };
 }
