@@ -482,7 +482,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has six fixtures. Each one deals the same table on every load.
+The practice table has seven fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -534,6 +534,10 @@ The practice table has six fixtures. Each one deals the same table on every load
   numbers, with no search, in `'face'`: the stack holds Well-Prepared Defenses on top, face up, and
   the next 3 dilemmas of the pile face down, so the page opens on the bot's label. It keeps its game
   under `practiceGame:fixture=bot-label`.
+- `?fixture=bot-resolve-noeffect` (#1589) deals the `?fixture=bot-label` table and attempt with one
+  Conflict of Interests (`26V002`) in place of Well-Prepared Defenses, revealed on top of the stack.
+  The Bilana System crew meets its `unless` check, so its Resolve preview reads "No effect" and a press
+  of Resolve changes no zone. It keeps its game under `practiceGame:fixture=bot-resolve-noeffect`.
 
 The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of the screen
 (`data-testid="hand-closed-fan"`, #1489), drawn on top of the bottom row in its own layer,
@@ -761,6 +765,18 @@ chosen stack on `Attempt.botStack`, and a `flip` that reveals a stack card in `'
 with `PlayState.botChoice` (#1574), and one that has the opponent name a skill, an attribute or a title
 labels "Named <it>"; neither label holds the dilemma's title. A title with no model, a Chula title, or a play that makes no label shows none.
 A tap dismisses it for the rest of the attempt. It is page state, so a reload shows it again.
+
+Beside the label, over the text box of the revealed top card, the same card shows the preview of the
+bot's Resolve, `data-testid="dilemma-resolve-preview"` ("Stops <name>", "Kills 2 random personnel",
+"No effect", with a tail such as "; 1 of 1 already stopped" for what the player did by hand), and the
+**Resolve** button, `data-testid="dilemma-resolve"` (#1589). Both read `botResolveOf` (`attempt.ts`)
+on the live table and the attempt's reveal snapshot, which the save keeps, so a reload shows the same
+preview. A press rolls the random picks on the page, with `Math.random`, as `withShuffleOrders`
+chooses a shuffle, and dispatches one `resolveDilemma`, even with no changes: one log entry, "Resolved
+<dilemma>: …", and one undo takes it all back. The button then reads "Resolved", disabled, until the
+next card is revealed. When `botResolveOf` gives no Resolve (no model, a player's choice, `move`,
+`loseShip`), neither shows, and the player resolves the dilemma by hand. A tap on the label hides only
+the label.
 
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
 dilemmas. Start begins in `'choose'`, with `Attempt.drawn` 0. The choice-phase draw, `drawCard` from

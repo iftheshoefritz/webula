@@ -292,15 +292,23 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
 // Well-Prepared Defenses in the dilemma pile: the attempt at Bilana System with the bot's numbers, in
 // the facing phase, with no search, and a stack of that dilemma, revealed, on top of the next
 // `FIXTURE_DILEMMA_STACK - 1` dilemmas of the pile, face down. So the page opens on the bot's label.
+// `?fixture=bot-resolve-noeffect` (#1589) deals the same with a Conflict of Interests, whose `unless`
+// check the crew meets, so its Resolve reads "No effect".
 export const FIXTURE_BOT_LABEL_DILEMMA = 'Well-Prepared Defenses';
 
-export function fixtureBotLabelAttempt(table: TableState): {
+// The dilemma each revealing bot fixture adds to the bot's pile and reveals, by title and collector's info.
+export const BOT_REVEAL_FIXTURES: Record<string, { title: string; collectorsInfo: string }> = {
+  'bot-label': { title: FIXTURE_BOT_LABEL_DILEMMA, collectorsInfo: '17V017' },
+  'bot-resolve-noeffect': { title: 'Conflict of Interests', collectorsInfo: '26V002' },
+};
+
+export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA): {
   start: Extract<TableAction, { type: 'startAttempt' }>;
   stack: Extract<TableAction, { type: 'move' }>[];
   revealId: string;
 } | null {
   const start = fixtureAttempt(table);
-  const labelled = table.dilemmaPile.find((c) => c.card?.originalName?.includes(FIXTURE_BOT_LABEL_DILEMMA));
+  const labelled = table.dilemmaPile.find((c) => c.card?.originalName?.includes(title));
   if (!start || !labelled) return null;
   const n = Math.max(0, start.personnel - start.subtract);
   const rest = table.dilemmaPile.filter((c) => c.id !== labelled.id).slice(0, FIXTURE_DILEMMA_STACK - 1);

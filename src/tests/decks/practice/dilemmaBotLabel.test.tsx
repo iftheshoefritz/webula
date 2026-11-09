@@ -339,3 +339,120 @@ describe('Practice table: the bot label on the dilemma faced (#1519)', () => {
     expect(label()).toHaveTextContent('Added No Kill I');
   });
 });
+
+describe('Practice table: the Resolve of the dilemma faced (#1589)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockDraggableIds.length = 0;
+    mockSearchParamsValue = new URLSearchParams();
+    localStorage.clear();
+    (extractDrawDeck as jest.Mock).mockReturnValue([mockPersonnel]);
+    (useDataFetching as jest.Mock).mockReturnValue({ data: [], loading: false });
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    });
+  });
+
+  // Deals the deck with Alpha in the away team of mission 0, Well-Prepared Defenses revealed on top of
+  // the stack, and enters a bot attempt there in the facing phase.
+  const setup = async (fields: Record<string, unknown> = {}) => {
+    localStorage.setItem('currentDeck', JSON.stringify(mockDeck));
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const save = JSON.parse(localStorage.getItem('practiceGame')!);
+    const pile: { id: string; key: string }[] = save.table.dilemmaPile;
+    const labelled = pile.find((c) => c.key === mockLabelled.collectorsinfo)!;
+    const other = pile.find((c) => c !== labelled)!;
+    save.table.dilemmaPile = [];
+    save.table.missions[0].awayTeam = save.table.drawDeck;
+    save.table.drawDeck = [];
+    save.table.dilemmaStack = [
+      { ...labelled, face: 'up' },
+      { ...other, face: 'down' },
+    ];
+    localStorage.setItem('practiceGame', JSON.stringify(save));
+    await enterAttempt(<PracticeDrawPage />, 0, { drawn: 0, phase: 'face', botDraw: 2, botSpend: 2, ...fields });
+  };
+  const preview = () => screen.queryByTestId('dilemma-resolve-preview');
+  const resolve = () => screen.queryByTestId('dilemma-resolve');
+  const alphaStopped = () => !!JSON.parse(localStorage.getItem('practiceGame')!).table.missions[0].awayTeam[0].stopped;
+  const logLength = () => JSON.parse(localStorage.getItem('practiceGame')!).log.length;
+
+  it('previews the Resolve, and a press stops the chosen personnel in one log entry that one undo takes back', async () => {
+    await setup();
+    expect(preview()).toHaveTextContent('Stops Alpha');
+    expect(resolve()).toHaveTextContent('Resolve');
+    expect(resolve()).toBeEnabled();
+    const before = logLength();
+
+    // The button's own guards: a press never reaches the stack.
+    const down = new MouseEvent('pointerdown', { bubbles: true });
+    const stop = jest.spyOn(down, 'stopPropagation');
+    resolve()!.dispatchEvent(down);
+    expect(stop).toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(resolve()!);
+    });
+    expect(alphaStopped()).toBe(true);
+    expect(logLength()).toBe(before + 1);
+    expect(resolve()).toHaveTextContent('Resolved');
+    expect(resolve()).toBeDisabled();
+    expect(screen.getByTestId('undo-button').getAttribute('aria-label')).toMatch(/^Undo: Resolved "?Well-Prepared Defenses"?: stopped Alpha$/);
+    expect(screen.queryByTestId('card-list-panel-dilemmaStack')).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('undo-button'));
+    });
+    expect(alphaStopped()).toBe(false);
+    expect(logLength()).toBe(before);
+    expect(resolve()).toHaveTextContent('Resolve');
+    expect(resolve()).toBeEnabled();
+  });
+
+  it('notes a stop made by hand, and a press then stops no one more', async () => {
+    await setup();
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Alpha/ })[0]);
+    });
+    const stopButton = screen.queryByTestId('attempt-row-stop');
+    if (!stopButton) throw new Error('no Stop button');
+    await act(async () => {
+      fireEvent.click(stopButton);
+    });
+    expect(alphaStopped()).toBe(true);
+    expect(preview()).toHaveTextContent('Stops Alpha; 1 of 1 already stopped');
+    await act(async () => {
+      fireEvent.click(resolve()!);
+    });
+    expect(screen.getByTestId('undo-button').getAttribute('aria-label')).not.toMatch(/stopped Alpha/);
+    expect(resolve()).toBeDisabled();
+  });
+
+  it('keeps the preview and Resolve when the bot label is dismissed', async () => {
+    await setup();
+    await act(async () => {
+      fireEvent.click(label()!);
+    });
+    expect(label()).toBeNull();
+    expect(preview()).toHaveTextContent('Stops Alpha');
+    expect(resolve()).toBeEnabled();
+  });
+
+  it('shows no preview and no Resolve outside a bot game', async () => {
+    await setup({ botDraw: undefined, botSpend: undefined });
+    expect(preview()).toBeNull();
+    expect(resolve()).toBeNull();
+  });
+});

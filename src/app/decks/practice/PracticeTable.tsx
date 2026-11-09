@@ -110,7 +110,9 @@ import {
   fixtureAttemptPlacedOn,
   fixtureAttemptStack,
   fixtureBotLabelAttempt,
+  BOT_REVEAL_FIXTURES,
   botLabelOf,
+  botResolveOf,
 } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
@@ -1512,6 +1514,9 @@ function DilemmaStackPile({
   cardWidth,
   botLabel = null,
   onDismissBotLabel,
+  resolvePreview = null,
+  resolved = false,
+  onResolve,
   choseNone = false,
 }: {
   stack: CardInstance[];
@@ -1527,6 +1532,11 @@ function DilemmaStackPile({
   // The bot's choice for the revealed top card, in a bot game (#1519), or null for none.
   botLabel?: string | null;
   onDismissBotLabel?: () => void;
+  // The preview of the bot's Resolve of the revealed top card (#1589), or null for no Resolve, and
+  // whether it is done. The button reads "Resolved", disabled, until the next card is revealed.
+  resolvePreview?: string | null;
+  resolved?: boolean;
+  onResolve?: () => void;
 }) {
   const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone();
   const count = stack.length;
@@ -1609,6 +1619,40 @@ function DilemmaStackPile({
         >
           {botLabel}
         </button>
+      )}
+      {/* #1589: the Resolve's preview and its button, over the text box of the top card, below the bot
+          label. Siblings painted above the top card, with the label's guards, so a tap never starts a
+          drag or opens the panel. Hidden while the top card drags. */}
+      {revealed && resolvePreview && !dragActive && (
+        <div
+          className="absolute flex flex-col items-start gap-0.5"
+          style={{ left: 3, bottom: 3, maxWidth: Math.max(40, cardWidth - 6), zIndex: count + 2 }}
+        >
+          <span
+            data-testid="dilemma-resolve-preview"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="rounded-md bg-black/90 ring-1 ring-white/40 px-1 py-0.5 text-[9px] leading-tight text-text-primary"
+            style={NO_CALLOUT_STYLE}
+          >
+            {resolvePreview}
+          </span>
+          <button
+            type="button"
+            data-testid="dilemma-resolve"
+            onClick={onResolve}
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            disabled={resolved}
+            aria-label={resolved ? 'Resolved' : `Resolve: ${resolvePreview}`}
+            className="rounded-md bg-accent ring-1 ring-white/70 shadow-md px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-white disabled:bg-black/80 disabled:text-text-muted focus:outline-hidden"
+            style={NO_CALLOUT_STYLE}
+          >
+            {resolved ? 'Resolved' : 'Resolve'}
+          </button>
+        </div>
       )}
       {/* #1080: 24 px, the size of the pile buttons, with an opaque fill and a solid ring so it
           reads against the card back. A sibling of the tap-to-open button, painted above it, so a
@@ -1787,10 +1831,6 @@ const CLOSED_FAN_ANCHOR = '[data-testid="flat-rows"]';
 // The content column's `p-4`.
 const CONTENT_PADDING = 16; // px
 
-// Well-Prepared Defenses, the dilemma `?fixture=bot-label` adds to the bot's pile (#1519), by its
-// collector's info as `parseCardData` stores it.
-const BOT_LABEL_FIXTURE_COLLECTORS_INFO = collectorsKey('17V017');
-
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
   const fixture = searchParams.get('fixture');
@@ -1807,8 +1847,9 @@ function PracticeDrawContent() {
   // deck's dilemmas.
   // `?fixture=bot-label` (#1519) deals the same bot table with a Well-Prepared Defenses in the dilemma
   // pile, and starts a bot attempt whose facing stack has it on top, revealed, for the bot's label.
-  const isBotLabelFixture = fixture === 'bot-label';
-  const isBotFixture = fixture === 'bot' || isBotLabelFixture;
+  // `?fixture=bot-resolve-noeffect` (#1589) does the same with a Conflict of Interests, for "No effect".
+  const botRevealFixture = fixture && Object.hasOwn(BOT_REVEAL_FIXTURES, fixture) ? BOT_REVEAL_FIXTURES[fixture] : null;
+  const isBotFixture = fixture === 'bot' || botRevealFixture !== null;
   const isFixture = fixture === '1' || isPilesFixture || isAttemptFixture || isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
   // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
@@ -2021,6 +2062,19 @@ function PracticeDrawContent() {
     );
   }
   const botLabelText = botLabel && !dismissedBotLabels.has(botLabel.id) ? botLabel.text : null;
+  // Issue #1589: the Resolve of the same revealed card, from the reveal snapshot and the live table, so
+  // its preview follows what the player does by hand. A press rolls the random picks here, as
+  // `withShuffleOrders` chooses a shuffle, and dispatches one `resolveDilemma`, even with no changes, so
+  // the snapshot turns resolved. No Resolve, no preview and no button: the player resolves by hand.
+  const botResolve = useMemo(() => (botLabelCardId ? botResolveOf(table) : null), [botLabelCardId, table]);
+  const botResolvePreview = botResolve?.resolvable ? botResolve.preview : null;
+  const botResolved = !!table.attempt?.revealSnapshot?.resolved && table.attempt.revealSnapshot.dilemmaId === botLabelCardId;
+  const resolveRevealedDilemma = () => {
+    const top = dilemmaStack[0];
+    const pressed = botResolveOf(table, undefined, { rand: Math.random });
+    if (!top || !pressed.resolvable) return;
+    dispatch({ type: 'resolveDilemma', dilemmaId: top.id, dilemma: cardDisplayName(top.card), changes: pressed.changes, notes: pressed.notes });
+  };
   const attemptLayoutShows = attemptKey !== null && fullTableFor !== attemptKey;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
@@ -2173,7 +2227,7 @@ function PracticeDrawContent() {
     fixturePiles = false,
     fixtureAttemptPhase: AttemptPhase | null = null,
     opponent?: 'bot',
-    botLabelFixture = false,
+    botRevealTitle: string | null = null,
     dealtBotPile?: BotPileInfo
   ) => {
     const cards = extractDrawDeck(deck);
@@ -2191,7 +2245,7 @@ function PracticeDrawContent() {
       ...(opponent && dealtBotPile ? { botPile: dealtBotPile } : {}),
     };
     dispatch(deal);
-    const botLabel = botLabelFixture ? fixtureBotLabelAttempt(tableReducer(initialTableState, deal)) : null;
+    const botLabel = botRevealTitle ? fixtureBotLabelAttempt(tableReducer(initialTableState, deal), botRevealTitle) : null;
     if (botLabel) {
       dispatch(botLabel.start);
       dispatch({ type: 'setAttemptPhase', phase: 'face' });
@@ -2228,7 +2282,10 @@ function PracticeDrawContent() {
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
     if (!isBotFixture) return deck;
     const botDeck = mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']);
-    const labelled = isBotLabelFixture ? data.find((row: any) => row.collectorsinfo === BOT_LABEL_FIXTURE_COLLECTORS_INFO) : undefined;
+    // The dilemma a revealing bot fixture adds, by its collector's info as `parseCardData` stores it.
+    const labelled = botRevealFixture
+      ? data.find((row: any) => row.collectorsinfo === collectorsKey(botRevealFixture.collectorsInfo))
+      : undefined;
     return labelled
       ? { ...botDeck, [labelled.collectorsinfo]: { count: 1, row: { ...labelled, count: 1, pile: 'dilemmaPile' } } }
       : botDeck;
@@ -2273,7 +2330,7 @@ function PracticeDrawContent() {
 
   const initDeck = () => {
     if (loadedDeck) {
-      dealDeck(loadedDeck, false, null, botGame ? 'bot' : undefined, false, botPile);
+      dealDeck(loadedDeck, false, null, botGame ? 'bot' : undefined, null, botPile);
       return;
     }
 
@@ -2284,7 +2341,7 @@ function PracticeDrawContent() {
         isPilesFixture || isAttemptFixture || isBotFixture,
         attemptFixturePhase,
         isBotFixture ? 'bot' : undefined,
-        isBotLabelFixture
+        botRevealFixture?.title ?? null
       );
       return;
     }
@@ -2481,7 +2538,7 @@ function PracticeDrawContent() {
     setDriveFileId(base.fileId);
     setDilemmaDriveFileId(undefined);
     setDriveFileName(base.name);
-    dealDeck(deck, false, null, 'bot', false, pileInfo);
+    dealDeck(deck, false, null, 'bot', null, pileInfo);
     drive.closePicker();
   };
 
@@ -3535,6 +3592,9 @@ function PracticeDrawContent() {
                       onDismissBotLabel={() => {
                         if (botLabel) setDismissedBotLabels((ids) => new Set(ids).add(botLabel.id));
                       }}
+                      resolvePreview={botResolvePreview}
+                      resolved={botResolved}
+                      onResolve={resolveRevealedDilemma}
                     />
                     )
                   }
