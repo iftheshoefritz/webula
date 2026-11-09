@@ -18,6 +18,7 @@
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import {
+  applyResolveChange,
   cardsAt,
   drawReshuffles,
   shuffledIds,
@@ -25,6 +26,9 @@ import {
   MoveTarget,
   ReorderZone,
   AttemptPhase,
+  ResolveNote,
+  ResolveOp,
+  resolvableSnapshot,
   TableAction,
   TableState,
   TableZone,
@@ -96,6 +100,9 @@ export type LogEntry = { turn: number } & (
       returned?: number | string[];
       redrew?: number;
     }
+  // The effects of a bot game's revealed dilemma (#1587): the cards of each op the table applied, in
+  // the action's order, and the notes the page gave.
+  | { kind: 'dilemmaResolved'; dilemma: string; ops: { op: ResolveOp; cards: string[] }[]; notes?: ResolveNote[] }
 );
 
 // Several table actions that are one player action (#1065): a group drag, a selection's Discard,
@@ -310,6 +317,27 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         ...(action.redrawn ? { redrew: action.redrawn.length } : {}),
       };
     }
+    case 'resolveDilemma': {
+      if (after === before || !resolvableSnapshot(before, action.dilemmaId)) return null;
+      // Only the cards the table changed: a card that left the row first is skipped, and named nowhere.
+      const ops: { op: ResolveOp; cards: string[] }[] = [];
+      let state = before;
+      for (const { op, ids } of action.changes) {
+        const cards: string[] = [];
+        for (const id of ids) {
+          const next = applyResolveChange(state, op, id);
+          if (next !== state) cards.push(cardName(state, id));
+          state = next;
+        }
+        if (cards.length) ops.push({ op, cards });
+      }
+      return {
+        kind: 'dilemmaResolved',
+        dilemma: action.dilemma,
+        ops,
+        ...(action.notes?.length ? { notes: action.notes } : {}),
+      };
+    }
     case 'nextTurn':
       return { kind: 'nextTurn' };
     case 'adjustScore':
@@ -483,6 +511,21 @@ export function cardsText(cards: LogCard[]): string {
 const destinationText = (move: LogMove): string =>
   move.position ? `the ${move.position} of ${placeText(move.to)}` : placeText(move.to);
 
+// The verb of each op of a resolved dilemma (#1587), and the phrase of its "already done" note.
+const RESOLVE_OP_TEXT: Record<ResolveOp, string> = {
+  stop: 'stopped',
+  kill: 'killed',
+  remove: 'removed from the game',
+  brig: "sent to the bot's brig",
+  holdInCore: 'held in the core',
+  returnToHand: 'returned to the hand',
+};
+
+const resolveNoteText = (note: ResolveNote): string =>
+  note.kind === 'alreadyDone'
+    ? `${note.done} of ${note.of} already ${RESOLVE_OP_TEXT[note.op]} by hand`
+    : `${note.text} goes by the table`;
+
 const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 
 // The text of one entry, one sentence with no full stop.
@@ -503,6 +546,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   attemptEnded: true,
   attemptPhase: true,
   botAttempt: true,
+  dilemmaResolved: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -567,6 +611,13 @@ export function logEntryText(entry: LogEntry): string {
       } and put ${entry.stacked} in the stack${entry.random ? ' at random' : ''}`;
       const returned = Array.isArray(entry.returned) ? entry.returned.length : (entry.returned ?? 0);
       return returned ? `${text}, and moved ${dilemmas(returned)} to the bottom of the dilemma pile` : text;
+    }
+    case 'dilemmaResolved': {
+      const effects = entry.ops.length
+        ? entry.ops.map(({ op, cards }) => `${RESOLVE_OP_TEXT[op]} ${cardsText(cards)}`).join(', ')
+        : 'no effect';
+      const notes = entry.notes?.length ? ` (${entry.notes.map(resolveNoteText).join('; ')})` : '';
+      return `Resolved ${entry.dilemma}: ${effects}${notes}`;
     }
     case 'attemptPhase': {
       const text =

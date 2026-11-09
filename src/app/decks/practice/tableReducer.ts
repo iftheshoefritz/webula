@@ -201,7 +201,35 @@ export interface Attempt {
   // them; a save from before #1556 has neither, and reads as two empty lists.
   botStack?: string[];
   botRevealed?: string[];
+  // A bot game's reveal snapshot (#1587): the dilemma the table revealed last in `'face'`, and the
+  // attempting personnel as it turned face up, in row order, each with its stopped flag. Equipment is
+  // not in it. `flip` sets it under the condition that adds to `botRevealed`, and `resolveDilemma`
+  // marks it `resolved`, once. A restore takes a fresh one for a face-up top card it does not name.
+  revealSnapshot?: RevealSnapshot;
 }
+
+export interface RevealSnapshot {
+  dilemmaId: string;
+  personnel: { id: string; stopped: boolean }[];
+  resolved?: true;
+}
+
+// The effects of a dilemma on the attempting cards (#1587), each one or two table actions:
+// `stop` a `setStopped`, `kill` a `move` to the discard pile, `remove` that move and then a
+// `setRemovedFromGame`, `brig` a `move` to the bot's brig, `holdInCore` a `move` to the core, and
+// `returnToHand` a `move` to the hand.
+export type ResolveOp = 'stop' | 'kill' | 'remove' | 'brig' | 'holdInCore' | 'returnToHand';
+
+export interface ResolveChange {
+  op: ResolveOp;
+  ids: string[];
+}
+
+// What the log of a `resolveDilemma` needs beside the changes, as the page computed it: a count of
+// the cards of an op the player had already done by hand, or a card whose effect goes by the table.
+export type ResolveNote =
+  | { kind: 'alreadyDone'; op: ResolveOp; done: number; of: number }
+  | { kind: 'byTable'; text: string };
 
 // The score counter's range (#719) and the amount each button press changes it by.
 export const SCORE_MIN = 0;
@@ -284,7 +312,7 @@ export type TableAction =
   // it put on the bottom of the pile before it drew `drawn`; `pile` is then the pile after both draws.
   // It refuses exactly when `startAttempt` does, and when a drawn id is not in the pile, and a redraw
   // when the bot used the card already or its deck lacks it.
-  | ({ type: 'botAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'botDraw' | 'botSpend' | 'botChoseNone' | 'botStack' | 'botRevealed'> & {
+  | ({ type: 'botAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'botDraw' | 'botSpend' | 'botChoseNone' | 'botStack' | 'botRevealed' | 'revealSnapshot'> & {
       botDraw: number;
       botSpend: number;
       pile: CardInstance[];
@@ -296,6 +324,11 @@ export type TableAction =
   // Ends the attempt in progress, and moves every dilemma still in the dilemma stack under the
   // attempted mission, face up, in stack order (#1170). Does nothing when no attempt is in progress.
   | { type: 'endAttempt' }
+  // Applies the effects of the revealed top card of a bot game's stack (#1587), in order, to the
+  // cards still in the attempting row, and marks the reveal snapshot resolved. It never unstops a
+  // card and never moves one back. It does nothing unless the snapshot names `dilemmaId`, the face-up
+  // top card of the stack in `'face'`, and is not resolved yet. `dilemma` and `notes` are for the log.
+  | { type: 'resolveDilemma'; dilemmaId: string; changes: ResolveChange[]; dilemma: string; notes?: ResolveNote[] }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[]; opponent?: 'bot'; botPile?: BotPileInfo }
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
   // state, and the caller passes its max instance ID to `seedInstanceIds` first.
@@ -673,6 +706,63 @@ export function drawFromDilemmaPile(
   return { drawn, pile: rest };
 }
 
+// The attempting cards of an attempt at `missionIndex` (#1298), as an attempt names them: the away
+// team at a planet mission, with no `shipId`, or the crew of the ship `shipId` on that mission's ship
+// row at a space mission. Null when the mission is not of that type or the ship is not there. The bot
+// reads the attempt's personnel from these. `attempt.ts` re-exports it.
+export function attemptingCards(table: TableState, missionIndex: number, shipId?: string): CardInstance[] | null {
+  const slot = table.missions[missionIndex];
+  if (shipId === undefined) return slot?.mission?.card?.missiontype === 'p' ? slot.awayTeam : null;
+  if (slot?.mission?.card?.missiontype !== 's') return null;
+  const ship = slot.ships.find((s) => s.id === shipId);
+  return ship ? ship.crew ?? [] : null;
+}
+
+// The reveal snapshot of `dilemmaId` from the table as it stands (#1587): the attempting personnel,
+// in row order, with their stopped flags. The reducer, the restore and the page build it here.
+export function revealSnapshotOf(table: TableState, dilemmaId: string): RevealSnapshot {
+  const { attempt } = table;
+  const row = attempt ? attemptingCards(table, attempt.missionIndex, attempt.shipId) ?? [] : [];
+  return {
+    dilemmaId,
+    personnel: row.filter((c) => c.card?.type === 'personnel').map((c) => ({ id: c.id, stopped: !!c.stopped })),
+  };
+}
+
+// The face-up top card of the stack of a bot game's attempt in `'face'`, which a reveal snapshot
+// belongs to (#1587), or undefined.
+export function revealedTopCard(table: TableState): CardInstance | undefined {
+  const { attempt } = table;
+  const top = table.dilemmaStack[0];
+  return attempt?.phase === 'face' && attempt.botDraw !== undefined && top?.face === 'up' ? top : undefined;
+}
+
+// Whether a `resolveDilemma` for `dilemmaId` applies: the snapshot names it, it is the face-up top
+// card, and it is not resolved yet.
+export function resolvableSnapshot(table: TableState, dilemmaId: string): boolean {
+  const snapshot = table.attempt?.revealSnapshot;
+  return revealedTopCard(table)?.id === dilemmaId && snapshot?.dilemmaId === dilemmaId && !snapshot.resolved;
+}
+
+const RESOLVE_MOVES: Record<Exclude<ResolveOp, 'stop'>, Zone> = {
+  kill: 'discard',
+  remove: 'discard',
+  brig: 'botBrig',
+  holdInCore: 'core',
+  returnToHand: 'hand',
+};
+
+// One op of a `resolveDilemma` on one card (#1587), or the same state when the card is no longer in
+// the attempting row, or is already stopped for a `stop`.
+export function applyResolveChange(state: TableState, op: ResolveOp, id: string): TableState {
+  const { attempt } = state;
+  const card = attempt && attemptingCards(state, attempt.missionIndex, attempt.shipId)?.find((c) => c.id === id);
+  if (!card) return state;
+  if (op === 'stop') return card.stopped ? state : tableReducer(state, { type: 'setStopped', ids: [id], stopped: true });
+  const moved = tableReducer(state, { type: 'move', id, to: RESOLVE_MOVES[op] });
+  return op === 'remove' ? tableReducer(moved, { type: 'setRemovedFromGame', ids: [id], removedFromGame: true }) : moved;
+}
+
 export function tableReducer(state: TableState, action: TableAction): TableState {
   switch (action.type) {
     case 'drawCard': {
@@ -803,7 +893,11 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         found.instance.face === 'down' &&
         !attempt.botRevealed?.includes(action.id)
       ) {
-        flipped.attempt = { ...attempt, botRevealed: [...(attempt.botRevealed ?? []), action.id] };
+        flipped.attempt = {
+          ...attempt,
+          botRevealed: [...(attempt.botRevealed ?? []), action.id],
+          revealSnapshot: revealSnapshotOf(state, action.id),
+        };
       }
       return flipped;
     }
@@ -976,6 +1070,16 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         attempt: stack.length ? attempt : { ...attempt, botChoseNone: true },
         ...(redrawn ? { botUsedUnexpectedDifficulties: true as const } : {}),
       };
+    }
+
+    case 'resolveDilemma': {
+      const { attempt } = state;
+      if (!attempt || !resolvableSnapshot(state, action.dilemmaId)) return state;
+      const resolved = action.changes.reduce(
+        (s, change) => change.ids.reduce((t, id) => applyResolveChange(t, change.op, id), s),
+        state
+      );
+      return { ...resolved, attempt: { ...resolved.attempt!, revealSnapshot: { ...attempt.revealSnapshot!, resolved: true } } };
     }
 
     case 'endAttempt': {

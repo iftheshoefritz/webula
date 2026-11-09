@@ -4,6 +4,7 @@
 
 import {
   Attempt,
+  attemptingCards,
   CardInstance,
   findInstanceAnywhere,
   FIXTURE_DILEMMA_STACK,
@@ -36,17 +37,7 @@ function attemptCards(table: TableState, panel: AttemptPanel): { missionIndex: n
   return cards && { missionIndex, cards };
 }
 
-// The attempting cards of an attempt at `missionIndex` (#1298), as an attempt names them: the away
-// team at a planet mission, with no `shipId`, or the crew of the ship `shipId` on that mission's ship
-// row at a space mission. Null when the mission is not of that type or the ship is not there. The bot
-// reads the attempt's personnel from these.
-export function attemptingCards(table: TableState, missionIndex: number, shipId?: string): CardInstance[] | null {
-  const slot = table.missions[missionIndex];
-  if (shipId === undefined) return slot?.mission?.card?.missiontype === 'p' ? slot.awayTeam : null;
-  if (slot?.mission?.card?.missiontype !== 's') return null;
-  const ship = slot.ships.find((s) => s.id === shipId);
-  return ship ? ship.crew ?? [] : null;
-}
+export { attemptingCards };
 
 // The bot's label on the revealed top card of the dilemma stack (#1519), or null. The label's attempt
 // has the attempt's spend and the cost of the cards revealed before the top card (#1556), from the

@@ -7,7 +7,16 @@
 // database column such as `collectorsinfo` or `imagefile` is not.
 
 import { DeckList } from '../../../types';
-import { CardInstance, MissionSlot, TableState, Zone, ZONE_FACE, initialTableState } from './tableReducer';
+import {
+  CardInstance,
+  MissionSlot,
+  TableState,
+  Zone,
+  ZONE_FACE,
+  initialTableState,
+  revealSnapshotOf,
+  revealedTopCard,
+} from './tableReducer';
 import { GameState, isLogEntry, LogEntry, RedoStep } from './gameLog';
 import { rebuildSavedHistory, savedHistoryJson } from './gameHistory';
 
@@ -225,6 +234,14 @@ const isValidAttempt = (table: TableState): boolean => {
   );
 };
 
+// A bot attempt's reveal snapshot (#1587).
+const isValidRevealSnapshot = (snapshot: unknown): boolean =>
+  isObject(snapshot) &&
+  typeof snapshot.dilemmaId === 'string' &&
+  Array.isArray(snapshot.personnel) &&
+  snapshot.personnel.every((p: unknown) => isObject(p) && typeof p.id === 'string' && typeof p.stopped === 'boolean') &&
+  (snapshot.resolved === undefined || snapshot.resolved === true);
+
 const isValidBotPile = (botPile: unknown): boolean =>
   isObject(botPile) &&
   typeof botPile.id === 'string' &&
@@ -245,6 +262,17 @@ function repairTable(table: TableState): TableState {
   // An attempt saved before #1189 opened in the layout of facing dilemmas, so it restores in that
   // phase, with no dilemma drawn.
   else table.attempt = { ...table.attempt!, phase: table.attempt!.phase ?? 'face', drawn: table.attempt!.drawn ?? 0 };
+  // A malformed reveal snapshot (#1587) drops alone, and the attempt stays.
+  if (table.attempt && table.attempt.revealSnapshot !== undefined && !isValidRevealSnapshot(table.attempt.revealSnapshot)) {
+    delete table.attempt.revealSnapshot;
+  }
+  // A bot attempt whose face-up top card has no snapshot, a save from before #1587 too, takes one from
+  // the table as it stands. A snapshot of a card that is not the top card stays: `resolveDilemma`
+  // ignores it.
+  const top = revealedTopCard(table);
+  if (top && table.attempt!.revealSnapshot?.dilemmaId !== top.id) {
+    table.attempt = { ...table.attempt!, revealSnapshot: revealSnapshotOf(table, top.id) };
+  }
   // A bot game (#1289) is the only opponent.
   if (table.opponent !== 'bot') delete table.opponent;
   // The bot's pile (#1520) loads only in a bot game and only when sound. Absent: the Chula pile.
