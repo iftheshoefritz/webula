@@ -8,11 +8,12 @@ import { modelOf } from './registry';
 
 // Only the label of the play matters, not its random selections, so a fixed seed keeps the label
 // stable across renders.
-const LABEL_SEED = 1519;
+export const LABEL_SEED = 1519;
 
-type LabelRow = { originalName?: string } | null | undefined;
+export type LabelRow = { originalName?: string } | null | undefined;
 
-const modelsOf = (rows: ReadonlyArray<LabelRow>): DilemmaModel[] =>
+/** The models of `rows`, in order: a row whose title the registry lacks is left out. */
+export const modelsOf = (rows: ReadonlyArray<LabelRow>): DilemmaModel[] =>
   rows.flatMap((row) => {
     const model = row?.originalName ? modelOf(row.originalName) : undefined;
     return model ? [model] : [];
@@ -35,12 +36,19 @@ export function pileLabelOf(
 ): string | null {
   const model = row?.originalName ? modelOf(row.originalName) : undefined;
   if (!model) return null;
-  const before = modelsOf(revealed);
-  // The cost of the stack through `row`, less what `row` costs alone: what was spent before it, with the
-  // discount it gets. `row`'s own extra budget stays out, since the play adds it to the budget.
-  const revealedCost = before.length ? stackCostOf(attempt, [...before, model]) - stackCostOf(attempt, [model]) : 0;
-  const played = revealedCost ? { ...attempt, revealedCost: (attempt.revealedCost ?? 0) + revealedCost } : attempt;
-  const { labels } = playPileStack(played, [model, ...modelsOf(rest)], seededRandom(LABEL_SEED));
+  const { labels } = playPileStack(withRevealedCost(attempt, model, revealed), [model, ...modelsOf(rest)], seededRandom(LABEL_SEED));
   const texts = labels.filter((l) => l.title === model.title).map((l) => l.label);
   return texts.length ? texts.join('; ') : null;
+}
+
+/**
+ * `attempt` with the cost of the `revealed` cards before `model` counted as already spent (#1556): the
+ * label and the Resolve of #1588 both play `model` against it.
+ */
+export function withRevealedCost(attempt: PileAttempt, model: DilemmaModel, revealed: ReadonlyArray<LabelRow>): PileAttempt {
+  const before = modelsOf(revealed);
+  // The cost of the stack through `model`, less what `model` costs alone: what was spent before it, with
+  // the discount it gets. `model`'s own extra budget stays out, since the play adds it to the budget.
+  const revealedCost = before.length ? stackCostOf(attempt, [...before, model]) - stackCostOf(attempt, [model]) : 0;
+  return revealedCost ? { ...attempt, revealedCost: (attempt.revealedCost ?? 0) + revealedCost } : attempt;
 }

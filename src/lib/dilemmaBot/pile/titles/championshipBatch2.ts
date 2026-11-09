@@ -168,12 +168,12 @@ dilemma('Reflections', S, 2, 'own', (s) => {
     let size = deck.size;
     let left = deck.eventsAndInterrupts;
     for (let i = 0; i < count && size > 0; i++, size--) {
-      if (s.rand() * size < left) {
+      if (s.roll() * size < left) {
         hits++;
         left--;
       }
     }
-  } else for (let i = 0; i < count; i++) if (s.rand() < 1 / 3) hits++;
+  } else for (let i = 0; i < count; i++) if (s.roll() < 1 / 3) hits++;
   s.trace?.(`  reveals ${hits} event${hits === 1 ? '' : 's'} or interrupts`);
   s.stop(s.botChoice(s.unstopped(), hits));
 }, { category: '5b', assumption: 'the bot commands 3 [AU] cards for each turn of the game' });

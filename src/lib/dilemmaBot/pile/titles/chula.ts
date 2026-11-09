@@ -47,19 +47,20 @@ dilemma('Chula: The Precipice', D, 2, 'own', (s) => {
     s.trace?.(`  ${s.live} personnel, an odd number: no effect`);
     return;
   }
-  const order = s.select(s.live);
+  const order = s.select(s.live, undefined, { order: true });
   const halves = [order.slice(0, s.live / 2), order.slice(s.live / 2)];
   const met = (half: number[]) =>
     half.some((a) => s.hasSkill(a, sk('leadership')) &&
       half.some((b) => b !== a && s.attr(b, 1) > 5 && half.some((c) => c !== a && c !== b && s.hasSkill(c, sk('honor')))));
   if (halves.some(met)) s.trace?.('  one half has Leadership, Cunning>5 and Honor: no effect');
-  else s.stop(halves[s.rand() < 0.5 ? 0 : 1], 'no half has Leadership, Cunning>5 and Honor');
+  else s.stop(halves[s.roll() < 0.5 ? 0 : 1], 'no half has Leadership, Cunning>5 and Honor');
 });
 
 dilemma('Chula: Pick One to Save Two', D, 2, 'choose', (s) => {
   const ks = s.select(3);
   // The best choice, without sight of the rest of the stack: return the first personnel whose loss keeps
   // the mission requirements met; when none does, stop all three, which is no lasting damage.
+  s.playerChoice();
   const option = s.attempt.choice === 'random'
     ? Math.floor(s.rand() * (ks.length + 1)) - 1
     : ks.findIndex((k) => s.meetsWithout([k]));

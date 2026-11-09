@@ -136,7 +136,7 @@ export const unlessSelected = (count: number, requirements: string, effect: (s: 
 
 /** "Randomly select personnel until <done>. <act> each selected personnel." Every personnel is selected once at most. */
 export const selectUntil = (done: (s: PlayState, selected: number[]) => boolean, act: (s: PlayState, selected: number[]) => void): Play => (s) => {
-  const order = s.select(s.live);
+  const order = s.select(s.live, undefined, { order: true });
   const selected: number[] = [];
   for (const k of order) {
     selected.push(k);
