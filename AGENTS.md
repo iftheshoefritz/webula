@@ -482,7 +482,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has nine fixtures. Each one deals the same table on every load.
+The practice table has ten fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -549,6 +549,12 @@ The practice table has nine fixtures. Each one deals the same table on every loa
   "Selected A, B, C; choose 1 to be stopped" (or "Stops A, B, C" when the three share a species), the
   same set after a reload, and Resolve is disabled until one personnel of the set is selected. It keeps
   its game under `practiceGame:fixture=bot-resolve-pattern`.
+- `?fixture=bot-resolve-modifier` (#1598) deals the `?fixture=bot-label` table and attempt with one
+  Accelerated Aging (`11P001`) in place of Well-Prepared Defenses, revealed on top of the stack, and one
+  Dead Weight (`36V005`) face down right under it (`BotRevealFixture.next`). Its Resolve preview reads
+  "First skill off for the rest of the attempt"; after the press, with Accelerated Aging moved off the
+  stack, a flip of Dead Weight previews a stop, where the crew with its first-listed skills meets the
+  check and reads "No effect". It keeps its game under `practiceGame:fixture=bot-resolve-modifier`.
 
 The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of the screen
 (`data-testid="hand-closed-fan"`, #1489), drawn on top of the bottom row in its own layer,
@@ -807,6 +813,16 @@ reveal snapshot keeps the attempt's modifiers as its card turned face up (`Revea
 and `revealedPlayOf` seeds the play of the label, the preview, the press and the reveal roll with them
 (`PileAttempt.modifiers`), so a later card reads them and the card that set them does not count them
 twice. The save keeps both; malformed modifiers drop alone.
+
+A Resolve that adds a modifier names it (#1598, `modifiersClause` in `pile/resolve.ts`): the preview
+of a modifier-only dilemma reads "First skill off for the rest of the attempt" in place of "No effect",
+and any other preview and the `dilemmaResolved` log entry end with the same clause. While a modifier is
+active in `'face'` of a bot game, the attempt strip shows them, `data-testid="attempt-modifiers"`
+(`attemptModifiersText` in `attempt.ts`, `modifiersText`): "Abilities off · First skill off · Navigation
+blocked · +1 attributes · −2 attributes: Data, Worf · Overwhelmed · Requirements changed", the parts that
+apply. Under a seeded Overwhelmed, a passing check of the revealed dilemma stops the personnel whose
+skills met it, and that stop is part of the dilemma's Resolve, previewed as "Stops Data (Overwhelmed)";
+the stops of Chula: The Game stay out of it.
 
 Where a random selection is the pool of the player's choice (A Pattern of Lies, and the
 `anyOfThree(…, 'player')` titles New Face, Discommendation and Moral Choice, `DilemmaModel.rollsBeforeChoice`,

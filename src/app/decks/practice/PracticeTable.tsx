@@ -111,6 +111,7 @@ import {
   fixtureAttemptStack,
   fixtureBotLabelAttempt,
   BOT_REVEAL_FIXTURES,
+  attemptModifiersText,
   botLabelOf,
   botResolveOf,
 } from './attempt';
@@ -2175,6 +2176,7 @@ function PracticeDrawContent() {
       changes: pressed.changes,
       notes: pressed.notes,
       ...(pressed.modifiers ? { modifiers: pressed.modifiers } : {}),
+      ...(pressed.modifiersClause ? { modifiersClause: pressed.modifiersClause } : {}),
     });
   };
 
@@ -2310,9 +2312,15 @@ function PracticeDrawContent() {
     const labelled = botRevealFixture
       ? data.find((row: any) => row.collectorsinfo === collectorsKey(botRevealFixture.collectorsInfo))
       : undefined;
-    return labelled
-      ? { ...botDeck, [labelled.collectorsinfo]: { count: 1, row: { ...labelled, count: 1, pile: 'dilemmaPile' } } }
-      : botDeck;
+    // The fixture's second dilemma (#1598), when it has one.
+    const next = botRevealFixture?.next
+      ? data.find((row: any) => row.collectorsinfo === collectorsKey(botRevealFixture.next!.collectorsInfo))
+      : undefined;
+    return {
+      ...botDeck,
+      ...(labelled ? { [labelled.collectorsinfo]: { count: 1, row: { ...labelled, count: 1, pile: 'dilemmaPile' } } } : {}),
+      ...(next ? { [next.collectorsinfo]: { count: 1, row: { ...next, count: 1, pile: 'dilemmaPile' } } } : {}),
+    };
   };
 
   // Restores the game saved under `gameKey` (#976). Returns false when there is none, or
@@ -3564,6 +3572,7 @@ function PracticeDrawContent() {
                 <AttemptLayout
                   parked={!attemptLayoutShows}
                   viewFullTableHoldEnabled={viewFullTableHoldEnabled}
+                  modifiersText={attemptModifiersText(table)}
                   attempt={table.attempt}
                   slot={missions[table.attempt.missionIndex]}
                   sizes={attemptSizes}

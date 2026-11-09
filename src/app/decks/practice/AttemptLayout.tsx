@@ -91,6 +91,7 @@ export { VIEW_FULL_TABLE_HOLD_ID };
 export default function AttemptLayout({
   parked = false,
   viewFullTableHoldEnabled = false,
+  modifiersText = '',
   attempt,
   slot,
   sizes,
@@ -123,6 +124,8 @@ export default function AttemptLayout({
   // A drag from the row runs in the facing phase, so the strip takes the View full table hold
   // (#1342, #1368).
   viewFullTableHoldEnabled?: boolean;
+  // The active modifiers of a bot attempt in `'face'` (#1598), `attemptModifiersText`; '' shows no line.
+  modifiersText?: string;
   attempt: Attempt;
   slot: MissionSlot;
   sizes: AttemptSizes;
@@ -324,6 +327,11 @@ export default function AttemptLayout({
         <span data-testid="attempt-draw-spend" className="whitespace-nowrap text-sm font-bold">
           {drawSpendText(attempt.botDraw ?? drawSpendN, attempt.botSpend ?? drawSpendN)}
         </span>
+        {modifiersText && (
+          <span data-testid="attempt-modifiers" title={modifiersText} className="max-w-[40%] shrink-0 truncate text-xs text-amber-300">
+            {modifiersText}
+          </span>
+        )}
         {!botGame && attempt.phase === 'choose' && (
           <AttemptDrawDilemma attempt={attempt} canDraw={canDrawDilemma} onDraw={onDrawDilemma} />
         )}

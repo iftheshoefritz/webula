@@ -20,7 +20,7 @@ import { cardDisplayName } from '../../../lib/cardCount';
 import { BotTableFacts, asSphere117Dissident, isSphere117, sphere117Holds } from '../../../lib/dilemmaBot/gains';
 import { Rand, partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
-import { PileResolveWhere, pileResolveOf, pileRevealPicksOf, playModifiersOf } from '../../../lib/dilemmaBot/pile/resolve';
+import { PileResolveWhere, modifiersText, pileResolveOf, pileRevealPicksOf, playModifiersOf } from '../../../lib/dilemmaBot/pile/resolve';
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 
@@ -121,6 +121,8 @@ export type BotResolve =
       pending?: boolean;
       // The attempt's whole modifiers after the dilemma (#1597), when it changed them.
       modifiers?: PileModifiers;
+      // The clause that names what the dilemma adds to them (#1598), for the log.
+      modifiersClause?: string;
     };
 
 export function botResolveOf(
@@ -159,7 +161,19 @@ export function botResolveOf(
     ...(resolve.picks ? { picks: resolve.picks } : {}),
     ...(resolve.pending ? { pending: true } : {}),
     ...(resolve.modifiers ? { modifiers: resolve.modifiers } : {}),
+    ...(resolve.modifiersClause ? { modifiersClause: resolve.modifiersClause } : {}),
   };
+}
+
+// The line of the modifiers of a bot attempt in `'face'` (#1598), "Abilities off \u00b7 Navigation
+// blocked", or '' when none is active, or for any other attempt. Names come from the cards on the table.
+export function attemptModifiersText(table: TableState): string {
+  const attempt = table.attempt;
+  if (!attempt || attempt.botDraw === undefined || attempt.phase !== 'face') return '';
+  return modifiersText(attempt.modifiers, (id) => {
+    const card = findInstanceAnywhere(table, id)?.instance.card;
+    return card ? cardDisplayName(card) : 'A personnel';
+  });
 }
 
 // The roll at the reveal (#1594): for a revealed top card whose random selection is the pool of the
@@ -331,14 +345,29 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
 // check the crew meets, so its Resolve reads "No effect". `?fixture=bot-resolve-choice` (#1593) deals the
 // same with a Covert Extraction, where the player chooses the personnel to stop from the row selection,
 // and `?fixture=bot-resolve-pattern` (#1594) with A Pattern of Lies, whose roll the reveal keeps.
+// `?fixture=bot-resolve-modifier` (#1598) reveals Accelerated Aging, with a Dead Weight right under it.
 export const FIXTURE_BOT_LABEL_DILEMMA = 'Well-Prepared Defenses';
 
 // The dilemma each revealing bot fixture adds to the bot's pile and reveals, by title and collector's info.
-export const BOT_REVEAL_FIXTURES: Record<string, { title: string; collectorsInfo: string }> = {
+// `next`: a second dilemma it adds, face down right under the revealed one (#1598).
+export interface BotRevealFixture {
+  title: string;
+  collectorsInfo: string;
+  next?: { title: string; collectorsInfo: string };
+}
+
+export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
   'bot-label': { title: FIXTURE_BOT_LABEL_DILEMMA, collectorsInfo: '17V017' },
   'bot-resolve-noeffect': { title: 'Conflict of Interests', collectorsInfo: '26V002' },
   'bot-resolve-choice': { title: 'Covert Extraction', collectorsInfo: '38V002' },
   'bot-resolve-pattern': { title: 'A Pattern of Lies', collectorsInfo: '10C001' },
+  // Accelerated Aging, which takes away the first-listed skills, over a Dead Weight whose check the crew
+  // passes only with them (#1598).
+  'bot-resolve-modifier': {
+    title: 'Accelerated Aging',
+    collectorsInfo: '11P001',
+    next: { title: 'Dead Weight', collectorsInfo: '36V005' },
+  },
 };
 
 export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA): {
@@ -350,10 +379,14 @@ export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTUR
   const labelled = table.dilemmaPile.find((c) => c.card?.originalName?.includes(title));
   if (!start || !labelled) return null;
   const n = Math.max(0, start.personnel - start.subtract);
-  const rest = table.dilemmaPile.filter((c) => c.id !== labelled.id).slice(0, FIXTURE_DILEMMA_STACK - 1);
+  // The fixture's second dilemma, if it has one, goes right under the revealed one (#1598).
+  const nextTitle = Object.values(BOT_REVEAL_FIXTURES).find((f) => f.title === title)?.next?.title;
+  const next = nextTitle ? table.dilemmaPile.find((c) => c.id !== labelled.id && c.card?.originalName?.includes(nextTitle)) : undefined;
+  const rest = table.dilemmaPile.filter((c) => c.id !== labelled.id && c.id !== next?.id);
+  const under = [...(next ? [next] : []), ...rest].slice(0, FIXTURE_DILEMMA_STACK - 1);
   return {
     start: { ...start, botDraw: n, botSpend: n },
-    stack: [labelled, ...rest].map((c) => ({ type: 'move', id: c.id, to: 'dilemmaStack' })),
+    stack: [labelled, ...under].map((c) => ({ type: 'move', id: c.id, to: 'dilemmaStack' })),
     revealId: labelled.id,
   };
 }

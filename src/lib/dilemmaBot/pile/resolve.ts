@@ -1,7 +1,7 @@
 import { Rand, seededRandom } from '../simulator';
 import { DilemmaModel, PersonnelOp, PileAttempt, PileModifiers, PlayContext, PlayEffect, PlayModifiers } from './model';
 import { LABEL_SEED, LabelRow, modelsOf, withRevealedCost } from './label';
-import { playPileStack } from './play';
+import { playPileStack, skillName } from './play';
 import { modelOf } from './registry';
 
 // The Resolve of a dilemma the player faces in a bot game (#1588): the effects of the revealed top card
@@ -68,6 +68,8 @@ export type PileResolve =
        * whole modifiers after its play, by card id, the earlier ones too. Absent when it changed nothing.
        */
       modifiers?: PileModifiers;
+      /** The clause that names what `modifiers` adds (#1598), "abilities off for the rest of the attempt", for the log. */
+      modifiersClause?: string;
     };
 
 /** The modifiers by card id (#1597), from the play's by personnel index. A personnel with no card id is left out. */
@@ -109,6 +111,69 @@ function changedModifiers(attempt: PileAttempt, after: PlayModifiers | undefined
   return canonical(now) === canonical(before) ? undefined : now;
 }
 
+/** What `after` adds to `before` (#1598): the flags it turns on, the skills it blocks, the change of the bonus, each new loss. */
+export function addedModifiers(before: PileModifiers, after: PileModifiers): PileModifiers {
+  const out: PileModifiers = {};
+  if (after.abilitiesOff && !before.abilitiesOff) out.abilitiesOff = true;
+  const blocked = (after.blockedSkills ?? []).filter((i) => !(before.blockedSkills ?? []).includes(i));
+  if (blocked.length) out.blockedSkills = blocked;
+  if (after.firstSkillOff && !before.firstSkillOff) out.firstSkillOff = true;
+  const bonus = (after.attrBonus ?? 0) - (before.attrBonus ?? 0);
+  if (bonus) out.attrBonus = bonus;
+  const losses = Object.entries(after.attrLoss ?? {}).flatMap(([id, loss]) => {
+    const added = loss - (before.attrLoss?.[id] ?? 0);
+    return added > 0 ? [[id, added] as const] : [];
+  });
+  if (losses.length) out.attrLoss = Object.fromEntries(losses);
+  if (after.overwhelmed && !before.overwhelmed) out.overwhelmed = true;
+  if (after.requirements && canonical(after.requirements) !== canonical(before.requirements ?? null)) out.requirements = after.requirements;
+  return out;
+}
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+const signed = (n: number) => (n > 0 ? `+${n}` : `\u2212${-n}`);
+
+/**
+ * The parts of the text of the modifiers (#1598), in a fixed order: "Abilities off", "First skill off",
+ * "Navigation, Physics blocked", "+1 attributes", "\u22122 attributes: Data, Worf", "Overwhelmed",
+ * "Requirements changed". `nameOf` names a personnel by card id. None for no modifiers.
+ */
+export function modifierParts(m: PileModifiers, nameOf: (id: string) => string): string[] {
+  const parts: string[] = [];
+  if (m.abilitiesOff) parts.push('Abilities off');
+  if (m.firstSkillOff) parts.push('First skill off');
+  if (m.blockedSkills?.length) parts.push(`${m.blockedSkills.map(skillName).join(', ')} blocked`);
+  if (m.attrBonus) parts.push(`${signed(m.attrBonus)} attributes`);
+  const byLoss = new Map<number, string[]>();
+  for (const [id, loss] of Object.entries(m.attrLoss ?? {})) if (loss > 0) byLoss.set(loss, [...(byLoss.get(loss) ?? []), nameOf(id)]);
+  for (const [loss, names] of Array.from(byLoss).sort((a, b) => a[0] - b[0])) parts.push(`${signed(-loss)} attributes: ${names.join(', ')}`);
+  if (m.overwhelmed) parts.push('Overwhelmed');
+  if (m.requirements) parts.push('Requirements changed');
+  return parts;
+}
+
+/** The line of the active modifiers of an attempt (#1598), or '' for none. */
+export const modifiersText = (m: PileModifiers | undefined, nameOf: (id: string) => string): string =>
+  m ? modifierParts(m, nameOf).join(' \u00b7 ') : '';
+
+/** The parts with no name in them, which a clause writes in lower case. */
+const FIXED_PARTS = new Set(['Abilities off', 'First skill off', 'Overwhelmed', 'Requirements changed']);
+
+/**
+ * The clause of a Resolve that changes the modifiers (#1598), "first skill off for the rest of the
+ * attempt", in lower case but for skill names, or '' when `after` adds nothing to `before`.
+ */
+export function modifiersClause(before: PileModifiers, after: PileModifiers | undefined, nameOf: (id: string) => string): string {
+  if (!after) return '';
+  const parts = modifierParts(addedModifiers(before, after), nameOf);
+  if (!parts.length) return '';
+  return `${parts.map((p) => (FIXED_PARTS.has(p) ? p.toLowerCase() : p)).join(', ')} for the rest of the attempt`;
+}
+
+/** The `why` of a stop by Overwhelmed, of a check that passes (`PlayState.passes`). */
+const OVERWHELMED = 'Overwhelmed';
+
 const VERBS: Record<PileResolveOp, [string, string]> = {
   stop: ['Stops', ''],
   kill: ['Kills', ''],
@@ -146,7 +211,8 @@ function isDone(op: PileResolveOp, where: PileResolveWhere): boolean {
 /**
  * The records of one play of `model`, then the `rest`: those of the top title only, up to the first record
  * of a later title. `own` keeps the stops of Chula: The Game before it too; `kept` leaves out every record
- * with a `why`, which is not the dilemma's own effect.
+ * with a `why`, which is not the dilemma's own effect, but for Overwhelmed's stops (#1598): those a
+ * passing check of this dilemma makes are part of its effect.
  */
 function recordPlay(attempt: PileAttempt, model: DilemmaModel, rest: DilemmaModel[], options: Pick<PlayContext, 'picks' | 'chooses'> = {}) {
   const all: PlayEffect[] = [];
@@ -158,7 +224,7 @@ function recordPlay(attempt: PileAttempt, model: DilemmaModel, rest: DilemmaMode
   });
   const end = all.findIndex((e) => e.title !== model.title);
   const own = end === -1 ? all : all.slice(0, end);
-  return { own, kept: own.filter((e) => !e.why), modifiers };
+  return { own, kept: own.filter((e) => !e.why || e.why === OVERWHELMED), modifiers };
 }
 
 type ChoiceEffect = Extract<PlayEffect, { op: 'playerChooses' }>;
@@ -235,6 +301,8 @@ function previewOf(attempt: PileAttempt, own: PlayEffect[], done: { op: PileReso
       if (e.op === 'stop' && e.ks.length > 1 && e.ks.length === alive) clauses.push('Stops all');
       else if (random) clauses.push(`${verb} ${e.ks.length} random personnel${tail}`);
       else clauses.push(`${verb} ${e.ks.map((k) => attempt.personnel[k].name).join(', ')}${tail}`);
+    } else if (e.why === OVERWHELMED) {
+      clauses.push(`Stops ${e.ks.map((k) => attempt.personnel[k].name).join(', ')} (${OVERWHELMED})`);
     }
     e.ks.forEach((k) => hit.add(k));
   }
@@ -386,9 +454,22 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
   }
   const previewResult = reconcile(preview.kept, input);
   const effects = previewOf(played, preview.own, previewResult.done, rolled);
-  const text = rolled ? `${selectedText(played, preview.own)}; ${effects}` : effects;
   const previewModifiers = changedModifiers(played, preview.modifiers, input.personnelIds);
-  if (!input.rand && !input.picks) return { resolvable: true, preview: text, ...previewResult, ...(previewModifiers ? { modifiers: previewModifiers } : {}) };
+  const before = pileModifiersOf(played.modifiers ?? {}, input.personnelIds);
+  const nameOf = (id: string) => played.personnel[input.personnelIds.indexOf(id)]?.name ?? 'a personnel';
+  // A Resolve that changes the modifiers names them (#1598), in place of "No effect".
+  const previewClause = modifiersClause(before, previewModifiers, nameOf);
+  const withClause = !previewClause ? effects : effects === 'No effect' ? capitalize(previewClause) : `${effects}; ${previewClause}`;
+  const text = rolled ? `${selectedText(played, preview.own)}; ${withClause}` : withClause;
+  if (!input.rand && !input.picks) {
+    return {
+      resolvable: true,
+      preview: text,
+      ...previewResult,
+      ...(previewModifiers ? { modifiers: previewModifiers } : {}),
+      ...(previewClause ? { modifiersClause: previewClause } : {}),
+    };
+  }
 
   const ops = fedOps(preview.kept);
   const indexOf = (id: string) => input.personnelIds.indexOf(id);
@@ -413,5 +494,12 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
   const pressReason = noResolveReason(press.kept, rolled);
   if (pressReason) return { resolvable: false, reason: pressReason };
   const modifiers = changedModifiers(played, press.modifiers, input.personnelIds);
-  return { resolvable: true, preview: text, ...reconcile(press.kept, input), picks: picked, ...(modifiers ? { modifiers } : {}) };
+  const clause = modifiersClause(before, modifiers, nameOf);
+  return {
+    resolvable: true,
+    preview: text,
+    ...reconcile(press.kept, input),
+    picks: picked,
+    ...(modifiers ? { modifiers, ...(clause ? { modifiersClause: clause } : {}) } : {}),
+  };
 }
