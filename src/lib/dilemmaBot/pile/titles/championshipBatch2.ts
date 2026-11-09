@@ -261,8 +261,7 @@ dilemma('Lack of Preparation', D, 2, 'own', (s) => {
     s.trace?.('  the group has the skills of the mission: no effect');
     return;
   }
-  s.stackEnded = true;
-  s.trace?.('  the rest of the stack returns to the dilemma pile');
+  s.endStack();
 }, { gap: 'when it fires it returns to the dilemma pile with the rest of the stack, which `goesUnder` cannot say' });
 
 // No family fits: the two selected cannot use their skills in the check, and the second branch reads the ship.

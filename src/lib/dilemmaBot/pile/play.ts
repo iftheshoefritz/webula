@@ -1,6 +1,6 @@
 import { BOT_SKILLS, RequirementBranch, RequirementPersonnel, SKILL_INDEX } from '../requirements';
 import { LivePartnerProfile, Rand, requirementProfileOf } from '../simulator';
-import { DilemmaModel, PileAttempt, PilePersonnel, PileResult, PlayContext, lastingDamage, revealCostOf } from './model';
+import { DilemmaModel, PersonnelOp, PileAttempt, PilePersonnel, PileResult, PlayContext, PlayEffect, lastingDamage, revealCostOf } from './model';
 
 // The state of one play of a stack (#1320, the pilot). A family of the registry acts on it through
 // these verbs: select, stop, kill, place in the brig, ask the player or the bot to choose, test skills.
@@ -23,11 +23,19 @@ function profilesOf(attempt: PileAttempt) {
 /** The context of a fork: the copy takes every field from the state it copies. */
 const FORK_CONTEXT = {} as PlayContext;
 
+/** An effect less the title and the why the play adds: an `Omit` over each member of the union. */
+type Untitled<E> = E extends PlayEffect ? Omit<E, 'title' | 'why'> : never;
+
+/** The `why` of a stop by Chula: The Game on the mission, before a Chula dilemma. */
+const GAME = 'Chula: The Game';
+
 export class PlayState {
   readonly attempt: PileAttempt;
   readonly group: PilePersonnel[];
   readonly rand: Rand;
   readonly trace?: (line: string) => void;
+  /** The effect recorder (#1579), or undefined: a fork records nothing. */
+  readonly effects?: (effect: PlayEffect) => void;
   /** 1 while the personnel is unstopped and still in the attempt. */
   readonly alive: Uint8Array;
   /**
@@ -109,6 +117,7 @@ export class PlayState {
     this.group = context.attempt.personnel;
     this.rand = context.rand;
     this.trace = context.trace;
+    this.effects = context.effects;
     this.alive = new Uint8Array(this.group.length).fill(1);
     this.present = new Uint8Array(this.group.length).fill(1);
     this.live = this.group.length;
@@ -294,7 +303,19 @@ export class PlayState {
     return out.slice(0, take);
   }
 
-  private remove(ks: number[], what: keyof Omit<PileResult, 'fail' | 'labels' | 'backToPile' | 'notUnder' | 'fetchedNothing'>, verb: string, why?: string, quiet = false) {
+  /** Record an effect under the dilemma being faced, when the recorder is on. */
+  private record(effect: Untitled<PlayEffect>, why?: string) {
+    this.effects?.({ title: this.current, ...(why ? { why } : {}), ...effect } as PlayEffect);
+  }
+
+  private remove(
+    ks: number[],
+    what: keyof Omit<PileResult, 'fail' | 'labels' | 'backToPile' | 'notUnder' | 'fetchedNothing'>,
+    op: PersonnelOp,
+    verb: string,
+    why?: string,
+    quiet = false,
+  ) {
     const done: number[] = [];
     for (const k of ks) {
       if (!this.alive[k]) continue;
@@ -305,6 +326,7 @@ export class PlayState {
       this.dirty = true;
       done.push(k);
     }
+    if (done.length && this.effects) this.record({ op, ks: done }, why);
     if (done.length && !quiet) this.trace?.(`  ${why ? `${why}: ` : ''}${verb} ${done.map((k) => this.name(k)).join(', ')}`);
   }
 
@@ -313,25 +335,29 @@ export class PlayState {
    * leaves the line out, for a caller that traces its own.
    */
   stop(ks: number[], why?: string, quiet = false) {
-    this.remove(ks, 'stopped', 'stops', why, quiet);
+    this.remove(ks, 'stopped', 'stop', 'stops', why, quiet);
   }
   stopAll() {
     this.stop(this.unstopped());
   }
   kill(ks: number[]) {
-    this.remove(ks, 'killed', 'kills');
+    this.remove(ks, 'killed', 'kill', 'kills');
+  }
+  /** Remove `ks` from the game (#1579): it counts as a kill in `PileResult`, and records `remove`. */
+  removeFromGame(ks: number[]) {
+    this.remove(ks, 'killed', 'remove', 'removes from the game');
   }
   brig(ks: number[]) {
-    this.remove(ks, 'brig', 'places in the bot\'s brig');
+    this.remove(ks, 'brig', 'brig', 'places in the bot\'s brig');
   }
   holdInCore(ks: number[]) {
-    this.remove(ks, 'heldInCore', 'holds in the core');
+    this.remove(ks, 'heldInCore', 'holdInCore', 'holds in the core');
   }
   move(ks: number[]) {
-    this.remove(ks, 'moved', 'moves off the attempt');
+    this.remove(ks, 'moved', 'move', 'moves off the attempt');
   }
   returnToHand(ks: number[], why?: string, quiet = false) {
-    this.remove(ks, 'returned', 'returns to the hand', why, quiet);
+    this.remove(ks, 'returned', 'returnToHand', 'returns to the hand', why, quiet);
   }
   /**
    * The ship leaves with every personnel aboard, stopped or not: at a space mission, the whole attempting
@@ -350,24 +376,34 @@ export class PlayState {
       }
     }
     this.result[what] += aboard.length;
+    if (aboard.length && this.effects) this.record({ op: 'loseShip', ks: aboard, count: what });
     if (aboard.length) this.trace?.(`  the ship ${what === 'moved' ? 'moves to another mission' : 'leaves'} with ${aboard.map((k) => this.name(k)).join(', ')}`);
   }
 
   /** The dilemma being faced returns to the bot's dilemma pile, so it does not go beneath the mission (#1518). */
   returnsToPile() {
     this.result.backToPile = (this.result.backToPile ?? 0) + 1;
+    this.record({ op: 'returnsToPile' });
     this.trace?.(`  ${this.current} returns to the dilemma pile`);
   }
 
   /** The dilemma being faced goes to `where` and not beneath the mission, because its effect fired (#1534). */
   notPlacedUnder(where: string) {
     this.result.notUnder = (this.result.notUnder ?? 0) + 1;
+    this.record({ op: 'notPlacedUnder', where });
     this.trace?.(`  ${this.current} goes ${where}, not beneath the mission`);
+  }
+
+  /** The rest of the stack is not faced, and returns to the dilemma pile (Lack of Preparation). */
+  endStack() {
+    this.stackEnded = true;
+    this.record({ op: 'endStack' });
+    this.trace?.('  the rest of the stack returns to the dilemma pile');
   }
 
   /**
    * A copy of this play that a dilemma can play ahead, to see what it would do: its personnel, flags and
-   * result are its own, and it draws from the same random function. It writes no trace.
+   * result are its own, and it draws from the same random function. It writes no trace and records no effect.
    */
   fork(): PlayState {
     const f = new PlayState(FORK_CONTEXT, 0, this);
@@ -380,6 +416,7 @@ export class PlayState {
     own.onTop = [];
     own.queue = this.queue.slice();
     own.trace = undefined;
+    own.effects = undefined;
     if (this.attrLoss) f.attrLoss = this.attrLoss.slice();
     // `settle` writes the profiles of the personnel with partner gains, so the copy needs its own.
     if (this.partnered) {
@@ -446,7 +483,7 @@ export class PlayState {
       if (model.title.startsWith('Chula')) {
         for (let c = 0; c < this.gameCopies && this.live > 0; c++) {
           const [k] = this.select(1);
-          this.stop([k], undefined, true);
+          this.stop([k], GAME, true);
           this.trace?.(`  Chula: The Game on the mission stops ${this.name(k)}`);
         }
         if (this.live === 0) continue;
@@ -493,16 +530,19 @@ export class PlayState {
     }
     if (!best) {
       this.result.fetchedNothing = (this.result.fetchedNothing ?? 0) + 1;
+      this.record({ op: 'addBestOnTop', added: null });
       this.trace?.('  fetches nothing');
       return null;
     }
     this.onTop.push(best);
+    this.record({ op: 'addBestOnTop', added: best.title });
     this.trace?.(`  puts ${best.title} on top of the stack`);
     return best.title;
   }
 
   label(text: string) {
     this.result.labels.push({ title: this.current, label: text });
+    this.record({ op: 'label', label: text });
     this.trace?.(`  label: ${text}`);
   }
 
@@ -588,6 +628,7 @@ export const skillName = (i: number) => BOT_SKILLS[i].charAt(0).toUpperCase() + 
  * Play `stack` once against the attempt. When every personnel is stopped, or a dilemma ends the stack, the
  * rest of the stack is not faced. With the attempt's `spend`, a dilemma revealed over the cost the bot may
  * spend, and every one after it, is overcome (#1555). Then the unstopped personnel must meet the requirements, as Insurrection left them.
+ * `options.effects`, when given, records each effect of the play in order (#1579).
  */
 export function playPileStack(
   attempt: PileAttempt,
@@ -595,8 +636,9 @@ export function playPileStack(
   rand: Rand,
   trace?: (line: string) => void,
   notInStack = 0,
+  options: { effects?: (effect: PlayEffect) => void } = {},
 ): PileResult {
-  const state = new PlayState({ attempt, rand, trace }, notInStack);
+  const state = new PlayState({ attempt, rand, trace, effects: options.effects }, notInStack);
   state.queue = stack.slice();
   if (attempt.spend !== undefined) state.budget = stack.reduce((t, m) => t + (m.extraBudget ?? 0), attempt.spend);
   state.faceRest();

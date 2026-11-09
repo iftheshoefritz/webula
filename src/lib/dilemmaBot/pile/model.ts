@@ -214,10 +214,31 @@ export function lastingDamage(r: Omit<PileResult, 'fail' | 'labels' | 'stopped' 
 /** The categories of #1320 for a dilemma that reads the bot's side of the game. */
 export type BotSideCategory = '1' | '2' | '3' | '4a' | '4b' | '4c' | '4d' | '4e' | '4f' | '4g' | '5a' | '5b' | '5c' | '5d' | '6' | '7' | '8';
 
+/** What a verb of a personnel result records (#1579): `ks` index `attempt.personnel`. */
+export type PersonnelOp = 'stop' | 'kill' | 'remove' | 'brig' | 'holdInCore' | 'move' | 'returnToHand';
+
+/**
+ * One effect of a play, in play order (#1579). `title` is the dilemma being faced; `why`, when given, is
+ * what fired it, such as Chula: The Game before a Chula dilemma, or Overwhelmed.
+ */
+export type PlayEffect = { title: string; why?: string } & (
+  | { op: PersonnelOp; ks: number[] }
+  /** Every personnel aboard, stopped ones too, and the count of `PileResult` it filled. */
+  | { op: 'loseShip'; ks: number[]; count: 'shipLost' | 'moved' }
+  | { op: 'returnsToPile' }
+  | { op: 'notPlacedUnder'; where: string }
+  /** The title put on top of the stack, or null when the fetch fetched nothing. */
+  | { op: 'addBestOnTop'; added: string | null }
+  | { op: 'endStack' }
+  | { op: 'label'; label: string }
+);
+
 export interface PlayContext {
   attempt: PileAttempt;
   rand: Rand;
   trace?: (line: string) => void;
+  /** The effect recorder (#1579): absent, a play records nothing. The search and the label never set it. */
+  effects?: (effect: PlayEffect) => void;
 }
 
 /** A title of the registry. */
