@@ -347,6 +347,8 @@ export type TableAction =
   // `modifiers`: the attempt's whole modifiers after the dilemma (#1597), when it changed them.
   // `modifiersClause`: the log's words for what the dilemma added to them (#1598). `move`: where the
   // dilemma goes after the personnel changes (#1599), a `move` of `dilemmaId`; absent, it stays.
+  // `restToPile`: the rest of the stack, which a dilemma that ends it sends to the bottom of the dilemma
+  // pile (#1600). `fetchedId`: the card a fetch puts on top of the stack, face down (#1600).
   | {
       type: 'resolveDilemma';
       dilemmaId: string;
@@ -356,6 +358,8 @@ export type TableAction =
       modifiers?: PileModifiers;
       modifiersClause?: string;
       move?: { to: MoveTarget; position?: 'top' | 'bottom' };
+      fetchedId?: string;
+      restToPile?: string[];
     }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[]; opponent?: 'bot'; botPile?: BotPileInfo }
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
@@ -1110,7 +1114,14 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       );
       // Then the dilemma goes where it goes (#1599), through the `move` case. An action with no move, as
       // in a save from before #1599, leaves it on the stack.
-      const moved = action.move ? tableReducer(resolved, { type: 'move', id: action.dilemmaId, ...action.move }) : resolved;
+      const placed = action.move ? tableReducer(resolved, { type: 'move', id: action.dilemmaId, ...action.move }) : resolved;
+      // Then the stack (#1600): the rest of it returns to the bottom of the dilemma pile, face up, in
+      // stack order, when the dilemma ends it; a fetched card goes on top, face down.
+      const ended = (action.restToPile ?? []).reduce(
+        (s, id) => (s.dilemmaStack.some((c) => c.id === id) ? tableReducer(s, { type: 'move', id, to: 'dilemmaPile', position: 'bottom' }) : s),
+        placed
+      );
+      const moved = action.fetchedId ? tableReducer(ended, { type: 'move', id: action.fetchedId, to: 'dilemmaStack', position: 'top' }) : ended;
       return {
         ...moved,
         attempt: {

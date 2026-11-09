@@ -800,7 +800,17 @@ names a destination other than under the mission, "No effect; goes to your core"
 stack is then on top, face down, so the label, the preview and the button go away until the player's tap
 reveals it; Resolve never reveals it. A `resolveDilemma` with no move, as in a save from before #1599,
 leaves the dilemma on the stack, and the button reads "Resolved", disabled. Every model with
-`goesUnder: false` sets a `placement` (`resolveDestination.test.ts`). When `botResolveOf` gives no Resolve (no model, a player's choice, `move`,
+`goesUnder: false` sets a `placement` (`resolveDestination.test.ts`). The Resolve also changes the stack
+(#1600): a fetch (`addBestOnTop` with a title, Vault of Tomorrow from the dilemma pile, Talosian Trial from
+beneath any mission, `DilemmaModel.fetchesFrom`) puts the first table card of that title on top of the
+stack, face down, for the player's tap (`fetchedCardOf`, the action's `fetchedId`); a dilemma that ends the
+stack (`endStack`, Lack of Preparation) returns to the bottom of the dilemma pile, face up, and the rest of
+the stack after it, in stack order (`restToPile`). The page finds the cards, so the reducer never searches
+by title, and the log names what moved. A fetched card is in `botRevealed` and not in `botStack`; its label
+and Resolve count its extra budget as the card at the head of the play. When the Resolve leaves no
+unstopped personnel in the attempting row and the stack still holds cards, the strip points to Done:
+"No one left", `data-testid="attempt-done-prompt"`, and a ring on `attempt-done` (`attemptDonePrompt`,
+derived from the table, so a reload, an undo and a stop by hand agree). Resolve never ends the attempt. When `botResolveOf` gives no Resolve (no model, a player's choice, `move`,
 `loseShip`), neither shows, and the player resolves the dilemma by hand. A tap on the label hides only
 the label.
 

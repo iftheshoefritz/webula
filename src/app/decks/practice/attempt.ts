@@ -23,6 +23,7 @@ import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
 import { PileDestination, PileResolveWhere, modifiersText, pileResolveOf, pileRevealPicksOf, playModifiersOf } from '../../../lib/dilemmaBot/pile/resolve';
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
+import { pileTitleOf } from '../../../lib/dilemmaBot/pile/registry';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
 export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 'crew'; shipId: string };
@@ -126,6 +127,10 @@ export type BotResolve =
       // The move of the resolved dilemma to where it goes (#1599), for the `resolveDilemma` action.
       // Absent on a pending Resolve.
       move?: ResolveMove;
+      // The card a fetch puts on top of the stack (#1600), found on the table by the fetched title.
+      fetchedId?: string;
+      // The cards after the dilemma when it ends the stack (#1600), in stack order, for the bottom of the pile.
+      restToPile?: string[];
     };
 
 // Where the resolved dilemma goes, in table terms (#1599).
@@ -192,10 +197,34 @@ export function botResolveOf(
     ...(resolve.modifiers ? { modifiers: resolve.modifiers } : {}),
     ...(resolve.modifiersClause ? { modifiersClause: resolve.modifiersClause } : {}),
     ...(() => {
-      const move = !resolve.pending && resolve.destination ? resolveMoveOf(table, resolve.destination) : null;
-      return move ? { move } : {};
+      if (resolve.pending) return {};
+      const move = resolve.destination ? resolveMoveOf(table, resolve.destination) : null;
+      const fetchedId = resolve.fetched ? fetchedCardOf(table, resolve.fetched.title, resolve.fetched.from)?.id : undefined;
+      return {
+        ...(move ? { move } : {}),
+        ...(fetchedId ? { fetchedId } : {}),
+        ...(resolve.endsStack ? { restToPile: table.dilemmaStack.slice(1).map((c) => c.id) } : {}),
+      };
     })(),
   };
+}
+
+// Whether the attempt strip points to Done (#1600): in a bot game's `'face'`, once the last revealed
+// dilemma is resolved, the attempting row holds no unstopped personnel, and the stack still holds cards.
+// Derived from the table, so a reload, an undo and a stop by hand agree. Done keeps its action.
+export function attemptDonePrompt(table: TableState): boolean {
+  const attempt = table.attempt;
+  if (!attempt || attempt.botDraw === undefined || attempt.phase !== 'face') return false;
+  if (!attempt.revealSnapshot?.resolved || table.dilemmaStack.length === 0) return false;
+  const row = attemptingCards(table, attempt.missionIndex, attempt.shipId) ?? [];
+  return !row.some((c) => c.card?.type === 'personnel' && !c.stopped);
+}
+
+// The table card a fetch takes (#1600): the first card titled `title`, matched as the registry matches
+// a name, in the dilemma pile (Vault of Tomorrow) or beneath any mission slot (Talosian Trial).
+export function fetchedCardOf(table: TableState, title: string, from: 'botPile' | 'underMissions') {
+  const cards = from === 'botPile' ? table.dilemmaPile : table.missions.flatMap((m) => m.underMission);
+  return cards.find((c) => !!c.card?.originalName && pileTitleOf(c.card.originalName) === title);
 }
 
 // The line of the modifiers of a bot attempt in `'face'` (#1598), "Abilities off \u00b7 Navigation

@@ -112,6 +112,7 @@ import {
   fixtureBotLabelAttempt,
   BOT_REVEAL_FIXTURES,
   attemptModifiersText,
+  attemptDonePrompt,
   botLabelOf,
   botResolveOf,
 } from './attempt';
@@ -2178,6 +2179,8 @@ function PracticeDrawContent() {
       ...(pressed.modifiers ? { modifiers: pressed.modifiers } : {}),
       ...(pressed.modifiersClause ? { modifiersClause: pressed.modifiersClause } : {}),
       ...(pressed.move ? { move: pressed.move } : {}),
+      ...(pressed.fetchedId ? { fetchedId: pressed.fetchedId } : {}),
+      ...(pressed.restToPile?.length ? { restToPile: pressed.restToPile } : {}),
     });
   };
 
@@ -3574,6 +3577,7 @@ function PracticeDrawContent() {
                   parked={!attemptLayoutShows}
                   viewFullTableHoldEnabled={viewFullTableHoldEnabled}
                   modifiersText={attemptModifiersText(table)}
+                  donePrompt={attemptDonePrompt(table)}
                   attempt={table.attempt}
                   slot={missions[table.attempt.missionIndex]}
                   sizes={attemptSizes}

@@ -72,6 +72,10 @@ export type PileResolve =
       modifiersClause?: string;
       /** Where the dilemma goes once resolved (#1599). Absent on a pending Resolve: nothing moves until the choice is made. */
       destination?: PileDestination;
+      /** The dilemma a fetch puts on top of the stack (#1600), by title, and where it takes it from. */
+      fetched?: { title: string; from: 'botPile' | 'underMissions' };
+      /** The dilemma ends the stack (#1600): it and the rest of the stack return to the dilemma pile. */
+      endsStack?: true;
     };
 
 /** Where a resolved dilemma goes (#1599): beneath the attempted mission, or a `DilemmaPlacement`. */
@@ -83,7 +87,7 @@ export type PileDestination = 'under' | DilemmaPlacement;
  * model with `goesUnder: false` to its `placement`. Anything else goes beneath the mission.
  */
 export function destinationOf(model: DilemmaModel, kept: ReadonlyArray<PlayEffect>): PileDestination {
-  if (kept.some((e) => e.op === 'returnsToPile')) return 'pileBottom';
+  if (kept.some((e) => e.op === 'returnsToPile' || e.op === 'endStack')) return 'pileBottom';
   if (kept.some((e) => e.op === 'notPlacedUnder')) return 'core';
   if (!model.goesUnder) return model.placement ?? 'under';
   return 'under';
@@ -97,8 +101,23 @@ export const DESTINATION_TEXT: Record<Exclude<PileDestination, 'under'>, string>
   pileTop: 'goes on top of the dilemma pile',
 };
 
-const withDestination = (preview: string, destination: PileDestination) =>
-  destination === 'under' ? preview : `${preview}; ${DESTINATION_TEXT[destination]}`;
+/** What the play does to the stack (#1600): the title a fetch puts on top, and whether it ends the stack. */
+function stackChangeOf(model: DilemmaModel, kept: ReadonlyArray<PlayEffect>) {
+  const added = kept.find((e): e is Extract<PlayEffect, { op: 'addBestOnTop' }> => e.op === 'addBestOnTop' && !!e.added)?.added;
+  return {
+    ...(added && model.fetchesFrom ? { fetched: { title: added, from: model.fetchesFrom } } : {}),
+    ...(kept.some((e) => e.op === 'endStack') ? { endsStack: true as const } : {}),
+  };
+}
+
+/** The preview with the destination (#1599) and the change of the stack (#1600), when not the default. */
+function withDestination(preview: string, destination: PileDestination, change: ReturnType<typeof stackChangeOf> = {}): string {
+  const tail: string[] = [];
+  if (change.fetched) tail.push(`adds ${change.fetched.title} on top of the stack`);
+  if (change.endsStack) tail.push('returns to the dilemma pile with the rest of the stack');
+  else if (destination !== 'under') tail.push(DESTINATION_TEXT[destination]);
+  return [preview, ...tail].join('; ');
+}
 
 /** The modifiers by card id (#1597), from the play's by personnel index. A personnel with no card id is left out. */
 export function pileModifiersOf(m: PlayModifiers, personnelIds: ReadonlyArray<string | undefined>): PileModifiers {
@@ -489,12 +508,14 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
   const previewClause = modifiersClause(before, previewModifiers, nameOf);
   const withClause = !previewClause ? effects : effects === 'No effect' ? capitalize(previewClause) : `${effects}; ${previewClause}`;
   const previewDestination = destinationOf(model, preview.kept);
-  const text = withDestination(rolled ? `${selectedText(played, preview.own)}; ${withClause}` : withClause, previewDestination);
+  const previewChange = stackChangeOf(model, preview.kept);
+  const text = withDestination(rolled ? `${selectedText(played, preview.own)}; ${withClause}` : withClause, previewDestination, previewChange);
   if (!input.rand && !input.picks) {
     return {
       resolvable: true,
       preview: text,
       destination: previewDestination,
+      ...previewChange,
       ...previewResult,
       ...(previewModifiers ? { modifiers: previewModifiers } : {}),
       ...(previewClause ? { modifiersClause: previewClause } : {}),
@@ -532,6 +553,7 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
     picks: picked,
     // The press play's records decide: a `returnsToPile` or `notPlacedUnder` is there only when the effect fired.
     destination: destinationOf(model, press.kept),
+    ...stackChangeOf(model, press.kept),
     ...(modifiers ? { modifiers, ...(clause ? { modifiersClause: clause } : {}) } : {}),
   };
 }

@@ -327,6 +327,11 @@ export interface DilemmaModel {
    * or the top of the dilemma pile. Set on every such model; absent on the others.
    */
   placement?: DilemmaPlacement;
+  /**
+   * Where a fetching title takes the dilemma it puts on top of the stack (#1600): the bot's dilemma pile
+   * (Vault of Tomorrow) or beneath the player's missions (Talosian Trial).
+   */
+  fetchesFrom?: 'botPile' | 'underMissions';
   /** `'ignore'`: the bot takes it out of its pile when the game starts (#1320). */
   status: 'play' | 'ignore';
   /** The family whose code plays it, for the pilot's report. `'own'` is code of its own. */

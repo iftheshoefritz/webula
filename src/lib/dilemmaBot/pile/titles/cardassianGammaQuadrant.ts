@@ -164,7 +164,7 @@ const NO_TITLES: string[] = [];
 dilemma('Talosian Trial', P, 0, 'adds-dilemma', (s) => {
   const added = s.addBestOnTop(addableModels(s.attempt.table.underPlayerMissions ?? NO_TITLES, talosianFits));
   if (added) s.label(`Added ${added}`);
-}, { assumption: 'the bot chooses at reveal the planet dilemma beneath your missions that does the attempt most harm (#1518)' });
+}, { assumption: 'the bot chooses at reveal the planet dilemma beneath your missions that does the attempt most harm (#1518)', fetchesFrom: 'underMissions' });
 
 dilemma('The Oracle\'s Punishment', D, 5, 'bot-chooses', botChooses(2, 'stop'));
 

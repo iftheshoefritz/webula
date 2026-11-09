@@ -112,6 +112,10 @@ export type LogEntry = { turn: number } & (
       notes?: ResolveNote[];
       modifiers?: string;
       went?: string;
+      // What the Resolve did to the stack (#1600): the card it put on top, and how many of the rest
+      // returned to the dilemma pile.
+      added?: string;
+      restReturned?: number;
     }
 );
 
@@ -361,7 +365,13 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         ...(action.modifiersClause ? { modifiers: action.modifiersClause } : {}),
         ...(() => {
           const went = action.move && !after.dilemmaStack.some((c) => c.id === action.dilemmaId) ? wentText(before, action.move.to, action.move.position) : null;
-          return went ? { went } : {};
+          const added = action.fetchedId && after.dilemmaStack[0]?.id === action.fetchedId ? cardName(after, action.fetchedId) : null;
+          const restReturned = (action.restToPile ?? []).filter((id) => after.dilemmaPile.some((c) => c.id === id)).length;
+          return {
+            ...(went ? { went } : {}),
+            ...(added ? { added } : {}),
+            ...(restReturned ? { restReturned } : {}),
+          };
         })(),
       };
     }
@@ -650,7 +660,14 @@ export function logEntryText(entry: LogEntry): string {
       const ops = entry.ops.map(({ op, cards }) => `${RESOLVE_OP_TEXT[op]} ${cardsText(cards)}`).join(', ');
       const modifiers = typeof entry.modifiers === 'string' ? entry.modifiers : '';
       const effects = [ops, modifiers].filter(Boolean).join('; ') || 'no effect';
-      const went = typeof entry.went === 'string' ? `; it ${entry.went}` : '';
+      const went = [
+        typeof entry.went === 'string' ? `it ${entry.went}` : '',
+        typeof entry.added === 'string' ? `adds ${entry.added} on top of the stack` : '',
+        typeof entry.restReturned === 'number' ? 'the rest of the stack returns to the dilemma pile' : '',
+      ]
+        .filter(Boolean)
+        .map((part) => `; ${part}`)
+        .join('');
       const notes = entry.notes?.length ? ` (${entry.notes.map(resolveNoteText).join('; ')})` : '';
       return `Resolved ${entry.dilemma}: ${effects}${notes}${went}`;
     }

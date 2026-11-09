@@ -237,7 +237,7 @@ dilemma('Vault of Tomorrow', P, 1, 'adds-dilemma', (s) => {
   const added = s.addBestOnTop(addableModels(s.attempt.botPile ?? NO_TITLES, vaultFits));
   if (added) s.label(`Added ${added}`);
   s.returnsToPile();
-}, { assumption: 'the bot chooses at reveal the dilemma of its pile that does the attempt most harm (#1518)' });
+}, { assumption: 'the bot chooses at reveal the dilemma of its pile that does the attempt most harm (#1518)', fetchesFrom: 'botPile' });
 
 dilemma('Well-Prepared Defenses', D, 2, 'bot-chooses', (s) => {
   s.label('Bot\'s missions: more points');
