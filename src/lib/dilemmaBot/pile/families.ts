@@ -27,6 +27,8 @@ export function sk(name: string): number {
 export const stopAll: Play = (s) => s.stopAll();
 export const killRandom = (count: number, test?: Test): Play => (s) =>
   s.kill(s.select(count, test ? s.unstopped().filter((k) => test(s, k)) : undefined));
+/** "Randomly select <count> personnel to be removed from the game" (#1579): it counts as a kill. */
+export const removeRandom = (count: number): Play => (s) => s.removeFromGame(s.select(count));
 export const brigRandom = (count: number): Play => (s) => s.brig(s.select(count));
 export const stopRandom = (count: number): Play => (s) => s.stop(s.select(count));
 export const killRandomThenStopAll: Play = (s) => {

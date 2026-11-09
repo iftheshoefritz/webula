@@ -9,6 +9,7 @@ import {
   iconIs,
   keywordIs,
   killRandom,
+  removeRandom,
   killRandomThenStopAll,
   noEffect,
   playerStops,
@@ -32,7 +33,6 @@ import { CORE_EVENTS, D, P, PLAYER_AHEAD_RULE, S, dilemmaList, names, playerAhea
 
 const { models, dilemma } = dilemmaList();
 
-const REMOVED = 'a personnel removed from the game counts as killed';
 const BOTTOM_OF_DECK = 'a personnel placed on the bottom of the deck counts as killed';
 
 const totalAttrs = (s: PlayState, k: number) => ([0, 1, 2] as Attr[]).reduce((t, a) => t + s.attr(k, a), 0);
@@ -55,14 +55,12 @@ dilemma('Dead Ringer', D, 3, 'bot-chooses', (s) => {
   gap: 'your discard pile is not on the table, so you never replace the chosen personnel and all are stopped',
 });
 
-dilemma('Frozen by Fear', S, 5, 'unless', unless('2 Honor, Law, Medical, and Cunning>35 or Officer, 2 Science, and 2 Treachery', killRandom(2)), {
+dilemma('Frozen by Fear', S, 5, 'unless', unless('2 Honor, Law, Medical, and Cunning>35 or Officer, 2 Science, and 2 Treachery', removeRandom(2)), {
   cost: lessPersistent(5),
-  gap: REMOVED,
 });
 
-dilemma('Flare of Rage', P, 5, 'unless', unless('Anthropology, Medical, 2 Security, and Strength>35 or 2 Archaeology, Transporters, and 2 Treachery', killRandom(2)), {
+dilemma('Flare of Rage', P, 5, 'unless', unless('Anthropology, Medical, 2 Security, and Strength>35 or 2 Archaeology, Transporters, and 2 Treachery', removeRandom(2)), {
   cost: lessPersistent(5),
-  gap: REMOVED,
 });
 
 dilemma('A Bad Case of par\'Mach', D, 3, 'choose', playerStops(2), { gap: 'the two cards you may draw are dropped' });

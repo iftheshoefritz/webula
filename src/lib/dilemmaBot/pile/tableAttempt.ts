@@ -35,7 +35,7 @@ type Row = PileCardRow | null | undefined;
 /** What the table hands the builder. */
 export interface PileTableInput {
   /** The attempting cards: the away team, or the crew of the attempting ship. */
-  cards: ReadonlyArray<{ card: PilePersonnelRow | null | undefined; stopped?: boolean }>;
+  cards: ReadonlyArray<{ card: PilePersonnelRow | null | undefined; stopped?: boolean; id?: string }>;
   /** The attempted mission's row. */
   mission: Row;
   /** The attempting ship's row, at a space mission. */
@@ -85,8 +85,10 @@ const skillsOf = (branches: RequirementBranch[]) => Array.from(new Set(branches.
  * ship at a space mission, the player's table, and the copies of Chula: The Game placed on the mission.
  * `random` is true when the requirements cannot be read: the caller then chooses a legal stack at
  * random, and the attempt, with no requirements, still gives the costs and the kind of the mission.
+ * `personnelIds` holds the card id of each entry of `attempt.personnel`, in the same order (#1579):
+ * undefined where the input card has none.
  */
-export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; random: boolean } {
+export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; random: boolean; personnelIds: (string | undefined)[] } {
   const mission: PileCardRow = input.mission ?? {};
   const requirements = parseRequirementBranches(String(mission.skills ?? ''));
   const attempted = attemptedMissionOf(mission);
@@ -112,12 +114,10 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
   const eventDecayMax = Math.max(0, ...events.map(decayOf));
   // The first core event, in core order, of the highest Decay (Compromised Experiment's label, #1575).
   const eventDecayTitle = titleOf(events.find((row) => decayOf(row) === eventDecayMax)) ?? undefined;
+  const attempting = input.cards.filter((c): c is { card: PilePersonnelRow; stopped?: boolean; id?: string } => c.card?.type === 'personnel' && !c.stopped);
   const attempt: PileAttempt = {
-    ...partnerGroupOf(
-      input.cards
-        .filter((c): c is { card: PilePersonnelRow; stopped?: boolean } => c.card?.type === 'personnel' && !c.stopped)
-        .map((c) => pilePersonnelOf(c.card, attempted, input.facts)),
-    ),
+    // `partnerGroupOf` keeps the order, so `personnelIds` lines up with `attempt.personnel`.
+    ...partnerGroupOf(attempting.map((c) => pilePersonnelOf(c.card, attempted, input.facts))),
     requirements: requirements ?? [],
     mission: {
       kind,
@@ -181,7 +181,7 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
     ...(input.botAffiliations ? { botAffiliations: [...input.botAffiliations] } : {}),
     ...(input.dilemmaPile ? { botPile: drawnPileTitles(input.dilemmaPile) } : {}),
   };
-  return { attempt, random: !requirements };
+  return { attempt, random: !requirements, personnelIds: attempting.map((c) => c.id) };
 }
 
 /** The title of each drawn row, in draw order, duplicates included. A row with no name is left out. */
