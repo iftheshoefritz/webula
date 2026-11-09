@@ -1516,6 +1516,7 @@ function DilemmaStackPile({
   onDismissBotLabel,
   resolvePreview = null,
   resolved = false,
+  resolvePending = false,
   onResolve,
   choseNone = false,
 }: {
@@ -1536,6 +1537,8 @@ function DilemmaStackPile({
   // whether it is done. The button reads "Resolved", disabled, until the next card is revealed.
   resolvePreview?: string | null;
   resolved?: boolean;
+  // The player's choice is not made yet (#1593): the preview reads the task, and the button is disabled.
+  resolvePending?: boolean;
   onResolve?: () => void;
 }) {
   const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone();
@@ -1645,7 +1648,7 @@ function DilemmaStackPile({
             onPointerDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
-            disabled={resolved}
+            disabled={resolved || resolvePending}
             aria-label={resolved ? 'Resolved' : `Resolve: ${resolvePreview}`}
             className="rounded-md bg-accent ring-1 ring-white/70 shadow-md px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-white disabled:bg-black/80 disabled:text-text-muted focus:outline-hidden"
             style={NO_CALLOUT_STYLE}
@@ -1847,7 +1850,8 @@ function PracticeDrawContent() {
   // deck's dilemmas.
   // `?fixture=bot-label` (#1519) deals the same bot table with a Well-Prepared Defenses in the dilemma
   // pile, and starts a bot attempt whose facing stack has it on top, revealed, for the bot's label.
-  // `?fixture=bot-resolve-noeffect` (#1589) does the same with a Conflict of Interests, for "No effect".
+  // `?fixture=bot-resolve-noeffect` (#1589) does the same with a Conflict of Interests, for "No effect",
+  // and `?fixture=bot-resolve-choice` (#1593) with a Covert Extraction, for the player's choice.
   const botRevealFixture = fixture && Object.hasOwn(BOT_REVEAL_FIXTURES, fixture) ? BOT_REVEAL_FIXTURES[fixture] : null;
   const isBotFixture = fixture === 'bot' || botRevealFixture !== null;
   const isFixture = fixture === '1' || isPilesFixture || isAttemptFixture || isBotFixture;
@@ -2062,19 +2066,6 @@ function PracticeDrawContent() {
     );
   }
   const botLabelText = botLabel && !dismissedBotLabels.has(botLabel.id) ? botLabel.text : null;
-  // Issue #1589: the Resolve of the same revealed card, from the reveal snapshot and the live table, so
-  // its preview follows what the player does by hand. A press rolls the random picks here, as
-  // `withShuffleOrders` chooses a shuffle, and dispatches one `resolveDilemma`, even with no changes, so
-  // the snapshot turns resolved. No Resolve, no preview and no button: the player resolves by hand.
-  const botResolve = useMemo(() => (botLabelCardId ? botResolveOf(table) : null), [botLabelCardId, table]);
-  const botResolvePreview = botResolve?.resolvable ? botResolve.preview : null;
-  const botResolved = !!table.attempt?.revealSnapshot?.resolved && table.attempt.revealSnapshot.dilemmaId === botLabelCardId;
-  const resolveRevealedDilemma = () => {
-    const top = dilemmaStack[0];
-    const pressed = botResolveOf(table, undefined, { rand: Math.random });
-    if (!top || !pressed.resolvable) return;
-    dispatch({ type: 'resolveDilemma', dilemmaId: top.id, dilemma: cardDisplayName(top.card), changes: pressed.changes, notes: pressed.notes });
-  };
   const attemptLayoutShows = attemptKey !== null && fullTableFor !== attemptKey;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
@@ -2158,6 +2149,26 @@ function PracticeDrawContent() {
   // whichever panel is open — only one panel is ever open at a time — and cleared whenever a
   // panel closes, the same as the panels themselves.
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
+
+  // Issue #1589: the Resolve of the same revealed card, from the reveal snapshot and the live table, so
+  // its preview follows what the player does by hand. A press rolls the random picks here, as
+  // `withShuffleOrders` chooses a shuffle, and dispatches one `resolveDilemma`, even with no changes, so
+  // the snapshot turns resolved. No Resolve, no preview and no button: the player resolves by hand.
+  // Issue #1593: where the player chooses, the row selection is the choice, so the Resolve follows it too,
+  // and stays pending, its button disabled, until the choice is made. A selection triggers nothing else.
+  const botResolve = useMemo(
+    () => (botLabelCardId ? botResolveOf(table, undefined, {}, selectedCardIds) : null),
+    [botLabelCardId, table, selectedCardIds],
+  );
+  const botResolvePreview = botResolve?.resolvable ? botResolve.preview : null;
+  const botResolvePending = !!(botResolve?.resolvable && botResolve.pending);
+  const botResolved = !!table.attempt?.revealSnapshot?.resolved && table.attempt.revealSnapshot.dilemmaId === botLabelCardId;
+  const resolveRevealedDilemma = () => {
+    const top = dilemmaStack[0];
+    const pressed = botResolveOf(table, undefined, { rand: Math.random }, selectedCardIds);
+    if (!top || !pressed.resolvable || pressed.pending) return;
+    dispatch({ type: 'resolveDilemma', dilemmaId: top.id, dilemma: cardDisplayName(top.card), changes: pressed.changes, notes: pressed.notes });
+  };
 
   // A touch or pen press in a scrolling card list panel splits a scroll from a drag (#788); every
   // other press drags as before. `panelScrollSensor.ts` explains why it is one sensor.
@@ -3594,6 +3605,7 @@ function PracticeDrawContent() {
                       }}
                       resolvePreview={botResolvePreview}
                       resolved={botResolved}
+                      resolvePending={botResolvePending}
                       onResolve={resolveRevealedDilemma}
                     />
                     )

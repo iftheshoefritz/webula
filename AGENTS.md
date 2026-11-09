@@ -482,7 +482,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has seven fixtures. Each one deals the same table on every load.
+The practice table has eight fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -538,6 +538,11 @@ The practice table has seven fixtures. Each one deals the same table on every lo
   Conflict of Interests (`26V002`) in place of Well-Prepared Defenses, revealed on top of the stack.
   The Bilana System crew meets its `unless` check, so its Resolve preview reads "No effect" and a press
   of Resolve changes no zone. It keeps its game under `practiceGame:fixture=bot-resolve-noeffect`.
+- `?fixture=bot-resolve-choice` (#1593) deals the `?fixture=bot-label` table and attempt with one
+  Covert Extraction (`38V002`) in place of Well-Prepared Defenses, revealed on top of the stack. The
+  player chooses a personnel with Intelligence or Transporters to be stopped, so its Resolve preview
+  reads "Choose 1 personnel to be stopped" and Resolve is disabled until one allowed personnel of the row
+  is selected. It keeps its game under `practiceGame:fixture=bot-resolve-choice`.
 
 The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of the screen
 (`data-testid="hand-closed-fan"`, #1489), drawn on top of the bottom row in its own layer,
@@ -777,6 +782,15 @@ chooses a shuffle, and dispatches one `resolveDilemma`, even with no changes: on
 next card is revealed. When `botResolveOf` gives no Resolve (no model, a player's choice, `move`,
 `loseShip`), neither shows, and the player resolves the dilemma by hand. A tap on the label hides only
 the label.
+
+Where the dilemma has the player choose personnel ("Choose a personnel … to be stopped", #1593), the
+selection of the attempting row is the choice: `botResolve` reads `selectedCardIds`, and the model's own
+pick is never shown or marked. A candidate the player already handled by hand (stopped, for a stop, or
+out of the row) counts as chosen first, then the selected candidates. Until each choice has its
+personnel the Resolve is pending: the preview reads the task, "Choose 1 personnel to be stopped", and
+Resolve is disabled; it stays disabled while a selected personnel is one the dilemma does not allow.
+Selected equipment is ignored. A title whose choice follows a roll (A Pattern of Lies, the
+`anyOfThree(…, 'player')` titles, #1594), Distraction and Dramatis Personae give no Resolve.
 
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
 dilemmas. Start begins in `'choose'`, with `Attempt.drawn` 0. The choice-phase draw, `drawCard` from

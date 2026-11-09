@@ -38,6 +38,8 @@ export class PlayState {
   readonly effects?: (effect: PlayEffect) => void;
   /** The picks a random select of the first dilemma returns in place of its roll (#1588), or undefined: a fork takes none. */
   readonly picks?: (count: number, pool: number[]) => number[];
+  /** The player's choice of a `playerChooses` call of the first dilemma (#1593), or undefined: a fork takes none. */
+  readonly chooses?: (count: number, pool: number[]) => number[];
   /** 1 while the personnel is unstopped and still in the attempt. */
   readonly alive: Uint8Array;
   /**
@@ -121,6 +123,7 @@ export class PlayState {
     this.trace = context.trace;
     this.effects = context.effects;
     this.picks = context.picks;
+    this.chooses = context.chooses;
     this.alive = new Uint8Array(this.group.length).fill(1);
     this.present = new Uint8Array(this.group.length).fill(1);
     this.live = this.group.length;
@@ -444,6 +447,7 @@ export class PlayState {
     own.trace = undefined;
     own.effects = undefined;
     own.picks = undefined;
+    own.chooses = undefined;
     if (this.attrLoss) f.attrLoss = this.attrLoss.slice();
     // `settle` writes the profiles of the personnel with partner gains, so the copy needs its own.
     if (this.partnered) {
@@ -575,12 +579,28 @@ export class PlayState {
 
   /**
    * The player's choice of `count` personnel from `candidates` for a bad result: the ones whose loss
-   * keeps the mission requirements met, then any.
+   * keeps the mission requirements met, then any. While the first dilemma of the stack is faced,
+   * `chooses`, when set, makes the choice in its place (#1593). The recorder notes the call, its pool
+   * and the personnel it returned.
    */
   playerChooses(candidates: number[], count = 1): number[] {
-    this.playerChoice();
-    const chosen: number[] = [];
     const pool = candidates.filter((k) => this.alive[k]);
+    const chosen = this.chooses && this.faced.length === 1 ? this.chosenBy(this.chooses, count, pool) : this.modelChooses(count, pool);
+    if (this.effects) this.record({ op: 'playerChooses', count, pool, ks: chosen.slice() });
+    return chosen;
+  }
+
+  /** The answer of `chooses` (#1593): its indexes that are live candidates, each once, up to `count`. */
+  private chosenBy(chooses: (count: number, pool: number[]) => number[], count: number, pool: number[]): number[] {
+    const chosen: number[] = [];
+    for (const k of chooses(count, pool.slice())) if (pool.includes(k) && !chosen.includes(k) && chosen.length < count) chosen.push(k);
+    return chosen;
+  }
+
+  /** The model's pick for the player: the candidates whose loss keeps the requirements met, then the least valuable. */
+  private modelChooses(count: number, candidates: number[]): number[] {
+    const chosen: number[] = [];
+    const pool = candidates.slice();
     while (chosen.length < count && pool.length) {
       let pick = pool.findIndex((k) => this.meetsWithout([...chosen, k]));
       if (pick < 0) pick = pool.reduce((best, k, i) => (this.value(k) < this.value(pool[best]) ? i : best), 0);
@@ -657,7 +677,7 @@ export const skillName = (i: number) => BOT_SKILLS[i].charAt(0).toUpperCase() + 
  * rest of the stack is not faced. With the attempt's `spend`, a dilemma revealed over the cost the bot may
  * spend, and every one after it, is overcome (#1555). Then the unstopped personnel must meet the requirements, as Insurrection left them.
  * `options.effects`, when given, records each effect of the play in order (#1579); `options.picks` decides
- * the random selections of the first dilemma (#1588).
+ * the random selections of the first dilemma (#1588), and `options.chooses` the player's choices (#1593).
  */
 export function playPileStack(
   attempt: PileAttempt,
@@ -665,9 +685,9 @@ export function playPileStack(
   rand: Rand,
   trace?: (line: string) => void,
   notInStack = 0,
-  options: Pick<PlayContext, 'effects' | 'picks'> = {},
+  options: Pick<PlayContext, 'effects' | 'picks' | 'chooses'> = {},
 ): PileResult {
-  const state = new PlayState({ attempt, rand, trace, effects: options.effects, picks: options.picks }, notInStack);
+  const state = new PlayState({ attempt, rand, trace, effects: options.effects, picks: options.picks, chooses: options.chooses }, notInStack);
   state.queue = stack.slice();
   if (attempt.spend !== undefined) state.budget = stack.reduce((t, m) => t + (m.extraBudget ?? 0), attempt.spend);
   state.faceRest();

@@ -4,6 +4,7 @@ import { BOT_SKILLS, parseRequirementBranches } from '../../../../lib/dilemmaBot
 import { seededRandom } from '../../../../lib/dilemmaBot/simulator';
 import { DilemmaModel, PileAttempt, PilePersonnel, PileResult, PileTable, PlayEffect } from '../../../../lib/dilemmaBot/pile/model';
 import { playPileStack } from '../../../../lib/dilemmaBot/pile/play';
+import { choosePileStack } from '../../../../lib/dilemmaBot/pile/search';
 import { REGISTRY } from '../../../../lib/dilemmaBot/pile/registry';
 import { PilePersonnelRow, PileTableInput, pileAttemptOf } from '../../../../lib/dilemmaBot/pile/tableAttempt';
 
@@ -102,7 +103,7 @@ describe('the effects of a play (#1579)', () => {
     expect(out).toEqual(countsOf(result));
     expect(labels).toEqual(result.labels);
     for (const e of effects) {
-      if ('ks' in e) for (const k of e.ks) expect(k >= 0 && k < attempt.personnel.length).toBe(true);
+      if ('ks' in e) for (const k of e.ks ?? []) expect(k >= 0 && k < attempt.personnel.length).toBe(true);
     }
     // The recorder changes nothing: the play with no recorder returns the same result.
     expect(playPileStack(attempt, stack, seededRandom(7))).toEqual(result);
@@ -203,5 +204,32 @@ describe('the card ids of pileAttemptOf (#1579)', () => {
     expect(attempt.livePartners?.length).toBeGreaterThan(0);
     expect(personnelIds).toEqual(['card-1', 'card-2', 'card-4']);
     expect(attempt.personnel.map((p) => p.name)).toEqual(['Alpha', 'Deanna Troi Major Rakal', 'N\'Vek Soldier of the Underground']);
+  });
+});
+
+// Issue #1593: the player's choice as an input of the play.
+describe('the chooser of a play (#1593)', () => {
+  it('returns the chooser indexes, filtered to the live candidates and capped at the count, and records the call', () => {
+    const attempt = attemptOf('planet');
+    const effects: PlayEffect[] = [];
+    const asked: { count: number; pool: number[] }[] = [];
+    playPileStack(attempt, [model('Revealed')], seededRandom(7), undefined, 0, {
+      effects: (e) => effects.push(e),
+      chooses: (count, pool) => {
+        asked.push({ count, pool });
+        return [99, 4, 4, 2, 1];
+      },
+    });
+    expect(asked).toEqual([{ count: 2, pool: [0, 1, 2, 3, 4, 5] }]);
+    expect(effects.find((e) => e.op === 'playerChooses')).toEqual({ title: 'Revealed', op: 'playerChooses', count: 2, pool: [0, 1, 2, 3, 4, 5], ks: [4, 2] });
+    expect(effects.find((e) => e.op === 'stop')).toMatchObject({ ks: [4, 2] });
+  });
+
+  it('leaves a play with no chooser as it was: the model picks, and a seeded search returns the same stack', () => {
+    const attempt = attemptOf('planet');
+    const stack = [model('Pitching In')];
+    expect(playPileStack(attempt, stack, seededRandom(3))).toEqual(playPileStack(attempt, stack, seededRandom(3), undefined, 0, {}));
+    const drawn = ['Pitching In', 'Rush Job', 'Covert Extraction', 'No Kill I', 'Cultural Differences'];
+    expect(choosePileStack(attempt, drawn, 4, 5)).toEqual(choosePileStack(attempt, drawn, 4, 5));
   });
 });

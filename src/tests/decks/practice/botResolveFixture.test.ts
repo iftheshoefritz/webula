@@ -88,3 +88,61 @@ describe('?fixture=bot-resolve-noeffect (#1589)', () => {
     expect(botLabelOf(table)).toContain(`Chose ${name}`);
   });
 });
+
+describe('?fixture=bot-resolve-choice (#1593)', () => {
+  const candidatesOf = (table: TableState) => {
+    const r = botResolveOf(table);
+    if (!r.resolvable) throw new Error(r.reason);
+    return r;
+  };
+
+  it('reveals Covert Extraction: pending with no selection, and a press with one candidate selected stops exactly it, undone in one step', () => {
+    const table = dealRevealFixture('bot-resolve-choice');
+    const top = table.dilemmaStack[0];
+    expect(top.card.originalName).toContain('Covert Extraction');
+    const pending = candidatesOf(table);
+    expect(pending).toMatchObject({ preview: 'Choose 1 personnel to be stopped', changes: [], pending: true });
+
+    const crew = table.missions[2].ships[0].crew ?? [];
+    const name = (id: string) => crew.find((c) => c.id === id)!.card.originalName as string;
+    // A selected personnel the dilemma does not allow keeps the Resolve pending.
+    const press = (selected: string[]) => botResolveOf(table, undefined, { rand: Math.random }, selected);
+    const allowed = crew.filter((c) => c.card.type === 'personnel').map((c) => c.id).filter((id) => {
+      const r = press([id]);
+      return r.resolvable && !r.pending;
+    });
+    expect(allowed.length).toBeGreaterThan(0);
+    expect(allowed.length).toBeLessThan(crew.filter((c) => c.card.type === 'personnel').length);
+    const notAllowed = crew.find((c) => c.card.type === 'personnel' && !allowed.includes(c.id))!.id;
+    expect(press([notAllowed])).toMatchObject({ pending: true, changes: [] });
+    // The task names nobody.
+    for (const c of crew) expect(pending.preview).not.toContain(c.card.originalName);
+
+    const chosen = allowed[allowed.length - 1];
+    const r = press([chosen]);
+    if (!r.resolvable) throw new Error(r.reason);
+    expect(r.changes).toEqual([{ op: 'stop', ids: [chosen] }]);
+    const start = initialGameState(table);
+    const game = gameReducer(start, { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'Covert Extraction', changes: r.changes, notes: r.notes });
+    expect(game.log).toHaveLength(start.log.length + 1);
+    expect(logEntryText(game.log[game.log.length - 1])).toContain(name(chosen));
+    expect(game.table.missions[2].ships[0].crew?.find((c) => c.id === chosen)?.stopped).toBe(true);
+    const undone = gameReducer(game, { type: 'undo' });
+    expect(undone.table).toEqual(table);
+  });
+
+  it('takes an allowed personnel stopped by hand as the choice: nothing more is stopped', () => {
+    const table = dealRevealFixture('bot-resolve-choice');
+    const crew = table.missions[2].ships[0].crew ?? [];
+    const allowed = crew.find((c) => {
+      const r = botResolveOf(table, undefined, {}, [c.id]);
+      return c.card.type === 'personnel' && r.resolvable && !r.pending;
+    })!;
+    const stopped = tableReducer(table, { type: 'setStopped', ids: [allowed.id], stopped: true });
+    const r = botResolveOf(stopped, undefined, { rand: Math.random });
+    if (!r.resolvable) throw new Error(r.reason);
+    expect(r.pending).toBeUndefined();
+    expect(r.changes).toEqual([]);
+    expect(r.notes).toContainEqual({ kind: 'alreadyDone', op: 'stop', done: 1, of: 1 });
+  });
+});
