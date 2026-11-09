@@ -158,7 +158,32 @@ export interface PileAttempt {
   spend?: number;
   /** The cost of the dilemmas revealed in this attempt before the play starts (#1555). Absent: 0. */
   revealedCost?: number;
+  /**
+   * What earlier dilemmas of the attempt changed in how the personnel are read (#1597): the play starts
+   * from it. Only the table's Resolve sets it; the search, the lab and the bot's choice at Start never do.
+   */
+  modifiers?: PlayModifiers;
 }
+
+/**
+ * What a dilemma changes in how the personnel are read, for the rest of the attempt (#1597), by
+ * personnel index: the fields of `PlayState` of the same names. An absent field is the default.
+ */
+export interface PlayModifiers {
+  abilitiesOff?: true;
+  /** Skill indexes of `BOT_SKILLS`, ascending. */
+  blockedSkills?: number[];
+  firstSkillOff?: true;
+  attrBonus?: number;
+  /** Each personnel's loss, by index; only those above 0. */
+  attrLoss?: { k: number; loss: number }[];
+  overwhelmed?: true;
+  /** The mission requirements, only when a play changed them. */
+  requirements?: RequirementBranch[];
+}
+
+/** The same as the table saves it on its attempt (#1597): `attrLoss` by card id, so it survives a change of the row. */
+export type PileModifiers = Omit<PlayModifiers, 'attrLoss'> & { attrLoss?: Record<string, number> };
 
 /** What one play of a stack did. Each count is of personnel. */
 export interface PileResult {
@@ -264,6 +289,11 @@ export interface PlayContext {
    * picks. A fork never takes it. The search and the label never set it.
    */
   chooses?: (count: number, pool: number[]) => number[];
+  /**
+   * Reports the modifiers once the first dilemma of the stack is faced (#1597), before the next one: what
+   * a Resolve keeps on the table. A fork never reports. The search and the label never set it.
+   */
+  modifiers?: (modifiers: PlayModifiers) => void;
 }
 
 /** A title of the registry. */

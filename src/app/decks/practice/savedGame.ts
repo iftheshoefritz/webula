@@ -245,6 +245,23 @@ const isValidRevealSnapshot = (snapshot: unknown): boolean =>
   // The roll at the reveal (#1594).
   (snapshot.picks === undefined || (Array.isArray(snapshot.picks) && snapshot.picks.every(isIdList)));
 
+const isFlag = (value: unknown) => value === undefined || value === true;
+const isWhole = (value: unknown) => typeof value === 'number' && Number.isInteger(value);
+const isTriple = (value: unknown) => Array.isArray(value) && value.length === 3 && value.every(isWhole);
+
+// The modifiers of a bot attempt (#1597), on the attempt or on its reveal snapshot.
+const isValidModifiers = (m: unknown): boolean =>
+  isObject(m) &&
+  isFlag(m.abilitiesOff) &&
+  isFlag(m.firstSkillOff) &&
+  isFlag(m.overwhelmed) &&
+  (m.blockedSkills === undefined || (Array.isArray(m.blockedSkills) && m.blockedSkills.every((i: unknown) => isWhole(i) && (i as number) >= 0))) &&
+  (m.attrBonus === undefined || isWhole(m.attrBonus)) &&
+  (m.attrLoss === undefined || (isObject(m.attrLoss) && Object.values(m.attrLoss).every(isWhole))) &&
+  (m.requirements === undefined ||
+    (Array.isArray(m.requirements) &&
+      m.requirements.every((b: unknown) => isObject(b) && Array.isArray(b.skills) && b.skills.every(isWhole) && isTriple(b.attrs))));
+
 const isValidBotPile = (botPile: unknown): boolean =>
   isObject(botPile) &&
   typeof botPile.id === 'string' &&
@@ -268,6 +285,16 @@ function repairTable(table: TableState): TableState {
   // A malformed reveal snapshot (#1587) drops alone, and the attempt stays.
   if (table.attempt && table.attempt.revealSnapshot !== undefined && !isValidRevealSnapshot(table.attempt.revealSnapshot)) {
     delete table.attempt.revealSnapshot;
+  }
+  // Malformed modifiers (#1597) drop alone, from the attempt or from its snapshot, and the attempt stays.
+  if (table.attempt && table.attempt.modifiers !== undefined && !isValidModifiers(table.attempt.modifiers)) {
+    delete table.attempt.modifiers;
+  }
+  const kept = table.attempt?.revealSnapshot;
+  if (kept && kept.modifiers !== undefined && !isValidModifiers(kept.modifiers)) {
+    const repaired = { ...kept };
+    delete repaired.modifiers;
+    table.attempt = { ...table.attempt!, revealSnapshot: repaired };
   }
   // A bot attempt whose face-up top card has no snapshot, a save from before #1587 too, takes one from
   // the table as it stands. A snapshot of a card that is not the top card stays: `resolveDilemma`

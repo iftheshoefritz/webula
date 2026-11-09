@@ -1,6 +1,6 @@
 import { BOT_SKILLS, RequirementBranch, RequirementPersonnel, SKILL_INDEX } from '../requirements';
 import { LivePartnerProfile, Rand, requirementProfileOf } from '../simulator';
-import { DilemmaModel, PersonnelOp, PileAttempt, PilePersonnel, PileResult, PlayContext, PlayEffect, lastingDamage, revealCostOf } from './model';
+import { DilemmaModel, PersonnelOp, PileAttempt, PilePersonnel, PileResult, PlayContext, PlayEffect, PlayModifiers, lastingDamage, revealCostOf } from './model';
 
 // The state of one play of a stack (#1320, the pilot). A family of the registry acts on it through
 // these verbs: select, stop, kill, place in the brig, ask the player or the bot to choose, test skills.
@@ -40,6 +40,8 @@ export class PlayState {
   readonly picks?: (count: number, pool: number[]) => number[];
   /** The player's choice of a `playerChooses` call of the first dilemma (#1593), or undefined: a fork takes none. */
   readonly chooses?: (count: number, pool: number[]) => number[];
+  /** Reports the modifiers once the first dilemma is faced (#1597), or undefined: a fork reports none. */
+  readonly reportModifiers?: (modifiers: PlayModifiers) => void;
   /** 1 while the personnel is unstopped and still in the attempt. */
   readonly alive: Uint8Array;
   /**
@@ -94,6 +96,8 @@ export class PlayState {
   overBudget = false;
   /** The titles of the stack faced so far, this one included. */
   readonly faced: string[] = [];
+  /** The first dilemma of the stack has been taken from the queue (#1597). */
+  private pastFirst = false;
   /** The title of the dilemma being faced. */
   current = '';
   /** The drawn dilemmas the stack does not hold: what the bot could consume (Outmatched). */
@@ -124,6 +128,7 @@ export class PlayState {
     this.effects = context.effects;
     this.picks = context.picks;
     this.chooses = context.chooses;
+    this.reportModifiers = context.modifiers;
     this.alive = new Uint8Array(this.group.length).fill(1);
     this.present = new Uint8Array(this.group.length).fill(1);
     this.live = this.group.length;
@@ -152,6 +157,38 @@ export class PlayState {
       this.dirty = true;
     }
     this.result = { fail: false, stopped: 0, killed: 0, heldInCore: 0, moved: 0, brig: 0, returned: 0, shipLost: 0, labels: [] };
+    this.applyModifiers(context.attempt.modifiers);
+  }
+
+  /** Start from what earlier dilemmas of the attempt changed (#1597). */
+  private applyModifiers(m: PlayModifiers | undefined) {
+    if (!m) return;
+    if (m.abilitiesOff) this.abilitiesOff = true;
+    for (const i of m.blockedSkills ?? []) this.blockedSkills.add(i);
+    if (m.firstSkillOff) this.firstSkillOff = true;
+    if (m.attrBonus) this.attrBonus = m.attrBonus;
+    if (m.overwhelmed) this.overwhelmed = true;
+    if (m.requirements) this.requirements = m.requirements;
+    const losses = (m.attrLoss ?? []).filter(({ k, loss }) => loss > 0 && k >= 0 && k < this.group.length);
+    if (losses.length) {
+      this.attrLoss = new Int16Array(this.group.length);
+      for (const { k, loss } of losses) this.attrLoss[k] = loss;
+    }
+  }
+
+  /** The modifiers as they stand (#1597): what lasts for the rest of the attempt. */
+  modifiersNow(): PlayModifiers {
+    const m: PlayModifiers = {};
+    if (this.abilitiesOff) m.abilitiesOff = true;
+    if (this.blockedSkills.size) m.blockedSkills = Array.from(this.blockedSkills).sort((a, b) => a - b);
+    if (this.firstSkillOff) m.firstSkillOff = true;
+    if (this.attrBonus) m.attrBonus = this.attrBonus;
+    if (this.overwhelmed) m.overwhelmed = true;
+    if (this.requirements !== this.attempt.requirements) m.requirements = this.requirements;
+    const losses: { k: number; loss: number }[] = [];
+    if (this.attrLoss) this.attrLoss.forEach((loss, k) => loss > 0 && losses.push({ k, loss }));
+    if (losses.length) m.attrLoss = losses;
+    return m;
   }
 
   name(k: number) {
@@ -448,6 +485,7 @@ export class PlayState {
     own.effects = undefined;
     own.picks = undefined;
     own.chooses = undefined;
+    own.reportModifiers = undefined;
     if (this.attrLoss) f.attrLoss = this.attrLoss.slice();
     // `settle` writes the profiles of the personnel with partner gains, so the copy needs its own.
     if (this.partnered) {
@@ -489,6 +527,8 @@ export class PlayState {
   faceRest() {
     while (this.queue.length) {
       const model = this.queue.shift()!;
+      const first = !this.pastFirst;
+      this.pastFirst = true;
       const fetched = this.fetchedFront > 0;
       if (fetched) this.fetchedFront--;
       if (this.stackEnded) {
@@ -521,6 +561,8 @@ export class PlayState {
       }
       this.settleBeforeDilemma();
       model.play(this);
+      // What the first dilemma left lasts for the rest of the attempt (#1597).
+      if (first) this.reportModifiers?.(this.modifiersNow());
       // A dilemma placed on top of the stack is faced next (#1518).
       if (this.onTop.length) {
         this.fetchedFront += this.onTop.length;
@@ -685,9 +727,12 @@ export function playPileStack(
   rand: Rand,
   trace?: (line: string) => void,
   notInStack = 0,
-  options: Pick<PlayContext, 'effects' | 'picks' | 'chooses'> = {},
+  options: Pick<PlayContext, 'effects' | 'picks' | 'chooses' | 'modifiers'> = {},
 ): PileResult {
-  const state = new PlayState({ attempt, rand, trace, effects: options.effects, picks: options.picks, chooses: options.chooses }, notInStack);
+  const state = new PlayState(
+    { attempt, rand, trace, effects: options.effects, picks: options.picks, chooses: options.chooses, modifiers: options.modifiers },
+    notInStack,
+  );
   state.queue = stack.slice();
   if (attempt.spend !== undefined) state.budget = stack.reduce((t, m) => t + (m.extraBudget ?? 0), attempt.spend);
   state.faceRest();

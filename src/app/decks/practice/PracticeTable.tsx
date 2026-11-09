@@ -2168,7 +2168,14 @@ function PracticeDrawContent() {
     const top = dilemmaStack[0];
     const pressed = botResolveOf(table, undefined, { rand: Math.random }, selectedCardIds);
     if (!top || !pressed.resolvable || pressed.pending) return;
-    dispatch({ type: 'resolveDilemma', dilemmaId: top.id, dilemma: cardDisplayName(top.card), changes: pressed.changes, notes: pressed.notes });
+    dispatch({
+      type: 'resolveDilemma',
+      dilemmaId: top.id,
+      dilemma: cardDisplayName(top.card),
+      changes: pressed.changes,
+      notes: pressed.notes,
+      ...(pressed.modifiers ? { modifiers: pressed.modifiers } : {}),
+    });
   };
 
   // A touch or pen press in a scrolling card list panel splits a scroll from a drag (#788); every

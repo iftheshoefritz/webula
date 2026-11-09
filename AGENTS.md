@@ -797,6 +797,17 @@ personnel the Resolve is pending: the preview reads the task, "Choose 1 personne
 Resolve is disabled; it stays disabled while a selected personnel is one the dilemma does not allow.
 Selected equipment is ignored. Distraction and Dramatis Personae give no Resolve.
 
+A Resolve of a dilemma that changes how the personnel are read for the rest of the attempt (Dereliction
+of Duty, Harsh Conditions, Accelerated Aging, Parallel Romance, The Clown: Bitter Medicine, Overwhelmed,
+and the titles that change the requirements) keeps the change on `Attempt.modifiers` (#1597,
+`PileModifiers` in `pile/model.ts`): the play reports its modifiers once the first dilemma is faced
+(`PlayContext.modifiers`), `pileResolveOf` returns them by card id when they changed, and the
+`resolveDilemma` carries the whole object, so one undo takes it back and `endAttempt` drops it. Each
+reveal snapshot keeps the attempt's modifiers as its card turned face up (`RevealSnapshot.modifiers`),
+and `revealedPlayOf` seeds the play of the label, the preview, the press and the reveal roll with them
+(`PileAttempt.modifiers`), so a later card reads them and the card that set them does not count them
+twice. The save keeps both; malformed modifiers drop alone.
+
 Where a random selection is the pool of the player's choice (A Pattern of Lies, and the
 `anyOfThree(…, 'player')` titles New Face, Discommendation and Moral Choice, `DilemmaModel.rollsBeforeChoice`,
 #1594), the page rolls the selection before it dispatches the `flip` that reveals the card

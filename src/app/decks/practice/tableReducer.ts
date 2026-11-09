@@ -5,6 +5,7 @@
 import { arrayMove } from '@dnd-kit/sortable';
 import { shuffleArray } from '../deckBuilderUtils';
 import type { BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
+import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 
 export type Face = 'up' | 'down';
 // The core and the brig (#603) are two more flat, top-level zones: the core for any card not at
@@ -206,6 +207,11 @@ export interface Attempt {
   // not in it. `flip` sets it under the condition that adds to `botRevealed`, and `resolveDilemma`
   // marks it `resolved`, once. A restore takes a fresh one for a face-up top card it does not name.
   revealSnapshot?: RevealSnapshot;
+  // What the resolved dilemmas of a bot game's attempt changed in how the personnel are read, for the
+  // rest of the attempt (#1597): abilities off, blocked skills, attribute changes, Overwhelmed, changed
+  // requirements. Only `resolveDilemma` sets it, so one undo takes it back; it ends with the attempt.
+  // Absent: none, as in a save from before #1597.
+  modifiers?: PileModifiers;
 }
 
 export interface RevealSnapshot {
@@ -216,6 +222,10 @@ export interface RevealSnapshot {
   // `flip` that took the snapshot carries it: the card ids of each random select, in call order. The
   // Resolve plays with it, so the player chooses from the same set after a reload.
   picks?: string[][];
+  // The attempt's modifiers as the card turned face up (#1597), which the label and the Resolve of this
+  // card read, so a Resolve that changes them does not count again for the card that changed them.
+  // Absent: none.
+  modifiers?: PileModifiers;
 }
 
 // The effects of a dilemma on the attempting cards (#1587), each one or two table actions:
@@ -334,7 +344,8 @@ export type TableAction =
   // cards still in the attempting row, and marks the reveal snapshot resolved. It never unstops a
   // card and never moves one back. It does nothing unless the snapshot names `dilemmaId`, the face-up
   // top card of the stack in `'face'`, and is not resolved yet. `dilemma` and `notes` are for the log.
-  | { type: 'resolveDilemma'; dilemmaId: string; changes: ResolveChange[]; dilemma: string; notes?: ResolveNote[] }
+  // `modifiers`: the attempt's whole modifiers after the dilemma (#1597), when it changed them.
+  | { type: 'resolveDilemma'; dilemmaId: string; changes: ResolveChange[]; dilemma: string; notes?: ResolveNote[]; modifiers?: PileModifiers }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[]; opponent?: 'bot'; botPile?: BotPileInfo }
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
   // state, and the caller passes its max instance ID to `seedInstanceIds` first.
@@ -732,6 +743,7 @@ export function revealSnapshotOf(table: TableState, dilemmaId: string): RevealSn
   return {
     dilemmaId,
     personnel: row.filter((c) => c.card?.type === 'personnel').map((c) => ({ id: c.id, stopped: !!c.stopped })),
+    ...(attempt?.modifiers ? { modifiers: attempt.modifiers } : {}),
   };
 }
 
@@ -1085,7 +1097,14 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         (s, change) => change.ids.reduce((t, id) => applyResolveChange(t, change.op, id), s),
         state
       );
-      return { ...resolved, attempt: { ...resolved.attempt!, revealSnapshot: { ...attempt.revealSnapshot!, resolved: true } } };
+      return {
+        ...resolved,
+        attempt: {
+          ...resolved.attempt!,
+          revealSnapshot: { ...attempt.revealSnapshot!, resolved: true },
+          ...(action.modifiers ? { modifiers: action.modifiers } : {}),
+        },
+      };
     }
 
     case 'endAttempt': {
