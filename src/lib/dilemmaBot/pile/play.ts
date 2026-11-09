@@ -36,6 +36,8 @@ export class PlayState {
   readonly trace?: (line: string) => void;
   /** The effect recorder (#1579), or undefined: a fork records nothing. */
   readonly effects?: (effect: PlayEffect) => void;
+  /** The picks a random select of the first dilemma returns in place of its roll (#1588), or undefined: a fork takes none. */
+  readonly picks?: (count: number, pool: number[]) => number[];
   /** 1 while the personnel is unstopped and still in the attempt. */
   readonly alive: Uint8Array;
   /**
@@ -118,6 +120,7 @@ export class PlayState {
     this.rand = context.rand;
     this.trace = context.trace;
     this.effects = context.effects;
+    this.picks = context.picks;
     this.alive = new Uint8Array(this.group.length).fill(1);
     this.present = new Uint8Array(this.group.length).fill(1);
     this.live = this.group.length;
@@ -292,15 +295,38 @@ export class PlayState {
     return meets(this.requirements, skills, attrs);
   }
 
-  /** Up to `count` different unstopped personnel, in a random order, from `pool` or the whole group. */
-  select(count: number, pool: number[] = this.unstopped()): number[] {
-    const out = pool.slice();
-    const take = Math.min(count, out.length);
-    for (let i = 0; i < take; i++) {
-      const j = i + Math.floor(this.rand() * (out.length - i));
-      [out[i], out[j]] = [out[j], out[i]];
+  /**
+   * Up to `count` different unstopped personnel, in a random order, from `pool` or the whole group. With
+   * the recorder on, it records the selection (#1588); `order` marks a selection of the whole pool whose
+   * order the play reads, and `why` a selection that is not the dilemma's own (Chula: The Game). While the
+   * first dilemma of the stack is faced, `picks`, when set, decides the selection in place of the roll.
+   */
+  select(count: number, pool: number[] = this.unstopped(), { order, why }: { order?: boolean; why?: string } = {}): number[] {
+    const take = Math.min(count, pool.length);
+    let picked: number[];
+    if (this.picks && !why && this.faced.length === 1) {
+      picked = this.picks(take, pool.slice()).slice(0, take);
+    } else {
+      const out = pool.slice();
+      for (let i = 0; i < take; i++) {
+        const j = i + Math.floor(this.rand() * (out.length - i));
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      picked = out.slice(0, take);
     }
-    return out.slice(0, take);
+    if (this.effects) this.record({ op: 'select', count, pool: pool.slice(), ks: picked.slice(), ...(order ? { order: true as const } : {}) }, why);
+    return picked;
+  }
+
+  /** A roll of the random function outside `select` (#1588): the recorder notes it, since its result decides the effect. */
+  roll(): number {
+    if (this.effects) this.record({ op: 'roll' });
+    return this.rand();
+  }
+
+  /** A choice the player makes in the play's place (#1588): the recorder notes it, since the table cannot make it. */
+  playerChoice() {
+    if (this.effects) this.record({ op: 'playerChooses' });
   }
 
   /** Record an effect under the dilemma being faced, when the recorder is on. */
@@ -417,6 +443,7 @@ export class PlayState {
     own.queue = this.queue.slice();
     own.trace = undefined;
     own.effects = undefined;
+    own.picks = undefined;
     if (this.attrLoss) f.attrLoss = this.attrLoss.slice();
     // `settle` writes the profiles of the personnel with partner gains, so the copy needs its own.
     if (this.partnered) {
@@ -482,7 +509,7 @@ export class PlayState {
       // random unstopped personnel.
       if (model.title.startsWith('Chula')) {
         for (let c = 0; c < this.gameCopies && this.live > 0; c++) {
-          const [k] = this.select(1);
+          const [k] = this.select(1, undefined, { why: GAME });
           this.stop([k], GAME, true);
           this.trace?.(`  Chula: The Game on the mission stops ${this.name(k)}`);
         }
@@ -551,6 +578,7 @@ export class PlayState {
    * keeps the mission requirements met, then any.
    */
   playerChooses(candidates: number[], count = 1): number[] {
+    this.playerChoice();
     const chosen: number[] = [];
     const pool = candidates.filter((k) => this.alive[k]);
     while (chosen.length < count && pool.length) {
@@ -628,7 +656,8 @@ export const skillName = (i: number) => BOT_SKILLS[i].charAt(0).toUpperCase() + 
  * Play `stack` once against the attempt. When every personnel is stopped, or a dilemma ends the stack, the
  * rest of the stack is not faced. With the attempt's `spend`, a dilemma revealed over the cost the bot may
  * spend, and every one after it, is overcome (#1555). Then the unstopped personnel must meet the requirements, as Insurrection left them.
- * `options.effects`, when given, records each effect of the play in order (#1579).
+ * `options.effects`, when given, records each effect of the play in order (#1579); `options.picks` decides
+ * the random selections of the first dilemma (#1588).
  */
 export function playPileStack(
   attempt: PileAttempt,
@@ -636,9 +665,9 @@ export function playPileStack(
   rand: Rand,
   trace?: (line: string) => void,
   notInStack = 0,
-  options: { effects?: (effect: PlayEffect) => void } = {},
+  options: Pick<PlayContext, 'effects' | 'picks'> = {},
 ): PileResult {
-  const state = new PlayState({ attempt, rand, trace, effects: options.effects }, notInStack);
+  const state = new PlayState({ attempt, rand, trace, effects: options.effects, picks: options.picks }, notInStack);
   state.queue = stack.slice();
   if (attempt.spend !== undefined) state.budget = stack.reduce((t, m) => t + (m.extraBudget ?? 0), attempt.spend);
   state.faceRest();

@@ -10,13 +10,17 @@ import {
   FIXTURE_DILEMMA_STACK,
   FIXTURE_SHIP_SLOT,
   MoveTarget,
+  ResolveChange,
+  ResolveNote,
+  RevealSnapshot,
   TableAction,
   TableState,
 } from './tableReducer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { BotTableFacts, asSphere117Dissident, isSphere117, sphere117Holds } from '../../../lib/dilemmaBot/gains';
-import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
+import { Rand, partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
+import { PileResolveWhere, pileResolveOf } from '../../../lib/dilemmaBot/pile/resolve';
 import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
@@ -39,22 +43,100 @@ function attemptCards(table: TableState, panel: AttemptPanel): { missionIndex: n
 
 export { attemptingCards };
 
-// The bot's label on the revealed top card of the dilemma stack (#1519), or null. The label's attempt
-// has the attempt's spend and the cost of the cards revealed before the top card (#1556), from the
-// attempt's record of the cards it revealed, and the play faces the rest of the stack after the top
-// card, so a fetch counts the cost rule as the bot's search did.
-export function botLabelOf(table: TableState): string | null {
+// The play of the revealed top card of the dilemma stack (#1519, #1588), or null: the group, as the
+// snapshot of `snapshot` holds it when the snapshot is for the top card and as the table stands
+// otherwise, with the attempt's spend; the card ids of the group; the cards revealed before the top
+// card, from the attempt's record of the cards it revealed (#1556), whose cost counts as spent; and the
+// rest of the stack, which the play faces after the top card, so a fetch counts the cost rule as the
+// bot's search did. The bot's label and the Resolve both play it, so they never disagree.
+function revealedPlayOf(table: TableState, snapshot: RevealSnapshot | undefined = table.attempt?.revealSnapshot) {
   const { attempt, dilemmaStack } = table;
   const top = dilemmaStack[0];
   if (!attempt || !top) return null;
-  const built = pileAttemptOf(pileTableInputOf(table, attempt.missionIndex, attempt.shipId)).attempt;
+  const live = pileTableInputOf(table, attempt.missionIndex, attempt.shipId);
+  // The snapshot's personnel, each looked up wherever the card is now, with the snapshot's stopped flag,
+  // and the equipment of the row as it stands, which the snapshot does not hold.
+  const input: PileTableInput =
+    snapshot?.dilemmaId === top.id
+      ? {
+          ...live,
+          cards: [
+            ...snapshot.personnel.map((p) => ({ card: findInstanceAnywhere(table, p.id)?.instance.card, stopped: p.stopped, id: p.id })),
+            ...live.cards.filter((c) => c.card?.type !== 'personnel'),
+          ],
+        }
+      : live;
+  const { attempt: built, personnelIds } = pileAttemptOf(input);
   const revealedIds = attempt.botRevealed ?? [];
   const at = revealedIds.indexOf(top.id);
-  const revealed = (at === -1 ? revealedIds : revealedIds.slice(0, at)).map((id) => findInstanceAnywhere(table, id)?.instance.card);
-  return pileLabelOf(top.card, attempt.botSpend !== undefined ? { ...built, spend: attempt.botSpend } : built, {
-    revealed,
+  return {
+    top,
+    attempt: attempt.botSpend !== undefined ? { ...built, spend: attempt.botSpend } : built,
+    personnelIds,
+    revealed: (at === -1 ? revealedIds : revealedIds.slice(0, at)).map((id) => findInstanceAnywhere(table, id)?.instance.card),
     rest: dilemmaStack.slice(1).map((c) => c.card),
+  };
+}
+
+// The bot's label on the revealed top card of the dilemma stack (#1519), or null. It reads the group of
+// the attempt's reveal snapshot when the snapshot is for the top card (#1588), so the label and the
+// Resolve read the same personnel.
+export function botLabelOf(table: TableState): string | null {
+  const play = revealedPlayOf(table);
+  return play && pileLabelOf(play.top.card, play.attempt, { revealed: play.revealed, rest: play.rest });
+}
+
+// Where a card of the reveal snapshot is now (#1588): in the attempting row, with its stopped flag, in a
+// zone of the table, or nowhere.
+function resolveWhereOf(table: TableState, id: string): PileResolveWhere {
+  const { attempt } = table;
+  const inRow = attempt && attemptingCards(table, attempt.missionIndex, attempt.shipId)?.find((c) => c.id === id);
+  if (inRow) return { at: 'row', stopped: !!inRow.stopped };
+  const found = findInstanceAnywhere(table, id);
+  if (!found) return { at: 'gone' };
+  return { at: 'zone', zone: typeof found.zone === 'string' ? found.zone : found.zone.zone, removedFromGame: !!found.instance.removedFromGame };
+}
+
+// The Resolve of the revealed top card (#1588): what the dilemma does to the personnel of `snapshot`,
+// reconciled with what the player did by hand since the reveal, as the changes and the log notes of a
+// `resolveDilemma`, and the preview text. With no `press`, the changes are the preview's, and a random
+// pick gives only a count; a press rolls the random picks with `press.rand`, or takes `press.picks`, the
+// card ids an earlier press returned, and returns the picks. No Resolve, with a reason, when the
+// snapshot is not for the top card or the bot cannot apply the dilemma (`pileResolveOf`).
+export type BotResolve =
+  | { resolvable: false; reason: string }
+  | { resolvable: true; preview: string; changes: ResolveChange[]; notes: ResolveNote[]; picks?: string[][] };
+
+export function botResolveOf(
+  table: TableState,
+  snapshot: RevealSnapshot | undefined = table.attempt?.revealSnapshot,
+  press: { rand?: Rand; picks?: string[][] } = {},
+): BotResolve {
+  const play = snapshot && revealedPlayOf(table, snapshot);
+  if (!snapshot || !play || play.top.id !== snapshot.dilemmaId) return { resolvable: false, reason: 'the snapshot is not for the revealed dilemma' };
+  const resolve = pileResolveOf(play.top.card, play.attempt, {
+    personnelIds: play.personnelIds,
+    snapshotIds: snapshot.personnel.map((p) => p.id),
+    where: (id) => resolveWhereOf(table, id),
+    revealed: play.revealed,
+    rest: play.rest,
+    ...press,
   });
+  if (!resolve.resolvable) return resolve;
+  const notes: ResolveNote[] = [
+    ...resolve.done.map((d) => ({ kind: 'alreadyDone' as const, ...d })),
+    ...resolve.byTable.map((id) => {
+      const card = findInstanceAnywhere(table, id)?.instance.card;
+      return { kind: 'byTable' as const, text: card ? cardDisplayName(card) : 'A personnel' };
+    }),
+  ];
+  return {
+    resolvable: true,
+    preview: resolve.preview,
+    changes: resolve.changes,
+    notes,
+    ...(resolve.picks ? { picks: resolve.picks } : {}),
+  };
 }
 
 // What `pileAttemptOf` reads of the table for an attempt at `missionIndex` with `shipId` (#1508): the

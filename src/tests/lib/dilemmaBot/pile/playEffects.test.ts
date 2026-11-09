@@ -124,7 +124,7 @@ describe('the effects of a play (#1579)', () => {
     const { result, effects } = play(attemptOf('planet'), [model('Vault of Tomorrow'), model('No Kill I')]);
     expect(result.labels).toEqual([{ title: 'Vault of Tomorrow', label: 'Added Cultural Differences' }]);
     expect(effects.filter((e) => e.op === 'addBestOnTop')).toEqual([{ title: 'Vault of Tomorrow', op: 'addBestOnTop', added: 'Cultural Differences' }]);
-    const fetched = effects.filter((e) => e.title === 'Cultural Differences');
+    const fetched = effects.filter((e) => e.title === 'Cultural Differences' && e.op !== 'select');
     expect(fetched).toHaveLength(1);
     expect(fetched[0]).toMatchObject({ op: 'kill' });
     expect(sums(effects).out).toEqual(countsOf(result));
@@ -138,7 +138,9 @@ describe('the effects of a play (#1579)', () => {
 
   it('records a stop by Chula: The Game under the Chula dilemma, with why', () => {
     const { effects } = play(attemptOf('planet', { gameOnMission: 1 }), [model('Chula: Pick One to Save Two')]);
-    expect(effects[0]).toMatchObject({ title: 'Chula: Pick One to Save Two', why: 'Chula: The Game', op: 'stop' });
+    // The Game's random select records first (#1588), with the same why, then its stop.
+    expect(effects[0]).toMatchObject({ title: 'Chula: Pick One to Save Two', why: 'Chula: The Game', op: 'select' });
+    expect(effects[1]).toMatchObject({ title: 'Chula: Pick One to Save Two', why: 'Chula: The Game', op: 'stop' });
   });
 });
 

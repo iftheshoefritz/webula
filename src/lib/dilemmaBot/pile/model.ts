@@ -231,6 +231,15 @@ export type PlayEffect = { title: string; why?: string } & (
   | { op: 'addBestOnTop'; added: string | null }
   | { op: 'endStack' }
   | { op: 'label'; label: string }
+  /**
+   * A random selection (#1588): `count` asked, from `pool`, and the `ks` it picked. `order` marks a
+   * selection of the whole pool as a random order, whose use depends on the roll (Chula: The Precipice).
+   */
+  | { op: 'select'; count: number; pool: number[]; ks: number[]; order?: true }
+  /** A call of `playerChooses`, or a choice the player makes in the play's place (#1588). */
+  | { op: 'playerChooses' }
+  /** A roll of the random function outside `select` (#1588), such as the cards Reflections reveals. */
+  | { op: 'roll' }
 );
 
 export interface PlayContext {
@@ -239,6 +248,12 @@ export interface PlayContext {
   trace?: (line: string) => void;
   /** The effect recorder (#1579): absent, a play records nothing. The search and the label never set it. */
   effects?: (effect: PlayEffect) => void;
+  /**
+   * The picks a random `select` of the first dilemma of the stack returns in place of its roll (#1588),
+   * from the `count` it asks and its `pool`. Absent: every select rolls. A fork, and the select of
+   * Chula: The Game, never take it. The search and the label never set it.
+   */
+  picks?: (count: number, pool: number[]) => number[];
 }
 
 /** A title of the registry. */
