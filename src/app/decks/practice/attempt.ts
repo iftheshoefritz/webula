@@ -102,24 +102,30 @@ function resolveWhereOf(table: TableState, id: string): PileResolveWhere {
 // `resolveDilemma`, and the preview text. With no `press`, the changes are the preview's, and a random
 // pick gives only a count; a press rolls the random picks with `press.rand`, or takes `press.picks`, the
 // card ids an earlier press returned, and returns the picks. No Resolve, with a reason, when the
-// snapshot is not for the top card or the bot cannot apply the dilemma (`pileResolveOf`).
+// snapshot is not for the top card or the bot cannot apply the dilemma (`pileResolveOf`). Where the
+// player chooses (#1593), `selected`, the row selection, is the choice: only the personnel of the row
+// count, and until it is made the Resolve is `pending`, its preview the task, with no changes.
 export type BotResolve =
   | { resolvable: false; reason: string }
-  | { resolvable: true; preview: string; changes: ResolveChange[]; notes: ResolveNote[]; picks?: string[][] };
+  | { resolvable: true; preview: string; changes: ResolveChange[]; notes: ResolveNote[]; picks?: string[][]; pending?: boolean };
 
 export function botResolveOf(
   table: TableState,
   snapshot: RevealSnapshot | undefined = table.attempt?.revealSnapshot,
   press: { rand?: Rand; picks?: string[][] } = {},
+  selected: ReadonlyArray<string> = [],
 ): BotResolve {
   const play = snapshot && revealedPlayOf(table, snapshot);
   if (!snapshot || !play || play.top.id !== snapshot.dilemmaId) return { resolvable: false, reason: 'the snapshot is not for the revealed dilemma' };
+  const row = table.attempt ? attemptingCards(table, table.attempt.missionIndex, table.attempt.shipId) : null;
+  const rowPersonnel = new Set((row ?? []).filter((c) => c.card?.type === 'personnel').map((c) => c.id));
   const resolve = pileResolveOf(play.top.card, play.attempt, {
     personnelIds: play.personnelIds,
     snapshotIds: snapshot.personnel.map((p) => p.id),
     where: (id) => resolveWhereOf(table, id),
     revealed: play.revealed,
     rest: play.rest,
+    selected: selected.filter((id) => rowPersonnel.has(id)),
     ...press,
   });
   if (!resolve.resolvable) return resolve;
@@ -136,6 +142,7 @@ export function botResolveOf(
     changes: resolve.changes,
     notes,
     ...(resolve.picks ? { picks: resolve.picks } : {}),
+    ...(resolve.pending ? { pending: true } : {}),
   };
 }
 
@@ -293,13 +300,15 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
 // the facing phase, with no search, and a stack of that dilemma, revealed, on top of the next
 // `FIXTURE_DILEMMA_STACK - 1` dilemmas of the pile, face down. So the page opens on the bot's label.
 // `?fixture=bot-resolve-noeffect` (#1589) deals the same with a Conflict of Interests, whose `unless`
-// check the crew meets, so its Resolve reads "No effect".
+// check the crew meets, so its Resolve reads "No effect". `?fixture=bot-resolve-choice` (#1593) deals the
+// same with a Covert Extraction, where the player chooses the personnel to stop from the row selection.
 export const FIXTURE_BOT_LABEL_DILEMMA = 'Well-Prepared Defenses';
 
 // The dilemma each revealing bot fixture adds to the bot's pile and reveals, by title and collector's info.
 export const BOT_REVEAL_FIXTURES: Record<string, { title: string; collectorsInfo: string }> = {
   'bot-label': { title: FIXTURE_BOT_LABEL_DILEMMA, collectorsInfo: '17V017' },
   'bot-resolve-noeffect': { title: 'Conflict of Interests', collectorsInfo: '26V002' },
+  'bot-resolve-choice': { title: 'Covert Extraction', collectorsInfo: '38V002' },
 };
 
 export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA): {

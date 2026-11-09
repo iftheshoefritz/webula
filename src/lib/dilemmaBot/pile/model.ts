@@ -236,8 +236,12 @@ export type PlayEffect = { title: string; why?: string } & (
    * selection of the whole pool as a random order, whose use depends on the roll (Chula: The Precipice).
    */
   | { op: 'select'; count: number; pool: number[]; ks: number[]; order?: true }
-  /** A call of `playerChooses`, or a choice the player makes in the play's place (#1588). */
-  | { op: 'playerChooses' }
+  /**
+   * A call of `playerChooses` (#1593): `count` asked, from the live candidates `pool`, and the `ks` it
+   * returned. With no `pool`, a choice the player makes in the play's place that is not a choice of
+   * personnel (`playerChoice`, Chula: Pick One to Save Two), which the table cannot make (#1588).
+   */
+  | { op: 'playerChooses'; count?: number; pool?: number[]; ks?: number[] }
   /** A roll of the random function outside `select` (#1588), such as the cards Reflections reveals. */
   | { op: 'roll' }
 );
@@ -254,6 +258,12 @@ export interface PlayContext {
    * Chula: The Game, never take it. The search and the label never set it.
    */
   picks?: (count: number, pool: number[]) => number[];
+  /**
+   * The player's choice (#1593): the indexes a `playerChooses` call of the first dilemma's own play returns
+   * in place of the model's pick, from the `count` it asks and its live candidates `pool`. Absent: the model
+   * picks. A fork never takes it. The search and the label never set it.
+   */
+  chooses?: (count: number, pool: number[]) => number[];
 }
 
 /** A title of the registry. */
