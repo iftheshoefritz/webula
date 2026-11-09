@@ -1,4 +1,4 @@
-// Issue #1597: the modifiers a resolved dilemma leaves for the rest of the attempt. A play starts from
+// Issues #1597 and #1598: the modifiers a resolved dilemma leaves for the rest of the attempt. A play starts from
 // them, the play reports them once the first dilemma is faced, and the Resolve returns them by card id.
 import { SKILL_INDEX } from '../../../../lib/dilemmaBot/requirements';
 import { seededRandom } from '../../../../lib/dilemmaBot/simulator';
@@ -6,7 +6,7 @@ import { PileAttempt, PlayModifiers } from '../../../../lib/dilemmaBot/pile/mode
 import { PlayState, playPileStack } from '../../../../lib/dilemmaBot/pile/play';
 import { req } from '../../../../lib/dilemmaBot/pile/families';
 import { modelOf } from '../../../../lib/dilemmaBot/pile/registry';
-import { pileModifiersOf, pileResolveOf, playModifiersOf } from '../../../../lib/dilemmaBot/pile/resolve';
+import { modifiersClause, modifiersText, pileModifiersOf, pileResolveOf, playModifiersOf } from '../../../../lib/dilemmaBot/pile/resolve';
 import { PileCardRow, pileAttemptOf } from '../../../../lib/dilemmaBot/pile/tableAttempt';
 
 const person = (name: string, skills = 'Physics') => ({
@@ -132,5 +132,62 @@ describe('pileResolveOf and the modifiers (#1597)', () => {
     const second = resolve('Parallel Romance', { abilitiesOff: true, attrBonus: 2 }, () => 0);
     if (!second.resolvable) throw new Error(second.reason);
     expect(second.modifiers).toEqual({ abilitiesOff: true, attrBonus: 4 });
+  });
+});
+
+describe('the text of the modifiers (#1598)', () => {
+  const names: Record<string, string> = { 'card-1': 'Data', 'card-2': 'Worf', 'card-3': 'Troi' };
+  const nameOf = (id: string) => names[id] ?? 'A personnel';
+
+  it('names each modifier, and none for none', () => {
+    expect(modifiersText(undefined, nameOf)).toBe('');
+    expect(modifiersText({}, nameOf)).toBe('');
+    expect(modifiersText({ abilitiesOff: true }, nameOf)).toBe('Abilities off');
+    expect(modifiersText({ firstSkillOff: true }, nameOf)).toBe('First skill off');
+    expect(modifiersText({ blockedSkills: [SKILL_INDEX.navigation, PHYSICS] }, nameOf)).toBe('Navigation, Physics blocked');
+    expect(modifiersText({ attrBonus: 1 }, nameOf)).toBe('+1 attributes');
+    expect(modifiersText({ attrLoss: { 'card-1': 2, 'card-2': 2, 'card-3': 1 } }, nameOf)).toBe('\u22121 attributes: Troi \u00b7 \u22122 attributes: Data, Worf');
+    expect(modifiersText({ overwhelmed: true }, nameOf)).toBe('Overwhelmed');
+    expect(modifiersText({ requirements: req('Diplomacy') }, nameOf)).toBe('Requirements changed');
+    expect(modifiersText({ abilitiesOff: true, overwhelmed: true, attrBonus: 2 }, nameOf)).toBe('Abilities off \u00b7 +2 attributes \u00b7 Overwhelmed');
+  });
+
+  it('names only what a Resolve adds, for the rest of the attempt', () => {
+    expect(modifiersClause({}, { firstSkillOff: true }, nameOf)).toBe('first skill off for the rest of the attempt');
+    expect(modifiersClause({ abilitiesOff: true }, { abilitiesOff: true, attrBonus: 4 }, nameOf)).toBe('+4 attributes for the rest of the attempt');
+    expect(modifiersClause({ attrBonus: 2 }, { attrBonus: 4 }, nameOf)).toBe('+2 attributes for the rest of the attempt');
+    expect(modifiersClause({ attrLoss: { 'card-1': 1 } }, { attrLoss: { 'card-1': 3 } }, nameOf)).toBe('\u22122 attributes: Data for the rest of the attempt');
+    expect(modifiersClause({ abilitiesOff: true }, { abilitiesOff: true }, nameOf)).toBe('');
+    expect(modifiersClause({}, undefined, nameOf)).toBe('');
+  });
+});
+
+describe('the Resolve names the modifiers (#1598)', () => {
+  it('previews a modifier-only dilemma by its modifier, not "No effect"', () => {
+    const { attempt, personnelIds } = setup();
+    const where = () => ({ at: 'row' as const, stopped: false });
+    const r = pileResolveOf({ originalName: 'Accelerated Aging' }, attempt, { personnelIds, snapshotIds: IDS, where });
+    if (!r.resolvable) throw new Error(r.reason);
+    expect(r.preview).toBe('First skill off for the rest of the attempt');
+    expect(r.modifiersClause).toBe('first skill off for the rest of the attempt');
+    const again = pileResolveOf({ originalName: 'Accelerated Aging' }, { ...attempt, modifiers: { firstSkillOff: true } }, { personnelIds, snapshotIds: IDS, where });
+    if (!again.resolvable) throw new Error(again.reason);
+    expect(again.preview).toBe('No effect');
+    expect(again.modifiersClause).toBeUndefined();
+  });
+
+  it('stops the skill users of a passing check under a seeded Overwhelmed, and previews them as Overwhelmed', () => {
+    // An Old Debt: unless Biology, Physics, and Cunning>32 or Intelligence and 2 Medical.
+    const { attempt, personnelIds } = setup('Intelligence, Medical');
+    const where = () => ({ at: 'row' as const, stopped: false });
+    const input = { personnelIds, snapshotIds: IDS, where };
+    const plain = pileResolveOf({ originalName: 'An Old Debt' }, attempt, input);
+    if (!plain.resolvable) throw new Error(plain.reason);
+    expect(plain.preview).toBe('No effect');
+    const overwhelmed = pileResolveOf({ originalName: 'An Old Debt' }, { ...attempt, modifiers: { overwhelmed: true } }, { ...input, rand: () => 0 });
+    if (!overwhelmed.resolvable) throw new Error(overwhelmed.reason);
+    expect(overwhelmed.preview).toMatch(/^Stops \w+, \w+ \(Overwhelmed\)$/);
+    expect(overwhelmed.changes).toEqual([{ op: 'stop', ids: expect.arrayContaining([expect.any(String)]) }]);
+    expect(overwhelmed.changes[0].ids).toHaveLength(2);
   });
 });

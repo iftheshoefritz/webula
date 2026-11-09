@@ -6,7 +6,7 @@ import { deckFromTsv, extractDilemmas, extractDrawDeck, extractMissions, mergeDe
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
 import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
-import { BOT_REVEAL_FIXTURES, botLabelOf, botResolveOf, fixtureBotLabelAttempt } from '../../../app/decks/practice/attempt';
+import { BOT_REVEAL_FIXTURES, BotRevealFixture, attemptModifiersText, botLabelOf, botResolveOf, fixtureBotLabelAttempt } from '../../../app/decks/practice/attempt';
 import { createCardInstances, initialTableState, revealSnapshotOf, tableReducer, TableAction, TableState } from '../../../app/decks/practice/tableReducer';
 import { BOT_SKILLS } from '../../../lib/dilemmaBot/requirements';
 import { gameReducer, initialGameState, logEntryText, withShuffleOrders } from '../../../app/decks/practice/gameLog';
@@ -33,16 +33,19 @@ const data = (() => {
 // fixture's dilemma, dealt as `?fixture=piles`, then the bot attempt with that dilemma revealed on top.
 // `roll`: the flip goes through `withShuffleOrders`, as the page dispatches it, so it carries the roll
 // of a dilemma whose selection comes before the player's choice (#1594).
-function dealRevealFixture(fixture: string | { title: string; collectorsInfo: string }, roll = false): TableState {
+function dealRevealFixture(fixture: string | BotRevealFixture, roll = false): TableState {
   return dealRevealFixtureWithDeck(fixture, roll).table;
 }
 
-function dealRevealFixtureWithDeck(fixture: string | { title: string; collectorsInfo: string }, roll = false) {
-  const { title, collectorsInfo } = typeof fixture === 'string' ? BOT_REVEAL_FIXTURES[fixture] : fixture;
+function dealRevealFixtureWithDeck(fixture: string | BotRevealFixture, roll = false) {
+  const { title, collectorsInfo, next } = typeof fixture === 'string' ? BOT_REVEAL_FIXTURES[fixture] : fixture;
   const botDeck = mergeDeckPiles(deckFromTsv(PRACTICE_DECK_TSV, data), chulaPileDeck(data), ['dilemmaPile']);
-  const labelled = data.find((row) => row.collectorsinfo === collectorsKey(collectorsInfo));
-  expect(labelled).toBeDefined();
-  const deck = { ...botDeck, [labelled.collectorsinfo]: { count: 1, row: { ...labelled, count: 1, pile: 'dilemmaPile' } } };
+  const rowOf = (info: string) => {
+    const row = data.find((r) => r.collectorsinfo === collectorsKey(info));
+    expect(row).toBeDefined();
+    return { [row.collectorsinfo]: { count: 1, row: { ...row, count: 1, pile: 'dilemmaPile' } } };
+  };
+  const deck = { ...botDeck, ...rowOf(collectorsInfo), ...(next ? rowOf(next.collectorsInfo) : {}) };
   const cards = extractDrawDeck(deck);
   const deal: TableAction = {
     type: 'resetWithPiles',
@@ -310,5 +313,53 @@ describe('the modifiers a Resolve keeps for the rest of the attempt (#1597)', ()
     expect(repaired.attempt?.modifiers).toBeUndefined();
     expect(repaired.attempt?.revealSnapshot?.modifiers).toBeUndefined();
     expect(repaired.attempt?.revealSnapshot?.dilemmaId).toBe(table.attempt?.revealSnapshot?.dilemmaId);
+  });
+});
+
+describe('?fixture=bot-resolve-modifier (#1598)', () => {
+  it('reveals Accelerated Aging, names its modifier in the preview, the log and the line, and the next card reads it', () => {
+    const { table, deck } = dealRevealFixtureWithDeck('bot-resolve-modifier');
+    const [top, next] = table.dilemmaStack;
+    expect(top.card.originalName).toContain('Accelerated Aging');
+    expect(next.card.originalName).toContain('Dead Weight');
+    expect(attemptModifiersText(table)).toBe('');
+
+    const r = botResolveOf(table, undefined, { rand: Math.random });
+    if (!r.resolvable) throw new Error(r.reason);
+    expect(r.preview).toBe('First skill off for the rest of the attempt');
+    const start = initialGameState(table);
+    const game = gameReducer(start, {
+      type: 'resolveDilemma',
+      dilemmaId: top.id,
+      dilemma: 'Accelerated Aging',
+      changes: r.changes,
+      notes: r.notes,
+      modifiers: r.modifiers,
+      modifiersClause: r.modifiersClause,
+    });
+    expect(logEntryText(game.log[game.log.length - 1])).toBe('Resolved Accelerated Aging: first skill off for the rest of the attempt');
+    expect(attemptModifiersText(game.table)).toBe('First skill off');
+
+    // The player moves the resolved card off the stack and reveals Dead Weight: without its first-listed
+    // skills the crew fails the check.
+    const plainNext = (() => {
+      let t = tableReducer(table, { type: 'move', id: top.id, to: 'discard' });
+      t = tableReducer(t, { type: 'flip', id: next.id });
+      return botResolveOf(t);
+    })();
+    expect(plainNext.resolvable && plainNext.preview).toBe('No effect');
+    let t = tableReducer(game.table, { type: 'move', id: top.id, to: 'discard' });
+    t = tableReducer(t, { type: 'flip', id: next.id });
+    const nextResolve = botResolveOf(t);
+    expect(nextResolve.resolvable && nextResolve.preview).toMatch(/^Stops /);
+
+    // A reload keeps the line and the preview.
+    const restored = fromSavedGame(JSON.stringify(toSavedGame(t, deck, 'builder')), deck)!.table;
+    expect(attemptModifiersText(restored)).toBe('First skill off');
+    const restoredResolve = botResolveOf(restored);
+    expect(restoredResolve.resolvable && restoredResolve.preview).toBe(nextResolve.resolvable && nextResolve.preview);
+
+    // Undo back past the Resolve: no line.
+    expect(attemptModifiersText(gameReducer(game, { type: 'undo' }).table)).toBe('');
   });
 });

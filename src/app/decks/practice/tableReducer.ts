@@ -345,7 +345,16 @@ export type TableAction =
   // card and never moves one back. It does nothing unless the snapshot names `dilemmaId`, the face-up
   // top card of the stack in `'face'`, and is not resolved yet. `dilemma` and `notes` are for the log.
   // `modifiers`: the attempt's whole modifiers after the dilemma (#1597), when it changed them.
-  | { type: 'resolveDilemma'; dilemmaId: string; changes: ResolveChange[]; dilemma: string; notes?: ResolveNote[]; modifiers?: PileModifiers }
+  // `modifiersClause`: the log's words for what the dilemma added to them (#1598).
+  | {
+      type: 'resolveDilemma';
+      dilemmaId: string;
+      changes: ResolveChange[];
+      dilemma: string;
+      notes?: ResolveNote[];
+      modifiers?: PileModifiers;
+      modifiersClause?: string;
+    }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[]; opponent?: 'bot'; botPile?: BotPileInfo }
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
   // state, and the caller passes its max instance ID to `seedInstanceIds` first.

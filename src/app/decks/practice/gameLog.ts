@@ -103,7 +103,8 @@ export type LogEntry = { turn: number } & (
     }
   // The effects of a bot game's revealed dilemma (#1587): the cards of each op the table applied, in
   // the action's order, and the notes the page gave.
-  | { kind: 'dilemmaResolved'; dilemma: string; ops: { op: ResolveOp; cards: string[] }[]; notes?: ResolveNote[] }
+  // `modifiers`: what the dilemma changed for the rest of the attempt (#1598), "abilities off for the rest of the attempt".
+  | { kind: 'dilemmaResolved'; dilemma: string; ops: { op: ResolveOp; cards: string[] }[]; notes?: ResolveNote[]; modifiers?: string }
 );
 
 // Several table actions that are one player action (#1065): a group drag, a selection's Discard,
@@ -337,6 +338,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         dilemma: action.dilemma,
         ops,
         ...(action.notes?.length ? { notes: action.notes } : {}),
+        ...(action.modifiersClause ? { modifiers: action.modifiersClause } : {}),
       };
     }
     case 'nextTurn':
@@ -621,9 +623,9 @@ export function logEntryText(entry: LogEntry): string {
       return returned ? `${text}, and moved ${dilemmas(returned)} to the bottom of the dilemma pile` : text;
     }
     case 'dilemmaResolved': {
-      const effects = entry.ops.length
-        ? entry.ops.map(({ op, cards }) => `${RESOLVE_OP_TEXT[op]} ${cardsText(cards)}`).join(', ')
-        : 'no effect';
+      const ops = entry.ops.map(({ op, cards }) => `${RESOLVE_OP_TEXT[op]} ${cardsText(cards)}`).join(', ');
+      const modifiers = typeof entry.modifiers === 'string' ? entry.modifiers : '';
+      const effects = [ops, modifiers].filter(Boolean).join('; ') || 'no effect';
       const notes = entry.notes?.length ? ` (${entry.notes.map(resolveNoteText).join('; ')})` : '';
       return `Resolved ${entry.dilemma}: ${effects}${notes}`;
     }
