@@ -18,6 +18,10 @@ export interface Extras {
   /** More than one copy can be in one stack (Infestation). */
   repeatable?: boolean;
   goesUnder?: boolean;
+  /** Where it goes, with `goesUnder: false` (#1599). */
+  placement?: DilemmaModel['placement'];
+  /** Where a fetch takes its dilemma (#1600). */
+  fetchesFrom?: DilemmaModel['fetchesFrom'];
   /** `'ignore'`: the bot takes the title out of its pile when the game starts (#1320). Absent: `'play'`. */
   status?: DilemmaModel['status'];
   category?: BotSideCategory;

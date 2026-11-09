@@ -28,7 +28,7 @@ dilemma('Abrasive Allies', P, 2, 'bot-chooses', (s) => {
 
 // goesUnder: false, never beneath this mission: it is placed on top of its owner's dilemma pile.
 dilemma('All-Consuming Evil', P, 2, 'no-effect', noEffect, {
-  goesUnder: false,
+  goesUnder: false, placement: 'pileTop',
   gap: 'it acts only through a Consume dilemma, which is not modelled',
 });
 
@@ -147,13 +147,13 @@ dilemma('Space Seed', P, 9, 'unless', unless('3 Security and Strength>40 or 2 Te
 
 // goesUnder: false, never beneath this mission: it returns to the dilemma pile at the end of the turn.
 dilemma('The Clown: Celebration', D, 1, 'no-effect', noEffect, {
-  goesUnder: false,
+  goesUnder: false, placement: 'pileBottom',
   gap: 'it acts when an attempt fails, and returns at the end of the turn (#1478)',
 });
 
 // goesUnder: false, never beneath this mission: it is placed on the mission and stays there.
 dilemma('The Clown: Fear Incarnate', D, 1, 'no-effect', noEffect, {
-  goesUnder: false,
+  goesUnder: false, placement: 'placedOn',
   gap: 'it is placed on the mission and acts when a later Clown dilemma is faced (#1478)',
 });
 
@@ -172,7 +172,7 @@ dilemma('The Clown: Guillotine', D, 2, 'bot-names', (s) => {
   if (!([0, 1, 2] as Attr[]).some((a) => s.attr(first, a) > 6)) selected.push(...s.select(1, holders.filter((k) => k !== first)));
   s.trace?.(`  selects ${names(s, selected)}`);
   s.kill(selected);
-}, { goesUnder: false });
+}, { goesUnder: false, placement: 'pileBottom' });
 
 dilemma('The Needs of the Few', S, 2, 'bot-chooses', (s) =>
   botChooses(1, s.attempt.table.completedPlanetMission ? 'kill' : 'stop', hasAny('engineer', 'security'))(s));
@@ -192,7 +192,7 @@ dilemma('Toe to Toe', D, 1, 'own', (s) => {
 
 // goesUnder: false, never beneath this mission: it is placed on the mission and stays there.
 dilemma('Tragic Turn', D, 3, 'no-effect', noEffect, {
-  goesUnder: false,
+  goesUnder: false, placement: 'placedOn',
   gap: 'it is placed on the mission and acts when a later dilemma is overcome (#1478)',
 });
 

@@ -104,7 +104,7 @@ describe('pileResolveOf (#1588)', () => {
 
   it('gives "No effect" and no changes when the group meets the unless check', () => {
     const r = resolve('Environmental Contaminants', {}, {}, {}, ['Biology', '2 Diplomacy', '2 Science', 'Physics']);
-    expect(r).toEqual({ resolvable: true, preview: 'No effect', changes: [], done: [], byTable: [] });
+    expect(r).toEqual({ resolvable: true, preview: 'No effect', changes: [], done: [], byTable: [], destination: 'under' });
   });
 
   it('gives a reason and no Resolve for a player choice, a move, a lost ship and a title the registry lacks', () => {

@@ -71,7 +71,7 @@ dilemma('Ghosts of Reality', P, 5, 'select-until', selectUntil(
 ));
 
 // goesUnder: false, never beneath this mission: it is placed in your core, with the personnel it holds.
-dilemma('Hard Time', P, 3, 'random-select', selectRandom(1, (s, sel) => s.holdInCore(sel)), { goesUnder: false });
+dilemma('Hard Time', P, 3, 'random-select', selectRandom(1, (s, sel) => s.holdInCore(sel)), { goesUnder: false, placement: 'core' });
 
 dilemma('Harsh Conditions', P, 3, 'changes-later', (s) => {
   const named: number[] = [];
@@ -118,10 +118,10 @@ dilemma('Inequitable Exchange', D, 6, 'bot-chooses', botChooses(1, 'brig'), {
 });
 
 // goesUnder: false, never beneath this mission: it is placed in your core.
-dilemma('Inferiority', D, 3, 'no-effect', noEffect, { goesUnder: false, gap: 'the extra dilemmas of a later attempt are dropped (#1478)' });
+dilemma('Inferiority', D, 3, 'no-effect', noEffect, { goesUnder: false, placement: 'core', gap: 'the extra dilemmas of a later attempt are dropped (#1478)' });
 
 // goesUnder: false, never beneath this mission: it is placed in your core, whether or not a personnel is stopped.
-dilemma('Ingenious Jury-rig', D, 3, 'choose-or-else', chooseOrElse(hasAny('transporters'), null), { goesUnder: false });
+dilemma('Ingenious Jury-rig', D, 3, 'choose-or-else', chooseOrElse(hasAny('transporters'), null), { goesUnder: false, placement: 'core' });
 
 dilemma('Intimidation', D, 4, 'select-until', selectUntil(
   (s, sel) => sel.length > 1 && speciesKey(s, sel[sel.length - 1]) !== speciesKey(s, sel[0]),
@@ -169,7 +169,7 @@ dilemma('Personal Duty', S, 2, 'all-but-one', allButOne(hasAny('leadership', 'of
 // goesUnder: false, never beneath this mission: it returns to the dilemma pile once played.
 dilemma('Polywater Intoxication', D, 0, 'choose', playerStops(1), {
   cost: (a) => (a.personnel.length >= 6 ? 3 : 0),
-  goesUnder: false,
+  goesUnder: false, placement: 'pileBottom',
 });
 
 dilemma('Restricted Area', D, 3, 'own', (s) => {
@@ -219,7 +219,7 @@ dilemma('The Killing Game', S, 8, 'unless', unless('2 Engineer, 2 Medical, and C
 dilemma('The Weak Will Perish', D, 3, 'random-select', selectRandom(1, (s, sel) => s.kill(sel)));
 
 // goesUnder: false, never beneath this mission: it returns to the dilemma pile at the end of the turn.
-dilemma('Timescape', D, 0, 'no-effect', noEffect, { goesUnder: false, gap: 'it stops a later attempt at this mission, not this one' });
+dilemma('Timescape', D, 0, 'no-effect', noEffect, { goesUnder: false, placement: 'pileBottom', gap: 'it stops a later attempt at this mission, not this one' });
 
 dilemma('Tsiolkovsky Infection', S, 8, 'unless', unless('2 Anthropology, 2 Programming, and Cunning>38 or 2 Biology, Exobiology, and 2 Medical', killRandom(3)), {
   cost: () => 8 - CORE_EVENTS,
@@ -237,7 +237,7 @@ dilemma('Vault of Tomorrow', P, 1, 'adds-dilemma', (s) => {
   const added = s.addBestOnTop(addableModels(s.attempt.botPile ?? NO_TITLES, vaultFits));
   if (added) s.label(`Added ${added}`);
   s.returnsToPile();
-}, { assumption: 'the bot chooses at reveal the dilemma of its pile that does the attempt most harm (#1518)' });
+}, { assumption: 'the bot chooses at reveal the dilemma of its pile that does the attempt most harm (#1518)', fetchesFrom: 'botPile' });
 
 dilemma('Well-Prepared Defenses', D, 2, 'bot-chooses', (s) => {
   s.label('Bot\'s missions: more points');

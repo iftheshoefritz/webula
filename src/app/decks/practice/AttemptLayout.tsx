@@ -92,6 +92,7 @@ export default function AttemptLayout({
   parked = false,
   viewFullTableHoldEnabled = false,
   modifiersText = '',
+  donePrompt = false,
   attempt,
   slot,
   sizes,
@@ -126,6 +127,8 @@ export default function AttemptLayout({
   viewFullTableHoldEnabled?: boolean;
   // The active modifiers of a bot attempt in `'face'` (#1598), `attemptModifiersText`; '' shows no line.
   modifiersText?: string;
+  // No one is left to face the stack (#1600, `attemptDonePrompt`): Done is emphasised, with a prompt.
+  donePrompt?: boolean;
   attempt: Attempt;
   slot: MissionSlot;
   sizes: AttemptSizes;
@@ -363,11 +366,16 @@ export default function AttemptLayout({
           >
             View full table
           </button>
+          {donePrompt && (
+            <span data-testid="attempt-done-prompt" className="self-center whitespace-nowrap text-xs font-bold text-amber-300">
+              No one left
+            </span>
+          )}
           <button
             type="button"
             data-testid="attempt-done"
             onClick={onEndAttempt}
-            className="btn-primary whitespace-nowrap !px-2 !py-1 text-xs"
+            className={`btn-primary whitespace-nowrap !px-2 !py-1 text-xs ${donePrompt ? 'ring-2 ring-amber-300 motion-safe:animate-pulse' : ''}`}
           >
             Attempt done
           </button>

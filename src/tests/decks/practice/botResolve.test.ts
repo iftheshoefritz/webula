@@ -81,6 +81,7 @@ describe('botResolveOf (#1588)', () => {
       preview: 'No effect',
       changes: [],
       notes: [{ kind: 'byTable', text: 'Gamma' }],
+      move: { to: { zone: 'missionPile', missionIndex: 0, pile: 'underMission' } },
     });
     // The note's text is the card's name: the log adds "goes by the table" once.
     const r = botResolveOf(table);

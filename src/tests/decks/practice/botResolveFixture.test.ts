@@ -6,7 +6,7 @@ import { deckFromTsv, extractDilemmas, extractDrawDeck, extractMissions, mergeDe
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
 import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
-import { BOT_REVEAL_FIXTURES, BotRevealFixture, attemptModifiersText, botLabelOf, botResolveOf, fixtureBotLabelAttempt } from '../../../app/decks/practice/attempt';
+import { BOT_REVEAL_FIXTURES, BotRevealFixture, attemptDonePrompt, attemptModifiersText, botLabelOf, botResolveOf, fixtureBotLabelAttempt } from '../../../app/decks/practice/attempt';
 import { createCardInstances, initialTableState, revealSnapshotOf, tableReducer, TableAction, TableState } from '../../../app/decks/practice/tableReducer';
 import { BOT_SKILLS } from '../../../lib/dilemmaBot/requirements';
 import { gameReducer, initialGameState, logEntryText, withShuffleOrders } from '../../../app/decks/practice/gameLog';
@@ -84,12 +84,22 @@ describe('?fixture=bot-resolve-noeffect (#1589)', () => {
       dilemma: 'Conflict of Interests',
       changes: r.changes,
       notes: r.notes,
+      move: r.move,
     });
+    // No personnel changes; the dilemma goes under Bilana System, face up, after the cards there (#1599).
     const { attempt: before, ...zonesBefore } = table;
     const { attempt: after, ...zonesAfter } = game.table;
-    expect(zonesAfter).toEqual(zonesBefore);
+    const under = table.missions[2].underMission;
+    expect(zonesAfter).toEqual({
+      ...zonesBefore,
+      dilemmaStack: table.dilemmaStack.slice(1),
+      missions: table.missions.map((m, i) => (i === 2 ? { ...m, underMission: [...under, { ...top, face: 'up' }] } : m)),
+    });
+    expect(game.table.dilemmaStack[0].face).toBe('down');
     expect(after?.revealSnapshot).toEqual({ ...before?.revealSnapshot, resolved: true });
-    expect(logEntryText(game.log[game.log.length - 1])).toBe('Resolved Conflict of Interests: no effect');
+    expect(logEntryText(game.log[game.log.length - 1])).toMatch(/^Resolved Conflict of Interests: no effect; it goes under Bilana System/);
+    // One undo puts it back on top, revealed.
+    expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
   });
 
   it('keeps the ?fixture=bot-label reveal of Well-Prepared Defenses, whose Resolve stops the personnel the label names', () => {
@@ -137,7 +147,8 @@ describe('?fixture=bot-resolve-choice (#1593)', () => {
     if (!r.resolvable) throw new Error(r.reason);
     expect(r.changes).toEqual([{ op: 'stop', ids: [chosen] }]);
     const start = initialGameState(table);
-    const game = gameReducer(start, { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'Covert Extraction', changes: r.changes, notes: r.notes });
+    const game = gameReducer(start, { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'Covert Extraction', changes: r.changes, notes: r.notes, move: r.move });
+    expect(game.table.dilemmaStack).toHaveLength(table.dilemmaStack.length - 1);
     expect(game.log).toHaveLength(start.log.length + 1);
     expect(logEntryText(game.log[game.log.length - 1])).toContain(name(chosen));
     expect(game.table.missions[2].ships[0].crew?.find((c) => c.id === chosen)?.stopped).toBe(true);
@@ -236,7 +247,8 @@ describe('?fixture=bot-resolve-pattern (#1594)', () => {
     expect(r.changes).toEqual([{ op: 'stop', ids: [chosen] }]);
     expect(r.preview).toContain(`Stops ${nameOf(table, chosen)}`);
     const start = initialGameState(table);
-    const game = gameReducer(start, { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'A Pattern of Lies', changes: r.changes, notes: r.notes });
+    const game = gameReducer(start, { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'A Pattern of Lies', changes: r.changes, notes: r.notes, move: r.move });
+    expect(game.table.dilemmaStack).toHaveLength(table.dilemmaStack.length - 1);
     expect(game.log).toHaveLength(start.log.length + 1);
     expect(logEntryText(game.log[game.log.length - 1])).toContain(nameOf(table, chosen));
     expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
@@ -336,8 +348,9 @@ describe('?fixture=bot-resolve-modifier (#1598)', () => {
       notes: r.notes,
       modifiers: r.modifiers,
       modifiersClause: r.modifiersClause,
+      move: r.move,
     });
-    expect(logEntryText(game.log[game.log.length - 1])).toBe('Resolved Accelerated Aging: first skill off for the rest of the attempt');
+    expect(logEntryText(game.log[game.log.length - 1])).toMatch(/^Resolved Accelerated Aging: first skill off for the rest of the attempt; it goes under /);
     expect(attemptModifiersText(game.table)).toBe('First skill off');
 
     // The player moves the resolved card off the stack and reveals Dead Weight: without its first-listed
@@ -348,8 +361,9 @@ describe('?fixture=bot-resolve-modifier (#1598)', () => {
       return botResolveOf(t);
     })();
     expect(plainNext.resolvable && plainNext.preview).toBe('No effect');
-    let t = tableReducer(game.table, { type: 'move', id: top.id, to: 'discard' });
-    t = tableReducer(t, { type: 'flip', id: next.id });
+    // The Resolve moved Accelerated Aging under the mission (#1599): Dead Weight is on top, face down.
+    expect(game.table.dilemmaStack[0]).toMatchObject({ id: next.id, face: 'down' });
+    const t = tableReducer(game.table, { type: 'flip', id: next.id });
     const nextResolve = botResolveOf(t);
     expect(nextResolve.resolvable && nextResolve.preview).toMatch(/^Stops /);
 
@@ -361,5 +375,145 @@ describe('?fixture=bot-resolve-modifier (#1598)', () => {
 
     // Undo back past the Resolve: no line.
     expect(attemptModifiersText(gameReducer(game, { type: 'undo' }).table)).toBe('');
+  });
+});
+
+describe('the Resolve moves the dilemma (#1599)', () => {
+  it('lands a returning dilemma at the bottom of the dilemma pile, face up, and redo replays the whole Resolve', () => {
+    const table = dealRevealFixture('bot-label');
+    const top = table.dilemmaStack[0];
+    const r = botResolveOf(table, undefined, { rand: () => 0 });
+    if (!r.resolvable) throw new Error(r.reason);
+    const start = initialGameState(table);
+    const game = gameReducer(start, {
+      type: 'resolveDilemma',
+      dilemmaId: top.id,
+      dilemma: 'Well-Prepared Defenses',
+      changes: r.changes,
+      move: { to: 'dilemmaPile', position: 'bottom' },
+    });
+    const pile = game.table.dilemmaPile;
+    expect(pile[pile.length - 1]).toMatchObject({ id: top.id, face: 'up' });
+    expect(game.table.dilemmaStack[0].face).toBe('down');
+    expect(logEntryText(game.log[game.log.length - 1])).toMatch(/; it returns to the dilemma pile$/);
+
+    const undone = gameReducer(game, { type: 'undo' });
+    expect(undone.table).toEqual(table);
+    expect(gameReducer(undone, { type: 'redo' }).table).toEqual(game.table);
+  });
+
+  it('moves Well-Prepared Defenses under Bilana System and stops the personnel, and a second Resolve of it changes nothing', () => {
+    const table = dealRevealFixture('bot-label');
+    const top = table.dilemmaStack[0];
+    const r = botResolveOf(table, undefined, { rand: () => 0 });
+    if (!r.resolvable) throw new Error(r.reason);
+    const action: TableAction = { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'Well-Prepared Defenses', changes: r.changes, move: r.move };
+    const resolved = tableReducer(table, action);
+    const under = resolved.missions[2].underMission;
+    expect(under[under.length - 1]).toMatchObject({ id: top.id, face: 'up' });
+    const stopped = r.changes.flatMap((c) => c.ids);
+    expect(stopped.length).toBeGreaterThan(0);
+    const crew = resolved.missions[2].ships[0].crew ?? [];
+    for (const id of stopped) expect(crew.find((c) => c.id === id)?.stopped).toBe(true);
+    // The dilemma is no longer the top card: the same action again changes nothing.
+    expect(tableReducer(resolved, action)).toBe(resolved);
+  });
+});
+
+describe('the Resolve changes the stack (#1600)', () => {
+  const VAULT = { title: 'Vault of Tomorrow', collectorsInfo: '12U019' };
+  const TALOSIAN = { title: 'Talosian Trial', collectorsInfo: '4R025' };
+  const press = (table: TableState, dilemma: string): TableAction => {
+    const r = botResolveOf(table, undefined, { rand: () => 0 });
+    if (!r.resolvable) throw new Error(r.reason);
+    return { type: 'resolveDilemma', dilemmaId: table.dilemmaStack[0].id, dilemma, changes: r.changes, move: r.move, fetchedId: r.fetchedId, restToPile: r.restToPile };
+  };
+
+  it('puts the dilemma Vault of Tomorrow fetches from the pile on top of the stack, face down, and returns Vault to the pile', () => {
+    const table = dealRevealFixture(VAULT);
+    const vault = table.dilemmaStack[0];
+    const action = press(table, 'Vault of Tomorrow');
+    if (action.type !== 'resolveDilemma' || !action.fetchedId) throw new Error('no fetch');
+    expect(table.dilemmaPile.some((c) => c.id === action.fetchedId)).toBe(true);
+    const start = initialGameState(table);
+    const game = gameReducer(start, action);
+    expect(game.table.dilemmaStack[0]).toMatchObject({ id: action.fetchedId, face: 'down' });
+    expect(game.table.dilemmaStack).toHaveLength(table.dilemmaStack.length);
+    const pile = game.table.dilemmaPile;
+    expect(pile[pile.length - 1]).toMatchObject({ id: vault.id, face: 'up' });
+    expect(game.log).toHaveLength(start.log.length + 1);
+    expect(logEntryText(game.log[game.log.length - 1])).toMatch(/; it returns to the dilemma pile; adds .+ on top of the stack$/);
+    expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
+
+    // The fetched card, once revealed, is in `botRevealed` and not in `botStack`; its label reads as it
+    // would had the bot chosen it (the play counts the extra budget of the card at its head).
+    const flipped = tableReducer(game.table, { type: 'flip', id: action.fetchedId });
+    expect(flipped.attempt?.botRevealed).toContain(action.fetchedId);
+    expect(flipped.attempt?.botStack ?? []).not.toContain(action.fetchedId);
+    const chosen: TableState = { ...flipped, attempt: { ...flipped.attempt!, botStack: [...(flipped.attempt!.botStack ?? []), action.fetchedId] } };
+    expect(botLabelOf(flipped)).toBe(botLabelOf(chosen));
+  });
+
+  it('moves the dilemma Talosian Trial fetches from under a mission to the top of the stack', () => {
+    const table = dealRevealFixture(TALOSIAN);
+    const action = press(table, 'Talosian Trial');
+    if (action.type !== 'resolveDilemma' || !action.fetchedId) throw new Error('no fetch');
+    const fromSlot = table.missions.findIndex((m) => m.underMission.some((c) => c.id === action.fetchedId));
+    expect(fromSlot).not.toBe(-1);
+    const game = gameReducer(initialGameState(table), action);
+    expect(game.table.dilemmaStack[0]).toMatchObject({ id: action.fetchedId, face: 'down' });
+    expect(game.table.missions[fromSlot].underMission.some((c) => c.id === action.fetchedId)).toBe(false);
+    expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
+  });
+
+  it('sends the dilemma and the rest of the stack to the bottom of the pile, in order, when it ends the stack', () => {
+    const table = dealRevealFixture('bot-label');
+    const [top, ...rest] = table.dilemmaStack;
+    const action: TableAction = {
+      type: 'resolveDilemma',
+      dilemmaId: top.id,
+      dilemma: 'Lack of Preparation',
+      changes: [],
+      move: { to: 'dilemmaPile', position: 'bottom' },
+      restToPile: rest.map((c) => c.id),
+    };
+    const game = gameReducer(initialGameState(table), action);
+    expect(game.table.dilemmaStack).toEqual([]);
+    const pile = game.table.dilemmaPile;
+    expect(pile.slice(-table.dilemmaStack.length).map((c) => [c.id, c.face])).toEqual(table.dilemmaStack.map((c) => [c.id, 'up']));
+    expect(logEntryText(game.log[game.log.length - 1])).toMatch(/; it returns to the dilemma pile; the rest of the stack returns to the dilemma pile$/);
+    expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
+  });
+});
+
+describe('pointing to Done (#1600)', () => {
+  it('shows when the Resolve leaves no unstopped personnel, after a reload too, and an undo hides it', () => {
+    const { table: dealt, deck } = dealRevealFixtureWithDeck('bot-label');
+    const r0 = botResolveOf(dealt, undefined, { rand: () => 0 });
+    if (!r0.resolvable) throw new Error(r0.reason);
+    const chosen = r0.changes.flatMap((c) => c.ids);
+    // Stop by hand every crew member but the one Well-Prepared Defenses stops.
+    const crew = dealt.missions[2].ships[0].crew ?? [];
+    const others = crew.filter((c) => c.card.type === 'personnel' && !chosen.includes(c.id)).map((c) => c.id);
+    const table = tableReducer(dealt, { type: 'setStopped', ids: others, stopped: true });
+    expect(attemptDonePrompt(table)).toBe(false);
+
+    const r = botResolveOf(table, undefined, { rand: () => 0 });
+    if (!r.resolvable) throw new Error(r.reason);
+    const game = gameReducer(initialGameState(table), {
+      type: 'resolveDilemma',
+      dilemmaId: table.dilemmaStack[0].id,
+      dilemma: 'Well-Prepared Defenses',
+      changes: r.changes,
+      move: r.move,
+    });
+    expect(attemptDonePrompt(game.table)).toBe(true);
+    expect(game.table.attempt).toBeDefined();
+    const restored = fromSavedGame(JSON.stringify(toSavedGame(game.table, deck, 'builder')), deck)!.table;
+    expect(attemptDonePrompt(restored)).toBe(true);
+    expect(attemptDonePrompt(gameReducer(game, { type: 'undo' }).table)).toBe(false);
+    // Not once the stack is empty, and not outside a bot game.
+    expect(attemptDonePrompt({ ...game.table, dilemmaStack: [] })).toBe(false);
+    expect(attemptDonePrompt({ ...game.table, attempt: { ...game.table.attempt!, botDraw: undefined } })).toBe(false);
   });
 });

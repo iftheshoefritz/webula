@@ -164,7 +164,7 @@ dilemma('The Clown: Bitter Medicine', D, 4, 'changes-later', (s) => {
   s.attrLoss = lossOf(named);
   s.label(`Named ${skillName(named)}`);
   s.trace?.(`  each personnel with ${skillName(named)} is attributes -2`);
-}, { goesUnder: false, gap: 'it returns to the dilemma pile at the end of the turn' });
+}, { goesUnder: false, placement: 'pileBottom', gap: 'it returns to the dilemma pile at the end of the turn' });
 
 // No family fits: the requirements' attributes all move to the one the bot names.
 // goesUnder: false, never beneath this mission: it is placed on the mission and removed from the game at the end of the turn.
@@ -185,7 +185,7 @@ dilemma('The Clown: On His Throne', D, 4, 'changes-later', (s) => {
   s.requirements = moveAttrs(before, named);
   s.label(`Named ${ATTR_NAMES[named]}`);
   s.trace?.(`  every attribute requirement is ${ATTR_NAMES[named]}`);
-}, { goesUnder: false, gap: 'it is removed from the game at the end of the turn (#1478)' });
+}, { goesUnder: false, placement: 'placedOn', gap: 'it is removed from the game at the end of the turn (#1478)' });
 
 dilemma('The Captain\'s "Guest"', D, 2, 'random-select', (s) => {
   const counts = new Map<string, number>();
@@ -304,7 +304,7 @@ dilemma('The Needs of the Many', D, 4, 'random-select', killRandom(1, either(ico
 });
 
 // goesUnder: false, never beneath this mission: it is placed in your core, and later beneath another mission, not this one.
-dilemma('Soul Searching', S, 3, 'random-select', (s) => s.holdInCore(s.select(1)), { goesUnder: false });
+dilemma('Soul Searching', S, 3, 'random-select', (s) => s.holdInCore(s.select(1)), { goesUnder: false, placement: 'core' });
 
 dilemma('The First Duty', S, 1, 'choose-or-else', chooseOrElse(hasAny('honor', 'law'), killRandom(1)));
 
@@ -321,13 +321,13 @@ dilemma('Zero Hour', P, 1, 'changes-later', (s) => {
   }
   s.requirements = addToAttrs(s.requirements, 3 * events);
   s.trace?.(`  each attribute requirement is ${3 * events} more`);
-}, { goesUnder: false });
+}, { goesUnder: false, placement: 'pileBottom' });
 
 // ---- No effect during the attempt ----
 
 // goesUnder: false, never beneath this mission: it is placed on the mission, and goes beneath it only when a later attempt completes it.
 dilemma('Skeleton Crew', D, 0, 'no-effect', noEffect, {
-  goesUnder: false,
+  goesUnder: false, placement: 'placedOn',
   gap: 'it is placed on the mission, and the six personnel a later attempt needs act past the attempt (#1478)',
 });
 
@@ -337,7 +337,7 @@ dilemma('The Dreamer and the Dream', D, 2, 'no-effect', noEffect, {
 
 // goesUnder: false, never beneath this mission: it is placed on the mission and stays there.
 dilemma('The Clown: Go Away', D, 2, 'no-effect', noEffect, {
-  goesUnder: false,
+  goesUnder: false, placement: 'placedOn',
   gap: 'it is placed on the mission, and acts when a later attempt begins (#1478)',
 });
 

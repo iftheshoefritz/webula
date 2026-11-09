@@ -74,7 +74,7 @@ dilemma('Overindulgence', D, 2, 'bot-names', (s) => {
 
 // goesUnder: false, never beneath this mission: it is placed in your core.
 dilemma('Pivotal Destiny', P, 2, 'no-effect', noEffect, {
-  goesUnder: false,
+  goesUnder: false, placement: 'core',
   gap: 'it is placed in your core, and the 10 more points you need act past the attempt (#1478)',
 });
 
@@ -149,7 +149,7 @@ dilemma('Overwhelmed', D, 4, 'changes-later', (s) => {
   s.overwhelmed = true;
   s.trace?.('  each later dilemma check that passes stops the personnel who supplied its skills');
 }, {
-  goesUnder: false,
+  goesUnder: false, placement: 'pileBottom',
   gap: 'the personnel who use their skills are the fewest, chosen greedily, who cover the skills of the branch that passes',
 });
 
@@ -340,7 +340,7 @@ dilemma('Oh No!', D, 4, 'unless', unless('2 Astrometrics or Integrity>30 or Stre
 
 // goesUnder: false, never beneath this mission: it returns to the dilemma pile once played.
 dilemma('Ostensible Malfunction', S, 1, 'no-effect', noEffect, {
-  goesUnder: false,
+  goesUnder: false, placement: 'pileBottom',
   gap: 'it only adds a Damage dilemma to the stack, which is not modelled, and returns to the dilemma pile',
 });
 
@@ -348,7 +348,7 @@ dilemma('Ostensible Malfunction', S, 1, 'no-effect', noEffect, {
 dilemma('Pattern Loss', S, 1, 'changes-later', (s) => {
   s.patternLoss = true;
   s.trace?.('  a later dilemma requiring Transporters needs one more level of each of its skills');
-}, { goesUnder: false });
+}, { goesUnder: false, placement: 'placedOn' });
 
 dilemma('Quarren Labor Shortage', D, 2, 'unless', unlessGroup(
   (s) => 2 * s.unstopped().filter((k) => s.group[k].affiliation !== 'non-aligned').length >= s.live,

@@ -76,6 +76,6 @@ dilemma('Chula: Pick One to Save Two', D, 2, 'choose', (s) => {
 dilemma('Chula: The Game', D, 0, 'changes-later', (s) => {
   s.gameCopies++;
   s.trace?.(`  goes onto the mission (${s.gameCopies} there now)`);
-}, { goesUnder: false, leads: true });
+}, { goesUnder: false, placement: 'placedOn', leads: true });
 
 export const CHULA_MODELS = models;
