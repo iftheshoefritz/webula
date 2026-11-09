@@ -482,7 +482,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has eight fixtures. Each one deals the same table on every load.
+The practice table has nine fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -543,6 +543,12 @@ The practice table has eight fixtures. Each one deals the same table on every lo
   player chooses a personnel with Intelligence or Transporters to be stopped, so its Resolve preview
   reads "Choose 1 personnel to be stopped" and Resolve is disabled until one allowed personnel of the row
   is selected. It keeps its game under `practiceGame:fixture=bot-resolve-choice`.
+- `?fixture=bot-resolve-pattern` (#1594) deals the `?fixture=bot-label` table and attempt with one
+  A Pattern of Lies (`10C001`) in place of Well-Prepared Defenses, revealed on top of the stack. The
+  reveal rolls its three personnel and the reveal snapshot keeps them, so its Resolve preview reads
+  "Selected A, B, C; choose 1 to be stopped" (or "Stops A, B, C" when the three share a species), the
+  same set after a reload, and Resolve is disabled until one personnel of the set is selected. It keeps
+  its game under `practiceGame:fixture=bot-resolve-pattern`.
 
 The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of the screen
 (`data-testid="hand-closed-fan"`, #1489), drawn on top of the bottom row in its own layer,
@@ -789,8 +795,16 @@ pick is never shown or marked. A candidate the player already handled by hand (s
 out of the row) counts as chosen first, then the selected candidates. Until each choice has its
 personnel the Resolve is pending: the preview reads the task, "Choose 1 personnel to be stopped", and
 Resolve is disabled; it stays disabled while a selected personnel is one the dilemma does not allow.
-Selected equipment is ignored. A title whose choice follows a roll (A Pattern of Lies, the
-`anyOfThree(…, 'player')` titles, #1594), Distraction and Dramatis Personae give no Resolve.
+Selected equipment is ignored. Distraction and Dramatis Personae give no Resolve.
+
+Where a random selection is the pool of the player's choice (A Pattern of Lies, and the
+`anyOfThree(…, 'player')` titles New Face, Discommendation and Moral Choice, `DilemmaModel.rollsBeforeChoice`,
+#1594), the page rolls the selection before it dispatches the `flip` that reveals the card
+(`withShuffleOrders` calls `revealPicksOf`), and the `flip` carries it as `picks`, which
+`RevealSnapshot.picks` keeps as card ids, one list per select. A restore that takes a fresh snapshot of
+such a card, or finds one with no roll, rolls it once, outside the reducer. The preview and the press
+play with the kept roll, never a new one: the preview names the set, "Selected A, B, C; choose 1 to be
+stopped", or the definite result, and no card of the row is marked.
 
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
 dilemmas. Start begins in `'choose'`, with `Attempt.drawn` 0. The choice-phase draw, `drawCard` from

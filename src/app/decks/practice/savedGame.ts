@@ -18,6 +18,7 @@ import {
   revealedTopCard,
 } from './tableReducer';
 import { GameState, isLogEntry, LogEntry, RedoStep } from './gameLog';
+import { revealPicksOf } from './attempt';
 import { rebuildSavedHistory, savedHistoryJson } from './gameHistory';
 
 export const SAVED_GAME_VERSION = 2;
@@ -240,7 +241,9 @@ const isValidRevealSnapshot = (snapshot: unknown): boolean =>
   typeof snapshot.dilemmaId === 'string' &&
   Array.isArray(snapshot.personnel) &&
   snapshot.personnel.every((p: unknown) => isObject(p) && typeof p.id === 'string' && typeof p.stopped === 'boolean') &&
-  (snapshot.resolved === undefined || snapshot.resolved === true);
+  (snapshot.resolved === undefined || snapshot.resolved === true) &&
+  // The roll at the reveal (#1594).
+  (snapshot.picks === undefined || (Array.isArray(snapshot.picks) && snapshot.picks.every(isIdList)));
 
 const isValidBotPile = (botPile: unknown): boolean =>
   isObject(botPile) &&
@@ -272,6 +275,14 @@ function repairTable(table: TableState): TableState {
   const top = revealedTopCard(table);
   if (top && table.attempt!.revealSnapshot?.dilemmaId !== top.id) {
     table.attempt = { ...table.attempt!, revealSnapshot: revealSnapshotOf(table, top.id) };
+  }
+  // A snapshot of the top card whose dilemma rolls before the player's choice and has no roll, a fresh
+  // one or a save from before #1594, rolls it here, outside the reducer, once (#1594): the next save
+  // keeps it.
+  const snapshot = table.attempt?.revealSnapshot;
+  if (top && snapshot?.dilemmaId === top.id && !snapshot.picks && !snapshot.resolved) {
+    const picks = revealPicksOf(table, Math.random);
+    if (picks) table.attempt = { ...table.attempt!, revealSnapshot: { ...snapshot, picks } };
   }
   // A bot game (#1289) is the only opponent.
   if (table.opponent !== 'bot') delete table.opponent;

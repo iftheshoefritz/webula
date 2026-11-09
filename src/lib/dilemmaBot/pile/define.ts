@@ -1,5 +1,5 @@
 import { BOT_SKILLS } from '../requirements';
-import { Play, sk } from './families';
+import { isRolledBeforeChoice, Play, sk } from './families';
 import { BotSideCategory, DilemmaModel, PileAttempt } from './model';
 import { Attr, ATTR_NAMES, PlayState } from './play';
 
@@ -61,7 +61,17 @@ export function addableModels(titles: ReadonlyArray<string>, fits: (m: DilemmaMo
 export function dilemmaList() {
   const models: DilemmaModel[] = [];
   const dilemma = (title: string, kind: Kind, printedCost: number, family: string, play: Play, extras: Extras = {}) => {
-    models.push({ title, kind, printedCost, family, play, status: 'play', ...extras, goesUnder: extras.goesUnder ?? true });
+    models.push({
+      title,
+      kind,
+      printedCost,
+      family,
+      play,
+      status: 'play',
+      ...extras,
+      goesUnder: extras.goesUnder ?? true,
+      ...(isRolledBeforeChoice(play) ? { rollsBeforeChoice: true as const } : {}),
+    });
   };
   return { models, dilemma };
 }

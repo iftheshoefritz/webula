@@ -36,6 +36,11 @@ export interface PileResolveInput {
   picks?: ReadonlyArray<ReadonlyArray<string>>;
   /** The personnel the player selected in the attempting row (#1593), as card ids: their choice. */
   selected?: ReadonlyArray<string>;
+  /**
+   * The roll a title with `rollsBeforeChoice` made at the reveal (#1594), from `pileRevealPicksOf`: the
+   * card ids of each random select, in call order. The preview and the press both play with it.
+   */
+  revealPicks?: ReadonlyArray<ReadonlyArray<string>>;
 }
 
 export type PileResolve =
@@ -114,24 +119,21 @@ const isChoice = (e: PlayEffect): e is ChoiceEffect & { count: number; pool: num
 const ROLL_THEN_CHOOSE = 'the choice follows a roll';
 /**
  * The titles with a player's choice that get no Resolve yet (#1593), whatever the seeded play does: a
- * random selection is the pool of the choice (#1594), the count is not known up front, or the choice breaks a tie.
+ * random selection is the pool of the choice and the table does not keep the roll (the titles with
+ * `rollsBeforeChoice` do, #1594), the count is not known up front, or the choice breaks a tie.
  */
 const NO_CHOICE_RESOLVE: Record<string, string> = {
-  'A Pattern of Lies': ROLL_THEN_CHOOSE,
-  'New Face': ROLL_THEN_CHOOSE,
-  Discommendation: ROLL_THEN_CHOOSE,
-  'Moral Choice': ROLL_THEN_CHOOSE,
   'The Captain\'s "Guest"': ROLL_THEN_CHOOSE,
   'Toe to Toe': ROLL_THEN_CHOOSE,
   Distraction: 'the player stops personnel until their costs total 4',
   'Dramatis Personae': 'the player breaks a tie',
 };
 
-/** Why the table cannot apply the play's records, or null. */
-function noResolveReason(kept: PlayEffect[]): string | null {
+/** Why the table cannot apply the play's records, or null. `rolled`: the selects are the roll the reveal kept (#1594). */
+function noResolveReason(kept: PlayEffect[], rolled = false): string | null {
   if (kept.some((e) => e.op === 'playerChooses' && !isChoice(e))) return 'the player chooses';
   const firstChoice = kept.findIndex(isChoice);
-  if (firstChoice !== -1 && kept.slice(0, firstChoice).some((e) => e.op === 'select')) return ROLL_THEN_CHOOSE;
+  if (!rolled && firstChoice !== -1 && kept.slice(0, firstChoice).some((e) => e.op === 'select')) return ROLL_THEN_CHOOSE;
   if (kept.some((e) => e.op === 'move')) return 'the dilemma moves personnel, which the table cannot apply yet';
   if (kept.some((e) => e.op === 'loseShip')) return 'the dilemma takes the ship, which the table cannot apply yet';
   if (kept.some((e) => e.op === 'roll' || (e.op === 'select' && e.order))) return 'the number of personnel depends on the roll';
@@ -166,13 +168,16 @@ function reconcile(kept: PlayEffect[], input: PileResolveInput) {
   return { changes, done: done.filter((d) => d.done > 0), byTable };
 }
 
-/** The preview text: one clause per effect of the dilemma, in play order, then the done counts. */
-function previewOf(attempt: PileAttempt, own: PlayEffect[], done: { op: PileResolveOp; done: number; of: number }[]): string {
+/**
+ * The preview text: one clause per effect of the dilemma, in play order, then the done counts. `rolled`:
+ * the selects are the roll the reveal kept (#1594), so the clauses name the personnel.
+ */
+function previewOf(attempt: PileAttempt, own: PlayEffect[], done: { op: PileResolveOp; done: number; of: number }[], rolled = false): string {
   const hit = new Set<number>();
   let random = false;
   const clauses: string[] = [];
   for (const e of own) {
-    if (e.op === 'select' && !e.why) random = true;
+    if (e.op === 'select' && !e.why && !rolled) random = true;
     if (e.op === 'loseShip') e.ks.forEach((k) => hit.add(k));
     if (!isResolveOp(e)) continue;
     const alive = attempt.personnel.length - hit.size;
@@ -234,6 +239,46 @@ function choiceOf(input: PileResolveInput, ops: (PileResolveOp | undefined)[]) {
   return { chooses, short, taken };
 }
 
+/** "Selected A, B, C": the personnel of each select of the dilemma's own play, which the reveal rolled (#1594). */
+function selectedText(attempt: PileAttempt, own: PlayEffect[]): string {
+  const ks = own.flatMap((e) => (e.op === 'select' && !e.why ? e.ks : []));
+  return `Selected ${ks.map((k) => attempt.personnel[k].name).join(', ') || 'no personnel'}`;
+}
+
+/** The random picks of a play from card ids (#1594): each select takes its list of `picks`, the ids in its pool, up to its count. */
+function picksFrom(input: PileResolveInput, picks: ReadonlyArray<ReadonlyArray<string>>) {
+  let call = 0;
+  return (count: number, pool: number[]): number[] =>
+    (picks[call++] ?? [])
+      .map((id) => input.personnelIds.indexOf(id))
+      .filter((k) => pool.includes(k))
+      .slice(0, count);
+}
+
+/**
+ * The roll at the reveal of `row` (#1594), for a title with `rollsBeforeChoice`: the card ids each random
+ * select of its own play picks, rolled with `rand`, in call order. Undefined for any other title. The page
+ * rolls it before the `flip` that takes the reveal snapshot, and the snapshot keeps it.
+ */
+export function pileRevealPicksOf(
+  row: LabelRow,
+  attempt: PileAttempt,
+  input: Pick<PileResolveInput, 'personnelIds' | 'revealed' | 'rest'> & { rand: Rand },
+): string[][] | undefined {
+  const model = row?.originalName ? modelOf(row.originalName) : undefined;
+  if (!model?.rollsBeforeChoice) return undefined;
+  const picked: string[][] = [];
+  const picks = (count: number, pool: number[]): number[] => {
+    const rest = pool.slice();
+    const ks: number[] = [];
+    while (ks.length < count && rest.length) ks.push(rest.splice(Math.floor(input.rand() * rest.length), 1)[0]);
+    picked.push(ks.map((k) => input.personnelIds[k] ?? ''));
+    return ks;
+  };
+  recordPlay(withRevealedCost(attempt, model, input.revealed ?? []), model, modelsOf(input.rest ?? []), { picks });
+  return picked;
+}
+
 /**
  * The Resolve of `row`, the revealed top card, when the group of `attempt` faces it (#1588). `attempt` is
  * the snapshot's group, with the attempt's spend, as `pileLabelOf` takes it; the cost of `revealed` counts
@@ -251,6 +296,10 @@ function choiceOf(input: PileResolveInput, ops: (PileResolveOp | undefined)[]) {
  * personnel the player already affected by hand first, in snapshot order, then rolls from the rest of the
  * pool. Its records give the changes, the done counts and the by-the-table ids; the preview stays the
  * preview play's.
+ *
+ * A title with `rollsBeforeChoice` (#1594) plays every time with `input.revealPicks`, the roll the reveal
+ * kept, and never rolls: the preview names the set, "Selected A, B, C; choose 1 to be stopped", and then
+ * what the dilemma does to the personnel it names. With no kept roll it has no Resolve.
  */
 export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileResolveInput): PileResolve {
   const model = row?.originalName ? modelOf(row.originalName) : undefined;
@@ -259,28 +308,36 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
   const rest = modelsOf(input.rest ?? []);
   const refused = NO_CHOICE_RESOLVE[model.title];
   if (refused) return { resolvable: false, reason: refused };
-  const modelPlay = recordPlay(played, model, rest);
-  const modelReason = noResolveReason(modelPlay.kept);
+  const rolled = !!model.rollsBeforeChoice;
+  if (rolled && !input.revealPicks) return { resolvable: false, reason: 'the roll before the choice is not made yet' };
+  // A fresh reader of the kept roll for each play.
+  const kept = () => (rolled ? { picks: picksFrom(input, input.revealPicks!) } : {});
+  const modelPlay = recordPlay(played, model, rest, kept());
+  const modelReason = noResolveReason(modelPlay.kept, rolled);
   if (modelReason) return { resolvable: false, reason: modelReason };
 
   // A play where the player chooses plays again with the player's choice: the model's pick only finds
   // the op each choice feeds, and never shows.
   const choiceOps = modelPlay.kept.some(isChoice) ? fedOps(modelPlay.kept, 'choices') : null;
   const choice = choiceOps && choiceOf(input, choiceOps);
-  const preview = choice ? recordPlay(played, model, rest, { chooses: choice.chooses }) : modelPlay;
-  const previewReason = noResolveReason(preview.kept);
+  const preview = choice ? recordPlay(played, model, rest, { chooses: choice.chooses, ...kept() }) : modelPlay;
+  const previewReason = noResolveReason(preview.kept, rolled);
   if (previewReason) return { resolvable: false, reason: previewReason };
   if (choice) {
     const stray = (input.selected ?? []).filter((id) => !choice.taken.has(id));
     if (choice.short.length || stray.length) {
-      const tasks = choice.short.map((c) => `Choose ${c.missing} personnel${c.op ? ` to be ${PAST[c.op]}` : ''}`);
+      const tasks = choice.short.map((c) =>
+        rolled ? `choose ${c.missing}${c.op ? ` to be ${PAST[c.op]}` : ''}` : `Choose ${c.missing} personnel${c.op ? ` to be ${PAST[c.op]}` : ''}`,
+      );
       if (stray.length) tasks.push(`${stray.length === 1 ? 'A selected personnel' : `${stray.length} selected personnel`} cannot be chosen`);
+      if (rolled) tasks.unshift(selectedText(played, preview.own));
       const candidates = Array.from(new Set(choice.short.flatMap((c) => c.pool)));
       return { resolvable: true, preview: tasks.join('; '), changes: [], done: [], byTable: [], pending: { candidates } };
     }
   }
   const previewResult = reconcile(preview.kept, input);
-  const text = previewOf(played, preview.own, previewResult.done);
+  const effects = previewOf(played, preview.own, previewResult.done, rolled);
+  const text = rolled ? `${selectedText(played, preview.own)}; ${effects}` : effects;
   if (!input.rand && !input.picks) return { resolvable: true, preview: text, ...previewResult };
 
   const ops = fedOps(preview.kept);
@@ -289,8 +346,9 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
   const picks = (count: number, pool: number[]): number[] => {
     const call = picked.length;
     let ks: number[];
-    if (input.picks) {
-      ks = (input.picks[call] ?? []).map(indexOf).filter((k) => pool.includes(k)).slice(0, count);
+    const fixed = rolled ? input.revealPicks : input.picks;
+    if (fixed) {
+      ks = (fixed[call] ?? []).map(indexOf).filter((k) => pool.includes(k)).slice(0, count);
     } else {
       const op = ops[call];
       const affected = (k: number) => handled(input, input.personnelIds[k], op);
@@ -302,7 +360,7 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
     return ks;
   };
   const press = recordPlay(played, model, rest, { picks, ...(choiceOps ? { chooses: choiceOf(input, choiceOps).chooses } : {}) });
-  const pressReason = noResolveReason(press.kept);
+  const pressReason = noResolveReason(press.kept, rolled);
   if (pressReason) return { resolvable: false, reason: pressReason };
   return { resolvable: true, preview: text, ...reconcile(press.kept, input), picks: picked };
 }
