@@ -1,5 +1,6 @@
 import { tableReducer, initialTableState, CardInstance, TableState, MISSION_SLOTS } from '../../../app/decks/practice/tableReducer';
 import { botLabelOf, botResolveOf } from '../../../app/decks/practice/attempt';
+import { gameReducer, initialGameState, logEntryText } from '../../../app/decks/practice/gameLog';
 
 // Issue #1588: the Resolve of the revealed dilemma on the practice table, from the reveal snapshot.
 
@@ -79,8 +80,13 @@ describe('botResolveOf (#1588)', () => {
       resolvable: true,
       preview: 'No effect',
       changes: [],
-      notes: [{ kind: 'byTable', text: 'Gamma goes by the table' }],
+      notes: [{ kind: 'byTable', text: 'Gamma' }],
     });
+    // The note's text is the card's name: the log adds "goes by the table" once.
+    const r = botResolveOf(table);
+    if (!r.resolvable) throw new Error(r.reason);
+    const game = gameReducer(initialGameState(table), { type: 'resolveDilemma', dilemmaId: 'card-6', dilemma: 'Environmental Contaminants', changes: r.changes, notes: r.notes });
+    expect(logEntryText(game.log[game.log.length - 1])).toBe('Resolved Environmental Contaminants: no effect (Gamma goes by the table)');
   });
 
   it('reads the stopped flags of the snapshot, not of the live table', () => {

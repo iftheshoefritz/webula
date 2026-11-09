@@ -127,7 +127,7 @@ export function botResolveOf(
     ...resolve.done.map((d) => ({ kind: 'alreadyDone' as const, ...d })),
     ...resolve.byTable.map((id) => {
       const card = findInstanceAnywhere(table, id)?.instance.card;
-      return { kind: 'byTable' as const, text: `${card ? cardDisplayName(card) : 'A personnel'} goes by the table` };
+      return { kind: 'byTable' as const, text: card ? cardDisplayName(card) : 'A personnel' };
     }),
   ];
   return {
