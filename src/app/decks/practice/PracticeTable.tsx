@@ -2177,6 +2177,7 @@ function PracticeDrawContent() {
       notes: pressed.notes,
       ...(pressed.modifiers ? { modifiers: pressed.modifiers } : {}),
       ...(pressed.modifiersClause ? { modifiersClause: pressed.modifiersClause } : {}),
+      ...(pressed.move ? { move: pressed.move } : {}),
     });
   };
 

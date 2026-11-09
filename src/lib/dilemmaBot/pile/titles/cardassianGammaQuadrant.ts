@@ -97,7 +97,7 @@ dilemma('Insurrection', D, 0, 'changes-later', (s) => {
   if (s.attempt.mission.points < 30) return;
   s.requirements = s.requirements.map((b) => ({ ...b, attrs: b.attrs.map((t) => (t >= 0 && t < 32 ? t + 10 : t)) as [number, number, number] }));
   s.trace?.('  each attribute requirement below 32 is 10 more');
-}, { cost: () => 1, goesUnder: false });
+}, { cost: () => 1, goesUnder: false, placement: 'placedOn' });
 
 dilemma('Magnetic Field Disruptions', S, 1, 'choose-or-else', chooseOrElse(hasAny('astrometrics', 'navigation'), killRandom(1)));
 

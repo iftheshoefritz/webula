@@ -1,5 +1,5 @@
 import { Rand, seededRandom } from '../simulator';
-import { DilemmaModel, PersonnelOp, PileAttempt, PileModifiers, PlayContext, PlayEffect, PlayModifiers } from './model';
+import { DilemmaModel, DilemmaPlacement, PersonnelOp, PileAttempt, PileModifiers, PlayContext, PlayEffect, PlayModifiers } from './model';
 import { LABEL_SEED, LabelRow, modelsOf, withRevealedCost } from './label';
 import { playPileStack, skillName } from './play';
 import { modelOf } from './registry';
@@ -70,7 +70,35 @@ export type PileResolve =
       modifiers?: PileModifiers;
       /** The clause that names what `modifiers` adds (#1598), "abilities off for the rest of the attempt", for the log. */
       modifiersClause?: string;
+      /** Where the dilemma goes once resolved (#1599). Absent on a pending Resolve: nothing moves until the choice is made. */
+      destination?: PileDestination;
     };
+
+/** Where a resolved dilemma goes (#1599): beneath the attempted mission, or a `DilemmaPlacement`. */
+export type PileDestination = 'under' | DilemmaPlacement;
+
+/**
+ * The destination of the top title from its play's kept records (#1599): `returnsToPile` sends it to the
+ * bottom of the dilemma pile, `notPlacedUnder` to the place it names (today only "to your core"), and a
+ * model with `goesUnder: false` to its `placement`. Anything else goes beneath the mission.
+ */
+export function destinationOf(model: DilemmaModel, kept: ReadonlyArray<PlayEffect>): PileDestination {
+  if (kept.some((e) => e.op === 'returnsToPile')) return 'pileBottom';
+  if (kept.some((e) => e.op === 'notPlacedUnder')) return 'core';
+  if (!model.goesUnder) return model.placement ?? 'under';
+  return 'under';
+}
+
+/** The preview's words for a destination that is not beneath the mission (#1599). */
+export const DESTINATION_TEXT: Record<Exclude<PileDestination, 'under'>, string> = {
+  core: 'goes to your core',
+  placedOn: 'is placed on the mission',
+  pileBottom: 'returns to the dilemma pile',
+  pileTop: 'goes on top of the dilemma pile',
+};
+
+const withDestination = (preview: string, destination: PileDestination) =>
+  destination === 'under' ? preview : `${preview}; ${DESTINATION_TEXT[destination]}`;
 
 /** The modifiers by card id (#1597), from the play's by personnel index. A personnel with no card id is left out. */
 export function pileModifiersOf(m: PlayModifiers, personnelIds: ReadonlyArray<string | undefined>): PileModifiers {
@@ -460,11 +488,13 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
   // A Resolve that changes the modifiers names them (#1598), in place of "No effect".
   const previewClause = modifiersClause(before, previewModifiers, nameOf);
   const withClause = !previewClause ? effects : effects === 'No effect' ? capitalize(previewClause) : `${effects}; ${previewClause}`;
-  const text = rolled ? `${selectedText(played, preview.own)}; ${withClause}` : withClause;
+  const previewDestination = destinationOf(model, preview.kept);
+  const text = withDestination(rolled ? `${selectedText(played, preview.own)}; ${withClause}` : withClause, previewDestination);
   if (!input.rand && !input.picks) {
     return {
       resolvable: true,
       preview: text,
+      destination: previewDestination,
       ...previewResult,
       ...(previewModifiers ? { modifiers: previewModifiers } : {}),
       ...(previewClause ? { modifiersClause: previewClause } : {}),
@@ -500,6 +530,8 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
     preview: text,
     ...reconcile(press.kept, input),
     picks: picked,
+    // The press play's records decide: a `returnsToPile` or `notPlacedUnder` is there only when the effect fired.
+    destination: destinationOf(model, press.kept),
     ...(modifiers ? { modifiers, ...(clause ? { modifiersClause: clause } : {}) } : {}),
   };
 }

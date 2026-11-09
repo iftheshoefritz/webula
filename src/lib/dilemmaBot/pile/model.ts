@@ -297,6 +297,9 @@ export interface PlayContext {
 }
 
 /** A title of the registry. */
+/** Where a dilemma that never goes beneath the mission goes (#1599). */
+export type DilemmaPlacement = 'core' | 'placedOn' | 'pileBottom' | 'pileTop';
+
 export interface DilemmaModel {
   title: string;
   /** `'dual'` goes at either mission. */
@@ -318,6 +321,12 @@ export interface DilemmaModel {
    * its effect fires keeps `true`, and its play records it with `notPlacedUnder()` or `returnsToPile()` (#1534).
    */
   goesUnder: boolean;
+  /**
+   * Where a dilemma with `goesUnder: false` goes once faced (#1599): the player's core, placed on the
+   * attempted mission, the bottom of the dilemma pile (it returns, once played or at the end of the turn),
+   * or the top of the dilemma pile. Set on every such model; absent on the others.
+   */
+  placement?: DilemmaPlacement;
   /** `'ignore'`: the bot takes it out of its pile when the game starts (#1320). */
   status: 'play' | 'ignore';
   /** The family whose code plays it, for the pilot's report. `'own'` is code of its own. */

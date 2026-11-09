@@ -104,7 +104,15 @@ export type LogEntry = { turn: number } & (
   // The effects of a bot game's revealed dilemma (#1587): the cards of each op the table applied, in
   // the action's order, and the notes the page gave.
   // `modifiers`: what the dilemma changed for the rest of the attempt (#1598), "abilities off for the rest of the attempt".
-  | { kind: 'dilemmaResolved'; dilemma: string; ops: { op: ResolveOp; cards: string[] }[]; notes?: ResolveNote[]; modifiers?: string }
+  // `went`: where the dilemma went (#1599), "goes under Bilana System", only when it left the stack.
+  | {
+      kind: 'dilemmaResolved';
+      dilemma: string;
+      ops: { op: ResolveOp; cards: string[] }[];
+      notes?: ResolveNote[];
+      modifiers?: string;
+      went?: string;
+    }
 );
 
 // Several table actions that are one player action (#1065): a group drag, a selection's Discard,
@@ -143,6 +151,18 @@ const missionName = (state: TableState, index: number): string => {
   const mission = state.missions[index]?.mission;
   return mission ? cardDisplayName(mission.card) : `Mission ${index + 1}`;
 };
+
+// Where a resolved dilemma went (#1599), for the log, from the target of its move.
+function wentText(state: TableState, to: MoveTarget, position?: 'top' | 'bottom'): string {
+  if (to === 'core') return 'goes to your core';
+  if (to === 'dilemmaPile') return position === 'top' ? 'goes on top of the dilemma pile' : 'returns to the dilemma pile';
+  if (typeof to === 'object' && to.zone === 'missionPile') {
+    const mission = state.missions[to.missionIndex]?.mission;
+    return `goes under ${mission ? cardDisplayName(mission.card) : 'the mission'}`;
+  }
+  if (typeof to === 'object' && to.zone === 'on') return `is placed on ${cardName(state, to.targetId)}`;
+  return 'leaves the stack';
+}
 
 const cardName = (state: TableState, id: string): string => {
   const found = findInstanceAnywhere(state, id);
@@ -339,6 +359,10 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         ops,
         ...(action.notes?.length ? { notes: action.notes } : {}),
         ...(action.modifiersClause ? { modifiers: action.modifiersClause } : {}),
+        ...(() => {
+          const went = action.move && !after.dilemmaStack.some((c) => c.id === action.dilemmaId) ? wentText(before, action.move.to, action.move.position) : null;
+          return went ? { went } : {};
+        })(),
       };
     }
     case 'nextTurn':
@@ -626,8 +650,9 @@ export function logEntryText(entry: LogEntry): string {
       const ops = entry.ops.map(({ op, cards }) => `${RESOLVE_OP_TEXT[op]} ${cardsText(cards)}`).join(', ');
       const modifiers = typeof entry.modifiers === 'string' ? entry.modifiers : '';
       const effects = [ops, modifiers].filter(Boolean).join('; ') || 'no effect';
+      const went = typeof entry.went === 'string' ? `; it ${entry.went}` : '';
       const notes = entry.notes?.length ? ` (${entry.notes.map(resolveNoteText).join('; ')})` : '';
-      return `Resolved ${entry.dilemma}: ${effects}${notes}`;
+      return `Resolved ${entry.dilemma}: ${effects}${notes}${went}`;
     }
     case 'attemptPhase': {
       const text =

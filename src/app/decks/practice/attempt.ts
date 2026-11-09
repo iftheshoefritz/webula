@@ -20,7 +20,7 @@ import { cardDisplayName } from '../../../lib/cardCount';
 import { BotTableFacts, asSphere117Dissident, isSphere117, sphere117Holds } from '../../../lib/dilemmaBot/gains';
 import { Rand, partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
-import { PileResolveWhere, modifiersText, pileResolveOf, pileRevealPicksOf, playModifiersOf } from '../../../lib/dilemmaBot/pile/resolve';
+import { PileDestination, PileResolveWhere, modifiersText, pileResolveOf, pileRevealPicksOf, playModifiersOf } from '../../../lib/dilemmaBot/pile/resolve';
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 
@@ -123,7 +123,36 @@ export type BotResolve =
       modifiers?: PileModifiers;
       // The clause that names what the dilemma adds to them (#1598), for the log.
       modifiersClause?: string;
+      // The move of the resolved dilemma to where it goes (#1599), for the `resolveDilemma` action.
+      // Absent on a pending Resolve.
+      move?: ResolveMove;
     };
+
+// Where the resolved dilemma goes, in table terms (#1599).
+export type ResolveMove = { to: MoveTarget; position?: 'top' | 'bottom' };
+
+// The move of a destination at the attempted mission: beneath it, face up after the dilemmas already
+// there, as `endAttempt` puts them; the core; placed on the mission card; or the bottom (face up) or the
+// top (face down) of the dilemma pile, as a `move` there lands. Null when the mission slot has no card
+// to place on.
+export function resolveMoveOf(table: TableState, destination: PileDestination): ResolveMove | null {
+  const attempt = table.attempt;
+  if (!attempt) return null;
+  switch (destination) {
+    case 'under':
+      return { to: { zone: 'missionPile', missionIndex: attempt.missionIndex, pile: 'underMission' } };
+    case 'core':
+      return { to: 'core' };
+    case 'placedOn': {
+      const mission = table.missions[attempt.missionIndex]?.mission;
+      return mission ? { to: { zone: 'on', targetId: mission.id } } : null;
+    }
+    case 'pileBottom':
+      return { to: 'dilemmaPile', position: 'bottom' };
+    case 'pileTop':
+      return { to: 'dilemmaPile', position: 'top' };
+  }
+}
 
 export function botResolveOf(
   table: TableState,
@@ -162,6 +191,10 @@ export function botResolveOf(
     ...(resolve.pending ? { pending: true } : {}),
     ...(resolve.modifiers ? { modifiers: resolve.modifiers } : {}),
     ...(resolve.modifiersClause ? { modifiersClause: resolve.modifiersClause } : {}),
+    ...(() => {
+      const move = !resolve.pending && resolve.destination ? resolveMoveOf(table, resolve.destination) : null;
+      return move ? { move } : {};
+    })(),
   };
 }
 

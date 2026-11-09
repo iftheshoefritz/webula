@@ -407,9 +407,11 @@ describe('Practice table: the Resolve of the dilemma faced (#1589)', () => {
     });
     expect(alphaStopped()).toBe(true);
     expect(logLength()).toBe(before + 1);
-    expect(resolve()).toHaveTextContent('Resolved');
-    expect(resolve()).toBeDisabled();
-    expect(screen.getByTestId('undo-button').getAttribute('aria-label')).toMatch(/^Undo: Resolved "?Well-Prepared Defenses"?: stopped Alpha$/);
+    // The dilemma went under the mission (#1599): the next card is face down, with no preview and no Resolve.
+    expect(resolve()).toBeNull();
+    expect(preview()).toBeNull();
+    expect(label()).toBeNull();
+    expect(screen.getByTestId('undo-button').getAttribute('aria-label')).toMatch(/^Undo: Resolved "?Well-Prepared Defenses"?: stopped Alpha; it goes under .+$/);
     expect(screen.queryByTestId('card-list-panel-dilemmaStack')).toBeNull();
 
     await act(async () => {
@@ -437,7 +439,7 @@ describe('Practice table: the Resolve of the dilemma faced (#1589)', () => {
       fireEvent.click(resolve()!);
     });
     expect(screen.getByTestId('undo-button').getAttribute('aria-label')).not.toMatch(/stopped Alpha/);
-    expect(resolve()).toBeDisabled();
+    expect(resolve()).toBeNull();
   });
 
   it('keeps the preview and Resolve when the bot label is dismissed', async () => {

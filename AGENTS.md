@@ -790,8 +790,17 @@ bot's Resolve, `data-testid="dilemma-resolve-preview"` ("Stops <name>", "Kills 2
 on the live table and the attempt's reveal snapshot, which the save keeps, so a reload shows the same
 preview. A press rolls the random picks on the page, with `Math.random`, as `withShuffleOrders`
 chooses a shuffle, and dispatches one `resolveDilemma`, even with no changes: one log entry, "Resolved
-<dilemma>: …", and one undo takes it all back. The button then reads "Resolved", disabled, until the
-next card is revealed. When `botResolveOf` gives no Resolve (no model, a player's choice, `move`,
+<dilemma>: …; it goes under <mission>", and one undo takes it all back. The press applies the
+dilemma's effects to the personnel, then moves the dilemma where it goes (#1599, the `move` of the
+action, `resolveMoveOf` in `attempt.ts`): under the attempted mission, face up, after the cards there;
+or, from the press play's records and the model's `placement` (`destinationOf` in `pile/resolve.ts`),
+the core, placed on the mission card, the bottom of the dilemma pile, face up (a `returnsToPile`, or a
+title that returns once played or at the end of the turn), or the top of the dilemma pile. The preview
+names a destination other than under the mission, "No effect; goes to your core". The next card of the
+stack is then on top, face down, so the label, the preview and the button go away until the player's tap
+reveals it; Resolve never reveals it. A `resolveDilemma` with no move, as in a save from before #1599,
+leaves the dilemma on the stack, and the button reads "Resolved", disabled. Every model with
+`goesUnder: false` sets a `placement` (`resolveDestination.test.ts`). When `botResolveOf` gives no Resolve (no model, a player's choice, `move`,
 `loseShip`), neither shows, and the player resolves the dilemma by hand. A tap on the label hides only
 the label.
 

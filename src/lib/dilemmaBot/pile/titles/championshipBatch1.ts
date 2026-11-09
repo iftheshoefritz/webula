@@ -45,7 +45,7 @@ dilemma('Breaking the Ice', S, 3, 'unless', unlessGroup((s) => s.has(req('3 Geol
 
 // goesUnder: false, never beneath this mission: the bot assumes it is placed in your core, since the attempt holds neither your discard pile nor the points of your missions (#1534).
 dilemma('Causal Recursion', S, 2, 'no-effect', noEffect, {
-  goesUnder: false,
+  goesUnder: false, placement: 'core',
   gap: 'it is placed in your core, and the 10 more points you need act past the attempt (#1478)',
 });
 

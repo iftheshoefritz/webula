@@ -345,7 +345,8 @@ export type TableAction =
   // card and never moves one back. It does nothing unless the snapshot names `dilemmaId`, the face-up
   // top card of the stack in `'face'`, and is not resolved yet. `dilemma` and `notes` are for the log.
   // `modifiers`: the attempt's whole modifiers after the dilemma (#1597), when it changed them.
-  // `modifiersClause`: the log's words for what the dilemma added to them (#1598).
+  // `modifiersClause`: the log's words for what the dilemma added to them (#1598). `move`: where the
+  // dilemma goes after the personnel changes (#1599), a `move` of `dilemmaId`; absent, it stays.
   | {
       type: 'resolveDilemma';
       dilemmaId: string;
@@ -354,6 +355,7 @@ export type TableAction =
       notes?: ResolveNote[];
       modifiers?: PileModifiers;
       modifiersClause?: string;
+      move?: { to: MoveTarget; position?: 'top' | 'bottom' };
     }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[]; opponent?: 'bot'; botPile?: BotPileInfo }
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
@@ -1106,10 +1108,13 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         (s, change) => change.ids.reduce((t, id) => applyResolveChange(t, change.op, id), s),
         state
       );
+      // Then the dilemma goes where it goes (#1599), through the `move` case. An action with no move, as
+      // in a save from before #1599, leaves it on the stack.
+      const moved = action.move ? tableReducer(resolved, { type: 'move', id: action.dilemmaId, ...action.move }) : resolved;
       return {
-        ...resolved,
+        ...moved,
         attempt: {
-          ...resolved.attempt!,
+          ...moved.attempt!,
           revealSnapshot: { ...attempt.revealSnapshot!, resolved: true },
           ...(action.modifiers ? { modifiers: action.modifiers } : {}),
         },
