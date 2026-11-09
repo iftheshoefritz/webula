@@ -20,7 +20,7 @@ import { cardDisplayName } from '../../../lib/cardCount';
 import { BotTableFacts, asSphere117Dissident, isSphere117, sphere117Holds } from '../../../lib/dilemmaBot/gains';
 import { Rand, partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
-import { PileResolveWhere, pileResolveOf } from '../../../lib/dilemmaBot/pile/resolve';
+import { PileResolveWhere, pileResolveOf, pileRevealPicksOf } from '../../../lib/dilemmaBot/pile/resolve';
 import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
@@ -126,6 +126,7 @@ export function botResolveOf(
     revealed: play.revealed,
     rest: play.rest,
     selected: selected.filter((id) => rowPersonnel.has(id)),
+    ...(snapshot.picks ? { revealPicks: snapshot.picks } : {}),
     ...press,
   });
   if (!resolve.resolvable) return resolve;
@@ -144,6 +145,18 @@ export function botResolveOf(
     ...(resolve.picks ? { picks: resolve.picks } : {}),
     ...(resolve.pending ? { pending: true } : {}),
   };
+}
+
+// The roll at the reveal (#1594): for a revealed top card whose random selection is the pool of the
+// player's choice, the card ids each random select of its play picks, rolled with `rand` from the group
+// of the table's reveal snapshot. Undefined when the snapshot is not for the top card, or for any other
+// title. The page rolls it before the `flip` that takes the snapshot (`withShuffleOrders`), and a restore
+// for the fresh snapshot it takes, never at render.
+export function revealPicksOf(table: TableState, rand: Rand): string[][] | undefined {
+  const snapshot = table.attempt?.revealSnapshot;
+  const play = snapshot && revealedPlayOf(table, snapshot);
+  if (!snapshot || !play || play.top.id !== snapshot.dilemmaId) return undefined;
+  return pileRevealPicksOf(play.top.card, play.attempt, { personnelIds: play.personnelIds, revealed: play.revealed, rest: play.rest, rand });
 }
 
 // What `pileAttemptOf` reads of the table for an attempt at `missionIndex` with `shipId` (#1508): the
@@ -301,7 +314,8 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
 // `FIXTURE_DILEMMA_STACK - 1` dilemmas of the pile, face down. So the page opens on the bot's label.
 // `?fixture=bot-resolve-noeffect` (#1589) deals the same with a Conflict of Interests, whose `unless`
 // check the crew meets, so its Resolve reads "No effect". `?fixture=bot-resolve-choice` (#1593) deals the
-// same with a Covert Extraction, where the player chooses the personnel to stop from the row selection.
+// same with a Covert Extraction, where the player chooses the personnel to stop from the row selection,
+// and `?fixture=bot-resolve-pattern` (#1594) with A Pattern of Lies, whose roll the reveal keeps.
 export const FIXTURE_BOT_LABEL_DILEMMA = 'Well-Prepared Defenses';
 
 // The dilemma each revealing bot fixture adds to the bot's pile and reveals, by title and collector's info.
@@ -309,6 +323,7 @@ export const BOT_REVEAL_FIXTURES: Record<string, { title: string; collectorsInfo
   'bot-label': { title: FIXTURE_BOT_LABEL_DILEMMA, collectorsInfo: '17V017' },
   'bot-resolve-noeffect': { title: 'Conflict of Interests', collectorsInfo: '26V002' },
   'bot-resolve-choice': { title: 'Covert Extraction', collectorsInfo: '38V002' },
+  'bot-resolve-pattern': { title: 'A Pattern of Lies', collectorsInfo: '10C001' },
 };
 
 export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA): {

@@ -172,14 +172,25 @@ export const playerBrigs = (count: number): Play => (s) => s.brig(s.playerChoose
 export const playerDiscards = (count: number): Play => (s) => s.kill(s.playerChooses(s.unstopped(), count));
 
 /**
+ * Marks a play whose random selection is the pool of a later `playerChooses` (#1594): `dilemma` sets
+ * `DilemmaModel.rollsBeforeChoice` for it, so the table rolls the selection at the reveal and keeps it.
+ */
+export const rollsBeforeChoice = (play: Play): Play => Object.assign((s: PlayState) => play(s), { rollsBeforeChoice: true as const });
+
+/** Whether `rollsBeforeChoice` marked `play`. */
+export const isRolledBeforeChoice = (play: Play): boolean => 'rollsBeforeChoice' in play && play.rollsBeforeChoice === true;
+
+/**
  * "Randomly select three personnel. If any of those personnel <test>, all three are stopped. Otherwise,
  * <one> of those personnel is stopped": the player's choice, or a random one.
  */
-export const anyOfThree = (test: Test, one: 'player' | 'random'): Play =>
-  selectRandom(3, (s, selected) => {
+export const anyOfThree = (test: Test, one: 'player' | 'random'): Play => {
+  const play = selectRandom(3, (s, selected) => {
     if (selected.some((k) => test(s, k))) s.stop(selected);
     else s.stop(one === 'player' ? s.playerChooses(selected) : s.select(1, selected));
   });
+  return one === 'player' ? rollsBeforeChoice(play) : play;
+};
 
 /** "Randomly select three personnel. If any is a <icon> personnel, all are stopped. Otherwise, choose one to be stopped." */
 export const anyOfAffiliation = (affiliation: string): Play => anyOfThree(affiliationIs(affiliation), 'player');

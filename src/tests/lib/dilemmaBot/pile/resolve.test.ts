@@ -1,6 +1,7 @@
 // Issue #1588: the Resolve of the revealed dilemma, from the reveal snapshot's group: the preview, the
 // random picks of a press, and the player's own moves.
-import { PileResolveWhere, pileResolveOf } from '../../../../lib/dilemmaBot/pile/resolve';
+import { PileResolveWhere, pileResolveOf, pileRevealPicksOf } from '../../../../lib/dilemmaBot/pile/resolve';
+import { modelOf } from '../../../../lib/dilemmaBot/pile/registry';
 import { PileCardRow, PileTableInput, pileAttemptOf } from '../../../../lib/dilemmaBot/pile/tableAttempt';
 
 const person = (name: string, skills = 'Physics') => ({
@@ -210,9 +211,74 @@ describe('pileResolveOf with the player\'s choice (#1593)', () => {
     expect(right.changes).toEqual([{ op: 'stop', ids: ['card-2', 'card-4'] }]);
   });
 
-  it('gives no Resolve for A Pattern of Lies, Distraction and Dramatis Personae', () => {
-    expect(resolve('A Pattern of Lies')).toEqual({ resolvable: false, reason: 'the choice follows a roll' });
+  it('gives no Resolve for A Pattern of Lies with no kept roll, Distraction and Dramatis Personae', () => {
+    expect(resolve('A Pattern of Lies')).toEqual({ resolvable: false, reason: 'the roll before the choice is not made yet' });
     expect(resolve('Distraction').resolvable).toBe(false);
     expect(resolve('Dramatis Personae').resolvable).toBe(false);
+  });
+});
+
+describe('the roll before a choice, made at the reveal and kept (#1594)', () => {
+  // Alpha and Beta are Human, Gamma and Delta Vulcan.
+  const SPECIES = ['Human', 'Human', 'Vulcan', 'Vulcan'];
+  function pattern(picks: string[][] | undefined, selected: string[] = [], species: string[] = SPECIES, moved: Record<string, PileResolveWhere> = {}) {
+    const { attempt, personnelIds } = pileAttemptOf({
+      cards: NAMES.map((name, i) => ({ card: { ...person(name), species: species[i] }, id: IDS[i] })),
+      mission,
+      placedOn: [],
+      underMission: [],
+      missions: [{ mission }],
+      hand: [],
+      discard: [],
+      turn: 3,
+    });
+    return {
+      attempt,
+      personnelIds,
+      resolve: (press: { rand?: () => number } = {}) =>
+        pileResolveOf(row('A Pattern of Lies'), attempt, { personnelIds, snapshotIds: IDS, where: whereOf(moved), selected, ...(picks ? { revealPicks: picks } : {}), ...press }),
+    };
+  }
+
+  it('marks A Pattern of Lies and the anyOfThree titles where the player chooses, and no other', () => {
+    for (const title of ['A Pattern of Lies', 'New Face', 'Discommendation', 'Moral Choice']) expect(modelOf(title)?.rollsBeforeChoice).toBe(true);
+    for (const title of ['So Many Enemies', 'Murder Investigation', 'Toe to Toe', 'Covert Extraction']) expect(modelOf(title)?.rollsBeforeChoice).toBeUndefined();
+  });
+
+  it('rolls the select of a marked title with the random function, and nothing for any other title', () => {
+    const { attempt, personnelIds } = pattern(undefined);
+    expect(pileRevealPicksOf(row('A Pattern of Lies'), attempt, { personnelIds, rand: () => 0 })).toEqual([['card-1', 'card-2', 'card-3']]);
+    expect(pileRevealPicksOf(row('A Pattern of Lies'), attempt, { personnelIds, rand: () => 0.99 })).toEqual([['card-4', 'card-3', 'card-2']]);
+    expect(pileRevealPicksOf(row('Covert Extraction'), attempt, { personnelIds, rand: () => 0 })).toBeUndefined();
+  });
+
+  it('names the kept set and the task, and stays pending until a personnel of the set is selected', () => {
+    const picks = [['card-1', 'card-2', 'card-3']];
+    const r = pattern(picks).resolve();
+    expect(r).toEqual({ resolvable: true, preview: 'Selected Alpha, Beta, Gamma; choose 1 to be stopped', changes: [], done: [], byTable: [], pending: { candidates: ['card-1', 'card-2', 'card-3'] } });
+    expect(pattern(picks, ['card-4']).resolve()).toMatchObject({ pending: expect.anything(), changes: [] });
+    const chosen = pattern(picks, ['card-3']).resolve({ rand: () => 0.5 });
+    if (!chosen.resolvable) throw new Error(chosen.reason);
+    expect(chosen.pending).toBeUndefined();
+    expect(chosen.changes).toEqual([{ op: 'stop', ids: ['card-3'] }]);
+    expect(chosen.preview).toBe('Selected Alpha, Beta, Gamma; Stops Gamma');
+    // The press plays the kept roll, never `rand`.
+    expect(chosen.picks).toEqual(picks);
+  });
+
+  it('names the definite result when the roll leaves no choice: all three of one species are stopped', () => {
+    const r = pattern([['card-1', 'card-2', 'card-4']], [], ['Human', 'Human', 'Vulcan', 'Human']).resolve();
+    if (!r.resolvable) throw new Error(r.reason);
+    expect(r.pending).toBeUndefined();
+    expect(r.preview).toBe('Selected Alpha, Beta, Delta; Stops Alpha, Beta, Delta');
+    expect(r.changes).toEqual([{ op: 'stop', ids: ['card-1', 'card-2', 'card-4'] }]);
+  });
+
+  it('takes a personnel of the set stopped by hand as the choice', () => {
+    const r = pattern([['card-1', 'card-2', 'card-3']], [], SPECIES, { 'card-2': { at: 'row', stopped: true } }).resolve();
+    if (!r.resolvable) throw new Error(r.reason);
+    expect(r.pending).toBeUndefined();
+    expect(r.changes).toEqual([]);
+    expect(r.done).toEqual([{ op: 'stop', done: 1, of: 1 }]);
   });
 });

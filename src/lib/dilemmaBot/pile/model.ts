@@ -302,6 +302,12 @@ export interface DilemmaModel {
   discountsNext?: (attempt: PileAttempt) => number;
   /** What it adds to the total cost the stack may spend (Entanglement: 3). */
   extraBudget?: number;
+  /**
+   * Its random selection is the pool of a later choice of the player (#1594): A Pattern of Lies, and
+   * `anyOfThree(…, 'player')`. The table rolls the selection when it reveals the card and keeps it, so
+   * the player chooses from the same set after a reload.
+   */
+  rollsBeforeChoice?: true;
   play: (state: import('./play').PlayState) => void;
 }
 

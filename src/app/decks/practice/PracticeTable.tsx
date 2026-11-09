@@ -1851,7 +1851,8 @@ function PracticeDrawContent() {
   // `?fixture=bot-label` (#1519) deals the same bot table with a Well-Prepared Defenses in the dilemma
   // pile, and starts a bot attempt whose facing stack has it on top, revealed, for the bot's label.
   // `?fixture=bot-resolve-noeffect` (#1589) does the same with a Conflict of Interests, for "No effect",
-  // and `?fixture=bot-resolve-choice` (#1593) with a Covert Extraction, for the player's choice.
+  // and `?fixture=bot-resolve-choice` (#1593) with a Covert Extraction, for the player's choice, and
+  // `?fixture=bot-resolve-pattern` (#1594) with A Pattern of Lies, whose roll the reveal keeps.
   const botRevealFixture = fixture && Object.hasOwn(BOT_REVEAL_FIXTURES, fixture) ? BOT_REVEAL_FIXTURES[fixture] : null;
   const isBotFixture = fixture === 'bot' || botRevealFixture !== null;
   const isFixture = fixture === '1' || isPilesFixture || isAttemptFixture || isBotFixture;
@@ -2256,12 +2257,17 @@ function PracticeDrawContent() {
       ...(opponent && dealtBotPile ? { botPile: dealtBotPile } : {}),
     };
     dispatch(deal);
-    const botLabel = botRevealTitle ? fixtureBotLabelAttempt(tableReducer(initialTableState, deal), botRevealTitle) : null;
-    if (botLabel) {
+    const botDealt = botRevealTitle ? tableReducer(initialTableState, deal) : null;
+    const botLabel = botDealt && botRevealTitle ? fixtureBotLabelAttempt(botDealt, botRevealTitle) : null;
+    if (botDealt && botLabel) {
+      const phase: TableAction = { type: 'setAttemptPhase', phase: 'face' };
       dispatch(botLabel.start);
-      dispatch({ type: 'setAttemptPhase', phase: 'face' });
+      dispatch(phase);
       dispatch({ type: 'batch', actions: botLabel.stack, unseen: true });
-      dispatch({ type: 'flip', id: botLabel.revealId });
+      // The flip rolls a dilemma's selection before the player's choice from the table it reveals in
+      // (#1594), and `table` is still this render's, so it gets the table these actions leave.
+      const beforeFlip = [botLabel.start, phase, ...botLabel.stack].reduce(tableReducer, botDealt);
+      dispatchGame(withShuffleOrders(beforeFlip, { type: 'flip', id: botLabel.revealId }));
     }
     if (fixtureAttemptPhase) {
       const dealt = tableReducer(initialTableState, deal);

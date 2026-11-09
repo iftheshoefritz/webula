@@ -36,6 +36,7 @@ import {
   Zone,
 } from './tableReducer';
 import { drawSpend } from './drawSpend';
+import { revealPicksOf } from './attempt';
 
 // A place a card can be, with the names the text needs captured at the time of the action, so a
 // later move of a ship or a mission card does not change an old entry.
@@ -444,12 +445,19 @@ function withShuffleOrder(table: TableState, action: TableAction): TableAction {
   if (action.type === 'drawCard' && !action.order && drawReshuffles(table, action)) {
     return { ...action, order: shuffledIds(table.dilemmaPile) };
   }
+  // A flip that takes a reveal snapshot of a dilemma whose roll comes before the player's choice
+  // carries that roll (#1594), so the snapshot keeps it.
+  if (action.type === 'flip' && !action.picks) {
+    const next = tableReducer(table, action);
+    const picks = next.attempt?.revealSnapshot !== table.attempt?.revealSnapshot ? revealPicksOf(next, Math.random) : undefined;
+    if (picks) return { ...action, picks };
+  }
   return action;
 }
 
 export function withShuffleOrders(table: TableState, action: GameAction): GameAction {
   if (action.type === 'batch') {
-    if (!action.actions.some((a) => a.type === 'shuffle' || a.type === 'drawCard')) return action;
+    if (!action.actions.some((a) => a.type === 'shuffle' || a.type === 'drawCard' || a.type === 'flip')) return action;
     let state = table;
     const actions = action.actions.map((a) => {
       const chosen = withShuffleOrder(state, a);

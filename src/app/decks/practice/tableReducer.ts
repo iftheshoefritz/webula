@@ -212,6 +212,10 @@ export interface RevealSnapshot {
   dilemmaId: string;
   personnel: { id: string; stopped: boolean }[];
   resolved?: true;
+  // The roll of a dilemma whose random selection is the pool of the player's choice (#1594), as the
+  // `flip` that took the snapshot carries it: the card ids of each random select, in call order. The
+  // Resolve plays with it, so the player chooses from the same set after a reload.
+  picks?: string[][];
 }
 
 // The effects of a dilemma on the attempting cards (#1587), each one or two table actions:
@@ -251,7 +255,9 @@ export type TableAction =
   // (#607). Only the dilemma pile's two drop halves pass this; every other destination is
   // unordered from the player's point of view, so nothing else needs it.
   | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom' }
-  | { type: 'flip'; id: string }
+  // `picks` is the roll the page made for the reveal snapshot this flip takes (#1594,
+  // `withShuffleOrders` in `gameLog.ts`), which the snapshot keeps, so the reducer stays pure.
+  | { type: 'flip'; id: string; picks?: string[][] }
   // Turns a double-sided mission over (#765): toggles its `flipped` flag. Does nothing to a
   // mission with no `backimagefile`, or to a card that is not a mission card in its slot.
   | { type: 'flipMission'; id: string }
@@ -896,7 +902,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         flipped.attempt = {
           ...attempt,
           botRevealed: [...(attempt.botRevealed ?? []), action.id],
-          revealSnapshot: revealSnapshotOf(state, action.id),
+          revealSnapshot: { ...revealSnapshotOf(state, action.id), ...(action.picks ? { picks: action.picks } : {}) },
         };
       }
       return flipped;
