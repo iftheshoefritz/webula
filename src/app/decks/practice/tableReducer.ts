@@ -18,7 +18,10 @@ export type Zone =
   | 'brig'
   | 'dilemmaPile'
   | 'dilemmaHand'
-  | 'dilemmaStack';
+  | 'dilemmaStack'
+  // The bot's brig (#1580): the player's personnel the bot holds captive. A hidden zone: nothing on
+  // the table draws it, and it is no drop target. `brig` stays the player's own brig.
+  | 'botBrig';
 
 // The mission row always has exactly 5 positional slots (see the parent design in issue #130
 // and the plan for #597), regardless of how many missions the deck has. A slot holds a
@@ -144,6 +147,8 @@ export interface TableState {
   // The dilemma stack (#733): a face-down stack of dilemmas, no longer tied to a mission slot.
   // This issue only adds the state; #630 gives it a place on the table.
   dilemmaStack: CardInstance[];
+  // The bot's brig (#1580): never drawn, never a drop target. Only a `move` fills it.
+  botBrig: CardInstance[];
   missions: MissionSlot[];
   // The turn counter (#718): starts at 1 on a new game and on reset, and only ever changes via
   // `nextTurn` below.
@@ -329,6 +334,7 @@ export const ZONE_FACE: Record<Zone, Face> = {
   dilemmaPile: 'down',
   dilemmaHand: 'up',
   dilemmaStack: 'down',
+  botBrig: 'up',
 };
 
 // A ship row's face convention, kept apart from ZONE_FACE since a ship row is not a top-level
@@ -358,6 +364,7 @@ export const initialTableState: TableState = {
   dilemmaPile: [],
   dilemmaHand: [],
   dilemmaStack: [],
+  botBrig: [],
   missions: Array.from({ length: MISSION_SLOTS }, () => ({
     mission: null,
     ships: [],
@@ -412,6 +419,7 @@ const findZone = (state: TableState, id: string): Zone | null => {
   if (state.dilemmaPile.some((c) => c.id === id)) return 'dilemmaPile';
   if (state.dilemmaHand.some((c) => c.id === id)) return 'dilemmaHand';
   if (state.dilemmaStack.some((c) => c.id === id)) return 'dilemmaStack';
+  if (state.botBrig.some((c) => c.id === id)) return 'botBrig';
   return null;
 };
 
@@ -596,8 +604,16 @@ const locationKey = (location: MoveTarget): string => {
 const sameLocation = (a: MoveTarget, b: MoveTarget): boolean => locationKey(a) === locationKey(b);
 
 // The zones off the table (#903): a card in one of them is never stopped, so a move into one
-// clears `stopped`. Every other location, the dilemma stack included, is on the table.
-const OFF_TABLE_ZONES: ReadonlySet<MoveTarget> = new Set<Zone>(['discard', 'hand', 'dilemmaHand', 'drawDeck', 'dilemmaPile']);
+// clears `stopped`. Every other location, the dilemma stack included, is on the table. The bot's
+// brig (#1580) is off the player's table too.
+const OFF_TABLE_ZONES: ReadonlySet<MoveTarget> = new Set<Zone>([
+  'discard',
+  'hand',
+  'dilemmaHand',
+  'drawDeck',
+  'dilemmaPile',
+  'botBrig',
+]);
 
 const isOffTable = (location: MoveTarget): boolean => typeof location === 'string' && OFF_TABLE_ZONES.has(location);
 
@@ -1000,6 +1016,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         dilemmaPile: action.dilemmas,
         dilemmaHand: [],
         dilemmaStack: [],
+        botBrig: [],
         missions,
         turn: 1,
         score: 0,

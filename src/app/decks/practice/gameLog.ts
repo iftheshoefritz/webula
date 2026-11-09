@@ -453,6 +453,8 @@ export function placeText(place: LogPlace): string {
       return 'the dilemma hand';
     case 'dilemmaStack':
       return 'the dilemma stack';
+    case 'botBrig':
+      return "the bot's brig";
     case 'missions':
       return 'the mission row';
     case 'shipRow':
