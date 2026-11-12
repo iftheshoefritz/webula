@@ -24,7 +24,7 @@ import {
 } from '@dnd-kit/core';
 import { collisionDetection } from './collisionDetection';
 import { useEscapeLayer } from './useEscapeLayer';
-import { FaLayerGroup, FaMobileAlt, FaForward } from 'react-icons/fa';
+import { FaLayerGroup, FaMobileAlt, FaForward, FaTimes } from 'react-icons/fa';
 import {
   cardPileFor,
   deckFromTsv,
@@ -33,6 +33,9 @@ import {
   extractMissions,
   isDeckEmpty,
   mergeDeckPiles,
+  missingCardsMessage,
+  missingCardsOf,
+  missingInPiles,
   shuffleArray,
   withBackImageFiles,
 } from '../deckBuilderUtils';
@@ -48,7 +51,7 @@ import type { BotPileChoice, BotPileInfo } from '../../../lib/dilemmaBot/botPile
 import { useBotPiles } from './useBotPiles';
 import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
 import { cardDisplayName } from '../../../lib/cardCount';
-import { LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
+import { LAYER_LOAD_WARNING, LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
 import type { MissionsAndDrawSource } from './PracticeDeckPicker';
 import { usePracticeDrive } from './usePracticeDrive';
@@ -2222,6 +2225,9 @@ function PracticeDrawContent() {
   // The Drive file name of `loadedDeck`, the name of the deck when it is made offline (#1052).
   // A Drive game restored from the save has no name, so it falls back to "Drive deck".
   const [driveFileName, setDriveFileName] = useState<string | undefined>(undefined);
+  // The cards the last Load deck dropped because the card data has none of that name (#1616), for
+  // the warning over the table. Page state: a reload forgets it.
+  const [missingCards, setMissingCards] = useState(0);
   // Set by the first deal or restore (#976). Until then `table` is the empty
   // `initialTableState`, which must not overwrite a valid save.
   const saveReadyRef = useRef(false);
@@ -2528,14 +2534,22 @@ function PracticeDrawContent() {
   // null when the player declines or the fetch fails.
   const confirmAndFetchBaseDeck = async (
     source: MissionsAndDrawSource
-  ): Promise<{ deck: DeckList; fileId: string | undefined; name: string } | null> => {
+  ): Promise<{ deck: DeckList; fileId: string | undefined; name: string; missing: number; missingOfMissionsAndDraw: number } | null> => {
     if (!window.confirm('Load this deck? This will throw away the current game.')) return null;
     if (source.kind === 'current') {
-      return { deck: dealtDeck, fileId: loadedDeck ? driveFileId : undefined, name: dealtDeckName() };
+      return { deck: dealtDeck, fileId: loadedDeck ? driveFileId : undefined, name: dealtDeckName(), missing: 0, missingOfMissionsAndDraw: 0 };
     }
     const tsv = await drive.fetchDeckTsv(source.file);
     if (tsv === null) return null;
-    return { deck: deckFromTsv(tsv, await completeData()), fileId: source.file.id, name: source.file.name };
+    const cards = await completeData();
+    const parsed = missingCardsOf(tsv, cards);
+    return {
+      deck: deckFromTsv(tsv, cards),
+      fileId: source.file.id,
+      name: source.file.name,
+      missing: parsed.missing,
+      missingOfMissionsAndDraw: missingInPiles(parsed, ['mission', 'drawDeck']),
+    };
   };
 
   // The picker's step 2 (#1114): the missions and draw deck of step 1 with the dilemmas of a Drive
@@ -2546,16 +2560,20 @@ function PracticeDrawContent() {
     if (base === null) return;
     const sameDeck = source.kind === 'drive' && source.file.id === dilemmaFile.id;
     let deck = base.deck;
+    let missing = base.missing;
     if (!sameDeck) {
       const dilemmaTsv = await drive.fetchDeckTsv(dilemmaFile);
       if (dilemmaTsv === null) return;
-      deck = mergeDeckPiles(base.deck, deckFromTsv(dilemmaTsv, await completeData()), ['dilemmaPile']);
+      const cards = await completeData();
+      deck = mergeDeckPiles(base.deck, deckFromTsv(dilemmaTsv, cards), ['dilemmaPile']);
+      missing = base.missingOfMissionsAndDraw + missingInPiles(missingCardsOf(dilemmaTsv, cards), ['dilemmaPile']);
     }
     setLoadedDeck(deck);
     setDriveFileId(base.fileId);
     setDilemmaDriveFileId(sameDeck ? undefined : dilemmaFile.id);
     setDriveFileName(sameDeck ? base.name : `${base.name} + ${dilemmaFile.name} dilemmas`);
     dealDeck(deck);
+    setMissingCards(missing);
     drive.closePicker();
   };
 
@@ -2569,9 +2587,11 @@ function PracticeDrawContent() {
     if (base === null) return;
     let pile = chulaPileDeck(data);
     let pileInfo: BotPileInfo | undefined;
+    let missing = base.missingOfMissionsAndDraw;
     if (choice.id !== CHULA_BOT_PILE_ID) {
       const text = botPiles.textOf(choice.id) ?? (await drive.fetchDeckTsv({ id: choice.id }));
       if (text === null) return;
+      missing += missingInPiles(missingCardsOf(text, data), ['dilemmaPile']);
       const chosen = botPileDeckOf(text, deckFromTsv(text, data), data);
       pile = chosen.pile;
       pileInfo = {
@@ -2587,6 +2607,7 @@ function PracticeDrawContent() {
     setDilemmaDriveFileId(undefined);
     setDriveFileName(base.name);
     dealDeck(deck, false, null, 'bot', null, pileInfo);
+    setMissingCards(missing);
     drive.closePicker();
   };
 
@@ -2605,6 +2626,7 @@ function PracticeDrawContent() {
     setDilemmaDriveFileId(undefined);
     setDriveFileName(record.name);
     dealDeck(record.deck);
+    setMissingCards(0);
     drive.closePicker();
   };
 
@@ -3440,6 +3462,29 @@ function PracticeDrawContent() {
 
       {/* Game layer: fixed inset-0 always fills the visible area as the toolbar shows and hides */}
       <div ref={setGameLayer} data-testid="practice-game-layer" className="fixed inset-0 bg-gradient-page font-body text-text-primary flex flex-col">
+        {/* The warning of a Load deck that dropped cards the card data does not have (#1616). */}
+        {missingCards > 0 && (
+          <div
+            className={`fixed top-2 inset-x-0 ${LAYER_LOAD_WARNING} flex justify-center px-4 pointer-events-none`}
+            style={safeAreaMargins('top', 'left', 'right')}
+          >
+            <div
+              role="status"
+              data-testid="deck-missing-cards-warning"
+              className="pointer-events-auto bg-amber-900/90 border border-amber-700 text-amber-100 text-sm rounded-lg px-4 py-2 shadow-xl flex items-center gap-3"
+            >
+              <span>{missingCardsMessage(missingCards)}</span>
+              <button
+                type="button"
+                onClick={() => setMissingCards(0)}
+                className="text-amber-200 hover:text-white"
+                aria-label="Dismiss"
+              >
+                <FaTimes />
+              </button>
+            </div>
+          </div>
+        )}
         {/* The home for whole-game controls (#722): Reset and Load deck (#780). Rendered outside the
             isEmpty/!isEmpty split below so it's there in both states. */}
         <GameMenu

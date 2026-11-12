@@ -137,6 +137,15 @@ bumps the version last; any error writes nothing), and `GET`/`POST`/`DELETE emai
 In development, `/playtest/admin?fixture=1` renders the page with an in-memory store
 (`src/lib/playtestAdminFixture.ts`); production ignores it.
 
+A deck loaded from Lackey text drops a line whose card the card data lacks, a playtest card for a
+user who is not a playtester among them, as before, and a dismissible warning,
+`data-testid="deck-missing-cards-warning"`, says how many cards were not found ("3 cards in this deck
+were not found", `missingCardsMessage`, #1616): in the deck builder after any load of `useDeckState`,
+and on the practice table after a Load deck from Drive or a bot pile. `deckFromTsvWithMissing` and
+`missingCardsOf` (`deckBuilderUtils.ts`) count the copies, by pile header, so a load of some piles
+counts only theirs. A `?share=` or `?driveFile=` deck waits for `usePlaytestCards().settled` (#1615), so a
+playtester's own deck loads with its playtest cards.
+
 No playtest card is ever committed: no name, text, TSV row or image in the repository, a test, a
 fixture, an issue or a PR. Tests use invented cards.
 

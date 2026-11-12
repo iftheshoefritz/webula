@@ -411,4 +411,55 @@ describe('Play against the bot in the two-step Load deck (#1290)', () => {
     await openMenu();
     expect(screen.queryByTestId('game-menu-bot-game')).not.toBeInTheDocument();
   });
+  // Invented names only: no playtest card is ever committed (#1616). The card data is empty, so no
+  // card of these texts is found.
+  describe('the warning of cards not found (#1616)', () => {
+    const TSV_A = 'Deck:\n2\tImaginary Card\n\nDilemmas:\n4\tInvented Dilemma\n\nMissions:\n1\tMade-up Mission';
+    const TSV_B = 'Deck:\n5\tUnseen Card\n\nDilemmas:\n1\tOther Dilemma';
+
+    beforeEach(() => {
+      (deckFromTsv as jest.Mock).mockImplementation((tsv: string) => ({ [TSV_A]: deckA, [TSV_B]: deckB, 'tsv-a': deckA, 'tsv-b': deckB })[tsv]);
+      global.fetch = jest.fn((url: string) => {
+        if (url.startsWith('/api/drive?')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ files: [fileA, fileB] }) });
+        }
+        const id = url.replace('/api/drive/', '');
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(id === 'a' ? TSV_A : TSV_B) });
+      }) as unknown as typeof fetch;
+    });
+
+    it('names the count of the cards a whole Drive deck dropped, after the deal', async () => {
+      await renderPage();
+      expect(screen.queryByTestId('deck-missing-cards-warning')).toBeNull();
+      await openPicker();
+      await loadWholeDeck('Deck A');
+      expect(screen.getByTestId('deck-missing-cards-warning')).toHaveTextContent('7 cards in this deck were not found');
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('deck-missing-cards-warning').querySelector('button[aria-label="Dismiss"]')!);
+      });
+      expect(screen.queryByTestId('deck-missing-cards-warning')).toBeNull();
+    });
+
+    it('counts the missions and draw deck of one deck and the dilemmas of the other', async () => {
+      await renderPage();
+      await openPicker();
+      await click('Load the missions and draw deck of Deck A');
+      await click('Load the dilemmas of Deck B');
+      expect(screen.getByTestId('deck-missing-cards-warning')).toHaveTextContent('4 cards in this deck were not found');
+    });
+
+    it('shows no warning for a deck whose every card is found', async () => {
+      global.fetch = jest.fn((url: string) => {
+        if (url.startsWith('/api/drive?')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ files: [fileA, fileB] }) });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(`tsv-${url.replace('/api/drive/', '')}`) });
+      }) as unknown as typeof fetch;
+      await renderPage();
+      await openPicker();
+      await loadWholeDeck('Deck A');
+      expect(save().dealtDeck).toBeDefined();
+      expect(screen.queryByTestId('deck-missing-cards-warning')).toBeNull();
+    });
+  });
 });

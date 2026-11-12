@@ -5,10 +5,12 @@ import {
   aboveMinimumCount,
   belowMaximumCount,
   deckFromTsv,
+  deckFromTsvWithMissing,
   decrementedRow,
   findExistingOrUseRow,
   incrementedRow,
   mergeDeckPiles,
+  missingInPiles,
   withCurrentPiles,
 } from '../app/decks/deckBuilderUtils';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
@@ -66,9 +68,15 @@ export function useDeckState({
     setFixtureCurrentDeck(deckFromTsv(PRACTICE_DECK_TSV, data));
   }
 
+  // The cards the last load dropped because the card data has none of that name (#1616), for the
+  // warning. Every load sets it, so a clean load clears the warning of an older one.
+  const [missingCards, setMissingCards] = useState(0);
+
   // Sets the state of a load and nothing more.
   const setLoadedDeck = (name: string, contents: string, piles?: DeckPile[]) => {
-    const incoming = deckFromTsv(contents, data);
+    const parsed = deckFromTsvWithMissing(contents, data);
+    const incoming = parsed.deck;
+    setMissingCards(missingInPiles(parsed, piles));
     const next = piles ? mergeDeckPiles(currentDeck, incoming, piles) : incoming;
     setCurrentDeck(next);
     if (name && !piles) {
@@ -163,6 +171,8 @@ export function useDeckState({
     clearDeck,
     handleFileLoad,
     loadDeckInRender,
+    missingCards,
+    dismissMissingCards: () => setMissingCards(0),
   };
 }
 

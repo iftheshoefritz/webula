@@ -175,3 +175,38 @@ describe('set:playtest (#1614)', () => {
     expect(found.map((row) => row.originalName)).toEqual(['Zed Quill', 'Widget Array']);
   });
 });
+
+describe('settled, for a deck from the URL (#1616)', () => {
+  function Settled() {
+    return <p data-testid="settled">{String(usePlaytestCards().settled)}</p>;
+  }
+  const renderSettled = () => render(<PlaytestCardsProvider><Settled /></PlaytestCardsProvider>);
+  const settled = () => screen.getByTestId('settled').textContent;
+
+  it('has settled with no provider', () => {
+    render(<Settled />);
+    expect(settled()).toBe('true');
+  });
+
+  it('has not settled while the session loads', () => {
+    mockUseSession.mockReturnValue({ status: 'loading', data: null });
+    renderSettled();
+    expect(settled()).toBe('false');
+  });
+
+  it('has settled at once for a signed-out user', () => {
+    mockUseSession.mockReturnValue({ status: 'unauthenticated', data: null });
+    renderSettled();
+    expect(settled()).toBe('true');
+  });
+
+  it('settles for a signed-in user once the answer is in, a 404 too', async () => {
+    mockUseSession.mockReturnValue(signedIn);
+    let answer: (value: unknown) => void = () => {};
+    fetchMock.mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    renderSettled();
+    expect(settled()).toBe('false');
+    answer({ ok: false, status: 404, json: async () => ({ error: 'not_found' }) });
+    await waitFor(() => expect(settled()).toBe('true'));
+  });
+});

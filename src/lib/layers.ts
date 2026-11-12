@@ -12,6 +12,7 @@
 // | Card list panel                        | `z-[150]` | `CardListPanel.tsx`    |
 // | Game menu splash                       | `z-[160]` | `PracticeTable.tsx`    |
 // | Game menu + fullscreen button, open    | `z-[170]` | `PracticeTable.tsx`    |
+// | Load deck's missing-cards warning      | `z-[175]` | `PracticeTable.tsx`    |
 // | Modal backdrop (decklist, Drive picker)| `z-[180]` | `DecklistPanel.tsx`, `drivePicker/DriveModalShell.tsx` (`DrivePickerModal.tsx`, `PracticeDeckPicker.tsx`, `OfflineDeckPicker.tsx`) |
 // | Modal dialog (decklist, Drive move)    | `z-[190]` | `DecklistPanel.tsx`, `DrivePickerModal.tsx` (its Move dialog) |
 // | Card preview (table, decklist image)   | `z-[200]` | `CardPreview.tsx`, `DecklistPanel.tsx` |
@@ -31,6 +32,8 @@ export const LAYER_HAND_FAN = 'z-[146]';
 export const LAYER_CARD_LIST_PANEL = 'z-[150]';
 export const LAYER_MENU_SPLASH = 'z-[160]';
 export const LAYER_MENU_BUTTON_OPEN = 'z-[170]';
+// The warning of a Load deck that dropped cards (#1616): above the menu, below a modal.
+export const LAYER_LOAD_WARNING = 'z-[175]';
 export const LAYER_MODAL_BACKDROP = 'z-[180]';
 export const LAYER_MODAL = 'z-[190]';
 export const LAYER_CARD_PREVIEW = 'z-[200]';
