@@ -1,15 +1,17 @@
 import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import { showCardMissing } from '../lib/cardImageUrl';
 
 type CardPreviewModalProps = {
-  imagefile: string;
+  // The image URL, from `cardImageUrl` (#1614).
+  imageSrc: string;
   name: string;
   // A z-index class; the default `z-50` sits below a modal of the practice table (#899).
   layer?: string;
   onClose: () => void;
 };
 
-const CardPreviewModal: React.FC<CardPreviewModalProps> = ({ imagefile, name, layer = 'z-50', onClose }) => {
+const CardPreviewModal: React.FC<CardPreviewModalProps> = ({ imageSrc, name, layer = 'z-50', onClose }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -27,7 +29,8 @@ const CardPreviewModal: React.FC<CardPreviewModalProps> = ({ imagefile, name, la
       >
         <div className="relative">
           <img
-            src={`/cardimages/${imagefile}.jpg`}
+            src={imageSrc}
+            onError={showCardMissing}
             alt={name}
             width={288}
             height={400}

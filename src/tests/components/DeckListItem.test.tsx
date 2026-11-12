@@ -7,7 +7,7 @@ const defaultProps = {
   collectorsinfo: '1U100',
   count: 2,
   name: 'Jean-Luc Picard',
-  imagefile: 'picard',
+  imageSrc: '/cardimages/picard.jpg',
   unique: false,
 };
 
@@ -53,5 +53,14 @@ describe('DeckListItem without handlers (#899)', () => {
     const image = screen.getByAltText('Jean-Luc Picard');
     expect(image.closest('.fixed')).toHaveClass('z-[200]');
     expect(image.closest('li')).toBeNull();
+  });
+});
+
+describe('DeckListItem playtest badge (#1614)', () => {
+  it('shows the badge for a playtest card only', () => {
+    const { rerender } = render(<DeckListItem {...defaultProps} playtest />);
+    expect(screen.getByTestId('playtest-badge')).toHaveTextContent('Playtest');
+    rerender(<DeckListItem {...defaultProps} />);
+    expect(screen.queryByTestId('playtest-badge')).not.toBeInTheDocument();
   });
 });

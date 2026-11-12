@@ -948,3 +948,28 @@ describe('SearchResults', () => {
     });
   });
 });
+
+describe('SearchResults playtest badge (#1614)', () => {
+  // An invented playtest card; `CardDef` declares no `set`, but every parsed row has one.
+  const playtest = { ...cardFixture({ collectorsinfo: 'PT1', name: 'Zed Quill', imagefile: 'PT-ZedQuill' }), set: 'playtest' } as CardDef;
+  const real = { ...cardFixture({ collectorsinfo: '1R002', name: 'Real Card' }), set: 'premiere' } as CardDef;
+
+  it.each(['image', 'list'] as const)('marks only the playtest card in the %s view', (viewMode) => {
+    render(<SearchResults filteredData={[playtest, real]} viewMode={viewMode} />);
+    expect(screen.getAllByTestId('playtest-badge')).toHaveLength(1);
+  });
+
+  it('shows CardMissing.jpg for a playtest card before the version is known', () => {
+    render(<SearchResults filteredData={[playtest]} />);
+    expect(screen.getByAltText('Zed Quill')).toHaveAttribute('src', '/cardimages/CardMissing.jpg');
+  });
+
+  it('falls back to CardMissing.jpg when an image fails, and does not loop', () => {
+    render(<SearchResults filteredData={[real]} />);
+    const img = screen.getByAltText('Real Card');
+    fireEvent.error(img);
+    expect(img).toHaveAttribute('src', '/cardimages/CardMissing.jpg');
+    fireEvent.error(img);
+    expect(img).toHaveAttribute('src', '/cardimages/CardMissing.jpg');
+  });
+});

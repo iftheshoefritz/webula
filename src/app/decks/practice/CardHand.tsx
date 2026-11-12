@@ -57,6 +57,7 @@ import {
   handArcLayout,
 } from './handArc';
 import { SAFE_INSET_CSS, safeAreaMargins } from './useSafeAreaInsets';
+import { cardImageUrl, showCardMissing } from '../../../lib/cardImageUrl';
 
 // The highest the controls row above the open hand may sit: `VIEWER_TOP_INSET` below the top safe-area
 // inset (#1384).
@@ -194,7 +195,8 @@ function ClosedFanCard({ instance, width }: { instance: CardInstance; width: num
     <div {...holdListeners} style={NO_CALLOUT_STYLE}>
       <img
         draggable={false}
-        src={`/cardimages/${instance.card.imagefile}.jpg`}
+        src={cardImageUrl(instance.card)}
+        onError={showCardMissing}
         width={120}
         height={167}
         alt=""
@@ -245,7 +247,8 @@ function DraggableFanCard({
       >
         <img
           draggable={false}
-          src={`/cardimages/${card.imagefile}.jpg`}
+          src={cardImageUrl(card)}
+          onError={showCardMissing}
           width={120}
           height={167}
           alt={cardDisplayName(card)}

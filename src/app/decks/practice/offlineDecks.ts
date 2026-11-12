@@ -9,6 +9,7 @@ import { DeckList } from '../../../types';
 import { withBackImageFiles } from '../deckBuilderUtils';
 import { fingerprint } from './savedGame';
 import { CARD_BACK_URL, CARD_DATA_URL, OFFLINE_CACHE_NAME } from './offlineCache';
+import { cardImageUrl } from '../../../lib/cardImageUrl';
 
 export { CARD_BACK_URL, CARD_DATA_URL, OFFLINE_CACHE_NAME };
 
@@ -41,7 +42,6 @@ export type MakeOfflineResult =
   | { offline: true; record: OfflineDeck }
   | { offline: false; failed: FailedUrl[] };
 
-const imageUrl = (imagefile: string): string => `/cardimages/${imagefile}.jpg`;
 
 // Every URL the deck needs offline, with no duplicates: each front, each back (filled from
 // `data` for a mission of a deck saved before #765), the card back and the card data file.
@@ -52,8 +52,8 @@ export function deckUrls(deck: DeckList, data: any[]): string[] {
   );
   const urls = new Set<string>();
   rows.forEach((row) => {
-    if (row?.imagefile) urls.add(imageUrl(row.imagefile));
-    if (row?.backimagefile) urls.add(imageUrl(row.backimagefile));
+    if (row?.imagefile) urls.add(cardImageUrl(row));
+    if (row?.backimagefile) urls.add(cardImageUrl(row, 'back'));
   });
   urls.add(CARD_BACK_URL);
   urls.add(CARD_DATA_URL);
@@ -68,8 +68,8 @@ const urlNames = (deck: DeckList, data: any[]): Map<string, string> => {
   ]);
   withBackImageFiles(Object.values(deck).map((entry) => entry.row), data).forEach((row) => {
     const name = row?.originalName ?? row?.name ?? row?.imagefile;
-    if (row?.imagefile) names.set(imageUrl(row.imagefile), name);
-    if (row?.backimagefile) names.set(imageUrl(row.backimagefile), `${name} (back)`);
+    if (row?.imagefile) names.set(cardImageUrl(row), name);
+    if (row?.backimagefile) names.set(cardImageUrl(row, 'back'), `${name} (back)`);
   });
   return names;
 };

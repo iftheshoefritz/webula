@@ -15,6 +15,8 @@ import {
   previewHeightFor,
   previewMaxWidth,
 } from "../app/decks/practice/previewSize";
+import { cardImageUrl, isPlaytestCard, showCardMissing } from "../lib/cardImageUrl";
+import PlaytestBadge from "./PlaytestBadge";
 
 // The hover image of the list view, and of the image view on a touch device: the trigger is text,
 // or there is no hover to size it from.
@@ -281,7 +283,8 @@ export default function SearchResults({
         <div style={imageStyle}>
           <div className="relative">
             <img
-              src={`/cardimages/${row.imagefile}.jpg`}
+              src={cardImageUrl(row)}
+              onError={showCardMissing}
               width={hoverImageWidth}
               height={fullCardHeight(hoverImageWidth)}
               loading="lazy"
@@ -323,7 +326,8 @@ export default function SearchResults({
         <div className={cardWrapperClass}>
           <div className="relative">
             <img
-              src={`/cardimages/${row.imagefile}.jpg`}
+              src={cardImageUrl(row)}
+              onError={showCardMissing}
               width={165}
               height={229}
               loading="lazy"
@@ -338,6 +342,9 @@ export default function SearchResults({
             />
             <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_0_6px_black] pointer-events-none" />
           </div>
+          {isPlaytestCard(row) && (
+            <PlaytestBadge className="absolute top-2 left-2 ml-0 bg-black/80 pointer-events-none" />
+          )}
           {currentDeck && count > 0 && (
             <div className="absolute top-2 right-2 flex items-center gap-0.5 bg-black/70 rounded-full px-1">
               <button
@@ -428,6 +435,7 @@ export default function SearchResults({
             >
               {row.unique === 'y' && <span>·</span>}{row.name}
             </span>
+            {isPlaytestCard(row) && <PlaytestBadge className="shrink-0" />}
             {deckCount !== null && deckCount > 0 && (
               <div className="ml-auto flex items-center gap-0.5 bg-black/70 rounded-full px-1 shrink-0">
                 <button

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadCards } from '../../../../lib/loadCards';
 import { filterCards } from '../../../../lib/filterCards';
+import { cardImageUrl } from '../../../../lib/cardImageUrl';
 
 const BASE_URL =
   process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
       if (results.length === 1) {
         const card = results[0];
         const imageUrl = card.imagefile
-          ? `${BASE_URL}/cardimages/${card.imagefile}.jpg`
+          ? `${BASE_URL}${cardImageUrl(card)}`
           : null;
 
         const embed: Record<string, unknown> = {
