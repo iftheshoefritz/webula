@@ -38,3 +38,16 @@ export function playtestImage(bytes: Uint8Array<ArrayBuffer>): Response {
     },
   });
 }
+
+// The answers of the owner-only admin routes (#1613): never kept by a cache, the browser's too.
+export function playtestAdminJson(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', ...NOINDEX },
+  });
+}
+
+export function playtestBadRequest(error: string, extra: Record<string, unknown> = {}, status = 400): Response {
+  const code: ShareErrorCode = 'bad_request';
+  return playtestAdminJson({ error, code, ...extra }, status);
+}

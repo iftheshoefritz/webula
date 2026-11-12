@@ -120,6 +120,23 @@ ignores. Both answer 404 to anyone who is not a playtester, a signed-out caller 
 unknown or malformed image, so they never reveal that playtest cards exist; a store failure answers
 502 `upstream_unreachable`. Every answer is `private` and carries `X-Robots-Tag: noindex`.
 
+The owners upload at `/playtest/admin` (#1613), a server page that reads the JWT
+(`pageCallerEmail`): a signed-out visitor gets a "Sign in with Google" button
+(`data-testid="playtest-admin-sign-in"`), a signed-in non-owner the 404 page, and an owner
+`PlaytestAdminClient`. The browser reads `images.zip` with `readZip` (`src/lib/zipReader.ts`, stored
+and deflated entries, no zip64, no encryption, no package) and builds the preview with
+`playtestPreview` (`src/lib/playtestUpload.ts`): the cards by type, the errors, the warnings, the
+`ImageFile`s with no `<ImageFile>.jpg` in the zip and the unused images. An error disables Publish,
+which sends the images in batches under 3 MB of JSON (`imageBatches`; a Vercel function takes at most
+4.5 MB), then the TSV. The owner-only routes under `/api/playtest/admin/` answer 404 to anyone else,
+with `private, no-store`: `GET status` (`{ version, uploadedAt, cards, images, emails }`, counted
+from the stored TSV), `POST images` (`{ images: [{ imageFile, base64 }] }`), `POST cards` (the TSV
+as text: it runs `normalisePlaytestTsv` again with the real names, checks the store holds every image,
+writes the cards, removes the images the new TSV no longer names, writes `playtest:uploadedAt`, and
+bumps the version last; any error writes nothing), and `GET`/`POST`/`DELETE emails` (`{ email }`).
+In development, `/playtest/admin?fixture=1` renders the page with an in-memory store
+(`src/lib/playtestAdminFixture.ts`); production ignores it.
+
 No playtest card is ever committed: no name, text, TSV row or image in the repository, a test, a
 fixture, an issue or a PR. Tests use invented cards.
 

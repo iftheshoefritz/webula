@@ -49,6 +49,8 @@ const nextConfig = {
     '/api/championship-decks/*': ['./championship-decks/**/*'],
     // The stats route reads the top-level `stats/` folder the same way (#1417).
     '/api/stats': ['./stats/**/*'],
+    // The playtest upload checks the names against the real cards (#1613).
+    '/api/playtest/admin/cards': ['./public/cards_with_processed_columns.txt'],
   },
   env: {
     // Vercel sets VERCEL_ENV on the server only. Expose it so client components can tell a
