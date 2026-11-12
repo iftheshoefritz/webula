@@ -303,8 +303,8 @@ function repairTable(table: TableState): TableState {
   if (top && table.attempt!.revealSnapshot?.dilemmaId !== top.id) {
     table.attempt = { ...table.attempt!, revealSnapshot: revealSnapshotOf(table, top.id) };
   }
-  // A snapshot of the top card whose dilemma rolls before the player's choice and has no roll, a fresh
-  // one or a save from before #1594, rolls it here, outside the reducer, once (#1594): the next save
+  // A snapshot of the top card whose dilemma selects at random and has no roll, a fresh one or a save
+  // from before #1594 or #1628, rolls it here, outside the reducer, once (#1594): the next save
   // keeps it.
   const snapshot = table.attempt?.revealSnapshot;
   if (top && snapshot?.dilemmaId === top.id && !snapshot.picks && !snapshot.resolved) {

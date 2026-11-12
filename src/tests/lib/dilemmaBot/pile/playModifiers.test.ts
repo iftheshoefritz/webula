@@ -6,7 +6,7 @@ import { PileAttempt, PlayModifiers } from '../../../../lib/dilemmaBot/pile/mode
 import { PlayState, playPileStack } from '../../../../lib/dilemmaBot/pile/play';
 import { req } from '../../../../lib/dilemmaBot/pile/families';
 import { modelOf } from '../../../../lib/dilemmaBot/pile/registry';
-import { modifiersClause, modifiersText, pileModifiersOf, pileResolveOf, playModifiersOf } from '../../../../lib/dilemmaBot/pile/resolve';
+import { modifiersClause, modifiersText, pileModifiersOf, pileResolveOf, pileRevealPicksOf, playModifiersOf } from '../../../../lib/dilemmaBot/pile/resolve';
 import { PileCardRow, pileAttemptOf } from '../../../../lib/dilemmaBot/pile/tableAttempt';
 
 const person = (name: string, skills = 'Physics') => ({
@@ -105,11 +105,14 @@ describe('the modifiers by card id (#1597)', () => {
 describe('pileResolveOf and the modifiers (#1597)', () => {
   const resolve = (title: string, modifiers?: PlayModifiers, rand?: () => number) => {
     const { attempt, personnelIds } = setup();
-    return pileResolveOf({ originalName: title }, modifiers ? { ...attempt, modifiers } : attempt, {
+    const played = modifiers ? { ...attempt, modifiers } : attempt;
+    // The roll the reveal keeps (#1628), for a title that selects at random.
+    const revealPicks = rand ? pileRevealPicksOf({ originalName: title }, played, { personnelIds, rand }) : undefined;
+    return pileResolveOf({ originalName: title }, played, {
       personnelIds,
       snapshotIds: IDS,
       where: () => ({ at: 'row', stopped: false }),
-      ...(rand ? { rand } : {}),
+      ...(revealPicks ? { revealPicks } : {}),
     });
   };
 
@@ -184,7 +187,7 @@ describe('the Resolve names the modifiers (#1598)', () => {
     const plain = pileResolveOf({ originalName: 'An Old Debt' }, attempt, input);
     if (!plain.resolvable) throw new Error(plain.reason);
     expect(plain.preview).toBe('No effect');
-    const overwhelmed = pileResolveOf({ originalName: 'An Old Debt' }, { ...attempt, modifiers: { overwhelmed: true } }, { ...input, rand: () => 0 });
+    const overwhelmed = pileResolveOf({ originalName: 'An Old Debt' }, { ...attempt, modifiers: { overwhelmed: true } }, input);
     if (!overwhelmed.resolvable) throw new Error(overwhelmed.reason);
     expect(overwhelmed.preview).toMatch(/^Stops \w+, \w+ \(Overwhelmed\)$/);
     expect(overwhelmed.changes).toEqual([{ op: 'stop', ids: expect.arrayContaining([expect.any(String)]) }]);

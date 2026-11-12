@@ -218,9 +218,9 @@ export interface RevealSnapshot {
   dilemmaId: string;
   personnel: { id: string; stopped: boolean }[];
   resolved?: true;
-  // The roll of a dilemma whose random selection is the pool of the player's choice (#1594), as the
-  // `flip` that took the snapshot carries it: the card ids of each random select, in call order. The
-  // Resolve plays with it, so the player chooses from the same set after a reload.
+  // The roll of a dilemma that selects at random (#1594, #1628), as the `flip` that took the snapshot
+  // carries it: the card ids of each random select, in call order. The Resolve plays with it, so the
+  // preview, the press and a reload name the same personnel.
   picks?: string[][];
   // The attempt's modifiers as the card turned face up (#1597), which the label and the Resolve of this
   // card read, so a Resolve that changes them does not count again for the card that changed them.

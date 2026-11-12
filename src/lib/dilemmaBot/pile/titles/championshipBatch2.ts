@@ -8,6 +8,7 @@ import {
   both,
   botChooses,
   chooseOrElse,
+  described,
   hasAny,
   killRandom,
   noEffect,
@@ -82,7 +83,7 @@ dilemma('Infestation', D, 2, 'choose', playerStops(1), { repeatable: true });
 
 dilemma('Prisoner of the Exile', P, 4, 'player-brigs', playerBrigs(1));
 
-dilemma('New Face', D, 2, 'any-of-three', anyOfThree((s, k) => ATTRS.some((a) => s.attr(k, a) > 7), 'player'));
+dilemma('New Face', D, 2, 'any-of-three', anyOfThree(described('Integrity, Cunning or Strength > 7', (s, k) => ATTRS.some((a) => s.attr(k, a) > 7)), 'player'));
 
 dilemma('Neurogenic Field', P, 1, 'choose-or-else', chooseOrElse(hasAny('anthropology', 'medical'), killRandom(1)));
 

@@ -1,12 +1,16 @@
 import { RequirementBranch, SKILL_INDEX, parseRequirementBranches } from '../requirements';
-import { Attr, PlayState } from './play';
+import { Attr, ATTR_NAMES, PlayState, skillName } from './play';
 
 // The families of the dilemma registry (#1320, the pilot). A family is a shape of dilemma text with
 // parameters, such as "Unless you have <requirements>, <effect>" or "Choose a personnel who has <skills>
 // to be stopped. If you cannot, <effect>". Each builder returns the `play` of a `DilemmaModel`.
 
 export type Play = (s: PlayState) => void;
-export type Test = (s: PlayState, k: number) => boolean;
+/** A test of one personnel. `text`, when set, names it for the Resolve's check (#1628): "Honor or Treachery". */
+export type Test = ((s: PlayState, k: number) => boolean) & { text?: string };
+
+/** `test` with the `text` that names it. */
+export const described = (text: string, test: (s: PlayState, k: number) => boolean): Test => Object.assign(test, { text });
 
 /** The branches of a requirement text, such as "2 Medical and Cunning>38 or Telepathy". Throws on a text the parser cannot read. */
 export function req(text: string): RequirementBranch[] {
@@ -45,13 +49,14 @@ export const both = (...effects: Play[]): Play => (s) => effects.forEach((e) => 
 
 export const hasAny = (...skills: string[]): Test => {
   const ix = skills.map(sk);
-  return (s, k) => s.hasSkill(k, ...ix);
+  return described(ix.map(skillName).join(' or '), (s, k) => s.hasSkill(k, ...ix));
 };
-export const attrAbove = (a: Attr, n: number): Test => (s, k) => s.attr(k, a) > n;
-export const attrBelow = (a: Attr, n: number): Test => (s, k) => s.attr(k, a) < n;
+export const attrAbove = (a: Attr, n: number): Test => described(`${ATTR_NAMES[a]} > ${n}`, (s, k) => s.attr(k, a) > n);
+export const attrBelow = (a: Attr, n: number): Test => described(`${ATTR_NAMES[a]} < ${n}`, (s, k) => s.attr(k, a) < n);
 export const costAtMost = (n: number): Test => (s, k) => s.group[k].cost <= n;
 export const either = (...tests: Test[]): Test => (s, k) => tests.some((t) => t(s, k));
-export const affiliationIs = (icon: string): Test => (s, k) => s.group[k].affiliation === icon;
+export const affiliationIs = (icon: string): Test =>
+  described(`the ${icon.charAt(0).toUpperCase()}${icon.slice(1)} affiliation`, (s, k) => s.group[k].affiliation === icon);
 /** "A skill required by this mission": a skill some branch of the requirements names. */
 export const hasRequiredSkill: Test = (s, k) => s.requirements.some((b) => b.skills.some((n, i) => n > 0 && s.skill(k, i) > 0));
 /** A printed keyword, lowercased, such as `'admiral'`. A personnel with no `traits` has none. */
@@ -112,10 +117,26 @@ export const selectRandom = (count: number, act: (s: PlayState, selected: number
   act(s, selected);
 };
 
+/** The check of `test` on each of `selected` (#1628): it records which of them meet it, and returns them. */
+function checkEach(s: PlayState, selected: number[], test: Test, text = test.text ?? 'the condition'): number[] {
+  const met = selected.map((k) => test(s, k));
+  s.check(selected, met, text);
+  return selected.filter((_, i) => met[i]);
+}
+
 /** "Randomly select <count> personnel. Each of those personnel who does not have <test> is <effect>." */
 export const selectEachWithout = (count: number, test: Test, effect: 'stop' | 'kill'): Play =>
   selectRandom(count, (s, selected) => {
-    const hit = selected.filter((k) => !test(s, k));
+    const meet = checkEach(s, selected, test);
+    const hit = selected.filter((k) => !meet.includes(k));
+    if (effect === 'stop') s.stop(hit);
+    else s.kill(hit);
+  });
+
+/** "Randomly select <count> personnel. Each of those personnel who has <test> is <effect>" (#1628). */
+export const selectEachWith = (count: number, test: Test, effect: 'stop' | 'kill'): Play =>
+  selectRandom(count, (s, selected) => {
+    const hit = checkEach(s, selected, test);
     if (effect === 'stop') s.stop(hit);
     else s.kill(hit);
   });
@@ -128,9 +149,22 @@ export const unlessSelected = (count: number, requirements: string, effect: (s: 
   const branches = req(requirements);
   const restBranches = rest ? req(rest) : null;
   return selectRandom(count, (s, selected) => {
-    if (s.hasAmong(branches, selected)) s.trace?.(`  the selected personnel have ${requirements}: no effect`);
-    else if (restBranches && s.hasAmong(restBranches, s.unstopped().filter((k) => !selected.includes(k)))) s.trace?.(`  the unselected personnel have ${rest}: no effect`);
-    else effect(s, selected);
+    const has = s.hasAmong(branches, selected);
+    s.check(selected, selected.map(() => has), requirements, 'the selected personnel');
+    if (has) {
+      s.trace?.(`  the selected personnel have ${requirements}: no effect`);
+      return;
+    }
+    if (restBranches) {
+      const unselected = s.unstopped().filter((k) => !selected.includes(k));
+      const restHas = s.hasAmong(restBranches, unselected);
+      s.check(unselected, unselected.map(() => restHas), rest!, 'the unselected personnel');
+      if (restHas) {
+        s.trace?.(`  the unselected personnel have ${rest}: no effect`);
+        return;
+      }
+    }
+    effect(s, selected);
   });
 };
 
@@ -172,25 +206,14 @@ export const playerBrigs = (count: number): Play => (s) => s.brig(s.playerChoose
 export const playerDiscards = (count: number): Play => (s) => s.kill(s.playerChooses(s.unstopped(), count));
 
 /**
- * Marks a play whose random selection is the pool of a later `playerChooses` (#1594): `dilemma` sets
- * `DilemmaModel.rollsBeforeChoice` for it, so the table rolls the selection at the reveal and keeps it.
- */
-export const rollsBeforeChoice = (play: Play): Play => Object.assign((s: PlayState) => play(s), { rollsBeforeChoice: true as const });
-
-/** Whether `rollsBeforeChoice` marked `play`. */
-export const isRolledBeforeChoice = (play: Play): boolean => 'rollsBeforeChoice' in play && play.rollsBeforeChoice === true;
-
-/**
  * "Randomly select three personnel. If any of those personnel <test>, all three are stopped. Otherwise,
  * <one> of those personnel is stopped": the player's choice, or a random one.
  */
-export const anyOfThree = (test: Test, one: 'player' | 'random'): Play => {
-  const play = selectRandom(3, (s, selected) => {
-    if (selected.some((k) => test(s, k))) s.stop(selected);
+export const anyOfThree = (test: Test, one: 'player' | 'random'): Play =>
+  selectRandom(3, (s, selected) => {
+    if (checkEach(s, selected, test).length) s.stop(selected);
     else s.stop(one === 'player' ? s.playerChooses(selected) : s.select(1, selected));
   });
-  return one === 'player' ? rollsBeforeChoice(play) : play;
-};
 
 /** "Randomly select three personnel. If any is a <icon> personnel, all are stopped. Otherwise, choose one to be stopped." */
 export const anyOfAffiliation = (affiliation: string): Play => anyOfThree(affiliationIs(affiliation), 'player');

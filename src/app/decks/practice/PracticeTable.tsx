@@ -1862,7 +1862,8 @@ function PracticeDrawContent() {
   // pile, and starts a bot attempt whose facing stack has it on top, revealed, for the bot's label.
   // `?fixture=bot-resolve-noeffect` (#1589) does the same with a Conflict of Interests, for "No effect",
   // and `?fixture=bot-resolve-choice` (#1593) with a Covert Extraction, for the player's choice, and
-  // `?fixture=bot-resolve-pattern` (#1594) with A Pattern of Lies, whose roll the reveal keeps.
+  // `?fixture=bot-resolve-pattern` (#1594) with A Pattern of Lies, whose roll the reveal keeps, and
+  // `?fixture=bot-resolve-becalmed` (#1628) with Becalmed, whose roll and check the preview names.
   const botRevealFixture = fixture && Object.hasOwn(BOT_REVEAL_FIXTURES, fixture) ? BOT_REVEAL_FIXTURES[fixture] : null;
   const isBotFixture = fixture === 'bot' || botRevealFixture !== null;
   const isFixture = fixture === '1' || isPilesFixture || isAttemptFixture || isBotFixture;
@@ -2168,13 +2169,13 @@ function PracticeDrawContent() {
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
 
   // Issue #1589: the Resolve of the same revealed card, from the reveal snapshot and the live table, so
-  // its preview follows what the player does by hand. A press rolls the random picks here, as
-  // `withShuffleOrders` chooses a shuffle, and dispatches one `resolveDilemma`, even with no changes, so
-  // the snapshot turns resolved. No Resolve, no preview and no button: the player resolves by hand.
+  // its preview follows what the player does by hand. A press plays the roll the reveal kept (#1628), so it
+  // does what the preview names, and dispatches one `resolveDilemma`, even with no changes, so the
+  // snapshot turns resolved. No Resolve, no preview and no button: the player resolves by hand.
   // Issue #1593: where the player chooses, the row selection is the choice, so the Resolve follows it too,
   // and stays pending, its button disabled, until the choice is made. A selection triggers nothing else.
   const botResolve = useMemo(
-    () => (botLabelCardId ? botResolveOf(table, undefined, {}, selectedCardIds) : null),
+    () => (botLabelCardId ? botResolveOf(table, undefined, selectedCardIds) : null),
     [botLabelCardId, table, selectedCardIds],
   );
   const botResolvePreview = botResolve?.resolvable ? botResolve.preview : null;
@@ -2182,7 +2183,7 @@ function PracticeDrawContent() {
   const botResolved = !!table.attempt?.revealSnapshot?.resolved && table.attempt.revealSnapshot.dilemmaId === botLabelCardId;
   const resolveRevealedDilemma = () => {
     const top = dilemmaStack[0];
-    const pressed = botResolveOf(table, undefined, { rand: Math.random }, selectedCardIds);
+    const pressed = botResolveOf(table, undefined, selectedCardIds);
     if (!top || !pressed.resolvable || pressed.pending) return;
     dispatch({
       type: 'resolveDilemma',

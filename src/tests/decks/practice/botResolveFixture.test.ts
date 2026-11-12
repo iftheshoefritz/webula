@@ -74,7 +74,7 @@ describe('?fixture=bot-resolve-noeffect (#1589)', () => {
     expect(top.card.originalName).toContain('Conflict of Interests');
     expect(table.attempt?.revealSnapshot?.dilemmaId).toBe(top.id);
 
-    const r = botResolveOf(table, undefined, { rand: Math.random });
+    const r = botResolveOf(table);
     expect(r).toMatchObject({ resolvable: true, preview: 'No effect', changes: [] });
     if (!r.resolvable) return;
 
@@ -130,7 +130,7 @@ describe('?fixture=bot-resolve-choice (#1593)', () => {
     const crew = table.missions[2].ships[0].crew ?? [];
     const name = (id: string) => crew.find((c) => c.id === id)!.card.originalName as string;
     // A selected personnel the dilemma does not allow keeps the Resolve pending.
-    const press = (selected: string[]) => botResolveOf(table, undefined, { rand: Math.random }, selected);
+    const press = (selected: string[]) => botResolveOf(table, undefined, selected);
     const allowed = crew.filter((c) => c.card.type === 'personnel').map((c) => c.id).filter((id) => {
       const r = press([id]);
       return r.resolvable && !r.pending;
@@ -160,11 +160,11 @@ describe('?fixture=bot-resolve-choice (#1593)', () => {
     const table = dealRevealFixture('bot-resolve-choice');
     const crew = table.missions[2].ships[0].crew ?? [];
     const allowed = crew.find((c) => {
-      const r = botResolveOf(table, undefined, {}, [c.id]);
+      const r = botResolveOf(table, undefined, [c.id]);
       return c.card.type === 'personnel' && r.resolvable && !r.pending;
     })!;
     const stopped = tableReducer(table, { type: 'setStopped', ids: [allowed.id], stopped: true });
-    const r = botResolveOf(stopped, undefined, { rand: Math.random });
+    const r = botResolveOf(stopped);
     if (!r.resolvable) throw new Error(r.reason);
     expect(r.pending).toBeUndefined();
     expect(r.changes).toEqual([]);
@@ -234,7 +234,7 @@ describe('?fixture=bot-resolve-pattern (#1594)', () => {
     const table = dealRevealFixture('bot-resolve-pattern', true);
     const top = table.dilemmaStack[0];
     const set = table.attempt!.revealSnapshot!.picks![0];
-    const press = (selected: string[]) => botResolveOf(table, undefined, { rand: Math.random }, selected);
+    const press = (selected: string[]) => botResolveOf(table, undefined, selected);
     expect(press([])).toMatchObject({ resolvable: true, pending: true, changes: [] });
     // A personnel outside the set cannot be chosen.
     const outside = crewOf(table).find((c) => c.card.type === 'personnel' && !set.includes(c.id))!.id;
@@ -245,13 +245,54 @@ describe('?fixture=bot-resolve-pattern (#1594)', () => {
     if (!r.resolvable) throw new Error(r.reason);
     expect(r.pending).toBeUndefined();
     expect(r.changes).toEqual([{ op: 'stop', ids: [chosen] }]);
-    expect(r.preview).toContain(`Stops ${nameOf(table, chosen)}`);
+    expect(r.preview).toContain(`stops ${nameOf(table, chosen)}`);
     const start = initialGameState(table);
     const game = gameReducer(start, { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'A Pattern of Lies', changes: r.changes, notes: r.notes, move: r.move });
     expect(game.table.dilemmaStack).toHaveLength(table.dilemmaStack.length - 1);
     expect(game.log).toHaveLength(start.log.length + 1);
     expect(logEntryText(game.log[game.log.length - 1])).toContain(nameOf(table, chosen));
     expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
+  });
+});
+
+describe('?fixture=bot-resolve-becalmed (#1628)', () => {
+  const crewOf = (table: TableState) => table.missions[2].ships[0].crew ?? [];
+  const nameOf = (table: TableState, id: string) => crewOf(table).find((c) => c.id === id)!.card.originalName as string;
+  const saveAndRestore = (table: TableState, deck: any) => fromSavedGame(JSON.stringify(toSavedGame(table, deck, 'builder')), deck)!.table;
+
+  it('the flip that reveals Becalmed keeps the roll, and the preview names the three, the check and who is stopped', () => {
+    const { table, deck } = dealRevealFixtureWithDeck('bot-resolve-becalmed', true);
+    const top = table.dilemmaStack[0];
+    expect(top.card.originalName).toContain('Becalmed');
+    const picks = table.attempt?.revealSnapshot?.picks;
+    expect(picks).toHaveLength(1);
+    expect(picks![0]).toHaveLength(3);
+    const r = botResolveOf(table);
+    if (!r.resolvable) throw new Error(r.reason);
+    const names = picks![0].map((id) => nameOf(table, id));
+    expect(r.preview.startsWith(`Selected ${names.join(', ')}; `)).toBe(true);
+    expect(r.preview).toMatch(/(has|have) Integrity, Cunning or Strength > 6: (stops|no effect)/);
+    const met = r.steps!.checks[0].met;
+    expect(r.changes).toEqual(met.length ? [{ op: 'stop', ids: met }] : []);
+    expect(r.preview).toContain(met.length ? `: stops ${met.map((id) => nameOf(table, id)).join(', ')}` : ': no effect');
+    expect(r.preview).not.toContain('random');
+
+    // A reload keeps the three and the text.
+    const restored = saveAndRestore(table, deck);
+    expect(restored.attempt?.revealSnapshot?.picks).toEqual(picks);
+    expect(botResolveOf(restored)).toEqual(r);
+
+    // The press stops exactly the personnel the preview names, in one log entry that one undo takes back.
+    const start = initialGameState(table);
+    const game = gameReducer(start, { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'Becalmed', changes: r.changes, notes: r.notes, move: r.move });
+    const stoppedNow = crewOf(game.table).filter((c) => c.stopped && !crewOf(table).find((b) => b.id === c.id)?.stopped).map((c) => c.id);
+    expect(stoppedNow.sort()).toEqual(met.slice().sort());
+    expect(game.log).toHaveLength(start.log.length + 1);
+    expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
+  });
+
+  it('a plain flip with no roll gives no Resolve', () => {
+    expect(botResolveOf(dealRevealFixture('bot-resolve-becalmed'))).toMatchObject({ resolvable: false });
   });
 });
 
@@ -281,7 +322,7 @@ describe('the modifiers a Resolve keeps for the rest of the attempt (#1597)', ()
     const table = dealRevealFixture(ACCELERATED_AGING);
     const top = table.dilemmaStack[0];
     expect(top.card.originalName).toContain('Accelerated Aging');
-    const r = botResolveOf(table, undefined, { rand: Math.random });
+    const r = botResolveOf(table);
     if (!r.resolvable) throw new Error(r.reason);
     expect(r.modifiers).toEqual({ firstSkillOff: true });
 
@@ -336,7 +377,7 @@ describe('?fixture=bot-resolve-modifier (#1598)', () => {
     expect(next.card.originalName).toContain('Dead Weight');
     expect(attemptModifiersText(table)).toBe('');
 
-    const r = botResolveOf(table, undefined, { rand: Math.random });
+    const r = botResolveOf(table);
     if (!r.resolvable) throw new Error(r.reason);
     expect(r.preview).toBe('First skill off for the rest of the attempt');
     const start = initialGameState(table);
@@ -382,7 +423,7 @@ describe('the Resolve moves the dilemma (#1599)', () => {
   it('lands a returning dilemma at the bottom of the dilemma pile, face up, and redo replays the whole Resolve', () => {
     const table = dealRevealFixture('bot-label');
     const top = table.dilemmaStack[0];
-    const r = botResolveOf(table, undefined, { rand: () => 0 });
+    const r = botResolveOf(table);
     if (!r.resolvable) throw new Error(r.reason);
     const start = initialGameState(table);
     const game = gameReducer(start, {
@@ -405,7 +446,7 @@ describe('the Resolve moves the dilemma (#1599)', () => {
   it('moves Well-Prepared Defenses under Bilana System and stops the personnel, and a second Resolve of it changes nothing', () => {
     const table = dealRevealFixture('bot-label');
     const top = table.dilemmaStack[0];
-    const r = botResolveOf(table, undefined, { rand: () => 0 });
+    const r = botResolveOf(table);
     if (!r.resolvable) throw new Error(r.reason);
     const action: TableAction = { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'Well-Prepared Defenses', changes: r.changes, move: r.move };
     const resolved = tableReducer(table, action);
@@ -424,7 +465,7 @@ describe('the Resolve changes the stack (#1600)', () => {
   const VAULT = { title: 'Vault of Tomorrow', collectorsInfo: '12U019' };
   const TALOSIAN = { title: 'Talosian Trial', collectorsInfo: '4R025' };
   const press = (table: TableState, dilemma: string): TableAction => {
-    const r = botResolveOf(table, undefined, { rand: () => 0 });
+    const r = botResolveOf(table);
     if (!r.resolvable) throw new Error(r.reason);
     return { type: 'resolveDilemma', dilemmaId: table.dilemmaStack[0].id, dilemma, changes: r.changes, move: r.move, fetchedId: r.fetchedId, restToPile: r.restToPile };
   };
@@ -489,7 +530,7 @@ describe('the Resolve changes the stack (#1600)', () => {
 describe('pointing to Done (#1600)', () => {
   it('shows when the Resolve leaves no unstopped personnel, after a reload too, and an undo hides it', () => {
     const { table: dealt, deck } = dealRevealFixtureWithDeck('bot-label');
-    const r0 = botResolveOf(dealt, undefined, { rand: () => 0 });
+    const r0 = botResolveOf(dealt);
     if (!r0.resolvable) throw new Error(r0.reason);
     const chosen = r0.changes.flatMap((c) => c.ids);
     // Stop by hand every crew member but the one Well-Prepared Defenses stops.
@@ -498,7 +539,7 @@ describe('pointing to Done (#1600)', () => {
     const table = tableReducer(dealt, { type: 'setStopped', ids: others, stopped: true });
     expect(attemptDonePrompt(table)).toBe(false);
 
-    const r = botResolveOf(table, undefined, { rand: () => 0 });
+    const r = botResolveOf(table);
     if (!r.resolvable) throw new Error(r.reason);
     const game = gameReducer(initialGameState(table), {
       type: 'resolveDilemma',

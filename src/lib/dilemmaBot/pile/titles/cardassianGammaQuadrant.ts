@@ -1,4 +1,4 @@
-import { allButOne, attrAbove, attrBelow, botChooses, chooseOrElse, either, handWeapons, hasAny, killRandom, killRandomThenStopAll, noEffect, playerStops, req, selectRandom, selectUntil, sk, stopAll, stopRandom, unless, unlessGroup } from '../families';
+import { allButOne, attrAbove, attrBelow, botChooses, chooseOrElse, either, described, handWeapons, hasAny, killRandom, killRandomThenStopAll, noEffect, playerStops, req, selectEachWith, selectRandom, selectUntil, sk, stopAll, stopRandom, unless, unlessGroup } from '../families';
 import { Attr, skillName } from '../play';
 import { DilemmaModel } from '../model';
 import { D, NAMEABLE, P, S, addableModels, dilemmaList, discardToRaise, lowCost, mostHeldSkill, speciesKey } from '../define';
@@ -33,9 +33,8 @@ dilemma('Back to Basics', D, 4, 'assumed-fires', (s) => {
   s.stopAll();
 }, { category: '6', assumption: 'the bot\'s discard pile holds 14 or more personnel and ships' });
 
-dilemma('Becalmed', D, 0, 'random-select', selectRandom(3, (s, sel) => {
-  s.stop(sel.filter((k) => ([0, 1, 2] as Attr[]).some((a) => s.attr(k, a) > 6)));
-}), { cost: (a) => a.mission.span });
+dilemma('Becalmed', D, 0, 'select-each-with', selectEachWith(3, described('Integrity, Cunning or Strength > 6', (s, k) =>
+  ([0, 1, 2] as Attr[]).some((a) => s.attr(k, a) > 6)), 'stop'), { cost: (a) => a.mission.span });
 
 dilemma('Center of Attention', D, 3, 'unless', unlessGroup(
   (s) => s.has(req('3 Security')) || (handWeapons(s) > 0 && s.has(req('Cunning>28'))) || s.unstopped().some((k) => /\bquark\b/i.test(s.name(k))),

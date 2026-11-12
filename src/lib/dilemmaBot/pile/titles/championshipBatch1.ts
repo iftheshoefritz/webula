@@ -15,7 +15,6 @@ import {
   playerStops,
   req,
   revealOrElse,
-  rollsBeforeChoice,
   selectEachWithout,
   selectRandom,
   sk,
@@ -124,10 +123,10 @@ dilemma('A Klingon Matter', P, 3, 'own', unless('2 Intelligence and Treachery or
 }));
 
 // No family fits: the species of the three selected decide between stopping all three and the player's choice.
-dilemma('A Pattern of Lies', D, 2, 'own', rollsBeforeChoice(selectRandom(3, (s, sel) => {
+dilemma('A Pattern of Lies', D, 2, 'own', selectRandom(3, (s, sel) => {
   if (sel.every((k) => speciesKey(s, k) === speciesKey(s, sel[0]))) s.stop(sel);
   else s.stop(s.playerChooses(sel));
-})));
+}));
 
 dilemma('Adversarial Trial', S, 2, 'random-select', (s) => {
   s.stop(s.select(1, s.unstopped().filter((k) => s.hasSkill(k, sk('anthropology'), sk('programming')))));

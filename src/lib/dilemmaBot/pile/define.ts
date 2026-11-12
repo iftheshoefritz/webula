@@ -1,5 +1,5 @@
 import { BOT_SKILLS } from '../requirements';
-import { isRolledBeforeChoice, Play, sk } from './families';
+import { Play, sk } from './families';
 import { BotSideCategory, DilemmaModel, PileAttempt } from './model';
 import { Attr, ATTR_NAMES, PlayState } from './play';
 
@@ -74,7 +74,6 @@ export function dilemmaList() {
       status: 'play',
       ...extras,
       goesUnder: extras.goesUnder ?? true,
-      ...(isRolledBeforeChoice(play) ? { rollsBeforeChoice: true as const } : {}),
     });
   };
   return { models, dilemma };

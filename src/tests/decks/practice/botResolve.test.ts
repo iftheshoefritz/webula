@@ -16,7 +16,8 @@ const dilemma = (id: string, title: string) => card(id, { type: 'dilemma', name:
 
 const NAMES: Record<string, string> = { 'card-2': 'Alpha', 'card-3': 'Beta', 'card-4': 'Gamma' };
 
-function revealed(title: string, crewSkills: string[] = ['Physics', 'Physics', 'Physics']): TableState {
+// `picks`: the roll the reveal keeps (#1628), as the page's flip carries it.
+function revealed(title: string, crewSkills: string[] = ['Physics', 'Physics', 'Physics'], picks?: string[][]): TableState {
   const start: TableState = {
     ...initialTableState,
     opponent: 'bot',
@@ -29,7 +30,7 @@ function revealed(title: string, crewSkills: string[] = ['Physics', 'Physics', '
     dilemmaStack: [dilemma('card-6', title), dilemma('card-7', 'Wall of Fire')],
     attempt: { missionIndex: 0, personnel: 3, subtract: 0, phase: 'face', drawn: 0, botDraw: 9, botSpend: 9, botStack: ['card-6', 'card-7'], botRevealed: [] },
   };
-  return tableReducer(start, { type: 'flip', id: 'card-6' });
+  return tableReducer(start, { type: 'flip', id: 'card-6', ...(picks ? { picks } : {}) });
 }
 
 describe('botResolveOf (#1588)', () => {
@@ -58,15 +59,12 @@ describe('botResolveOf (#1588)', () => {
     expect(botLabelOf(stopped)).toBe(botLabelOf(table));
   });
 
-  it('rolls a random kill on the press, the hand-discarded personnel first, with the same preview', () => {
-    const table = tableReducer(revealed('Environmental Contaminants'), { type: 'move', id: 'card-3', to: 'discard' });
-    const preview = botResolveOf(table);
-    if (!preview.resolvable) throw new Error(preview.reason);
-    expect(preview.preview).toBe('Kills 2 random personnel; 1 of 2 already killed');
-    const pressed = botResolveOf(table, undefined, { rand: () => 0 });
+  it('names the random kill the reveal kept, counts a selected personnel discarded by hand as done, and kills the rest (#1628)', () => {
+    const table = tableReducer(revealed('Environmental Contaminants', undefined, [['card-3', 'card-2']]), { type: 'move', id: 'card-3', to: 'discard' });
+    const pressed = botResolveOf(table);
     if (!pressed.resolvable) throw new Error(pressed.reason);
-    expect(pressed.preview).toBe(preview.preview);
-    expect(pressed.picks).toEqual([['card-3', 'card-2']]);
+    expect(pressed.preview).toBe('Selected Beta, Alpha; kills Beta, Alpha; 1 of 2 already killed');
+    expect(pressed.steps).toEqual({ selects: [['card-3', 'card-2']], checks: [] });
     expect(pressed.changes).toEqual([{ op: 'kill', ids: ['card-2'] }]);
     expect(pressed.notes).toEqual([{ kind: 'alreadyDone', op: 'kill', done: 1, of: 2 }]);
     // The changes apply with the resolveDilemma action of #1587.
@@ -95,6 +93,10 @@ describe('botResolveOf (#1588)', () => {
     const table = revealed('Environmental Contaminants', ['Biology', '2 Diplomacy', '2 Science']);
     const stopped = tableReducer(table, { type: 'setStopped', ids: ['card-2'], stopped: true });
     expect(botResolveOf(stopped)).toMatchObject({ resolvable: true, preview: 'No effect', changes: [] });
+  });
+
+  it('gives no Resolve for a random kill with no kept roll (#1628)', () => {
+    expect(botResolveOf(revealed('Environmental Contaminants'))).toEqual({ resolvable: false, reason: 'the random selection is not rolled yet' });
   });
 
   it('gives no Resolve without a snapshot for the top card', () => {

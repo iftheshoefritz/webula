@@ -20,7 +20,7 @@ import { cardDisplayName } from '../../../lib/cardCount';
 import { BotTableFacts, asSphere117Dissident, isSphere117, sphere117Holds } from '../../../lib/dilemmaBot/gains';
 import { Rand, partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import { pileLabelOf } from '../../../lib/dilemmaBot/pile/label';
-import { PileDestination, PileResolveWhere, modifiersText, pileResolveOf, pileRevealPicksOf, playModifiersOf } from '../../../lib/dilemmaBot/pile/resolve';
+import { PileDestination, PileResolveWhere, PileSteps, modifiersText, pileResolveOf, pileRevealPicksOf, playModifiersOf } from '../../../lib/dilemmaBot/pile/resolve';
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 import { pileTitleOf } from '../../../lib/dilemmaBot/pile/registry';
@@ -105,9 +105,9 @@ function resolveWhereOf(table: TableState, id: string): PileResolveWhere {
 
 // The Resolve of the revealed top card (#1588): what the dilemma does to the personnel of `snapshot`,
 // reconciled with what the player did by hand since the reveal, as the changes and the log notes of a
-// `resolveDilemma`, and the preview text. With no `press`, the changes are the preview's, and a random
-// pick gives only a count; a press rolls the random picks with `press.rand`, or takes `press.picks`, the
-// card ids an earlier press returned, and returns the picks. No Resolve, with a reason, when the
+// `resolveDilemma`, and the preview text. Every random selection plays with the roll the snapshot kept
+// (#1628), so the preview and the press are the same, and `steps` holds the selection and the checks.
+// A dilemma that selects at random with no kept roll has no Resolve. No Resolve, with a reason, when the
 // snapshot is not for the top card or the bot cannot apply the dilemma (`pileResolveOf`). Where the
 // player chooses (#1593), `selected`, the row selection, is the choice: only the personnel of the row
 // count, and until it is made the Resolve is `pending`, its preview the task, with no changes.
@@ -118,7 +118,8 @@ export type BotResolve =
       preview: string;
       changes: ResolveChange[];
       notes: ResolveNote[];
-      picks?: string[][];
+      // The selection and the checks of a dilemma with a kept roll (#1628), as card ids.
+      steps?: PileSteps;
       pending?: boolean;
       // The attempt's whole modifiers after the dilemma (#1597), when it changed them.
       modifiers?: PileModifiers;
@@ -162,7 +163,6 @@ export function resolveMoveOf(table: TableState, destination: PileDestination): 
 export function botResolveOf(
   table: TableState,
   snapshot: RevealSnapshot | undefined = table.attempt?.revealSnapshot,
-  press: { rand?: Rand; picks?: string[][] } = {},
   selected: ReadonlyArray<string> = [],
 ): BotResolve {
   const play = snapshot && revealedPlayOf(table, snapshot);
@@ -177,7 +177,6 @@ export function botResolveOf(
     rest: play.rest,
     selected: selected.filter((id) => rowPersonnel.has(id)),
     ...(snapshot.picks ? { revealPicks: snapshot.picks } : {}),
-    ...press,
   });
   if (!resolve.resolvable) return resolve;
   const notes: ResolveNote[] = [
@@ -192,7 +191,7 @@ export function botResolveOf(
     preview: resolve.preview,
     changes: resolve.changes,
     notes,
-    ...(resolve.picks ? { picks: resolve.picks } : {}),
+    ...(resolve.steps ? { steps: resolve.steps } : {}),
     ...(resolve.pending ? { pending: true } : {}),
     ...(resolve.modifiers ? { modifiers: resolve.modifiers } : {}),
     ...(resolve.modifiersClause ? { modifiersClause: resolve.modifiersClause } : {}),
@@ -238,10 +237,9 @@ export function attemptModifiersText(table: TableState): string {
   });
 }
 
-// The roll at the reveal (#1594): for a revealed top card whose random selection is the pool of the
-// player's choice, the card ids each random select of its play picks, rolled with `rand` from the group
-// of the table's reveal snapshot. Undefined when the snapshot is not for the top card, or for any other
-// title. The page rolls it before the `flip` that takes the snapshot (`withShuffleOrders`), and a restore
+// The roll at the reveal (#1594, #1628): for a revealed top card whose own play selects at random, the
+// card ids each random select of its play picks, rolled with `rand` from the group of the table's reveal
+// snapshot. Undefined when the snapshot is not for the top card, or for a title with no such select. The page rolls it before the `flip` that takes the snapshot (`withShuffleOrders`), and a restore
 // for the fresh snapshot it takes, never at render.
 export function revealPicksOf(table: TableState, rand: Rand): string[][] | undefined {
   const snapshot = table.attempt?.revealSnapshot;
@@ -407,6 +405,7 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
 // check the crew meets, so its Resolve reads "No effect". `?fixture=bot-resolve-choice` (#1593) deals the
 // same with a Covert Extraction, where the player chooses the personnel to stop from the row selection,
 // and `?fixture=bot-resolve-pattern` (#1594) with A Pattern of Lies, whose roll the reveal keeps.
+// `?fixture=bot-resolve-becalmed` (#1628) reveals Becalmed, whose roll and check the preview names.
 // `?fixture=bot-resolve-modifier` (#1598) reveals Accelerated Aging, with a Dead Weight right under it.
 export const FIXTURE_BOT_LABEL_DILEMMA = 'Well-Prepared Defenses';
 
@@ -423,6 +422,7 @@ export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
   'bot-resolve-noeffect': { title: 'Conflict of Interests', collectorsInfo: '26V002' },
   'bot-resolve-choice': { title: 'Covert Extraction', collectorsInfo: '38V002' },
   'bot-resolve-pattern': { title: 'A Pattern of Lies', collectorsInfo: '10C001' },
+  'bot-resolve-becalmed': { title: 'Becalmed', collectorsInfo: '36V002' },
   // Accelerated Aging, which takes away the first-listed skills, over a Dead Weight whose check the crew
   // passes only with them (#1598).
   'bot-resolve-modifier': {
