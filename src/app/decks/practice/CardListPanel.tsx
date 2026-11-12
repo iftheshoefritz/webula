@@ -96,6 +96,7 @@ import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
 import { stopButtons } from './stopRules';
 import { safeAreaMargins } from './useSafeAreaInsets';
 import { ScrollIndicator } from './ScrollIndicator';
+import { cardImageUrl, showCardMissing } from '../../../lib/cardImageUrl';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -396,7 +397,8 @@ function CardListPanelCard({
           >
             <img
               draggable={false}
-              src={`/cardimages/${card.imagefile}.jpg`}
+              src={cardImageUrl(card)}
+              onError={showCardMissing}
               width={CARD_IMAGE_WIDTH}
               height={CARD_IMAGE_HEIGHT}
               alt={cardDisplayName(card)}
@@ -431,7 +433,8 @@ function CardListPanelCard({
           // image's own ratio (`fullCardHeight`), so the image is never squashed.
           <img
             draggable={false}
-            src={`/cardimages/${card.imagefile}.jpg`}
+            src={cardImageUrl(card)}
+            onError={showCardMissing}
             width={CARD_IMAGE_WIDTH}
             height={CARD_IMAGE_HEIGHT}
             alt={cardDisplayName(card)}
@@ -550,7 +553,8 @@ function PanelHost({
       >
         <img
           draggable={false}
-          src={`/cardimages/${card.imagefile}.jpg`}
+          src={cardImageUrl(card)}
+          onError={showCardMissing}
           width={CARD_IMAGE_WIDTH}
           height={CARD_IMAGE_HEIGHT}
           alt={cardDisplayName(card)}

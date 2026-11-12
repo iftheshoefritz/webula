@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadCards } from '../../../lib/loadCards';
 import { filterCards } from '../../../lib/filterCards';
+import { cardImageUrl } from '../../../lib/cardImageUrl';
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   const cards = results.map((card) => ({
     name: card.originalName,
     collectorsinfo: card.collectorsinfo,
-    imageUrl: card.imagefile ? `${BASE_URL}/cardimages/${card.imagefile}.jpg` : null,
+    imageUrl: card.imagefile ? `${BASE_URL}${cardImageUrl(card)}` : null,
   }));
 
   return NextResponse.json(

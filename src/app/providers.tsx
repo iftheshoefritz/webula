@@ -4,6 +4,7 @@ import posthog from 'posthog-js';
 import { PostHogProvider } from 'posthog-js/react';
 import { Suspense, useEffect } from 'react';
 import PostHogPageView from '../components/PostHogPageView';
+import { PlaytestCardsProvider } from '../hooks/usePlaytestCards';
 
 function PostHogInit({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -54,7 +55,9 @@ function PostHogInit({ children }: { children: React.ReactNode }) {
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <PostHogInit>{children}</PostHogInit>
+      <PlaytestCardsProvider>
+        <PostHogInit>{children}</PostHogInit>
+      </PlaytestCardsProvider>
     </SessionProvider>
   );
 }

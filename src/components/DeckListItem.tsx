@@ -3,6 +3,8 @@ import React, { SyntheticEvent } from 'react';
 import ReactDOM from 'react-dom';
 import { FaMinus, FaPlus } from 'react-icons/fa';
 import CardPreviewModal from './CardPreviewModal';
+import PlaytestBadge from './PlaytestBadge';
+import { showCardMissing } from '../lib/cardImageUrl';
 
 type DeckListItemProps = {
   // With neither handler the row is read-only, as in the practice decklist (#899): the count
@@ -12,7 +14,10 @@ type DeckListItemProps = {
   collectorsinfo: string;
   count: number;
   name: string;
-  imagefile: string;
+  // The image URL, from `cardImageUrl` (#1614).
+  imageSrc: string;
+  // A playtest card shows a "Playtest" badge after its name (#1614).
+  playtest?: boolean;
   unique: boolean;
   // A z-index class for the card image, for a row inside a modal (#899). The image then leaves
   // the row for `document.body`, so the modal's scroll box does not clip it, and it takes this
@@ -27,7 +32,8 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
   collectorsinfo,
   count,
   name,
-  imagefile,
+  imageSrc,
+  playtest = false,
   unique,
   previewLayer,
 }) => {
@@ -75,7 +81,8 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
     >
       <div className="relative">
         <img
-          src={`/cardimages/${imagefile}.jpg`}
+          src={imageSrc}
+          onError={showCardMissing}
           alt={name}
           width={288}
           height={400}
@@ -122,6 +129,7 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
         >
           {unique && <span>·</span>}
           {name}
+          {playtest && <PlaytestBadge />}
         </div>
       </div>
 
@@ -129,7 +137,7 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
 
       {isTapped && (
         <CardPreviewModal
-          imagefile={imagefile}
+          imageSrc={imageSrc}
           name={name}
           layer={previewLayer}
           onClose={() => setIsTapped(false)}

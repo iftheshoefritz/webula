@@ -30,6 +30,7 @@ import { CardInstance } from './tableReducer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import PersonnelOverlay, { ShipOverlay, hasPersonnelOverlay, hasShipOverlay } from './PersonnelOverlay';
+import { cardImageUrl } from '../../../lib/cardImageUrl';
 
 export const TABLE_CARD_WIDTH = 72; // px
 // px, crops the card image down to roughly its art box. At this width the full card image is
@@ -97,8 +98,7 @@ export const PILE_CARD_BORDER_STYLE = cardBorderStyle(56);
 // card as face down checks `face` itself.
 export function faceUpImageSrc(instance: CardInstance): string {
   const { card } = instance;
-  const imagefile = instance.flipped && card.backimagefile ? card.backimagefile : card.imagefile;
-  return `/cardimages/${imagefile}.jpg`;
+  return cardImageUrl(card, instance.flipped && card.backimagefile ? 'back' : 'front');
 }
 
 export default function TableCard({

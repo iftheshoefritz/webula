@@ -53,13 +53,17 @@ import {
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import useDriveSync from '../hooks/useDriveSync';
 import useDeckState from '../hooks/useDeckState';
+import { useWithPlaytestCards } from '../hooks/usePlaytestCards';
+import { cardImageUrl, showCardMissing } from '../lib/cardImageUrl';
 
 interface DeckBuilderClientProps {
   data: CardData[];
   columns: string[];
 }
 
-export default function DeckBuilderClient({ data, columns }: DeckBuilderClientProps) {
+export default function DeckBuilderClient({ data: publicData, columns }: DeckBuilderClientProps) {
+  // A playtester's playtest cards join after the public cards (#1614).
+  const data = useWithPlaytestCards(publicData);
   const searchParams = useSearchParams();
   const isFixture = searchParams.get('fixture') === '1';
 
@@ -1102,7 +1106,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                   <div key={row.collectorsinfo} className="shrink-0 flex flex-col items-center w-56">
                     <div className="relative group w-full">
                       <img
-                        src={`/cardimages/${row.imagefile}.jpg`}
+                        src={cardImageUrl(row)}
+                        onError={showCardMissing}
                         width={165}
                         height={229}
                         loading="lazy"
@@ -1177,7 +1182,8 @@ export default function DeckBuilderClient({ data, columns }: DeckBuilderClientPr
                 {missions[missionIndex] ? (
                   <div className="relative shrink-0">
                     <img
-                      src={`/cardimages/${missions[missionIndex].imagefile}.jpg`}
+                      src={cardImageUrl(missions[missionIndex])}
+                      onError={showCardMissing}
                       width={165}
                       height={229}
                       loading="lazy"

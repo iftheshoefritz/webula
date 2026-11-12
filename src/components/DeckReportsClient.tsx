@@ -23,6 +23,7 @@ import type { ChampionshipDeck } from '../lib/championshipDecks';
 import { fetchBeginnerDecks, visibleBeginnerDecks } from '../lib/beginnerDecks';
 import type { BeginnerDeck } from '../lib/beginnerDecks';
 import { fetchPublicDeckText, isPublicDeckId } from '../lib/publicDecks';
+import { useWithPlaytestCards } from '../hooks/usePlaytestCards';
 
 interface Session {
   accessToken: string;
@@ -79,7 +80,9 @@ async function fetchDeckRefs(
   );
 }
 
-export default function DeckReportsClient({ data }: DeckReportsClientProps) {
+export default function DeckReportsClient({ data: publicData }: DeckReportsClientProps) {
+  // A playtester's playtest cards join after the public cards (#1614).
+  const data = useWithPlaytestCards(publicData);
   const searchParams = useSearchParams();
   const isFixture = searchParams.get('fixture') === '1';
 
