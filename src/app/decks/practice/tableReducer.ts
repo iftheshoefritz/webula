@@ -6,6 +6,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { shuffleArray } from '../deckBuilderUtils';
 import type { BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
+import type { PileSteps } from '../../../lib/dilemmaBot/pile/resolve';
 
 export type Face = 'up' | 'down';
 // The core and the brig (#603) are two more flat, top-level zones: the core for any card not at
@@ -348,13 +349,15 @@ export type TableAction =
   // `modifiersClause`: the log's words for what the dilemma added to them (#1598). `move`: where the
   // dilemma goes after the personnel changes (#1599), a `move` of `dilemmaId`; absent, it stays.
   // `restToPile`: the rest of the stack, which a dilemma that ends it sends to the bottom of the dilemma
-  // pile (#1600). `fetchedId`: the card a fetch puts on top of the stack, face down (#1600).
+  // pile (#1600). `fetchedId`: the card a fetch puts on top of the stack, face down (#1600). `steps`:
+  // the selection and the checks of a kept roll (#1628), as card ids, for the log (#1629).
   | {
       type: 'resolveDilemma';
       dilemmaId: string;
       changes: ResolveChange[];
       dilemma: string;
       notes?: ResolveNote[];
+      steps?: PileSteps;
       modifiers?: PileModifiers;
       modifiersClause?: string;
       move?: { to: MoveTarget; position?: 'top' | 'bottom' };

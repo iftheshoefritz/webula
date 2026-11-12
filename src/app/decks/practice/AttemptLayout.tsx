@@ -82,7 +82,7 @@ import {
 } from './tableScale';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { cardDisplayName } from '../../../lib/cardCount';
-import AttemptPersonnelRow, { attemptAwayTeamDropId, attemptCrewDropId } from './AttemptPersonnelRow';
+import AttemptPersonnelRow, { attemptAwayTeamDropId, attemptCrewDropId, type BotRowMarks } from './AttemptPersonnelRow';
 
 import { VIEW_FULL_TABLE_HOLD_ID } from './viewFullTableHold';
 
@@ -110,6 +110,7 @@ export default function AttemptLayout({
   onFlipMission,
   onSetMissionCompleted,
   selectedIds,
+  botMarks = null,
   onToggleSelect,
   onSetStopped,
   onShuffle,
@@ -150,6 +151,8 @@ export default function AttemptLayout({
   onSetMissionCompleted: (missionIndex: number, completed: boolean) => void;
   // The selection of the row's cards (#1165), the same one a card list panel uses.
   selectedIds: string[];
+  // The marks of the revealed dilemma's random selection on the row (#1629).
+  botMarks?: BotRowMarks | null;
   onToggleSelect: (id: string) => void;
   onSetStopped: (ids: string[], stopped: boolean) => void;
   // The row's Shuffle (#1179): the crew of the attempting ship, or the away team of the mission.
@@ -418,6 +421,7 @@ export default function AttemptLayout({
                     buttonsInBand={personnelButtonsInBand}
                     bandHeight={attemptBandHeight(missionScale, desktop)}
                     selectedIds={selectedIds}
+                    botMarks={botMarks}
                     onToggleSelect={onToggleSelect}
                     onSetStopped={onSetStopped}
                     onShuffle={() => onShuffle({ zone: 'crew', shipId: ship.id })}
@@ -443,6 +447,7 @@ export default function AttemptLayout({
                 buttonsInBand={personnelButtonsInBand}
                 bandHeight={attemptBandHeight(missionScale, desktop)}
                 selectedIds={selectedIds}
+                botMarks={botMarks}
                 onToggleSelect={onToggleSelect}
                 onSetStopped={onSetStopped}
                 onShuffle={() => onShuffle({ zone: 'missionPile', missionIndex, pile: 'awayTeam' })}
