@@ -7,9 +7,10 @@ import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
 import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
 import { BOT_REVEAL_FIXTURES, BotRevealFixture, attemptDonePrompt, attemptModifiersText, botLabelOf, botResolveOf, fixtureBotLabelAttempt } from '../../../app/decks/practice/attempt';
-import { createCardInstances, initialTableState, revealSnapshotOf, tableReducer, TableAction, TableState } from '../../../app/decks/practice/tableReducer';
+import { createCardInstances, findInstanceAnywhere, initialTableState, revealSnapshotOf, tableReducer, TableAction, TableState } from '../../../app/decks/practice/tableReducer';
 import { BOT_SKILLS } from '../../../lib/dilemmaBot/requirements';
 import { gameReducer, initialGameState, logEntryText, withShuffleOrders } from '../../../app/decks/practice/gameLog';
+import { cardDisplayName } from '../../../lib/cardCount';
 import { fromSavedGame, toSavedGame } from '../../../app/decks/practice/savedGame';
 
 jest.mock('posthog-js', () => ({ capture: jest.fn() }));
@@ -289,6 +290,25 @@ describe('?fixture=bot-resolve-becalmed (#1628)', () => {
     expect(stoppedNow.sort()).toEqual(met.slice().sort());
     expect(game.log).toHaveLength(start.log.length + 1);
     expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
+  });
+
+  it('the log entry of the press lists the selection, the check and the result (#1629)', () => {
+    const { table } = dealRevealFixtureWithDeck('bot-resolve-becalmed', true);
+    const top = table.dilemmaStack[0];
+    const r = botResolveOf(table);
+    if (!r.resolvable) throw new Error(r.reason);
+    const displayOf = (id: string) => cardDisplayName(findInstanceAnywhere(table, id)!.instance.card);
+    const names = table.attempt!.revealSnapshot!.picks![0].map(displayOf);
+    const met = r.steps!.checks[0].met.map(displayOf);
+    const game = gameReducer(initialGameState(table), {
+      type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'Becalmed', changes: r.changes, notes: r.notes, move: r.move, steps: r.steps,
+    });
+    const entry = game.log[game.log.length - 1];
+    expect(entry).toMatchObject({ kind: 'dilemmaResolved', selected: [names] });
+    const check = met.length ? `${met.join(', ')} ${met.length === 1 ? 'has' : 'have'} Integrity, Cunning or Strength > 6` : 'none has Integrity, Cunning or Strength > 6';
+    const result = met.length ? `stopped ${met.length === 1 ? met[0] : `${met.slice(0, -1).join(', ')} and ${met[met.length - 1]}`}` : 'no effect';
+    // The mission's name in the log carries its subtitle.
+    expect(logEntryText(entry).startsWith(`Resolved Becalmed: selected ${names.join(', ')}; ${check}; ${result}; it goes under Bilana System`)).toBe(true);
   });
 
   it('a plain flip with no roll gives no Resolve', () => {

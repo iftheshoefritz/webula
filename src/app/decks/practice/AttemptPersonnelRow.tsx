@@ -67,6 +67,12 @@ export function shipIdFromAttemptCrewDropId(id: string): string | null {
   return match ? match[1] : null;
 }
 
+// The marks of the revealed dilemma's random selection on the row (#1629), as card ids.
+export interface BotRowMarks {
+  selected: string[];
+  met: string[];
+}
+
 export const attemptPersonnelScrollTestId = (dropId: string): string => `${dropId}-scroll`;
 
 export default function AttemptPersonnelRow({
@@ -83,6 +89,7 @@ export default function AttemptPersonnelRow({
   buttonsInBand = false,
   bandHeight = ATTEMPT_PERSONNEL_BUTTONS_HEIGHT,
   selectedIds,
+  botMarks = null,
   onToggleSelect,
   onSetStopped,
   onShuffle,
@@ -111,6 +118,10 @@ export default function AttemptPersonnelRow({
   buttonsInBand?: boolean;
   bandHeight?: number;
   selectedIds: string[];
+  // The personnel the revealed dilemma selected at random, as the reveal kept them (#1629), and those
+  // who met its check. A badge in the top-right corner, never the selection ring, which is the
+  // player's choice (#1593).
+  botMarks?: BotRowMarks | null;
   onToggleSelect: (id: string) => void;
   onSetStopped: (ids: string[], stopped: boolean) => void;
   // Shuffles the stored order of the place the row shows.
@@ -263,8 +274,16 @@ export default function AttemptPersonnelRow({
             >
               {cards.map((instance) => {
                 const selected = selectedIds.includes(instance.id);
+                const botSelected = !!botMarks?.selected.includes(instance.id);
+                const botMet = botSelected && !!botMarks?.met.includes(instance.id);
                 return (
-                  <div key={instance.id} className="relative" style={{ width: cardWidth, height: cardHeight }}>
+                  <div
+                    key={instance.id}
+                    className="relative"
+                    style={{ width: cardWidth, height: cardHeight }}
+                    data-bot-selected={botSelected ? 'true' : undefined}
+                    data-bot-check={botMet ? 'met' : undefined}
+                  >
                     <TableCard
                       instance={instance}
                       onClick={() => onToggleSelect(instance.id)}
@@ -277,6 +296,17 @@ export default function AttemptPersonnelRow({
                     {/* Inside the card, so the scroller's edge never clips the ring. */}
                     {selected && (
                       <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-inset ring-accent" />
+                    )}
+                    {botSelected && (
+                      <span
+                        data-testid="attempt-row-bot-mark"
+                        title={botMet ? 'Selected by the dilemma; meets its check' : 'Selected by the dilemma'}
+                        className={`pointer-events-none absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-white shadow ring-1 ring-white ${
+                          botMet ? 'bg-red-600' : 'bg-amber-500'
+                        }`}
+                      >
+                        {botMet ? '!' : '?'}
+                      </span>
                     )}
                   </div>
                 );

@@ -103,7 +103,7 @@ import GameLogPanel from './GameLogPanel';
 import { AttemptDialog } from './AttemptPanel';
 import { useBotAttemptStart } from './useBotAttemptStart';
 import AttemptLayout, { VIEW_FULL_TABLE_HOLD_ID } from './AttemptLayout';
-import { missionIndexFromAttemptAwayTeamDropId, shipIdFromAttemptCrewDropId } from './AttemptPersonnelRow';
+import { missionIndexFromAttemptAwayTeamDropId, shipIdFromAttemptCrewDropId, type BotRowMarks } from './AttemptPersonnelRow';
 import {
   AttemptMoveDestination,
   AttemptPanel,
@@ -2181,6 +2181,17 @@ function PracticeDrawContent() {
   const botResolvePreview = botResolve?.resolvable ? botResolve.preview : null;
   const botResolvePending = !!(botResolve?.resolvable && botResolve.pending);
   const botResolved = !!table.attempt?.revealSnapshot?.resolved && table.attempt.revealSnapshot.dilemmaId === botLabelCardId;
+  // Issue #1629: while the revealed top card is unresolved, the row marks the personnel of the roll its
+  // reveal kept, and those who met its check. Gone once it is resolved or the next card is on top.
+  const botRowMarks = useMemo((): BotRowMarks | null => {
+    const snapshot = table.attempt?.revealSnapshot;
+    if (!botLabelCardId || !snapshot || snapshot.dilemmaId !== botLabelCardId || snapshot.resolved || !snapshot.picks?.length) return null;
+    const checks = botResolve?.resolvable ? (botResolve.steps?.checks ?? []) : [];
+    return {
+      selected: [...new Set(snapshot.picks.flat())],
+      met: [...new Set(checks.filter((c) => !c.subject).flatMap((c) => c.met))],
+    };
+  }, [botLabelCardId, table.attempt?.revealSnapshot, botResolve]);
   const resolveRevealedDilemma = () => {
     const top = dilemmaStack[0];
     const pressed = botResolveOf(table, undefined, selectedCardIds);
@@ -2191,6 +2202,7 @@ function PracticeDrawContent() {
       dilemma: cardDisplayName(top.card),
       changes: pressed.changes,
       notes: pressed.notes,
+      ...(pressed.steps ? { steps: pressed.steps } : {}),
       ...(pressed.modifiers ? { modifiers: pressed.modifiers } : {}),
       ...(pressed.modifiersClause ? { modifiersClause: pressed.modifiersClause } : {}),
       ...(pressed.move ? { move: pressed.move } : {}),
@@ -3654,6 +3666,7 @@ function PracticeDrawContent() {
                     dispatch({ type: 'setMissionCompleted', missionIndex, completed })
                   }
                   selectedIds={selectedCardIds}
+                  botMarks={botRowMarks}
                   onToggleSelect={toggleCardSelection}
                   onSetStopped={setStoppedForSelection}
                   onShuffle={(location) => dispatch({ type: 'shuffle', location })}

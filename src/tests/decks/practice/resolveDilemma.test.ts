@@ -171,6 +171,28 @@ describe('resolveDilemma in the log, undo and redo', () => {
     expect(isLogEntry(game.log[1])).toBe(true);
   });
 
+  it('lists the selection and the check before the result, with the names at dispatch (#1629)', () => {
+    const steps = {
+      selects: [['card-2', 'card-5'], ['card-5']],
+      checks: [
+        { ids: ['card-2', 'card-5'], met: ['card-5'], text: 'Integrity, Cunning or Strength > 6' },
+        { ids: ['card-2', 'card-5'], met: [], text: 'Honor', subject: 'the selected personnel' },
+      ],
+    };
+    const game = gameReducer(flipped(), resolve([{ op: 'stop', ids: ['card-5'] }], { steps }));
+    expect(game.log[1]).toMatchObject({ selected: [['Data', 'Riker']], checks: [{ met: ['Riker'] }, { met: [], subject: 'the selected personnel' }] });
+    expect(logEntryText(game.log[1])).toBe(
+      'Resolved Limited Welcome: selected Data, Riker; Riker has Integrity, Cunning or Strength > 6; the selected personnel do not have Honor; stopped Riker'
+    );
+    expect(isLogEntry(game.log[1])).toBe(true);
+  });
+
+  it('renders an entry from before #1629, with no steps', () => {
+    const old = { turn: 1, kind: 'dilemmaResolved', dilemma: 'Becalmed', ops: [{ op: 'stop', cards: ['Worf'] }], went: 'goes under Bilana System' };
+    expect(isLogEntry(old)).toBe(true);
+    expect(logEntryText(old as any)).toBe('Resolved Becalmed: stopped Worf; it goes under Bilana System');
+  });
+
   it('reads no effect when nothing changed, and keeps a note that goes by the table', () => {
     const game = gameReducer(flipped(), resolve([], { notes: [{ kind: 'byTable', text: 'Worf' }] }));
     expect(logEntryText(game.log[1])).toBe('Resolved Limited Welcome: no effect (Worf goes by the table)');

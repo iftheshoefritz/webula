@@ -105,9 +105,13 @@ export type LogEntry = { turn: number } & (
   // the action's order, and the notes the page gave.
   // `modifiers`: what the dilemma changed for the rest of the attempt (#1598), "abilities off for the rest of the attempt".
   // `went`: where the dilemma went (#1599), "goes under Bilana System", only when it left the stack.
+  // `selected` and `checks`: the steps of a kept roll (#1629), the names of each random select and of
+  // the personnel who met each check, captured at dispatch. An entry from before #1629 has neither.
   | {
       kind: 'dilemmaResolved';
       dilemma: string;
+      selected?: string[][];
+      checks?: ResolveCheck[];
       ops: { op: ResolveOp; cards: string[] }[];
       notes?: ResolveNote[];
       modifiers?: string;
@@ -118,6 +122,15 @@ export type LogEntry = { turn: number } & (
       restReturned?: number;
     }
 );
+
+// One check of a resolved dilemma (#1629): the test's text and the names of the personnel who met it.
+// `subject`: a test of the selected personnel together, `all` when they passed it.
+export interface ResolveCheck {
+  text: string;
+  met: string[];
+  subject?: string;
+  all?: true;
+}
 
 // Several table actions that are one player action (#1065): a group drag, a selection's Discard,
 // Flip or Download. They apply through `tableReducer` in order, the same as one dispatch each, and
@@ -357,9 +370,29 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         }
         if (cards.length) ops.push({ op, cards });
       }
+      const steps = action.steps;
+      const names = (ids: string[]) => ids.map((id) => cardName(before, id));
+      // As the preview, a select of personnel already selected adds no step.
+      const seen = new Set<string>();
+      const selects = (steps?.selects ?? []).filter((ids) => {
+        const fresh = !ids.length || ids.some((id) => !seen.has(id));
+        ids.forEach((id) => seen.add(id));
+        return fresh;
+      });
       return {
         kind: 'dilemmaResolved',
         dilemma: action.dilemma,
+        ...(selects.length ? { selected: selects.map(names) } : {}),
+        ...(steps?.checks.length
+          ? {
+              checks: steps.checks.map((c) => ({
+                text: c.text,
+                met: names(c.met),
+                ...(c.subject ? { subject: c.subject } : {}),
+                ...(c.subject && c.met.length && c.met.length === c.ids.length ? { all: true as const } : {}),
+              })),
+            }
+          : {}),
         ops,
         ...(action.notes?.length ? { notes: action.notes } : {}),
         ...(action.modifiersClause ? { modifiers: action.modifiersClause } : {}),
@@ -570,6 +603,14 @@ const resolveNoteText = (note: ResolveNote): string =>
     ? `${note.done} of ${note.of} already ${RESOLVE_OP_TEXT[note.op]} by hand`
     : `${note.text} goes by the table`;
 
+// "Worf has Integrity, Cunning or Strength > 6", "none has …", or "the selected personnel do not have …",
+// the words of the Resolve preview's check (#1628).
+const resolveCheckText = (check: ResolveCheck): string => {
+  if (check.subject) return `${check.subject} ${check.all ? 'have' : 'do not have'} ${check.text}`;
+  if (!check.met.length) return `none has ${check.text}`;
+  return `${check.met.join(', ')} ${check.met.length === 1 ? 'has' : 'have'} ${check.text}`;
+};
+
 const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 
 // The text of one entry, one sentence with no full stop.
@@ -660,6 +701,12 @@ export function logEntryText(entry: LogEntry): string {
       const ops = entry.ops.map(({ op, cards }) => `${RESOLVE_OP_TEXT[op]} ${cardsText(cards)}`).join(', ');
       const modifiers = typeof entry.modifiers === 'string' ? entry.modifiers : '';
       const effects = [ops, modifiers].filter(Boolean).join('; ') || 'no effect';
+      // The steps of a kept roll (#1629): each selection, then each check, before the effects. An old
+      // entry has none.
+      const steps = [
+        ...(Array.isArray(entry.selected) ? entry.selected.map((names) => `selected ${names.join(', ') || 'no personnel'}`) : []),
+        ...(Array.isArray(entry.checks) ? entry.checks.map(resolveCheckText) : []),
+      ];
       const went = [
         typeof entry.went === 'string' ? `it ${entry.went}` : '',
         typeof entry.added === 'string' ? `adds ${entry.added} on top of the stack` : '',
@@ -669,7 +716,7 @@ export function logEntryText(entry: LogEntry): string {
         .map((part) => `; ${part}`)
         .join('');
       const notes = entry.notes?.length ? ` (${entry.notes.map(resolveNoteText).join('; ')})` : '';
-      return `Resolved ${entry.dilemma}: ${effects}${notes}${went}`;
+      return `Resolved ${entry.dilemma}: ${[...steps, effects].join('; ')}${notes}${went}`;
     }
     case 'attemptPhase': {
       const text =

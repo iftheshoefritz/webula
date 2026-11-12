@@ -920,8 +920,18 @@ tails ("1 of 1 already stopped", the modifiers clause, the destination) follow. 
 the pool of the player's choice (A Pattern of Lies, New Face, Discommendation, Moral Choice) the pending
 preview reads "Selected A, B, C; choose 1 to be stopped". The pool is the reveal snapshot's group, so a
 selected personnel the player stops by hand after the reveal stays selected and counts as already
-stopped. `PileResolve.steps` and `BotResolve.steps` hold the selection and the checks as card ids. No
-card of the row is marked yet.
+stopped. `PileResolve.steps` and `BotResolve.steps` hold the selection and the checks as card ids.
+
+The press carries them on the `resolveDilemma` (`steps`), and the `dilemmaResolved` entry keeps them as
+names captured at dispatch, `selected` and `checks` (#1629), so its text lists each step before the
+result: "Resolved Becalmed: selected Data, Worf, Troi; Worf has Integrity, Cunning or Strength > 6;
+stopped Worf; it goes under Bilana System". An entry from before #1629 has neither and reads as before.
+While the revealed top card is unresolved and its reveal snapshot has `picks`, the attempting row marks
+each personnel of the kept selection with a round badge in its top-right corner,
+`data-testid="attempt-row-bot-mark"`, never the selection ring, which is the player's choice: the card
+carries `data-bot-selected="true"`, and `data-bot-check="met"` (a red "!" badge, an amber "?" otherwise)
+when it met a check of the dilemma (`BotRowMarks`, `AttemptPersonnelRow.tsx`). The mark goes away once
+the snapshot is `resolved` or the next card is on top, and an undo of the Resolve brings it back.
 
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
 dilemmas. Start begins in `'choose'`, with `Attempt.drawn` 0. The choice-phase draw, `drawCard` from
