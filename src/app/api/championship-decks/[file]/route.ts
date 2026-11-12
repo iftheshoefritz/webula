@@ -1,4 +1,5 @@
-import { callerEmail, readVisibleChampionshipDeck } from '../../../../lib/championshipDecksServer';
+import { callerEmail } from '../../../../lib/callerEmail';
+import { readVisibleChampionshipDeck } from '../../../../lib/championshipDecksServer';
 
 // The text of one Championship deck (#1327), only when the caller may see its row. Anything else, a
 // hidden deck, a name that is not in the index, a `../` path, gets a 404, so a hidden deck's file name

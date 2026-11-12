@@ -95,6 +95,34 @@ integration named the env vars with the prefix `SHARES`, so the route reads
 `UPSTASH_REDIS_REST_*` and `KV_REST_API_*` (`shareStoreCredentials`). For a local `yarn dev` that shares, run
 `vercel env pull .env.development.local`. The tests mock the store, so they need no access.
 
+### Playtest cards
+
+`src/lib/playtestStore.ts` (#1612) keeps the playtest cards of one playtest group in the same Upstash
+Redis database as the share links, through `shareStoreCredentials`, with no TTL, so a local check
+needs `vercel env pull .env.development.local` too. Its client reads strings as they are
+(`automaticDeserialization: false`).
+
+| Key | Value |
+|---|---|
+| `playtest:version` | A number, bumped by every upload |
+| `playtest:uploadedAt` | An ISO time, written with the version |
+| `playtest:cards` | The normalised TSV of `normalisePlaytestTsv` |
+| `playtest:img:<ImageFile>` | One JPEG, base64 |
+| `playtest:emails` | The playtesters, a Redis set of lowercased emails |
+
+A playtester (`isPlaytester` in `src/lib/playtestAccess.ts`) is an email in `playtest:emails` or an
+owner listed in `PLAYTEST_ADMIN_EMAILS`, comma-separated, a server-only env var (never
+`NEXT_PUBLIC_`). The email comes from the NextAuth JWT (`callerEmail`, `src/lib/callerEmail.ts`).
+`GET /api/playtest/cards` answers `{ version, tsv }`, `{ version: 0, tsv: '' }` before the first
+upload, with `Cache-Control: private, no-cache`. `GET /api/playtest/images/<ImageFile>.jpg` answers
+the JPEG with `private, max-age=31536000, immutable`; the client adds `?v=<version>`, which the route
+ignores. Both answer 404 to anyone who is not a playtester, a signed-out caller too, and to an
+unknown or malformed image, so they never reveal that playtest cards exist; a store failure answers
+502 `upstream_unreachable`. Every answer is `private` and carries `X-Robots-Tag: noindex`.
+
+No playtest card is ever committed: no name, text, TSV row or image in the repository, a test, a
+fixture, an issue or a PR. Tests use invented cards.
+
 ## Card Data Scripts
 
 ### `scripts/copy_card_data.sh`

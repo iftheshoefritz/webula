@@ -1,4 +1,4 @@
-import { callerEmail } from '../../../lib/championshipDecksServer';
+import { callerEmail } from '../../../lib/callerEmail';
 import { isEarlyAccessUser } from '../../../lib/featureFlags';
 import { readStatsSummary } from '../../../lib/statsServer';
 

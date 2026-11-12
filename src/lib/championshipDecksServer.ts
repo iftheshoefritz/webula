@@ -5,7 +5,6 @@
 
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { getToken } from 'next-auth/jwt';
 import { visibleChampionshipDecks } from './championshipDecks';
 import type { ChampionshipDeck } from './championshipDecks';
 
@@ -13,16 +12,6 @@ export const CHAMPIONSHIP_DECKS_DIR = join(process.cwd(), 'championship-decks');
 
 export async function readChampionshipIndex(): Promise<ChampionshipDeck[]> {
   return JSON.parse(await readFile(join(CHAMPIONSHIP_DECKS_DIR, 'index.json'), 'utf-8'));
-}
-
-// The email of the signed-in caller, from the NextAuth JWT; null for a signed-out caller.
-export async function callerEmail(req: Request): Promise<string | null> {
-  try {
-    const token = await getToken({ req: req as Parameters<typeof getToken>[0]['req'], secret: process.env.NEXTAUTH_SECRET });
-    return typeof token?.email === 'string' ? token.email : null;
-  } catch {
-    return null;
-  }
 }
 
 // The rows the caller may see.
