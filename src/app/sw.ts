@@ -9,10 +9,20 @@
 //   page when the network fails or takes longer than 3 s. Other routes have no offline fallback.
 // - `/cardimages/*` and the card data come from the offline deck cache of `offlineDecks.ts` when it
 //   holds them, and from the network otherwise. Nothing stores an image the player only looked at.
+// - A playtester's `/api/playtest/` (#1615): an image comes from the offline deck cache when it
+//   holds it, as `/cardimages/*` does, since its URL names the version of its upload. The cards go
+//   to the network first, so an online playtester sees every new upload, and come from the offline
+//   deck cache only when the fetch fails. A 404 (signed out, no longer a playtester) is an answer.
 // - Google Fonts are stale-while-revalidate into a small cache.
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
 import { ExpirationPlugin, NetworkFirst, Serwist, StaleWhileRevalidate } from 'serwist';
-import { CARD_DATA_URL, CARD_IMAGES_PATH, OFFLINE_CACHE_NAME } from './decks/practice/offlineCache';
+import {
+  CARD_DATA_URL,
+  CARD_IMAGES_PATH,
+  OFFLINE_CACHE_NAME,
+  PLAYTEST_API_PATH,
+  PLAYTEST_CARDS_URL,
+} from './decks/practice/offlineCache';
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -70,6 +80,24 @@ const serwist = new Serwist({
     {
       matcher: ({ url, sameOrigin }) =>
         sameOrigin && (url.pathname.startsWith(CARD_IMAGES_PATH) || url.pathname === CARD_DATA_URL),
+      handler: async ({ request }) =>
+        (await caches.match(request, { cacheName: OFFLINE_CACHE_NAME, ignoreVary: true })) ??
+        fetch(request),
+    },
+    {
+      matcher: ({ url, sameOrigin }) => sameOrigin && url.pathname === PLAYTEST_CARDS_URL,
+      handler: async ({ request }) => {
+        try {
+          return await fetch(request);
+        } catch (error) {
+          const cached = await caches.match(request, { cacheName: OFFLINE_CACHE_NAME, ignoreVary: true });
+          if (cached) return cached;
+          throw error;
+        }
+      },
+    },
+    {
+      matcher: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith(PLAYTEST_API_PATH),
       handler: async ({ request }) =>
         (await caches.match(request, { cacheName: OFFLINE_CACHE_NAME, ignoreVary: true })) ??
         fetch(request),

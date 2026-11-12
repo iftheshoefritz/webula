@@ -19,6 +19,19 @@ jest.mock('react-icons/fa', () =>
   new Proxy({}, { get: () => () => null })
 );
 
+// The playtest cards of a playtester (#1615): none and settled, unless a test says otherwise.
+let mockPlaytest: { rows: any[]; version: number | null; settled: boolean } = { rows: [], version: null, settled: true };
+jest.mock('../../hooks/usePlaytestCards', () => {
+  const { useMemo } = jest.requireActual('react');
+  return {
+    usePlaytestCards: () => mockPlaytest,
+    useWithPlaytestCards: (publicData: any[]) => {
+      const rows = mockPlaytest.rows;
+      return useMemo(() => (rows.length === 0 ? publicData : [...publicData, ...rows]), [publicData, rows]);
+    },
+  };
+});
+
 jest.mock('react-tooltip', () => ({ Tooltip: () => null }));
 
 jest.mock('../../hooks/useFilterData', () => ({
@@ -90,6 +103,7 @@ describe('DeckBuilderClient – Edit current deck (#1407)', () => {
     localStorage.clear();
     sessionStorage.clear();
     (getSession as jest.Mock).mockResolvedValue(null);
+    mockPlaytest = { rows: [], version: null, settled: true };
   });
 
   afterEach(() => {
@@ -129,6 +143,30 @@ describe('DeckBuilderClient – Edit current deck (#1407)', () => {
       expect(Object.keys(stored('currentDeck'))).toEqual(['1P1']);
       expect(stored('deckFile')).toEqual({ id: null, name: 'Borg Deck (copy)' });
       expect(stored('deckTitle')).toBe('Borg Deck (copy)');
+    });
+
+    it('waits for the playtest cards, and loads the deck with its playtest card into an empty builder (#1615)', async () => {
+      // An invented playtest card: no playtest card is ever committed.
+      const gadget = makeCardData({ collectorsinfo: 'PT-9004A', name: 'test gadget', originalName: 'Test Gadget', type: 'equipment', set: 'playtest' } as any);
+      sessionStorage.setItem('editDeckHandoff', JSON.stringify({ name: 'Playtest (copy)', contents: '1\tJean-Luc Picard\n2\tTest Gadget' }));
+      mockPlaytest = { rows: [], version: null, settled: false };
+      let result: ReturnType<typeof render> | undefined;
+      await act(async () => {
+        result = render(<DeckBuilderClient data={data} columns={[]} />);
+      });
+      await flush();
+      expect(stored('deckFile')).not.toEqual({ id: null, name: 'Playtest (copy)' });
+
+      mockPlaytest = { rows: [gadget], version: 3, settled: true };
+      await act(async () => {
+        result!.rerender(<DeckBuilderClient data={data} columns={[]} />);
+      });
+      await flush();
+
+      expect(screen.queryByText('Open Playtest (copy)?')).not.toBeInTheDocument();
+      expect(Object.keys(stored('currentDeck')).sort()).toEqual(['1P1', 'PT-9004A']);
+      expect(stored('currentDeck')['PT-9004A'].count).toBe(2);
+      expect(stored('deckFile')).toEqual({ id: null, name: 'Playtest (copy)' });
     });
 
     it('asks first in front of a deck with no file', async () => {
