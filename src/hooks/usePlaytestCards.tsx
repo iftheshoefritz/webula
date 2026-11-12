@@ -75,7 +75,7 @@ export function PlaytestCardsProvider({ children }: { children: React.ReactNode 
     return () => { cancelled = true; };
   }, [email]);
 
-  // A session that reads as signed out after this page loaded the cards keeps them (#1626). Every
+  // A session that reads as signed out after this page loaded the cards keeps them (#1625). Every
   // sign-out of the app (`signOut`) leaves the page, so the only way to get there in place is a
   // session refetch that failed: next-auth refetches on `visibilitychange`, and when an iPad wakes
   // before its network is back the fetch fails, next-auth takes that as signed out, and stops

@@ -119,7 +119,7 @@ describe('PlaytestCardsProvider and useWithPlaytestCards (#1614)', () => {
   });
 
   // An iPad that wakes before its network is back fails next-auth's session refetch, and the
-  // session reads as signed out with the restored game on the table (#1626).
+  // session reads as signed out with the restored game on the table (#1625).
   it('keeps the playtest cards and their image version when the session drops to signed out in place', async () => {
     mockUseSession.mockReturnValue(signedIn);
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ version: 2, tsv: PLAYTEST_TSV }) });
