@@ -10,6 +10,10 @@ export const CARD_MISSING_URL = '/cardimages/CardMissing.jpg';
 // lowercases every column, so the comparison is lowercase.
 export const PLAYTEST_SET = 'playtest';
 
+// The Set picker's option for the playtest cards (#1623), listed first only while the page holds
+// playtest cards. `SETS` stays the list of real sets.
+export const PLAYTEST_SET_OPTION = { label: 'Playtest', value: PLAYTEST_SET };
+
 type ImageRow = { imagefile?: string; backimagefile?: string };
 
 // A row of the card data; `CardDef` declares no `set`, but every parsed row has one.

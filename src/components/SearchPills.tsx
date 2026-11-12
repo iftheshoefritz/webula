@@ -5,6 +5,8 @@ import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, numericColumns, numericAbbreviations } from '../lib/constants';
 import { SKILLS, AFFILIATIONS, SETS, SET_ABBREVIATIONS_TO_NAMES, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES, ICONS, KEYWORDS, AFFILIATION_ICONS, CARD_ICON_IMAGES, DILEMMA_TYPE_ICONS, MISSION_TYPE_ICONS, SHIP_CLASSES, SPECIES } from '../lib/missionRequirements';
 import { HQ_NAMES } from '../lib/hqPlayability';
+import { PLAYTEST_SET_OPTION } from '../lib/cardImageUrl';
+import { usePlaytestCards } from '../hooks/usePlaytestCards';
 
 // Create reverse mappings: abbreviation → full keyword
 const textAbbreviationToFull: Record<string, string> = Object.fromEntries(
@@ -35,6 +37,7 @@ function getFilterIconSrc(key: string, value: string): string | null {
 function getFilterDisplayValue(key: string, value: string): string {
   const fullKey = expandKeyword(key);
   if (fullKey === 'set') {
+    if (value.toLowerCase() === PLAYTEST_SET_OPTION.value) return PLAYTEST_SET_OPTION.label;
     return SET_ABBREVIATIONS_TO_NAMES[value.toLowerCase()] ?? value;
   }
   return value;
@@ -240,6 +243,12 @@ function removeFilter(searchQuery: string, filterToRemove: ParsedFilter): string
 
 export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpenChange }: SearchPillsProps) {
   const filters = useMemo(() => parseFilters(searchQuery), [searchQuery]);
+  // A playtester's picker lists Playtest first (#1623); anyone else's lists the real sets only.
+  const hasPlaytestCards = usePlaytestCards().rows.length > 0;
+  const setOptions = useMemo(
+    () => (hasPlaytestCards ? [PLAYTEST_SET_OPTION, ...SETS] : SETS),
+    [hasPlaytestCards],
+  );
 
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [editingFilter, setEditingFilter] = useState<ParsedFilter | null>(null);
@@ -782,7 +791,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
                 autoFocus
               />
               {(() => {
-                const filtered = SETS.filter((s) =>
+                const filtered = setOptions.filter((s) =>
                   s.label.toLowerCase().includes(setSearch.toLowerCase())
                 );
                 return filtered.length > 0 ? (
