@@ -4,6 +4,7 @@ import { loadCards } from '../lib/loadCards';
 import { filterCards } from '../lib/filterCards';
 import { getCardCounts, stripVersionSuffix } from '../lib/cardCount';
 import CardSearchClient from '../components/CardSearchClient';
+import { cardImageUrl } from '../lib/cardImageUrl';
 
 // On Vercel preview deployments, NEXT_PUBLIC_BASE_URL (from .env.production) is always
 // 'https://webula.app', so OG image URLs would point to production rather than the preview
@@ -42,7 +43,7 @@ export async function generateMetadata(
 
   const imageUrl =
     uniqueCount === 1
-      ? `${BASE_URL}/cardimages/${results[0].imagefile}.jpg`
+      ? `${BASE_URL}${cardImageUrl(results[0])}`
       : `${BASE_URL}/og-default.png`;
 
   return {

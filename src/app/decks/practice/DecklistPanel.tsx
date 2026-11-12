@@ -3,6 +3,7 @@ import { DeckList } from '../../../types';
 import { LAYER_CARD_PREVIEW, LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
 import DeckListItem from '../../../components/DeckListItem';
+import { cardImageUrl } from '../../../lib/cardImageUrl';
 import { cardPileFor, DeckPile } from '../deckBuilderUtils';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
@@ -12,7 +13,7 @@ const PILES: { pile: DeckPile; title: string }[] = [
   { pile: 'drawDeck', title: 'Draw' },
 ];
 
-type DecklistEntry = { key: string; name: string; count: number; imagefile: string; unique: boolean };
+type DecklistEntry = { key: string; name: string; count: number; imageSrc: string; unique: boolean };
 
 // The deck as loaded, grouped by pile (#779), sorted by name within each pile.
 export function decklistByPile(deck: DeckList): Record<DeckPile, DecklistEntry[]> {
@@ -23,7 +24,7 @@ export function decklistByPile(deck: DeckList): Record<DeckPile, DecklistEntry[]
       key,
       name: entry.row.originalName ?? entry.row.name,
       count: entry.count,
-      imagefile: entry.row.imagefile,
+      imageSrc: cardImageUrl(entry.row),
       unique: entry.row.unique === 'y',
     });
   }
@@ -68,7 +69,7 @@ export default function DecklistPanel({ deck, onClose }: { deck: DeckList; onClo
                       collectorsinfo={e.key}
                       count={e.count}
                       name={e.name}
-                      imagefile={e.imagefile}
+                      imageSrc={e.imageSrc}
                       unique={e.unique}
                       previewLayer={LAYER_CARD_PREVIEW}
                     />

@@ -2,6 +2,7 @@ import React from 'react';
 import { FaPlus } from 'react-icons/fa';
 import DeckListItem from '../components/DeckListItem';
 import { CardDef } from '../types';
+import { cardImageUrl, isPlaytestCard } from '../lib/cardImageUrl';
 
 type DeckListPileProps = {
   pileName: string;
@@ -43,7 +44,8 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
               incrementIncluded={() => incrementIncluded(row)}
               count={row.count}
               name={row.originalName}
-              imagefile={row.imagefile}
+              imageSrc={cardImageUrl(row)}
+              playtest={isPlaytestCard(row)}
               unique={row.unique === 'y'}
             />
           ))

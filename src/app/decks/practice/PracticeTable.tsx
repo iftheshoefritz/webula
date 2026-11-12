@@ -173,6 +173,7 @@ import { createCenterOnPointerModifier } from './centerOnPointer';
 import { useFullscreen } from './useFullscreen';
 import { TapDebugOverlay, useDebugTaps } from './TapDebugOverlay';
 import { useServiceWorker, type ServiceWorkerUpdate } from './useServiceWorker';
+import { cardImageUrl, showCardMissing } from '../../../lib/cardImageUrl';
 
 // A plain inline hamburger icon (#722), not react-icons: see `DownloadIcon`'s comment below for
 // why a react-icons import here would need every test mock of `react-icons/fa` in this file's own
@@ -949,7 +950,8 @@ function DiscardPileCard({
       {...listeners}
     >
       <img
-        src={`/cardimages/${topCard.card.imagefile}.jpg`}
+        src={cardImageUrl(topCard.card)}
+        onError={showCardMissing}
         width={120}
         height={167}
         alt="Discard pile"
@@ -1412,7 +1414,8 @@ function DilemmaStackTopCard({
       {cropHeight === undefined ? (
         <img
           draggable={false}
-          src={`/cardimages/${topCard.card.imagefile}.jpg`}
+          src={cardImageUrl(topCard.card)}
+          onError={showCardMissing}
           width={120}
           height={167}
           alt={cardDisplayName(topCard.card)}
@@ -4115,7 +4118,7 @@ function PracticeDrawContent() {
                 // The `data-testid` lets `scripts/watch_landed.sh` see the overlay come and go (#1036).
                 <div data-testid="drag-overlay-card" className="relative w-fit">
                   <img
-                    src={draggingShowsBack ? '/cardimages/cardback.jpg' : `/cardimages/${draggingInstance.card.imagefile}.jpg`}
+                    src={draggingShowsBack ? '/cardimages/cardback.jpg' : cardImageUrl(draggingInstance.card)}
                     width={120}
                     height={167}
                     alt={draggingShowsBack ? 'Face-down card' : cardDisplayName(draggingInstance.card)}

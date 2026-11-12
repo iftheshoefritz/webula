@@ -15,6 +15,7 @@ import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import { PreviewBanner } from './PreviewBanner';
 import HomeSplash from './HomeSplash';
 import { HOME_SPLASH_HREF } from '../lib/startPage';
+import { useWithPlaytestCards } from '../hooks/usePlaytestCards';
 
 interface CardSearchClientProps {
   data: CardData[];
@@ -22,7 +23,9 @@ interface CardSearchClientProps {
   isPreview?: boolean;
 }
 
-export default function CardSearchClient({ data, columns, isPreview = false }: CardSearchClientProps) {
+export default function CardSearchClient({ data: publicData, columns, isPreview = false }: CardSearchClientProps) {
+  // A playtester's playtest cards join after the public cards (#1614).
+  const data = useWithPlaytestCards(publicData);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQueryState] = useState(() => searchParams.get('q') ?? '');
