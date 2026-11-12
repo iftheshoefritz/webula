@@ -1202,6 +1202,11 @@ Never run it alongside `yarn dev`: both use port 3000 and the `.next` folder. On
 precache holds the `_next/static` chunks and the HTML of `/decks/practice`, never a card image.
 `/cardimages/*` and the card data come from the offline deck cache (`OFFLINE_CACHE_NAME` in
 `offlineCache.ts`) when it holds them, and from the network otherwise.
+A playtester's `/api/playtest/` (#1615) is answered from the same cache: an image cache first, as
+`/cardimages/*`, and `/api/playtest/cards` network first, with the cached copy only when the fetch
+fails. Make available offline caches both for a deck that holds a playtest card, the refresh of
+#1054 leaves them alone, and nothing clears the playtester's local copies (the offline cache, the
+saved deck, the saved game) on sign-out.
 
 To reload the page with the network blocked, use `cdp_input.sh offline-reload`. It sends
 `Network.emulateNetworkConditions` with `offline: true` to the page and to every service worker,

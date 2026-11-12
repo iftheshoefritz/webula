@@ -38,6 +38,8 @@ interface UseDriveSyncParams {
   loadDeckInRender: (name: string, contents: string) => void;
   clearDirty: () => void;
   deckIsEmpty: boolean;
+  /** False while the playtest cards of a playtester are on their way (#1615): `data` changes again then. */
+  dataComplete?: boolean;
 }
 
 export const DRIVE_SCOPE_AUTH_PARAMS = {
@@ -90,7 +92,7 @@ async function fetchDeckText(id: string): Promise<string> {
   return response.json();
 }
 
-export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad, loadDeckInRender, clearDirty, deckIsEmpty }: UseDriveSyncParams) {
+export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad, loadDeckInRender, clearDirty, deckIsEmpty, dataComplete = true }: UseDriveSyncParams) {
   const [deckFile, setDeckFile] = useLocalStorage<DeckFileRecord>('deckFile', { id: null, name: 'My deck' });
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
@@ -231,9 +233,10 @@ export function useDriveSync({ data, deckTitle, createLackeyTSV, handleFileLoad,
   };
 
   // Once the card data is in, the deck loads in render when the deck builder is empty or holds that
-  // same Drive file, and asks first otherwise. The decision is made once for each deck and `data`.
+  // same Drive file, and asks first otherwise. The decision is made once for each deck and `data`,
+  // and only once the playtest cards have settled, so a deck that names one keeps it (#1615).
   const [decidedDriveFile, setDecidedDriveFile] = useState<{ file: typeof pendingDriveFile; data: CardData[] } | null>(null);
-  if (pendingDriveFile && data.length > 0 && (decidedDriveFile?.file !== pendingDriveFile || decidedDriveFile.data !== data)) {
+  if (pendingDriveFile && data.length > 0 && dataComplete && (decidedDriveFile?.file !== pendingDriveFile || decidedDriveFile.data !== data)) {
     setDecidedDriveFile({ file: pendingDriveFile, data });
     // A deck with no file is never the deck builder's own file, so it asks first unless the builder is empty.
     if (deckIsEmpty || (pendingDriveFile.id !== null && deckFile?.id === pendingDriveFile.id)) {
