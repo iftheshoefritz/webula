@@ -51,7 +51,7 @@ export async function fetchPlaytestCards(): Promise<PlaytestCards> {
 const browserOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
 const OFFLINE_KEY = '\u0000offline';
 
-// Fetches once per signed-in user, and drops the cards on a sign-out or a switch of account.
+// Fetches once per signed-in user, and drops the cards on a switch of account.
 export function PlaytestCardsProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   // Read once: a page that loaded offline keeps what it fetched then.
@@ -75,8 +75,16 @@ export function PlaytestCardsProvider({ children }: { children: React.ReactNode 
     return () => { cancelled = true; };
   }, [email]);
 
+  // A session that reads as signed out after this page loaded the cards keeps them (#1625). Every
+  // sign-out of the app (`signOut`) leaves the page, so the only way to get there in place is a
+  // session refetch that failed: next-auth refetches on `visibilitychange`, and when an iPad wakes
+  // before its network is back the fetch fails, next-auth takes that as signed out, and stops
+  // refetching on later visibility changes. Dropping the cards then took the image version away,
+  // and every playtest card of the restored game showed `CardMissing.jpg`. The image route still
+  // checks the caller, so a user who really is signed out gets a 404 and `showCardMissing`.
+  const keepAfterSignOut = loaded !== null && status === 'unauthenticated' && email === null;
   const value =
-    loaded !== null && loaded.email === email
+    loaded !== null && (loaded.email === email || keepAfterSignOut)
       ? loaded.cards
       : status === 'loading' || email !== null
         ? PENDING_PLAYTEST_CARDS
