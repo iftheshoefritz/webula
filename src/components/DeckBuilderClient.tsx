@@ -40,7 +40,7 @@ import { isEarlyAccessUser } from '../lib/featureFlags';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
-import { lackeyText } from '../app/decks/deckBuilderUtils';
+import { lackeyText, missingCardsMessage } from '../app/decks/deckBuilderUtils';
 import {
   type ShareFailure,
   ShareRequestError,
@@ -53,7 +53,7 @@ import {
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import useDriveSync from '../hooks/useDriveSync';
 import useDeckState from '../hooks/useDeckState';
-import { useWithPlaytestCards } from '../hooks/usePlaytestCards';
+import { usePlaytestSettled, useWithPlaytestCards } from '../hooks/usePlaytestCards';
 import { cardImageUrl, showCardMissing } from '../lib/cardImageUrl';
 
 interface DeckBuilderClientProps {
@@ -64,6 +64,7 @@ interface DeckBuilderClientProps {
 export default function DeckBuilderClient({ data: publicData, columns }: DeckBuilderClientProps) {
   // A playtester's playtest cards join after the public cards (#1614).
   const data = useWithPlaytestCards(publicData);
+  const playtestSettled = usePlaytestSettled();
   const searchParams = useSearchParams();
   const isFixture = searchParams.get('fixture') === '1';
 
@@ -103,6 +104,8 @@ export default function DeckBuilderClient({ data: publicData, columns }: DeckBui
     clearDeck,
     handleFileLoad,
     loadDeckInRender,
+    missingCards,
+    dismissMissingCards,
   } = useDeckState({
     data,
     isFixture,
@@ -206,12 +209,13 @@ export default function DeckBuilderClient({ data: publicData, columns }: DeckBui
     loadDeckInRender,
     clearDirty,
     deckIsEmpty: Object.keys(currentDeck).length === 0,
+    playtestSettled,
   });
 
-  // A `?share=` deck waits for the card data. Then it loads in render when the deck is empty, and
+  // A `?share=` deck waits for the card data, a playtester's playtest cards too (#1616). Then it loads in render when the deck is empty, and
   // asks first otherwise. The decision is made once for each shared deck and `data`.
   const [decidedShare, setDecidedShare] = useState<{ content: string; data: typeof data } | null>(null);
-  if (pendingShareContent && data.length > 0 && (decidedShare?.content !== pendingShareContent || decidedShare.data !== data)) {
+  if (pendingShareContent && data.length > 0 && playtestSettled && (decidedShare?.content !== pendingShareContent || decidedShare.data !== data)) {
     setDecidedShare({ content: pendingShareContent, data });
     if (Object.keys(currentDeck).length === 0) {
       loadDeckInRender(pendingShareTitle || 'shared-deck', pendingShareContent);
@@ -1479,6 +1483,25 @@ export default function DeckBuilderClient({ data: publicData, columns }: DeckBui
             <button
               onClick={() => setShareLoadError(null)}
               className="text-red-200 hover:text-white"
+              aria-label="Dismiss"
+            >
+              <FaTimes />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {missingCards > 0 && (
+        <div className="fixed top-14 inset-x-0 z-50 flex justify-center px-4">
+          <div
+            role="status"
+            data-testid="deck-missing-cards-warning"
+            className="bg-amber-900/90 border border-amber-700 text-amber-100 text-sm rounded-lg px-4 py-2 shadow-xl flex items-center gap-3"
+          >
+            <span>{missingCardsMessage(missingCards)}</span>
+            <button
+              onClick={dismissMissingCards}
+              className="text-amber-200 hover:text-white"
               aria-label="Dismiss"
             >
               <FaTimes />

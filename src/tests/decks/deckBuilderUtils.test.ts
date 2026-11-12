@@ -1,4 +1,4 @@
-import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, cardPileFor, deckFromTsv, decrementedRow, extractDrawDeck, extractMissions, findExisting, findExistingOrUseRow, incrementedRow, isDeckEmpty, mergeDeckPiles, numericCount, parsedDeck, shuffleArray, withCurrentPiles } from '../../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, cardPileFor, deckFromTsv, deckFromTsvWithMissing, decrementedRow, extractDrawDeck, extractMissions, findExisting, findExistingOrUseRow, incrementedRow, isDeckEmpty, mergeDeckPiles, missingCardsMessage, missingInPiles, numericCount, parsedDeck, shuffleArray, withCurrentPiles } from '../../app/decks/deckBuilderUtils';
 import { CardDef } from '../../types';
 
 describe('constructing a deck object based on TSV text and a list of all card data', () => {
@@ -16,6 +16,55 @@ describe('constructing a deck object based on TSV text and a list of all card da
     expect(deck['2C001'].row.count).toEqual(2)
     expect(deck['2C001'].count).toEqual(2)
     expect(Object.keys(deck).length).toEqual(2)
+  })
+})
+
+describe('the cards a load drops (#1616)', () => {
+  // Invented names only.
+  const data = [
+    {collectorsinfo: '1R000', originalName: 'Card 1', type: 'mission'},
+    {collectorsinfo: '2C001', originalName: 'Card 2', type: 'event'},
+    {collectorsinfo: '3C002', originalName: 'Card 3', type: 'dilemma'},
+  ]
+  const tsv = [
+    'Deck:',
+    '2\tCard 2',
+    '3\tImaginary Card',
+    '',
+    'Dilemmas:',
+    '1\tCard 3',
+    '1\tInvented Dilemma',
+    '',
+    'Missions:',
+    '1\tCard 1',
+  ].join('\n')
+
+  it('counts the copies of every card line not found, and no header or blank line', () => {
+    const parsed = deckFromTsvWithMissing(tsv, data)
+    expect(parsed.missing).toBe(4)
+    expect(parsed.missingByPile).toEqual({ drawDeck: 3, dilemmaPile: 1 })
+    expect(Object.keys(parsed.deck).sort()).toEqual(['1R000', '2C001', '3C002'])
+  })
+
+  it('gives 0 for a deck whose every card is found', () => {
+    const parsed = deckFromTsvWithMissing('Deck:\n2\tCard 2\n\nMissions:\n1\tCard 1', data)
+    expect(parsed.missing).toBe(0)
+  })
+
+  it('leaves the deck of deckFromTsv as it was', () => {
+    expect(deckFromTsvWithMissing(tsv, data).deck).toEqual(deckFromTsv(tsv, data))
+  })
+
+  it('counts only the piles a load takes', () => {
+    const parsed = deckFromTsvWithMissing(tsv, data)
+    expect(missingInPiles(parsed)).toBe(4)
+    expect(missingInPiles(parsed, ['dilemmaPile'])).toBe(1)
+    expect(missingInPiles(parsed, ['mission'])).toBe(0)
+  })
+
+  it('words the warning for one card and for more', () => {
+    expect(missingCardsMessage(1)).toBe('1 card in this deck was not found')
+    expect(missingCardsMessage(3)).toBe('3 cards in this deck were not found')
   })
 })
 

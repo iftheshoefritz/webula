@@ -16,7 +16,7 @@ jest.mock('next-auth/react', () => ({
 }));
 
 import { render, screen, waitFor } from '@testing-library/react';
-import { PlaytestCardsProvider, useWithPlaytestCards } from '../../hooks/usePlaytestCards';
+import { PlaytestCardsProvider, usePlaytestSettled, useWithPlaytestCards } from '../../hooks/usePlaytestCards';
 import { cardImageUrl, playtestImageVersion, setPlaytestImageVersion } from '../../lib/cardImageUrl';
 import { filterCards } from '../../lib/filterCards';
 import type { CardData } from '../../lib/loadCards';
@@ -136,5 +136,40 @@ describe('set:playtest (#1614)', () => {
     const rows = await playtestRowsOf(PLAYTEST_TSV);
     const found = filterCards([...publicData, ...rows], ['name', 'set'], 'set:playtest');
     expect(found.map((row) => row.originalName)).toEqual(['Zed Quill', 'Widget Array']);
+  });
+});
+
+describe('usePlaytestSettled (#1616)', () => {
+  function Settled() {
+    return <p data-testid="settled">{String(usePlaytestSettled())}</p>;
+  }
+  const renderSettled = () => render(<PlaytestCardsProvider><Settled /></PlaytestCardsProvider>);
+  const settled = () => screen.getByTestId('settled').textContent;
+
+  it('has settled with no provider', () => {
+    render(<Settled />);
+    expect(settled()).toBe('true');
+  });
+
+  it('has not settled while the session loads', () => {
+    mockUseSession.mockReturnValue({ status: 'loading', data: null });
+    renderSettled();
+    expect(settled()).toBe('false');
+  });
+
+  it('has settled at once for a signed-out user', () => {
+    mockUseSession.mockReturnValue({ status: 'unauthenticated', data: null });
+    renderSettled();
+    expect(settled()).toBe('true');
+  });
+
+  it('settles for a signed-in user once the answer is in, a 404 too', async () => {
+    mockUseSession.mockReturnValue(signedIn);
+    let answer: (value: unknown) => void = () => {};
+    fetchMock.mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    renderSettled();
+    expect(settled()).toBe('false');
+    answer({ ok: false, status: 404, json: async () => ({ error: 'not_found' }) });
+    await waitFor(() => expect(settled()).toBe('true'));
   });
 });

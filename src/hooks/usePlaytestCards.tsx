@@ -19,6 +19,11 @@ const NO_PLAYTEST_CARDS: PlaytestCards = { rows: [], version: null };
 
 const PlaytestCardsContext = createContext<PlaytestCards>(NO_PLAYTEST_CARDS);
 
+// Whether the playtest request has settled (#1616): the session is known, and for a signed-in user
+// the answer, any answer, is in. A deck from the URL waits for it, so a playtester's own deck never
+// loads before its playtest cards. With no provider, as in a test, it has settled.
+const PlaytestSettledContext = createContext<boolean>(true);
+
 // The rows of a `{ version, tsv }` answer, each with `set` `playtest` whatever the owner's `Set`
 // column says. Version 0 with an empty TSV, before the first upload, is no rows. The parser, and
 // d3 with it, loads only when a playtester's cards arrive.
@@ -62,7 +67,17 @@ export function PlaytestCardsProvider({ children }: { children: React.ReactNode 
     if (value === NO_PLAYTEST_CARDS) setPlaytestImageVersion(null);
   }, [value]);
 
-  return <PlaytestCardsContext.Provider value={value}>{children}</PlaytestCardsContext.Provider>;
+  const settled = status === 'unauthenticated' || (email !== null && loaded !== null && loaded.email === email);
+
+  return (
+    <PlaytestSettledContext.Provider value={settled}>
+      <PlaytestCardsContext.Provider value={value}>{children}</PlaytestCardsContext.Provider>
+    </PlaytestSettledContext.Provider>
+  );
+}
+
+export function usePlaytestSettled(): boolean {
+  return useContext(PlaytestSettledContext);
 }
 
 export function usePlaytestCards(): PlaytestCards {

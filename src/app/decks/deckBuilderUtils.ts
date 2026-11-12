@@ -27,10 +27,25 @@ export const incrementedRow = (row) => (
 
 export const decrementedRow = (row) => ({...row, count: numericCount(row) - 1})
 
-export const parsedDeck = (lines: Array<string>, data: Array<any>) => {
+const LACKEY_PILE_HEADERS: Record<string, DeckPile> = {
+  'deck:': 'drawDeck',
+  'dilemmas:': 'dilemmaPile',
+  'missions:': 'mission',
+}
+
+// The deck of the Lackey lines, and the cards it dropped because `data` has no card of that name
+// (#1616): `missing` is the sum of the quantities of the card lines not found, and `missingByPile`
+// splits it by the pile header the line sits under, so a load of some piles counts only theirs.
+// The pile headers and blank lines are no card lines, so they never count.
+export const parsedDeckWithMissing = (lines: Array<string>, data: Array<any>, report = true) => {
   const deck = {}
+  let missing = 0
+  const missingByPile: Partial<Record<DeckPile, number>> = {}
+  let header: DeckPile | undefined
   for (const line of lines) {
     const [qty, uploadCardName] = line.split('\t').map((x) => x.trim())
+    const headerPile = LACKEY_PILE_HEADERS[(qty ?? '').toLowerCase()]
+    if (headerPile && !uploadCardName) header = headerPile
     const found = data.find((row: CardDef) =>  row.originalName === uploadCardName)
     if (found) {
       const card = { ...found, count: parseInt(qty), pile: cardPileFor(found) };
@@ -39,14 +54,44 @@ export const parsedDeck = (lines: Array<string>, data: Array<any>) => {
         row: card
       }
     } else {
-      posthog.capture('deckBuilder.handleFileLoad.unknownCard', {card: uploadCardName})
+      if (report) posthog.capture('deckBuilder.handleFileLoad.unknownCard', {card: uploadCardName})
+      const count = parseInt(qty)
+      if (uploadCardName && /^\d+$/.test(qty) && count > 0) {
+        missing += count
+        if (header) missingByPile[header] = (missingByPile[header] ?? 0) + count
+      }
     }
   }
-  return deck
+  return { deck, missing, missingByPile }
 }
+
+// The missing cards of the piles a load takes: every one for a whole deck.
+export const missingInPiles = (
+  parsed: { missing: number; missingByPile: Partial<Record<DeckPile, number>> },
+  piles?: DeckPile[]
+) => (piles ? piles.reduce((sum, pile) => sum + (parsed.missingByPile[pile] ?? 0), 0) : parsed.missing)
+
+export const parsedDeck = (lines: Array<string>, data: Array<any>) => parsedDeckWithMissing(lines, data).deck
 
 export const deckFromTsv = (tsv: string, data: Array<any>) => (
   parsedDeck(tsv.trim().split('\n'), data)
+)
+
+export const deckFromTsvWithMissing = (tsv: string, data: Array<any>) => (
+  parsedDeckWithMissing(tsv.trim().split('\n'), data)
+)
+
+// The cards a Lackey text names that `data` does not have, with no report, for a page that parses
+// the deck itself with `deckFromTsv`.
+export const missingCardsOf = (tsv: string, data: Array<any>) => {
+  const { missing, missingByPile } = parsedDeckWithMissing(tsv.trim().split('\n'), data, false)
+  return { missing, missingByPile }
+}
+
+// The warning of a load that dropped cards (#1616), the same words on the deck builder and the
+// practice table.
+export const missingCardsMessage = (missing: number) => (
+  missing === 1 ? '1 card in this deck was not found' : `${missing} cards in this deck were not found`
 )
 
 // The deck as a LackeyCCG deck file, the text that Save to Drive writes and `deckFromTsv` reads
