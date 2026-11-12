@@ -118,12 +118,29 @@ describe('PlaytestCardsProvider and useWithPlaytestCards (#1614)', () => {
     expect(names()).toEqual(['Public One']);
   });
 
-  it('drops the playtest cards on a sign-out', async () => {
+  // An iPad that wakes before its network is back fails next-auth's session refetch, and the
+  // session reads as signed out with the restored game on the table (#1626).
+  it('keeps the playtest cards and their image version when the session drops to signed out in place', async () => {
     mockUseSession.mockReturnValue(signedIn);
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ version: 2, tsv: PLAYTEST_TSV }) });
     const { rerender } = renderTree();
     await waitFor(() => expect(names()).toHaveLength(3));
     mockUseSession.mockReturnValue({ status: 'unauthenticated', data: null });
+    rerender(<PlaytestCardsProvider><Names /></PlaytestCardsProvider>);
+    await Promise.resolve();
+    expect(names()).toHaveLength(3);
+    expect(playtestImageVersion()).toBe(2);
+    expect(cardImageUrl({ imagefile: 'PT-ZedQuill', set: 'playtest' } as never)).toBe('/api/playtest/images/PT-ZedQuill.jpg?v=2');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops the playtest cards on a switch to an account that is not a playtester', async () => {
+    mockUseSession.mockReturnValue(signedIn);
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ version: 2, tsv: PLAYTEST_TSV }) });
+    const { rerender } = renderTree();
+    await waitFor(() => expect(names()).toHaveLength(3));
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({ error: 'not_found' }) });
+    mockUseSession.mockReturnValue({ status: 'authenticated', data: { user: { email: 'other@example.com' } } });
     rerender(<PlaytestCardsProvider><Names /></PlaytestCardsProvider>);
     await waitFor(() => expect(names()).toEqual(['Public One']));
     expect(playtestImageVersion()).toBeNull();
