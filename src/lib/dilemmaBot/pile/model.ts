@@ -269,6 +269,12 @@ export type PlayEffect = { title: string; why?: string } & (
   | { op: 'playerChooses'; count?: number; pool?: number[]; ks?: number[] }
   /** A roll of the random function outside `select` (#1588), such as the cards Reflections reveals. */
   | { op: 'roll' }
+  /**
+   * A test of each selected personnel (#1628): `met[i]` says whether `ks[i]` meets `text`, such as
+   * "Integrity, Cunning or Strength > 6". With `subject`, a test of the requirements on those personnel
+   * together, such as "the selected personnel", and every `met` is the one result. It changes nothing.
+   */
+  | { op: 'check'; ks: number[]; met: boolean[]; text: string; subject?: string }
 );
 
 export interface PlayContext {
@@ -346,12 +352,6 @@ export interface DilemmaModel {
   discountsNext?: (attempt: PileAttempt) => number;
   /** What it adds to the total cost the stack may spend (Entanglement: 3). */
   extraBudget?: number;
-  /**
-   * Its random selection is the pool of a later choice of the player (#1594): A Pattern of Lies, and
-   * `anyOfThree(…, 'player')`. The table rolls the selection when it reveals the card and keeps it, so
-   * the player chooses from the same set after a reload.
-   */
-  rollsBeforeChoice?: true;
   play: (state: import('./play').PlayState) => void;
 }
 

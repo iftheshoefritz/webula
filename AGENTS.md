@@ -536,7 +536,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has ten fixtures. Each one deals the same table on every load.
+The practice table has eleven fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -603,6 +603,12 @@ The practice table has ten fixtures. Each one deals the same table on every load
   "Selected A, B, C; choose 1 to be stopped" (or "Stops A, B, C" when the three share a species), the
   same set after a reload, and Resolve is disabled until one personnel of the set is selected. It keeps
   its game under `practiceGame:fixture=bot-resolve-pattern`.
+- `?fixture=bot-resolve-becalmed` (#1628) deals the `?fixture=bot-label` table and attempt with one
+  Becalmed (`36V002`) in place of Well-Prepared Defenses, revealed on top of the stack. The reveal rolls
+  its three personnel and the reveal snapshot keeps them, so its Resolve preview reads "Selected A, B, C;
+  B has Integrity, Cunning or Strength > 6: stops B" (or "none has …: no effect"), the same after a
+  reload, and Resolve stops exactly the personnel it names. It keeps its game under
+  `practiceGame:fixture=bot-resolve-becalmed`.
 - `?fixture=bot-resolve-modifier` (#1598) deals the `?fixture=bot-label` table and attempt with one
   Accelerated Aging (`11P001`) in place of Well-Prepared Defenses, revealed on top of the stack, and one
   Dead Weight (`36V005`) face down right under it (`BotRevealFixture.next`). Its Resolve preview reads
@@ -842,8 +848,8 @@ bot's Resolve, `data-testid="dilemma-resolve-preview"` ("Stops <name>", "Kills 2
 "No effect", with a tail such as "; 1 of 1 already stopped" for what the player did by hand), and the
 **Resolve** button, `data-testid="dilemma-resolve"` (#1589). Both read `botResolveOf` (`attempt.ts`)
 on the live table and the attempt's reveal snapshot, which the save keeps, so a reload shows the same
-preview. A press rolls the random picks on the page, with `Math.random`, as `withShuffleOrders`
-chooses a shuffle, and dispatches one `resolveDilemma`, even with no changes: one log entry, "Resolved
+preview. A press plays the roll the reveal kept (#1628), so it applies what the preview names, and
+dispatches one `resolveDilemma`, even with no changes: one log entry, "Resolved
 <dilemma>: …; it goes under <mission>", and one undo takes it all back. The press applies the
 dilemma's effects to the personnel, then moves the dilemma where it goes (#1599, the `move` of the
 action, `resolveMoveOf` in `attempt.ts`): under the attempted mission, face up, after the cards there;
@@ -897,14 +903,25 @@ apply. Under a seeded Overwhelmed, a passing check of the revealed dilemma stops
 skills met it, and that stop is part of the dilemma's Resolve, previewed as "Stops Data (Overwhelmed)";
 the stops of Chula: The Game stay out of it.
 
-Where a random selection is the pool of the player's choice (A Pattern of Lies, and the
-`anyOfThree(…, 'player')` titles New Face, Discommendation and Moral Choice, `DilemmaModel.rollsBeforeChoice`,
-#1594), the page rolls the selection before it dispatches the `flip` that reveals the card
-(`withShuffleOrders` calls `revealPicksOf`), and the `flip` carries it as `picks`, which
-`RevealSnapshot.picks` keeps as card ids, one list per select. A restore that takes a fresh snapshot of
-such a card, or finds one with no roll, rolls it once, outside the reducer. The preview and the press
-play with the kept roll, never a new one: the preview names the set, "Selected A, B, C; choose 1 to be
-stopped", or the definite result, and no card of the row is marked.
+Every random selection of the revealed dilemma's own play (#1594, #1628: `selectRandom`, `stopRandom`,
+`killRandom`, `selectEachWithout`, `anyOfThree`, `unlessSelected`, Becalmed, a random pick among the
+selected, and every bespoke select) rolls at the reveal: the page rolls it before it dispatches the `flip`
+that reveals the card (`withShuffleOrders` calls `revealPicksOf`, `pileRevealPicksOf`), and the `flip`
+carries it as `picks`, which `RevealSnapshot.picks` keeps as card ids, one list per select. A restore that
+takes a fresh snapshot of such a card, or finds one with no roll, rolls it once, outside the reducer. A
+select with a `why` (Chula: The Game), a `selectUntil` select of the whole pool in order, `s.roll`, and a
+select of a later stack card roll nothing. The preview and the press play with the kept roll, never a new
+one, and a dilemma that selects at random with no kept roll has no Resolve. The preview goes step by step:
+the selection, then each check on the selected personnel, which `selectEachWithout`, `selectEachWith`,
+`anyOfThree` and `unlessSelected` record as a `check` `PlayEffect` (`PlayState.check`), then the result:
+"Selected Data, Worf, Troi; Worf has Integrity, Cunning or Strength > 6: stops Worf", "…; none has …: no
+effect", or "Selected Data; kills Data" for a title with no check; "N random personnel" never shows. The
+tails ("1 of 1 already stopped", the modifiers clause, the destination) follow. Where the selection is
+the pool of the player's choice (A Pattern of Lies, New Face, Discommendation, Moral Choice) the pending
+preview reads "Selected A, B, C; choose 1 to be stopped". The pool is the reveal snapshot's group, so a
+selected personnel the player stops by hand after the reveal stays selected and counts as already
+stopped. `PileResolve.steps` and `BotResolve.steps` hold the selection and the checks as card ids. No
+card of the row is marked yet.
 
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
 dilemmas. Start begins in `'choose'`, with `Attempt.drawn` 0. The choice-phase draw, `drawCard` from

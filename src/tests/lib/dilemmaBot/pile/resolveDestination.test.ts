@@ -5,7 +5,7 @@ import { modelOf } from '../../../../lib/dilemmaBot/pile/registry';
 import { seededRandom } from '../../../../lib/dilemmaBot/simulator';
 import { REGISTRY } from '../../../../lib/dilemmaBot/pile/registry';
 
-import { pileResolveOf } from '../../../../lib/dilemmaBot/pile/resolve';
+import { pileResolveOf, pileRevealPicksOf } from '../../../../lib/dilemmaBot/pile/resolve';
 import { PileCardRow, pileAttemptOf } from '../../../../lib/dilemmaBot/pile/tableAttempt';
 
 const NAMES = ['Alpha', 'Beta', 'Gamma', 'Delta'];
@@ -31,8 +31,10 @@ function setup(strength = 5, missionSkills = 'Physics') {
 function resolve(title: string, strength = 5, missionSkills = 'Physics') {
   const { attempt, personnelIds } = setup(strength, missionSkills);
   const input = { personnelIds, snapshotIds: IDS, where: () => ({ at: 'row' as const, stopped: false }) };
-  const preview = pileResolveOf({ originalName: title }, attempt, input);
-  const press = pileResolveOf({ originalName: title }, attempt, { ...input, rand: seededRandom(3) });
+  // The roll the reveal keeps (#1628), for a title that selects at random; the preview and the press play it.
+  const revealPicks = pileRevealPicksOf({ originalName: title }, attempt, { personnelIds, rand: seededRandom(3) });
+  const preview = pileResolveOf({ originalName: title }, attempt, { ...input, ...(revealPicks ? { revealPicks } : {}) });
+  const press = preview;
   if (!preview.resolvable) throw new Error(preview.reason);
   if (!press.resolvable) throw new Error(press.reason);
   return { preview, press };

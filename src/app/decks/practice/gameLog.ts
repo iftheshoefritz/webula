@@ -481,8 +481,8 @@ function withShuffleOrder(table: TableState, action: TableAction): TableAction {
   if (action.type === 'drawCard' && !action.order && drawReshuffles(table, action)) {
     return { ...action, order: shuffledIds(table.dilemmaPile) };
   }
-  // A flip that takes a reveal snapshot of a dilemma whose roll comes before the player's choice
-  // carries that roll (#1594), so the snapshot keeps it.
+  // A flip that takes a reveal snapshot of a dilemma that selects at random carries that roll (#1594,
+  // #1628), so the snapshot keeps it.
   if (action.type === 'flip' && !action.picks) {
     const next = tableReducer(table, action);
     const picks = next.attempt?.revealSnapshot !== table.attempt?.revealSnapshot ? revealPicksOf(next, Math.random) : undefined;

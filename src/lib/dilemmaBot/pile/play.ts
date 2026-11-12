@@ -364,6 +364,14 @@ export class PlayState {
     return this.rand();
   }
 
+  /**
+   * A test of the selected `ks` (#1628): the recorder notes which of them meet `text`, so the Resolve can
+   * name the check. `subject`: a test of them together, such as "the selected personnel".
+   */
+  check(ks: number[], met: boolean[], text: string, subject?: string) {
+    if (this.effects) this.record({ op: 'check', ks: ks.slice(), met: met.slice(), text, ...(subject ? { subject } : {}) });
+  }
+
   /** A choice the player makes in the play's place (#1588): the recorder notes it, since the table cannot make it. */
   playerChoice() {
     if (this.effects) this.record({ op: 'playerChooses' });
