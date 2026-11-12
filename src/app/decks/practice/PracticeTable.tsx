@@ -41,6 +41,8 @@ import {
 } from '../deckBuilderUtils';
 import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
+import { usePlaytestCards, useWithPlaytestCards } from '../../../hooks/usePlaytestCards';
+import { useCompleteData } from './useCompleteData';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
@@ -1869,7 +1871,13 @@ function PracticeDrawContent() {
   // Browser checks use it with `?fixture=1` to start from the same table every time.
   const isReset = searchParams.get('reset') === '1';
   const debugTaps = useDebugTaps(searchParams.get('debugTaps'));
-  const { data, loading } = useDataFetching();
+  const { data: publicData, loading } = useDataFetching();
+  // A playtester's playtest cards join the public cards when they arrive (#1615). A deck resolved by
+  // name awaits `completeData`, so it waits for them; the deal effect runs on `publicData` only.
+  // The rows stay `any[]`, as `useDataFetching` gives them.
+  const data: any[] = useWithPlaytestCards(publicData);
+  const playtestSettled = usePlaytestCards().settled;
+  const completeData = useCompleteData(data, !loading && playtestSettled);
   const serviceWorkerUpdate = useServiceWorker();
   // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
   // entry per player action, so a handler whose action moves several cards dispatches one `batch`.
@@ -2403,7 +2411,8 @@ function PracticeDrawContent() {
 
   // The first run restores the saved game when there is one (#976), and a restored game is never
   // dealt over by the later run that `data` starts. A fixture route restores only once `data` is
-  // there. `?reset=1` skips the restore.
+  // there. `?reset=1` skips the restore. It runs on the public cards alone: the playtest cards that
+  // join later (#1615) never deal a game in progress again, and no fixture holds one.
   useEffect(() => {
     if (restoredRef.current) return;
     if (!isReset && !saveReadyRef.current && restoreSavedGame()) {
@@ -2411,7 +2420,7 @@ function PracticeDrawContent() {
       return;
     }
     initDeck();
-  }, [data]);
+  }, [publicData]);
 
   // Writes the game and its log (#1400) after every change of the table (#976), and then the undo and
   // redo histories under a key of their own (#1401). A failed write (quota, private browsing) is
@@ -2532,9 +2541,10 @@ function PracticeDrawContent() {
     }
     const tsv = await drive.fetchDeckTsv(source.file);
     if (tsv === null) return null;
-    const parsed = missingCardsOf(tsv, data);
+    const cards = await completeData();
+    const parsed = missingCardsOf(tsv, cards);
     return {
-      deck: deckFromTsv(tsv, data),
+      deck: deckFromTsv(tsv, cards),
       fileId: source.file.id,
       name: source.file.name,
       missing: parsed.missing,
@@ -2554,8 +2564,9 @@ function PracticeDrawContent() {
     if (!sameDeck) {
       const dilemmaTsv = await drive.fetchDeckTsv(dilemmaFile);
       if (dilemmaTsv === null) return;
-      deck = mergeDeckPiles(base.deck, deckFromTsv(dilemmaTsv, data), ['dilemmaPile']);
-      missing = base.missingOfMissionsAndDraw + missingInPiles(missingCardsOf(dilemmaTsv, data), ['dilemmaPile']);
+      const cards = await completeData();
+      deck = mergeDeckPiles(base.deck, deckFromTsv(dilemmaTsv, cards), ['dilemmaPile']);
+      missing = base.missingOfMissionsAndDraw + missingInPiles(missingCardsOf(dilemmaTsv, cards), ['dilemmaPile']);
     }
     setLoadedDeck(deck);
     setDriveFileId(base.fileId);

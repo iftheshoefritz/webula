@@ -10,6 +10,7 @@ import {
   OFFLINE_CACHE_NAME,
   OFFLINE_DECKS_KEY,
   OfflineDeck,
+  PLAYTEST_CARDS_URL,
   addOfflineDeck,
   deckUrls,
   downloadUrls,
@@ -22,6 +23,7 @@ import {
   useOfflineDecks,
 } from '../../../app/decks/practice/offlineDecks';
 import { fingerprint } from '../../../app/decks/practice/savedGame';
+import { cardImageUrl, setPlaytestImageVersion } from '../../../lib/cardImageUrl';
 import { DeckList } from '../../../types';
 
 const row = (key: string, extra: Record<string, any> = {}) => ({
@@ -102,6 +104,43 @@ describe('deckUrls', () => {
   it('leaves out a card with no copies', () => {
     const deck: DeckList = { a: { row: row('a'), count: 0 } };
     expect(deckUrls(deck, [])).toEqual([CARD_BACK_URL, CARD_DATA_URL]);
+  });
+});
+
+// An invented playtest card (#1615): no playtest card is ever committed.
+const testGadget = row('PT-9004A', { originalName: 'Test Gadget', imagefile: '9004A', set: 'playtest' });
+
+describe('deckUrls of a deck with a playtest card (#1615)', () => {
+  beforeEach(() => setPlaytestImageVersion(7));
+  afterEach(() => setPlaytestImageVersion(null));
+
+  it('lists the image of the playtest card and the playtest cards', () => {
+    const urls = deckUrls(deckOf(row('1'), testGadget), []);
+    expect(cardImageUrl(testGadget)).toBe('/api/playtest/images/9004A.jpg?v=7');
+    expect(urls.sort()).toEqual(
+      ['/cardimages/img-1.jpg', '/api/playtest/images/9004A.jpg?v=7', CARD_BACK_URL, CARD_DATA_URL, PLAYTEST_CARDS_URL].sort(),
+    );
+  });
+
+  it('gives a deck of real cards the list it had before', () => {
+    expect(deckUrls(deckOf(row('1')), [])).toEqual(['/cardimages/img-1.jpg', CARD_BACK_URL, CARD_DATA_URL]);
+  });
+
+  it('names the playtest card and the playtest cards when they fail', async () => {
+    mockCaches();
+    global.fetch = jest.fn(async (url: string) =>
+      url.startsWith('/api/playtest/') ? { ...response(0), ok: false, status: 502 } : response(10),
+    ) as any;
+
+    const result = await makeDeckOffline('Playtest deck', deckOf(row('1'), testGadget), []);
+
+    expect(result).toEqual({
+      offline: false,
+      failed: [
+        { url: '/api/playtest/images/9004A.jpg?v=7', name: 'Test Gadget' },
+        { url: PLAYTEST_CARDS_URL, name: 'Playtest cards' },
+      ],
+    });
   });
 });
 
@@ -318,6 +357,26 @@ describe('the refresh when the card data changes', () => {
     ]);
     expect(onProgress).toHaveBeenLastCalledWith({ done: 4, total: 4, bytes: 40 });
     expect(stores.has(OFFLINE_REFRESH_CACHE_NAME)).toBe(false);
+  });
+
+  it('keeps the cached playtest cards and images of a deck with a playtest card (#1615)', async () => {
+    const { offline } = setUp();
+    const playtestUrls = ['/api/playtest/images/9004A.jpg?v=7', PLAYTEST_CARDS_URL];
+    playtestUrls.forEach((url) => offline.set(url, { ...response(5), old: true }));
+    const deckC = deckOf(row('1'), testGadget);
+    addOfflineDeck({ ...record(deckC, [...urlsA, ...playtestUrls], 'C'), dataVersion: '"v1"' });
+    global.fetch = server('"v2"');
+
+    const result = await refreshOfflineDecks();
+
+    expect(result.refreshed).toBe(true);
+    fetchedUrls().forEach((url: string) => expect(url.startsWith('/api/playtest/')).toBe(false));
+    playtestUrls.forEach((url) => expect(offline.get(url).old).toBe(true));
+    expect(readOfflineDecks().map((d) => [d.name, d.dataVersion, d.bytes])).toEqual([
+      ['A', '"v2"', 30],
+      ['B', '"v2"', 30],
+      ['C', '"v2"', 40],
+    ]);
   });
 
   it('downloads nothing when the version has not changed', async () => {

@@ -53,7 +53,7 @@ import {
 import { getCardCounts, formatCardCountLabel } from '../lib/cardCount';
 import useDriveSync from '../hooks/useDriveSync';
 import useDeckState from '../hooks/useDeckState';
-import { usePlaytestSettled, useWithPlaytestCards } from '../hooks/usePlaytestCards';
+import { usePlaytestCards, useWithPlaytestCards } from '../hooks/usePlaytestCards';
 import { cardImageUrl, showCardMissing } from '../lib/cardImageUrl';
 
 interface DeckBuilderClientProps {
@@ -64,7 +64,7 @@ interface DeckBuilderClientProps {
 export default function DeckBuilderClient({ data: publicData, columns }: DeckBuilderClientProps) {
   // A playtester's playtest cards join after the public cards (#1614).
   const data = useWithPlaytestCards(publicData);
-  const playtestSettled = usePlaytestSettled();
+  const playtestSettled = usePlaytestCards().settled;
   const searchParams = useSearchParams();
   const isFixture = searchParams.get('fixture') === '1';
 
@@ -209,7 +209,7 @@ export default function DeckBuilderClient({ data: publicData, columns }: DeckBui
     loadDeckInRender,
     clearDirty,
     deckIsEmpty: Object.keys(currentDeck).length === 0,
-    playtestSettled,
+    dataComplete: playtestSettled,
   });
 
   // A `?share=` deck waits for the card data, a playtester's playtest cards too (#1616). Then it loads in render when the deck is empty, and

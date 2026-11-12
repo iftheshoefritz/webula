@@ -16,7 +16,7 @@ jest.mock('next-auth/react', () => ({
 }));
 
 import { render, screen, waitFor } from '@testing-library/react';
-import { PlaytestCardsProvider, usePlaytestSettled, useWithPlaytestCards } from '../../hooks/usePlaytestCards';
+import { PlaytestCardsProvider, usePlaytestCards, useWithPlaytestCards } from '../../hooks/usePlaytestCards';
 import { cardImageUrl, playtestImageVersion, setPlaytestImageVersion } from '../../lib/cardImageUrl';
 import { filterCards } from '../../lib/filterCards';
 import type { CardData } from '../../lib/loadCards';
@@ -130,6 +130,43 @@ describe('PlaytestCardsProvider and useWithPlaytestCards (#1614)', () => {
   });
 });
 
+function Settled() {
+  return <p data-testid="settled">{String(usePlaytestCards().settled)}</p>;
+}
+const settled = () => screen.getByTestId('settled').textContent;
+const renderSettled = () => render(<PlaytestCardsProvider><Settled /></PlaytestCardsProvider>);
+
+describe('settled (#1615)', () => {
+  it('is false while the session or the request is on its way, and true once the answer is in', async () => {
+    mockUseSession.mockReturnValue({ status: 'loading', data: null });
+    let answer: (value: unknown) => void = () => {};
+    fetchMock.mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    const { rerender } = renderSettled();
+    expect(settled()).toBe('false');
+    mockUseSession.mockReturnValue(signedIn);
+    rerender(<PlaytestCardsProvider><Settled /></PlaytestCardsProvider>);
+    expect(settled()).toBe('false');
+    answer({ ok: false, status: 404, json: async () => ({}) });
+    await waitFor(() => expect(settled()).toBe('true'));
+  });
+
+  it('is true at once when signed out online, with no request', () => {
+    mockUseSession.mockReturnValue({ status: 'unauthenticated', data: null });
+    renderSettled();
+    expect(settled()).toBe('true');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('asks for the playtest cards offline, where the session reads as signed out', async () => {
+    jest.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    mockUseSession.mockReturnValue({ status: 'unauthenticated', data: null });
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ version: 4, tsv: PLAYTEST_TSV }) });
+    renderTree();
+    await waitFor(() => expect(names()).toEqual(['Public One', 'Zed Quill', 'Widget Array']));
+    expect(playtestImageVersion()).toBe(4);
+  });
+});
+
 describe('set:playtest (#1614)', () => {
   it('finds the merged playtest rows', async () => {
     const { playtestRowsOf } = await import('../../hooks/usePlaytestCards');
@@ -139,9 +176,9 @@ describe('set:playtest (#1614)', () => {
   });
 });
 
-describe('usePlaytestSettled (#1616)', () => {
+describe('settled, for a deck from the URL (#1616)', () => {
   function Settled() {
-    return <p data-testid="settled">{String(usePlaytestSettled())}</p>;
+    return <p data-testid="settled">{String(usePlaytestCards().settled)}</p>;
   }
   const renderSettled = () => render(<PlaytestCardsProvider><Settled /></PlaytestCardsProvider>);
   const settled = () => screen.getByTestId('settled').textContent;

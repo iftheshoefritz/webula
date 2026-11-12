@@ -8,10 +8,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DeckList } from '../../../types';
 import { withBackImageFiles } from '../deckBuilderUtils';
 import { fingerprint } from './savedGame';
-import { CARD_BACK_URL, CARD_DATA_URL, OFFLINE_CACHE_NAME } from './offlineCache';
-import { cardImageUrl } from '../../../lib/cardImageUrl';
+import { CARD_BACK_URL, CARD_DATA_URL, OFFLINE_CACHE_NAME, PLAYTEST_API_PATH, PLAYTEST_CARDS_URL } from './offlineCache';
+import { cardImageUrl, isPlaytestCard } from '../../../lib/cardImageUrl';
 
-export { CARD_BACK_URL, CARD_DATA_URL, OFFLINE_CACHE_NAME };
+export { CARD_BACK_URL, CARD_DATA_URL, OFFLINE_CACHE_NAME, PLAYTEST_CARDS_URL };
 
 export const OFFLINE_DECKS_KEY = 'practiceOfflineDecks';
 const DOWNLOAD_CONCURRENCY = 4;
@@ -44,7 +44,8 @@ export type MakeOfflineResult =
 
 
 // Every URL the deck needs offline, with no duplicates: each front, each back (filled from
-// `data` for a mission of a deck saved before #765), the card back and the card data file.
+// `data` for a mission of a deck saved before #765), the card back and the card data file. A deck
+// with a playtest card needs the playtest cards too (#1615), so an offline load merges them.
 export function deckUrls(deck: DeckList, data: any[]): string[] {
   const rows = withBackImageFiles(
     Object.values(deck).filter((entry) => (entry?.count ?? 0) > 0).map((entry) => entry.row),
@@ -57,6 +58,7 @@ export function deckUrls(deck: DeckList, data: any[]): string[] {
   });
   urls.add(CARD_BACK_URL);
   urls.add(CARD_DATA_URL);
+  if (rows.some(isPlaytestCard)) urls.add(PLAYTEST_CARDS_URL);
   return Array.from(urls);
 }
 
@@ -65,6 +67,7 @@ const urlNames = (deck: DeckList, data: any[]): Map<string, string> => {
   const names = new Map<string, string>([
     [CARD_BACK_URL, 'Card back'],
     [CARD_DATA_URL, 'Card data'],
+    [PLAYTEST_CARDS_URL, 'Playtest cards'],
   ]);
   withBackImageFiles(Object.values(deck).map((entry) => entry.row), data).forEach((row) => {
     const name = row?.originalName ?? row?.name ?? row?.imagefile;
@@ -204,6 +207,8 @@ export async function downloadUrls(
   return { bytes, failed };
 }
 
+const isPlaytestUrl = (url: string): boolean => url.startsWith(PLAYTEST_API_PATH);
+
 // The version of the card data in a set of headers: the ETag, else the Last-Modified, else ''.
 const versionOf = (headers: Headers | undefined): string =>
   headers?.get('ETag') ?? headers?.get('Last-Modified') ?? '';
@@ -262,7 +267,11 @@ export async function refreshOfflineDecks(
     return { refreshed: false, reason: 'no-cache' };
   }
 
-  const urls = Array.from(new Set([CARD_DATA_URL, ...decks.flatMap((d) => d.urls)]));
+  // The playtest cards and their images are not refetched (#1615): an image URL names the version of
+  // its upload, and new cards would name images the cache does not hold. Make available offline
+  // again takes a new upload.
+  const keptUrls = new Set(decks.flatMap((d) => d.urls).filter(isPlaytestUrl));
+  const urls = Array.from(new Set([CARD_DATA_URL, ...decks.flatMap((d) => d.urls)])).filter((url) => !keptUrls.has(url));
   // The service worker answers a GET of a cached URL from the offline cache. A query it has never
   // seen does not match, so the worker sends the request to the network, and the response is
   // stored under the plain URL.
@@ -286,9 +295,13 @@ export async function refreshOfflineDecks(
     return { refreshed: false, reason: 'failed', failed: [] };
   }
   await caches.delete(OFFLINE_REFRESH_CACHE_NAME).catch(() => false);
+  for (const url of keptUrls) {
+    const response = await cache.match(url).catch(() => undefined);
+    sizes.set(url, response ? await responseBytes(response) : 0);
+  }
 
   // A deck added or removed while the refresh ran keeps its own record.
-  const refreshed = new Set(urls);
+  const refreshed = new Set([...urls, ...keptUrls]);
   const updated = readOfflineDecks().map((d) =>
     d.urls.every((url) => refreshed.has(url))
       ? {

@@ -143,7 +143,7 @@ user who is not a playtester among them, as before, and a dismissible warning,
 were not found", `missingCardsMessage`, #1616): in the deck builder after any load of `useDeckState`,
 and on the practice table after a Load deck from Drive or a bot pile. `deckFromTsvWithMissing` and
 `missingCardsOf` (`deckBuilderUtils.ts`) count the copies, by pile header, so a load of some piles
-counts only theirs. A `?share=` or `?driveFile=` deck waits for `usePlaytestSettled`, so a
+counts only theirs. A `?share=` or `?driveFile=` deck waits for `usePlaytestCards().settled` (#1615), so a
 playtester's own deck loads with its playtest cards.
 
 No playtest card is ever committed: no name, text, TSV row or image in the repository, a test, a
@@ -1211,6 +1211,11 @@ Never run it alongside `yarn dev`: both use port 3000 and the `.next` folder. On
 precache holds the `_next/static` chunks and the HTML of `/decks/practice`, never a card image.
 `/cardimages/*` and the card data come from the offline deck cache (`OFFLINE_CACHE_NAME` in
 `offlineCache.ts`) when it holds them, and from the network otherwise.
+A playtester's `/api/playtest/` (#1615) is answered from the same cache: an image cache first, as
+`/cardimages/*`, and `/api/playtest/cards` network first, with the cached copy only when the fetch
+fails. Make available offline caches both for a deck that holds a playtest card, the refresh of
+#1054 leaves them alone, and nothing clears the playtester's local copies (the offline cache, the
+saved deck, the saved game) on sign-out.
 
 To reload the page with the network blocked, use `cdp_input.sh offline-reload`. It sends
 `Network.emulateNetworkConditions` with `offline: true` to the page and to every service worker,
