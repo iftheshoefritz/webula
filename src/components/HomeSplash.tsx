@@ -12,7 +12,7 @@ const subscribeNothing = () => () => {};
 //
 // It decides once, from the URL the page loaded with, so a search box cleared mid-session never
 // brings it back. It shows on a bare `/` when nothing is remembered, and on `/?home=1` always. A
-// load with `q`, every Discord and shared link, or with `search=1`, the Search cards links (#1438),
+// load with `q`, every Discord and shared link, or with `search=1`, a typed card search URL (#1438),
 // never shows it and never redirects. A remembered
 // `decks` or `practice` sends a bare `/` there with `router.replace`, so Back does not bounce.
 //
