@@ -29,7 +29,8 @@ import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
-import PersonnelOverlay, { ShipOverlay, hasPersonnelOverlay, hasShipOverlay } from './PersonnelOverlay';
+import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, hasPersonnelOverlay, hasShipOverlay } from './PersonnelOverlay';
+import type { RangeLeft } from './shipRange';
 import { cardImageUrl } from '../../../lib/cardImageUrl';
 
 export const TABLE_CARD_WIDTH = 72; // px
@@ -115,6 +116,7 @@ export default function TableCard({
   turnable = false,
   showFace = false,
   panY = false,
+  rangeLeft,
 }: {
   instance: CardInstance;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
@@ -146,6 +148,8 @@ export default function TableCard({
   // scrolling card list panel does (#788), so a touch pan scrolls the area. The area carries
   // `PANEL_SCROLLS_ATTRIBUTE`, so a sideways first move still drags.
   panY?: boolean;
+  // The range a ship on the table has left this turn (#1636), `TableCardImage`'s.
+  rangeLeft?: RangeLeft | null;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down' && !showFace;
@@ -185,6 +189,7 @@ export default function TableCard({
         uncropped={uncropped}
         completed={completed}
         showFace={showFace}
+        rangeLeft={rangeLeft}
       />
     </button>
   );
@@ -201,6 +206,7 @@ export function TableCardImage({
   completed = false,
   className = 'rounded-md',
   showFace = false,
+  rangeLeft,
 }: {
   instance: CardInstance;
   width: number;
@@ -209,6 +215,8 @@ export function TableCardImage({
   completed?: boolean;
   className?: string;
   showFace?: boolean;
+  // The range a ship on the table has left this turn (#1636), drawn over its Range.
+  rangeLeft?: RangeLeft | null;
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down' && !showFace;
@@ -242,7 +250,12 @@ export function TableCardImage({
             cropHeight={height}
             border={cardBorderWidth(width)}
             className={`${instance.stopped || instance.removedFromGame ? STOPPED_OVERLAY_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+            rangeLeft={rangeLeft}
           />
+        )}
+        {/* #1636: the whole card has no band, so the range left sits over its printed Range box. */}
+        {uncropped && !isFaceDown && rangeLeft && hasShipOverlay(card) && (
+          <ShipRangeLeftBox card={card} width={width} height={height} rangeLeft={rangeLeft} />
         )}
         {instance.removedFromGame && <RemovedFromGameLabel />}
       </div>

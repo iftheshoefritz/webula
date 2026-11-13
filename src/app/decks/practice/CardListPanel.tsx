@@ -86,7 +86,9 @@ import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
 import { DILEMMA_STACK_CHOICE_END_LABELS, dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
 import TableCard, { RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, STOPPED_OVERLAY_CLASSNAME, cardBorderStyle, cardBorderWidth } from './TableCard';
-import PersonnelOverlay, { ShipOverlay, hasPersonnelOverlay, hasShipOverlay } from './PersonnelOverlay';
+import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, hasPersonnelOverlay, hasShipOverlay } from './PersonnelOverlay';
+import { rangeLeftLabel, rangeUsedDisplay } from './shipRange';
+import { useRangeUsed } from './RangeUsedContext';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
 import OverlapRow from './OverlapRow';
 import { artCropHeight, CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, PANEL_TOP_INSET, viewerCardSize, VIEWER_TOP_INSET } from './viewerCardSize';
@@ -517,6 +519,9 @@ function PanelHost({
   showPlacedOn?: boolean;
 }) {
   const placedOn = showPlacedOn ? (host.placedOn ?? []) : [];
+  // The crew panel's ship shows the range it has left this turn (#1636), as on the table.
+  const rangeUsed = useRangeUsed();
+  const rangeLeft = showPlacedOn && hasShipOverlay(host.card) ? rangeUsedDisplay(host, rangeUsed) : null;
   const tinyWidth = placedOnCardWidth(cardWidth);
   const tinyArtHeight = placedOnArtHeight(cardWidth);
   const holdListeners = useCardHold(host.id);
@@ -546,9 +551,9 @@ function PanelHost({
           the bottom row. */}
       <div
         role="img"
-        aria-label={cardDisplayName(card)}
+        aria-label={rangeLeft ? `${cardDisplayName(card)}, ${rangeLeftLabel(rangeLeft)}` : cardDisplayName(card)}
         {...holdListeners}
-        className="touch-pan-y flex justify-center"
+        className="relative touch-pan-y flex justify-center"
         style={NO_CALLOUT_STYLE}
       >
         <img
@@ -561,6 +566,7 @@ function PanelHost({
           className={`rounded-md shadow-md ${host.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
         />
+        {rangeLeft && <ShipRangeLeftBox card={card} width={cardWidth} height={cardHeight} rangeLeft={rangeLeft} />}
       </div>
       {placedOn.length > 0 && (
         <div
