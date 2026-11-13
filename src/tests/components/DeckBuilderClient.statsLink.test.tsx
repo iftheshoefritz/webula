@@ -83,22 +83,25 @@ describe('DeckBuilderClient – the Stats link (#1417)', () => {
   });
 });
 
-describe('DeckBuilderClient – the Search cards links (#1438)', () => {
+describe('DeckBuilderClient – no link to the card search page (#1640)', () => {
   beforeEach(() => {
     localStorage.clear();
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => [] }) as unknown as typeof fetch;
   });
 
-  it('links the menu and the desktop header to the card search, with no Change start page', async () => {
+  it('has no Search cards link in the menu or the desktop header, and no link to /', async () => {
     (getSession as jest.Mock).mockResolvedValue(null);
-    await act(async () => { render(<DeckBuilderClient data={[]} columns={[]} />); });
+    let container!: HTMLElement;
+    await act(async () => { ({ container } = render(<DeckBuilderClient data={[]} columns={[]} />)); });
     await act(async () => { fireEvent.click(screen.getAllByLabelText('More deck actions')[0]); });
-    for (const link of screen.getAllByTestId('search-link')) {
-      expect(link).toHaveAttribute('href', '/?search=1');
-      expect(link).toHaveTextContent('Search cards');
+    expect(screen.queryByTestId('search-link')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('search-link-desktop')).not.toBeInTheDocument();
+    expect(screen.queryByText('Search cards')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Search cards')).not.toBeInTheDocument();
+    for (const link of Array.from(container.querySelectorAll('a[href]'))) {
+      const href = link.getAttribute('href') ?? '';
+      expect(href === '/' || href.startsWith('/?')).toBe(false);
     }
-    expect(screen.getAllByTestId('search-link-desktop')[0]).toHaveAttribute('href', '/?search=1');
-    expect(screen.getAllByTestId('search-link-desktop')[0]).toHaveAttribute('aria-label', 'Search cards');
     expect(screen.queryByText(/change start page/i)).not.toBeInTheDocument();
   });
 });
