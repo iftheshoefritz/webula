@@ -520,8 +520,8 @@ function PanelHost({
 }) {
   const placedOn = showPlacedOn ? (host.placedOn ?? []) : [];
   // The crew panel's ship shows the range it has left this turn (#1636), as on the table.
-  const rangeUsed = useRangeUsed();
-  const rangeLeft = showPlacedOn && hasShipOverlay(host.card) ? rangeUsedDisplay(host, rangeUsed) : null;
+  const rangeInfo = useRangeUsed();
+  const rangeLeft = showPlacedOn && hasShipOverlay(host.card) ? rangeUsedDisplay(host, rangeInfo.used, rangeInfo.ranges) : null;
   const tinyWidth = placedOnCardWidth(cardWidth);
   const tinyArtHeight = placedOnArtHeight(cardWidth);
   const holdListeners = useCardHold(host.id);

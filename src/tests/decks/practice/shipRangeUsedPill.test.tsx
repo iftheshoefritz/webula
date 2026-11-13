@@ -60,9 +60,14 @@ describe('rangeUsedDisplay (#1636)', () => {
   });
 });
 
-const renderRow = (missions: MissionSlot[], rangeUsed: Record<string, number> | undefined, desktop: boolean) =>
+const renderRow = (
+  missions: MissionSlot[],
+  rangeUsed: Record<string, number> | undefined,
+  desktop: boolean,
+  ranges?: Record<string, number>
+) =>
   render(
-    <RangeUsedProvider value={rangeUsed}>
+    <RangeUsedProvider value={{ used: rangeUsed, ranges }}>
       <MissionRow
         missions={missions}
         onOpenPile={() => {}}
@@ -118,6 +123,12 @@ describe('the RNG value of a cropped ship card (#1636)', () => {
     expect(screen.getByTestId('ship-attributes')).toHaveAttribute('data-label-tier', 'three');
     expect(screen.getByTestId('ship-range-label')).toHaveTextContent(/^RNG$/);
     expect(range()).toHaveTextContent(/^0$/);
+  });
+
+  it('counts the range left from the Range on the table (#1635)', () => {
+    renderRow(moved.missions, moved.rangeUsed, false, { 'ship-1': 13 });
+    expect(range()).toHaveTextContent(/^9$/);
+    expect(screen.getByTestId('ship-attributes')).toHaveAttribute('aria-label', 'Range 9 left of 13, Weapons 7, Shields 8');
   });
 
   it('shows the printed Range again after Next turn', () => {
@@ -180,7 +191,7 @@ describe('the range left on the whole ship card of the desktop table (#1636)', (
 describe('the range left in the crew panel (#1636)', () => {
   const renderPanel = (rangeUsed: Record<string, number> | undefined) =>
     render(
-      <RangeUsedProvider value={rangeUsed}>
+      <RangeUsedProvider value={{ used: rangeUsed }}>
         <CardListPanel
           location="crew"
           cards={[]}
@@ -214,7 +225,7 @@ describe('the range left on a ship of the attempt layout (#1636)', () => {
     const sizes = { ...face, choice: computeAttemptChoiceLayout(667, 280, false, 0, 1, face, true) };
     const noop = () => {};
     render(
-      <RangeUsedProvider value={{ 'ship-1': 4 }}>
+      <RangeUsedProvider value={{ used: { 'ship-1': 4 } }}>
         <AttemptLayout
           attempt={attempt}
           slot={slot}

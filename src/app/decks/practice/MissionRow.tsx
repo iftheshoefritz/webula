@@ -226,8 +226,9 @@ function ShipCard({
   const landedNonce = onLandedNonce ?? crewLandedNonce;
   const crewCount = ship.crew?.length ?? 0;
   const onCount = ship.placedOn?.length ?? 0;
-  // The range the ship has left this turn (#1636), in place of its Range.
-  const rangeLeft = rangeUsedDisplay(ship, useRangeUsed());
+  // The range the ship has left this turn (#1636), of its Range on the table (#1635).
+  const rangeInfo = useRangeUsed();
+  const rangeLeft = rangeUsedDisplay(ship, rangeInfo.used, rangeInfo.ranges);
 
   return (
     <div
