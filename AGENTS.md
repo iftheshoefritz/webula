@@ -149,9 +149,12 @@ and deflated entries, no zip64, no encryption, no package) and builds the previe
 `playtestPreview` (`src/lib/playtestUpload.ts`): the set (`playtest-preview-set`), the cards by type,
 the errors, the warnings, the `ImageFile`s with no `<ImageFile>.jpg` in the zip and the unused images.
 An error disables Publish, which sends the images of the set in batches under 3 MB of JSON
-(`imageBatches`; a Vercel function takes at most 4.5 MB), then the TSV. Until #1645 the page replaces
-the set of the TSV's name when it is in testing, adds a new set otherwise, and shows the status of the
-first set. The owner-only routes under `/api/playtest/admin/` answer 404 to anyone else, with
+(`imageBatches`; a Vercel function takes at most 4.5 MB), then the TSV. The preview offers "New set" or
+"Replace <set>" over the sets in testing (`playtest-replace-choice`, #1645), with the set of the TSV's
+own name pre-selected when it is in testing, so a corrected re-upload is one click. The status
+(`playtest-status`) lists every set in testing, one `playtest-status-set` row each (`data-set`): name,
+version, upload time, cards and images, and a Remove (`playtest-status-remove`) behind an inline confirm
+(`playtest-status-remove-confirm`) that calls `DELETE sets`. The owner-only routes under `/api/playtest/admin/` answer 404 to anyone else, with
 `private, no-store`, and write nothing on an error: `GET status` (`{ sets: [{ name, version,
 uploadedAt, cards, images, cardNames, collectorsInfo }], legacyError, emails }`, counted from the
 stored TSVs), `POST images` (`{ set, images: [{ imageFile, base64 }] }`), `POST cards` (the TSV as
