@@ -36,6 +36,7 @@ import terokNorIcon from '../../../../public/icons/icon_teroknor.gif';
 import tngIcon from '../../../../public/icons/icon_tng.png';
 import tosIcon from '../../../../public/icons/icon_tos.png';
 import voyagerIcon from '../../../../public/icons/icon_voyager.png';
+import { type RangeLeft, rangeLeftLabel } from './shipRange';
 
 // The icon files are imported as modules, so they land in `_next/static` and the service worker
 // precaches them for offline play (#1051). The codes are those of `CARD_ICON_IMAGES`
@@ -306,7 +307,8 @@ function AttributeBand({
   labelTier,
 }: {
   prefix: string;
-  attributes: { key: string; name: string; label: string; value: string }[];
+  // `ariaValue` names the value in the `aria-label` when it differs from `value` (#1636).
+  attributes: { key: string; name: string; label: string; value: string; ariaValue?: string }[];
   smallCaps: boolean;
   layout: ReturnType<typeof personnelOverlayLayout>;
   fill: string;
@@ -321,7 +323,7 @@ function AttributeBand({
     <svg
       data-testid={`${prefix}-attributes`}
       role="img"
-      aria-label={attributes.map(({ name, value }) => `${name} ${value}`).join(', ')}
+      aria-label={attributes.map(({ name, value, ariaValue }) => `${name} ${ariaValue ?? value}`).join(', ')}
       className="absolute left-0 bottom-0 overflow-visible"
       width={width}
       height={bandHeight}
@@ -441,23 +443,26 @@ export default function PersonnelOverlay({
 
 // The ship's overlay (#1336): the band alone, with the words of `shipLabelTier`. It takes no pointer
 // events and the same `className` as the personnel overlay. The `aria-label` names every attribute
-// in full in every tier.
+// in full in every tier. A ship that moved this turn (#1636) shows the range it has left, `rangeLeft`,
+// in place of its printed Range, never below 0, and the `aria-label` reads "Range 4 left of 8".
 export function ShipOverlay({
   card,
   width,
   cropHeight,
   border,
   className = '',
+  rangeLeft,
 }: {
   card: { affiliation?: unknown; range?: unknown; weapons?: unknown; shields?: unknown };
   width: number;
   cropHeight: number;
   border: number;
   className?: string;
+  rangeLeft?: RangeLeft | null;
 }) {
   const layout = shipOverlayLayout(width, cropHeight, border);
   const values = {
-    range: String(card.range ?? '').trim(),
+    range: rangeLeft ? rangeLeft.text : String(card.range ?? '').trim(),
     weapons: String(card.weapons ?? '').trim(),
     shields: String(card.shields ?? '').trim(),
   };
@@ -467,6 +472,9 @@ export function ShipOverlay({
     name: attributeName(attribute),
     label: shipLabel(attribute, labelTier),
     value: values[attribute],
+    ...(attribute === 'range' && rangeLeft
+      ? { ariaValue: `${rangeLeft.left} left of ${rangeLeft.total}` }
+      : {}),
   }));
   return (
     <div data-testid="ship-overlay" className={`absolute inset-0 pointer-events-none ${className}`}>
@@ -479,6 +487,84 @@ export function ShipOverlay({
         fill={attributeBoxFill(card.affiliation)}
         width={width}
       />
+    </div>
+  );
+}
+
+// The printed Range box of a whole ship card (#1636), in the pixels of a 357x496 scan: the same on
+// every ship. Its silver lines run from x 52 to 122 and from y 433 to 455, and a dark line runs inside
+// them; the fill inside that runs from y 437 to 453 and to x 119.5. The word "Range" ends by x 93, and
+// the number, one digit or two, sits right-aligned between x 103 and 116.5, its capitals from y 441 to
+// 450. Between the word and the number every row of the fill is one colour across.
+const SCAN_WIDTH = 357;
+const SCAN_HEIGHT = 496;
+const RANGE_FILL = { top: 437.5, bottom: 452.5 };
+const RANGE_PLAIN = { left: 93, right: 102.5 };
+const RANGE_NUMBER = { left: 103, right: 119, end: 116.5, capTop: 441, capBottom: 450 };
+
+// The range a ship has left this turn over the printed Range box of the whole card (#1636), where no
+// `ShipOverlay` draws: the desktop table and the crew panel. The card keeps its own box, its frame, its
+// fill and its word "Range", so the style is the printing's for every affiliation and every printing:
+// only the number changes. A patch of the card's own image, the plain part of the box between the word
+// and the number stretched across, covers the printed number inside the fill, so the frame is the
+// card's own, and the range left is drawn on it in the printed number's place and size. A ship that has not moved this turn draws none, so its printed Range
+// shows. It takes no pointer events.
+export function ShipRangeLeftBox({
+  imageSrc,
+  width,
+  height,
+  rangeLeft,
+}: {
+  imageSrc: string;
+  width: number;
+  height: number;
+  rangeLeft: RangeLeft;
+}) {
+  const x = (scan: number) => (scan * width) / SCAN_WIDTH;
+  const y = (scan: number) => (scan * height) / SCAN_HEIGHT;
+  const left = x(RANGE_NUMBER.left);
+  const top = y(RANGE_FILL.top);
+  const patchWidth = x(RANGE_NUMBER.right) - left;
+  const patchHeight = y(RANGE_FILL.bottom) - top;
+  // The stretch that lays the plain part over the number.
+  const stretch = (RANGE_NUMBER.right - RANGE_NUMBER.left) / (RANGE_PLAIN.right - RANGE_PLAIN.left);
+  const capHeight = y(RANGE_NUMBER.capBottom) - y(RANGE_NUMBER.capTop);
+  const fontSize = capHeight / CAP_HEIGHT;
+  return (
+    <div
+      data-testid="ship-range-left"
+      role="img"
+      aria-label={rangeLeftLabel(rangeLeft)}
+      className="absolute pointer-events-none"
+      style={{
+        left,
+        top,
+        width: patchWidth,
+        height: patchHeight,
+        backgroundImage: `url("${imageSrc}")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: `${width * stretch}px ${height}px`,
+        backgroundPosition: `${-x(RANGE_PLAIN.left) * stretch}px ${-top}px`,
+      }}
+    >
+      <svg
+        className="absolute inset-0 overflow-visible"
+        width={patchWidth}
+        height={patchHeight}
+        fontFamily={ATTRIBUTE_FONT_FAMILY}
+        fontWeight={700}
+        fontSize={fontSize}
+      >
+        <text
+          data-testid="ship-range-left-value"
+          x={x(RANGE_NUMBER.end) - left}
+          y={y(RANGE_NUMBER.capBottom) - top}
+          textAnchor="end"
+          fill="#fff"
+        >
+          {rangeLeft.text}
+        </text>
+      </svg>
     </div>
   );
 }

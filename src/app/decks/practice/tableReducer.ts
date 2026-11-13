@@ -7,6 +7,7 @@ import { shuffleArray } from '../deckBuilderUtils';
 import type { BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import type { PileSteps } from '../../../lib/dilemmaBot/pile/resolve';
+import { printedRange } from './shipRange';
 
 export type Face = 'up' | 'down';
 // The core and the brig (#603) are two more flat, top-level zones: the core for any card not at
@@ -427,10 +428,10 @@ const MISSION_PILE_FACE: Record<MissionPileName, Face> = {
   underMission: 'up',
 };
 
-// The printed span of a mission card and the printed Range of a ship (#1634), as numbers; a card
-// with none reads 0.
+// The printed span of a mission card and the printed Range of a ship (#1634, the Range in
+// `shipRange.ts`), as numbers; a card with none reads 0.
 export const printedSpan = (card: CardInstance | null | undefined): number => Number(card?.card?.span) || 0;
-export const printedRange = (card: CardInstance | null | undefined): number => Number(card?.card?.range) || 0;
+export { printedRange };
 
 // The range a move of a ship between two ship rows uses (#1634): the printed spans of the mission
 // it leaves and the mission it goes to. A move that is not one uses none, so `undefined`.

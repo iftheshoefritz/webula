@@ -85,6 +85,8 @@
 import { CSSProperties, JSX, ReactNode, useEffect, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import type { Attempt, CardInstance, MissionPileName, MissionSlot } from './tableReducer';
+import { rangeUsedDisplay } from './shipRange';
+import { useRangeUsed } from './RangeUsedContext';
 import { AttemptOverlay, BackToAttemptButton } from './AttemptPanel';
 import TableCard, {
   TableCardImage,
@@ -224,6 +226,8 @@ function ShipCard({
   const landedNonce = onLandedNonce ?? crewLandedNonce;
   const crewCount = ship.crew?.length ?? 0;
   const onCount = ship.placedOn?.length ?? 0;
+  // The range the ship has left this turn (#1636), in place of its Range.
+  const rangeLeft = rangeUsedDisplay(ship, useRangeUsed());
 
   return (
     <div
@@ -240,6 +244,7 @@ function ShipCard({
         artHeight={artHeight}
         uncropped={desktop}
         draggable
+        rangeLeft={rangeLeft}
       />
       <ShipCrewBadge
         shipName={cardDisplayName(ship.card)}
