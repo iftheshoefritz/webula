@@ -43,7 +43,7 @@ type CardDataColumn = (typeof CARD_DATA_COLUMNS)[number];
 type PlaytestRow = { line: number; fields: Record<PlaytestColumn, string> };
 
 // The key `parseCardData` makes of a `CollectorsInfo`: it strips leading zeros.
-const deckKey = (collectorsInfo: string) =>
+export const playtestDeckKey = (collectorsInfo: string) =>
   `${PLAYTEST_PREFIX}${collectorsInfo}`.replace(/(^|[^0-9])0+(\d+)/g, '$1$2').toLowerCase();
 
 const joinBrackets = (value: string) => value.replace(/\]\s+\[/g, '][').trim();
@@ -51,7 +51,24 @@ const joinBrackets = (value: string) => value.replace(/\]\s+\[/g, '][').trim();
 // Every field of the card data is in double quotes, and a quote inside is doubled.
 const quote = (value: string) => `"${value.replace(/"/g, '""')}"`;
 
-export function normalisePlaytestTsv(text: string, realNames: Set<string>): PlaytestResult {
+/**
+ * The cards of the other playtest sets in testing (#1644), by set name: a deck resolves a card by
+ * its name and keys it by its `CollectorsInfo`, so no two sets may share either.
+ */
+export interface OtherPlaytestSets {
+  /** The card name, to the name of the set that holds it. */
+  names: Map<string, string>;
+  /** The deck key of a `CollectorsInfo` (`playtestDeckKey`), to the name of the set that holds it. */
+  keys: Map<string, string>;
+}
+
+const NO_OTHER_SETS: OtherPlaytestSets = { names: new Map(), keys: new Map() };
+
+export function normalisePlaytestTsv(
+  text: string,
+  realNames: Set<string>,
+  others: OtherPlaytestSets = NO_OTHER_SETS,
+): PlaytestResult {
   const errors: Problem[] = [];
   const warnings: Problem[] = [];
   const lines = text.split('\n').map((line, i) => ({ line: i + 1, text: line.replace(/\r/g, '') }))
@@ -116,13 +133,17 @@ export function normalisePlaytestTsv(text: string, realNames: Set<string>): Play
       if (!fields[column]) rowErrors.push(`The ${column} is missing`);
     }
     if (fields.CollectorsInfo) {
-      const key = deckKey(fields.CollectorsInfo);
+      const key = playtestDeckKey(fields.CollectorsInfo);
       if (seenKeys.has(key)) rowErrors.push(`The CollectorsInfo ${fields.CollectorsInfo} is used by another card`);
+      else if (others.keys.has(key)) {
+        rowErrors.push(`The CollectorsInfo ${fields.CollectorsInfo} is used by a card of the playtest set ${others.keys.get(key)}`);
+      }
       seenKeys.add(key);
     }
     if (card) {
       if (realNames.has(card)) rowErrors.push('The name is the name of a real card');
       else if (seenNames.has(card)) rowErrors.push('The name is used by another playtest card');
+      else if (others.names.has(card)) rowErrors.push(`The name is used by a card of the playtest set ${others.names.get(card)}`);
       seenNames.add(card);
     }
     if (rowErrors.length > 0) {

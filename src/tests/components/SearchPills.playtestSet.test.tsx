@@ -18,13 +18,19 @@ jest.mock('next-auth/react', () => ({
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SearchPills from '../../components/SearchPills';
 import { PlaytestCardsProvider } from '../../hooks/usePlaytestCards';
-import { setPlaytestImageVersion } from '../../lib/cardImageUrl';
+import { setPlaytestImageVersions } from '../../lib/cardImageUrl';
 
-// Invented cards only: no playtest card is ever committed (#1614).
-const PLAYTEST_TSV = [
+// Invented sets and cards only: no playtest card is ever committed (#1614, #1644).
+const tsvOf = (set: string, name: string, collectorsInfo: string) => [
   ['Name', 'Set', 'ImageFile', 'Unique', 'CollectorsInfo', 'Type', 'Keywords', 'Mission', 'DilemmaType'].join('\t'),
-  ['Zed Quill', 'Owner Set', 'PT-ZedQuill', 'Y', 'PT1', 'Personnel', '', '', ''].join('\t'),
+  [name, set, `PT-${collectorsInfo}`, 'Y', `PT-${collectorsInfo}`, 'Personnel', '', '', ''].join('\t'),
 ].join('\n');
+const SETS_ANSWER = {
+  sets: [
+    { name: 'TestSetB', version: 1, tsv: tsvOf('TestSetB', 'Widget Array', '2') },
+    { name: 'TestSetA', version: 3, tsv: tsvOf('TestSetA', 'Zed Quill', '1') },
+  ],
+};
 
 const signedIn = { status: 'authenticated', data: { user: { email: 'tester@example.com' } } };
 
@@ -34,7 +40,7 @@ beforeEach(() => {
   global.fetch = fetchMock;
 });
 afterEach(() => {
-  setPlaytestImageVersion(null);
+  setPlaytestImageVersions(new Map());
   jest.restoreAllMocks();
 });
 
@@ -52,64 +58,65 @@ const openSetPicker = () => {
 
 const optionLabels = () => screen.getAllByRole('option').map((o) => o.textContent);
 
-describe('SearchPills: the Playtest option of the Set picker (#1623)', () => {
+describe('SearchPills: the options of the playtest sets in the Set picker (#1623, #1644)', () => {
   describe('with playtest cards', () => {
     beforeEach(() => {
       mockUseSession.mockReturnValue(signedIn);
-      fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ version: 3, tsv: PLAYTEST_TSV }) });
+      fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => SETS_ANSWER });
     });
 
-    it('lists Playtest first, above the real sets', async () => {
+    it('lists one option per set, by name, above the real sets, and no Playtest option', async () => {
       renderPills();
       await waitFor(() => expect(fetchMock).toHaveBeenCalled());
       openSetPicker();
-      await waitFor(() => expect(optionLabels()[0]).toBe('Playtest'));
-      expect(optionLabels().length).toBeGreaterThan(1);
+      await waitFor(() => expect(optionLabels().slice(0, 2)).toEqual(['TestSetA', 'TestSetB']));
+      expect(optionLabels().length).toBeGreaterThan(2);
+      expect(screen.queryByRole('option', { name: 'Playtest' })).not.toBeInTheDocument();
     });
 
     it('filters with the search box', async () => {
       renderPills();
       openSetPicker();
-      await waitFor(() => expect(screen.getByRole('option', { name: 'Playtest' })).toBeInTheDocument());
-      fireEvent.change(screen.getByPlaceholderText('Search sets...'), { target: { value: 'play' } });
-      expect(optionLabels()).toContain('Playtest');
+      await waitFor(() => expect(screen.getByRole('option', { name: 'TestSetA' })).toBeInTheDocument());
+      fireEvent.change(screen.getByPlaceholderText('Search sets...'), { target: { value: 'testsetb' } });
+      expect(optionLabels()).toContain('TestSetB');
+      expect(optionLabels()).not.toContain('TestSetA');
     });
 
-    it('sets the query to set:playtest', async () => {
+    it('sets the query to set:testseta', async () => {
       const setSearchQuery = jest.fn();
       renderPills('', setSearchQuery);
       openSetPicker();
-      fireEvent.click(await screen.findByRole('option', { name: 'Playtest' }));
-      expect(setSearchQuery).toHaveBeenCalledWith('set:playtest');
+      fireEvent.click(await screen.findByRole('option', { name: 'TestSetA' }));
+      expect(setSearchQuery).toHaveBeenCalledWith('set:testseta');
     });
 
-    it('sets the query to -set:playtest in exclude mode', async () => {
+    it('sets the query to -set:testsetb in exclude mode', async () => {
       const setSearchQuery = jest.fn();
       renderPills('', setSearchQuery);
       openSetPicker();
       fireEvent.click(screen.getByRole('button', { name: /− exclude/i }));
-      fireEvent.click(await screen.findByRole('option', { name: 'Playtest' }));
-      expect(setSearchQuery).toHaveBeenCalledWith('-set:playtest');
+      fireEvent.click(await screen.findByRole('option', { name: 'TestSetB' }));
+      expect(setSearchQuery).toHaveBeenCalledWith('-set:testsetb');
     });
 
-    it('labels the pill of an active set:playtest filter Playtest', async () => {
-      renderPills('set:playtest');
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-      expect(screen.getByText('set:Playtest')).toBeInTheDocument();
+    it("labels the pill of an active set filter with the set's name", async () => {
+      renderPills('set:testseta');
+      await waitFor(() => expect(screen.getByText('set:TestSetA')).toBeInTheDocument());
     });
   });
 
   describe('with no playtest cards', () => {
-    it('has no Playtest option when signed out', async () => {
+    it('has no playtest set option when signed out', async () => {
       mockUseSession.mockReturnValue({ status: 'unauthenticated', data: null });
       renderPills();
       openSetPicker();
       expect(optionLabels().length).toBeGreaterThan(0);
-      expect(screen.queryByRole('option', { name: 'Playtest' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: 'TestSetA' })).not.toBeInTheDocument();
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('has no Playtest option after a 404 from /api/playtest/cards', async () => {
+    it('has no playtest set option after a 404 from /api/playtest/cards', async () => {
       mockUseSession.mockReturnValue(signedIn);
       fetchMock.mockResolvedValue({ ok: false, status: 404, json: async () => ({ error: 'not_found' }) });
       renderPills();
@@ -117,7 +124,8 @@ describe('SearchPills: the Playtest option of the Set picker (#1623)', () => {
       await Promise.resolve();
       openSetPicker();
       expect(optionLabels().length).toBeGreaterThan(0);
-      expect(screen.queryByRole('option', { name: 'Playtest' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: 'TestSetA' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: 'TestSetB' })).not.toBeInTheDocument();
     });
   });
 });

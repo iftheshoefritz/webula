@@ -4,8 +4,6 @@
 
 // Every card row, name and image here is invented: no test or fixture holds a real playtest card.
 
-import type { Redis } from '@upstash/redis';
-
 const mockGetToken = jest.fn();
 jest.mock('next-auth/jwt', () => ({ getToken: (...args: unknown[]) => mockGetToken(...args) }));
 jest.mock('../../lib/playtestStore', () => ({
@@ -14,33 +12,26 @@ jest.mock('../../lib/playtestStore', () => ({
 }));
 
 import { GET as getCards } from '../../app/api/playtest/cards/route';
-import { GET as getImage } from '../../app/api/playtest/images/[file]/route';
+import { GET as getImage } from '../../app/api/playtest/images/[set]/[file]/route';
 import { isPlaytestOwner, playtestOwnerEmails } from '../../lib/playtestAccess';
-import {
-  getPlaytestStore,
-  isPlaytestImageFile,
-  PLAYTEST_CARDS_KEY,
-  PLAYTEST_EMAILS_KEY,
-  PLAYTEST_UPLOADED_AT_KEY,
-  PLAYTEST_VERSION_KEY,
-  playtestImageKey,
-  redisPlaytestStore,
-  type PlaytestStore,
-} from '../../lib/playtestStore';
+import { getPlaytestStore, isPlaytestImageFile, isPlaytestSetName, type PlaytestStore } from '../../lib/playtestStore';
 
 const TSV = 'Name\tType\nInvented Card\tEvent\n';
 const IMAGE_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 0xff, 0xd9]);
 
-function memoryStore(opts: { version?: number; tsv?: string; images?: Record<string, string>; emails?: string[] } = {}) {
+type MemorySet = { name: string; version: number; tsv: string; images: Record<string, string> };
+
+function memoryStore(opts: { sets?: MemorySet[]; emails?: string[] } = {}) {
   const calls: string[] = [];
+  const sets = opts.sets ?? [];
   const store: PlaytestStore = {
-    async readCards() {
-      calls.push('readCards');
-      return { version: opts.version ?? 0, tsv: opts.tsv ?? '' };
+    async readSets() {
+      calls.push('readSets');
+      return sets.map(({ name, version, tsv }) => ({ key: name.toLowerCase(), name, version, tsv }));
     },
-    async readImage(imageFile) {
-      calls.push(`readImage:${imageFile}`);
-      return opts.images?.[imageFile] ?? null;
+    async readImage(setKey, imageFile) {
+      calls.push(`readImage:${setKey}/${imageFile}`);
+      return sets.find((set) => set.name.toLowerCase() === setKey)?.images[imageFile] ?? null;
     },
     async hasPlaytester(email) {
       calls.push(`hasPlaytester:${email}`);
@@ -51,7 +42,7 @@ function memoryStore(opts: { version?: number; tsv?: string; images?: Record<str
 }
 
 const failingStore: PlaytestStore = {
-  readCards: async () => { throw new Error('connect ECONNREFUSED'); },
+  readSets: async () => { throw new Error('connect ECONNREFUSED'); },
   readImage: async () => { throw new Error('connect ECONNREFUSED'); },
   hasPlaytester: async () => { throw new Error('connect ECONNREFUSED'); },
 };
@@ -66,8 +57,8 @@ function useStore(opts: Parameters<typeof memoryStore>[0]) {
 }
 
 const cardsRequest = () => getCards(new Request('http://localhost/api/playtest/cards'));
-const imageRequest = (file: string, query = '') =>
-  getImage(new Request(`http://localhost/api/playtest/images/${file}${query}`), { params: Promise.resolve({ file }) });
+const imageRequest = (file: string, query = '', set = 'testseta') =>
+  getImage(new Request(`http://localhost/api/playtest/images/${set}/${file}${query}`), { params: Promise.resolve({ set, file }) });
 
 function signIn(email: string | null) {
   mockGetToken.mockResolvedValue(email ? { email } : null);
@@ -79,12 +70,15 @@ function expectPrivateNoindex(response: Response) {
   expect(response.headers.get('Cache-Control')).not.toMatch(/public/);
 }
 
-const stored = {
-  version: 3,
-  tsv: TSV,
-  images: { InventedCard: Buffer.from(IMAGE_BYTES).toString('base64') },
+const TSV_B = 'Name\tType\nInvented Other\tEvent\n';
+const stored: { sets: MemorySet[]; emails: string[] } = {
+  sets: [
+    { name: 'TestSetA', version: 3, tsv: TSV, images: { InventedCard: Buffer.from(IMAGE_BYTES).toString('base64') } },
+    { name: 'TestSetB', version: 1, tsv: TSV_B, images: {} },
+  ],
   emails: ['tester@example.com'],
 };
+const SETS_ANSWER = { sets: [{ name: 'TestSetA', version: 3, tsv: TSV }, { name: 'TestSetB', version: 1, tsv: TSV_B }] };
 
 describe('playtest routes (#1612)', () => {
   const original = process.env.PLAYTEST_ADMIN_EMAILS;
@@ -98,29 +92,29 @@ describe('playtest routes (#1612)', () => {
   afterEach(() => jest.restoreAllMocks());
   afterAll(() => { process.env.PLAYTEST_ADMIN_EMAILS = original; });
 
-  it('gives a playtester the version and the cards, private and no-cache', async () => {
+  it('gives a playtester every set in testing, its name, version and cards, private and no-cache', async () => {
     signIn('Tester@Example.com');
     const response = await cardsRequest();
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ version: 3, tsv: TSV });
+    expect(await response.json()).toEqual(SETS_ANSWER);
     expect(response.headers.get('Cache-Control')).toBe('private, no-cache');
     expectPrivateNoindex(response);
     expect(calls).toContain('hasPlaytester:tester@example.com');
   });
 
-  it('gives a playtester { version: 0, tsv: "" } before the first upload', async () => {
+  it('gives a playtester { sets: [] } before the first upload', async () => {
     useStore({ emails: ['tester@example.com'] });
     signIn('tester@example.com');
     const response = await cardsRequest();
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ version: 0, tsv: '' });
+    expect(await response.json()).toEqual({ sets: [] });
   });
 
   it('gives an owner the cards without a set lookup, in any case and with spaces', async () => {
     signIn('OWNER@example.COM');
     const response = await cardsRequest();
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ version: 3, tsv: TSV });
+    expect(await response.json()).toEqual(SETS_ANSWER);
     expect(calls.some((c) => c.startsWith('hasPlaytester'))).toBe(false);
   });
 
@@ -150,18 +144,25 @@ describe('playtest routes (#1612)', () => {
     }
   });
 
-  it('answers 404 to an unknown image', async () => {
+  it('answers 404 to an unknown image, an image of another set, and a set not in testing', async () => {
     signIn('tester@example.com');
-    const response = await imageRequest('NoSuchCard.jpg');
-    expect(response.status).toBe(404);
-    expectPrivateNoindex(response);
-    expect(calls).toContain('readImage:NoSuchCard');
+    for (const [file, set] of [['NoSuchCard.jpg', 'testseta'], ['InventedCard.jpg', 'testsetb'], ['InventedCard.jpg', 'testsetc']]) {
+      const response = await imageRequest(file, '', set);
+      expect(response.status).toBe(404);
+      expectPrivateNoindex(response);
+    }
+    expect(calls).toContain('readImage:testseta/NoSuchCard');
+    expect(calls).toContain('readImage:testsetc/InventedCard');
   });
 
-  it('answers 404 to a malformed image name with no store call', async () => {
+  it('answers 404 to a malformed image name or set with no store call', async () => {
     signIn('tester@example.com');
     for (const file of ['InventedCard.png', 'InventedCard', '.jpg', '..%2Fx.jpg', 'a..b.jpg', 'a b.jpg', 'a*.jpg', 'a:b.jpg']) {
       expect((await imageRequest(file)).status).toBe(404);
+    }
+    // The set is the key, lowercased, of a name the store could hold.
+    for (const set of ['TestSetA', '..', '.hidden', 'a b', 'a:b', '']) {
+      expect((await imageRequest('InventedCard.jpg', '', set)).status).toBe(404);
     }
     expect(calls).toEqual([]);
     expect(mockGetPlaytestStore).not.toHaveBeenCalled();
@@ -212,41 +213,9 @@ describe('isPlaytestImageFile', () => {
   });
 });
 
-describe('redisPlaytestStore', () => {
-  function stubRedis(values: Record<string, string>, members: string[]) {
-    const read: string[] = [];
-    const redis = {
-      mget: async (...keys: string[]) => { read.push(...keys); return keys.map((k) => values[k] ?? null); },
-      get: async (key: string) => { read.push(key); return values[key] ?? null; },
-      sismember: async (key: string, member: string) => { read.push(`${key}:${member}`); return members.includes(member) ? 1 : 0; },
-    };
-    return { redis: redis as unknown as Redis, read };
-  }
-
-  it('pins the key names', () => {
-    expect([PLAYTEST_VERSION_KEY, PLAYTEST_CARDS_KEY, PLAYTEST_EMAILS_KEY, PLAYTEST_UPLOADED_AT_KEY, playtestImageKey('X1')])
-      .toEqual(['playtest:version', 'playtest:cards', 'playtest:emails', 'playtest:uploadedAt', 'playtest:img:X1']);
-  });
-
-  it('reads the version and the cards in one call, and an image and the set by key', async () => {
-    const { redis, read } = stubRedis(
-      { 'playtest:version': '7', 'playtest:cards': '{"looks":"like json"}', 'playtest:img:X1': 'AAAA' },
-      ['a@x.com'],
-    );
-    const store = redisPlaytestStore(redis);
-    expect(await store.readCards()).toEqual({ version: 7, tsv: '{"looks":"like json"}' });
-    expect(await store.readImage('X1')).toBe('AAAA');
-    expect(await store.readImage('X2')).toBeNull();
-    expect(await store.hasPlaytester('a@x.com')).toBe(true);
-    expect(await store.hasPlaytester('b@x.com')).toBe(false);
-    expect(read).toEqual([
-      'playtest:version', 'playtest:cards', 'playtest:img:X1', 'playtest:img:X2',
-      'playtest:emails:a@x.com', 'playtest:emails:b@x.com',
-    ]);
-  });
-
-  it('reads an empty store as version 0 and no cards', async () => {
-    const { redis } = stubRedis({}, []);
-    expect(await redisPlaytestStore(redis).readCards()).toEqual({ version: 0, tsv: '' });
+describe('isPlaytestSetName (#1644)', () => {
+  it('takes letters, digits, _, - and ., from a letter or a digit', () => {
+    for (const good of ['TestSetA', 'testset-b', 'Set_2.1', '9Missions']) expect(isPlaytestSetName(good)).toBe(true);
+    for (const bad of ['', '.hidden', '-x', 'a/b', 'a..b', 'a b', 'a:b', 'x'.repeat(65)]) expect(isPlaytestSetName(bad)).toBe(false);
   });
 });
