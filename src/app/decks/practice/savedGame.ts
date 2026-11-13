@@ -270,6 +270,12 @@ const isValidBotPile = (botPile: unknown): boolean =>
     (Array.isArray(botPile.affiliations) && botPile.affiliations.every((a: unknown) => typeof a === 'string'))) &&
   (botPile.unexpectedDifficulties === undefined || botPile.unexpectedDifficulties === true);
 
+const isValidRangeUsed = (rangeUsed: unknown): boolean =>
+  typeof rangeUsed === 'object' &&
+  rangeUsed !== null &&
+  !Array.isArray(rangeUsed) &&
+  Object.values(rangeUsed).every((used) => Number.isInteger(used) && (used as number) >= 0);
+
 // A saved log (#1400) loads only when every entry is an object with a numeric turn and a kind the
 // log knows. A bad log loads as an empty one and never drops the table.
 const restoredLog = (log: unknown): LogEntry[] => (Array.isArray(log) && log.every(isLogEntry) ? log : []);
@@ -317,6 +323,8 @@ function repairTable(table: TableState): TableState {
   if (table.opponent !== 'bot' || !isValidBotPile(table.botPile)) delete table.botPile;
   // The bot's use of Unexpected Difficulties (#1563) loads only in a bot game.
   if (table.opponent !== 'bot' || table.botUsedUnexpectedDifficulties !== true) delete table.botUsedUnexpectedDifficulties;
+  // The range the ships used this turn (#1634) loads only as a map of whole numbers of 0 or more.
+  if (!isValidRangeUsed(table.rangeUsed)) delete table.rangeUsed;
   // The dilemma stack holds cards only during an attempt (#1170). A save with stack cards and no
   // attempt, such as one from before #1170, sends them to the bottom of the dilemma pile, face down.
   if (!table.attempt && table.dilemmaStack.length) {

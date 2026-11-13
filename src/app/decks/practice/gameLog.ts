@@ -24,6 +24,8 @@ import {
   shuffledIds,
   findInstanceAnywhere,
   MoveTarget,
+  moveRangeCost,
+  printedRange,
   ReorderZone,
   AttemptPhase,
   ResolveNote,
@@ -58,6 +60,15 @@ export interface LogMove {
   to: LogPlace;
   // Only for the draw deck and the dilemma pile, the two places whose order the player sees.
   position?: 'top' | 'bottom';
+  // A move of ships from one mission's ship row to another's (#1634): the range each ship used,
+  // in the order of `cards`, and its printed Range less all it has used this turn, below 0 when
+  // over. Absent for every other move.
+  range?: LogRange[];
+}
+
+export interface LogRange {
+  used: number;
+  left: number;
 }
 
 export type LogEntry = { turn: number } & (
@@ -238,11 +249,16 @@ function moveEntry(
       const to = logPlace(state, move.to);
       const position = ORDERED_PLACES.has(move.to) ? move.position ?? 'bottom' : undefined;
       const card = unseen ? null : cardDisplayName(found.instance.card);
+      const used = moveRangeCost(state, found.zone, move.to);
+      const range =
+        used === undefined ? undefined : { used, left: printedRange(found.instance) - (next.rangeUsed?.[move.id] ?? 0) };
       const group = groups.find(
         (g) => placeKey(g.from) === placeKey(from) && placeKey(g.to) === placeKey(to) && g.position === position
       );
-      if (group) group.cards.push(card);
-      else groups.push({ cards: [card], from, to, ...(position ? { position } : {}) });
+      if (group) {
+        group.cards.push(card);
+        if (range) group.range = [...(group.range ?? []), range];
+      } else groups.push({ cards: [card], from, to, ...(position ? { position } : {}), ...(range ? { range: [range] } : {}) });
     }
     state = next;
   }
@@ -588,6 +604,20 @@ export function cardsText(cards: LogCard[]): string {
 const destinationText = (move: LogMove): string =>
   move.position ? `the ${move.position} of ${placeText(move.to)}` : placeText(move.to);
 
+// "used range 4, 4 left" or "used range 4, over by 2" (#1634).
+const rangeText = (range: LogRange): string =>
+  `used range ${range.used}, ${range.left >= 0 ? `${range.left} left` : `over by ${-range.left}`}`;
+
+// " (used range 4, 4 left)" after a ship's move between two ship rows, and for more than one ship
+// each ship's own numbers: " (Enterprise used range 4, 4 left; Defiant used range 4, over by 2)".
+// Nothing for any other move, an entry from before #1634 too.
+const movedRangeText = (move: LogMove): string => {
+  const ranges = Array.isArray(move.range) ? move.range.filter((r) => r && typeof r.used === 'number' && typeof r.left === 'number') : [];
+  if (!ranges.length || ranges.length !== move.cards.length) return '';
+  if (ranges.length === 1) return ` (${rangeText(ranges[0])})`;
+  return ` (${ranges.map((r, i) => `${move.cards[i] ?? 'a card'} ${rangeText(r)}`).join('; ')})`;
+};
+
 // The verb of each op of a resolved dilemma (#1587), and the phrase of its "already done" note.
 const RESOLVE_OP_TEXT: Record<ResolveOp, string> = {
   stop: 'stopped',
@@ -649,7 +679,7 @@ export function logEntryText(entry: LogEntry): string {
     }
     case 'move': {
       const moves = entry.moves.map(
-        (m) => `${cardsText(m.cards)} from ${placeText(m.from)} to ${destinationText(m)}`
+        (m) => `${cardsText(m.cards)} from ${placeText(m.from)} to ${destinationText(m)}${movedRangeText(m)}`
       );
       const shuffled = entry.shuffled ? `shuffled ${placeText(entry.shuffled)}` : null;
       const text = moves.length ? `Moved ${moves.join('; ')}` : '';

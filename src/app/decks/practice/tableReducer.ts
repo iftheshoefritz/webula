@@ -170,6 +170,10 @@ export interface TableState {
   // The bot of a bot game used Unexpected Difficulties (#1563), which it may do once a game. Only
   // `botAttempt` sets it, and a new game clears it.
   botUsedUnexpectedDifficulties?: true;
+  // The range each ship has used this turn (#1634), by the ship's instance id: the printed spans
+  // of the two missions of every move of the ship from one mission's ship row to another's. Only
+  // that `move` adds to it, and `nextTurn` clears it. Absent when no ship has used range.
+  rangeUsed?: Record<string, number>;
 }
 
 // A mission attempt (#1163): the mission's slot index, the attempting ship at a space mission
@@ -422,6 +426,20 @@ const MISSION_PILE_FACE: Record<MissionPileName, Face> = {
   awayTeam: 'down',
   underMission: 'up',
 };
+
+// The printed span of a mission card and the printed Range of a ship (#1634), as numbers; a card
+// with none reads 0.
+export const printedSpan = (card: CardInstance | null | undefined): number => Number(card?.card?.span) || 0;
+export const printedRange = (card: CardInstance | null | undefined): number => Number(card?.card?.range) || 0;
+
+// The range a move of a ship between two ship rows uses (#1634): the printed spans of the mission
+// it leaves and the mission it goes to. A move that is not one uses none, so `undefined`.
+export function moveRangeCost(state: TableState, from: TableZone, to: MoveTarget): number | undefined {
+  if (typeof from !== 'object' || from.zone !== 'shipRow' || !isShipRowLocation(to) || from.missionIndex === to.missionIndex) {
+    return undefined;
+  }
+  return printedSpan(state.missions[from.missionIndex]?.mission) + printedSpan(state.missions[to.missionIndex]?.mission);
+}
 
 export const initialTableState: TableState = {
   drawDeck: [],
@@ -890,7 +908,12 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const movedCards = [movedCard, ...releasedCrew];
       const orderedDestination =
         action.position === 'top' ? [...movedCards, ...destination] : [...destination, ...movedCards];
-      const moved = withCardsAt(afterRemoval, action.to, orderedDestination);
+      const placed = withCardsAt(afterRemoval, action.to, orderedDestination);
+      const rangeCost = moveRangeCost(state, from, action.to);
+      const moved =
+        rangeCost === undefined
+          ? placed
+          : { ...placed, rangeUsed: { ...state.rangeUsed, [action.id]: (state.rangeUsed?.[action.id] ?? 0) + rangeCost } };
       // The discarded stack is appended after the move, so a card that goes to the discard pile
       // itself lands there first and its cards follow it.
       return discardedOn.length ? { ...moved, discard: [...moved.discard, ...discardedOn] } : moved;
@@ -1024,7 +1047,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         awayTeam: unstopCards(slot.awayTeam),
         underMission: unstopCards(slot.underMission),
       }));
-      return {
+      const nextTurn: TableState = {
         ...state,
         turn: state.turn + 1,
         drawDeck: unstopCards(state.drawDeck),
@@ -1037,6 +1060,9 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         dilemmaStack: unstopCards(state.dilemmaStack),
         missions,
       };
+      // Every ship has its full range again (#1634).
+      delete nextTurn.rangeUsed;
+      return nextTurn;
     }
 
     case 'adjustScore': {
