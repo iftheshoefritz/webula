@@ -127,7 +127,7 @@ describe('gameReducer: which actions make an entry (#1065)', () => {
     const moab = instance('m2', 'Moab IV', 'up', 'mission', { backimagefile: 'back' });
     const start = table({ missions: slots([{ mission: excavation, ships: [ship] }, { mission: moab }]) });
     const state = run(start, { type: 'move', id: 's1', to: { zone: 'shipRow', missionIndex: 1 } });
-    expect(logEntryText(onlyEntry(state))).toBe('Moved Enterprise from Excavation to Moab IV');
+    expect(logEntryText(onlyEntry(state))).toBe('Moved Enterprise from Excavation to Moab IV (used range 0, 0 left)');
   });
 
   it('says "a card" for an unseen batch, and names the end of an ordered pile', () => {
