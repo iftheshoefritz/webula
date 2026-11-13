@@ -1,7 +1,7 @@
 // Issue #1636: a ship that moved this turn shows the range it has left, one number, in place of its
 // Range: in the RNG box of `ShipOverlay` on the cropped card, in a box over the printed Range box of
 // the whole card on the desktop table and in the crew panel, and on the ships of the attempt layout.
-// Past its Range the number is below 0 and red. Next turn clears it.
+// Past its Range the number stops at 0, in white. Next turn clears it.
 jest.mock('@dnd-kit/core', () => {
   const actual = jest.requireActual('@dnd-kit/core');
   return {
@@ -16,7 +16,7 @@ import { render, screen, within } from '@testing-library/react';
 import MissionRow from '../../../app/decks/practice/MissionRow';
 import AttemptLayout from '../../../app/decks/practice/AttemptLayout';
 import CardListPanel from '../../../app/decks/practice/CardListPanel';
-import { RANGE_OVER_FILL } from '../../../app/decks/practice/PersonnelOverlay';
+import { ShipOverlay, ShipRangeLeftBox } from '../../../app/decks/practice/PersonnelOverlay';
 import { RangeUsedProvider } from '../../../app/decks/practice/RangeUsedContext';
 import { rangeUsedDisplay } from '../../../app/decks/practice/shipRange';
 import {
@@ -43,15 +43,15 @@ const slot: MissionSlot = { mission: mission('m0', 'Bilana System'), ships: [shi
 
 describe('rangeUsedDisplay (#1636)', () => {
   it('reads the range left of the printed Range', () => {
-    expect(rangeUsedDisplay(ship, { 'ship-1': 4 })).toEqual({ used: 4, total: 8, left: 4, text: '4', over: false });
+    expect(rangeUsedDisplay(ship, { 'ship-1': 4 })).toEqual({ used: 4, total: 8, left: 4, text: '4' });
   });
 
-  it('goes below 0 past the printed Range', () => {
-    expect(rangeUsedDisplay(ship, { 'ship-1': 10 })).toMatchObject({ left: -2, text: '-2', over: true });
+  it('stops at 0 past the printed Range', () => {
+    expect(rangeUsedDisplay(ship, { 'ship-1': 10 })).toEqual({ used: 10, total: 8, left: 0, text: '0' });
   });
 
   it('reads the Range of `ranges` when it has one', () => {
-    expect(rangeUsedDisplay(ship, { 'ship-1': 10 }, { 'ship-1': 13 })).toMatchObject({ total: 13, text: '3', over: false });
+    expect(rangeUsedDisplay(ship, { 'ship-1': 10 }, { 'ship-1': 13 })).toMatchObject({ total: 13, text: '3' });
   });
 
   it('is nothing for a ship with no entry', () => {
@@ -93,7 +93,6 @@ describe('the RNG value of a cropped ship card (#1636)', () => {
   it('shows the printed Range before a move', () => {
     renderRow(start.missions, start.rangeUsed, false);
     expect(range()).toHaveTextContent(/^8$/);
-    expect(range()).not.toHaveAttribute('data-over');
     expect(screen.getByTestId('ship-attributes')).toHaveAttribute('aria-label', 'Range 8, Weapons 7, Shields 8');
   });
 
@@ -106,11 +105,19 @@ describe('the RNG value of a cropped ship card (#1636)', () => {
     expect(screen.queryByTestId('ship-range-used-ship-1')).toBeNull();
   });
 
-  it('shows a number below 0, in red, past the Range', () => {
+  it('shows 0, in white, with the full words, past the Range', () => {
     renderRow(moved.missions, { 'ship-1': 10 }, false);
-    expect(range()).toHaveTextContent(/^-2$/);
-    expect(range()).toHaveAttribute('data-over', 'true');
-    expect(range()).toHaveAttribute('fill', RANGE_OVER_FILL);
+    expect(range()).toHaveTextContent(/^0$/);
+    expect(range()).toHaveAttribute('fill', '#fff');
+    expect(range()).not.toHaveAttribute('data-over');
+    expect(screen.getByTestId('ship-attributes')).toHaveAttribute('aria-label', 'Range 0 left of 8, Weapons 7, Shields 8');
+  });
+
+  it('keeps the full words "RNG", "WPN" and "SHD" at 0', () => {
+    render(<ShipOverlay card={ship.card} width={120} cropHeight={80} border={4} rangeLeft={rangeUsedDisplay(ship, { 'ship-1': 10 })} />);
+    expect(screen.getByTestId('ship-attributes')).toHaveAttribute('data-label-tier', 'three');
+    expect(screen.getByTestId('ship-range-label')).toHaveTextContent(/^RNG$/);
+    expect(range()).toHaveTextContent(/^0$/);
   });
 
   it('shows the printed Range again after Next turn', () => {
@@ -131,16 +138,35 @@ describe('the range left on the whole ship card of the desktop table (#1636)', (
     renderRow([slot], { 'ship-1': 4 }, true);
     const box = screen.getByTestId('ship-range-left');
     expect(box).toHaveAttribute('aria-label', 'Range 4 left of 8');
+    expect(within(box as unknown as HTMLElement).getByTestId('ship-range-left-label')).toHaveTextContent(/^Range$/);
     expect(within(box as unknown as HTMLElement).getByTestId('ship-range-left-value')).toHaveTextContent(/^4$/);
-    expect(box).not.toHaveAttribute('data-over');
     expect(box.closest('[data-zone="crew-ship-1"]')).not.toBeNull();
   });
 
-  it('shows a red number below 0 past the Range', () => {
+  it('shows 0, in white, past the Range', () => {
     renderRow([slot], { 'ship-1': 10 }, true);
     const box = screen.getByTestId('ship-range-left');
-    expect(box).toHaveAttribute('data-over', 'true');
-    expect(within(box as unknown as HTMLElement).getByTestId('ship-range-left-value')).toHaveTextContent(/^-2$/);
+    expect(box).toHaveAttribute('aria-label', 'Range 0 left of 8');
+    expect(box).not.toHaveAttribute('data-over');
+    const value = within(box as unknown as HTMLElement).getByTestId('ship-range-left-value');
+    expect(value).toHaveTextContent(/^0$/);
+    expect(value).toHaveAttribute('fill', '#fff');
+  });
+
+  it('covers exactly the printed Range box, with a line on all four sides', () => {
+    // A 357x496 card is the scan's own size: the box is the printed one, x 52 to 123, y 433 to 456.
+    render(<ShipRangeLeftBox card={{ affiliation: 'Federation' }} width={357} height={496} rangeLeft={{ used: 4, total: 8, left: 4, text: '4' }} />);
+    const box = screen.getByTestId('ship-range-left');
+    expect(box).toHaveStyle({ left: '52px', top: '433px' });
+    expect(box).toHaveAttribute('width', '71');
+    expect(box).toHaveAttribute('height', '23');
+    const frame = screen.getByTestId('ship-range-left-frame');
+    expect(frame).toHaveAttribute('stroke-width', '2');
+    expect(frame).toHaveAttribute('width', '69');
+    expect(frame).toHaveAttribute('height', '21');
+    const fill = screen.getByTestId('ship-range-left-fill');
+    expect([fill.getAttribute('x'), fill.getAttribute('y')]).toEqual(['4', '4']);
+    expect([fill.getAttribute('width'), fill.getAttribute('height')]).toEqual(['63', '15']);
   });
 });
 

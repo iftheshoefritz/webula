@@ -262,9 +262,6 @@ export function fitShipLabel(box: SVGGElement | null, pad: number): void {
   }
 }
 
-// The colour of a range left below 0 (#1636).
-export const RANGE_OVER_FILL = '#f87171';
-
 // The face of the words and the numbers: the card's is a bold, condensed sans.
 const ATTRIBUTE_FONT_FAMILY = '"Futura Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -310,9 +307,8 @@ function AttributeBand({
   labelTier,
 }: {
   prefix: string;
-  // `ariaValue` names the value in the `aria-label` when it differs from `value`, and `over` draws
-  // the number in red (#1636).
-  attributes: { key: string; name: string; label: string; value: string; ariaValue?: string; over?: boolean }[];
+  // `ariaValue` names the value in the `aria-label` when it differs from `value` (#1636).
+  attributes: { key: string; name: string; label: string; value: string; ariaValue?: string }[];
   smallCaps: boolean;
   layout: ReturnType<typeof personnelOverlayLayout>;
   fill: string;
@@ -336,7 +332,7 @@ function AttributeBand({
       fontSize={fontSize}
       data-label-tier={labelTier}
     >
-      {attributes.map(({ key, label, value, over }, index) => {
+      {attributes.map(({ key, label, value }, index) => {
         const left = boxLefts[index];
         const labelLength = attributeLabelLength(label, value, layout, smallCaps);
         return (
@@ -371,8 +367,7 @@ function AttributeBand({
               x={label === '' ? left + boxWidth / 2 : left + boxWidth - line - pad}
               y={baseline}
               textAnchor={label === '' ? 'middle' : 'end'}
-              fill={over ? RANGE_OVER_FILL : '#fff'}
-              data-over={over || undefined}
+              fill="#fff"
             >
               {value}
             </text>
@@ -449,7 +444,7 @@ export default function PersonnelOverlay({
 // The ship's overlay (#1336): the band alone, with the words of `shipLabelTier`. It takes no pointer
 // events and the same `className` as the personnel overlay. The `aria-label` names every attribute
 // in full in every tier. A ship that moved this turn (#1636) shows the range it has left, `rangeLeft`,
-// in place of its printed Range, in red below 0, and the `aria-label` reads "Range 4 left of 8".
+// in place of its printed Range, never below 0, and the `aria-label` reads "Range 4 left of 8".
 export function ShipOverlay({
   card,
   width,
@@ -478,7 +473,7 @@ export function ShipOverlay({
     label: shipLabel(attribute, labelTier),
     value: values[attribute],
     ...(attribute === 'range' && rangeLeft
-      ? { ariaValue: `${rangeLeft.left} left of ${rangeLeft.total}`, over: rangeLeft.over }
+      ? { ariaValue: `${rangeLeft.left} left of ${rangeLeft.total}` }
       : {}),
   }));
   return (
@@ -496,15 +491,16 @@ export function ShipOverlay({
   );
 }
 
-// The printed Range box of a whole ship card (#1636), as shares of the card's width and height, and
-// the least size of the box drawn over it, so the number reads on a small card.
-const PRINTED_RANGE_BOX = { left: 0.146, top: 0.862, width: 0.205, height: 0.052 };
-const RANGE_BOX_MIN_HEIGHT = 12;
+// The printed Range box of a whole ship card (#1636), as shares of the card's width and height: on
+// the 357x496 scans its silver lines run from x 52 to 122 and from y 433 to 455, the same on every
+// ship. The box drawn over it takes exactly that place, so it covers the printed box and nothing more.
+const PRINTED_RANGE_BOX = { left: 52 / 357, top: 433 / 496, width: 71 / 357, height: 23 / 496 };
 
 // The range a ship has left this turn over the printed Range box of the whole card (#1636), where no
-// `ShipOverlay` draws: the desktop table and the crew panel. One box of the band, with its fill and
-// its number, centred on the printed box and at least `RANGE_BOX_MIN_HEIGHT` tall. A ship that has
-// not moved this turn draws none, so its printed Range shows. It takes no pointer events.
+// `ShipOverlay` draws: the desktop table and the crew panel. A box the size and place of the printed
+// one, a silver line of the same width on all four sides, black inside it, the affiliation's fill, and
+// "Range" on the left and the number on the right, as the card prints them. A ship that has not moved
+// this turn draws none, so its printed Range shows. It takes no pointer events.
 export function ShipRangeLeftBox({
   card,
   width,
@@ -516,18 +512,25 @@ export function ShipRangeLeftBox({
   height: number;
   rangeLeft: RangeLeft;
 }) {
-  const boxHeight = Math.max(RANGE_BOX_MIN_HEIGHT, Math.round(height * PRINTED_RANGE_BOX.height));
-  const boxWidth = Math.max(Math.round(boxHeight * 1.8), Math.round(width * PRINTED_RANGE_BOX.width));
-  const centreX = width * (PRINTED_RANGE_BOX.left + PRINTED_RANGE_BOX.width / 2);
-  const centreY = height * (PRINTED_RANGE_BOX.top + PRINTED_RANGE_BOX.height / 2);
-  const left = Math.round(Math.min(Math.max(0, centreX - boxWidth / 2), width - boxWidth));
-  const top = Math.round(Math.min(Math.max(0, centreY - boxHeight / 2), height - boxHeight));
+  const left = Math.round(width * PRINTED_RANGE_BOX.left);
+  const top = Math.round(height * PRINTED_RANGE_BOX.top);
+  const boxWidth = Math.round(width * (PRINTED_RANGE_BOX.left + PRINTED_RANGE_BOX.width)) - left;
+  const boxHeight = Math.round(height * (PRINTED_RANGE_BOX.top + PRINTED_RANGE_BOX.height)) - top;
   const line = Math.max(1, Math.round(boxHeight / 14));
+  const pad = Math.max(1, Math.round(boxHeight * SHIP_PAD));
   const fontSize = Math.round(boxHeight * BOX_FONT * 10) / 10;
+  const baseline = boxHeight / 2 + (fontSize * CAP_HEIGHT) / 2;
+  // The silver line and the black inside it: the word and the number keep clear of both.
+  const inset = 2 * line;
+  const labelLength = attributeLabelLength(
+    'Range',
+    rangeLeft.text,
+    { boxWidth, line: inset, pad, fontSize },
+    false
+  );
   return (
     <svg
       data-testid="ship-range-left"
-      data-over={rangeLeft.over || undefined}
       role="img"
       aria-label={rangeLeftLabel(rangeLeft)}
       className="absolute pointer-events-none overflow-visible"
@@ -538,23 +541,45 @@ export function ShipRangeLeftBox({
       fontWeight={700}
       fontSize={fontSize}
     >
-      <AttributeBoxFrame
-        left={0}
-        width={boxWidth}
-        height={boxHeight}
-        line={line}
-        fill={attributeBoxFill(card.affiliation)}
-        fillTestId="ship-range-left-fill"
+      <rect x={0} y={0} width={boxWidth} height={boxHeight} fill="#000" />
+      <rect
+        data-testid="ship-range-left-frame"
+        x={line / 2}
+        y={line / 2}
+        width={boxWidth - line}
+        height={boxHeight - line}
+        fill="none"
+        stroke="#f3f4f6"
+        strokeWidth={line}
       />
-      <text
-        data-testid="ship-range-left-value"
-        x={boxWidth / 2}
-        y={boxHeight / 2 + (fontSize * CAP_HEIGHT) / 2}
-        textAnchor="middle"
-        fill={rangeLeft.over ? RANGE_OVER_FILL : '#fff'}
-      >
-        {rangeLeft.text}
-      </text>
+      <rect
+        data-testid="ship-range-left-fill"
+        x={inset}
+        y={inset}
+        width={boxWidth - 2 * inset}
+        height={boxHeight - 2 * inset}
+        fill={attributeBoxFill(card.affiliation)}
+      />
+      <g ref={labelLength !== undefined ? undefined : (box) => fitShipLabel(box, pad)}>
+        <text
+          data-testid="ship-range-left-label"
+          x={inset + pad}
+          y={baseline}
+          fill="#fff"
+          {...(labelLength === undefined ? {} : { textLength: labelLength, lengthAdjust: 'spacingAndGlyphs' })}
+        >
+          Range
+        </text>
+        <text
+          data-testid="ship-range-left-value"
+          x={boxWidth - inset - pad}
+          y={baseline}
+          textAnchor="end"
+          fill="#fff"
+        >
+          {rangeLeft.text}
+        </text>
+      </g>
     </svg>
   );
 }
