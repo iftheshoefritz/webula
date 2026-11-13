@@ -1,7 +1,7 @@
 // The printed Range of a ship (#1634), its Range on the table as it stands and the span total of a
-// move (#1635), and what its card shows of the range it used this turn (#1636). A module of its own,
-// with no import of `tableReducer.ts`, so `MissionRow` reads it without loading the reducer and its
-// `@dnd-kit/sortable` import.
+// move (#1635), and what its card shows of the range it has left this turn (#1636). A module of its
+// own, with no import of `tableReducer.ts`, so `MissionRow` reads it without loading the reducer and
+// its `@dnd-kit/sortable` import.
 
 import type { CardInstance, MissionSlot } from './tableReducer';
 import { quadrantOf, rangeSpanModelOf } from './rangeModels';
@@ -55,17 +55,31 @@ export function shipRangesOnTable(missions: MissionSlot[], rangeUsed: Record<str
   return ranges;
 }
 
-// What a ship's card shows of the range it used this turn (#1636): the range used of its Range,
-// "4/8", and whether that is over the Range. The Range is the ship's Range on the table, from
-// `ranges` (#1635), or its printed Range when `ranges` has none. A ship with no entry in `rangeUsed`
-// shows none.
+// What a ship's card shows of the range it used this turn (#1636): the range it has left of its
+// Range, one number, `left`, which goes below 0 past the Range, and then `over`. The Range is
+// `ranges[ship.id]`, the ship's Range on the table (#1635), when given, or else the printed Range. A
+// ship with no entry in `rangeUsed`, one that has not moved this turn, gets null, and its card shows
+// the printed Range.
+export interface RangeLeft {
+  used: number;
+  total: number;
+  left: number;
+  text: string;
+  over: boolean;
+}
+
 export function rangeUsedDisplay(
   ship: CardInstance,
   rangeUsed: Record<string, number> | undefined,
   ranges?: Record<string, number>
-): { used: number; total: number; text: string; over: boolean } | null {
+): RangeLeft | null {
   const used = rangeUsed?.[ship.id];
   if (used === undefined) return null;
   const total = ranges?.[ship.id] ?? printedRange(ship);
-  return { used, total, text: `${used}/${total}`, over: used > total };
+  const left = total - used;
+  return { used, total, left, text: String(left), over: left < 0 };
 }
+
+// The accessible name of the range left, "Range 4 left of 8".
+export const rangeLeftLabel = ({ left, total }: Pick<RangeLeft, 'left' | 'total'>): string =>
+  `Range ${left} left of ${total}`;
