@@ -4,6 +4,7 @@ import { AFFILIATION_ABBREVIATIONS } from './missionRequirements';
 import { reportsToMatches } from './hqPlayability';
 import { getReportsToOptions } from './reportsToOptions';
 import { deckPlayabilityMatches } from './deckPlayability';
+import { isPlaytestCard } from './cardImageUrl';
 
 const QUOTE_CHARS_REGEX = /[""«»\u2018\u2019\u201C\u201D]/g;
 
@@ -122,6 +123,9 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
               if (column === 'skills') {
                 return !skillTokens(row[column]).includes(match);
               }
+              // A playtest set's name matches on its whole value only, so `set:a` finds no
+              // `testseta` card (#1644).
+              if (column === 'set' && isPlaytestCard(row)) return row[column] !== match;
               return !row[column].includes(match);
             });
           }
@@ -156,6 +160,7 @@ export function filterCards(data: CardRow[], columns: string[], searchQuery: str
               if (column === 'skills') {
                 return skillTokens(row[column]).includes(match);
               }
+              if (column === 'set' && isPlaytestCard(row)) return row[column] === match;
               return row[column].includes(match);
             });
           } else if (numericColumns.includes(column)) {

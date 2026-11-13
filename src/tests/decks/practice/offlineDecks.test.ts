@@ -23,7 +23,7 @@ import {
   useOfflineDecks,
 } from '../../../app/decks/practice/offlineDecks';
 import { fingerprint } from '../../../app/decks/practice/savedGame';
-import { cardImageUrl, setPlaytestImageVersion } from '../../../lib/cardImageUrl';
+import { cardImageUrl, setPlaytestImageVersions } from '../../../lib/cardImageUrl';
 import { DeckList } from '../../../types';
 
 const row = (key: string, extra: Record<string, any> = {}) => ({
@@ -108,17 +108,17 @@ describe('deckUrls', () => {
 });
 
 // An invented playtest card (#1615): no playtest card is ever committed.
-const testGadget = row('PT-9004A', { originalName: 'Test Gadget', imagefile: '9004A', set: 'playtest' });
+const testGadget = row('PT-9004A', { originalName: 'Test Gadget', imagefile: '9004A', set: 'testseta' });
 
 describe('deckUrls of a deck with a playtest card (#1615)', () => {
-  beforeEach(() => setPlaytestImageVersion(7));
-  afterEach(() => setPlaytestImageVersion(null));
+  beforeEach(() => setPlaytestImageVersions(new Map([['testseta', 7]])));
+  afterEach(() => setPlaytestImageVersions(new Map()));
 
   it('lists the image of the playtest card and the playtest cards', () => {
     const urls = deckUrls(deckOf(row('1'), testGadget), []);
-    expect(cardImageUrl(testGadget)).toBe('/api/playtest/images/9004A.jpg?v=7');
+    expect(cardImageUrl(testGadget)).toBe('/api/playtest/images/testseta/9004A.jpg?v=7');
     expect(urls.sort()).toEqual(
-      ['/cardimages/img-1.jpg', '/api/playtest/images/9004A.jpg?v=7', CARD_BACK_URL, CARD_DATA_URL, PLAYTEST_CARDS_URL].sort(),
+      ['/cardimages/img-1.jpg', '/api/playtest/images/testseta/9004A.jpg?v=7', CARD_BACK_URL, CARD_DATA_URL, PLAYTEST_CARDS_URL].sort(),
     );
   });
 
@@ -137,7 +137,7 @@ describe('deckUrls of a deck with a playtest card (#1615)', () => {
     expect(result).toEqual({
       offline: false,
       failed: [
-        { url: '/api/playtest/images/9004A.jpg?v=7', name: 'Test Gadget' },
+        { url: '/api/playtest/images/testseta/9004A.jpg?v=7', name: 'Test Gadget' },
         { url: PLAYTEST_CARDS_URL, name: 'Playtest cards' },
       ],
     });
@@ -361,7 +361,7 @@ describe('the refresh when the card data changes', () => {
 
   it('keeps the cached playtest cards and images of a deck with a playtest card (#1615)', async () => {
     const { offline } = setUp();
-    const playtestUrls = ['/api/playtest/images/9004A.jpg?v=7', PLAYTEST_CARDS_URL];
+    const playtestUrls = ['/api/playtest/images/testseta/9004A.jpg?v=7', PLAYTEST_CARDS_URL];
     playtestUrls.forEach((url) => offline.set(url, { ...response(5), old: true }));
     const deckC = deckOf(row('1'), testGadget);
     addOfflineDeck({ ...record(deckC, [...urlsA, ...playtestUrls], 'C'), dataVersion: '"v1"' });

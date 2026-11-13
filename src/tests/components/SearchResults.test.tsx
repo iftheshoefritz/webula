@@ -951,7 +951,7 @@ describe('SearchResults', () => {
 
 describe('SearchResults playtest badge (#1614)', () => {
   // An invented playtest card; `CardDef` declares no `set`, but every parsed row has one.
-  const playtest = { ...cardFixture({ collectorsinfo: 'PT1', name: 'Zed Quill', imagefile: 'PT-ZedQuill' }), set: 'playtest' } as CardDef;
+  const playtest = { ...cardFixture({ collectorsinfo: 'pt-1', name: 'Zed Quill', imagefile: 'PT-ZedQuill' }), set: 'testseta' } as CardDef;
   const real = { ...cardFixture({ collectorsinfo: '1R002', name: 'Real Card' }), set: 'premiere' } as CardDef;
 
   it.each(['image', 'list'] as const)('marks only the playtest card in the %s view', (viewMode) => {

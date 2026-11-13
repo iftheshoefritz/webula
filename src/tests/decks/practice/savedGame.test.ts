@@ -244,7 +244,7 @@ describe('tableReducer restore', () => {
 // An invented playtest card (#1615): no playtest card is ever committed.
 describe('a saved game with a playtest card (#1615)', () => {
   it('restores the playtest row unchanged', () => {
-    const gadget = row('PT-9004A', 'equipment', { originalName: 'Test Gadget', imagefile: '9004A', set: 'playtest' });
+    const gadget = row('PT-9004A', 'equipment', { originalName: 'Test Gadget', imagefile: '9004A', set: 'testseta' });
     const playtestDeck: DeckList = {
       mission: { count: 1, row: row('1M1', 'mission') },
       'PT-9004A': { count: 2, row: gadget },

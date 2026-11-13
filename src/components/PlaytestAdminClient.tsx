@@ -11,6 +11,7 @@ import {
   playtestPreview,
   zipImages,
   type PlaytestPreview,
+  type PlaytestSetCards,
   type ZipImages,
 } from '../lib/playtestUpload';
 import { readZip } from '../lib/zipReader';
@@ -19,22 +20,33 @@ import { readZip } from '../lib/zipReader';
 // current upload, and the playtesters. The page renders this only for an owner; every route it
 // calls checks the owner again.
 
-export interface PlaytestAdminStatus {
+/** One set in testing (#1644), with the cards the upload preview checks a new set against. */
+export interface PlaytestAdminSet extends PlaytestSetCards {
   version: number;
   uploadedAt: string | null;
   cards: number;
   images: number;
+}
+
+export interface PlaytestAdminStatus {
+  sets: PlaytestAdminSet[];
+  /** Why the cards stored before playtest sets could not move to a set, or null. */
+  legacyError: string | null;
   emails: string[];
 }
 
 /** The calls of the page, so a test and the dev fixture can run it with no network. */
 export interface PlaytestAdminApi {
   status(): Promise<PlaytestAdminStatus>;
-  sendImages(images: PlaytestImage[]): Promise<void>;
-  sendCards(tsv: string): Promise<void>;
+  /** One batch of the images of the set `set`. */
+  sendImages(set: string, images: PlaytestImage[]): Promise<void>;
+  /** The TSV, replacing the set in testing `replace`, or a new set when null. */
+  sendCards(tsv: string, replace: string | null): Promise<void>;
   addEmail(email: string): Promise<string[]>;
   removeEmail(email: string): Promise<string[]>;
 }
+
+const NO_SETS: PlaytestSetCards[] = [];
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: 'no-store', ...init });
@@ -61,11 +73,12 @@ const json = (method: string, body: unknown): RequestInit => ({
 
 export const fetchPlaytestAdminApi: PlaytestAdminApi = {
   status: () => call<PlaytestAdminStatus>('/api/playtest/admin/status'),
-  async sendImages(images) {
-    await call('/api/playtest/admin/images', json('POST', { images }));
+  async sendImages(set, images) {
+    await call('/api/playtest/admin/images', json('POST', { set, images }));
   },
-  async sendCards(tsv) {
-    await call('/api/playtest/admin/cards', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: tsv });
+  async sendCards(tsv, replace) {
+    const query = replace === null ? '' : `?replace=${encodeURIComponent(replace)}`;
+    await call(`/api/playtest/admin/cards${query}`, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: tsv });
   },
   addEmail: async (email) => (await call<{ emails: string[] }>('/api/playtest/admin/emails', json('POST', { email }))).emails,
   removeEmail: async (email) => (await call<{ emails: string[] }>('/api/playtest/admin/emails', json('DELETE', { email }))).emails,
@@ -105,6 +118,11 @@ export function PlaytestPreviewView({ preview }: { preview: PlaytestPreview }) {
   return (
     <div className="mt-4 rounded border border-gray-600 p-3" data-testid="playtest-preview">
       <p data-testid="playtest-preview-count">{preview.result.cards} card(s)</p>
+      {preview.set.name && (
+        <p className="text-sm" data-testid="playtest-preview-set">
+          Set {preview.set.name}: {preview.set.replace === null ? 'a new set' : `replaces ${preview.set.replace}`}
+        </p>
+      )}
       <ul className="mt-1 text-sm" data-testid="playtest-preview-types">
         {preview.byType.map(({ type, count }) => (
           <li key={type} data-testid={`playtest-preview-type-${type}`}>{type}: {count}</li>
@@ -120,10 +138,14 @@ export function PlaytestPreviewView({ preview }: { preview: PlaytestPreview }) {
 
 export function PlaytestUpload({
   realNames,
+  sets = NO_SETS,
   api,
   onPublished,
 }: {
   realNames: Set<string>;
+  // The sets in testing. Until #1645 the upload replaces the set of its own name, when one is in
+  // testing, and adds a new set otherwise.
+  sets?: PlaytestSetCards[];
   api: PlaytestAdminApi;
   onPublished: () => void;
 }) {
@@ -133,8 +155,8 @@ export function PlaytestUpload({
   const [publishing, setPublishing] = useState(false);
 
   const preview = useMemo(
-    () => (tsv !== null && zip !== null ? playtestPreview(tsv, zip, realNames) : null),
-    [tsv, zip, realNames],
+    () => (tsv !== null && zip !== null ? playtestPreview(tsv, zip, realNames, sets) : null),
+    [tsv, zip, realNames, sets],
   );
 
   const pickTsv = async (file: File | undefined) => {
@@ -147,7 +169,9 @@ export function PlaytestUpload({
   };
 
   const publish = async () => {
-    if (!preview?.canPublish || tsv === null || zip === null) return;
+    if (!preview?.canPublish || tsv === null || zip === null || preview.set.name === null) return;
+    const setName = preview.set.name;
+    const replace = preview.set.replace === null ? null : sets.find((set) => set.name.toLowerCase() === preview.set.replace)?.name ?? null;
     setPublishing(true);
     try {
       const batches = imageBatches(preview.imagesToSend.map((imageFile) => ({
@@ -156,13 +180,13 @@ export function PlaytestUpload({
       })));
       for (let i = 0; i < batches.length; i++) {
         setProgress(`Sending images: batch ${i + 1} of ${batches.length}`);
-        await api.sendImages(batches[i].map((imageFile) => ({
+        await api.sendImages(setName, batches[i].map((imageFile) => ({
           imageFile,
           base64: bytesToBase64(zip.images.get(imageFile)!),
         })));
       }
       setProgress('Sending the cards');
-      await api.sendCards(tsv);
+      await api.sendCards(tsv, replace);
       setProgress(`Published ${preview.result.cards} card(s) and ${preview.imagesToSend.length} image(s)`);
       onPublished();
     } catch (error) {
@@ -200,17 +224,21 @@ export function PlaytestUpload({
   );
 }
 
+// The first set in testing; #1645 lists every set.
 function CurrentUpload({ status }: { status: PlaytestAdminStatus }) {
+  const set = status.sets[0];
   return (
     <Section title="The current upload" testId="playtest-status">
+      {status.legacyError && <p className="mb-2 text-sm text-red-400" data-testid="playtest-status-legacy-error">{status.legacyError}</p>}
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 text-sm">
-        <dt>Version</dt><dd data-testid="playtest-status-version">{status.version}</dd>
+        <dt>Set</dt><dd data-testid="playtest-status-set">{set?.name ?? 'None'}</dd>
+        <dt>Version</dt><dd data-testid="playtest-status-version">{set?.version ?? 0}</dd>
         <dt>Uploaded</dt>
         <dd data-testid="playtest-status-uploaded-at">
-          {status.uploadedAt ? new Date(status.uploadedAt).toLocaleString() : 'Never'}
+          {set?.uploadedAt ? new Date(set.uploadedAt).toLocaleString() : 'Never'}
         </dd>
-        <dt>Cards</dt><dd data-testid="playtest-status-cards">{status.cards}</dd>
-        <dt>Images</dt><dd data-testid="playtest-status-images">{status.images}</dd>
+        <dt>Cards</dt><dd data-testid="playtest-status-cards">{set?.cards ?? 0}</dd>
+        <dt>Images</dt><dd data-testid="playtest-status-images">{set?.images ?? 0}</dd>
       </dl>
     </Section>
   );
@@ -296,7 +324,7 @@ export default function PlaytestAdminClient({ realNames, api = fetchPlaytestAdmi
 
   return (
     <PlaytestAdminFrame>
-      <PlaytestUpload realNames={names} api={api} onPublished={refresh} />
+      <PlaytestUpload realNames={names} sets={state.kind === 'ready' ? state.status.sets : NO_SETS} api={api} onPublished={refresh} />
       {state.kind === 'loading' && <p className="text-gray-400">Loading…</p>}
       {state.kind === 'error' && (
         <p className="text-red-400" data-testid="playtest-status-error">The store could not be read: {state.message}</p>
