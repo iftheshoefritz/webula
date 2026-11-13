@@ -4,8 +4,8 @@
 // ignores `fixture=1`. Every set, card and email is invented.
 
 import type { PlaytestAdminApi, PlaytestAdminSet, PlaytestAdminStatus } from '../components/PlaytestAdminClient';
-import { readNormalisedTsv, setNameOfTsv } from './playtestUpload';
-import { normalisePlaytestTsv } from './playtestCards';
+import { playtestSetKey } from './playtestImageFile';
+import { checkPlaytestUpload, playtestImageFiles, playtestSetCardsOf, readNormalisedTsv } from './playtestUpload';
 
 export function playtestAdminFixtureAllowed(): boolean {
   return process.env.NODE_ENV !== 'production';
@@ -32,24 +32,30 @@ export function playtestAdminFixtureApi(): PlaytestAdminApi {
     status: async () => ({ ...status, sets: status.sets.map((set) => ({ ...set })), emails: emails() }),
     sendImages: async () => {},
     async sendCards(tsv, replace) {
-      const normalised = normalisePlaytestTsv(tsv, new Set()).tsv;
-      const found = setNameOfTsv(normalised);
-      if ('error' in found) throw new Error(found.error);
-      const rows = readNormalisedTsv(normalised);
-      const previous = status.sets.find((set) => set.name.toLowerCase() === found.name.toLowerCase());
+      // The checks of the cards route, with no real card names.
+      const { result, set } = checkPlaytestUpload(tsv, new Set(), status.sets, replace);
+      if (set.errors.length > 0) throw new Error(set.errors.join('; '));
+      if (result.errors.length > 0) throw new Error('The TSV has errors');
+      if (set.name === null) throw new Error('The TSV holds no cards');
+      const name = set.name;
+      const rows = readNormalisedTsv(result.tsv);
+      const previous = status.sets.find((s) => playtestSetKey(s.name) === playtestSetKey(name));
       const next: PlaytestAdminSet = {
-        name: found.name,
         version: (previous?.version ?? 0) + 1,
         uploadedAt: new Date().toISOString(),
         cards: rows.length,
-        images: rows.length,
-        cardNames: rows.map((row) => row.Name),
-        collectorsInfo: rows.map((row) => row.CollectorsInfo.replace(/^PT-/, '')),
+        images: playtestImageFiles(result.tsv).length,
+        ...playtestSetCardsOf(name, result.tsv),
       };
       status.sets = [
-        ...status.sets.filter((set) => set !== previous && set.name.toLowerCase() !== replace?.toLowerCase()),
+        ...status.sets.filter((s) => s !== previous && playtestSetKey(s.name) !== set.replace),
         next,
       ].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    },
+    async removeSet(name) {
+      const key = playtestSetKey(name);
+      if (!status.sets.some((s) => playtestSetKey(s.name) === key)) throw new Error(`The set ${name} is not in testing`);
+      status.sets = status.sets.filter((s) => playtestSetKey(s.name) !== key);
     },
     async addEmail(email) {
       const value = email.trim().toLowerCase();
