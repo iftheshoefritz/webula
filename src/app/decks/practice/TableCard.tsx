@@ -255,7 +255,7 @@ export function TableCardImage({
         )}
         {/* #1636: the whole card has no band, so the range left sits over its printed Range box. */}
         {uncropped && !isFaceDown && rangeLeft && hasShipOverlay(card) && (
-          <ShipRangeLeftBox card={card} width={width} height={height} rangeLeft={rangeLeft} />
+          <ShipRangeLeftBox imageSrc={faceUpImageSrc(instance)} width={width} height={height} rangeLeft={rangeLeft} />
         )}
         {instance.removedFromGame && <RemovedFromGameLabel />}
       </div>

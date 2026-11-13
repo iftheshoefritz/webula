@@ -566,7 +566,7 @@ function PanelHost({
           className={`rounded-md shadow-md ${host.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
         />
-        {rangeLeft && <ShipRangeLeftBox card={card} width={cardWidth} height={cardHeight} rangeLeft={rangeLeft} />}
+        {rangeLeft && <ShipRangeLeftBox imageSrc={cardImageUrl(card)} width={cardWidth} height={cardHeight} rangeLeft={rangeLeft} />}
       </div>
       {placedOn.length > 0 && (
         <div

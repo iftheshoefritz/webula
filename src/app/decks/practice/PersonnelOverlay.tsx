@@ -491,95 +491,80 @@ export function ShipOverlay({
   );
 }
 
-// The printed Range box of a whole ship card (#1636), as shares of the card's width and height: on
-// the 357x496 scans its silver lines run from x 52 to 122 and from y 433 to 455, the same on every
-// ship. The box drawn over it takes exactly that place, so it covers the printed box and nothing more.
-const PRINTED_RANGE_BOX = { left: 52 / 357, top: 433 / 496, width: 71 / 357, height: 23 / 496 };
+// The printed Range box of a whole ship card (#1636), in the pixels of a 357x496 scan: the same on
+// every ship. Its silver lines run from x 52 to 122 and from y 433 to 455, and a dark line runs inside
+// them; the fill inside that runs from y 437 to 453 and to x 119.5. The word "Range" ends by x 93, and
+// the number, one digit or two, sits right-aligned between x 103 and 116.5, its capitals from y 441 to
+// 450. Between the word and the number every row of the fill is one colour across.
+const SCAN_WIDTH = 357;
+const SCAN_HEIGHT = 496;
+const RANGE_FILL = { top: 437.5, bottom: 452.5 };
+const RANGE_PLAIN = { left: 93, right: 102.5 };
+const RANGE_NUMBER = { left: 103, right: 119, end: 116.5, capTop: 441, capBottom: 450 };
 
 // The range a ship has left this turn over the printed Range box of the whole card (#1636), where no
-// `ShipOverlay` draws: the desktop table and the crew panel. A box the size and place of the printed
-// one, a silver line of the same width on all four sides, black inside it, the affiliation's fill, and
-// "Range" on the left and the number on the right, as the card prints them. A ship that has not moved
-// this turn draws none, so its printed Range shows. It takes no pointer events.
+// `ShipOverlay` draws: the desktop table and the crew panel. The card keeps its own box, its frame, its
+// fill and its word "Range", so the style is the printing's for every affiliation and every printing:
+// only the number changes. A patch of the card's own image, the plain part of the box between the word
+// and the number stretched across, covers the printed number inside the fill, so the frame is the
+// card's own, and the range left is drawn on it in the printed number's place and size. A ship that has not moved this turn draws none, so its printed Range
+// shows. It takes no pointer events.
 export function ShipRangeLeftBox({
-  card,
+  imageSrc,
   width,
   height,
   rangeLeft,
 }: {
-  card: { affiliation?: unknown };
+  imageSrc: string;
   width: number;
   height: number;
   rangeLeft: RangeLeft;
 }) {
-  const left = Math.round(width * PRINTED_RANGE_BOX.left);
-  const top = Math.round(height * PRINTED_RANGE_BOX.top);
-  const boxWidth = Math.round(width * (PRINTED_RANGE_BOX.left + PRINTED_RANGE_BOX.width)) - left;
-  const boxHeight = Math.round(height * (PRINTED_RANGE_BOX.top + PRINTED_RANGE_BOX.height)) - top;
-  const line = Math.max(1, Math.round(boxHeight / 14));
-  const pad = Math.max(1, Math.round(boxHeight * SHIP_PAD));
-  const fontSize = Math.round(boxHeight * BOX_FONT * 10) / 10;
-  const baseline = boxHeight / 2 + (fontSize * CAP_HEIGHT) / 2;
-  // The silver line and the black inside it: the word and the number keep clear of both.
-  const inset = 2 * line;
-  const labelLength = attributeLabelLength(
-    'Range',
-    rangeLeft.text,
-    { boxWidth, line: inset, pad, fontSize },
-    false
-  );
+  const x = (scan: number) => (scan * width) / SCAN_WIDTH;
+  const y = (scan: number) => (scan * height) / SCAN_HEIGHT;
+  const left = x(RANGE_NUMBER.left);
+  const top = y(RANGE_FILL.top);
+  const patchWidth = x(RANGE_NUMBER.right) - left;
+  const patchHeight = y(RANGE_FILL.bottom) - top;
+  // The stretch that lays the plain part over the number.
+  const stretch = (RANGE_NUMBER.right - RANGE_NUMBER.left) / (RANGE_PLAIN.right - RANGE_PLAIN.left);
+  const capHeight = y(RANGE_NUMBER.capBottom) - y(RANGE_NUMBER.capTop);
+  const fontSize = capHeight / CAP_HEIGHT;
   return (
-    <svg
+    <div
       data-testid="ship-range-left"
       role="img"
       aria-label={rangeLeftLabel(rangeLeft)}
-      className="absolute pointer-events-none overflow-visible"
-      style={{ left, top }}
-      width={boxWidth}
-      height={boxHeight}
-      fontFamily={ATTRIBUTE_FONT_FAMILY}
-      fontWeight={700}
-      fontSize={fontSize}
+      className="absolute pointer-events-none"
+      style={{
+        left,
+        top,
+        width: patchWidth,
+        height: patchHeight,
+        backgroundImage: `url("${imageSrc}")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: `${width * stretch}px ${height}px`,
+        backgroundPosition: `${-x(RANGE_PLAIN.left) * stretch}px ${-top}px`,
+      }}
     >
-      <rect x={0} y={0} width={boxWidth} height={boxHeight} fill="#000" />
-      <rect
-        data-testid="ship-range-left-frame"
-        x={line / 2}
-        y={line / 2}
-        width={boxWidth - line}
-        height={boxHeight - line}
-        fill="none"
-        stroke="#f3f4f6"
-        strokeWidth={line}
-      />
-      <rect
-        data-testid="ship-range-left-fill"
-        x={inset}
-        y={inset}
-        width={boxWidth - 2 * inset}
-        height={boxHeight - 2 * inset}
-        fill={attributeBoxFill(card.affiliation)}
-      />
-      <g ref={labelLength !== undefined ? undefined : (box) => fitShipLabel(box, pad)}>
-        <text
-          data-testid="ship-range-left-label"
-          x={inset + pad}
-          y={baseline}
-          fill="#fff"
-          {...(labelLength === undefined ? {} : { textLength: labelLength, lengthAdjust: 'spacingAndGlyphs' })}
-        >
-          Range
-        </text>
+      <svg
+        className="absolute inset-0 overflow-visible"
+        width={patchWidth}
+        height={patchHeight}
+        fontFamily={ATTRIBUTE_FONT_FAMILY}
+        fontWeight={700}
+        fontSize={fontSize}
+      >
         <text
           data-testid="ship-range-left-value"
-          x={boxWidth - inset - pad}
-          y={baseline}
+          x={x(RANGE_NUMBER.end) - left}
+          y={y(RANGE_NUMBER.capBottom) - top}
           textAnchor="end"
           fill="#fff"
         >
           {rangeLeft.text}
         </text>
-      </g>
-    </svg>
+      </svg>
+    </div>
   );
 }

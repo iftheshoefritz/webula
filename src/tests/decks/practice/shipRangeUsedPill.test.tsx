@@ -138,7 +138,6 @@ describe('the range left on the whole ship card of the desktop table (#1636)', (
     renderRow([slot], { 'ship-1': 4 }, true);
     const box = screen.getByTestId('ship-range-left');
     expect(box).toHaveAttribute('aria-label', 'Range 4 left of 8');
-    expect(within(box as unknown as HTMLElement).getByTestId('ship-range-left-label')).toHaveTextContent(/^Range$/);
     expect(within(box as unknown as HTMLElement).getByTestId('ship-range-left-value')).toHaveTextContent(/^4$/);
     expect(box.closest('[data-zone="crew-ship-1"]')).not.toBeNull();
   });
@@ -153,20 +152,28 @@ describe('the range left on the whole ship card of the desktop table (#1636)', (
     expect(value).toHaveAttribute('fill', '#fff');
   });
 
-  it('covers exactly the printed Range box, with a line on all four sides', () => {
-    // A 357x496 card is the scan's own size: the box is the printed one, x 52 to 123, y 433 to 456.
-    render(<ShipRangeLeftBox card={{ affiliation: 'Federation' }} width={357} height={496} rangeLeft={{ used: 4, total: 8, left: 4, text: '4' }} />);
+  it("covers only the printed number, with the card's own box stretched over it", () => {
+    // A 357x496 card is the scan's own size. The patch covers the number inside the fill, x 103 to 119
+    // and y 437.5 to 452.5, with the plain part of the box, x 93 to 102.5, of the card's own image,
+    // stretched across, so the printed frame shows on every side.
+    render(
+      <ShipRangeLeftBox imageSrc="/cardimages/ship.jpg" width={357} height={496} rangeLeft={{ used: 4, total: 8, left: 4, text: '4' }} />
+    );
     const box = screen.getByTestId('ship-range-left');
-    expect(box).toHaveStyle({ left: '52px', top: '433px' });
-    expect(box).toHaveAttribute('width', '71');
-    expect(box).toHaveAttribute('height', '23');
-    const frame = screen.getByTestId('ship-range-left-frame');
-    expect(frame).toHaveAttribute('stroke-width', '2');
-    expect(frame).toHaveAttribute('width', '69');
-    expect(frame).toHaveAttribute('height', '21');
-    const fill = screen.getByTestId('ship-range-left-fill');
-    expect([fill.getAttribute('x'), fill.getAttribute('y')]).toEqual(['4', '4']);
-    expect([fill.getAttribute('width'), fill.getAttribute('height')]).toEqual(['63', '15']);
+    const stretch = 16 / 9.5;
+    expect(box.style.left).toBe('103px');
+    expect(box.style.top).toBe('437.5px');
+    expect(box.style.width).toBe('16px');
+    expect(box.style.height).toBe('15px');
+    expect(box.style.backgroundImage).toBe('url("/cardimages/ship.jpg")');
+    expect(box.style.backgroundSize).toBe(`${357 * stretch}px 496px`);
+    expect(box.style.backgroundPosition).toBe(`${-93 * stretch}px -437.5px`);
+    const value = screen.getByTestId('ship-range-left-value');
+    // The number ends where the printed one does, x 116.5, on the printed baseline, y 450.
+    expect(value).toHaveAttribute('x', '13.5');
+    expect(value).toHaveAttribute('y', '12.5');
+    expect(value).toHaveAttribute('text-anchor', 'end');
+    expect(value).toHaveTextContent(/^4$/);
   });
 });
 
