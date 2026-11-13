@@ -162,6 +162,7 @@ import { useFinePointer } from './useFinePointer';
 import { SAFE_INSET_CSS, type SafeAreaInsets, safeAreaMargins, useSafeAreaInsets } from './useSafeAreaInsets';
 import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
+import { RangeUsedProvider } from './RangeUsedContext';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
 import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
@@ -3634,6 +3635,7 @@ function PracticeDrawContent() {
             <LandedZoneProvider value={landedZones}>
             <CardHoldProvider value={cardHold}>
             <PlaceOnHoldProvider value={placeOnHold}>
+            <RangeUsedProvider value={table.rangeUsed}>
             {/* Each padding grows by the safe-area inset of its side (#1383, #1384), so the bottom
                 row clears the home indicator, the table clears the notch, and the background stays
                 full-bleed under both. The scale hooks read the bottom padding from the computed
@@ -4173,6 +4175,7 @@ function PracticeDrawContent() {
                 />
               )}
             </div>
+            </RangeUsedProvider>
             </PlaceOnHoldProvider>
             </CardHoldProvider>
             </LandedZoneProvider>

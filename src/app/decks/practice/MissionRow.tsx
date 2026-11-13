@@ -85,6 +85,8 @@
 import { CSSProperties, JSX, ReactNode, useEffect, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import type { Attempt, CardInstance, MissionPileName, MissionSlot } from './tableReducer';
+import { rangeUsedDisplay } from './shipRange';
+import { useRangeUsed } from './RangeUsedContext';
 import { AttemptOverlay, BackToAttemptButton } from './AttemptPanel';
 import TableCard, {
   TableCardImage,
@@ -224,6 +226,7 @@ function ShipCard({
   const landedNonce = onLandedNonce ?? crewLandedNonce;
   const crewCount = ship.crew?.length ?? 0;
   const onCount = ship.placedOn?.length ?? 0;
+  const rangeUsed = rangeUsedDisplay(ship, useRangeUsed());
 
   return (
     <div
@@ -249,6 +252,9 @@ function ShipCard({
       />
       {onCount > 0 && (
         <ShipPlacedOnPill name={cardDisplayName(ship.card)} count={onCount} height={badgeHeight} landedNonce={onLandedNonce} />
+      )}
+      {rangeUsed && (
+        <ShipRangeUsedPill shipId={ship.id} name={cardDisplayName(ship.card)} height={badgeHeight} {...rangeUsed} />
       )}
       <LandedRing nonce={landedNonce} />
     </div>
@@ -356,6 +362,42 @@ function ShipPlacedOnPill({
       <span key={landedNonce ?? undefined} className={`text-[8px] font-bold ${landedBumpClassName(landedNonce)}`}>
         {count}
       </span>
+    </span>
+  );
+}
+
+// The range a ship used this turn of its printed Range (#1636), "4/8", at the bottom-left corner,
+// over the printed Range box of the card (the RNG box of `ShipOverlay` on the touch crop). Red past
+// the Range. A ship that has not moved this turn shows none. Like the other two pills it takes no
+// pointer events, so a tap opens the crew panel and a drop lands on `crew-<id>`.
+function ShipRangeUsedPill({
+  shipId,
+  name,
+  used,
+  total,
+  text,
+  over,
+  height,
+}: {
+  shipId: string;
+  name: string;
+  used: number;
+  total: number;
+  text: string;
+  over: boolean;
+  height: number;
+}) {
+  return (
+    <span
+      data-testid={`ship-range-used-${shipId}`}
+      data-over={over || undefined}
+      aria-label={`${name} used ${used} of ${total} range`}
+      className={`absolute -bottom-1 -left-1 z-10 flex items-center rounded-full px-1 leading-none pointer-events-none ${
+        over ? 'bg-red-700/90 text-white' : 'bg-black/60 text-text-primary'
+      }`}
+      style={{ height: height - 2 }}
+    >
+      <span className="text-[8px] font-bold">{text}</span>
     </span>
   );
 }
