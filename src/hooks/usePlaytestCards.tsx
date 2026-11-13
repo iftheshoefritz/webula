@@ -7,43 +7,67 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import type { CardData } from '../lib/parseCardData';
-import { PLAYTEST_SET, setPlaytestImageVersion } from '../lib/cardImageUrl';
+import { setPlaytestImageVersions } from '../lib/cardImageUrl';
 import { PLAYTEST_CARDS_URL } from '../app/decks/practice/offlineCache';
+
+// A playtest set in testing (#1644): the picker's option, and the version of its image URLs.
+export interface PlaytestSetInfo {
+  // The name as the owner wrote it in the `Set` column.
+  label: string;
+  // The name lowercased, the `set` of its rows.
+  value: string;
+  version: number;
+}
 
 export interface PlaytestCards {
   rows: CardData[];
-  // The version of the upload, for the image URLs; null until a 200 arrives.
-  version: number | null;
+  // The sets in testing, by name; none until a 200 arrives.
+  sets: PlaytestSetInfo[];
   // Whether the request has settled (#1615): a 200, a 404 or a failure, or no request to make. A
   // deck resolved by name waits for it, so a playtest card it names is not dropped.
   settled: boolean;
 }
 
-const NO_PLAYTEST_CARDS: PlaytestCards = { rows: [], version: null, settled: true };
-const PENDING_PLAYTEST_CARDS: PlaytestCards = { rows: [], version: null, settled: false };
+const NO_PLAYTEST_CARDS: PlaytestCards = { rows: [], sets: [], settled: true };
+const PENDING_PLAYTEST_CARDS: PlaytestCards = { rows: [], sets: [], settled: false };
 
 const PlaytestCardsContext = createContext<PlaytestCards>(NO_PLAYTEST_CARDS);
 
-// The rows of a `{ version, tsv }` answer, each with `set` `playtest` whatever the owner's `Set`
-// column says. Version 0 with an empty TSV, before the first upload, is no rows. The parser, and
-// d3 with it, loads only when a playtester's cards arrive.
+// The rows of the TSV of one set, each with its own `set`, the owner's `Set` column lowercased
+// (#1644). An empty TSV is no rows. The parser, and d3 with it, loads only when a playtester's
+// cards arrive.
 export async function playtestRowsOf(tsv: string): Promise<CardData[]> {
   if (!tsv.trim()) return [];
   const { parseCardData } = await import('../lib/parseCardData');
-  return parseCardData(tsv).data.map((row) => ({ ...row, set: PLAYTEST_SET }));
+  return parseCardData(tsv).data;
 }
 
+// A set of a `{ sets: [{ name, version, tsv }] }` answer, as the cards route writes it.
+const isSetAnswer = (set: unknown): set is { name: string; version: number; tsv: string } =>
+  typeof (set as { name?: unknown })?.name === 'string' &&
+  typeof (set as { version?: unknown })?.version === 'number' &&
+  typeof (set as { tsv?: unknown })?.tsv === 'string';
+
+// An answer of another shape, the `{ version, tsv }` of before #1644 in an offline cache too, is
+// no cards.
 export async function fetchPlaytestCards(): Promise<PlaytestCards> {
   try {
     const response = await fetch(PLAYTEST_CARDS_URL);
     if (!response.ok) return NO_PLAYTEST_CARDS;
     const body = await response.json();
-    if (typeof body?.version !== 'number' || typeof body?.tsv !== 'string') return NO_PLAYTEST_CARDS;
-    return { rows: await playtestRowsOf(body.tsv), version: body.version, settled: true };
+    if (!Array.isArray(body?.sets) || !body.sets.every(isSetAnswer)) return NO_PLAYTEST_CARDS;
+    const answers = body.sets as { name: string; version: number; tsv: string }[];
+    const rows = (await Promise.all(answers.map((set) => playtestRowsOf(set.tsv)))).flat();
+    const sets = answers
+      .map(({ name, version }) => ({ label: name, value: name.toLowerCase(), version }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+    return { rows, sets, settled: true };
   } catch {
     return NO_PLAYTEST_CARDS;
   }
 }
+
+const versionsOf = (sets: PlaytestSetInfo[]) => new Map(sets.map((set) => [set.value, set.version]));
 
 // Offline the session request fails, so a playtester reads as signed out. The request is made then
 // too, and the service worker answers it from the offline cache of a deck made offline with
@@ -69,7 +93,7 @@ export function PlaytestCardsProvider({ children }: { children: React.ReactNode 
     let cancelled = false;
     fetchPlaytestCards().then((cards) => {
       if (cancelled) return;
-      setPlaytestImageVersion(cards.version);
+      setPlaytestImageVersions(versionsOf(cards.sets));
       setLoaded({ email, cards });
     });
     return () => { cancelled = true; };
@@ -90,7 +114,7 @@ export function PlaytestCardsProvider({ children }: { children: React.ReactNode 
         ? PENDING_PLAYTEST_CARDS
         : NO_PLAYTEST_CARDS;
   useEffect(() => {
-    if (value === NO_PLAYTEST_CARDS || value === PENDING_PLAYTEST_CARDS) setPlaytestImageVersion(null);
+    if (value === NO_PLAYTEST_CARDS || value === PENDING_PLAYTEST_CARDS) setPlaytestImageVersions(new Map());
   }, [value]);
 
   return <PlaytestCardsContext.Provider value={value}>{children}</PlaytestCardsContext.Provider>;

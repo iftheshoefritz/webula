@@ -5,8 +5,7 @@ import searchQueryParser from 'search-query-parser';
 import { textColumns, textAbbreviations, numericColumns, numericAbbreviations } from '../lib/constants';
 import { SKILLS, AFFILIATIONS, SETS, SET_ABBREVIATIONS_TO_NAMES, CARD_TYPES, QUADRANTS, STAFF_OPTIONS, HOF_OPTIONS, UNIQUE_OPTIONS, MISSION_OPTIONS, DILEMMA_TYPES, ICONS, KEYWORDS, AFFILIATION_ICONS, CARD_ICON_IMAGES, DILEMMA_TYPE_ICONS, MISSION_TYPE_ICONS, SHIP_CLASSES, SPECIES } from '../lib/missionRequirements';
 import { HQ_NAMES } from '../lib/hqPlayability';
-import { PLAYTEST_SET_OPTION } from '../lib/cardImageUrl';
-import { usePlaytestCards } from '../hooks/usePlaytestCards';
+import { usePlaytestCards, type PlaytestSetInfo } from '../hooks/usePlaytestCards';
 
 // Create reverse mappings: abbreviation → full keyword
 const textAbbreviationToFull: Record<string, string> = Object.fromEntries(
@@ -34,10 +33,11 @@ function getFilterIconSrc(key: string, value: string): string | null {
 }
 
 // Look up display label for a filter key+value (values are lowercase after parsing)
-function getFilterDisplayValue(key: string, value: string): string {
+function getFilterDisplayValue(key: string, value: string, playtestSets: PlaytestSetInfo[] = []): string {
   const fullKey = expandKeyword(key);
   if (fullKey === 'set') {
-    if (value.toLowerCase() === PLAYTEST_SET_OPTION.value) return PLAYTEST_SET_OPTION.label;
+    const playtestSet = playtestSets.find((set) => set.value === value.toLowerCase());
+    if (playtestSet) return playtestSet.label;
     return SET_ABBREVIATIONS_TO_NAMES[value.toLowerCase()] ?? value;
   }
   return value;
@@ -243,11 +243,12 @@ function removeFilter(searchQuery: string, filterToRemove: ParsedFilter): string
 
 export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpenChange }: SearchPillsProps) {
   const filters = useMemo(() => parseFilters(searchQuery), [searchQuery]);
-  // A playtester's picker lists Playtest first (#1623); anyone else's lists the real sets only.
-  const hasPlaytestCards = usePlaytestCards().rows.length > 0;
+  // A playtester's picker lists one option per playtest set in testing first, by name (#1623,
+  // #1644); anyone else's lists the real sets only.
+  const playtestSets = usePlaytestCards().sets;
   const setOptions = useMemo(
-    () => (hasPlaytestCards ? [PLAYTEST_SET_OPTION, ...SETS] : SETS),
-    [hasPlaytestCards],
+    () => (playtestSets.length > 0 ? [...playtestSets.map(({ label, value }) => ({ label, value })), ...SETS] : SETS),
+    [playtestSets],
   );
 
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -607,7 +608,7 @@ export default function SearchPills({ searchQuery, setSearchQuery, onPopoverOpen
               </span>
             ) : filter.key ? (
               (() => {
-                const displayVal = getFilterDisplayValue(filter.key, filter.value);
+                const displayVal = getFilterDisplayValue(filter.key, filter.value, playtestSets);
                 const needsQuotes = displayVal.includes(' ');
                 return `${filter.isExclude ? '-' : ''}${fullKey}:${needsQuotes ? `"${displayVal}"` : displayVal}`;
               })()

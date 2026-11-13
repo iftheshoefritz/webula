@@ -58,6 +58,7 @@ comparisons in the code are lowercase.
 | range and span models | `RangeSpanModel`, `RANGE_SPAN_REGISTRY` in `src/app/decks/practice/rangeModels.ts` | One entry per card whose text changes a ship's Range or a span total, by the title less its version suffix (`cardTitleOf`, `src/lib/cardTitle.ts`). |
 | points | `points` | The score of a mission. |
 | unique | `unique` | `'y'` or `'n'`. The rulebook marks a unique card with a dot before the title. |
+| playtest set (not a rulebook term) | `set` of a playtest row, `PlaytestSetInfo`, `playtestSetKey` | A group of playtest cards in testing, named by the `Set` column of its upload, such as a set and its version letter (#1644). Its key, and the `set` of its rows, is the name lowercased. Only a playtester sees one. A playtest card of any set has a `CollectorsInfo` that starts with `PT-` (`isPlaytestCard`). |
 
 A numeric field is a field that a search filters by a number or a range of numbers,
 such as `cost:2` or `range:3-5`. `numericColumns` and `numericAbbreviations` in

@@ -1,23 +1,29 @@
 import { callerEmail } from '../../../../../lib/callerEmail';
 import { isPlaytestOwner } from '../../../../../lib/playtestAccess';
 import { playtestAdminJson, playtestBadRequest, playtestNotFound, playtestUnreachable } from '../../../../../lib/playtestResponses';
-import { getPlaytestAdminStore, isPlaytestImageFile, type PlaytestImage } from '../../../../../lib/playtestStore';
+import { getPlaytestAdminStore, isPlaytestImageFile, isPlaytestSetName, playtestSetKey, type PlaytestImage } from '../../../../../lib/playtestStore';
 import { IMAGE_BATCH_MAX_IMAGES } from '../../../../../lib/playtestUpload';
 
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
-// One batch of the playtest images (#1613), `{ images: [{ imageFile, base64 }] }`, for an owner only.
-// The page sends the images in batches under the 4.5 MB request limit of a Vercel function. It
-// writes `playtest:img:<ImageFile>` and leaves the version alone: the cards route bumps it.
+// One batch of the playtest images (#1613) of one set (#1644), `{ set, images: [{ imageFile, base64 }] }`,
+// for an owner only. The page sends the images in batches under the 4.5 MB request limit of a Vercel
+// function. It writes `playtest:set:<key>:img:<ImageFile>` and leaves the version alone: the cards
+// route bumps it, and lists the set.
 export async function POST(req: Request) {
   if (!isPlaytestOwner(await callerEmail(req))) return playtestNotFound();
 
   let images: PlaytestImage[];
+  let set: unknown;
   try {
     const body = await req.json();
     images = body?.images;
+    set = body?.set;
   } catch {
     return playtestBadRequest('The body must be JSON');
+  }
+  if (typeof set !== 'string' || !isPlaytestSetName(set)) {
+    return playtestBadRequest('The set may hold only letters, digits, _, - and .');
   }
   if (!Array.isArray(images) || images.length === 0 || images.length > IMAGE_BATCH_MAX_IMAGES) {
     return playtestBadRequest(`Send 1 to ${IMAGE_BATCH_MAX_IMAGES} images`);
@@ -32,7 +38,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    await getPlaytestAdminStore().writeImages(images.map(({ imageFile, base64 }) => ({ imageFile, base64 })));
+    await getPlaytestAdminStore().writeImages(playtestSetKey(set), images.map(({ imageFile, base64 }) => ({ imageFile, base64 })));
   } catch (error) {
     return playtestUnreachable(error);
   }

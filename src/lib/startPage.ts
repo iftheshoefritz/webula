@@ -9,9 +9,6 @@ export const START_PAGE_KEY = 'startPage';
 // The URL of the splash of `/`, where a visitor changes or forgets the start page.
 export const HOME_SPLASH_HREF = '/?home=1';
 
-// The URL of the card search for every visitor: a bare `/` may redirect or show the splash.
-export const SEARCH_HREF = '/?search=1';
-
 const START_PAGES: readonly StartPage[] = ['search', 'decks', 'practice'];
 
 function isStartPage(value: unknown): value is StartPage {

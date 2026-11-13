@@ -64,14 +64,25 @@ const CARD_DATA = [
   },
 ];
 
-const loadShared = async (content: string) => {
+// A card of the invented playtest set TestSetB, still in testing; TestSetA was removed (#1644), so
+// the card data the page holds has none of its cards.
+const SET_B_CARD = {
+  ...CARD_DATA[0],
+  collectorsinfo: 'pt-9201',
+  name: 'invented b one',
+  originalName: 'Invented B One',
+  imagefile: 'PT9201',
+  set: 'testsetb',
+};
+
+const loadShared = async (content: string, data: typeof CARD_DATA = CARD_DATA) => {
   global.fetch = jest.fn().mockResolvedValue({
     ok: true,
     json: async () => ({ content, title: 'Shared Deck' }),
   });
   window.history.replaceState({}, '', '/decks?share=TESTID');
   await act(async () => {
-    render(<DeckBuilderClient data={CARD_DATA} columns={[]} />);
+    render(<DeckBuilderClient data={data} columns={[]} />);
   });
   await act(async () => {});
 };
@@ -101,6 +112,13 @@ describe('DeckBuilderClient – the warning of cards not found (#1616)', () => {
   it('shows no warning for a deck whose every card is found', async () => {
     await loadShared('Deck:\n2\tTest Card');
     expect(screen.queryByTestId('deck-missing-cards-warning')).toBeNull();
+  });
+
+  it('drops the cards of a removed playtest set with the warning, and keeps those of a set in testing (#1644)', async () => {
+    await loadShared('Deck:\n2\tInvented B One\n3\tInvented A One', [...CARD_DATA, SET_B_CARD]);
+    expect(screen.getByTestId('deck-missing-cards-warning')).toHaveTextContent('3 cards in this deck were not found');
+    const stored = JSON.parse(localStorage.getItem('currentDeck') ?? '{}');
+    expect(stored['pt-9201'].count).toBe(2);
   });
 
   it('hides the warning on Dismiss', async () => {

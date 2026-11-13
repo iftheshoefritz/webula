@@ -13,7 +13,7 @@ jest.mock('../../../hooks/useDataFetching', () => ({
 }));
 
 // The playtest cards the provider would give: none and pending first, then the merge.
-let mockPlaytest: { rows: any[]; version: number | null; settled: boolean } = { rows: [], version: null, settled: false };
+let mockPlaytest: { rows: any[]; sets: { label: string; value: string; version: number }[]; settled: boolean } = { rows: [], sets: [], settled: false };
 jest.mock('../../../hooks/usePlaytestCards', () => {
   const { useMemo } = jest.requireActual('react');
   return {
@@ -78,7 +78,7 @@ const publicData = [
   row('Public Widget', '1e1', 'equipment'),
   row('Public Snag', '1d1', 'dilemma'),
 ];
-const testGadget = row('Test Gadget', 'PT-9004A', 'equipment', 'playtest');
+const testGadget = row('Test Gadget', 'PT-9004A', 'equipment', 'testseta');
 
 const DECK_TEXT = 'Deck:\n3\tPublic Widget\n2\tTest Gadget\nDilemmas:\n1\tPublic Snag\nMissions:\n1\tPublic Mission';
 const fileA = { id: 'a', name: 'Deck A' };
@@ -101,7 +101,7 @@ describe('playtest cards on the practice table (#1615)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSearchParamsValue = new URLSearchParams();
-    mockPlaytest = { rows: [], version: null, settled: false };
+    mockPlaytest = { rows: [], sets: [], settled: false };
     localStorage.clear();
     (useDataFetching as jest.Mock).mockReturnValue({ data: publicData, loading: false });
     (getSession as jest.Mock).mockResolvedValue(session);
@@ -134,20 +134,20 @@ describe('playtest cards on the practice table (#1615)', () => {
     // The deck text is in, and the load waits for the playtest cards.
     expect(localStorage.getItem('practiceGame')).toBeNull();
 
-    mockPlaytest = { rows: [testGadget], version: 3, settled: true };
+    mockPlaytest = { rows: [testGadget], sets: [{ label: 'TestSetA', value: 'testseta', version: 3 }], settled: true };
     await act(async () => {
       result!.rerender(<PracticeDrawPage />);
     });
 
     const dealt: DeckList = save().dealtDeck;
-    expect(dealt['PT-9004A']).toMatchObject({ count: 2, row: { originalName: 'Test Gadget', set: 'playtest' } });
+    expect(dealt['PT-9004A']).toMatchObject({ count: 2, row: { originalName: 'Test Gadget', set: 'testseta' } });
     expect(dealt['1e1'].count).toBe(3);
     const drawn = [...save().table.drawDeck, ...save().table.hand];
     expect(drawn.filter((c: any) => c.key === 'PT-9004A')).toHaveLength(2);
   });
 
   it('loads at once when the playtest cards have settled already', async () => {
-    mockPlaytest = { rows: [], version: null, settled: true };
+    mockPlaytest = { rows: [], sets: [], settled: true };
     await act(async () => {
       render(<PracticeDrawPage />);
     });
@@ -175,7 +175,7 @@ describe('playtest cards on the practice table (#1615)', () => {
     const drawOrder = save().table.drawDeck.map((c: any) => c.id);
     expect(save().table.turn).toBe(2);
 
-    mockPlaytest = { rows: [testGadget], version: 3, settled: true };
+    mockPlaytest = { rows: [testGadget], sets: [{ label: 'TestSetA', value: 'testseta', version: 3 }], settled: true };
     await act(async () => {
       result!.rerender(<PracticeDrawPage />);
     });

@@ -20,7 +20,7 @@ jest.mock('react-icons/fa', () =>
 );
 
 // The playtest cards of a playtester (#1615): none and settled, unless a test says otherwise.
-let mockPlaytest: { rows: any[]; version: number | null; settled: boolean } = { rows: [], version: null, settled: true };
+let mockPlaytest: { rows: any[]; sets: { label: string; value: string; version: number }[]; settled: boolean } = { rows: [], sets: [], settled: true };
 jest.mock('../../hooks/usePlaytestCards', () => {
   const { useMemo } = jest.requireActual('react');
   return {
@@ -103,7 +103,7 @@ describe('DeckBuilderClient – Edit current deck (#1407)', () => {
     localStorage.clear();
     sessionStorage.clear();
     (getSession as jest.Mock).mockResolvedValue(null);
-    mockPlaytest = { rows: [], version: null, settled: true };
+    mockPlaytest = { rows: [], sets: [], settled: true };
   });
 
   afterEach(() => {
@@ -147,9 +147,9 @@ describe('DeckBuilderClient – Edit current deck (#1407)', () => {
 
     it('waits for the playtest cards, and loads the deck with its playtest card into an empty builder (#1615)', async () => {
       // An invented playtest card: no playtest card is ever committed.
-      const gadget = makeCardData({ collectorsinfo: 'PT-9004A', name: 'test gadget', originalName: 'Test Gadget', type: 'equipment', set: 'playtest' } as any);
+      const gadget = makeCardData({ collectorsinfo: 'PT-9004A', name: 'test gadget', originalName: 'Test Gadget', type: 'equipment', set: 'testseta' } as any);
       sessionStorage.setItem('editDeckHandoff', JSON.stringify({ name: 'Playtest (copy)', contents: '1\tJean-Luc Picard\n2\tTest Gadget' }));
-      mockPlaytest = { rows: [], version: null, settled: false };
+      mockPlaytest = { rows: [], sets: [], settled: false };
       let result: ReturnType<typeof render> | undefined;
       await act(async () => {
         result = render(<DeckBuilderClient data={data} columns={[]} />);
@@ -157,7 +157,7 @@ describe('DeckBuilderClient – Edit current deck (#1407)', () => {
       await flush();
       expect(stored('deckFile')).not.toEqual({ id: null, name: 'Playtest (copy)' });
 
-      mockPlaytest = { rows: [gadget], version: 3, settled: true };
+      mockPlaytest = { rows: [gadget], sets: [{ label: 'TestSetA', value: 'testseta', version: 3 }], settled: true };
       await act(async () => {
         result!.rerender(<DeckBuilderClient data={data} columns={[]} />);
       });

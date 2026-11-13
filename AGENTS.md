@@ -97,45 +97,76 @@ integration named the env vars with the prefix `SHARES`, so the route reads
 
 ### Playtest cards
 
-`src/lib/playtestStore.ts` (#1612) keeps the playtest cards of one playtest group in the same Upstash
+`src/lib/playtestStore.ts` (#1612, #1644) keeps the playtest sets in testing in the same Upstash
 Redis database as the share links, through `shareStoreCredentials`, with no TTL, so a local check
 needs `vercel env pull .env.development.local` too. Its client reads strings as they are
-(`automaticDeserialization: false`).
+(`automaticDeserialization: false`). A playtest set is named by the `Set` column of its TSV: letters,
+digits, `_`, `-` and `.` (`isPlaytestSetName`). Its key, `<key>` below, is the name lowercased
+(`playtestSetKey`), and so is the `set` of its rows.
 
 | Key | Value |
 |---|---|
-| `playtest:version` | A number, bumped by every upload |
-| `playtest:uploadedAt` | An ISO time, written with the version |
-| `playtest:cards` | The normalised TSV of `normalisePlaytestTsv` |
-| `playtest:img:<ImageFile>` | One JPEG, base64 |
-| `playtest:emails` | The playtesters, a Redis set of lowercased emails |
+| `playtest:sets` | The sets in testing, a Redis set of their names as written |
+| `playtest:set:<key>:version` | A number, bumped by every upload of the set |
+| `playtest:set:<key>:uploadedAt` | An ISO time, written with the version |
+| `playtest:set:<key>:cards` | The normalised TSV of `normalisePlaytestTsv` |
+| `playtest:set:<key>:img:<ImageFile>` | One JPEG, base64 |
+| `playtest:emails` | The playtesters of every set, a Redis set of lowercased emails |
+
+A publish (`publishSet`) writes the set's cards and time and bumps its version before it lists the set
+in `playtest:sets`, so a reader never sees a version whose cards or images are missing. A replace of
+another set removes that set only after the new one is listed; a re-upload under the set's own name
+bumps its version and deletes only the images the new TSV no longer names. On first use the store
+moves the keys of before #1644 (`playtest:version`, `playtest:uploadedAt`, `playtest:cards`,
+`playtest:img:<ImageFile>`) to the set named by the single `Set` value of their TSV, version kept,
+and deletes them; with no `Set` value or several it moves nothing, and the admin status's
+`legacyError` says so.
 
 A playtester (`isPlaytester` in `src/lib/playtestAccess.ts`) is an email in `playtest:emails` or an
 owner listed in `PLAYTEST_ADMIN_EMAILS`, comma-separated, a server-only env var (never
 `NEXT_PUBLIC_`). The email comes from the NextAuth JWT (`callerEmail`, `src/lib/callerEmail.ts`).
-`GET /api/playtest/cards` answers `{ version, tsv }`, `{ version: 0, tsv: '' }` before the first
-upload, with `Cache-Control: private, no-cache`. `GET /api/playtest/images/<ImageFile>.jpg` answers
-the JPEG with `private, max-age=31536000, immutable`; the client adds `?v=<version>`, which the route
-ignores. Both answer 404 to anyone who is not a playtester, a signed-out caller too, and to an
-unknown or malformed image, so they never reveal that playtest cards exist; a store failure answers
-502 `upstream_unreachable`. Every answer is `private` and carries `X-Robots-Tag: noindex`.
+`GET /api/playtest/cards` answers `{ sets: [{ name, version, tsv }] }`, by name, `{ sets: [] }` before
+the first upload, with `Cache-Control: private, no-cache`. `GET /api/playtest/images/<key>/<ImageFile>.jpg`
+answers the JPEG of a set in testing with `private, max-age=31536000, immutable`; the client adds
+`?v=<the set's version>`, which the route ignores. Both answer 404 to anyone who is not a playtester, a
+signed-out caller too, and to an unknown or malformed set or image, so they never reveal that playtest
+cards exist; a store failure answers 502 `upstream_unreachable`. Every answer is `private` and carries
+`X-Robots-Tag: noindex`.
+
+On the client each playtest row keeps its own `set`, and `isPlaytestCard` tests the `pt-` prefix of
+its `collectorsinfo`. `cardImageUrl` reads the version of the row's set from the map
+`PlaytestCardsProvider` sets (`setPlaytestImageVersions`); a row of a set not in testing, or the
+`set: 'playtest'` of a row saved before #1644, gets `CardMissing.jpg`. An answer of the old
+`{ version, tsv }` shape is no cards. `usePlaytestCards().sets` lists the sets, and a playtester's Set
+picker in `SearchPills` lists one option per set, by name, above the real sets. `filterCards` matches
+the `set` of a playtest row on its whole value, so `set:a` finds no `testseta` card.
 
 The owners upload at `/playtest/admin` (#1613), a server page that reads the JWT
 (`pageCallerEmail`): a signed-out visitor gets a "Sign in with Google" button
 (`data-testid="playtest-admin-sign-in"`), a signed-in non-owner the 404 page, and an owner
 `PlaytestAdminClient`. The browser reads `images.zip` with `readZip` (`src/lib/zipReader.ts`, stored
 and deflated entries, no zip64, no encryption, no package) and builds the preview with
-`playtestPreview` (`src/lib/playtestUpload.ts`): the cards by type, the errors, the warnings, the
-`ImageFile`s with no `<ImageFile>.jpg` in the zip and the unused images. An error disables Publish,
-which sends the images in batches under 3 MB of JSON (`imageBatches`; a Vercel function takes at most
-4.5 MB), then the TSV. The owner-only routes under `/api/playtest/admin/` answer 404 to anyone else,
-with `private, no-store`: `GET status` (`{ version, uploadedAt, cards, images, emails }`, counted
-from the stored TSV), `POST images` (`{ images: [{ imageFile, base64 }] }`), `POST cards` (the TSV
-as text: it runs `normalisePlaytestTsv` again with the real names, checks the store holds every image,
-writes the cards, removes the images the new TSV no longer names, writes `playtest:uploadedAt`, and
-bumps the version last; any error writes nothing), and `GET`/`POST`/`DELETE emails` (`{ email }`).
-In development, `/playtest/admin?fixture=1` renders the page with an in-memory store
-(`src/lib/playtestAdminFixture.ts`); production ignores it.
+`playtestPreview` (`src/lib/playtestUpload.ts`): the set (`playtest-preview-set`), the cards by type,
+the errors, the warnings, the `ImageFile`s with no `<ImageFile>.jpg` in the zip and the unused images.
+An error disables Publish, which sends the images of the set in batches under 3 MB of JSON
+(`imageBatches`; a Vercel function takes at most 4.5 MB), then the TSV. The preview offers "New set" or
+"Replace <set>" over the sets in testing (`playtest-replace-choice`, #1645), with the set of the TSV's
+own name pre-selected when it is in testing, so a corrected re-upload is one click. The status
+(`playtest-status`) lists every set in testing, one `playtest-status-set` row each (`data-set`): name,
+version, upload time, cards and images, and a Remove (`playtest-status-remove`) behind an inline confirm
+(`playtest-status-remove-confirm`) that calls `DELETE sets`. The owner-only routes under `/api/playtest/admin/` answer 404 to anyone else, with
+`private, no-store`, and write nothing on an error: `GET status` (`{ sets: [{ name, version,
+uploadedAt, cards, images, cardNames, collectorsInfo }], legacyError, emails }`, counted from the
+stored TSVs), `POST images` (`{ set, images: [{ imageFile, base64 }] }`), `POST cards` (the TSV as
+text, with `?replace=<set>` to replace a set in testing and no `replace` for a new set), `DELETE
+sets` (`{ name }`, removes a set, its cards and its images), and `GET`/`POST`/`DELETE emails`
+(`{ email }`). `POST cards` runs `checkPlaytestUpload` again with the real names: the rows name exactly
+one valid `Set`, not a real set's value nor `playtest`; a new set is not in testing yet; a replace
+names a set in testing, and the new name is no other set in testing; and no card name or
+`CollectorsInfo` is one of another set in testing (the replaced set excepted), so the deck keys stay
+`pt-<n>`. It then checks the store holds every image under the set, and calls `publishSet`.
+In development, `/playtest/admin?fixture=1` renders the page with an in-memory store of two sets,
+`TestSetA` and `TestSetB` (`src/lib/playtestAdminFixture.ts`); production ignores it.
 
 A deck loaded from Lackey text drops a line whose card the card data lacks, a playtest card for a
 user who is not a playtester among them, as before, and a dismissible warning,

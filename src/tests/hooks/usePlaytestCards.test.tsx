@@ -17,17 +17,22 @@ jest.mock('next-auth/react', () => ({
 
 import { render, screen, waitFor } from '@testing-library/react';
 import { PlaytestCardsProvider, usePlaytestCards, useWithPlaytestCards } from '../../hooks/usePlaytestCards';
-import { cardImageUrl, playtestImageVersion, setPlaytestImageVersion } from '../../lib/cardImageUrl';
+import { cardImageUrl, playtestImageVersions, setPlaytestImageVersions } from '../../lib/cardImageUrl';
 import { filterCards } from '../../lib/filterCards';
 import type { CardData } from '../../lib/loadCards';
 
-// Invented cards only: no playtest card is ever committed (#1614).
+// Invented sets and cards only: no playtest card is ever committed (#1614, #1644).
 const HEADERS = ['Name', 'Set', 'ImageFile', 'Unique', 'CollectorsInfo', 'Type', 'Keywords', 'Mission', 'DilemmaType'];
 const tsvOf = (rows: string[][]) => [HEADERS.join('\t'), ...rows.map((r) => r.join('\t'))].join('\n');
-const PLAYTEST_TSV = tsvOf([
-  ['Zed Quill', 'Owner Set', 'PT-ZedQuill', 'Y', 'PT1', 'Personnel', '', '', ''],
-  ['Widget Array', 'Playtest', 'PT-Widget', 'N', 'PT2', 'Equipment', '', '', ''],
-]);
+const SET_A_TSV = tsvOf([['Zed Quill', 'TestSetA', 'PT-ZedQuill', 'Y', 'PT-1', 'Personnel', '', '', '']]);
+const SET_B_TSV = tsvOf([['Widget Array', 'TestSetB', 'PT-Widget', 'N', 'PT-2', 'Equipment', '', '', '']]);
+const answer = (versionA: number, versionB = 1) => ({
+  sets: [
+    { name: 'TestSetB', version: versionB, tsv: SET_B_TSV },
+    { name: 'TestSetA', version: versionA, tsv: SET_A_TSV },
+  ],
+});
+const zedUrl = () => cardImageUrl({ imagefile: 'PT-ZedQuill', set: 'testseta', collectorsinfo: 'pt-1' } as never);
 
 const publicData = [
   { name: 'public one', originalName: 'Public One', collectorsinfo: '1r1', imagefile: 'p1', set: 'premiere', type: 'event' },
@@ -60,7 +65,7 @@ beforeEach(() => {
   jest.spyOn(console, 'log').mockImplementation(() => {});
 });
 afterEach(() => {
-  setPlaytestImageVersion(null);
+  setPlaytestImageVersions(new Map());
   jest.restoreAllMocks();
 });
 
@@ -83,30 +88,48 @@ describe('PlaytestCardsProvider and useWithPlaytestCards (#1614)', () => {
     expect(console.error).not.toHaveBeenCalled();
     expect(console.warn).not.toHaveBeenCalled();
     expect(console.log).not.toHaveBeenCalled();
-    expect(playtestImageVersion()).toBeNull();
+    expect(playtestImageVersions().size).toBe(0);
   });
 
   it('merges the playtest cards after the public cards on a 200', async () => {
     mockUseSession.mockReturnValue(signedIn);
-    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ version: 5, tsv: PLAYTEST_TSV }) });
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => answer(5, 2) });
     renderTree();
-    await waitFor(() => expect(names()).toEqual(['Public One', 'Zed Quill', 'Widget Array']));
+    await waitFor(() => expect(names()).toEqual(['Public One', 'Widget Array', 'Zed Quill']));
     const rows = screen.getAllByTestId('row');
-    // A playtest personnel is unique `y`, and every playtest row has the set `playtest`.
-    expect(rows[1]).toHaveAttribute('data-unique', 'y');
-    expect(rows[1]).toHaveAttribute('data-set', 'playtest');
-    expect(rows[2]).toHaveAttribute('data-set', 'playtest');
-    expect(playtestImageVersion()).toBe(5);
-    expect(cardImageUrl({ imagefile: 'PT-ZedQuill', set: 'playtest' } as never)).toBe('/api/playtest/images/PT-ZedQuill.jpg?v=5');
+    // A playtest personnel is unique `y`, and every playtest row keeps its own set (#1644).
+    expect(rows[2]).toHaveAttribute('data-unique', 'y');
+    expect(rows[1]).toHaveAttribute('data-set', 'testsetb');
+    expect(rows[2]).toHaveAttribute('data-set', 'testseta');
+    expect(playtestImageVersions()).toEqual(new Map([['testseta', 5], ['testsetb', 2]]));
+    expect(zedUrl()).toBe('/api/playtest/images/testseta/PT-ZedQuill.jpg?v=5');
   });
 
-  it('treats version 0 with an empty TSV as no playtest cards', async () => {
+  it('exposes the sets by name for the picker', async () => {
     mockUseSession.mockReturnValue(signedIn);
-    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ version: 0, tsv: '' }) });
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => answer(5, 2) });
+    function Sets() {
+      return <p data-testid="sets">{JSON.stringify(usePlaytestCards().sets)}</p>;
+    }
+    render(<PlaytestCardsProvider><Sets /></PlaytestCardsProvider>);
+    await waitFor(() => expect(JSON.parse(screen.getByTestId('sets').textContent ?? '[]')).toEqual([
+      { label: 'TestSetA', value: 'testseta', version: 5 },
+      { label: 'TestSetB', value: 'testsetb', version: 2 },
+    ]));
+  });
+
+  it.each([
+    ['no sets, before the first upload', { sets: [] }],
+    ['the { version, tsv } answer of before #1644, from an offline cache', { version: 3, tsv: SET_A_TSV }],
+    ['a set with no version', { sets: [{ name: 'TestSetA', tsv: SET_A_TSV }] }],
+  ])('treats %s as no playtest cards', async (_, body) => {
+    mockUseSession.mockReturnValue(signedIn);
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => body });
     renderTree();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await Promise.resolve();
     expect(names()).toEqual(['Public One']);
+    expect(playtestImageVersions().size).toBe(0);
   });
 
   it('still gives the public cards when the request fails', async () => {
@@ -122,28 +145,27 @@ describe('PlaytestCardsProvider and useWithPlaytestCards (#1614)', () => {
   // session reads as signed out with the restored game on the table (#1625).
   it('keeps the playtest cards and their image version when the session drops to signed out in place', async () => {
     mockUseSession.mockReturnValue(signedIn);
-    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ version: 2, tsv: PLAYTEST_TSV }) });
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => answer(2) });
     const { rerender } = renderTree();
     await waitFor(() => expect(names()).toHaveLength(3));
     mockUseSession.mockReturnValue({ status: 'unauthenticated', data: null });
     rerender(<PlaytestCardsProvider><Names /></PlaytestCardsProvider>);
     await Promise.resolve();
     expect(names()).toHaveLength(3);
-    expect(playtestImageVersion()).toBe(2);
-    expect(cardImageUrl({ imagefile: 'PT-ZedQuill', set: 'playtest' } as never)).toBe('/api/playtest/images/PT-ZedQuill.jpg?v=2');
+    expect(zedUrl()).toBe('/api/playtest/images/testseta/PT-ZedQuill.jpg?v=2');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('drops the playtest cards on a switch to an account that is not a playtester', async () => {
     mockUseSession.mockReturnValue(signedIn);
-    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ version: 2, tsv: PLAYTEST_TSV }) });
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => answer(2) });
     const { rerender } = renderTree();
     await waitFor(() => expect(names()).toHaveLength(3));
     fetchMock.mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({ error: 'not_found' }) });
     mockUseSession.mockReturnValue({ status: 'authenticated', data: { user: { email: 'other@example.com' } } });
     rerender(<PlaytestCardsProvider><Names /></PlaytestCardsProvider>);
     await waitFor(() => expect(names()).toEqual(['Public One']));
-    expect(playtestImageVersion()).toBeNull();
+    expect(playtestImageVersions().size).toBe(0);
   });
 });
 
@@ -177,19 +199,42 @@ describe('settled (#1615)', () => {
   it('asks for the playtest cards offline, where the session reads as signed out', async () => {
     jest.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
     mockUseSession.mockReturnValue({ status: 'unauthenticated', data: null });
-    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ version: 4, tsv: PLAYTEST_TSV }) });
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => answer(4) });
     renderTree();
-    await waitFor(() => expect(names()).toEqual(['Public One', 'Zed Quill', 'Widget Array']));
-    expect(playtestImageVersion()).toBe(4);
+    await waitFor(() => expect(names()).toEqual(['Public One', 'Widget Array', 'Zed Quill']));
+    expect(playtestImageVersions().get('testseta')).toBe(4);
   });
 });
 
-describe('set:playtest (#1614)', () => {
-  it('finds the merged playtest rows', async () => {
+describe('the set filter of the playtest sets (#1644)', () => {
+  const merged = async () => {
     const { playtestRowsOf } = await import('../../hooks/usePlaytestCards');
-    const rows = await playtestRowsOf(PLAYTEST_TSV);
-    const found = filterCards([...publicData, ...rows], ['name', 'set'], 'set:playtest');
-    expect(found.map((row) => row.originalName)).toEqual(['Zed Quill', 'Widget Array']);
+    const rows = [...(await playtestRowsOf(SET_A_TSV)), ...(await playtestRowsOf(SET_B_TSV))];
+    // A real set whose value is a part of a playtest set's name.
+    const real = [
+      ...publicData,
+      { name: 'public two', originalName: 'Public Two', collectorsinfo: '2r1', imagefile: 'p2', set: 'a', type: 'event' },
+      { name: 'public three', originalName: 'Public Three', collectorsinfo: '3r1', imagefile: 'p3', set: 'in', type: 'event' },
+    ] as unknown as CardData[];
+    return [...real, ...rows];
+  };
+  const find = async (query: string) =>
+    filterCards(await merged(), ['name', 'set'], query).map((row) => row.originalName);
+
+  it('finds only the rows of the set named', async () => {
+    expect(await find('set:testseta')).toEqual(['Zed Quill']);
+    expect(await find('set:TestSetB')).toEqual(['Widget Array']);
+  });
+
+  it('matches a playtest row on the whole set name only', async () => {
+    expect(await find('set:a')).toEqual(['Public Two']);
+    expect(await find('set:in')).toEqual(['Public Three']);
+    expect(await find('set:testset')).toEqual([]);
+  });
+
+  it('excludes on the whole set name too', async () => {
+    expect(await find('-set:testseta')).toEqual(['Public One', 'Public Two', 'Public Three', 'Widget Array']);
+    expect(await find('-set:a')).toEqual(['Public One', 'Public Three', 'Zed Quill', 'Widget Array']);
   });
 });
 
