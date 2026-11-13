@@ -563,7 +563,7 @@ export function placeText(place: LogPlace): string {
     case 'missions':
       return 'the mission row';
     case 'shipRow':
-      return `the ships at ${place.mission}`;
+      return place.mission;
     case 'crew':
       return `the crew of ${place.ship}`;
     case 'awayTeam':

@@ -118,8 +118,16 @@ describe('gameReducer: which actions make an entry (#1065)', () => {
       ],
     });
     expect(logEntryText(onlyEntry(state))).toBe(
-      'Moved Data from the core to the away team at Excavation; Enterprise from the core to the ships at Excavation'
+      'Moved Data from the core to the away team at Excavation; Enterprise from the core to Excavation'
     );
+  });
+
+  it('names a ship row by its mission alone, so a move between missions reads "from X to Y" (#1633)', () => {
+    const ship = instance('s1', 'Enterprise', 'up', 'ship');
+    const moab = instance('m2', 'Moab IV', 'up', 'mission', { backimagefile: 'back' });
+    const start = table({ missions: slots([{ mission: excavation, ships: [ship] }, { mission: moab }]) });
+    const state = run(start, { type: 'move', id: 's1', to: { zone: 'shipRow', missionIndex: 1 } });
+    expect(logEntryText(onlyEntry(state))).toBe('Moved Enterprise from Excavation to Moab IV');
   });
 
   it('says "a card" for an unseen batch, and names the end of an ordered pile', () => {
