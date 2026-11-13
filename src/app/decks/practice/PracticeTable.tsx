@@ -163,6 +163,7 @@ import { SAFE_INSET_CSS, type SafeAreaInsets, safeAreaMargins, useSafeAreaInsets
 import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { RangeUsedProvider } from './RangeUsedContext';
+import { shipRangesOnTable } from './shipRange';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
 import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
@@ -1915,6 +1916,11 @@ function PracticeDrawContent() {
     window.addEventListener('pointermove', onMove, { passive: true });
     return () => window.removeEventListener('pointermove', onMove);
   }, []);
+  // The range each ship used this turn and its Range on the table (#1635), for the pill of its card.
+  const rangeUsedInfo = useMemo(
+    () => ({ used: table.rangeUsed, ranges: shipRangesOnTable(table.missions, table.rangeUsed) }),
+    [table.missions, table.rangeUsed]
+  );
   const cardHold = useMemo(
     () => ({
       startHold: (id: string, side: PreviewSide) => {
@@ -3635,7 +3641,7 @@ function PracticeDrawContent() {
             <LandedZoneProvider value={landedZones}>
             <CardHoldProvider value={cardHold}>
             <PlaceOnHoldProvider value={placeOnHold}>
-            <RangeUsedProvider value={table.rangeUsed}>
+            <RangeUsedProvider value={rangeUsedInfo}>
             {/* Each padding grows by the safe-area inset of its side (#1383, #1384), so the bottom
                 row clears the home indicator, the table clears the notch, and the background stays
                 full-bleed under both. The scale hooks read the bottom padding from the computed

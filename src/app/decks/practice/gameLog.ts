@@ -25,7 +25,6 @@ import {
   findInstanceAnywhere,
   MoveTarget,
   moveRangeCost,
-  printedRange,
   ReorderZone,
   AttemptPhase,
   ResolveNote,
@@ -38,6 +37,7 @@ import {
   Zone,
 } from './tableReducer';
 import { drawSpend } from './drawSpend';
+import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 
 // A place a card can be, with the names the text needs captured at the time of the action, so a
@@ -249,9 +249,12 @@ function moveEntry(
       const to = logPlace(state, move.to);
       const position = ORDERED_PLACES.has(move.to) ? move.position ?? 'bottom' : undefined;
       const card = unseen ? null : cardDisplayName(found.instance.card);
-      const used = moveRangeCost(state, found.zone, move.to);
+      const used = moveRangeCost(state, found.zone, move.to, found.instance);
+      // The Range is the ship's on the table after the move (#1635), as its card shows it.
       const range =
-        used === undefined ? undefined : { used, left: printedRange(found.instance) - (next.rangeUsed?.[move.id] ?? 0) };
+        used === undefined
+          ? undefined
+          : { used, left: shipRangeOnTable(next.missions, found.instance) - (next.rangeUsed?.[move.id] ?? 0) };
       const group = groups.find(
         (g) => placeKey(g.from) === placeKey(from) && placeKey(g.to) === placeKey(to) && g.position === position
       );

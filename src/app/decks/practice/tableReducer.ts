@@ -7,7 +7,7 @@ import { shuffleArray } from '../deckBuilderUtils';
 import type { BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import type { PileSteps } from '../../../lib/dilemmaBot/pile/resolve';
-import { printedRange } from './shipRange';
+import { moveSpanTotal, printedRange, printedSpan } from './shipRange';
 
 export type Face = 'up' | 'down';
 // The core and the brig (#603) are two more flat, top-level zones: the core for any card not at
@@ -171,8 +171,8 @@ export interface TableState {
   // The bot of a bot game used Unexpected Difficulties (#1563), which it may do once a game. Only
   // `botAttempt` sets it, and a new game clears it.
   botUsedUnexpectedDifficulties?: true;
-  // The range each ship has used this turn (#1634), by the ship's instance id: the printed spans
-  // of the two missions of every move of the ship from one mission's ship row to another's. Only
+  // The range each ship has used this turn (#1634), by the ship's instance id: the span total
+  // (`moveSpanTotal`, #1635) of every move of the ship from one mission's ship row to another's. Only
   // that `move` adds to it, and `nextTurn` clears it. Absent when no ship has used range.
   rangeUsed?: Record<string, number>;
 }
@@ -428,18 +428,17 @@ const MISSION_PILE_FACE: Record<MissionPileName, Face> = {
   underMission: 'up',
 };
 
-// The printed span of a mission card and the printed Range of a ship (#1634, the Range in
-// `shipRange.ts`), as numbers; a card with none reads 0.
-export const printedSpan = (card: CardInstance | null | undefined): number => Number(card?.card?.span) || 0;
-export { printedRange };
+// The printed span of a mission card and the printed Range of a ship (#1634), both in `shipRange.ts`.
+export { printedRange, printedSpan };
 
-// The range a move of a ship between two ship rows uses (#1634): the printed spans of the mission
-// it leaves and the mission it goes to. A move that is not one uses none, so `undefined`.
-export function moveRangeCost(state: TableState, from: TableZone, to: MoveTarget): number | undefined {
+// The range a move of a ship between two ship rows uses (#1634): the span total of the move,
+// `moveSpanTotal` (#1635), the printed spans of the mission it leaves and the mission it goes to,
+// with the quadrant rule and the span models. A move that is not one uses none, so `undefined`.
+export function moveRangeCost(state: TableState, from: TableZone, to: MoveTarget, ship: CardInstance): number | undefined {
   if (typeof from !== 'object' || from.zone !== 'shipRow' || !isShipRowLocation(to) || from.missionIndex === to.missionIndex) {
     return undefined;
   }
-  return printedSpan(state.missions[from.missionIndex]?.mission) + printedSpan(state.missions[to.missionIndex]?.mission);
+  return moveSpanTotal(state.missions, from.missionIndex, to.missionIndex, ship);
 }
 
 export const initialTableState: TableState = {
@@ -910,7 +909,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const orderedDestination =
         action.position === 'top' ? [...movedCards, ...destination] : [...destination, ...movedCards];
       const placed = withCardsAt(afterRemoval, action.to, orderedDestination);
-      const rangeCost = moveRangeCost(state, from, action.to);
+      const rangeCost = moveRangeCost(state, from, action.to, card);
       const moved =
         rangeCost === undefined
           ? placed

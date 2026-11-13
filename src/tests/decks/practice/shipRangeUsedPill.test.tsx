@@ -48,12 +48,16 @@ describe('rangeUsedDisplay (#1636)', () => {
     expect(rangeUsedDisplay(ship, { other: 4 })).toBeNull();
     expect(rangeUsedDisplay(ship, undefined)).toBeNull();
   });
+
+  it('reads the Range on the table when it has one (#1635)', () => {
+    expect(rangeUsedDisplay(ship, { 'ship-1': 12 }, { 'ship-1': 13 })).toEqual({ used: 12, total: 13, text: '12/13', over: false });
+  });
 });
 
 describe('the range used on a ship card of the ship row (#1636)', () => {
-  const renderRow = (rangeUsed: Record<string, number> | undefined, desktop: boolean) =>
+  const renderRow = (rangeUsed: Record<string, number> | undefined, desktop: boolean, ranges?: Record<string, number>) =>
     render(
-      <RangeUsedProvider value={rangeUsed}>
+      <RangeUsedProvider value={{ used: rangeUsed, ranges }}>
         <MissionRow
           missions={[slot]}
           onOpenPile={() => {}}
@@ -85,6 +89,13 @@ describe('the range used on a ship card of the ship row (#1636)', () => {
     expect(pill).toHaveTextContent('12/8');
     expect(pill).toHaveAttribute('data-over', 'true');
   });
+
+  it('reads the Range on the table, and is over only past it (#1635)', () => {
+    renderRow({ 'ship-1': 12 }, false, { 'ship-1': 13 });
+    const pill = screen.getByTestId('ship-range-used-ship-1');
+    expect(pill).toHaveTextContent('12/13');
+    expect(pill).not.toHaveAttribute('data-over');
+  });
 });
 
 describe('the range used on a ship of the attempt layout (#1636)', () => {
@@ -94,7 +105,7 @@ describe('the range used on a ship of the attempt layout (#1636)', () => {
     const sizes = { ...face, choice: computeAttemptChoiceLayout(667, 280, false, 0, 1, face, true) };
     const noop = () => {};
     render(
-      <RangeUsedProvider value={{ 'ship-1': 4 }}>
+      <RangeUsedProvider value={{ used: { 'ship-1': 4 } }}>
         <AttemptLayout
           attempt={attempt}
           slot={slot}

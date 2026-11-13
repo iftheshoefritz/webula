@@ -53,6 +53,9 @@ comparisons in the code are lowercase.
 | dilemma type | `dilemmatype` | dual, planet, or space. |
 | quadrant | `quadrant` | Alpha, Beta, Delta, Gamma, Mirror. |
 | span | `span` | The move cost of a mission. |
+| span total | `moveSpanTotal` in `src/app/decks/practice/shipRange.ts` | The range a move between two missions uses (#1635): the two printed spans, plus 2 between two quadrants (`QUADRANT_SPAN`) unless a card waives it. `TableState.rangeUsed` adds it up per ship. |
+| Range on the table | `shipRangeOnTable` in `shipRange.ts` | A ship's printed Range plus what the card text in play gives it (#1635), read at each move. The log's "left" and the ship's "used/Range" pill read it. |
+| range and span models | `RangeSpanModel`, `RANGE_SPAN_REGISTRY` in `src/app/decks/practice/rangeModels.ts` | One entry per card whose text changes a ship's Range or a span total, by the title less its version suffix (`cardTitleOf`, `src/lib/cardTitle.ts`). |
 | points | `points` | The score of a mission. |
 | unique | `unique` | `'y'` or `'n'`. The rulebook marks a unique card with a dot before the title. |
 

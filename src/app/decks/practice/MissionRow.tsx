@@ -226,7 +226,8 @@ function ShipCard({
   const landedNonce = onLandedNonce ?? crewLandedNonce;
   const crewCount = ship.crew?.length ?? 0;
   const onCount = ship.placedOn?.length ?? 0;
-  const rangeUsed = rangeUsedDisplay(ship, useRangeUsed());
+  const rangeInfo = useRangeUsed();
+  const rangeUsed = rangeUsedDisplay(ship, rangeInfo.used, rangeInfo.ranges);
 
   return (
     <div
