@@ -690,14 +690,14 @@ The practice table has thirteen fixtures. Each one deals the same table on every
 - `?fixture=bot-resolve-pattern` (#1594) deals the `?fixture=bot-label` table and attempt with one
   A Pattern of Lies (`10C001`) in place of Well-Prepared Defenses, revealed on top of the stack. The
   reveal rolls its three personnel and the reveal snapshot keeps them, so its Resolve preview reads
-  "Selected A, B, C; choose 1 to be stopped" (or "Stops A, B, C" when the three share a species), the
+  "Choose 1 of the selected to be stopped" (or "Stops 3" when the three share a species), the
   same set after a reload, and Resolve is disabled until one personnel of the set is selected. It keeps
   its game under `practiceGame:fixture=bot-resolve-pattern`.
 - `?fixture=bot-resolve-becalmed` (#1628) deals the `?fixture=bot-label` table and attempt with one
   Becalmed (`36V002`) in place of Well-Prepared Defenses, revealed on top of the stack. The reveal rolls
-  its three personnel and the reveal snapshot keeps them, so its Resolve preview reads "Selected A, B, C;
-  B has Integrity, Cunning or Strength > 6: stops B" (or "none has …: no effect"), the same after a
-  reload, and Resolve stops exactly the personnel it names. It keeps its game under
+  its three personnel and the reveal snapshot keeps them, so its Resolve preview reads "1 of 3 has
+  Integrity, Cunning or Strength > 6: stops 1" (or "None of 3 has …: no effect"), the same after a
+  reload, and Resolve stops exactly the personnel its check marks. It keeps its game under
   `practiceGame:fixture=bot-resolve-becalmed`.
 - `?fixture=bot-resolve-modifier` (#1598) deals the `?fixture=bot-label` table and attempt with one
   Accelerated Aging (`11P001`) in place of Well-Prepared Defenses, revealed on top of the stack, and one
@@ -1001,14 +1001,15 @@ carries it as `picks`, which `RevealSnapshot.picks` keeps as card ids, one list 
 takes a fresh snapshot of such a card, or finds one with no roll, rolls it once, outside the reducer. A
 select with a `why` (Chula: The Game), a `selectUntil` select of the whole pool in order, `s.roll`, and a
 select of a later stack card roll nothing. The preview and the press play with the kept roll, never a new
-one, and a dilemma that selects at random with no kept roll has no Resolve. The preview goes step by step:
-the selection, then each check on the selected personnel, which `selectEachWithout`, `selectEachWith`,
-`anyOfThree` and `unlessSelected` record as a `check` `PlayEffect` (`PlayState.check`), then the result:
-"Selected Data, Worf, Troi; Worf has Integrity, Cunning or Strength > 6: stops Worf", "…; none has …: no
-effect", or "Selected Data; kills Data" for a title with no check; "N random personnel" never shows. The
-tails ("1 of 1 already stopped", the modifiers clause, the destination) follow. Where the selection is
-the pool of the player's choice (A Pattern of Lies, New Face, Discommendation, Moral Choice) the pending
-preview reads "Selected A, B, C; choose 1 to be stopped". The pool is the reveal snapshot's group, so a
+one, and a dilemma that selects at random with no kept roll has no Resolve. The preview goes step by step,
+in counts and with no names, which the row's marks show (#1632): each check on the selected personnel,
+which `selectEachWithout`, `selectEachWith`, `anyOfThree` and `unlessSelected` record as a `check`
+`PlayEffect` (`PlayState.check`), then the result: "1 of 3 has Integrity, Cunning or Strength > 6: stops
+1", "None of 3 has …: no effect", or "Kills 1" for a title with no check; "N random personnel" never
+shows. The tails ("1 of 1 already stopped", the modifiers clause, the destination) follow. Where the
+selection is the pool of the player's choice (A Pattern of Lies, New Face, Discommendation, Moral Choice)
+the pending preview reads "Choose 1 of the selected to be stopped". A Resolve with no random selection
+still names its personnel, "Stops Data". The pool is the reveal snapshot's group, so a
 selected personnel the player stops by hand after the reveal stays selected and counts as already
 stopped. `PileResolve.steps` and `BotResolve.steps` hold the selection and the checks as card ids.
 
@@ -1021,7 +1022,10 @@ each personnel of the kept selection with a round badge in its top-right corner,
 `data-testid="attempt-row-bot-mark"`, never the selection ring, which is the player's choice: the card
 carries `data-bot-selected="true"`, and `data-bot-check="met"` (a red "!" badge, an amber "?" otherwise)
 when it met a check of the dilemma (`BotRowMarks`, `AttemptPersonnelRow.tsx`). The mark goes away once
-the snapshot is `resolved` or the next card is on top, and an undo of the Resolve brings it back.
+the snapshot is `resolved` or the next card is on top, and an undo of the Resolve brings it back. While
+the marks show, the row draws the selected personnel first, in selection order, then the others in their
+usual order (`botMarkedFirst`, #1632), so a selected personnel is in the first row of cards; the order of
+the away team or the crew on the table does not change.
 
 An attempt has a phase, `Attempt.phase` (#1189): `'choose'`, the dilemma choice, or `'face'`, facing
 dilemmas. Start begins in `'choose'`, with `Attempt.drawn` 0. The choice-phase draw, `drawCard` from

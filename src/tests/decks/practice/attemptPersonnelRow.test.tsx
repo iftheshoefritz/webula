@@ -73,6 +73,7 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { deckFromTsv, extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
 import {
   attemptAwayTeamDropId,
+  botMarkedFirst,
   attemptCrewDropId,
   missionIndexFromAttemptAwayTeamDropId,
   shipIdFromAttemptCrewDropId,
@@ -420,5 +421,22 @@ describe('the drop ids of the rows (#1165)', () => {
     expect(missionIndexFromDropId(attemptAwayTeamDropId(3))).toBeNull();
     expect(shipIdFromAttemptCrewDropId('crew-card-39')).toBeNull();
     expect(missionIndexFromAttemptAwayTeamDropId('mission-on-3')).toBeNull();
+  });
+});
+
+// Issue #1632: while the bot's marks show, the row draws the selected personnel first, in selection
+// order, then the others in their stored order, and the cards it is given do not change.
+describe('botMarkedFirst (#1632)', () => {
+  const card = (id: string) => ({ id }) as any;
+  const cards = ['a', 'b', 'c', 'd', 'e'].map(card);
+
+  it('puts the selected first in selection order and keeps the rest in order', () => {
+    expect(botMarkedFirst(cards, { selected: ['d', 'b'], met: ['b'] }).map((c) => c.id)).toEqual(['d', 'b', 'a', 'c', 'e']);
+    expect(cards.map((c) => c.id)).toEqual(['a', 'b', 'c', 'd', 'e']);
+  });
+
+  it('keeps the stored order with no marks, and skips a selected card the row lacks', () => {
+    expect(botMarkedFirst(cards, null)).toBe(cards);
+    expect(botMarkedFirst(cards, { selected: ['x', 'c'], met: [] }).map((c) => c.id)).toEqual(['c', 'a', 'b', 'd', 'e']);
   });
 });
