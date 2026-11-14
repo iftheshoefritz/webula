@@ -40,7 +40,7 @@ export const titleKeyOf = (card: CardInstance | null | undefined): string =>
 
 // Whether a card is the mission of the lore name in braces, such as {Remus}: its title is the name,
 // or the name followed by the mission's subtitle ("Remus Supervise Dilithium Mine").
-const isNamed = (card: CardInstance, name: string): boolean => {
+export const isNamed = (card: CardInstance, name: string): boolean => {
   const title = titleKeyOf(card);
   const lore = name.toLowerCase();
   return title === lore || title.startsWith(`${lore} `);
