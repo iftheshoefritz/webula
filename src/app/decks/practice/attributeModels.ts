@@ -85,6 +85,9 @@ const isSpaceMission = (mission: CardInstance | null) => String(mission?.card?.m
 const completedSpaceMissions = (missions: MissionSlot[]) => missions.filter((slot) => slot.completed && isSpaceMission(slot.mission)).length;
 // The personnel of the discard pile with the skill `skill`, a card removed from the game there too.
 const discardedWith = (discard: CardInstance[], skill: string) => discard.filter((c) => isPersonnel(c) && hasWord(c.card?.skills, skill)).length;
+// The incomplete missions the player commands that are not a headquarters.
+const incompleteNonHeadquarters = (missions: MissionSlot[]) =>
+  missions.filter((slot) => slot.mission && !slot.completed && String(slot.mission.card?.mission ?? '').toLowerCase() !== 'h').length;
 // The ship whose crew holds `p`, or undefined for a personnel in an away team or off the table.
 const shipOf = (missions: MissionSlot[], p: CardInstance): CardInstance | undefined =>
   missions.flatMap((slot) => slot.ships).find((ship) => (ship.crew ?? []).some((c) => c.id === p.id));
@@ -175,7 +178,7 @@ const MODELS: AttributeModel[] = [
     // "This personnel is Cunning +1 and Strength +1 for each incomplete non-headquarters mission you command."
     title: 'Drenol',
     selfAttributes: (_self, _group, { missions }) => {
-      const n = missions.filter((slot) => slot.mission && !slot.completed && String(slot.mission.card?.mission ?? '').toLowerCase() !== 'h').length;
+      const n = incompleteNonHeadquarters(missions);
       return n > 0 ? { cunning: n, strength: n } : NONE;
     },
   },
@@ -379,6 +382,100 @@ const MODELS: AttributeModel[] = [
       ...(othersIn(self, group, (p) => hasSkill(p, 'honor')).length > 0 ? { integrity: 2 } : NONE),
       ...(othersIn(self, group, (p) => hasSkill(p, 'treachery')).length > 0 ? { strength: 2 } : NONE),
     }),
+  },
+  // The personnel of #1682, each held by one shipped deck, with a count or a table condition.
+  {
+    // "This personnel is Cunning +1 and Strength +1 for each [AU] personnel present." The others: Slar,
+    // [AU], is not present with himself.
+    title: 'Slar Gorn Slave Master',
+    selfAttributes: (self, group) => {
+      const n = othersIn(self, group, (p) => hasIcon(p, 'au')).length;
+      return n > 0 ? { cunning: n, strength: n } : NONE;
+    },
+  },
+  {
+    // "While this personnel is present with a {Dissident} or a [Fed][Cmd] personnel, he is attributes
+    // +1." He is a Dissident himself, and is not present with himself.
+    title: 'Stefan DeSeve Disillusioned Expatriate',
+    selfAttributes: (self, group) =>
+      othersIn(self, group, (p) => hasWord(p.card?.keywords, 'dissident') || (hasAffiliation(p, 'federation') && hasIcon(p, 'cmd'))).length > 0
+        ? ATTRIBUTES_PLUS_ONE
+        : NONE,
+  },
+  {
+    // "This personnel is Integrity -1 and Strength +1 for each non-Bajoran present (limit -3/+3)."
+    // Bajoran is the species.
+    title: 'Tahna Los Voice of the Kohn-Ma',
+    selfAttributes: (self, group) => {
+      const n = Math.min(3, othersIn(self, group, (p) => !hasWord(p.card?.species, 'bajoran')).length);
+      return n > 0 ? { integrity: -n, strength: n } : NONE;
+    },
+  },
+  {
+    // "Each of your personnel present who has a cost of 4 or more is attributes +1." Worf, cost 4, is
+    // +1 himself.
+    title: 'Worf Defiant Commander',
+    groupAttributes: (_self, target) => (isPersonnel(target) && (Number(target.card?.cost) || 0) >= 4 ? ATTRIBUTES_PLUS_ONE : NONE),
+  },
+  {
+    // "While you command three [Baj] personnel, this personnel is attributes +1, gains Diplomacy, and
+    // becomes [Baj]." The others: the "becomes [Baj]" part is not modelled.
+    title: 'Olamu',
+    selfAttributes: (self, _group, { missions }) =>
+      othersIn(self, commandedPersonnel(missions), (p) => hasAffiliation(p, 'bajoran')).length >= 3 ? ATTRIBUTES_PLUS_ONE : NONE,
+  },
+  {
+    // "This personnel is Integrity +1 and Cunning +1 for each incomplete non-headquarters mission you
+    // command." Read as Drenol.
+    title: 'Nirata',
+    selfAttributes: (_self, _group, { missions }) => {
+      const n = incompleteNonHeadquarters(missions);
+      return n > 0 ? { integrity: n, cunning: n } : NONE;
+    },
+  },
+  {
+    // "For each mission you have completed, this personnel is attributes +1."
+    title: 'Norah Satie Starfleet Investigator',
+    selfAttributes: (_self, _group, { missions }) => {
+      const n = completedMissionCount(missions);
+      return n > 0 ? plus(n) : NONE;
+    },
+  },
+  {
+    // "While you have no cards in hand, this personnel and each of your Leadership personnel present
+    // are attributes +1." Hoshi is +1 once, with Leadership or without.
+    title: "Hoshi Sato Captain's Woman",
+    groupAttributes: (self, target, _group, { hand }) =>
+      hand.length === 0 && isPersonnel(target) && (target.id === self.id || hasSkill(target, 'leadership')) ? ATTRIBUTES_PLUS_ONE : NONE,
+  },
+  {
+    // "While your MACO is present, if you have no cards in hand, this personnel is attributes +1 …" He
+    // is a MACO himself, and is not present with himself.
+    title: 'Malcolm Reed Enthusiastic Major',
+    selfAttributes: (self, group, { hand }) =>
+      hand.length === 0 && othersIn(self, group, (p) => hasWord(p.card?.keywords, 'maco')).length > 0 ? ATTRIBUTES_PLUS_ONE : NONE,
+  },
+  {
+    // "While you have no cards in hand, this personnel is attributes +1."
+    title: "T'Pol Not a Slave",
+    selfAttributes: (_self, _group, { hand }) => (hand.length === 0 ? ATTRIBUTES_PLUS_ONE : NONE),
+  },
+  {
+    // "While you have no cards in hand, each [AU][SF] personnel present is Cunning +1 (and Integrity +1
+    // if they are aboard an [AU][SF] ship)." Archer, [AU][SF], is +1 himself.
+    title: 'Jonathan Archer Defiant Commander',
+    groupAttributes: (_self, target, _group, { missions, hand }) => {
+      const auSf = (c: CardInstance) => hasIcon(c, 'au') && hasAffiliation(c, 'starfleet');
+      if (hand.length > 0 || !isPersonnel(target) || !auSf(target)) return NONE;
+      const ship = shipOf(missions, target);
+      return ship && auSf(ship) ? { integrity: 1, cunning: 1 } : { cunning: 1 };
+    },
+  },
+  {
+    // "While each player has four or more cards in hand, this personnel is attributes +1 …" In a solo
+    // game the player is each player, as Martinez reads it.
+    title: 'Garvey',
+    selfAttributes: (_self, _group, { hand }) => (hand.length >= 4 ? ATTRIBUTES_PLUS_ONE : NONE),
   },
   // The ship clauses of #1671. Each card that changes Range has its range model in `rangeModels.ts`,
   // with the same condition and amount (`SHIP_CLAUSES`).
