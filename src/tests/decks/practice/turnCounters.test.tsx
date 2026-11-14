@@ -84,6 +84,25 @@ describe('the counter of the turn\'s counters (#1607)', () => {
     fireEvent.click(menuButton);
   };
 
+  it('shows "Apply card text to attributes" after Counters, off by default, and keeps a change (#1668)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const menuButton = screen.getByRole('button', { name: 'Game menu' });
+    if (menuButton.getAttribute('aria-expanded') !== 'true') fireEvent.click(menuButton);
+    fireEvent.click(screen.getByTestId('game-menu-settings-item'));
+    const counters = screen.getByTestId('game-menu-turn-counters');
+    const toggle = screen.getByTestId('game-menu-card-text-attributes');
+    expect(counters.nextElementSibling).toBe(toggle);
+    expect(toggle).toHaveTextContent('Apply card text to attributes: Off');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+    expect(toggle).toHaveTextContent('Apply card text to attributes: On');
+    expect(localStorage.getItem('practice-card-text-attributes')).toBe('true');
+  });
+
   it('shows no counter, chip or list while the setting is off, its default', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);

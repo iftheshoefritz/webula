@@ -296,12 +296,12 @@ function moveEntry(
       const to = logPlace(state, move.to);
       const position = ORDERED_PLACES.has(move.to) ? move.position ?? 'bottom' : undefined;
       const card = unseen ? null : cardDisplayName(found.instance.card);
-      const used = moveRangeCost(state, found.zone, move.to, found.instance);
+      const used = moveRangeCost(state, found.zone, move.to, found.instance, !!move.cardText);
       // The Range is the ship's on the table after the move (#1635), as its card shows it.
       const range =
         used === undefined
           ? undefined
-          : { used, left: shipRangeOnTable(next.missions, found.instance) - (next.rangeUsed?.[move.id] ?? 0) };
+          : { used, left: shipRangeOnTable(next.missions, found.instance, !!move.cardText) - (next.rangeUsed?.[move.id] ?? 0) };
       const cost = typeof move.cost === 'number' ? move.cost : null;
       const source = cost !== null && move.costSource ? move.costSource : null;
       const group = groups.find(
@@ -682,11 +682,17 @@ function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts
   return action;
 }
 
-const withOrderAndCharge = (table: TableState, action: TableAction, turnFacts: TurnFacts): TableAction =>
-  withCharge(table, withShuffleOrder(table, action), turnFacts);
+// The setting "Apply card text to attributes" (#1668) joins every move while it is on, so the reducer
+// reads no storage and a redo puts back the range the move used.
+const withCardText = (action: TableAction, cardText: boolean): TableAction =>
+  cardText && action.type === 'move' && action.cardText === undefined ? { ...action, cardText: true } : action;
+
+const withOrderAndCharge = (table: TableState, action: TableAction, turnFacts: TurnFacts, cardText: boolean): TableAction =>
+  withCharge(table, withShuffleOrder(table, withCardText(action, cardText)), turnFacts);
 
 // `log` is the game's log, for the pending discounts of the turn (#1656). With none, no discount waits.
-export function withShuffleOrders(table: TableState, action: GameAction, log: LogEntry[] = []): GameAction {
+// `cardText` is the setting "Apply card text to attributes" (#1668), off by default.
+export function withShuffleOrders(table: TableState, action: GameAction, log: LogEntry[] = [], cardText = false): GameAction {
   if (
     action.type === 'undo' ||
     action.type === 'redo' ||
@@ -704,13 +710,13 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     const turnFacts = turnFactsOf(log, table.turn);
     let state = table;
     const actions = action.actions.map((a) => {
-      const chosen = withOrderAndCharge(state, a, turnFacts);
+      const chosen = withOrderAndCharge(state, a, turnFacts, cardText);
       state = tableReducer(state, chosen);
       return chosen;
     });
     return { ...action, actions };
   }
-  return withOrderAndCharge(table, action, action.type === 'move' ? turnFactsOf(log, table.turn) : noTurnFacts());
+  return withOrderAndCharge(table, action, action.type === 'move' ? turnFactsOf(log, table.turn) : noTurnFacts(), cardText);
 }
 
 // The pending discounts of `turn` (#1656), oldest first: each play of the turn whose card's model makes

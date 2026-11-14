@@ -378,6 +378,8 @@ function GameMenu({
   turnScoreColumn,
   turnCounters,
   onToggleTurnCounters,
+  cardText,
+  onToggleCardText,
   botGame,
   botPileName,
   touch,
@@ -416,6 +418,10 @@ function GameMenu({
   // The counter of the turn's counters (#1607), a setting of the device, off by default.
   turnCounters: boolean;
   onToggleTurnCounters: () => void;
+  // "Apply card text to attributes" (#1668), a setting of the device, off by default: the range and
+  // span models of the moves.
+  cardText: boolean;
+  onToggleCardText: () => void;
   // A game against the dilemma bot (#1289), and the name of the bot's pile (#1520).
   botGame: boolean;
   botPileName: string;
@@ -490,6 +496,15 @@ function GameMenu({
                 className={SPLASH_ITEM_CLASS}
               >
                 Counters: {turnCounters ? 'On' : 'Off'}
+              </button>
+              <button
+                type="button"
+                onClick={onToggleCardText}
+                aria-pressed={cardText}
+                data-testid="game-menu-card-text-attributes"
+                className={SPLASH_ITEM_CLASS}
+              >
+                Apply card text to attributes: {cardText ? 'On' : 'Off'}
               </button>
               <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
                 {offlineItemLabel(offline.progress)}
@@ -820,6 +835,9 @@ function TurnScoreColumn({
 
 // The localStorage key of the counter's setting (#1607).
 export const TURN_COUNTERS_KEY = 'practice-turn-counters';
+
+// The localStorage key of the setting "Apply card text to attributes" (#1668).
+export const CARD_TEXT_ATTRIBUTES_KEY = 'practice-card-text-attributes';
 
 function RotateDeviceOverlay() {
   return (
@@ -1960,13 +1978,16 @@ function PracticeDrawContent() {
   // `tableReducer` calls no random function and a saved undo or redo step holds the same order.
   // The counter of the turn's counters (#1607) is a setting of the device, not of the saved game.
   const [turnCountersOn, setTurnCountersOn] = useLocalStorage<boolean>(TURN_COUNTERS_KEY, false);
+  // "Apply card text to attributes" (#1668) is a setting of the device too. It joins each move in
+  // `withShuffleOrders`, so the range a move used never changes with it.
+  const [cardTextOn, setCardTextOn] = useLocalStorage<boolean>(CARD_TEXT_ATTRIBUTES_KEY, false);
   // The brief chip of the last charge: the index of its entry in the log. It is page state, so a
   // reload does not bring it back. A newer charge replaces it, undo and redo remove it, and it shows
   // only while its entry is of the current turn, so the next turn removes it too.
   const [chargeChip, setChargeChip] = useState<{ entry: number } | null>(null);
   const [countersListOpen, setCountersListOpen] = useState(false);
   const dispatch = (action: GameAction) => {
-    const chosen = withShuffleOrders(table, action, game.log);
+    const chosen = withShuffleOrders(table, action, game.log, cardTextOn);
     if (actionCharged(chosen)) setChargeChip({ entry: game.log.length });
     else if (['undo', 'redo', 'reset', 'resetWithPiles', 'restore'].includes(action.type)) setChargeChip(null);
     dispatchGame(chosen);
@@ -2005,8 +2026,8 @@ function PracticeDrawContent() {
   }, []);
   // The range each ship used this turn and its Range on the table (#1635), for the pill of its card.
   const rangeUsedInfo = useMemo(
-    () => ({ used: table.rangeUsed, ranges: shipRangesOnTable(table.missions, table.rangeUsed) }),
-    [table.missions, table.rangeUsed]
+    () => ({ used: table.rangeUsed, ranges: shipRangesOnTable(table.missions, table.rangeUsed, cardTextOn) }),
+    [table.missions, table.rangeUsed, cardTextOn]
   );
   const cardHold = useMemo(
     () => ({
@@ -3649,6 +3670,8 @@ function PracticeDrawContent() {
           turnScoreColumn={!attemptLayoutShows}
           turnCounters={turnCountersOn}
           onToggleTurnCounters={() => setTurnCountersOn((on) => !on)}
+          cardText={cardTextOn}
+          onToggleCardText={() => setCardTextOn((on) => !on)}
           botGame={table.opponent === 'bot'}
           botPileName={table.botPile?.name ?? CHULA_BOT_PILE_NAME}
           touch={!finePointer}
