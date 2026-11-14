@@ -2,6 +2,7 @@
 // issue #130) rather than several `useState` calls so every zone move goes through one place
 // and later slices can add zones/actions without touching how existing zones behave.
 
+import type { CostSource } from '../../../lib/costModels/model';
 import { arrayMove } from '@dnd-kit/sortable';
 import { shuffleArray } from '../deckBuilderUtils';
 import type { BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
@@ -295,7 +296,8 @@ export type TableAction =
   // unordered from the player's point of view, so nothing else needs it.
   // `cost` is the printed cost of a card played from the hand in the play and draw segment (#1606,
   // `moveCharge`), which the page adds before the dispatch for the log. The reducer ignores it.
-  | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom'; cost?: number }
+  // `costSource` is where a cost the table suggested came from (#1654): a cost model or a download.
+  | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom'; cost?: number; costSource?: CostSource }
   // `picks` is the roll the page made for the reveal snapshot this flip takes (#1594,
   // `withShuffleOrders` in `gameLog.ts`), which the snapshot keeps, so the reducer stays pure.
   | { type: 'flip'; id: string; picks?: string[][] }
@@ -411,8 +413,18 @@ export type TableAction =
   // holds cards only during an attempt, so the next `FIXTURE_DILEMMA_STACK` dilemmas stay on top of
   // the dilemma pile, where `fixtureAttemptStack` takes them for `?fixture=attempt`. The cards come
   // from the deck itself, taken in deck order, so a deck in a fixed order places the same cards
-  // every time.
-  | { type: 'resetWithPiles'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[]; opponent?: 'bot'; botPile?: BotPileInfo };
+  // every time. `extraHand` and `extraCrew` (#1654, `?fixture=costs`) join the hand after its own
+  // cards and the crewed ship's crew after its personnel.
+  | {
+      type: 'resetWithPiles';
+      cards: CardInstance[];
+      missions: CardInstance[];
+      dilemmas: CardInstance[];
+      opponent?: 'bot';
+      botPile?: BotPileInfo;
+      extraHand?: CardInstance[];
+      extraCrew?: CardInstance[];
+    };
 
 export const FIXTURE_HAND = 7;
 export const FIXTURE_AWAY_TEAM = 20;
@@ -1280,7 +1292,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
                 {
                   ...ship,
                   face: SHIP_ROW_FACE,
-                  crew: crew.map((c) => ({ ...c, face: CREW_FACE })),
+                  crew: [...crew, ...(action.extraCrew ?? [])].map((c) => ({ ...c, face: CREW_FACE })),
                   ...(onShip.length ? { placedOn: onShip.map((c) => ({ ...c, face: ON_FACE })) } : {}),
                 },
               ]
@@ -1295,7 +1307,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       });
       return {
         ...dealt,
-        hand: rest.slice(0, handSize).map((c) => ({ ...c, face: ZONE_FACE.hand })),
+        hand: [...rest.slice(0, handSize), ...(action.extraHand ?? [])].map((c) => ({ ...c, face: ZONE_FACE.hand })),
         drawDeck: rest.slice(handSize),
         missions,
         brig: brig.map((c) => ({ ...c, face: ZONE_FACE.brig })),

@@ -42,6 +42,9 @@ import { drawSpend } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
+import type { CostSource } from '../../../lib/costModels/model';
+import { DOWNLOADED_SOURCE } from '../../../lib/costModels/model';
+import { costFactsOf } from './costFacts';
 
 // A place a card can be, with the names the text needs captured at the time of the action, so a
 // later move of a ship or a mission card does not change an old entry.
@@ -70,6 +73,10 @@ export interface LogMove {
   // The printed cost of each card played from the hand in the play and draw segment (#1606), in the
   // order of `cards`, null for a card that was not a play. Absent when no card of the move was one.
   costs?: (number | null)[];
+  // The source of each cost the table suggested (#1654), in the order of `cards`, null for a printed
+  // cost or a card that was not a play. Absent when no cost of the move had one, and in an entry from
+  // before #1654.
+  sources?: (CostSource | null)[];
 }
 
 export interface LogRange {
@@ -145,7 +152,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
     }
   // A correction of one charge by the player (#1607): `target` names the charge, `card` its card
   // (null for an unseen card, absent for a draw), `from` and `to` the cost before and after.
-  | { kind: 'chargeCorrected'; target: ChargeTarget; card?: LogCard; draw?: true; from: number; to: number }
+  // `source` is the title of the model whose choice the player took (#1654), "Goran".
+  | { kind: 'chargeCorrected'; target: ChargeTarget; card?: LogCard; draw?: true; from: number; to: number; source?: string }
   // A change of the turn's limit of counters by the player (#1607), and the limit it left.
   | { kind: 'counterLimit'; delta: number; limit: number }
 );
@@ -182,7 +190,8 @@ export type GameAction =
   | { type: 'redo' }
   // A correction of a charge, and a change of the turn's limit of counters (#1607). They read the
   // log, so `gameReducer` handles them and `tableReducer` never sees them.
-  | { type: 'correctCharge'; target: ChargeTarget; cost: number }
+  // `source` names the model whose choice sets the cost (#1654).
+  | { type: 'correctCharge'; target: ChargeTarget; cost: number; source?: string }
   | { type: 'adjustCounterLimit'; delta: number }
   // A restore of the saved game (#1400) that brings its log back too, and its undo and redo
   // histories (#1401).
@@ -286,11 +295,13 @@ function moveEntry(
           ? undefined
           : { used, left: shipRangeOnTable(next.missions, found.instance) - (next.rangeUsed?.[move.id] ?? 0) };
       const cost = typeof move.cost === 'number' ? move.cost : null;
+      const source = cost !== null && move.costSource ? move.costSource : null;
       const group = groups.find(
         (g) => placeKey(g.from) === placeKey(from) && placeKey(g.to) === placeKey(to) && g.position === position
       );
       if (group) {
         if (cost !== null || group.costs) group.costs = [...(group.costs ?? group.cards.map(() => null)), cost];
+        if (source || group.sources) group.sources = [...(group.sources ?? group.cards.map(() => null)), source];
         group.cards.push(card);
         if (range) group.range = [...(group.range ?? []), range];
       } else
@@ -301,6 +312,7 @@ function moveEntry(
           ...(position ? { position } : {}),
           ...(range ? { range: [range] } : {}),
           ...(cost !== null ? { costs: [cost] } : {}),
+          ...(source ? { sources: [source] } : {}),
         });
     }
     state = next;
@@ -308,7 +320,12 @@ function moveEntry(
   // A 'top' drop dispatches its group in reverse (#677), so the cards read in the group's order.
   return groups.map((g) =>
     g.position === 'top'
-      ? { ...g, cards: [...g.cards].reverse(), ...(g.costs ? { costs: [...g.costs].reverse() } : {}) }
+      ? {
+          ...g,
+          cards: [...g.cards].reverse(),
+          ...(g.costs ? { costs: [...g.costs].reverse() } : {}),
+          ...(g.sources ? { sources: [...g.sources].reverse() } : {}),
+        }
       : g
   );
 }
@@ -606,8 +623,10 @@ const costPlace = (zone: TableZone): CostPlace => {
 // table, and a `drawCard` from the draw deck, in the play and draw segment, as `moveCharge` and
 // `drawCharge` give it. The place a move reads is where the card landed, so a refused move costs
 // nothing. The reducer ignores the field and the log reads it. An action that already holds a cost
-// keeps it.
-function withCharge(table: TableState, action: TableAction): TableAction {
+// keeps it. A move reads the facts of the cost models (#1654) from the table and `downloaded`, the
+// downloads of the turn still open; a play that a download makes free takes its name off the list,
+// so the next action of a batch sees it gone.
+function withCharge(table: TableState, action: TableAction, downloaded: string[]): TableAction {
   if (action.type === 'drawCard' && action.cost === undefined) {
     const charge = drawCharge(table.segment, action.from, action.to);
     if (charge && tableReducer(table, action) !== table) return { ...action, cost: charge.cost };
@@ -616,28 +635,32 @@ function withCharge(table: TableState, action: TableAction): TableAction {
     const found = findInstanceAnywhere(table, action.id);
     const next = found ? tableReducer(table, action) : table;
     const landed = next !== table ? findInstanceAnywhere(next, action.id) : null;
-    const charge = found && landed ? moveCharge(table.segment, costPlace(found.zone), costPlace(landed.zone), found.instance.card) : null;
+    const charge =
+      found && landed
+        ? moveCharge(
+            table.segment,
+            costPlace(found.zone),
+            costPlace(landed.zone),
+            found.instance.card,
+            costFactsOf(table, downloaded),
+            action.id
+          )
+        : null;
+    if (charge?.kind === 'play' && charge.source) {
+      const used = charge.source.title === DOWNLOADED_SOURCE.title ? downloaded.indexOf(cardDisplayName(found!.instance.card)) : -1;
+      if (used >= 0) downloaded.splice(used, 1);
+      return { ...action, cost: charge.cost, costSource: charge.source };
+    }
     if (charge) return { ...action, cost: charge.cost };
   }
   return action;
 }
 
-const withOrderAndCharge = (table: TableState, action: TableAction): TableAction =>
-  withCharge(table, withShuffleOrder(table, action));
+const withOrderAndCharge = (table: TableState, action: TableAction, downloaded: string[]): TableAction =>
+  withCharge(table, withShuffleOrder(table, action), downloaded);
 
-export function withShuffleOrders(table: TableState, action: GameAction): GameAction {
-  if (action.type === 'batch') {
-    if (!action.actions.some((a) => a.type === 'shuffle' || a.type === 'drawCard' || a.type === 'flip' || a.type === 'move')) {
-      return action;
-    }
-    let state = table;
-    const actions = action.actions.map((a) => {
-      const chosen = withOrderAndCharge(state, a);
-      state = tableReducer(state, chosen);
-      return chosen;
-    });
-    return { ...action, actions };
-  }
+// `log` is the game's log, for the downloads of the turn (#1654). With none, no card is downloaded.
+export function withShuffleOrders(table: TableState, action: GameAction, log: LogEntry[] = []): GameAction {
   if (
     action.type === 'undo' ||
     action.type === 'redo' ||
@@ -647,7 +670,46 @@ export function withShuffleOrders(table: TableState, action: GameAction): GameAc
   ) {
     return action;
   }
-  return withOrderAndCharge(table, action);
+  if (action.type === 'batch') {
+    if (!action.actions.some((a) => a.type === 'shuffle' || a.type === 'drawCard' || a.type === 'flip' || a.type === 'move')) {
+      return action;
+    }
+    const downloaded = downloadedThisTurn(log, table.turn);
+    let state = table;
+    const actions = action.actions.map((a) => {
+      const chosen = withOrderAndCharge(state, a, downloaded);
+      state = tableReducer(state, chosen);
+      return chosen;
+    });
+    return { ...action, actions };
+  }
+  return withOrderAndCharge(table, action, action.type === 'move' ? downloadedThisTurn(log, table.turn) : []);
+}
+
+// The downloads of `turn` still open (#1654): the display name of each card a `move` entry took from
+// the draw deck into the hand, the panel's Download, and never a `draw`, less one for each later play
+// of that name from the hand and each move of that name from the hand back to the draw deck. Read
+// from the effective log alone, so an undo, a redo and a reload agree, and the next turn has none.
+export function downloadedThisTurn(log: LogEntry[], turn: number): string[] {
+  const open: string[] = [];
+  const close = (name: string) => {
+    const i = open.indexOf(name);
+    if (i >= 0) open.splice(i, 1);
+  };
+  for (const entry of effectiveLog(log)) {
+    if (entry.turn !== turn || entry.kind !== 'move' || !Array.isArray(entry.moves)) continue;
+    for (const move of entry.moves) {
+      const from = move.from?.kind;
+      const to = move.to?.kind;
+      const costs = moveCosts(move);
+      move.cards.forEach((name, i) => {
+        if (name === null) return;
+        if (from === 'drawDeck' && to === 'hand') open.push(name);
+        else if (from === 'hand' && (to === 'drawDeck' || (costs && costs[i] !== null))) close(name);
+      });
+    }
+  }
+  return open;
 }
 
 // The text of a place, with "the", the same words as the labels of the card list panel.
@@ -713,13 +775,27 @@ const moveCosts = (move: LogMove): (number | null)[] | null => {
   return costs && costs.length === move.cards.length && costs.some((c) => c !== null) ? costs : null;
 };
 
+const isCostSource = (source: unknown): source is CostSource =>
+  !!source && typeof (source as CostSource).title === 'string' && typeof (source as CostSource).reason === 'string';
+
+// The source of each cost of a move (#1654), or null for one with none: an entry from before #1654,
+// a printed cost, or sources that do not match its cards.
+const moveSources = (move: LogMove): (CostSource | null)[] => {
+  const sources = Array.isArray(move.sources) && move.sources.length === move.cards.length ? move.sources : [];
+  return move.cards.map((_, i) => (isCostSource(sources[i]) ? sources[i] : null));
+};
+
+// ", Borg Nanoprobes: you command a Borg" after a cost the table suggested.
+const sourceText = (source: CostSource | null): string => (source ? `, ${source.title}: ${source.reason}` : '');
+
 // " (cost 3)" after a play of one card, and for more than one card each played card's own cost:
 // " (Data cost 3; Worf cost 2)". A cost of 0 shows too: an interrupt is printed 0.
 const movedCostText = (move: LogMove): string => {
   const costs = moveCosts(move);
   if (!costs) return '';
-  if (costs.length === 1) return ` (cost ${costs[0]})`;
-  const parts = costs.flatMap((c, i) => (c === null ? [] : [`${move.cards[i] ?? 'a card'} cost ${c}`]));
+  const sources = moveSources(move);
+  if (costs.length === 1) return ` (cost ${costs[0]}${sourceText(sources[0])})`;
+  const parts = costs.flatMap((c, i) => (c === null ? [] : [`${move.cards[i] ?? 'a card'} cost ${c}${sourceText(sources[i])}`]));
   return ` (${parts.join('; ')})`;
 };
 
@@ -895,7 +971,9 @@ export function logEntryText(entry: LogEntry): string {
         : text;
     }
     case 'chargeCorrected':
-      return `Charged ${entry.draw ? 'a draw' : (entry.card ?? 'a card')} ${countersText(entry.to)} (was ${entry.from})`;
+      return `Charged ${entry.draw ? 'a draw' : (entry.card ?? 'a card')} ${countersText(entry.to)} (was ${entry.from})${
+        typeof entry.source === 'string' && entry.source ? ` (${entry.source})` : ''
+      }`;
     case 'counterLimit':
       return `Set this turn's counters to ${entry.limit}`;
   }
@@ -1050,6 +1128,10 @@ export interface LogCharge {
   card: LogCard;
   draw: boolean;
   cost: number;
+  // Where the table's cost came from (#1654), and whether the player took its choice: a correction
+  // aimed at this charge names the choice's source.
+  source?: CostSource;
+  choiceTaken?: boolean;
 }
 
 // The charges of the entry at `index` of an effective log.
@@ -1058,22 +1140,46 @@ function chargesOf(entry: LogEntry, index: number): LogCharge[] {
     return [{ target: { entry: index }, card: null, draw: true, cost: entry.cost }];
   }
   if (entry.kind !== 'move') return [];
-  return entry.moves.flatMap((move, m) =>
-    (moveCosts(move) ?? []).flatMap((cost, c) =>
-      cost === null ? [] : [{ target: { entry: index, move: m, card: c }, card: move.cards[c] ?? null, draw: false, cost }]
-    )
+  return entry.moves.flatMap((move, m) => {
+    const sources = moveSources(move);
+    return (moveCosts(move) ?? []).flatMap((cost, c) =>
+      cost === null
+        ? []
+        : [
+            {
+              target: { entry: index, move: m, card: c },
+              card: move.cards[c] ?? null,
+              draw: false,
+              cost,
+              ...(sources[c] ? { source: sources[c]! } : {}),
+            },
+          ]
+    );
+  });
+}
+
+// The charges with `choiceTaken` set where a correction in `log` took the choice of the charge's source.
+function withChoicesTaken(log: LogEntry[], charges: LogCharge[]): LogCharge[] {
+  return charges.map((charge) =>
+    charge.source?.choice &&
+    log.some((e) => e.kind === 'chargeCorrected' && e.source === charge.source!.title && e.target && sameTarget(e.target, charge.target))
+      ? { ...charge, choiceTaken: true }
+      : charge
   );
 }
 
 // The charges of the entry at `index` (#1607), corrected.
 export const entryCharges = (log: LogEntry[], index: number): LogCharge[] => {
   const entry = effectiveLog(log)[index];
-  return entry ? chargesOf(entry, index) : [];
+  return entry ? withChoicesTaken(log, chargesOf(entry, index)) : [];
 };
 
 // The charges of `turn`, in order: every one of its play and draw segment, corrected.
 export const turnCharges = (log: LogEntry[], turn: number): LogCharge[] =>
-  effectiveLog(log).flatMap((entry, i) => (entry.turn === turn && entrySegment(entry) === 'playAndDraw' ? chargesOf(entry, i) : []));
+  withChoicesTaken(
+    log,
+    effectiveLog(log).flatMap((entry, i) => (entry.turn === turn && entrySegment(entry) === 'playAndDraw' ? chargesOf(entry, i) : []))
+  );
 
 // The limit of counters of `turn`: 7 and the turn's changes, never below 0. A new turn starts at 7.
 export const turnCounterLimit = (log: LogEntry[], turn: number): number =>
@@ -1101,7 +1207,7 @@ const sameTarget = (a: ChargeTarget, b: ChargeTarget): boolean => a.entry === b.
 
 // The entry of a correction of a charge, or null when the action names no charge or changes nothing.
 // A cost below 0 is 0.
-function chargeCorrectionEntry(state: GameState, action: { target: ChargeTarget; cost: number }): LogEntry | null {
+function chargeCorrectionEntry(state: GameState, action: { target: ChargeTarget; cost: number; source?: string }): LogEntry | null {
   const charge = entryCharges(state.log, action.target.entry).find((c) => sameTarget(c.target, action.target));
   const to = Math.max(0, Math.round(action.cost));
   if (!charge || !Number.isFinite(to) || to === charge.cost) return null;
@@ -1111,6 +1217,7 @@ function chargeCorrectionEntry(state: GameState, action: { target: ChargeTarget;
     ...(charge.draw ? { draw: true as const } : { card: charge.card }),
     from: charge.cost,
     to,
+    ...(action.source ? { source: action.source } : {}),
     turn: state.table.turn,
     segment: state.table.segment,
   };
