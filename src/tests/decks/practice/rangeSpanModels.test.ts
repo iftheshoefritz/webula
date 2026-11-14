@@ -92,11 +92,11 @@ describe('U.S.S. Pasteur, Medical Ship (#1635)', () => {
 
   it('is Range +5 while a [Fed] Medical personnel is aboard, stopped or not, once however many', () => {
     const pasteur = ship('U.S.S. Pasteur Medical Ship', 'federation', '7', [doctor(), { ...doctor(), stopped: true }]);
-    expect(shipRangeOnTable(tableOf([]).missions, pasteur)).toBe(12);
+    expect(shipRangeOnTable(tableOf([]), pasteur)).toBe(12);
   });
 
   it('reads the *A version the same', () => {
-    expect(shipRangeOnTable(tableOf([]).missions, ship('U.S.S. Pasteur Medical Ship *A', 'federation', '7', [doctor()]))).toBe(12);
+    expect(shipRangeOnTable(tableOf([]), ship('U.S.S. Pasteur Medical Ship *A', 'federation', '7', [doctor()]))).toBe(12);
   });
 
   it('gains nothing from a non-[Fed] Medical personnel, a [Fed] personnel with no Medical, or a doctor in the away team', () => {
@@ -104,7 +104,7 @@ describe('U.S.S. Pasteur, Medical Ship (#1635)', () => {
       personnel('Healer', 'bajoran', { skills: 'medical' }),
       personnel('Officer', 'federation', { skills: 'leadership' }),
     ]);
-    expect(shipRangeOnTable(tableOf([], [pasteur], { awayTeam: [doctor()] }).missions, pasteur)).toBe(7);
+    expect(shipRangeOnTable(tableOf([], [pasteur], { awayTeam: [doctor()] }), pasteur)).toBe(7);
   });
 
   it('reads the new Range in the log and on the card', () => {
@@ -112,7 +112,7 @@ describe('U.S.S. Pasteur, Medical Ship (#1635)', () => {
     const t = tableOf([mission('Alpha', 'a'), mission('Beta', 'a', '3')], [pasteur]);
     const game = gameReducer(initialGameState(t), toRow(pasteur.id, 1));
     expect(lastText(game.log)).toBe('Moved U.S.S. Pasteur Medical Ship from Alpha to Beta (used range 5, 7 left)');
-    expect(shipRangesOnTable(game.table.missions, game.table.rangeUsed)).toEqual({ [pasteur.id]: 12 });
+    expect(shipRangesOnTable(game.table, game.table.rangeUsed)).toEqual({ [pasteur.id]: 12 });
   });
 });
 
@@ -125,28 +125,28 @@ describe('The Reman Mines (#1635)', () => {
   it('is +1 for each Reman commanded, in a crew or an away team', () => {
     const w = warbird([reman()]);
     const t = tableOf([withMines(remus())], [w], { awayTeam: [reman()] });
-    expect(shipRangeOnTable(t.missions, w)).toBe(10);
+    expect(shipRangeOnTable(t, w)).toBe(10);
   });
 
   it('stops at +3', () => {
     const w = warbird([reman(), reman(), reman()]);
     const t = tableOf([withMines(remus())], [w], { awayTeam: [reman(), reman()] });
-    expect(shipRangeOnTable(t.missions, w)).toBe(11);
+    expect(shipRangeOnTable(t, w)).toBe(11);
   });
 
   it('does not count a Reman in the brig', () => {
     const w = warbird();
     const t = tableOf([withMines(remus())], [w], { brig: [reman()] });
-    expect(shipRangeOnTable(t.missions, w)).toBe(8);
+    expect(shipRangeOnTable(t, w)).toBe(8);
   });
 
   it('gives nothing to a non-[Rom] ship, nor from another mission or the core', () => {
     const fed = ship('Relativity', 'federation', '8', [reman()]);
-    expect(shipRangeOnTable(tableOf([withMines(remus())], [fed]).missions, fed)).toBe(8);
+    expect(shipRangeOnTable(tableOf([withMines(remus())], [fed]), fed)).toBe(8);
     const w = warbird([reman()]);
-    expect(shipRangeOnTable(tableOf([withMines(mission('Alpha', 'a')), remus()], [w]).missions, w)).toBe(8);
+    expect(shipRangeOnTable(tableOf([withMines(mission('Alpha', 'a')), remus()], [w]), w)).toBe(8);
     const inCore = { ...tableOf([remus()], [w]), core: [mines()] };
-    expect(shipRangeOnTable(inCore.missions, w)).toBe(8);
+    expect(shipRangeOnTable(inCore, w)).toBe(8);
   });
 });
 
@@ -170,7 +170,7 @@ const moveAgrees = (t: TableState, s: CardInstance, to: number, used: number, le
   const game = gameReducer(initialGameState(t), toRow(s.id, to));
   expect(game.table.rangeUsed).toEqual({ [s.id]: used });
   expect(lastText(game.log)).toMatch(new RegExp(`\\(used range ${used}, ${left} left\\)$`));
-  expect(shipRangesOnTable(game.table.missions, game.table.rangeUsed)[s.id] - used).toBe(left);
+  expect(shipRangesOnTable(game.table, game.table.rangeUsed)[s.id] - used).toBe(left);
 };
 
 describe('the quadrant waivers of a ship (#1648)', () => {
@@ -242,22 +242,22 @@ describe('the Range of a crowded ship (#1648)', () => {
     ['U.S.S. Rio Grande Built to Last *A', 7, 3],
   ])('%s is Range less only with more than %i personnel aboard', (name, limit, n) => {
     const at = ship(name, 'federation', '6', crewOf(limit));
-    expect(shipRangeOnTable(tableOf([]).missions, at)).toBe(6);
+    expect(shipRangeOnTable(tableOf([]), at)).toBe(6);
     const over = ship(name, 'federation', '6', crewOf(limit + 1));
-    expect(shipRangeOnTable(tableOf([]).missions, over)).toBe(6 - n);
+    expect(shipRangeOnTable(tableOf([]), over)).toBe(6 - n);
     moveAgrees(tableOf(route(), [over]), over, 1, 2, 4 - n);
   });
 
   it('U.S.S. Rio Grande is Range +1 while an Engineer is aboard', () => {
     const rg = ship('U.S.S. Rio Grande Built to Last', 'federation', '3', [personnel('Fixer', 'federation', { skills: 'engineer' })]);
-    expect(shipRangeOnTable(tableOf([]).missions, rg)).toBe(4);
-    expect(shipRangeOnTable(tableOf([]).missions, ship('U.S.S. Rio Grande Built to Last', 'federation', '3', crewOf(1)))).toBe(3);
+    expect(shipRangeOnTable(tableOf([]), rg)).toBe(4);
+    expect(shipRangeOnTable(tableOf([]), ship('U.S.S. Rio Grande Built to Last', 'federation', '3', crewOf(1)))).toBe(3);
     moveAgrees(tableOf(route(), [rg]), rg, 1, 2, 2);
   });
 
   it('a Range never goes below 0', () => {
     const pod = ship('Shuttlepod One Reliable Transport', 'starfleet', '1', crewOf(6));
-    expect(shipRangeOnTable(tableOf([]).missions, pod)).toBe(0);
+    expect(shipRangeOnTable(tableOf([]), pod)).toBe(0);
   });
 });
 
@@ -265,9 +265,9 @@ describe('the Range from the missions commanded (#1648)', () => {
   it.each(['Vidiian Cruiser', 'Vidiian Interceptor'])('%s is Range -1 for each completed mission', (name) => {
     const v = ship(name, 'vidiian', '10');
     const t = tableOf([mission('Alpha', 'a', '1'), mission('Beta', 'a', '1'), mission('Gamma', 'a', '1')], [v]);
-    expect(shipRangeOnTable(t.missions, v)).toBe(10);
+    expect(shipRangeOnTable(t, v)).toBe(10);
     const done = { ...t, missions: t.missions.map((s, i) => (i === 1 || i === 2 ? { ...s, completed: true } : s)) };
-    expect(shipRangeOnTable(done.missions, v)).toBe(8);
+    expect(shipRangeOnTable(done, v)).toBe(8);
     moveAgrees(done, v, 1, 2, 6);
   });
 
@@ -275,21 +275,21 @@ describe('the Range from the missions commanded (#1648)', () => {
     const q = ship("I.K.S. Qel'Poh Clandestine Vessel *A", 'klingon', '6');
     const worth = (name: string, points: string) => card(name, 'mission', { span: '1', quadrant: 'a', points });
     const t = tableOf([worth('Alpha', '40'), worth('Beta', '45')], [q]);
-    expect(shipRangeOnTable(t.missions, q)).toBe(8);
+    expect(shipRangeOnTable(t, q)).toBe(8);
     moveAgrees(t, q, 1, 2, 6);
-    expect(shipRangeOnTable(tableOf([worth('Alpha', '40'), worth('Beta', '35')]).missions, q)).toBe(6);
+    expect(shipRangeOnTable(tableOf([worth('Alpha', '40'), worth('Beta', '35')]), q)).toBe(6);
     const bounty = ship("I.K.S. Qel'Poh H.M.S. Bounty", 'federation', '6');
-    expect(shipRangeOnTable(t.missions, bounty)).toBe(8);
+    expect(shipRangeOnTable(t, bounty)).toBe(8);
   });
 
   it('Pi, Off Course is Range +1 for each Region: Neutral Zone mission, limit +3', () => {
     const pi = ship('Pi Off Course', 'romulan', '7');
     const nz = (name: string) => card(name, 'mission', { span: '1', quadrant: 'a', keywords: 'region: neutral zone.' });
     const two = tableOf([nz('One'), nz('Two'), mission('Alpha', 'a', '1')], [pi]);
-    expect(shipRangeOnTable(two.missions, pi)).toBe(9);
+    expect(shipRangeOnTable(two, pi)).toBe(9);
     moveAgrees(two, pi, 1, 2, 7);
-    expect(shipRangeOnTable(tableOf([nz('One'), nz('Two'), nz('Three'), nz('Four')]).missions, pi)).toBe(10);
-    expect(shipRangeOnTable(tableOf([mission('Alpha', 'a')]).missions, pi)).toBe(7);
+    expect(shipRangeOnTable(tableOf([nz('One'), nz('Two'), nz('Three'), nz('Four')]), pi)).toBe(10);
+    expect(shipRangeOnTable(tableOf([mission('Alpha', 'a')]), pi)).toBe(7);
   });
 });
 
@@ -298,9 +298,9 @@ describe('Bird-of-Prey (#1648)', () => {
 
   it('is Range +1 for each [Rom] personnel of cost 4 or more aboard, limit +3', () => {
     const b = ship('Bird-of-Prey *VP', 'romulan', '7', [rom('4'), rom('3'), personnel('Officer', 'federation', { cost: '5' })]);
-    expect(shipRangeOnTable(tableOf([]).missions, b)).toBe(8);
+    expect(shipRangeOnTable(tableOf([]), b)).toBe(8);
     const full = ship('Bird-of-Prey', 'romulan', '7', [rom('4'), rom('5'), rom('6'), rom('4')]);
-    expect(shipRangeOnTable(tableOf([]).missions, full)).toBe(10);
+    expect(shipRangeOnTable(tableOf([]), full)).toBe(10);
     moveAgrees(tableOf([mission('Alpha', 'a', '1'), mission('Beta', 'a', '1')], [b]), b, 1, 2, 6);
   });
 });
@@ -312,28 +312,28 @@ describe('the Range of a personnel aboard (#1648)', () => {
     const fredericks = () => personnel('Fredericks', 'federation');
     const withIcons = (s: CardInstance, icons: string) => ({ ...s, card: { ...s.card, icons } });
     const both = withIcons(ship('Enterprise', 'federation', '8', [fredericks()]), '[pa][tng]');
-    expect(shipRangeOnTable(tableOf([]).missions, both)).toBe(9);
+    expect(shipRangeOnTable(tableOf([]), both)).toBe(9);
     moveAgrees(tableOf(route(), [both]), both, 1, 2, 7);
     const pa = withIcons(ship('Phoenix', 'federation', '8', [fredericks()]), '[pa]');
-    expect(shipRangeOnTable(tableOf([]).missions, pa)).toBe(8);
+    expect(shipRangeOnTable(tableOf([]), pa)).toBe(8);
   });
 
   it('Thomas Riker, Defiant Leader is Range +2 on a [Fed] ship, in every version', () => {
     const fed = ship('Relativity', 'federation', '8', [personnel('Thomas Riker Defiant Leader (AC)', 'federation')]);
-    expect(shipRangeOnTable(tableOf([]).missions, fed)).toBe(10);
+    expect(shipRangeOnTable(tableOf([]), fed)).toBe(10);
     moveAgrees(tableOf(route(), [fed]), fed, 1, 2, 8);
     const kli = ship('Negh Var', 'klingon', '8', [personnel('Thomas Riker Defiant Leader', 'federation')]);
-    expect(shipRangeOnTable(tableOf([]).missions, kli)).toBe(8);
+    expect(shipRangeOnTable(tableOf([]), kli)).toBe(8);
   });
 
   it('Benjamin Sisko, Shipwright is Range +1 on a [Baj] ship, not in the away team', () => {
     const baj = ship('Baraka', 'bajoran', '7', [personnel('Benjamin Sisko Shipwright *', 'bajoran')]);
-    expect(shipRangeOnTable(tableOf([]).missions, baj)).toBe(8);
+    expect(shipRangeOnTable(tableOf([]), baj)).toBe(8);
     moveAgrees(tableOf(route(), [baj]), baj, 1, 2, 6);
     const fed = ship('Relativity', 'federation', '8', [personnel('Benjamin Sisko Shipwright', 'bajoran')]);
-    expect(shipRangeOnTable(tableOf([]).missions, fed)).toBe(8);
+    expect(shipRangeOnTable(tableOf([]), fed)).toBe(8);
     const empty = ship('Baraka', 'bajoran', '7');
-    expect(shipRangeOnTable(tableOf([], [empty], { awayTeam: [personnel('Benjamin Sisko Shipwright', 'bajoran')] }).missions, empty)).toBe(7);
+    expect(shipRangeOnTable(tableOf([], [empty], { awayTeam: [personnel('Benjamin Sisko Shipwright', 'bajoran')] }), empty)).toBe(7);
   });
 });
 
@@ -347,16 +347,16 @@ describe('Inspiring Leader (#1648)', () => {
 
   it("is Range +2 while the ship's Commander is aboard", () => {
     const d = defiant([commander()]);
-    expect(shipRangeOnTable(tableOf([]).missions, d)).toBe(9);
+    expect(shipRangeOnTable(tableOf([]), d)).toBe(9);
     moveAgrees(tableOf([mission('Alpha', 'a', '1'), mission('Beta', 'a', '1')], [d]), d, 1, 2, 7);
   });
 
   it('gives nothing with no Commander aboard, nor to another ship', () => {
-    expect(shipRangeOnTable(tableOf([]).missions, defiant([personnel('Ensign', 'federation')]))).toBe(7);
+    expect(shipRangeOnTable(tableOf([]), defiant([personnel('Ensign', 'federation')]))).toBe(7);
     const other = { ...ship('U.S.S. Relativity', 'federation', '8', [commander()]), placedOn: [leader()] };
-    expect(shipRangeOnTable(tableOf([]).missions, other)).toBe(8);
+    expect(shipRangeOnTable(tableOf([]), other)).toBe(8);
     const bare = ship('U.S.S. Defiant Prototype Warship', 'federation', '7', [commander()]);
-    expect(shipRangeOnTable(tableOf([]).missions, bare)).toBe(7);
+    expect(shipRangeOnTable(tableOf([]), bare)).toBe(7);
   });
 });
 
@@ -376,8 +376,8 @@ describe('the setting "Apply card text to attributes" (#1668)', () => {
   it('gives U.S.S. Pasteur its printed Range while off, and Range +5 while on', () => {
     const pasteur = ship('U.S.S. Pasteur Medical Ship', 'federation', '7', [doctor()]);
     const t = tableOf([], [pasteur]);
-    expect(shipRangeOnTable(t.missions, pasteur, false)).toBe(7);
-    expect(shipRangeOnTable(t.missions, pasteur, true)).toBe(12);
+    expect(shipRangeOnTable(t, pasteur, false)).toBe(7);
+    expect(shipRangeOnTable(t, pasteur, true)).toBe(12);
   });
 
   it('still adds 2 between quadrants while off, and no waiver or core reduction applies', () => {
@@ -428,7 +428,7 @@ describe('the setting "Apply card text to attributes" (#1668)', () => {
     const moved = gameReducer(start, withShuffleOrders(start.table, plain(pasteur.id, 1), start.log, true));
     expect(moved.table.rangeUsed).toEqual({ [pasteur.id]: 5 });
     expect(lastText(moved.log)).toBe('Moved U.S.S. Pasteur Medical Ship from Alpha to Beta (used range 5, 7 left)');
-    expect(shipRangesOnTable(moved.table.missions, moved.table.rangeUsed, false)).toEqual({ [pasteur.id]: 7 });
+    expect(shipRangesOnTable(moved.table, moved.table.rangeUsed, false)).toEqual({ [pasteur.id]: 7 });
     expect(moved.table.rangeUsed).toEqual({ [pasteur.id]: 5 });
     const again = gameReducer(moved, withShuffleOrders(moved.table, plain(pasteur.id, 2), moved.log, false));
     expect(again.table.rangeUsed).toEqual({ [pasteur.id]: 12 });
