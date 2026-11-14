@@ -1,4 +1,4 @@
-import { COST_REGISTRY, costModelOf, costRegistryOf } from '../../lib/costModels/registry';
+import { COST_REGISTRY, costModelOf, costRegistryOf, limitGrantsOf } from '../../lib/costModels/registry';
 import { CostFacts, CostModel } from '../../lib/costModels/model';
 import { moveCharge } from '../../lib/playCost';
 import { partnerTraitsOf } from '../../lib/dilemmaBot/simulator';
@@ -15,7 +15,7 @@ describe('the cost registry (#1654)', () => {
   it('holds one model per title, each with its family', () => {
     for (const [title, model] of COST_REGISTRY) {
       expect(model.title).toBe(title);
-      expect(model.family).toBe('ownCost');
+      expect(['ownCost', 'limit']).toContain(model.family);
     }
     expect([...COST_REGISTRY.keys()]).toEqual(expect.arrayContaining(['Borg Nanoprobes', 'Goran']));
   });
@@ -68,5 +68,24 @@ describe('moveCharge with the facts of the cost models (#1654)', () => {
   it('charges a card with no model its printed cost, with no source', () => {
     const ship = { name: 'enterprise', originalName: 'Enterprise', type: 'ship', cost: '4' };
     expect(moveCharge('playAndDraw', 'hand', 'shipRow', ship, facts({ commanded: [borg] }))).toEqual({ kind: 'play', cost: 4 });
+  });
+});
+
+describe('the limit models (#1655)', () => {
+  it("grants Surprise Party's +1 only while it is in the core, once for any copies", () => {
+    expect(limitGrantsOf(facts())).toEqual([]);
+    expect(limitGrantsOf(facts({ core: ['Surprise Party', 'Surprise Party'] }))).toEqual([
+      { title: 'Surprise Party', amount: 1, reason: 'in your core' },
+    ]);
+    expect(limitGrantsOf(facts({ hand: [{ id: 'e1', title: 'Surprise Party', type: 'event' }] }))).toEqual([]);
+  });
+
+  it('offers Tricia Jenkins her +5 at her printed cost', () => {
+    const tricia = { name: 'tricia jenkins relaxed pilot', originalName: 'Tricia Jenkins Relaxed Pilot', type: 'personnel', cost: '2' };
+    expect(moveCharge('playAndDraw', 'hand', 'awayTeam', tricia, facts())).toEqual({
+      kind: 'play',
+      cost: 2,
+      source: { title: 'Tricia Jenkins', reason: 'you may spend 5 more counters this turn', choice: { label: 'Raise the limit: +5', limit: 5 } },
+    });
   });
 });

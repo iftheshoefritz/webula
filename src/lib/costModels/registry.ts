@@ -1,4 +1,5 @@
-import { CostModel } from './model';
+import { CostFacts, CostModel, LimitGrant } from './model';
+import { LIMIT_MODELS } from './titles/limit';
 import { OWN_COST_MODELS } from './titles/ownCost';
 import { cardTitleOf } from '../cardTitle';
 
@@ -6,7 +7,7 @@ import { cardTitleOf } from '../cardTitle';
 // as the dilemma registry of the pile bot does. A new list of titles adds itself here. Each model
 // names its family.
 
-const MODELS: CostModel[] = [...OWN_COST_MODELS];
+const MODELS: CostModel[] = [...OWN_COST_MODELS, ...LIMIT_MODELS];
 
 /** The registry of `models`, by title. Two models of one title throw. */
 export function costRegistryOf(models: CostModel[]): ReadonlyMap<string, CostModel> {
@@ -23,4 +24,19 @@ export const COST_REGISTRY: ReadonlyMap<string, CostModel> = costRegistryOf(MODE
 /** The model of a card name, by its title less the version suffix, or undefined for a title the registry lacks. */
 export function costModelOf(name: string): CostModel | undefined {
   return COST_REGISTRY.get(cardTitleOf(name));
+}
+
+/** The name a model's suggestions show: its label, or its title. */
+export const costModelName = (model: CostModel): string => model.label ?? model.title;
+
+/**
+ * The grants of the models to the turn's limit while the table stands as `facts` say (#1655), one per
+ * model that grants a counter or more, in the order of the registry.
+ */
+export function limitGrantsOf(facts: CostFacts, registry: ReadonlyMap<string, CostModel> = COST_REGISTRY): LimitGrant[] {
+  return [...registry.values()].flatMap((model) => {
+    const grant = model.limitGrant?.(facts);
+    const amount = grant ? Math.round(grant.amount) : 0;
+    return grant && amount > 0 && Number.isFinite(amount) ? [{ title: costModelName(model), amount, reason: grant.reason }] : [];
+  });
 }

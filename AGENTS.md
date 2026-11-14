@@ -545,7 +545,11 @@ hand (`downloadedThisTurn`), is free once, and the cost registry (`src/lib/costM
 title, of `CostFacts` that `costFactsOf` builds) gives Borg Nanoprobes cost −2 while a Borg is
 commanded and Goran his "may", a button `charge-choice` ("Discard a card: −2") that dispatches
 `correctCharge` with its `source`. The chip and the list name the source, `charge-source`, and the log
-text reads "(cost 3, Borg Nanoprobes: you command a Borg)". A charge shows its chip, `charge-chip`,
+text reads "(cost 3, Borg Nanoprobes: you command a Borg)". The limit is 7, plus the grants of the models
+(#1655, `limitGrantsOf`, read from the table as it stands: Surprise Party +1 while it is in the core),
+plus the `counterLimit` changes; Tricia Jenkins's "Raise the limit: +5" is a `charge-choice` that
+dispatches `adjustCounterLimit` with its `source`. The counter's label names the grants, "Counters 0 of 8
+(Surprise Party +1)", and the list the parts, `turn-counters-limit-parts`, "7 + 1 Surprise Party". A charge shows its chip, `charge-chip`,
 for `CHARGE_CHIP_MS` with Free, minus and plus; a tap on the counter opens `turn-counters-list`, the
 turn's charges and the limit. They show on the full table only, not in the attempt layout. A desktop
 shows the same column (#1451), below its five corner buttons (redo under undo), with `btn-icon`

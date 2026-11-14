@@ -8,7 +8,7 @@
 
 import { cardDisplayName } from './cardCount';
 import { CostFacts, CostSource, DOWNLOADED_SOURCE } from './costModels/model';
-import { costModelOf } from './costModels/registry';
+import { costModelName, costModelOf } from './costModels/registry';
 
 // The segment of a turn, as `TurnSegment` in the practice table names it.
 export type CostSegment = 'playAndDraw' | 'orders' | 'discard';
@@ -62,13 +62,14 @@ export function moveCharge(
   const name = card ? String(cardDisplayName(card) ?? '') : '';
   if (facts && name && facts.downloaded.includes(name)) return { kind: 'play', cost: 0, source: DOWNLOADED_SOURCE };
   const model = facts && name ? costModelOf(name) : undefined;
-  const suggested = model && facts ? model.playCost({ id, type, printed }, facts) : null;
+  const suggested = model?.playCost && facts ? model.playCost({ id, type, printed }, facts) : null;
   if (model && suggested) {
-    const choice = suggested.choice ? { ...suggested.choice, cost: Math.max(0, suggested.choice.cost) } : undefined;
+    const choice =
+      suggested.choice?.cost !== undefined ? { ...suggested.choice, cost: Math.max(0, suggested.choice.cost) } : suggested.choice;
     return {
       kind: 'play',
       cost: Math.max(0, suggested.cost),
-      source: { title: model.title, reason: suggested.reason, ...(choice ? { choice } : {}) },
+      source: { title: costModelName(model), reason: suggested.reason, ...(choice ? { choice } : {}) },
     };
   }
   return { kind: 'play', cost: printed };

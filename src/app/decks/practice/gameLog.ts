@@ -42,7 +42,8 @@ import { drawSpend } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
-import type { CostSource } from '../../../lib/costModels/model';
+import type { CostSource, LimitGrant } from '../../../lib/costModels/model';
+import { limitGrantsOf } from '../../../lib/costModels/registry';
 import { DOWNLOADED_SOURCE } from '../../../lib/costModels/model';
 import { costFactsOf } from './costFacts';
 
@@ -155,7 +156,9 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // `source` is the title of the model whose choice the player took (#1654), "Goran".
   | { kind: 'chargeCorrected'; target: ChargeTarget; card?: LogCard; draw?: true; from: number; to: number; source?: string }
   // A change of the turn's limit of counters by the player (#1607), and the limit it left.
-  | { kind: 'counterLimit'; delta: number; limit: number }
+  // `source` names the model whose choice raised the limit (#1655), "Tricia Jenkins", and `target` the
+  // charge of the play that offered it.
+  | { kind: 'counterLimit'; delta: number; limit: number; source?: string; target?: ChargeTarget }
 );
 
 // One charge of the log (#1607): the index of its entry in the log, and for a move entry the move and
@@ -192,7 +195,8 @@ export type GameAction =
   // log, so `gameReducer` handles them and `tableReducer` never sees them.
   // `source` names the model whose choice sets the cost (#1654).
   | { type: 'correctCharge'; target: ChargeTarget; cost: number; source?: string }
-  | { type: 'adjustCounterLimit'; delta: number }
+  // `source` and `target` name the model whose choice changes the limit and its play's charge (#1655).
+  | { type: 'adjustCounterLimit'; delta: number; source?: string; target?: ChargeTarget }
   // A restore of the saved game (#1400) that brings its log back too, and its undo and redo
   // histories (#1401).
   | { type: 'restore'; state: TableState; log?: LogEntry[]; undo?: TableState[]; redo?: RedoStep[] };
@@ -571,7 +575,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   }
   // A correction changes no card, so its undo snapshot is the table as it is (#1607).
   if (action.type === 'correctCharge' || action.type === 'adjustCounterLimit') {
-    const entry = action.type === 'correctCharge' ? chargeCorrectionEntry(state, action) : counterLimitEntry(state, action.delta);
+    const entry = action.type === 'correctCharge' ? chargeCorrectionEntry(state, action) : counterLimitEntry(state, action);
     if (!entry) return state;
     return { table: state.table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
   }
@@ -975,7 +979,7 @@ export function logEntryText(entry: LogEntry): string {
         typeof entry.source === 'string' && entry.source ? ` (${entry.source})` : ''
       }`;
     case 'counterLimit':
-      return `Set this turn's counters to ${entry.limit}`;
+      return `Set this turn's counters to ${entry.limit}${typeof entry.source === 'string' && entry.source ? ` (${entry.source})` : ''}`;
   }
 }
 
@@ -1079,7 +1083,7 @@ export function gameLogText(log: LogEntry[]): string {
     .join('\n\n');
 }
 
-// The counters of a turn (#1607): 7, and the player's changes to the limit.
+// The counters of a turn (#1607): 7, the grants of the cost models (#1655), and the player's changes to the limit.
 export const TURN_COUNTER_LIMIT = 7;
 
 const isIndex = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0;
@@ -1158,11 +1162,18 @@ function chargesOf(entry: LogEntry, index: number): LogCharge[] {
   });
 }
 
-// The charges with `choiceTaken` set where a correction in `log` took the choice of the charge's source.
+// The charges with `choiceTaken` set where a correction in `log` took the choice of the charge's source:
+// a `chargeCorrected` of its cost, or a `counterLimit` of the turn's limit (#1655), aimed at the charge.
 function withChoicesTaken(log: LogEntry[], charges: LogCharge[]): LogCharge[] {
   return charges.map((charge) =>
     charge.source?.choice &&
-    log.some((e) => e.kind === 'chargeCorrected' && e.source === charge.source!.title && e.target && sameTarget(e.target, charge.target))
+    log.some(
+      (e) =>
+        (e.kind === 'chargeCorrected' || e.kind === 'counterLimit') &&
+        e.source === charge.source!.title &&
+        !!e.target &&
+        sameTarget(e.target, charge.target)
+    )
       ? { ...charge, choiceTaken: true }
       : charge
   );
@@ -1181,26 +1192,34 @@ export const turnCharges = (log: LogEntry[], turn: number): LogCharge[] =>
     effectiveLog(log).flatMap((entry, i) => (entry.turn === turn && entrySegment(entry) === 'playAndDraw' ? chargesOf(entry, i) : []))
   );
 
-// The limit of counters of `turn`: 7 and the turn's changes, never below 0. A new turn starts at 7.
-export const turnCounterLimit = (log: LogEntry[], turn: number): number =>
+// The limit of counters of `turn`: 7, the `grants` of the cost models (#1655), and the turn's changes,
+// never below 0. A new turn starts at 7 and its grants. The grants read the table as it stands now, so
+// they belong to the current turn, the one the counter shows.
+export const turnCounterLimit = (log: LogEntry[], turn: number, grants: LimitGrant[] = []): number =>
   Math.max(
     0,
     log.reduce(
       (limit, e) => (e.kind === 'counterLimit' && e.turn === turn && typeof e.delta === 'number' ? limit + e.delta : limit),
-      TURN_COUNTER_LIMIT
+      grants.reduce((sum, g) => sum + g.amount, TURN_COUNTER_LIMIT)
     )
   );
 
 export interface TurnCounters {
   spent: number;
   limit: number;
+  // The grants of the cost models to the limit (#1655), "Surprise Party +1".
+  grants: LimitGrant[];
 }
 
-// The counters `turn` spent and its limit, derived from the log alone, so an undo, a redo and a
-// reload agree.
-export const turnCounters = (log: LogEntry[], turn: number): TurnCounters => ({
+// The grants of the cost models to the current turn's limit (#1655), from the table as it stands.
+export const tableLimitGrants = (table: TableState): LimitGrant[] => limitGrantsOf(costFactsOf(table, []));
+
+// The counters `turn` spent and its limit, derived from the log and the grants of the table, so an
+// undo, a redo and a reload agree.
+export const turnCounters = (log: LogEntry[], turn: number, grants: LimitGrant[] = []): TurnCounters => ({
   spent: turnCharges(log, turn).reduce((sum, c) => sum + c.cost, 0),
-  limit: turnCounterLimit(log, turn),
+  limit: turnCounterLimit(log, turn, grants),
+  grants,
 });
 
 const sameTarget = (a: ChargeTarget, b: ChargeTarget): boolean => a.entry === b.entry && a.move === b.move && a.card === b.card;
@@ -1223,12 +1242,21 @@ function chargeCorrectionEntry(state: GameState, action: { target: ChargeTarget;
   };
 }
 
-// The entry of a change of the current turn's limit, or null at 0 going down.
-function counterLimitEntry(state: GameState, delta: number): LogEntry | null {
-  const limit = turnCounterLimit(state.log, state.table.turn);
-  const next = Math.max(0, limit + Math.round(delta));
+// The entry of a change of the current turn's limit, or null at 0 going down. A change by a model's
+// choice names its source and the charge that offered it (#1655).
+function counterLimitEntry(state: GameState, action: { delta: number; source?: string; target?: ChargeTarget }): LogEntry | null {
+  const limit = turnCounterLimit(state.log, state.table.turn, tableLimitGrants(state.table));
+  const next = Math.max(0, limit + Math.round(action.delta));
   if (!Number.isFinite(next) || next === limit) return null;
-  return { kind: 'counterLimit', delta: next - limit, limit: next, turn: state.table.turn, segment: state.table.segment };
+  return {
+    kind: 'counterLimit',
+    delta: next - limit,
+    limit: next,
+    ...(action.source ? { source: action.source } : {}),
+    ...(action.source && action.target ? { target: action.target } : {}),
+    turn: state.table.turn,
+    segment: state.table.segment,
+  };
 }
 
 // Whether an action carries a charge of the table (#1607), so the page shows its chip.
