@@ -10,6 +10,7 @@ import {
   tableConditionHolds,
 } from './gains';
 import { BOT_SKILLS, RequirementPersonnel, SKILL_INDEX } from './requirements';
+import { cardTitleOf } from '../cardTitle';
 
 // The personnel of the dilemma bot (#1282, #1287): each attempting card as the profiles the pile
 // bot's play reads (`pile/play.ts`), the partner gains settled against the group, and the seeded
@@ -157,7 +158,10 @@ export function botPersonnelOf(card: TraitsRow & {
   const loss = personnelLossOf(card);
   const lost = loss !== null && !lossSuspended && tableConditionHolds(loss.table, facts);
   if (lost) for (const profile of [facing, requirement]) profile.skills.fill(0);
-  for (const gain of personnelGainsOf(card)) {
+  // A title whose attributes the table already reads (#1667) keeps only the skills of its gains.
+  const attrsOnRow = facts?.attributeTitles?.includes(cardTitleOf(String(card.originalName ?? card.name)).toLowerCase()) ?? false;
+  for (const parsed of personnelGainsOf(card)) {
+    const gain: PersonnelGain = attrsOnRow ? { ...parsed, attrs: [0, 0, 0] } : parsed;
     if (lost && loss.nextAbility && gain.nextAbility) continue;
     if (!gainHoldsAt(gain, mission) || (gain.table && !tableConditionHolds(gain.table, facts))) continue;
     if (gain.partner) {

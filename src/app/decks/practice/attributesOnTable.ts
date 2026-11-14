@@ -4,8 +4,8 @@
 // `RangeUsedContext`. With the setting "Apply card text to attributes" off (#1668) the map is empty,
 // and every card shows its printed values.
 
-import type { CardInstance, MissionSlot } from './tableReducer';
-import { personnelAttributesOnTable, shipAttributesOnTable } from './attributeModels';
+import type { CardInstance } from './tableReducer';
+import { type AttributeTable, personnelAttributesOnTable, shipAttributesOnTable } from './attributeModels';
 import { isPersonnel } from './rangeModels';
 import { shipRangeOnTable } from './shipRange';
 
@@ -53,16 +53,13 @@ const NONE: Record<string, AttributesOnTable> = {};
 // The modified attributes of every personnel at a mission (in an away team or a crew) and of every
 // ship on a ship row, by the card's instance id. A card whose values all equal the printed ones has
 // no entry, nor has a card the readers do not cover (the hand, a pile, the brig, the discard).
-export function attributesOnTableOf(
-  missions: MissionSlot[],
-  core: CardInstance[],
-  cardText: boolean
-): Record<string, AttributesOnTable> {
+export function attributesOnTableOf(table: AttributeTable, cardText: boolean): Record<string, AttributesOnTable> {
   if (!cardText) return NONE;
+  const { missions } = table;
   const map: Record<string, AttributesOnTable> = {};
   const addPersonnel = (p: CardInstance) => {
     if (!isPersonnel(p)) return;
-    const modified = modifiedOf(p, personnelAttributesOnTable(missions, core, p, true));
+    const modified = modifiedOf(p, personnelAttributesOnTable(table, p, true));
     if (modified) map[p.id] = modified;
   };
   for (const slot of missions) {
@@ -71,7 +68,7 @@ export function attributesOnTableOf(
       (ship.crew ?? []).forEach(addPersonnel);
       const modified = modifiedOf(ship, {
         range: shipRangeOnTable(missions, ship, true),
-        ...shipAttributesOnTable(missions, core, ship, true),
+        ...shipAttributesOnTable(table, ship, true),
       });
       if (modified) map[ship.id] = modified;
     }

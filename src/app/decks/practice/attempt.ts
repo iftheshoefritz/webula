@@ -24,7 +24,7 @@ import { PileDestination, PileResolveWhere, PileSteps, modifiersText, pileResolv
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 import { pileTitleOf } from '../../../lib/dilemmaBot/pile/registry';
-import { personnelAttributesOnTable, shipAttributesOnTable } from './attributeModels';
+import { ATTRIBUTE_REGISTRY, personnelAttributesOnTable, shipAttributesOnTable } from './attributeModels';
 import { shipRangeOnTable } from './shipRange';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
@@ -259,7 +259,7 @@ export function revealPicksOf(table: TableState, rand: Rand): string[][] | undef
 // for any card that is not a personnel.
 function personnelRowOnTable(table: TableState, card: CardInstance, cardText: boolean): CardInstance['card'] {
   if (!cardText || card.card?.type !== 'personnel') return card.card;
-  return { ...card.card, ...personnelAttributesOnTable(table.missions, table.core, card, true) };
+  return { ...card.card, ...personnelAttributesOnTable(table, card, true) };
 }
 
 // A ship's row with its Range, Weapons and Shields on the table (#1665) when `cardText` is on.
@@ -268,7 +268,7 @@ function shipRowOnTable(table: TableState, ship: CardInstance, cardText: boolean
   return {
     ...ship.card,
     range: shipRangeOnTable(table.missions, ship, true),
-    ...shipAttributesOnTable(table.missions, table.core, ship, true),
+    ...shipAttributesOnTable(table, ship, true),
   };
 }
 
@@ -293,7 +293,7 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
     discard: table.discard.map((c) => c.card),
     turn: table.turn,
     score: table.score,
-    facts: botTableFactsOf(table),
+    facts: botTableFactsOf(table, cardText),
     core: table.core.map((c) => c.card),
     commanded: table.missions.flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])]).map((c) => c.card),
     shipsAtMission: (slot?.ships ?? []).map((ship) => ({ staffed: (ship.crew ?? []).some((c) => c.card?.type === 'personnel') })),
@@ -313,7 +313,9 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
 // While the condition of Sphere 117 holds (#1363), a Sphere 117 on any ship row and every mission of
 // the table a [DQ] mission, a commanded Drone reads Dissident in place of Drone. An empty slot holds
 // no mission and does not count.
-export function botTableFactsOf(table: TableState): BotTableFacts {
+// With `cardText` on (#1667), `attributeTitles` names the titles of the attribute registry, whose
+// attributes the rows of `pileTableInputOf` already carry, so the bot drops their parsed attributes.
+export function botTableFactsOf(table: TableState, cardText = false): BotTableFacts {
   const sphere = sphere117Holds(
     table.missions.some((s) => s.ships.some((ship) => isSphere117(ship.card))),
     table.missions.flatMap((s) => (s.mission?.card ? [String(s.mission.card.quadrant ?? '')] : [])),
@@ -326,6 +328,7 @@ export function botTableFactsOf(table: TableState): BotTableFacts {
       .flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])])
       .flatMap((c) => (c.card?.type === 'personnel' ? [partnerTraitsOf(c.card)] : []))
       .map((traits) => (sphere ? asSphere117Dissident(traits) : traits)),
+    ...(cardText ? { attributeTitles: [...ATTRIBUTE_REGISTRY.keys()] } : {}),
   };
 }
 
