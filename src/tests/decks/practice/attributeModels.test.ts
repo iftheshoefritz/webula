@@ -39,6 +39,14 @@ const slotsOf = (slots: Partial<MissionSlot>[]): MissionSlot[] =>
     ...slots[i],
   }));
 
+const tableOf = (missions: MissionSlot[], core: CardInstance[] = [], hand: CardInstance[] = []) => ({
+  missions,
+  core,
+  hand,
+  discard: [],
+  score: 0,
+});
+
 const PRINTED = { integrity: 5, cunning: 6, strength: 4 };
 const PLUS_ONE = { integrity: 6, cunning: 7, strength: 5 };
 
@@ -51,21 +59,21 @@ describe('U.S.S. Enterprise-J (#1664)', () => {
       { mission: mission('Forty', '40', [enterpriseJ()]), awayTeam: [away], ships: [ship('Ship', {}, [aboard])] },
       { mission: mission('Other', '40'), awayTeam: [elsewhere] },
     ]);
-    expect(personnelAttributesOnTable(missions, [], away)).toEqual(PLUS_ONE);
-    expect(personnelAttributesOnTable(missions, [], aboard)).toEqual(PLUS_ONE);
-    expect(personnelAttributesOnTable(missions, [], elsewhere)).toEqual(PRINTED);
+    expect(personnelAttributesOnTable(tableOf(missions, []), away)).toEqual(PLUS_ONE);
+    expect(personnelAttributesOnTable(tableOf(missions, []), aboard)).toEqual(PLUS_ONE);
+    expect(personnelAttributesOnTable(tableOf(missions, []), elsewhere)).toEqual(PRINTED);
   });
 
   it('gives nothing on a mission worth less than 40', () => {
     const away = personnel('Away');
     const missions = slotsOf([{ mission: mission('Thirty-five', '35', [enterpriseJ()]), awayTeam: [away] }]);
-    expect(personnelAttributesOnTable(missions, [], away)).toEqual(PRINTED);
+    expect(personnelAttributesOnTable(tableOf(missions, []), away)).toEqual(PRINTED);
   });
 
   it('changes no ship', () => {
     const s = ship('Ship');
     const missions = slotsOf([{ mission: mission('Forty', '40', [enterpriseJ()]), ships: [s] }]);
-    expect(shipAttributesOnTable(missions, [], s)).toEqual({ weapons: 7, shields: 6 });
+    expect(shipAttributesOnTable(tableOf(missions, []), s)).toEqual({ weapons: 7, shields: 6 });
   });
 });
 
@@ -80,11 +88,11 @@ describe('Orlitus Cluster Astronomical Survey (#1664)', () => {
       { mission: orlitus(), awayTeam: [freeAway, noCost], ships: [ship('Ship', {}, [cheapAboard, dear])] },
       { mission: mission('Other', '35'), awayTeam: [cheapElsewhere] },
     ]);
-    expect(personnelAttributesOnTable(missions, [], cheapAboard)).toEqual(PLUS_ONE);
-    expect(personnelAttributesOnTable(missions, [], freeAway)).toEqual(PLUS_ONE);
-    expect(personnelAttributesOnTable(missions, [], dear)).toEqual(PRINTED);
-    expect(personnelAttributesOnTable(missions, [], noCost)).toEqual(PRINTED);
-    expect(personnelAttributesOnTable(missions, [], cheapElsewhere)).toEqual(PRINTED);
+    expect(personnelAttributesOnTable(tableOf(missions, []), cheapAboard)).toEqual(PLUS_ONE);
+    expect(personnelAttributesOnTable(tableOf(missions, []), freeAway)).toEqual(PLUS_ONE);
+    expect(personnelAttributesOnTable(tableOf(missions, []), dear)).toEqual(PRINTED);
+    expect(personnelAttributesOnTable(tableOf(missions, []), noCost)).toEqual(PRINTED);
+    expect(personnelAttributesOnTable(tableOf(missions, []), cheapElsewhere)).toEqual(PRINTED);
   });
 });
 
@@ -101,20 +109,20 @@ describe('Dark Dissension (#1664)', () => {
 
   it('gives a [TN] personnel Integrity -1 and Cunning +1, and no other personnel anything', () => {
     const core = [darkDissension()];
-    expect(personnelAttributesOnTable(missions, core, tn)).toEqual({ integrity: 4, cunning: 7, strength: 4 });
-    expect(personnelAttributesOnTable(missions, core, tng)).toEqual(PRINTED);
-    expect(personnelAttributesOnTable(missions, core, plain)).toEqual(PRINTED);
+    expect(personnelAttributesOnTable(tableOf(missions, core), tn)).toEqual({ integrity: 4, cunning: 7, strength: 4 });
+    expect(personnelAttributesOnTable(tableOf(missions, core), tng)).toEqual(PRINTED);
+    expect(personnelAttributesOnTable(tableOf(missions, core), plain)).toEqual(PRINTED);
   });
 
   it('gives a [TN] ship Weapons +1 and Shields -1, never below 0', () => {
     const core = [darkDissension()];
-    expect(shipAttributesOnTable(missions, core, tnShip)).toEqual({ weapons: 8, shields: 5 });
-    expect(shipAttributesOnTable(missions, core, weakShip)).toEqual({ weapons: 8, shields: 0 });
-    expect(shipAttributesOnTable(missions, core, tngShip)).toEqual({ weapons: 7, shields: 6 });
+    expect(shipAttributesOnTable(tableOf(missions, core), tnShip)).toEqual({ weapons: 8, shields: 5 });
+    expect(shipAttributesOnTable(tableOf(missions, core), weakShip)).toEqual({ weapons: 8, shields: 0 });
+    expect(shipAttributesOnTable(tableOf(missions, core), tngShip)).toEqual({ weapons: 7, shields: 6 });
   });
 
   it('counts every copy in the core', () => {
-    expect(personnelAttributesOnTable(missions, [darkDissension(), darkDissension()], tn)).toEqual({
+    expect(personnelAttributesOnTable(tableOf(missions, [darkDissension(), darkDissension()]), tn)).toEqual({
       integrity: 3,
       cunning: 8,
       strength: 4,
@@ -122,9 +130,9 @@ describe('Dark Dissension (#1664)', () => {
   });
 
   it('gives nothing out of the core, and nothing to a [TN] personnel the player does not command', () => {
-    expect(personnelAttributesOnTable(missions, [], tn)).toEqual(PRINTED);
+    expect(personnelAttributesOnTable(tableOf(missions, []), tn)).toEqual(PRINTED);
     const inHand = personnel('In Hand', { icons: '[tn]' });
-    expect(personnelAttributesOnTable(missions, [darkDissension()], inHand)).toEqual(PRINTED);
+    expect(personnelAttributesOnTable(tableOf(missions, [darkDissension()]), inHand)).toEqual(PRINTED);
   });
 });
 
@@ -137,9 +145,9 @@ describe('the option "Apply card text to attributes" off (#1664, #1668)', () => 
       { mission: orlitus(), ships: [s] },
     ]);
     const core = [darkDissension()];
-    expect(personnelAttributesOnTable(missions, core, away)).toEqual({ integrity: 5, cunning: 8, strength: 5 });
-    expect(personnelAttributesOnTable(missions, core, away, false)).toEqual(PRINTED);
-    expect(shipAttributesOnTable(missions, core, s, false)).toEqual({ weapons: 7, shields: 6 });
+    expect(personnelAttributesOnTable(tableOf(missions, core), away)).toEqual({ integrity: 5, cunning: 8, strength: 5 });
+    expect(personnelAttributesOnTable(tableOf(missions, core), away, false)).toEqual(PRINTED);
+    expect(shipAttributesOnTable(tableOf(missions, core), s, false)).toEqual({ weapons: 7, shields: 6 });
   });
 });
 
@@ -156,7 +164,7 @@ describe('the registry of attribute models (#1664)', () => {
   });
 
   it('holds one model per title', () => {
-    expect(ATTRIBUTE_REGISTRY.size).toBe(3);
+    expect(ATTRIBUTE_REGISTRY.size).toBe(14);
     expect(attributeModelOf(personnel('Nobody'))).toBeUndefined();
   });
 });

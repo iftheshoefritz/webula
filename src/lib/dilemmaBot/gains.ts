@@ -111,6 +111,13 @@ export interface BotTableFacts {
    * while its condition holds, a Drone reads Dissident in place of Drone (`asSphere117Dissident`).
    */
   commanded: PartnerTraits[];
+  /**
+   * The titles, lowercased and less their version suffix (`cardTitleOf`), whose attributes the table
+   * already gives on the row (#1667): the titles of the practice table's attribute registry, while
+   * "Apply card text to attributes" is on. A gain of such a title keeps its skills and drops its
+   * attributes, so a clause counts once.
+   */
+  attributeTitles?: string[];
 }
 
 /** The name of Sphere 117, Renegade Borg Sphere (Unity, 25V051), as `originalName` (#1363). */

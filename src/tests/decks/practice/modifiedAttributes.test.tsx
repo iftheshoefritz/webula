@@ -42,6 +42,7 @@ const ship = (name: string, extra: Record<string, string> = {}, crew: CardInstan
   ...card(name, 'ship', { range: '7', weapons: '7', shields: '6', ...extra }),
   crew,
 });
+const tableOf = (missions: MissionSlot[], core: CardInstance[] = []) => ({ missions, core, hand: [], discard: [], score: 0 });
 const slotsOf = (slots: Partial<MissionSlot>[]): MissionSlot[] =>
   Array.from({ length: MISSION_SLOTS }, (_, i) => ({ mission: null, ships: [], awayTeam: [], underMission: [], ...slots[i] }));
 
@@ -54,22 +55,22 @@ describe('attributesOnTableOf (#1666)', () => {
     const tn = personnel('Tn Dissident', { icons: '[TN]' });
     const other = personnel('Plain Officer');
     const missions = slotsOf([{ awayTeam: [tn, other] }]);
-    expect(attributesOnTableOf(missions, [card('Dark Dissension', 'event')], true)).toEqual({ [tn.id]: { integrity: 4, cunning: 7 } });
+    expect(attributesOnTableOf(tableOf(missions, [card('Dark Dissension', 'event')]), true)).toEqual({ [tn.id]: { integrity: 4, cunning: 7 } });
   });
 
   it('is empty with the setting off', () => {
     const tn = personnel('Tn Dissident', { icons: '[TN]' });
-    expect(attributesOnTableOf(slotsOf([{ awayTeam: [tn] }]), [card('Dark Dissension', 'event')], false)).toEqual({});
+    expect(attributesOnTableOf(tableOf(slotsOf([{ awayTeam: [tn] }]), [card('Dark Dissension', 'event')]), false)).toEqual({});
   });
 
   it('covers the crew of a ship and the ship, its Range too', () => {
     const medic = personnel('Medic', { affiliation: 'Federation', skills: 'Medical' });
     const pasteur = ship('U.S.S. Pasteur Medical Ship', { icons: '[TN]' }, [medic]);
     const missions = slotsOf([{ ships: [pasteur] }]);
-    const map = attributesOnTableOf(missions, [], true);
+    const map = attributesOnTableOf(tableOf(missions, []), true);
     expect(map[pasteur.id]).toEqual({ range: 12 });
     expect(map[medic.id]).toBeUndefined();
-    expect(attributesOnTableOf(missions, [], false)).toEqual({});
+    expect(attributesOnTableOf(tableOf(missions, []), false)).toEqual({});
   });
 
   it('never marks a blank printed value', () => {

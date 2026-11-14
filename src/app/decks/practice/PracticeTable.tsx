@@ -2038,8 +2038,12 @@ function PracticeDrawContent() {
   // The range each ship used this turn and its Range on the table (#1635), for the pill of its card.
   // The attributes on the table that differ from the printed ones (#1666), for the arrows of the bands.
   const attributesOnTable = useMemo(
-    () => attributesOnTableOf(table.missions, table.core, cardTextOn),
-    [table.missions, table.core, cardTextOn]
+    () =>
+      attributesOnTableOf(
+        { missions: table.missions, core: table.core, hand: table.hand, discard: table.discard, score: table.score, rangeUsed: table.rangeUsed },
+        cardTextOn
+      ),
+    [table.missions, table.core, table.hand, table.discard, table.score, table.rangeUsed, cardTextOn]
   );
   const rangeUsedInfo = useMemo(
     () => ({
