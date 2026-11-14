@@ -17,6 +17,7 @@ import PersonnelOverlay, {
   ARROW_COLORS,
   ShipOverlay,
   ShipRangeLeftBox,
+  WholeCardAttributeBoxes,
   attributeLabelRoom,
   personnelLabelBesideArrow,
   personnelOverlayLayout,
@@ -175,6 +176,77 @@ describe('the whole-card Range box (#1666)', () => {
   it('is nothing for a ship that did not move and whose Range is printed', () => {
     expect(shipRangeShown({ range: '7' }, null, undefined)).toBeNull();
     expect(shipRangeShown({ range: '7' }, null, { weapons: 8 })).toBeNull();
+  });
+});
+
+describe('the whole-card attribute boxes (#1676)', () => {
+  it('patches Integrity down and Cunning up over a whole personnel, and Strength not at all', () => {
+    const kira = personnel('Tn Kira');
+    render(<WholeCardAttributeBoxes card={kira.card} imageSrc="/x.jpg" width={357} height={496} onTable={{ integrity: 4, cunning: 7 }} />);
+    const integrity = screen.getByTestId('whole-card-integrity');
+    expect(integrity).toHaveAttribute('aria-label', 'Integrity 4, printed 5');
+    expect(within(integrity).getByTestId('whole-card-integrity-value')).toHaveTextContent('4');
+    expect(within(integrity).getByTestId('whole-card-integrity-modified')).toHaveAttribute('data-direction', 'down');
+    const cunning = screen.getByTestId('whole-card-cunning');
+    expect(cunning).toHaveAttribute('aria-label', 'Cunning 7, printed 6');
+    expect(within(cunning).getByTestId('whole-card-cunning-modified')).toHaveAttribute('data-direction', 'up');
+    expect(screen.queryByTestId('whole-card-strength')).toBeNull();
+  });
+
+  it('sits over the printed box: the second about 102 scan px right of the first, the third about 203', () => {
+    const p = personnel('Tn All');
+    render(<WholeCardAttributeBoxes card={p.card} imageSrc="/x.jpg" width={357} height={496} onTable={{ integrity: 4, cunning: 7, strength: 3 }} />);
+    const left = (id: string) => parseFloat(screen.getByTestId(id).style.left);
+    const right = (id: string) => left(id) + parseFloat(screen.getByTestId(id).style.width);
+    expect(left('whole-card-integrity')).toBeGreaterThan(100);
+    expect(right('whole-card-integrity')).toBeLessThan(121);
+    expect(left('whole-card-cunning')).toBeGreaterThan(198);
+    expect(right('whole-card-cunning')).toBeLessThan(223);
+    expect(left('whole-card-strength')).toBeGreaterThan(303);
+    expect(right('whole-card-strength')).toBeLessThan(325);
+    expect(parseFloat(screen.getByTestId('whole-card-integrity').style.top)).toBeCloseTo(437.5);
+  });
+
+  it('keeps the arrow and a two-digit value inside the patch', () => {
+    const p = personnel('Tn Wide');
+    render(<WholeCardAttributeBoxes card={p.card} imageSrc="/x.jpg" width={357} height={496} onTable={{ integrity: 10 }} />);
+    const arrow = screen.getByTestId('whole-card-integrity-modified');
+    expect(Number(arrow.getAttribute('data-arrow-left'))).toBeGreaterThanOrEqual(-0.01);
+  });
+
+  it('patches a ship\'s Weapons and Shields, and leaves its Range to the Range box', () => {
+    const s = ship('Tn Ship');
+    render(<WholeCardAttributeBoxes card={s.card} imageSrc="/x.jpg" width={357} height={496} onTable={{ range: 9, weapons: 8, shields: 5 }} />);
+    expect(screen.getByTestId('whole-card-weapons')).toHaveAttribute('aria-label', 'Weapons 8, printed 7');
+    expect(screen.getByTestId('whole-card-shields-modified')).toHaveAttribute('data-direction', 'down');
+    expect(screen.queryByTestId('whole-card-range')).toBeNull();
+  });
+
+  it('draws nothing with no values on the table, or the printed ones', () => {
+    const p = personnel('Plain');
+    const { container, rerender } = render(
+      <WholeCardAttributeBoxes card={p.card} imageSrc="/x.jpg" width={357} height={496} onTable={undefined} />
+    );
+    expect(container).toBeEmptyDOMElement();
+    rerender(<WholeCardAttributeBoxes card={p.card} imageSrc="/x.jpg" width={357} height={496} onTable={{ integrity: 5 }} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('shows on an uncropped table card from the context, and not on a cropped one', () => {
+    const tn = personnel('Tn Dissident');
+    const { unmount } = render(
+      <RangeUsedProvider value={{ attributes: { [tn.id]: { cunning: 7 } } }}>
+        <TableCard instance={tn} uncropped />
+      </RangeUsedProvider>
+    );
+    expect(screen.getByTestId('whole-card-cunning')).toHaveAttribute('aria-label', 'Cunning 7, printed 6');
+    unmount();
+    render(
+      <RangeUsedProvider value={{ attributes: { [tn.id]: { cunning: 7 } } }}>
+        <TableCard instance={tn} />
+      </RangeUsedProvider>
+    );
+    expect(screen.queryByTestId('whole-card-cunning')).toBeNull();
   });
 });
 
