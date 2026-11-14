@@ -2048,10 +2048,10 @@ function PracticeDrawContent() {
   const rangeUsedInfo = useMemo(
     () => ({
       used: table.rangeUsed,
-      ranges: shipRangesOnTable({ missions: table.missions, discard: table.discard }, table.rangeUsed, cardTextOn),
+      ranges: shipRangesOnTable({ missions: table.missions, discard: table.discard, core: table.core }, table.rangeUsed, cardTextOn),
       attributes: attributesOnTable,
     }),
-    [table.missions, table.discard, table.rangeUsed, cardTextOn, attributesOnTable]
+    [table.missions, table.discard, table.core, table.rangeUsed, cardTextOn, attributesOnTable]
   );
   const cardHold = useMemo(
     () => ({
