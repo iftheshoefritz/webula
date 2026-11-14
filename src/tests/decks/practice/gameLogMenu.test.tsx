@@ -166,6 +166,7 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go to orders' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next turn' }));
 
     fireEvent.click(screen.getByTestId('game-log-button'));
@@ -177,7 +178,8 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
       fireEvent.click(within(panel).getByRole('button', { name: 'Copy' }));
     });
     expect(writeText).toHaveBeenCalledWith(
-      'Turn 1\n- Drew a card from the draw deck into the hand\n\nTurn 2\n- Started turn 2'
+      'Turn 1\nPlay and Draw Cards\n- Drew a card from the draw deck into the hand\nExecute Orders\n- Went to orders\n\n' +
+        'Turn 2\nPlay and Draw Cards\n- Started turn 2'
     );
     expect(within(panel).getByRole('button', { name: 'Copied' })).toBeInTheDocument();
   });
@@ -185,6 +187,7 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
   const drawAndNextTurn = () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go to orders' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next turn' }));
   };
 
@@ -195,7 +198,7 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     });
     drawAndNextTurn();
     expect(screen.getByTestId('undo-button')).not.toBeDisabled();
-    expect(JSON.parse(localStorage.getItem('practiceGame')!).log).toHaveLength(2);
+    expect(JSON.parse(localStorage.getItem('practiceGame')!).log).toHaveLength(3);
     view!.unmount();
 
     await act(async () => {

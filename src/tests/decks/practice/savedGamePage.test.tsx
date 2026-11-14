@@ -285,7 +285,9 @@ describe('Saved practice game (#976)', () => {
     const missions = rest.missions.map((s: object, i: number) => (i === 2 ? { ...s, mission: bilana } : s));
     const pile = [...dilemmaStack, ...placed.slice(0, 2).map((c) => ({ ...c, face: 'down' })), ...rest.dilemmaPile];
     const core = [...placed.slice(2), ...rest.core];
-    expect(withoutIds({ ...rest, core, missions, dilemmaPile: pile })).toEqual(withoutIds(piles));
+    // The attempt started in play and draw, so the turn went to orders (#1605).
+    expect(rest.segment).toBe('orders');
+    expect(withoutIds({ ...rest, segment: 'playAndDraw', core, missions, dilemmaPile: pile })).toEqual(withoutIds(piles));
     first.unmount();
 
     // A remount restores the attempt, in the attempt layout; once ended, `reset=1` deals it again.

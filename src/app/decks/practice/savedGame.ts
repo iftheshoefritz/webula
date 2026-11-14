@@ -14,6 +14,7 @@ import {
   Zone,
   ZONE_FACE,
   initialTableState,
+  TURN_SEGMENTS,
   revealSnapshotOf,
   revealedTopCard,
 } from './tableReducer';
@@ -323,6 +324,9 @@ function repairTable(table: TableState): TableState {
   if (table.opponent !== 'bot' || !isValidBotPile(table.botPile)) delete table.botPile;
   // The bot's use of Unexpected Difficulties (#1563) loads only in a bot game.
   if (table.opponent !== 'bot' || table.botUsedUnexpectedDifficulties !== true) delete table.botUsedUnexpectedDifficulties;
+  // The segment of the turn (#1605): a save from before it, or one with a value the table does not
+  // know, restores in play and draw.
+  if (!TURN_SEGMENTS.includes(table.segment)) table.segment = 'playAndDraw';
   // The range the ships used this turn (#1634) loads only as a map of whole numbers of 0 or more.
   if (!isValidRangeUsed(table.rangeUsed)) delete table.rangeUsed;
   // The dilemma stack holds cards only during an attempt (#1170). A save with stack cards and no

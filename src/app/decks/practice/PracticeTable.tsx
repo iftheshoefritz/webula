@@ -64,6 +64,8 @@ import { isBrowserOnline, useOnline } from './useOnline';
 import type { OfflineDeck } from './offlineDecks';
 import {
   AttemptPhase,
+  nextSegmentOf,
+  TurnSegment,
   CardInstance,
   MissionPileName,
   MoveTarget,
@@ -674,8 +676,20 @@ function controlsColumnTop(cornerButtons: number, systemControlsInset: boolean, 
   return (systemControlsInset ? 56 : 8) + buttons + 8;
 }
 
+// The short names of the segments of a turn in the column (#1605), and what a tap of the next-turn
+// button does from each.
+const TURN_SEGMENT_NAMES: Record<TurnSegment, string> = { playAndDraw: 'Play', orders: 'Orders', discard: 'Discard' };
+const ADVANCE_LABELS: Record<ReturnType<typeof nextSegmentOf>, string> = {
+  playAndDraw: 'Next turn',
+  orders: 'Go to orders',
+  discard: 'Go to discard',
+  nextTurn: 'Next turn',
+};
+
 function TurnScoreColumn({
   turn,
+  segment,
+  next,
   score,
   onNextTurn,
   onAdjustScore,
@@ -684,6 +698,9 @@ function TurnScoreColumn({
   touch,
 }: {
   turn: number;
+  segment: TurnSegment;
+  // `nextSegmentOf` the table: what a tap of the next-turn button does.
+  next: ReturnType<typeof nextSegmentOf>;
   score: number;
   onNextTurn: () => void;
   onAdjustScore: (delta: number) => void;
@@ -709,8 +726,9 @@ function TurnScoreColumn({
         ...safeAreaMargins('top', 'left'),
       }}
     >
-      {/* One button shows the turn and advances it (#1449). The visible label sits above it, and
-          `turn-counter` keeps a screen-reader "Turn" of its own, so its text still reads "Turn N". */}
+      {/* One button shows the turn and advances it (#1449), through the segments of the turn (#1605).
+          The visible label sits above it, and `turn-counter` keeps a screen-reader "Turn" of its own,
+          so its text still reads "Turn N". The segment's name shows under it, in compact too. */}
       <div className="flex flex-col items-center gap-1">
         <span className={label} aria-hidden="true">
           Turn
@@ -718,7 +736,8 @@ function TurnScoreColumn({
         <button
           className={`${button} flex items-center justify-center gap-1`}
           onClick={onNextTurn}
-          aria-label="Next turn"
+          aria-label={ADVANCE_LABELS[next]}
+          title={ADVANCE_LABELS[next]}
         >
           <span data-testid="turn-counter" className="text-text-primary">
             <span className="sr-only">Turn </span>
@@ -726,6 +745,9 @@ function TurnScoreColumn({
           </span>
           <FaForward className="shrink-0" />
         </button>
+        <span data-testid="turn-segment" data-segment={segment} className="block text-[10px] leading-3 text-text-secondary">
+          {TURN_SEGMENT_NAMES[segment]}
+        </span>
       </div>
       <div className="flex flex-col items-center gap-1">
         <div data-testid="score-counter" className="text-center text-text-primary">
@@ -2687,9 +2709,10 @@ function PracticeDrawContent() {
     if (phase === 'face') setOpenHand(null);
   };
 
-  // Raises the turn counter by one and unstops every stopped personnel card on the table (#718).
+  // Moves the turn to its next segment, or at the end of the turn raises the turn counter by one and
+  // unstops every stopped personnel card on the table (#718, #1605).
   const nextTurn = () => {
-    dispatch({ type: 'nextTurn' });
+    dispatch({ type: 'advanceSegment' });
   };
 
   // Changes the score counter by SCORE_STEP points (#719), clamped by the reducer to the
@@ -3758,6 +3781,8 @@ function PracticeDrawContent() {
               </div>
               <TurnScoreColumn
                 turn={turn}
+                segment={table.segment}
+                next={nextSegmentOf(table)}
                 score={score}
                 onNextTurn={nextTurn}
                 onAdjustScore={adjustScore}

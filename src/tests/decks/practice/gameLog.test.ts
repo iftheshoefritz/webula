@@ -61,7 +61,7 @@ describe('gameReducer: which actions make an entry (#1065)', () => {
   it('logs a draw from the draw deck as an unseen card, under turn 1', () => {
     const state = run(table({ drawDeck: [instance('d1', 'Secret', 'down')] }), { type: 'drawCard', from: 'drawDeck', to: 'hand' });
     const entry = onlyEntry(state);
-    expect(entry).toEqual({ kind: 'draw', from: 'drawDeck', to: 'hand', turn: 1 });
+    expect(entry).toEqual({ kind: 'draw', from: 'drawDeck', to: 'hand', turn: 1, segment: 'playAndDraw' });
     expect(logEntryText(entry)).toBe('Drew a card from the draw deck into the hand');
     expect(JSON.stringify(entry)).not.toContain('Secret');
   });
@@ -320,10 +320,12 @@ describe('the text of the game log (#1065)', () => {
     expect(gameLogText(log)).toBe(
       [
         'Turn 1',
+        'Play and Draw Cards',
         '- Drew a card from the draw deck into the hand',
         '- Shuffled the draw deck',
         '',
         'Turn 2',
+        'Play and Draw Cards',
         '- Started turn 2',
         '- Score +5 (now 5)',
       ].join('\n')
@@ -456,7 +458,7 @@ describe('gameReducer: undo (#1194)', () => {
   it('keeps the shuffle order out of the text of the log', () => {
     const state = run(table({ drawDeck: [data, worf, riker] }), { type: 'shuffle', location: 'drawDeck' });
     const text = gameLogText(state.log);
-    expect(text).toBe('Turn 1\n- Shuffled the draw deck');
+    expect(text).toBe('Turn 1\nPlay and Draw Cards\n- Shuffled the draw deck');
     expect(JSON.stringify(state.log)).not.toMatch(/c1|c2|c3|Data|Worf|Riker/);
   });
 });

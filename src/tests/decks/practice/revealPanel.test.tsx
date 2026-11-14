@@ -193,7 +193,7 @@ describe('Practice draw: the reveal panel of a pile (#1070)', () => {
     for (const button of buttons) {
       expect(button).toHaveClass('btn-icon', 'bg-bg-raised', 'hover:bg-[#323832]');
     }
-    const nextTurn = screen.getByRole('button', { name: 'Next turn' });
+    const nextTurn = screen.getByRole('button', { name: 'Go to orders' });
     // The touch column takes the round look of the iPadOS close button (#1394).
     expect(nextTurn).toHaveClass('btn-system');
     expect(nextTurn).not.toHaveClass('bg-bg-raised');

@@ -79,7 +79,7 @@ describe('the phase of an attempt (#1189)', () => {
 
   it('logs the choice-phase draw as the dilemma draw', () => {
     const state = gameReducer(initialGameState(attempting()), counted);
-    expect(state.log).toEqual([{ kind: 'draw', from: 'dilemmaPile', to: 'dilemmaHand', turn: 1 }]);
+    expect(state.log).toEqual([{ kind: 'draw', from: 'dilemmaPile', to: 'dilemmaHand', turn: 1, segment: 'orders' }]);
   });
 
   it('lands a dilemma in the stack face up in the choice phase, face down in the facing phase and with no attempt', () => {
