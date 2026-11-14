@@ -429,7 +429,8 @@ export type TableAction =
   // the dilemma pile, where `fixtureAttemptStack` takes them for `?fixture=attempt`. The cards come
   // from the deck itself, taken in deck order, so a deck in a fixed order places the same cards
   // every time. `extraHand` and `extraCrew` (#1654, `?fixture=costs`) join the hand after its own
-  // cards and the crewed ship's crew after its personnel.
+  // cards and the crewed ship's crew after its personnel, and `extraCore` (#1666,
+  // `?fixture=attributes`) the core after its events.
   | {
       type: 'resetWithPiles';
       cards: CardInstance[];
@@ -439,6 +440,7 @@ export type TableAction =
       botPile?: BotPileInfo;
       extraHand?: CardInstance[];
       extraCrew?: CardInstance[];
+      extraCore?: CardInstance[];
     };
 
 export const FIXTURE_HAND = 7;
@@ -1333,7 +1335,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         drawDeck: rest.slice(handSize),
         missions,
         brig: brig.map((c) => ({ ...c, face: ZONE_FACE.brig })),
-        core: core.map((c) => ({ ...c, face: ZONE_FACE.core })),
+        core: [...core, ...(action.extraCore ?? [])].map((c) => ({ ...c, face: ZONE_FACE.core })),
       };
     }
 

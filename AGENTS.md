@@ -554,7 +554,7 @@ under `practice-card-text-attributes`, off by default, turns on the range and sp
 `RANGE_SPAN_REGISTRY` (`rangeModels.ts`): off, a ship's Range is its printed Range and a move's span
 total the printed spans plus the 2 between quadrants, a rule of the game. `withShuffleOrders` stamps
 it on each `move` as `cardText` (absent is off), so the reducer reads no storage and a change of it
-leaves `rangeUsed` as it was. The same setting turns on the attribute models of `ATTRIBUTE_REGISTRY` (`attributeModels.ts`, #1664: U.S.S. Enterprise-J, Orlitus Cluster Astronomical Survey, Dark Dissension): `personnelAttributesOnTable` and `shipAttributesOnTable` give a card's Integrity, Cunning and Strength, or Weapons and Shields, on the table, each never below 0, and the printed values with it off. Nothing on the table shows them yet. The dilemma bot reads them (#1665): `useBotAttemptStart` stamps the setting on the `botAttempt` as `cardText`, the reducer keeps it on the `Attempt`, and `pileTableInputOf` gives the attempting personnel and ship their attributes and Range on the table, before the modifiers of `PileModifiers`, for the bot's search, label, Resolve and reveal roll; a change of the setting mid-attempt takes effect at the next attempt. With counters on, the counter of the turn's counters, `data-testid="turn-counters"`, shares the row
+leaves `rangeUsed` as it was. The same setting turns on the attribute models of `ATTRIBUTE_REGISTRY` (`attributeModels.ts`, #1664: U.S.S. Enterprise-J, Orlitus Cluster Astronomical Survey, Dark Dissension): `personnelAttributesOnTable` and `shipAttributesOnTable` give a card's Integrity, Cunning and Strength, or Weapons and Shields, on the table, each never below 0, and the printed values with it off. With it on, the bands of the cropped personnel and ships (`PersonnelOverlay`, `ShipOverlay`) show them (#1666): `PracticeTable` builds `attributesOnTableOf` (`attributesOnTable.ts`), the values that differ from the printed ones by instance id, and shares it as `attributes` of `RangeUsedContext`; each differing value carries an arrow left of its number, up in green for a rise and down in red for a fall (`<prefix>-<attribute>-modified`, `data-direction`), and the band's `aria-label` adds the printed value, "Integrity 4, printed 5". A ship's Range arrow compares its Range on the table with the printed Range, never the range left: a moved ship still shows the range left, "Range 9 left of 12, printed 7". A whole ship card shows `ShipRangeLeftBox` when it moved or its Range differs (`shipRangeShown`), with the arrow; the other whole-card attributes show no change yet. With the setting off no arrow shows. The dilemma bot reads them (#1665): `useBotAttemptStart` stamps the setting on the `botAttempt` as `cardText`, the reducer keeps it on the `Attempt`, and `pileTableInputOf` gives the attempting personnel and ship their attributes and Range on the table, before the modifiers of `PileModifiers`, for the bot's search, label, Resolve and reveal roll; a change of the setting mid-attempt takes effect at the next attempt. With counters on, the counter of the turn's counters, `data-testid="turn-counters"`, shares the row
 of the next-turn button: "<spent>/<limit>", with `data-over="true"` past the limit and
 `data-unspent="true"` outside play and draw with counters left. Everything is derived from the log
 (`turnCounters` in `gameLog.ts`): a correction is a log entry, `chargeCorrected` or `counterLimit`, that
@@ -614,7 +614,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has twelve fixtures. Each one deals the same table on every load.
+The practice table has thirteen fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -636,6 +636,12 @@ The practice table has twelve fixtures. Each one deals the same table on every l
   holds the Tricorder (`card-1`) and Surprise Party (`card-7`, `card-8`) already, and Annexation Drone,
   a Borg, joins the crew of the ship at Bilana System, so the player commands a Borg. The draw deck
   holds the rest, for a Download. It keeps its game under `practiceGame:fixture=costs`.
+- `?fixture=attributes` (#1666) deals the `?fixture=piles` table, the same cards and the same ids, with
+  2 more (`PRACTICE_ATTRIBUTES_TSV`): Kira Nerys Reformed Collaborator, a [TN] personnel, joins the end of
+  the crew of the ship at Bilana System, and Dark Dissension the end of the core (`extraCore` of
+  `resetWithPiles`). With "Apply card text to attributes" on, Kira's band in the crew panel shows
+  Integrity with a red down arrow and Cunning with a green up arrow. It keeps its game under
+  `practiceGame:fixture=attributes`.
 - `?fixture=attempt` (#1169) deals the `?fixture=piles` table, the same cards and the same
   ids, and then starts an attempt at Bilana System (mission 2) with the crewed ship, with the
   defaults of the attempt popup: the 12 unstopped crew minus the 3 dilemmas under the mission, so

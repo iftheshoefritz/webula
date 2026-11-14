@@ -45,7 +45,13 @@ import { usePlaytestCards, useWithPlaytestCards } from '../../../hooks/usePlayte
 import PlaytestSignInHint from '../../../components/PlaytestSignInHint';
 import { useCompleteData } from './useCompleteData';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import { PRACTICE_COSTS_CREW, PRACTICE_COSTS_TSV, PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
+import {
+  PRACTICE_ATTRIBUTES_CORE,
+  PRACTICE_ATTRIBUTES_TSV,
+  PRACTICE_COSTS_CREW,
+  PRACTICE_COSTS_TSV,
+  PRACTICE_DECK_TSV,
+} from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
 import { CHULA_BOT_PILE_ID, CHULA_BOT_PILE_NAME, botPileDeckOf } from '../../../lib/dilemmaBot/botPiles';
 import type { BotPileChoice, BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
@@ -183,6 +189,7 @@ import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { RangeUsedProvider } from './RangeUsedContext';
 import { shipRangesOnTable } from './shipRange';
+import { attributesOnTableOf } from './attributesOnTable';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
 import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
@@ -1940,6 +1947,9 @@ function PracticeDrawContent() {
   // `?fixture=costs` (#1654) deals the piles table with the cards of the cost models added: Borg
   // Nanoprobes, Goran and the cards of the later models in the hand, and a Borg in the ship's crew.
   const isCostsFixture = fixture === 'costs';
+  // `?fixture=attributes` (#1666) deals the piles table with a [TN] personnel in the ship's crew and
+  // Dark Dissension in the core, for the arrows of the attribute bands.
+  const isAttributesFixture = fixture === 'attributes';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
   // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
   // the dilemma choice, with no stack.
@@ -1956,7 +1966,8 @@ function PracticeDrawContent() {
   // `?fixture=bot-resolve-becalmed` (#1628) with Becalmed, whose roll and check the preview names.
   const botRevealFixture = fixture && Object.hasOwn(BOT_REVEAL_FIXTURES, fixture) ? BOT_REVEAL_FIXTURES[fixture] : null;
   const isBotFixture = fixture === 'bot' || botRevealFixture !== null;
-  const isFixture = fixture === '1' || isPilesFixture || isCostsFixture || isAttemptFixture || isBotFixture;
+  const isFixture =
+    fixture === '1' || isPilesFixture || isCostsFixture || isAttributesFixture || isAttemptFixture || isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
   // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
   // Browser checks use it with `?fixture=1` to start from the same table every time.
@@ -2025,9 +2036,18 @@ function PracticeDrawContent() {
     return () => window.removeEventListener('pointermove', onMove);
   }, []);
   // The range each ship used this turn and its Range on the table (#1635), for the pill of its card.
+  // The attributes on the table that differ from the printed ones (#1666), for the arrows of the bands.
+  const attributesOnTable = useMemo(
+    () => attributesOnTableOf(table.missions, table.core, cardTextOn),
+    [table.missions, table.core, cardTextOn]
+  );
   const rangeUsedInfo = useMemo(
-    () => ({ used: table.rangeUsed, ranges: shipRangesOnTable(table.missions, table.rangeUsed, cardTextOn) }),
-    [table.missions, table.rangeUsed, cardTextOn]
+    () => ({
+      used: table.rangeUsed,
+      ranges: shipRangesOnTable(table.missions, table.rangeUsed, cardTextOn),
+      attributes: attributesOnTable,
+    }),
+    [table.missions, table.rangeUsed, cardTextOn, attributesOnTable]
   );
   const cardHold = useMemo(
     () => ({
@@ -2400,9 +2420,10 @@ function PracticeDrawContent() {
     botRevealTitle: string | null = null,
     dealtBotPile?: BotPileInfo
   ) => {
-    // The cards `?fixture=costs` adds (#1654), dealt to the hand and the crew and not to the piles deal.
-    const extras = isCostsFixture && fixturePiles ? costsFixtureExtras() : null;
-    const extraKeys = new Set(extras ? [...extras.hand, ...extras.crew].map((c: any) => c.collectorsinfo) : []);
+    // The cards `?fixture=costs` adds (#1654), dealt to the hand and the crew and not to the piles deal,
+    // or those of `?fixture=attributes` (#1666), dealt to the crew and the core.
+    const extras = fixturePiles ? (isCostsFixture ? costsFixtureExtras() : isAttributesFixture ? attributesFixtureExtras() : null) : null;
+    const extraKeys = new Set(extras ? [...extras.hand, ...extras.crew, ...extras.core].map((c: any) => c.collectorsinfo) : []);
     const cards = extractDrawDeck(deck).filter((c: any) => !extraKeys.has(c.collectorsinfo));
     const deal: TableAction = {
       type: fixturePiles ? 'resetWithPiles' : 'reset',
@@ -2418,7 +2439,11 @@ function PracticeDrawContent() {
       ...(opponent && dealtBotPile ? { botPile: dealtBotPile } : {}),
       // Last, so the ids of every other card are those of the piles deal.
       ...(extras && fixturePiles
-        ? { extraHand: createCardInstances(extras.hand), extraCrew: createCardInstances(extras.crew) }
+        ? {
+            extraHand: createCardInstances(extras.hand),
+            extraCrew: createCardInstances(extras.crew),
+            ...(extras.core.length ? { extraCore: createCardInstances(extras.core) } : {}),
+          }
         : {}),
     };
     dispatch(deal);
@@ -2464,11 +2489,18 @@ function PracticeDrawContent() {
   const costsFixtureExtras = () => {
     const rows = extractDrawDeck(deckFromTsv(PRACTICE_COSTS_TSV, data));
     const crew = (row: any) => row.originalName === PRACTICE_COSTS_CREW;
-    return { hand: rows.filter((r) => !crew(r)), crew: rows.filter(crew) };
+    return { hand: rows.filter((r) => !crew(r)), crew: rows.filter(crew), core: [] as any[] };
+  };
+  // The cards `?fixture=attributes` adds (#1666), split into the crew's and the core's.
+  const attributesFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data));
+    const core = (row: any) => row.originalName === PRACTICE_ATTRIBUTES_CORE;
+    return { hand: [] as any[], crew: rows.filter((r) => !core(r)), core: rows.filter(core) };
   };
   const fixtureDeck = (): DeckList => {
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
+    if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
     if (!isBotFixture) return deck;
     const botDeck = mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']);
     // The dilemma a revealing bot fixture adds, by its collector's info as `parseCardData` stores it.
@@ -2533,7 +2565,7 @@ function PracticeDrawContent() {
       if (loading || data.length === 0) return;
       dealDeck(
         fixtureDeck(),
-        isPilesFixture || isCostsFixture || isAttemptFixture || isBotFixture,
+        isPilesFixture || isCostsFixture || isAttributesFixture || isAttemptFixture || isBotFixture,
         attemptFixturePhase,
         isBotFixture ? 'bot' : undefined,
         botRevealFixture?.title ?? null

@@ -171,3 +171,12 @@ export const PRACTICE_COSTS_TSV = `1\tBorg Nanoprobes
 
 // The name of the card of `PRACTICE_COSTS_TSV` that goes into the crew.
 export const PRACTICE_COSTS_CREW = 'Annexation Drone';
+
+// The cards `?fixture=attributes` (#1666) adds to the fixture deck: a [TN] personnel joins the crewed
+// ship's crew, and Dark Dissension, which makes each [TN] personnel Integrity -1 and Cunning +1, the
+// core, for the arrows of the attribute bands.
+export const PRACTICE_ATTRIBUTES_TSV = `1\tKira Nerys Reformed Collaborator
+1\tDark Dissension`;
+
+// The name of the card of `PRACTICE_ATTRIBUTES_TSV` that goes into the core; the rest go into the crew.
+export const PRACTICE_ATTRIBUTES_CORE = 'Dark Dissension';

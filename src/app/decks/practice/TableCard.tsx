@@ -29,7 +29,8 @@ import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
-import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, hasPersonnelOverlay, hasShipOverlay } from './PersonnelOverlay';
+import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, hasPersonnelOverlay, hasShipOverlay, shipRangeShown } from './PersonnelOverlay';
+import { useRangeUsed } from './RangeUsedContext';
 import type { RangeLeft } from './shipRange';
 import { cardImageUrl } from '../../../lib/cardImageUrl';
 
@@ -220,6 +221,9 @@ export function TableCardImage({
 }) {
   const { card, face } = instance;
   const isFaceDown = face === 'down' && !showFace;
+  // The attributes on the table that differ from the printed ones (#1666).
+  const onTable = useRangeUsed().attributes?.[instance.id];
+  const rangeShown = uncropped && !isFaceDown && hasShipOverlay(card) ? shipRangeShown(card, rangeLeft, onTable) : null;
   return (
     <div className="relative w-full" style={{ height }}>
       <div className={`relative w-full h-full overflow-hidden bg-black/20 ${className}`}>
@@ -240,6 +244,7 @@ export function TableCardImage({
             cropHeight={height}
             border={cardBorderWidth(width)}
             className={`${instance.stopped || instance.removedFromGame ? STOPPED_OVERLAY_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
+            onTable={onTable}
           />
         )}
         {/* #1336: a cropped ship draws the range, weapons and shields the crop cuts off. */}
@@ -251,12 +256,12 @@ export function TableCardImage({
             border={cardBorderWidth(width)}
             className={`${instance.stopped || instance.removedFromGame ? STOPPED_OVERLAY_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
             rangeLeft={rangeLeft}
+            onTable={onTable}
           />
         )}
-        {/* #1636: the whole card has no band, so the range left sits over its printed Range box. */}
-        {uncropped && !isFaceDown && rangeLeft && hasShipOverlay(card) && (
-          <ShipRangeLeftBox imageSrc={faceUpImageSrc(instance)} width={width} height={height} rangeLeft={rangeLeft} />
-        )}
+        {/* #1636: the whole card has no band, so the range left sits over its printed Range box, and
+            so does a Range that card text changes (#1666). */}
+        {rangeShown && <ShipRangeLeftBox imageSrc={faceUpImageSrc(instance)} width={width} height={height} range={rangeShown} />}
         {instance.removedFromGame && <RemovedFromGameLabel />}
       </div>
     </div>
