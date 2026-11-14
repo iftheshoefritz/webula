@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
-import { EMPTY_LOG_TEXT, gameLogText, LogEntry, logByTurn, logEntryText, TURN_SEGMENT_HEADINGS } from './gameLog';
+import { EMPTY_LOG_TEXT, gameLogText, LogEntry, logByTurn, logEntryText, segmentTotalText, TURN_SEGMENT_HEADINGS } from './gameLog';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
 // How long the Copy button says "Copied" or "Copy failed".
@@ -74,18 +74,27 @@ export default function GameLogPanel({ log, onClose }: { log: LogEntry[]; onClos
             logByTurn(log).map(({ turn, segments }, groupIndex) => (
               <section key={groupIndex} data-testid={`game-log-turn-${turn}`} className="mb-3 last:mb-0">
                 <h3 className="text-xs uppercase tracking-wide text-text-muted">Turn {turn}</h3>
-                {segments.map(({ segment, entries }, segmentIndex) => (
-                  <div key={segmentIndex} data-testid="game-log-segment" data-segment={segment} className="mt-1">
-                    <h4 className="text-xs italic text-text-muted">{TURN_SEGMENT_HEADINGS[segment]}</h4>
-                    <ol className="divide-y divide-solid divide-white/[0.06]">
-                      {entries.map((entry, i) => (
-                        <li key={i} className="py-1 text-sm text-text-secondary">
-                          {logEntryText(entry)}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                ))}
+                {segments.map(({ segment, entries }, segmentIndex) => {
+                  // The counters of a play and draw segment (#1606), from its entries alone.
+                  const total = segmentTotalText(segment, entries);
+                  return (
+                    <div key={segmentIndex} data-testid="game-log-segment" data-segment={segment} className="mt-1">
+                      <h4 className="text-xs italic text-text-muted">{TURN_SEGMENT_HEADINGS[segment]}</h4>
+                      {total && (
+                        <p data-testid="game-log-segment-total" className="text-xs text-text-muted">
+                          {total}
+                        </p>
+                      )}
+                      <ol className="divide-y divide-solid divide-white/[0.06]">
+                        {entries.map((entry, i) => (
+                          <li key={i} className="py-1 text-sm text-text-secondary">
+                            {logEntryText(entry)}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  );
+                })}
               </section>
             ))
           )}

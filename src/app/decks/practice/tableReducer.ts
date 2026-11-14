@@ -284,14 +284,18 @@ export type TableAction =
   // `attempt.drawn` when a card moved. Outside an attempt it is a plain draw.
   // `order` is the shuffle of a draw that `drawReshuffles` (#1283): the instance ids of the dilemma
   // pile in the order the page chose (#1401), so the reducer calls no random function.
-  | { type: 'drawCard'; from: Zone; to: Zone; counted?: boolean; order?: string[] }
+  // `cost` is the charge of the draw in the play and draw segment (#1606, `drawCharge`), which the
+  // page adds before the dispatch for the log. The reducer ignores it, as it ignores `counted`.
+  | { type: 'drawCard'; from: Zone; to: Zone; counted?: boolean; order?: string[]; cost?: number }
   // `position` chooses which end of the destination array the moved card lands on: 'bottom'
   // (the default, when omitted) keeps every existing call site's behaviour — the moved card (and
   // any crew it releases) goes after the destination's existing cards, same as always. 'top'
   // puts it before them instead, so it becomes index 0 — the card a later `draw` takes first
   // (#607). Only the dilemma pile's two drop halves pass this; every other destination is
   // unordered from the player's point of view, so nothing else needs it.
-  | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom' }
+  // `cost` is the printed cost of a card played from the hand in the play and draw segment (#1606,
+  // `moveCharge`), which the page adds before the dispatch for the log. The reducer ignores it.
+  | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom'; cost?: number }
   // `picks` is the roll the page made for the reveal snapshot this flip takes (#1594,
   // `withShuffleOrders` in `gameLog.ts`), which the snapshot keeps, so the reducer stays pure.
   | { type: 'flip'; id: string; picks?: string[][] }

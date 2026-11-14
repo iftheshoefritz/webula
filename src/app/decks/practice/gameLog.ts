@@ -41,6 +41,7 @@ import {
 import { drawSpend } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
+import { CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
 
 // A place a card can be, with the names the text needs captured at the time of the action, so a
 // later move of a ship or a mission card does not change an old entry.
@@ -66,6 +67,9 @@ export interface LogMove {
   // in the order of `cards`, and its printed Range less all it has used this turn, below 0 when
   // over. Absent for every other move.
   range?: LogRange[];
+  // The printed cost of each card played from the hand in the play and draw segment (#1606), in the
+  // order of `cards`, null for a card that was not a play. Absent when no card of the move was one.
+  costs?: (number | null)[];
 }
 
 export interface LogRange {
@@ -78,7 +82,8 @@ export interface LogRange {
 export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // A draw that reached a face-up dilemma shuffled the dilemma pile first (#1283), and `shuffled`
   // says so.
-  | { kind: 'draw'; from: 'drawDeck' | 'dilemmaPile'; to: 'hand' | 'dilemmaHand'; shuffled?: true }
+  // `cost` is the 1 counter a draw from the draw deck costs in the play and draw segment (#1606).
+  | { kind: 'draw'; from: 'drawDeck' | 'dilemmaPile'; to: 'hand' | 'dilemmaHand'; shuffled?: true; cost?: number }
   // One player action, so one entry, even when its cards went to more than one place (a group
   // dropped on a mission sends a ship to the ship row and a personnel to the away team). A
   // download shuffles the pile after its moves, and `shuffled` names it.
@@ -261,18 +266,32 @@ function moveEntry(
         used === undefined
           ? undefined
           : { used, left: shipRangeOnTable(next.missions, found.instance) - (next.rangeUsed?.[move.id] ?? 0) };
+      const cost = typeof move.cost === 'number' ? move.cost : null;
       const group = groups.find(
         (g) => placeKey(g.from) === placeKey(from) && placeKey(g.to) === placeKey(to) && g.position === position
       );
       if (group) {
+        if (cost !== null || group.costs) group.costs = [...(group.costs ?? group.cards.map(() => null)), cost];
         group.cards.push(card);
         if (range) group.range = [...(group.range ?? []), range];
-      } else groups.push({ cards: [card], from, to, ...(position ? { position } : {}), ...(range ? { range: [range] } : {}) });
+      } else
+        groups.push({
+          cards: [card],
+          from,
+          to,
+          ...(position ? { position } : {}),
+          ...(range ? { range: [range] } : {}),
+          ...(cost !== null ? { costs: [cost] } : {}),
+        });
     }
     state = next;
   }
   // A 'top' drop dispatches its group in reverse (#677), so the cards read in the group's order.
-  return groups.map((g) => (g.position === 'top' ? { ...g, cards: [...g.cards].reverse() } : g));
+  return groups.map((g) =>
+    g.position === 'top'
+      ? { ...g, cards: [...g.cards].reverse(), ...(g.costs ? { costs: [...g.costs].reverse() } : {}) }
+      : g
+  );
 }
 
 function flipEntry(before: TableState, flips: Extract<TableAction, { type: 'flip' }>[]) {
@@ -298,6 +317,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         from: action.from as 'drawDeck' | 'dilemmaPile',
         to: action.to as 'hand' | 'dilemmaHand',
         ...(drawReshuffles(before, action) ? { shuffled: true as const } : {}),
+        ...(typeof action.cost === 'number' ? { cost: action.cost } : {}),
       };
     case 'move': {
       const moves = moveEntry(before, [action], false);
@@ -551,19 +571,50 @@ function withShuffleOrder(table: TableState, action: TableAction): TableAction {
   return action;
 }
 
+// The kind of a place, for the classifier of costs.
+const costPlace = (zone: TableZone): CostPlace => {
+  if (typeof zone === 'string') return zone;
+  return zone.zone === 'missionPile' ? zone.pile : zone.zone;
+};
+
+// The action with its charge in it (#1606): a `move` of a card from the hand that landed on the
+// table, and a `drawCard` from the draw deck, in the play and draw segment, as `moveCharge` and
+// `drawCharge` give it. The place a move reads is where the card landed, so a refused move costs
+// nothing. The reducer ignores the field and the log reads it. An action that already holds a cost
+// keeps it.
+function withCharge(table: TableState, action: TableAction): TableAction {
+  if (action.type === 'drawCard' && action.cost === undefined) {
+    const charge = drawCharge(table.segment, action.from, action.to);
+    if (charge && tableReducer(table, action) !== table) return { ...action, cost: charge.cost };
+  }
+  if (action.type === 'move' && action.cost === undefined) {
+    const found = findInstanceAnywhere(table, action.id);
+    const next = found ? tableReducer(table, action) : table;
+    const landed = next !== table ? findInstanceAnywhere(next, action.id) : null;
+    const charge = found && landed ? moveCharge(table.segment, costPlace(found.zone), costPlace(landed.zone), found.instance.card) : null;
+    if (charge) return { ...action, cost: charge.cost };
+  }
+  return action;
+}
+
+const withOrderAndCharge = (table: TableState, action: TableAction): TableAction =>
+  withCharge(table, withShuffleOrder(table, action));
+
 export function withShuffleOrders(table: TableState, action: GameAction): GameAction {
   if (action.type === 'batch') {
-    if (!action.actions.some((a) => a.type === 'shuffle' || a.type === 'drawCard' || a.type === 'flip')) return action;
+    if (!action.actions.some((a) => a.type === 'shuffle' || a.type === 'drawCard' || a.type === 'flip' || a.type === 'move')) {
+      return action;
+    }
     let state = table;
     const actions = action.actions.map((a) => {
-      const chosen = withShuffleOrder(state, a);
+      const chosen = withOrderAndCharge(state, a);
       state = tableReducer(state, chosen);
       return chosen;
     });
     return { ...action, actions };
   }
   if (action.type === 'undo' || action.type === 'redo' || action.type === 'restore') return action;
-  return withShuffleOrder(table, action);
+  return withOrderAndCharge(table, action);
 }
 
 // The text of a place, with "the", the same words as the labels of the card list panel.
@@ -622,6 +673,43 @@ const rangeText = (range: LogRange): string =>
 // " (used range 4, 4 left)" after a ship's move between two ship rows, and for more than one ship
 // each ship's own numbers: " (Enterprise used range 4, 4 left; Defiant used range 4, over by 2)".
 // Nothing for any other move, an entry from before #1634 too.
+// The costs of a move (#1606), each card's number or null, or null for a move from before #1606 or
+// one whose costs do not match its cards.
+const moveCosts = (move: LogMove): (number | null)[] | null => {
+  const costs = Array.isArray(move.costs) ? move.costs.map((c) => (typeof c === 'number' ? c : null)) : null;
+  return costs && costs.length === move.cards.length && costs.some((c) => c !== null) ? costs : null;
+};
+
+// " (cost 3)" after a play of one card, and for more than one card each played card's own cost:
+// " (Data cost 3; Worf cost 2)". A cost of 0 shows too: an interrupt is printed 0.
+const movedCostText = (move: LogMove): string => {
+  const costs = moveCosts(move);
+  if (!costs) return '';
+  if (costs.length === 1) return ` (cost ${costs[0]})`;
+  const parts = costs.flatMap((c, i) => (c === null ? [] : [`${move.cards[i] ?? 'a card'} cost ${c}`]));
+  return ` (${parts.join('; ')})`;
+};
+
+// Where a card was played (#1606): "at Earth" for a ship row or an away team, "on Data" for a card,
+// and "to" the crew or the core.
+const playedPlaceText = (place: LogPlace): string => {
+  if (place.kind === 'shipRow' || place.kind === 'awayTeam') return `at ${place.mission}`;
+  if (place.kind === 'on') return `on ${place.card}`;
+  return `to ${placeText(place)}`;
+};
+
+// The text of one move, with its verb: "played" when every card of it was a play.
+const moveText = (move: LogMove): { verb: 'played' | 'moved'; text: string } => {
+  const costs = moveCosts(move);
+  if (costs && costs.every((c) => c !== null)) {
+    return { verb: 'played', text: `${cardsText(move.cards)} ${playedPlaceText(move.to)}${movedCostText(move)}` };
+  }
+  return {
+    verb: 'moved',
+    text: `${cardsText(move.cards)} from ${placeText(move.from)} to ${destinationText(move)}${movedRangeText(move)}${movedCostText(move)}`,
+  };
+};
+
 const movedRangeText = (move: LogMove): string => {
   const ranges = Array.isArray(move.range) ? move.range.filter((r) => r && typeof r.used === 'number' && typeof r.left === 'number') : [];
   if (!ranges.length || ranges.length !== move.cards.length) return '';
@@ -686,15 +774,15 @@ export const isLogEntry = (entry: unknown): entry is LogEntry =>
 export function logEntryText(entry: LogEntry): string {
   switch (entry.kind) {
     case 'draw': {
-      const drew = `drew a ${entry.from === 'drawDeck' ? 'card' : 'dilemma'} from ${placeText({ kind: entry.from })} into ${placeText({ kind: entry.to })}`;
+      const cost = typeof entry.cost === 'number' ? ` (cost ${entry.cost})` : '';
+      const drew = `drew a ${entry.from === 'drawDeck' ? 'card' : 'dilemma'} from ${placeText({ kind: entry.from })} into ${placeText({ kind: entry.to })}${cost}`;
       return entry.shuffled ? `Shuffled ${placeText({ kind: entry.from })}, then ${drew}` : capitalize(drew);
     }
     case 'move': {
-      const moves = entry.moves.map(
-        (m) => `${cardsText(m.cards)} from ${placeText(m.from)} to ${destinationText(m)}${movedRangeText(m)}`
-      );
+      // Each run of moves of one verb shares it: "Moved A from …; B from …; played C at …".
+      const moves = entry.moves.map(moveText).map((m, i, all) => (i > 0 && all[i - 1].verb === m.verb ? m.text : `${m.verb} ${m.text}`));
       const shuffled = entry.shuffled ? `shuffled ${placeText(entry.shuffled)}` : null;
-      const text = moves.length ? `Moved ${moves.join('; ')}` : '';
+      const text = moves.length ? capitalize(moves.join('; ')) : '';
       if (!shuffled) return text;
       return text ? `${text}, then ${shuffled}` : capitalize(shuffled);
     }
@@ -810,6 +898,49 @@ export function logByTurn(log: LogEntry[]): { turn: number; entries: LogEntry[];
   return groups;
 }
 
+export interface SegmentCounters {
+  cards: number;
+  draws: number;
+}
+
+// The counters the entries of one play and draw segment charged (#1606): the printed costs of the
+// cards played and the draws at 1. Null when nothing charged, so no total shows. It is derived from
+// the entries alone, so an undo, which drops an entry, takes its cost off the total.
+export function segmentCounters(entries: LogEntry[]): SegmentCounters | null {
+  let cards = 0;
+  let draws = 0;
+  let charged = false;
+  for (const entry of entries) {
+    if (entry.kind === 'draw' && typeof entry.cost === 'number') {
+      draws += entry.cost;
+      charged = true;
+    }
+    if (entry.kind === 'move') {
+      for (const move of entry.moves) {
+        for (const cost of moveCosts(move) ?? []) {
+          if (cost === null) continue;
+          cards += cost;
+          charged = true;
+        }
+      }
+    }
+  }
+  return charged ? { cards, draws } : null;
+}
+
+// "7 counters: 6 on cards, 1 on draws".
+export const segmentCountersText = ({ cards, draws }: SegmentCounters): string => {
+  const total = cards + draws;
+  return `${total} ${total === 1 ? 'counter' : 'counters'}: ${cards} on cards, ${draws} on draws`;
+};
+
+// The total line of a segment of the log, only for a play and draw segment that charged counters.
+export function segmentTotalText(segment: TurnSegment, entries: LogEntry[]): string | null {
+  if (segment !== 'playAndDraw') return null;
+  const counters = segmentCounters(entries);
+  return counters ? segmentCountersText(counters) : null;
+}
+
 export const EMPTY_LOG_TEXT = 'Nothing has happened yet.';
 
 // The whole log as plain text for the clipboard: a "Turn N" line, then under it each segment's
@@ -820,10 +951,10 @@ export function gameLogText(log: LogEntry[]): string {
     .map(({ turn, segments }) =>
       [
         `Turn ${turn}`,
-        ...segments.flatMap(({ segment, entries }) => [
-          TURN_SEGMENT_HEADINGS[segment],
-          ...entries.map((e) => `- ${logEntryText(e)}`),
-        ]),
+        ...segments.flatMap(({ segment, entries }) => {
+          const total = segmentTotalText(segment, entries);
+          return [TURN_SEGMENT_HEADINGS[segment], ...(total ? [total] : []), ...entries.map((e) => `- ${logEntryText(e)}`)];
+        }),
       ].join('\n')
     )
     .join('\n\n');

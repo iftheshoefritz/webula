@@ -171,14 +171,14 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
 
     fireEvent.click(screen.getByTestId('game-log-button'));
     const panel = await screen.findByRole('dialog', { name: 'Game log' });
-    expect(within(within(panel).getByTestId('game-log-turn-1')).getByText('Drew a card from the draw deck into the hand')).toBeInTheDocument();
+    expect(within(within(panel).getByTestId('game-log-turn-1')).getByText('Drew a card from the draw deck into the hand (cost 1)')).toBeInTheDocument();
     expect(within(within(panel).getByTestId('game-log-turn-2')).getByText('Started turn 2')).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(within(panel).getByRole('button', { name: 'Copy' }));
     });
     expect(writeText).toHaveBeenCalledWith(
-      'Turn 1\nPlay and Draw Cards\n- Drew a card from the draw deck into the hand\nExecute Orders\n- Went to orders\n\n' +
+      'Turn 1\nPlay and Draw Cards\n1 counter: 0 on cards, 1 on draws\n- Drew a card from the draw deck into the hand (cost 1)\nExecute Orders\n- Went to orders\n\n' +
         'Turn 2\nPlay and Draw Cards\n- Started turn 2'
     );
     expect(within(panel).getByRole('button', { name: 'Copied' })).toBeInTheDocument();
@@ -207,7 +207,7 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     expect(screen.getByTestId('undo-button')).toHaveAttribute('aria-label', 'Undo: Started turn 2');
     fireEvent.click(screen.getByTestId('game-log-button'));
     const panel = await screen.findByRole('dialog', { name: 'Game log' });
-    expect(within(within(panel).getByTestId('game-log-turn-1')).getByText('Drew a card from the draw deck into the hand')).toBeInTheDocument();
+    expect(within(within(panel).getByTestId('game-log-turn-1')).getByText('Drew a card from the draw deck into the hand (cost 1)')).toBeInTheDocument();
     expect(within(within(panel).getByTestId('game-log-turn-2')).getByText('Started turn 2')).toBeInTheDocument();
   });
 
@@ -281,7 +281,7 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     fireEvent.click(screen.getByTestId('game-log-button'));
     const panel = await screen.findByRole('dialog', { name: 'Game log' });
     const turn1 = within(panel).getByTestId('game-log-turn-1');
-    expect(within(turn1).getAllByText('Drew a card from the draw deck into the hand')).toHaveLength(7);
+    expect(within(turn1).getAllByText('Drew a card from the draw deck into the hand (cost 1)')).toHaveLength(7);
   });
 
   it('has an undo button that names the last entry, and a tap takes the entry back (#1194)', async () => {
@@ -295,8 +295,8 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
     expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
     expect(undo).toBeEnabled();
-    expect(undo).toHaveAttribute('aria-label', 'Undo: Drew a card from the draw deck into the hand');
-    expect(undo).toHaveAttribute('title', 'Undo: Drew a card from the draw deck into the hand');
+    expect(undo).toHaveAttribute('aria-label', 'Undo: Drew a card from the draw deck into the hand (cost 1)');
+    expect(undo).toHaveAttribute('title', 'Undo: Drew a card from the draw deck into the hand (cost 1)');
 
     fireEvent.click(undo);
     expect(screen.getByRole('button', { name: /^hand, 0 cards?, tap to open$/i })).toBeInTheDocument();
@@ -320,13 +320,13 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     expect(redo).toBeDisabled();
     fireEvent.click(undo);
     expect(redo).toBeEnabled();
-    expect(redo).toHaveAttribute('aria-label', 'Redo: Drew a card from the draw deck into the hand');
-    expect(redo).toHaveAttribute('title', 'Redo: Drew a card from the draw deck into the hand');
+    expect(redo).toHaveAttribute('aria-label', 'Redo: Drew a card from the draw deck into the hand (cost 1)');
+    expect(redo).toHaveAttribute('title', 'Redo: Drew a card from the draw deck into the hand (cost 1)');
 
     fireEvent.click(redo);
     expect(screen.getByRole('button', { name: /^hand, 1 card, tap to open$/i })).toBeInTheDocument();
     expect(redo).toBeDisabled();
-    expect(undo).toHaveAttribute('aria-label', 'Undo: Drew a card from the draw deck into the hand');
+    expect(undo).toHaveAttribute('aria-label', 'Undo: Drew a card from the draw deck into the hand (cost 1)');
 
     // A new action after an undo empties the redo history.
     fireEvent.click(undo);
