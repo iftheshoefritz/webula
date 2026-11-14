@@ -5,7 +5,8 @@
 // types, so `MissionRow` can read it without loading the reducer.
 
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
-import { commandedPersonnel, hasWord, isPersonnel, titleKeyOf } from './rangeModels';
+import { commandedPersonnel, hasWord, isNamed, isPersonnel, titleKeyOf } from './rangeModels';
+import { shipRangeOnTable } from './shipRange';
 
 // What the attribute models read of the table as it stands (#1667): the mission slots with their
 // away teams and ships, the core, the hand, the discard pile, the score and the Range used.
@@ -66,6 +67,13 @@ const othersIn = (self: CardInstance, group: CardInstance[], test: (p: CardInsta
 const hasIcon = (p: CardInstance, icon: string) => hasWord(p.card?.icons, icon);
 const hasAffiliation = (p: CardInstance, affiliation: string) => hasWord(p.card?.affiliation, affiliation);
 const points = (mission: CardInstance | null) => Number(mission?.card?.points) || 0;
+const isSpaceMission = (mission: CardInstance | null) => String(mission?.card?.mission ?? '').toLowerCase() === 's';
+const completedSpaceMissions = (missions: MissionSlot[]) => missions.filter((slot) => slot.completed && isSpaceMission(slot.mission)).length;
+// The personnel of the discard pile with the skill `skill`, a card removed from the game there too.
+const discardedWith = (discard: CardInstance[], skill: string) => discard.filter((c) => isPersonnel(c) && hasWord(c.card?.skills, skill)).length;
+// The ship whose crew holds `p`, or undefined for a personnel in an away team or off the table.
+const shipOf = (missions: MissionSlot[], p: CardInstance): CardInstance | undefined =>
+  missions.flatMap((slot) => slot.ships).find((ship) => (ship.crew ?? []).some((c) => c.id === p.id));
 
 const MODELS: AttributeModel[] = [
   {
@@ -174,6 +182,104 @@ const MODELS: AttributeModel[] = [
     title: 'William T. Riker Battleship First Officer',
     selfAttributes: (self, group) =>
       othersIn(self, group, (p) => hasIcon(p, 'tng') && (Number(p.card?.cost) || 0) >= 4).length > 0 ? plus(2) : NONE,
+  },
+  {
+    // "Each of your other [Baj] personnel present is Integrity +1 (or +2 while facing a dilemma)." The
+    // "facing a dilemma" part is not modelled.
+    title: 'Bareil Antos Esteemed Vedek',
+    groupAttributes: (self, target) =>
+      target.id !== self.id && isPersonnel(target) && hasAffiliation(target, 'bajoran') ? { integrity: 1 } : NONE,
+  },
+  {
+    // "Each of your other [Baj] personnel present is Strength +1 (or +2 while in combat)." Combat never
+    // happens on the table.
+    title: 'Shakaar Edon Resistance Leader',
+    groupAttributes: (self, target) =>
+      target.id !== self.id && isPersonnel(target) && hasAffiliation(target, 'bajoran') ? { strength: 1 } : NONE,
+  },
+  {
+    // "While this personnel is aboard your {U.S.S. Enterprise-D}, each of your non-unique [TNG]
+    // personnel present is attributes +1." The group is that ship's crew; in an away team she gives
+    // nothing. She is unique, so she never counts herself.
+    title: 'Beverly Crusher Encouraging Commander',
+    groupAttributes: (self, target, _group, { missions }) => {
+      const ship = shipOf(missions, self);
+      return ship &&
+        isNamed(ship, 'U.S.S. Enterprise-D') &&
+        isPersonnel(target) &&
+        String(target.card?.unique ?? '').toLowerCase() === 'n' &&
+        hasIcon(target, 'tng')
+        ? ATTRIBUTES_PLUS_ONE
+        : NONE;
+    },
+  },
+  {
+    // "While you have no cards in your discard pile, this personnel is Cunning +4, Strength +4 …"
+    title: 'Dukat Pah-Wraith Puppet',
+    selfAttributes: (_self, _group, { discard }) => (discard.length === 0 ? { cunning: 4, strength: 4 } : NONE),
+  },
+  {
+    // "While this personnel is present with a stopped [SF] Dissident personnel, he is attributes +1 …"
+    // He is an [SF] Dissident himself, and is not present with himself.
+    title: 'Emanuel Stevens',
+    selfAttributes: (self, group) =>
+      othersIn(self, group, (p) => !!p.stopped && hasAffiliation(p, 'starfleet') && hasWord(p.card?.keywords, 'dissident')).length > 0
+        ? ATTRIBUTES_PLUS_ONE
+        : NONE,
+  },
+  {
+    // "While each player has 40 or more points, this personnel is attributes +1 …" In a solo game the
+    // player is each player: the score counter.
+    title: 'Martinez',
+    selfAttributes: (_self, _group, { score }) => (score >= 40 ? ATTRIBUTES_PLUS_ONE : NONE),
+  },
+  {
+    // "While you command fewer than two completed missions, this personnel is attributes +1."
+    title: 'Motura Eminent Sculptor',
+    selfAttributes: (_self, _group, { missions }) =>
+      missions.filter((slot) => slot.mission && slot.completed).length < 2 ? ATTRIBUTES_PLUS_ONE : NONE,
+  },
+  {
+    // "While you command two completed space missions, this personnel is attributes +2."
+    title: 'Nadia Myers',
+    selfAttributes: (_self, _group, { missions }) => (completedSpaceMissions(missions) >= 2 ? plus(2) : NONE),
+  },
+  {
+    // "This personnel is attributes +1 for each of your completed space missions."
+    title: 'Neelix Valued Guide',
+    selfAttributes: (_self, _group, { missions }) => {
+      const n = completedSpaceMissions(missions);
+      return n > 0 ? plus(n) : NONE;
+    },
+  },
+  {
+    // "While you have six or more cards in hand, this personnel is attributes +3."
+    title: 'Nog Bar Owner',
+    selfAttributes: (_self, _group, { hand }) => (hand.length >= 6 ? plus(3) : NONE),
+  },
+  {
+    // "This personnel is Cunning +1 for each Diplomacy personnel in your discard pile (limit +4). This
+    // personnel is Strength +1 for each Security personnel in your discard pile (limit +4)."
+    title: 'Odo Curzon Odo',
+    selfAttributes: (_self, _group, { discard }) => ({
+      cunning: Math.min(4, discardedWith(discard, 'diplomacy')),
+      strength: Math.min(4, discardedWith(discard, 'security')),
+    }),
+  },
+  {
+    // "While this personnel is at a Region: Delphic Expanse mission, if there is a [SF] ship at this
+    // mission with unused Range>5, this personnel is attributes +1 …" Unused Range is the Range on the
+    // table less the Range used this turn, the Range left the ship's card shows.
+    title: 'Travis Mayweather Damaged Navigator',
+    selfAttributes: (self, _group, { missions, rangeUsed }) => {
+      const slot = missions.find((s) => isAt(s, self));
+      if (!slot || !String(slot.mission?.card?.keywords ?? '').toLowerCase().includes('region: delphic expanse')) return NONE;
+      return slot.ships.some(
+        (ship) => hasAffiliation(ship, 'starfleet') && shipRangeOnTable(missions, ship) - (rangeUsed?.[ship.id] ?? 0) > 5
+      )
+        ? ATTRIBUTES_PLUS_ONE
+        : NONE;
+    },
   },
 ];
 
