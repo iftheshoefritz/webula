@@ -3467,10 +3467,14 @@ function PracticeDrawContent() {
   };
   // Start in a bot game (#1299): the bot draws and chooses its stack, then one `botAttempt` starts
   // the attempt in `'face'`. While it chooses, the popup stays open and undo does nothing.
-  const botStart = useBotAttemptStart(table, (action) => {
-    dispatch(action);
-    closeAfterStart();
-  });
+  const botStart = useBotAttemptStart(
+    table,
+    (action) => {
+      dispatch(action);
+      closeAfterStart();
+    },
+    cardTextOn
+  );
   // The undo button and Ctrl/Cmd+Z (#1194): the table goes back to the snapshot of the last log
   // entry, and the entry leaves the log. A panel, a hand or a selection may point at cards the
   // undone table holds elsewhere, so every one of them closes, as after a drag from outside them.
