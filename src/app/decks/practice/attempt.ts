@@ -24,6 +24,8 @@ import { PileDestination, PileResolveWhere, PileSteps, modifiersText, pileResolv
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 import { pileTitleOf } from '../../../lib/dilemmaBot/pile/registry';
+import { personnelAttributesOnTable, shipAttributesOnTable } from './attributeModels';
+import { shipRangeOnTable } from './shipRange';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
 export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 'crew'; shipId: string };
@@ -55,7 +57,8 @@ function revealedPlayOf(table: TableState, snapshot: RevealSnapshot | undefined 
   const { attempt, dilemmaStack } = table;
   const top = dilemmaStack[0];
   if (!attempt || !top) return null;
-  const live = pileTableInputOf(table, attempt.missionIndex, attempt.shipId);
+  const cardText = !!attempt.cardText;
+  const live = pileTableInputOf(table, attempt.missionIndex, attempt.shipId, cardText);
   // The snapshot's personnel, each looked up wherever the card is now, with the snapshot's stopped flag,
   // and the equipment of the row as it stands, which the snapshot does not hold.
   const input: PileTableInput =
@@ -63,7 +66,10 @@ function revealedPlayOf(table: TableState, snapshot: RevealSnapshot | undefined 
       ? {
           ...live,
           cards: [
-            ...snapshot.personnel.map((p) => ({ card: findInstanceAnywhere(table, p.id)?.instance.card, stopped: p.stopped, id: p.id })),
+            ...snapshot.personnel.map((p) => {
+              const found = findInstanceAnywhere(table, p.id)?.instance;
+              return { card: found && personnelRowOnTable(table, found, cardText), stopped: p.stopped, id: p.id };
+            }),
             ...live.cards.filter((c) => c.card?.type !== 'personnel'),
           ],
         }
@@ -248,14 +254,38 @@ export function revealPicksOf(table: TableState, rand: Rand): string[][] | undef
   return pileRevealPicksOf(play.top.card, play.attempt, { personnelIds: play.personnelIds, revealed: play.revealed, rest: play.rest, rand });
 }
 
-// What `pileAttemptOf` reads of the table for an attempt at `missionIndex` with `shipId` (#1508): the
-// bot's stack as the attempt starts, and the label of each dilemma the player faces (#1519).
-export function pileTableInputOf(table: TableState, missionIndex: number, shipId?: string): PileTableInput {
-  const slot = table.missions[missionIndex];
+// A personnel's row with its Integrity, Cunning and Strength on the table (#1665), the attribute
+// models of #1664 added to the printed values, when `cardText` is on; the row as it is otherwise, and
+// for any card that is not a personnel.
+function personnelRowOnTable(table: TableState, card: CardInstance, cardText: boolean): CardInstance['card'] {
+  if (!cardText || card.card?.type !== 'personnel') return card.card;
+  return { ...card.card, ...personnelAttributesOnTable(table.missions, table.core, card, true) };
+}
+
+// A ship's row with its Range, Weapons and Shields on the table (#1665) when `cardText` is on.
+function shipRowOnTable(table: TableState, ship: CardInstance, cardText: boolean): CardInstance['card'] {
+  if (!cardText || !ship.card) return ship.card;
   return {
-    cards: attemptingCards(table, missionIndex, shipId) ?? [],
+    ...ship.card,
+    range: shipRangeOnTable(table.missions, ship, true),
+    ...shipAttributesOnTable(table.missions, table.core, ship, true),
+  };
+}
+
+// What `pileAttemptOf` reads of the table for an attempt at `missionIndex` with `shipId` (#1508): the
+// bot's stack as the attempt starts, and the label of each dilemma the player faces (#1519). With
+// `cardText`, the setting "Apply card text to attributes" (#1668) as the attempt froze it, the
+// attempting personnel and ship carry their attributes on the table (#1665), so the card text adds
+// to the printed value before the dilemmas' modifiers; off, the printed values.
+export function pileTableInputOf(table: TableState, missionIndex: number, shipId?: string, cardText = false): PileTableInput {
+  const slot = table.missions[missionIndex];
+  const ship = slot?.ships.find((s) => s.id === shipId);
+  return {
+    cards: (attemptingCards(table, missionIndex, shipId) ?? []).map((c) =>
+      cardText ? { ...c, card: personnelRowOnTable(table, c, true) } : c
+    ),
     mission: slot?.mission?.card,
-    ship: slot?.ships.find((s) => s.id === shipId)?.card,
+    ship: ship && shipRowOnTable(table, ship, cardText),
     placedOn: (slot?.mission?.placedOn ?? []).map((c) => c.card),
     underMission: (slot?.underMission ?? []).map((c) => c.card),
     missions: table.missions.map((s) => ({ mission: s.mission?.card, completed: s.completed, under: s.underMission.map((c) => c.card) })),

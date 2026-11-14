@@ -46,9 +46,10 @@ interface Pending {
  * or a mission whose requirements the bot cannot read, `start` hands the action over at once.
  * When the first answer lets the bot use Unexpected Difficulties (`botRedraws`, #1563), it puts the
  * drawn dilemmas on the bottom of the pile, face up, draws as many again and asks a second time,
- * under the same pending state, and the action carries both draws.
+ * under the same pending state, and the action carries both draws. `cardText` is the setting "Apply
+ * card text to attributes" (#1668), which the action stamps on the attempt (#1665).
  */
-export function useBotAttemptStart(table: TableState, onAction: (action: BotAttemptAction) => void) {
+export function useBotAttemptStart(table: TableState, onAction: (action: BotAttemptAction) => void, cardText = false) {
   const [choosing, setChoosing] = useState(false);
   const pending = useRef<Pending | null>(null);
   const nextId = useRef(0);
@@ -110,9 +111,11 @@ export function useBotAttemptStart(table: TableState, onAction: (action: BotAtte
   const start = (fields: BotStartFields, seed: number = newBotSeed()) => {
     if (pending.current) return;
     const { drawn, pile } = drawFromDilemmaPile(table.dilemmaPile, fields.botDraw);
-    const action = { type: 'botAttempt' as const, ...fields, pile, drawn: drawn.map((c) => c.id) };
+    // The setting "Apply card text to attributes" (#1668): the search reads the attributes on the table
+    // with it on, and the action stamps it, so the attempt keeps it for the label and the Resolve (#1665).
+    const action = { type: 'botAttempt' as const, ...fields, ...(cardText ? { cardText: true as const } : {}), pile, drawn: drawn.map((c) => c.id) };
     const titles = drawnPileTitles(drawn.map((c) => c.card));
-    const built = pileAttemptOf(pileTableInputOf(table, fields.missionIndex, fields.shipId));
+    const built = pileAttemptOf(pileTableInputOf(table, fields.missionIndex, fields.shipId, cardText));
     const { random } = built;
     // The bot's pile while the stack is faced (#1518): what the draw left, with the drawn dilemmas at the
     // bottom. The stack is not chosen yet, so the drawn dilemmas it will take count too. Vault of

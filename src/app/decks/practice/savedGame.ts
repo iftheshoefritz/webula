@@ -215,7 +215,7 @@ const isIdList = (value: unknown): boolean => Array.isArray(value) && value.ever
 const isValidAttempt = (table: TableState): boolean => {
   const attempt: unknown = table.attempt;
   if (!isObject(attempt)) return false;
-  const { missionIndex, shipId, personnel, subtract, phase, drawn, botDraw, botSpend, botChoseNone, botStack, botRevealed } = attempt;
+  const { missionIndex, shipId, personnel, subtract, phase, drawn, botDraw, botSpend, botChoseNone, botStack, botRevealed, cardText } = attempt;
   return (
     Number.isInteger(missionIndex) &&
     !!table.missions[missionIndex]?.mission &&
@@ -232,7 +232,9 @@ const isValidAttempt = (table: TableState): boolean => {
     (botChoseNone === undefined || botChoseNone === true) &&
     // A bot attempt's record of its stack (#1556).
     (botStack === undefined || isIdList(botStack)) &&
-    (botRevealed === undefined || isIdList(botRevealed))
+    (botRevealed === undefined || isIdList(botRevealed)) &&
+    // The setting "Apply card text to attributes" a bot attempt froze (#1665).
+    (cardText === undefined || cardText === true)
   );
 };
 

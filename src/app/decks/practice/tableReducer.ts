@@ -240,6 +240,11 @@ export interface Attempt {
   // requirements. Only `resolveDilemma` sets it, so one undo takes it back; it ends with the attempt.
   // Absent: none, as in a save from before #1597.
   modifiers?: PileModifiers;
+  // A bot game's setting "Apply card text to attributes" (#1668) as the bot chose its stack (#1665):
+  // the bot reads the attributes on the table when it is on. The `botAttempt` action carries it from
+  // the page, and every later bot read of the attempt takes it from here, so a change of the setting
+  // takes effect at the next attempt. Absent: off, as in a save from before #1665.
+  cardText?: true;
 }
 
 export interface RevealSnapshot {
@@ -360,7 +365,7 @@ export type TableAction =
   // Starts a mission attempt (#1163). Does nothing while an attempt is in progress, or at a slot
   // with no mission card. The Attempt button's visibility (`canAttempt`) owns every other rule.
   // A new attempt starts in the choice phase with no dilemma drawn (#1189).
-  | ({ type: 'startAttempt' } & Omit<Attempt, 'phase' | 'drawn'>)
+  | ({ type: 'startAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'cardText'>)
   // Switches the attempt in progress to a phase (#1189). To `'face'` it turns every card of the
   // dilemma stack face down and sends every card of the dilemma hand to the bottom of the dilemma
   // pile, face up, in hand order. To `'choose'` it turns the stack face up and moves no card. Does
@@ -1192,7 +1197,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       };
       const stacked = stack.reduce<TableState>((s, id) => tableReducer(s, { type: 'move', id, to: 'dilemmaStack' }), withHand);
       const faced = tableReducer(stacked, { type: 'setAttemptPhase', phase: 'face' });
-      const attempt: Attempt = { ...faced.attempt!, botStack: [...stack], botRevealed: [] };
+      const attempt: Attempt = { ...faced.attempt!, botStack: [...stack], botRevealed: [], ...(action.cardText ? { cardText: true as const } : {}) };
       return {
         ...faced,
         attempt: stack.length ? attempt : { ...attempt, botChoseNone: true },
