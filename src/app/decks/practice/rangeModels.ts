@@ -31,8 +31,8 @@ export interface RangeSpanModel {
 }
 
 const words = (field: unknown): string[] => String(field ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean);
-const hasWord = (field: unknown, word: string) => words(field).includes(word);
-const isPersonnel = (card: CardInstance) => String(card.card?.type ?? '').toLowerCase() === 'personnel';
+export const hasWord = (field: unknown, word: string) => words(field).includes(word);
+export const isPersonnel = (card: CardInstance) => String(card.card?.type ?? '').toLowerCase() === 'personnel';
 
 /** The title of a card instance, lowercased, less its version suffix. */
 export const titleKeyOf = (card: CardInstance | null | undefined): string =>
