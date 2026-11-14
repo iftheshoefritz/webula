@@ -8,9 +8,9 @@ import { cardTitleOf } from '../../../lib/cardTitle';
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 
 // What the range models read of the table as it stands (#1671): the mission slots with their away
-// teams and ships, and the discard pile (Groumall). `AttributeTable` holds it, so an attribute model
-// passes its table on.
-export type RangeTable = Pick<TableState, 'missions' | 'discard'>;
+// teams and ships, the discard pile (Groumall) and the core (Jasad, #1683). `AttributeTable` holds it,
+// so an attribute model passes its table on.
+export type RangeTable = Pick<TableState, 'missions' | 'discard' | 'core'>;
 
 export interface RangeSpanModel {
   // The title, less its version suffix, as the card data names it ("Mouth of the Wormhole Deep Space 9").
@@ -42,6 +42,7 @@ const words = (field: unknown): string[] => String(field ?? '').toLowerCase().sp
 export const hasWord = (field: unknown, word: string) => words(field).includes(word);
 export const isPersonnel = (card: CardInstance) => String(card.card?.type ?? '').toLowerCase() === 'personnel';
 export const isShip = (card: CardInstance) => String(card.card?.type ?? '').toLowerCase() === 'ship';
+export const isEquipment = (card: CardInstance) => String(card.card?.type ?? '').toLowerCase() === 'equipment';
 
 /** The title of a card instance, lowercased, less its version suffix. */
 export const titleKeyOf = (card: CardInstance | null | undefined): string =>
@@ -75,6 +76,17 @@ const commands = (p: CardInstance, ship: CardInstance): boolean => {
     const lore = dotless(name);
     return lore !== '' && (title === lore || title.startsWith(`${lore} `));
   });
+};
+
+// The cards the player commands with the keyword `word`, by distinct title (#1683): the core, the cards
+// placed on each mission card and on each ship, of the type `type` when given. Two copies of one title
+// count once.
+export const distinctTitlesWith = ({ missions, core }: RangeTable, word: string, type?: string): number => {
+  const placed = missions.flatMap((slot) => [...(slot.mission?.placedOn ?? []), ...slot.ships.flatMap((ship) => ship.placedOn ?? [])]);
+  const cards = [...core, ...placed].filter(
+    (c) => hasWord(c.card?.keywords, word) && (!type || String(c.card?.type ?? '').toLowerCase() === type)
+  );
+  return new Set(cards.map(titleKeyOf)).size;
 };
 
 // A ship's Range less `n` while more than `limit` personnel are aboard: the Shuttlepods, Ganges, Rio Grande.
@@ -119,6 +131,15 @@ export const SHIP_CLAUSES = {
   // two Vedeks give +1.
   vedekAssembly: (self: CardInstance) =>
     ['kai', 'prylar', 'vedek'].filter((word) => crewPersonnel(self).some((p) => hasWord(p.card?.keywords, word))).length,
+  // "While this personnel is aboard your [DS9] ship, it is attributes +1 for each [Fut] personnel aboard
+  // (limit +4)." Nog, [Fut], counts himself. `hasWord` drops the digit of "ds9", so the icon is read whole.
+  nog: (_self: CardInstance, ship: CardInstance) =>
+    String(ship.card?.icons ?? '').toLowerCase().includes('[ds9]') ? Math.min(4, crewPersonnel(ship).filter((p) => hasWord(p.card?.icons, 'fut')).length) : 0,
+  // "While this personnel is aboard your [Car] ship, that ship is attributes +1 for each of your
+  // different Capture cards and each of your different Punishment cards." Each keyword counts its own
+  // titles, so a card with both counts twice.
+  jasad: (_self: CardInstance, ship: CardInstance, table: RangeTable) =>
+    hasWord(ship.card?.affiliation, 'cardassian') ? distinctTitlesWith(table, 'capture') + distinctTitlesWith(table, 'punishment') : 0,
 };
 
 /** The personnel the player commands: every away team and every ship's crew, not the brig, the hand or a pile. */
@@ -245,6 +266,8 @@ const MODELS: RangeSpanModel[] = [
   { title: 'A. G. Robinson Prototype Captain', commandedShipRange: SHIP_CLAUSES.robinson },
   { title: 'Wesley Crusher Battleship Helmsman', aboardRange: SHIP_CLAUSES.wesley },
   { title: 'Erika Hernandez Comparable Captain', aboardRange: SHIP_CLAUSES.erika },
+  { title: 'Nog Defiant Captain', aboardRange: SHIP_CLAUSES.nog },
+  { title: 'Jasad', aboardRange: SHIP_CLAUSES.jasad },
   { title: 'Keldon Advanced', shipRange: SHIP_CLAUSES.keldon },
   { title: 'Sarajevo Starfleet Vessel', shipRange: SHIP_CLAUSES.sarajevo },
   { title: 'Vedek Assembly Transport', shipRange: SHIP_CLAUSES.vedekAssembly },

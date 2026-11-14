@@ -5,7 +5,18 @@
 // types, so `MissionRow` can read it without loading the reducer.
 
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
-import { commandedPersonnel, completedMissionCount, hasWord, isNamed, isPersonnel, isShip, SHIP_CLAUSES, titleKeyOf } from './rangeModels';
+import {
+  commandedPersonnel,
+  completedMissionCount,
+  distinctTitlesWith,
+  hasWord,
+  isEquipment,
+  isNamed,
+  isPersonnel,
+  isShip,
+  SHIP_CLAUSES,
+  titleKeyOf,
+} from './rangeModels';
 import { shipRangeOnTable } from './shipRange';
 
 // What the attribute models read of the table as it stands (#1667): the mission slots with their
@@ -39,9 +50,9 @@ export interface AttributeModel {
   // A personnel's model of itself (#1667): the change to its own attributes while `self` is in
   // `group`, the away team or the crew it is in.
   selfAttributes?: (self: CardInstance, group: CardInstance[], table: AttributeTable) => AttributeChange;
-  // A personnel's model of its group (#1667): the change to `target` while `self` and `target` are
-  // present together in `group`, an away team or one ship's crew. `target` may be `self`: the text
-  // decides whether the source counts too ("each of your other …" leaves it out).
+  // A personnel's or an equipment's model of its group (#1667, #1683): the change to `target` while
+  // `self` and `target` are present together in `group`, an away team or one ship's crew. `target` may
+  // be `self`: the text decides whether the source counts too ("each of your other …" leaves it out).
   groupAttributes?: (self: CardInstance, target: CardInstance, group: CardInstance[], table: AttributeTable) => AttributeChange;
   // A ship's model of its crew (#1667): the change to `target` aboard the ship `self` of slot `slot`.
   crewAttributes?: (self: CardInstance, slot: MissionSlot, target: CardInstance, table: AttributeTable) => AttributeChange;
@@ -54,6 +65,9 @@ export interface AttributeModel {
   // A commanded personnel's model of ships (#1671): the change to the ship `ship` on a ship row while
   // `self` is in an away team or a crew, wherever that is, as `commandedShipRange` gives its Range.
   commandedShipAttributes?: (self: CardInstance, ship: CardInstance, table: AttributeTable) => AttributeChange;
+  // An event's model of the ship it is placed on (#1683): the change to the ship `ship` while the event
+  // `self` is placed on it, as `placedOnShipRange` gives its Range.
+  placedOnShipAttributes?: (self: CardInstance, ship: CardInstance, table: AttributeTable) => AttributeChange;
 }
 
 const plus = (n: number): AttributeChange => ({ integrity: n, cunning: n, strength: n });
@@ -477,6 +491,62 @@ const MODELS: AttributeModel[] = [
     title: 'Garvey',
     selfAttributes: (_self, _group, { hand }) => (hand.length >= 4 ? ATTRIBUTES_PLUS_ONE : NONE),
   },
+  // The cards of #1683, each held by one shipped deck, that need a hook or a reading of their own.
+  {
+    // "Each of your Klingons and Honor personnel present is Integrity -2, Cunning +1, and Strength +2."
+    // An equipment's group model: a Klingon with Honor gets it once.
+    title: 'The Sword of Kahless',
+    groupAttributes: (_self, target) =>
+      isPersonnel(target) && (hasTrait(target, 'klingon') || hasSkill(target, 'honor')) ? { integrity: -2, cunning: 1, strength: 2 } : NONE,
+  },
+  {
+    // "While this personnel is equipped with an Orb, he is Integrity +2 …" An equipment with the Orb
+    // keyword in his group.
+    title: "Miles O'Brien Ill-Equipped Storyteller",
+    selfAttributes: (_self, group) => (group.some((c) => isEquipment(c) && hasWord(c.card?.keywords, 'orb')) ? { integrity: 2 } : NONE),
+  },
+  {
+    // "Plays in your core. While no opponent commands a ship at a Region: Sector 001 mission, each of
+    // your [SF] Dissident personnel is Cunning +1 and Strength +1." A solo table has no opponent ship,
+    // as Pi Off Course reads it.
+    title: "Humanity's Worst Enemy",
+    coreAttributes: (_self, target, { missions }) =>
+      isPersonnel(target) &&
+      hasAffiliation(target, 'starfleet') &&
+      hasWord(target.card?.keywords, 'dissident') &&
+      commandedPersonnel(missions).some((p) => p.id === target.id)
+        ? { cunning: 1, strength: 1 }
+        : NONE,
+  },
+  {
+    // "… Damage - This ship is Weapons -2 and Shields -2." While it is placed on the ship.
+    title: 'Exceed Engine Output',
+    placedOnShipAttributes: () => ({ weapons: -2, shields: -2 }),
+  },
+  {
+    // "While no player commands a Temporal event, this personnel is attributes +1." A Temporal event
+    // in the core, or placed on a mission card or a ship.
+    title: 'Morgan Bateson Confident Commander',
+    selfAttributes: (_self, _group, table) => (distinctTitlesWith(table, 'temporal', 'event') === 0 ? ATTRIBUTES_PLUS_ONE : NONE),
+  },
+  {
+    // "This personnel is Cunning +1 for each Rule you command that has a different card title." The
+    // Rule events in the core, by distinct title.
+    title: 'Quark True Ferengi',
+    selfAttributes: (_self, _group, { core }) => {
+      const n = new Set(core.filter((c) => hasWord(c.card?.keywords, 'rule')).map(titleKeyOf)).size;
+      return n > 0 ? { cunning: n } : NONE;
+    },
+  },
+  {
+    // "While you have four or more cards beneath your {Ferenginar}, this personnel is attributes +1 …"
+    // The cards under the mission of a slot whose mission is Ferenginar.
+    title: 'Tog Lecherous DaiMon',
+    selfAttributes: (_self, _group, { missions }) =>
+      missions.some((slot) => slot.mission && isNamed(slot.mission, 'Ferenginar') && slot.underMission.length >= 4) ? ATTRIBUTES_PLUS_ONE : NONE,
+  },
+  { title: 'Nog Defiant Captain', aboardAttributes: (self, ship) => shipPlus(SHIP_CLAUSES.nog(self, ship)) },
+  { title: 'Jasad', aboardAttributes: (self, ship, table) => shipPlus(SHIP_CLAUSES.jasad(self, ship, table)) },
   // The ship clauses of #1671. Each card that changes Range has its range model in `rangeModels.ts`,
   // with the same condition and amount (`SHIP_CLAUSES`).
   { title: 'Groumall Inauspicious Command', shipAttributes: (self, _slot, table) => shipPlus(SHIP_CLAUSES.groumall(self, table)) },
@@ -537,9 +607,10 @@ function placeOf(missions: MissionSlot[], target: CardInstance): { slot: Mission
 
 // The changes of every model that applies to `target`: the events placed on each mission card, each
 // mission card, each event in the core, then, for a card in an away team or a crew, its own model,
-// the group models of the personnel present with it (itself among them), and its ship's crew model;
-// for a ship on a ship row (#1671), its own model, the models of its crew and the models of every
-// personnel the player commands that change ships.
+// the group models of the personnel and the equipment present with it (itself among them), and its
+// ship's crew model; for a ship on a ship row (#1671), its own model, the models of its crew, the
+// models of the events placed on it (#1683) and the models of every personnel the player commands that
+// change ships.
 function changesTo(table: AttributeTable, target: CardInstance): AttributeChange[] {
   const changes: AttributeChange[] = [];
   const add = (change: AttributeChange | undefined) => {
@@ -555,7 +626,7 @@ function changesTo(table: AttributeTable, target: CardInstance): AttributeChange
   if (place) {
     add(attributeModelOf(target)?.selfAttributes?.(target, place.group, table));
     for (const source of place.group) {
-      if (isPersonnel(source)) add(attributeModelOf(source)?.groupAttributes?.(source, target, place.group, table));
+      if (isPersonnel(source) || isEquipment(source)) add(attributeModelOf(source)?.groupAttributes?.(source, target, place.group, table));
     }
     if (place.ship) add(attributeModelOf(place.ship)?.crewAttributes?.(place.ship, place.slot, target, table));
   }
@@ -563,6 +634,7 @@ function changesTo(table: AttributeTable, target: CardInstance): AttributeChange
   if (shipSlot) {
     add(attributeModelOf(target)?.shipAttributes?.(target, shipSlot, table));
     for (const p of target.crew ?? []) add(attributeModelOf(p)?.aboardAttributes?.(p, target, table));
+    for (const event of target.placedOn ?? []) add(attributeModelOf(event)?.placedOnShipAttributes?.(event, target, table));
     for (const p of commandedPersonnel(table.missions)) add(attributeModelOf(p)?.commandedShipAttributes?.(p, target, table));
   }
   return changes;
