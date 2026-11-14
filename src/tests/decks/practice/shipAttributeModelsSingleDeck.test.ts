@@ -22,7 +22,7 @@ const card = (originalName: string, type: string, extra: Record<string, string> 
   face: 'up',
 });
 
-const mission = (name: string, extra: Record<string, string> = {}) => card(name, 'mission', { points: '35', mission: 'p', ...extra });
+const mission = (name: string, extra: Record<string, string> = {}) => card(name, 'mission', { points: '35', missiontype: 'p', ...extra });
 const personnel = (name: string, extra: Record<string, string> = {}) =>
   card(name, 'personnel', { integrity: '5', cunning: '6', strength: '4', cost: '2', ...extra });
 const event = (name: string, keywords: string) => card(name, 'event', { keywords });
@@ -132,7 +132,7 @@ describe('I.K.S. Chontay On the Hunt (#1684)', () => {
 describe("I.K.S. Hegh'ta (#1684)", () => {
   it('is Weapons +2 at a space mission, and printed at a planet mission', () => {
     const h = ship("I.K.S. Hegh'ta", [], { affiliation: 'klingon' });
-    const space = tableOf(slotsOf([{ mission: mission('Void', { mission: 's' }), ships: [h] }]));
+    const space = tableOf(slotsOf([{ mission: mission('Void', { missiontype: 's' }), ships: [h] }]));
     expect(read(space, h)).toEqual({ ...PRINTED, weapons: 9 });
     expect(read(space, h, false)).toEqual(PRINTED);
     expect(read(withShip(h), h)).toEqual(PRINTED);

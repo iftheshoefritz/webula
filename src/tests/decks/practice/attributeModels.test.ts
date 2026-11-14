@@ -17,7 +17,7 @@ const card = (originalName: string, type: string, extra: Record<string, string> 
 });
 
 const mission = (name: string, points: string, placedOn: CardInstance[] = []) => ({
-  ...card(name, 'mission', { points, mission: 's' }),
+  ...card(name, 'mission', { points, missiontype: 's' }),
   placedOn,
 });
 const personnel = (name: string, extra: Record<string, string> = {}) =>

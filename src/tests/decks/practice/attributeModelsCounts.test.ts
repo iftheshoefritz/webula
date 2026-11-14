@@ -21,7 +21,7 @@ const card = (originalName: string, type: string, extra: Record<string, string> 
   face: 'up',
 });
 
-const mission = (name: string) => card(name, 'mission', { points: '35', mission: 'p' });
+const mission = (name: string) => card(name, 'mission', { points: '35', missiontype: 'p' });
 const personnel = (name: string, extra: Record<string, string> = {}) =>
   card(name, 'personnel', { integrity: '5', cunning: '6', strength: '4', cost: '2', unique: 'n', ...extra });
 const ship = (name: string, crew: CardInstance[] = []) => ({ ...card(name, 'ship', { weapons: '7', shields: '6', range: '7' }), crew });
@@ -163,7 +163,7 @@ describe('Nirata (#1682)', () => {
         { mission: mission('Here'), awayTeam: [n] },
         { mission: mission('There') },
         { mission: mission('Done'), completed: true },
-        { mission: card('Home', 'mission', { mission: 'h' }) },
+        { mission: card('Home', 'mission', { missiontype: 'h' }) },
       ])
     );
     expect(of(table, n)).toEqual({ ...PRINTED, integrity: 7, cunning: 8 });
@@ -172,7 +172,7 @@ describe('Nirata (#1682)', () => {
 
   it('gives nothing with every mission completed or a headquarters', () => {
     const n = nirata();
-    const table = tableOf(slotsOf([{ mission: card('Home', 'mission', { mission: 'h' }), awayTeam: [n] }, { mission: mission('Done'), completed: true }]));
+    const table = tableOf(slotsOf([{ mission: card('Home', 'mission', { missiontype: 'h' }), awayTeam: [n] }, { mission: mission('Done'), completed: true }]));
     expect(of(table, n)).toEqual(PRINTED);
   });
 });
