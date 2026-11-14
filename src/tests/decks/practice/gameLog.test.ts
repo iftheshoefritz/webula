@@ -18,6 +18,7 @@ import {
   cardsText,
   EMPTY_LOG_TEXT,
   withShuffleOrders,
+  segmentCounters,
 } from '../../../app/decks/practice/gameLog';
 
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
@@ -61,8 +62,8 @@ describe('gameReducer: which actions make an entry (#1065)', () => {
   it('logs a draw from the draw deck as an unseen card, under turn 1', () => {
     const state = run(table({ drawDeck: [instance('d1', 'Secret', 'down')] }), { type: 'drawCard', from: 'drawDeck', to: 'hand' });
     const entry = onlyEntry(state);
-    expect(entry).toEqual({ kind: 'draw', from: 'drawDeck', to: 'hand', turn: 1, segment: 'playAndDraw' });
-    expect(logEntryText(entry)).toBe('Drew a card from the draw deck into the hand');
+    expect(entry).toEqual({ kind: 'draw', from: 'drawDeck', to: 'hand', turn: 1, segment: 'playAndDraw', cost: 1 });
+    expect(logEntryText(entry)).toBe('Drew a card from the draw deck into the hand (cost 1)');
     expect(JSON.stringify(entry)).not.toContain('Secret');
   });
 
@@ -81,13 +82,14 @@ describe('gameReducer: which actions make an entry (#1065)', () => {
   });
 
   it('logs a move with the card, the source and the destination', () => {
-    const state = run(table({ hand: [data] }), { type: 'move', id: 'c1', to: 'core' });
+    // In orders, so the move is no play (#1606).
+    const state = run(table({ hand: [data], segment: 'orders' }), { type: 'move', id: 'c1', to: 'core' });
     expect(logEntryText(onlyEntry(state))).toBe('Moved Data from the hand to the core');
   });
 
   it('names the mission of an away team, and the slot number of a slot with no mission card', () => {
     const state = run(
-      table({ hand: [data, worf], missions: slots([{ mission: excavation }]) }),
+      table({ hand: [data, worf], missions: slots([{ mission: excavation }]), segment: 'orders' }),
       { type: 'move', id: 'c1', to: { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } },
       { type: 'move', id: 'c2', to: { zone: 'missionPile', missionIndex: 1, pile: 'awayTeam' } }
     );
@@ -177,7 +179,7 @@ describe('gameReducer: which actions make an entry (#1065)', () => {
   });
 
   it('names the card placed on', () => {
-    const state = run(table({ hand: [data], core: [instance('e1', 'Event', 'up', 'event')] }), {
+    const state = run(table({ hand: [data], core: [instance('e1', 'Event', 'up', 'event')], segment: 'orders' }), {
       type: 'move',
       id: 'c1',
       to: { zone: 'on', targetId: 'e1' },
@@ -520,5 +522,140 @@ describe('gameReducer: redo (#1403)', () => {
     expect(gameReducer(empty, { type: 'redo' })).toBe(empty);
     const undone = gameReducer(run(table({ hand: [data] }), { type: 'move', id: 'c1', to: 'core' }), { type: 'undo' });
     expect(gameReducer(undone, { type: 'reset', cards: [], missions: [], dilemmas: [] }).redo).toEqual([]);
+  });
+});
+
+describe('the cost of a play and a draw (#1606)', () => {
+  const goran = instance('c1', 'Goran', 'up', 'personnel', { cost: '3' });
+  const worf = instance('c2', 'Worf', 'up', 'personnel', { cost: '2' });
+  const enterprise = instance('s1', 'Enterprise', 'up', 'ship', { cost: '4' });
+  const interrupt = instance('i1', 'Lucky Shot', 'up', 'interrupt', { cost: '0' });
+  const earth = instance('m1', 'Earth', 'up', 'mission');
+  const awayTeam = { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } as const;
+  const start = (overrides: Partial<TableState> = {}) =>
+    table({
+      hand: [goran, worf, enterprise, interrupt],
+      drawDeck: [instance('d1', 'Secret', 'down'), instance('d2', 'Other', 'down')],
+      missions: slots([{ mission: earth }]),
+      ...overrides,
+    });
+
+  it('logs a play from the hand with its printed cost, and a cost of 0 too', () => {
+    const state = run(
+      start(),
+      { type: 'move', id: 'c1', to: awayTeam },
+      { type: 'move', id: 's1', to: { zone: 'shipRow', missionIndex: 0 } },
+      { type: 'move', id: 'i1', to: 'core' }
+    );
+    expect(state.log.map(logEntryText)).toEqual([
+      'Played Goran at Earth (cost 3)',
+      'Played Enterprise at Earth (cost 4)',
+      'Played Lucky Shot to the core (cost 0)',
+    ]);
+  });
+
+  it('logs a play on a card and into a crew', () => {
+    const state = run(
+      start({ hand: [goran, worf], missions: slots([{ mission: earth, ships: [enterprise] }]) }),
+      { type: 'move', id: 'c1', to: { zone: 'crew', shipId: 's1' } },
+      { type: 'move', id: 'c2', to: { zone: 'on', targetId: 'm1' } }
+    );
+    expect(state.log.map(logEntryText)).toEqual([
+      'Played Goran to the crew of Enterprise (cost 3)',
+      'Played Worf on Earth (cost 2)',
+    ]);
+  });
+
+  it('gives a group drag one entry that lists the cost of each card', () => {
+    const state = run(start(), {
+      type: 'batch',
+      actions: [
+        { type: 'move', id: 'c1', to: awayTeam },
+        { type: 'move', id: 'c2', to: awayTeam },
+      ],
+    });
+    expect(logEntryText(onlyEntry(state))).toBe('Played Goran and Worf at Earth (Goran cost 3; Worf cost 2)');
+  });
+
+  it('reads a mixed batch with a verb for each kind of move', () => {
+    const state = run(start(), {
+      type: 'batch',
+      actions: [
+        { type: 'move', id: 'c1', to: 'discard' },
+        { type: 'move', id: 'c2', to: awayTeam },
+      ],
+    });
+    expect(logEntryText(onlyEntry(state))).toBe('Moved Goran from the hand to the discard pile; played Worf at Earth (cost 2)');
+  });
+
+  it('classifies each move of a batch against the table the earlier moves left', () => {
+    // The first move takes Goran out of the hand, so the second, from the away team, is no play.
+    const action = withShuffleOrders(start(), {
+      type: 'batch',
+      actions: [
+        { type: 'move', id: 'c1', to: awayTeam },
+        { type: 'move', id: 'c1', to: 'core' },
+      ],
+    });
+    expect(action.type === 'batch' && action.actions.map((a) => (a.type === 'move' ? a.cost : 'x'))).toEqual([3, undefined]);
+  });
+
+  it('charges nothing in orders and discard, nor for a card that did not come from the hand', () => {
+    for (const segment of ['orders', 'discard'] as const) {
+      const state = run(start({ segment }), { type: 'move', id: 'c1', to: awayTeam }, { type: 'drawCard', from: 'drawDeck', to: 'hand' });
+      expect(state.log.map(logEntryText)).toEqual([
+        'Moved Goran from the hand to the away team at Earth',
+        'Drew a card from the draw deck into the hand',
+      ]);
+    }
+    const fromTable = run(
+      start({ hand: [], missions: slots([{ mission: earth, ships: [enterprise], awayTeam: [goran] }]) }),
+      { type: 'move', id: 'c1', to: { zone: 'crew', shipId: 's1' } }
+    );
+    expect(logEntryText(onlyEntry(fromTable))).toBe('Moved Goran from the away team at Earth to the crew of Enterprise');
+  });
+
+  it('charges nothing for a move from the hand to the brig or a refused move', () => {
+    const state = run(start(), { type: 'move', id: 'c1', to: 'brig' });
+    expect(logEntryText(onlyEntry(state))).toBe('Moved Goran from the hand to the brig');
+  });
+
+  it("shows the turn's total under its play and draw heading, and undo takes a draw off it", () => {
+    const played = run(
+      start(),
+      { type: 'move', id: 's1', to: { zone: 'shipRow', missionIndex: 0 } },
+      { type: 'drawCard', from: 'drawDeck', to: 'hand' }
+    );
+    expect(segmentCounters(played.log)).toEqual({ cards: 4, draws: 1 });
+    expect(gameLogText(played.log)).toBe(
+      'Turn 1\nPlay and Draw Cards\n5 counters: 4 on cards, 1 on draws\n- Played Enterprise at Earth (cost 4)\n- Drew a card from the draw deck into the hand (cost 1)'
+    );
+    const undone = gameReducer(played, { type: 'undo' });
+    expect(segmentCounters(undone.log)).toEqual({ cards: 4, draws: 0 });
+    expect(gameLogText(undone.log)).toContain('4 counters: 4 on cards, 0 on draws');
+  });
+
+  it('keeps each turn apart, and shows no total for a segment that charged nothing', () => {
+    const state = run(
+      start(),
+      { type: 'drawCard', from: 'drawDeck', to: 'hand' },
+      { type: 'advanceSegment' },
+      { type: 'move', id: 'c1', to: awayTeam },
+      { type: 'nextTurn' },
+      { type: 'move', id: 'c2', to: 'discard' }
+    );
+    expect(gameLogText(state.log)).toBe(
+      'Turn 1\nPlay and Draw Cards\n1 counter: 0 on cards, 1 on draws\n- Drew a card from the draw deck into the hand (cost 1)\n' +
+        'Execute Orders\n- Went to orders\n- Moved Goran from the hand to the away team at Earth\n\n' +
+        'Turn 2\nPlay and Draw Cards\n- Started turn 2\n- Moved Worf from the hand to the discard pile'
+    );
+  });
+
+  it('reads an entry with no cost, or a malformed one, as before', () => {
+    const old: LogEntry = { kind: 'move', turn: 1, moves: [{ cards: ['Data'], from: { kind: 'hand' }, to: { kind: 'core' } }] };
+    const malformed = { ...old, moves: [{ ...old.moves[0], costs: ['x'] }] } as unknown as LogEntry;
+    expect(logEntryText(old)).toBe('Moved Data from the hand to the core');
+    expect(logEntryText(malformed)).toBe('Moved Data from the hand to the core');
+    expect(segmentCounters([old, malformed])).toBeNull();
   });
 });

@@ -52,3 +52,20 @@ describe('the game log opens at the newest entry (#1562)', () => {
     expect(scroller.scrollTop).toBe(100);
   });
 });
+
+describe('the total of a play and draw segment (#1606)', () => {
+  it('shows the counters under the heading, and none for a segment that charged nothing', () => {
+    const entries: LogEntry[] = [
+      { turn: 1, segment: 'playAndDraw', kind: 'draw', from: 'drawDeck', to: 'hand', cost: 1 },
+      {
+        turn: 1,
+        segment: 'playAndDraw',
+        kind: 'move',
+        moves: [{ cards: ['Goran'], from: { kind: 'hand' }, to: { kind: 'core' }, costs: [3] }],
+      },
+      { turn: 2, kind: 'nextTurn' },
+    ];
+    render(<GameLogPanel log={entries} onClose={() => {}} />);
+    expect(screen.getAllByTestId('game-log-segment-total').map((p) => p.textContent)).toEqual(['4 counters: 3 on cards, 1 on draws']);
+  });
+});
