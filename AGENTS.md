@@ -532,7 +532,16 @@ the score over minus and plus. The next-turn button advances through the segment
 the hand holds more than 7 (`nextSegmentOf`); its `aria-label` and `title` say what a tap does ("Go to
 orders", "Go to discard", "Next turn"), and the segment's short name, "Play", "Orders" or "Discard",
 shows under it (`data-testid="turn-segment"`). An attempt started in play and draw moves the turn to
-orders, and no segment refuses a move. They show on the full table only, not in the attempt layout. A desktop
+orders, and no segment refuses a move. The game menu's Settings hold "Counters: On/Off"
+(`game-menu-turn-counters`, #1607), a setting of the device under `practice-turn-counters`, off by
+default. With it on, the counter of the turn's counters, `data-testid="turn-counters"`, shares the row
+of the next-turn button: "<spent>/<limit>", with `data-over="true"` past the limit and
+`data-unspent="true"` outside play and draw with counters left. Everything is derived from the log
+(`turnCounters` in `gameLog.ts`): a correction is a log entry, `chargeCorrected` or `counterLimit`, that
+`gameReducer` makes for `correctCharge` and `adjustCounterLimit` with no change to the table, and
+`effectiveLog` applies the corrections before the log is read. A charge shows its chip, `charge-chip`,
+for `CHARGE_CHIP_MS` with Free, minus and plus; a tap on the counter opens `turn-counters-list`, the
+turn's charges and the limit. They show on the full table only, not in the attempt layout. A desktop
 shows the same column (#1451), below its five corner buttons (redo under undo), with `btn-icon`
 buttons; on the desktop full table each corner button is as wide and as tall as the next-turn button
 (`w-full h-7`, #1497), and the attempt layout keeps the small `btn-icon-sm` ones. Its mission row keeps the same `TOUCH_CONTROLS_COLUMN` on the left and

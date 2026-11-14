@@ -143,7 +143,22 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       added?: string;
       restReturned?: number;
     }
+  // A correction of one charge by the player (#1607): `target` names the charge, `card` its card
+  // (null for an unseen card, absent for a draw), `from` and `to` the cost before and after.
+  | { kind: 'chargeCorrected'; target: ChargeTarget; card?: LogCard; draw?: true; from: number; to: number }
+  // A change of the turn's limit of counters by the player (#1607), and the limit it left.
+  | { kind: 'counterLimit'; delta: number; limit: number }
 );
+
+// One charge of the log (#1607): the index of its entry in the log, and for a move entry the move and
+// the card within it. An index is stable: undo only drops the last entry, so the entry a correction
+// names can go only after the correction has gone, redo puts the entries back in their order, and a
+// reset empties the log.
+export interface ChargeTarget {
+  entry: number;
+  move?: number;
+  card?: number;
+}
 
 // One check of a resolved dilemma (#1629): the test's text and the names of the personnel who met it.
 // `subject`: a test of the selected personnel together, `all` when they passed it.
@@ -165,6 +180,10 @@ export type GameAction =
   | { type: 'batch'; actions: TableAction[]; unseen?: boolean }
   | { type: 'undo' }
   | { type: 'redo' }
+  // A correction of a charge, and a change of the turn's limit of counters (#1607). They read the
+  // log, so `gameReducer` handles them and `tableReducer` never sees them.
+  | { type: 'correctCharge'; target: ChargeTarget; cost: number }
+  | { type: 'adjustCounterLimit'; delta: number }
   // A restore of the saved game (#1400) that brings its log back too, and its undo and redo
   // histories (#1401).
   | { type: 'restore'; state: TableState; log?: LogEntry[]; undo?: TableState[]; redo?: RedoStep[] };
@@ -470,7 +489,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -532,6 +551,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       undo: [...state.undo, state.table],
       redo: state.redo.slice(0, -1),
     };
+  }
+  // A correction changes no card, so its undo snapshot is the table as it is (#1607).
+  if (action.type === 'correctCharge' || action.type === 'adjustCounterLimit') {
+    const entry = action.type === 'correctCharge' ? chargeCorrectionEntry(state, action) : counterLimitEntry(state, action.delta);
+    if (!entry) return state;
+    return { table: state.table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
   }
   if (action.type === 'restore') {
     return {
@@ -613,7 +638,15 @@ export function withShuffleOrders(table: TableState, action: GameAction): GameAc
     });
     return { ...action, actions };
   }
-  if (action.type === 'undo' || action.type === 'redo' || action.type === 'restore') return action;
+  if (
+    action.type === 'undo' ||
+    action.type === 'redo' ||
+    action.type === 'restore' ||
+    action.type === 'correctCharge' ||
+    action.type === 'adjustCounterLimit'
+  ) {
+    return action;
+  }
   return withOrderAndCharge(table, action);
 }
 
@@ -762,6 +795,8 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   attemptPhase: true,
   botAttempt: true,
   dilemmaResolved: true,
+  chargeCorrected: true,
+  counterLimit: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -859,8 +894,15 @@ export function logEntryText(entry: LogEntry): string {
         ? `${text}, and moved ${cardsText(entry.returned)} to the bottom of the dilemma pile`
         : text;
     }
+    case 'chargeCorrected':
+      return `Charged ${entry.draw ? 'a draw' : (entry.card ?? 'a card')} ${countersText(entry.to)} (was ${entry.from})`;
+    case 'counterLimit':
+      return `Set this turn's counters to ${entry.limit}`;
   }
 }
+
+// "1 counter", "3 counters".
+const countersText = (n: number): string => `${n} ${n === 1 ? 'counter' : 'counters'}`;
 
 // The rulebook names of the segments of a turn (#1605), the headings of the log.
 export const TURN_SEGMENT_HEADINGS: Record<TurnSegment, string> = {
@@ -930,8 +972,7 @@ export function segmentCounters(entries: LogEntry[]): SegmentCounters | null {
 
 // "7 counters: 6 on cards, 1 on draws".
 export const segmentCountersText = ({ cards, draws }: SegmentCounters): string => {
-  const total = cards + draws;
-  return `${total} ${total === 1 ? 'counter' : 'counters'}: ${cards} on cards, ${draws} on draws`;
+  return `${countersText(cards + draws)}: ${cards} on cards, ${draws} on draws`;
 };
 
 // The total line of a segment of the log, only for a play and draw segment that charged counters.
@@ -947,7 +988,7 @@ export const EMPTY_LOG_TEXT = 'Nothing has happened yet.';
 // heading and one line per entry.
 export function gameLogText(log: LogEntry[]): string {
   if (log.length === 0) return EMPTY_LOG_TEXT;
-  return logByTurn(log)
+  return logByTurn(effectiveLog(log))
     .map(({ turn, segments }) =>
       [
         `Turn ${turn}`,
@@ -958,4 +999,133 @@ export function gameLogText(log: LogEntry[]): string {
       ].join('\n')
     )
     .join('\n\n');
+}
+
+// The counters of a turn (#1607): 7, and the player's changes to the limit.
+export const TURN_COUNTER_LIMIT = 7;
+
+const isIndex = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0;
+
+// The entry `target` names with the charge it sets to `cost`, or null when it names no charge.
+function withCorrectedCharge(entry: LogEntry, target: ChargeTarget, cost: number): LogEntry | null {
+  if (entry.kind === 'draw') {
+    return target.move === undefined && typeof entry.cost === 'number' ? { ...entry, cost } : null;
+  }
+  if (entry.kind !== 'move' || !isIndex(target.move) || !isIndex(target.card)) return null;
+  const move = entry.moves[target.move];
+  const costs = move ? moveCosts(move) : null;
+  if (!costs || costs[target.card] === null || costs[target.card] === undefined) return null;
+  const moves = entry.moves.map((m, i) =>
+    i === target.move ? { ...m, costs: costs.map((c, j) => (j === target.card ? cost : c)) } : m
+  );
+  return { ...entry, moves };
+}
+
+const effectiveCache = new WeakMap<LogEntry[], LogEntry[]>();
+
+// The log with each charge at the cost of the last correction aimed at it (#1607). The play's own
+// entry then reads the corrected cost, and the totals count it. A correction made in orders lands in
+// the orders group, while its charge sits in play and draw, so this runs over the whole log before
+// `logByTurn` groups it. A log with no correction is returned as it is.
+export function effectiveLog(log: LogEntry[]): LogEntry[] {
+  const cached = effectiveCache.get(log);
+  if (cached) return cached;
+  let result = log;
+  log.forEach((entry, i) => {
+    if (entry.kind !== 'chargeCorrected' || !entry.target || !isIndex(entry.target.entry) || entry.target.entry >= i) return;
+    if (typeof entry.to !== 'number' || entry.to < 0) return;
+    const corrected = withCorrectedCharge(result[entry.target.entry], entry.target, entry.to);
+    if (!corrected) return;
+    if (result === log) result = [...log];
+    result[entry.target.entry] = corrected;
+  });
+  effectiveCache.set(log, result);
+  return result;
+}
+
+// One charge, read from the effective log: its card (null for an unseen card), whether it is a draw,
+// and its cost.
+export interface LogCharge {
+  target: ChargeTarget;
+  card: LogCard;
+  draw: boolean;
+  cost: number;
+}
+
+// The charges of the entry at `index` of an effective log.
+function chargesOf(entry: LogEntry, index: number): LogCharge[] {
+  if (entry.kind === 'draw' && typeof entry.cost === 'number') {
+    return [{ target: { entry: index }, card: null, draw: true, cost: entry.cost }];
+  }
+  if (entry.kind !== 'move') return [];
+  return entry.moves.flatMap((move, m) =>
+    (moveCosts(move) ?? []).flatMap((cost, c) =>
+      cost === null ? [] : [{ target: { entry: index, move: m, card: c }, card: move.cards[c] ?? null, draw: false, cost }]
+    )
+  );
+}
+
+// The charges of the entry at `index` (#1607), corrected.
+export const entryCharges = (log: LogEntry[], index: number): LogCharge[] => {
+  const entry = effectiveLog(log)[index];
+  return entry ? chargesOf(entry, index) : [];
+};
+
+// The charges of `turn`, in order: every one of its play and draw segment, corrected.
+export const turnCharges = (log: LogEntry[], turn: number): LogCharge[] =>
+  effectiveLog(log).flatMap((entry, i) => (entry.turn === turn && entrySegment(entry) === 'playAndDraw' ? chargesOf(entry, i) : []));
+
+// The limit of counters of `turn`: 7 and the turn's changes, never below 0. A new turn starts at 7.
+export const turnCounterLimit = (log: LogEntry[], turn: number): number =>
+  Math.max(
+    0,
+    log.reduce(
+      (limit, e) => (e.kind === 'counterLimit' && e.turn === turn && typeof e.delta === 'number' ? limit + e.delta : limit),
+      TURN_COUNTER_LIMIT
+    )
+  );
+
+export interface TurnCounters {
+  spent: number;
+  limit: number;
+}
+
+// The counters `turn` spent and its limit, derived from the log alone, so an undo, a redo and a
+// reload agree.
+export const turnCounters = (log: LogEntry[], turn: number): TurnCounters => ({
+  spent: turnCharges(log, turn).reduce((sum, c) => sum + c.cost, 0),
+  limit: turnCounterLimit(log, turn),
+});
+
+const sameTarget = (a: ChargeTarget, b: ChargeTarget): boolean => a.entry === b.entry && a.move === b.move && a.card === b.card;
+
+// The entry of a correction of a charge, or null when the action names no charge or changes nothing.
+// A cost below 0 is 0.
+function chargeCorrectionEntry(state: GameState, action: { target: ChargeTarget; cost: number }): LogEntry | null {
+  const charge = entryCharges(state.log, action.target.entry).find((c) => sameTarget(c.target, action.target));
+  const to = Math.max(0, Math.round(action.cost));
+  if (!charge || !Number.isFinite(to) || to === charge.cost) return null;
+  return {
+    kind: 'chargeCorrected',
+    target: charge.target,
+    ...(charge.draw ? { draw: true as const } : { card: charge.card }),
+    from: charge.cost,
+    to,
+    turn: state.table.turn,
+    segment: state.table.segment,
+  };
+}
+
+// The entry of a change of the current turn's limit, or null at 0 going down.
+function counterLimitEntry(state: GameState, delta: number): LogEntry | null {
+  const limit = turnCounterLimit(state.log, state.table.turn);
+  const next = Math.max(0, limit + Math.round(delta));
+  if (!Number.isFinite(next) || next === limit) return null;
+  return { kind: 'counterLimit', delta: next - limit, limit: next, turn: state.table.turn, segment: state.table.segment };
+}
+
+// Whether an action carries a charge of the table (#1607), so the page shows its chip.
+export function actionCharged(action: GameAction): boolean {
+  const actions = action.type === 'batch' ? action.actions : [action];
+  return actions.some((a) => (a.type === 'move' || a.type === 'drawCard') && typeof a.cost === 'number');
 }

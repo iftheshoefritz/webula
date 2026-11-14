@@ -63,7 +63,7 @@ function dealRevealFixtureWithDeck(fixture: string | BotRevealFixture, roll = fa
   for (const move of attempt.stack) table = tableReducer(table, move);
   const flip: TableAction = { type: 'flip', id: attempt.revealId };
   const action = roll ? withShuffleOrders(table, flip) : flip;
-  if (action.type === 'batch' || action.type === 'undo' || action.type === 'redo' || action.type === 'restore') throw new Error('not a table action');
+  if (action.type !== 'flip') throw new Error('not a flip');
   return { table: tableReducer(table, action), deck };
 }
 

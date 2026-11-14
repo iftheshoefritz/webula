@@ -87,6 +87,21 @@ describe('the saved undo and redo histories (#1401)', () => {
     expect(undone.redo[0].table.dilemmaPile).toEqual(game.table.dilemmaPile);
   });
 
+  it('restores a correction of a charge and a change of the limit, which change no card (#1607)', () => {
+    const start = { ...startTable(), hand: [inst('card-20', deck.personnel.row, 'up')] };
+    const game = play(start, [
+      { type: 'move', id: 'card-20', to: { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } },
+      { type: 'correctCharge', target: { entry: 0, move: 0, card: 0 }, cost: 2 },
+      { type: 'adjustCounterLimit', delta: 1 },
+      { type: 'undo' },
+    ]);
+    expect(game.log.map((e) => e.kind)).toEqual(['move', 'chargeCorrected']);
+    const restored = fromSavedGame(save(game), deck, toSavedHistory(game, deck))!;
+    expect(restored.log).toEqual(game.log);
+    expect(restored.undo).toEqual(game.undo);
+    expect(restored.redo).toEqual(game.redo);
+  });
+
   it('shares the unchanged fields of neighbouring restored tables', () => {
     const game = play(startTable(), [{ type: 'adjustScore', delta: 5 }, { type: 'adjustScore', delta: 5 }]);
     const restored = fromSavedGame(save(game), deck, toSavedHistory(game, deck))!;
