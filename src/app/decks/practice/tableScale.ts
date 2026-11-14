@@ -1182,12 +1182,12 @@ export function useAttemptLayout(
 // and an `h-7` button that shows the turn number (#1449); the score group is a label line, a number
 // line (`leading-6`), then `gap-1` and a row of `h-7` buttons; and `gap-2` between the two groups.
 // The buttons and the gap shrank from `h-8` and `gap-3` (#1399), so the column fits at 667×375 below
-// four corner buttons.
+// four corner buttons. The turn group ends with the segment's name (#1605), a label line under `gap-1`.
 const TURN_SCORE_LABEL_LINE = 12; // px
 const TURN_SCORE_NUMBER_LINE = 24; // px
 const TURN_SCORE_BUTTON = 28; // px
 const TURN_SCORE_GROUP_GAP = 8; // px
-const TURN_GROUP = TURN_SCORE_LABEL_LINE + 4 + TURN_SCORE_BUTTON;
+const TURN_GROUP = TURN_SCORE_LABEL_LINE + 4 + TURN_SCORE_BUTTON + 4 + TURN_SCORE_LABEL_LINE;
 const SCORE_GROUP = TURN_SCORE_LABEL_LINE + TURN_SCORE_NUMBER_LINE + 4 + TURN_SCORE_BUTTON;
 export const TURN_SCORE_COLUMN_HEIGHT = TURN_GROUP + SCORE_GROUP + TURN_SCORE_GROUP_GAP; // px
 // The clearance between the column and the bottom row, the gap under the corner buttons.

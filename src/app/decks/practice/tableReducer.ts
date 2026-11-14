@@ -156,6 +156,10 @@ export interface TableState {
   // The turn counter (#718): starts at 1 on a new game and on reset, and only ever changes via
   // `nextTurn` below.
   turn: number;
+  // The segment of the turn (#1605): play and draw, orders or discard. A new game, a reset and
+  // `nextTurn` start in play and draw; only `advanceSegment` and an attempt started in play and draw
+  // move it. It never refuses a move.
+  segment: TurnSegment;
   // The score counter (#719): starts at 0 on a new game and on reset, and only ever changes via
   // `adjustScore` below, which clamps it to the 0-140 range.
   score: number;
@@ -175,6 +179,23 @@ export interface TableState {
   // (`moveSpanTotal`, #1635) of every move of the ship from one mission's ship row to another's. Only
   // that `move` adds to it, and `nextTurn` clears it. Absent when no ship has used range.
   rangeUsed?: Record<string, number>;
+}
+
+// The three segments of a turn (#1605): Play and Draw Cards, Execute Orders and Discard Excess
+// Cards. Not a "phase": `AttemptPhase` is the dilemma choice and facing dilemmas.
+export type TurnSegment = 'playAndDraw' | 'orders' | 'discard';
+
+export const TURN_SEGMENTS: readonly TurnSegment[] = ['playAndDraw', 'orders', 'discard'];
+
+// The most cards the hand holds at the end of the turn before the discard segment (#1605).
+export const HAND_LIMIT = 7;
+
+// Where a tap of the next-turn button goes from `state` (#1605): orders after play and draw, then
+// discard only when the hand holds more than `HAND_LIMIT`, then the next turn.
+export function nextSegmentOf(state: Pick<TableState, 'segment' | 'hand'>): TurnSegment | 'nextTurn' {
+  if (state.segment === 'playAndDraw') return 'orders';
+  if (state.segment === 'orders' && state.hand.length > HAND_LIMIT) return 'discard';
+  return 'nextTurn';
 }
 
 // A mission attempt (#1163): the mission's slot index, the attempting ship at a space mission
@@ -314,6 +335,9 @@ export type TableAction =
   // Raises the turn counter by one and unstops every stopped personnel card, in every zone
   // (#718): the flat zones, every mission's piles, every ship row, and every ship's crew.
   | { type: 'nextTurn' }
+  // The next-turn button (#1605): moves the turn to the segment `nextSegmentOf` names, or, at the end
+  // of the turn, does what `nextTurn` does.
+  | { type: 'advanceSegment' }
   // Changes the score counter by `delta` (#719), clamped to SCORE_MIN..SCORE_MAX: a delta that
   // would take the score past either limit stops there instead.
   | { type: 'adjustScore'; delta: number }
@@ -458,6 +482,7 @@ export const initialTableState: TableState = {
     underMission: [],
   })),
   turn: 1,
+  segment: 'playAndDraw',
   score: 0,
 };
 
@@ -1050,6 +1075,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const nextTurn: TableState = {
         ...state,
         turn: state.turn + 1,
+        segment: 'playAndDraw',
         drawDeck: unstopCards(state.drawDeck),
         hand: unstopCards(state.hand),
         discard: unstopCards(state.discard),
@@ -1065,6 +1091,11 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       return nextTurn;
     }
 
+    case 'advanceSegment': {
+      const next = nextSegmentOf(state);
+      return next === 'nextTurn' ? tableReducer(state, { type: 'nextTurn' }) : { ...state, segment: next };
+    }
+
     case 'adjustScore': {
       const score = Math.min(SCORE_MAX, Math.max(SCORE_MIN, state.score + action.delta));
       return { ...state, score };
@@ -1073,8 +1104,10 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     case 'startAttempt': {
       if (state.attempt || !state.missions[action.missionIndex]?.mission) return state;
       const { missionIndex, shipId, personnel, subtract, botDraw, botSpend } = action;
+      // An attempt is an order (#1605): one started in play and draw moves the turn to orders.
       return {
         ...state,
+        ...(state.segment === 'playAndDraw' ? { segment: 'orders' as const } : {}),
         attempt: {
           missionIndex,
           ...(shipId ? { shipId } : {}),
@@ -1202,6 +1235,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         botBrig: [],
         missions,
         turn: 1,
+        segment: 'playAndDraw',
         score: 0,
         ...(action.opponent ? { opponent: action.opponent } : {}),
         ...(action.opponent && action.botPile ? { botPile: action.botPile } : {}),

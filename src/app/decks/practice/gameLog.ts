@@ -27,6 +27,8 @@ import {
   moveRangeCost,
   ReorderZone,
   AttemptPhase,
+  TurnSegment,
+  TURN_SEGMENTS,
   ResolveNote,
   ResolveOp,
   resolvableSnapshot,
@@ -71,7 +73,9 @@ export interface LogRange {
   left: number;
 }
 
-export type LogEntry = { turn: number } & (
+// `segment` (#1605) is the segment of the turn after the action, as `turn` is; an entry from before
+// #1605 has none and reads as play and draw.
+export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // A draw that reached a face-up dilemma shuffled the dilemma pile first (#1283), and `shuffled`
   // says so.
   | { kind: 'draw'; from: 'drawDeck' | 'dilemmaPile'; to: 'hand' | 'dilemmaHand'; shuffled?: true }
@@ -87,6 +91,8 @@ export type LogEntry = { turn: number } & (
   | { kind: 'removedFromGame'; cards: string[]; removedFromGame: boolean }
   | { kind: 'missionCompleted'; mission: string; completed: boolean }
   | { kind: 'nextTurn' }
+  // The next-turn button moved the turn to another segment of the same turn (#1605).
+  | { kind: 'segment'; to: TurnSegment }
   | { kind: 'score'; delta: number; score: number }
   // A mission attempt (#1163): the ship only at a space mission.
   | { kind: 'attemptStarted'; mission: string; ship?: string; personnel: number; subtract: number }
@@ -281,7 +287,7 @@ function flipEntry(before: TableState, flips: Extract<TableAction, { type: 'flip
   return cards;
 }
 
-type EntryBody = LogEntry extends infer E ? (E extends LogEntry ? Omit<E, 'turn'> : never) : never;
+type EntryBody = LogEntry extends infer E ? (E extends LogEntry ? Omit<E, 'turn' | 'segment'> : never) : never;
 
 function singleEntry(before: TableState, action: TableAction, after: TableState): EntryBody | null {
   switch (action.type) {
@@ -429,6 +435,8 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
     }
     case 'nextTurn':
       return { kind: 'nextTurn' };
+    case 'advanceSegment':
+      return after.turn !== before.turn ? { kind: 'nextTurn' } : { kind: 'segment', to: after.segment };
     case 'adjustScore':
       if (after.score === before.score) return null;
       return { kind: 'score', delta: after.score - before.score, score: after.score };
@@ -468,7 +476,7 @@ export function logEntryFor(
   } else {
     body = singleEntry(before, action, after);
   }
-  return body ? ({ ...body, turn: after.turn } as LogEntry) : null;
+  return body ? ({ ...body, turn: after.turn, segment: after.segment } as LogEntry) : null;
 }
 
 export const initialGameState = (table: TableState): GameState => ({ table, log: [], undo: [], redo: [] });
@@ -659,6 +667,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   removedFromGame: true,
   missionCompleted: true,
   nextTurn: true,
+  segment: true,
   score: true,
   attemptStarted: true,
   attemptEnded: true,
@@ -710,6 +719,8 @@ export function logEntryText(entry: LogEntry): string {
       return `Marked ${entry.mission} ${entry.completed ? 'complete' : 'not complete'}`;
     case 'nextTurn':
       return `Started turn ${entry.turn}`;
+    case 'segment':
+      return `Went to ${entry.to === 'discard' ? 'discard' : 'orders'}`;
     case 'score':
       return `Score ${entry.delta > 0 ? '+' : ''}${entry.delta} (now ${entry.score})`;
     case 'attemptStarted':
@@ -763,23 +774,57 @@ export function logEntryText(entry: LogEntry): string {
   }
 }
 
-// The entries of each turn, oldest first.
-export function logByTurn(log: LogEntry[]): { turn: number; entries: LogEntry[] }[] {
-  const groups: { turn: number; entries: LogEntry[] }[] = [];
+// The rulebook names of the segments of a turn (#1605), the headings of the log.
+export const TURN_SEGMENT_HEADINGS: Record<TurnSegment, string> = {
+  playAndDraw: 'Play and Draw Cards',
+  orders: 'Execute Orders',
+  discard: 'Discard Excess Cards',
+};
+
+// The segment of an entry: play and draw for an entry from before #1605, or one with a value the
+// table does not know.
+export const entrySegment = (entry: LogEntry): TurnSegment =>
+  entry.segment && TURN_SEGMENTS.includes(entry.segment) ? entry.segment : 'playAndDraw';
+
+export interface LogSegmentGroup {
+  segment: TurnSegment;
+  entries: LogEntry[];
+}
+
+// The entries of each turn, oldest first, and within a turn each run of entries of one segment
+// (#1605).
+export function logByTurn(log: LogEntry[]): { turn: number; entries: LogEntry[]; segments: LogSegmentGroup[] }[] {
+  const groups: { turn: number; entries: LogEntry[]; segments: LogSegmentGroup[] }[] = [];
   for (const entry of log) {
-    const last = groups[groups.length - 1];
-    if (last && last.turn === entry.turn) last.entries.push(entry);
-    else groups.push({ turn: entry.turn, entries: [entry] });
+    const segment = entrySegment(entry);
+    let last = groups[groups.length - 1];
+    if (!last || last.turn !== entry.turn) {
+      last = { turn: entry.turn, entries: [], segments: [] };
+      groups.push(last);
+    }
+    last.entries.push(entry);
+    const run = last.segments[last.segments.length - 1];
+    if (run && run.segment === segment) run.entries.push(entry);
+    else last.segments.push({ segment, entries: [entry] });
   }
   return groups;
 }
 
 export const EMPTY_LOG_TEXT = 'Nothing has happened yet.';
 
-// The whole log as plain text for the clipboard: a "Turn N" line, then one line per entry.
+// The whole log as plain text for the clipboard: a "Turn N" line, then under it each segment's
+// heading and one line per entry.
 export function gameLogText(log: LogEntry[]): string {
   if (log.length === 0) return EMPTY_LOG_TEXT;
   return logByTurn(log)
-    .map(({ turn, entries }) => [`Turn ${turn}`, ...entries.map((e) => `- ${logEntryText(e)}`)].join('\n'))
+    .map(({ turn, segments }) =>
+      [
+        `Turn ${turn}`,
+        ...segments.flatMap(({ segment, entries }) => [
+          TURN_SEGMENT_HEADINGS[segment],
+          ...entries.map((e) => `- ${logEntryText(e)}`),
+        ]),
+      ].join('\n')
+    )
     .join('\n\n');
 }

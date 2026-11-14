@@ -527,7 +527,12 @@ column (`TOUCH_CONTROLS_COLUMN`) for the turn and score controls, and never belo
 
 The turn and score controls sit in that left column, below the menu, fullscreen,
 undo and game log buttons (`data-testid="turn-score-column"`, #1337): the next-turn button, which shows the turn number (#1449), then
-the score over minus and plus. They show on the full table only, not in the attempt layout. A desktop
+the score over minus and plus. The next-turn button advances through the segments of the turn,
+`TableState.segment` (#1605): play and draw, then orders, then the next turn, or discard first when
+the hand holds more than 7 (`nextSegmentOf`); its `aria-label` and `title` say what a tap does ("Go to
+orders", "Go to discard", "Next turn"), and the segment's short name, "Play", "Orders" or "Discard",
+shows under it (`data-testid="turn-segment"`). An attempt started in play and draw moves the turn to
+orders, and no segment refuses a move. They show on the full table only, not in the attempt layout. A desktop
 shows the same column (#1451), below its five corner buttons (redo under undo), with `btn-icon`
 buttons; on the desktop full table each corner button is as wide and as tall as the next-turn button
 (`w-full h-7`, #1497), and the attempt layout keeps the small `btn-icon-sm` ones. Its mission row keeps the same `TOUCH_CONTROLS_COLUMN` on the left and

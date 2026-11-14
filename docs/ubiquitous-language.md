@@ -214,6 +214,7 @@ is "open" or "closed", never "stacked".
 | download (take a chosen card from the deck) | the "Download" button of a `CardListPanel`, callback `onDownload`, handler `downloadSelection` in `page.tsx`: one `move` per selected card from `'drawDeck'` to `'hand'`, or from `'dilemmaPile'` to `'dilemmaHand'` (`DOWNLOAD_HAND`), then `shuffle` of that pile (#827). `DownloadPileButton` opens the panel. The rulebook's download puts the card into play; this action puts it into the hand, and the player plays it from there. |
 | reveal (look at the top or bottom cards of your own pile) | the reveal panel, `PanelLocation` `'drawDeckReveal'` or `'dilemmaPileReveal'`, state `openReveal` in `page.tsx` (#1070). The eye button of `PileControls` opens it empty, and "Reveal top" or "Reveal bottom" (`onReveal`, #1078) adds the card nearest that end of the pile not yet shown. The panel shows one end at a time (`openReveal.end`), so a tap for the other end first clears it. Nothing moves. A reorder in the panel is the `reorder` action on the pile, and Top / Bottom (`onSendToDeck`) are `move` with a `position`. In the rulebook, to reveal a card is to show it to your opponent; here the player looks at the cards alone, and closing the panel forgets them. |
 | turn | `TableState.turn`, action `nextTurn`, which unstops every personnel |
+| the segments of a turn: Play and Draw Cards, Execute Orders, Discard Excess Cards | `TableState.segment` (`TurnSegment`): `'playAndDraw'`, `'orders'`, `'discard'`; action `advanceSegment`, `nextSegmentOf` (#1605) | The next-turn button advances: play and draw → orders → the next turn, or → discard first when the hand holds more than 7 (`HAND_LIMIT`). An attempt started in play and draw moves the turn to orders. A segment never refuses a move. The column shows "Play", "Orders" or "Discard" (`data-testid="turn-segment"`). "Segment" is the turn; "phase" is the attempt (`Attempt.phase`), and the two never share a word. |
 | score | `TableState.score`, action `adjustScore`, clamped to `SCORE_MIN`..`SCORE_MAX` |
 
 ### The game log
@@ -229,7 +230,7 @@ saved game, and a deal, a reset or a restore empties it, and the undo history wi
 | one player action of several table actions | `GameAction` `batch` | A group drag, and a selection's Discard, Flip, Download or Top / Bottom. |
 | an unseen card | `LogCard` `null`, text "a card" | A draw, and a drag that showed the card back (#814). |
 | a place in the text | `LogPlace`, `placeText` | The text names the zones as above. It names a ship row by its mission alone, "<mission>" (#1633), so a ship that moves between missions reads "from Excavation to Moab IV". It says "the crew of <ship>", "the away team at <mission>", "the pile under <mission>", "the cards on <card>", and "the dilemma hand". A slot with no mission card is "Mission <n>". |
-| the log as text, grouped by turn | `gameLogText`, `logByTurn` | A "Turn N" line per `TableState.turn`. The entry of `nextTurn` heads the new turn. |
+| the log as text, grouped by turn | `gameLogText`, `logByTurn` | A "Turn N" line per `TableState.turn`, then under it the rulebook name of each segment (`TURN_SEGMENT_HEADINGS`, `LogEntry.segment`, #1605) before its entries. The entry of `nextTurn` heads the new turn. An entry from before #1605 reads as play and draw. |
 | undo | `GameAction` `undo`, `GameState.undo`, `data-testid="undo-button"` | The back button under the fullscreen button, and Ctrl/Cmd+Z with a fine pointer (#1194). It takes back the player action of the last entry and drops the entry, with no entry of its own. `GameState.undo` keeps the table from before each entry, so it also holds the order a shuffle replaced; the text never shows it. The undo history is not saved. |
 | redo | `GameAction` `redo`, `GameState.redo` (`RedoStep`), `data-testid="redo-button"` | The forward button beside the undo button on the full touch table, and under it on a desktop and in the attempt layout; Ctrl/Cmd+Shift+Z and Ctrl+Y with a fine pointer (#1403). It does again the last action that undo took back: `GameState.redo` keeps each undone entry with the table its action left, so a redone shuffle keeps its order and the action never runs again. Any new table change empties it, and so do a deal, a reset and a restore. Not saved. |
 
@@ -268,10 +269,9 @@ highlight, and a drop always lands.
 
 So the code has no name for these rulebook terms:
 
-- the turn segments: play and draw cards, execute orders, discard excess cards
 - counters, and the cost of a card in counters
 - the orders: beam personnel, move a ship, attempt a mission, order actions
-- overcoming a dilemma (the dilemma bot checks the mission requirements, see [section 9](#9-the-dilemma-bot); the practice table models a mission attempt only as `TableState.attempt`, and facing dilemmas only as a phase of it, `Attempt.phase`, see [section 4](#4-the-practice-table))
+- overcoming a dilemma (the dilemma bot checks the mission requirements, see [section 9](#9-the-dilemma-bot); the practice table models a mission attempt only as `TableState.attempt`, and facing dilemmas only as a phase of it, `Attempt.phase`, see [section 4](#4-the-practice-table); a phase is the attempt's, a segment the turn's)
 - command and owner, "your" and "an opponent's"
 - combat, engagement, damage, captive
 - equipped with, response action, prevent, replace, exchange (the dilemma bot reads "present with", see [section 9](#9-the-dilemma-bot))

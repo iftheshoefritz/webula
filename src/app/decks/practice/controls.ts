@@ -251,7 +251,9 @@ export const CONTROL_ROWS: ControlRow[] = [
     id: 'next-turn',
     section: 'Buttons',
     action: 'Next turn',
-    ...both('The turn button shows the turn. A press adds 1 to it and unstops every personnel.'),
+    ...both(
+      'The turn button shows the turn and its segment: Play, Orders, Discard. A press goes to the next segment; at the end of the turn it adds 1 to the turn and unstops every personnel.'
+    ),
   },
   { id: 'score', section: 'Buttons', action: 'Score − / +', ...both('Changes the score by hand.') },
   {

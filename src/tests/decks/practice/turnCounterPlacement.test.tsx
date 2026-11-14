@@ -69,7 +69,7 @@ describe('the turn and score controls in the left column on a touch screen (#133
     const column = screen.getByTestId('turn-score-column');
     expect(within(column).getByTestId('turn-counter')).toBeInTheDocument();
     expect(within(column).getByTestId('score-counter')).toBeInTheDocument();
-    expect(within(column).getByRole('button', { name: 'Next turn' })).toBeInTheDocument();
+    expect(within(column).getByRole('button', { name: 'Go to orders' })).toBeInTheDocument();
     expect(within(column).getByRole('button', { name: 'Decrease score' })).toBeInTheDocument();
     expect(within(column).getByRole('button', { name: 'Increase score' })).toBeInTheDocument();
 
@@ -85,11 +85,29 @@ describe('the turn and score controls in the left column on a touch screen (#133
       render(<PracticeDrawPage />);
     });
     const column = screen.getByTestId('turn-score-column');
-    const button = within(column).getByRole('button', { name: 'Next turn' });
+    const button = within(column).getByRole('button', { name: 'Go to orders' });
     expect(within(button).getByTestId('turn-counter')).toHaveTextContent('1');
     expect(screen.getAllByTestId('turn-counter')).toHaveLength(1);
     fireEvent.click(button);
+    expect(button).toHaveAccessibleName('Next turn');
+    fireEvent.click(button);
     expect(within(button).getByTestId('turn-counter')).toHaveTextContent('Turn 2');
+  });
+
+  it('shows the segment under the turn, and the button says what a tap does (#1605)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const column = screen.getByTestId('turn-score-column');
+    const button = within(column).getByRole('button', { name: 'Go to orders' });
+    expect(button).toHaveAttribute('title', 'Go to orders');
+    expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Play');
+    fireEvent.click(button);
+    expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Orders');
+    expect(button).toHaveAttribute('title', 'Next turn');
+    fireEvent.click(button);
+    expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Play');
+    expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 2');
   });
 
   it('keeps the round 24 px corner buttons (#1497)', async () => {
@@ -107,6 +125,8 @@ describe('the turn and score controls in the left column on a touch screen (#133
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 1');
+    fireEvent.click(screen.getByRole('button', { name: 'Go to orders' }));
     expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 1');
     fireEvent.click(screen.getByRole('button', { name: 'Next turn' }));
     expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 2');
@@ -136,7 +156,7 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
     const column = screen.getByTestId('turn-score-column');
     expect(within(column).getByTestId('turn-counter')).toBeInTheDocument();
     expect(within(column).getByTestId('score-counter')).toBeInTheDocument();
-    for (const name of ['Next turn', 'Decrease score', 'Increase score']) {
+    for (const name of ['Go to orders', 'Decrease score', 'Increase score']) {
       const button = within(column).getByRole('button', { name });
       expect(button).toHaveClass('btn-icon');
       expect(button).not.toHaveClass('btn-system');
@@ -144,7 +164,7 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
 
     expect(screen.getAllByTestId('turn-counter')).toHaveLength(1);
     expect(screen.getAllByTestId('score-counter')).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: 'Next turn' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Go to orders' })).toHaveLength(1);
     const drawColumn = screen.getByTestId('draw-deck-column');
     expect(within(drawColumn).queryByTestId('turn-counter')).not.toBeInTheDocument();
     expect(within(drawColumn).getByTestId('draw-pile')).toBeInTheDocument();
@@ -156,8 +176,10 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
-    const button = screen.getByRole('button', { name: 'Next turn' });
+    const button = screen.getByRole('button', { name: 'Go to orders' });
     expect(within(button).getByTestId('turn-counter')).toHaveTextContent('Turn 1');
+    fireEvent.click(button);
+    expect(button).toHaveAccessibleName('Next turn');
     fireEvent.click(button);
     expect(within(button).getByTestId('turn-counter')).toHaveTextContent('Turn 2');
   });
@@ -177,7 +199,7 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
-    const next = screen.getByRole('button', { name: 'Next turn' });
+    const next = screen.getByRole('button', { name: 'Go to orders' });
     expect(next).toHaveClass('w-full', 'h-7');
     const corner = screen.getByTestId('corner-buttons');
     for (const button of within(corner).getAllByRole('button')) {
@@ -192,6 +214,8 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
     await act(async () => {
       render(<PracticeDrawPage />);
     });
+    expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 1');
+    fireEvent.click(screen.getByRole('button', { name: 'Go to orders' }));
     expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 1');
     fireEvent.click(screen.getByRole('button', { name: 'Next turn' }));
     expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 2');

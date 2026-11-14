@@ -315,7 +315,8 @@ describe('the attempt of ?fixture=attempt (#1169)', () => {
     expect(start).toEqual({ type: 'startAttempt', missionIndex: 2, shipId: 'ship', personnel: FIXTURE_CREW, subtract: FIXTURE_UNDER_MISSION });
     const attempted = tableReducer(piles, start!);
     const { attempt, ...rest } = attempted;
-    expect(rest).toEqual(piles);
+    // The attempt starts in play and draw, so the turn goes to orders (#1605).
+    expect(rest).toEqual({ ...piles, segment: 'orders' });
     expect(attempt).toEqual({
       missionIndex: 2,
       shipId: piles.missions[2].ships[0].id,

@@ -168,7 +168,10 @@ describe('playtest cards on the practice table (#1615)', () => {
     await act(async () => {
       result = render(<PracticeDrawPage />);
     });
-    const nextTurn = within(screen.getByTestId('turn-score-column')).getByRole('button', { name: 'Next turn' });
+    const nextTurn = within(screen.getByTestId('turn-score-column')).getByRole('button', { name: 'Go to orders' });
+    await act(async () => {
+      fireEvent.click(nextTurn);
+    });
     await act(async () => {
       fireEvent.click(nextTurn);
     });

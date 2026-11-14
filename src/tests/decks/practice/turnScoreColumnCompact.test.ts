@@ -5,8 +5,8 @@ import {
 } from '../../../app/decks/practice/tableScale';
 
 describe('turnScoreColumnCompact (#1395)', () => {
-  it('measures the full column as a turn group of 44 px and a score group of 68 px, 8 px apart (#1449)', () => {
-    expect(TURN_SCORE_COLUMN_HEIGHT).toBe(120);
+  it('measures the full column as a turn group of 60 px (with the segment line, #1605) and a score group of 68 px, 8 px apart (#1449)', () => {
+    expect(TURN_SCORE_COLUMN_HEIGHT).toBe(136);
     expect(TURN_SCORE_COLUMN_CLEARANCE).toBe(8);
   });
 

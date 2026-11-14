@@ -61,6 +61,17 @@ const dealtTable = (): TableState => ({
 });
 
 describe('savedGame', () => {
+  it('keeps the segment of the turn, and restores a save without one, or with a bad one, in play and draw (#1605)', () => {
+    const restore = (table: unknown) =>
+      fromSavedGame(JSON.stringify({ ...toSavedGame(dealtTable(), deck, 'builder'), table }), deck)!.table.segment;
+    const saved = toSavedGame({ ...dealtTable(), segment: 'orders' }, deck, 'builder');
+    expect(fromSavedGame(JSON.stringify(saved), deck)!.table.segment).toBe('orders');
+    const old = { ...saved.table } as Record<string, unknown>;
+    delete old.segment;
+    expect(restore(old)).toBe('playAndDraw');
+    expect(restore({ ...saved.table, segment: 'phase' })).toBe('playAndDraw');
+  });
+
   it('round-trips a dealt table through JSON', () => {
     const table = dealtTable();
     const json = JSON.stringify(toSavedGame(table, deck, 'builder'));
