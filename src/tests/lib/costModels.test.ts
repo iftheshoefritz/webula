@@ -5,7 +5,7 @@ import { partnerTraitsOf } from '../../lib/dilemmaBot/simulator';
 
 const borg = partnerTraitsOf({ name: 'annexation drone', species: 'Borg', affiliation: 'borg' });
 const human = partnerTraitsOf({ name: 'jadzia dax', species: 'Trill', affiliation: 'federation' });
-const facts = (overrides: Partial<CostFacts> = {}): CostFacts => ({ commanded: [], core: [], hand: [], downloaded: [], ...overrides });
+const facts = (overrides: Partial<CostFacts> = {}): CostFacts => ({ commanded: [], core: [], hand: [], ...overrides });
 
 const nanoprobes = { name: 'borg nanoprobes', originalName: 'Borg Nanoprobes', type: 'equipment', cost: '5' };
 const goran = { name: 'goran', originalName: 'Goran', type: 'personnel', cost: '2' };
@@ -55,14 +55,6 @@ describe('moveCharge with the facts of the cost models (#1654)', () => {
     const event = { id: 'c3', title: 'Surprise Party', type: 'event' };
     expect(moveCharge('playAndDraw', 'hand', 'awayTeam', goran, facts({ hand: [self, event] }), 'g1')?.kind).toBe('play');
     expect(moveCharge('playAndDraw', 'hand', 'awayTeam', goran, facts({ hand: [self, event] }), 'g1')).toHaveProperty('source.choice');
-  });
-
-  it('charges a downloaded card 0, before its model', () => {
-    expect(moveCharge('playAndDraw', 'hand', 'crew', nanoprobes, facts({ commanded: [borg], downloaded: ['Borg Nanoprobes'] }))).toEqual({
-      kind: 'play',
-      cost: 0,
-      source: { title: 'Downloaded', reason: 'downloaded this turn' },
-    });
   });
 
   it('charges a card with no model its printed cost, with no source', () => {

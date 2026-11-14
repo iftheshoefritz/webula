@@ -555,8 +555,8 @@ of the next-turn button: "<spent>/<limit>", with `data-over="true"` past the lim
 (`turnCounters` in `gameLog.ts`): a correction is a log entry, `chargeCorrected` or `counterLimit`, that
 `gameReducer` makes for `correctCharge` and `adjustCounterLimit` with no change to the table, and
 `effectiveLog` applies the corrections before the log is read. Before the printed cost, a play asks
-two things (#1654, `moveCharge`): a card downloaded this turn, by a `move` from the draw deck into the
-hand (`downloadedThisTurn`), is free once, and the cost registry (`src/lib/costModels/`, one model per
+the cost registry (#1654, `moveCharge`); a download only takes a card into the hand, and its later play
+costs what any play does. The cost registry (`src/lib/costModels/`, one model per
 title, of `CostFacts` that `costFactsOf` builds) gives Borg Nanoprobes cost −2 while a Borg is
 commanded and Goran his "may", a button `charge-choice` ("Discard a card: −2") that dispatches
 `correctCharge` with its `source`. The chip and the list name the source, `charge-source`, and the log

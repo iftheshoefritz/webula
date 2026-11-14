@@ -1,14 +1,14 @@
 // The cost of a move on the practice table (#1606): in the play and draw segment a card played
 // from the hand costs its printed cost in counters, and a draw from the draw deck costs 1. Before
-// the printed cost the classifier asks two things (#1654): whether the card was downloaded this
-// turn, which makes its play free, and the cost registry, whose model of the card's title may give
-// its cost or a choice. A card with neither takes the first pending discount of the turn whose test
+// the printed cost the classifier asks the cost registry (#1654), whose model of the card's title
+// may give its cost or a choice. A download only takes a card into the hand, and its later play
+// costs what any play does. A card with neither takes the first pending discount of the turn whose test
 // it passes (#1656). Every other discount, a "place" and extra counters charge the plain rule.
 // It imports no React and no reducer: it takes a plain description of the move, so a later bot can
 // ask it too.
 
 import { cardDisplayName } from './cardCount';
-import { CostFacts, CostSource, DOWNLOADED_SOURCE } from './costModels/model';
+import { CostFacts, CostSource } from './costModels/model';
 import { costModelName, costModelOf } from './costModels/registry';
 
 // The segment of a turn, as `TurnSegment` in the practice table names it.
@@ -45,7 +45,7 @@ const PLAY_PLACES: ReadonlySet<CostPlace> = new Set<CostPlace>(['shipRow', 'crew
 export const printedCost = (card: { cost?: unknown } | null | undefined): number => Number(card?.cost) || 0;
 
 // The charge of a move of `card` from `from` to `to`, the place it landed, or null. With `facts`, a
-// card downloaded this turn is free; otherwise its model gives its cost or its choice; otherwise the
+// card's model gives its cost or its choice; otherwise the
 // first pending discount of `facts` that the card passes takes off its amount; otherwise it costs its
 // printed cost. The cost never goes below 0. `id` is the card's instance id, so a model
 // that reads the hand leaves the card itself out.
@@ -65,7 +65,6 @@ export function moveCharge(
   if (type === 'dilemma') return null;
   const printed = printedCost(card);
   const name = card ? String(cardDisplayName(card) ?? '') : '';
-  if (facts && name && facts.downloaded.includes(name)) return { kind: 'play', cost: 0, source: DOWNLOADED_SOURCE };
   const model = facts && name ? costModelOf(name) : undefined;
   const play = {
     id,
