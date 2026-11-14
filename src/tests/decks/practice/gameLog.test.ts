@@ -27,6 +27,7 @@ import {
   turnCounterLimit,
   tableLimitGrants,
   downloadedThisTurn,
+  pendingDiscountsOf,
 } from '../../../app/decks/practice/gameLog';
 
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
@@ -933,5 +934,98 @@ describe('the cost models of the limit (#1655)', () => {
     const old: LogEntry = { kind: 'counterLimit', delta: 1, limit: 8, turn: 1 };
     expect(logEntryText(old)).toBe("Set this turn's counters to 8");
     expect(turnCounterLimit([old], 1)).toBe(8);
+  });
+});
+
+describe('a pending discount of a cost model (#1656)', () => {
+  const sarish = instance('r1', 'Sarish Rez Ministerial Adjutant', 'up', 'personnel', {
+    cost: '2',
+    affiliation: 'Bajoran',
+    icons: '[Stf][DS9]',
+  });
+  const jadzia = instance('j1', 'Jadzia Dax Problem Solver', 'up', 'personnel', {
+    cost: '3',
+    affiliation: 'Federation',
+    icons: '[Stf][DS9]',
+  });
+  const ezri = instance('j2', 'Ezri Dax Station Counselor', 'up', 'personnel', {
+    cost: '2',
+    affiliation: 'Federation',
+    icons: '[Stf][DS9]',
+  });
+  const picard = instance('f1', 'Jean-Luc Picard', 'up', 'personnel', { cost: '3', affiliation: 'Federation', icons: '[Cmd][TNG]' });
+  const earth = instance('m1', 'Earth', 'up', 'mission');
+  const awayTeam = { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } as const;
+  const start = () => table({ hand: [sarish, jadzia, ezri, picard], missions: slots([{ mission: earth }]) });
+  const play = (state: GameState, ...actions: GameAction[]) =>
+    actions.reduce((s, a) => gameReducer(s, withShuffleOrders(s.table, a, s.log)), state);
+  const toAway = (id: string): GameAction => ({ type: 'move', id, to: awayTeam });
+  const origin = { entry: 0, move: 0, card: 0 };
+
+  it('derives the discount from the log, and the next [Fed][DS9] personnel uses it once', () => {
+    const played = play(initialGameState(start()), toAway('r1'));
+    expect(pendingDiscountsOf(played.log, 1)).toEqual([
+      expect.objectContaining({ title: 'Sarish Rez', label: 'next [Fed][DS9] personnel', amount: 2, origin }),
+    ]);
+    const discounted = play(played, toAway('j1'));
+    expect(turnCharges(discounted.log, 1)[1]).toEqual(
+      expect.objectContaining({
+        card: 'Jadzia Dax Problem Solver',
+        cost: 1,
+        source: { title: 'Sarish Rez', reason: '\u22122 on the next [Fed][DS9] personnel', discount: origin },
+      })
+    );
+    expect(logEntryText(discounted.log[1])).toBe(
+      'Played Jadzia Dax Problem Solver at Earth (cost 1, Sarish Rez: \u22122 on the next [Fed][DS9] personnel)'
+    );
+    expect(pendingDiscountsOf(discounted.log, 1)).toEqual([]);
+    // Used once: the next [Fed][DS9] personnel pays its printed cost.
+    const second = play(discounted, toAway('j2'));
+    expect(turnCharges(second.log, 1)[2]).toEqual(expect.objectContaining({ cost: 2 }));
+    expect(turnCharges(second.log, 1)[2].source).toBeUndefined();
+    // An undo of the discounted play brings the discount back.
+    expect(pendingDiscountsOf(play(discounted, { type: 'undo' }).log, 1)).toHaveLength(1);
+  });
+
+  it('leaves a used discount used after a correction of the play', () => {
+    const discounted = play(initialGameState(start()), toAway('r1'), toAway('j1'));
+    const corrected = play(discounted, { type: 'correctCharge', target: turnCharges(discounted.log, 1)[1].target, cost: 3 });
+    expect(turnCharges(corrected.log, 1)[1].cost).toBe(3);
+    expect(pendingDiscountsOf(corrected.log, 1)).toEqual([]);
+    expect(turnCharges(play(corrected, toAway('j2')).log, 1)[2].cost).toBe(2);
+  });
+
+  it('does not give the discount to a personnel that is not [Fed][DS9]', () => {
+    const state = play(initialGameState(start()), toAway('r1'), toAway('f1'));
+    expect(turnCharges(state.log, 1)[1]).toEqual(expect.objectContaining({ cost: 3 }));
+    expect(turnCharges(state.log, 1)[1].source).toBeUndefined();
+    expect(pendingDiscountsOf(state.log, 1)).toHaveLength(1);
+  });
+
+  it('ends the discount with the turn', () => {
+    const next = play(initialGameState(start()), toAway('r1'), { type: 'nextTurn' });
+    expect(pendingDiscountsOf(next.log, next.table.turn)).toEqual([]);
+    const played = play(next, toAway('j1'));
+    expect(turnCharges(played.log, played.table.turn)[0]).toEqual(expect.objectContaining({ cost: 3 }));
+  });
+
+  it('dismisses the discount in one entry, and one undo brings it back', () => {
+    const played = play(initialGameState(start()), toAway('r1'));
+    const dismissed = play(played, { type: 'dismissDiscount', target: origin });
+    expect(dismissed.log).toHaveLength(2);
+    expect(dismissed.log[1]).toEqual(expect.objectContaining({ kind: 'discountDismissed', target: origin, source: 'Sarish Rez' }));
+    expect(logEntryText(dismissed.log[1])).toBe('Dismissed the discount of Sarish Rez');
+    expect(dismissed.table).toBe(played.table);
+    expect(pendingDiscountsOf(dismissed.log, 1)).toEqual([]);
+    expect(turnCharges(play(dismissed, toAway('j1')).log, 1)[1].cost).toBe(3);
+    // A second dismiss changes nothing.
+    expect(play(dismissed, { type: 'dismissDiscount', target: origin })).toBe(dismissed);
+    const undone = play(dismissed, { type: 'undo' });
+    expect(pendingDiscountsOf(undone.log, 1)).toHaveLength(1);
+    // A reload keeps the dismiss and the discount.
+    const saved = JSON.parse(JSON.stringify(dismissed.log));
+    expect(saved.every(isLogEntry)).toBe(true);
+    expect(pendingDiscountsOf(saved, 1)).toEqual([]);
+    expect(pendingDiscountsOf(JSON.parse(JSON.stringify(played.log)), 1)).toHaveLength(1);
   });
 });
