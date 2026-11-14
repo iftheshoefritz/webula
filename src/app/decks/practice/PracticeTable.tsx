@@ -135,6 +135,7 @@ import {
   gameReducer,
   initialGameState,
   logEntryText,
+  pendingDiscountsOf,
   tableLimitGrants,
   turnCharges,
   turnCounters,
@@ -3671,6 +3672,8 @@ function PracticeDrawContent() {
             onCorrect={correctCharge}
             onRaiseLimit={raiseLimit}
             onAdjustLimit={(delta) => dispatch({ type: 'adjustCounterLimit', delta })}
+            pending={pendingDiscountsOf(game.log, turn)}
+            onDismiss={(target) => dispatch({ type: 'dismissDiscount', target })}
             onClose={() => setCountersListOpen(false)}
           />
         )}

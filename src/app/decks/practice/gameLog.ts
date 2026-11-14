@@ -42,8 +42,8 @@ import { drawSpend } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
-import type { CostSource, LimitGrant } from '../../../lib/costModels/model';
-import { limitGrantsOf } from '../../../lib/costModels/registry';
+import type { CostSource, LimitGrant, PendingDiscount } from '../../../lib/costModels/model';
+import { limitGrantsOf, pendingDiscountOf } from '../../../lib/costModels/registry';
 import { DOWNLOADED_SOURCE } from '../../../lib/costModels/model';
 import { costFactsOf } from './costFacts';
 
@@ -159,6 +159,9 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // `source` names the model whose choice raised the limit (#1655), "Tricia Jenkins", and `target` the
   // charge of the play that offered it.
   | { kind: 'counterLimit'; delta: number; limit: number; source?: string; target?: ChargeTarget }
+  // The player dismissed a pending discount (#1656): `target` names the charge of the play that made
+  // it, `source` the model's name, "Sarish Rez".
+  | { kind: 'discountDismissed'; target: ChargeTarget; source: string }
 );
 
 // One charge of the log (#1607): the index of its entry in the log, and for a move entry the move and
@@ -197,6 +200,8 @@ export type GameAction =
   | { type: 'correctCharge'; target: ChargeTarget; cost: number; source?: string }
   // `source` and `target` name the model whose choice changes the limit and its play's charge (#1655).
   | { type: 'adjustCounterLimit'; delta: number; source?: string; target?: ChargeTarget }
+  // A dismiss of the pending discount the play at `target` made (#1656), a log entry like a correction.
+  | { type: 'dismissDiscount'; target: ChargeTarget }
   // A restore of the saved game (#1400) that brings its log back too, and its undo and redo
   // histories (#1401).
   | { type: 'restore'; state: TableState; log?: LogEntry[]; undo?: TableState[]; redo?: RedoStep[] };
@@ -510,7 +515,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -574,8 +579,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     };
   }
   // A correction changes no card, so its undo snapshot is the table as it is (#1607).
-  if (action.type === 'correctCharge' || action.type === 'adjustCounterLimit') {
-    const entry = action.type === 'correctCharge' ? chargeCorrectionEntry(state, action) : counterLimitEntry(state, action);
+  if (action.type === 'correctCharge' || action.type === 'adjustCounterLimit' || action.type === 'dismissDiscount') {
+    const entry =
+      action.type === 'correctCharge'
+        ? chargeCorrectionEntry(state, action)
+        : action.type === 'adjustCounterLimit'
+          ? counterLimitEntry(state, action)
+          : discountDismissedEntry(state, action);
     if (!entry) return state;
     return { table: state.table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
   }
@@ -627,10 +637,24 @@ const costPlace = (zone: TableZone): CostPlace => {
 // table, and a `drawCard` from the draw deck, in the play and draw segment, as `moveCharge` and
 // `drawCharge` give it. The place a move reads is where the card landed, so a refused move costs
 // nothing. The reducer ignores the field and the log reads it. An action that already holds a cost
-// keeps it. A move reads the facts of the cost models (#1654) from the table and `downloaded`, the
-// downloads of the turn still open; a play that a download makes free takes its name off the list,
-// so the next action of a batch sees it gone.
-function withCharge(table: TableState, action: TableAction, downloaded: string[]): TableAction {
+// keeps it. A move reads the facts of the cost models (#1654) from the table and `turnFacts`, the
+// downloads of the turn still open and its pending discounts (#1656); a play that a download makes
+// free takes its name off the list, and a play that uses a discount takes the discount off, so the
+// next action of a batch sees it gone.
+interface TurnFacts {
+  downloaded: string[];
+  pending: PendingDiscount[];
+}
+
+const noTurnFacts = (): TurnFacts => ({ downloaded: [], pending: [] });
+
+const turnFactsOf = (log: LogEntry[], turn: number): TurnFacts => ({
+  downloaded: downloadedThisTurn(log, turn),
+  pending: pendingDiscountsOf(log, turn),
+});
+
+function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts): TableAction {
+  const { downloaded, pending } = turnFacts;
   if (action.type === 'drawCard' && action.cost === undefined) {
     const charge = drawCharge(table.segment, action.from, action.to);
     if (charge && tableReducer(table, action) !== table) return { ...action, cost: charge.cost };
@@ -646,13 +670,16 @@ function withCharge(table: TableState, action: TableAction, downloaded: string[]
             costPlace(found.zone),
             costPlace(landed.zone),
             found.instance.card,
-            costFactsOf(table, downloaded),
+            costFactsOf(table, downloaded, pending),
             action.id
           )
         : null;
     if (charge?.kind === 'play' && charge.source) {
       const used = charge.source.title === DOWNLOADED_SOURCE.title ? downloaded.indexOf(cardDisplayName(found!.instance.card)) : -1;
       if (used >= 0) downloaded.splice(used, 1);
+      const discount = charge.source.discount;
+      const usedDiscount = discount ? pending.findIndex((d) => sameTarget(d.origin, discount)) : -1;
+      if (usedDiscount >= 0) pending.splice(usedDiscount, 1);
       return { ...action, cost: charge.cost, costSource: charge.source };
     }
     if (charge) return { ...action, cost: charge.cost };
@@ -660,17 +687,19 @@ function withCharge(table: TableState, action: TableAction, downloaded: string[]
   return action;
 }
 
-const withOrderAndCharge = (table: TableState, action: TableAction, downloaded: string[]): TableAction =>
-  withCharge(table, withShuffleOrder(table, action), downloaded);
+const withOrderAndCharge = (table: TableState, action: TableAction, turnFacts: TurnFacts): TableAction =>
+  withCharge(table, withShuffleOrder(table, action), turnFacts);
 
-// `log` is the game's log, for the downloads of the turn (#1654). With none, no card is downloaded.
+// `log` is the game's log, for the downloads of the turn (#1654) and its pending discounts (#1656).
+// With none, no card is downloaded and no discount waits.
 export function withShuffleOrders(table: TableState, action: GameAction, log: LogEntry[] = []): GameAction {
   if (
     action.type === 'undo' ||
     action.type === 'redo' ||
     action.type === 'restore' ||
     action.type === 'correctCharge' ||
-    action.type === 'adjustCounterLimit'
+    action.type === 'adjustCounterLimit' ||
+    action.type === 'dismissDiscount'
   ) {
     return action;
   }
@@ -678,16 +707,41 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     if (!action.actions.some((a) => a.type === 'shuffle' || a.type === 'drawCard' || a.type === 'flip' || a.type === 'move')) {
       return action;
     }
-    const downloaded = downloadedThisTurn(log, table.turn);
+    const turnFacts = turnFactsOf(log, table.turn);
     let state = table;
     const actions = action.actions.map((a) => {
-      const chosen = withOrderAndCharge(state, a, downloaded);
+      const chosen = withOrderAndCharge(state, a, turnFacts);
       state = tableReducer(state, chosen);
       return chosen;
     });
     return { ...action, actions };
   }
-  return withOrderAndCharge(table, action, action.type === 'move' ? downloadedThisTurn(log, table.turn) : []);
+  return withOrderAndCharge(table, action, action.type === 'move' ? turnFactsOf(log, table.turn) : noTurnFacts());
+}
+
+// The pending discounts of `turn` (#1656), oldest first: each play of the turn whose card's model makes
+// one, less those a later charge used (its source names the play) and those a `discountDismissed`
+// entry dismissed. Read from the effective log alone, so an undo, a redo and a reload agree, and the
+// next turn has none. A correction of the play that used a discount leaves it used.
+export function pendingDiscountsOf(log: LogEntry[], turn: number): PendingDiscount[] {
+  const open: PendingDiscount[] = [];
+  const close = (origin: ChargeTarget) => {
+    const i = open.findIndex((d) => sameTarget(d.origin, origin));
+    if (i >= 0) open.splice(i, 1);
+  };
+  effectiveLog(log).forEach((entry, i) => {
+    if (entry.turn !== turn) return;
+    if (entry.kind === 'discountDismissed') {
+      if (entry.target) close(entry.target);
+      return;
+    }
+    for (const charge of chargesOf(entry, i)) {
+      if (charge.source?.discount) close(charge.source.discount);
+      const made = charge.card ? pendingDiscountOf(charge.card, charge.target) : null;
+      if (made) open.push(made);
+    }
+  });
+  return open;
 }
 
 // The downloads of `turn` still open (#1654): the display name of each card a `move` entry took from
@@ -877,6 +931,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   dilemmaResolved: true,
   chargeCorrected: true,
   counterLimit: true,
+  discountDismissed: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -980,6 +1035,8 @@ export function logEntryText(entry: LogEntry): string {
       }`;
     case 'counterLimit':
       return `Set this turn's counters to ${entry.limit}${typeof entry.source === 'string' && entry.source ? ` (${entry.source})` : ''}`;
+    case 'discountDismissed':
+      return `Dismissed the discount of ${typeof entry.source === 'string' && entry.source ? entry.source : 'a card'}`;
   }
 }
 
@@ -1254,6 +1311,20 @@ function counterLimitEntry(state: GameState, action: { delta: number; source?: s
     limit: next,
     ...(action.source ? { source: action.source } : {}),
     ...(action.source && action.target ? { target: action.target } : {}),
+    turn: state.table.turn,
+    segment: state.table.segment,
+  };
+}
+
+// The entry of a dismiss of a pending discount (#1656), or null when no pending discount of the
+// current turn came from the play at `target`.
+function discountDismissedEntry(state: GameState, action: { target: ChargeTarget }): LogEntry | null {
+  const discount = pendingDiscountsOf(state.log, state.table.turn).find((d) => sameTarget(d.origin, action.target));
+  if (!discount) return null;
+  return {
+    kind: 'discountDismissed',
+    target: { ...discount.origin },
+    source: discount.title,
     turn: state.table.turn,
     segment: state.table.segment,
   };

@@ -1,5 +1,7 @@
 import React from 'react';
 import { LAYER_CHARGE_CHIP, LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
+import type { PendingDiscount } from '../../../lib/costModels/model';
+import { pendingDiscountText } from '../../../lib/costModels/registry';
 import { useEscapeLayer } from './useEscapeLayer';
 import { ChargeTarget, LogCharge, TurnCounters } from './gameLog';
 import type { TurnSegment } from './tableReducer';
@@ -138,13 +140,16 @@ export function ChargeChip({
 }
 
 // The list of the turn's charges, opened by a tap on the counter, with minus and plus for the turn's
-// limit under them. A tap on the backdrop or Escape closes it.
+// limit under them. The pending discounts of the turn come first, each with Dismiss (#1656). A tap on
+// the backdrop or Escape closes it.
 export function TurnCountersList({
   charges,
   counters,
   onCorrect,
   onRaiseLimit,
   onAdjustLimit,
+  pending = [],
+  onDismiss,
   onClose,
 }: {
   charges: LogCharge[];
@@ -152,6 +157,8 @@ export function TurnCountersList({
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onAdjustLimit: (delta: number) => void;
+  pending?: PendingDiscount[];
+  onDismiss?: (target: ChargeTarget) => void;
   onClose: () => void;
 }) {
   useEscapeLayer(onClose);
@@ -174,6 +181,27 @@ export function TurnCountersList({
         <h2 className="text-sm font-semibold text-text-primary">
           Counters: {counters.spent}/{counters.limit}
         </h2>
+        {pending.length > 0 && (
+          <div data-testid="pending-discounts" className="flex flex-col gap-1 border-b border-white/10 pb-2">
+            {pending.map((discount) => {
+              const text = pendingDiscountText(discount);
+              return (
+                <div key={targetKey(discount.origin)} data-testid="pending-discount" className="flex items-center gap-1.5">
+                  <span className="min-w-0 flex-1 truncate text-sm text-text-primary">{text}</span>
+                  <button
+                    type="button"
+                    data-testid="pending-discount-dismiss"
+                    onClick={() => onDismiss?.(discount.origin)}
+                    aria-label={`Dismiss ${text}`}
+                    className="btn-icon h-7 w-auto px-2 text-xs"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="flex flex-col gap-1 overflow-y-auto">
           {charges.length === 0 ? (
             <p className="text-sm text-text-muted">Nothing charged this turn.</p>

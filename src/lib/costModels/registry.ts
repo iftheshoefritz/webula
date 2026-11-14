@@ -1,13 +1,14 @@
-import { CostFacts, CostModel, LimitGrant } from './model';
+import { CostFacts, CostModel, DiscountOrigin, LimitGrant, PendingDiscount } from './model';
 import { LIMIT_MODELS } from './titles/limit';
 import { OWN_COST_MODELS } from './titles/ownCost';
+import { PENDING_DISCOUNT_MODELS } from './titles/pendingDiscount';
 import { cardTitleOf } from '../cardTitle';
 
 // The cost registry of the practice table (#1654): one model per title, from the lists of `titles/`,
 // as the dilemma registry of the pile bot does. A new list of titles adds itself here. Each model
 // names its family.
 
-const MODELS: CostModel[] = [...OWN_COST_MODELS, ...LIMIT_MODELS];
+const MODELS: CostModel[] = [...OWN_COST_MODELS, ...LIMIT_MODELS, ...PENDING_DISCOUNT_MODELS];
 
 /** The registry of `models`, by title. Two models of one title throw. */
 export function costRegistryOf(models: CostModel[]): ReadonlyMap<string, CostModel> {
@@ -40,3 +41,17 @@ export function limitGrantsOf(facts: CostFacts, registry: ReadonlyMap<string, Co
     return grant && amount > 0 && Number.isFinite(amount) ? [{ title: costModelName(model), amount, reason: grant.reason }] : [];
   });
 }
+
+/** The discount a play of the card `name` leaves, made by the play at `origin` (#1656), or null. */
+export function pendingDiscountOf(
+  name: string,
+  origin: DiscountOrigin,
+  registry: ReadonlyMap<string, CostModel> = COST_REGISTRY
+): PendingDiscount | null {
+  const model = registry.get(cardTitleOf(name));
+  const discount = model?.pendingDiscount;
+  return model && discount ? { title: costModelName(model), label: discount.label, amount: discount.amount, origin, applies: discount.applies } : null;
+}
+
+/** "Sarish Rez: next [Fed][DS9] personnel −2", the row of a pending discount (#1656). */
+export const pendingDiscountText = (d: PendingDiscount): string => `${d.title}: ${d.label} −${d.amount}`;

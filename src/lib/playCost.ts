@@ -2,7 +2,8 @@
 // from the hand costs its printed cost in counters, and a draw from the draw deck costs 1. Before
 // the printed cost the classifier asks two things (#1654): whether the card was downloaded this
 // turn, which makes its play free, and the cost registry, whose model of the card's title may give
-// its cost or a choice. Every other discount, a "place" and extra counters charge the plain rule.
+// its cost or a choice. A card with neither takes the first pending discount of the turn whose test
+// it passes (#1656). Every other discount, a "place" and extra counters charge the plain rule.
 // It imports no React and no reducer: it takes a plain description of the move, so a later bot can
 // ask it too.
 
@@ -44,14 +45,18 @@ const PLAY_PLACES: ReadonlySet<CostPlace> = new Set<CostPlace>(['shipRow', 'crew
 export const printedCost = (card: { cost?: unknown } | null | undefined): number => Number(card?.cost) || 0;
 
 // The charge of a move of `card` from `from` to `to`, the place it landed, or null. With `facts`, a
-// card downloaded this turn is free; otherwise its model gives its cost or its choice; otherwise it
-// costs its printed cost. The cost never goes below 0. `id` is the card's instance id, so a model
+// card downloaded this turn is free; otherwise its model gives its cost or its choice; otherwise the
+// first pending discount of `facts` that the card passes takes off its amount; otherwise it costs its
+// printed cost. The cost never goes below 0. `id` is the card's instance id, so a model
 // that reads the hand leaves the card itself out.
 export function moveCharge(
   segment: CostSegment,
   from: CostPlace,
   to: CostPlace,
-  card: { type?: unknown; cost?: unknown; name?: unknown; originalName?: unknown } | null | undefined,
+  card:
+    | { type?: unknown; cost?: unknown; name?: unknown; originalName?: unknown; affiliation?: unknown; icons?: unknown }
+    | null
+    | undefined,
   facts?: CostFacts,
   id?: string
 ): Charge | null {
@@ -62,7 +67,14 @@ export function moveCharge(
   const name = card ? String(cardDisplayName(card) ?? '') : '';
   if (facts && name && facts.downloaded.includes(name)) return { kind: 'play', cost: 0, source: DOWNLOADED_SOURCE };
   const model = facts && name ? costModelOf(name) : undefined;
-  const suggested = model?.playCost && facts ? model.playCost({ id, type, printed }, facts) : null;
+  const play = {
+    id,
+    type,
+    printed,
+    affiliation: String(card?.affiliation ?? '').toLowerCase(),
+    icons: String(card?.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [],
+  };
+  const suggested = model?.playCost && facts ? model.playCost(play, facts) : null;
   if (model && suggested) {
     const choice =
       suggested.choice?.cost !== undefined ? { ...suggested.choice, cost: Math.max(0, suggested.choice.cost) } : suggested.choice;
@@ -70,6 +82,14 @@ export function moveCharge(
       kind: 'play',
       cost: Math.max(0, suggested.cost),
       source: { title: costModelName(model), reason: suggested.reason, ...(choice ? { choice } : {}) },
+    };
+  }
+  const discount = facts?.pending?.find((d) => d.applies(play));
+  if (discount) {
+    return {
+      kind: 'play',
+      cost: Math.max(0, printed - discount.amount),
+      source: { title: discount.title, reason: `−${discount.amount} on the ${discount.label}`, discount: discount.origin },
     };
   }
   return { kind: 'play', cost: printed };

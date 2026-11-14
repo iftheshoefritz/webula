@@ -1,4 +1,4 @@
-import { COST_REGISTRY, costModelOf, costRegistryOf, limitGrantsOf } from '../../lib/costModels/registry';
+import { COST_REGISTRY, costModelOf, costRegistryOf, limitGrantsOf, pendingDiscountOf, pendingDiscountText } from '../../lib/costModels/registry';
 import { CostFacts, CostModel } from '../../lib/costModels/model';
 import { moveCharge } from '../../lib/playCost';
 import { partnerTraitsOf } from '../../lib/dilemmaBot/simulator';
@@ -15,7 +15,7 @@ describe('the cost registry (#1654)', () => {
   it('holds one model per title, each with its family', () => {
     for (const [title, model] of COST_REGISTRY) {
       expect(model.title).toBe(title);
-      expect(['ownCost', 'limit']).toContain(model.family);
+      expect(['ownCost', 'limit', 'pendingDiscount']).toContain(model.family);
     }
     expect([...COST_REGISTRY.keys()]).toEqual(expect.arrayContaining(['Borg Nanoprobes', 'Goran']));
   });
@@ -87,5 +87,28 @@ describe('the limit models (#1655)', () => {
       cost: 2,
       source: { title: 'Tricia Jenkins', reason: 'you may spend 5 more counters this turn', choice: { label: 'Raise the limit: +5', limit: 5 } },
     });
+  });
+});
+
+describe('the pending discount models (#1656)', () => {
+  const origin = { entry: 0, move: 0, card: 0 };
+  const jadzia = { name: 'jadzia dax', originalName: 'Jadzia Dax Problem Solver', type: 'personnel', cost: '3', affiliation: 'federation', icons: '[stf][ds9]' };
+
+  it('makes the discount of Sarish Rez, with its text', () => {
+    const discount = pendingDiscountOf('Sarish Rez Ministerial Adjutant', origin)!;
+    expect(discount).toEqual(expect.objectContaining({ title: 'Sarish Rez', amount: 2, origin }));
+    expect(pendingDiscountText(discount)).toBe('Sarish Rez: next [Fed][DS9] personnel \u22122');
+    expect(pendingDiscountOf('Goran', origin)).toBeNull();
+  });
+
+  it('takes the discount off a [Fed][DS9] personnel only, never below 0', () => {
+    const pending = [pendingDiscountOf('Sarish Rez Ministerial Adjutant', origin)!];
+    expect(moveCharge('playAndDraw', 'hand', 'awayTeam', jadzia, facts({ pending }))).toEqual(
+      expect.objectContaining({ cost: 1, source: expect.objectContaining({ title: 'Sarish Rez', discount: origin }) })
+    );
+    expect(moveCharge('playAndDraw', 'hand', 'awayTeam', { ...jadzia, cost: '1' }, facts({ pending }))?.cost).toBe(0);
+    expect(moveCharge('playAndDraw', 'hand', 'awayTeam', { ...jadzia, icons: '[stf]' }, facts({ pending }))).toEqual({ kind: 'play', cost: 3 });
+    expect(moveCharge('playAndDraw', 'hand', 'awayTeam', { ...jadzia, affiliation: 'bajoran' }, facts({ pending }))).toEqual({ kind: 'play', cost: 3 });
+    expect(moveCharge('playAndDraw', 'hand', 'core', { ...jadzia, type: 'event' }, facts({ pending }))).toEqual({ kind: 'play', cost: 3 });
   });
 });

@@ -548,7 +548,10 @@ commanded and Goran his "may", a button `charge-choice` ("Discard a card: −2")
 text reads "(cost 3, Borg Nanoprobes: you command a Borg)". The limit is 7, plus the grants of the models
 (#1655, `limitGrantsOf`, read from the table as it stands: Surprise Party +1 while it is in the core),
 plus the `counterLimit` changes; Tricia Jenkins's "Raise the limit: +5" is a `charge-choice` that
-dispatches `adjustCounterLimit` with its `source`. The counter's label names the grants, "Counters 0 of 8
+dispatches `adjustCounterLimit` with its `source`. A pending discount (#1656, `pendingDiscountsOf`, from the log) waits for
+the next play of the turn that passes its test: Sarish Rez makes the next [Fed][DS9] personnel cost −2,
+and the list shows it, `pending-discount`, with a Dismiss (`pending-discount-dismiss`) that dispatches
+`dismissDiscount`, one log entry; the turn ends it. The counter's label names the grants, "Counters 0 of 8
 (Surprise Party +1)", and the list the parts, `turn-counters-limit-parts`, "7 + 1 Surprise Party". A charge shows its chip, `charge-chip`,
 for `CHARGE_CHIP_MS` with Free, minus and plus; a tap on the counter opens `turn-counters-list`, the
 turn's charges and the limit. They show on the full table only, not in the attempt layout. A desktop
