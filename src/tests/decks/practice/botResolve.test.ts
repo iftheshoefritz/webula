@@ -59,11 +59,11 @@ describe('botResolveOf (#1588)', () => {
     expect(botLabelOf(stopped)).toBe(botLabelOf(table));
   });
 
-  it('names the random kill the reveal kept, counts a selected personnel discarded by hand as done, and kills the rest (#1628)', () => {
+  it('counts the random kill the reveal kept, counts a selected personnel discarded by hand as done, and kills the rest (#1628)', () => {
     const table = tableReducer(revealed('Environmental Contaminants', undefined, [['card-3', 'card-2']]), { type: 'move', id: 'card-3', to: 'discard' });
     const pressed = botResolveOf(table);
     if (!pressed.resolvable) throw new Error(pressed.reason);
-    expect(pressed.preview).toBe('Selected Beta, Alpha; kills Beta, Alpha; 1 of 2 already killed');
+    expect(pressed.preview).toBe('Kills 2; 1 of 2 already killed');
     expect(pressed.steps).toEqual({ selects: [['card-3', 'card-2']], checks: [] });
     expect(pressed.changes).toEqual([{ op: 'kill', ids: ['card-2'] }]);
     expect(pressed.notes).toEqual([{ kind: 'alreadyDone', op: 'kill', done: 1, of: 2 }]);

@@ -342,25 +342,26 @@ function reconcile(kept: PlayEffect[], input: PileResolveInput) {
 
 type CheckEffect = Extract<PlayEffect, { op: 'check' }>;
 
-/** "Worf has Integrity, Cunning or Strength > 6", "none has …", or for `subject` "the selected personnel do not have …" (#1628). */
-function checkText(attempt: PileAttempt, e: CheckEffect): string {
+/**
+ * "1 of 3 has Integrity, Cunning or Strength > 6", "none of 3 has …", or for `subject` "the selected
+ * personnel do not have …" (#1628). It counts and never names (#1632): the row's marks show who.
+ */
+function checkText(e: CheckEffect): string {
   if (e.subject) return `${e.subject} ${e.met.every(Boolean) && e.met.length ? 'have' : 'do not have'} ${e.text}`;
-  const met = e.ks.filter((_, i) => e.met[i]);
-  if (!met.length) return `none has ${e.text}`;
-  return `${met.map((k) => attempt.personnel[k].name).join(', ')} ${met.length === 1 ? 'has' : 'have'} ${e.text}`;
+  const met = e.met.filter(Boolean).length;
+  if (!met) return `none of ${e.ks.length} has ${e.text}`;
+  return `${met} of ${e.ks.length} ${met === 1 ? 'has' : 'have'} ${e.text}`;
 }
 
 /**
  * The preview text: one clause per effect of the dilemma, in play order, then the done counts. `rolled`:
- * the selects are the roll the reveal kept (#1594, #1628), so the text goes step by step: the selection,
- * each check and the clauses after it, which name the personnel. "Selected Data, Worf, Troi; Worf has
- * Integrity, Cunning or Strength > 6: stops Worf". A select of personnel already selected (one of the
- * three) shows only in the clause of its effect.
+ * the selects are the roll the reveal kept (#1594, #1628), so the text goes step by step: each check and
+ * the clauses after it, in counts and with no names, which the row's marks show (#1632). "1 of 3 has
+ * Integrity, Cunning or Strength > 6: stops 1". The selection itself shows in no clause.
  */
 function previewOf(attempt: PileAttempt, own: PlayEffect[], done: { op: PileResolveOp; done: number; of: number }[], rolled: boolean): string {
-  const nameAll = (ks: number[]) => ks.map((k) => attempt.personnel[k].name).join(', ');
+  const nameAll = (ks: number[]) => (rolled ? String(ks.length) : ks.map((k) => attempt.personnel[k].name).join(', '));
   const hit = new Set<number>();
-  const selected = new Set<number>();
   const clauses: string[] = [];
   let effects = 0;
   // A check waits for the clause of its effect, "Worf has …: stops Worf", or ends in "no effect".
@@ -376,16 +377,9 @@ function previewOf(attempt: PileAttempt, own: PlayEffect[], done: { op: PileReso
   };
   const verbOf = (verb: string) => (rolled ? verb.toLowerCase() : verb);
   for (const e of own) {
-    if (rolled && e.op === 'select' && !e.why) {
-      if (e.ks.length && e.ks.every((k) => selected.has(k))) continue;
-      flush();
-      e.ks.forEach((k) => selected.add(k));
-      clauses.push(`selected ${nameAll(e.ks) || 'no personnel'}`);
-      continue;
-    }
     if (e.op === 'check') {
       flush();
-      check = checkText(attempt, e);
+      check = checkText(e);
       continue;
     }
     if (e.op === 'loseShip') e.ks.forEach((k) => hit.add(k));
@@ -462,12 +456,6 @@ function choiceOf(input: PileResolveInput, ops: (PileResolveOp | undefined)[]) {
   return { chooses, short, taken };
 }
 
-/** "Selected A, B, C": the personnel of the selects of the dilemma's own play, which the reveal rolled (#1594). */
-function selectedText(attempt: PileAttempt, own: PlayEffect[]): string {
-  const ks = Array.from(new Set(own.flatMap((e) => (e.op === 'select' && !e.why ? e.ks : []))));
-  return `Selected ${ks.map((k) => attempt.personnel[k].name).join(', ') || 'no personnel'}`;
-}
-
 /** The random picks of a play from card ids (#1594): each select takes its list of `picks`, the ids in its pool, up to its count. */
 function picksFrom(input: PileResolveInput, picks: ReadonlyArray<ReadonlyArray<string>>) {
   let call = 0;
@@ -519,8 +507,8 @@ export function pileRevealPicksOf(
  *
  * The play is the label's seeded play, so the personnel a rule picks are the label's. Every random select
  * of the dilemma's own play takes `input.revealPicks`, the roll the reveal kept (#1594, #1628), and never
- * rolls, so the preview, a reload and the press agree: the preview goes step by step, "Selected A, B, C;
- * B has Strength > 6: stops B", or "Selected A, B, C; choose 1 to be stopped" while a choice is pending.
+ * rolls, so the preview, a reload and the press agree: the preview goes step by step in counts, "1 of 3
+ * has Strength > 6: stops 1", or "Choose 1 of the selected to be stopped" while a choice is pending (#1632).
  * A play that selects at random with no kept roll has no Resolve. The pool of a select is the snapshot's
  * group, so a selected personnel the player stopped by hand since the reveal stays selected, and counts
  * as already stopped.
@@ -549,11 +537,13 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
   if (choice) {
     const stray = (input.selected ?? []).filter((id) => !choice.taken.has(id));
     if (choice.short.length || stray.length) {
-      const tasks = choice.short.map((c) =>
-        rolled ? `choose ${c.missing}${c.op ? ` to be ${PAST[c.op]}` : ''}` : `Choose ${c.missing} personnel${c.op ? ` to be ${PAST[c.op]}` : ''}`,
-      );
+      // A pool of the rolled selection reads "of the selected", with no names (#1632): the row's marks show who.
+      const rolledIds = new Set(rolled ? stepsOf(preview.own, input.personnelIds).selects.flat() : []);
+      const tasks = choice.short.map((c) => {
+        const whom = rolled && c.pool.length && c.pool.every((id) => rolledIds.has(id)) ? 'of the selected' : 'personnel';
+        return `Choose ${c.missing} ${whom}${c.op ? ` to be ${PAST[c.op]}` : ''}`;
+      });
       if (stray.length) tasks.push(`${stray.length === 1 ? 'A selected personnel' : `${stray.length} selected personnel`} cannot be chosen`);
-      if (rolled) tasks.unshift(selectedText(played, preview.own));
       const candidates = Array.from(new Set(choice.short.flatMap((c) => c.pool)));
       return { resolvable: true, preview: tasks.join('; '), changes: [], done: [], byTable: [], pending: { candidates } };
     }

@@ -80,11 +80,11 @@ describe('pileResolveOf (#1588)', () => {
     expect(r.preview).toBe(`Stops ${nameOf(chosen)}; 1 of 1 already stopped`);
   });
 
-  it('names the random kill the reveal kept, and kills exactly those (#1628)', () => {
+  it('counts the random kill the reveal kept, with no names (#1632), and kills exactly those (#1628)', () => {
     // Each roll takes the first personnel left.
     const r = resolve('Environmental Contaminants', {}, { roll: 0 });
     if (!r.resolvable) throw new Error(r.reason);
-    expect(r.preview).toBe('Selected Alpha, Beta; kills Alpha, Beta');
+    expect(r.preview).toBe('Kills 2');
     expect(r.changes).toEqual([{ op: 'kill', ids: ['card-1', 'card-2'] }]);
     expect(r.steps).toEqual({ selects: [['card-1', 'card-2']], checks: [] });
     expect(r.preview).not.toContain('random');
@@ -93,7 +93,7 @@ describe('pileResolveOf (#1588)', () => {
   it('counts a selected personnel the player already discarded as done, and kills the other one', () => {
     const r = resolve('Environmental Contaminants', { 'card-2': { at: 'zone', zone: 'discard' } }, { revealPicks: [['card-2', 'card-4']] });
     if (!r.resolvable) throw new Error(r.reason);
-    expect(r.preview).toBe('Selected Beta, Delta; kills Beta, Delta; 1 of 2 already killed');
+    expect(r.preview).toBe('Kills 2; 1 of 2 already killed');
     expect(r.changes).toEqual([{ op: 'kill', ids: ['card-4'] }]);
     expect(r.done).toEqual([{ op: 'kill', done: 1, of: 2 }]);
   });
@@ -245,24 +245,24 @@ describe('the roll before a choice, made at the reveal and kept (#1594)', () => 
     expect(pileRevealPicksOf(row('Well-Prepared Defenses'), attempt, { personnelIds, rand: () => 0 })).toBeUndefined();
   });
 
-  it('names the kept set and the task, and stays pending until a personnel of the set is selected', () => {
+  it('reads the task of the kept set with no names (#1632), and stays pending until a personnel of the set is selected', () => {
     const picks = [['card-1', 'card-2', 'card-3']];
     const r = pattern(picks).resolve();
-    expect(r).toEqual({ resolvable: true, preview: 'Selected Alpha, Beta, Gamma; choose 1 to be stopped', changes: [], done: [], byTable: [], pending: { candidates: ['card-1', 'card-2', 'card-3'] } });
+    expect(r).toEqual({ resolvable: true, preview: 'Choose 1 of the selected to be stopped', changes: [], done: [], byTable: [], pending: { candidates: ['card-1', 'card-2', 'card-3'] } });
     expect(pattern(picks, ['card-4']).resolve()).toMatchObject({ pending: expect.anything(), changes: [] });
     const chosen = pattern(picks, ['card-3']).resolve();
     if (!chosen.resolvable) throw new Error(chosen.reason);
     expect(chosen.pending).toBeUndefined();
     expect(chosen.changes).toEqual([{ op: 'stop', ids: ['card-3'] }]);
-    expect(chosen.preview).toBe('Selected Alpha, Beta, Gamma; stops Gamma');
+    expect(chosen.preview).toBe('Stops 1');
     expect(chosen.steps?.selects).toEqual(picks);
   });
 
-  it('names the definite result when the roll leaves no choice: all three of one species are stopped', () => {
+  it('counts the definite result when the roll leaves no choice: all three of one species are stopped', () => {
     const r = pattern([['card-1', 'card-2', 'card-4']], [], ['Human', 'Human', 'Vulcan', 'Human']).resolve();
     if (!r.resolvable) throw new Error(r.reason);
     expect(r.pending).toBeUndefined();
-    expect(r.preview).toBe('Selected Alpha, Beta, Delta; stops Alpha, Beta, Delta');
+    expect(r.preview).toBe('Stops 3');
     expect(r.changes).toEqual([{ op: 'stop', ids: ['card-1', 'card-2', 'card-4'] }]);
   });
 
@@ -303,10 +303,10 @@ describe('every random selection rolls at the reveal, and the preview names each
   });
   const becalmed = (revealPicks: string[][], moved: Record<string, PileResolveWhere> = {}) => resolve('Becalmed', moved, { revealPicks }, strong());
 
-  it('names the three Becalmed selected, the one who meets the check, and stops exactly that one', () => {
+  it('counts the three Becalmed selected and the one who meets the check (#1632), and stops exactly that one', () => {
     const r = becalmed([['card-1', 'card-3', 'card-4']]);
     if (!r.resolvable) throw new Error(r.reason);
-    expect(r.preview).toBe('Selected Alpha, Gamma, Delta; Gamma has Integrity, Cunning or Strength > 6: stops Gamma');
+    expect(r.preview).toBe('1 of 3 has Integrity, Cunning or Strength > 6: stops 1');
     expect(r.changes).toEqual([{ op: 'stop', ids: ['card-3'] }]);
     expect(r.steps).toEqual({
       selects: [['card-1', 'card-3', 'card-4']],
@@ -316,33 +316,33 @@ describe('every random selection rolls at the reveal, and the preview names each
     expect(becalmed([['card-1', 'card-3', 'card-4']])).toEqual(r);
   });
 
-  it('reads "none has …: no effect" when no selected personnel meets the check', () => {
+  it('reads "None of 3 has …: no effect" when no selected personnel meets the check', () => {
     const r = becalmed([['card-1', 'card-2', 'card-4']]);
     if (!r.resolvable) throw new Error(r.reason);
-    expect(r.preview).toBe('Selected Alpha, Beta, Delta; none has Integrity, Cunning or Strength > 6: no effect');
+    expect(r.preview).toBe('None of 3 has Integrity, Cunning or Strength > 6: no effect');
     expect(r.changes).toEqual([]);
   });
 
   it('keeps the selection when the player stops a selected personnel by hand after the reveal', () => {
     const r = becalmed([['card-1', 'card-3', 'card-4']], { 'card-3': { at: 'row', stopped: true } });
     if (!r.resolvable) throw new Error(r.reason);
-    expect(r.preview).toBe('Selected Alpha, Gamma, Delta; Gamma has Integrity, Cunning or Strength > 6: stops Gamma; 1 of 1 already stopped');
+    expect(r.preview).toBe('1 of 3 has Integrity, Cunning or Strength > 6: stops 1; 1 of 1 already stopped');
     expect(r.changes).toEqual([]);
     expect(r.done).toEqual([{ op: 'stop', done: 1, of: 1 }]);
   });
 
-  it('names the personnel killRandom(1) kills, never "1 random personnel"', () => {
+  it('counts the personnel killRandom(1) kills, never "1 random personnel"', () => {
     const r = resolve('Contaminating a Culture', {}, { revealPicks: [['card-2']] });
     if (!r.resolvable) throw new Error(r.reason);
-    expect(r.preview).toBe('Selected Beta; kills Beta');
+    expect(r.preview).toBe('Kills 1');
     expect(r.changes).toEqual([{ op: 'kill', ids: ['card-2'] }]);
   });
 
-  it('names the check of a selectEachWithout title, and stops the ones who fail it', () => {
+  it('counts the check of a selectEachWithout title, and stops the ones who fail it', () => {
     // Temptation: each of three selected without Honor or Treachery is stopped. Beta has Honor.
     const r = resolve('Temptation', {}, { revealPicks: [['card-1', 'card-2', 'card-3']] }, {}, ['Physics', 'Honor', 'Physics', 'Physics']);
     if (!r.resolvable) throw new Error(r.reason);
-    expect(r.preview).toBe('Selected Alpha, Beta, Gamma; Beta has Honor or Treachery: stops Alpha, Gamma');
+    expect(r.preview).toBe('1 of 3 has Honor or Treachery: stops 2');
     expect(r.changes).toEqual([{ op: 'stop', ids: ['card-1', 'card-3'] }]);
   });
 });

@@ -73,6 +73,15 @@ export interface BotRowMarks {
   met: string[];
 }
 
+// Issue #1632: while the marks show, the row draws the selected personnel first, in selection order, then
+// the others in their stored order. Only the order on the screen changes, never the table's.
+export function botMarkedFirst(cards: CardInstance[], marks: BotRowMarks | null): CardInstance[] {
+  if (!marks?.selected.length) return cards;
+  const byId = new Map(cards.map((instance) => [instance.id, instance]));
+  const first = marks.selected.flatMap((id) => byId.get(id) ?? []);
+  return [...first, ...cards.filter((instance) => !marks.selected.includes(instance.id))];
+}
+
 export const attemptPersonnelScrollTestId = (dropId: string): string => `${dropId}-scroll`;
 
 export default function AttemptPersonnelRow({
@@ -272,7 +281,7 @@ export default function AttemptPersonnelRow({
               className="grid justify-center"
               style={{ gridTemplateColumns: `repeat(${Math.max(1, columns)}, ${cardWidth}px)`, gap: ATTEMPT_PERSONNEL_GAP }}
             >
-              {cards.map((instance) => {
+              {botMarkedFirst(cards, botMarks).map((instance) => {
                 const selected = selectedIds.includes(instance.id);
                 const botSelected = !!botMarks?.selected.includes(instance.id);
                 const botMet = botSelected && !!botMarks?.met.includes(instance.id);

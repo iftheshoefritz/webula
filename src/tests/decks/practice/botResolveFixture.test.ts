@@ -182,7 +182,7 @@ describe('?fixture=bot-resolve-pattern (#1594)', () => {
   const nameOf = (table: TableState, id: string) => crewOf(table).find((c) => c.id === id)!.card.originalName as string;
   const saveAndRestore = (table: TableState, deck: any) => fromSavedGame(JSON.stringify(toSavedGame(table, deck, 'builder')), deck)!.table;
 
-  it('the flip that reveals A Pattern of Lies stores the roll on the snapshot, and the preview names those three', () => {
+  it('the flip that reveals A Pattern of Lies stores the roll on the snapshot, and the preview reads the task with no names (#1632)', () => {
     const table = dealRevealFixture('bot-resolve-pattern', true);
     const top = table.dilemmaStack[0];
     expect(top.card.originalName).toContain('A Pattern of Lies');
@@ -191,8 +191,8 @@ describe('?fixture=bot-resolve-pattern (#1594)', () => {
     expect(picks![0]).toHaveLength(3);
     const r = botResolveOf(table);
     if (!r.resolvable) throw new Error(r.reason);
-    const names = picks![0].map((id) => nameOf(table, id)).join(', ');
-    expect(r.preview).toBe(`Selected ${names}; choose 1 to be stopped`);
+    expect(r.preview).toBe('Choose 1 of the selected to be stopped');
+    for (const id of picks![0]) expect(r.preview).not.toContain(nameOf(table, id));
     expect(r).toMatchObject({ pending: true, changes: [] });
   });
 
@@ -246,7 +246,7 @@ describe('?fixture=bot-resolve-pattern (#1594)', () => {
     if (!r.resolvable) throw new Error(r.reason);
     expect(r.pending).toBeUndefined();
     expect(r.changes).toEqual([{ op: 'stop', ids: [chosen] }]);
-    expect(r.preview).toContain(`stops ${nameOf(table, chosen)}`);
+    expect(r.preview).toBe('Stops 1');
     const start = initialGameState(table);
     const game = gameReducer(start, { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'A Pattern of Lies', changes: r.changes, notes: r.notes, move: r.move });
     expect(game.table.dilemmaStack).toHaveLength(table.dilemmaStack.length - 1);
@@ -261,7 +261,7 @@ describe('?fixture=bot-resolve-becalmed (#1628)', () => {
   const nameOf = (table: TableState, id: string) => crewOf(table).find((c) => c.id === id)!.card.originalName as string;
   const saveAndRestore = (table: TableState, deck: any) => fromSavedGame(JSON.stringify(toSavedGame(table, deck, 'builder')), deck)!.table;
 
-  it('the flip that reveals Becalmed keeps the roll, and the preview names the three, the check and who is stopped', () => {
+  it('the flip that reveals Becalmed keeps the roll, and the preview counts the three, the check and who is stopped, with no names (#1632)', () => {
     const { table, deck } = dealRevealFixtureWithDeck('bot-resolve-becalmed', true);
     const top = table.dilemmaStack[0];
     expect(top.card.originalName).toContain('Becalmed');
@@ -271,11 +271,11 @@ describe('?fixture=bot-resolve-becalmed (#1628)', () => {
     const r = botResolveOf(table);
     if (!r.resolvable) throw new Error(r.reason);
     const names = picks![0].map((id) => nameOf(table, id));
-    expect(r.preview.startsWith(`Selected ${names.join(', ')}; `)).toBe(true);
-    expect(r.preview).toMatch(/(has|have) Integrity, Cunning or Strength > 6: (stops|no effect)/);
+    for (const name of names) expect(r.preview).not.toContain(name);
+    expect(r.preview).toMatch(/^(\d of 3 (has|have)|None of 3 has) Integrity, Cunning or Strength > 6: (stops \d|no effect)/);
     const met = r.steps!.checks[0].met;
     expect(r.changes).toEqual(met.length ? [{ op: 'stop', ids: met }] : []);
-    expect(r.preview).toContain(met.length ? `: stops ${met.map((id) => nameOf(table, id)).join(', ')}` : ': no effect');
+    expect(r.preview).toContain(met.length ? `: stops ${met.length}` : ': no effect');
     expect(r.preview).not.toContain('random');
 
     // A reload keeps the three and the text.
