@@ -69,6 +69,30 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
+describe('the playtest device flag (#1660)', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('is set once a signed-in user loads a non-empty set', async () => {
+    mockUseSession.mockReturnValue(signedIn);
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => answer(5, 2) });
+    renderTree();
+    await waitFor(() => expect(localStorage.getItem('playtest-device')).toBe('1'));
+  });
+
+  it('is not set on a 404 or an empty answer', async () => {
+    mockUseSession.mockReturnValue(signedIn);
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) });
+    const { unmount } = renderTree();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    unmount();
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ sets: [] }) });
+    renderTree();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await Promise.resolve();
+    expect(localStorage.getItem('playtest-device')).toBeNull();
+  });
+});
+
 describe('PlaytestCardsProvider and useWithPlaytestCards (#1614)', () => {
   it('sends no request when signed out, and gives the public cards alone', async () => {
     mockUseSession.mockReturnValue({ status: 'unauthenticated', data: null });

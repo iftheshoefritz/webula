@@ -40,6 +40,7 @@ import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
 import { lackeyText, missingCardsMessage } from '../app/decks/deckBuilderUtils';
+import PlaytestSignInHint from './PlaytestSignInHint';
 import {
   type ShareFailure,
   ShareRequestError,
@@ -1480,6 +1481,7 @@ export default function DeckBuilderClient({ data: publicData, columns }: DeckBui
             className="bg-amber-900/90 border border-amber-700 text-amber-100 text-sm rounded-lg px-4 py-2 shadow-xl flex items-center gap-3"
           >
             <span>{missingCardsMessage(missingCards)}</span>
+            <PlaytestSignInHint />
             <button
               onClick={dismissMissingCards}
               className="text-amber-200 hover:text-white"

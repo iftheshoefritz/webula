@@ -2,13 +2,62 @@
  * @jest-environment node
  */
 
+const mockRefresh = jest.fn();
 jest.mock('@googleapis/drive', () => ({
   auth: {
-    OAuth2: jest.fn().mockImplementation(() => ({ setCredentials: jest.fn() })),
+    OAuth2: jest.fn().mockImplementation(() => ({ setCredentials: jest.fn(), refreshAccessToken: () => mockRefresh() })),
   },
 }));
 
 import { authOptions } from '../../../app/api/auth/authOptions';
+
+describe('the session length (#1660)', () => {
+  it('lasts 90 days and rolls forward once a day', () => {
+    expect(authOptions.session).toEqual({ strategy: 'jwt', maxAge: 90 * 24 * 60 * 60, updateAge: 24 * 60 * 60 });
+  });
+});
+
+describe('a refresh that Google refuses (#1660)', () => {
+  const expired = {
+    email: 'tester@example.com',
+    accessToken: 'old',
+    refreshToken: 'revoked',
+    accessTokenExpires: Date.now() - 1000,
+  };
+  const jwt = (token: object) => authOptions.callbacks!.jwt!({ token, account: null, user: undefined as any } as any);
+
+  beforeEach(() => {
+    mockRefresh.mockReset();
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('keeps the token and its email, and sets error', async () => {
+    mockRefresh.mockRejectedValue(new Error('invalid_grant'));
+    const token = (await jwt(expired)) as any;
+    expect(token.email).toBe('tester@example.com');
+    expect(token.refreshToken).toBe('revoked');
+    expect(token.error).toBe('RefreshAccessTokenError');
+  });
+
+  it('waits an hour before it tries again', async () => {
+    mockRefresh.mockRejectedValue(new Error('invalid_grant'));
+    const failed = await jwt(expired);
+    const again = (await jwt(failed)) as any;
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(again.email).toBe('tester@example.com');
+  });
+
+  it('clears the error once a later refresh succeeds', async () => {
+    mockRefresh.mockResolvedValue({ credentials: { access_token: 'new', expiry_date: Date.now() + 3600_000 } });
+    const token = (await jwt({ ...expired, error: 'RefreshAccessTokenError', refreshRetryAt: Date.now() - 1 })) as any;
+    expect(token.accessToken).toBe('new');
+    expect(token.error).toBeUndefined();
+    expect(token.refreshRetryAt).toBeUndefined();
+    expect(token.email).toBe('tester@example.com');
+  });
+});
 
 describe('nextauth jwt callback', () => {
   it('computes accessTokenExpires from account.expires_at (absolute epoch seconds) on sign-in', async () => {
