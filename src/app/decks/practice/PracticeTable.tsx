@@ -2040,18 +2040,30 @@ function PracticeDrawContent() {
   const attributesOnTable = useMemo(
     () =>
       attributesOnTableOf(
-        { missions: table.missions, core: table.core, hand: table.hand, discard: table.discard, score: table.score, rangeUsed: table.rangeUsed },
+        {
+          missions: table.missions,
+          core: table.core,
+          hand: table.hand,
+          discard: table.discard,
+          brig: table.brig,
+          score: table.score,
+          rangeUsed: table.rangeUsed,
+        },
         cardTextOn
       ),
-    [table.missions, table.core, table.hand, table.discard, table.score, table.rangeUsed, cardTextOn]
+    [table.missions, table.core, table.hand, table.discard, table.brig, table.score, table.rangeUsed, cardTextOn]
   );
   const rangeUsedInfo = useMemo(
     () => ({
       used: table.rangeUsed,
-      ranges: shipRangesOnTable({ missions: table.missions, discard: table.discard, core: table.core }, table.rangeUsed, cardTextOn),
+      ranges: shipRangesOnTable(
+        { missions: table.missions, discard: table.discard, core: table.core, brig: table.brig, hand: table.hand },
+        table.rangeUsed,
+        cardTextOn
+      ),
       attributes: attributesOnTable,
     }),
-    [table.missions, table.discard, table.core, table.rangeUsed, cardTextOn, attributesOnTable]
+    [table.missions, table.discard, table.core, table.brig, table.hand, table.rangeUsed, cardTextOn, attributesOnTable]
   );
   const cardHold = useMemo(
     () => ({

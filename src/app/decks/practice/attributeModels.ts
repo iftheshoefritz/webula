@@ -16,12 +16,13 @@ import {
   isShip,
   SHIP_CLAUSES,
   titleKeyOf,
+  vornCrewed,
 } from './rangeModels';
 import { shipRangeOnTable } from './shipRange';
 
 // What the attribute models read of the table as it stands (#1667): the mission slots with their
-// away teams and ships, the core, the hand, the discard pile, the score and the Range used.
-export type AttributeTable = Pick<TableState, 'missions' | 'core' | 'hand' | 'discard' | 'score' | 'rangeUsed'>;
+// away teams and ships, the core, the hand, the discard pile, the brig (#1684), the score and the Range used.
+export type AttributeTable = Pick<TableState, 'missions' | 'core' | 'hand' | 'discard' | 'brig' | 'score' | 'rangeUsed'>;
 
 export interface PersonnelAttributes {
   integrity: number;
@@ -59,6 +60,9 @@ export interface AttributeModel {
   // A ship's model of itself (#1671): the change to its own Weapons and Shields while `self` is on
   // the ship row of slot `slot`, as `shipRange` gives its Range.
   shipAttributes?: (self: CardInstance, slot: MissionSlot, table: AttributeTable) => AttributeChange;
+  // A ship's model of the personnel at its mission (#1684): the change to `target`, wherever it is,
+  // while `self` is on the ship row of slot `slot`. `crewAttributes` reaches only the ship's crew.
+  shipMissionAttributes?: (self: CardInstance, slot: MissionSlot, target: CardInstance, table: AttributeTable) => AttributeChange;
   // A personnel's model of its ship (#1671): the change to the ship `ship` while `self` is in its
   // crew, as `aboardRange` gives its Range.
   aboardAttributes?: (self: CardInstance, ship: CardInstance, table: AttributeTable) => AttributeChange;
@@ -105,6 +109,12 @@ const incompleteNonHeadquarters = (missions: MissionSlot[]) =>
 // The ship whose crew holds `p`, or undefined for a personnel in an away team or off the table.
 const shipOf = (missions: MissionSlot[], p: CardInstance): CardInstance | undefined =>
   missions.flatMap((slot) => slot.ships).find((ship) => (ship.crew ?? []).some((c) => c.id === p.id));
+
+// "Weapons +1 for each completed mission you command." (Vidiian Cruiser, Vidiian Interceptor)
+const vidiianWeapons = (_self: CardInstance, _slot: MissionSlot, { missions }: AttributeTable): AttributeChange => {
+  const n = completedMissionCount(missions);
+  return n > 0 ? { weapons: n } : NONE;
+};
 
 const MODELS: AttributeModel[] = [
   {
@@ -564,15 +574,39 @@ const MODELS: AttributeModel[] = [
   { title: 'Keldon Advanced', shipAttributes: (self) => shipPlus(SHIP_CLAUSES.keldon(self)) },
   { title: 'Sarajevo Starfleet Vessel', shipAttributes: (self) => shipPlus(SHIP_CLAUSES.sarajevo(self)) },
   { title: 'Vedek Assembly Transport', shipAttributes: (self) => shipPlus(SHIP_CLAUSES.vedekAssembly(self)) },
+  // "This ship is Range -1 and Weapons +1 for each completed mission you command." Its Range is
+  // `vidiianRange` of the range registry (#1648).
+  { title: 'Vidiian Cruiser', shipAttributes: vidiianWeapons },
+  // The single-deck ships of #1684, with their Range in `rangeModels.ts` where they change it.
+  { title: 'Vidiian Interceptor', shipAttributes: vidiianWeapons },
   {
-    // "This ship is Range -1 and Weapons +1 for each completed mission you command." Its Range is
-    // `vidiianRange` of the range registry (#1648).
-    title: 'Vidiian Cruiser',
-    shipAttributes: (_self, _slot, { missions }) => {
-      const n = completedMissionCount(missions);
-      return n > 0 ? { weapons: n } : NONE;
-    },
+    // "This ship is Weapons +1 and Shields +1 for each [Pa][Rom] personnel aboard (Limit +3)." Its
+    // Range clause is the range registry's (#1648).
+    title: 'Bird-of-Prey',
+    shipAttributes: (self) =>
+      shipPlus(Math.min(3, (self.crew ?? []).filter((p) => isPersonnel(p) && hasIcon(p, 'pa') && hasAffiliation(p, 'romulan')).length)),
   },
+  { title: 'Dominion Battleship', shipAttributes: (self) => shipPlus(SHIP_CLAUSES.dominionBattleship(self)) },
+  { title: 'Enterprise Finally Ready to Swim', shipAttributes: (self) => shipPlus(SHIP_CLAUSES.enterpriseSwim(self)) },
+  { title: 'I.K.S. Chontay On the Hunt', shipAttributes: (self, _slot, table) => shipPlus(SHIP_CLAUSES.chontay(self, table)) },
+  {
+    // "While this ship is at a space mission, it is Weapons +2."
+    title: "I.K.S. Hegh'ta",
+    shipAttributes: (_self, slot) => (isSpaceMission(slot.mission) ? { weapons: 2 } : NONE),
+  },
+  { title: "I.K.S. Qel'Poh Clandestine Vessel", shipAttributes: (self, _slot, table) => shipPlus(SHIP_CLAUSES.qelPohCaptive(self, table)) },
+  {
+    // "… this ship is attributes +2. While your three [Kli] Treachery personnel are aboard, each of
+    // your Treachery personnel at this mission is attributes +1." At this mission: the away team and
+    // the crews of the ships here, as #1664 reads it, the three aboard too.
+    title: 'I.K.S. Vorn Ship of Traitors',
+    shipAttributes: (self) => shipPlus(SHIP_CLAUSES.vorn(self)),
+    shipMissionAttributes: (self, slot, target) =>
+      isPersonnel(target) && hasSkill(target, 'treachery') && vornCrewed(self) && isAt(slot, target) ? ATTRIBUTES_PLUS_ONE : NONE,
+  },
+  { title: "Te'nari Resistance Flagship", shipAttributes: (self) => shipPlus(SHIP_CLAUSES.tenari(self)) },
+  { title: 'U.S.S. Ganges One of the First', shipAttributes: (self) => shipPlus(SHIP_CLAUSES.ganges(self)) },
+  { title: 'U.S.S. Valiant Red Squad Training Ship', shipAttributes: (self) => shipPlus(SHIP_CLAUSES.valiant(self)) },
 ];
 
 export const ATTRIBUTE_REGISTRY: ReadonlyMap<string, AttributeModel> = (() => {
@@ -606,7 +640,7 @@ function placeOf(missions: MissionSlot[], target: CardInstance): { slot: Mission
 }
 
 // The changes of every model that applies to `target`: the events placed on each mission card, each
-// mission card, each event in the core, then, for a card in an away team or a crew, its own model,
+// mission card, each ship of each ship row (#1684), each event in the core, then, for a card in an away team or a crew, its own model,
 // the group models of the personnel and the equipment present with it (itself among them), and its
 // ship's crew model; for a ship on a ship row (#1671), its own model, the models of its crew, the
 // models of the events placed on it (#1683) and the models of every personnel the player commands that
@@ -620,6 +654,7 @@ function changesTo(table: AttributeTable, target: CardInstance): AttributeChange
     if (!slot.mission) continue;
     for (const event of slot.mission.placedOn ?? []) add(attributeModelOf(event)?.eventAttributes?.(event, slot, target, table));
     add(attributeModelOf(slot.mission)?.missionAttributes?.(slot.mission, slot, target, table));
+    for (const ship of slot.ships) add(attributeModelOf(ship)?.shipMissionAttributes?.(ship, slot, target, table));
   }
   for (const event of table.core) add(attributeModelOf(event)?.coreAttributes?.(event, target, table));
   const place = placeOf(table.missions, target);
