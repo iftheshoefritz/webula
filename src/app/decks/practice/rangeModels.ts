@@ -5,7 +5,12 @@
 // `MissionRow` reads it without loading the reducer and its `@dnd-kit/sortable` import.
 
 import { cardTitleOf } from '../../../lib/cardTitle';
-import type { CardInstance, MissionSlot } from './tableReducer';
+import type { CardInstance, MissionSlot, TableState } from './tableReducer';
+
+// What the range models read of the table as it stands (#1671): the mission slots with their away
+// teams and ships, and the discard pile (Groumall). `AttributeTable` holds it, so an attribute model
+// passes its table on.
+export type RangeTable = Pick<TableState, 'missions' | 'discard'>;
 
 export interface RangeSpanModel {
   // The title, less its version suffix, as the card data names it ("Mouth of the Wormhole Deep Space 9").
@@ -14,10 +19,10 @@ export interface RangeSpanModel {
   // quadrants. Consulted for the card of either mission and for the moving ship, as `self`.
   waivesQuadrant?: (self: CardInstance, from: CardInstance, to: CardInstance) => boolean;
   // A ship's range model: the Range the ship `self` gains, from the table as it stands.
-  shipRange?: (self: CardInstance, missions: MissionSlot[]) => number;
+  shipRange?: (self: CardInstance, table: RangeTable) => number;
   // An event's range model: the Range a ship gains while the event `self` is placed on the mission
   // card `mission`.
-  eventRange?: (self: CardInstance, mission: CardInstance, ship: CardInstance, missions: MissionSlot[]) => number;
+  eventRange?: (self: CardInstance, mission: CardInstance, ship: CardInstance, table: RangeTable) => number;
   // An event's span model in the core (#1648): whether a move of `ship` between `from` and `to` adds
   // no 2 for their different quadrants while the event `self` is in the core.
   coreWaivesQuadrant?: (self: CardInstance, from: CardInstance, to: CardInstance, ship: CardInstance) => boolean;
@@ -25,14 +30,18 @@ export interface RangeSpanModel {
   // the span total while the event `self` is in the core.
   coreSpanReduction?: (self: CardInstance, from: CardInstance, to: CardInstance, ship: CardInstance) => number;
   // A personnel's range model (#1648): the Range the ship `ship` gains while `self` is in its crew.
-  aboardRange?: (self: CardInstance, ship: CardInstance, missions: MissionSlot[]) => number;
+  aboardRange?: (self: CardInstance, ship: CardInstance, table: RangeTable) => number;
   // An event's range model (#1648): the Range the ship `ship` gains while the event `self` is placed on it.
-  placedOnShipRange?: (self: CardInstance, ship: CardInstance, missions: MissionSlot[]) => number;
+  placedOnShipRange?: (self: CardInstance, ship: CardInstance, table: RangeTable) => number;
+  // A commanded personnel's range model (#1671): the Range the ship `ship` on a ship row gains while
+  // `self` is in an away team or a crew, wherever that is (`commandedPersonnel`).
+  commandedShipRange?: (self: CardInstance, ship: CardInstance, table: RangeTable) => number;
 }
 
 const words = (field: unknown): string[] => String(field ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean);
 export const hasWord = (field: unknown, word: string) => words(field).includes(word);
 export const isPersonnel = (card: CardInstance) => String(card.card?.type ?? '').toLowerCase() === 'personnel';
+export const isShip = (card: CardInstance) => String(card.card?.type ?? '').toLowerCase() === 'ship';
 
 /** The title of a card instance, lowercased, less its version suffix. */
 export const titleKeyOf = (card: CardInstance | null | undefined): string =>
@@ -47,7 +56,7 @@ export const isNamed = (card: CardInstance, name: string): boolean => {
 };
 
 // The personnel of a ship's crew. A stopped personnel is still aboard.
-const crewPersonnel = (ship: CardInstance): CardInstance[] => (ship.crew ?? []).filter(isPersonnel);
+export const crewPersonnel = (ship: CardInstance): CardInstance[] => (ship.crew ?? []).filter(isPersonnel);
 
 // The mission cards of the player's slots: in a solo game the player commands every one.
 const commandedMissions = (missions: MissionSlot[]): CardInstance[] =>
@@ -71,14 +80,46 @@ const commands = (p: CardInstance, ship: CardInstance): boolean => {
 // A ship's Range less `n` while more than `limit` personnel are aboard: the Shuttlepods, Ganges, Rio Grande.
 const crowdedRange = (self: CardInstance, limit: number, n: number) => (crewPersonnel(self).length > limit ? -n : 0);
 
+/** The completed missions the player commands: the completed slots with a mission. */
+export const completedMissionCount = (missions: MissionSlot[]): number => missions.filter((slot) => slot.mission && slot.completed).length;
+
 // "This ship is Range -1 … for each completed mission you command." (Vidiian Cruiser, Vidiian Interceptor)
-const vidiianRange = (_self: CardInstance, missions: MissionSlot[]) =>
-  -missions.filter((slot) => slot.mission && slot.completed).length;
+const vidiianRange = (_self: CardInstance, { missions }: RangeTable) => -completedMissionCount(missions);
 
 // "While you command two missions that are worth 40 points or more, this ship is Range +2." Read as
 // two missions each worth 40 or more. (both I.K.S. Qel'Poh)
-const qelPohRange = (_self: CardInstance, missions: MissionSlot[]) =>
+const qelPohRange = (_self: CardInstance, { missions }: RangeTable) =>
   commandedMissions(missions).filter((m) => (Number(m.card?.points) || 0) >= 40).length >= 2 ? 2 : 0;
+
+// The ship clauses of #1671, one condition and amount per card, which the range model and the
+// attribute model of the card both call, so its Range and its Weapons and Shields never disagree.
+// "Attributes" on a ship are Range, Weapons and Shields. A stopped personnel is still aboard.
+export const SHIP_CLAUSES = {
+  // "While you have a ship in your discard pile, this ship is attributes +2." Any number of ships there give +2 once.
+  groumall: (_self: CardInstance, { discard }: RangeTable) => (discard.some(isShip) ? 2 : 0),
+  // "Each of your [SF] ships is attributes +1."
+  robinson: (_self: CardInstance, ship: CardInstance) => (hasWord(ship.card?.affiliation, 'starfleet') ? 1 : 0),
+  // "While your [TNG] personnel with a cost of 4 or more is present, the ship he is aboard is
+  // attributes +1." Another personnel of the crew: Wesley is [TNG] with a cost of 4 himself.
+  wesley: (self: CardInstance, ship: CardInstance) =>
+    crewPersonnel(ship).some((p) => p.id !== self.id && hasWord(p.card?.icons, 'tng') && (Number(p.card?.cost) || 0) >= 4) ? 1 : 0,
+  // "While she is aboard your {Columbia}, that ship is attributes +2."
+  erika: (_self: CardInstance, ship: CardInstance) => (isNamed(ship, 'Columbia') ? 2 : 0),
+  // "While he is aboard your {Galaxy-class ship}, it is Weapons +2 and Shields +2." Read from the ship's class.
+  geordi: (_self: CardInstance, ship: CardInstance) => (hasWord(ship.card?.class, 'galaxy') ? 2 : 0),
+  // "Weapons +1 for each Honor Klingon aboard (limit +3)." Klingon is the species, as `gains.ts` reads it.
+  rotarran: (self: CardInstance) =>
+    Math.min(3, crewPersonnel(self).filter((p) => hasWord(p.card?.skills, 'honor') && hasWord(p.card?.species, 'klingon')).length),
+  // "While your [Car] Intelligence personnel is aboard, this ship is attributes +2."
+  keldon: (self: CardInstance) =>
+    crewPersonnel(self).some((p) => hasWord(p.card?.affiliation, 'cardassian') && hasWord(p.card?.skills, 'intelligence')) ? 2 : 0,
+  // "While you have a Transporters personnel aboard, this ship is attributes +1."
+  sarajevo: (self: CardInstance) => (crewPersonnel(self).some((p) => hasWord(p.card?.skills, 'transporters')) ? 1 : 0),
+  // "Attributes +1 for each of the keywords Kai, Prylar and Vedek you have aboard." Each keyword once:
+  // two Vedeks give +1.
+  vedekAssembly: (self: CardInstance) =>
+    ['kai', 'prylar', 'vedek'].filter((word) => crewPersonnel(self).some((p) => hasWord(p.card?.keywords, word))).length,
+};
 
 /** The personnel the player commands: every away team and every ship's crew, not the brig, the hand or a pile. */
 export function commandedPersonnel(missions: MissionSlot[]): CardInstance[] {
@@ -95,7 +136,7 @@ const MODELS: RangeSpanModel[] = [
   {
     // "Plays on {Remus}. Each of your [Rom] ships is Range +1 for each Reman you command (limit +3)."
     title: 'The Reman Mines',
-    eventRange: (_self, mission, ship, missions) => {
+    eventRange: (_self, mission, ship, { missions }) => {
       if (!isNamed(mission, 'Remus') || !hasWord(ship.card?.affiliation, 'romulan')) return 0;
       return Math.min(3, commandedPersonnel(missions).filter((p) => hasWord(p.card?.species, 'reman')).length);
     },
@@ -177,7 +218,7 @@ const MODELS: RangeSpanModel[] = [
     // Neutral Zone mission you command, this ship is Range +1 (limit +3)." A solo table has no
     // opponent ship.
     title: 'Pi Off Course',
-    shipRange: (_self, missions) =>
+    shipRange: (_self, { missions }) =>
       Math.min(3, commandedMissions(missions).filter((m) => String(m.card?.keywords ?? '').toLowerCase().includes('region: neutral zone')).length),
   },
   {
@@ -200,6 +241,13 @@ const MODELS: RangeSpanModel[] = [
     title: 'Inspiring Leader',
     placedOnShipRange: (_self, ship) => (crewPersonnel(ship).some((p) => commands(p, ship)) ? 2 : 0),
   },
+  { title: 'Groumall Inauspicious Command', shipRange: SHIP_CLAUSES.groumall },
+  { title: 'A. G. Robinson Prototype Captain', commandedShipRange: SHIP_CLAUSES.robinson },
+  { title: 'Wesley Crusher Battleship Helmsman', aboardRange: SHIP_CLAUSES.wesley },
+  { title: 'Erika Hernandez Comparable Captain', aboardRange: SHIP_CLAUSES.erika },
+  { title: 'Keldon Advanced', shipRange: SHIP_CLAUSES.keldon },
+  { title: 'Sarajevo Starfleet Vessel', shipRange: SHIP_CLAUSES.sarajevo },
+  { title: 'Vedek Assembly Transport', shipRange: SHIP_CLAUSES.vedekAssembly },
 ];
 
 export const RANGE_SPAN_REGISTRY: ReadonlyMap<string, RangeSpanModel> = (() => {

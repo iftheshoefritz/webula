@@ -267,7 +267,7 @@ function shipRowOnTable(table: TableState, ship: CardInstance, cardText: boolean
   if (!cardText || !ship.card) return ship.card;
   return {
     ...ship.card,
-    range: shipRangeOnTable(table.missions, ship, true),
+    range: shipRangeOnTable(table, ship, true),
     ...shipAttributesOnTable(table, ship, true),
   };
 }

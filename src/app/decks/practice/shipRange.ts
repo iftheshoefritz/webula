@@ -4,7 +4,7 @@
 // its `@dnd-kit/sortable` import.
 
 import type { CardInstance, MissionSlot } from './tableReducer';
-import { quadrantOf, rangeSpanModelOf } from './rangeModels';
+import { commandedPersonnel, quadrantOf, type RangeTable, rangeSpanModelOf } from './rangeModels';
 
 // A card with no printed Range reads 0.
 export const printedRange = (card: CardInstance | null | undefined): number => Number(card?.card?.range) || 0;
@@ -48,17 +48,23 @@ export function moveSpanTotal(
 // A ship's Range on the table as it stands (#1635): its printed Range, plus the Range its own range
 // model gives it, plus the Range of every event placed on a mission card whose range model applies
 // to it, plus the Range of every personnel of its crew and every event placed on it whose range model
-// applies (#1648). It never goes below 0. With `cardText` false (#1668) it is the printed Range.
-export function shipRangeOnTable(missions: MissionSlot[], ship: CardInstance, cardText = true): number {
+// applies (#1648), plus the Range of every personnel the player commands whose range model changes
+// ships (#1671), for a ship on a ship row. It never goes below 0. With `cardText` false (#1668) it is
+// the printed Range.
+export function shipRangeOnTable(table: RangeTable, ship: CardInstance, cardText = true): number {
   if (!cardText) return printedRange(ship);
-  let range = printedRange(ship) + (rangeSpanModelOf(ship)?.shipRange?.(ship, missions) ?? 0);
-  for (const p of ship.crew ?? []) range += rangeSpanModelOf(p)?.aboardRange?.(p, ship, missions) ?? 0;
-  for (const event of ship.placedOn ?? []) range += rangeSpanModelOf(event)?.placedOnShipRange?.(event, ship, missions) ?? 0;
+  const { missions } = table;
+  let range = printedRange(ship) + (rangeSpanModelOf(ship)?.shipRange?.(ship, table) ?? 0);
+  for (const p of ship.crew ?? []) range += rangeSpanModelOf(p)?.aboardRange?.(p, ship, table) ?? 0;
+  for (const event of ship.placedOn ?? []) range += rangeSpanModelOf(event)?.placedOnShipRange?.(event, ship, table) ?? 0;
   for (const slot of missions) {
     if (!slot.mission) continue;
     for (const event of slot.mission.placedOn ?? []) {
-      range += rangeSpanModelOf(event)?.eventRange?.(event, slot.mission, ship, missions) ?? 0;
+      range += rangeSpanModelOf(event)?.eventRange?.(event, slot.mission, ship, table) ?? 0;
     }
+  }
+  if (missions.some((slot) => slot.ships.some((s) => s.id === ship.id))) {
+    for (const p of commandedPersonnel(missions)) range += rangeSpanModelOf(p)?.commandedShipRange?.(p, ship, table) ?? 0;
   }
   return Math.max(0, range);
 }
@@ -66,15 +72,15 @@ export function shipRangeOnTable(missions: MissionSlot[], ship: CardInstance, ca
 // The Range on the table of every ship with an entry in `rangeUsed`, by the ship's instance id: what
 // `rangeUsedDisplay` reads.
 export function shipRangesOnTable(
-  missions: MissionSlot[],
+  table: RangeTable,
   rangeUsed: Record<string, number> | undefined,
   cardText = true
 ): Record<string, number> {
   const ranges: Record<string, number> = {};
   if (!rangeUsed) return ranges;
-  for (const slot of missions) {
+  for (const slot of table.missions) {
     for (const ship of slot.ships) {
-      if (ship.id in rangeUsed) ranges[ship.id] = shipRangeOnTable(missions, ship, cardText);
+      if (ship.id in rangeUsed) ranges[ship.id] = shipRangeOnTable(table, ship, cardText);
     }
   }
   return ranges;

@@ -67,7 +67,7 @@ export function attributesOnTableOf(table: AttributeTable, cardText: boolean): R
     for (const ship of slot.ships) {
       (ship.crew ?? []).forEach(addPersonnel);
       const modified = modifiedOf(ship, {
-        range: shipRangeOnTable(missions, ship, true),
+        range: shipRangeOnTable(table, ship, true),
         ...shipAttributesOnTable(table, ship, true),
       });
       if (modified) map[ship.id] = modified;

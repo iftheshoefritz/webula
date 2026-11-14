@@ -5,7 +5,7 @@
 // types, so `MissionRow` can read it without loading the reducer.
 
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
-import { commandedPersonnel, hasWord, isNamed, isPersonnel, titleKeyOf } from './rangeModels';
+import { commandedPersonnel, completedMissionCount, hasWord, isNamed, isPersonnel, isShip, SHIP_CLAUSES, titleKeyOf } from './rangeModels';
 import { shipRangeOnTable } from './shipRange';
 
 // What the attribute models read of the table as it stands (#1667): the mission slots with their
@@ -45,10 +45,20 @@ export interface AttributeModel {
   groupAttributes?: (self: CardInstance, target: CardInstance, group: CardInstance[], table: AttributeTable) => AttributeChange;
   // A ship's model of its crew (#1667): the change to `target` aboard the ship `self` of slot `slot`.
   crewAttributes?: (self: CardInstance, slot: MissionSlot, target: CardInstance, table: AttributeTable) => AttributeChange;
+  // A ship's model of itself (#1671): the change to its own Weapons and Shields while `self` is on
+  // the ship row of slot `slot`, as `shipRange` gives its Range.
+  shipAttributes?: (self: CardInstance, slot: MissionSlot, table: AttributeTable) => AttributeChange;
+  // A personnel's model of its ship (#1671): the change to the ship `ship` while `self` is in its
+  // crew, as `aboardRange` gives its Range.
+  aboardAttributes?: (self: CardInstance, ship: CardInstance, table: AttributeTable) => AttributeChange;
+  // A commanded personnel's model of ships (#1671): the change to the ship `ship` on a ship row while
+  // `self` is in an away team or a crew, wherever that is, as `commandedShipRange` gives its Range.
+  commandedShipAttributes?: (self: CardInstance, ship: CardInstance, table: AttributeTable) => AttributeChange;
 }
 
-const isShip = (card: CardInstance) => String(card.card?.type ?? '').toLowerCase() === 'ship';
 const plus = (n: number): AttributeChange => ({ integrity: n, cunning: n, strength: n });
+// A ship's Weapons and Shields +`n`, the part of "attributes +n" that is not its Range.
+const shipPlus = (n: number): AttributeChange => (n !== 0 ? { weapons: n, shields: n } : NONE);
 const ATTRIBUTES_PLUS_ONE: AttributeChange = plus(1);
 const NONE: AttributeChange = {};
 
@@ -271,14 +281,41 @@ const MODELS: AttributeModel[] = [
     // mission with unused Range>5, this personnel is attributes +1 …" Unused Range is the Range on the
     // table less the Range used this turn, the Range left the ship's card shows.
     title: 'Travis Mayweather Damaged Navigator',
-    selfAttributes: (self, _group, { missions, rangeUsed }) => {
+    selfAttributes: (self, _group, table) => {
+      const { missions, rangeUsed } = table;
       const slot = missions.find((s) => isAt(s, self));
       if (!slot || !String(slot.mission?.card?.keywords ?? '').toLowerCase().includes('region: delphic expanse')) return NONE;
       return slot.ships.some(
-        (ship) => hasAffiliation(ship, 'starfleet') && shipRangeOnTable(missions, ship) - (rangeUsed?.[ship.id] ?? 0) > 5
+        (ship) => hasAffiliation(ship, 'starfleet') && shipRangeOnTable(table, ship) - (rangeUsed?.[ship.id] ?? 0) > 5
       )
         ? ATTRIBUTES_PLUS_ONE
         : NONE;
+    },
+  },
+  // The ship clauses of #1671. Each card that changes Range has its range model in `rangeModels.ts`,
+  // with the same condition and amount (`SHIP_CLAUSES`).
+  { title: 'Groumall Inauspicious Command', shipAttributes: (self, _slot, table) => shipPlus(SHIP_CLAUSES.groumall(self, table)) },
+  { title: 'A. G. Robinson Prototype Captain', commandedShipAttributes: (self, ship) => shipPlus(SHIP_CLAUSES.robinson(self, ship)) },
+  { title: 'Wesley Crusher Battleship Helmsman', aboardAttributes: (self, ship) => shipPlus(SHIP_CLAUSES.wesley(self, ship)) },
+  { title: 'Erika Hernandez Comparable Captain', aboardAttributes: (self, ship) => shipPlus(SHIP_CLAUSES.erika(self, ship)) },
+  { title: 'Geordi La Forge Resolute Presence', aboardAttributes: (self, ship) => shipPlus(SHIP_CLAUSES.geordi(self, ship)) },
+  {
+    title: 'I.K.S. Rotarran Ship of Tears',
+    shipAttributes: (self) => {
+      const n = SHIP_CLAUSES.rotarran(self);
+      return n > 0 ? { weapons: n } : NONE;
+    },
+  },
+  { title: 'Keldon Advanced', shipAttributes: (self) => shipPlus(SHIP_CLAUSES.keldon(self)) },
+  { title: 'Sarajevo Starfleet Vessel', shipAttributes: (self) => shipPlus(SHIP_CLAUSES.sarajevo(self)) },
+  { title: 'Vedek Assembly Transport', shipAttributes: (self) => shipPlus(SHIP_CLAUSES.vedekAssembly(self)) },
+  {
+    // "This ship is Range -1 and Weapons +1 for each completed mission you command." Its Range is
+    // `vidiianRange` of the range registry (#1648).
+    title: 'Vidiian Cruiser',
+    shipAttributes: (_self, _slot, { missions }) => {
+      const n = completedMissionCount(missions);
+      return n > 0 ? { weapons: n } : NONE;
     },
   },
 ];
@@ -315,7 +352,9 @@ function placeOf(missions: MissionSlot[], target: CardInstance): { slot: Mission
 
 // The changes of every model that applies to `target`: the events placed on each mission card, each
 // mission card, each event in the core, then, for a card in an away team or a crew, its own model,
-// the group models of the personnel present with it (itself among them), and its ship's crew model.
+// the group models of the personnel present with it (itself among them), and its ship's crew model;
+// for a ship on a ship row (#1671), its own model, the models of its crew and the models of every
+// personnel the player commands that change ships.
 function changesTo(table: AttributeTable, target: CardInstance): AttributeChange[] {
   const changes: AttributeChange[] = [];
   const add = (change: AttributeChange | undefined) => {
@@ -334,6 +373,12 @@ function changesTo(table: AttributeTable, target: CardInstance): AttributeChange
       if (isPersonnel(source)) add(attributeModelOf(source)?.groupAttributes?.(source, target, place.group, table));
     }
     if (place.ship) add(attributeModelOf(place.ship)?.crewAttributes?.(place.ship, place.slot, target, table));
+  }
+  const shipSlot = table.missions.find((slot) => slot.ships.some((s) => s.id === target.id));
+  if (shipSlot) {
+    add(attributeModelOf(target)?.shipAttributes?.(target, shipSlot, table));
+    for (const p of target.crew ?? []) add(attributeModelOf(p)?.aboardAttributes?.(p, target, table));
+    for (const p of commandedPersonnel(table.missions)) add(attributeModelOf(p)?.commandedShipAttributes?.(p, target, table));
   }
   return changes;
 }

@@ -301,7 +301,7 @@ function moveEntry(
       const range =
         used === undefined
           ? undefined
-          : { used, left: shipRangeOnTable(next.missions, found.instance, !!move.cardText) - (next.rangeUsed?.[move.id] ?? 0) };
+          : { used, left: shipRangeOnTable(next, found.instance, !!move.cardText) - (next.rangeUsed?.[move.id] ?? 0) };
       const cost = typeof move.cost === 'number' ? move.cost : null;
       const source = cost !== null && move.costSource ? move.costSource : null;
       const group = groups.find(
