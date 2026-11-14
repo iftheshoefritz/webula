@@ -135,6 +135,7 @@ import {
   gameReducer,
   initialGameState,
   logEntryText,
+  tableLimitGrants,
   turnCharges,
   turnCounters,
   TurnCounters,
@@ -2796,12 +2797,15 @@ function PracticeDrawContent() {
   };
 
   // The counters of the turn (#1607), derived from the log, and the corrections of its charges.
-  const currentCounters = turnCountersOn ? turnCounters(game.log, turn) : null;
+  const currentCounters = turnCountersOn ? turnCounters(game.log, turn, tableLimitGrants(table)) : null;
   const chipCharges =
     chargeChip && game.log[chargeChip.entry]?.turn === turn ? entryCharges(game.log, chargeChip.entry) : [];
   // `source` names the model whose choice the player took (#1654).
   const correctCharge = (target: ChargeTarget, cost: number, source?: string) =>
     dispatch({ type: 'correctCharge', target, cost, ...(source ? { source } : {}) });
+  // A model's choice that raises the turn's limit (#1655), "Tricia Jenkins".
+  const raiseLimit = (target: ChargeTarget, delta: number, source: string) =>
+    dispatch({ type: 'adjustCounterLimit', delta, source, target });
 
   const toggleCardSelection = (id: string) => {
     setSelectedCardIds((ids) => (ids.includes(id) ? ids.filter((cardId) => cardId !== id) : [...ids, id]));
@@ -3654,6 +3658,10 @@ function PracticeDrawContent() {
               // A correction through the chip keeps it up for its full time again.
               setChargeChip((chip) => (chip ? { ...chip } : chip));
             }}
+            onRaiseLimit={(target, delta, source) => {
+              raiseLimit(target, delta, source);
+              setChargeChip((chip) => (chip ? { ...chip } : chip));
+            }}
           />
         )}
         {turnCountersOn && countersListOpen && currentCounters && (
@@ -3661,6 +3669,7 @@ function PracticeDrawContent() {
             charges={turnCharges(game.log, turn)}
             counters={currentCounters}
             onCorrect={correctCharge}
+            onRaiseLimit={raiseLimit}
             onAdjustLimit={(delta) => dispatch({ type: 'adjustCounterLimit', delta })}
             onClose={() => setCountersListOpen(false)}
           />

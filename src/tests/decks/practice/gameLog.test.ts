@@ -24,6 +24,8 @@ import {
   effectiveLog,
   turnCharges,
   turnCounters,
+  turnCounterLimit,
+  tableLimitGrants,
   downloadedThisTurn,
 } from '../../../app/decks/practice/gameLog';
 
@@ -690,7 +692,7 @@ describe('the corrections of the turn\'s counters (#1607)', () => {
 
   it('counts the turn\'s charges against a limit of 7', () => {
     const state = played();
-    expect(turnCounters(state.log, 1)).toEqual({ spent: 10, limit: 7 });
+    expect(turnCounters(state.log, 1)).toEqual({ spent: 10, limit: 7, grants: [] });
     expect(turnCharges(state.log, 1).map((c) => [c.draw ? 'draw' : c.card, c.cost])).toEqual([
       ['Enterprise', 4],
       ['Goran', 3],
@@ -765,9 +767,9 @@ describe('the corrections of the turn\'s counters (#1607)', () => {
   it('raises and lowers the limit for the turn only, never below 0', () => {
     const state = apply(played(), { type: 'adjustCounterLimit', delta: 1 });
     expect(logEntryText(state.log[3])).toBe("Set this turn's counters to 8");
-    expect(turnCounters(state.log, 1)).toEqual({ spent: 10, limit: 8 });
+    expect(turnCounters(state.log, 1)).toEqual({ spent: 10, limit: 8, grants: [] });
     const next = apply(state, { type: 'nextTurn' });
-    expect(turnCounters(next.log, 2)).toEqual({ spent: 0, limit: 7 });
+    expect(turnCounters(next.log, 2)).toEqual({ spent: 0, limit: 7, grants: [] });
     let low = next;
     for (let i = 0; i < 7; i++) low = apply(low, { type: 'adjustCounterLimit', delta: -1 });
     expect(turnCounters(low.log, 2).limit).toBe(0);
@@ -783,7 +785,7 @@ describe('the corrections of the turn\'s counters (#1607)', () => {
     );
     const saved = JSON.parse(JSON.stringify(state.log));
     expect(saved.every(isLogEntry)).toBe(true);
-    expect(turnCounters(saved, 1)).toEqual({ spent: 6, limit: 8 });
+    expect(turnCounters(saved, 1)).toEqual({ spent: 6, limit: 8, grants: [] });
   });
 });
 
@@ -825,7 +827,7 @@ describe('the cost models in the log (#1654)', () => {
     expect(charge.cost).toBe(2);
     expect(charge.source?.choice).toEqual({ label: 'Discard a card: \u22122', cost: 0 });
     expect(charge.choiceTaken).toBeUndefined();
-    const chosen = play(played, { type: 'correctCharge', target: charge.target, cost: charge.source!.choice!.cost, source: 'Goran' });
+    const chosen = play(played, { type: 'correctCharge', target: charge.target, cost: charge.source!.choice!.cost!, source: 'Goran' });
     expect(chosen.log).toHaveLength(2);
     expect(logEntryText(chosen.log[1])).toBe('Charged Goran 0 counters (was 2) (Goran)');
     expect(turnCharges(chosen.log, 1)[0]).toEqual(expect.objectContaining({ cost: 0, choiceTaken: true }));
@@ -869,5 +871,67 @@ describe('the cost models in the log (#1654)', () => {
     expect(logEntryText(malformed)).toBe('Played Data to the core (cost 3)');
     const correction: LogEntry = { kind: 'chargeCorrected', target: { entry: 0, move: 0, card: 0 }, card: 'Data', from: 3, to: 2, turn: 1 };
     expect(logEntryText(correction)).toBe('Charged Data 2 counters (was 3)');
+  });
+});
+
+describe('the cost models of the limit (#1655)', () => {
+  const party = instance('e1', 'Surprise Party', 'up', 'event', { cost: '2' });
+  const tricia = instance('t1', 'Tricia Jenkins Relaxed Pilot', 'up', 'personnel', { cost: '2' });
+  const earth = instance('m1', 'Earth', 'up', 'mission');
+  const awayTeam = { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } as const;
+  const start = () => table({ hand: [party, tricia], missions: slots([{ mission: earth }]) });
+  const play = (state: GameState, ...actions: GameAction[]) =>
+    actions.reduce((s, a) => gameReducer(s, withShuffleOrders(s.table, a, s.log)), state);
+  const counters = (state: GameState) => turnCounters(state.log, state.table.turn, tableLimitGrants(state.table));
+
+  it('grants +1 while Surprise Party is in the core, and none once it leaves', () => {
+    const initial = initialGameState(start());
+    expect(counters(initial)).toEqual({ spent: 0, limit: 7, grants: [] });
+    const played = play(initial, { type: 'move', id: 'e1', to: 'core' });
+    expect(counters(played)).toEqual({
+      spent: 2,
+      limit: 8,
+      grants: [{ title: 'Surprise Party', amount: 1, reason: 'in your core' }],
+    });
+    // The player's change adds to the grant.
+    const lowered = play(played, { type: 'adjustCounterLimit', delta: -1 });
+    expect(counters(lowered).limit).toBe(7);
+    expect(counters(play(lowered, { type: 'undo' })).limit).toBe(8);
+    const discarded = play(played, { type: 'move', id: 'e1', to: 'discard' });
+    expect(counters(discarded)).toEqual({ spent: 2, limit: 7, grants: [] });
+    expect(counters(play(played, { type: 'undo' })).limit).toBe(7);
+  });
+
+  it("takes Tricia Jenkins's choice as one counterLimit entry with its source, and one undo takes it back", () => {
+    const played = play(initialGameState(start()), { type: 'move', id: 't1', to: awayTeam });
+    const [charge] = turnCharges(played.log, 1);
+    expect(charge.cost).toBe(2);
+    expect(charge.source).toEqual({
+      title: 'Tricia Jenkins',
+      reason: 'you may spend 5 more counters this turn',
+      choice: { label: 'Raise the limit: +5', limit: 5 },
+    });
+    expect(counters(played).limit).toBe(7);
+    const chosen = play(played, { type: 'adjustCounterLimit', delta: 5, source: 'Tricia Jenkins', target: charge.target });
+    expect(chosen.log).toHaveLength(2);
+    expect(chosen.log[1]).toEqual(expect.objectContaining({ kind: 'counterLimit', delta: 5, limit: 12, source: 'Tricia Jenkins' }));
+    expect(logEntryText(chosen.log[1])).toBe("Set this turn's counters to 12 (Tricia Jenkins)");
+    expect(counters(chosen)).toEqual({ spent: 2, limit: 12, grants: [] });
+    expect(turnCharges(chosen.log, 1)[0].choiceTaken).toBe(true);
+    expect(chosen.table).toBe(played.table);
+    // A reload keeps the limit and its source.
+    const saved = JSON.parse(JSON.stringify(chosen.log));
+    expect(saved.every(isLogEntry)).toBe(true);
+    expect(turnCounters(saved, 1).limit).toBe(12);
+    expect(turnCharges(saved, 1)[0].choiceTaken).toBe(true);
+    const undone = play(chosen, { type: 'undo' });
+    expect(counters(undone).limit).toBe(7);
+    expect(turnCharges(undone.log, 1)[0].choiceTaken).toBeUndefined();
+  });
+
+  it('reads a counterLimit entry from before #1655, with no source', () => {
+    const old: LogEntry = { kind: 'counterLimit', delta: 1, limit: 8, turn: 1 };
+    expect(logEntryText(old)).toBe("Set this turn's counters to 8");
+    expect(turnCounterLimit([old], 1)).toBe(8);
   });
 });
