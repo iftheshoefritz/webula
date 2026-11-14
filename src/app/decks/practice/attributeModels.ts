@@ -99,13 +99,13 @@ const hasSkill = (p: CardInstance, skill: string) => hasWord(p.card?.skills, ski
 const hasTrait = (p: CardInstance, trait: string) => hasWord(p.card?.keywords, trait) || hasWord(p.card?.species, trait);
 const isUnique = (p: CardInstance) => String(p.card?.unique ?? '').toLowerCase() === 'y';
 const points = (mission: CardInstance | null) => Number(mission?.card?.points) || 0;
-const isSpaceMission = (mission: CardInstance | null) => String(mission?.card?.mission ?? '').toLowerCase() === 's';
+const isSpaceMission = (mission: CardInstance | null) => String(mission?.card?.missiontype ?? '').toLowerCase() === 's';
 const completedSpaceMissions = (missions: MissionSlot[]) => missions.filter((slot) => slot.completed && isSpaceMission(slot.mission)).length;
 // The personnel of the discard pile with the skill `skill`, a card removed from the game there too.
 const discardedWith = (discard: CardInstance[], skill: string) => discard.filter((c) => isPersonnel(c) && hasWord(c.card?.skills, skill)).length;
 // The incomplete missions the player commands that are not a headquarters.
 const incompleteNonHeadquarters = (missions: MissionSlot[]) =>
-  missions.filter((slot) => slot.mission && !slot.completed && String(slot.mission.card?.mission ?? '').toLowerCase() !== 'h').length;
+  missions.filter((slot) => slot.mission && !slot.completed && String(slot.mission.card?.missiontype ?? '').toLowerCase() !== 'h').length;
 // The ship whose crew holds `p`, or undefined for a personnel in an away team or off the table.
 const shipOf = (missions: MissionSlot[], p: CardInstance): CardInstance | undefined =>
   missions.flatMap((slot) => slot.ships).find((ship) => (ship.crew ?? []).some((c) => c.id === p.id));

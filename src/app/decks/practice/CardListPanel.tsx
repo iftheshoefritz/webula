@@ -86,7 +86,7 @@ import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
 import { DILEMMA_STACK_CHOICE_END_LABELS, dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
 import TableCard, { RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, STOPPED_OVERLAY_CLASSNAME, cardBorderStyle, cardBorderWidth } from './TableCard';
-import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, hasPersonnelOverlay, hasShipOverlay, shipRangeShown } from './PersonnelOverlay';
+import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, WholeCardAttributeBoxes, hasPersonnelOverlay, hasShipOverlay, shipRangeShown } from './PersonnelOverlay';
 import { rangeUsedDisplay } from './shipRange';
 import { useRangeUsed } from './RangeUsedContext';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
@@ -450,6 +450,16 @@ function CardListPanelCard({
             style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
           />
         )}
+        {/* #1676: the whole card shows the attributes card text changes over its printed boxes. */}
+        {!artCrop && (
+          <WholeCardAttributeBoxes
+            card={card}
+            imageSrc={cardImageUrl(card)}
+            width={cardWidth}
+            height={cardHeight}
+            onTable={onTable}
+          />
+        )}
         {instance.removedFromGame && <RemovedFromGameLabel />}
         {/* Bottom left, clear of the select checkbox; it takes no tap, so the card still selects
             and drags. */}
@@ -577,6 +587,15 @@ function PanelHost({
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
         />
         {rangeShown && <ShipRangeLeftBox imageSrc={cardImageUrl(card)} width={cardWidth} height={cardHeight} range={rangeShown} />}
+        {showPlacedOn && (
+          <WholeCardAttributeBoxes
+            card={card}
+            imageSrc={cardImageUrl(card)}
+            width={cardWidth}
+            height={cardHeight}
+            onTable={rangeInfo.attributes?.[host.id]}
+          />
+        )}
       </div>
       {placedOn.length > 0 && (
         <div

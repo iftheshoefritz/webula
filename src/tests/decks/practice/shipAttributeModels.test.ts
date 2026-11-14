@@ -23,7 +23,7 @@ const card = (originalName: string, type: string, extra: Record<string, string> 
   face: 'up',
 });
 
-const mission = (name: string) => card(name, 'mission', { points: '35', mission: 'p' });
+const mission = (name: string) => card(name, 'mission', { points: '35', missiontype: 'p' });
 const personnel = (name: string, extra: Record<string, string> = {}) =>
   card(name, 'personnel', { integrity: '5', cunning: '6', strength: '4', cost: '2', ...extra });
 const ship = (name: string, crew: CardInstance[] = [], extra: Record<string, string> = {}) => ({

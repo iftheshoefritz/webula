@@ -21,8 +21,8 @@ const card = (originalName: string, type: string, extra: Record<string, string> 
   face: 'up',
 });
 
-const mission = (name: string, extra: Record<string, string> = {}) => card(name, 'mission', { points: '35', mission: 'p', ...extra });
-const space = (name: string, extra: Record<string, string> = {}) => mission(name, { mission: 's', ...extra });
+const mission = (name: string, extra: Record<string, string> = {}) => card(name, 'mission', { points: '35', missiontype: 'p', ...extra });
+const space = (name: string, extra: Record<string, string> = {}) => mission(name, { missiontype: 's', ...extra });
 const personnel = (name: string, extra: Record<string, string> = {}) =>
   card(name, 'personnel', { integrity: '5', cunning: '6', strength: '4', cost: '2', unique: 'y', ...extra });
 const ship = (name: string, crew: CardInstance[] = [], extra: Record<string, string> = {}) => ({

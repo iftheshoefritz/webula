@@ -29,7 +29,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
-import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, hasPersonnelOverlay, hasShipOverlay, shipRangeShown } from './PersonnelOverlay';
+import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, WholeCardAttributeBoxes, hasPersonnelOverlay, hasShipOverlay, shipRangeShown } from './PersonnelOverlay';
 import { useRangeUsed } from './RangeUsedContext';
 import type { RangeLeft } from './shipRange';
 import { cardImageUrl } from '../../../lib/cardImageUrl';
@@ -262,6 +262,10 @@ export function TableCardImage({
         {/* #1636: the whole card has no band, so the range left sits over its printed Range box, and
             so does a Range that card text changes (#1666). */}
         {rangeShown && <ShipRangeLeftBox imageSrc={faceUpImageSrc(instance)} width={width} height={height} range={rangeShown} />}
+        {/* #1676: so do the other attributes card text changes. */}
+        {uncropped && !isFaceDown && (
+          <WholeCardAttributeBoxes card={card} imageSrc={faceUpImageSrc(instance)} width={width} height={height} onTable={onTable} />
+        )}
         {instance.removedFromGame && <RemovedFromGameLabel />}
       </div>
     </div>

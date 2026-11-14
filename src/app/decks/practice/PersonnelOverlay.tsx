@@ -665,16 +665,117 @@ export function shipRangeShown(
 const SCAN_WIDTH = 357;
 const SCAN_HEIGHT = 496;
 const RANGE_FILL = { top: 437.5, bottom: 452.5 };
-const RANGE_PLAIN = { left: 93, right: 102.5 };
-const RANGE_NUMBER = { left: 103, right: 119, end: 116.5, capTop: 441, capBottom: 450 };
+const RANGE_NUMBER = { capTop: 441, capBottom: 450 };
+
+// The printed boxes of a whole card along its bottom (#1676), in the pixels of the same scan: the
+// personnel's Integrity, Cunning and Strength and the ship's Range, Weapons and Shields, three boxes
+// at the same height, the second about 102 right of the first and the third about 203. `plain` is a
+// part of the fill right of the word, where no glyph is, `right` the fill's right edge, and `end` the
+// right edge of the printed number. A two-digit number starts about 6 left of a one-digit one, so
+// the plain part of the five later boxes is the room right after the word, which no number reaches.
+interface PrintedBox {
+  plain: { left: number; right: number };
+  right: number;
+  end: number;
+  // Where the patch starts when the value has no arrow: the left of the printed number. Only the
+  // range left of a ship that moved, whose Range card text does not change, draws no arrow.
+  numberLeft?: number;
+}
+const PRINTED_BOXES: Record<keyof AttributesOnTable, PrintedBox> = {
+  range: { plain: { left: 93, right: 102.5 }, right: 119, end: 116.5, numberLeft: 103 },
+  integrity: { plain: { left: 101.5, right: 104 }, right: 119, end: 116.5 },
+  cunning: { plain: { left: 199.5, right: 202 }, right: 220, end: 217.5 },
+  strength: { plain: { left: 304.5, right: 307 }, right: 321.5, end: 319.5 },
+  weapons: { plain: { left: 201.5, right: 204 }, right: 220, end: 217.5 },
+  shields: { plain: { left: 294.5, right: 297 }, right: 321.5, end: 319.5 },
+};
+
+// A patch of the card's own image over one printed box of a whole card (#1636, #1676), where no band
+// draws: the desktop table and the panels. The card keeps its own box, its frame, its fill and its
+// word, so the style is the printing's for every affiliation and every printing: only the number
+// changes. The plain part of the box right of the word, stretched across, covers the printed number
+// inside the fill, and the value is drawn on it in the printed number's place and size, with the
+// arrow left of it. With no arrow the patch starts at the printed number. A value too wide for the
+// room right of the word draws smaller. It takes no pointer events.
+function PrintedBoxPatch({
+  testId,
+  box,
+  imageSrc,
+  width,
+  height,
+  label,
+  text,
+  direction,
+}: {
+  testId: string;
+  box: PrintedBox;
+  imageSrc: string;
+  width: number;
+  height: number;
+  label: string;
+  text: string;
+  direction?: AttributeDirection;
+}) {
+  const x = (scan: number) => (scan * width) / SCAN_WIDTH;
+  const y = (scan: number) => (scan * height) / SCAN_HEIGHT;
+  const start = direction || box.numberLeft === undefined ? box.plain.left + 0.5 : box.numberLeft;
+  const left = x(start);
+  const top = y(RANGE_FILL.top);
+  const patchWidth = x(box.right) - left;
+  const patchHeight = y(RANGE_FILL.bottom) - top;
+  // The stretch that lays the plain part over the number.
+  const stretch = (box.right - start) / (box.plain.right - box.plain.left);
+  const capHeight = y(RANGE_NUMBER.capBottom) - y(RANGE_NUMBER.capTop);
+  const numberEnd = x(box.end) - left;
+  const ems = GLYPH_EM * text.length + (direction ? ARROW_EM + ARROW_GAP_EM : 0);
+  const fontSize = Math.min(capHeight / CAP_HEIGHT, numberEnd / ems);
+  const baseline = y(RANGE_NUMBER.capBottom) - top;
+  return (
+    <div
+      data-testid={testId}
+      role="img"
+      aria-label={label}
+      className="absolute pointer-events-none"
+      style={{
+        left,
+        top,
+        width: patchWidth,
+        height: patchHeight,
+        backgroundImage: `url("${imageSrc}")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: `${width * stretch}px ${height}px`,
+        backgroundPosition: `${-x(box.plain.left) * stretch}px ${-top}px`,
+      }}
+    >
+      <svg
+        className="absolute inset-0 overflow-visible"
+        width={patchWidth}
+        height={patchHeight}
+        fontFamily={ATTRIBUTE_FONT_FAMILY}
+        fontWeight={700}
+        fontSize={fontSize}
+      >
+        {direction && (
+          <ModifiedArrow
+            testId={`${testId}-modified`}
+            direction={direction}
+            left={numberEnd - fontSize * ems}
+            width={fontSize * ARROW_EM}
+            baseline={baseline}
+            fontSize={fontSize}
+          />
+        )}
+        <text data-testid={`${testId}-value`} x={numberEnd} y={baseline} textAnchor="end" fill="#fff">
+          {text}
+        </text>
+      </svg>
+    </div>
+  );
+}
 
 // The range a ship has left this turn over the printed Range box of the whole card (#1636), where no
-// `ShipOverlay` draws: the desktop table and the crew panel. The card keeps its own box, its frame, its
-// fill and its word "Range", so the style is the printing's for every affiliation and every printing:
-// only the number changes. A patch of the card's own image, the plain part of the box between the word
-// and the number stretched across, covers the printed number inside the fill, so the frame is the
-// card's own, and the range left is drawn on it in the printed number's place and size. A ship that has not moved this turn draws none, so its printed Range
-// shows. It takes no pointer events. A ship whose Range card text changes (#1666, `shipRangeShown`)
+// `ShipOverlay` draws: the desktop table and the crew panel. A ship that has not moved this turn draws
+// none, so its printed Range shows. A ship whose Range card text changes (#1666, `shipRangeShown`)
 // draws it too, moved or not, with the arrow left of the number: the patch then starts where the word
 // ends, so the plain part covers the room the arrow takes.
 export function ShipRangeLeftBox({
@@ -688,57 +789,65 @@ export function ShipRangeLeftBox({
   height: number;
   range: ShipRangeShown;
 }) {
-  const x = (scan: number) => (scan * width) / SCAN_WIDTH;
-  const y = (scan: number) => (scan * height) / SCAN_HEIGHT;
-  const left = x(range.direction ? RANGE_PLAIN.left + 0.5 : RANGE_NUMBER.left);
-  const top = y(RANGE_FILL.top);
-  const patchWidth = x(RANGE_NUMBER.right) - left;
-  const patchHeight = y(RANGE_FILL.bottom) - top;
-  // The stretch that lays the plain part over the number.
-  const stretch = (RANGE_NUMBER.right - (range.direction ? RANGE_PLAIN.left + 0.5 : RANGE_NUMBER.left)) / (RANGE_PLAIN.right - RANGE_PLAIN.left);
-  const capHeight = y(RANGE_NUMBER.capBottom) - y(RANGE_NUMBER.capTop);
-  const fontSize = capHeight / CAP_HEIGHT;
-  const numberEnd = x(RANGE_NUMBER.end) - left;
-  const baseline = y(RANGE_NUMBER.capBottom) - top;
   return (
-    <div
-      data-testid="ship-range-left"
-      role="img"
-      aria-label={range.label}
-      className="absolute pointer-events-none"
-      style={{
-        left,
-        top,
-        width: patchWidth,
-        height: patchHeight,
-        backgroundImage: `url("${imageSrc}")`,
-        backgroundRepeat: 'no-repeat',
-        backgroundSize: `${width * stretch}px ${height}px`,
-        backgroundPosition: `${-x(RANGE_PLAIN.left) * stretch}px ${-top}px`,
-      }}
-    >
-      <svg
-        className="absolute inset-0 overflow-visible"
-        width={patchWidth}
-        height={patchHeight}
-        fontFamily={ATTRIBUTE_FONT_FAMILY}
-        fontWeight={700}
-        fontSize={fontSize}
-      >
-        {range.direction && (
-          <ModifiedArrow
-            testId="ship-range-left-modified"
-            direction={range.direction}
-            left={numberEnd - fontSize * GLYPH_EM * range.text.length - fontSize * (ARROW_EM + ARROW_GAP_EM)}
-            width={fontSize * ARROW_EM}
-            baseline={baseline}
-            fontSize={fontSize}
+    <PrintedBoxPatch
+      testId="ship-range-left"
+      box={PRINTED_BOXES.range}
+      imageSrc={imageSrc}
+      width={width}
+      height={height}
+      label={range.label}
+      text={range.text}
+      direction={range.direction}
+    />
+  );
+}
+
+// The attributes card text changes on a whole card (#1676), each patched over its printed box with
+// its arrow: a personnel's Integrity, Cunning and Strength, a ship's Weapons and Shields. The Range
+// is `ShipRangeLeftBox`'s. Each patch is `whole-card-<attribute>`, its `aria-label` "Integrity 3,
+// printed 4". An unmodified value, and every value with "Apply card text to attributes" off, draws
+// none.
+export function WholeCardAttributeBoxes({
+  card,
+  imageSrc,
+  width,
+  height,
+  onTable,
+}: {
+  card: { type?: unknown; integrity?: unknown; cunning?: unknown; strength?: unknown; weapons?: unknown; shields?: unknown } | undefined;
+  imageSrc: string;
+  width: number;
+  height: number;
+  onTable: AttributesOnTable | undefined;
+}) {
+  if (!onTable || !card) return null;
+  const keys = hasPersonnelOverlay(card)
+    ? ATTRIBUTES
+    : hasShipOverlay(card)
+      ? (['weapons', 'shields'] as const)
+      : [];
+  return (
+    <>
+      {keys.map((attribute) => {
+        const value = onTable[attribute];
+        const direction = attributeDirection(value, card[attribute]);
+        if (!direction) return null;
+        const printed = String(card[attribute] ?? '').trim();
+        return (
+          <PrintedBoxPatch
+            key={attribute}
+            testId={`whole-card-${attribute}`}
+            box={PRINTED_BOXES[attribute]}
+            imageSrc={imageSrc}
+            width={width}
+            height={height}
+            label={`${attributeName(attribute)} ${value}, printed ${printed}`}
+            text={String(value)}
+            direction={direction}
           />
-        )}
-        <text data-testid="ship-range-left-value" x={numberEnd} y={baseline} textAnchor="end" fill="#fff">
-          {range.text}
-        </text>
-      </svg>
-    </div>
+        );
+      })}
+    </>
   );
 }
