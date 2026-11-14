@@ -86,8 +86,8 @@ import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
 import { DILEMMA_STACK_CHOICE_END_LABELS, dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
 import TableCard, { RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, STOPPED_OVERLAY_CLASSNAME, cardBorderStyle, cardBorderWidth } from './TableCard';
-import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, hasPersonnelOverlay, hasShipOverlay } from './PersonnelOverlay';
-import { rangeLeftLabel, rangeUsedDisplay } from './shipRange';
+import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, hasPersonnelOverlay, hasShipOverlay, shipRangeShown } from './PersonnelOverlay';
+import { rangeUsedDisplay } from './shipRange';
 import { useRangeUsed } from './RangeUsedContext';
 import { FACE_DOWN_BADGE_CLASSNAME, FACE_DOWN_LABEL } from './CardPreview';
 import OverlapRow from './OverlapRow';
@@ -361,6 +361,9 @@ function CardListPanelCard({
   const showFaceDownMark = markFaceDown && instance.face === 'down';
   // A card removed from the game (#1564) shows the stopped look.
   const greyed = instance.stopped || instance.removedFromGame;
+  // The attributes on the table that differ from the printed ones (#1666), as on the table.
+  const rangeInfo = useRangeUsed();
+  const onTable = rangeInfo.attributes?.[instance.id];
 
   return (
     <div
@@ -416,6 +419,7 @@ function CardListPanelCard({
                 cropHeight={cardHeight}
                 border={cardBorderWidth(cardWidth)}
                 className={greyed ? STOPPED_OVERLAY_CLASSNAME : ''}
+                onTable={onTable}
               />
             )}
             {/* #1336: the range, weapons and shields of a cropped ship. */}
@@ -426,6 +430,8 @@ function CardListPanelCard({
                 cropHeight={cardHeight}
                 border={cardBorderWidth(cardWidth)}
                 className={greyed ? STOPPED_OVERLAY_CLASSNAME : ''}
+                rangeLeft={rangeUsedDisplay(instance, rangeInfo.used, rangeInfo.ranges)}
+                onTable={onTable}
               />
             )}
           </div>
@@ -521,7 +527,11 @@ function PanelHost({
   const placedOn = showPlacedOn ? (host.placedOn ?? []) : [];
   // The crew panel's ship shows the range it has left this turn (#1636), as on the table.
   const rangeInfo = useRangeUsed();
-  const rangeLeft = showPlacedOn && hasShipOverlay(host.card) ? rangeUsedDisplay(host, rangeInfo.used, rangeInfo.ranges) : null;
+  // A Range that card text changes shows there too (#1666).
+  const rangeShown =
+    showPlacedOn && hasShipOverlay(host.card)
+      ? shipRangeShown(host.card, rangeUsedDisplay(host, rangeInfo.used, rangeInfo.ranges), rangeInfo.attributes?.[host.id])
+      : null;
   const tinyWidth = placedOnCardWidth(cardWidth);
   const tinyArtHeight = placedOnArtHeight(cardWidth);
   const holdListeners = useCardHold(host.id);
@@ -551,7 +561,7 @@ function PanelHost({
           the bottom row. */}
       <div
         role="img"
-        aria-label={rangeLeft ? `${cardDisplayName(card)}, ${rangeLeftLabel(rangeLeft)}` : cardDisplayName(card)}
+        aria-label={rangeShown ? `${cardDisplayName(card)}, ${rangeShown.label}` : cardDisplayName(card)}
         {...holdListeners}
         className="relative touch-pan-y flex justify-center"
         style={NO_CALLOUT_STYLE}
@@ -566,7 +576,7 @@ function PanelHost({
           className={`rounded-md shadow-md ${host.stopped ? STOPPED_IMAGE_CLASSNAME : ''}`}
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(cardWidth), width: cardWidth, height: cardHeight }}
         />
-        {rangeLeft && <ShipRangeLeftBox imageSrc={cardImageUrl(card)} width={cardWidth} height={cardHeight} rangeLeft={rangeLeft} />}
+        {rangeShown && <ShipRangeLeftBox imageSrc={cardImageUrl(card)} width={cardWidth} height={cardHeight} range={rangeShown} />}
       </div>
       {placedOn.length > 0 && (
         <div

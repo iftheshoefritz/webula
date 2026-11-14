@@ -24,6 +24,13 @@
 // about 0.71 of the room on every abbreviated crop, just under `MIN_LABEL_SQUEEZE`, so the words
 // flipped between three letters and one with the rounding of each width. Its plain capitals and
 // short words need no inset as wide as the personnel's small capitals do.
+//
+// With the setting "Apply card text to attributes" on (#1668), both bands show the attributes on the
+// table (#1666, `attributesOnTableOf`) in place of the printed ones, and each value that differs from
+// the printed value carries an arrow left of its number: up in green for a rise, down in red for a
+// fall. The arrow takes its width from the word: a ship's words drop a tier sooner, and a personnel's
+// word that would squeeze below `MIN_LABEL_SQUEEZE` beside an arrow goes, leaving the arrow and the
+// number. Range compares the Range on the table with the printed Range, never the range left.
 import auIcon from '../../../../public/icons/icon_au.gif';
 import cmdIcon from '../../../../public/icons/icon_command.gif';
 import ds9Icon from '../../../../public/icons/icon_ds9.png';
@@ -36,7 +43,8 @@ import terokNorIcon from '../../../../public/icons/icon_teroknor.gif';
 import tngIcon from '../../../../public/icons/icon_tng.png';
 import tosIcon from '../../../../public/icons/icon_tos.png';
 import voyagerIcon from '../../../../public/icons/icon_voyager.png';
-import { type RangeLeft, rangeLeftLabel } from './shipRange';
+import type { RangeLeft } from './shipRange';
+import { type AttributeDirection, type AttributesOnTable, attributeDirection } from './attributesOnTable';
 
 // The icon files are imported as modules, so they land in `_next/static` and the service worker
 // precaches them for offline play (#1051). The codes are those of `CARD_ICON_IMAGES`
@@ -118,6 +126,14 @@ const shipLabel = (attribute: (typeof SHIP_ATTRIBUTES)[number], tier: ShipLabelT
 // squeezes "Int" to about 0.82 to 0.88 of its width on the crops of the brig and the panels, where it
 // reads; the capitals of "WPN" are wider glyphs and take a little more.
 export const MIN_LABEL_SQUEEZE = 0.75;
+
+// The arrow of a modified attribute (#1666): its width and the gap right of it, of the font size. It
+// is as tall as a capital.
+const ARROW_EM = 0.5;
+const ARROW_GAP_EM = 0.15;
+export const ARROW_COLORS: Record<AttributeDirection, string> = { up: '#4ade80', down: '#f87171' };
+// The width an arrow takes from the room of a word at `fontSize`.
+export const modifiedArrowReserve = (fontSize: number): number => fontSize * (ARROW_EM + ARROW_GAP_EM);
 
 // The pad of the ship band, of the box's height: half the personnel's (#1348).
 const SHIP_PAD = 0.1;
@@ -204,18 +220,39 @@ export function personnelOverlayLayout(
   };
 }
 
+// The room a box's word has beside its number, and beside the arrow of a modified value (#1666).
+export function attributeLabelRoom(
+  value: string,
+  layout: Pick<ReturnType<typeof personnelOverlayLayout>, 'boxWidth' | 'line' | 'pad' | 'fontSize'>,
+  arrow = false
+): number {
+  const { boxWidth, line, pad, fontSize } = layout;
+  return boxWidth - 2 * line - 3 * pad - fontSize * GLYPH_EM * value.length - (arrow ? modifiedArrowReserve(fontSize) : 0);
+}
+
 // The `textLength` of a box's word: none when the word fits beside its number, or else the width
-// left, which squeezes it in. `smallCaps` false measures the word in plain capitals.
+// left, which squeezes it in. `smallCaps` false measures the word in plain capitals. `arrow` leaves
+// room for the arrow of a modified value (#1666).
 export function attributeLabelLength(
   label: string,
   value: string,
   layout: Pick<ReturnType<typeof personnelOverlayLayout>, 'boxWidth' | 'line' | 'pad' | 'fontSize'>,
-  smallCaps = true
+  smallCaps = true,
+  arrow = false
 ): number | undefined {
-  const { boxWidth, line, pad, fontSize } = layout;
-  const room = boxWidth - 2 * line - 3 * pad - fontSize * GLYPH_EM * value.length;
-  const width = smallCaps ? smallCapsWidth(label, fontSize) : capitalsWidth(label, fontSize);
+  const room = attributeLabelRoom(value, layout, arrow);
+  const width = smallCaps ? smallCapsWidth(label, layout.fontSize) : capitalsWidth(label, layout.fontSize);
   return width <= room ? undefined : Math.max(1, Math.floor(room));
+}
+
+// A personnel's word beside the arrow of a modified value (#1666): the word, or none when it would
+// squeeze below `MIN_LABEL_SQUEEZE` of its width.
+export function personnelLabelBesideArrow(
+  label: string,
+  value: string,
+  layout: Pick<ReturnType<typeof personnelOverlayLayout>, 'boxWidth' | 'line' | 'pad' | 'fontSize'>
+): string {
+  return smallCapsWidth(label, layout.fontSize) * MIN_LABEL_SQUEEZE <= attributeLabelRoom(value, layout, true) ? label : '';
 }
 
 // The layout of the ship band (#1348): the personnel's, with the ship's own pad. The tier, the
@@ -233,14 +270,17 @@ export function shipOverlayLayout(
 // its plain-capitals width, squeezed to no less than `MIN_LABEL_SQUEEZE` of it, fits beside its number.
 // It reads the spacing of `shipOverlayLayout`, and draws three letters only from
 // `SHIP_THREE_LETTERS_MIN_WIDTH` on, so the words never lose letters as the crop grows (#1348).
+// `arrows` names the attributes that carry the arrow of a modified value (#1666), whose words have
+// less room.
 export function shipLabelTier(
   values: Record<(typeof SHIP_ATTRIBUTES)[number], string>,
-  layout: Pick<ReturnType<typeof shipOverlayLayout>, 'boxWidth' | 'line' | 'pad' | 'fontSize' | 'width'>
+  layout: Pick<ReturnType<typeof shipOverlayLayout>, 'boxWidth' | 'line' | 'pad' | 'fontSize' | 'width'>,
+  arrows: Partial<Record<(typeof SHIP_ATTRIBUTES)[number], boolean>> = {}
 ): ShipLabelTier {
-  const { boxWidth, line, pad, fontSize, width } = layout;
+  const { fontSize, width } = layout;
   const fits = (tier: ShipLabelTier) =>
     SHIP_ATTRIBUTES.every((attribute) => {
-      const room = boxWidth - 2 * line - 3 * pad - fontSize * GLYPH_EM * values[attribute].length;
+      const room = attributeLabelRoom(values[attribute], layout, !!arrows[attribute]);
       return capitalsWidth(shipLabel(attribute, tier), fontSize) * MIN_LABEL_SQUEEZE <= room;
     });
   return width >= SHIP_THREE_LETTERS_MIN_WIDTH && fits('three') ? 'three' : fits('one') ? 'one' : 'none';
@@ -249,13 +289,16 @@ export function shipLabelTier(
 // The words of the ship band are measured against a condensed face (`GLYPH_EM`). A device without
 // one draws them in a wider fallback, such as Arial, where "RNG" ran into its digit on a 127 px crop
 // (follow-up of #1348). So a word that the estimate lets stand at its own width is measured once it
-// draws, and squeezed to the room left of its number, `pad` clear of it, only when it is wider.
+// draws, and squeezed to the room left of its number, `pad` clear of it, only when it is wider. A box
+// with the arrow of a modified value (#1666) measures to the arrow's left edge, `data-arrow-left`.
 export function fitShipLabel(box: SVGGElement | null, pad: number): void {
   const [label, number] = box ? Array.from(box.querySelectorAll('text')) : [];
   if (!label || !number || typeof label.getComputedTextLength !== 'function') return;
   label.removeAttribute('textLength');
   label.removeAttribute('lengthAdjust');
-  const room = Number(number.getAttribute('x')) - number.getComputedTextLength() - pad - Number(label.getAttribute('x'));
+  const arrowLeft = box?.querySelector('[data-arrow-left]')?.getAttribute('data-arrow-left');
+  const end = arrowLeft != null ? Number(arrowLeft) : Number(number.getAttribute('x')) - number.getComputedTextLength();
+  const room = end - pad - Number(label.getAttribute('x'));
   if (room > 0 && label.getComputedTextLength() > room) {
     label.setAttribute('textLength', String(Math.floor(room)));
     label.setAttribute('lengthAdjust', 'spacingAndGlyphs');
@@ -295,8 +338,56 @@ function AttributeBoxFrame({
   );
 }
 
+// The arrow of a modified value (#1666), `width` wide from `left` and as tall as a capital, its
+// bottom on `baseline`: up for a rise, down for a fall, with a dark edge so its colour reads on every
+// fill. It is `aria-hidden`: the band's `aria-label` names the printed value.
+function ModifiedArrow({
+  testId,
+  direction,
+  left,
+  width,
+  baseline,
+  fontSize,
+}: {
+  testId: string;
+  direction: AttributeDirection;
+  left: number;
+  width: number;
+  baseline: number;
+  fontSize: number;
+}) {
+  const height = fontSize * CAP_HEIGHT;
+  const top = baseline - height;
+  const [tip, base] = direction === 'up' ? [top, baseline] : [baseline, top];
+  const neck = top + height / 2;
+  const x = (share: number) => left + width * share;
+  const points = [
+    [x(0.5), tip],
+    [x(1), neck],
+    [x(0.7), neck],
+    [x(0.7), base],
+    [x(0.3), base],
+    [x(0.3), neck],
+    [x(0), neck],
+  ];
+  return (
+    <polygon
+      data-testid={testId}
+      data-direction={direction}
+      data-arrow-left={left}
+      aria-hidden="true"
+      points={points.map(([px, py]) => `${px},${py}`).join(' ')}
+      fill={ARROW_COLORS[direction]}
+      stroke="rgba(0,0,0,0.85)"
+      strokeWidth={Math.max(0.5, fontSize * 0.08)}
+      strokeLinejoin="round"
+    />
+  );
+}
+
 // The band of three attribute boxes, shared by the personnel and the ship (#1336). The test ids are
-// `<prefix>-attributes`, `<prefix>-<attribute>-box`, `-fill`, `-label` and `<prefix>-<attribute>`.
+// `<prefix>-attributes`, `<prefix>-<attribute>-box`, `-fill`, `-label`, `-modified` (the arrow of
+// a modified value, #1666) and `<prefix>-<attribute>`.
 function AttributeBand({
   prefix,
   attributes,
@@ -307,8 +398,9 @@ function AttributeBand({
   labelTier,
 }: {
   prefix: string;
-  // `ariaValue` names the value in the `aria-label` when it differs from `value` (#1636).
-  attributes: { key: string; name: string; label: string; value: string; ariaValue?: string }[];
+  // `ariaValue` names the value in the `aria-label` when it differs from `value` (#1636), and
+  // `direction` draws the arrow of a value that differs from the printed one (#1666).
+  attributes: { key: string; name: string; label: string; value: string; ariaValue?: string; direction?: AttributeDirection }[];
   smallCaps: boolean;
   layout: ReturnType<typeof personnelOverlayLayout>;
   fill: string;
@@ -332,9 +424,16 @@ function AttributeBand({
       fontSize={fontSize}
       data-label-tier={labelTier}
     >
-      {attributes.map(({ key, label, value }, index) => {
+      {attributes.map(({ key, label, value, direction }, index) => {
         const left = boxLefts[index];
-        const labelLength = attributeLabelLength(label, value, layout, smallCaps);
+        const labelLength = attributeLabelLength(label, value, layout, smallCaps, !!direction);
+        // The number's right edge, and the arrow left of it, by the estimate of its width. With no
+        // word, the number and the arrow sit together on the middle of the box.
+        const arrowWidth = fontSize * ARROW_EM;
+        const numberWidth = fontSize * GLYPH_EM * value.length;
+        const besideWidth = direction ? arrowWidth + fontSize * ARROW_GAP_EM : 0;
+        const numberRight =
+          label === '' ? left + boxWidth / 2 + (numberWidth + besideWidth) / 2 : left + boxWidth - line - pad;
         return (
           <g
             key={key}
@@ -361,12 +460,22 @@ function AttributeBand({
                 {label}
               </text>
             )}
+            {direction && (
+              <ModifiedArrow
+                testId={`${prefix}-${key}-modified`}
+                direction={direction}
+                left={numberRight - numberWidth - besideWidth}
+                width={arrowWidth}
+                baseline={baseline}
+                fontSize={fontSize}
+              />
+            )}
             {/* With no word, the number sits on the middle of its box. */}
             <text
               data-testid={`${prefix}-${key}`}
-              x={label === '' ? left + boxWidth / 2 : left + boxWidth - line - pad}
+              x={label === '' && !direction ? left + boxWidth / 2 : numberRight}
               y={baseline}
-              textAnchor={label === '' ? 'middle' : 'end'}
+              textAnchor={label === '' && !direction ? 'middle' : 'end'}
               fill="#fff"
             >
               {value}
@@ -388,22 +497,32 @@ export default function PersonnelOverlay({
   cropHeight,
   border,
   className = '',
+  onTable,
 }: {
   card: { icons?: unknown; affiliation?: unknown; integrity?: unknown; cunning?: unknown; strength?: unknown };
   width: number;
   cropHeight: number;
   border: number;
   className?: string;
+  // The attributes on the table that differ from the printed ones (#1666).
+  onTable?: AttributesOnTable;
 }) {
   const layout = personnelOverlayLayout(width, cropHeight, border);
   const { iconTop, iconLeft, iconSize, iconGap, abbreviated } = layout;
   const codes = personnelIconCodes(card.icons).slice(0, PERSONNEL_MAX_ICONS);
-  const attributes = ATTRIBUTES.map((attribute) => ({
-    key: attribute,
-    name: attributeName(attribute),
-    label: abbreviated ? attributeAbbreviation(attribute) : attributeName(attribute),
-    value: String(card[attribute] ?? '').trim(),
-  }));
+  const attributes = ATTRIBUTES.map((attribute) => {
+    const printed = String(card[attribute] ?? '').trim();
+    const direction = attributeDirection(onTable?.[attribute], printed);
+    const value = direction ? String(onTable![attribute]) : printed;
+    const label = abbreviated ? attributeAbbreviation(attribute) : attributeName(attribute);
+    return {
+      key: attribute,
+      name: attributeName(attribute),
+      label: direction ? personnelLabelBesideArrow(label, value, layout) : label,
+      value,
+      ...(direction ? { direction, ariaValue: `${value}, printed ${printed}` } : {}),
+    };
+  });
   return (
     <div
       data-testid="personnel-overlay"
@@ -445,6 +564,8 @@ export default function PersonnelOverlay({
 // events and the same `className` as the personnel overlay. The `aria-label` names every attribute
 // in full in every tier. A ship that moved this turn (#1636) shows the range it has left, `rangeLeft`,
 // in place of its printed Range, never below 0, and the `aria-label` reads "Range 4 left of 8".
+// `onTable` gives the attributes on the table that differ from the printed ones (#1666): each shows
+// with its arrow, and the `aria-label` adds the printed value, "Range 4 left of 9, printed 7".
 export function ShipOverlay({
   card,
   width,
@@ -452,6 +573,7 @@ export function ShipOverlay({
   border,
   className = '',
   rangeLeft,
+  onTable,
 }: {
   card: { affiliation?: unknown; range?: unknown; weapons?: unknown; shields?: unknown };
   width: number;
@@ -459,22 +581,36 @@ export function ShipOverlay({
   border: number;
   className?: string;
   rangeLeft?: RangeLeft | null;
+  onTable?: AttributesOnTable;
 }) {
   const layout = shipOverlayLayout(width, cropHeight, border);
-  const values = {
-    range: rangeLeft ? rangeLeft.text : String(card.range ?? '').trim(),
+  const range = shipRangeShown(card, rangeLeft, onTable);
+  const weapons = attributeDirection(onTable?.weapons, card.weapons);
+  const shields = attributeDirection(onTable?.shields, card.shields);
+  const printed = {
+    range: String(card.range ?? '').trim(),
     weapons: String(card.weapons ?? '').trim(),
     shields: String(card.shields ?? '').trim(),
   };
-  const labelTier = shipLabelTier(values, layout);
+  const values = {
+    range: range ? range.text : printed.range,
+    weapons: weapons ? String(onTable!.weapons) : printed.weapons,
+    shields: shields ? String(onTable!.shields) : printed.shields,
+  };
+  const directions = { range: range?.direction, weapons, shields };
+  const labelTier = shipLabelTier(values, layout, {
+    range: !!directions.range,
+    weapons: !!directions.weapons,
+    shields: !!directions.shields,
+  });
   const attributes = SHIP_ATTRIBUTES.map((attribute) => ({
     key: attribute,
     name: attributeName(attribute),
     label: shipLabel(attribute, labelTier),
     value: values[attribute],
-    ...(attribute === 'range' && rangeLeft
-      ? { ariaValue: `${rangeLeft.left} left of ${rangeLeft.total}` }
-      : {}),
+    ...(attribute === 'range' && range ? { ariaValue: range.ariaValue } : {}),
+    ...(attribute !== 'range' && directions[attribute] ? { ariaValue: `${values[attribute]}, printed ${printed[attribute]}` } : {}),
+    ...(directions[attribute] ? { direction: directions[attribute] } : {}),
   }));
   return (
     <div data-testid="ship-overlay" className={`absolute inset-0 pointer-events-none ${className}`}>
@@ -489,6 +625,36 @@ export function ShipOverlay({
       />
     </div>
   );
+}
+
+// What a ship shows for its Range, when that is not its printed Range: the range it has left this
+// turn (#1636), or its Range on the table when card text changes it (#1666), with the arrow that
+// compares the Range on the table, never the range left, with the printed Range. Null for a ship that
+// has not moved and whose Range is the printed one. `ariaValue` follows the word "Range" in an
+// `aria-label`, and `label` is the whole name, "Range 4 left of 9, printed 7".
+export interface ShipRangeShown {
+  text: string;
+  ariaValue: string;
+  label: string;
+  direction?: AttributeDirection;
+}
+
+export function shipRangeShown(
+  card: { range?: unknown } | undefined,
+  rangeLeft: RangeLeft | null | undefined,
+  onTable: AttributesOnTable | undefined
+): ShipRangeShown | null {
+  const direction = attributeDirection(onTable?.range, card?.range);
+  if (!rangeLeft && !direction) return null;
+  const printed = String(card?.range ?? '').trim();
+  const shown = rangeLeft ? `${rangeLeft.left} left of ${rangeLeft.total}` : String(onTable!.range);
+  const ariaValue = direction ? `${shown}, printed ${printed}` : shown;
+  return {
+    text: rangeLeft ? rangeLeft.text : String(onTable!.range),
+    ariaValue,
+    label: `Range ${ariaValue}`,
+    ...(direction ? { direction } : {}),
+  };
 }
 
 // The printed Range box of a whole ship card (#1636), in the pixels of a 357x496 scan: the same on
@@ -508,33 +674,37 @@ const RANGE_NUMBER = { left: 103, right: 119, end: 116.5, capTop: 441, capBottom
 // only the number changes. A patch of the card's own image, the plain part of the box between the word
 // and the number stretched across, covers the printed number inside the fill, so the frame is the
 // card's own, and the range left is drawn on it in the printed number's place and size. A ship that has not moved this turn draws none, so its printed Range
-// shows. It takes no pointer events.
+// shows. It takes no pointer events. A ship whose Range card text changes (#1666, `shipRangeShown`)
+// draws it too, moved or not, with the arrow left of the number: the patch then starts where the word
+// ends, so the plain part covers the room the arrow takes.
 export function ShipRangeLeftBox({
   imageSrc,
   width,
   height,
-  rangeLeft,
+  range,
 }: {
   imageSrc: string;
   width: number;
   height: number;
-  rangeLeft: RangeLeft;
+  range: ShipRangeShown;
 }) {
   const x = (scan: number) => (scan * width) / SCAN_WIDTH;
   const y = (scan: number) => (scan * height) / SCAN_HEIGHT;
-  const left = x(RANGE_NUMBER.left);
+  const left = x(range.direction ? RANGE_PLAIN.left + 0.5 : RANGE_NUMBER.left);
   const top = y(RANGE_FILL.top);
   const patchWidth = x(RANGE_NUMBER.right) - left;
   const patchHeight = y(RANGE_FILL.bottom) - top;
   // The stretch that lays the plain part over the number.
-  const stretch = (RANGE_NUMBER.right - RANGE_NUMBER.left) / (RANGE_PLAIN.right - RANGE_PLAIN.left);
+  const stretch = (RANGE_NUMBER.right - (range.direction ? RANGE_PLAIN.left + 0.5 : RANGE_NUMBER.left)) / (RANGE_PLAIN.right - RANGE_PLAIN.left);
   const capHeight = y(RANGE_NUMBER.capBottom) - y(RANGE_NUMBER.capTop);
   const fontSize = capHeight / CAP_HEIGHT;
+  const numberEnd = x(RANGE_NUMBER.end) - left;
+  const baseline = y(RANGE_NUMBER.capBottom) - top;
   return (
     <div
       data-testid="ship-range-left"
       role="img"
-      aria-label={rangeLeftLabel(rangeLeft)}
+      aria-label={range.label}
       className="absolute pointer-events-none"
       style={{
         left,
@@ -555,14 +725,18 @@ export function ShipRangeLeftBox({
         fontWeight={700}
         fontSize={fontSize}
       >
-        <text
-          data-testid="ship-range-left-value"
-          x={x(RANGE_NUMBER.end) - left}
-          y={y(RANGE_NUMBER.capBottom) - top}
-          textAnchor="end"
-          fill="#fff"
-        >
-          {rangeLeft.text}
+        {range.direction && (
+          <ModifiedArrow
+            testId="ship-range-left-modified"
+            direction={range.direction}
+            left={numberEnd - fontSize * GLYPH_EM * range.text.length - fontSize * (ARROW_EM + ARROW_GAP_EM)}
+            width={fontSize * ARROW_EM}
+            baseline={baseline}
+            fontSize={fontSize}
+          />
+        )}
+        <text data-testid="ship-range-left-value" x={numberEnd} y={baseline} textAnchor="end" fill="#fff">
+          {range.text}
         </text>
       </svg>
     </div>

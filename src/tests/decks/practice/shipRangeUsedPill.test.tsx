@@ -168,7 +168,7 @@ describe('the range left on the whole ship card of the desktop table (#1636)', (
     // and y 437.5 to 452.5, with the plain part of the box, x 93 to 102.5, of the card's own image,
     // stretched across, so the printed frame shows on every side.
     render(
-      <ShipRangeLeftBox imageSrc="/cardimages/ship.jpg" width={357} height={496} rangeLeft={{ used: 4, total: 8, left: 4, text: '4' }} />
+      <ShipRangeLeftBox imageSrc="/cardimages/ship.jpg" width={357} height={496} range={{ text: '4', ariaValue: '4 left of 8', label: 'Range 4 left of 8' }} />
     );
     const box = screen.getByTestId('ship-range-left');
     const stretch = 16 / 9.5;
