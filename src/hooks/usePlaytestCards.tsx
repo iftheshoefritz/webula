@@ -9,6 +9,7 @@ import { useSession } from 'next-auth/react';
 import type { CardData } from '../lib/parseCardData';
 import { setPlaytestImageVersions } from '../lib/cardImageUrl';
 import { PLAYTEST_CARDS_URL } from '../app/decks/practice/offlineCache';
+import { markPlaytestDevice } from '../lib/playtestDevice';
 
 // A playtest set in testing (#1644): the picker's option, and the version of its image URLs.
 export interface PlaytestSetInfo {
@@ -94,6 +95,8 @@ export function PlaytestCardsProvider({ children }: { children: React.ReactNode 
     fetchPlaytestCards().then((cards) => {
       if (cancelled) return;
       setPlaytestImageVersions(versionsOf(cards.sets));
+      // A signed-in playtester's device keeps the flag of the sign-in hint (#1660).
+      if (email !== OFFLINE_KEY && cards.sets.length > 0) markPlaytestDevice();
       setLoaded({ email, cards });
     });
     return () => { cancelled = true; };

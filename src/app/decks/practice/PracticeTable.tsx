@@ -42,6 +42,7 @@ import {
 import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { usePlaytestCards, useWithPlaytestCards } from '../../../hooks/usePlaytestCards';
+import PlaytestSignInHint from '../../../components/PlaytestSignInHint';
 import { useCompleteData } from './useCompleteData';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { PRACTICE_COSTS_CREW, PRACTICE_COSTS_TSV, PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
@@ -540,6 +541,8 @@ function GameMenu({
                   </button>
                 </div>
               )}
+              {/* A playtester's device, signed out (#1660). */}
+              <PlaytestSignInHint className="justify-center rounded-md border border-amber-700 bg-amber-900/60 px-3 py-2 text-center text-sm text-amber-100 landscape:col-span-2" />
               <button type="button" onClick={onClose} className={`${SPLASH_ITEM_CLASS} landscape:col-span-2`}>
                 Continue
               </button>
@@ -3604,6 +3607,7 @@ function PracticeDrawContent() {
               className="pointer-events-auto bg-amber-900/90 border border-amber-700 text-amber-100 text-sm rounded-lg px-4 py-2 shadow-xl flex items-center gap-3"
             >
               <span>{missingCardsMessage(missingCards)}</span>
+              <PlaytestSignInHint />
               <button
                 type="button"
                 onClick={() => setMissingCards(0)}

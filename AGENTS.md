@@ -83,6 +83,14 @@ Card pile assignment determined by `cardPileFor()` in `src/app/decks/deckBuilder
 - Files stored in `appDataFolder` (hidden app-specific folder)
 - Token management via NextAuth.js with automatic refresh
 
+The NextAuth session is a JWT of 90 days, rolled forward once a day by an active user
+(`session: { strategy: 'jwt', maxAge: SESSION_MAX_AGE, updateAge }` in `authOptions.ts`, #1660). A
+Google refresh that fails (no refresh token, or one the OAuth app's "Testing" status expired after 7
+days) does not sign the caller out: the `jwt` callback keeps the token and its email with
+`error: 'RefreshAccessTokenError'`, and tries again an hour later (`refreshRetryAt`). The routes that
+need only the email, the playtest and Championship routes, keep answering; a Drive call with the stale
+access token still fails.
+
 ### Share links
 
 `/api/share` (`src/app/api/share/route.ts`) stores each share in Upstash Redis
@@ -176,6 +184,13 @@ and on the practice table after a Load deck from Drive or a bot pile. `deckFromT
 `missingCardsOf` (`deckBuilderUtils.ts`) count the copies, by pile header, so a load of some piles
 counts only theirs. A `?share=` or `?driveFile=` deck waits for `usePlaytestCards().settled` (#1615), so a
 playtester's own deck loads with its playtest cards.
+
+A device that loaded a non-empty `sets` for a signed-in user keeps `localStorage['playtest-device']
+= '1'` (`src/lib/playtestDevice.ts`, #1660), never cleared, a sign-out included. On that device,
+signed out and online, `PlaytestSignInHint` (`data-testid="playtest-sign-in"`) shows "You may need to
+sign in to see playtest cards" and a "Sign in with Google" button, a plain sign-in with no Drive scope
+back to the same URL: on the practice table's game menu splash and in every
+`deck-missing-cards-warning`. A device without the flag never sees it, and reads no session for it.
 
 No playtest card is ever committed: no name, text, TSV row or image in the repository, a test, a
 fixture, an issue or a PR. Tests use invented cards.
