@@ -45,6 +45,7 @@ const tableOf = (missions: MissionSlot[], extra: Partial<AttributeTable> = {}): 
   core: [],
   hand: [],
   discard: [],
+  brig: [],
   score: 0,
   ...extra,
 });

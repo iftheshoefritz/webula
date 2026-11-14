@@ -44,6 +44,7 @@ const tableOf = (missions: MissionSlot[], core: CardInstance[] = [], hand: CardI
   core,
   hand,
   discard: [],
+  brig: [],
   score: 0,
 });
 
@@ -164,7 +165,7 @@ describe('the registry of attribute models (#1664)', () => {
   });
 
   it('holds one model per title', () => {
-    expect(ATTRIBUTE_REGISTRY.size).toBe(69);
+    expect(ATTRIBUTE_REGISTRY.size).toBe(80);
     expect(attributeModelOf(personnel('Nobody'))).toBeUndefined();
   });
 });

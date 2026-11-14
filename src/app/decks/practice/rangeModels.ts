@@ -8,9 +8,10 @@ import { cardTitleOf } from '../../../lib/cardTitle';
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 
 // What the range models read of the table as it stands (#1671): the mission slots with their away
-// teams and ships, the discard pile (Groumall) and the core (Jasad, #1683). `AttributeTable` holds it,
-// so an attribute model passes its table on.
-export type RangeTable = Pick<TableState, 'missions' | 'discard' | 'core'>;
+// teams and ships, the discard pile (Groumall), the core (Jasad, #1683), the brig (I.K.S. Qel'Poh
+// Clandestine Vessel, #1684) and the hand (I.S.S. Enterprise Terran Flagship). `AttributeTable` holds
+// it, so an attribute model passes its table on.
+export type RangeTable = Pick<TableState, 'missions' | 'discard' | 'core' | 'brig' | 'hand'>;
 
 export interface RangeSpanModel {
   // The title, less its version suffix, as the card data names it ("Mouth of the Wormhole Deep Space 9").
@@ -92,6 +93,13 @@ export const distinctTitlesWith = ({ missions, core }: RangeTable, word: string,
 // A ship's Range less `n` while more than `limit` personnel are aboard: the Shuttlepods, Ganges, Rio Grande.
 const crowdedRange = (self: CardInstance, limit: number, n: number) => (crewPersonnel(self).length > limit ? -n : 0);
 
+// A personnel's species, lowercased, as the card data writes it ("jem'hadar"), or '' for none.
+const speciesOf = (p: CardInstance) => String(p.card?.species ?? '').trim().toLowerCase();
+
+/** Whether three or more [Kli] Treachery personnel are aboard the ship, a stopped one too (I.K.S. Vorn Ship of Traitors). */
+export const vornCrewed = (ship: CardInstance): boolean =>
+  crewPersonnel(ship).filter((p) => hasWord(p.card?.affiliation, 'klingon') && hasWord(p.card?.skills, 'treachery')).length >= 3;
+
 /** The completed missions the player commands: the completed slots with a mission. */
 export const completedMissionCount = (missions: MissionSlot[]): number => missions.filter((slot) => slot.mission && slot.completed).length;
 
@@ -140,6 +148,25 @@ export const SHIP_CLAUSES = {
   // titles, so a card with both counts twice.
   jasad: (_self: CardInstance, ship: CardInstance, table: RangeTable) =>
     hasWord(ship.card?.affiliation, 'cardassian') ? distinctTitlesWith(table, 'capture') + distinctTitlesWith(table, 'punishment') : 0,
+  // The single-deck ships of #1684.
+  // "Attributes +1 for each of these species you have aboard it: Changeling, Jem'Hadar, Vorta." Each species once.
+  dominionBattleship: (self: CardInstance) =>
+    ['changeling', "jem'hadar", 'vorta'].filter((species) => crewPersonnel(self).some((p) => speciesOf(p) === species)).length,
+  // "While you have three different species aboard this ship, it is attributes +2." A personnel with no species adds none.
+  enterpriseSwim: (self: CardInstance) => (new Set(crewPersonnel(self).map(speciesOf).filter(Boolean)).size >= 3 ? 2 : 0),
+  // "While you command a Maneuver event, this ship is attributes +1." In the core or placed on a mission or a ship.
+  chontay: (_self: CardInstance, table: RangeTable) => (distinctTitlesWith(table, 'maneuver', 'event') > 0 ? 1 : 0),
+  // "While you have a captive, this ship is attributes +2." A captive is a personnel in the brig.
+  qelPohCaptive: (_self: CardInstance, { brig }: RangeTable) => (brig.some(isPersonnel) ? 2 : 0),
+  // "While your three [Kli] Treachery personnel are aboard, this ship is attributes +2." Three or more.
+  vorn: (self: CardInstance) => (vornCrewed(self) ? 2 : 0),
+  // "While you command three Bajoran Resistance personnel aboard this ship, it is attributes +2." The keyword "Bajoran Resistance".
+  tenari: (self: CardInstance) =>
+    crewPersonnel(self).filter((p) => String(p.card?.keywords ?? '').toLowerCase().includes('bajoran resistance')).length >= 3 ? 2 : 0,
+  // "This ship is attributes +1 for each [DS9] personnel aboard (limit +5)." The icon is read whole, as for Nog.
+  ganges: (self: CardInstance) => Math.min(5, crewPersonnel(self).filter((p) => String(p.card?.icons ?? '').toLowerCase().includes('[ds9]')).length),
+  // "This ship is attributes +1 for each of your Cadets aboard (limit +4)." Cadet is a keyword.
+  valiant: (self: CardInstance) => Math.min(4, crewPersonnel(self).filter((p) => hasWord(p.card?.keywords, 'cadet')).length),
 };
 
 /** The personnel the player commands: every away team and every ship's crew, not the brig, the hand or a pile. */
@@ -213,9 +240,10 @@ const MODELS: RangeSpanModel[] = [
     shipRange: (self) => crowdedRange(self, 5, 2),
   },
   {
-    // "While you command more than seven personnel aboard this ship, it is Range -3."
+    // "While you command more than seven personnel aboard this ship, it is Range -3. This ship is
+    // attributes +1 for each [DS9] personnel aboard (limit +5)."
     title: 'U.S.S. Ganges One of the First',
-    shipRange: (self) => crowdedRange(self, 7, 3),
+    shipRange: (self) => crowdedRange(self, 7, 3) + SHIP_CLAUSES.ganges(self),
   },
   {
     // "While you command more than seven personnel aboard this ship, it is range -3. … While your
@@ -227,7 +255,7 @@ const MODELS: RangeSpanModel[] = [
   { title: 'Vidiian Cruiser', shipRange: vidiianRange },
   { title: 'Vidiian Interceptor', shipRange: vidiianRange },
   { title: "I.K.S. Qel'Poh H.M.S. Bounty", shipRange: qelPohRange },
-  { title: "I.K.S. Qel'Poh Clandestine Vessel", shipRange: qelPohRange },
+  { title: "I.K.S. Qel'Poh Clandestine Vessel", shipRange: (self, table) => qelPohRange(self, table) + SHIP_CLAUSES.qelPohCaptive(self, table) },
   {
     // "This ship is Range +1 for each [Rom] personnel aboard who has a cost of 4 or more (Limit +3)."
     title: 'Bird-of-Prey',
@@ -271,6 +299,17 @@ const MODELS: RangeSpanModel[] = [
   { title: 'Keldon Advanced', shipRange: SHIP_CLAUSES.keldon },
   { title: 'Sarajevo Starfleet Vessel', shipRange: SHIP_CLAUSES.sarajevo },
   { title: 'Vedek Assembly Transport', shipRange: SHIP_CLAUSES.vedekAssembly },
+  { title: 'Dominion Battleship', shipRange: SHIP_CLAUSES.dominionBattleship },
+  { title: 'Enterprise Finally Ready to Swim', shipRange: SHIP_CLAUSES.enterpriseSwim },
+  { title: 'I.K.S. Chontay On the Hunt', shipRange: SHIP_CLAUSES.chontay },
+  { title: 'I.K.S. Vorn Ship of Traitors', shipRange: SHIP_CLAUSES.vorn },
+  { title: "Te'nari Resistance Flagship", shipRange: SHIP_CLAUSES.tenari },
+  { title: 'U.S.S. Valiant Red Squad Training Ship', shipRange: SHIP_CLAUSES.valiant },
+  {
+    // "While you have no cards in your hand, this ship is Range +2." Range only.
+    title: 'I.S.S. Enterprise Terran Flagship',
+    shipRange: (_self, { hand }) => (hand.length === 0 ? 2 : 0),
+  },
 ];
 
 export const RANGE_SPAN_REGISTRY: ReadonlyMap<string, RangeSpanModel> = (() => {

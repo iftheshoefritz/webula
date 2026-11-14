@@ -42,7 +42,7 @@ const ship = (name: string, extra: Record<string, string> = {}, crew: CardInstan
   ...card(name, 'ship', { range: '7', weapons: '7', shields: '6', ...extra }),
   crew,
 });
-const tableOf = (missions: MissionSlot[], core: CardInstance[] = []) => ({ missions, core, hand: [], discard: [], score: 0 });
+const tableOf = (missions: MissionSlot[], core: CardInstance[] = []) => ({ missions, core, hand: [], discard: [], brig: [], score: 0 });
 const slotsOf = (slots: Partial<MissionSlot>[]): MissionSlot[] =>
   Array.from({ length: MISSION_SLOTS }, (_, i) => ({ mission: null, ships: [], awayTeam: [], underMission: [], ...slots[i] }));
 

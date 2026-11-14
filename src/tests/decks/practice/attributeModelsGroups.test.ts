@@ -40,6 +40,7 @@ const tableOf = (missions: MissionSlot[], hand: CardInstance[] = []): AttributeT
   core: [],
   hand,
   discard: [],
+  brig: [],
   score: 0,
 });
 
