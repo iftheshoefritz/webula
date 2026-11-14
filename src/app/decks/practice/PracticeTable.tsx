@@ -102,6 +102,8 @@ import MissionRow, {
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
+import { CHARGE_CHIP_MS, ChargeChip, TurnCounterButton, TurnCountersList } from './TurnCounters';
+import useLocalStorage from '../../../hooks/useLocalStorage';
 import { AttemptDialog } from './AttemptPanel';
 import { useBotAttemptStart } from './useBotAttemptStart';
 import AttemptLayout, { VIEW_FULL_TABLE_HOLD_ID } from './AttemptLayout';
@@ -125,7 +127,19 @@ import {
 } from './attempt';
 import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
-import { GameAction, gameReducer, initialGameState, logEntryText, withShuffleOrders } from './gameLog';
+import {
+  actionCharged,
+  ChargeTarget,
+  entryCharges,
+  GameAction,
+  gameReducer,
+  initialGameState,
+  logEntryText,
+  turnCharges,
+  turnCounters,
+  TurnCounters,
+  withShuffleOrders,
+} from './gameLog';
 import {
   CardHoldProvider,
   NO_CALLOUT_STYLE,
@@ -359,6 +373,8 @@ function GameMenu({
   onRedo,
   undoRedoRow,
   turnScoreColumn,
+  turnCounters,
+  onToggleTurnCounters,
   botGame,
   botPileName,
   touch,
@@ -394,6 +410,9 @@ function GameMenu({
   // The turn and score column shows below the corner buttons, on the full table of either device
   // (#1451): the corner column then takes its width, so both share one centre line (#1447).
   turnScoreColumn: boolean;
+  // The counter of the turn's counters (#1607), a setting of the device, off by default.
+  turnCounters: boolean;
+  onToggleTurnCounters: () => void;
   // A game against the dilemma bot (#1289), and the name of the bot's pile (#1520).
   botGame: boolean;
   botPileName: string;
@@ -459,6 +478,15 @@ function GameMenu({
             >
               <button type="button" onClick={onControls} className={SPLASH_ITEM_CLASS}>
                 Controls
+              </button>
+              <button
+                type="button"
+                onClick={onToggleTurnCounters}
+                aria-pressed={turnCounters}
+                data-testid="game-menu-turn-counters"
+                className={SPLASH_ITEM_CLASS}
+              >
+                Counters: {turnCounters ? 'On' : 'Off'}
               </button>
               <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
                 {offlineItemLabel(offline.progress)}
@@ -696,6 +724,8 @@ function TurnScoreColumn({
   compact,
   top,
   touch,
+  counters,
+  onOpenCounters,
 }: {
   turn: number;
   segment: TurnSegment;
@@ -710,6 +740,9 @@ function TurnScoreColumn({
   top: number;
   // The round `btn-system` look of the touch corner buttons, or the desktop's `btn-icon` (#1451).
   touch: boolean;
+  // The counters of the turn (#1607), or null while the game menu's setting is off.
+  counters: TurnCounters | null;
+  onOpenCounters: () => void;
 }) {
   const label = compact ? 'sr-only' : 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted';
   const number = compact ? 'text-sm leading-5 font-semibold' : 'text-lg leading-6 font-semibold';
@@ -733,18 +766,22 @@ function TurnScoreColumn({
         <span className={label} aria-hidden="true">
           Turn
         </span>
-        <button
-          className={`${button} flex items-center justify-center gap-1`}
-          onClick={onNextTurn}
-          aria-label={ADVANCE_LABELS[next]}
-          title={ADVANCE_LABELS[next]}
-        >
-          <span data-testid="turn-counter" className="text-text-primary">
-            <span className="sr-only">Turn </span>
-            <span className={compact ? 'text-xs font-semibold' : 'text-sm font-semibold'}>{turn}</span>
-          </span>
-          <FaForward className="shrink-0" />
-        </button>
+        {/* The counter of the turn shares the row of the next-turn button (#1607). */}
+        <div className="flex w-full items-center gap-1">
+          <button
+            className={`${button} flex min-w-0 flex-1 items-center justify-center ${counters ? 'gap-0.5' : 'gap-1'}`}
+            onClick={onNextTurn}
+            aria-label={ADVANCE_LABELS[next]}
+            title={ADVANCE_LABELS[next]}
+          >
+            <span data-testid="turn-counter" className="text-text-primary">
+              <span className="sr-only">Turn </span>
+              <span className={compact ? 'text-xs font-semibold' : 'text-sm font-semibold'}>{turn}</span>
+            </span>
+            <FaForward className={`shrink-0 ${counters ? 'text-[10px]' : ''}`} />
+          </button>
+          {counters && <TurnCounterButton counters={counters} segment={segment} className={button} onOpen={onOpenCounters} />}
+        </div>
         <span data-testid="turn-segment" data-segment={segment} className="block text-[10px] leading-3 text-text-secondary">
           {TURN_SEGMENT_NAMES[segment]}
         </span>
@@ -775,6 +812,9 @@ function TurnScoreColumn({
     </div>
   );
 }
+
+// The localStorage key of the counter's setting (#1607).
+export const TURN_COUNTERS_KEY = 'practice-turn-counters';
 
 function RotateDeviceOverlay() {
   return (
@@ -1910,7 +1950,24 @@ function PracticeDrawContent() {
   const table = game.table;
   // Every shuffle result is chosen here, before the dispatch, and the action carries it (#1401), so
   // `tableReducer` calls no random function and a saved undo or redo step holds the same order.
-  const dispatch = (action: GameAction) => dispatchGame(withShuffleOrders(table, action));
+  // The counter of the turn's counters (#1607) is a setting of the device, not of the saved game.
+  const [turnCountersOn, setTurnCountersOn] = useLocalStorage<boolean>(TURN_COUNTERS_KEY, false);
+  // The brief chip of the last charge: the index of its entry in the log. It is page state, so a
+  // reload does not bring it back. A newer charge replaces it, undo and redo remove it, and it shows
+  // only while its entry is of the current turn, so the next turn removes it too.
+  const [chargeChip, setChargeChip] = useState<{ entry: number } | null>(null);
+  const [countersListOpen, setCountersListOpen] = useState(false);
+  const dispatch = (action: GameAction) => {
+    const chosen = withShuffleOrders(table, action);
+    if (actionCharged(chosen)) setChargeChip({ entry: game.log.length });
+    else if (['undo', 'redo', 'reset', 'resetWithPiles', 'restore'].includes(action.type)) setChargeChip(null);
+    dispatchGame(chosen);
+  };
+  useEffect(() => {
+    if (!chargeChip) return;
+    const timer = setTimeout(() => setChargeChip(null), CHARGE_CHIP_MS);
+    return () => clearTimeout(timer);
+  }, [chargeChip]);
   const { drawDeck, hand, discard, core, brig, dilemmaPile, dilemmaHand, dilemmaStack, missions, turn, score } = table;
   const [deckEmpty, setDeckEmpty] = useState(true);
   // The card a press and hold shows in the preview, while the pointer stays down. The preview
@@ -2720,6 +2777,12 @@ function PracticeDrawContent() {
   const adjustScore = (delta: number) => {
     dispatch({ type: 'adjustScore', delta });
   };
+
+  // The counters of the turn (#1607), derived from the log, and the corrections of its charges.
+  const currentCounters = turnCountersOn ? turnCounters(game.log, turn) : null;
+  const chipCharges =
+    chargeChip && game.log[chargeChip.entry]?.turn === turn ? entryCharges(game.log, chargeChip.entry) : [];
+  const correctCharge = (target: ChargeTarget, cost: number) => dispatch({ type: 'correctCharge', target, cost });
 
   const toggleCardSelection = (id: string) => {
     setSelectedCardIds((ids) => (ids.includes(id) ? ids.filter((cardId) => cardId !== id) : [...ids, id]));
@@ -3556,12 +3619,33 @@ function PracticeDrawContent() {
           onRedo={handleRedo}
           undoRedoRow={!finePointer && !attemptLayoutShows}
           turnScoreColumn={!attemptLayoutShows}
+          turnCounters={turnCountersOn}
+          onToggleTurnCounters={() => setTurnCountersOn((on) => !on)}
           botGame={table.opponent === 'bot'}
           botPileName={table.botPile?.name ?? CHULA_BOT_PILE_NAME}
           touch={!finePointer}
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
+        {turnCountersOn && chipCharges.length > 0 && (
+          <ChargeChip
+            charges={chipCharges}
+            onCorrect={(target, cost) => {
+              correctCharge(target, cost);
+              // A correction through the chip keeps it up for its full time again.
+              setChargeChip((chip) => (chip ? { ...chip } : chip));
+            }}
+          />
+        )}
+        {turnCountersOn && countersListOpen && currentCounters && (
+          <TurnCountersList
+            charges={turnCharges(game.log, turn)}
+            counters={currentCounters}
+            onCorrect={correctCharge}
+            onAdjustLimit={(delta) => dispatch({ type: 'adjustCounterLimit', delta })}
+            onClose={() => setCountersListOpen(false)}
+          />
+        )}
         {attemptDefaultsOpen && (
           <AttemptDialog
             mission={cardDisplayName(missions[attemptDefaultsOpen.missionIndex].mission!.card)}
@@ -3794,6 +3878,8 @@ function PracticeDrawContent() {
                 })}
                 top={turnScoreTop}
                 touch={!finePointer}
+                counters={currentCounters}
+                onOpenCounters={() => setCountersListOpen(true)}
               />
                 </>
               )}

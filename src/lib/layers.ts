@@ -9,6 +9,7 @@
 // | Closed hand fan (#1489)                | `z-[142]` | `CardHand.tsx`         |
 // | Open hand backdrop                     | `z-[145]` | `CardHand.tsx`         |
 // | Open hand card fan                     | `z-[146]` | `CardHand.tsx`         |
+// | Charge chip (#1607)                    | `z-[148]` | `TurnCounters.tsx`     |
 // | Card list panel                        | `z-[150]` | `CardListPanel.tsx`    |
 // | Game menu splash                       | `z-[160]` | `PracticeTable.tsx`    |
 // | Game menu + fullscreen button, open    | `z-[170]` | `PracticeTable.tsx`    |
@@ -29,6 +30,9 @@ export const LAYER_COUNT_BADGE = 'z-[140]';
 export const LAYER_CLOSED_HAND = 'z-[142]';
 export const LAYER_HAND_BACKDROP = 'z-[145]';
 export const LAYER_HAND_FAN = 'z-[146]';
+// The brief chip of a charge (#1607), at the top of the screen: above the table and the open hand,
+// below a card list panel.
+export const LAYER_CHARGE_CHIP = 'z-[148]';
 export const LAYER_CARD_LIST_PANEL = 'z-[150]';
 export const LAYER_MENU_SPLASH = 'z-[160]';
 export const LAYER_MENU_BUTTON_OPEN = 'z-[170]';

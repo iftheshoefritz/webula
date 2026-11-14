@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
-import { EMPTY_LOG_TEXT, gameLogText, LogEntry, logByTurn, logEntryText, segmentTotalText, TURN_SEGMENT_HEADINGS } from './gameLog';
+import { effectiveLog, EMPTY_LOG_TEXT, gameLogText, LogEntry, logByTurn, logEntryText, segmentTotalText, TURN_SEGMENT_HEADINGS } from './gameLog';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
 // How long the Copy button says "Copied" or "Copy failed".
@@ -71,7 +71,8 @@ export default function GameLogPanel({ log, onClose }: { log: LogEntry[]; onClos
           {log.length === 0 ? (
             <p className="py-1 text-sm text-text-muted">{EMPTY_LOG_TEXT}</p>
           ) : (
-            logByTurn(log).map(({ turn, segments }, groupIndex) => (
+            // Each charge at its corrected cost (#1607).
+            logByTurn(effectiveLog(log)).map(({ turn, segments }, groupIndex) => (
               <section key={groupIndex} data-testid={`game-log-turn-${turn}`} className="mb-3 last:mb-0">
                 <h3 className="text-xs uppercase tracking-wide text-text-muted">Turn {turn}</h3>
                 {segments.map(({ segment, entries }, segmentIndex) => {

@@ -19,6 +19,11 @@ import {
   EMPTY_LOG_TEXT,
   withShuffleOrders,
   segmentCounters,
+  segmentTotalText,
+  isLogEntry,
+  effectiveLog,
+  turnCharges,
+  turnCounters,
 } from '../../../app/decks/practice/gameLog';
 
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
@@ -657,5 +662,126 @@ describe('the cost of a play and a draw (#1606)', () => {
     expect(logEntryText(old)).toBe('Moved Data from the hand to the core');
     expect(logEntryText(malformed)).toBe('Moved Data from the hand to the core');
     expect(segmentCounters([old, malformed])).toBeNull();
+  });
+});
+
+describe('the corrections of the turn\'s counters (#1607)', () => {
+  const goran = instance('c1', 'Goran', 'up', 'personnel', { cost: '3' });
+  const worf = instance('c2', 'Worf', 'up', 'personnel', { cost: '2' });
+  const enterprise = instance('s1', 'Enterprise', 'up', 'ship', { cost: '4' });
+  const earth = instance('m1', 'Earth', 'up', 'mission');
+  const awayTeam = { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } as const;
+  const start = () =>
+    table({
+      hand: [goran, worf, enterprise],
+      drawDeck: [instance('d1', 'Secret', 'down'), instance('d2', 'Other', 'down')],
+      missions: slots([{ mission: earth }]),
+    });
+  const played = () =>
+    run(
+      start(),
+      { type: 'move', id: 's1', to: { zone: 'shipRow', missionIndex: 0 } },
+      { type: 'batch', actions: [{ type: 'move', id: 'c1', to: awayTeam }, { type: 'move', id: 'c2', to: awayTeam }] },
+      { type: 'drawCard', from: 'drawDeck', to: 'hand' }
+    );
+  const apply = (state: GameState, ...actions: GameAction[]) =>
+    actions.reduce((s, a) => gameReducer(s, withShuffleOrders(s.table, a)), state);
+
+  it('counts the turn\'s charges against a limit of 7', () => {
+    const state = played();
+    expect(turnCounters(state.log, 1)).toEqual({ spent: 10, limit: 7 });
+    expect(turnCharges(state.log, 1).map((c) => [c.draw ? 'draw' : c.card, c.cost])).toEqual([
+      ['Enterprise', 4],
+      ['Goran', 3],
+      ['Worf', 2],
+      ['draw', 1],
+    ]);
+  });
+
+  it('corrects a single-card move, and the play then reads the corrected cost', () => {
+    const state = apply(played(), { type: 'correctCharge', target: { entry: 0, move: 0, card: 0 }, cost: 0 });
+    expect(logEntryText(state.log[3])).toBe('Charged Enterprise 0 counters (was 4)');
+    expect(logEntryText(effectiveLog(state.log)[0])).toBe('Played Enterprise at Earth (cost 0)');
+    expect(logEntryText(effectiveLog(state.log)[1])).toBe('Played Goran and Worf at Earth (Goran cost 3; Worf cost 2)');
+    expect(turnCounters(state.log, 1).spent).toBe(6);
+    expect(gameLogText(state.log)).toContain('Played Enterprise at Earth (cost 0)');
+    expect(gameLogText(state.log)).toContain('6 counters: 5 on cards, 1 on draws');
+  });
+
+  it('corrects one card of a multi-card move, and a draw', () => {
+    const state = apply(
+      played(),
+      { type: 'correctCharge', target: { entry: 1, move: 0, card: 1 }, cost: 3 },
+      { type: 'correctCharge', target: { entry: 2 }, cost: 0 }
+    );
+    const log = effectiveLog(state.log);
+    expect(logEntryText(log[1])).toBe('Played Goran and Worf at Earth (Goran cost 3; Worf cost 3)');
+    expect(logEntryText(log[2])).toBe('Drew a card from the draw deck into the hand (cost 0)');
+    expect(logEntryText(state.log[4])).toBe('Charged a draw 0 counters (was 1)');
+    expect(segmentCounters(log.slice(0, 3))).toEqual({ cards: 10, draws: 0 });
+  });
+
+  it('applies the last correction of a charge, and floors a charge at 0', () => {
+    const state = apply(
+      played(),
+      { type: 'correctCharge', target: { entry: 0, move: 0, card: 0 }, cost: 2 },
+      { type: 'correctCharge', target: { entry: 0, move: 0, card: 0 }, cost: -1 }
+    );
+    expect(state.log.map(logEntryText).slice(3)).toEqual([
+      'Charged Enterprise 2 counters (was 4)',
+      'Charged Enterprise 0 counters (was 2)',
+    ]);
+    // Another minus at 0 changes nothing and makes no entry.
+    expect(apply(state, { type: 'correctCharge', target: { entry: 0, move: 0, card: 0 }, cost: -1 })).toBe(state);
+  });
+
+  it('makes no entry for a target that names no charge', () => {
+    const state = played();
+    expect(apply(state, { type: 'correctCharge', target: { entry: 9 }, cost: 0 })).toBe(state);
+    expect(apply(state, { type: 'correctCharge', target: { entry: 0, move: 0, card: 5 }, cost: 0 })).toBe(state);
+  });
+
+  it('corrects the play and draw total from the orders segment', () => {
+    const state = apply(played(), { type: 'advanceSegment' }, { type: 'correctCharge', target: { entry: 0, move: 0, card: 0 }, cost: 1 });
+    expect(state.log[4]).toMatchObject({ kind: 'chargeCorrected', segment: 'orders' });
+    expect(segmentTotalText('playAndDraw', effectiveLog(state.log).slice(0, 3))).toBe('7 counters: 6 on cards, 1 on draws');
+    expect(gameLogText(state.log)).toContain('7 counters: 6 on cards, 1 on draws');
+    expect(turnCounters(state.log, 1).spent).toBe(7);
+  });
+
+  it('takes back a correction with one undo and the play with a second, and redo puts both back', () => {
+    const corrected = apply(played(), { type: 'correctCharge', target: { entry: 0, move: 0, card: 0 }, cost: 0 });
+    const once = apply(corrected, { type: 'undo' });
+    expect(once.table).toBe(corrected.table);
+    expect(turnCounters(once.log, 1).spent).toBe(10);
+    const twice = apply(once, { type: 'undo' });
+    expect(twice.log).toHaveLength(2);
+    const redone = apply(twice, { type: 'redo' }, { type: 'redo' });
+    expect(redone.log).toEqual(corrected.log);
+    expect(turnCounters(redone.log, 1).spent).toBe(6);
+  });
+
+  it('raises and lowers the limit for the turn only, never below 0', () => {
+    const state = apply(played(), { type: 'adjustCounterLimit', delta: 1 });
+    expect(logEntryText(state.log[3])).toBe("Set this turn's counters to 8");
+    expect(turnCounters(state.log, 1)).toEqual({ spent: 10, limit: 8 });
+    const next = apply(state, { type: 'nextTurn' });
+    expect(turnCounters(next.log, 2)).toEqual({ spent: 0, limit: 7 });
+    let low = next;
+    for (let i = 0; i < 7; i++) low = apply(low, { type: 'adjustCounterLimit', delta: -1 });
+    expect(turnCounters(low.log, 2).limit).toBe(0);
+    expect(apply(low, { type: 'adjustCounterLimit', delta: -1 })).toBe(low);
+    expect(apply(state, { type: 'undo' }).log).toHaveLength(3);
+  });
+
+  it('loads a saved log with the new kinds', () => {
+    const state = apply(
+      played(),
+      { type: 'correctCharge', target: { entry: 0, move: 0, card: 0 }, cost: 0 },
+      { type: 'adjustCounterLimit', delta: 1 }
+    );
+    const saved = JSON.parse(JSON.stringify(state.log));
+    expect(saved.every(isLogEntry)).toBe(true);
+    expect(turnCounters(saved, 1)).toEqual({ spent: 6, limit: 8 });
   });
 });
