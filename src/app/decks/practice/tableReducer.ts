@@ -438,7 +438,7 @@ export function moveRangeCost(state: TableState, from: TableZone, to: MoveTarget
   if (typeof from !== 'object' || from.zone !== 'shipRow' || !isShipRowLocation(to) || from.missionIndex === to.missionIndex) {
     return undefined;
   }
-  return moveSpanTotal(state.missions, from.missionIndex, to.missionIndex, ship);
+  return moveSpanTotal(state.missions, from.missionIndex, to.missionIndex, ship, state.core);
 }
 
 export const initialTableState: TableState = {

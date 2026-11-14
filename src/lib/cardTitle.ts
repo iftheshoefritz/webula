@@ -3,7 +3,7 @@
 // its own, so a registry reads it without loading another registry's models.
 
 /** The version suffixes of a deck line or a card name that one model covers, such as "*VP" or "(IDR)". */
-const VERSION_SUFFIX = /\s*(\*VP|\*AP|\*A|\*|\((IDR|ID|FOW|R2|SR|AC|SS|Promo|MAH)\))\s*$/i;
+const VERSION_SUFFIX = /\s*(\*VP|\*AP|\*A|\*|\((IDR|ID|FOW|R2|SR|AC|SS|Promo|MAH|BP)\))\s*$/i;
 
 /**
  * The title of the model that covers a deck line's card name: "Sylvia *VP" and "Sylvia" are one model,
