@@ -76,6 +76,10 @@ const othersIn = (self: CardInstance, group: CardInstance[], test: (p: CardInsta
 
 const hasIcon = (p: CardInstance, icon: string) => hasWord(p.card?.icons, icon);
 const hasAffiliation = (p: CardInstance, affiliation: string) => hasWord(p.card?.affiliation, affiliation);
+const hasSkill = (p: CardInstance, skill: string) => hasWord(p.card?.skills, skill);
+// A keyword or a species, as the partner tests of `gains.ts` read "an Android" or "an Honor Klingon".
+const hasTrait = (p: CardInstance, trait: string) => hasWord(p.card?.keywords, trait) || hasWord(p.card?.species, trait);
+const isUnique = (p: CardInstance) => String(p.card?.unique ?? '').toLowerCase() === 'y';
 const points = (mission: CardInstance | null) => Number(mission?.card?.points) || 0;
 const isSpaceMission = (mission: CardInstance | null) => String(mission?.card?.mission ?? '').toLowerCase() === 's';
 const completedSpaceMissions = (missions: MissionSlot[]) => missions.filter((slot) => slot.completed && isSpaceMission(slot.mission)).length;
@@ -291,6 +295,90 @@ const MODELS: AttributeModel[] = [
         ? ATTRIBUTES_PLUS_ONE
         : NONE;
     },
+  },
+  // The personnel of #1681, each held by one shipped deck, with a "present" condition.
+  {
+    // "While two [Baj] personnel are in your discard pile, this personnel is attributes +2."
+    title: 'Akorem Laan Revered Poet',
+    selfAttributes: (_self, _group, { discard }) =>
+      discard.filter((c) => isPersonnel(c) && hasAffiliation(c, 'bajoran')).length >= 2 ? plus(2) : NONE,
+  },
+  {
+    // "Each unique personnel present is attributes +1." Artim, unique, is +1 himself.
+    title: 'Artim Inspirational Child',
+    groupAttributes: (_self, target) => (isPersonnel(target) && isUnique(target) ? ATTRIBUTES_PLUS_ONE : NONE),
+  },
+  {
+    // "While this personnel is present with an Android, he is attributes +1 …"
+    title: 'Bruce Maddox Chair of Robotics',
+    selfAttributes: (self, group) => (othersIn(self, group, (p) => hasTrait(p, 'android')).length > 0 ? ATTRIBUTES_PLUS_ONE : NONE),
+  },
+  {
+    // "This personnel is attributes +1 for each of your Security personnel present." He has Security,
+    // so he counts himself.
+    title: 'Calisthenics Opponent',
+    selfAttributes: (_self, group) => {
+      const n = group.filter((p) => isPersonnel(p) && hasSkill(p, 'security')).length;
+      return n > 0 ? plus(n) : NONE;
+    },
+  },
+  {
+    // "Each of your Assassins present is attributes +1."
+    title: "Chief O'Brien",
+    groupAttributes: (_self, target) => (isPersonnel(target) && hasTrait(target, 'assassin') ? ATTRIBUTES_PLUS_ONE : NONE),
+  },
+  {
+    // "Your Intelligence personnel present are each attributes +1."
+    title: 'Elim Garak Federation Agent',
+    groupAttributes: (_self, target) => (isPersonnel(target) && hasSkill(target, 'intelligence') ? ATTRIBUTES_PLUS_ONE : NONE),
+  },
+  {
+    // "While this personnel is present with an Honor Klingon, she is attributes +1 …"
+    title: 'Jadzia Dax Sworn Ally',
+    selfAttributes: (self, group) =>
+      othersIn(self, group, (p) => hasSkill(p, 'honor') && hasTrait(p, 'klingon')).length > 0 ? ATTRIBUTES_PLUS_ONE : NONE,
+  },
+  {
+    // "While present with four [Maq] personnel, each [Maq] personnel present is Strength +2." Four
+    // personnel other than Kasidy; she, [Maq], is +2 herself.
+    title: 'Kasidy Yates Conflicted Captain',
+    groupAttributes: (self, target, group) =>
+      isPersonnel(target) && hasIcon(target, 'maq') && othersIn(self, group, (p) => hasIcon(p, 'maq')).length >= 4 ? { strength: 2 } : NONE,
+  },
+  {
+    // "While this personnel is present with your [Fed] personnel, each of your other [Baj] personnel
+    // present is attributes +1."
+    title: 'Kira Nerys Colonel Kira',
+    groupAttributes: (self, target, group) =>
+      target.id !== self.id &&
+      isPersonnel(target) &&
+      hasAffiliation(target, 'bajoran') &&
+      othersIn(self, group, (p) => hasAffiliation(p, 'federation')).length > 0
+        ? ATTRIBUTES_PLUS_ONE
+        : NONE,
+  },
+  {
+    // "This personnel is Strength +1 for each [Pa][Kli] personnel present." The others: Korax is not
+    // present with himself.
+    title: 'Korax Instigator',
+    selfAttributes: (self, group) => {
+      const n = othersIn(self, group, (p) => hasIcon(p, 'pa') && hasAffiliation(p, 'klingon')).length;
+      return n > 0 ? { strength: n } : NONE;
+    },
+  },
+  {
+    // "While this personnel is present with a [Pa] personnel, he is attributes +1 …"
+    title: 'Quark Little Green Man',
+    selfAttributes: (self, group) => (othersIn(self, group, (p) => hasIcon(p, 'pa')).length > 0 ? ATTRIBUTES_PLUS_ONE : NONE),
+  },
+  {
+    // "While this personnel is present with your Honor personnel, he is Integrity +2. While this
+    // personnel is present with your Treachery personnel, he is Strength +2."
+    title: "S'rrel",
+    selfAttributes: (self, group) => ({
+      ...(othersIn(self, group, (p) => hasSkill(p, 'honor')).length > 0 ? { integrity: 2 } : NONE),
+      ...(othersIn(self, group, (p) => hasSkill(p, 'treachery')).length > 0 ? { strength: 2 } : NONE),
+    }),
   },
   // The ship clauses of #1671. Each card that changes Range has its range model in `rangeModels.ts`,
   // with the same condition and amount (`SHIP_CLAUSES`).
