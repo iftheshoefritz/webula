@@ -26,7 +26,6 @@ import {
   turnCounters,
   turnCounterLimit,
   tableLimitGrants,
-  downloadedThisTurn,
   pendingDiscountsOf,
 } from '../../../app/decks/practice/gameLog';
 
@@ -806,7 +805,7 @@ describe('the cost models in the log (#1654)', () => {
       drawDeck: [shuttle, shuttle2],
       missions: slots([{ mission: earth, ships: withDrone ? [ship] : [{ ...ship, crew: [] }] }]),
     });
-  // Each action as the page dispatches it, with the log for the downloads of the turn.
+  // Each action as the page dispatches it, with the log of the turn.
   const play = (state: GameState, ...actions: GameAction[]) =>
     actions.reduce((s, a) => gameReducer(s, withShuffleOrders(s.table, a, s.log)), state);
   const download = (id: string): GameAction => ({ type: 'batch', actions: [{ type: 'move', id, to: 'hand' }, { type: 'shuffle', location: 'drawDeck' }] });
@@ -838,27 +837,17 @@ describe('the cost models in the log (#1654)', () => {
     expect(turnCharges(undone.log, 1)[0].choiceTaken).toBeUndefined();
   });
 
-  it('plays a downloaded card free once, and a drawn card at its cost', () => {
+  // A download only takes a card into the hand: its play costs what any play costs.
+  it('charges a downloaded card its printed cost, the same as a drawn card', () => {
     const downloaded = play(initialGameState(start()), download('d1'));
-    expect(downloadedThisTurn(downloaded.log, 1)).toEqual(['Shuttle']);
+    expect(turnCharges(downloaded.log, 1)).toEqual([]);
     const first = play(downloaded, { type: 'move', id: 'd1', to: { zone: 'shipRow', missionIndex: 0 } });
-    expect(turnCharges(first.log, 1)[0]).toEqual(
-      expect.objectContaining({ cost: 0, source: { title: 'Downloaded', reason: 'downloaded this turn' } })
-    );
-    expect(downloadedThisTurn(first.log, 1)).toEqual([]);
+    expect(turnCharges(first.log, 1)).toEqual([expect.objectContaining({ card: 'Shuttle', cost: 2 })]);
+    expect(turnCharges(first.log, 1)[0].source).toBeUndefined();
+    expect(logEntryText(first.log[1])).toMatch(/\(cost 2\)$/);
     const drawn = play(first, { type: 'drawCard', from: 'drawDeck', to: 'hand' });
     const second = play(drawn, { type: 'move', id: 'd2', to: { zone: 'shipRow', missionIndex: 0 } });
-    expect(turnCharges(second.log, 1).map((c) => c.cost)).toEqual([0, 1, 2]);
-    expect(turnCharges(second.log, 1)[2].source).toBeUndefined();
-    // An undo of the free play opens the download again.
-    expect(downloadedThisTurn(play(first, { type: 'undo' }).log, 1)).toEqual(['Shuttle']);
-  });
-
-  it('ends a download with a move back to the draw deck, and at the next turn', () => {
-    const downloaded = play(initialGameState(start()), download('d1'));
-    expect(downloadedThisTurn(play(downloaded, { type: 'move', id: 'd1', to: 'drawDeck' }).log, 1)).toEqual([]);
-    const next = play(downloaded, { type: 'nextTurn' });
-    expect(downloadedThisTurn(next.log, next.table.turn)).toEqual([]);
+    expect(turnCharges(second.log, 1).map((c) => c.cost)).toEqual([2, 1, 2]);
   });
 
   it('reads an entry from before #1654, and a malformed source, as before', () => {

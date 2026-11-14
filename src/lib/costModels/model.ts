@@ -26,11 +26,6 @@ export interface CostFacts {
   /** The titles of the cards in the core. */
   core: string[];
   hand: CostHandCard[];
-  /**
-   * The display names of the cards downloaded this turn that no play of that name, nor a move back to
-   * the draw deck, has ended yet (`downloadedThisTurn`), one per card.
-   */
-  downloaded: string[];
   /** The pending discounts of the turn, oldest first (`pendingDiscountsOf` in `gameLog.ts`, #1656). */
   pending?: PendingDiscount[];
 }
@@ -80,7 +75,7 @@ export interface LimitGrant {
   reason: string;
 }
 
-/** Where a suggested cost came from: the model's title, or "Downloaded", a short reason, and its choice. */
+/** Where a suggested cost came from: the model's title, a short reason, and its choice. */
 export interface CostSource {
   title: string;
   reason: string;
@@ -112,6 +107,3 @@ export interface CostModel {
    */
   pendingDiscount?: { label: string; amount: number; applies: (play: CostPlay) => boolean };
 }
-
-/** The source of a downloaded card's play. */
-export const DOWNLOADED_SOURCE: CostSource = { title: 'Downloaded', reason: 'downloaded this turn' };

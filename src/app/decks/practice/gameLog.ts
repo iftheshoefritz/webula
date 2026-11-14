@@ -44,7 +44,6 @@ import { revealPicksOf } from './attempt';
 import { CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
 import type { CostSource, LimitGrant, PendingDiscount } from '../../../lib/costModels/model';
 import { limitGrantsOf, pendingDiscountOf } from '../../../lib/costModels/registry';
-import { DOWNLOADED_SOURCE } from '../../../lib/costModels/model';
 import { costFactsOf } from './costFacts';
 
 // A place a card can be, with the names the text needs captured at the time of the action, so a
@@ -638,23 +637,21 @@ const costPlace = (zone: TableZone): CostPlace => {
 // `drawCharge` give it. The place a move reads is where the card landed, so a refused move costs
 // nothing. The reducer ignores the field and the log reads it. An action that already holds a cost
 // keeps it. A move reads the facts of the cost models (#1654) from the table and `turnFacts`, the
-// downloads of the turn still open and its pending discounts (#1656); a play that a download makes
-// free takes its name off the list, and a play that uses a discount takes the discount off, so the
-// next action of a batch sees it gone.
+// pending discounts of the turn (#1656); a play that uses a discount takes the discount off, so the
+// next action of a batch sees it gone. A download makes no play free: it only takes a card into the
+// hand.
 interface TurnFacts {
-  downloaded: string[];
   pending: PendingDiscount[];
 }
 
-const noTurnFacts = (): TurnFacts => ({ downloaded: [], pending: [] });
+const noTurnFacts = (): TurnFacts => ({ pending: [] });
 
 const turnFactsOf = (log: LogEntry[], turn: number): TurnFacts => ({
-  downloaded: downloadedThisTurn(log, turn),
   pending: pendingDiscountsOf(log, turn),
 });
 
 function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts): TableAction {
-  const { downloaded, pending } = turnFacts;
+  const { pending } = turnFacts;
   if (action.type === 'drawCard' && action.cost === undefined) {
     const charge = drawCharge(table.segment, action.from, action.to);
     if (charge && tableReducer(table, action) !== table) return { ...action, cost: charge.cost };
@@ -670,13 +667,11 @@ function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts
             costPlace(found.zone),
             costPlace(landed.zone),
             found.instance.card,
-            costFactsOf(table, downloaded, pending),
+            costFactsOf(table, pending),
             action.id
           )
         : null;
     if (charge?.kind === 'play' && charge.source) {
-      const used = charge.source.title === DOWNLOADED_SOURCE.title ? downloaded.indexOf(cardDisplayName(found!.instance.card)) : -1;
-      if (used >= 0) downloaded.splice(used, 1);
       const discount = charge.source.discount;
       const usedDiscount = discount ? pending.findIndex((d) => sameTarget(d.origin, discount)) : -1;
       if (usedDiscount >= 0) pending.splice(usedDiscount, 1);
@@ -690,8 +685,7 @@ function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts
 const withOrderAndCharge = (table: TableState, action: TableAction, turnFacts: TurnFacts): TableAction =>
   withCharge(table, withShuffleOrder(table, action), turnFacts);
 
-// `log` is the game's log, for the downloads of the turn (#1654) and its pending discounts (#1656).
-// With none, no card is downloaded and no discount waits.
+// `log` is the game's log, for the pending discounts of the turn (#1656). With none, no discount waits.
 export function withShuffleOrders(table: TableState, action: GameAction, log: LogEntry[] = []): GameAction {
   if (
     action.type === 'undo' ||
@@ -741,32 +735,6 @@ export function pendingDiscountsOf(log: LogEntry[], turn: number): PendingDiscou
       if (made) open.push(made);
     }
   });
-  return open;
-}
-
-// The downloads of `turn` still open (#1654): the display name of each card a `move` entry took from
-// the draw deck into the hand, the panel's Download, and never a `draw`, less one for each later play
-// of that name from the hand and each move of that name from the hand back to the draw deck. Read
-// from the effective log alone, so an undo, a redo and a reload agree, and the next turn has none.
-export function downloadedThisTurn(log: LogEntry[], turn: number): string[] {
-  const open: string[] = [];
-  const close = (name: string) => {
-    const i = open.indexOf(name);
-    if (i >= 0) open.splice(i, 1);
-  };
-  for (const entry of effectiveLog(log)) {
-    if (entry.turn !== turn || entry.kind !== 'move' || !Array.isArray(entry.moves)) continue;
-    for (const move of entry.moves) {
-      const from = move.from?.kind;
-      const to = move.to?.kind;
-      const costs = moveCosts(move);
-      move.cards.forEach((name, i) => {
-        if (name === null) return;
-        if (from === 'drawDeck' && to === 'hand') open.push(name);
-        else if (from === 'hand' && (to === 'drawDeck' || (costs && costs[i] !== null))) close(name);
-      });
-    }
-  }
   return open;
 }
 
