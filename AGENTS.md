@@ -549,7 +549,12 @@ orders", "Go to discard", "Next turn"), and the segment's short name, "Play", "O
 shows under it (`data-testid="turn-segment"`). An attempt started in play and draw moves the turn to
 orders, and no segment refuses a move. The game menu's Settings hold "Counters: On/Off"
 (`game-menu-turn-counters`, #1607), a setting of the device under `practice-turn-counters`, off by
-default. With it on, the counter of the turn's counters, `data-testid="turn-counters"`, shares the row
+default. Beside it, "Apply card text to attributes: On/Off" (`game-menu-card-text-attributes`, #1668),
+under `practice-card-text-attributes`, off by default, turns on the range and span models of
+`RANGE_SPAN_REGISTRY` (`rangeModels.ts`): off, a ship's Range is its printed Range and a move's span
+total the printed spans plus the 2 between quadrants, a rule of the game. `withShuffleOrders` stamps
+it on each `move` as `cardText` (absent is off), so the reducer reads no storage and a change of it
+leaves `rangeUsed` as it was. With counters on, the counter of the turn's counters, `data-testid="turn-counters"`, shares the row
 of the next-turn button: "<spent>/<limit>", with `data-over="true"` past the limit and
 `data-unspent="true"` outside play and draw with counters left. Everything is derived from the log
 (`turnCounters` in `gameLog.ts`): a correction is a log entry, `chargeCorrected` or `counterLimit`, that

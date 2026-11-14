@@ -1,5 +1,5 @@
 import { tableReducer, initialTableState, CardInstance, MISSION_SLOTS, TableState } from '../../../app/decks/practice/tableReducer';
-import { gameReducer, initialGameState, logEntryText, LogEntry } from '../../../app/decks/practice/gameLog';
+import { gameReducer, initialGameState, logEntryText, LogEntry, withShuffleOrders } from '../../../app/decks/practice/gameLog';
 import { moveSpanTotal, shipRangeOnTable, shipRangesOnTable } from '../../../app/decks/practice/shipRange';
 import { rangeSpanModelOf } from '../../../app/decks/practice/rangeModels';
 import { pileTitleOf } from '../../../lib/dilemmaBot/pile/registry';
@@ -40,7 +40,12 @@ const tableOf = (
   })),
 });
 
-const toRow = (id: string, missionIndex: number) => ({ type: 'move' as const, id, to: { zone: 'shipRow' as const, missionIndex } });
+const toRow = (id: string, missionIndex: number) => ({
+  type: 'move' as const,
+  id,
+  to: { zone: 'shipRow' as const, missionIndex },
+  cardText: true,
+});
 const lastText = (log: LogEntry[]) => logEntryText(log[log.length - 1]);
 
 describe('the span total of a move (#1635)', () => {
@@ -358,5 +363,82 @@ describe('Inspiring Leader (#1648)', () => {
 describe('the (BP) version suffix (#1648)', () => {
   it('is dropped from a title', () => {
     expect(rangeSpanModelOf(ship('U.S.S. Ganges One of the First (BP)', 'federation', '3'))?.title).toBe('U.S.S. Ganges One of the First');
+  });
+});
+
+// The setting "Apply card text to attributes" (#1668), off by default: off, no range or span model
+// applies, and the 2 between quadrants, a rule of the game, still does. The page stamps it on each
+// move (`withShuffleOrders`), so the range a move used never changes with it.
+describe('the setting "Apply card text to attributes" (#1668)', () => {
+  const doctor = () => personnel('Doctor', 'federation', { skills: 'biology medical' });
+  const plain = (id: string, missionIndex: number) => ({ type: 'move' as const, id, to: { zone: 'shipRow' as const, missionIndex } });
+
+  it('gives U.S.S. Pasteur its printed Range while off, and Range +5 while on', () => {
+    const pasteur = ship('U.S.S. Pasteur Medical Ship', 'federation', '7', [doctor()]);
+    const t = tableOf([], [pasteur]);
+    expect(shipRangeOnTable(t.missions, pasteur, false)).toBe(7);
+    expect(shipRangeOnTable(t.missions, pasteur, true)).toBe(12);
+  });
+
+  it('still adds 2 between quadrants while off, and no waiver or core reduction applies', () => {
+    const r = ship('Redemption Medical Vessel', 'vidiian', '9');
+    const t = tableOf([mission('Alpha', 'a'), mission('Gamma', 'g')], [r]);
+    expect(moveSpanTotal(t.missions, 0, 1, r, [], false)).toBe(6);
+    expect(moveSpanTotal(t.missions, 0, 1, r, [], true)).toBe(4);
+    const s = ship('Relativity', 'federation', '8');
+    const core = [card('Expedient Opportunity', 'event'), card('Hurried Departure', 'event')];
+    const wide = tableOf([mission('Wide', 'a', '4'), mission('Gamma', 'g')], [s]);
+    expect(moveSpanTotal(wide.missions, 0, 1, s, core, false)).toBe(8);
+    expect(moveSpanTotal(wide.missions, 0, 1, s, core, true)).toBe(3);
+    const ds = tableOf([ds9(), mission('Gamma', 'g')], [s]);
+    expect(moveSpanTotal(ds.missions, 0, 1, s, [], false)).toBe(5);
+  });
+
+  it('is off for a move with no setting: the reducer applies no model', () => {
+    const r = ship('Redemption Medical Vessel', 'vidiian', '9');
+    const game = gameReducer(initialGameState(tableOf([mission('Alpha', 'a'), mission('Gamma', 'g')], [r])), plain(r.id, 1));
+    expect(game.table.rangeUsed).toEqual({ [r.id]: 6 });
+    expect(lastText(game.log)).toBe('Moved Redemption Medical Vessel from Alpha to Gamma (used range 6, 3 left)');
+  });
+
+  it('stamps the setting on each move, a move of a batch too', () => {
+    const s = ship('Relativity', 'federation', '8');
+    const t = tableOf([mission('Alpha', 'a'), mission('Beta', 'a')], [s]);
+    expect(withShuffleOrders(t, plain(s.id, 1), [], true)).toMatchObject({ cardText: true });
+    expect(withShuffleOrders(t, plain(s.id, 1), [], false)).not.toHaveProperty('cardText');
+    const batch = withShuffleOrders(t, { type: 'batch', actions: [plain(s.id, 1), plain(s.id, 0)] }, [], true);
+    expect(batch.type === 'batch' && batch.actions.every((a) => a.type === 'move' && a.cardText)).toBe(true);
+  });
+
+  it('keeps the range a move used on, through an undo and a redo with the setting off', () => {
+    const pasteur = ship('U.S.S. Pasteur Medical Ship', 'federation', '7', [doctor()]);
+    const r = ship('Redemption Medical Vessel', 'vidiian', '9');
+    const start = initialGameState(tableOf([mission('Alpha', 'a'), mission('Gamma', 'g')], [pasteur, r]));
+    const moved = gameReducer(start, withShuffleOrders(start.table, plain(r.id, 1), start.log, true));
+    expect(moved.table.rangeUsed).toEqual({ [r.id]: 4 });
+    const undone = gameReducer(moved, withShuffleOrders(moved.table, { type: 'undo' }, moved.log, false));
+    expect(undone.table.rangeUsed).toBeUndefined();
+    const redone = gameReducer(undone, withShuffleOrders(undone.table, { type: 'redo' }, undone.log, false));
+    expect(redone.table.rangeUsed).toEqual({ [r.id]: 4 });
+  });
+
+  it('leaves rangeUsed as it was when the setting changes after a move; only the Range and later moves read it', () => {
+    const pasteur = ship('U.S.S. Pasteur Medical Ship', 'federation', '7', [doctor()]);
+    const start = initialGameState(tableOf([mission('Alpha', 'a'), mission('Beta', 'a', '3'), mission('Gamma', 'g')], [pasteur]));
+    const moved = gameReducer(start, withShuffleOrders(start.table, plain(pasteur.id, 1), start.log, true));
+    expect(moved.table.rangeUsed).toEqual({ [pasteur.id]: 5 });
+    expect(lastText(moved.log)).toBe('Moved U.S.S. Pasteur Medical Ship from Alpha to Beta (used range 5, 7 left)');
+    expect(shipRangesOnTable(moved.table.missions, moved.table.rangeUsed, false)).toEqual({ [pasteur.id]: 7 });
+    expect(moved.table.rangeUsed).toEqual({ [pasteur.id]: 5 });
+    const again = gameReducer(moved, withShuffleOrders(moved.table, plain(pasteur.id, 2), moved.log, false));
+    expect(again.table.rangeUsed).toEqual({ [pasteur.id]: 12 });
+    expect(lastText(again.log)).toBe('Moved U.S.S. Pasteur Medical Ship from Beta to Gamma (used range 7, over by 5)');
+  });
+
+  it.each([true, false])('logs an A→A move with no model the same with the setting %s', (on) => {
+    const s = ship('Relativity', 'federation', '8');
+    const start = initialGameState(tableOf([mission('Alpha', 'a'), mission('Alpha Two', 'a')], [s]));
+    const moved = gameReducer(start, withShuffleOrders(start.table, plain(s.id, 1), start.log, on));
+    expect(lastText(moved.log)).toBe('Moved Relativity from Alpha to Alpha Two (used range 4, 4 left)');
   });
 });

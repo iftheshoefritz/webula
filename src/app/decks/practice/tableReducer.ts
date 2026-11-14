@@ -297,7 +297,17 @@ export type TableAction =
   // `cost` is the printed cost of a card played from the hand in the play and draw segment (#1606,
   // `moveCharge`), which the page adds before the dispatch for the log. The reducer ignores it.
   // `costSource` is where a cost the table suggested came from (#1654): a cost model or a download.
-  | { type: 'move'; id: string; to: MoveTarget; position?: 'top' | 'bottom'; cost?: number; costSource?: CostSource }
+  // `cardText` is the setting "Apply card text to attributes" (#1668), which the page stamps on the
+  // move (`withShuffleOrders`): absent is off, and the range models do not apply.
+  | {
+      type: 'move';
+      id: string;
+      to: MoveTarget;
+      position?: 'top' | 'bottom';
+      cost?: number;
+      costSource?: CostSource;
+      cardText?: boolean;
+    }
   // `picks` is the roll the page made for the reveal snapshot this flip takes (#1594,
   // `withShuffleOrders` in `gameLog.ts`), which the snapshot keeps, so the reducer stays pure.
   | { type: 'flip'; id: string; picks?: string[][] }
@@ -473,12 +483,19 @@ export { printedRange, printedSpan };
 
 // The range a move of a ship between two ship rows uses (#1634): the span total of the move,
 // `moveSpanTotal` (#1635), the printed spans of the mission it leaves and the mission it goes to,
-// with the quadrant rule and the span models. A move that is not one uses none, so `undefined`.
-export function moveRangeCost(state: TableState, from: TableZone, to: MoveTarget, ship: CardInstance): number | undefined {
+// with the quadrant rule and, when `cardText` is on (#1668), the span models. A move that is not one
+// uses none, so `undefined`.
+export function moveRangeCost(
+  state: TableState,
+  from: TableZone,
+  to: MoveTarget,
+  ship: CardInstance,
+  cardText = false
+): number | undefined {
   if (typeof from !== 'object' || from.zone !== 'shipRow' || !isShipRowLocation(to) || from.missionIndex === to.missionIndex) {
     return undefined;
   }
-  return moveSpanTotal(state.missions, from.missionIndex, to.missionIndex, ship, state.core);
+  return moveSpanTotal(state.missions, from.missionIndex, to.missionIndex, ship, state.core, cardText);
 }
 
 export const initialTableState: TableState = {
@@ -950,7 +967,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const orderedDestination =
         action.position === 'top' ? [...movedCards, ...destination] : [...destination, ...movedCards];
       const placed = withCardsAt(afterRemoval, action.to, orderedDestination);
-      const rangeCost = moveRangeCost(state, from, action.to, card);
+      const rangeCost = moveRangeCost(state, from, action.to, card, !!action.cardText);
       const moved =
         rangeCost === undefined
           ? placed
