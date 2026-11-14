@@ -24,6 +24,7 @@ import {
   effectiveLog,
   turnCharges,
   turnCounters,
+  downloadedThisTurn,
 } from '../../../app/decks/practice/gameLog';
 
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
@@ -783,5 +784,90 @@ describe('the corrections of the turn\'s counters (#1607)', () => {
     const saved = JSON.parse(JSON.stringify(state.log));
     expect(saved.every(isLogEntry)).toBe(true);
     expect(turnCounters(saved, 1)).toEqual({ spent: 6, limit: 8 });
+  });
+});
+
+describe('the cost models in the log (#1654)', () => {
+  const nanoprobes = instance('c1', 'Borg Nanoprobes', 'up', 'equipment', { cost: '5' });
+  const goran = instance('c2', 'Goran', 'up', 'personnel', { cost: '2' });
+  const tricorder = instance('c3', 'Tricorder', 'up', 'equipment', { cost: '1' });
+  const drone = instance('p1', 'Annexation Drone', 'up', 'personnel', { species: 'Borg', cost: '3' });
+  const ship = { ...instance('s1', 'Enterprise', 'up', 'ship', { cost: '4' }), crew: [drone] };
+  const shuttle = instance('d1', 'Shuttle', 'down', 'ship', { cost: '2' });
+  const shuttle2 = instance('d2', 'Shuttle', 'down', 'ship', { cost: '2' });
+  const earth = instance('m1', 'Earth', 'up', 'mission');
+  const awayTeam = { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } as const;
+  const start = (withDrone = true) =>
+    table({
+      hand: [nanoprobes, goran, tricorder],
+      drawDeck: [shuttle, shuttle2],
+      missions: slots([{ mission: earth, ships: withDrone ? [ship] : [{ ...ship, crew: [] }] }]),
+    });
+  // Each action as the page dispatches it, with the log for the downloads of the turn.
+  const play = (state: GameState, ...actions: GameAction[]) =>
+    actions.reduce((s, a) => gameReducer(s, withShuffleOrders(s.table, a, s.log)), state);
+  const download = (id: string): GameAction => ({ type: 'batch', actions: [{ type: 'move', id, to: 'hand' }, { type: 'shuffle', location: 'drawDeck' }] });
+
+  it('charges Borg Nanoprobes 3 with its source, and names it in the text', () => {
+    const state = play(initialGameState(start()), { type: 'move', id: 'c1', to: { zone: 'crew', shipId: 's1' } });
+    expect(turnCharges(state.log, 1)).toEqual([
+      expect.objectContaining({ card: 'Borg Nanoprobes', cost: 3, source: { title: 'Borg Nanoprobes', reason: 'you command a Borg' } }),
+    ]);
+    expect(logEntryText(state.log[0])).toBe('Played Borg Nanoprobes to the crew of Enterprise (cost 3, Borg Nanoprobes: you command a Borg)');
+    const plain = play(initialGameState(start(false)), { type: 'move', id: 'c1', to: { zone: 'crew', shipId: 's1' } });
+    expect(turnCharges(plain.log, 1)[0]).toEqual(expect.objectContaining({ cost: 5 }));
+    expect(turnCharges(plain.log, 1)[0].source).toBeUndefined();
+  });
+
+  it("takes Goran's choice as one entry with its source, and one undo takes it back", () => {
+    const played = play(initialGameState(start()), { type: 'move', id: 'c2', to: awayTeam });
+    const [charge] = turnCharges(played.log, 1);
+    expect(charge.cost).toBe(2);
+    expect(charge.source?.choice).toEqual({ label: 'Discard a card: \u22122', cost: 0 });
+    expect(charge.choiceTaken).toBeUndefined();
+    const chosen = play(played, { type: 'correctCharge', target: charge.target, cost: charge.source!.choice!.cost, source: 'Goran' });
+    expect(chosen.log).toHaveLength(2);
+    expect(logEntryText(chosen.log[1])).toBe('Charged Goran 0 counters (was 2) (Goran)');
+    expect(turnCharges(chosen.log, 1)[0]).toEqual(expect.objectContaining({ cost: 0, choiceTaken: true }));
+    expect(chosen.table.hand.map((c) => c.id)).toEqual(['c1', 'c3']);
+    const undone = play(chosen, { type: 'undo' });
+    expect(turnCounters(undone.log, 1).spent).toBe(2);
+    expect(turnCharges(undone.log, 1)[0].choiceTaken).toBeUndefined();
+  });
+
+  it('plays a downloaded card free once, and a drawn card at its cost', () => {
+    const downloaded = play(initialGameState(start()), download('d1'));
+    expect(downloadedThisTurn(downloaded.log, 1)).toEqual(['Shuttle']);
+    const first = play(downloaded, { type: 'move', id: 'd1', to: { zone: 'shipRow', missionIndex: 0 } });
+    expect(turnCharges(first.log, 1)[0]).toEqual(
+      expect.objectContaining({ cost: 0, source: { title: 'Downloaded', reason: 'downloaded this turn' } })
+    );
+    expect(downloadedThisTurn(first.log, 1)).toEqual([]);
+    const drawn = play(first, { type: 'drawCard', from: 'drawDeck', to: 'hand' });
+    const second = play(drawn, { type: 'move', id: 'd2', to: { zone: 'shipRow', missionIndex: 0 } });
+    expect(turnCharges(second.log, 1).map((c) => c.cost)).toEqual([0, 1, 2]);
+    expect(turnCharges(second.log, 1)[2].source).toBeUndefined();
+    // An undo of the free play opens the download again.
+    expect(downloadedThisTurn(play(first, { type: 'undo' }).log, 1)).toEqual(['Shuttle']);
+  });
+
+  it('ends a download with a move back to the draw deck, and at the next turn', () => {
+    const downloaded = play(initialGameState(start()), download('d1'));
+    expect(downloadedThisTurn(play(downloaded, { type: 'move', id: 'd1', to: 'drawDeck' }).log, 1)).toEqual([]);
+    const next = play(downloaded, { type: 'nextTurn' });
+    expect(downloadedThisTurn(next.log, next.table.turn)).toEqual([]);
+  });
+
+  it('reads an entry from before #1654, and a malformed source, as before', () => {
+    const old: LogEntry = {
+      kind: 'move',
+      turn: 1,
+      moves: [{ cards: ['Data'], from: { kind: 'hand' }, to: { kind: 'core' }, costs: [3] }],
+    };
+    expect(logEntryText(old)).toBe('Played Data to the core (cost 3)');
+    const malformed = { ...old, moves: [{ ...old.moves[0], sources: [{ title: 3 }] }] } as unknown as LogEntry;
+    expect(logEntryText(malformed)).toBe('Played Data to the core (cost 3)');
+    const correction: LogEntry = { kind: 'chargeCorrected', target: { entry: 0, move: 0, card: 0 }, card: 'Data', from: 3, to: 2, turn: 1 };
+    expect(logEntryText(correction)).toBe('Charged Data 2 counters (was 3)');
   });
 });

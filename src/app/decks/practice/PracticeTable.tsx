@@ -44,7 +44,7 @@ import useDataFetching from '../../../hooks/useDataFetching';
 import { usePlaytestCards, useWithPlaytestCards } from '../../../hooks/usePlaytestCards';
 import { useCompleteData } from './useCompleteData';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
+import { PRACTICE_COSTS_CREW, PRACTICE_COSTS_TSV, PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
 import { CHULA_BOT_PILE_ID, CHULA_BOT_PILE_NAME, botPileDeckOf } from '../../../lib/dilemmaBot/botPiles';
 import type { BotPileChoice, BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
@@ -1914,6 +1914,9 @@ function PracticeDrawContent() {
   // `?fixture=piles` (#802) deals the same fixture deck as `?fixture=1`, then places a big
   // away team and a crewed ship, for the card list panel checks.
   const isPilesFixture = fixture === 'piles';
+  // `?fixture=costs` (#1654) deals the piles table with the cards of the cost models added: Borg
+  // Nanoprobes, Goran and the cards of the later models in the hand, and a Borg in the ship's crew.
+  const isCostsFixture = fixture === 'costs';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
   // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
   // the dilemma choice, with no stack.
@@ -1930,7 +1933,7 @@ function PracticeDrawContent() {
   // `?fixture=bot-resolve-becalmed` (#1628) with Becalmed, whose roll and check the preview names.
   const botRevealFixture = fixture && Object.hasOwn(BOT_REVEAL_FIXTURES, fixture) ? BOT_REVEAL_FIXTURES[fixture] : null;
   const isBotFixture = fixture === 'bot' || botRevealFixture !== null;
-  const isFixture = fixture === '1' || isPilesFixture || isAttemptFixture || isBotFixture;
+  const isFixture = fixture === '1' || isPilesFixture || isCostsFixture || isAttemptFixture || isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
   // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
   // Browser checks use it with `?fixture=1` to start from the same table every time.
@@ -1958,7 +1961,7 @@ function PracticeDrawContent() {
   const [chargeChip, setChargeChip] = useState<{ entry: number } | null>(null);
   const [countersListOpen, setCountersListOpen] = useState(false);
   const dispatch = (action: GameAction) => {
-    const chosen = withShuffleOrders(table, action);
+    const chosen = withShuffleOrders(table, action, game.log);
     if (actionCharged(chosen)) setChargeChip({ entry: game.log.length });
     else if (['undo', 'redo', 'reset', 'resetWithPiles', 'restore'].includes(action.type)) setChargeChip(null);
     dispatchGame(chosen);
@@ -2371,7 +2374,10 @@ function PracticeDrawContent() {
     botRevealTitle: string | null = null,
     dealtBotPile?: BotPileInfo
   ) => {
-    const cards = extractDrawDeck(deck);
+    // The cards `?fixture=costs` adds (#1654), dealt to the hand and the crew and not to the piles deal.
+    const extras = isCostsFixture && fixturePiles ? costsFixtureExtras() : null;
+    const extraKeys = new Set(extras ? [...extras.hand, ...extras.crew].map((c: any) => c.collectorsinfo) : []);
+    const cards = extractDrawDeck(deck).filter((c: any) => !extraKeys.has(c.collectorsinfo));
     const deal: TableAction = {
       type: fixturePiles ? 'resetWithPiles' : 'reset',
       cards: createCardInstances(
@@ -2384,6 +2390,10 @@ function PracticeDrawContent() {
       ),
       ...(opponent ? { opponent } : {}),
       ...(opponent && dealtBotPile ? { botPile: dealtBotPile } : {}),
+      // Last, so the ids of every other card are those of the piles deal.
+      ...(extras && fixturePiles
+        ? { extraHand: createCardInstances(extras.hand), extraCrew: createCardInstances(extras.crew) }
+        : {}),
     };
     dispatch(deal);
     const botDealt = botRevealTitle ? tableReducer(initialTableState, deal) : null;
@@ -2424,8 +2434,15 @@ function PracticeDrawContent() {
 
   // The deck of the fixture route, which the deal and the restore share. The bot fixture's holds the
   // Chula pile in place of the fixture deck's dilemmas (#1289).
+  // The cards `?fixture=costs` adds (#1654), split into the hand's and the crew's.
+  const costsFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_COSTS_TSV, data));
+    const crew = (row: any) => row.originalName === PRACTICE_COSTS_CREW;
+    return { hand: rows.filter((r) => !crew(r)), crew: rows.filter(crew) };
+  };
   const fixtureDeck = (): DeckList => {
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
+    if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
     if (!isBotFixture) return deck;
     const botDeck = mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']);
     // The dilemma a revealing bot fixture adds, by its collector's info as `parseCardData` stores it.
@@ -2490,7 +2507,7 @@ function PracticeDrawContent() {
       if (loading || data.length === 0) return;
       dealDeck(
         fixtureDeck(),
-        isPilesFixture || isAttemptFixture || isBotFixture,
+        isPilesFixture || isCostsFixture || isAttemptFixture || isBotFixture,
         attemptFixturePhase,
         isBotFixture ? 'bot' : undefined,
         botRevealFixture?.title ?? null
@@ -2782,7 +2799,9 @@ function PracticeDrawContent() {
   const currentCounters = turnCountersOn ? turnCounters(game.log, turn) : null;
   const chipCharges =
     chargeChip && game.log[chargeChip.entry]?.turn === turn ? entryCharges(game.log, chargeChip.entry) : [];
-  const correctCharge = (target: ChargeTarget, cost: number) => dispatch({ type: 'correctCharge', target, cost });
+  // `source` names the model whose choice the player took (#1654).
+  const correctCharge = (target: ChargeTarget, cost: number, source?: string) =>
+    dispatch({ type: 'correctCharge', target, cost, ...(source ? { source } : {}) });
 
   const toggleCardSelection = (id: string) => {
     setSelectedCardIds((ids) => (ids.includes(id) ? ids.filter((cardId) => cardId !== id) : [...ids, id]));
@@ -3630,8 +3649,8 @@ function PracticeDrawContent() {
         {turnCountersOn && chipCharges.length > 0 && (
           <ChargeChip
             charges={chipCharges}
-            onCorrect={(target, cost) => {
-              correctCharge(target, cost);
+            onCorrect={(target, cost, source) => {
+              correctCharge(target, cost, source);
               // A correction through the chip keeps it up for its full time again.
               setChargeChip((chip) => (chip ? { ...chip } : chip));
             }}

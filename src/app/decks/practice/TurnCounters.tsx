@@ -19,43 +19,78 @@ const targetKey = (target: ChargeTarget): string => `${target.entry}-${target.mo
 
 const SMALL_BUTTON = 'btn-icon h-7 w-7 disabled:cursor-default disabled:opacity-40';
 
-// One charge: its card and cost, then Free, minus and plus. Minus and Free stop at 0.
-function ChargeRow({ charge, onCorrect }: { charge: LogCharge; onCorrect: (target: ChargeTarget, cost: number) => void }) {
+// A correction of a charge: its target, the cost it sets, and the title of the model whose choice
+// it takes (#1654).
+type OnCorrect = (target: ChargeTarget, cost: number, source?: string) => void;
+
+// One charge: its card and cost, then Free, minus and plus. Minus and Free stop at 0. A cost the table
+// suggested names its source under the card, marked as the table's own (#1654), and a choice of its
+// model shows as one more button, disabled once taken.
+function ChargeRow({ charge, onCorrect }: { charge: LogCharge; onCorrect: OnCorrect }) {
   const label = chargeLabel(charge);
+  const { source } = charge;
+  const choice = source?.choice;
   return (
-    <div data-testid="charge-row" className="flex items-center gap-1.5">
-      <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
-        {label} <span data-testid="charge-cost" className="font-semibold">{charge.cost}</span>
-      </span>
-      <button
-        type="button"
-        data-testid="charge-free"
-        onClick={() => onCorrect(charge.target, 0)}
-        disabled={charge.cost === 0}
-        aria-label={`${label}: Free`}
-        className="btn-icon h-7 w-auto px-2 text-xs disabled:cursor-default disabled:opacity-40"
-      >
-        Free
-      </button>
-      <button
-        type="button"
-        data-testid="charge-minus"
-        onClick={() => onCorrect(charge.target, charge.cost - 1)}
-        disabled={charge.cost === 0}
-        aria-label={`${label}: one counter less`}
-        className={SMALL_BUTTON}
-      >
-        −
-      </button>
-      <button
-        type="button"
-        data-testid="charge-plus"
-        onClick={() => onCorrect(charge.target, charge.cost + 1)}
-        aria-label={`${label}: one counter more`}
-        className={SMALL_BUTTON}
-      >
-        +
-      </button>
+    <div data-testid="charge-row" className="flex flex-col gap-1">
+      <div className="flex items-center gap-1.5">
+        <span className="min-w-0 flex-1 text-sm text-text-primary">
+          <span className="block truncate">
+            {label} <span data-testid="charge-cost" className="font-semibold">{charge.cost}</span>
+          </span>
+          {source && (
+            <span
+              data-testid="charge-source"
+              title="The table's suggestion"
+              className="block truncate text-[11px] text-text-muted"
+            >
+              Table: {source.title}, {source.reason}
+            </span>
+          )}
+        </span>
+        <button
+          type="button"
+          data-testid="charge-free"
+          onClick={() => onCorrect(charge.target, 0)}
+          disabled={charge.cost === 0}
+          aria-label={`${label}: Free`}
+          className="btn-icon h-7 w-auto px-2 text-xs disabled:cursor-default disabled:opacity-40"
+        >
+          Free
+        </button>
+        <button
+          type="button"
+          data-testid="charge-minus"
+          onClick={() => onCorrect(charge.target, charge.cost - 1)}
+          disabled={charge.cost === 0}
+          aria-label={`${label}: one counter less`}
+          className={SMALL_BUTTON}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          data-testid="charge-plus"
+          onClick={() => onCorrect(charge.target, charge.cost + 1)}
+          aria-label={`${label}: one counter more`}
+          className={SMALL_BUTTON}
+        >
+          +
+        </button>
+      </div>
+      {source && choice && (
+        <button
+          type="button"
+          data-testid="charge-choice"
+          data-taken={charge.choiceTaken ? 'true' : undefined}
+          onClick={() => onCorrect(charge.target, choice.cost, source.title)}
+          disabled={charge.choiceTaken}
+          aria-label={`${label}: ${choice.label}${charge.choiceTaken ? ', taken' : ''}`}
+          className="btn-icon h-7 w-auto self-start px-2 text-xs disabled:cursor-default disabled:opacity-60"
+        >
+          {choice.label}
+          {charge.choiceTaken ? ' (taken)' : ''}
+        </button>
+      )}
     </div>
   );
 }
@@ -68,7 +103,7 @@ export function ChargeChip({
   onCorrect,
 }: {
   charges: LogCharge[];
-  onCorrect: (target: ChargeTarget, cost: number) => void;
+  onCorrect: OnCorrect;
 }) {
   return (
     <div
@@ -95,7 +130,7 @@ export function TurnCountersList({
 }: {
   charges: LogCharge[];
   counters: TurnCounters;
-  onCorrect: (target: ChargeTarget, cost: number) => void;
+  onCorrect: OnCorrect;
   onAdjustLimit: (delta: number) => void;
   onClose: () => void;
 }) {

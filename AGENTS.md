@@ -539,7 +539,13 @@ of the next-turn button: "<spent>/<limit>", with `data-over="true"` past the lim
 `data-unspent="true"` outside play and draw with counters left. Everything is derived from the log
 (`turnCounters` in `gameLog.ts`): a correction is a log entry, `chargeCorrected` or `counterLimit`, that
 `gameReducer` makes for `correctCharge` and `adjustCounterLimit` with no change to the table, and
-`effectiveLog` applies the corrections before the log is read. A charge shows its chip, `charge-chip`,
+`effectiveLog` applies the corrections before the log is read. Before the printed cost, a play asks
+two things (#1654, `moveCharge`): a card downloaded this turn, by a `move` from the draw deck into the
+hand (`downloadedThisTurn`), is free once, and the cost registry (`src/lib/costModels/`, one model per
+title, of `CostFacts` that `costFactsOf` builds) gives Borg Nanoprobes cost −2 while a Borg is
+commanded and Goran his "may", a button `charge-choice` ("Discard a card: −2") that dispatches
+`correctCharge` with its `source`. The chip and the list name the source, `charge-source`, and the log
+text reads "(cost 3, Borg Nanoprobes: you command a Borg)". A charge shows its chip, `charge-chip`,
 for `CHARGE_CHIP_MS` with Free, minus and plus; a tap on the counter opens `turn-counters-list`, the
 turn's charges and the limit. They show on the full table only, not in the attempt layout. A desktop
 shows the same column (#1451), below its five corner buttons (redo under undo), with `btn-icon`
@@ -581,7 +587,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has eleven fixtures. Each one deals the same table on every load.
+The practice table has twelve fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -597,6 +603,12 @@ The practice table has eleven fixtures. Each one deals the same table on every l
   outside every attempt. The draw deck and the dilemma pile get the rest. The hand holds a Tricorder (`card-1`), two
   events (`card-7`, `card-8`), two interrupts (`card-9`, `card-10`) and two ships (`card-39`,
   `card-40`).
+- `?fixture=costs` (#1654) deals the `?fixture=piles` table, the same cards and the same ids, with 6
+  more cards (`PRACTICE_COSTS_TSV` in `src/lib/practiceDeck.ts`): Borg Nanoprobes, Goran, Tricia
+  Jenkins, Sarish Rez and Jadzia Dax, a [Fed][DS9] personnel, join the end of the hand of 7, which
+  holds the Tricorder (`card-1`) and Surprise Party (`card-7`, `card-8`) already, and Annexation Drone,
+  a Borg, joins the crew of the ship at Bilana System, so the player commands a Borg. The draw deck
+  holds the rest, for a Download. It keeps its game under `practiceGame:fixture=costs`.
 - `?fixture=attempt` (#1169) deals the `?fixture=piles` table, the same cards and the same
   ids, and then starts an attempt at Bilana System (mission 2) with the crewed ship, with the
   defaults of the attempt popup: the 12 unstopped crew minus the 3 dilemmas under the mission, so
