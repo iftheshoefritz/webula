@@ -17,29 +17,45 @@ export const QUADRANT_SPAN = 2;
 
 // The span total of a move of `ship` from the mission of slot `fromIndex` to the mission of slot
 // `toIndex` (#1635): the printed spans of the two missions, plus 2 when both slots hold a mission and
-// their quadrants differ, unless a span model of either mission or of the ship waives it. An empty
-// slot, or a mission with no quadrant, adds no 2.
-export function moveSpanTotal(missions: MissionSlot[], fromIndex: number, toIndex: number, ship: CardInstance): number {
+// their quadrants differ, unless a span model of either mission, of the ship or of an event in the
+// core waives it (#1648). An empty slot, or a mission with no quadrant, adds no 2. The span models of
+// the core's events then take their reductions off the total, which never goes below 0.
+export function moveSpanTotal(
+  missions: MissionSlot[],
+  fromIndex: number,
+  toIndex: number,
+  ship: CardInstance,
+  core: CardInstance[] = []
+): number {
   const from = missions[fromIndex]?.mission ?? null;
   const to = missions[toIndex]?.mission ?? null;
-  const spans = printedSpan(from) + printedSpan(to);
-  if (!from || !to || !quadrantOf(from) || !quadrantOf(to) || quadrantOf(from) === quadrantOf(to)) return spans;
-  const waived = [from, to, ship].some((self) => rangeSpanModelOf(self)?.waivesQuadrant?.(self, from, to));
-  return waived ? spans : spans + QUADRANT_SPAN;
+  let total = printedSpan(from) + printedSpan(to);
+  if (from && to && quadrantOf(from) && quadrantOf(to) && quadrantOf(from) !== quadrantOf(to)) {
+    const waived =
+      [from, to, ship].some((self) => rangeSpanModelOf(self)?.waivesQuadrant?.(self, from, to)) ||
+      core.some((self) => rangeSpanModelOf(self)?.coreWaivesQuadrant?.(self, from, to, ship));
+    if (!waived) total += QUADRANT_SPAN;
+  }
+  if (!from || !to) return total;
+  for (const self of core) total -= rangeSpanModelOf(self)?.coreSpanReduction?.(self, from, to, ship) ?? 0;
+  return Math.max(0, total);
 }
 
 // A ship's Range on the table as it stands (#1635): its printed Range, plus the Range its own range
 // model gives it, plus the Range of every event placed on a mission card whose range model applies
-// to it.
+// to it, plus the Range of every personnel of its crew and every event placed on it whose range model
+// applies (#1648). It never goes below 0.
 export function shipRangeOnTable(missions: MissionSlot[], ship: CardInstance): number {
   let range = printedRange(ship) + (rangeSpanModelOf(ship)?.shipRange?.(ship, missions) ?? 0);
+  for (const p of ship.crew ?? []) range += rangeSpanModelOf(p)?.aboardRange?.(p, ship, missions) ?? 0;
+  for (const event of ship.placedOn ?? []) range += rangeSpanModelOf(event)?.placedOnShipRange?.(event, ship, missions) ?? 0;
   for (const slot of missions) {
     if (!slot.mission) continue;
     for (const event of slot.mission.placedOn ?? []) {
       range += rangeSpanModelOf(event)?.eventRange?.(event, slot.mission, ship, missions) ?? 0;
     }
   }
-  return range;
+  return Math.max(0, range);
 }
 
 // The Range on the table of every ship with an entry in `rangeUsed`, by the ship's instance id: what
