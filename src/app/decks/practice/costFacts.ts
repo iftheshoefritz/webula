@@ -12,6 +12,12 @@ import type { MissionSlot, TableState } from './tableReducer';
 
 const text = (v: unknown): string => String(v ?? '').toLowerCase();
 
+/** The icons of an affiliation field that is a list of icons, "[fed][sf]"; a sentence gives none (#1696). */
+const iconsOf = (affiliation: string): string[] => (/^(\[[a-z0-9]+\])+$/.test(affiliation) ? (affiliation.match(/\[[a-z0-9]+\]/g) ?? []) : []);
+
+/** Every "Region: <name>." clause of a mission's keywords, lowercased (#1696). */
+const regionsOf = (keywords: string): string[] => [...keywords.matchAll(/region:\s*([^.;]+)/g)].map((m) => m[1].trim());
+
 function costMissionOf(slot: MissionSlot): CostMission {
   const card = slot.mission?.card;
   const points = Number.parseInt(String(card?.points ?? ''), 10);
@@ -21,9 +27,10 @@ function costMissionOf(slot: MissionSlot): CostMission {
     requirements: card ? text(card.skills) : '',
     points: Number.isFinite(points) ? points : 0,
     type: text(card?.missiontype).charAt(0),
-    icons: text(card?.affiliation).match(/\[[a-z0-9]+\]/g) ?? [],
+    icons: iconsOf(text(card?.affiliation).trim()),
     quadrant: text(card?.quadrant),
     dilemmasUnder: slot.underMission.filter((c) => text(c.card?.type) === 'dilemma').length,
+    regions: regionsOf(text(card?.keywords)),
   };
 }
 

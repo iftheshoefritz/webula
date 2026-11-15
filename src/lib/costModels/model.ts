@@ -28,7 +28,8 @@ export interface CommandedTraits extends PartnerTraits {
  * A mission slot of the player, as a model reads it (#1694): whether it is completed, the mission's name,
  * its requirement text, its printed points, its type (`p`, `s` or `h`), its affiliation icons ("[baj]"),
  * its quadrant and the number of dilemmas beneath it, all lowercased but the name. An empty slot reads as
- * not completed, with an empty requirement.
+ * not completed, with an empty requirement and an empty type. An affiliation field that is a sentence,
+ * "Any affiliation (except [Kli]) may attempt this mission.", gives no icons (#1696).
  */
 export interface CostMission {
   completed: boolean;
@@ -39,6 +40,8 @@ export interface CostMission {
   icons: string[];
   quadrant: string;
   dilemmasUnder: number;
+  /** The regions of the mission's keywords, lowercased: "Region: Delphic Expanse." gives "delphic expanse" (#1696). */
+  regions?: string[];
 }
 
 /** What the models read of the table, as it stands before the move. */
