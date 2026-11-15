@@ -1,8 +1,21 @@
-import { CostModel } from '../model';
+import { CostFacts, CostModel, CostPlay, ModelCost } from '../model';
 
 // The cards that change their own cost (#1654).
 
 const MINUS = '−';
+
+/**
+ * "You may discard an equipment or event card from hand to make this personnel cost -2": the printed
+ * cost, and the choice while the hand holds such a card other than the one played (Goran, Kes, #1700).
+ */
+export const discardEquipmentOrEventCost = (play: CostPlay, facts: CostFacts): ModelCost | null =>
+  facts.hand.some((c) => c.id !== play.id && (c.type === 'equipment' || c.type === 'event'))
+    ? {
+        cost: play.printed,
+        reason: 'you may discard an equipment or event',
+        choice: { label: `Discard a card: ${MINUS}2`, cost: play.printed - 2 },
+      }
+    : null;
 
 export const OWN_COST_MODELS: CostModel[] = [
   // "When you play this equipment, if you command a Borg personnel, it is cost -2." The table checks it.
@@ -17,13 +30,6 @@ export const OWN_COST_MODELS: CostModel[] = [
   {
     title: 'Goran',
     family: 'ownCost',
-    playCost: (play, facts) =>
-      facts.hand.some((c) => c.id !== play.id && (c.type === 'equipment' || c.type === 'event'))
-        ? {
-            cost: play.printed,
-            reason: 'you may discard an equipment or event',
-            choice: { label: `Discard a card: ${MINUS}2`, cost: play.printed - 2 },
-          }
-        : null,
+    playCost: discardEquipmentOrEventCost,
   },
 ];

@@ -54,6 +54,12 @@ export interface CostFacts {
   /** The titles of the cards in the core. */
   core: string[];
   hand: CostHandCard[];
+  /** The discard pile by title and type, the cards removed from the game left out (#1700). Absent is empty. */
+  discard?: CostHandCard[];
+  /** The titles of the ships the player commands, those of every mission's ship row (#1700). Absent is none. */
+  ships?: string[];
+  /** The player's score (#1700). Absent is 0. */
+  score?: number;
   /** The player's mission slots, one entry per slot, in slot order (#1694). */
   missions?: CostMission[];
   /** The pending discounts of the turn, oldest first (`pendingDiscountsOf` in `gameLog.ts`, #1656). */
