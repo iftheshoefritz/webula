@@ -1,5 +1,5 @@
 // What the cost models read of the practice table (#1654), as a plain `CostFacts`: the printed
-// traits of every personnel the player commands (every away team and every ship's crew, at every
+// traits and the uniqueness of every personnel the player commands (every away team and every ship's crew, at every
 // mission, never the brig), the titles of the core, and the hand by title and type. The pending
 // discounts of the turn come from the log (`pendingDiscountsOf` in `gameLog.ts`).
 
@@ -13,7 +13,7 @@ export function costFactsOf(table: TableState, pending: PendingDiscount[] = []):
   return {
     commanded: table.missions
       .flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])])
-      .flatMap((c) => (c.card?.type === 'personnel' ? [partnerTraitsOf(c.card)] : [])),
+      .flatMap((c) => (c.card?.type === 'personnel' ? [{ ...partnerTraitsOf(c.card), unique: String(c.card.unique ?? '').toLowerCase() === 'y' }] : [])),
     core: table.core.flatMap((c) => (c.card ? [cardTitleOf(cardDisplayName(c.card))] : [])),
     hand: table.hand.map((c) => ({
       id: c.id,

@@ -1,4 +1,5 @@
 import { CostFacts, CostModel, DiscountOrigin, LimitGrant, PendingDiscount } from './model';
+import { COMMANDED_MODELS } from './titles/commanded';
 import { LIMIT_MODELS } from './titles/limit';
 import { OWN_COST_MODELS } from './titles/ownCost';
 import { PENDING_DISCOUNT_MODELS } from './titles/pendingDiscount';
@@ -8,7 +9,7 @@ import { cardTitleOf } from '../cardTitle';
 // as the dilemma registry of the pile bot does. A new list of titles adds itself here. Each model
 // names its family.
 
-const MODELS: CostModel[] = [...OWN_COST_MODELS, ...LIMIT_MODELS, ...PENDING_DISCOUNT_MODELS];
+const MODELS: CostModel[] = [...OWN_COST_MODELS, ...COMMANDED_MODELS, ...LIMIT_MODELS, ...PENDING_DISCOUNT_MODELS];
 
 /** The registry of `models`, by title. Two models of one title throw. */
 export function costRegistryOf(models: CostModel[]): ReadonlyMap<string, CostModel> {
