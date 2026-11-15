@@ -19,10 +19,18 @@ export interface CostHandCard {
   type: string;
 }
 
+/** A personnel the player commands, as a model reads it: its printed traits and whether it is unique (#1693). */
+export interface CommandedTraits extends PartnerTraits {
+  unique?: boolean;
+}
+
 /** What the models read of the table, as it stands before the move. */
 export interface CostFacts {
-  /** The printed traits of each personnel the player commands: every away team and every crew, never the brig. */
-  commanded: PartnerTraits[];
+  /**
+   * The printed traits of each personnel the player commands: every away team and every crew, never the
+   * brig, with its uniqueness.
+   */
+  commanded: CommandedTraits[];
   /** The titles of the cards in the core. */
   core: string[];
   hand: CostHandCard[];
