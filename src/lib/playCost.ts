@@ -2,7 +2,8 @@
 // from the hand costs its printed cost in counters, and a draw from the draw deck costs 1. Before
 // the printed cost the classifier asks the cost registry (#1654), whose model of the card's title
 // may give its cost or a choice. A download only takes a card into the hand, and its later play
-// costs what any play does. A card with neither takes the first pending discount of the turn whose test
+// costs what any play does. A card whose text lets it be played from the discard pile (#1698) costs
+// what its model says from there, and every other move out of the discard pile is no play. A card with neither takes the first pending discount of the turn whose test
 // it passes (#1656). Every other discount, a "place" and extra counters charge the plain rule.
 // It imports no React and no reducer: it takes a plain description of the move, so a later bot can
 // ask it too.
@@ -54,7 +55,8 @@ const countedChoiceOf = (choice: CountedChoice, base: number): CountedChoice | u
 // The charge of a move of `card` from `from` to `to`, the place it landed, or null. With `facts`, a
 // card's model gives its cost or its choice; otherwise the
 // first pending discount of `facts` that the card passes takes off its amount; otherwise it costs its
-// printed cost. The cost never goes below 0. `id` is the card's instance id, so a model
+// printed cost. From the discard pile only the card's own model prices the play, with
+// `discardPlayCost`, and with no answer the move is no play. The cost never goes below 0. `id` is the card's instance id, so a model
 // that reads the hand leaves the card itself out.
 export function moveCharge(
   segment: CostSegment,
@@ -67,7 +69,7 @@ export function moveCharge(
   facts?: CostFacts,
   id?: string
 ): Charge | null {
-  if (segment !== 'playAndDraw' || from !== 'hand' || !PLAY_PLACES.has(to)) return null;
+  if (segment !== 'playAndDraw' || (from !== 'hand' && from !== 'discard') || !PLAY_PLACES.has(to)) return null;
   const type = String(card?.type ?? '').toLowerCase();
   if (type === 'dilemma') return null;
   const printed = printedCost(card);
@@ -80,7 +82,8 @@ export function moveCharge(
     affiliation: String(card?.affiliation ?? '').toLowerCase(),
     icons: String(card?.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [],
   };
-  const suggested = model?.playCost && facts ? model.playCost(play, facts) : null;
+  const price = from === 'discard' ? model?.discardPlayCost : model?.playCost;
+  const suggested = price && facts ? price(play, facts) : null;
   if (model && suggested) {
     const offered = suggested.choice;
     const choice =
@@ -95,6 +98,7 @@ export function moveCharge(
       source: { title: costModelName(model), reason: suggested.reason, ...(choice ? { choice } : {}) },
     };
   }
+  if (from === 'discard') return null;
   const discount = facts?.pending?.find((d) => d.applies(play));
   if (discount) {
     return {

@@ -71,7 +71,7 @@ export interface LogMove {
   // in the order of `cards`, and its printed Range less all it has used this turn, below 0 when
   // over. Absent for every other move.
   range?: LogRange[];
-  // The printed cost of each card played from the hand in the play and draw segment (#1606), in the
+  // The cost of each card played in the play and draw segment (#1606, #1698), in the
   // order of `cards`, null for a card that was not a play. Absent when no card of the move was one.
   costs?: (number | null)[];
   // The source of each cost the table suggested (#1654), in the order of `cards`, null for a printed
@@ -646,7 +646,7 @@ const costPlace = (zone: TableZone): CostPlace => {
 };
 
 // The action with its charge in it (#1606): a `move` of a card from the hand that landed on the
-// table, and a `drawCard` from the draw deck, in the play and draw segment, as `moveCharge` and
+// table, or from the discard pile where the card's text allows it (#1698), and a `drawCard` from the draw deck, in the play and draw segment, as `moveCharge` and
 // `drawCharge` give it. The place a move reads is where the card landed, so a refused move costs
 // nothing. The reducer ignores the field and the log reads it. An action that already holds a cost
 // keeps it. A move reads the facts of the cost models (#1654) from the table and `turnFacts`, the

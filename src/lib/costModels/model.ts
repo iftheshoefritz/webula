@@ -157,8 +157,13 @@ export interface CostModel {
   /** The name the chip, the list and the log show, when it is not the title: "Tricia Jenkins". */
   label?: string;
   family: CostFamily;
-  /** The cost of the card's own play, or null when the text changes nothing on this table. */
+  /** The cost of the card's own play from the hand, or null when the text changes nothing on this table. */
   playCost?: (play: CostPlay, facts: CostFacts) => ModelCost | null;
+  /**
+   * The cost of a play of the card from the discard pile, which only its own text allows (#1698), or null.
+   * A card with none is not played from the discard pile: the move is no play.
+   */
+  discardPlayCost?: (play: CostPlay, facts: CostFacts) => ModelCost | null;
   /** The counters the card adds to the turn's limit while the table stands as `facts` say, or null (#1655). */
   limitGrant?: (facts: CostFacts) => { amount: number; reason: string } | null;
   /**
