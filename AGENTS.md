@@ -639,10 +639,11 @@ The practice table has thirteen fixtures. Each one deals the same table on every
   outside every attempt. The draw deck and the dilemma pile get the rest. The hand holds a Tricorder (`card-1`), two
   events (`card-7`, `card-8`), two interrupts (`card-9`, `card-10`) and two ships (`card-39`,
   `card-40`).
-- `?fixture=costs` (#1654) deals the `?fixture=piles` table, the same cards and the same ids, with 8
+- `?fixture=costs` (#1654) deals the `?fixture=piles` table, the same cards and the same ids, with 7
   more cards (`PRACTICE_COSTS_TSV` in `src/lib/practiceDeck.ts`): Borg Nanoprobes, Goran, Tricia
-  Jenkins, Sarish Rez, Jadzia Dax, a [Fed][DS9] personnel, and Tacking Into the Wind and Rollins, whose
-  counted choices show a stepper (#1695), join the end of the hand of 7, which
+  Jenkins, Sarish Rez, Jadzia Dax, a [Fed][DS9] personnel, and Rollins, whose counted choice shows a
+  stepper (#1695) as Tacking Into the Wind's of the piles hand does (`card-9`, `card-10`), join the end
+  of the hand of 7, which
   holds the Tricorder (`card-1`) and Surprise Party (`card-7`, `card-8`) already, and Annexation Drone,
   a Borg, joins the crew of the ship at Bilana System, so the player commands a Borg. The draw deck
   holds the rest, for a Download. It keeps its game under `practiceGame:fixture=costs`.
