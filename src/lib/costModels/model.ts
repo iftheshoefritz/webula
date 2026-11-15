@@ -91,9 +91,39 @@ export interface PendingDiscount {
 
 /**
  * A "may" the chip offers beside the printed cost: its label and the cost it sets, or the counters it
- * adds to the turn's limit (#1655).
+ * adds to the turn's limit (#1655), or a count (#1695): the label of what is counted, the counters each
+ * one takes off, the largest count, and the printed cost it counts from (`moveCharge` fills `base`). A
+ * count `n` sets the cost to `max(0, base − step·n)`.
  */
-export type CostChoice = { label: string; cost: number; limit?: undefined } | { label: string; limit: number; cost?: undefined };
+export type CostChoice =
+  | { label: string; cost: number; limit?: undefined; step?: undefined }
+  | { label: string; limit: number; cost?: undefined; step?: undefined }
+  | CountedChoice;
+
+/** A choice of a count (#1695): "Completed missions of the opponent", −2 each, at most 2, from 4. */
+export interface CountedChoice {
+  label: string;
+  step: number;
+  max: number;
+  base?: number;
+  cost?: undefined;
+  limit?: undefined;
+}
+
+/** Whether `choice` is a well-formed counted choice with its base, so a malformed save reads as no choice. */
+export const isCountedChoice = (choice: unknown): choice is CountedChoice & { base: number } => {
+  const c = choice as CountedChoice | null | undefined;
+  return (
+    !!c &&
+    typeof c.label === 'string' &&
+    [c.step, c.max, c.base].every((n) => typeof n === 'number' && Number.isFinite(n)) &&
+    c.step > 0 &&
+    c.max >= 0
+  );
+};
+
+/** The cost a count `n` of a counted choice sets, never below 0. */
+export const countedCost = (choice: CountedChoice & { base: number }, n: number): number => Math.max(0, choice.base - choice.step * n);
 
 /** A grant to the turn's limit while the table holds its condition (#1655): the model's title, the counters and why. */
 export interface LimitGrant {

@@ -117,7 +117,8 @@ describe('the cost model backlog', () => {
   it('lists the shipped backlog without the modelled titles', () => {
     const backlog = costModelBacklog(cards, shippedDecks());
     const titles = backlog.map((b) => b.title);
-    expect(titles).toContain('Tacking Into the Wind');
+    expect(titles).toContain('Christening');
+    expect(titles).not.toContain('Tacking Into the Wind');
     for (const t of COST_REGISTRY.keys()) expect(titles).not.toContain(t);
     if (process.env.COST_BACKLOG) {
       console.log(

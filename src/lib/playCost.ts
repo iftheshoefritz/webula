@@ -8,7 +8,7 @@
 // ask it too.
 
 import { cardDisplayName } from './cardCount';
-import { CostFacts, CostSource } from './costModels/model';
+import { CostFacts, CostSource, CountedChoice } from './costModels/model';
 import { costModelName, costModelOf } from './costModels/registry';
 
 // The segment of a turn, as `TurnSegment` in the practice table names it.
@@ -44,6 +44,13 @@ const PLAY_PLACES: ReadonlySet<CostPlace> = new Set<CostPlace>(['shipRow', 'crew
 // The printed cost of a card, the `Cost` column; an empty or missing cost is 0.
 export const printedCost = (card: { cost?: unknown } | null | undefined): number => Number(card?.cost) || 0;
 
+// A counted choice from the printed cost `base` (#1695), its `max` clamped to the count where the cost
+// reaches 0, so no step changes nothing.
+const countedChoiceOf = (choice: CountedChoice, base: number): CountedChoice | undefined =>
+  choice.step > 0
+    ? { ...choice, base, max: Math.max(0, Math.min(choice.max, Math.ceil(base / choice.step))) }
+    : undefined;
+
 // The charge of a move of `card` from `from` to `to`, the place it landed, or null. With `facts`, a
 // card's model gives its cost or its choice; otherwise the
 // first pending discount of `facts` that the card passes takes off its amount; otherwise it costs its
@@ -75,8 +82,13 @@ export function moveCharge(
   };
   const suggested = model?.playCost && facts ? model.playCost(play, facts) : null;
   if (model && suggested) {
+    const offered = suggested.choice;
     const choice =
-      suggested.choice?.cost !== undefined ? { ...suggested.choice, cost: Math.max(0, suggested.choice.cost) } : suggested.choice;
+      offered?.step !== undefined
+        ? countedChoiceOf(offered, printed)
+        : offered?.cost !== undefined
+          ? { ...offered, cost: Math.max(0, offered.cost) }
+          : offered;
     return {
       kind: 'play',
       cost: Math.max(0, suggested.cost),

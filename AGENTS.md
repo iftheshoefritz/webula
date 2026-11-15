@@ -566,7 +566,12 @@ the cost registry (#1654, `moveCharge`); a download only takes a card into the h
 costs what any play does. The cost registry (`src/lib/costModels/`, one model per
 title, of `CostFacts` that `costFactsOf` builds) gives Borg Nanoprobes cost −2 while a Borg is
 commanded and Goran his "may", a button `charge-choice` ("Discard a card: −2") that dispatches
-`correctCharge` with its `source`. The chip and the list name the source, `charge-source`, and the log
+`correctCharge` with its `source`. A text that counts what the table does not see, the opponent's
+missions or the cards a play discards (#1695, `titles/opponentCost.ts`: Tacking Into the Wind, Rollins,
+Ptol and others), gives the printed cost and a counted choice (`CountedChoice`: `step`, `max`, and the
+printed `base`, `max` clamped where the cost reaches 0), a stepper `charge-choice-count` with
+`charge-choice-minus` and `charge-choice-plus`, each a `correctCharge` with the cost of the next count
+and its `count`; `LogCharge.choiceCount` reads the last count back from the log. The chip and the list name the source, `charge-source`, and the log
 text reads "(cost 3, Borg Nanoprobes: you command a Borg)". The limit is 7, plus the grants of the models
 (#1655, `limitGrantsOf`, read from the table as it stands: Surprise Party +1 while it is in the core),
 plus the `counterLimit` changes; Tricia Jenkins's "Raise the limit: +5" is a `charge-choice` that
@@ -634,9 +639,10 @@ The practice table has thirteen fixtures. Each one deals the same table on every
   outside every attempt. The draw deck and the dilemma pile get the rest. The hand holds a Tricorder (`card-1`), two
   events (`card-7`, `card-8`), two interrupts (`card-9`, `card-10`) and two ships (`card-39`,
   `card-40`).
-- `?fixture=costs` (#1654) deals the `?fixture=piles` table, the same cards and the same ids, with 6
+- `?fixture=costs` (#1654) deals the `?fixture=piles` table, the same cards and the same ids, with 8
   more cards (`PRACTICE_COSTS_TSV` in `src/lib/practiceDeck.ts`): Borg Nanoprobes, Goran, Tricia
-  Jenkins, Sarish Rez and Jadzia Dax, a [Fed][DS9] personnel, join the end of the hand of 7, which
+  Jenkins, Sarish Rez, Jadzia Dax, a [Fed][DS9] personnel, and Tacking Into the Wind and Rollins, whose
+  counted choices show a stepper (#1695), join the end of the hand of 7, which
   holds the Tricorder (`card-1`) and Surprise Party (`card-7`, `card-8`) already, and Annexation Drone,
   a Borg, joins the crew of the ship at Bilana System, so the player commands a Borg. The draw deck
   holds the rest, for a Download. It keeps its game under `practiceGame:fixture=costs`.

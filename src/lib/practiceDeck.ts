@@ -162,6 +162,7 @@ export const PRACTICE_DECK_TSV_2 = `2\tCommon Cause (SS)
 // The cards `?fixture=costs` (#1654) adds to the fixture deck: the hand gets every card but the last,
 // after the hand of `?fixture=piles`, and the crewed ship's crew gets the last, a Borg personnel, so
 // the player commands a Borg. Surprise Party and the Tricorder are in the hand of the piles deal already.
+// Tacking Into the Wind and Rollins show a counted choice (#1695).
 export const PRACTICE_COSTS_TSV = `1\tBorg Nanoprobes
 1\tGoran
 1\tTricia Jenkins Relaxed Pilot

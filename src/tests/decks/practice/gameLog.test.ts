@@ -1018,3 +1018,63 @@ describe('a pending discount of a cost model (#1656)', () => {
     expect(pendingDiscountsOf(JSON.parse(JSON.stringify(played.log)), 1)).toHaveLength(1);
   });
 });
+
+describe('a counted choice in the log (#1695)', () => {
+  const tacking = instance('c1', 'Tacking Into the Wind', 'up', 'event', { cost: '4' });
+  const earth = instance('m1', 'Earth', 'up', 'mission');
+  const start = () => table({ hand: [tacking], missions: slots([{ mission: earth }]) });
+  const play = (state: GameState, ...actions: GameAction[]) =>
+    actions.reduce((s, a) => gameReducer(s, withShuffleOrders(s.table, a, s.log)), state);
+  const played = () => play(initialGameState(start()), { type: 'move', id: 'c1', to: 'core' });
+  const count = (state: GameState, n: number, cost: number): GameState => {
+    const [charge] = turnCharges(state.log, 1);
+    return play(state, { type: 'correctCharge', target: charge.target, cost, source: 'Tacking Into the Wind', count: n });
+  };
+
+  it('charges the printed cost with the counted choice and a count of 0', () => {
+    const [charge] = turnCharges(played().log, 1);
+    expect(charge.cost).toBe(4);
+    expect(charge.source?.choice).toEqual({ label: 'Completed missions of the opponent', step: 2, max: 2, base: 4 });
+    expect(charge.choiceCount).toBe(0);
+    expect(charge.choiceTaken).toBeUndefined();
+  });
+
+  it('keeps the count of each correction, names it in the text, and an undo restores the earlier count', () => {
+    const once = count(played(), 1, 2);
+    expect(once.log[1]).toEqual(expect.objectContaining({ kind: 'chargeCorrected', from: 4, to: 2, count: 1 }));
+    expect(logEntryText(once.log[1])).toBe(
+      'Charged Tacking Into the Wind 2 counters (was 4) (Tacking Into the Wind, completed missions of the opponent: 1)'
+    );
+    const twice = count(once, 2, 0);
+    expect(turnCharges(twice.log, 1)[0]).toEqual(expect.objectContaining({ cost: 0, choiceCount: 2 }));
+    const saved = JSON.parse(JSON.stringify(twice.log));
+    expect(saved.every(isLogEntry)).toBe(true);
+    expect(turnCharges(saved, 1)[0].choiceCount).toBe(2);
+    const undone = play(twice, { type: 'undo' });
+    expect(turnCharges(undone.log, 1)[0]).toEqual(expect.objectContaining({ cost: 2, choiceCount: 1 }));
+  });
+
+  it('keeps the count through a plain correction, and records a change of the count alone', () => {
+    const once = count(played(), 1, 2);
+    const [charge] = turnCharges(once.log, 1);
+    const plain = play(once, { type: 'correctCharge', target: charge.target, cost: 0 });
+    expect(turnCharges(plain.log, 1)[0]).toEqual(expect.objectContaining({ cost: 0, choiceCount: 1 }));
+    // The next count sets the cost from the count again, here the cost the plain correction set.
+    const again = count(plain, 2, 0);
+    expect(again.log).toHaveLength(4);
+    expect(turnCharges(again.log, 1)[0].choiceCount).toBe(2);
+  });
+
+  it('ignores a count past the clamped max, and a malformed counted choice is no choice', () => {
+    const past = count(played(), 3, 0);
+    expect(turnCharges(past.log, 1)[0]).toEqual(expect.objectContaining({ cost: 0, choiceCount: 0 }));
+    const state = played();
+    const move = state.log[0] as Extract<LogEntry, { kind: 'move' }>;
+    const broken = [
+      { ...move, moves: [{ ...move.moves[0], sources: [{ title: 'Tacking Into the Wind', reason: 'x', choice: { label: 'x', step: 'two' } }] }] },
+    ] as unknown as LogEntry[];
+    const [charge] = turnCharges(broken, 1);
+    expect(charge.choiceCount).toBeUndefined();
+    expect(charge.choiceTaken).toBeUndefined();
+  });
+});

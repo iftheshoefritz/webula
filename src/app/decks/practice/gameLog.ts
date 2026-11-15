@@ -42,6 +42,7 @@ import { drawSpend } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
+import { isCountedChoice } from '../../../lib/costModels/model';
 import type { CostSource, LimitGrant, PendingDiscount } from '../../../lib/costModels/model';
 import { limitGrantsOf, pendingDiscountOf } from '../../../lib/costModels/registry';
 import { costFactsOf } from './costFacts';
@@ -152,8 +153,19 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
     }
   // A correction of one charge by the player (#1607): `target` names the charge, `card` its card
   // (null for an unseen card, absent for a draw), `from` and `to` the cost before and after.
-  // `source` is the title of the model whose choice the player took (#1654), "Goran".
-  | { kind: 'chargeCorrected'; target: ChargeTarget; card?: LogCard; draw?: true; from: number; to: number; source?: string }
+  // `source` is the title of the model whose choice the player took (#1654), "Goran". `count` is the
+  // count of a counted choice (#1695), and `counted` the label of what it counts.
+  | {
+      kind: 'chargeCorrected';
+      target: ChargeTarget;
+      card?: LogCard;
+      draw?: true;
+      from: number;
+      to: number;
+      source?: string;
+      count?: number;
+      counted?: string;
+    }
   // A change of the turn's limit of counters by the player (#1607), and the limit it left.
   // `source` names the model whose choice raised the limit (#1655), "Tricia Jenkins", and `target` the
   // charge of the play that offered it.
@@ -195,8 +207,9 @@ export type GameAction =
   | { type: 'redo' }
   // A correction of a charge, and a change of the turn's limit of counters (#1607). They read the
   // log, so `gameReducer` handles them and `tableReducer` never sees them.
-  // `source` names the model whose choice sets the cost (#1654).
-  | { type: 'correctCharge'; target: ChargeTarget; cost: number; source?: string }
+  // `source` names the model whose choice sets the cost (#1654), and `count` the count of its counted
+  // choice (#1695).
+  | { type: 'correctCharge'; target: ChargeTarget; cost: number; source?: string; count?: number }
   // `source` and `target` name the model whose choice changes the limit and its play's charge (#1655).
   | { type: 'adjustCounterLimit'; delta: number; source?: string; target?: ChargeTarget }
   // A dismiss of the pending discount the play at `target` made (#1656), a log entry like a correction.
@@ -1003,10 +1016,15 @@ export function logEntryText(entry: LogEntry): string {
         ? `${text}, and moved ${cardsText(entry.returned)} to the bottom of the dilemma pile`
         : text;
     }
-    case 'chargeCorrected':
+    case 'chargeCorrected': {
+      const source = typeof entry.source === 'string' && entry.source ? entry.source : '';
+      // " (Tacking Into the Wind, completed missions of the opponent: 2)" for a counted choice (#1695).
+      const what = typeof entry.counted === 'string' && entry.counted ? `, ${entry.counted.toLowerCase()}` : '';
+      const counted = source && isIndex(entry.count) ? `${what}: ${entry.count}` : '';
       return `Charged ${entry.draw ? 'a draw' : (entry.card ?? 'a card')} ${countersText(entry.to)} (was ${entry.from})${
-        typeof entry.source === 'string' && entry.source ? ` (${entry.source})` : ''
+        source ? ` (${source}${counted})` : ''
       }`;
+    }
     case 'counterLimit':
       return `Set this turn's counters to ${entry.limit}${typeof entry.source === 'string' && entry.source ? ` (${entry.source})` : ''}`;
     case 'discountDismissed':
@@ -1167,6 +1185,9 @@ export interface LogCharge {
   // aimed at this charge names the choice's source.
   source?: CostSource;
   choiceTaken?: boolean;
+  // The count of a counted choice (#1695): the `count` of the last correction that names the source and
+  // aims at this charge, 0 with none.
+  choiceCount?: number;
 }
 
 // The charges of the entry at `index` of an effective log.
@@ -1196,18 +1217,37 @@ function chargesOf(entry: LogEntry, index: number): LogCharge[] {
 // The charges with `choiceTaken` set where a correction in `log` took the choice of the charge's source:
 // a `chargeCorrected` of its cost, or a `counterLimit` of the turn's limit (#1655), aimed at the charge.
 function withChoicesTaken(log: LogEntry[], charges: LogCharge[]): LogCharge[] {
-  return charges.map((charge) =>
-    charge.source?.choice &&
-    log.some(
-      (e) =>
-        (e.kind === 'chargeCorrected' || e.kind === 'counterLimit') &&
-        e.source === charge.source!.title &&
-        !!e.target &&
-        sameTarget(e.target, charge.target)
-    )
-      ? { ...charge, choiceTaken: true }
-      : charge
-  );
+  return charges.map((charge) => {
+    if (isCountedChoice(charge.source?.choice)) return { ...charge, choiceCount: choiceCountOf(log, charge) };
+    const taken =
+      !!charge.source?.choice &&
+      log.some(
+        (e) =>
+          (e.kind === 'chargeCorrected' || e.kind === 'counterLimit') &&
+          e.source === charge.source!.title &&
+          !!e.target &&
+          sameTarget(e.target, charge.target)
+      );
+    return taken ? { ...charge, choiceTaken: true } : charge;
+  });
+}
+
+// The count of a counted choice of `charge` (#1695): the `count` of the last `chargeCorrected` that names
+// its source and aims at it, or 0.
+function choiceCountOf(log: LogEntry[], charge: LogCharge): number {
+  for (let i = log.length - 1; i >= 0; i--) {
+    const e = log[i];
+    if (
+      e.kind === 'chargeCorrected' &&
+      e.source === charge.source?.title &&
+      !!e.target &&
+      sameTarget(e.target, charge.target) &&
+      isIndex(e.count)
+    ) {
+      return e.count;
+    }
+  }
+  return 0;
 }
 
 // The charges of the entry at `index` (#1607), corrected.
@@ -1257,10 +1297,24 @@ const sameTarget = (a: ChargeTarget, b: ChargeTarget): boolean => a.entry === b.
 
 // The entry of a correction of a charge, or null when the action names no charge or changes nothing.
 // A cost below 0 is 0.
-function chargeCorrectionEntry(state: GameState, action: { target: ChargeTarget; cost: number; source?: string }): LogEntry | null {
+// A counted choice's correction (#1695) names its count, and makes an entry when only the count changes.
+function chargeCorrectionEntry(
+  state: GameState,
+  action: { target: ChargeTarget; cost: number; source?: string; count?: number }
+): LogEntry | null {
   const charge = entryCharges(state.log, action.target.entry).find((c) => sameTarget(c.target, action.target));
   const to = Math.max(0, Math.round(action.cost));
-  if (!charge || !Number.isFinite(to) || to === charge.cost) return null;
+  if (!charge || !Number.isFinite(to)) return null;
+  const choice = charge.source?.choice;
+  const counted =
+    action.source &&
+    action.source === charge.source?.title &&
+    isCountedChoice(choice) &&
+    isIndex(action.count) &&
+    action.count <= choice.max
+      ? { count: action.count, counted: choice.label }
+      : null;
+  if (to === charge.cost && (!counted || counted.count === (charge.choiceCount ?? 0))) return null;
   return {
     kind: 'chargeCorrected',
     target: charge.target,
@@ -1268,6 +1322,7 @@ function chargeCorrectionEntry(state: GameState, action: { target: ChargeTarget;
     from: charge.cost,
     to,
     ...(action.source ? { source: action.source } : {}),
+    ...(counted ?? {}),
     turn: state.table.turn,
     segment: state.table.segment,
   };

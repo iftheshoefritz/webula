@@ -1,6 +1,6 @@
 import React from 'react';
 import { LAYER_CHARGE_CHIP, LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
-import type { PendingDiscount } from '../../../lib/costModels/model';
+import { countedCost, isCountedChoice, type PendingDiscount } from '../../../lib/costModels/model';
 import { pendingDiscountText } from '../../../lib/costModels/registry';
 import { useEscapeLayer } from './useEscapeLayer';
 import { ChargeTarget, LogCharge, TurnCounters } from './gameLog';
@@ -21,9 +21,9 @@ const targetKey = (target: ChargeTarget): string => `${target.entry}-${target.mo
 
 const SMALL_BUTTON = 'btn-icon h-7 w-7 disabled:cursor-default disabled:opacity-40';
 
-// A correction of a charge: its target, the cost it sets, and the title of the model whose choice
-// it takes (#1654).
-type OnCorrect = (target: ChargeTarget, cost: number, source?: string) => void;
+// A correction of a charge: its target, the cost it sets, the title of the model whose choice it
+// takes (#1654), and the count of a counted choice (#1695).
+type OnCorrect = (target: ChargeTarget, cost: number, source?: string, count?: number) => void;
 
 // A choice that raises the turn's limit (#1655): the charge that offered it, the counters it adds and
 // the model's title.
@@ -40,6 +40,8 @@ export const limitPartsText = (counters: TurnCounters): string | null =>
 // One charge: its card and cost, then Free, minus and plus. Minus and Free stop at 0. A cost the table
 // suggested names its source under the card, marked as the table's own (#1654), and a choice of its
 // model shows as one more button, disabled once taken. A choice of the limit raises the turn's limit (#1655).
+// A counted choice (#1695) shows as a stepper: its label, the count, and minus and plus, which set the
+// cost of the next count.
 function ChargeRow({ charge, onCorrect, onRaiseLimit }: { charge: LogCharge; onCorrect: OnCorrect; onRaiseLimit: OnRaiseLimit }) {
   const label = chargeLabel(charge);
   const { source } = charge;
@@ -91,23 +93,62 @@ function ChargeRow({ charge, onCorrect, onRaiseLimit }: { charge: LogCharge; onC
           +
         </button>
       </div>
-      {source && choice && (
-        <button
-          type="button"
-          data-testid="charge-choice"
-          data-taken={charge.choiceTaken ? 'true' : undefined}
-          onClick={() =>
-            choice.limit !== undefined
-              ? onRaiseLimit(charge.target, choice.limit, source.title)
-              : onCorrect(charge.target, choice.cost, source.title)
-          }
-          disabled={charge.choiceTaken}
-          aria-label={`${label}: ${choice.label}${charge.choiceTaken ? ', taken' : ''}`}
-          className="btn-icon h-7 w-auto self-start px-2 text-xs disabled:cursor-default disabled:opacity-60"
-        >
-          {choice.label}
-          {charge.choiceTaken ? ' (taken)' : ''}
-        </button>
+      {source && isCountedChoice(choice) ? (
+        <div data-testid="charge-choice-count" className="flex items-center gap-1.5">
+          <span className="min-w-0 flex-1 truncate text-xs text-text-muted">
+            {choice.label}:{' '}
+            <span data-testid="charge-choice-count-value" className="font-semibold text-text-primary">
+              {charge.choiceCount ?? 0}
+            </span>
+          </span>
+          <button
+            type="button"
+            data-testid="charge-choice-minus"
+            onClick={() => {
+              const n = (charge.choiceCount ?? 0) - 1;
+              onCorrect(charge.target, countedCost(choice, n), source.title, n);
+            }}
+            disabled={(charge.choiceCount ?? 0) <= 0}
+            aria-label={`${label}: ${choice.label}, one less`}
+            className={SMALL_BUTTON}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            data-testid="charge-choice-plus"
+            onClick={() => {
+              const n = (charge.choiceCount ?? 0) + 1;
+              onCorrect(charge.target, countedCost(choice, n), source.title, n);
+            }}
+            disabled={(charge.choiceCount ?? 0) >= choice.max}
+            aria-label={`${label}: ${choice.label}, one more`}
+            className={SMALL_BUTTON}
+          >
+            +
+          </button>
+        </div>
+      ) : (
+        source &&
+        choice &&
+        choice.step === undefined && (
+          <button
+            type="button"
+            data-testid="charge-choice"
+            data-taken={charge.choiceTaken ? 'true' : undefined}
+            onClick={() =>
+              choice.limit !== undefined
+                ? onRaiseLimit(charge.target, choice.limit, source.title)
+                : onCorrect(charge.target, choice.cost, source.title)
+            }
+            disabled={charge.choiceTaken}
+            aria-label={`${label}: ${choice.label}${charge.choiceTaken ? ', taken' : ''}`}
+            className="btn-icon h-7 w-auto self-start px-2 text-xs disabled:cursor-default disabled:opacity-60"
+          >
+            {choice.label}
+            {charge.choiceTaken ? ' (taken)' : ''}
+          </button>
+        )
       )}
     </div>
   );
