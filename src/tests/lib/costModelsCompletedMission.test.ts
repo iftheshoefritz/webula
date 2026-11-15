@@ -111,7 +111,8 @@ describe('costFactsOf missions (#1694)', () => {
       icons: ['[baj]', '[fed]'],
       quadrant: 'a',
       dilemmasUnder: 2,
+      regions: [],
     });
-    expect(result?.[1]).toEqual({ completed: false, name: '', requirements: '', points: 0, type: '', icons: [], quadrant: '', dilemmasUnder: 0 });
+    expect(result?.[1]).toEqual({ completed: false, name: '', requirements: '', points: 0, type: '', icons: [], quadrant: '', dilemmasUnder: 0, regions: [] });
   });
 });
