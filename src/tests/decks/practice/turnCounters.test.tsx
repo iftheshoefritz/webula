@@ -142,6 +142,32 @@ describe('the counter of the turn\'s counters (#1607)', () => {
     expect(screen.queryByTestId('charge-chip')).toBeNull();
   });
 
+  it('shows the counter on the segment row in play and draw only, and none in orders or discard (#1679)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    await switchOn();
+    const column = screen.getByTestId('turn-score-column');
+    const segmentRow = within(column).getByTestId('turn-segment-row');
+    expect(segmentRow).toHaveTextContent('Play0/7');
+    const next = within(column).getByRole('button', { name: 'Go to orders' });
+    expect(next).not.toContainElement(screen.getByTestId('turn-counters'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('turn-counters'));
+    });
+    expect(screen.getByTestId('turn-counters-list')).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(next);
+    });
+    expect(segmentRow).toHaveTextContent('Orders');
+    expect(screen.queryByTestId('turn-counters')).toBeNull();
+    expect(screen.queryByTestId('turn-counters-list')).toBeNull();
+    await act(async () => {
+      fireEvent.click(next);
+    });
+    expect(segmentRow).toHaveTextContent('Play0/7');
+  });
+
   it('removes the chip by itself', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);

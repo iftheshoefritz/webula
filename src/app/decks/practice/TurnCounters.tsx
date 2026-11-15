@@ -246,42 +246,35 @@ export function TurnCountersList({
 }
 
 // The counters spent and the limit of the turn (#1607), "4/7". Past the limit it goes on counting,
-// in amber with `data-over`, and never stops a move. Outside play and draw it marks the counters left
-// unspent, and nothing blocks the advance. A tap opens the list of the turn's charges.
+// in amber with `data-over`, and never stops a move. It shows in the play and draw segment only
+// (#1679), on the segment's row, so it marks no counters left unspent. A tap opens the list of the
+// turn's charges.
 export function TurnCounterButton({
   counters,
-  segment,
   className,
   onOpen,
 }: {
   counters: TurnCounters;
-  segment: TurnSegment;
   className: string;
   onOpen: () => void;
 }) {
   const { spent, limit } = counters;
   const over = spent > limit;
-  const unspent = segment !== 'playAndDraw' && spent < limit ? limit - spent : 0;
   // "0/8 (Surprise Party +1)": the grants to the limit (#1655).
   const grants = counters.grants.length ? ` (${counters.grants.map((g) => `${g.title} +${g.amount}`).join(', ')})` : '';
-  const counted = over
-    ? `Counters ${spent} of ${limit}, ${spent - limit} over`
-    : unspent
-      ? `Counters ${spent} of ${limit}, ${unspent} ${unspent === 1 ? 'counter' : 'counters'} unspent`
-      : `Counters ${spent} of ${limit}`;
+  const counted = over ? `Counters ${spent} of ${limit}, ${spent - limit} over` : `Counters ${spent} of ${limit}`;
   const text = `${counted}${grants}`;
   return (
     <button
       type="button"
       data-testid="turn-counters"
       data-over={over ? 'true' : undefined}
-      data-unspent={unspent ? 'true' : undefined}
       data-granted={grants ? 'true' : undefined}
       onClick={onOpen}
       aria-label={text}
       title={text}
       className={`${className} min-w-0 flex-1 px-0 text-[10px] font-semibold tabular-nums ${
-        over ? 'text-amber-300' : unspent ? 'text-text-muted opacity-70' : 'text-text-primary'
+        over ? 'text-amber-300' : 'text-text-primary'
       }`}
     >
       {spent}/{limit}
