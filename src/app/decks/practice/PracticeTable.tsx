@@ -788,30 +788,33 @@ function TurnScoreColumn({
     >
       {/* One button shows the turn and advances it (#1449), through the segments of the turn (#1605).
           The visible label sits above it, and `turn-counter` keeps a screen-reader "Turn" of its own,
-          so its text still reads "Turn N". The segment's name shows under it, in compact too. */}
+          so its text still reads "Turn N". The segment's row shows under it, in compact too. */}
       <div className="flex flex-col items-center gap-1">
         <span className={label} aria-hidden="true">
           Turn
         </span>
-        {/* The counter of the turn shares the row of the next-turn button (#1607). */}
-        <div className="flex w-full items-center gap-1">
-          <button
-            className={`${button} flex min-w-0 flex-1 items-center justify-center ${counters ? 'gap-0.5' : 'gap-1'}`}
-            onClick={onNextTurn}
-            aria-label={ADVANCE_LABELS[next]}
-            title={ADVANCE_LABELS[next]}
-          >
-            <span data-testid="turn-counter" className="text-text-primary">
-              <span className="sr-only">Turn </span>
-              <span className={compact ? 'text-xs font-semibold' : 'text-sm font-semibold'}>{turn}</span>
-            </span>
-            <FaForward className={`shrink-0 ${counters ? 'text-[10px]' : ''}`} />
-          </button>
-          {counters && <TurnCounterButton counters={counters} segment={segment} className={button} onOpen={onOpenCounters} />}
+        <button
+          className={`${button} flex items-center justify-center gap-1`}
+          onClick={onNextTurn}
+          aria-label={ADVANCE_LABELS[next]}
+          title={ADVANCE_LABELS[next]}
+        >
+          <span data-testid="turn-counter" className="text-text-primary">
+            <span className="sr-only">Turn </span>
+            <span className={compact ? 'text-xs font-semibold' : 'text-sm font-semibold'}>{turn}</span>
+          </span>
+          <FaForward className="shrink-0" />
+        </button>
+        {/* The segment's row, below the next-turn button (#1679): its name, and in play and draw the
+            counter of the turn (#1607) beside it, "Play 0/7". Orders and Discard show no counter. */}
+        <div data-testid="turn-segment-row" className="flex h-4 w-full items-center justify-center gap-1">
+          <span data-testid="turn-segment" data-segment={segment} className="block text-[10px] leading-3 text-text-secondary">
+            {TURN_SEGMENT_NAMES[segment]}
+          </span>
+          {counters && segment === 'playAndDraw' && (
+            <TurnCounterButton counters={counters} className={`${look} h-4`} onOpen={onOpenCounters} />
+          )}
         </div>
-        <span data-testid="turn-segment" data-segment={segment} className="block text-[10px] leading-3 text-text-secondary">
-          {TURN_SEGMENT_NAMES[segment]}
-        </span>
       </div>
       <div className="flex flex-col items-center gap-1">
         <div data-testid="score-counter" className="text-center text-text-primary">
@@ -3744,7 +3747,7 @@ function PracticeDrawContent() {
             }}
           />
         )}
-        {turnCountersOn && countersListOpen && currentCounters && (
+        {turnCountersOn && countersListOpen && currentCounters && table.segment === 'playAndDraw' && (
           <TurnCountersList
             charges={turnCharges(game.log, turn)}
             counters={currentCounters}
