@@ -24,6 +24,23 @@ export interface CommandedTraits extends PartnerTraits {
   unique?: boolean;
 }
 
+/**
+ * A mission slot of the player, as a model reads it (#1694): whether it is completed, the mission's name,
+ * its requirement text, its printed points, its type (`p`, `s` or `h`), its affiliation icons ("[baj]"),
+ * its quadrant and the number of dilemmas beneath it, all lowercased but the name. An empty slot reads as
+ * not completed, with an empty requirement.
+ */
+export interface CostMission {
+  completed: boolean;
+  name: string;
+  requirements: string;
+  points: number;
+  type: string;
+  icons: string[];
+  quadrant: string;
+  dilemmasUnder: number;
+}
+
 /** What the models read of the table, as it stands before the move. */
 export interface CostFacts {
   /**
@@ -34,6 +51,8 @@ export interface CostFacts {
   /** The titles of the cards in the core. */
   core: string[];
   hand: CostHandCard[];
+  /** The player's mission slots, one entry per slot, in slot order (#1694). */
+  missions?: CostMission[];
   /** The pending discounts of the turn, oldest first (`pendingDiscountsOf` in `gameLog.ts`, #1656). */
   pending?: PendingDiscount[];
 }
