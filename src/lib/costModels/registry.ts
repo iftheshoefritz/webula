@@ -4,6 +4,7 @@ import { COMPLETED_MISSION_MODELS } from './titles/completedMission';
 import { LIMIT_MODELS } from './titles/limit';
 import { MAY_COST_MODELS } from './titles/mayCost';
 import { MISSION_COUNT_MODELS } from './titles/missionCount';
+import { NEXT_OF_KIND_MODELS } from './titles/nextOfKind';
 import { OPPONENT_COST_MODELS } from './titles/opponentCost';
 import { OWN_COST_MODELS } from './titles/ownCost';
 import { PENDING_DISCOUNT_MODELS } from './titles/pendingDiscount';
@@ -19,6 +20,7 @@ const MODELS: CostModel[] = [
   ...COMPLETED_MISSION_MODELS,
   ...LIMIT_MODELS,
   ...PENDING_DISCOUNT_MODELS,
+  ...NEXT_OF_KIND_MODELS,
   ...OPPONENT_COST_MODELS,
   ...MISSION_COUNT_MODELS,
   ...MAY_COST_MODELS,

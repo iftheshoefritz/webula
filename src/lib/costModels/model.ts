@@ -62,7 +62,7 @@ export interface CostFacts {
 
 /**
  * The card a model prices: its instance id, its type, its affiliation and its icons, lowercased ("[ds9]"),
- * and its printed cost.
+ * its keywords and its species, lowercased ("temporal", "android", #1699), and its printed cost.
  */
 export interface CostPlay {
   id?: string;
@@ -70,6 +70,8 @@ export interface CostPlay {
   printed: number;
   affiliation?: string;
   icons?: string[];
+  keywords?: string[];
+  species?: string[];
 }
 
 /** The charge of the play that made a pending discount (#1656), as a `ChargeTarget` of the log names it. */

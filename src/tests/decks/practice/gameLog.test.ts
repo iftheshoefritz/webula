@@ -1019,6 +1019,49 @@ describe('a pending discount of a cost model (#1656)', () => {
   });
 });
 
+describe("McCoy's choice and his pending discount (#1699)", () => {
+  const mccoy = instance('k1', 'Leonard H. McCoy Experienced Advisor', 'up', 'personnel', {
+    cost: '4',
+    affiliation: 'Federation',
+    icons: '[Stf][TOS][Pa]',
+  });
+  const kirk = instance('k2', 'James T. Kirk', 'up', 'personnel', { cost: '3', affiliation: 'Federation', icons: '[Cmd][TOS]' });
+  const spock = instance('k3', 'Spock', 'up', 'personnel', { cost: '3', affiliation: 'Federation', icons: '[Cmd][TOS]' });
+  const earth = instance('m1', 'Earth', 'up', 'mission');
+  const awayTeam = { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } as const;
+  const start = () => table({ hand: [mccoy, kirk, spock], missions: slots([{ mission: earth }]) });
+  const play = (state: GameState, ...actions: GameAction[]) =>
+    actions.reduce((s, a) => gameReducer(s, withShuffleOrders(s.table, a, s.log)), state);
+  const toAway = (id: string): GameAction => ({ type: 'move', id, to: awayTeam });
+  const origin = { entry: 0, move: 0, card: 0 };
+  const takeChoice = (state: GameState): GameState =>
+    play(state, { type: 'correctCharge', target: origin, cost: 2, source: 'McCoy' });
+
+  it('opens his discount, and a taken choice closes it until an undo', () => {
+    const played = play(initialGameState(start()), toAway('k1'));
+    expect(pendingDiscountsOf(played.log, 1)).toEqual([
+      expect.objectContaining({ title: 'McCoy', label: 'next [TOS] personnel', amount: 3, origin }),
+    ]);
+    const chosen = takeChoice(played);
+    expect(turnCharges(chosen.log, 1)[0]).toEqual(expect.objectContaining({ cost: 2, choiceTaken: true }));
+    expect(pendingDiscountsOf(chosen.log, 1)).toEqual([]);
+    // The next [TOS] personnel pays its printed cost.
+    const next = play(chosen, toAway('k2'));
+    expect(turnCharges(next.log, 1)[1]).toEqual(expect.objectContaining({ cost: 3 }));
+    expect(turnCharges(next.log, 1)[1].source).toBeUndefined();
+    expect(pendingDiscountsOf(play(chosen, { type: 'undo' }).log, 1)).toHaveLength(1);
+  });
+
+  it('keeps the cost of a play that used the discount before the choice was taken', () => {
+    const used = play(initialGameState(start()), toAway('k1'), toAway('k2'));
+    expect(turnCharges(used.log, 1)[1]).toEqual(expect.objectContaining({ cost: 0 }));
+    const chosen = takeChoice(used);
+    expect(turnCharges(chosen.log, 1)[1]).toEqual(expect.objectContaining({ cost: 0 }));
+    expect(pendingDiscountsOf(chosen.log, 1)).toEqual([]);
+    expect(turnCharges(play(chosen, toAway('k3')).log, 1)[2].cost).toBe(3);
+  });
+});
+
 describe('a counted choice in the log (#1695)', () => {
   const tacking = instance('c1', 'Tacking Into the Wind', 'up', 'event', { cost: '4' });
   const earth = instance('m1', 'Earth', 'up', 'mission');

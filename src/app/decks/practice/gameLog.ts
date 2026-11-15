@@ -735,7 +735,9 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
 // The pending discounts of `turn` (#1656), oldest first: each play of the turn whose card's model makes
 // one, less those a later charge used (its source names the play) and those a `discountDismissed`
 // entry dismissed. Read from the effective log alone, so an undo, a redo and a reload agree, and the
-// next turn has none. A correction of the play that used a discount leaves it used.
+// next turn has none. A correction of the play that used a discount leaves it used. A play whose
+// choice was taken makes none (#1699): McCoy played at −2 ignores his next ability, the discount, and
+// an undo of the choice brings it back. A play that used the discount before the choice keeps its cost.
 export function pendingDiscountsOf(log: LogEntry[], turn: number): PendingDiscount[] {
   const open: PendingDiscount[] = [];
   const close = (origin: ChargeTarget) => {
@@ -748,9 +750,9 @@ export function pendingDiscountsOf(log: LogEntry[], turn: number): PendingDiscou
       if (entry.target) close(entry.target);
       return;
     }
-    for (const charge of chargesOf(entry, i)) {
+    for (const charge of withChoicesTaken(log, chargesOf(entry, i))) {
       if (charge.source?.discount) close(charge.source.discount);
-      const made = charge.card ? pendingDiscountOf(charge.card, charge.target) : null;
+      const made = charge.card && !charge.choiceTaken ? pendingDiscountOf(charge.card, charge.target) : null;
       if (made) open.push(made);
     }
   });
