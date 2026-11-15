@@ -9,7 +9,7 @@
 // ask it too.
 
 import { cardDisplayName } from './cardCount';
-import { CostFacts, CostSource, CountedChoice } from './costModels/model';
+import { CostFacts, CostSource, CountedChoice, PendingDiscount } from './costModels/model';
 import { costModelName, costModelOf } from './costModels/registry';
 
 // The segment of a turn, as `TurnSegment` in the practice table names it.
@@ -52,8 +52,21 @@ const countedChoiceOf = (choice: CountedChoice, base: number): CountedChoice | u
     ? { ...choice, base, max: Math.max(0, Math.min(choice.max, Math.ceil(base / choice.step))) }
     : undefined;
 
+// The reason a pending discount gives: "−2 on the next [Fed][DS9] personnel".
+const discountReason = (discount: PendingDiscount): string => `−${discount.amount} on the ${discount.label}`;
+
+// A text field of a card row as a lowercased list, split on `separator`: "Temporal. Treaty." or
+// "Android/Borg" (#1699).
+const listOf = (value: unknown, separator: string): string[] =>
+  String(value ?? '')
+    .toLowerCase()
+    .split(separator)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 // The charge of a move of `card` from `from` to `to`, the place it landed, or null. With `facts`, a
-// card's model gives its cost or its choice; otherwise the
+// card's model gives its cost or its choice, less the first pending discount of `facts` that the card
+// passes, when one does (#1699); otherwise the
 // first pending discount of `facts` that the card passes takes off its amount; otherwise it costs its
 // printed cost. From the discard pile only the card's own model prices the play, with
 // `discardPlayCost`, and with no answer the move is no play. The cost never goes below 0. `id` is the card's instance id, so a model
@@ -63,7 +76,16 @@ export function moveCharge(
   from: CostPlace,
   to: CostPlace,
   card:
-    | { type?: unknown; cost?: unknown; name?: unknown; originalName?: unknown; affiliation?: unknown; icons?: unknown }
+    | {
+        type?: unknown;
+        cost?: unknown;
+        name?: unknown;
+        originalName?: unknown;
+        affiliation?: unknown;
+        icons?: unknown;
+        keywords?: unknown;
+        species?: unknown;
+      }
     | null
     | undefined,
   facts?: CostFacts,
@@ -81,30 +103,41 @@ export function moveCharge(
     printed,
     affiliation: String(card?.affiliation ?? '').toLowerCase(),
     icons: String(card?.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [],
+    keywords: listOf(card?.keywords, '.'),
+    species: listOf(card?.species, '/'),
   };
+  const discount = from === 'hand' ? facts?.pending?.find((d) => d.applies(play)) : undefined;
   const price = from === 'discard' ? model?.discardPlayCost : model?.playCost;
   const suggested = price && facts ? price(play, facts) : null;
   if (model && suggested) {
+    // Cost changes stack (#1699): a pending discount that applies comes off the suggested cost and off
+    // the choice's cost too.
+    const off = discount?.amount ?? 0;
     const offered = suggested.choice;
     const choice =
       offered?.step !== undefined
-        ? countedChoiceOf(offered, printed)
+        ? countedChoiceOf(offered, Math.max(0, printed - off))
         : offered?.cost !== undefined
-          ? { ...offered, cost: Math.max(0, offered.cost) }
+          ? { ...offered, cost: Math.max(0, offered.cost - off) }
           : offered;
+    const reason = discount ? `${suggested.reason}, and ${discount.title}: ${discountReason(discount)}` : suggested.reason;
     return {
       kind: 'play',
-      cost: Math.max(0, suggested.cost),
-      source: { title: costModelName(model), reason: suggested.reason, ...(choice ? { choice } : {}) },
+      cost: Math.max(0, suggested.cost - off),
+      source: {
+        title: costModelName(model),
+        reason,
+        ...(choice ? { choice } : {}),
+        ...(discount ? { discount: discount.origin } : {}),
+      },
     };
   }
   if (from === 'discard') return null;
-  const discount = facts?.pending?.find((d) => d.applies(play));
   if (discount) {
     return {
       kind: 'play',
       cost: Math.max(0, printed - discount.amount),
-      source: { title: discount.title, reason: `−${discount.amount} on the ${discount.label}`, discount: discount.origin },
+      source: { title: discount.title, reason: discountReason(discount), discount: discount.origin },
     };
   }
   return { kind: 'play', cost: printed };

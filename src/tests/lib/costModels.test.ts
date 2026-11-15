@@ -104,3 +104,87 @@ describe('the pending discount models (#1656)', () => {
     expect(moveCharge('playAndDraw', 'hand', 'core', { ...jadzia, type: 'event' }, facts({ pending }))).toEqual({ kind: 'play', cost: 3 });
   });
 });
+
+describe('the next card of a kind is cheaper, batch 6 (#1699)', () => {
+  const origin = { entry: 0, move: 0, card: 0 };
+  const personnel = (extra: Record<string, string> = {}) => ({ name: 'invented', originalName: 'Invented', type: 'personnel', cost: '4', ...extra });
+  const discount = (title: string) => pendingDiscountOf(title, origin)!;
+  const applies = (title: string, card: Record<string, string>) => {
+    const charge = moveCharge('playAndDraw', 'hand', card.type === 'event' ? 'core' : 'awayTeam', card, facts({ pending: [discount(title)] }));
+    return charge?.kind === 'play' && charge.source?.discount === origin;
+  };
+
+  it.each([
+    ['Icheb Second Officer', 'Icheb', 'next Temporal event', 2],
+    ['Elizabeth Lense Valedictorian', 'Elizabeth Lense', 'next [Baj][DS9] personnel', 2],
+    ['Shelley', 'Shelley', 'next [AU][TNG] or [Pa][TNG] personnel', 3],
+    ['Data Proud Father', 'Data', 'next Android', 2],
+    ['Leonard H. McCoy Experienced Advisor', 'McCoy', 'next [TOS] personnel', 3],
+  ])('models %s as a pending discount', (title, label, text, amount) => {
+    expect(costModelOf(title)?.family).toBe('pendingDiscount');
+    expect(discount(title)).toEqual(expect.objectContaining({ title: label, label: text, amount, origin }));
+  });
+
+  it("gives Icheb's discount to a Temporal event only, read from the Keywords column", () => {
+    const event = { name: 'invented', type: 'event', cost: '3', keywords: 'Temporal. Treaty.' };
+    expect(moveCharge('playAndDraw', 'hand', 'core', event, facts({ pending: [discount('Icheb Second Officer')] }))).toEqual(
+      expect.objectContaining({ cost: 1, source: expect.objectContaining({ title: 'Icheb', discount: origin }) })
+    );
+    expect(applies('Icheb Second Officer', { ...event, type: 'interrupt' })).toBe(false);
+    expect(applies('Icheb Second Officer', { ...event, keywords: 'Treaty.' })).toBe(false);
+  });
+
+  it("gives Elizabeth Lense's discount to a [Baj][DS9] personnel only", () => {
+    expect(applies('Elizabeth Lense Valedictorian', personnel({ affiliation: 'Bajoran', icons: '[Stf][DS9]' }))).toBe(true);
+    expect(applies('Elizabeth Lense Valedictorian', personnel({ affiliation: 'Bajoran', icons: '[Stf][TNG]' }))).toBe(false);
+    expect(applies('Elizabeth Lense Valedictorian', personnel({ affiliation: 'Federation', icons: '[Stf][DS9]' }))).toBe(false);
+  });
+
+  it("gives Shelley's discount to an [AU][TNG] or a [Pa][TNG] personnel only", () => {
+    expect(applies('Shelley', personnel({ icons: '[Stf][TNG][AU]' }))).toBe(true);
+    expect(applies('Shelley', personnel({ icons: '[Cmd][TNG][Pa]' }))).toBe(true);
+    expect(applies('Shelley', personnel({ icons: '[Stf][AU]' }))).toBe(false);
+    expect(applies('Shelley', personnel({ icons: '[Stf][TNG]' }))).toBe(false);
+  });
+
+  it("gives Data's discount to an Android, read from the Species column", () => {
+    expect(applies('Data Proud Father', personnel({ species: 'Android/Borg' }))).toBe(true);
+    expect(applies('Data Proud Father', personnel({ species: 'Human' }))).toBe(false);
+  });
+
+  it("gives McCoy's discount to a [TOS] personnel only, and offers his −2 choice at his printed cost", () => {
+    expect(applies('Leonard H. McCoy Experienced Advisor', personnel({ icons: '[Stf][TOS]' }))).toBe(true);
+    expect(applies('Leonard H. McCoy Experienced Advisor', { name: 'invented', type: 'ship', cost: '4', icons: '[TOS]' })).toBe(false);
+    const mccoy = { name: 'leonard h. mccoy', originalName: 'Leonard H. McCoy Experienced Advisor', type: 'personnel', cost: '4', icons: '[Stf][TOS][Pa]' };
+    expect(moveCharge('playAndDraw', 'hand', 'awayTeam', mccoy, facts())).toEqual({
+      kind: 'play',
+      cost: 4,
+      source: { title: 'McCoy', reason: 'you may ignore his next ability', choice: { label: 'Ignore his next ability: −2', cost: 2 } },
+    });
+  });
+
+  it("stacks a pending discount onto a model's own cost and its choice, each never below 0", () => {
+    const mccoy = { name: 'leonard h. mccoy', originalName: 'Leonard H. McCoy Experienced Advisor', type: 'personnel', cost: '4', icons: '[Stf][TOS][Pa]' };
+    const pending = [discount('Leonard H. McCoy Experienced Advisor')];
+    expect(moveCharge('playAndDraw', 'hand', 'awayTeam', mccoy, facts({ pending }))).toEqual({
+      kind: 'play',
+      cost: 1,
+      source: {
+        title: 'McCoy',
+        reason: 'you may ignore his next ability, and McCoy: −3 on the next [TOS] personnel',
+        choice: { label: 'Ignore his next ability: −2', cost: 0 },
+        discount: origin,
+      },
+    });
+    const sarish = [pendingDiscountOf('Sarish Rez Ministerial Adjutant', origin)!];
+    const fedGoran = { ...goran, affiliation: 'federation', icons: '[stf][ds9]' };
+    expect(moveCharge('playAndDraw', 'hand', 'awayTeam', fedGoran, facts({ hand: [tricorder], pending: sarish }), 'g1')).toEqual(
+      expect.objectContaining({
+        cost: 0,
+        source: expect.objectContaining({ title: 'Goran', choice: { label: 'Discard a card: −2', cost: 0 }, discount: origin }),
+      })
+    );
+    // A discount that does not apply leaves the model's answer alone.
+    expect(moveCharge('playAndDraw', 'hand', 'awayTeam', goran, facts({ hand: [tricorder], pending: sarish }), 'g1')).not.toHaveProperty('source.discount');
+  });
+});
