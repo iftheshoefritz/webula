@@ -31,6 +31,7 @@ interface Session {
   user: { name: string; email: string };
   expires: string;
   hasDriveScope?: boolean;
+  driveAccessExpired?: boolean;
 }
 
 interface DeckReportsClientProps {
@@ -529,6 +530,7 @@ export default function DeckReportsClient({ data: publicData }: DeckReportsClien
           onClose={() => { setShowDrivePicker(false); setBrowsedFolder(null); }}
           isSignedIn={!!session}
           hasDriveScope={session?.hasDriveScope ?? false}
+          driveAccessExpired={session?.driveAccessExpired ?? false}
           mode="compare-multi"
           showChampionshipDecks={showChampionshipDecks}
           championshipEvents={groupChampionshipDecks(championshipDecks)}
@@ -555,6 +557,7 @@ export default function DeckReportsClient({ data: publicData }: DeckReportsClien
           onClose={() => setShowReportsPicker(false)}
           isSignedIn={!!session}
           hasDriveScope={session?.hasDriveScope ?? false}
+          driveAccessExpired={session?.driveAccessExpired ?? false}
           mode="reports"
           onSignIn={() => signIn('google',
             { callbackUrl: '/decks/reports?openReports=true' },

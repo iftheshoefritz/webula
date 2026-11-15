@@ -22,6 +22,8 @@ type Props = {
   inProgress: boolean
   isSignedIn: boolean
   hasDriveScope: boolean
+  // The Google refresh failed (#1660): the button asks for a new sign-in.
+  driveAccessExpired?: boolean
   onSignIn: () => void
   browsedFolder: DriveFile | null
   onBrowseFolder: (folder: DriveFile | null) => void
@@ -72,6 +74,7 @@ export const PracticeDeckPicker: React.FC<Props> = ({
   inProgress,
   isSignedIn,
   hasDriveScope,
+  driveAccessExpired = false,
   onSignIn,
   browsedFolder,
   onBrowseFolder,
@@ -215,7 +218,7 @@ export const PracticeDeckPicker: React.FC<Props> = ({
             publicBrowseRows
           ) : !ready ? (
             <>
-              <DriveSignInRows isSignedIn={isSignedIn} hasDriveScope={hasDriveScope} onSignIn={onSignIn} />
+              <DriveSignInRows isSignedIn={isSignedIn} hasDriveScope={hasDriveScope} driveAccessExpired={driveAccessExpired} onSignIn={onSignIn} />
               {publicFolderRows}
             </>
           ) : inProgress ? (

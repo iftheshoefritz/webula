@@ -32,6 +32,8 @@ type PickerProps = {
   onClose: () => void
   isSignedIn: boolean
   hasDriveScope: boolean
+  // The Google refresh failed (#1660): the button asks for a new sign-in.
+  driveAccessExpired?: boolean
   onSignIn: () => void
   /**
    * 'compare' loads a single full deck for comparison, with no pile-subset option.
@@ -85,6 +87,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
   onClose,
   isSignedIn,
   hasDriveScope,
+  driveAccessExpired = false,
   onSignIn,
   mode = 'load',
   onConfirmSelection,
@@ -273,7 +276,7 @@ export const DrivePickerModal: React.FC<PickerProps> = ({
                 {!isSignedIn || !hasDriveScope ? (
                   isBrowsingPublicFolder ? publicBrowseRows : (
                     <>
-                      <DriveSignInRows isSignedIn={isSignedIn} hasDriveScope={hasDriveScope} onSignIn={onSignIn} />
+                      <DriveSignInRows isSignedIn={isSignedIn} hasDriveScope={hasDriveScope} driveAccessExpired={driveAccessExpired} onSignIn={onSignIn} />
                       {publicFolderRows}
                     </>
                   )

@@ -69,7 +69,12 @@ export const authOptions: NextAuthOptions = {
       }
     },
     async session({ session, token }) {
-      (session as any).hasDriveScope = (token as any).hasDriveScope ?? false;
+      // While the refresh fails, the access token is stale and every Drive call fails, so the
+      // session reports no Drive scope: the Drive pickers then show their sign-in button again, as
+      // they did when a failed refresh dropped the session, before #1660.
+      const driveAccessExpired = (token as any).error === 'RefreshAccessTokenError';
+      (session as any).hasDriveScope = !driveAccessExpired && ((token as any).hasDriveScope ?? false);
+      (session as any).driveAccessExpired = driveAccessExpired;
       return session;
     },
     async redirect({ url, baseUrl }) {

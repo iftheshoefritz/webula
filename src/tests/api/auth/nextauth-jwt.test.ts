@@ -59,6 +59,23 @@ describe('a refresh that Google refuses (#1660)', () => {
   });
 });
 
+describe('the session of a token whose refresh failed', () => {
+  const session = (token: object) =>
+    authOptions.callbacks!.session!({ session: { expires: '' }, token } as any) as any;
+
+  it('reports no Drive scope, so the Drive pickers show their sign-in button again', async () => {
+    const s = await session({ hasDriveScope: true, error: 'RefreshAccessTokenError' });
+    expect(s.hasDriveScope).toBe(false);
+    expect(s.driveAccessExpired).toBe(true);
+  });
+
+  it('keeps the Drive scope of a token whose refresh works', async () => {
+    const s = await session({ hasDriveScope: true });
+    expect(s.hasDriveScope).toBe(true);
+    expect(s.driveAccessExpired).toBe(false);
+  });
+});
+
 describe('nextauth jwt callback', () => {
   it('computes accessTokenExpires from account.expires_at (absolute epoch seconds) on sign-in', async () => {
     const expiresAtSeconds = Math.floor(Date.now() / 1000) + 3600;

@@ -3806,6 +3806,7 @@ function PracticeDrawContent() {
             onClose={drive.closePicker}
             isSignedIn={!!drive.session}
             hasDriveScope={drive.session?.hasDriveScope ?? false}
+            driveAccessExpired={drive.session?.driveAccessExpired ?? false}
             onSignIn={drive.signInToDrive}
             browsedFolder={drive.browsedFolder}
             onBrowseFolder={drive.setBrowsedFolder}

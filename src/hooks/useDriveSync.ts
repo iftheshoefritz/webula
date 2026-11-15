@@ -20,6 +20,8 @@ export interface Session {
   user: { name: string; email: string };
   expires: string;
   hasDriveScope?: boolean;
+  /** The Google refresh failed (#1660): Drive needs a new sign-in, and `hasDriveScope` is false. */
+  driveAccessExpired?: boolean;
 }
 
 export interface DriveFile {
