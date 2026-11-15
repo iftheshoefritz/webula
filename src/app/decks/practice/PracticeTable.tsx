@@ -2876,9 +2876,10 @@ function PracticeDrawContent() {
   const currentCounters = turnCountersOn ? turnCounters(game.log, turn, tableLimitGrants(table)) : null;
   const chipCharges =
     chargeChip && game.log[chargeChip.entry]?.turn === turn ? entryCharges(game.log, chargeChip.entry) : [];
-  // `source` names the model whose choice the player took (#1654).
-  const correctCharge = (target: ChargeTarget, cost: number, source?: string) =>
-    dispatch({ type: 'correctCharge', target, cost, ...(source ? { source } : {}) });
+  // `source` names the model whose choice the player took (#1654), and `count` the count of a counted
+  // choice (#1695).
+  const correctCharge = (target: ChargeTarget, cost: number, source?: string, count?: number) =>
+    dispatch({ type: 'correctCharge', target, cost, ...(source ? { source } : {}), ...(count !== undefined ? { count } : {}) });
   // A model's choice that raises the turn's limit (#1655), "Tricia Jenkins".
   const raiseLimit = (target: ChargeTarget, delta: number, source: string) =>
     dispatch({ type: 'adjustCounterLimit', delta, source, target });
@@ -3736,8 +3737,8 @@ function PracticeDrawContent() {
         {turnCountersOn && chipCharges.length > 0 && (
           <ChargeChip
             charges={chipCharges}
-            onCorrect={(target, cost, source) => {
-              correctCharge(target, cost, source);
+            onCorrect={(target, cost, source, count) => {
+              correctCharge(target, cost, source, count);
               // A correction through the chip keeps it up for its full time again.
               setChargeChip((chip) => (chip ? { ...chip } : chip));
             }}
