@@ -1561,6 +1561,7 @@ export default function DeckBuilderClient({ data: publicData, columns }: DeckBui
           onClose={closeDrivePicker}
           isSignedIn={!!session}
           hasDriveScope={session?.hasDriveScope ?? false}
+          driveAccessExpired={session?.driveAccessExpired ?? false}
           mode={drivePickerMode}
           onSignIn={() => signIn('google',
             { callbackUrl: `/decks?openPicker=true&pickerMode=${drivePickerMode}` },

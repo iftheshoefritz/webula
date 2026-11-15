@@ -41,6 +41,13 @@ describe('PracticeDeckPicker (#1109)', () => {
     expect(screen.queryByText('Google Drive')).not.toBeInTheDocument();
   });
 
+  it('signed in with a failed Google refresh, asks for a new sign-in', () => {
+    const onSignIn = jest.fn();
+    render(<PracticeDeckPicker {...baseProps} hasDriveScope={false} driveAccessExpired onSignIn={onSignIn} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in with Google to load Drive decks' }));
+    expect(onSignIn).toHaveBeenCalledTimes(1);
+  });
+
   it('with no decks and no folders, links to the deck builder in the same tab', () => {
     render(<PracticeDeckPicker {...baseProps} />);
     const link = screen.getByRole('link', { name: /No decks yet\. Build one in the deck builder/ });
