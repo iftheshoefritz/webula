@@ -580,7 +580,7 @@ the next play of the turn that passes its test: Sarish Rez makes the next [Fed][
 and the list shows it, `pending-discount`, with a Dismiss (`pending-discount-dismiss`) that dispatches
 `dismissDiscount`, one log entry; the turn ends it. `COST_BACKLOG=1 yarn test costModelBacklog` prints
 the titles whose text changes a cost or grants counters and that have no model yet, by the number of
-shipped decks that play them, most played first (#1692). The counter's label names the grants, "Counters 0 of 8
+shipped decks that play them, most played first (#1692); its detection, `changesCost`, lives in `src/lib/costModels/coverage.ts`. With Counters on, the game menu's Settings show under Counters how many of the dealt deck's cost-affecting titles, of the `Deck:` section and each title once, have a model, `data-testid="cost-model-coverage"` ("Cost models: 12 of 15 titles", "Cost models: all 6 titles", nothing for a deck with none, #1697), and a tap lists the titles with none, `cost-model-coverage-missing`; the table marks no card. The counter's label names the grants, "Counters 0 of 8
 (Surprise Party +1)", and the list the parts, `turn-counters-limit-parts`, "7 + 1 Surprise Party". A charge shows its chip, `charge-chip`,
 for `CHARGE_CHIP_MS` with Free, minus and plus; a tap on the counter opens `turn-counters-list`, the
 turn's charges and the limit. They show on the full table only, not in the attempt layout. A desktop
