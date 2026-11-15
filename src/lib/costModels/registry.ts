@@ -5,6 +5,7 @@ import { HAND_AND_DISCARD_MODELS } from './titles/handAndDiscard';
 import { LIMIT_MODELS } from './titles/limit';
 import { MAY_COST_MODELS } from './titles/mayCost';
 import { MISSION_COUNT_MODELS } from './titles/missionCount';
+import { NAMED_GROUP_MODELS } from './titles/namedGroup';
 import { NEXT_OF_KIND_MODELS } from './titles/nextOfKind';
 import { OPPONENT_COST_MODELS } from './titles/opponentCost';
 import { OWN_COST_MODELS } from './titles/ownCost';
@@ -26,6 +27,7 @@ const MODELS: CostModel[] = [
   ...MISSION_COUNT_MODELS,
   ...MAY_COST_MODELS,
   ...HAND_AND_DISCARD_MODELS,
+  ...NAMED_GROUP_MODELS,
 ];
 
 /** The registry of `models`, by title. Two models of one title throw. */

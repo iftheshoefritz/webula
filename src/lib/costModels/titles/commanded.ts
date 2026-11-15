@@ -4,18 +4,18 @@ import { CommandedTraits, CostFacts, CostModel, ModelCost } from '../model';
 // The cards that cost less while the player commands certain personnel (#1693). The facts are the
 // table before the move, so the card being played never counts itself.
 
-type Test = (p: CommandedTraits) => boolean;
+export type Test = (p: CommandedTraits) => boolean;
 
 const has = (skill: string): Test => (p) => (p.skills[SKILL_INDEX[skill]] ?? 0) > 0;
-const both = (...tests: Test[]): Test => (p) => tests.every((t) => t(p));
-const species = (s: string): Test => (p) => p.species.includes(s);
+export const both = (...tests: Test[]): Test => (p) => tests.every((t) => t(p));
+export const species = (s: string): Test => (p) => p.species.includes(s);
 const keyword = (k: string): Test => (p) => p.keywords.includes(k);
 const affiliation = (a: string): Test => (p) => p.affiliation === a;
 
 const countOf = (facts: CostFacts, test: Test): number => facts.commanded.filter(test).length;
 
 /** "If you command <at least `min`> <what> personnel, cost −`off`." */
-function ifCommand(min: number, test: Test, off: number, what: string): (play: { printed: number }, facts: CostFacts) => ModelCost | null {
+export function ifCommand(min: number, test: Test, off: number, what: string): (play: { printed: number }, facts: CostFacts) => ModelCost | null {
   return (play, facts) => {
     const n = countOf(facts, test);
     if (n < min) return null;
