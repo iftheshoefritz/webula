@@ -2,30 +2,14 @@ import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { COST_REGISTRY } from '../../lib/costModels/registry';
 import { cardTitleOf } from '../../lib/cardTitle';
+import { changesCost, CostCardRow, isCostAffecting } from '../../lib/costModels/coverage';
 
 // The backlog of the cost registry (#1692, step 1 of #1609): the titles whose game text changes a
 // cost, grants counters or plays a card at a changed cost, with no model in `COST_REGISTRY`, by the
 // number of shipped decks whose `Deck:` section plays them. `COST_BACKLOG=1 yarn test costModelBacklog`
 // prints the list; the test is silent otherwise.
 
-/** The patterns of a sentence that changes a cost or grants counters. */
-const COST_PATTERNS: RegExp[] = [
-  /\bcosts? [+\-−]\s?\d/i, // "she is cost -1", "play this personnel at cost +1", "costs -2", "this personnel's cost -1"
-  /\badditional (\d+ |\w+ )?counters?\b/i, // "an additional counter", "5 additional counters"
-];
-
-/**
- * Whether a game text changes a cost: one of its sentences matches a pattern and is not about a
- * dilemma's cost, which the dilemma spend reads and the counters do not. A text that only reads a
- * cost, "a dilemma that costs 1 or less" or "who has a cost of 4 or more", matches no pattern.
- */
-function changesCost(gametext: string): boolean {
-  return gametext
-    .split(/(?<=[.!?])\s+/)
-    .some((s) => !/\bdilemma\b/i.test(s) && COST_PATTERNS.some((p) => p.test(s)));
-}
-
-type CardRow = { name: string; type: string; gametext: string };
+type CardRow = CostCardRow;
 
 function cardRows(): CardRow[] {
   const [head, ...rows] = readFileSync(join(process.cwd(), 'public', 'cards_with_processed_columns.txt'), 'utf-8')
@@ -67,7 +51,7 @@ function costModelBacklog(
   registry: ReadonlyMap<string, unknown> = COST_REGISTRY
 ): { title: string; decks: number }[] {
   const titles = new Set(
-    cards.filter((c) => c.type.toLowerCase() !== 'dilemma' && changesCost(c.gametext)).map((c) => cardTitleOf(c.name))
+    cards.filter(isCostAffecting).map((c) => cardTitleOf(c.name))
   );
   const deckSets = decks.map(deckTitles);
   return [...titles]
