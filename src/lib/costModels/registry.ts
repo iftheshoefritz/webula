@@ -2,6 +2,7 @@ import { CostFacts, CostModel, DiscountOrigin, LimitGrant, PendingDiscount } fro
 import { COMMANDED_MODELS } from './titles/commanded';
 import { COMPLETED_MISSION_MODELS } from './titles/completedMission';
 import { LIMIT_MODELS } from './titles/limit';
+import { MAY_COST_MODELS } from './titles/mayCost';
 import { MISSION_COUNT_MODELS } from './titles/missionCount';
 import { OPPONENT_COST_MODELS } from './titles/opponentCost';
 import { OWN_COST_MODELS } from './titles/ownCost';
@@ -20,6 +21,7 @@ const MODELS: CostModel[] = [
   ...PENDING_DISCOUNT_MODELS,
   ...OPPONENT_COST_MODELS,
   ...MISSION_COUNT_MODELS,
+  ...MAY_COST_MODELS,
 ];
 
 /** The registry of `models`, by title. Two models of one title throw. */
