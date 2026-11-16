@@ -27,6 +27,7 @@ import {
   turnCounterLimit,
   tableLimitGrants,
   pendingDiscountsOf,
+  turnPlaysOf,
 } from '../../../app/decks/practice/gameLog';
 
 jest.mock('../../../app/decks/deckBuilderUtils', () => ({
@@ -1154,5 +1155,68 @@ describe('the place a card is played in the cost models (#1702)', () => {
     const down = play(initialGameState(start()), { type: 'move', id: 'c2', to: { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } });
     expect(turnCharges(down.log, 1)[0]).toEqual(expect.objectContaining({ cost: 3 }));
     expect(turnCharges(down.log, 1)[0].source).toBeUndefined();
+  });
+});
+
+describe('the standing rules of the core in the log (#1703)', () => {
+  const rule = instance('k1', 'Disadvantage Into Advantage', 'up', 'event', { cost: '1' });
+  const picard = instance('p1', 'Jean-Luc Picard', 'up', 'personnel', { cost: '3', unique: 'Y', icons: '[Cmd][TNG]' });
+  const riker = instance('p2', 'William T. Riker', 'up', 'personnel', { cost: '3', unique: 'Y', icons: '[Cmd][TNG]' });
+  const ensign = instance('p3', 'An Ensign', 'up', 'personnel', { cost: '1', unique: 'N', icons: '[Stf]' });
+  const awayTeam = { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } as const;
+  const start = (core: CardInstance[] = [rule]) =>
+    table({ hand: [picard, riker, ensign], core, missions: slots([{ mission: instance('m1', 'Earth', 'up', 'mission') }]) });
+  const play = (state: GameState, ...actions: GameAction[]) =>
+    actions.reduce((s, a) => gameReducer(s, withShuffleOrders(s.table, a, s.log)), state);
+  const toAway = (id: string): GameAction => ({ type: 'move', id, to: awayTeam });
+
+  it('records the traits of each play, and reads the turn\'s plays from the log', () => {
+    const state = play(initialGameState(start()), toAway('p3'), toAway('p1'));
+    expect(state.log[0]).toEqual(
+      expect.objectContaining({ moves: [expect.objectContaining({ plays: [{ type: 'personnel', unique: false, icons: ['[stf]'] }] })] })
+    );
+    expect(turnPlaysOf(state.log, 1)).toEqual([
+      { type: 'personnel', unique: false, icons: ['[stf]'] },
+      { type: 'personnel', unique: true, icons: ['[cmd]', '[tng]'] },
+    ]);
+    expect(turnPlaysOf(state.log, 2)).toEqual([]);
+  });
+
+  it('discounts only the first unique personnel of the turn, and an undo and a redo agree', () => {
+    const first = play(initialGameState(start()), toAway('p1'));
+    expect(turnCharges(first.log, 1)[0]).toEqual(
+      expect.objectContaining({ cost: 1, source: { title: 'Disadvantage Into Advantage', reason: 'first unique personnel this turn' } })
+    );
+    const second = play(first, toAway('p2'));
+    expect(turnCharges(second.log, 1)[1].cost).toBe(3);
+    const redone = play(second, { type: 'undo' }, { type: 'undo' }, { type: 'redo' }, { type: 'redo' });
+    expect(turnCharges(redone.log, 1).map((c) => c.cost)).toEqual([1, 3]);
+    // After the undo of the first play, the other unique personnel is the first again.
+    const undone = play(first, { type: 'undo' }, toAway('p2'));
+    expect(turnCharges(undone.log, 1)[0].cost).toBe(1);
+  });
+
+  it('discounts only the first of a batch of two unique personnel', () => {
+    const state = play(initialGameState(start()), { type: 'batch', actions: [toAway('p1'), toAway('p2')] } as GameAction);
+    expect(turnCharges(state.log, 1).map((c) => c.cost)).toEqual([1, 3]);
+  });
+
+  it('counts a unique personnel played before the rule reached the core', () => {
+    const state = play(initialGameState(start([])), toAway('p1'));
+    const withRule = { ...state, table: { ...state.table, core: [rule] } };
+    expect(turnCharges(play(withRule, toAway('p2')).log, 1)[1].cost).toBe(3);
+  });
+
+  it('reads a play of an entry from before #1703 as no unique personnel', () => {
+    const state = play(initialGameState(start()), toAway('p1'));
+    const old = state.log.map((e) => (e.kind === 'move' ? { ...e, moves: e.moves.map(({ plays: _plays, ...m }) => m) } : e));
+    expect(turnPlaysOf(old, 1)).toEqual([{ type: '', unique: false, icons: [] }]);
+    expect(turnCharges(play({ ...state, log: old }, toAway('p2')).log, 1)[1].cost).toBe(1);
+  });
+
+  it('gives Energize −2 for each card placed on it', () => {
+    const energize = { ...instance('e1', 'Energize', 'up', 'event', { cost: '3' }), placedOn: [instance('x1', 'A', 'down'), instance('x2', 'B', 'down')] };
+    const state = play(initialGameState(start([energize])), toAway('p3'));
+    expect(turnCharges(state.log, 1)[0]).toEqual(expect.objectContaining({ cost: 0, source: expect.objectContaining({ title: 'Energize' }) }));
   });
 });

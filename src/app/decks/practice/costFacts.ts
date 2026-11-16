@@ -2,12 +2,12 @@
 // traits and the uniqueness of every personnel the player commands (every away team and every ship's crew, at every
 // mission, never the brig), the titles of the core, the hand by title and type, and each mission slot
 // (#1694) with its personnel and ships (#1702), the discard pile, the ships of the ship rows and the
-// score (#1700). The pending
+// score (#1700), and the cards placed on each core card (#1703). The plays of the turn (#1703) and the pending
 // discounts of the turn come from the log (`pendingDiscountsOf` in `gameLog.ts`).
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
-import type { CommandedTraits, CostFacts, CostMission, CostShip, PendingDiscount } from '../../../lib/costModels/model';
+import type { CommandedTraits, CostFacts, CostMission, CostShip, CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 
@@ -61,15 +61,26 @@ const handCardOf = (c: CardInstance) => ({
   type: String(c.card?.type ?? '').toLowerCase(),
 });
 
-export function costFactsOf(table: TableState, pending: PendingDiscount[] = []): CostFacts {
+/** The traits of a played card that a standing rule tests (#1703). */
+export const turnPlayOf = (card: CardInstance['card'] | null | undefined): CostTurnPlay => ({
+  type: text(card?.type),
+  unique: text(card?.unique) === 'y',
+  icons: text(card?.icons).match(/\[[a-z0-9]+\]/g) ?? [],
+});
+
+// `plays` are the cards played earlier this turn (#1703), from the log.
+export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): CostFacts {
+  const core = table.core.filter((c) => c.card);
   return {
     commanded: table.missions.flatMap(slotPersonnelOf),
-    core: table.core.flatMap((c) => (c.card ? [cardTitleOf(cardDisplayName(c.card))] : [])),
+    core: core.map((c) => cardTitleOf(cardDisplayName(c.card))),
+    corePlaced: core.map((c) => c.placedOn?.length ?? 0),
     hand: table.hand.map(handCardOf),
     discard: table.discard.filter((c) => !c.removedFromGame).map(handCardOf),
     ships: table.missions.flatMap((s) => s.ships.flatMap((c) => (c.card ? [cardTitleOf(cardDisplayName(c.card))] : []))),
     score: table.score,
     missions: table.missions.map(costMissionOf),
     pending,
+    plays,
   };
 }

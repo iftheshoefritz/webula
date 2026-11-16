@@ -570,7 +570,10 @@ commanded and Goran his "may", a button `charge-choice` ("Discard a card: −2")
 (`CostPlay.missionIndex` and `shipId`, from the landed zone in `withCharge`, #1702), and each slot of
 `CostFacts.missions` lists its personnel and ships, for "at this mission" and "aboard your ship"; a core
 card prices another card's play with `costOfPlay` (Captain on the Bridge), and the changes stack in one
-source. A text that counts what the table does not see, the opponent's
+source. A standing rule of the core (family `standingRule`, #1703: Disadvantage Into Advantage, Spiteful
+Strategy, Energize) does the same for every play, each copy once; its "first … each turn" reads the
+turn's earlier plays (`turnPlaysOf`, from the `plays` traits of each `LogMove`), and Energize the cards
+placed on it (`CostFacts.corePlaced`). A text that counts what the table does not see, the opponent's
 missions or the cards a play discards (#1695, `titles/opponentCost.ts`: Tacking Into the Wind, Rollins,
 Ptol and others), gives the printed cost and a counted choice (`CountedChoice`: `step`, `max`, and the
 printed `base`, `max` clamped where the cost reaches 0), a stepper `charge-choice-count` with

@@ -89,6 +89,7 @@ export function moveCharge(
         icons?: unknown;
         keywords?: unknown;
         species?: unknown;
+        unique?: unknown;
       }
     | null
     | undefined,
@@ -107,6 +108,7 @@ export function moveCharge(
     ...destination,
     type,
     printed,
+    unique: String(card?.unique ?? '').toLowerCase() === 'y',
     affiliation: String(card?.affiliation ?? '').toLowerCase(),
     icons: String(card?.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [],
     keywords: listOf(card?.keywords, '.'),
