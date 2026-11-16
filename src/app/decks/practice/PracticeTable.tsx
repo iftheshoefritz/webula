@@ -144,7 +144,7 @@ import {
   initialGameState,
   logEntryText,
   pendingDiscountsOf,
-  tableLimitGrants,
+  tableLimits,
   turnCharges,
   turnCounters,
   TurnCounters,
@@ -2915,7 +2915,10 @@ function PracticeDrawContent() {
   };
 
   // The counters of the turn (#1607), derived from the log, and the corrections of its charges.
-  const currentCounters = turnCountersOn ? turnCounters(game.log, turn, tableLimitGrants(table)) : null;
+  const currentLimits = turnCountersOn ? tableLimits(table) : null;
+  const currentCounters = currentLimits
+    ? turnCounters(game.log, turn, currentLimits.grants, currentLimits.caps, currentLimits.choices)
+    : null;
   const chipCharges =
     chargeChip && game.log[chargeChip.entry]?.turn === turn ? entryCharges(game.log, chargeChip.entry) : [];
   // `source` names the model whose choice the player took (#1654), and `count` the count of a counted
@@ -3797,6 +3800,7 @@ function PracticeDrawContent() {
             onCorrect={correctCharge}
             onRaiseLimit={raiseLimit}
             onAdjustLimit={(delta) => dispatch({ type: 'adjustCounterLimit', delta })}
+            onTurnChoice={(delta, source) => dispatch({ type: 'adjustCounterLimit', delta, source })}
             pending={pendingDiscountsOf(game.log, turn)}
             onDismiss={(target) => dispatch({ type: 'dismissDiscount', target })}
             onClose={() => setCountersListOpen(false)}

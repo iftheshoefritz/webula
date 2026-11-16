@@ -69,6 +69,8 @@ export interface CostFacts {
   commanded: CommandedTraits[];
   /** The titles of the cards in the core. */
   core: string[];
+  /** The cards of the core, in the order of `core`, with their type, keywords and printed cost (#1704). Absent is none. */
+  coreCards?: CostCoreCard[];
   hand: CostHandCard[];
   /** The discard pile by title and type, the cards removed from the game left out (#1700). Absent is empty. */
   discard?: CostHandCard[];
@@ -87,6 +89,14 @@ export interface CostFacts {
    * #1703), for "the first … each turn". Absent is none.
    */
   plays?: CostTurnPlay[];
+}
+
+/** A card of the core (#1704): its title (`cardTitleOf`), its type and keywords, lowercased, and its printed cost. */
+export interface CostCoreCard {
+  title: string;
+  type: string;
+  keywords: string[];
+  cost: number;
 }
 
 /**
@@ -183,6 +193,23 @@ export interface LimitGrant {
   reason: string;
 }
 
+/** A cap on the turn's limit while the table holds its condition (#1704): the model's title, the cap and why. */
+export interface LimitCap {
+  title: string;
+  amount: number;
+  reason: string;
+}
+
+/**
+ * A choice of the turn that raises its limit (#1704), for a text that acts at the start of the turn: the
+ * model's title, the label and the counters it adds. One choice of a model is taken a turn.
+ */
+export interface TurnLimitChoice {
+  title: string;
+  label: string;
+  limit: number;
+}
+
 /** Where a suggested cost came from: the model's title, a short reason, and its choice. */
 export interface CostSource {
   title: string;
@@ -219,6 +246,10 @@ export interface CostModel {
   costOfPlay?: (play: CostPlay, facts: CostFacts) => ModelCost | null;
   /** The counters the card adds to the turn's limit while the table stands as `facts` say, or null (#1655). */
   limitGrant?: (facts: CostFacts) => { amount: number; reason: string } | null;
+  /** The most counters the turn's limit may reach while the table stands as `facts` say, or null (#1704). */
+  limitCap?: (facts: CostFacts) => { amount: number; reason: string } | null;
+  /** The choices of the turn that raise its limit while the table stands as `facts` say (#1704), one taken a turn. */
+  turnChoices?: (facts: CostFacts) => { label: string; limit: number }[];
   /**
    * The discount the card's own play leaves for the first later play of this turn whose card passes
    * `applies` (#1656): its label, "next [Fed][DS9] personnel", and the counters it takes off.
